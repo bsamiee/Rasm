@@ -112,12 +112,16 @@ struct Hierarchy<S> {
 #[derive(Debug, thiserror::Error)]
 pub enum LayoutError {
     #[error("refused nodes: {}", refusals.iter().format_with(", ", |(node, refusal), sink| sink(&format_args!("{} {refusal}", node.index()))))]
-    Refused { refusals: NEBTreeSet<(NodeIndex, Refusal)> },
+    Refused {
+        refusals: NEBTreeSet<(NodeIndex, Refusal)>,
+    },
     #[error("{} absent from the layout", fmt::from_fn(|formatter| match element {
         Either::Left(node) => write!(formatter, "node {}", node.index()),
         Either::Right(edge) => write!(formatter, "edge {}", edge.index()),
     }))]
-    Absent { element: Either<NodeIndex, EdgeIndex> },
+    Absent {
+        element: Either<NodeIndex, EdgeIndex>,
+    },
     #[error(transparent)]
     Graph(#[from] GraphError),
     #[error(transparent)]
@@ -125,9 +129,16 @@ pub enum LayoutError {
     #[error(transparent)]
     Force(#[from] manatee::Error),
     #[error("arrowsize {value} of edge {}", edge.index())]
-    Arrowsize { edge: EdgeIndex, value: String, source: ParseFloatError },
+    Arrowsize {
+        edge: EdgeIndex,
+        value: String,
+        source: ParseFloatError,
+    },
     #[error("export {format}")]
-    Export { format: Format, source: io::Error },
+    Export {
+        format: Format,
+        source: io::Error,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -421,4 +432,11 @@ pub mod layered;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+pub use dugong;
 pub use export::{Attributes, Format, write};
+pub use itertools;
+pub use kurbo;
+pub use manatee;
+pub use nonempty_collections;
+pub use petgraph;
+pub use uom;

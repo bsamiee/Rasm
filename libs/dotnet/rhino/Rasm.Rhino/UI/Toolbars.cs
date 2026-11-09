@@ -174,7 +174,7 @@ public static class Toolbars {
     // --- [DECLARATIONS]
 
     public static Option<RuiFile> Declared(Assembly plugIn) =>
-        toSeq(plugIn.GetExportedTypes()).Find(static type => type.IsAssignableTo(typeof(IRuiSource)))
+        toSeq(plugIn.GetTypes()).Find(static type => type.IsAssignableTo(typeof(IRuiSource)))
             .Bind(static type => Optional(type.GetProperty(nameof(IRuiSource.Rui), BindingFlags.Public | BindingFlags.Static)?.GetValue(obj: null) as RuiFile));
 
     public static Fin<Guid> Identity(Assembly plugIn) =>

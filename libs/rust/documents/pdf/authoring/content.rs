@@ -23,7 +23,6 @@ use krilla_svg::{SurfaceExt as _, SvgSettings};
 use kurbo::{Affine, Cap, Join, PathEl, Rect, Shape as _, Size};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use rasm_drawing::{Color, Content, Element, GlyphRun, Opacity, Pen, Placement, Region, Side, hatches, strokes};
-use uom::si::{f64::Length, length::millimeter, ratio::ratio};
 use usvg::Tree;
 use validated::Validated;
 
@@ -241,16 +240,7 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
             };
             let resolution = drawing.options.resolution;
             enclosed(surface, placement, opacity, leaves, |marked| {
-                let filter_scale = resolution.map_or_else(
-                    || SvgSettings::default().filter_scale,
-                    |density| {
-                        let ctm = marked.cur_transform();
-                        let per_millimeter = (Length::new::<millimeter>(1.0) * *density).get::<ratio>();
-                        let paper = placement.determinant().abs().sqrt();
-                        let stream = f64::from(ctm.sx().mul_add(ctm.sy(), -(ctm.kx() * ctm.ky()))).abs().sqrt();
-                        (per_millimeter * paper / stream).cast::<f32>()
-                    },
-                );
+                let filter_scale = resolution.map_or_else(|| SvgSettings::default().filter_scale, |density| crate::per_point(density).cast::<f32>());
                 marked.draw_svg(tree, unit, SvgSettings { filter_scale, ..SvgSettings::default() });
             });
         }
@@ -260,7 +250,8 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
                 Entry::Occupied(held) => held.into_mut(),
                 Entry::Vacant(vacant) => vacant.insert(rasters::raster(bytes).map_err(|error| nev![error])?),
             };
-            let [xx, xy, yx, yy, _, _] = placement.as_coeffs();
+            let ctm = surface.cur_transform();
+            let [xx, xy, yx, yy, _, _] = (Affine::new([ctm.sx(), ctm.ky(), ctm.kx(), ctm.sy(), ctm.tx(), ctm.ty()].map(f64::from)) * *placement).as_coeffs();
             let target = rasters::target(raster, Size::new(xx.hypot(xy), yx.hypot(yy)), drawing.options.resolution);
             let image = match drawing.images.entry((key, target)) {
                 Entry::Occupied(held) => held.get().clone(),

@@ -5,13 +5,13 @@ using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
-using Microsoft.Win32.SafeHandles;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 using Wacton.Unicolour;
+using Configuration = SixLabors.ImageSharp.Configuration;
 
 namespace Rasm.Imaging.Files;
 
@@ -20,19 +20,40 @@ namespace Rasm.Imaging.Files;
 public abstract partial record ImageFile {
     private static readonly ColorEncoding Untagged = new(Gamut.StandardRgb, Transfer.Gamma.Srgb);
 
-    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(string path, string layer = "") =>
+    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(string path, string layer = "", Option<Configuration> configuration = default) =>
         (from stream in use(() => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous))
-         from exr in IO.lift(() => Claimed(stream.SafeFileHandle))
-         from read in exr
-             ? Loaded(stream, layer)
-             : Decoded(stream) | @catch(static error => error.HasException<SixLabors.ImageSharp.UnknownImageFormatException>(), _ => Imread(path))
+         from read in Read(stream, layer, configuration)
          select read)
             .Bracket()
             | @catch(static error => error.IsExceptional, error => IO.fail<(PixelFrame, Option<ColorEncoding>)>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
 
-    private static bool Claimed(SafeFileHandle file) {
+    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(Stream stream, string layer = "", Option<Configuration> configuration = default) =>
+        stream.CanSeek
+            ? Seeked(stream, stream.Position, layer, configuration.IfNone(Configuration.Default))
+            : (from buffered in use(Buffered(stream))
+               from read in Seeked(buffered, 0, layer, configuration.IfNone(Configuration.Default))
+               select read).Bracket();
+
+    private static IO<MemoryStream> Buffered(Stream stream) =>
+        IO.liftAsync(async environment => {
+            MemoryStream copy = new();
+            await stream.CopyToAsync(copy, environment.Token).ConfigureAwait(false);
+            copy.Position = 0;
+            return copy;
+        });
+
+    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Seeked(Stream stream, long start, string layer, Configuration configuration) =>
+        from exr in IO.lift(() => Claimed(stream, start))
+        from read in exr
+            ? Loaded(stream, layer)
+            : Decoded(stream, start, configuration) | @catch(static error => error.HasException<SixLabors.ImageSharp.UnknownImageFormatException>(), _ => Imdecoded(stream, start))
+        select read;
+
+    private static bool Claimed(Stream stream, long start) {
         Span<byte> magic = stackalloc byte[sizeof(uint)];
-        return ExrFile.IsExr(magic[..RandomAccess.Read(file, magic, 0)]);
+        int count = stream.ReadAtLeast(magic, magic.Length, throwOnEndOfStream: false);
+        stream.Position = start;
+        return ExrFile.IsExr(magic[..count]);
     }
 
     private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Loaded(Stream stream, string layer) =>
@@ -41,22 +62,27 @@ public abstract partial record ImageFile {
         from read in IO.lift(Layer(toSeq(image.Parts), layer))
         select read;
 
-    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Decoded(Stream stream) =>
-        from info in IO.liftAsync(environment => SixLabors.ImageSharp.Image.IdentifyAsync(Decoding(ColorProfileHandling.Preserve), stream, environment.Token))
+    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Decoded(Stream stream, long start, Configuration configuration) =>
+        from info in IO.liftAsync(environment => SixLabors.ImageSharp.Image.IdentifyAsync(Decoding(ColorProfileHandling.Preserve, configuration), stream, environment.Token))
         let cicp = Optional(info.Metadata.CicpProfile)
         from encoding in IO.lift(cicp.Match(Some: ColorEncoding.Of, None: static () => Untagged))
-        from rewound in IO.lift(() => stream.Seek(0, SeekOrigin.Begin))
+        from rewound in IO.lift(() => stream.Seek(start, SeekOrigin.Begin))
         from frame in (
                 from image in use(IO.liftAsync(environment => SixLabors.ImageSharp.Image.LoadAsync<RgbaVector>(
-                    Decoding(cicp.IsSome ? ColorProfileHandling.Preserve : ColorProfileHandling.Convert), stream, environment.Token)))
+                    Decoding(cicp.IsSome ? ColorProfileHandling.Preserve : ColorProfileHandling.Convert, configuration), stream, environment.Token)))
                 from size in IO.lift(PixelExtent.Validated(image.Width, image.Height))
                 select new PixelFrame(Point.Empty, size, size, block => image.CopyPixelDataTo(MemoryMarshal.Cast<float, RgbaVector>(block))))
             .Bracket()
         select (frame, Some(encoding));
 
-    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Imread(string path) =>
-        (from claimed in IO.lift(ImagingFault.Unless(CvInvoke.HaveImageReader(path), ImagingReason.UnknownFormat, path))
-         from image in use(IO.lift(() => CvInvoke.Imread(path, ImreadModes.Unchanged)))
+    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Imdecoded(Stream stream, long start) =>
+        (from rewound in IO.lift(() => stream.Seek(start, SeekOrigin.Begin))
+         from image in use(IO.lift(() => {
+             Mat decoded = new();
+             CvInvoke.Imdecode(stream, ImreadModes.Unchanged, decoded);
+             return decoded;
+         }))
+         from claimed in IO.lift(ImagingFault.Unless(!image.IsEmpty, ImagingReason.UnknownFormat, stream.Length - start))
          from size in IO.lift(PixelExtent.Validated(image.Width, image.Height))
          from code in IO.lift(image.NumberOfChannels switch {
              1 => Fin.Succ(ColorConversion.Gray2Rgba),
@@ -126,6 +152,6 @@ public abstract partial record ImageFile {
                     new Chromaticity(stated.RedX, stated.RedY), new Chromaticity(stated.GreenX, stated.GreenY), new Chromaticity(stated.BlueX, stated.BlueY),
                     new WhitePoint(stated.WhiteX, stated.WhiteY))).As());
 
-    private static DecoderOptions Decoding(ColorProfileHandling handling) =>
-        new() { MaxFrames = 1, SegmentIntegrityHandling = SegmentIntegrityHandling.Strict, ColorProfileHandling = handling };
+    private static DecoderOptions Decoding(ColorProfileHandling handling, Configuration configuration) =>
+        new() { Configuration = configuration, MaxFrames = 1, SegmentIntegrityHandling = SegmentIntegrityHandling.Strict, ColorProfileHandling = handling };
 }

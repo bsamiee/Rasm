@@ -29,6 +29,7 @@ enum-variant-name-threshold    = 2
 struct-field-name-threshold    = 2
 allow-renamed-params-for       = []
 pub-underscore-fields-behavior = "AllPubFields"
+doc-valid-idents               = ["..", "GraphML", "McKay", "PAdES"]
 
 # --- [BANS]
 

@@ -10,9 +10,6 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Settings;
 using Rhino;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Formats.Png;
-using TinyEXR;
 
 namespace Darkroom.Output;
 
@@ -37,23 +34,22 @@ internal sealed partial class TargetFile {
 
     internal static readonly Seq<string> Rgba = ["R", "G", "B", "A"];
 
-    public static readonly TargetFile Png = new("png", FileExtension.Create(".png"), [OutputDepth.UInt8], Encoded(static (_, source, target) =>
-        source.Formed(target.ColorDepth).Map(formed =>
-            (ImageFile)new ImageFile.Raster(formed.Frame, formed.Encoding, target.Alpha, new PngEncoder { BitDepth = PngBitDepth.Bit8, ColorType = target.Alpha ? PngColorType.RgbWithAlpha : PngColorType.Rgb }))));
-    public static readonly TargetFile Tiff = new("tiff", FileExtension.Create(".tif"), [OutputDepth.UInt8, OutputDepth.Float16, OutputDepth.Float32], Encoded(static (_, source, target) =>
+    public static readonly TargetFile Png = new("png", FileExtension.Create(".png"), [OutputDepth.UInt8], Encoded(static (_, source, target, _) =>
+        source.Formed(target.ColorDepth).Map(formed => (ImageFile)new ImageFile.Raster(formed.Frame, formed.Encoding, target.Alpha, new RasterCodec.Png(Wide: false)))));
+    public static readonly TargetFile Tiff = new("tiff", FileExtension.Create(".tif"), [OutputDepth.UInt8, OutputDepth.Float16, OutputDepth.Float32], Encoded(static (_, source, target, _) =>
         source.Formed(target.ColorDepth).Map(formed => (ImageFile)new ImageFile.Tiff(formed.Frame, target.ColorDepth, formed.Encoding, target.Alpha))));
-    public static readonly TargetFile Exr = new("exr", FileExtension.Create(".exr"), [OutputDepth.Float16, OutputDepth.Float32], Encoded(static (doc, source, target) =>
+    public static readonly TargetFile Exr = new("exr", FileExtension.Create(".exr"), [OutputDepth.Float16, OutputDepth.Float32], Encoded(static (doc, source, target, _) =>
         target.Reader.Match(
                 Some: reader => Passes(doc, source, target, reader),
                 None: () => source.Linear.Map(beauty => Seq(new ExrLayer("", beauty, target.Alpha ? Rgba : Rgb))))
             .Map(layers => (ImageFile)new ImageFile.Exr(
-                layers, target.ColorDepth == OutputDepth.Float16 ? PixelType.Half : PixelType.Float, target.Codec, Some(ChainScene.Working.Gamut), Multipart: target.Reader.IsSome))));
-    public static readonly TargetFile Dng = new("dng", FileExtension.Create(".dng"), [OutputDepth.Float32], Encoded(static (_, source, _) =>
+                layers, target.ColorDepth, target.Codec, Some(ChainScene.Working.Gamut), Multipart: target.Reader.IsSome))));
+    public static readonly TargetFile Dng = new("dng", FileExtension.Create(".dng"), [OutputDepth.Float32], Encoded(static (_, source, _, metadata) =>
         source.Linear.Map(frame => (ImageFile)new ImageFile.Dng(
-            frame, ChainScene.Working.Gamut, None, source.Scene.FocalLength, source.Scene.Camera.Bind(static camera => camera.Focus).Map(static focus => (float)focus.FNumber)))));
-    public static readonly TargetFile Layered = new("layered", FileExtension.Create(".tif"), [OutputDepth.UInt8, OutputDepth.Float32], Encoded(Document));
-    public static readonly TargetFile Jpeg = new("jpeg", FileExtension.Create(".jpg"), [OutputDepth.UInt8], Encoded(static (_, source, target) =>
-        source.Formed(OutputDepth.UInt8).Map(formed => (ImageFile)new ImageFile.Raster(formed.Frame, formed.Encoding, Alpha: false, new JpegEncoder { Quality = target.Quality }))));
+            frame, ChainScene.Working.Gamut, metadata.Software, None, source.Scene.FocalLength, source.Scene.Camera.Bind(static camera => camera.Focus).Map(static focus => (float)focus.FNumber)))));
+    public static readonly TargetFile Layered = new("layered", FileExtension.Create(".tif"), [OutputDepth.UInt8, OutputDepth.Float32], Encoded(static (doc, source, target, _) => Document(doc, source, target)));
+    public static readonly TargetFile Jpeg = new("jpeg", FileExtension.Create(".jpg"), [OutputDepth.UInt8], Encoded(static (_, source, target, _) =>
+        source.Formed(OutputDepth.UInt8).Map(formed => (ImageFile)new ImageFile.Raster(formed.Frame, formed.Encoding, Alpha: false, new RasterCodec.Jpeg(target.Quality, JpegColor.Ratio420)))));
     public static readonly TargetFile Bmp = new("bmp", FileExtension.Create(".bmp"), [OutputDepth.UInt8], Windowed);
     public static readonly TargetFile Targa = new("targa", FileExtension.Create(".tga"), [OutputDepth.UInt8], Windowed);
 
@@ -66,9 +62,9 @@ internal sealed partial class TargetFile {
 
     // --- [WRITES]
 
-    private static Func<RhinoDoc, SaveSource, OutputTarget, FileMetadata, OutputPath, bool, IO<Unit>> Encoded(Func<RhinoDoc, SaveSource, OutputTarget, IO<ImageFile>> still) =>
+    private static Func<RhinoDoc, SaveSource, OutputTarget, FileMetadata, OutputPath, bool, IO<Unit>> Encoded(Func<RhinoDoc, SaveSource, OutputTarget, FileMetadata, IO<ImageFile>> still) =>
         (doc, source, target, metadata, path, overwrite) =>
-            from file in still(doc, source, target)
+            from file in still(doc, source, target, metadata)
             from written in FilePublication.Write(path, overwrite, stream => file.Write(metadata, stream))
             select written;
 
@@ -123,8 +119,8 @@ internal sealed partial class TargetFile {
     private static string Named(IdentitySource source) => source.Name.IfNone(() => source.Id.ToString(CultureInfo.InvariantCulture));
 }
 
-internal sealed record OutputTarget(TargetFile FileFormat, bool Alpha, OutputDepth ColorDepth, TinyEXR.Compression Codec, Option<LayerReader> Reader, bool Position, int Quality) {
-    public static OutputTarget Default { get; } = new(TargetFile.Png, Alpha: false, OutputDepth.UInt8, TinyEXR.Compression.ZIP, Reader: None, Position: false, Quality: 95);
+internal sealed record OutputTarget(TargetFile FileFormat, bool Alpha, OutputDepth ColorDepth, ExrCompression Codec, Option<LayerReader> Reader, bool Position, int Quality) {
+    public static OutputTarget Default { get; } = new(TargetFile.Png, Alpha: false, OutputDepth.UInt8, ExrCompression.Zip, Reader: None, Position: false, Quality: 95);
 
     public Fin<Unit> Encodable => DarkroomFault.Unless(FileFormat.Depths.Exists(depth => depth == ColorDepth), DarkroomReason.Invalid, (FileFormat.Key, ColorDepth.Key));
 

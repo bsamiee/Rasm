@@ -38,6 +38,7 @@
         <PackageReference Include="ICU4N" />
         <PackageReference Include="SkiaSharp.HarfBuzz" />
         <PackageReference Include="Topten.RichTextKit" />
+        <PackageReference Include="UnicodeInformation" />
     </ItemGroup>
 
     <ItemGroup Label="Documents">
@@ -48,7 +49,6 @@
         <PackageReference Include="IconPacks.Lucide" />
         <PackageReference Include="SkiaSharp" />
         <PackageReference Include="SkiaSharp.Resources" />
-        <PackageReference Include="SkiaSharp.SceneGraph" />
         <PackageReference Include="SkiaSharp.Skottie" />
         <PackageReference Include="Svg.Custom" />
         <PackageReference Include="Svg.Model" />

@@ -13,6 +13,7 @@ from expression.extra.result import catch
 import msgspec
 import numpy as np
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import _effective, _LEADING, _sequenced, Descriptor, Value
 from rasm_bpy.data._rna.paths import _defined, _definition, _rna, _struct_at, id_path, Native, RnaPath, Struct
 from rasm_records import accumulated, Error, Fault, Faults, merge, Nothing, Ok, Outcome, Owner, Reason, transfer, Tree
@@ -137,7 +138,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             catch(_Capture[Value](owner, stored, selection, owned=owned, inactive=inactive).tree, exception=ReferenceError)()
-            .map_error(partial(Fault.of, Reason.REFUSED, repr(owner)))
+            .map_error(partial(Fault.of, Refusal.REFUSED, repr(owner)))
             .map(lambda tree: cls(struct=_definition(owner).identifier, tree=tree))
         )
 
@@ -580,12 +581,12 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
             subject = f"{struct!r}.{prop.identifier}"
             match _ADDED.get(type(fixed)), fixed:
                 case None, bpy.types.PropertyGroup() if prop.is_runtime:
-                    return changed(items, path, rows, lambda grown, _: grown.add(), indexed=True).map_error(partial(Fault.of, Reason.REFUSED, subject)).default_with(Applied.refused)
+                    return changed(items, path, rows, lambda grown, _: grown.add(), indexed=True).map_error(partial(Fault.of, Refusal.REFUSED, subject)).default_with(Applied.refused)
                 case None, _:
                     present = sum(item is not None for item in items)
                     return Applied() if present == len(rows) else Applied.refused(Fault.of(Reason.OUTSIDE, subject, str(len(rows)), member=str(present)))
                 case adding, _:
-                    return changed(items, path, rows, adding, indexed=False).map_error(partial(Fault.of, Reason.REFUSED, subject)).default_with(Applied.refused)
+                    return changed(items, path, rows, adding, indexed=False).map_error(partial(Fault.of, Refusal.REFUSED, subject)).default_with(Applied.refused)
 
         def members(struct: Native, key: RnaPath, names: tuple[tuple[RnaPath, W], ...], answers: list[Applied]) -> _Walk:
             written: list[Applied] = []
@@ -646,7 +647,7 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
             if leading.outcome.is_ok():
                 yield from (located(key, outcomes) for key in tree.roots)
         except ReferenceError as error:
-            reports.append(Applied.refused(Fault.of(Reason.REFUSED, repr(owner), error)))
+            reports.append(Applied.refused(Fault.of(Refusal.REFUSED, repr(owner), error)))
         else:
             reports.append(Applied.join(outcomes))
 

@@ -18,7 +18,7 @@ import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _acquired, _Tier, Acquisitions, Declaration
-from rasm_bpy.data._extension.reports import _rendered
+from rasm_bpy.data._extension.reports import _rendered, Refusal
 from rasm_bpy.data._rna.conditions import Condition, polled
 from rasm_bpy.data._rna.descriptors import Scalar, Value
 from rasm_bpy.data._rna.paths import _definition, _rna, RnaPath, Struct
@@ -354,7 +354,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
     def chose(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...], /) -> Returns:
         """Runs the command over the paths a browser chose and reports its result, required fault when no path was chosen."""
-        return self.finished(operator, Ok(paths).filter_with(bool, lambda _: Fault.of(Reason.REQUIRED, f"chosen file for {self.command.title}")).bind(partial(self.performed, operator, context)))
+        return self.finished(operator, Ok(paths).filter_with(bool, lambda _: Fault.of(Refusal.REQUIRED, f"chosen file for {self.command.title}")).bind(partial(self.performed, operator, context)))
 
     @property
     def execute(self) -> Callable[[bpy.types.Operator, bpy.types.Context], Returns]:
@@ -498,9 +498,7 @@ def called(
         return Error(Fault.of(Reason.ABSENT, "bpy.ops", error, member=identifier))
     except (RuntimeError, TypeError) as error:
         return Error(Fault.of(Reason.FAILED, request, error))
-    return Ok(answered).filter_with(
-        lambda answer: not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")), lambda answer: Fault.of(Reason.ANSWERED, request, member=", ".join(sorted(answer)))
-    )
+    return Ok(answered).filter_with(lambda answer: not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")), lambda answer: Fault.of(Reason.FAILED, request, ", ".join(sorted(answer))))
 
 
 def rna_type(operator: Operation, /) -> bpy.types.Struct:

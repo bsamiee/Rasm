@@ -4,7 +4,7 @@
 name            = "rasm-rendering"
 version         = "0.0.0"
 description     = "Render management: render queues and farm targets, background-render supervision, light rigs, sun positions, and output naming"
-requires-python = "==3.13.*"
+requires-python = ">=3.13"
 
 dependencies = [
     # --- [CORE]

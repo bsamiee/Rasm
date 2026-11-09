@@ -9,7 +9,7 @@ use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
     Alignment, Anchor, Baseline, Color, Content, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Element, FontSize, FontSizeError, FontStyle, FontWeight, FontWeightError, FontWidth, Linetype,
-    LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen, Placement, Region, Side, Target, Text, Tolerance, ToleranceError, Width, WidthError, regions, strokes,
+    LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen, Placement, Region, Side, Target, Text, Tolerance, ToleranceError, Unit, Width, WidthError, regions, strokes,
 };
 use uom::{
     ConstZero,
@@ -64,7 +64,7 @@ pub struct Definition {
 }
 
 impl Definition {
-    pub fn new(typesetter: &mut Typesetter, svg: &[u8], base: &Base, tolerance: Tolerance) -> Result<Self, NEVec<DraftingError>> {
+    pub fn new(typesetter: &mut Typesetter, svg: &[u8], base: &Base, unit: Unit, tolerance: Tolerance) -> Result<Self, NEVec<DraftingError>> {
         fn lowered(group: &Group, basis: Affine, tolerance: Tolerance, typesetter: &mut Typesetter) -> Validated<Lowered, DraftingError> {
             let basis = basis * affine(group.transform());
             let shaped = |path: &usvg::Path| -> Validated<Vec<Element>, DraftingError> {
@@ -262,7 +262,7 @@ impl Definition {
                 })
                 .ok_or_else(|| DraftingError::Unknown { lookup: Lookup::Element, name: Arc::clone(id) })?,
         };
-        let paper = Affine::scale(units(Length::new::<inch>(1.0)) / f64::from(options.dpi)).pre_translate(-origin.to_vec2());
+        let paper = Affine::scale(units(Length::new::<inch>(1.0), unit) / f64::from(options.dpi)).pre_translate(-origin.to_vec2());
         lowered(tree.root(), paper, tolerance, typesetter).map(|Lowered { elements, slots }| Self { elements, slots, extent: paper.transform_rect_bbox(canvas) }).ok()
     }
 

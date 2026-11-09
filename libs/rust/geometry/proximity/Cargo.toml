@@ -25,7 +25,6 @@ derive_more          = { workspace = true }
 itertools            = { workspace = true }
 nutype               = { workspace = true }
 bytemuck             = { workspace = true }
-faer                 = { workspace = true }
 glamx                = { workspace = true }
 nalgebra             = { workspace = true }
 kiddo                = { workspace = true }

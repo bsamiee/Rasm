@@ -1,3 +1,4 @@
+
 use core::{any::TypeId, iter, num::NonZero, ops::Div};
 
 use itertools::{Itertools as _, Position};
@@ -121,21 +122,37 @@ pub struct Zeros {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Linear {
-    Decimal { unit: Unit<Length>, decimal: Decimal, symbol: Visibility = Visibility::Hidden },
-    Imperial { inches: Inches, feet: Option<Zeros> = Some(Zeros { .. }) },
+    Decimal {
+        unit: Unit<Length>,
+        decimal: Decimal,
+        symbol: Visibility = Visibility::Hidden,
+    },
+    Imperial {
+        inches: Inches,
+        feet: Option<Zeros> = Some(Zeros { .. }),
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Angular {
-    Decimal { unit: Unit<Angle>, decimal: Decimal },
-    Sexagesimal { subdivision: Subdivision, decimal: Decimal },
+    Decimal {
+        unit: Unit<Angle>,
+        decimal: Decimal,
+    },
+    Sexagesimal {
+        subdivision: Subdivision,
+        decimal: Decimal,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Slope {
     Ratio(Decimal),
     Percent(Decimal),
-    Pitch { run: NonZero<u16>, decimal: Decimal },
+    Pitch {
+        run: NonZero<u16>,
+        decimal: Decimal,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

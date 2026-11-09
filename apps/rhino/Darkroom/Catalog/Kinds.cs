@@ -65,9 +65,9 @@ internal static class Kinds {
     };
 
     public static EffectRow<float> VeilingGlare { get; } = new(0.5f,
-        static (state, context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => context.Derivations.Held((Size: state, context.Extent, Window: frame.Size),
-            static key => Fin.Succ(PointSpread.Veiling(key.Window, double.Lerp(180d, 10d, double.Cbrt(key.Size)) / int.Max(key.Extent.Width, key.Extent.Height))),
-            spread => frame.Spread(0f, 0f, light => spread.Convolve(light), BlendingMode.Normal, 1f, [], progress))))) {
+        static (state, context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => context.Derivations.Derived((Size: state, context.Extent, Window: frame.Size),
+            static key => PointSpread.Veiling(key.Window, double.Lerp(180d, 10d, double.Cbrt(key.Size)) / int.Max(key.Extent.Width, key.Extent.Height))).Bind(
+            spread => frame.Spread(0f, 0f, light => spread.Convolve(light, WrapMode.Black), BlendingMode.Normal, 1f, [], progress))))) {
         Name = nameof(VeilingGlare), StatePath = ["Size"],
     };
 

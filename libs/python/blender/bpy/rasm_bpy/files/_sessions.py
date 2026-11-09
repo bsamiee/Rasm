@@ -22,6 +22,7 @@ import numpy as np
 
 from rasm_bpy.commands.operators import called, Operation, Setting
 from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _retained, _tracked
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import Value
@@ -360,7 +361,7 @@ def _started(target: Path | FileTransferProtocol, project: Path, options: Option
         Option
         .of_optional(bpy.data.filepath or None)
         .filter(lambda _: not bpy.data.is_dirty)
-        .to_result_with(lambda: Fault.of(Reason.REQUIRED, "saved session file"))
+        .to_result_with(lambda: Fault.of(Refusal.REQUIRED, "saved session file"))
         .bind(lambda _: _bat_called(packer.start).map_error(partial(Fault.of, Reason.UNREADABLE, str(project))).or_else_with(partial(_released, release)))
         .map(lambda _: Packing(packer=packer, report=report, release=release, finished=finished))
     )
@@ -416,7 +417,7 @@ def project_reconciled(project: _Project) -> Outcome[None]:
                     cleanup,
                     removed,
                     catch(made, exception=RuntimeError)()
-                    .map_error(partial(Fault.of, Reason.REFUSED, request))
+                    .map_error(partial(Fault.of, Refusal.REFUSED, request))
                     .bind(lambda item: Option.of_optional(item).to_result_with(lambda: Fault.of(Reason.ABSENT, request, member=name))),
                 )
 

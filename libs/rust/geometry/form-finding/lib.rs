@@ -1,18 +1,19 @@
 #![feature(cmp_minmax, control_flow_into_value, try_blocks_heterogeneous)]
 
-use core::{cmp, iter, num::NonZero};
+use core::{iter, num::NonZero};
 
 use faer::{
-    ColRef, Mat, MatRef, RowRef, Side,
+    ColRef, Mat, MatRef, RowRef,
     sparse::{
         Argsort, CreationError, Pair, SparseColMat, SymbolicSparseColMat, Triplet,
-        linalg::{LltError, solvers::SymbolicLlt},
+        linalg::{LuError, solvers::SymbolicLu},
     },
 };
 use itertools::Itertools as _;
 use nalgebra::{DVector, DVectorView, Point3, Vector3};
 use nonempty_collections::NEVec;
 use petgraph::unionfind::UnionFind;
+#[cfg(feature = "inverse")]
 use rasm_optimization::OptimizeError;
 use validated::Validated;
 
@@ -25,9 +26,10 @@ pub enum Input {
     Edges,
     Densities,
     Members,
+    #[cfg(feature = "inverse")]
     Groups,
+    #[cfg(feature = "inverse")]
     Goals,
-    Bounds,
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -51,7 +53,7 @@ pub struct Network {
     loads: Mat<f64>,
     symbolic: SymbolicSparseColMat<usize>,
     argsort: Argsort<usize>,
-    llt: SymbolicLlt<usize>,
+    lu: SymbolicLu<usize>,
 }
 
 impl Network {
@@ -111,8 +113,8 @@ impl Network {
             let anchors = supports.as_ref() * positions.as_ref();
             let pattern = grounded(&index, &edges, iter::repeat(1.0)).map(|(pair, _)| pair).collect::<Vec<_>>();
             let (symbolic, argsort) = SymbolicSparseColMat::<usize>::try_new_from_indices(loads.nrows(), loads.nrows(), &pattern)?;
-            let llt = SymbolicLlt::try_new(symbolic.as_ref(), Side::Lower).map_err(LltError::Generic)?;
-            Self { nodes, edges, index, free, supports, anchors, loads, symbolic, argsort, llt }
+            let lu = SymbolicLu::try_new(symbolic.as_ref()).map_err(LuError::Generic)?;
+            Self { nodes, edges, index, free, supports, anchors, loads, symbolic, argsort, lu }
         })
         .map_err(NEVec::new)
     }
@@ -139,7 +141,10 @@ pub enum FormError {
     #[error(transparent)]
     Assembly(#[from] CreationError),
     #[error(transparent)]
-    Factorization(#[from] LltError),
+    Factorization(#[from] LuError),
+    #[error("force densities leave the free-node equilibrium system singular")]
+    Singular,
+    #[cfg(feature = "inverse")]
     #[error(transparent)]
     Optimize(#[from] OptimizeError),
     #[error("relaxation left an out-of-balance force of {residual} after {steps} steps")]
@@ -159,10 +164,8 @@ where I: IntoIterator<Item = f64> {
         [
             start.map(|start| (Pair::new(start, start), weight)),
             end.map(|end| (Pair::new(end, end), weight)),
-            start.zip(end).map(|(start, end)| {
-                let [low, high] = cmp::minmax(start, end);
-                (Pair::new(high, low), -weight)
-            }),
+            start.zip(end).map(|(start, end)| (Pair::new(start, end), -weight)),
+            start.zip(end).map(|(start, end)| (Pair::new(end, start), -weight)),
         ]
         .into_iter()
         .flatten()
@@ -203,9 +206,17 @@ fn form(network: &Network, free: MatRef<'_, f64>, spans: MatRef<'_, f64>, densit
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub mod densities;
+#[cfg(feature = "inverse")]
 mod goals;
 pub mod relaxation;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+pub use faer;
+#[cfg(feature = "inverse")]
 pub use goals::{Goal, Measure, Optimum, optima};
+pub use nalgebra;
+pub use nonempty_collections;
+#[cfg(feature = "inverse")]
+pub use rasm_optimization;
+pub use rasm_stats;

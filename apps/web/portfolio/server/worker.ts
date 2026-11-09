@@ -1,10 +1,10 @@
 import { env } from 'cloudflare:workers';
-import { D1Client } from '@effect/sql-d1';
 import { Catalog } from '@rasm/database';
-import { CloudflareAccess } from '@rasm/hosting';
+import { D1 } from '@rasm/database/d1';
+import { Sites } from '@rasm/hosting/sites';
 import { Template } from '@rasm/hosting/template';
-import { r2Storage, serveWorker } from '@rasm/hosting/worker';
-import { Layer } from 'effect';
+import { CloudflareAccess, r2Storage, serveWorker } from '@rasm/hosting/worker';
+import { Layer, Logger } from 'effect';
 import { app } from '#/server/app';
 import { catalog } from '#/server/catalog';
 
@@ -16,11 +16,11 @@ export default serveWorker(
         app(
             env.OWNER_EMAIL,
             Layer.mergeAll(
-                Catalog.layer(catalog, (options) => D1Client.layer({ db: env.DB, ...options })),
+                Catalog.layer(catalog, D1.layer({ db: env.DB })),
                 r2Storage(env.BUCKET),
             ),
         ),
-        Template.layer(env.ASSETS),
-        CloudflareAccess.middleware,
-    ),
+        Template.layer(env.ASSETS, import.meta.env.PROD),
+        CloudflareAccess.middleware(Sites.identity),
+    ).pipe(Layer.provideMerge(Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)]))),
 );

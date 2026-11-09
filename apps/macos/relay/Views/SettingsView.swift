@@ -198,10 +198,8 @@ private struct SignInSheet: View {
             if let pending: AuthenticationPresentation = store.authentication {
                 switch pending.phase {
                     case .refused:
-                        TimelineView(.everyMinute) { context in
-                            Text(pending.phase.description(at: context.date))
-                                .font(.callout)
-                        }
+                        Text(pending.phase.description)
+                            .font(.callout)
                         Button("Done") { store.dismissAuthentication() }
                             .keyboardShortcut(.defaultAction)
                             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -210,10 +208,8 @@ private struct SignInSheet: View {
                         let cancelling: Bool = pending.phase.is(\.cancelling)
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
-                            TimelineView(.everyMinute) { context in
-                                Text(pending.phase.description(at: context.date))
-                            }
-                            .font(.callout)
+                            Text(pending.phase.description)
+                                .font(.callout)
                             Spacer()
                             Text(.durationOffset(to: pending.startedAt), format: .time(pattern: .minuteSecond))
                                 .font(.caption)

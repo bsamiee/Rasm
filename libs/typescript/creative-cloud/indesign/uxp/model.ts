@@ -326,6 +326,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         const valid = object.isValid;
         return Reference.make({ type: object.constructorName, specifier: object.toSpecifier(), name: valid ? Option.liftPredicate(Reflect.get(object, 'name'), Predicate.isString) : Option.none(), valid });
     };
+    static readonly collected = (items: Owned['everyItem']) => ({ type: items.constructor.name, length: items.length, specifier: Option.map(Option.fromNullishOr(items.everyItem()), (every) => every.toSpecifier()) });
     static readonly reference = (object: InDesignDOMObject<unknown>): Effect.Effect<Reference, HostError> => Effect.try({ try: () => Model.referenceUnsafe(object), catch: HostError.refused('object reference') });
     static readonly encoder = Effect.map(Model, ({ enumerator, collection, domObject }) => {
         const replacer = function (this: object, key: string, part: unknown) {
@@ -336,7 +337,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 Match.orElse(() => part),
                 Match.value,
                 Match.when(enumerator, String),
-                Match.when(collection, (items) => ({ type: items.constructor.name, specifier: items.everyItem().toSpecifier(), length: items.length })),
+                Match.when(collection, Model.collected),
                 Match.when(domObject, Model.referenceUnsafe),
                 Match.when(Predicate.isPromise, () => {
                     throw new Cause.IllegalArgumentError(`${key} holds a promise, scripts answer before it settles`);

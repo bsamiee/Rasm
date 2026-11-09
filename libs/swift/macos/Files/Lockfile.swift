@@ -37,10 +37,12 @@ public struct Lockfile: Sendable {
         _ body: @escaping @Sendable () async throws(Failure) -> Value,
     ) async throws(Failure) -> Value {
         var generator: SystemRandomNumberGenerator = SystemRandomNumberGenerator()
-        let holder: Holder<Failure> = try await acquire(lockfiles, delays: lockfiles.map { lockfile in lockfile.retry?.delays(using: &generator) ?? [] }, clock: clock)
+        let (date, start): (Date, _) = (Date(), clock.now)
+        let now: @Sendable () -> Duration = { .seconds(date.timeIntervalSince1970) + start.duration(to: clock.now) }
+        let holder: Holder<Failure> = try await acquire(lockfiles, delays: lockfiles.map { lockfile in lockfile.retry?.delays(using: &generator) ?? [] }, clock: clock, now: now)
         let work: @Sendable () async throws(Failure) -> Value = lockfiles.indices.reduce(body) { work, index in
             { @Sendable () async throws(Failure) -> Value in
-                try await race(work) { () async throws(Failure) -> Value in try await holder.heartbeat(index, every: lockfiles[index].update, clock: clock) }
+                try await race(work) { () async throws(Failure) -> Value in try await holder.heartbeat(index, every: lockfiles[index].update, clock: clock, now: now) }
             }
         }
         let outcome: Result<Value, Failure> = await Result(catching: work)
@@ -48,10 +50,15 @@ public struct Lockfile: Sendable {
         return try outcome.mapError { error in error.releasing(released) }.flatMap { value in released.map { _ in value } }.get()
     }
 
-    private static func acquire<Failure: LockFailure>(_ lockfiles: [Self], delays: [[Duration]], clock: some Clock<Duration> & Sendable) async throws(Failure) -> Holder<Failure> {
+    private static func acquire<Failure: LockFailure>(
+        _ lockfiles: [Self],
+        delays: [[Duration]],
+        clock: some Clock<Duration> & Sendable,
+        now: () -> Duration,
+    ) async throws(Failure) -> Holder<Failure> {
         let acquired: (held: [Held], failure: (index: Int, error: FileFailure)?) = lockfiles.indices.reduce(into: ([], nil)) { acquired, index in
             guard acquired.failure == nil else { return }
-            switch Result(catching: { () throws(FileFailure) in try Held.acquire(lockfiles[index]) }) {
+            switch Result(catching: { () throws(FileFailure) in try Held.acquire(lockfiles[index], at: now()) }) {
                 case .success(let held): acquired.held.append(held)
                 case .failure(let error): acquired.failure = (index, error)
             }
@@ -72,7 +79,7 @@ public struct Lockfile: Sendable {
             () async throws(Failure) in
             do { try await clock.sleep(for: delay) } catch { throw .cancelled(CancellationError()) }
         }
-        return try await acquire(lockfiles, delays: delays.indices.map { offset in offset == index ? Array(delays[offset].dropFirst()) : delays[offset] }, clock: clock)
+        return try await acquire(lockfiles, delays: delays.indices.map { offset in offset == index ? Array(delays[offset].dropFirst()) : delays[offset] }, clock: clock, now: now)
     }
 
     private static func release<Failure: LockFailure>(_ held: [Held]) -> Result<Void, Failure> {
@@ -90,7 +97,7 @@ private struct Held: Equatable, Sendable {
     let inode: Inode
     let modified: Duration
 
-    static func acquire(_ lockfile: Lockfile) throws(FileFailure) -> Self {
+    static func acquire(_ lockfile: Lockfile, at now: Duration) throws(FileFailure) -> Self {
         func create() throws(FileFailure) {
             do {
                 try FileManager.default.createDirectory(at: lockfile.url, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
@@ -103,7 +110,6 @@ private struct Held: Equatable, Sendable {
         do throws(FileFailure) {
             try create()
         } catch let failure where failure.reason.is(\.held) {
-            let now: Duration = .seconds(Date().timeIntervalSince1970)
             switch try stamped(lockfile.url) {
                 case .some(let current) where current.modified >= now - lockfile.stale: throw failure
                 case .some(let stale):
@@ -123,11 +129,11 @@ private struct Held: Equatable, Sendable {
         }
     }
 
-    func updated() throws(FileFailure) -> Self {
+    func updated(at now: Duration) throws(FileFailure) -> Self {
         try unchanged()
         var touched: URL = url
         var values: URLResourceValues = URLResourceValues()
-        values.contentModificationDate = Date()
+        values.contentModificationDate = Date(timeIntervalSince1970: now / .seconds(1))
         let present: Void? = try ifPresent(url) { try touched.setResourceValues(values) }
         guard present != nil else { throw FileFailure(file: url, reason: .compromised) }
         let current: Self = try Self.current(url)
@@ -172,9 +178,9 @@ private actor Holder<Failure: LockFailure> {
 
     // --- [HEARTBEAT]
 
-    func heartbeat(_ index: Int, every interval: Duration, clock: some Clock<Duration> & Sendable) async throws(Failure) -> Never {
+    func heartbeat(_ index: Int, every interval: Duration, clock: some Clock<Duration> & Sendable, now: @Sendable () -> Duration) async throws(Failure) -> Never {
         for await _ in AsyncTimerSequence(interval: interval, clock: clock) {
-            do throws(FileFailure) { held[index] = try held[index].updated() } catch { throw .lock(error) }
+            do throws(FileFailure) { held[index] = try held[index].updated(at: now()) } catch { throw .lock(error) }
         }
         throw .cancelled(CancellationError())
     }

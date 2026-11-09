@@ -1,11 +1,11 @@
-"""Font capability over fontTools, ufo2ft, HarfBuzz and skia-pathops, with the pipeline that reconciles a declared font set from its originals."""
+"""Font engineering over bytes and design records: face import, glyph roles, outlines, HarfBuzz shaping, Perso-Arabic rules as data, ufo2ft compilation, and requirement checks."""
 
-lazy from rasm_typography._builds import Action, Built, performed, Report
-lazy from rasm_typography._cli import app, exited
+lazy from rasm_typography._builds import compressed, constructed, Construction
 lazy from rasm_typography._faces.coverage import Coverage, Excluded
 lazy from rasm_typography._faces.declaration import (
     Band,
     BlackNaskh,
+    Code,
     Contour,
     Derived,
     Diwani,
@@ -25,13 +25,16 @@ lazy from rasm_typography._faces.declaration import (
     Segmented,
     Shadow,
     Sheared,
+    Style,
     TextNaskh,
     Thuluth,
     Treatment,
     Treatments,
     Values,
+    Weight,
 )
-lazy from rasm_typography._faces.glyphs import Control, Digit, Letter, Ligature, Mark, Ornament, recorded, Sign, Space
+lazy from rasm_typography._faces.glyphs import Control, Digit, Letter, Ligature, Mark, Ornament, recorded, Sign, Source, Space
+lazy from rasm_typography._faces.importing import imported
 lazy from rasm_typography._faces.layout import Contextual, Lifts, Ligatures, Lookups, Pairs, Positions, Single, Tag
 lazy from rasm_typography._outlines.measure import perimeter
 lazy from rasm_typography._outlines.nib import extruded, monoline, swept
@@ -44,36 +47,43 @@ lazy from rasm_typography._rules.marks import Marks, QuranicMarks, WordSigns
 lazy from rasm_typography._rules.measures import bounded_glyph, Rule
 lazy from rasm_typography._rules.metrics import Metrics, Records
 lazy from rasm_typography._rules.ornaments import Ornaments
+lazy from rasm_typography._rules.plans import planned, Rules
 lazy from rasm_typography._rules.scale import Scale
 lazy from rasm_typography._rules.spacing import Spacing
-lazy from rasm_typography._shaping.expectations import decoded
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.expectations import Expected
+lazy from rasm_typography._shaping.runs import Binary, Shaped
 lazy from rasm_typography._verification.requirements import (
     Covered,
     Distinct,
     Expectations,
+    Finding,
     Identity,
     JoinParity,
     LigatureArea,
     LineMetrics,
     MarkClearance,
     MarkLine,
-    Profile,
     Reachable,
-    Sanitized,
+    Requirements,
+    requirements,
     Seam,
+    verified,
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "Action",
     "Anchors",
     "Band",
+    "Binary",
     "BlackNaskh",
-    "Built",
+    "Code",
+    "Construction",
     "Contextual",
     "Contour",
     "Control",
+    "Corpus",
     "Coverage",
     "Covered",
     "Derived",
@@ -85,8 +95,10 @@ __all__ = [
     "Em",
     "Excluded",
     "Expectations",
+    "Expected",
     "Face",
     "Faces",
+    "Finding",
     "Genre",
     "Genres",
     "Identity",
@@ -112,42 +124,47 @@ __all__ = [
     "Outlines",
     "Pairs",
     "Positions",
-    "Profile",
     "QuranicMarks",
     "Ratio",
     "Reachable",
     "Recipe",
     "Records",
-    "Report",
+    "Requirements",
     "Ringed",
     "Rule",
+    "Rules",
     "Ruqah",
-    "Sanitized",
     "Scale",
     "Script",
     "Seam",
     "Segmented",
     "Shadow",
+    "Shaped",
     "Sheared",
     "Sign",
     "Single",
+    "Source",
     "Space",
     "Spacing",
+    "Style",
     "Tag",
     "TextNaskh",
     "Thuluth",
     "Treatment",
     "Treatments",
     "Values",
+    "Weight",
     "WordSigns",
-    "app",
     "bounded_glyph",
-    "decoded",
-    "exited",
+    "compressed",
+    "constructed",
     "extruded",
+    "imported",
     "monoline",
-    "performed",
     "perimeter",
+    "planned",
     "recorded",
+    "requirements",
     "swept",
+    "verified",
 ]

@@ -1,3 +1,4 @@
+
 use core::iter;
 
 use kurbo::{Affine, BezPath, Line, PathSeg, Point, QuadSpline, Shape as _};
@@ -57,7 +58,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     let (at, baseline) = if underlined { (Point::new(end.x, end.y - style.gap.into_inner()), Baseline::Bottom) } else { (end, Baseline::Middle) };
     let drawn = drawn(typesetter, style, placement, content, at, anchor, baseline)?;
     let extent = bounds(&drawn, Affine::IDENTITY);
-    let [near, far] = match (drawn.masks.iter().all(|mask| mask.is_empty()), anchor) {
+    let [near, far] = match (drawn.masks.iter().all(|mask| mask.contours().is_empty()), anchor) {
         (true, Anchor::Start | Anchor::Middle | Anchor::End) => [end.x; 2],
         (false, Anchor::Start | Anchor::Middle) => [extent.x0, extent.x1],
         (false, Anchor::End) => [extent.x1, extent.x0],

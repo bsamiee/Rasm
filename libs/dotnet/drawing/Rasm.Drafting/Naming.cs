@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Collections.Generic;
 using System.Globalization;
 
@@ -6,7 +5,7 @@ namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None, EqualityComparisonOperators = OperatorsGeneration.None, ComparisonOperators = OperatorsGeneration.None, SkipIComparable = true)]
 [ValidationError<DraftingFault>]
 public sealed partial class Discipline {
     public static readonly Discipline General = new("G");
@@ -80,27 +79,30 @@ public abstract partial record NameLayout {
     }
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
-public sealed partial class NamingStandard {
-    private const string UppercaseLetters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    private const string LowercaseLetters = "abcdefghijklmnopqrstuvwxyz";
-    private const string DecimalDigits = "0123456789";
-    private static readonly SearchValues<char> Upper = SearchValues.Create(UppercaseLetters);
-    private static readonly SearchValues<char> Digit = SearchValues.Create(DecimalDigits);
-    private static readonly SearchValues<char> UpperDigit = SearchValues.Create(UppercaseLetters + DecimalDigits);
-    private static readonly SearchValues<char> UpperDigitTilde = SearchValues.Create(UppercaseLetters + DecimalDigits + "~");
-    private static readonly SearchValues<char> UpperDigitUnderscore = SearchValues.Create(UppercaseLetters + DecimalDigits + "_");
-    private static readonly SearchValues<char> LetterDigitUnderscore = SearchValues.Create(UppercaseLetters + LowercaseLetters + DecimalDigits + "_");
+public sealed record NamingStandard {
+    private NamingStandard(string name, NameLayout layout, Seq<NameField> fields) => (Name, Layout, Fields) = (name, layout, fields);
+    public string Name { get; }
+    public NameLayout Layout { get; }
+    public Seq<NameField> Fields { get; }
 
-    public static readonly NamingStandard Uds = new("uds", new NameLayout.Positional('-'), [
+    internal Option<NameField> SequenceField => Fields.Find(static nameField => nameField.Role == FieldRole.Sequence);
+
+    private const string Upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    private const string Lower = "abcdefghijklmnopqrstuvwxyz";
+    private const string Digit = "0123456789";
+    private const string UpperDigit = Upper + Digit;
+    private const string UpperDigitTilde = UpperDigit + "~";
+    private const string UpperDigitUnderscore = UpperDigit + "_";
+    private const string LetterDigitUnderscore = Upper + Lower + Digit + "_";
+
+    public static readonly NamingStandard Uds = new("UDS", new NameLayout.Positional('-'), [
         new("discipline", FieldRole.Designator, MinWidth: 1, MaxWidth: 2, Required: true, Upper),
         new("sheet-type", FieldRole.Code, MinWidth: 1, MaxWidth: 1, Required: true, Digit),
         new("sequence", FieldRole.Sequence, MinWidth: 2, MaxWidth: 2, Required: true, Digit),
-        new("suffix-dash", FieldRole.Code, MinWidth: 1, MaxWidth: 1, Required: false, SearchValues.Create("")),
+        new("suffix-dash", FieldRole.Code, MinWidth: 1, MaxWidth: 1, Required: false, ""),
         new("suffix", FieldRole.Code, MinWidth: 1, MaxWidth: 3, Required: false, UpperDigit),
     ]);
-    public static readonly NamingStandard Iso19650 = new("iso-19650", new NameLayout.Delimited('-'), [
+    public static readonly NamingStandard Iso19650 = new("ISO 19650", new NameLayout.Delimited('-'), [
         new("project", FieldRole.Code, MinWidth: 1, MaxWidth: None, Required: true, UpperDigit),
         new("originator", FieldRole.Code, MinWidth: 1, MaxWidth: None, Required: true, UpperDigit),
         new("functional", FieldRole.Code, MinWidth: 1, MaxWidth: None, Required: true, UpperDigit),
@@ -109,14 +111,14 @@ public sealed partial class NamingStandard {
         new("discipline", FieldRole.Code, MinWidth: 1, MaxWidth: None, Required: true, UpperDigit),
         new("number", FieldRole.Sequence, MinWidth: 1, MaxWidth: 9, Required: true, Digit),
     ]);
-    public static readonly NamingStandard Ncs = new("ncs", new NameLayout.Delimited('-'), [
+    public static readonly NamingStandard Ncs = new("NCS", new NameLayout.Delimited('-'), [
         new("discipline", FieldRole.Designator, MinWidth: 1, MaxWidth: 2, Required: true, Upper),
         new("major-group", FieldRole.Code, MinWidth: 4, MaxWidth: 4, Required: true, UpperDigitTilde),
         new("minor-group", FieldRole.Code, MinWidth: 4, MaxWidth: 4, Required: false, UpperDigitTilde),
         new("second-minor-group", FieldRole.Code, MinWidth: 4, MaxWidth: 4, Required: false, UpperDigitTilde),
-        new("status", FieldRole.Code, MinWidth: 1, MaxWidth: 1, Required: false, SearchValues.Create("ADEFMNTX123456789")),
+        new("status", FieldRole.Code, MinWidth: 1, MaxWidth: 1, Required: false, "ADEFMNTX123456789"),
     ]);
-    public static readonly NamingStandard Iso13567 = new("iso-13567", new NameLayout.Positional('-'), [
+    public static readonly NamingStandard Iso13567 = new("ISO 13567", new NameLayout.Positional('-'), [
         new("agent", FieldRole.Code, MinWidth: 1, MaxWidth: 2, Required: true, UpperDigitUnderscore),
         new("element", FieldRole.Code, MinWidth: 1, MaxWidth: 6, Required: true, UpperDigitUnderscore),
         new("presentation", FieldRole.Code, MinWidth: 1, MaxWidth: 2, Required: true, UpperDigitUnderscore),
@@ -128,21 +130,22 @@ public sealed partial class NamingStandard {
         new("work-package", FieldRole.Code, MinWidth: 1, MaxWidth: 2, Required: false, UpperDigitUnderscore),
         new("user-defined", FieldRole.Code, MinWidth: 1, MaxWidth: None, Required: false, LetterDigitUnderscore),
     ]);
-    public static readonly NamingStandard AecUk = new("aec-uk", new NameLayout.Delimited('-'), [
+    public static readonly NamingStandard AecUk = new("AEC (UK)", new NameLayout.Delimited('-'), [
         new("role", FieldRole.Code, MinWidth: 1, MaxWidth: 2, Required: true, UpperDigit),
         new("classification", FieldRole.Code, MinWidth: 5, MaxWidth: None, Required: true, LetterDigitUnderscore),
-        new("presentation", FieldRole.Code, MinWidth: 1, MaxWidth: 1, Required: true, SearchValues.Create("DHMPTX")),
-        new("description", FieldRole.Code, MinWidth: 1, MaxWidth: None, Required: true, SearchValues.Create(UppercaseLetters + LowercaseLetters + DecimalDigits)),
-        new("view", FieldRole.Code, MinWidth: 3, MaxWidth: 3, Required: false, SearchValues.Create(UppercaseLetters + LowercaseLetters)),
+        new("presentation", FieldRole.Code, MinWidth: 1, MaxWidth: 1, Required: true, "DHMPTX"),
+        new("description", FieldRole.Code, MinWidth: 1, MaxWidth: None, Required: true, Upper + Lower + Digit),
+        new("view", FieldRole.Code, MinWidth: 3, MaxWidth: 3, Required: false, Upper + Lower),
     ]);
 
-    public NameLayout Layout { get; }
-    public Seq<NameField> Fields { get; }
-
-    internal Option<NameField> SequenceField => Fields.Find(static nameField => nameField.Role == FieldRole.Sequence);
+    public static Fin<NamingStandard> Validated(string name, NameLayout layout, Seq<NameField> fields) =>
+        (DraftingFault.Unless(!string.IsNullOrWhiteSpace(name), DraftingReason.Blank, name),
+         DraftingFault.Unless(!fields.IsEmpty && toHashSet(fields.Map(static field => field.Key)).Count == fields.Count && fields.Filter(static field => field.Role == FieldRole.Sequence).Count <= 1, DraftingReason.Repeated, fields.Map(static field => field.Key)),
+         fields.Map(static (field, index) => DraftingFault.Unless(field.MinWidth >= 1 && field.MaxWidth.ForAll(max => max >= field.MinWidth), DraftingReason.NameBroken, (field.MinWidth, field.MaxWidth), index)).Traverse(static held => held).As())
+            .Apply((_, _, _) => new NamingStandard(name.Trim(), layout, fields)).As();
 }
 
-public sealed record NameField(string Key, FieldRole Role, int MinWidth, Option<int> MaxWidth, bool Required, SearchValues<char> Characters) {
+public sealed record NameField(string Key, FieldRole Role, int MinWidth, Option<int> MaxWidth, bool Required, string Characters) {
     public bool Fits(int length) => length >= MinWidth && MaxWidth.ForAll(max => length <= max);
     public bool Allows(string value) => Fits(value.Length) && !value.AsSpan().ContainsAnyExcept(Characters) && Role.Rank(value).IsSome;
 }
@@ -188,7 +191,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
 
     public int CompareTo(StandardName? other) =>
         other is null ? 1
-        : string.CompareOrdinal(Standard.Key, other.Standard.Key) is var standard and not 0 ? standard
+        : string.CompareOrdinal(Standard.Name, other.Standard.Name) is var standard and not 0 ? standard
         : Standard.Fields.Map(field => (Fields.Find(field).Case, other.Fields.Find(field).Case) switch { (string left, string right) => field.Role.Compare(left, right), (string, _) => 1, (_, string) => -1, _ => 0 })
             .Find(static order => order is not 0).IfNone(0);
 

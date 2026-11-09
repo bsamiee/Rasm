@@ -34,7 +34,7 @@ from rasm_bpy.ui._layout.tables import Tree
 from rasm_bpy.ui._layout.templates import Gallery, ImageFormat, Picture, Preview, Shortcut
 from rasm_bpy.ui._layout.values import Captured, Listing, Replacement, Store, StoreCommand
 from rasm_bpy.ui._resources.icons import Icon, Icons
-from rasm_bpy.ui._resources.interface_theme import Adjust, Closest, Composite, Filter, Harmony, installed, Legible, Mix, Ramp, themes_written
+from rasm_bpy.ui._resources.interface_theme import Adjust, Closest, Composite, Filter, Harmony, installed, Legible, Mix, Ramp
 from rasm_bpy.ui._resources.previews import Texture
 from rasm_bpy.ui._resources.theme import Checker, Color, Metrics, Shade, Spacing, Theme
 from rasm_bpy.ui._screens.areas import AreaQuery, areas, flipped, Located, quadded, to_view
@@ -166,7 +166,6 @@ __all__ = [
     "revealed",
     "ruled",
     "show_preferences",
-    "themes_written",
     "to_view",
     "viewed",
 ]

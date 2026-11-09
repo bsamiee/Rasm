@@ -58,9 +58,15 @@ pub enum Stop {
 #[derive(Debug, Error)]
 pub enum Failure {
     #[error("cannot {operation}")]
-    Io { operation: Operation, source: io::Error },
+    Io {
+        operation: Operation,
+        source: io::Error,
+    },
     #[error("cannot {operation} before the release deadline")]
-    Expired { operation: Operation, source: Elapsed },
+    Expired {
+        operation: Operation,
+        source: Elapsed,
+    },
     #[error(transparent)]
     Stopped(Stop),
 }
@@ -272,3 +278,7 @@ mod report;
 #[cfg(target_os = "macos")]
 pub use macos::{Launch, launch};
 pub use report::Run;
+pub use nonempty_collections;
+pub use serde;
+pub use tokio;
+pub use tokio_util;

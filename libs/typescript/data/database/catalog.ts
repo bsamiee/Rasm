@@ -1,10 +1,7 @@
-import { D1Client } from '@effect/sql-d1';
 import { Array, Data, type Duration, Effect, Layer, Option, String, Struct } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
-import { atomic } from '#/atomic';
-import { Column } from '#/column';
+import { Engine } from '#/engine';
 import { ReconcileError } from '#/error';
-import { Engine } from '#/internal/engine';
 import { refusals } from '#/internal/reconcile';
 import type { Relation } from '#/relation';
 
@@ -26,19 +23,18 @@ class Catalog extends Data.Class<{
         }),
     );
     static readonly reconcile = Effect.fn('Catalog.reconcile')(
-        (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: atomic })),
+        (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: Engine.atomic })),
         Effect.tap(({ concurrent, session }) => Array.match(concurrent, { onEmpty: () => Effect.void, onNonEmpty: (statements) => concurrently(session, statements) })),
         Effect.map(Struct.get('undeclared')),
     );
-    static readonly client = <A, E, R>(client: (options: typeof Column.transforms) => Layer.Layer<A | SqlClient.SqlClient, E, R>) => Engine.layer.pipe(Layer.provideMerge(client(Column.transforms)));
-    static readonly layer = <A, E, R, M = never, N = never>(catalog: Catalog, client: (options: typeof Column.transforms) => Layer.Layer<A | SqlClient.SqlClient, E, R>, migrator?: Layer.Layer<SqlClient.SqlClient, M, N>) =>
-        Layer.effectDiscard(start(catalog, Option.fromUndefinedOr(migrator))).pipe(Layer.provideMerge(Catalog.client(client)));
+    static readonly layer = <A, E, R, M = never, N = never>(catalog: Catalog, engine: Layer.Layer<A | Engine | SqlClient.SqlClient, E, R>, migrator?: Layer.Layer<SqlClient.SqlClient, M, N>) =>
+        Layer.effectDiscard(start(catalog, Option.fromUndefinedOr(migrator))).pipe(Layer.provideMerge(engine));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>) => Effect.Effect<unknown, E, R>) {
-    const [client, engine, d1] = yield* Effect.all([SqlClient.SqlClient, Engine, Effect.serviceOption(D1Client.D1Client)]);
+    const [client, engine] = yield* Effect.all([SqlClient.SqlClient, Engine]);
     yield* ReconcileError.raise([...catalog.tables.flatMap(refusals), ...catalog.tables.flatMap(engine.refusals)]);
     const steps = engine.plan(client.withoutTransforms(), catalog, runtime);
     const applied = Effect.tap(steps, after);
@@ -48,7 +44,7 @@ const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: O
             ({ statements }) => Array.isReadonlyArrayEmpty(statements),
             () => error,
         );
-    return yield* Option.isNone(d1) ? client.withTransaction(applied) : Effect.catchTag(applied, 'SqlError', converged);
+    return yield* engine.transactional ? client.withTransaction(applied) : Effect.catchTag(applied, 'SqlError', converged);
 });
 const concurrently = Effect.fnUntraced(function* (session: readonly { readonly name: string; readonly value: string }[], statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) {
     const sql = yield* SqlClient.SqlClient;

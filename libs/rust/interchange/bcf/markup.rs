@@ -1,12 +1,11 @@
 use indexmap::{IndexMap, IndexSet};
 use itertools::{Either, EitherOrBoth};
-use jiff::Timestamp;
 use uuid::Uuid;
 use validated::Validated;
 use xot::Node;
 
 use crate::{
-    BcfError, CommentUuid, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
+    BcfError, CommentUuid, DateTime, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
     visualization::Visualization,
     xml::{Codec, Keyed, Reader, Writer, codec, document, local_name, required, resolve, sides, stated, stored},
 };
@@ -36,18 +35,19 @@ pub struct Topic {
     pub reference_links: Vec<Text>,
     pub title: Text,
     pub priority: Option<Text>,
+    pub index: Option<i32>,
     pub labels: IndexSet<Text>,
-    pub creation_date: Timestamp,
+    pub creation_date: DateTime,
     pub creation_author: Text,
-    pub modified_date: Option<Timestamp>,
+    pub modified_date: Option<DateTime>,
     pub modified_author: Option<Text>,
-    pub due_date: Option<Timestamp>,
+    pub due_date: Option<DateTime>,
     pub assigned_to: Option<Text>,
     pub stage: Option<Text>,
     pub description: Option<Text>,
     pub bim_snippet: Option<BimSnippet>,
     pub document_references: IndexMap<DocumentReferenceUuid, DocumentReference>,
-    pub related_topics: IndexMap<TopicUuid, ()>,
+    pub related_topics: IndexSet<TopicUuid>,
     pub comments: IndexMap<CommentUuid, Comment>,
     pub viewpoints: IndexMap<ViewpointUuid, Viewpoint>,
 }
@@ -57,7 +57,7 @@ pub struct File {
     pub ifc_project: Option<Uuid>,
     pub ifc_spatial_structure_element: Option<Uuid>,
     pub filename: Option<Text>,
-    pub date: Option<Timestamp>,
+    pub date: Option<DateTime>,
     pub reference: Option<Resource>,
 }
 
@@ -105,10 +105,10 @@ pub struct DocumentReference {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Comment {
-    pub date: Timestamp,
+    pub date: DateTime,
     pub author: Text,
     pub remark: Remark,
-    pub modified_date: Option<Timestamp>,
+    pub modified_date: Option<DateTime>,
     pub modified_author: Option<Text>,
 }
 
@@ -127,6 +127,7 @@ codec! {
         element reference_links(&[TOPIC, "ReferenceLinks"], "ReferenceLink"),
         element title(&[TOPIC], "Title"),
         element priority(&[TOPIC], "Priority"),
+        element index(&[TOPIC], "Index"),
         element labels(&[TOPIC, "Labels"], "Label"),
         element creation_date(&[TOPIC], "CreationDate"),
         element creation_author(&[TOPIC], "CreationAuthor"),
@@ -138,7 +139,7 @@ codec! {
         element description(&[TOPIC], "Description"),
         element bim_snippet(&[TOPIC], "BimSnippet"),
         keyed document_references(&[TOPIC, "DocumentReferences"], "DocumentReference", None),
-        keyed related_topics(&[TOPIC, "RelatedTopics"], "RelatedTopic", None),
+        set related_topics(&[TOPIC, "RelatedTopics"], "RelatedTopic"),
         keyed comments(&[TOPIC, "Comments"], COMMENT, None),
         keyed viewpoints(&[TOPIC, "Viewpoints"], "ViewPoint", Some("Index")),
     }
@@ -207,7 +208,7 @@ impl Keyed<ViewpointUuid> for Viewpoint {
             .map_or_else(Validated::Fail, |file| {
                 file.map_or(Validated::Good(None), |name| {
                     let entry = resolve(reader.entry, &name);
-                    required(document(reader.open, reader.upgrading, (&entry, VISUALIZATION_INFO), Visualization::read), &entry).map(Some)
+                    required(document(reader.open, reader.upgrade, (&entry, VISUALIZATION_INFO), Visualization::read), &entry).map(Some)
                 })
             })
             .map2(reader.element(node, &[], SNAPSHOT), |visualization, snapshot| Self { visualization, snapshot })
@@ -229,11 +230,18 @@ impl Keyed<ViewpointUuid> for Viewpoint {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(super) fn merged(left: Topic, right: Topic) -> Topic {
-    let (newer, older) = if left.modified_date >= right.modified_date { (left, right) } else { (right, left) };
+#[must_use]
+pub fn newest(left: Topic, right: Topic) -> Topic {
+    let later = |held: Option<DateTime>, stated: Option<DateTime>| match (held, stated) {
+        (Some(Either::Left(held)), Some(Either::Left(stated))) => stated > held,
+        (Some(Either::Right(held)), Some(Either::Right(stated))) => stated > held,
+        (None, Some(_)) => true,
+        (Some(Either::Left(_)), Some(Either::Right(_)) | None) | (Some(Either::Right(_)), Some(Either::Left(_)) | None) | (None, None) => false,
+    };
+    let (newer, older) = if later(left.modified_date, right.modified_date) { (right, left) } else { (left, right) };
     let mut comments = older.comments;
     newer.comments.into_iter().for_each(|(guid, comment)| {
-        if comments.get(&guid).is_none_or(|held| held.modified_date <= comment.modified_date) {
+        if comments.get(&guid).is_none_or(|held| !later(comment.modified_date, held.modified_date)) {
             comments.insert(guid, comment);
         }
     });

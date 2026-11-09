@@ -306,6 +306,7 @@ pub(crate) fn curves(path: &BezPath) -> Vec<EntityType> {
 #[must_use]
 pub(super) fn loops(region: &Region) -> Vec<BoundaryPath> {
     region
+        .contours()
         .iter()
         .map(|contour| {
             let pieces = contour.path.segments().collect::<Vec<_>>();

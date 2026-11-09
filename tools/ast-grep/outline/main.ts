@@ -1,8 +1,8 @@
 import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Array, Cause, Effect, FileSystem, Match, Option, Record, Schema, String, Struct } from 'effect';
-import { Document, type Node, Pair, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
+import { Array, Cause, Effect, FileSystem, Match, Option, Path, Record, Schema, String, Struct } from 'effect';
+import { Document, type Node, Pair, parse, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -25,6 +25,7 @@ const SELECTOR = 'variants';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Arguments = Schema.Tuple([Schema.String, Schema.String, Schema.String]);
+const Sgconfig = Schema.Struct({ customLanguages: Schema.Record(Schema.String, Schema.Struct({ outlineRules: Schema.optionalKey(Schema.String) })) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -158,8 +159,13 @@ const written = Effect.fnUntraced(function* (catalog: Shared, language: string, 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const build = Effect.gen(function* () {
-    const [language, source, output] = yield* Schema.decodeUnknownEffect(Arguments)(process.argv.slice(2));
-    const fs = yield* FileSystem.FileSystem;
+    const [sgconfig, source, output] = yield* Schema.decodeUnknownEffect(Arguments)(process.argv.slice(2));
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const { customLanguages } = yield* Effect.flatMap(fs.readFileString(sgconfig), (text) => Schema.decodeUnknownEffect(Sgconfig)(parse(text)));
+    const language = yield* Effect.fromOption(
+        Array.findFirst(Record.toEntries(customLanguages), ([, row]) => row.outlineRules !== undefined && path.resolve(path.dirname(sgconfig), row.outlineRules) === path.resolve(output)),
+        () => new Cause.IllegalArgumentError(`${sgconfig} names no custom language whose outlineRules is ${output}`),
+    ).pipe(Effect.map(([name]) => name));
     const parsed = parseAllDocuments(yield* fs.readFileString(source));
     const docs = Array.isArray(parsed) ? parsed : [];
     const failures = docs.flatMap(Struct.get('errors')).map(({ message }) => `${source}: ${message}`);

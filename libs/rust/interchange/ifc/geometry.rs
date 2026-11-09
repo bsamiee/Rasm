@@ -1,3 +1,4 @@
+
 use core::iter;
 use std::{collections::HashMap, sync::Arc};
 
@@ -9,6 +10,7 @@ use parry3d_f64::{
     math::Vector,
     shape::{Polyline, TriMesh, TriMeshBuilderError, TriMeshFlags},
 };
+#[cfg(feature = "pcd")]
 use pcd_rs::{DataKind, DynReader, DynRecord, Field, Rgb};
 use serde::{Deserialize, Serialize};
 use serde_with::{base64::Base64, serde_as};
@@ -26,6 +28,19 @@ use crate::{
 enum VisibilityToken {
     Inherited,
     Invisible,
+}
+
+#[cfg(feature = "pcd")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::IntoStaticStr, strum::Display)]
+pub enum Column {
+    #[strum(serialize = "x")]
+    East,
+    #[strum(serialize = "y")]
+    North,
+    #[strum(serialize = "z")]
+    Up,
+    #[strum(serialize = "rgb")]
+    Rgb,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -176,10 +191,12 @@ impl Attribute for PointBase64 {
     const ID: &'static str = "points::base64";
 }
 
+#[cfg(feature = "pcd")]
 #[serde_as]
 #[derive(Deserialize)]
 struct PointCloud(#[serde_as(as = "Base64")] Vec<u8>);
 
+#[cfg(feature = "pcd")]
 impl Attribute for PointCloud {
     const ID: &'static str = "pcd::base64";
 }
@@ -230,37 +247,40 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
             .map(|triple| triple.iter().find(|component| !component.is_finite()).map_or(Ok(triple), |&outside| Err(refused(Fault::Range { value: f64::from(outside) }))))
             .try_collect::<Vec<_>>()
     };
-    let point_cloud = |node: &Composed, PointCloud(bytes): PointCloud| {
-        let failed = |source| IfcError::Cloud { node: node.path.clone(), source };
-        let absent = |field| IfcError::Attribute { node: node.path.clone(), attribute: PointCloud::ID.into(), reason: Fault::Field(field) };
-        DynReader::from_bytes(&bytes).map_err(failed).map_or_else(Validated::fail, |reader| {
-            let located = |field: &'static str| reader.meta().field_defs.iter().position(|definition| definition.name == field).map(|index| (field, index));
-            let column = |field: &'static str| Validated::from(located(field).ok_or_else(|| absent(field)));
-            let rgb = located("rgb");
-            let ascii = matches!(reader.meta().data, DataKind::Ascii);
-            let coordinate = |fields: &[Field], (name, index): (&'static str, usize)| {
-                Validated::from(fields.get(index).and_then(|field| field.to_value::<f32>().map(f64::from).or_else(|| field.to_value::<f64>())).ok_or_else(|| absent(name)))
-            };
-            let color = |field: &Field| {
-                let Rgb { r, g, b } = Rgb::from_packed(match (ascii, field.to_value::<f32>(), field.to_value::<u32>()) {
-                    (false, Some(value), _) => Some(value),
-                    (true, Some(value), _) => Some(f32::from_bits(value.to_int_saturating::<u32>())),
-                    (_, None, Some(packed)) => Some(f32::from_bits(packed)),
-                    (_, None, None) => None,
-                }?);
-                Some(OpaqueColor::<Srgb>::from_rgb8(r, g, b).components)
-            };
-            let point = |DynRecord(fields): DynRecord, [x, y, z]: [(&'static str, usize); 3]| {
-                let tint = Validated::from(rgb.map(|(name, index)| fields.get(index).and_then(color).ok_or_else(|| absent(name))).transpose());
-                coordinate(&fields, x).map4(coordinate(&fields, y), coordinate(&fields, z), tint, |east, north, up, shade| (Point3::new(east, north, up), shade))
-            };
-            column("x").map3(column("y"), column("z"), |x, y, z| [x, y, z]).ok().map_or_else(Validated::Fail, |axes| {
-                let records = reader.map(|record| record.map_err(failed).map_or_else(Validated::fail, |fields| point(fields, axes))).collect::<Validated<(Vec<_>, Vec<_>), _>>();
-                records.ok().map_or_else(Validated::Fail, |(positions, colors)| Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect())))
+    #[cfg(feature = "pcd")]
+    let point_cloud = |node: &Composed| {
+        form::<PointCloud>(node, |PointCloud(bytes)| {
+            let failed = |source| IfcError::Cloud { node: node.path.clone(), source };
+            let absent = |field| IfcError::Attribute { node: node.path.clone(), attribute: PointCloud::ID.into(), reason: Fault::Column(field) };
+            DynReader::from_bytes(&bytes).map_err(failed).map_or_else(Validated::fail, |reader| {
+                let located = |field: Column| reader.meta().field_defs.iter().position(|definition| definition.name == <&str>::from(field)).map(|index| (field, index));
+                let column = |field: Column| Validated::from(located(field).ok_or_else(|| absent(field)));
+                let rgb = located(Column::Rgb);
+                let ascii = matches!(reader.meta().data, DataKind::Ascii);
+                let coordinate = |fields: &[Field], (name, index): (Column, usize)| {
+                    Validated::from(fields.get(index).and_then(|field| field.to_value::<f32>().map(f64::from).or_else(|| field.to_value::<f64>())).ok_or_else(|| absent(name)))
+                };
+                let color = |field: &Field| {
+                    let Rgb { r, g, b } = Rgb::from_packed(match (ascii, field.to_value::<f32>(), field.to_value::<u32>()) {
+                        (false, Some(value), _) => Some(value),
+                        (true, Some(value), _) => Some(f32::from_bits(value.to_int_saturating::<u32>())),
+                        (_, None, Some(packed)) => Some(f32::from_bits(packed)),
+                        (_, None, None) => None,
+                    }?);
+                    Some(OpaqueColor::<Srgb>::from_rgb8(r, g, b).components)
+                };
+                let point = |DynRecord(fields): DynRecord, [x, y, z]: [(Column, usize); 3]| {
+                    let tint = Validated::from(rgb.map(|(name, index)| fields.get(index).and_then(color).ok_or_else(|| absent(name))).transpose());
+                    coordinate(&fields, x).map4(coordinate(&fields, y), coordinate(&fields, z), tint, |east, north, up, shade| (Point3::new(east, north, up), shade))
+                };
+                column(Column::East).map3(column(Column::North), column(Column::Up), |x, y, z| [x, y, z]).ok().map_or_else(Validated::Fail, |axes| {
+                    let records = reader.map(|record| record.map_err(failed).map_or_else(Validated::fail, |fields| point(fields, axes))).collect::<Validated<(Vec<_>, Vec<_>), _>>();
+                    records.ok().map_or_else(Validated::Fail, |(positions, colors)| Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect())))
+                })
             })
         })
     };
-    let forms: [(&str, Decode<'_>); 5] = [
+    let forms: [(&str, Decode<'_>); 4] = [
         (Mesh::ID, &|node: &Composed| {
             form::<Mesh>(node, |Mesh { points, face_vertex_indices }| {
                 let refused = |reason| IfcError::Attribute { node: node.path.clone(), attribute: Mesh::ID.into(), reason };
@@ -314,11 +334,18 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
                 })
             })
         }),
-        (PointCloud::ID, &|node: &Composed| form::<PointCloud>(node, |record| point_cloud(node, record))),
     ];
+    let forms = iter::chain(
+        forms,
+        cfg_select! {
+            feature = "pcd" => Some((PointCloud::ID, &point_cloud as Decode<'_>)),
+            _ => None,
+        },
+    )
+    .collect::<Vec<_>>();
     let own = |node: &Composed| {
         let local = attribute::<Transform>(node).and_then(|record| {
-            record.map_or(Ok(Affine3::identity()), |Transform { transform }| {
+            record.map_or_else(|| Ok(Affine3::identity()), |Transform { transform }| {
                 nalgebra::try_convert::<Matrix4<f64>, Affine3<f64>>(Matrix4::from(transform)).ok_or_else(|| IfcError::Attribute {
                     node: node.path.clone(),
                     attribute: Transform::ID.into(),

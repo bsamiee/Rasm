@@ -31,6 +31,7 @@ nutype               = { workspace = true }
 jiff                 = { workspace = true }
 xot                  = { workspace = true }
 secrecy              = { workspace = true }
+rand                 = { workspace = true }
 reqwest              = { workspace = true }
 bytemuck             = { workspace = true }
 uom                  = { workspace = true }

@@ -14,12 +14,12 @@ lazy from scipy.special import cosdg, sindg
 from rasm_typography._faces.declaration import Em, Ratio, Recipe, Script
 from rasm_typography._rules.measures import _made, _nuqta, _placement, _text_outline, bounded_glyph, Rule
 lazy from rasm_records import Outcome
-lazy from rasm_typography._faces.glyphs import _Glyph, _Outline, _Side, _Source, _traced, Mark
+lazy from rasm_typography._faces.glyphs import _Glyph, _Outline, _Side, _traced, Mark, Source
 lazy from rasm_typography._faces.layout import _Chain, Contextual
 lazy from rasm_typography._faces.names import _Form, _GlyphName
 lazy from rasm_typography._outlines.measure import _moments, _restroked, _stroke
 lazy from rasm_typography._outlines.paths import _bounds, _Box, _transformed, _union
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ class WordSigns(Rule, frozen=True, kw_only=True):
 # --- [TARGETS]
 
 
-def _targets(source: _Source, codes: Collection[int], /) -> tuple[tuple[_Glyph | None, int], ...]:
+def _targets(source: Source, codes: Collection[int], /) -> tuple[tuple[_Glyph | None, int], ...]:
     """Requested native glyphs once, preferring their canonical code over the lowest requested alias."""
     targets: dict[str, tuple[_Glyph | None, int]] = {}
     for code in sorted(codes):
@@ -142,7 +142,7 @@ def _rebuilt(recipe: Recipe, box: _Box, models: tuple[_Outline, _Outline, _Outli
                     )
 
 
-def _penned(source: _Source, rule: Marks, /) -> Outcome[_Source]:
+def _penned(source: Source, rule: Marks, /) -> Outcome[Source]:
     """Holds every recipe mark to one pen measured against the stem stroke at zero advance, a recipe mark the face lacks drawn in a default box.
 
     Returns:
@@ -151,7 +151,7 @@ def _penned(source: _Source, rule: Marks, /) -> Outcome[_Source]:
     return bounded_glyph(source, rule.script.stem).map(lambda held: _marked(source, rule, _stroke(held[0].contours), held[1]))
 
 
-def _marked(source: _Source, rule: Marks, width: float, height: _Box, /) -> _Source:
+def _marked(source: Source, rule: Marks, width: float, height: _Box, /) -> Source:
     """Offsets or draws each recipe mark at the pen the stem stroke, the band, the stated ratio, and the floor give."""
     script, (low, high) = rule.script, rule.band
     model = source.drawn(name) if (name := source.key(script.vowels[0])) in source.named else None
@@ -206,7 +206,7 @@ def _text(code: int, /) -> str:
             return ""
 
 
-def _quranic(source: _Source, rule: QuranicMarks, /, *, original: _Binary) -> Outcome[_Source]:
+def _quranic(source: Source, rule: QuranicMarks, /, *, original: Binary) -> Outcome[Source]:
     """Draws each small letter mark its Unicode name spells as the face's own shaped text held to a mark box and the vowel pen, offsets hairline signs to the pen, and composes tanwin before an iqlab meem.
 
     Returns:
@@ -215,7 +215,7 @@ def _quranic(source: _Source, rule: QuranicMarks, /, *, original: _Binary) -> Ou
     return _placement(source, original, rule.script.stem).map(lambda held: _miniatures(source, rule, original, held[2], held[1]))
 
 
-def _miniatures(source: _Source, rule: QuranicMarks, original: _Binary, move: Transform, tall: _Box, /) -> _Source:
+def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Transform, tall: _Box, /) -> Source:
     """Shapes each spelled mark on the original, maps it into the source, holds it to the mark box at the vowel pen, and adds the iqlab composition."""
     model = source.drawn(name) if (name := source.key(rule.script.vowels[0])) in source.named else None
     pen = _stroke(model.contours) if model and model.contours else 0.0
@@ -264,7 +264,7 @@ def _stacked(rows: tuple[_Outline, ...], gap: float, /) -> _Outline:
     return _union(*(_transformed(row, (1.0, 0.0, 0.0, 1.0, boxes[0].middle[0] - box.middle[0], boxes[0].ymax - top - box.ymax)) for row, box, top in zip(rows, boxes, tops, strict=False)))
 
 
-def _signed(source: _Source, rule: WordSigns, /, *, original: _Binary) -> Outcome[_Source]:
+def _signed(source: Source, rule: WordSigns, /, *, original: Binary) -> Outcome[Source]:
     """Sets each word sign the face lacks from its rows shaped on the original at the stem's side bearings, a sign of several rows stacked and held to a block in stem heights about the stem's middle.
 
     Returns:
@@ -273,7 +273,7 @@ def _signed(source: _Source, rule: WordSigns, /, *, original: _Binary) -> Outcom
     return _placement(source, original, rule.script.stem).map(lambda held: source.replaced(*_signs(source, rule, original, held[2], (held[0], held[1]))))
 
 
-def _signs(source: _Source, rule: WordSigns, original: _Binary, move: Transform, held: tuple[_Glyph, _Box], /) -> tuple[_Glyph, ...]:
+def _signs(source: Source, rule: WordSigns, original: Binary, move: Transform, held: tuple[_Glyph, _Box], /) -> tuple[_Glyph, ...]:
     """Shapes each sign's rows on the original, maps them into the source, stacks them, and places the outline at the stem's bearings."""
     (glyph, stem), (wide, tall) = held, rule.block
     bearing = (glyph.advance - stem.width) / 2

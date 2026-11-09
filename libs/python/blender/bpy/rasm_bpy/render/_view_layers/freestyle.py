@@ -14,6 +14,7 @@ import msgspec
 from rasm_bpy.commands.operators import Answer, Call, Empty, Operator
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import rooted
@@ -116,13 +117,13 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
         count = kept(held, desired, lambda modifier, modified: (modifier.name, modifier.type) == (modified.name, modified.kind))
 
         def removed(modifier: bpy.types.LineStyleModifier) -> Outcome[None]:
-            return catch(held.remove, exception=RuntimeError)(modifier).map(lambda _: None).map_error(partial(Fault.of, Reason.REFUSED, repr(style)))
+            return catch(held.remove, exception=RuntimeError)(modifier).map(lambda _: None).map_error(partial(Fault.of, Refusal.REFUSED, repr(style)))
 
         def added(modifier: _StyleModifier) -> Outcome[None]:
             try:
                 held.new(name=modifier.name, type=modifier.kind)
             except (RuntimeError, TypeError) as error:
-                return Error(Fault.of(Reason.OUTSIDE if isinstance(error, TypeError) else Reason.REFUSED, f"{style!r}.{identifier}", error))
+                return Error(Fault.of(Reason.OUTSIDE if isinstance(error, TypeError) else Refusal.REFUSED, f"{style!r}.{identifier}", error))
             return Ok(None)
 
         return accumulated(map(removed, tuple(held)[count:])).bind(lambda _: accumulated(map(added, desired[count:]))).map(lambda _: None)
@@ -153,7 +154,7 @@ def _applied(identity: Identity, freestyle: _Freestyle, layer: bpy.types.ViewLay
         return style.bind(written)
 
     def removed(held: bpy.types.FreestyleLineSet) -> Outcome[None]:
-        return catch(linesets.remove, exception=RuntimeError)(held).map_error(partial(Fault.of, Reason.REFUSED, repr(layer.freestyle_settings)))
+        return catch(linesets.remove, exception=RuntimeError)(held).map_error(partial(Fault.of, Refusal.REFUSED, repr(layer.freestyle_settings)))
 
     first = freestyle.settings.apply(layer.freestyle_settings)
     return (

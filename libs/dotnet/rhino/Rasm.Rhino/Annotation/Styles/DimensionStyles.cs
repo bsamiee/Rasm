@@ -126,7 +126,7 @@ public static class DimensionStyles {
          from written in IO.lift(() => {
              double Page(Length length) => Quantities.As(length, doc.PageUnits);
              (DimensionStyle.ArrowType arrow, double arrowLength) = (
-                 metrics.Terminator.Map(closedArrow: DimensionStyle.ArrowType.SolidTriangle, openArrow: DimensionStyle.ArrowType.OpenArrow, oblique: DimensionStyle.ArrowType.Tick, dot: DimensionStyle.ArrowType.Dot),
+                 metrics.Convention.Terminator.Map(closedArrow: DimensionStyle.ArrowType.SolidTriangle, openArrow: DimensionStyle.ArrowType.OpenArrow, oblique: DimensionStyle.ArrowType.Tick, dot: DimensionStyle.ArrowType.Dot),
                  Page(metrics.TerminatorLength));
              (staged.UnitSystem, staged.DimensionScaleValue) = (doc.PageUnitSystem, scale);
              (staged.TextHeight, staged.TextGap, staged.MaskOffset, staged.BaselineSpacing) =

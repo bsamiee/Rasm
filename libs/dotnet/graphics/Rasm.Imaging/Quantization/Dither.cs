@@ -7,7 +7,9 @@ using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Processing.Processors.Dithering;
+using SixLabors.ImageSharp.Processing.Processors.Quantization;
 
 namespace Rasm.Imaging.Quantization;
 
@@ -105,7 +107,7 @@ public sealed partial class Dither {
 
         private static ReadOnlyMemory2D<Vector4> Read() {
             const float codes = ushort.MaxValue + 1f;
-            using Stream stream = typeof(Dither).Assembly.GetManifestResourceStream(typeof(Dither), "BlueNoise.tif")!;
+            using Stream stream = typeof(Dither).Assembly.GetManifestResourceStream("HDR_RGBA_4.png")!;
             using Image<RgbaVector> image = Image.Load<RgbaVector>(stream);
             float[] draws = GC.AllocateUninitializedArray<float>(4 * image.Width * image.Height);
             image.CopyPixelDataTo(MemoryMarshal.Cast<float, RgbaVector>(draws.AsSpan()));
@@ -114,4 +116,37 @@ public sealed partial class Dither {
             return new Memory<float>(draws).Cast<float, Vector4>().AsMemory2D(image.Height, image.Width);
         }
     }
+}
+
+[SmartEnum<string>]
+public sealed partial class PaletteDither {
+    public static readonly PaletteDither Bayer2 = new("bayer-2", KnownDitherings.Bayer2x2);
+    public static readonly PaletteDither Ordered3 = new("ordered-3", KnownDitherings.Ordered3x3);
+    public static readonly PaletteDither Bayer4 = new("bayer-4", KnownDitherings.Bayer4x4);
+    public static readonly PaletteDither Bayer8 = new("bayer-8", KnownDitherings.Bayer8x8);
+    public static readonly PaletteDither Bayer16 = new("bayer-16", KnownDitherings.Bayer16x16);
+    public static readonly PaletteDither FloydSteinberg = new("floyd-steinberg", KnownDitherings.FloydSteinberg);
+    public static readonly PaletteDither Atkinson = new("atkinson", KnownDitherings.Atkinson);
+    public static readonly PaletteDither Burkes = new("burkes", KnownDitherings.Burks);
+    public static readonly PaletteDither JarvisJudiceNinke = new("jarvis-judice-ninke", KnownDitherings.JarvisJudiceNinke);
+    public static readonly PaletteDither Stucki = new("stucki", KnownDitherings.Stucki);
+    public static readonly PaletteDither Sierra2 = new("sierra-2", KnownDitherings.Sierra2);
+    public static readonly PaletteDither Sierra3 = new("sierra-3", KnownDitherings.Sierra3);
+    public static readonly PaletteDither SierraLite = new("sierra-lite", KnownDitherings.SierraLite);
+    public static readonly PaletteDither StevensonArce = new("stevenson-arce", KnownDitherings.StevensonArce);
+
+    private readonly IDither kernel;
+
+    public PixelPass Reduced(int colors, float strength) => Quantized(static options => new WuQuantizer(options), colors, strength);
+
+    public PixelPass Mapped(ImmutableArray<Vector4> palette, float strength) =>
+        palette.Select(static light => SixLabors.ImageSharp.Color.FromScaledVector(light)).ToArray() switch {
+            var colors => Quantized(options => new PaletteQuantizer(colors, options), QuantizerConstants.MaxColors, strength),
+        };
+
+    private PixelPass.Frame Quantized(Func<QuantizerOptions, IQuantizer> quantizer, int colors, float strength) =>
+        new((frame, progress) =>
+            frame.Mutate(image => image.Mutate(context => context.Quantize(quantizer(
+                    new QuantizerOptions { MaxColors = colors, Dither = strength is 0f ? null : kernel, DitherScale = strength, ColorMatchingMode = ColorMatchingMode.Exact }))))
+                .Map(_ => progress.Iter(report => report.Report(frame.Size.Height))));
 }

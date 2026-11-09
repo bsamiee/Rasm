@@ -1,7 +1,7 @@
 {
     "name": "@rasm/hosting",
     "private": true,
-    "description": "One web app served the same on edge and server runtimes",
+    "description": "One web app declared once and served by any provider",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -11,41 +11,72 @@
         ".": "./index.ts",
         "./browser": "./browser.ts",
         "./cloudflare": "./cloudflare.ts",
+        "./head": "./head.ts",
         "./node": "./node.ts",
+        "./node-bundle": "./node-bundle.ts",
+        "./s3": "./s3.ts",
+        "./sites": "./sites.ts",
         "./template": "./template.ts",
         "./vite": "./vite.ts",
         "./worker": "./worker.ts"
     },
     "dependencies": {
-        "@aws-sdk/client-s3": "catalog:",
-        "@cloudflare/vite-plugin": "catalog:",
-        "@effect/platform-node": "catalog:",
-        "@rasm/mark": "workspace:*",
-        "@vite-pwa/assets-generator": "catalog:",
-        "cf": "catalog:",
         "cheerio": "catalog:",
-        "culori": "catalog:",
-        "partial-content": "catalog:",
-        "postcss": "catalog:"
+        "partial-content": "catalog:"
     },
     "devDependencies": {
+        "@aws-sdk/client-s3": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@rasm/mark": "workspace:*",
         "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@types/web-app-manifest": "catalog:",
+        "@vite-pwa/assets-generator": "catalog:",
+        "cf": "catalog:",
+        "culori": "catalog:",
         "effect": "catalog:",
+        "postcss": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",
         "vite": "catalog:"
     },
     "peerDependencies": {
+        "@aws-sdk/client-s3": "catalog:peers",
+        "@effect/platform-node": "catalog:peers",
+        "@rasm/mark": "workspace:*",
+        "@vite-pwa/assets-generator": "catalog:peers",
+        "cf": "catalog:peers",
+        "culori": "catalog:peers",
         "effect": "catalog:peers",
+        "postcss": "catalog:peers",
         "react": "catalog:peers",
         "react-dom": "catalog:peers",
         "vite": "catalog:peers"
     },
     "peerDependenciesMeta": {
+        "@aws-sdk/client-s3": {
+            "optional": true
+        },
+        "@effect/platform-node": {
+            "optional": true
+        },
+        "@rasm/mark": {
+            "optional": true
+        },
+        "@vite-pwa/assets-generator": {
+            "optional": true
+        },
+        "cf": {
+            "optional": true
+        },
+        "culori": {
+            "optional": true
+        },
+        "postcss": {
+            "optional": true
+        },
         "react": {
             "optional": true
         },

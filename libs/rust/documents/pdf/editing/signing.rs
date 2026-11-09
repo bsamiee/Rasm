@@ -27,7 +27,10 @@ pub struct Authority {
 pub enum Level {
     Basic,
     Timestamp(Authority),
-    LongTerm { authority: Authority, material: RevocationMaterial },
+    LongTerm {
+        authority: Authority,
+        material: RevocationMaterial,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -68,8 +71,11 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
             .flatten()
             .collect::<HashSet<_>>();
         let mut update = IncrementalDocument::create_from(bytes, prior);
-        let name = (1_usize..).map(|ordinal| format!("Signature{ordinal}")).find(|name| !taken.contains(name)).ok_or(lopdf::Error::ObjectIdOverflow)?;
-        let widget = update.new_document.try_add_object(dictionary! { TYPE => "Annot", SUBTYPE => "Widget", FT => "Sig", T => text_string(&name), F => PRINT_LOCKED, RECT => vec![Object::from(0); 4], P => page })?;
+        let named = |ordinal: usize| format!("Signature{ordinal}");
+        let name = (1..=taken.len()).map(named).find(|name| !taken.contains(name)).unwrap_or_else(|| named(taken.len().strict_add(1)));
+        let widget = update
+            .new_document
+            .try_add_object(dictionary! { TYPE => "Annot", SUBTYPE => "Widget", FT => "Sig", T => text_string(&name), F => PRINT_LOCKED, RECT => vec![Object::from(0); 4], P => page })?;
         let holder = match &form {
             Some(Object::Reference(held)) => *held,
             Some(Object::Dictionary(inline)) => update.new_document.try_add_object(inline.clone())?,

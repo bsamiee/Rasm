@@ -14,6 +14,7 @@ import msgspec
 import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
@@ -130,7 +131,7 @@ class Editor(msgspec.Struct, frozen=True, kw_only=True):
                     case _, ():
                         return Ok(Nothing)
                     case _:
-                        return Error(Fault.of(Reason.REQUIRED, repr(space), tuple(modifier.name for modifier in using), member="explicit preview modifier"))
+                        return Error(Fault.of(Refusal.REQUIRED, repr(space), tuple(modifier.name for modifier in using), member="explicit preview modifier"))
                 return _enclosing(space).map(
                     lambda groups: chosen.map(lambda modifier: cls(item=Handle.of(item), scene=Handle.of(scene), modifier=modifier.name, groups=tuple(node.name for node in groups)))
                 )
@@ -254,7 +255,7 @@ def _node(tree: bpy.types.NodeTree, name: str) -> Outcome[bpy.types.Node]:
 
 def _copied[T: bpy.types.ID](identity: Identity, block: T, copies: ExitStack) -> Outcome[T]:
     """Copies a block under the preview route ownership for the copies' scope."""
-    refused = partial(Fault.of, Reason.REFUSED, repr(block))
+    refused = partial(Fault.of, Refusal.REFUSED, repr(block))
 
     def built() -> Outcome[T]:
         try:

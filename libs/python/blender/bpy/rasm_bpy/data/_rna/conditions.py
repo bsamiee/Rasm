@@ -10,6 +10,7 @@ from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import root_in, rooted, Struct
 from rasm_bpy.data._rna.properties import case_choices
@@ -72,7 +73,7 @@ class Condition(msgspec.Struct, frozen=True, kw_only=True):
 
     def check(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> Outcome[None]:
         """Returns required fault holding the requirement sentence."""
-        return Ok(None).filter_with(lambda _: self.holds(context, item), lambda _: Fault.of(Reason.REQUIRED, self.message))
+        return Ok(None).filter_with(lambda _: self.holds(context, item), lambda _: Fault.of(Refusal.REQUIRED, self.message))
 
     def __and__(self, other: "Condition") -> "AllOf":
         """Conjunction of this and other requirement."""

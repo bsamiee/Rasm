@@ -1,7 +1,7 @@
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
-import { Effect, Option, type Path, Predicate, Record, Schema } from 'effect';
-import { type Part, TOOLCHAIN, target } from '#/plugins/targets';
+import { Array, Effect, Option, type Path, Predicate, Record, Schema } from 'effect';
+import { type Part, type Plugin, target } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,6 +19,7 @@ const MANIFEST = 'Package.swift';
 
 const Listed = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
 const Tests = Schema.Literal('test');
+const Executable = Schema.Literal('executable');
 const Described = Schema.fromJsonString(
     Schema.Struct({
         name: Schema.String,
@@ -41,15 +42,21 @@ const sources = (path: Path.Path, { root, held }: Package, described: ReadonlyMa
         .filter((input) => !input.endsWith('Package.resolved')),
 ];
 
-const packageParts = (path: Path.Path, plugin: string, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
+const packageParts = (path: Path.Path, plugin: Plugin, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
     const { file, root, held } = local;
     const modules = held.targets.filter((module) => module.product_memberships.length > 0 && module.name !== held.name);
     const flags = Predicate.isTruthy(isCI()) ? ['--disable-automatic-resolution'] : [];
     const suites = held.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
-    const inputs = [...sources(path, local, described), path.join('{workspaceRoot}', '.swift-version'), ...TOOLCHAIN];
+    const inputs = [...sources(path, local, described), path.join('{workspaceRoot}', '.swift-version'), ...plugin.inputs];
+    const build = ['swift', 'build', '--package-path', root, ...flags] as const;
     const work: Readonly<Record<string, TargetConfiguration>> = {
-        'build--swift-build': target(plugin, [['swift', 'build', '--package-path', root, ...flags]], { technologies: ['swift'], description: `Builds ${held.name} with SwiftPM`, help: { command: 'swift build --help', example: { args: ['--configuration', 'release'] } } }, { inputs }),
+        'build--swift-build': target(
+            plugin,
+            [build],
+            { technologies: ['swift'], description: `Builds ${held.name} with SwiftPM, in release under the release configuration`, help: { command: 'swift build --help', example: { args: ['--product', held.products[0]?.name ?? held.name] } } },
+            { inputs, configurations: { release: { runs: [[...build, '--configuration', 'release']] } } },
+        ),
         'check--swift-build': { executor: 'nx:noop', dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Compiles ${held.name} as its type check` } },
         ...(suites.length === 0
             ? {}
@@ -62,12 +69,29 @@ const packageParts = (path: Path.Path, plugin: string, local: Package, described
                   ),
               }),
     };
+    const executables = new Set(held.targets.filter(({ type }) => Schema.is(Executable)(type)).map(({ name }) => name));
+    const installed = (owner: string): Readonly<Record<string, TargetConfiguration>> =>
+        Option.match(
+            Array.findFirst(held.products, (product) => executables.has(owner) && product.targets.includes(owner)),
+            {
+                onNone: () => ({}),
+                onSome: ({ name }) => ({
+                    install: {
+                        executor: `${plugin.name}:install`,
+                        options: { package: root, product: name },
+                        inputs: plugin.inputs,
+                        cache: false,
+                        metadata: { technologies: ['swift'], description: `Builds ${name} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
+                    },
+                }),
+            },
+        );
     const forwarded = (module: string) =>
         Record.map(
             Record.filter(work, (_, verb) => verb !== 'test' || tested.has(module)),
             (_, verb): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [{ projects: [held.name], target: verb }], inputs, metadata: { technologies: ['swift'], description: `Runs ${held.name}:${verb}` } }),
         );
-    return [{ root, name: held.name, file, technologies: ['swift'], targets: work }, ...modules.map((module): Part => ({ root: path.join(root, module.path), name: module.name, file, technologies: ['swift'], targets: forwarded(module.name) }))];
+    return [{ root, name: held.name, file, technologies: ['swift'], targets: { ...work, ...installed(held.name) } }, ...modules.map((module): Part => ({ root: path.join(root, module.path), name: module.name, file, technologies: ['swift'], targets: { ...forwarded(module.name), ...installed(module.name) } }))];
 };
 
 const packageEdges = (held: typeof Described.Type, described: ReadonlyMap<string, Package>): readonly RawProjectGraphDependency[] => {

@@ -15,7 +15,6 @@
         "./vite": "./vite.ts"
     },
     "dependencies": {
-        "@noble/hashes": "catalog:",
         "@rasm/applications": "workspace:*",
         "@rasm/automation": "workspace:*",
         "@rasm/cep": "workspace:*",

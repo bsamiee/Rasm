@@ -2,47 +2,43 @@ use std::collections::BTreeMap;
 
 use indexmap::IndexSet;
 use leiden_rs::{GraphDataBuilder, HierarchicalOutput, Leiden, LeidenConfig, LeidenOutput, Partition};
-use petgraph::{
-    EdgeType,
-    stable_graph::{EdgeReference, NodeIndex, StableGraph},
-};
 use validated::Validated;
 
-use crate::{NetworkError, Weight, compact, present};
+use crate::{Failure, Network, NetworkError, Weight, compact, locate};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Communities {
-    pub membership: BTreeMap<NodeIndex, usize>,
+pub struct Communities<N> {
+    pub membership: BTreeMap<N, usize>,
     pub quality: f64,
-    pub trace: Trace,
+    pub trace: Trace<N>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Trace {
-    Levels(Vec<(BTreeMap<NodeIndex, usize>, f64)>),
+pub enum Trace<N> {
+    Levels(Vec<(BTreeMap<N, usize>, f64)>),
     History(Vec<f64>),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn communities<N, E, Ty>(
-    graph: &StableGraph<N, E, Ty>,
-    initial: &BTreeMap<NodeIndex, usize>,
-    weight: impl Fn(EdgeReference<'_, E>) -> Weight,
-    mass: impl Fn(&N) -> Weight,
+pub fn communities<G>(
+    graph: G,
+    initial: &BTreeMap<G::NodeId, usize>,
+    weight: impl Fn(G::EdgeRef) -> Weight,
+    mass: impl Fn(G::NodeId) -> Weight,
     config: LeidenConfig,
-) -> Result<Communities, NetworkError>
+) -> Result<Communities<G::NodeId>, Failure<G>>
 where
-    Ty: EdgeType,
+    G: Network,
 {
-    initial.keys().map(|&node| present(graph, node).map(drop)).collect::<Validated<(), _>>().ok().map_err(NetworkError::Refused)?;
     let network = compact(graph, |edge| weight(edge).into_inner());
+    initial.keys().map(|&node| locate(&network, node).map(drop)).collect::<Validated<(), _>>().ok().map_err(NetworkError::Refused)?;
     let builder = GraphDataBuilder::new(network.node_count());
-    let mut builder = if Ty::is_directed() { builder.directed() } else { builder };
+    let mut builder = if graph.is_directed() { builder.directed() } else { builder };
     network.raw_edges().iter().try_for_each(|arc| builder.add_edge(arc.source().index(), arc.target().index(), arc.weight).map(drop))?;
-    network.node_weights().enumerate().try_for_each(|(position, &node)| builder.set_node_weight(position, mass(&graph[node]).into_inner()).map(drop))?;
+    network.node_weights().enumerate().try_for_each(|(position, &node)| builder.set_node_weight(position, mass(node).into_inner()).map(drop))?;
     let data = builder.build()?;
     let mut labels = IndexSet::new();
     let seed = network.node_weights().map(|&node| labels.insert_full(initial.get(&node).copied().ok_or(node)).0).collect::<Vec<_>>();

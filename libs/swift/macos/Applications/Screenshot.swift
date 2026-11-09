@@ -18,7 +18,7 @@ extension NSRunningApplication {
     public func screenshots(
         of windows: [CGWindowID],
         longestSide: Int? = nil,
-        configuration: SCScreenshotConfiguration = .background,
+        configuration: () -> SCScreenshotConfiguration = { .background },
     ) async throws(ApplicationFailure) -> [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] {
         guard CGPreflightScreenCaptureAccess() else { throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .noCaptureAccess) }
         await NSApplication.loadApplication()
@@ -36,9 +36,10 @@ extension NSRunningApplication {
                 let filter: SCContentFilter = SCContentFilter(desktopIndependentWindow: window)
                 let scale: CGFloat = CGFloat(filter.pointPixelScale)
                 let fitted: CGFloat = longestSide.map { limit in min(1, CGFloat(limit) / (max(filter.contentRect.width, filter.contentRect.height) * scale)) } ?? 1
-                configuration.width = Int((filter.contentRect.width * scale * fitted).rounded())
-                configuration.height = Int((filter.contentRect.height * scale * fitted).rounded())
-                do { return try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) } catch {
+                let capture: SCScreenshotConfiguration = configuration()
+                capture.width = Int((filter.contentRect.width * scale * fitted).rounded())
+                capture.height = Int((filter.contentRect.height * scale * fitted).rounded())
+                do { return try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: capture) } catch {
                     throw ApplicationFailure(subject: String(number), reason: .host(error as NSError))
                 }
             }

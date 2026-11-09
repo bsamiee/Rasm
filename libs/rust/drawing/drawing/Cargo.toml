@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-drawing"
 edition.workspace = true
-description       = "Drawing model PDF, DWG, drafting, and view output reads: colors, pens, linetypes, hatches, regions, text, glyph runs, elements, and pages"
+description       = "Vector drawing model: colors, pens, linetypes, hatches, regions, text, glyph runs, elements, and pages in a stated unit"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -31,6 +31,7 @@ geo-types                  = { workspace = true }
 color                      = { workspace = true }
 linebender_resource_handle = { workspace = true }
 parlance                   = { workspace = true }
+uom                        = { workspace = true }
 kurbo                      = { workspace = true }
 linesweeper                = { workspace = true }
 

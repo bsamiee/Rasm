@@ -13,11 +13,6 @@
         <IsPublishable>false</IsPublishable>
     </PropertyGroup>
 
-    <PropertyGroup Label="Rhino Plug-In Library Copies" Condition="'$(RhinoPlugIn)' != ''">
-        <AssemblyName>$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
-        <RunAnalyzers>false</RunAnalyzers>
-    </PropertyGroup>
-
     <PropertyGroup Label="Build Defaults">
         <RepoTargetFramework>net10.0</RepoTargetFramework>
         <TargetFramework>$(RepoTargetFramework)</TargetFramework>

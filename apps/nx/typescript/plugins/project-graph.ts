@@ -1,36 +1,31 @@
-import { createRequire, findPackageJSON } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { createRequire, findPackageJSON, registerHooks } from 'node:module';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesResultArray, detectPackageManager, hashArray, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Option, Path, Record, Result, Schema } from 'effect';
 import { API, type ParsedCommandLine } from 'typescript/sync';
-import { PACKAGES } from '#/plugins/adobe-packages';
+import { PACKAGES, TypeScriptError } from '#/plugins/adobe-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Targets = Readonly<Record<string, TargetConfiguration>>;
 type Program = Effect.Success<ReturnType<typeof programs>>[number];
-type Kind = keyof typeof MARKERS | keyof typeof PACKAGES;
+type Kind = keyof typeof MARKERS | keyof typeof PACKAGES | 'publint';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CONFIG = 'tsconfig.json';
 const MARKERS = { storybook: '.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}', cloudflare: 'cloudflare.config.ts', vite: 'vite.config.{js,mjs,ts,cjs,mts,cts}' } as const;
-const VERBS = ['build', 'check', 'fix', 'upgrade'];
 const TECHNOLOGIES = ['typescript'];
-const RELEASE = 'release';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The package.json closest to this module, its own package in the tree and in dist alike' });
+const Package = Schema.fromJsonString(Schema.Struct({ private: Schema.optionalKey(Schema.Boolean) })).annotate({ description: 'A workspace package.json field deciding whether its package publishes, the rule Nx core applies to nx-release-publish' });
 const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'Plugin options from the nx.json row' });
 const Built = Schema.Struct({ outDir: Schema.String });
 const Vite = Schema.Struct({ build: Built, environments: Schema.Record(Schema.String, Schema.Struct({ build: Built })) }).annotate({ description: 'The resolved Vite config fields naming every folder vite build writes' });
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class TypeScriptError extends Schema.TaggedError<TypeScriptError, { readonly brand: unique symbol }>()('TypeScriptError', { message: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -65,7 +60,18 @@ const programs = Effect.fnUntraced(function* (workspaceRoot: string, roots: read
         return {
             root,
             commands: checked.map(({ config, parsed }) => ['tsc', referenced(parsed).length > 0 ? '--build' : '--project', path.relative(path.join(workspaceRoot, root), config)]),
-            outputs: Array.dedupe(Array.getSomes(holding.filter(({ parsed }) => parsed.options.noEmit !== true).flatMap(({ parsed: { options } }) => [options.outDir, options.declarationDir].map(Option.fromUndefinedOr))).map(relative)),
+            outputs: Array.dedupe(
+                holding
+                    .filter(({ parsed }) => parsed.options.noEmit !== true)
+                    .flatMap(
+                        ({ parsed: { options } }) =>
+                            [
+                                [options.outDir, `**/*.{js,cjs,mjs,jsx${options.resolveJsonModule === true ? ',json' : ''},d.ts,d.cts,d.mts}{,.map}`],
+                                [options.declarationDir, '**/*.{d.ts,d.cts,d.mts}{,.map}'],
+                            ] as const,
+                    )
+                    .flatMap(([at, emitted]) => (at === undefined ? [] : [path.join(relative(at), emitted)])),
+            ),
             chain: Array.dedupe(present.flatMap(({ chain }) => chain.map(relative))).filter((at) => !at.startsWith(`${root}/`)),
         };
     });
@@ -73,6 +79,19 @@ const programs = Effect.fnUntraced(function* (workspaceRoot: string, roots: read
 
 const bundled = Effect.fnUntraced(function* (workspaceRoot: string, configs: readonly { readonly root: string; readonly file: string }[]) {
     const path = yield* Path.Path;
+    const urls = new Set<string>();
+    yield* Effect.acquireRelease(
+        Effect.sync(() =>
+            registerHooks({
+                resolve: (specifier, context, next) => {
+                    const resolved = next(specifier, context);
+                    urls.add(resolved.url);
+                    return resolved;
+                },
+            }),
+        ),
+        (hooks) => Effect.sync(() => hooks.deregister()),
+    );
     const results = yield* Effect.forEach(
         configs,
         Effect.fnUntraced(function* ({ root, file }) {
@@ -92,10 +111,16 @@ const bundled = Effect.fnUntraced(function* (workspaceRoot: string, configs: rea
     return {
         outputs: Record.fromEntries(Array.zip(configs, results).flatMap(([{ root }, result]) => (Result.isSuccess(result) ? [[root, result.success] as const] : []))),
         failures: Array.zip(configs, results).flatMap(([{ file }, result]) => (Result.isFailure(result) ? [[file, new Error(result.failure.message)] satisfies [string, Error]] : [])),
+        loaded: yield* Effect.promise(() =>
+            globWithWorkspaceContext(
+                workspaceRoot,
+                Array.getSomes([...urls].map((url) => Option.liftThrowable(fileURLToPath)(url))).map((at) => path.relative(workspaceRoot, at)),
+            ),
+        ),
     };
-});
+}, Effect.scoped);
 
-const targets = (path: Path.Path, name: string, program: Program, held: ReadonlySet<Kind>, bundles: Option.Option<readonly string[]>, external: readonly string[], outputPath: Option.Option<string>): Targets => {
+const targets = (path: Path.Path, plugin: { readonly name: string; readonly inputs: NonNullable<TargetConfiguration['inputs']> }, program: Program, held: ReadonlySet<Kind>, bundles: Option.Option<readonly string[]>, external: readonly string[], outputPath: Option.Option<string>): Targets => {
     const metadata = (description: string, help: readonly string[], example: readonly string[]) => ({ technologies: TECHNOLOGIES, description, help: { command: line([...help, '--help']), example: { args: [...example] } } });
     const command = (argv: readonly string[]) => ({ executor: 'nx:run-commands', options: { command: line(argv), cwd: program.root } });
     const chained = program.chain.map((at) => path.join('{workspaceRoot}', at));
@@ -150,17 +175,30 @@ const targets = (path: Path.Path, name: string, program: Program, held: Readonly
                 },
             }),
         }),
+        ...(held.has('publint')
+            ? {
+                  'check--publint': {
+                      ...command(['publint', '--strict']),
+                      dependsOn: ['build--*'],
+                      cache: true,
+                      inputs: ['default', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: ['publint'] }],
+                      outputs: [],
+                      metadata: metadata('Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', ['publint', 'run'], ['--level', 'warning']),
+                  },
+              }
+            : {}),
         ...Record.mapEntries(
             Record.filter(PACKAGES, (_, kind) => held.has(kind)),
             ({ archive, variables, description }, kind): [string, TargetConfiguration] => {
                 const destination = { outputPath: Option.match(outputPath, { onNone: () => program.root, onSome: (at) => path.join(at, kind, '{projectName}') }) };
+                const built = Option.isSome(bundles) || program.outputs.length > 0;
                 return [
                     `build--${kind}`,
                     {
-                        executor: `${name}:package`,
-                        dependsOn: ['build--*'],
+                        executor: `${plugin.name}:package`,
+                        ...(built ? { dependsOn: ['build--*'] } : {}),
                         cache: true,
-                        inputs: [{ dependentTasksOutputFiles: '**/*' }, ...variables.map((env) => ({ env })), { externalDependencies: [] }],
+                        inputs: [built ? { dependentTasksOutputFiles: '**/*' } : 'default', ...variables.map((env) => ({ env })), ...plugin.inputs],
                         outputs: [`{options.outputPath}/*${archive}`],
                         ...(variables.length === 0 ? { options: destination } : { options: {}, configurations: { release: destination } }),
                         metadata: { technologies: TECHNOLOGIES, description },
@@ -171,23 +209,14 @@ const targets = (path: Path.Path, name: string, program: Program, held: Readonly
     };
     return {
         ...inferred,
-        ...Record.fromIterableWith(
-            VERBS.filter((verb) => Record.keys(inferred).some((target) => target.startsWith(`${verb}--`))),
-            (verb): readonly [string, TargetConfiguration] => {
-                const inputs = Record.collect(
-                    Record.filter(inferred, (_, target) => target.startsWith(`${verb}--`)),
-                    (_, target) => target.inputs ?? [],
-                ).flat();
-                return [
-                    verb,
-                    {
-                        executor: 'nx:noop',
-                        dependsOn: [`${verb}--*`],
-                        inputs: ['...', ...Array.dedupe(inputs)],
-                        metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
-                    },
-                ];
-            },
+        ...Record.map(
+            Array.groupBy(Record.toEntries(inferred), ([target]) => target.slice(0, target.indexOf('--'))),
+            (members, verb): TargetConfiguration => ({
+                executor: 'nx:noop',
+                dependsOn: [`${verb}--*`],
+                inputs: ['...', ...Array.dedupe(members.flatMap(([, target]) => target.inputs ?? []))],
+                metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
+            }),
         ),
     };
 };
@@ -217,8 +246,21 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                     { concurrency: 'unbounded' },
                 ).pipe(Effect.map(Array.flatten));
                 const configs = markers.filter(({ root, kind }) => kind === 'vite' && projects.includes(root));
-                const held = (root: string) => new Set(markers.flatMap((marker) => (marker.root === root ? [marker.kind] : [])));
-                const external = Option.isSome(Option.liftThrowable(() => createRequire(path.join(workspaceRoot, 'package.json')).resolve('@effect/tsgo/package.json'))()) ? ['@effect/tsgo'] : [];
+                const installed = (specifier: string) => Option.isSome(Option.liftThrowable(findPackageJSON)(specifier, pathToFileURL(path.join(workspaceRoot, 'package.json'))));
+                const published = installed('publint')
+                    ? yield* Effect.filter(
+                          projects,
+                          (root) =>
+                              fs.readFileString(path.join(workspaceRoot, root, 'package.json')).pipe(
+                                  Effect.flatMap(Schema.decodeEffect(Package)),
+                                  Effect.map((manifest) => manifest.private !== true),
+                                  Effect.orElseSucceed(() => false),
+                              ),
+                          { concurrency: 'unbounded' },
+                      )
+                    : [];
+                const held = (root: string) => new Set<Kind>([...markers.flatMap((marker) => (marker.root === root ? [marker.kind] : [])), ...(published.includes(root) ? ['publint' as const] : [])]);
+                const external = installed('@effect/tsgo') ? ['@effect/tsgo'] : [];
                 const modules = (yield* fs.readDirectory(import.meta.dirname)).toSorted().map((module) => path.join(import.meta.dirname, module));
                 const hash = hashArray([
                     yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, ['**/tsconfig*.json', getLockFileName(detectPackageManager(workspaceRoot)), ...configs.map(({ file }) => file)])),
@@ -226,20 +268,26 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                     hashObject(decoded),
                     ...projects,
                 ]);
-                const { name } = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url)).pipe(Effect.flatMap(fs.readFileString), Effect.flatMap(Schema.decodeEffect(Manifest)));
-                const cache = new PluginCache<{ readonly programs: readonly Program[]; readonly bundles: Readonly<Record<string, readonly string[]>> }>(path.join(workspaceDataDirectory, `${path.basename(name)}-${hashObject(decoded)}.hash`));
-                const { read, failures } = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
+                const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
+                const { name } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
+                const tracked = yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.relative(workspaceRoot, located)]));
+                const plugin = { name, inputs: tracked.length === 0 ? [{ externalDependencies: [name] }] : [{ input: 'default', projects: [name] }, { externalDependencies: [] }] };
+                const digest = (sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources]));
+                const cache = new PluginCache<{ readonly programs: readonly Program[]; readonly bundles: Readonly<Record<string, readonly string[]>>; readonly loaded: readonly string[]; readonly digest: string }>(path.join(workspaceDataDirectory, `${path.basename(name)}-${hashObject(decoded)}.hash`));
+                const valid = yield* Effect.filter(Option.toArray(Option.fromNullishOr(cache.get(hash))), (entry) => Effect.map(digest(entry.loaded), (current) => current === entry.digest));
+                const { read, failures } = yield* Option.match(Array.head(valid), {
                     onSome: (entry) => Effect.succeed({ read: entry, failures: Array.empty<[string, Error]>() }),
                     onNone: () =>
-                        Effect.tap(
-                            Effect.map(Effect.all([programs(workspaceRoot, projects), bundled(workspaceRoot, configs)], { concurrency: 'unbounded' }), ([found, { outputs, failures: failed }]) => ({ read: { programs: found, bundles: outputs }, failures: failed })),
-                            (fresh) =>
+                        Effect.all([programs(workspaceRoot, projects), bundled(workspaceRoot, configs)], { concurrency: 'unbounded' }).pipe(
+                            Effect.flatMap(([found, { outputs, failures: failed, loaded }]) => Effect.map(digest(loaded), (current) => ({ read: { programs: found, bundles: outputs, loaded, digest: current }, failures: failed }))),
+                            Effect.tap((fresh) =>
                                 fresh.failures.length === 0
                                     ? Effect.sync(() => {
                                           cache.set(hash, fresh.read);
                                           cache.writeToDisk();
                                       })
                                     : Effect.void,
+                            ),
                         ),
                 });
                 const released = (root: string): Pick<ProjectConfiguration, 'release' | 'tags'> =>
@@ -250,12 +298,12 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                         ),
                         {
                             onNone: () => ({}),
-                            onSome: ({ manifest }) => ({ tags: [RELEASE], release: { version: { versionActions: `${name}/release/version-actions`, versionActionsOptions: { manifest } } } }),
+                            onSome: ({ manifest }) => ({ tags: ['release'], release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest } } } }),
                         },
                     );
                 const nodes = read.programs.map((program): CreateNodesResultArray[number] => [
                     path.join(program.root, CONFIG),
-                    { projects: { [program.root]: { metadata: { technologies: TECHNOLOGIES }, targets: targets(path, name, program, held(program.root), Record.get(read.bundles, program.root), external, Option.fromUndefinedOr(decoded.outputPath)), ...released(program.root) } } },
+                    { projects: { [program.root]: { metadata: { technologies: TECHNOLOGIES }, targets: targets(path, plugin, program, held(program.root), Record.get(read.bundles, program.root), external, Option.fromUndefinedOr(decoded.outputPath)), ...released(program.root) } } },
                 ]);
                 return failures.length === 0 ? nodes : yield* Effect.fail(new AggregateCreateNodesError(failures, nodes));
             }).pipe(
@@ -267,4 +315,4 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes, TypeScriptError };
+export { createNodes };

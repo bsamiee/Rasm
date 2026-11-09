@@ -1,15 +1,13 @@
 use core::{hash::Hash, iter, num::NonZero, ops::Mul, range::RangeInclusive};
 use std::collections::{BTreeMap, HashMap, VecDeque, hash_map::Entry};
 
-use dashu::base::ConversionError;
-use itertools::{Either, Itertools as _};
+use itertools::Itertools as _;
 use jiff::civil;
 use ndarray::Array2;
 use nonempty_collections::{NEVec, NonEmptyIterator as _};
 use rasm_site::Place;
 use rasm_solar_geometry::sector;
-use rasm_stats::descriptive;
-use statrs::statistics::Statistics as _;
+use statrs::statistics::{Data, OrderStatistics as _, Statistics as _};
 use thermalcomfort::{
     Speed, Temperature,
     environment::{RunningMeanOutdoorTemperatureOptions, ScaleWindSpeedLogOptions, running_mean_outdoor_temperature, scale_wind_speed_log},
@@ -26,9 +24,9 @@ use uom::si::{
 use validated::Validated;
 
 use crate::{
-    Defect, Hour, Hours, Measure, Refusal, WeatherError, accumulated,
+    Defect, Hour, Hours, Measure, Refusal, WeatherError,
     epw::{Day, Kind, Period},
-    length, local, measure, positive, quantity, redated, reduced, refused, weighted, zone,
+    length, local, measure, positive, quantity, redated, refused, weighted, zone,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -66,26 +64,36 @@ pub enum Terrain {
     Suburbs,
     City,
     Ocean,
-    Stated { exponent: f64, thickness: Length },
+    Stated {
+        exponent: f64,
+        thickness: Length,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Profile {
-    Power { site: Terrain, station: Terrain = Terrain::Country },
-    Logarithmic { roughness: Length, displacement: Length },
+    Power {
+        site: Terrain,
+        station: Terrain = Terrain::Country,
+    },
+    Logarithmic {
+        roughness: Length,
+        displacement: Length,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [SUMMARIES]
 
-pub fn summary<K, D>(
-    hours: &Hours,
+pub fn summary<S, K, D>(
+    hours: &Hours<S>,
     key: impl Fn(civil::DateTime, &Hour) -> Option<K>,
     field: impl Fn(&Hour) -> Option<Measure<D>>,
     statistic: Statistic,
 ) -> Result<BTreeMap<K, Measure<D>>, WeatherError>
 where
+    S: AsRef<Place>,
     K: Ord + Hash,
     D: si::Dimension + ?Sized,
 {
@@ -97,39 +105,25 @@ where
     match statistic {
         Statistic::Mean => grouped(
             readings,
-            |reading| {
-                let mut totals = Either::Left(Default::default());
-                accumulated(&mut totals, reading, 1.0).map(|()| totals)
+            |(value, weight)| (weight * value, weight),
+            |(sum, total), (value, weight)| {
+                *sum = weight.mul_add(value, *sum);
+                *total += weight;
             },
-            |state, reading| accumulated(state, reading, 1.0),
-            |totals| reduced(totals, 1.0).map(|value| Some(measure(value))),
+            |(sum, total)| Some(measure(sum / total)),
         ),
-        Statistic::Sum => grouped(
-            readings,
-            |(value, _)| Ok(value),
-            |sum, (value, _)| {
-                *sum += value;
-                Ok(())
-            },
-            |sum| Ok(Some(measure(sum))),
-        ),
-        Statistic::Quantile(tau) => grouped(
-            readings,
-            |reading| Ok(NEVec::new(reading)),
-            |readings, reading| {
-                readings.push(reading);
-                Ok(())
-            },
-            |readings| {
-                let step = readings.nonempty_iter().map(|&(_, weight)| weight).reduce(f64::min).max(1.0);
-                Ok(descriptive::quantile(readings.iter().map(|&(value, weight)| (value, (weight / step).round().max(1.0).to_int_saturating::<usize>())), tau.get::<ratio>()).map(measure))
-            },
-        ),
+        Statistic::Sum => grouped(readings, |(value, _)| value, |sum, (value, _)| *sum += value, |sum| Some(measure(sum))),
+        Statistic::Quantile(tau) => grouped(readings, NEVec::new, NEVec::push, |readings| {
+            let step = readings.nonempty_iter().map(|&(_, weight)| weight).reduce(f64::min).max(1.0);
+            let repeated = readings.iter().flat_map(|&(value, weight)| iter::repeat_n(value, (weight / step).round().max(1.0).to_int_saturating::<usize>()));
+            Some(measure(Data::new(repeated.collect_vec()).quantile(tau.get::<ratio>())))
+        }),
     }
 }
 
-pub fn integral<K, D, P>(hours: &Hours, key: impl Fn(civil::DateTime, &Hour) -> Option<K>, field: impl Fn(&Hour) -> Option<Measure<D>>) -> Result<BTreeMap<K, Measure<P>>, WeatherError>
+pub fn integral<S, K, D, P>(hours: &Hours<S>, key: impl Fn(civil::DateTime, &Hour) -> Option<K>, field: impl Fn(&Hour) -> Option<Measure<D>>) -> Result<BTreeMap<K, Measure<P>>, WeatherError>
 where
+    S: AsRef<Place>,
     K: Ord + Hash,
     D: si::Dimension + ?Sized,
     P: si::Dimension + ?Sized,
@@ -138,14 +132,15 @@ where
     summary(hours, key, |hour| field(hour).map(|quantity| quantity * Time::new::<second>(length(hour.interval).as_secs_f64())), Statistic::Sum)
 }
 
-pub fn degree_days<K>(
-    hours: &Hours,
+pub fn degree_days<S, K>(
+    hours: &Hours<S>,
     key: impl Fn(civil::Date) -> Option<K>,
     base: ThermodynamicTemperature,
     kind: DegreeDays,
     method: DegreeDayMethod,
 ) -> Result<BTreeMap<K, <TemperatureInterval as Mul<Time>>::Output>, WeatherError>
 where
+    S: AsRef<Place>,
     K: Ord + Hash,
 {
     let excess = |temperature: f64, weight: f64| {
@@ -157,8 +152,8 @@ where
     };
     refused((!base.is_finite()).then_some(Refusal::Base(base)))?;
     Ok(daily(hours, key, |day| match method {
-        DegreeDayMethod::MeanTemperature => weighted(day.iter().copied()).map(|mean| mean.map(|mean| excess(mean, day.iter().map(|&(_, weight)| weight).sum()))),
-        DegreeDayMethod::Integration => Ok(Some(day.iter().map(|&(temperature, weight)| excess(temperature, weight)).sum())),
+        DegreeDayMethod::MeanTemperature => weighted(day.iter().copied()).map(|mean| excess(mean, day.iter().map(|&(_, weight)| weight).sum())),
+        DegreeDayMethod::Integration => Some(day.iter().map(|&(temperature, weight)| excess(temperature, weight)).sum()),
     })?
     .into_iter()
     .into_grouping_map()
@@ -167,7 +162,8 @@ where
     .collect())
 }
 
-pub fn running_mean(hours: &Hours, days: NonZero<usize>, options: RunningMeanOutdoorTemperatureOptions) -> Result<Vec<(civil::Date, ThermodynamicTemperature)>, WeatherError> {
+pub fn running_mean<S>(hours: &Hours<S>, days: NonZero<usize>, options: RunningMeanOutdoorTemperatureOptions) -> Result<Vec<(civil::Date, ThermodynamicTemperature)>, WeatherError>
+where S: AsRef<Place> {
     refused((!(0.0..=1.0).contains(&options.alpha)).then_some(Refusal::Alpha(options.alpha)))?;
     Ok(daily(hours, Some, weighted)?
         .into_iter()
@@ -186,10 +182,11 @@ pub fn running_mean(hours: &Hours, days: NonZero<usize>, options: RunningMeanOut
 
 // --- [TYPICAL]
 
-pub fn typical(hours: &Hours, year: i16) -> Result<(Hours, Vec<Period>), WeatherError> {
+pub fn typical<S>(hours: &Hours<S>, year: i16) -> Result<(Hours<S>, Vec<Period>), WeatherError>
+where S: AsRef<Place> + Clone {
     const CANDIDATES: usize = 3;
     const WEEK: usize = 7;
-    fn time_weighted<'hour, I>(hours: I, field: fn(&Hour) -> Option<f64>) -> Result<Option<f64>, ConversionError>
+    fn time_weighted<'hour, I>(hours: I, field: fn(&Hour) -> Option<f64>) -> Option<f64>
     where I: IntoIterator<Item = &'hour Hour> {
         weighted(hours.into_iter().filter_map(|hour| field(hour).map(|value| (value, length(hour.interval).as_secs_f64()))))
     }
@@ -211,8 +208,9 @@ pub fn typical(hours: &Hours, year: i16) -> Result<(Hours, Vec<Period>), Weather
             .copied()
             .into_group_map()
             .into_iter()
-            .map(|(date, day)| Ok::<_, ConversionError>((date, parameters.try_map(|field| time_weighted(day.iter().copied(), field))?, day)))
-            .process_results(|days| days.sorted_by_key(|&(date, _, _)| date).collect_vec())?;
+            .map(|(date, day)| (date, parameters.map(|field| time_weighted(day.iter().copied(), field)), day))
+            .sorted_by_key(|&(date, _, _)| date)
+            .collect_vec();
         let chosen = (1..=12_i8)
             .map(|month| {
                 let dates = days.iter().filter(|(date, _, _)| date.month() == month).collect_vec();
@@ -233,25 +231,22 @@ pub fn typical(hours: &Hours, year: i16) -> Result<(Hours, Vec<Period>), Weather
                         statistics.into_iter().map(|own| own.map_or(ordered.len(), |own| ordered.partition_point(|&other| other < own))).collect_vec()
                     })
                     .collect_vec();
-                let long_term = time_weighted(dates.iter().flat_map(|(_, _, day)| day.iter().copied()), wind)?;
-                let chosen = years
+                let long_term = time_weighted(dates.iter().flat_map(|(_, _, day)| day.iter().copied()), wind);
+                years
                     .iter()
                     .enumerate()
                     .map(|(index, candidate)| {
                         let total = ranks.iter().map(|statistics| statistics[index]).sum::<usize>();
-                        time_weighted(candidate.1.iter().flat_map(|(_, _, day)| day.iter().copied()), wind)
-                            .map(|mean| (candidate.0, total, mean.zip(long_term).map_or_default(|(own, mean)| (own - mean).abs())))
+                        let mean = time_weighted(candidate.1.iter().flat_map(|(_, _, day)| day.iter().copied()), wind);
+                        (candidate.0, total, mean.zip(long_term).map_or_default(|(own, mean)| (own - mean).abs()))
                     })
-                    .process_results(|candidates| {
-                        candidates
-                            .sorted_by_key(|&(_, total, _)| total)
-                            .take(CANDIDATES)
-                            .min_by(|(left_year, left_rank, left), (right_year, right_rank, right)| left.total_cmp(right).then(left_rank.cmp(right_rank)).then(left_year.cmp(right_year)))
-                            .map(|(candidate, _, _)| (month, candidate))
-                    })?;
-                Ok::<_, ConversionError>(chosen.ok_or(Refusal::Typical(month)))
+                    .sorted_by_key(|&(_, total, _)| total)
+                    .take(CANDIDATES)
+                    .min_by(|(left_year, left_rank, left), (right_year, right_rank, right)| left.total_cmp(right).then(left_rank.cmp(right_rank)).then(left_year.cmp(right_year)))
+                    .map(|(candidate, _, _)| (month, candidate))
+                    .ok_or(Refusal::Typical(month))
             })
-            .process_results(|months| months.collect::<Validated<Vec<_>, _>>())?
+            .collect::<Validated<Vec<_>, _>>()
             .ok()?;
         drop(days);
         let leap = civil::Date::new(year, 1, 1)?.in_leap_year();
@@ -261,18 +256,17 @@ pub fn typical(hours: &Hours, year: i16) -> Result<(Hours, Vec<Period>), Weather
             .map(|hour| redated(hour.clone(), zone(hours), year))
             .collect::<Result<Vec<_>, _>>()?
     };
-    let typical = Hours::try_new(hours.sun.clone(), records)?;
+    let typical = Hours::try_new(hours.site.clone(), records)?;
     let dated = typical.records.iter().map(|hour| (local(&typical, hour).date(), hour)).chunk_by(|&(date, _)| date);
-    let means =
-        (&dated).into_iter().filter_map(|(date, day)| time_weighted(day.map(|(_, hour)| hour), dry_bulb).map(|mean| mean.map(|mean| (date, mean))).transpose()).collect::<Result<Vec<_>, _>>()?;
-    let southern = AsRef::<Place>::as_ref(&hours.sun).position.latitude().is_sign_negative();
+    let means = (&dated).into_iter().filter_map(|(date, day)| time_weighted(day.map(|(_, hour)| hour), dry_bulb).map(|mean| (date, mean))).collect_vec();
+    let southern = hours.site.as_ref().position.latitude().is_sign_negative();
     let seasons = [("Winter", [12, 1, 2], Some(("Min", -1.0))), ("Spring", [3, 4, 5], None), ("Summer", [6, 7, 8], Some(("Max", 1.0))), ("Autumn", [9, 10, 11], None)];
     let periods = seasons
         .into_iter()
-        .map(|(season, months, extreme): (&str, [i8; 3], Option<(&str, f64)>)| {
+        .flat_map(|(season, months, extreme): (&str, [i8; 3], Option<(&str, f64)>)| {
             let months = if southern { months.map(|month| month.strict_add(5).rem_euclid(12).strict_add(1)) } else { months };
             let means = means.iter().copied().filter(|(date, _)| months.contains(&date.month())).collect_vec();
-            let average = weighted(means.iter().map(|&(_, mean)| (mean, 1.0)))?;
+            let average = weighted(means.iter().map(|&(_, mean)| (mean, 1.0)));
             let weeks = means
                 .array_windows::<WEEK>()
                 .filter(|week| week.array_windows().all(|[(earlier, _), (later, _)]| earlier.tomorrow().is_ok_and(|next| next == *later)))
@@ -293,16 +287,19 @@ pub fn typical(hours: &Hours, year: i16) -> Result<(Hours, Vec<Period>), Weather
                     .and_then(nearest)
                     .map(|week| period(format!("{season} - Week Nearest {bound} Temperature For Period"), Kind::Extreme, week))
             });
-            Ok::<_, ConversionError>(iter::chain(extreme_week, typical_week))
+            iter::chain(extreme_week, typical_week)
         })
-        .process_results(|seasons| seasons.flatten().collect())?;
+        .collect();
     Ok((typical, periods))
 }
 
 // --- [WIND]
 
-pub fn rose<K>(hours: &Hours, key: impl Fn(civil::DateTime, &Hour) -> Option<K>, sectors: NonZero<u16>, edges: &[Velocity]) -> Result<BTreeMap<K, Rose>, WeatherError>
-where K: Ord + Hash {
+pub fn rose<S, K>(hours: &Hours<S>, key: impl Fn(civil::DateTime, &Hour) -> Option<K>, sectors: NonZero<u16>, edges: &[Velocity]) -> Result<BTreeMap<K, Rose>, WeatherError>
+where
+    S: AsRef<Place>,
+    K: Ord + Hash,
+{
     let rising = edges.first().is_some_and(|first| positive(*first)) && edges.is_sorted_by(|lower, upper| lower < upper);
     let count = NonZero::<usize>::from(sectors);
     refused((!rising).then_some(Refusal::Edges))?;
@@ -369,13 +366,14 @@ pub fn wind(speed: Velocity, anemometer: Length, height: Length, profile: Profil
 
 // --- [READINGS]
 
-fn readings<K, D>(
-    hours: &Hours,
+fn readings<S, K, D>(
+    hours: &Hours<S>,
     key: impl Fn(civil::DateTime, &Hour) -> Option<K>,
     field: impl Fn(&Hour) -> Option<Measure<D>>,
     absent: impl Fn(usize) -> Option<Refusal>,
 ) -> impl Iterator<Item = Validated<(K, (f64, f64)), Refusal>>
 where
+    S: AsRef<Place>,
     D: si::Dimension + ?Sized,
 {
     hours.records.iter().enumerate().filter_map(move |(index, hour)| {
@@ -390,49 +388,41 @@ where
 
 fn grouped<K, A, T>(
     readings: impl IntoIterator<Item = Validated<(K, (f64, f64)), Refusal>>,
-    begin: impl Fn((f64, f64)) -> Result<A, ConversionError>,
-    append: impl Fn(&mut A, (f64, f64)) -> Result<(), ConversionError>,
-    finish: impl Fn(A) -> Result<Option<T>, ConversionError>,
+    begin: impl Fn((f64, f64)) -> A,
+    append: impl Fn(&mut A, (f64, f64)),
+    finish: impl Fn(A) -> Option<T>,
 ) -> Result<BTreeMap<K, T>, WeatherError>
 where
     K: Ord + Hash,
 {
-    readings
+    Ok(readings
         .into_iter()
-        .fold(Validated::Good(Ok(HashMap::<K, A>::new())), |groups, reading| {
-            groups.map2(reading, |groups, (key, reading)| {
-                let mut groups = groups?;
+        .fold(Validated::Good(HashMap::<K, A>::new()), |groups, reading| {
+            groups.map2(reading, |mut groups, (key, reading)| {
                 match groups.entry(key) {
-                    Entry::Occupied(mut entry) => append(entry.get_mut(), reading)?,
+                    Entry::Occupied(mut entry) => append(entry.get_mut(), reading),
                     Entry::Vacant(entry) => {
-                        entry.insert(begin(reading)?);
+                        entry.insert(begin(reading));
                     }
                 }
-                Ok::<_, ConversionError>(groups)
+                groups
             })
         })
-        .ok()??
+        .ok()?
         .into_iter()
-        .filter_map(|(key, readings)| finish(readings).map(|value| value.map(|value| (key, value))).transpose())
-        .collect::<Result<_, _>>()
-        .map_err(WeatherError::from)
+        .filter_map(|(key, readings)| finish(readings).map(|value| (key, value)))
+        .collect())
 }
 
-fn daily<K, T>(hours: &Hours, key: impl Fn(civil::Date) -> Option<K>, reduce: impl Fn(Vec<(f64, f64)>) -> Result<Option<T>, ConversionError>) -> Result<Vec<(K, T)>, WeatherError> {
-    grouped(
+fn daily<S, K, T>(hours: &Hours<S>, key: impl Fn(civil::Date) -> Option<K>, reduce: impl Fn(Vec<(f64, f64)>) -> Option<T>) -> Result<Vec<(K, T)>, WeatherError>
+where S: AsRef<Place> {
+    Ok(grouped(
         readings(hours, |at, _| key(at.date()).map(|_| at.date()), |hour| hour.dry_bulb, |index| Some(Refusal::Hour { index, defect: Defect::Incomplete })),
-        |reading| Ok(vec![reading]),
-        |day, reading| {
-            day.push(reading);
-            Ok(())
-        },
-        |day| Ok(Some(day)),
+        |reading| vec![reading],
+        Vec::push,
+        Some,
     )?
     .into_iter()
-    .filter_map(|(date, day)| {
-        let key = key(date);
-        reduce(day).map(|value| key.zip(value)).transpose()
-    })
-    .collect::<Result<_, _>>()
-    .map_err(WeatherError::from)
+    .filter_map(|(date, day)| key(date).zip(reduce(day)))
+    .collect())
 }

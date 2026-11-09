@@ -13,7 +13,6 @@ use pdf_oxide::{
     ocr::{OcrEngine, OcrOutput, OcrSpan},
 };
 use rasm_drawing::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width, pages::Layer};
-use uom::si::linear_number_density::per_millimeter;
 use validated::Validated;
 
 use crate::{
@@ -146,7 +145,7 @@ where P: IntoIterator<Item = usize> {
 pub fn recognize(document: &Document, index: usize, engine: &OcrEngine, raster: &Raster, area: Option<Rect>) -> Result<OcrOutput, PdfError> {
     let image = DynamicImage::ImageRgba8(proofs::render(document, index, raster)?);
     let sheet = Rect::new(0.0, 0.0, f64::from(image.width()), f64::from(image.height()));
-    let (origin, output) = match area.map(|area| area.abs().scale_from_origin(raster.resolution.get::<per_millimeter>()).expand().intersect(sheet)) {
+    let (origin, output) = match area.map(|area| area.abs().scale_from_origin(crate::per_point(raster.resolution)).expand().intersect(sheet)) {
         None => (Point::ORIGIN, engine.ocr_image(&image)?),
         Some(window) if window.is_zero_area() => (window.origin(), OcrOutput { spans: Vec::new(), total_confidence: 0.0 }),
         Some(window) => {

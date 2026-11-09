@@ -14,9 +14,9 @@ lazy from fontTools.misc.transform import Transform
 
 from rasm_typography._faces.names import _Form, _GlyphName
 lazy from rasm_records import Fault, Outcome, paired, Reason
-lazy from rasm_typography._faces.glyphs import _Anchor, _Component, _Glyph, _Outline, _role, _Source, Letter
+lazy from rasm_typography._faces.glyphs import _Anchor, _Component, _Glyph, _Outline, _role, Letter, Source
 lazy from rasm_typography._outlines.paths import _area, _bounds, _Box, _pieces, _strip, _transformed, _union
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -47,18 +47,18 @@ def _made(name: _GlyphName, advance: float, /, *, contours: _Outline = (), compo
     )
 
 
-def bounded_glyph(source: _Source, code: int, /) -> Outcome[tuple[_Glyph, _Box]]:
+def bounded_glyph(source: Source, code: int, /) -> Outcome[tuple[_Glyph, _Box]]:
     """Returns the isolated glyph of a code point with its outline extent, `ABSENT` naming the key the face lacks or draws blank."""
     return (
         source
         .glyph(source.key(code))
         .map(lambda glyph: source.drawn(glyph.name.text))
         .bind(lambda glyph: Option.of_optional(_bounds(glyph.contours)).map(lambda box: (glyph, box)))
-        .to_result_with(lambda: Fault.of(Reason.ABSENT, source.face.stem, member=f"outline of {_key(code)}"))
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, source.face.postscript, member=f"outline of {_key(code)}"))
     )
 
 
-def _mapped(source: _Source, matrices: Mapping[str, Transform], /) -> _Source:
+def _mapped(source: Source, matrices: Mapping[str, Transform], /) -> Source:
     """Maps glyphs and their references together, retaining native components wherever the target map is invertible."""
     inverse = cache(catch(Transform.inverse, exception=ZeroDivisionError))
 
@@ -89,7 +89,7 @@ def _mapped(source: _Source, matrices: Mapping[str, Transform], /) -> _Source:
 # --- [PLACEMENT]
 
 
-def _placement(source: _Source, original: _Binary, stem: int, /) -> Outcome[tuple[_Glyph, _Box, Transform]]:
+def _placement(source: Source, original: Binary, stem: int, /) -> Outcome[tuple[_Glyph, _Box, Transform]]:
     """Acquires the source stem, its outline box and the map from its original height and foot together."""
     return paired(
         bounded_glyph(source, stem),
@@ -100,7 +100,7 @@ def _placement(source: _Source, original: _Binary, stem: int, /) -> Outcome[tupl
     ).map(lambda pair: (*pair[0], Transform(scale := pair[0][1].height / pair[1].height, 0, 0, scale, 0, pair[0][1].ymin - scale * pair[1].ymin)))
 
 
-def _text_outline(original: _Binary, text: str, /) -> _Outline:
+def _text_outline(original: Binary, text: str, /) -> _Outline:
     """Returns the outline of text shaped on a binary, `.notdef` glyphs left out."""
     run = original.shaped(text)
     return _union(*(contours for placed, contours in zip(run.placed, original.drawn(run), strict=True) if placed.glyph != original.order[0]))
@@ -109,7 +109,7 @@ def _text_outline(original: _Binary, text: str, /) -> _Outline:
 # --- [OUTLINES]
 
 
-def _band(source: _Source, /) -> tuple[float, float] | None:
+def _band(source: Source, /) -> tuple[float, float] | None:
     """Returns the join band, the median outline extent at the joining edges of the medial forms, `None` for a face without them."""
     edges = tuple(
         box
@@ -141,7 +141,7 @@ def _dotted(glyph: _Glyph, nuqta: float, /) -> tuple[_Outline, tuple[_Outline, .
             return (glyph.contours, ())
 
 
-def _nuqta(source: _Source, dotted: int, /) -> _Outline:
+def _nuqta(source: Source, dotted: int, /) -> _Outline:
     """Returns the face's one nuqta, the smallest piece of a one-dot letter, empty where it draws none."""
     name = source.key(dotted)
     held = _pieces(source.drawn(name).contours) if name in source.named else ()

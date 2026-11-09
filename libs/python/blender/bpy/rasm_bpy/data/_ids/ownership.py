@@ -15,6 +15,7 @@ from typing_extensions import TypeForm
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _Tier, Acquisitions, Handler, Resource
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import _blocks, _named
 from rasm_bpy.data._rna.descriptors import _custom_read
 from rasm_records import ContentHash, Fault, Faults, Nothing, Ok, Outcome, Reason
@@ -70,7 +71,7 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
     def write(self, identity: Identity, holder: bpy.types.ID | bpy.types.Node) -> Outcome[None]:
         """Writes present fields under manifest ID."""
         fields = {name: held for name, value in msgspec.structs.asdict(self).items() for held in (value.to_list() if isinstance(value, Option) else (value,))}
-        return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(partial(Fault.of, Reason.REFUSED, identity.manifest.id))
+        return catch(holder.__setitem__, exception=TypeError)(identity.manifest.id, fields).map_error(partial(Fault.of, Refusal.REFUSED, identity.manifest.id))
 
 
 class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
@@ -122,7 +123,7 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def created(self, identity: Identity, new: Callable[[str], T], name: str) -> Outcome[T]:
         """Reuses equal-mark holder of single row or owns the block a collection's `new` creates under name."""
-        return self.made(identity, lambda: catch(new, exception=RuntimeError)(name).map_error(partial(Fault.of, Reason.REFUSED, self.key)))
+        return self.made(identity, lambda: catch(new, exception=RuntimeError)(name).map_error(partial(Fault.of, Refusal.REFUSED, self.key)))
 
     def rebuilt(self, identity: Identity, held: T, build: Callable[[], Outcome[T]]) -> Outcome[T]:
         """Replaces marked block with built one under its name."""
@@ -240,7 +241,7 @@ def _tracked[T](scope: ExitStack, removed: Callable[[T], object], made: Outcome[
 
 def _released(blocks: tuple[bpy.types.ID, ...]) -> Outcome[int]:
     """Removes blocks in one `batch_remove`, returning their count."""
-    return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, Reason.REFUSED, repr(blocks)))
+    return (catch(bpy.data.batch_remove, exception=RuntimeError)(ids=blocks) if blocks else Ok(None)).map(lambda _: len(blocks)).map_error(partial(Fault.of, Refusal.REFUSED, repr(blocks)))
 
 
 def _held[T: bpy.types.ID](identity: Identity, kind: type[T], keys: frozenset[Key]) -> tuple[tuple[T, Mark], ...]:

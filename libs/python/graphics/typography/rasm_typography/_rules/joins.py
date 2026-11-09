@@ -8,7 +8,7 @@ lazy from fontTools.misc.transform import Identity, Offset, Transform
 from rasm_typography._faces.declaration import Em
 from rasm_typography._rules.measures import _band, _mapped, Rule
 lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
-lazy from rasm_typography._faces.glyphs import _Glyph, _Source, Letter, Ligature
+lazy from rasm_typography._faces.glyphs import _Glyph, Letter, Ligature, Source
 lazy from rasm_typography._outlines.paths import _Box, _strip, _union
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -36,7 +36,7 @@ def _bridged(glyph: _Glyph, thickness: float, overlap: float, /) -> _Glyph:
     return msgspec.structs.replace(glyph, contours=_union(glyph.contours, *bars)) if bars else glyph
 
 
-def _joined(source: _Source, rule: Joins, /) -> Outcome[_Source]:
+def _joined(source: Source, rule: Joins, /) -> Outcome[Source]:
     """Sets the join band's foot on the baseline, bridges every joining edge into its neighbor, and draws the joining glyph as the band.
 
     Returns:
@@ -62,7 +62,7 @@ def _joined(source: _Source, rule: Joins, /) -> Outcome[_Source]:
             drawn = tuple(msgspec.structs.replace(glyph, advance=length, contours=(bar,)) for glyph in placed.glyphs if glyph.name.codes == (kashida,))
             return Ok(placed.replaced(*moved, *drawn))
         case _:
-            return Error(Fault.of(Reason.ABSENT, source.face.stem, member="medial forms for a join band"))
+            return Error(Fault.of(Reason.ABSENT, source.face.postscript, member="medial forms for a join band"))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

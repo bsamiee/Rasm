@@ -3,23 +3,20 @@
 [project]
 name            = "rasm-refurb"
 version         = "0.0.0"
-description     = "Refurb checks over mypy types Ruff lacks, and the driver running mypy diagnostics and the checks over one typed build"
+description     = "Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin"
 classifiers     = ["Private :: Do Not Upload"]
 requires-python = ">=3.15"
 
 dependencies = [
-    "expression", # Results and `catch` over raising calls
-    "msgspec",    # The findings store's MessagePack records
-    "mypy",       # The typed build every check reads
-    "refurb",     # Check host, visitor, and settings
+    "expression", # `Option` and `Result`, whose fullnames RASM101 reads
+    "msgspec",    # `msgspec.Struct` and `msgspec.field`, whose fullnames RASM102 reads
+    "mypy",       # Nodes and types of the build refurb hands each check
+    "refurb",     # Check host, visitor, and `get_mypy_type`
     "structlog",  # Bound logger types the log-field check reads
 ]
 
 [project.entry-points."refurb.plugins"]
 rasm = "rasm_refurb"
-
-[project.scripts]
-rasm-refurb = "rasm_refurb._cli:status"
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 

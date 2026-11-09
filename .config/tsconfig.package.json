@@ -1,0 +1,5 @@
+{
+    "$schema": "../node_modules/typescript/schemas/tsconfig.schema.json",
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": { "declaration": true, "noEmit": false, "outDir": "${configDir}/dist", "rootDir": "${configDir}" }
+}

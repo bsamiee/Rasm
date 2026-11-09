@@ -1,13 +1,15 @@
 """Color-managed view and display settings records, scene, display node, and preview views, HDR window showing, Blender tint, and OCIO installation."""
 
 from collections.abc import Callable, Generator, Iterable, Mapping
-from functools import cache, cached_property, reduce
+from functools import cache, cached_property, partial, reduce
 from itertools import takewhile
 from pathlib import Path
+import shutil
 from typing import Annotated, Final, override
 
 import bpy
 from expression import Option, Some
+from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
@@ -22,7 +24,7 @@ from rasm_bpy.nodes._addressing import _interface_sockets
 from rasm_bpy.nodes._desired import _member_paths, Members
 from rasm_bpy.nodes._trees import _active_output, _feeds, _socket_at
 from rasm_imaging import called, ConfigBuild, DisplayView, hdr, pq, WhitePoint
-from rasm_records import accumulated, Name, Nothing, Ok, Outcome, paired
+from rasm_records import accumulated, committed, Fault, files_copied, folder_made, Name, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -114,7 +116,7 @@ class ConfigView(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Application OCIO rows and views installed over Blender's bundled configuration, keeping the view transforms an earlier installation added."""
+    """Application OCIO rows and views installed over Blender's bundled configuration, keeping the view transforms an earlier installation added and the folder content the first installation replaced, which the restore command puts back."""
 
     build: ConfigBuild = msgspec.field(default_factory=ConfigBuild)
     views: tuple[ConfigView, ...] = ()
@@ -145,22 +147,57 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Stages full build in caller's resource scope."""
         return self.merged.bind(lambda parts: parts[1].staged(parts[0], stage))
 
-    def written(self) -> Outcome[Path]:
-        """Installs complete configuration read on restart."""
-        return self.merged.bind(lambda parts: parts[1].installed(parts[0], self.folder))
+    def written(self, identity: Identity) -> Outcome[Path]:
+        """Installs the complete configuration Blender reads on restart, keeping under the extension ID the folder content the first installation replaced."""
+        kept = self.folder / identity.manifest.id
 
-    def install_config(self, _call: Call[Empty]) -> Outcome[Done]:
+        def staged(stage: Path) -> Outcome[object]:
+            prior = kept if kept.is_dir() else self.folder
+            return (
+                self.merged
+                .bind(lambda parts: parts[1].staged(parts[0], stage))
+                .bind(lambda config: committed(stage / "config.ocio", config.serialize().encode()))
+                .bind(lambda _: files_copied(((prior, stage / identity.manifest.id),)) if prior.is_dir() else folder_made(stage / identity.manifest.id))
+            )
+
+        return committed(self.folder, staged).map(lambda folder: folder / "config.ocio")
+
+    def restored(self, identity: Identity) -> Outcome[Path]:
+        """Restores the folder content the first installation replaced, removing the folder where it held none, absent fault for a folder no installation of the extension wrote."""
+        kept = self.folder / identity.manifest.id
+        return (
+            Ok(kept)
+            .filter_with(Path.is_dir, lambda _: Fault.of(Reason.ABSENT, str(self.folder), member=f"{identity.manifest.name} installation"))
+            .bind(
+                lambda held: (
+                    committed(self.folder, lambda stage: files_copied(((held, stage),)))
+                    if any(held.iterdir())
+                    else catch(shutil.rmtree, exception=OSError)(self.folder).map(lambda _: self.folder).map_error(partial(Fault.of, Reason.UNWRITABLE, str(self.folder)))
+                )
+            )
+        )
+
+    def install_config(self, call: Call[Empty]) -> Outcome[Done]:
         """Install extension view transforms read on restart."""
-        return self.written().map(lambda path: Done(notes=(("INFO", f"Installed {path}, restart Blender to read it"),)))
+        return self.written(call.identity).map(lambda path: Done(notes=(("INFO", f"Installed {path}, restart Blender to read it"),)))
+
+    def remove_config(self, call: Call[Empty]) -> Outcome[Done]:
+        """Restore the color configuration the first installation replaced, read on restart."""
+        return self.restored(call.identity).map(lambda path: Done(notes=(("INFO", f"Restored {path}, restart Blender to read it"),)))
 
     @cached_property
     def installing(self) -> Operator[Empty]:
         """Command installing the build."""
         return Operator(form=Empty, run=self.install_config, options=frozenset())
 
+    @cached_property
+    def removing(self) -> Operator[Empty]:
+        """Command restoring the configuration the first installation replaced."""
+        return Operator(form=Empty, run=self.remove_config, options=frozenset())
+
     def acquisitions(self, _identity: Identity) -> Acquisitions:
-        """Returns install command."""
-        return (self.installing,)
+        """Returns install and restore commands."""
+        return (self.installing, self.removing)
 
 
 class HdrWindow(Condition, frozen=True, kw_only=True):

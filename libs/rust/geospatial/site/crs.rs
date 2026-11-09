@@ -1,11 +1,12 @@
-use core::{borrow::Borrow, iter};
-use std::{borrow::Cow, path::Path};
+use core::{borrow::Borrow, ffi::CStr, iter, ptr::NonNull};
+use std::{borrow::Cow, ffi::CString, path::Path};
 
 use geo::BoundingRect;
-use geo_types::{Coord, Point, Rect, coord};
+use geo_types::{Point, Rect, coord};
 use itertools::Itertools as _;
-use nalgebra::{Point3, Vector2};
+use nalgebra::Point3;
 use proj::{Area, Proj, ProjBuilder, ProjCreateError, ProjError, Transform, wkt::WktVersion};
+use proj_sys::{PJ, PJ_CONTEXT, PJ_COORD, PJ_FACTORS, PROJ_ERR_OTHER};
 use projjson::{
     common::{Code, CustomUnit, Id, Measure, PredefinedUnit, Unit, UnitType, ValueAndUnit},
     crs::{self, GeodeticCrs, GeodeticCrsType},
@@ -84,30 +85,6 @@ impl Crs {
 
     #[expect(clippy::type_complexity, reason = "Projection setup returns its coordinate unit and opaque evaluator")]
     pub fn factors(&self) -> Result<(Length, impl Fn(Point3<f64>) -> Result<Factors, SiteError> + use<>), SiteError> {
-        let system = |subtype, [east, north]: [[&str; 2]; 2], unit| CoordinateSystem {
-            schema: None,
-            r#type: None,
-            name: None,
-            subtype,
-            axis: [(east, AxisDirection::East), (north, AxisDirection::North)]
-                .map(|([name, abbreviation], direction)| Axis {
-                    schema: None,
-                    r#type: None,
-                    name: name.into(),
-                    abbreviation: abbreviation.into(),
-                    direction,
-                    meridian: None,
-                    unit: Some(Unit::Predefined(unit)),
-                    minimum_value: None,
-                    maximum_value: None,
-                    range_meaning: None,
-                    id: None,
-                    ids: None,
-                })
-                .into(),
-            id: None,
-            ids: None,
-        };
         let unprojected = || SiteError::Unprojected { crs: self.clone() };
         let linear = |unit: &Unit| match unit {
             Unit::Predefined(PredefinedUnit::Metre) => Some(1.0),
@@ -119,7 +96,7 @@ impl Crs {
             Measure::ValueAndUnit(ValueAndUnit { value, unit }) => linear(unit).map(|unit| f64::from(*value) * unit),
         };
         let mut definition = self.projjson(&self.proj()?)?;
-        let mut projected = loop {
+        let projected = loop {
             definition = match definition {
                 crs::Crs::Projected(projected) => break *projected,
                 crs::Crs::Compound(compound) => compound.components.into_iter().next().ok_or_else(unprojected)?,
@@ -150,38 +127,51 @@ impl Crs {
             Ellipsoid::Sphere(Sphere { radius, .. }) => metres(radius).map(|radius| (radius, 0.0)),
         }
         .ok_or_else(unprojected)?;
-        let grid_unit = projected.coordinate_system.axis.first().and_then(|axis| axis.unit.as_ref()).and_then(linear).ok_or_else(unprojected)?;
-        projected.base_crs = GeodeticCrs {
+        let grid_unit = Length::new::<meter>(projected.coordinate_system.axis.first().and_then(|axis| axis.unit.as_ref()).and_then(linear).ok_or_else(unprojected)?);
+        let axis = |name: &str, abbreviation: &str, direction| Axis {
+            schema: None,
+            r#type: None,
+            name: name.into(),
+            abbreviation: abbreviation.into(),
+            direction,
+            meridian: None,
+            unit: Some(Unit::Predefined(PredefinedUnit::Degree)),
+            minimum_value: None,
+            maximum_value: None,
+            range_meaning: None,
+            id: None,
+            ids: None,
+        };
+        let geographic = GeodeticCrs {
             r#type: Some(GeodeticCrsType::GeographicCrs),
-            coordinate_system: Some(system(CoordinateSystemSubtype::Ellipsoidal, [["Longitude", "lon"], ["Latitude", "lat"]], PredefinedUnit::Degree)),
+            coordinate_system: Some(CoordinateSystem {
+                schema: None,
+                r#type: None,
+                name: None,
+                subtype: CoordinateSystemSubtype::Ellipsoidal,
+                axis: vec![axis("Longitude", "lon", AxisDirection::East), axis("Latitude", "lat", AxisDirection::North)],
+                id: None,
+                ids: None,
+            }),
             ..projected.base_crs
         };
-        let geographic = serde_path_to_error::serialize(&projected.base_crs, Serializer).map_err(self.converted())?.to_string();
-        projected.coordinate_system = system(CoordinateSystemSubtype::Cartesian, [["Easting", "E"], ["Northing", "N"]], PredefinedUnit::Metre);
-        let metric = serde_path_to_error::serialize(&projected, Serializer).map_err(self.converted())?.to_string();
+        let geographic = serde_path_to_error::serialize(&geographic, Serializer).map_err(self.converted())?.to_string();
         let inverse = Proj::new_known_crs(self.as_ref(), &geographic, None).map_err(self.refused())?;
-        let forward = Proj::new_known_crs(&geographic, &metric, None).map_err(self.refused())?;
-        let (crs, eccentricity_squared, step) = (self.clone(), flattening * (2.0 - flattening), Angle::new::<radian>(1.0e-5));
-        let (offset, run) = (step.get::<degree>(), 4.0 * step.get::<radian>());
-        let grid_unit = Length::new::<meter>(grid_unit);
+        let wgs84 = Proj::new_known_crs(self.as_ref(), Self::WGS84.as_ref(), None).map_err(self.refused())?;
+        let (crs, distortion, eccentricity_squared) = (self.clone(), Distortion::new(self)?, flattening * (2.0 - flattening));
         Ok((grid_unit, move |grid: Point3<f64>| {
-            let position = located(inverse.convert(Point::new(grid.x, grid.y)).map_err(crs.failed())?).ok_or_else(|| SiteError::Domain { crs: crs.clone(), grid })?;
-            let phi = position.0.y().clamp(offset - 90.0, 90.0 - offset);
-            let mut corners = [(1.0, 1.0), (1.0, -1.0), (-1.0, -1.0), (-1.0, 1.0)].map(|(east, north)| coord! { x: offset.mul_add(east, position.0.x()), y: offset.mul_add(north, phi) });
-            forward.convert_array(&mut corners).map_err(crs.failed())?;
-            let [north_east, south_east, south_west, north_west] = corners.map(|corner: Coord<f64>| Vector2::new(corner.x, corner.y));
-            let (parallel, meridian) = ((north_east + south_east - south_west - north_west) / run, (north_east - south_east - south_west + north_west) / run);
-            let (sin, cos) = Angle::new::<degree>(phi).get::<radian>().sin_cos();
-            let w = (eccentricity_squared * sin).mul_add(-sin, 1.0).sqrt();
-            let normal = major / w;
-            let meridional = major * (1.0 - eccentricity_squared) / w.powi(3);
-            let radius = (meridional * normal).sqrt();
+            let (outside, point) = (|| SiteError::Domain { crs: crs.clone(), grid }, Point::new(grid.x, grid.y));
+            let position = located(wgs84.convert(point).map_err(crs.failed())?).ok_or_else(outside)?;
+            let geodetic: Point<f64> = inverse.convert(point).map_err(crs.failed())?;
+            let factors = distortion.at(geodetic).ok_or_else(outside)?;
+            let sin = Angle::new::<degree>(geodetic.y()).get::<radian>().sin();
+            let radius = major * (1.0 - eccentricity_squared).sqrt() / (eccentricity_squared * sin).mul_add(-sin, 1.0);
             Ok(Factors {
                 position,
-                meridian_convergence: Angle::new::<radian>((-meridian.x).atan2(meridian.y)),
-                meridional_scale: Ratio::new::<ratio>(meridian.norm() / meridional),
-                parallel_scale: Ratio::new::<ratio>(parallel.norm() / (normal * cos)),
-                areal_scale: Ratio::new::<ratio>(parallel.perp(&meridian) / (meridional * normal * cos)),
+                meridian_convergence: Angle::new::<radian>(factors.meridian_convergence),
+                meridional_scale: Ratio::new::<ratio>(factors.meridional_scale),
+                parallel_scale: Ratio::new::<ratio>(factors.parallel_scale),
+                areal_scale: Ratio::new::<ratio>(factors.areal_scale),
                 elevation_scale: Ratio::new::<ratio>(radius / grid.z.mul_add(grid_unit.get::<meter>(), radius)),
                 grid_unit,
             })
@@ -289,6 +279,44 @@ impl Transformation {
     }
 
     fn failed(&self, source: ProjError) -> SiteError { SiteError::Proj { operation: Operation::Transformation { from: self.from.clone(), to: self.to.clone() }, source } }
+}
+
+struct Distortion {
+    context: NonNull<PJ_CONTEXT>,
+    crs: NonNull<PJ>,
+}
+
+impl Distortion {
+    #[expect(unsafe_code, reason = "each call takes a pointer PROJ returned non-null here, a NUL-terminated definition outliving the call, or PROJ's static error text")]
+    fn new(crs: &Crs) -> Result<Self, SiteError> {
+        let refused = |message: String| crs.refused()(ProjCreateError::ProjError(message));
+        let message = |context: *mut PJ_CONTEXT, errno: i32| {
+            let text = unsafe { proj_sys::proj_context_errno_string(context, errno) };
+            NonNull::new(text.cast_mut()).map_or_default(|text| unsafe { CStr::from_ptr(text.as_ptr()) }.to_string_lossy().into_owned())
+        };
+        let definition = CString::new(crs.as_ref()).map_err(|source| crs.refused()(ProjCreateError::ArgumentNulError(source)))?;
+        let context = NonNull::new(unsafe { proj_sys::proj_context_create() }).ok_or_else(|| refused(message(core::ptr::null_mut(), PROJ_ERR_OTHER.cast_signed())))?;
+        NonNull::new(unsafe { proj_sys::proj_create(context.as_ptr(), definition.as_ptr()) }).map(|created| Self { context, crs: created }).ok_or_else(|| {
+            let failure = refused(message(context.as_ptr(), unsafe { proj_sys::proj_context_errno(context.as_ptr()) }));
+            unsafe { proj_sys::proj_context_destroy(context.as_ptr()) };
+            failure
+        })
+    }
+
+    #[expect(unsafe_code, reason = "the PJ is live while self is, PROJ caches its factors operation inside it, and self is neither Send nor Sync so no other thread reaches it")]
+    fn at(&self, geodetic: Point<f64>) -> Option<PJ_FACTORS> {
+        let [longitude, latitude] = [geodetic.x(), geodetic.y()].map(|degrees| Angle::new::<degree>(degrees).get::<radian>());
+        let factors = unsafe { proj_sys::proj_factors(self.crs.as_ptr(), PJ_COORD { v: [longitude, latitude, 0.0, 0.0] }) };
+        (unsafe { proj_sys::proj_errno(self.crs.as_ptr()) } == 0).then_some(factors)
+    }
+}
+
+impl Drop for Distortion {
+    #[expect(unsafe_code, reason = "the PJ came from proj_create in this owner's context and the context from proj_context_create, each destroyed once here, the PJ before its context")]
+    fn drop(&mut self) {
+        unsafe { proj_sys::proj_destroy(self.crs.as_ptr()) };
+        unsafe { proj_sys::proj_context_destroy(self.context.as_ptr()) };
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

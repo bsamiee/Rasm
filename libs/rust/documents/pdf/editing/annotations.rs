@@ -1,10 +1,11 @@
-use core::borrow::Borrow;
+use core::{borrow::Borrow, num::NonZero};
 
 use color::{OpaqueColor, Srgb};
 use kurbo::Rect;
 use pdf_oxide::{
     editor::{DocumentEditor, FormFieldValue, FormFieldWrapper},
     redaction::{RedactionOptions, RedactionReport},
+    signatures::count_signatures,
 };
 use validated::Validated;
 
@@ -63,6 +64,7 @@ where I: IntoIterator<Item: Borrow<Redaction>> {
 
 pub fn fill<K>(document: &Document, values: impl IntoIterator<Item = (K, FormFieldValue)>, finish: Finish) -> Result<Document, PdfError>
 where K: AsRef<str> {
+    NonZero::new(count_signatures(&mut crate::engine(document)?)?).map_or(Ok(()), |count| Err(PdfError::Signed(count)))?;
     let held = values.into_iter().collect::<Vec<_>>();
     let set = |editor: &mut DocumentEditor| held.iter().try_for_each(|(name, value)| editor.set_form_field_value(name.as_ref(), value.clone()));
     let (filled, ()) = edited(document, set)?;

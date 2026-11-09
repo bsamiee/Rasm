@@ -7,7 +7,7 @@ lazy from fontTools.misc.transform import Offset
 
 from rasm_typography._faces.declaration import Em, Ratio
 from rasm_typography._rules.measures import _centred, _middle, Rule
-lazy from rasm_typography._faces.glyphs import _Glyph, _Outline, _Source, Ornament
+lazy from rasm_typography._faces.glyphs import _Glyph, _Outline, Ornament, Source
 lazy from rasm_typography._faces.names import _GlyphName
 lazy from rasm_typography._outlines.paths import _bounds, _Box, _iou, _transformed
 
@@ -29,7 +29,7 @@ class Ornaments(Rule, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _encoded(source: _Source, rule: Ornaments, /) -> _Source:
+def _encoded(source: Source, rule: Ornaments, /) -> Source:
     """Keeps the art of an ornament face on its own Private Use code points or the next ones from the first, tiles at their drawn advance and the rest at even bearings, with the word space set."""
 
     def even(group: list[_Art], spare: float, /) -> float:

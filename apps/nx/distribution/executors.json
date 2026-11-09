@@ -1,5 +1,10 @@
 {
     "executors": {
+        "extension-build": {
+            "implementation": "./dist/executors/extension-build/executor#execute",
+            "schema": "./executors/extension-build/schema.json",
+            "description": "Builds a Blender extension's archives with blender --command extension build"
+        },
         "install": {
             "implementation": "./dist/executors/install/executor#execute",
             "schema": "./executors/install/schema.json",
@@ -9,6 +14,13 @@
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
             "description": "Publishes the host packages a project's build wrote to each host's package server, skipping versions the server already holds"
+        },
+        "unreal-build": {
+            "implementation": "./dist/executors/unreal-build/executor#execute",
+            "batchImplementation": "./dist/executors/unreal-build/executor#batch",
+            "schema": "./executors/unreal-build/schema.json",
+            "preferBatch": true,
+            "description": "Builds Unreal Engine projects' editor targets through UnrealBuildTool and packages plug-ins through AutomationTool's BuildPlugin, one task at a time"
         }
     }
 }

@@ -43,7 +43,9 @@ public sealed record RationalQuadratic {
 
     public static RationalQuadratic Rho(Vector3D<double> start, Vector3D<double> apex, Vector3D<double> end, ConicRho rho) => new(start, apex, end, (double)rho / (1d - (double)rho));
 
-    public static RationalQuadratic Hyperbola(double a, double b, ParameterSpan u) => double.Cosh(u.Length / 2d) switch { var weight => new(Branch(a, b, u.Start), Branch(a, b, (u.Start + u.End) / 2d) / weight, Branch(a, b, u.End), weight) };
+    public static Fin<RationalQuadratic> Hyperbola(double a, double b, ParameterSpan u) =>
+        GeometryFault.Unless(double.IsFinite(a) && double.IsFinite(b) && a > 0d && b > 0d, GeometryRule.Range, (a, b))
+            .Map(_ => double.Cosh(u.Length / 2d) switch { var weight => new RationalQuadratic(Branch(a, b, u.Start), Branch(a, b, (u.Start + u.End) / 2d) / weight, Branch(a, b, u.End), weight) });
 
     private static Vector3D<double> Branch(double a, double b, double t) => new(a * double.Cosh(t), b * double.Sinh(t), 0d);
 }

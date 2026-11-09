@@ -1,22 +1,24 @@
 """Tone maps from scene-linear to display-linear: per-channel curves and Hable's response with a scene white read from the frame, and the fixed Khronos PBR Neutral, Photoreceptor, and Tony McMapface maps."""
 
 from collections.abc import Callable, Mapping
-from contextlib import ExitStack
 from functools import partial
-from importlib.resources import as_file, files
+import hashlib
 import inspect
 from math import log2
+from pathlib import Path
 from types import MappingProxyType
 from typing import Annotated, Final, override
 
 import bpy
 from expression import Option, Some
 from expression.extra.result import catch
+import httpx2
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
+from rasm_bpy.commands import Answer, Call, Done, Empty, Operator
 from rasm_bpy.data import Identity, Key, Value
 from rasm_bpy.nodes import composed, directed, Expr, functions, Group, grouped, Interface, InterfacePanel, inverted, item_key, math, matrix, mixed, RESULT, Socket, StockInput, vector, where, xyz
 from rasm_bpy.render import (
@@ -43,7 +45,7 @@ from rasm_bpy.render import (
     valued,
 )
 from rasm_imaging import ConfigBuild, GRAY, ImageFile, Lattice, Logarithmic, pixels, processor, REC709_SCENE, rendering_basis, Samples
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, committed, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -55,7 +57,17 @@ _SCENE_WHITE: Final[InterfacePanel] = InterfacePanel.of(
 _WHITE_STOPS: Final = _SCENE_WHITE.inputs[0]
 _DRAGO_WHITE: Final = float(np.log2(100.0))
 TONY: Final = "TonyMcMapface Base"
-UPSTREAM: Final = files(__package__).joinpath("fetched/OCIO/config.ocio")
+_TONY_SOURCE: Final = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9"
+_TONY_FOLDER: Final = Path("tony-mc-mapface")
+_TONY_CONFIG: Final = Path("OCIO/config.ocio")
+_TONY_FILES: Final = MappingProxyType({
+    _TONY_CONFIG: "78e80ab792fefbfcb312973ff7991fff0d1a793f4fef6474b6087c252bc1b0c7",
+    Path("OCIO/LUTs/tony_log_to_rational.spi1d"): "4d92af631fd1815891f66addcbcb5a461b9091880a57eae680ba5a892d860914",
+    Path("OCIO/LUTs/sRGB_OETF.spi1d"): "3ea89cbb69cd8933a007073ac9c9fd60dd2546d768987ab5a8fefb623d8625a0",
+    Path("OCIO/LUTs/tony_mc_mapface.spi3d"): "6c80e03844ec1d569995c140efbead5a0287c441f6dcb579c0edfa264797bc65",
+    Path("LICENSE-MIT"): "b00743beb398b2dac3fbc451e780b9f4cb0e9bdc04a27ff448e919b3bf1dc32a",
+    Path("LICENSE-APACHE"): "e7edb2188aa1d7e1690a35d726f673fbc6555b2d1c26635adcdffd750a2c9e9d",
+})
 _APPLICATION: Final = InterfacePanel.of(
     "application",
     Interface(
@@ -264,14 +276,14 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
 
     @override
     def graph(self, shell: GraphInputs) -> Outcome[Expr]:
-        """Samples the upstream colorspace, merged into the scene config and decoded to display-linear, at a table of its grid size over its logarithmic allocation."""
-        with ExitStack() as scope:
-            return (
-                catch(scope.enter_context, exception=OSError)(as_file(UPSTREAM))
-                .map_error(partial(Fault.of, Reason.UNREADABLE, str(UPSTREAM)))
-                .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
-                .bind(lambda config: formed(config).bind(lambda held: latticed(item_key(Tony), "Tony McMapface", config, *held, shell.color)))
-            )
+        """Samples the upstream colorspace, merged into the scene config and decoded to display-linear, at a table of its grid size over its logarithmic allocation, absent fault before `download_tony_tables` fetched it."""
+        folder = shell.identity.folder / _TONY_FOLDER
+        return (
+            Ok(folder / _TONY_CONFIG)
+            .filter_with(Path.is_file, lambda _: Fault.of(Reason.ABSENT, str(folder), member="Tony McMapface tables"))
+            .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
+            .bind(lambda config: formed(config).bind(lambda held: latticed(item_key(Tony), "Tony McMapface", config, *held, shell.color)))
+        )
 
     @property
     @override
@@ -385,6 +397,35 @@ def formed(config: PyOpenColorIO.Config) -> Outcome[tuple[PyOpenColorIO.GroupTra
     )
 
 
+@Operator.of(Empty, options=frozenset())
+def download_tony_tables(call: Call[Empty]) -> Outcome[Answer]:
+    """Download Tony McMapface's OCIO tables and licenses at their pinned commit into the extension's user folder."""
+    folder = call.identity.folder / _TONY_FOLDER
+
+    def downloaded(stage: Path, name: Path, digest: str) -> Outcome[Path]:
+        url = f"{_TONY_SOURCE}/{name.as_posix()}"
+        return (
+            catch(httpx2.get, exception=httpx2.HTTPError)(url, timeout=60.0)
+            .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPError)())
+            .map_error(partial(Fault.of, Reason.UNREADABLE, url))
+            .map(lambda response: (response.content, hashlib.sha256(response.content).hexdigest()))
+            .filter_with(lambda pair: pair[1] == digest, lambda pair: Fault.of(Reason.INVALID, url, f"Its SHA-256 {pair[1]} differs from the pinned {digest}"))
+            .bind(lambda pair: committed(stage / name, pair[0]))
+        )
+
+    return (
+        Ok(bpy.app.online_access)
+        .filter_with(
+            bool,
+            lambda _: Fault.of(
+                Reason.UNMET, "Tony McMapface download", "Blender runs with --offline-mode" if bpy.app.online_access_override else "Allow Online Access in System preferences", member="online access"
+            ),
+        )
+        .bind(lambda _: committed(folder, lambda stage: accumulated(downloaded(stage, name, digest) for name, digest in _TONY_FILES.items())))
+        .map(lambda path: Done(notes=(("INFO", f"Downloaded Tony McMapface into {path}"),)))
+    )
+
+
 # --- [PANELS]
 
 
@@ -486,4 +527,4 @@ tony: Final = CompositorEffect(record=Tony, mix=Mix.STRAIGHT, pointwise=True, re
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TONY", "UPSTREAM", "Hable", "Neutral", "Photoreceptor", "ToneCurve", "Tony", "formed", "hable", "neutral", "photoreceptor", "tone_curve", "tony"]
+__all__ = ["TONY", "Hable", "Neutral", "Photoreceptor", "ToneCurve", "Tony", "download_tony_tables", "formed", "hable", "neutral", "photoreceptor", "tone_curve", "tony"]

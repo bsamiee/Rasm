@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
+from enum import StrEnum
 import functools
 from itertools import product
 import logging
@@ -31,6 +32,15 @@ class Pending(Protocol):
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Applies one step, returning the request left to apply, Nothing once done."""
+
+
+class Refusal(StrEnum):
+    """Host refusals the extension reports, each value the report template of its fault."""
+
+    TAKEN = "{subject} is taken at {member}"
+    REQUIRED = "Requires {subject}"
+    REFUSED = "{subject} refused edit. {cause}"
+    UNREGISTERED = "Registration of {subject} refused. {cause}"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -201,9 +211,9 @@ class Reports(AbstractContextManager["Reports"]):
 def _level(fault: Fault, /) -> "rna_enums.WmReportItems":
     """Returns the report type a fault raises: `ERROR_INVALID_INPUT` for refused input, `ERROR_INVALID_CONTEXT` for unmet requirements, else `ERROR`."""
     match fault.reason:
-        case Reason.OUTSIDE | Reason.INVALID | Reason.ABSENT | Reason.TAKEN:
+        case Reason.OUTSIDE | Reason.INVALID | Reason.ABSENT | Refusal.TAKEN:
             return "ERROR_INVALID_INPUT"
-        case Reason.REQUIRED:
+        case Refusal.REQUIRED:
             return "ERROR_INVALID_CONTEXT"
         case _:
             return "ERROR"
@@ -227,4 +237,4 @@ def _redrawn() -> Outcome[Option[str]]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pending", "Reports"]
+__all__ = ["Pending", "Refusal", "Reports"]

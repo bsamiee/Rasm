@@ -6,7 +6,9 @@ using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
+using Rasm.Imaging.Quantization;
 using TinyEXR;
+using Configuration = SixLabors.ImageSharp.Configuration;
 
 namespace Rasm.Imaging.Files;
 
@@ -16,28 +18,40 @@ public sealed record ExrLayer(string Name, PixelFrame Frame, Seq<string> Channel
     public static ExrLayer Reciprocal(string name, PixelFrame distance) => new(name, ImageFile.Mapped(distance, static (depth, _) => new Vector4(1f / depth.X)), ["Z"]);
 }
 
-[SmartEnum]
-public sealed partial class ChannelNaming {
-    public static readonly ChannelNaming Blender = new("Combined", "Depth", "Position", Matrix4x4.Identity, Matrix4x4.Identity);
-    public static readonly ChannelNaming Nuke = new("rgba", "z", "Pworld", new Matrix4x4(1f, 0f, 0f, 0f, 0f, 0f, -1f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 1f), Matrix4x4.CreateScale(1f, 1f, -1f));
+public sealed record ChannelNaming(string BeautyLayer, string DepthLayer, string PositionLayer, Matrix4x4 FromZUp, Matrix4x4 ViewAxes) {
+    public static ChannelNaming Blender { get; } = new("Combined", "Depth", "Position", Matrix4x4.Identity, Matrix4x4.Identity);
+    public static ChannelNaming Nuke { get; } =
+        new("rgba", "z", "Pworld", new Matrix4x4(1f, 0f, 0f, 0f, 0f, 0f, -1f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 0f, 1f), Matrix4x4.CreateScale(1f, 1f, -1f));
 
-    private readonly string beauty;
-    private readonly string depth;
-    private readonly string position;
-    private readonly Matrix4x4 world;
-    private readonly Matrix4x4 screen;
+    public ExrLayer Beauty(PixelFrame frame, bool alpha) => new(BeautyLayer, frame, alpha ? ["R", "G", "B", "A"] : ["R", "G", "B"]);
 
-    public ExrLayer Beauty(PixelFrame frame, bool alpha) => new(beauty, frame, alpha ? ["R", "G", "B", "A"] : ["R", "G", "B"]);
-
-    public ExrLayer Depth(PixelFrame distance) => new(depth, distance, ["Z"]);
+    public ExrLayer Depth(PixelFrame distance) => new(DepthLayer, distance, ["Z"]);
 
     public ExrLayer Position(PixelFrame distance, Camera camera) =>
-        new(position, ImageFile.Mapped(distance, (pixel, point) => new Vector4(camera.WorldPoint(point, pixel.X).Map(at => Vector3.Transform(at, world)).IfNone(new Vector3(float.NaN)), 1f)), ["X", "Y", "Z"]);
+        new(PositionLayer, ImageFile.Mapped(distance, (pixel, point) => new Vector4(camera.WorldPoint(point, pixel.X).Map(at => Vector3.Transform(at, FromZUp)).IfNone(new Vector3(float.NaN)), 1f)), ["X", "Y", "Z"]);
 
     public ExrLayer Normals(string name, PixelFrame normals, Option<Camera> view = default) =>
-        view.Map(camera => Matrix4x4.CreateFromQuaternion(Quaternion.Conjugate(camera.Orientation)) * screen).IfNone(world) switch {
+        view.Map(camera => Matrix4x4.CreateFromQuaternion(Quaternion.Conjugate(camera.Orientation)) * ViewAxes).IfNone(FromZUp) switch {
             var turn => new(name, ImageFile.Mapped(normals, (pixel, _) => new Vector4(Vector3.TransformNormal(pixel.AsVector3(), turn), 1f)), ["X", "Y", "Z"]),
         };
+}
+
+[SmartEnum<string>]
+public sealed partial class ExrCompression {
+    public static readonly ExrCompression None = new("none", Compression.None);
+    public static readonly ExrCompression Rle = new("rle", Compression.RLE);
+    public static readonly ExrCompression Zips = new("zips", Compression.ZIPS);
+    public static readonly ExrCompression Zip = new("zip", Compression.ZIP);
+    public static readonly ExrCompression Piz = new("piz", Compression.PIZ);
+    public static readonly ExrCompression Pxr24 = new("pxr24", Compression.PXR24);
+    public static readonly ExrCompression B44 = new("b44", Compression.B44);
+    public static readonly ExrCompression B44A = new("b44a", Compression.B44A);
+    public static readonly ExrCompression Dwaa = new("dwaa", Compression.DWAA);
+    public static readonly ExrCompression Dwab = new("dwab", Compression.DWAB);
+    public static readonly ExrCompression Htj2k256 = new("htj2k256", Compression.HTJ2K256);
+    public static readonly ExrCompression Htj2k32 = new("htj2k32", Compression.HTJ2K32);
+
+    internal Compression Method { get; }
 }
 
 public abstract partial record ImageFile {
@@ -56,8 +70,9 @@ public abstract partial record ImageFile {
         return mapped;
     }
 
-    public sealed record Exr(Seq<ExrLayer> Layers, PixelType Sample, Compression Compression, Option<Gamut> Gamut, bool Multipart) : ImageFile {
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream) =>
+    public sealed record Exr(Seq<ExrLayer> Layers, OutputDepth Depth, ExrCompression Codec, Option<Gamut> Gamut, bool Multipart) : ImageFile {
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
+            from floating in IO.lift(ImagingFault.Unless(Depth.Levels.IsNone, ImagingReason.Unsupported, Depth))
             from canvas in IO.lift(Canvas(Layers.Map(static layer => layer.Frame), windowed: !Multipart))
             let attributes = metadata.Exr(Gamut)
             from image in IO.lift(() => new Image((Multipart ? Layers.Map(static layer => (layer.Name, Layers: Seq(layer))) : Seq((Name: "", Layers))).Map(part => Assembled(part.Name, part.Layers, canvas, attributes)).Strict()))
@@ -73,7 +88,7 @@ public abstract partial record ImageFile {
                 PartType.Scanline,
                 new Box2i(window.Left, window.Top, window.Right - 1, window.Bottom - 1),
                 buffers.Map(static buffer => new Channel(buffer.Name, buffer.PixelType)),
-                compression: Compression is Compression.PXR24 && !layers.ForAll(Colored) ? Compression.ZIP : Compression,
+                compression: Codec == ExrCompression.Pxr24 && !layers.ForAll(Colored) ? Compression.ZIP : Codec.Method,
                 displayWindow: new Box2i(0, 0, canvas.Extent.Width - 1, canvas.Extent.Height - 1),
                 name: name,
                 chromaticities: Gamut.Map(static gamut => new Chromaticities(
@@ -98,11 +113,9 @@ public abstract partial record ImageFile {
             for (int component = 0; component < buffers.Length; component++) {
                 string name = layer.Name.Length is 0 ? layer.Channels[component] : $"{layer.Name}.{layer.Channels[component]}";
                 samples.GetColumn(component).CopyTo(plane.Span);
-                buffers[component] = (colored ? Sample : PixelType.Float) switch {
-                    PixelType.Half => Buffer<Half>(name, PixelType.Half, plane.Span),
-                    PixelType.UInt => Buffer<uint>(name, PixelType.UInt, plane.Span),
-                    _ => new ChannelBuffer(name, PixelType.Float, MemoryMarshal.AsBytes(plane.Span)),
-                };
+                buffers[component] = colored && Depth == OutputDepth.Float16
+                    ? Buffer<Half>(name, PixelType.Half, plane.Span)
+                    : new ChannelBuffer(name, PixelType.Float, MemoryMarshal.AsBytes(plane.Span));
             }
             return toSeq(buffers);
         }

@@ -11,7 +11,7 @@ private let outlineAttributes: [String] =
     [
         kAXRoleAttribute, kAXSubroleAttribute, kAXModalAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXDocumentAttribute, kAXMainAttribute,
         kAXFocusedAttribute, kAXMinimizedAttribute, kAXParentAttribute,
-    ] + buttonAttributes + childAttributes
+    ] + buttonAttributes + childAttributes + frameAttributes
 private let nodeAttributes: [String] =
     [kAXRoleAttribute, kAXSubroleAttribute, kAXEnabledAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute] + childAttributes
 private let valuedRoles: Set<String> = [kAXStaticTextRole, kAXTextFieldRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole]
@@ -281,10 +281,10 @@ extension AXUIElement {
         }
     }
 
-    func described(walking walked: (Element) -> Bool, helper: Bool, bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
+    func described(walking walked: (Element) -> Bool, helper: Bool, among listed: [InstanceState.Window], bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
         let read: [String: CFTypeRef] = try values(outlineAttributes)
         guard let role: String = read[kAXRoleAttribute] as? String else { return nil }
-        let window: CGWindowID? = try window()
+        let window: CGWindowID? = Self.window(framed: read, among: listed)
         guard window != nil || menuRoles.contains(role) else { return nil }
         let marked: [(attribute: String, node: AXUIElement)] = buttonAttributes.compactMap { attribute in
             read[attribute].flatMap(Self.checked).map { node in (attribute: attribute, node: node) }

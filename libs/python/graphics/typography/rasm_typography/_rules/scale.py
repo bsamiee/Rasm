@@ -8,10 +8,10 @@ lazy from fontTools.unicodedata import script_extension
 from rasm_typography._faces.declaration import Em, Script
 from rasm_typography._rules.measures import _mapped, _placement, _text_outline, Rule
 lazy from rasm_records import Outcome
-lazy from rasm_typography._faces.glyphs import _Source
+lazy from rasm_typography._faces.glyphs import Source
 lazy from rasm_typography._outlines.paths import _bounds
-lazy from rasm_typography._shaping.corpus import _Corpus
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ class Scale(Rule, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _scaled(source: _Source, rule: Scale, /, *, original: _Binary, corpus: _Corpus) -> Outcome[_Source]:
+def _scaled(source: Source, rule: Scale, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
     """Scales script glyphs to the stem height, the marked corpus spanning at most the cap, and moves every glyph onto the new units per em.
 
     Returns:
@@ -40,7 +40,7 @@ def _scaled(source: _Source, rule: Scale, /, *, original: _Binary, corpus: _Corp
     )
 
 
-def _onto(source: _Source, factor: float, rule: Scale, /) -> _Source:
+def _onto(source: Source, factor: float, rule: Scale, /) -> Source:
     """Moves every glyph onto the new units per em and scales script glyphs by the factor."""
     metrics, unit = source.metrics, rule.upm / source.upm
     return msgspec.structs.replace(

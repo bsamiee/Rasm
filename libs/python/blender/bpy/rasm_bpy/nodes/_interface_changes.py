@@ -10,13 +10,14 @@ from expression.extra.result import catch
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import _differing, Value, written
 from rasm_bpy.data._rna.paths import _definition, RnaPath
 from rasm_bpy.data._rna.snapshots import assigned
 from rasm_bpy.nodes._addressing import InterfaceItem, InterfaceKeys, OwnedNodes
 from rasm_bpy.nodes._interfaces import DesiredItem, Interface, InterfacePanel, Socket
 from rasm_bpy.nodes._trees import _base_socket, _interface_of
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -52,7 +53,7 @@ class _Declared(msgspec.Struct, frozen=True, kw_only=True):
 
         def created() -> Outcome[InterfaceItem]:
             interface = _interface_of(live.tree)
-            refused = partial(Fault.of, Reason.REFUSED, repr(interface))
+            refused = partial(Fault.of, Refusal.REFUSED, repr(interface))
 
             def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
                 return (
@@ -89,7 +90,7 @@ class _Placed(msgspec.Struct, frozen=True, kw_only=True):
         def moved(live: InterfaceKeys, parent: Option[Key], position: int) -> Outcome[None]:
             return paired(live.item(self.key, bpy.types.NodeTreeInterfaceItem), parent.map(lambda key: live.item(key, bpy.types.NodeTreeInterfacePanel).map(Some)).default_value(Ok(Nothing))).bind(
                 lambda pair: catch(_interface_of(live.tree).move_to_parent, exception=TypeError)(pair[0], pair[1].to_optional(), position).map_error(
-                    partial(Fault.of, Reason.REFUSED, repr(_interface_of(live.tree)))
+                    partial(Fault.of, Refusal.REFUSED, repr(_interface_of(live.tree)))
                 )
             )
 

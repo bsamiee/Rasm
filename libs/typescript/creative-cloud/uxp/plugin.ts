@@ -1,5 +1,4 @@
 import fs from 'adobe:fs';
-import os from 'adobe:os';
 import uxp, { entrypoints } from 'adobe:uxp';
 import { HostError } from '@rasm/automation';
 import { fillColor } from '@rasm/mark';
@@ -33,13 +32,8 @@ const Themed = Schema.Struct({ theme: Schema.declare((held): held is ThemeEvents
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: typeof fs; readonly os: typeof os }>()('@rasm/uxp/plugin/Uxp') {
+class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: typeof fs }>()('@rasm/uxp/plugin/Uxp') {
     static readonly Entry = Schema.Struct({ isEntry: Schema.Literal(true), url: Schema.Union([Schema.String, Schema.URL]) });
-    static readonly readHome = (relative: string): Effect.Effect<string, PlatformError.PlatformError, Uxp> =>
-        Effect.flatMap(Uxp, (modules: Uxp['Service']) => {
-            const file = `${modules.os.homedir()}/${relative}`;
-            return Effect.try({ try: () => String(modules.fs.readFileSync(file, 'utf-8')), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: file, cause }) });
-        });
     static readonly layer = (modules: Uxp['Service']) =>
         Layer.mergeAll(
             Layer.effect(Clock.Clock)(
@@ -146,7 +140,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
         readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
         readonly panels?: Record.ReadonlyRecord<string, Panel<F>>;
     }): void => {
-        const hosted = Uxp.layer({ uxp, fs, os });
+        const hosted = Uxp.layer({ uxp, fs });
         Effect.gen(function* () {
             const [manifest, { setup }] = yield* Effect.all([
                 Effect.try({ try: () => fs.readFileSync(MANIFEST, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: MANIFEST, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.identity))),

@@ -2,8 +2,8 @@
 
 from textwrap import dedent
 
-lazy from rasm_refurb import Findings
 lazy from rasm_refurb.defaults import ErrorRestatedDefaultError
+lazy from tools.refurb.conftest import Findings
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

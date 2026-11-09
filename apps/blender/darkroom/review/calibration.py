@@ -1,6 +1,7 @@
 """Darkroom chart calibration: a color chart placed over an image or node preview, fitted against its reference, and written into the earliest Primaries entry's channel mixer."""
 
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final
 
 from bl_ui.space_image import IMAGE_PT_image_properties
@@ -15,6 +16,12 @@ from rasm_records import Outcome, paired
 
 from ..catalog import chain
 from ..effects.grade.colorimetry import MIXER, Primaries, REMAP
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_FLIP: Final = Path("flip.svg")
+_VERTICAL: Final = Path("flip-vertical.svg")
+turned: Final = MappingProxyType({_VERTICAL: _FLIP})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -35,10 +42,10 @@ def apply_calibration(call: Call[Empty]) -> Outcome[Answer]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-editing: Final = ChartEditing(horizontal=Path("flip.svg"), vertical=Path("flip-vertical.svg"))
+editing: Final = ChartEditing(horizontal=_FLIP, vertical=_VERTICAL)
 calibration: Final = ChartCalibration(charts=editing, actions=(OperatorButton(target=apply_calibration),))
 rows: Final = (editing, calibration, Panel(section=calibration.section(), at=Beside(IMAGE_PT_image_properties)), Panel(section=calibration.node_section(), at=Beside(NODE_PT_active_node_generic)))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["apply_calibration", "calibration", "editing", "rows"]
+__all__ = ["apply_calibration", "calibration", "editing", "rows", "turned"]

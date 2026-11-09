@@ -11,6 +11,7 @@ from expression import Option, try_downcast
 from expression.extra.result import catch
 import msgspec
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import _member, _STORES, Handle
 from rasm_bpy.data._rna.descriptors import Descriptor, written
 from rasm_bpy.data._rna.paths import _parsed
@@ -204,7 +205,7 @@ def reloaded(library: bpy.types.Library, path: Option[Path] = Nothing) -> Outcom
     """Reloads library, relocating it to path when given."""
     return (
         accumulated(written(library, ("filepath",), str(target)) for target in path.to_list())
-        .bind(lambda _: catch(library.reload, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, f"{library!r}.reload")))
+        .bind(lambda _: catch(library.reload, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, f"{library!r}.reload")))
         .map(lambda _: library)
     )
 
@@ -216,7 +217,7 @@ def override_made(block: bpy.types.ID, make: Callable[[bpy.types.ID], bpy.types.
     """Creates an override through the `ID.override_create` or `ID.override_hierarchy_create` call make states, absent fault for an ID taking none."""
     return (
         catch(make, exception=RuntimeError)(block)
-        .map_error(partial(Fault.of, Reason.REFUSED, repr(block)))
+        .map_error(partial(Fault.of, Refusal.REFUSED, repr(block)))
         .bind(lambda held: Option.of_optional(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library")))
     )
 
@@ -227,7 +228,7 @@ def _overridden[R](block: bpy.types.ID, call: Callable[[bpy.types.IDOverrideLibr
         Option
         .of_optional(block.override_library)
         .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(block), member="override_library"))
-        .bind(lambda held: catch(call, exception=RuntimeError)(held).map_error(partial(Fault.of, Reason.REFUSED, repr(held))))
+        .bind(lambda held: catch(call, exception=RuntimeError)(held).map_error(partial(Fault.of, Refusal.REFUSED, repr(held))))
     )
 
 

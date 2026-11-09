@@ -9,9 +9,6 @@
     },
     "license": "MIT",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
         ".": "./plugins/project-graph.ts",
         "./package.json": "./package.json"
@@ -30,9 +27,6 @@
         "exports": {
             ".": "./dist/plugins/project-graph.js",
             "./package.json": "./package.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

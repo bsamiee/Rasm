@@ -14,8 +14,12 @@ public sealed partial class DraftingReason {
     public static readonly DraftingReason IssueDate = new("no ISO 8601 date");
     public static readonly DraftingReason TitleMissing = new("empty title-block field");
     public static readonly DraftingReason TitleInvalid = new("invalid title-block field");
+    public static readonly DraftingReason TitleUnknown = new("entry for a field outside the title block");
     public static readonly DraftingReason NameBroken = new("name outside its naming standard");
     public static readonly DraftingReason NumberTaken = new("duplicate sheet number");
+    public static readonly DraftingReason Blank = new("blank name");
+    public static readonly DraftingReason Measure = new("length negative or not finite");
+    public static readonly DraftingReason Repeated = new("empty or repeated entries");
 
     public string Message { get; }
 }

@@ -1,10 +1,6 @@
 use core::{iter, num::NonZero, ops::ControlFlow, range::RangeInclusive};
 
-use argmin::{
-    core::{CostFunction, Error, Executor},
-    solver::brent::BrentRoot,
-};
-use basin::{BoxBounds, Constrained, ConstraintSet, ConstraintSolveError, GoldenSection, PointState};
+use basin::{BoxBounds, Brent, Constrained, ConstraintSet, ConstraintSolveError, CostFunction, PointState, RootError, Toms748Root};
 use faer::{MatRef, linalg::evd::EvdError};
 use itertools::Itertools as _;
 use nalgebra::{DMatrix, DVector, DVectorView, Point1, convert, linalg::balancing::balance_parlett_reinsch};
@@ -36,38 +32,29 @@ pub struct Newton {
 
 struct Equation<F>(F);
 
-impl<F> basin::CostFunction for Equation<F>
+impl<F> CostFunction for Equation<F>
 where F: Fn(f64) -> Result<f64, AnalysisError>
 {
     type Param = f64;
     type Output = f64;
     type Error = AnalysisError;
 
-    fn cost(&self, param: &f64) -> Result<f64, AnalysisError> { (self.0)(*param).and_then(|value| value.is_finite().ok_or_else(|| pole(*param)).map(|()| value)) }
-}
-
-impl<F> CostFunction for Equation<F>
-where F: Fn(f64) -> Result<f64, AnalysisError>
-{
-    type Param = f64;
-    type Output = f64;
-
-    fn cost(&self, param: &f64) -> Result<f64, Error> { basin::CostFunction::cost(self, param).map_err(Error::new) }
+    fn cost(&self, param: &f64) -> Result<f64, AnalysisError> { finite((self.0)(*param)?, *param) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [BRACKETS]
 
-fn pole(at: f64) -> AnalysisError { AnalysisError::Function { interval: vec![RangeInclusive { start: at, last: at }] } }
+fn finite(value: f64, at: f64) -> Result<f64, AnalysisError> { value.is_finite().ok_or_else(|| AnalysisError::Function { interval: vec![RangeInclusive { start: at, last: at }] }).map(|()| value) }
 
-pub fn minimum<F>(cost: F, start: f64, last: f64, tolerance: f64, hooks: SearchHooks<'_>) -> Result<(f64, f64), AnalysisError>
+fn resolution(bracket: RangeInclusive<f64>) -> f64 { (f64::EPSILON * bracket.start.abs().max(bracket.last.abs())).max(f64::MIN_POSITIVE * f64::EPSILON).next_up() }
+
+pub fn minimum<F>(cost: F, interval: Bounds, tolerance: Tolerance, hooks: SearchHooks<'_>) -> Result<(f64, f64), AnalysisError>
 where F: Fn(f64) -> Result<f64, AnalysisError> {
-    let bracket = RangeInclusive { start, last };
-    let interval = Bounds::try_new(bracket).map_err(|source| AnalysisError::Root { bracket, source: RootSource::Bounds(source) })?;
-    let absolute = (f64::EPSILON * interval.start.abs().max(interval.last.abs())).max(f64::MIN_POSITIVE * f64::EPSILON).next_up();
+    let bracket = *interval;
     let problem = Constrained::new(Equation(cost), ConstraintSet::new().with_bounds(BoxBounds::new(Some(interval.start), Some(interval.last))));
-    let search = GoldenSection::new().with_relative_position_tolerance(tolerance).with_absolute_position_tolerance(absolute);
+    let search = Brent::new().with_relative_position_tolerance(tolerance.into_inner()).with_absolute_position_tolerance(resolution(bracket));
     let executor = hooks.0.cloned().into_iter().fold(basin::Executor::new(problem, search, PointState::new(f64::midpoint(interval.start, interval.last))), basin::Executor::with_cancellation_token);
     hooks
         .1
@@ -89,25 +76,30 @@ where F: Fn(f64) -> f64 + Sync {
         .into_par_iter()
         .map(|step| Point1::new(interval.start).lerp(&Point1::new(interval.last), convert::<usize, f64>(step) / count).x)
         .chain(once(interval.last))
-        .map(|at| {
-            let value = function(at);
-            value.is_finite().ok_or_else(|| pole(at)).map(|()| (at, value))
-        })
+        .map(|at| finite(function(at), at).map(|value| (at, value)))
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
-    let equation = |at: f64| Ok::<_, AnalysisError>(function(at));
     let pole_free = |outcome: Result<(f64, f64), AnalysisError>| match outcome {
         Err(error) if error.is_function() => Ok(None),
         outcome => outcome.map(Some),
     };
     let solve = |start: f64, last: f64, bound: f64| {
-        let found = Executor::new(Equation(equation), BrentRoot::new(start, last, tolerance.map_or_default(Tolerance::into_inner)))
-            .run()
-            .map_err(|report| report.downcast::<AnalysisError>().unwrap_or_else(|source| AnalysisError::Root { bracket: RangeInclusive { start, last }, source: RootSource::Argmin(source) }))
-            .and_then(|result| result.state.param.map(|at| (at, result.state.cost)).ok_or(AnalysisError::NoConvergence));
-        pole_free(found).map(|found| found.and_then(|(at, cost)| (cost.abs() <= bound).then_some(at)))
+        let bracket = RangeInclusive { start, last };
+        let found = Toms748Root::new(start, last)
+            .with_absolute_position_tolerance(tolerance.map_or_else(|| resolution(bracket), Tolerance::into_inner))
+            .solve(|at| finite(function(at), at))
+            .map_err(|error| match error {
+                RootError::Evaluation(error) => error,
+                source => AnalysisError::Root { bracket, source: RootSource::Bracket(Box::new(source)) },
+            })
+            .and_then(|result| result.converged().then(|| (result.root(), result.value())).ok_or(AnalysisError::NoConvergence));
+        pole_free(found).map(|found| found.and_then(|(at, value)| (value.abs() <= bound).then_some(at)))
     };
-    let tangent = |start: f64, middle: f64, last: f64, reach: f64| match pole_free(minimum(|at| Ok(function(at).abs()), start, last, almost::F64_TOLERANCE, hooks)) {
+    let tangent = |start: f64, middle: f64, last: f64, reach: f64| match pole_free(
+        Bounds::try_new(RangeInclusive { start, last })
+            .map_err(|source| AnalysisError::Root { bracket: RangeInclusive { start, last }, source: RootSource::Bounds(source) })
+            .and_then(|interval| minimum(|at| Ok(function(at).abs()), interval, TOLERANCE, hooks)),
+    ) {
         Ok(Some((at, _))) if function(at).is_sign_negative() != function(middle).is_sign_negative() =>
             [(start, at), (at, last)].into_iter().filter_map(|(below, above)| solve(below, above, reach).transpose()).collect(),
         Ok(Some((at, least))) if least <= almost::F64_TOLERANCE * reach => vec![Ok(at)],
@@ -214,16 +206,17 @@ where F: Fn(DVector<DualDVec64>) -> DVector<DualDVec64> {
             (true, _) => ControlFlow::Break(Ok(point)),
             (false, false) => ControlFlow::Break(Err(AnalysisError::System { residual: current, point })),
             (false, true) if !slopes.lu().solve_mut(&mut direction) => ControlFlow::Break(Err(AnalysisError::System { residual: current, point })),
-            (false, true) => iter::successors(Some(1.0_f64), |&damping| Some(damping / 2.0).filter(|&next| next >= f64::EPSILON))
-                .map(|damping| &point - &direction * damping)
-                .filter(|trial| finite(trial).is_ok())
-                .find_map(|trial| match residual(&trial) {
-                    Ok(next) if next < current => Some(Ok(trial)),
-                    Ok(_) => None,
-                    Err(error) => Some(Err(error)),
-                })
-                .unwrap_or_else(|| Err(AnalysisError::System { residual: current, point }))
-                .map_or_else(|error| ControlFlow::Break(Err(error)), ControlFlow::Continue),
+            (false, true) => {
+                let descended = iter::successors(Some(1.0_f64), |&damping| Some(damping / 2.0).filter(|&next| next >= f64::EPSILON))
+                    .map(|damping| &point - &direction * damping)
+                    .filter(|trial| finite(trial).is_ok())
+                    .find_map(|trial| match residual(&trial) {
+                        Ok(next) if next < current => Some(Ok(trial)),
+                        Ok(_) => None,
+                        Err(error) => Some(Err(error)),
+                    });
+                descended.unwrap_or(Err(AnalysisError::System { residual: current, point })).map_or_else(|error| ControlFlow::Break(Err(error)), ControlFlow::Continue)
+            }
         }
     });
     match outcome {

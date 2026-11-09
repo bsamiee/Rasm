@@ -1,14 +1,13 @@
-use core::{hash::Hash, iter};
+use core::{array, cell::RefCell, hash::Hash, iter};
 
-use aws_lc_rs::digest::{self, Digest};
 use indexmap::{IndexMap, IndexSet};
 use itertools::{EitherOrBoth, Itertools as _};
-use jiff::{Timestamp, fmt::temporal::Pieces, tz::Offset};
+use jiff::{Timestamp, civil, fmt::temporal::Pieces};
 use newtype_uuid::{GenericUuid as _, TypedUuid, TypedUuidKind};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
-use smallvec::SmallVec;
+use sha2::{Digest as _, Sha256, digest::Output};
 use typed_path::Utf8UnixPath;
-use uuid::Uuid;
+use uuid::{Builder, Uuid};
 use validated::Validated;
 use xot::{
     Node, Xot,
@@ -16,14 +15,15 @@ use xot::{
 };
 use zip::{CompressionMethod, result::ZipError};
 
-use crate::{ASPECT_RATIO, BcfError, Constraint, FILE, GUID, Guid, IS_EXTERNAL, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, PROJECT_INFO, TOPIC};
+use crate::{ASPECT_RATIO, BcfError, Constraint, DateTime, Document, DocumentUuid, FILE, GUID, Guid, IS_EXTERNAL, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, PROJECT_INFO, TOPIC, Text};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 // --- [ENTRIES]
 
 pub(super) type Open<'archive> = dyn Fn(&str) -> Result<Box<[u8]>, ZipError> + 'archive;
-pub(super) type Store<'archive> = dyn Fn(&str, &[u8], Digest, CompressionMethod) -> Result<(), BcfError> + 'archive;
+pub(super) type Store<'archive> = dyn Fn(&str, &[u8], Output<Sha256>, CompressionMethod) -> Result<(), BcfError> + 'archive;
+pub(super) type Upgrade = RefCell<IndexMap<DocumentUuid, Document>>;
 
 // --- [VALUES]
 
@@ -60,14 +60,17 @@ impl Simple for bool {
     fn encode(&self) -> String { self.to_string() }
 }
 
-impl Simple for Timestamp {
+impl Simple for DateTime {
     fn decode(text: &str) -> Result<Self, BcfError> {
         Pieces::parse(text)
-            .and_then(|pieces| pieces.to_numeric_offset().unwrap_or(Offset::UTC).to_timestamp(pieces.date().to_datetime(pieces.time().unwrap_or_default())))
+            .and_then(|pieces| {
+                let stated = pieces.date().to_datetime(pieces.time().unwrap_or_default());
+                pieces.to_numeric_offset().map_or(Ok(Self::Right(stated)), |offset| offset.to_timestamp(stated).map(Self::Left))
+            })
             .map_err(|source| BcfError::Timestamp { text: text.into(), source })
     }
 
-    fn encode(&self) -> String { self.to_string() }
+    fn encode(&self) -> String { self.as_ref().either(Timestamp::to_string, civil::DateTime::to_string) }
 }
 
 impl<K> Simple for TypedUuid<K>
@@ -217,7 +220,7 @@ pub(super) struct Reader<'xml> {
     pub(super) xot: &'xml Xot,
     pub(super) entry: &'xml str,
     pub(super) open: &'xml Open<'xml>,
-    pub(super) upgrading: bool,
+    pub(super) upgrade: Option<&'xml Upgrade>,
 }
 
 impl Reader<'_> {
@@ -277,6 +280,14 @@ impl Reader<'_> {
             .ok()
             .map_or_else(Validated::Fail, |entries| unique(self.entry, entries))
             .map(|ranked| ranked.sorted_by(|_, (left, _), _, (right, _)| left.cmp(right)).map(|(key, (_, value))| (key, value)).collect())
+    }
+
+    pub(super) fn set<K>(&self, node: Node, ancestors: &[&'static str], element: &'static str) -> Validated<IndexSet<TypedUuid<K>>, BcfError>
+    where
+        K: TypedUuidKind,
+        TypedUuid<K>: Into<Guid>,
+    {
+        self.keyed::<K, ()>(node, ancestors, element, None).map(|held| held.into_keys().collect())
     }
 
     pub(super) fn file(&self, name: &str) -> Result<Box<[u8]>, BcfError> {
@@ -340,8 +351,16 @@ impl<'xml> Writer<'xml> {
         })
     }
 
+    pub(super) fn set<K>(&mut self, node: Node, ancestors: &[&'static str], element: &'static str, keys: &IndexSet<TypedUuid<K>>) -> Result<(), BcfError>
+    where
+        K: TypedUuidKind,
+        TypedUuid<K>: Into<Guid>,
+    {
+        self.keyed(node, ancestors, element, None, &keys.iter().map(|&key| (key, ())).collect::<IndexMap<_, _>>())
+    }
+
     pub(super) fn file(&self, name: &str, content: &[u8], method: CompressionMethod) -> Result<(), BcfError> {
-        (self.store)(&resolve(self.entry, name), content, digest::digest(&digest::SHA256, content), method)
+        (self.store)(&resolve(self.entry, name), content, Sha256::digest(content), method)
     }
 }
 
@@ -363,15 +382,49 @@ pub(super) fn sides<L, R>(reader: &Reader<'_>, left_found: Validated<Option<L>, 
     }
 }
 
-pub(super) fn document<T>(open: &Open<'_>, upgrading: bool, (entry, root): (&str, &'static str), read: impl FnOnce(&Reader<'_>, Node) -> Validated<T, BcfError>) -> Validated<Option<T>, BcfError> {
+pub(super) fn document<T>(
+    open: &Open<'_>,
+    upgrade: Option<&Upgrade>,
+    (entry, root): (&str, &'static str),
+    read: impl FnOnce(&Reader<'_>, Node) -> Validated<T, BcfError>,
+) -> Validated<Option<T>, BcfError> {
     let bytes = match open(entry) {
         Ok(bytes) => bytes,
         Err(ZipError::FileNotFound) => return Validated::Good(None),
         Err(source) => return Validated::fail(archive_error(entry)(source)),
     };
+    let xml = |source| BcfError::Xml { entry: entry.into(), source };
     let rename = |xot: &mut Xot, node: Node, name: &str| {
         let id = xot.add_name(name);
         xot.set_element_name(node, id);
+    };
+    let derived = |parts: &[&[u8]]| {
+        let digest = parts.iter().fold(Sha256::new(), Sha256::chain_update).finalize();
+        Builder::from_custom_bytes(array::from_fn(|index| digest[index])).into_uuid()
+    };
+    let documents = |xot: &mut Xot, document_element: Node, held: &Upgrade| -> Result<(), BcfError> {
+        let (external, guid) = (xot.add_name("isExternal"), xot.add_name(GUID));
+        xot.descendants(document_element).collect::<Vec<_>>().into_iter().enumerate().try_for_each(|(position, node)| match local_name(xot, node) {
+            "DocumentReference" if xot.get_attribute(node, guid).is_none() => {
+                xot.set_attribute(node, guid, derived(&[entry.as_bytes(), &position.to_le_bytes()]).to_string());
+                Ok(())
+            }
+            "ReferencedDocument" => {
+                if xot.parent(node).and_then(|holder| xot.get_attribute(holder, external)).map(bool::decode).transpose()?.unwrap_or_default() {
+                    rename(xot, node, "Url");
+                } else {
+                    let location = resolve(entry, xot.string_value(node).trim());
+                    let content = open(&location).map_err(archive_error(&location))?;
+                    let filename = Text::try_new(Utf8UnixPath::new(&location).file_name().unwrap_or(&location))?;
+                    let identity = DocumentUuid::from_untyped_uuid(derived(&[filename.as_bytes(), &content]));
+                    rename(xot, node, "DocumentGuid");
+                    xot.text_content_mut(node).ok_or_else(|| BcfError::Element { entry: entry.into(), element: "ReferencedDocument".into(), text: None })?.set(identity.to_string());
+                    held.borrow_mut().insert(identity, Document { filename, description: None, content });
+                }
+                Ok(())
+            }
+            _ => Ok(()),
+        })
     };
     let upgraded = |xot: &mut Xot, document: Node| -> Result<(), xot::Error> {
         const UPGRADES: [(&[&str], &str, &str, &[&str]); 9] = [
@@ -407,10 +460,6 @@ pub(super) fn document<T>(open: &Open<'_>, upgrading: bool, (entry, root): (&str
                 xot.set_attribute(node, is_external, value);
             }
             match local_name(xot, node) {
-                "ReferencedDocument" => {
-                    rename(xot, node, "Url");
-                    Ok(())
-                }
                 ORTHOGONAL_CAMERA | PERSPECTIVE_CAMERA if xot.children(node).all(|child| xot.element(child).is_none_or(|element| element.name() != aspect)) => {
                     let ratio = appended(xot, node, ASPECT_RATIO)?;
                     xot.append_text(ratio, "1")
@@ -420,10 +469,13 @@ pub(super) fn document<T>(open: &Open<'_>, upgrading: bool, (entry, root): (&str
         })
     };
     let mut xot = Xot::new();
-    let parsed = xot.parse_bytes(&bytes).map_err(xot::Error::from).and_then(|document| if upgrading { upgraded(&mut xot, document).map(|()| document) } else { Ok(document) });
-    let reader = Reader { xot: &xot, entry, open, upgrading };
+    let parsed = xot.parse_bytes(&bytes).map_err(|source| xml(source.into())).and_then(|document| {
+        upgrade
+            .map_or(Ok(()), |held| upgraded(&mut xot, document).and_then(|()| xot.document_element(document)).map_err(xml).and_then(|element| documents(&mut xot, element, held)))
+            .map(|()| document)
+    });
+    let reader = Reader { xot: &xot, entry, open, upgrade };
     parsed
-        .map_err(|source| BcfError::Xml { entry: entry.into(), source })
         .map_or_else(Validated::fail, |document| named(reader.xot, document, root).next().map_or_else(|| Validated::fail(reader.refused(root, None)), |element| read(&reader, element).map(Some)))
 }
 
@@ -438,7 +490,7 @@ pub(super) fn stored(store: &Store<'_>, (entry, root): (&str, &'static str), wri
         .xot
         .serialize_xml_string(Parameters { declaration: Some(Declaration { encoding: Some("UTF-8".to_owned()), standalone: None }), ..Parameters::default() }, document)
         .map_err(writer.xml())?;
-    store(entry, text.as_bytes(), digest::digest(&digest::SHA256, text.as_bytes()), CompressionMethod::Deflated)
+    store(entry, text.as_bytes(), Sha256::digest(text.as_bytes()), CompressionMethod::Deflated)
 }
 
 pub(super) fn resolve(entry: &str, name: &str) -> String {
@@ -474,8 +526,8 @@ pub(super) fn named<'xml>(xot: &'xml Xot, node: Node, name: &str) -> impl Iterat
     xot.children(node).filter(move |&child| xot.element(child).is_some_and(|element| Some(element.name()) == name))
 }
 
-fn elements(xot: &Xot, node: Node, ancestors: &[&str]) -> SmallVec<Node, 1> {
-    ancestors.iter().fold(SmallVec::from_buf([node]), |nodes, name| nodes.into_iter().flat_map(|parent| named(xot, parent, name)).collect())
+fn elements(xot: &Xot, node: Node, ancestors: &[&str]) -> Vec<Node> {
+    ancestors.iter().fold(Vec::from([node]), |nodes, name| nodes.into_iter().flat_map(|parent| named(xot, parent, name)).collect())
 }
 
 fn appended(xot: &mut Xot, parent: Node, name: &str) -> Result<Node, xot::Error> {

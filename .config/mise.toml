@@ -26,11 +26,11 @@ CF_QUIET                     = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH = "{{config_root}}/.cache/cloudflare/registry"
 DOTNET_NOLOGO                = "1"
 DOTNET_ROLL_FORWARD          = "Major"
+GHIDRA_CLASSPATH             = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
 GHIDRA_INSTALL_DIR           = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
 GHIDRA_JAVA_OPTIONS          = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
 GHIDRA_PROJECT_DIR           = "{{ xdg_cache_home }}/rasm/ghidra/projects"
 HK_CACHE_DIR                 = "{{config_root}}/.cache/hk"
-HK_LOG_FILE                  = "{{config_root}}/.artifacts/logs/hk.log"
 HK_PKL_CACHE_DIR             = "{{config_root}}/.cache/pklr"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
 NODE_COMPILE_CACHE           = "{{config_root}}/.cache/node"
@@ -39,7 +39,6 @@ NX_WORKSPACE_DATA_DIRECTORY  = "{{config_root}}/.cache/nx/workspace-data"
 PITCHFORK_LOG_TIME_RETENTION = "7d"
 PLAYWRIGHT_MCP_OUTPUT_DIR    = "{{config_root}}/.artifacts/playwright"
 PULUMI_HOME                  = "{{config_root}}/.cache/pulumi"
-PYTHONPYCACHEPREFIX          = "{{config_root}}/.cache/pycache"
 RUSTUP_AUTO_INSTALL          = "0"
 RUSTUP_TOOLCHAIN             = false
 TOMBI_CACHE_HOME             = "{{config_root}}/.cache/tombi"
@@ -74,6 +73,7 @@ git-lfs                                                                      = "
 "github:hostinger/api-cli"                                                   = "latest"
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
 "github:sbdchd/squawk"                                                       = "latest"
+google-java-format                                                           = "latest"
 "github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["linux", "macos/arm64"], version = "latest" }
 hk                                                                           = { version = "latest", workflow = "release.yml" }
 hyperfine                                                                    = "latest"
@@ -134,6 +134,12 @@ strip_components = 1
 version          = "latest"
 version_prefix   = "Ghidra_"
 
+[tools."github:pmd/pmd"]
+asset_pattern  = "pmd-dist-*-bin.zip"
+version        = "latest"
+version_prefix = "pmd_releases/"
+version_regex  = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
+
 [tools."http:docker-cli"]
 checksum_url     = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256'
 os               = ["macos", "linux"]
@@ -166,14 +172,6 @@ working_directory = "{{config_root}}"
 
 [daemons_settings]
 namespace = "rasm"
-
-[daemons.argus]
-boot_start = true
-port       = 7410
-proxy      = false
-ready_port = 7410
-retry      = true
-run        = "exec node plugins/argus/main.ts --listen 127.0.0.1:$PORT"
 
 [daemons.ast-grep]
 boot_start = true

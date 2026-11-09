@@ -14,6 +14,7 @@ import msgspec
 from rasm_bpy.commands.operators import called, Operation
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _Startup, Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _kept, Ownership, Saved
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import written
@@ -98,7 +99,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
             """Names the copy and writes declared object mode and scene pin."""
             return (
                 catch(workspace.rename, exception=RuntimeError)(self.name, mode="NEVER")
-                .map_error(partial(Fault.of, Reason.REFUSED, repr(workspace)))
+                .map_error(partial(Fault.of, Refusal.REFUSED, repr(workspace)))
                 .bind(
                     lambda _: accumulated((
                         *(written(workspace, ("object_mode",), mode) for mode in self.mode.to_list()),

@@ -8,7 +8,7 @@ namespace Rasm.UI.Hosting;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public sealed class SceneHost : IAsyncDisposable {
+public sealed class SceneHost : IDisposable {
 
     // --- [STATE]
 
@@ -163,7 +163,7 @@ public sealed class SceneHost : IAsyncDisposable {
                                from frame in popup.Match(
                                    Some: path => current.Hosted.Find(hosted => hosted is Hosted.Popup && hosted.Path == path).Map(static hosted => hosted.Frame),
                                    None: Some(SKRect.Create(current.Host.Size)))
-                               let info = Capture.Info(frame.Size, scale, current.Scene.Extended)
+                               let info = Capture.Info(frame.Size, scale, current.Scene.Extended, backend.Format)
                                where info.Width > 0 && info.Height > 0
                                select (Mount: current, Origin: frame.Location, Info: info))
             .Traverse(target => Rastered(popup, target.Info, scale, target.Origin).Bind(raster => raster.Drawn(target.Mount, popup, now))).As())
@@ -202,9 +202,9 @@ public sealed class SceneHost : IAsyncDisposable {
         return unit;
     }
 
-    public async ValueTask DisposeAsync() {
+    public void Dispose() {
         using (shaping)
-        await using (timer.ConfigureAwait(false))
-            _ = await Released.RunAsync().ConfigureAwait(false);
+        using (timer)
+            _ = Released.Run();
     }
 }

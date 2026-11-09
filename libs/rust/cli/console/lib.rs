@@ -40,11 +40,19 @@ pub enum EncodingError {
 #[derive(Debug, thiserror::Error)]
 pub enum OutputError {
     #[error("cannot write rows")]
-    Write { source: io::Error },
+    Write {
+        source: io::Error,
+    },
     #[error("cannot encode row {row}")]
-    Encode { row: usize, source: EncodingError },
+    Encode {
+        row: usize,
+        source: EncodingError,
+    },
     #[error("cannot write row {row}, column `{name}` is outside the CSV header")]
-    Column { row: usize, name: String },
+    Column {
+        row: usize,
+        name: String,
+    },
     #[error(transparent)]
     Pager(#[from] MinusError),
     #[error(transparent)]
@@ -116,3 +124,16 @@ where
 mod cells;
 mod formats;
 mod theme;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use clap;
+pub use futures;
+pub use inquire;
+pub use minus;
+pub use nonempty_collections;
+pub use rasm_command;
+pub use serde;
+pub use serde_content;
+pub use serde_json;
+pub use sysexits;

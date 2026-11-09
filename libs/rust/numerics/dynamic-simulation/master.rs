@@ -1,3 +1,4 @@
+
 use core::{
     cell::Cell,
     iter,
@@ -5,17 +6,22 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use itertools::Itertools as _;
 use nalgebra::DMatrix;
 use nonempty_collections::NEVec;
 use petgraph::{
     data::{Element, FromElements as _},
     stable_graph::{NodeIndex, StableDiGraph},
 };
-use rasm_dependency_graph::cycles::{self, Torn};
+use rasm_dependency_graph::cycles::{self, Block, Torn};
 use uom::si::f64::Time;
 use validated::Validated;
 
-use crate::{Causality, Connection, DynamicsError, Endpoint, Grid, Kind, Port, Stop, Trajectory, cosimulation::Fmu, lumped::Instance};
+#[cfg(feature = "fmu")]
+use crate::cosimulation::Fmu;
+#[cfg(feature = "ode")]
+use crate::lumped::Instance;
+use crate::{Causality, Connection, DynamicsError, Endpoint, Grid, Kind, Port, Stop, Trajectory};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -34,8 +40,10 @@ struct Reading {
 
 #[derive(Debug, derive_more::From)]
 pub enum Subsystem {
+    #[cfg(feature = "fmu")]
     #[from(Fmu)]
     Fmu(Box<Fmu>),
+    #[cfg(feature = "ode")]
     #[from(Instance)]
     Network(Box<Instance>),
 }
@@ -43,7 +51,9 @@ pub enum Subsystem {
 impl AsRef<[Port]> for Subsystem {
     fn as_ref(&self) -> &[Port] {
         match self {
+            #[cfg(feature = "fmu")]
             Self::Fmu(fmu) => (**fmu).as_ref(),
+            #[cfg(feature = "ode")]
             Self::Network(instance) => (**instance).as_ref(),
         }
     }
@@ -63,7 +73,9 @@ impl Subsystem {
 
     fn write(&mut self, references: &[usize], values: &[f64]) -> Result<(), DynamicsError> {
         match self {
+            #[cfg(feature = "fmu")]
             Self::Fmu(fmu) => fmu.set(references, values),
+            #[cfg(feature = "ode")]
             Self::Network(instance) => {
                 instance.set(references, values);
                 Ok(())
@@ -74,10 +86,10 @@ impl Subsystem {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: &Grid, probes: &[Endpoint], cancel: &AtomicBool) -> Result<Trajectory, NEVec<DynamicsError>> {
+pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: &Grid, probes: &[Endpoint], cancel: &AtomicBool) -> Result<(Trajectory, Vec<Connection>), NEVec<DynamicsError>> {
     fn pass(
         ordered: &[(NodeIndex, Exchange<'_>, Exchange<'_>)],
-        subsystems: &mut StableDiGraph<Subsystem, ()>,
+        subsystems: &mut StableDiGraph<Subsystem, usize>,
         scratch: &mut [Vec<f64>; 2],
         time: Time,
         mut act: impl FnMut(&mut Subsystem, &[usize], &[f64]) -> Result<ControlFlow<Option<Time>>, DynamicsError>,
@@ -96,10 +108,12 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
                     ControlFlow::Continue(()) => {}
                 }
                 match subsystem {
+                    #[cfg(feature = "fmu")]
                     Subsystem::Fmu(fmu) => {
                         outputs.resize(output_references.len(), 0.0);
                         fmu.get(output_references, outputs)
                     }
+                    #[cfg(feature = "ode")]
                     Subsystem::Network(instance) => {
                         outputs.clear();
                         outputs.extend(instance.get(output_references));
@@ -123,7 +137,7 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
     let couple = |connection @ Connection { source, target }: Connection| match Validated::from(port(source, Causality::Output)).map2(Validated::from(port(target, Causality::Input)), |exit, entry| {
         exit.kind
             .conversion(entry.kind)
-            .map(|(scale, shift)| (target, Reading { source, scale, shift, value: Cell::new(f64::NAN) }))
+            .map(|(scale, shift)| (target, Reading { source, scale, shift, value: Cell::new(f64::NAN) }, exit.start.map(|held| scale.mul_add(held, shift)).or(entry.start)))
             .ok_or_else(|| DynamicsError::Connection { connection, kinds: Box::new([exit.kind, entry.kind]) })
     }) {
         Validated::Good(related) => Validated::from(related),
@@ -145,22 +159,30 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
         .collect::<Validated<Vec<_>, _>>()
         .map2(probes.iter().copied().map(probe).collect::<Validated<Vec<_>, _>>(), |couplings, recorded| (couplings, recorded))
         .ok()?;
-    let Torn { evaluation, blocks: _ } = cycles::tear(
-        StableDiGraph::<Subsystem, ()>::from_elements(iter::chain(
+    let Torn { evaluation, blocks } = cycles::tear(
+        StableDiGraph::from_elements(iter::chain(
             subsystems.into_iter().map(|weight| Element::Node { weight }),
-            connections.iter().map(|connection| Element::Edge { source: connection.source.subsystem, target: connection.target.subsystem, weight: () }),
+            connections.iter().enumerate().map(|(index, connection)| Element::Edge { source: connection.source.subsystem, target: connection.target.subsystem, weight: index }),
         )),
-        |&()| (),
-    )
-    .map_err(|cycle| NEVec::new(DynamicsError::Cycle { cycle }))?;
+        |_| (),
+    );
+    let late = blocks
+        .into_iter()
+        .flat_map(|Block { members: _, torn }| torn)
+        .map(|(_, _, index)| index)
+        .sorted_unstable()
+        .filter_map(|index| Some((connections.get(index).copied()?, couplings.get(index)?)))
+        .map(|(connection, (_, reading, start))| start.ok_or(DynamicsError::Start { connection }).map(|value| reading.value.set(value)).map(|()| connection))
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()?;
     let ordered = evaluation
         .nodes_iter()
         .map(|node| {
             let index = node.index();
             (
                 node,
-                couplings.iter().filter(|(target, _)| target.subsystem == index).map(|(target, reading)| (target.reference, reading)).unzip(),
-                couplings.iter().map(|(_, reading)| reading).chain(&recorded).filter(|reading| reading.source.subsystem == index).map(|reading| (reading.source.reference, reading)).unzip(),
+                couplings.iter().filter(|(target, _, _)| target.subsystem == index).map(|(target, reading, _)| (target.reference, reading)).unzip(),
+                couplings.iter().map(|(_, reading, _)| reading).chain(&recorded).filter(|reading| reading.source.subsystem == index).map(|reading| (reading.source.reference, reading)).unzip(),
             )
         })
         .collect::<Vec<_>>();
@@ -169,7 +191,9 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
     let start = *grid.first();
     pass(&ordered, &mut graph, &mut scratch, start, |subsystem, _, _| {
         match subsystem {
+            #[cfg(feature = "fmu")]
             Subsystem::Fmu(fmu) => fmu.initialize(grid),
+            #[cfg(feature = "ode")]
             Subsystem::Network(_) => Ok(()),
         }
         .map(ControlFlow::Continue)
@@ -177,7 +201,9 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
     pass(&ordered, &mut graph, &mut scratch, start, |subsystem, references, inputs| {
         subsystem.write(references, inputs)?;
         match subsystem {
+            #[cfg(feature = "fmu")]
             Subsystem::Fmu(fmu) => fmu.exit(),
+            #[cfg(feature = "ode")]
             Subsystem::Network(_) => Ok(()),
         }
         .map(ControlFlow::Continue)
@@ -194,7 +220,9 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
             let requested = pass(&ordered, &mut graph, &mut scratch, time, |subsystem, references, inputs| {
                 subsystem.write(references, inputs)?;
                 match subsystem {
+                    #[cfg(feature = "fmu")]
                     Subsystem::Fmu(fmu) => fmu.step(time, next - time, cancel),
+                    #[cfg(feature = "ode")]
                     Subsystem::Network(instance) => instance.step(time, next).map(|()| ControlFlow::Continue(())),
                 }
             })?;
@@ -211,7 +239,9 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
         .iter()
         .map(|(node, _, _)| {
             match &mut graph[*node] {
+                #[cfg(feature = "fmu")]
                 Subsystem::Fmu(fmu) => fmu.terminate(),
+                #[cfg(feature = "ode")]
                 Subsystem::Network(_) => Ok(()),
             }
             .map_err(failed(node.index(), reached))
@@ -219,7 +249,7 @@ pub fn trajectory(subsystems: Vec<Subsystem>, connections: &[Connection], grid: 
         .collect::<Validated<(), _>>()
         .ok()?;
     let values = DMatrix::from_vec(recorded.len(), times.len().get(), columns);
-    Ok(Trajectory { times: times.into(), values, stop })
+    Ok((Trajectory { times: times.into(), values, stop }, late))
 }
 
 const fn failed(subsystem: usize, time: Time) -> impl Fn(DynamicsError) -> DynamicsError + Copy { move |source| DynamicsError::Subsystem { subsystem, time, source: Box::new(source) } }

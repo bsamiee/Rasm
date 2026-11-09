@@ -28,22 +28,25 @@ serde                   = { workspace = true }
 serde_with              = { workspace = true }
 bounded-integer         = { workspace = true }
 jiff                    = { workspace = true }
-dashu                   = { workspace = true }
 gauss-quad              = { workspace = true }
 nalgebra                = { workspace = true }
 ndarray                 = { workspace = true }
 ndarray-interp          = { workspace = true }
 statrs                  = { workspace = true }
-twofloat                = { workspace = true }
+basin                   = { workspace = true }
 uom                     = { workspace = true }
 grib                    = { workspace = true }
 solar-positioning       = { workspace = true }
 thermalcomfort          = { workspace = true }
-rasm-proximity          = { workspace = true }
-rasm-stats              = { workspace = true }
+rasm-proximity          = { workspace = true, optional = true }
 rasm-site               = { workspace = true }
 rasm-solar-geometry     = { workspace = true }
-rasm-numerical-analysis = { workspace = true }
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+default   = ["proximity"]
+proximity = ["dep:rasm-proximity", "rasm-solar-geometry/proximity"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

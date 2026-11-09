@@ -33,7 +33,10 @@ pub enum Phase {
     #[display("cannot parse settings")]
     Parse(Origin),
     #[display("cannot decode settings key `{path}`")]
-    Decode { path: Path, origin: Option<Origin> },
+    Decode {
+        path: Path,
+        origin: Option<Origin>,
+    },
 }
 
 #[derive(Debug)]

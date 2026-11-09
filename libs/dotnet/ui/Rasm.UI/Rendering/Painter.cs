@@ -97,10 +97,12 @@ internal static class Painter {
     // --- [NODES]
 
     private static void DrawNode(SKCanvas canvas, Pass pass, LayoutNode layout, Context context, SKPoint at) {
+        using SKAutoCanvasRestore placed = new(canvas);
+        canvas.Translate(at.X, at.Y);
         if (pass.Live.Contains(layout.Path) || (layout.View.Role.IsNone && !context.StateLayers.IsEmpty)) {
             Leaf leaf = pass.Cache.Leaves.GetOrAdd(layout, () => new Leaf(layout, pass));
             leaf.Placed(context, at);
-            canvas.DrawDrawable(leaf, at.X, at.Y);
+            canvas.DrawDrawable(leaf, 0f, 0f);
             return;
         }
         Context own = context.Translated(at) with { StateLayers = StateLayers(pass, layout, context) };
@@ -110,8 +112,6 @@ internal static class Painter {
             DrawSelf(recorder.BeginRecording(layout.LocalSubtreeBounds, useRTree: true), pass, layout, own, alpha);
             return recorder.EndRecordingAsDrawable();
         });
-        using SKAutoCanvasRestore turned = new(canvas, doSave: layout.Transform.IsSome);
-        canvas.Translate(at.X, at.Y);
         if (layout.Transform.Case is Matrix4x4 turn) canvas.Concat((SKMatrix44)turn);
         canvas.DrawDrawable(recorded, 0f, 0f);
     }
@@ -270,7 +270,10 @@ internal static class Painter {
         layout.Switch(
             (Canvas: canvas, Pass: pass, Context: context, Under: under),
             box: static (held, box) => Contained(held.Canvas, held.Pass, box, held.Context, held.Under),
-            text: static (held, text) => DrawText(held.Canvas, held.Pass, text, held.Context, held.Under));
+            text: static (held, text) => {
+                if (text.View is View.Text { Edited.IsSome: true }) held.Canvas.DrawRect(SKRect.Create(text.Frame.Size), ClearPaint);
+                else DrawText(held.Canvas, held.Pass, text, held.Context, held.Under);
+            });
 
     private static void Contained(SKCanvas canvas, Pass pass, LayoutNode.Box layout, Context context, SKColorF under) =>
         layout.View.SwitchPartially(

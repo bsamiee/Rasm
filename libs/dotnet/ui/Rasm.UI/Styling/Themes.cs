@@ -47,8 +47,7 @@ internal sealed record StatePalette(SKColorF Source, Seq<SKColorF> Targets, Conf
         });
 }
 
-public sealed record Seeds(Unicolour Background, Unicolour Foreground) {
-    public Unicolour Accent { get; init; } = new("#007AFF");
+public sealed record Seeds(Unicolour Background, Unicolour Foreground, Unicolour Accent) {
     public float Control { get; init; } = StyleSheet.Control;
     public Option<float> Corner { get; init; }
 
@@ -291,7 +290,7 @@ public sealed partial class Theme {
 public sealed record Scheme {
     public static readonly Scheme Glass = new() { Conditions = [Condition.Glass] };
     public static readonly Scheme Neutral =
-        new Seeds(new Unicolour("#EBEBEB"), new Unicolour("#282828")) { Accent = Css.RoyalBlue, Control = 20f, Corner = 4f } switch {
+        new Seeds(new Unicolour("#EBEBEB"), new Unicolour("#282828"), Css.RoyalBlue) { Control = 20f, Corner = 4f } switch {
             var light => new Scheme {
                 Light = light,
                 Dark = light with { Background = new Unicolour("#2D2D2D"), Foreground = Css.Gainsboro },

@@ -353,15 +353,17 @@ extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io
 
 [tool.uv.workspace]
 members = [
+    "apps/cli/foundry",
     "libs/python/data/records",
     "libs/python/graphics/typography",
-    "tests/python/libs/graphics/typography",
+    "tests/python/apps/cli/foundry",
     "tests/python/support",
     "tests/python/tools/refurb",
     "tools/refurb",
 ]
 
 [tool.uv.sources]
+rasm-foundry    = { workspace = true }
 rasm-records    = { workspace = true }
 rasm-refurb     = { workspace = true }
 rasm-testing    = { workspace = true }
@@ -417,7 +419,7 @@ WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 cache-dir   = ".cache/ruff"
 preview     = true
 line-length = 200
-src         = ["libs/python/*/*", "tools/refurb"]
+src         = ["apps/cli/*", "libs/python/*/*", "tools/refurb"]
 format      = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -428,11 +430,11 @@ ignore                    = [
     "too-many-arguments",                                                                                                                                                                        # Argument counts push one-caller parameter records and wrappers
     "too-many-positional-arguments",                                                                                                                                                             # Positional counts do not establish a domain record or keyword contract
     "too-many-return-statements",                                                                                                                                                                # Return counts push one-caller helper extraction, `match` arms return per case
-    "too-many-branches",                                                                                                                                                                                             # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
+    "too-many-branches",                                                                                                                                                                         # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
     "too-many-locals",                                                                                                                                                                           # Local counts push one-caller helper extraction
     "too-many-statements",                                                                                                                                                                       # Statement counts push one-caller helper extraction
     "too-many-statements-in-try-clause",                                                                                                                                                         # Statement counts do not establish exception scope for native effects and typed refusals
-    "complex-structure",                                                                                                                                                                                             # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
+    "complex-structure",                                                                                                                                                                         # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
     "raw-string-in-exception",                                                                                                                                                                   # Moves message into a local only the raise reads
     "f-string-in-exception",                                                                                                                                                                     # Moves message into a local only the raise reads
     "raise-vanilla-args",                                                                                                                                                                        # Pushes an exception class per message, raises stay for defects
@@ -461,16 +463,16 @@ ignore                    = [
     "blocking-sleep-in-async-function",                                                                                                                                                          # `banned-api` rejects `time.sleep`
     "request-without-timeout",                                                                                                                                                                   # `banned-api` rejects every client it names
     "no-explicit-stacklevel",                                                                                                                                                                    # `banned-api` rejects `warnings.warn`
-    "multiple-starts-ends-with",                                                                                                                                                                 # refurb FURB102 preserves receiver evaluation and prefix independence
+    "multiple-starts-ends-with",                                                                                                                                                                 # refurb FURB102 owns the form
     "repeated-append",                                                                                                                                                                           # Nominal receiver types do not prove exact builtin list mutation
-    "len-test",                                                                                                                                                                                  # refurb FURB115 checks exact materialized builtin size tests
-    "for-loop-writes",                                                                                                                                                                           # refurb FURB122 checks exact StringIO/BytesIO receivers and independent primitive writes
-    "readlines-in-for",                                                                                                                                                                          # refurb FURB129 checks exact StringIO/BytesIO receivers
+    "len-test",                                                                                                                                                                                  # refurb FURB115 owns the form
+    "for-loop-writes",                                                                                                                                                                           # refurb FURB122 owns the form
+    "readlines-in-for",                                                                                                                                                                          # refurb FURB129 owns the form
     "delete-full-slice",                                                                                                                                                                         # refurb FURB131 covers attribute receivers
     "check-and-remove-from-set",                                                                                                                                                                 # Nominal receiver types do not prove exact builtin mutation, hashing, or equality
     "for-loop-set-mutations",                                                                                                                                                                    # Nominal receiver types do not prove exact builtin set mutation
-    "slice-copy",                                                                                                                                                                                # refurb FURB145 checks exact list and bytearray source forms
-    "unnecessary-enumerate",                                                                                                                                                                     # refurb FURB148 covers comprehensions
+    "slice-copy",                                                                                                                                                                                # refurb FURB145 owns the form
+    "unnecessary-enumerate",                                                                                                                                                                     # refurb FURB148 owns the form, comprehensions included
     "true-false-comparison",                                                                                                                                                                     # refurb FURB149 reports `is` and `==` on bool-typed operands alone
     "hashlib-digest-hex",                                                                                                                                                                        # refurb FURB181 covers attribute receivers
     "undefined-name",                                                                                                                                                                            # ty `unresolved-reference` owns undefined names
@@ -488,7 +490,8 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }                                                       # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["assert"]
+"tests/**"                                                  = ["assert"]
+"apps/nx/distribution/executors/extension-build/blender.py" = ["banned-api", "implicit-namespace-package"] # Blender runs this script by path in its bundled interpreter, which holds no `msgspec`
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-lazy             = ["abc", "os", "sys"] # Interpreter startup loads them before any module runs

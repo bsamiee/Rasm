@@ -116,7 +116,7 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, a field the app leaves unknown
 - Dialog helpers show crash alerts, privacy prompts, downloaded-app and Accessibility warnings, and keychain and authorization prompts
 - Apps sharing a display name share `system` rows
 - `blocking` states a new window on a blocked main thread with Accessibility silent (InDesign's `CAlert::ModalAlert`), a blocked progress window reading the same
-- `blocking` reads from a modal session in the window server, or main-thread time flat across 2 silent heartbeats
+- `blocking` reads from a window at the modal-panel level, or main-thread time flat across 2 silent heartbeats
 - `unresponsive` alone asks nothing: bodies and long work read the same, and rising `usage.cpu` across `read` runs shows a busy app
 - `usage` holds `cpu` seconds, `footprint` bytes, and `threads` on `read` and on turning `unresponsive`, `usageFailure` the cause when the read fails
 - `menus` hold the menu bar, the extras menu bar, and open application-level menus

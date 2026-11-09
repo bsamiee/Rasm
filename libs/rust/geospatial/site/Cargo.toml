@@ -32,8 +32,8 @@ geo                  = { workspace = true }
 geo-types            = { workspace = true }
 geographiclib-rs     = { workspace = true }
 proj                 = { workspace = true }
+proj-sys             = { workspace = true }
 projjson             = { workspace = true }
-tzf-rs               = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

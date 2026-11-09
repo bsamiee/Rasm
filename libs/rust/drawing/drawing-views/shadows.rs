@@ -119,6 +119,7 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
             match lit.get(&(body, key)).filter(|_| normal.dot(&sun) > 0.0) {
                 None => Ok(region),
                 Some(sunlit) => region
+                    .contours()
                     .iter()
                     .map(|contour| mapped(frame, &light, plane, &contour.path))
                     .flatten_ok()
@@ -126,11 +127,18 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
                     .and_then(|pictured| Region::new(pictured, FillRule::NonZero, *tolerance))
                     .and_then(|pictured| boolean(&pictured, [sunlit], BinaryOp::Difference, *tolerance))
                     .and_then(|unlit| {
-                        unlit.iter().filter(|contour| wide(&contour.path)).map(|contour| mapped(&light, frame, plane, &contour.path)).filter_ok(wide).flatten_ok().collect::<Result<BezPath, _>>()
+                        unlit
+                            .contours()
+                            .iter()
+                            .filter(|contour| wide(&contour.path))
+                            .map(|contour| mapped(&light, frame, plane, &contour.path))
+                            .filter_ok(wide)
+                            .flatten_ok()
+                            .collect::<Result<BezPath, _>>()
                     })
                     .and_then(|shade| Region::new(shade, FillRule::NonZero, *tolerance)),
             }
-            .map(|shade| (!shade.is_empty()).then(|| Face { body, source: origins.get(&(body, key)).copied().unwrap_or(key), normal, region: shade }))
+            .map(|shade| (!shade.contours().is_empty()).then(|| Face { body, source: origins.get(&(body, key)).copied().unwrap_or(key), normal, region: shade }))
             .map_err(|refusal| ViewsError::Linework { operation: Operation::Region(body), source: refusal })
             .transpose()
         })

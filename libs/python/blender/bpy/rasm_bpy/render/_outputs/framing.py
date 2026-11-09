@@ -17,6 +17,7 @@ import OpenImageIO
 from rasm_bpy.commands.operators import Answer, answered, Call, Empty, Operator
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Handler, Registrable
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Count, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import RnaPath, rooted
@@ -281,7 +282,7 @@ class Framed(msgspec.Struct, frozen=True, kw_only=True):
 
         return rooted(bpy.types.Scene, call.context).bind(
             lambda scene: Result[Region, Faults].bind(
-                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(partial(Fault.of, Reason.REQUIRED, "selection in front of scene camera")),
+                Option.of_optional(scene.camera).bind(lambda camera: projected(camera, scene)).to_result_with(partial(Fault.of, Refusal.REQUIRED, "selection in front of scene camera")),
                 lambda region: self.bordered(scene, region),
             )
         )

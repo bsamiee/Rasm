@@ -26,18 +26,22 @@ bounded-integer      = { workspace = true }
 nutype               = { workspace = true }
 ordered-float        = { workspace = true }
 nalgebra             = { workspace = true }
-good_lp              = { workspace = true }
-nlopt                = { workspace = true }
-rasm-stats           = { workspace = true }
+clarabel             = { workspace = true, optional = true }
+good_lp              = { workspace = true, optional = true }
+nlopt                = { workspace = true, optional = true }
+rasm-stats           = { workspace = true, optional = true }
 
-[target."cfg(target_os = \"macos\")".dependencies]
-clarabel = { workspace = true, features = ["sdp-accelerate"] }
+# --- [FEATURES] -------------------------------------------------------------------------
 
-[target."cfg(not(target_os = \"macos\"))".dependencies]
-clarabel = { workspace = true, features = ["sdp-openblas"] }
-
-[target."cfg(windows)".dependencies]
-openblas-src = { workspace = true, features = ["system"] }
+[features]
+default   = ["conic", "linear", "nonlinear"]
+conic     = ["dep:clarabel"]
+accelerate = ["conic", "clarabel/sdp-accelerate"]
+openblas   = ["conic", "clarabel/sdp-openblas"]
+netlib     = ["conic", "clarabel/sdp-netlib"]
+mkl        = ["conic", "clarabel/sdp-mkl"]
+linear    = ["dep:good_lp"]
+nonlinear = ["dep:nlopt", "dep:rasm-stats"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

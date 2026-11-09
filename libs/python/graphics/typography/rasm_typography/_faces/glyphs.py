@@ -227,8 +227,8 @@ class _Metrics(msgspec.Struct, frozen=True, kw_only=True):
     lowest_ppem: int = 6
 
 
-class _Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
-    """Face source: its declaration, units per em, glyphs in glyph order, records, metrics, and lookups."""
+class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
+    """Face source: its design record, units per em, glyphs in glyph order, records, metrics, and lookups."""
 
     # --- [STATE]
 
@@ -405,4 +405,4 @@ def _joined() -> frozendict[int, tuple[_Joining, str]]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Control", "Digit", "Letter", "Ligature", "Mark", "Ornament", "Sign", "Space", "recorded"]
+__all__ = ["Control", "Digit", "Letter", "Ligature", "Mark", "Ornament", "Sign", "Source", "Space", "recorded"]

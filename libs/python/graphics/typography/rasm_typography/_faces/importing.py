@@ -1,15 +1,15 @@
 """Binary original import into a face source: glyph names, roles, outlines, anchors, records, and substitution lookups."""
 
-from pathlib import Path
 from typing import Literal
 lazy from collections import ChainMap, Counter, defaultdict, deque
 lazy from collections.abc import Callable, Sequence
 lazy from datetime import datetime, UTC
-lazy from functools import cache
+lazy from functools import cache, partial
 lazy from io import BytesIO
 lazy from itertools import chain
 lazy import unicodedata
 
+lazy from expression.extra.result import catch
 lazy from fontTools.misc.timeTools import epoch_diff
 lazy from fontTools.otlLib.builder import LOOKUP_FLAG_USE_MARK_FILTERING_SET
 lazy from fontTools.pens.filterPen import DecomposingFilterPen
@@ -18,9 +18,9 @@ lazy from fontTools.ttLib.tables.otBase import BaseTable
 lazy from fontTools.ttLib.tables.otTables import Coverage, ExtensionPos, ExtensionSubst, LigatureSubst, SingleSubst  # ty: ignore[import-not-found]
 lazy from fontTools.unicodedata import script_extension
 
-lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
+lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace
-lazy from rasm_typography._faces.glyphs import _Anchor, _Glyph, _Info, _Metrics, _Outline, _role, _Side, _Source, _traced, Ornament
+lazy from rasm_typography._faces.glyphs import _Anchor, _fetched, _Glyph, _Info, _Metrics, _Outline, _role, _Side, _traced, Ornament, Source
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import _Form, _GlyphName
 
@@ -144,7 +144,7 @@ def _anchors(font: TTFont, named: dict[str, _GlyphName], /) -> dict[str, dict[st
 # --- [SOURCES]
 
 
-def _source(font: TTFont, face: Faces, /) -> _Source:
+def _source(font: TTFont, face: Faces, /) -> Source:
     """Builds the source of an opened binary: text faces named and anchored from cmap and layout, ornament faces kept under their original names."""
     cmap, advances, order = font.getBestCmap() or {}, font["hmtx"].metrics, font.getGlyphOrder()
     glyphs = font.getGlyphSet()
@@ -222,7 +222,7 @@ def _source(font: TTFont, face: Faces, /) -> _Source:
             for index, entries in ligatures.items()
         ),
     )
-    return _Source(
+    return Source(
         face=face,
         upm=head.unitsPerEm,  # ty: ignore[unresolved-attribute]
         glyphs=tuple(
@@ -256,15 +256,23 @@ def _source(font: TTFont, face: Faces, /) -> _Source:
     )
 
 
-def _imported(original: Path | bytes, face: Faces, /) -> Outcome[_Source]:
-    """Reads a TrueType or CFF original into a source, `UNREADABLE` for an unreadable file or a refused font."""
-    try:
-        with TTFont(BytesIO(original.read_bytes() if isinstance(original, Path) else original), lazy=True, recalcBBoxes=False, recalcTimestamp=False) as font:
-            return Ok(_source(font, face))
-    except (OSError, TTLibError) as error:
-        return Error(Fault.of(Reason.UNREADABLE, str(original) if isinstance(original, Path) else face.stem, error))
+def imported(original: bytes, face: Faces, /) -> Outcome[Source]:
+    """Reads a TrueType or CFF original into a source under a face's design record.
+
+    Args:
+        original: Font file contents the face is rebuilt from.
+        face: Design record the source carries.
+
+    Returns:
+        Ok(source), `UNREADABLE` for bytes fontTools refuses, and the faults of holding the pinned Unicode joining table.
+    """
+    return _fetched().bind(
+        lambda _: catch(lambda: _source(TTFont(BytesIO(original), lazy=True, recalcBBoxes=False, recalcTimestamp=False), face), exception=TTLibError)().map_error(
+            partial(Fault.of, Reason.UNREADABLE, face.postscript)
+        )
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["imported"]

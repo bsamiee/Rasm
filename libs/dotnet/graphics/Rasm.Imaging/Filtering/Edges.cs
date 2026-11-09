@@ -11,11 +11,99 @@ using SixLabors.ImageSharp.Processing.Processors.Convolution;
 
 namespace Rasm.Imaging.Filtering;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-public delegate void ContourMarks(Mat guide, Rectangle first, Rectangle second, Mat edges);
-
 // --- [MODELS] --------------------------------------------------------------------------
+
+public sealed class EdgeSource {
+    private EdgeSource(Action<Mat, Mat> extract) => Extract = extract;
+
+    public static EdgeSource Color { get; } = new(static (frame, plane) => CvInvoke.CvtColor(frame, plane, ColorConversion.Rgba2Rgb));
+    public static EdgeSource Hue { get; } = new(static (frame, plane) => {
+        using Mat angle = new();
+        using Mat radius = new(frame.Size, DepthType.Cv32F, 1);
+        using Mat across = new();
+        using Mat down = new();
+        Hsv(frame, angle, 0);
+        radius.SetTo(new MCvScalar(1d / double.Tau));
+        CvInvoke.PolarToCart(radius, angle, across, down, angleInDegrees: true);
+        using VectorOfMat parts = new(across, down);
+        CvInvoke.Merge(parts, plane);
+    });
+    public static EdgeSource Saturation { get; } = new(static (frame, plane) => Hsv(frame, plane, 1));
+    public static EdgeSource Value { get; } = new(static (frame, plane) => Hsv(frame, plane, 2));
+    public static EdgeSource Alpha { get; } = new(static (frame, plane) => CvInvoke.ExtractChannel(frame, plane, 3));
+
+    internal Action<Mat, Mat> Extract { get; }
+
+    public static EdgeSource Luma(Vector3 luminance) => new((frame, plane) => {
+        using Mat weights = new(1, 4, DepthType.Cv32F, 1);
+        weights.SetTo([luminance.X, luminance.Y, luminance.Z, 0f]);
+        CvInvoke.Transform(frame, plane, weights);
+    });
+
+    private static void Hsv(Mat frame, Mat plane, int channel) {
+        using Mat hsv = new();
+        CvInvoke.CvtColor(frame, hsv, ColorConversion.Rgb2Hsv);
+        CvInvoke.ExtractChannel(hsv, plane, channel);
+    }
+}
+
+public sealed class ContourMarks {
+    private ContourMarks(Action<Mat, Rectangle, Rectangle, Mat> mark) => Mark = mark;
+
+    public static ContourMarks Identity { get; } = new(static (guide, firstBox, secondBox, edges) => {
+        using Mat first = new(guide, firstBox);
+        using Mat second = new(guide, secondBox);
+        using Mat leading = new();
+        using Mat trailing = new();
+        CvInvoke.ExtractChannel(first, leading, 0);
+        CvInvoke.ExtractChannel(second, trailing, 0);
+        CvInvoke.Compare(leading, trailing, edges, CmpType.NotEqual);
+    });
+
+    internal Action<Mat, Rectangle, Rectangle, Mat> Mark { get; }
+
+    public static ContourMarks Silhouette(Projection lens, double step) =>
+        new((guide, first, second, edges) => {
+            using Mat z = new();
+            using Mat curvature = new();
+            using Mat marks = new();
+            CvInvoke.ExtractChannel(guide, z, 0);
+            z.ConvertTo(z, DepthType.Cv64F);
+            if (lens is Projection.Orthographic) {
+                using ScalarArray infinity = new(double.PositiveInfinity);
+                CvInvoke.Compare(z, infinity, marks, CmpType.Equal);
+                z.SetTo(default(MCvScalar), marks);
+            } else
+                CvInvoke.Pow(z, -1d, z);
+            CvInvoke.Sobel(z, curvature, DepthType.Cv64F, 2 * (second.X - first.X), 2 * (second.Y - first.Y), 1, 1d, 0d, BorderType.Replicate);
+            CvInvoke.Multiply(curvature, curvature, curvature);
+            CvInvoke.Multiply(z, z, z, step * step);
+            CvInvoke.Compare(curvature, z, marks, CmpType.GreaterThan);
+            using Mat leading = new(marks, first);
+            using Mat trailing = new(marks, second);
+            CvInvoke.BitwiseAnd(leading, trailing, edges);
+        });
+
+    public static ContourMarks Crease(double angle) =>
+        new((guide, firstBox, secondBox, edges) => {
+            using Mat first = new(guide, firstBox);
+            using Mat second = new(guide, secondBox);
+            using Mat rgb = new(1, 4, DepthType.Cv32F, 1);
+            using Mat dot = new();
+            using Mat lengths = new();
+            using Mat partner = new();
+            using Mat product = new();
+            rgb.SetTo([1f, 1f, 1f, 0f]);
+            foreach ((Mat left, Mat right, Mat sum) in Seq((first, second, dot), (first, first, lengths), (second, second, partner))) {
+                CvInvoke.Multiply(left, right, product);
+                CvInvoke.Transform(product, sum, rgb);
+            }
+            CvInvoke.Multiply(lengths, partner, lengths);
+            CvInvoke.Sqrt(lengths, lengths);
+            lengths.ConvertTo(lengths, DepthType.Cv32F, double.Cos(angle));
+            CvInvoke.Compare(dot, lengths, edges, CmpType.LessThan);
+        });
+}
 
 public sealed record ContourLine(Seq<(ContourMarks Marks, PixelFrame Guide)> Sources, float Alignment, Func<float, float> Width, Vector3 Color);
 
@@ -36,11 +124,11 @@ public sealed partial class EdgeOperator {
     private readonly Seq<SixLabors.ImageSharp.DenseMatrix<float>> kernels;
     private readonly bool strongest;
 
-    public Fin<Unit> Detected(PixelFrame frame, Action<Mat, Mat> source, double sigma, Func<Mat, Fin<Unit>> render) => frame.Filter(header => {
+    public Fin<Unit> Detected(PixelFrame frame, EdgeSource source, double sigma, Func<PixelPlane, Fin<Unit>> render) => frame.Filter(header => {
         using Mat plane = new();
         using Mat response = new();
         using Mat taps = new();
-        source(header, plane);
+        source.Extract(header, plane);
         plane.Blur(plane, sigma);
         using Mat each = new(plane.Size, plane.Depth, plane.NumberOfChannels);
         response.Create(plane.Rows, plane.Cols, plane.Depth, plane.NumberOfChannels);
@@ -62,8 +150,10 @@ public sealed partial class EdgeOperator {
             CvInvoke.Transform(response, plane, sums);
             CvInvoke.Sqrt(plane, response);
         }
-        response.ConvertTo(response, DepthType.Cv32F, 1d / kernels.Fold(0f, static (gain, kernel) => float.Max(gain, kernel.Data.Sum(static weight => float.Max(weight, 0f)))));
-        return render(response);
+        PixelPlane edges = new(frame.Size, response.NumberOfChannels);
+        using Mat written = edges.Header();
+        response.ConvertTo(written, DepthType.Cv32F, 1d / kernels.Fold(0f, static (gain, kernel) => float.Max(gain, kernel.Data.Sum(static weight => float.Max(weight, 0f)))));
+        return render(edges);
     });
 
     private static Seq<SixLabors.ImageSharp.DenseMatrix<float>> Compass(EdgeDetectorCompassKernel kernel) =>
@@ -78,36 +168,6 @@ public sealed partial class EdgeOperator {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public static class EdgeSource {
-    public static Action<Mat, Mat> Color { get; } = static (frame, plane) => CvInvoke.CvtColor(frame, plane, ColorConversion.Rgba2Rgb);
-    public static Action<Mat, Mat> Hue { get; } = static (frame, plane) => {
-        using Mat angle = new();
-        using Mat radius = new(frame.Size, DepthType.Cv32F, 1);
-        using Mat across = new();
-        using Mat down = new();
-        Hsv(frame, angle, 0);
-        radius.SetTo(new MCvScalar(1d / double.Tau));
-        CvInvoke.PolarToCart(radius, angle, across, down, angleInDegrees: true);
-        using VectorOfMat parts = new(across, down);
-        CvInvoke.Merge(parts, plane);
-    };
-    public static Action<Mat, Mat> Saturation { get; } = static (frame, plane) => Hsv(frame, plane, 1);
-    public static Action<Mat, Mat> Value { get; } = static (frame, plane) => Hsv(frame, plane, 2);
-    public static Action<Mat, Mat> Alpha { get; } = static (frame, plane) => CvInvoke.ExtractChannel(frame, plane, 3);
-
-    public static Action<Mat, Mat> Luma(Vector3 luminance) => (frame, plane) => {
-        using Mat weights = new(1, 4, DepthType.Cv32F, 1);
-        weights.SetTo([luminance.X, luminance.Y, luminance.Z, 0f]);
-        CvInvoke.Transform(frame, plane, weights);
-    };
-
-    private static void Hsv(Mat frame, Mat plane, int channel) {
-        using Mat hsv = new();
-        CvInvoke.CvtColor(frame, hsv, ColorConversion.Rgb2Hsv);
-        CvInvoke.ExtractChannel(hsv, plane, channel);
-    }
-}
-
 public static class Contours {
     public static Fin<Func<float, float>> Width(double pixels, Option<double> world, Option<Camera> camera, Option<(double Near, Func<float, float> Scale)> taper) =>
         world.Match(
@@ -119,19 +179,21 @@ public static class Contours {
             () => Fin.Succ<Func<float, float>>(_ => (float)pixels))
         .Map(width => taper.Match(near => depth => width(depth) * near.Scale((float)double.Clamp(near.Near / depth, 0d, 1d)), () => width));
 
-    public static Fin<Unit> Magnitudes(PixelFrame frame, Mat edges) => frame.Filter(header => {
-        CvInvoke.MixChannels(edges, header, [.. Enumerable.Range(0, 3).SelectMany(channel => new[] { channel % edges.NumberOfChannels, channel })]);
+    public static Fin<Unit> Magnitudes(PixelFrame frame, PixelPlane edges) => frame.Filter(header => {
+        using Mat source = edges.Header();
+        CvInvoke.MixChannels(source, header, [.. Enumerable.Range(0, 3).SelectMany(channel => new[] { channel % edges.Channels, channel })]);
         return unit;
     });
 
-    public static Fin<Unit> Lines(PixelFrame frame, Mat edges, double threshold, float width, Vector3 line, Vector3 under, float floor, BlendingMode mode, Option<IProgress<int>> progress = default) {
-        using Mat channels = edges.Reshape(1, edges.Rows * edges.Cols);
+    public static Fin<Unit> Lines(PixelFrame frame, PixelPlane edges, double threshold, float width, Vector3 line, Vector3 under, float floor, BlendingMode mode, Option<IProgress<int>> progress = default) {
+        using Mat source = edges.Header();
+        using Mat channels = source.Reshape(1, source.Rows * source.Cols);
         using Mat strongest = new();
         using Mat mask = new();
         using Mat reach = new();
         using ScalarArray cut = new(threshold);
         CvInvoke.Reduce(channels, strongest, ReduceDimension.SingleCol, ReduceType.ReduceMax);
-        using Mat plane = strongest.Reshape(1, edges.Rows);
+        using Mat plane = strongest.Reshape(1, source.Rows);
         CvInvoke.Compare(plane, cut, mask, CmpType.LessEqual);
         CvInvoke.DistanceTransform(mask, reach, labels: null, DistType.L2, 5, DistLabelType.Pixel);
         return new PixelPass.Positional((row, _, y) => {
@@ -169,58 +231,6 @@ public static class Contours {
                 mode.Composite(row, layer.Span, opaque);
             }).Run(frame, progress);
         });
-
-    public static ContourMarks Silhouette(Projection lens, double step) =>
-        (guide, first, second, edges) => {
-            using Mat z = new();
-            using Mat curvature = new();
-            using Mat marks = new();
-            CvInvoke.ExtractChannel(guide, z, 0);
-            z.ConvertTo(z, DepthType.Cv64F);
-            if (lens is Projection.Orthographic) {
-                using ScalarArray infinity = new(double.PositiveInfinity);
-                CvInvoke.Compare(z, infinity, marks, CmpType.Equal);
-                z.SetTo(default(MCvScalar), marks);
-            } else
-                CvInvoke.Pow(z, -1d, z);
-            CvInvoke.Sobel(z, curvature, DepthType.Cv64F, 2 * (second.X - first.X), 2 * (second.Y - first.Y), 1, 1d, 0d, BorderType.Replicate);
-            CvInvoke.Multiply(curvature, curvature, curvature);
-            CvInvoke.Multiply(z, z, z, step * step);
-            CvInvoke.Compare(curvature, z, marks, CmpType.GreaterThan);
-            using Mat leading = new(marks, first);
-            using Mat trailing = new(marks, second);
-            CvInvoke.BitwiseAnd(leading, trailing, edges);
-        };
-
-    public static ContourMarks Crease(double angle) =>
-        (guide, firstBox, secondBox, edges) => {
-            using Mat first = new(guide, firstBox);
-            using Mat second = new(guide, secondBox);
-            using Mat rgb = new(1, 4, DepthType.Cv32F, 1);
-            using Mat dot = new();
-            using Mat lengths = new();
-            using Mat partner = new();
-            using Mat product = new();
-            rgb.SetTo([1f, 1f, 1f, 0f]);
-            foreach ((Mat left, Mat right, Mat sum) in Seq((first, second, dot), (first, first, lengths), (second, second, partner))) {
-                CvInvoke.Multiply(left, right, product);
-                CvInvoke.Transform(product, sum, rgb);
-            }
-            CvInvoke.Multiply(lengths, partner, lengths);
-            CvInvoke.Sqrt(lengths, lengths);
-            lengths.ConvertTo(lengths, DepthType.Cv32F, double.Cos(angle));
-            CvInvoke.Compare(dot, lengths, edges, CmpType.LessThan);
-        };
-
-    public static void Identity(Mat guide, Rectangle firstBox, Rectangle secondBox, Mat edges) {
-        using Mat first = new(guide, firstBox);
-        using Mat second = new(guide, secondBox);
-        using Mat leading = new();
-        using Mat trailing = new();
-        CvInvoke.ExtractChannel(first, leading, 0);
-        CvInvoke.ExtractChannel(second, trailing, 0);
-        CvInvoke.Compare(leading, trailing, edges, CmpType.NotEqual);
-    }
 
     private static Option<(Vector3 Origin, Vector3 Direction)> Footprint(Projection lens) =>
         lens.Extent.Point(new Vector2(0.5f)) switch {
@@ -263,7 +273,7 @@ public static class Contours {
                      (new Rectangle(0, 0, z.Cols, z.Rows - 1), new Rectangle(0, 1, z.Cols, z.Rows - 1))).Filter(static pair => pair.Item1.Width > 0 && pair.Item1.Height > 0)) {
             using Mat firstDepth = new(z, first);
             using Mat secondDepth = new(z, second);
-            mark(header, first, second, edges);
+            mark.Mark(header, first, second, edges);
             CvInvoke.Min(firstDepth, secondDepth, nearer);
             foreach ((Rectangle box, Mat own, Mat partner) in Seq((first, firstDepth, secondDepth), (second, secondDepth, firstDepth))) {
                 foreach ((CmpType test, Mat mask) in Seq((CmpType.LessThan, near), (CmpType.GreaterEqual, far))) {

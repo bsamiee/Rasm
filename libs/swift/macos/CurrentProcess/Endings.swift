@@ -5,20 +5,23 @@ import Foundation
 
 public func processEndings() -> AsyncStream<Int32?> {
     AsyncStream { ending in
-        let sources: [any DispatchSourceProtocol] =
-            [SIGTERM, SIGINT, SIGHUP].map { number in
-                signal(number, SIG_IGN)
-                let source: any DispatchSourceSignal = DispatchSource.makeSignalSource(signal: number)
-                source.setEventHandler { ending.yield(number) }
-                return source
-            } + [DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit)]
-        sources.last?.setEventHandler { ending.yield(nil) }
+        let signals: [(number: Int32, previous: sig_t?, source: any DispatchSourceSignal)] = [SIGTERM, SIGINT, SIGHUP].map { number in
+            let source: any DispatchSourceSignal = DispatchSource.makeSignalSource(signal: number)
+            source.setEventHandler { ending.yield(number) }
+            return (number, signal(number, SIG_IGN), source)
+        }
+        let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit)
+        parent.setEventHandler { ending.yield(nil) }
+        let sources: [any DispatchSourceProtocol] = signals.map(\.source) + [parent]
         for source: any DispatchSourceProtocol in sources {
             source.activate()
         }
         ending.onTermination = { _ in
             for source: any DispatchSourceProtocol in sources {
                 source.cancel()
+            }
+            for (number, previous, _) in signals {
+                signal(number, previous)
             }
         }
     }

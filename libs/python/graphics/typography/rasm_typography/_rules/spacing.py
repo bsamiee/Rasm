@@ -11,13 +11,13 @@ lazy from fontTools.misc.roundTools import otRound
 from rasm_typography._faces.declaration import Band, Em, Ratio, Script
 from rasm_typography._rules.measures import _middle, _placement, Rule
 lazy from rasm_records import Outcome
-lazy from rasm_typography._faces.glyphs import _Joining, _Outline, _Source, Letter
+lazy from rasm_typography._faces.glyphs import _Joining, _Outline, Letter, Source
 lazy from rasm_typography._faces.layout import _Adjustment, Pairs
 lazy from rasm_typography._faces.names import _Form
 lazy from rasm_typography._outlines.measure import _gap
 lazy from rasm_typography._outlines.paths import _area, _bounds, _pieces, _strip, _union
-lazy from rasm_typography._shaping.corpus import _Corpus
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ class Spacing(Rule, frozen=True, kw_only=True):
 # --- [WORD_SPACE]
 
 
-def _gaps(original: _Binary, corpus: _Corpus, stem: int, space: int, /) -> tuple[float, float, float]:
+def _gaps(original: Binary, corpus: Corpus, stem: int, space: int, /) -> tuple[float, float, float]:
     """Median outline gap between the letter groups of one word, median outline gap across a space, and the space advance, shaped on the original in its units."""
     blank, marked = original.encoded.get(space), original.marks
     body = 0.25 * _area(original.outline(original.encoded[stem]))
@@ -82,7 +82,7 @@ def _apart(tail: tuple[tuple[float, float] | None, ...], head: tuple[tuple[float
     return min((right[0] - (left[1] - advance) for right, left in zip(tail, head, strict=False) if right and left), default=math.inf)
 
 
-def _pairs(source: _Source, rule: Spacing, /) -> Pairs | None:
+def _pairs(source: Source, rule: Spacing, /) -> Pairs | None:
     """Holds each non-joining final before a letter starting a group to the median gap above the baseline after a standing letter, never under the outline floor."""
     letters = tuple(drawn for glyph in source.by_role(Letter) if len(glyph.name.codes) == 1 and (drawn := source.drawn(glyph.name.text)).contours)
     tails = tuple(glyph for glyph in letters if glyph.role in {Letter(joining=_Joining.RIGHT, form=_Form.ISOL), Letter(joining=_Joining.RIGHT, form=_Form.FINA)})
@@ -104,7 +104,7 @@ def _pairs(source: _Source, rule: Spacing, /) -> Pairs | None:
     return Pairs(features=frozendict(kern=frozendict()), values=frozendict({pair: _Adjustment(dx=value, advance=value) for pair, value in values.items()})) if values else None
 
 
-def _spaced(source: _Source, rule: Spacing, /, *, original: _Binary, corpus: _Corpus) -> Outcome[_Source]:
+def _spaced(source: Source, rule: Spacing, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
     """Sets the word spaces and the glyphs drawn as them to the gap ratio times the inside gap within a band, and kerns non-joining tails to the median gap after standing letters.
 
     Returns:
@@ -114,7 +114,7 @@ def _spaced(source: _Source, rule: Spacing, /, *, original: _Binary, corpus: _Co
     return _placement(source, original, script.stem).map(lambda held: _gapped(source, rule, *(held[2].xx * value / source.upm for value in _gaps(original, corpus, script.stem, script.spaces[0]))))
 
 
-def _gapped(source: _Source, rule: Spacing, inside: float, across: float, advance: float, /) -> _Source:
+def _gapped(source: Source, rule: Spacing, inside: float, across: float, advance: float, /) -> Source:
     """Sets every word space and every glyph drawn as one from the measured gaps in em and adds the tail pairs in place of any held."""
     target = min(max(rule.ratio * inside, rule.band[0]), rule.band[1])
     width = (target - (across - advance)) * source.upm if across else rule.band[0] * source.upm

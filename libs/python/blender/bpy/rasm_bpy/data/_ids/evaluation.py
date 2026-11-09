@@ -13,6 +13,7 @@ import msgspec
 import numpy as np
 
 from rasm_bpy.data._extension.events import Change
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle
 from rasm_records import Fault, Nothing, Outcome, Reason
 
@@ -95,7 +96,7 @@ def instances(depsgraph: bpy.types.Depsgraph) -> tuple[_Instance, ...]:
 def _evaluated(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
     """Returns the layer's ensured, updated dependency graph, refused fault while evaluation runs."""
     with bpy.context.temp_override(scene=view_layer.id_data, view_layer=view_layer):
-        return catch(bpy.context.evaluated_depsgraph_get, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(view_layer)))
+        return catch(bpy.context.evaluated_depsgraph_get, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(view_layer)))
 
 
 @contextmanager
@@ -106,7 +107,7 @@ def meshed(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, *, preserve
         lifetime.callback(copy.to_mesh_clear)
         yield (
             catch(copy.to_mesh, exception=RuntimeError)(preserve_all_data_layers=preserve_all_data_layers, depsgraph=depsgraph)
-            .map_error(partial(Fault.of, Reason.REFUSED, repr(source)))
+            .map_error(partial(Fault.of, Refusal.REFUSED, repr(source)))
             .bind(lambda mesh: Option.of_optional(mesh).to_result_with(partial(Fault.of, Reason.ABSENT, repr(source), member="to_mesh")))
         )
 
@@ -128,7 +129,7 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector
         lambda toward: catch(source.ray_cast, exception=RuntimeError)(origin, toward, distance=distance, depsgraph=depsgraph)
     ).default_with(lambda: catch(source.closest_point_on_mesh, exception=RuntimeError)(origin, distance=distance, depsgraph=depsgraph))
     return queried.map(lambda found: Some(found).filter(lambda held: held[0]).map(lambda held: _Hit(location=held[1][:], normal=held[2][:], face=held[3]))).map_error(
-        partial(Fault.of, Reason.REFUSED, repr(source))
+        partial(Fault.of, Refusal.REFUSED, repr(source))
     )
 
 

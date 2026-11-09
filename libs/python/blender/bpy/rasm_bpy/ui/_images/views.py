@@ -19,6 +19,7 @@ from rasm_bpy.commands.invocations import Pick
 from rasm_bpy.commands.operators import Answer, Call, called, Done, Empty, Operator
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Setting
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import _definition, root_in, rooted
@@ -206,7 +207,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
             shifted = np.array_equal(np.asarray(target.to_2x2()), np.asarray(original.to_2x2()))
             return (
                 catch(original.inverted, exception=ValueError)()
-                .map_error(partial(Fault.of, Reason.REFUSED, "mathutils.Matrix.inverted"))
+                .map_error(partial(Fault.of, Refusal.REFUSED, "mathutils.Matrix.inverted"))
                 .map(lambda inverse: np.asarray(target @ inverse))
                 .bind(lambda change: self.write(context, Quad.of(self.bounded((pixels @ change[:2, :2].T + change[:2, 3]) / (frame.width, frame.height), shifted=shifted))))
             )

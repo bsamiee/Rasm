@@ -8,7 +8,7 @@ lazy from fontTools.misc.transform import Transform
 
 from rasm_typography._faces.declaration import Em, Ratio, Script
 from rasm_typography._rules.measures import _middle, Rule
-lazy from rasm_typography._faces.glyphs import _Source, Digit
+lazy from rasm_typography._faces.glyphs import Digit, Source
 lazy from rasm_typography._faces.layout import Lookups, Single
 lazy from rasm_typography._outlines.measure import _restroked, _stroke
 lazy from rasm_typography._outlines.paths import _bounds, _Box, _transformed
@@ -29,7 +29,7 @@ class Digits(Rule, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _figured(source: _Source, rule: Digits, /) -> _Source:
+def _figured(source: Source, rule: Digits, /) -> Source:
     """Draws the digits of two scripts on one pen and sets their default advances, `pnum` and `tnum` each reaching its kind from either."""
     (lead, second), shared = rule.script.digits, rule.script.shared
     own = {

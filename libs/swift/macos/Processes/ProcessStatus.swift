@@ -35,11 +35,15 @@ public func mainThreadUserTime(of process: pid_t) throws(Errno) -> Duration {
     return .nanoseconds(try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: main).pth_user_time)
 }
 
-public func processes(executing path: String) -> Set<pid_t> {
-    let capacity: Int = Int(proc_listallpids(nil, 0))
-    let listed: [pid_t] = unsafe [pid_t](unsafeUninitializedCapacity: capacity) { buffer, count in
-        count = Int(unsafe proc_listallpids(buffer.baseAddress, Int32(capacity * MemoryLayout<pid_t>.size)))
+public func processes(executing path: String) throws(Errno) -> Set<pid_t> {
+    let capacity: Int32 = proc_listallpids(nil, 0)
+    guard capacity > 0 else { throw Errno(rawValue: errno) }
+    var listing: (listed: Int32, errno: Int32) = (0, 0)
+    let listed: [pid_t] = unsafe [pid_t](unsafeUninitializedCapacity: Int(capacity)) { buffer, count in
+        listing = (unsafe proc_listallpids(buffer.baseAddress, Int32(buffer.count * MemoryLayout<pid_t>.size)), errno)
+        count = Int(max(listing.listed, 0))
     }
+    guard listing.listed > 0 else { throw Errno(rawValue: listing.errno) }
     return Set(
         listed.filter { process in
             var name: [UInt8] = [UInt8](repeating: 0, count: Int(MAXPATHLEN) * 4)

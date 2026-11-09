@@ -1,7 +1,7 @@
 import { findPackageJSON } from 'node:module';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, hashArray, type RawProjectGraphDependency } from '@nx/devkit';
-import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Effect, FileSystem, Option, Path, Record, Result, Schema } from 'effect';
 import { aggregated, crateTargets, released, TECHNOLOGIES, workspaceTargets } from '#/plugins/targets';
 import { MANIFEST, workspaces } from '#/plugins/workspace';
@@ -23,7 +23,7 @@ const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, vers
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin: string, matched: readonly string[]) {
+const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin: Parameters<typeof released>[0], matched: readonly string[]) {
     const path = yield* Path.Path;
     const files = new Set(matched);
     const manifests = matched.filter((file) => path.basename(file) === MANIFEST).toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right));
@@ -44,7 +44,7 @@ const analyze = Effect.fnUntraced(function* (context: CreateNodesContext, plugin
             ] as const;
         });
         const own = crates[workspace.root];
-        const projects = Record.map({ ...crates, [workspace.root]: { name: path.basename(path.resolve(context.workspaceRoot, workspace.root)), metadata: { technologies: TECHNOLOGIES }, ...own, targets: { ...own?.targets, ...workspaceTargets(plugin, path, workspace) } } }, (project) => ({
+        const projects = Record.map({ ...crates, [workspace.root]: { metadata: { technologies: TECHNOLOGIES }, ...own, targets: { ...own?.targets, ...workspaceTargets(plugin, path, workspace) } } }, (project) => ({
             ...project,
             targets: aggregated(project.targets),
         }));
@@ -65,7 +65,10 @@ const keyed = (workspaceRoot: string, options: unknown) => hashArray([workspaceR
 
 const graph = Effect.fnUntraced(function* (context: CreateNodesContext, matched: readonly string[], options: unknown) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const manifest = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url)).pipe(Effect.flatMap(fs.readFileString), Effect.flatMap(Schema.decodeEffect(Manifest)));
+    const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
+    const manifest = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
+    const tracked = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [path.relative(context.workspaceRoot, located)]));
+    const plugin = { name: manifest.name, inputs: tracked.length === 0 ? [{ externalDependencies: [manifest.name] }] : [{ input: 'default', projects: [manifest.name] }, { externalDependencies: [] }] };
     const hash = hashArray([
         yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES, path.join(path.relative(context.workspaceRoot, path.dirname(import.meta.dirname)), '**/*.{ts,json}')])),
         manifest.version,
@@ -76,7 +79,7 @@ const graph = Effect.fnUntraced(function* (context: CreateNodesContext, matched:
     const built = yield* Option.match(Option.fromNullishOr(cache.get(hash)), {
         onSome: (held) => Effect.succeed({ graph: held, failures: [] }),
         onNone: () =>
-            Effect.tap(analyze(context, manifest.name, matched.toSorted()), ({ graph: report, failures }) =>
+            Effect.tap(analyze(context, plugin, matched.toSorted()), ({ graph: report, failures }) =>
                 failures.length === 0
                     ? Effect.sync(() => {
                           cache.set(hash, report);

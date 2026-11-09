@@ -1,6 +1,6 @@
 public import AppleEvents
 public import Foundation
-public import JSONRPC
+public import EffectRPC
 import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------

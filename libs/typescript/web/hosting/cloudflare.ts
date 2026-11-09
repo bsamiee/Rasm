@@ -1,36 +1,45 @@
 import { bindings, type ConfigContext, type WorkerConfig } from 'cf/config';
+import { Option, Record, type Schema } from 'effect';
+import { App, type Binding } from '#/app';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
-const accessBinding = 'ACCESS';
-const compatibilityDate = '2026-10-01';
-const hostingMode = { edge: 'cloudflare', disposable: 'disposable', server: 'production' } as const;
-const ownerBinding = 'OWNER_EMAIL';
+const projection = {
+    sqlite: () => bindings.d1(),
+    postgres: (id: string) => bindings.hyperdrive({ id }),
+    bucket: () => bindings.r2(),
+    secret: () => bindings.secret(),
+    text: (value: string) => bindings.text(value),
+    json: (value: Schema.MutableJson) => bindings.json(value),
+} as const;
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-const disposableName = (name: string) => `${name}-disposable`;
-const hostedWorker =
-    <const E extends NonNullable<WorkerConfig['env']>>({ name, owner, assets, env, ...worker }: Omit<WorkerConfig, 'compatibilityDate' | 'env'> & { readonly env: E; readonly owner: string }) =>
+const worker =
+    <const E extends Record.ReadonlyRecord<string, Binding>, const C extends Omit<WorkerConfig, 'name'>>(app: App<E>, config: C) =>
     ({ mode }: ConfigContext) => {
-        const disposable = mode === hostingMode.disposable;
-        const edge = disposable || mode === hostingMode.edge;
+        const named = Option.getOrElse(
+            Option.filter(Option.fromUndefinedOr(mode), (held): held is keyof typeof App.modes => Object.hasOwn(App.modes, held)),
+            () => 'production' as const,
+        );
+        const projected = Record.map(app.env, (binding, variable) =>
+            App.Binding.$match(binding, {
+                sqlite: projection.sqlite,
+                postgres: () => projection.postgres(App.resource(app, named, variable)),
+                bucket: projection.bucket,
+                secret: projection.secret,
+                text: ({ value }) => projection.text(value),
+                json: ({ value }) => projection.json(value),
+            }),
+        ) as { readonly [K in keyof E]: ReturnType<(typeof projection)[E[K]['_tag']]> };
         return {
-            compatibilityDate,
-            observability: { enabled: true, traces: { enabled: true } },
-            ...worker,
-            name: disposable ? disposableName(name) : name,
-            assets: { runWorkerFirst: ['/'], ...assets },
-            ...(disposable && { domains: [], triggers: (worker.triggers ?? []).filter(({ type }) => type !== 'fetch') }),
-            env: {
-                ASSETS: bindings.assets(),
-                ...env,
-                [ownerBinding]: bindings.text(edge || mode === hostingMode.server ? owner : 'seedy@sites.test'),
-                ...(edge && { [accessBinding]: bindings.secret() }),
-            },
-        };
+            ...config,
+            name: App.resource(app, named),
+            ...(named === 'disposable' && { domains: [], triggers: (config.triggers ?? []).filter(({ type }) => type !== 'fetch') }),
+            env: { ...(config.env as C['env']), ...projected },
+        } satisfies WorkerConfig;
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { accessBinding, compatibilityDate, disposableName, hostedWorker, hostingMode, ownerBinding };
+export { worker };

@@ -10,6 +10,10 @@ type Input = NonNullable<TargetConfiguration['inputs']>[number];
 type Targets = Readonly<Record<string, TargetConfiguration>>;
 type Crate = Workspace['metadata']['packages'][number];
 type Target = Crate['targets'][number];
+interface Plugin {
+    readonly name: string;
+    readonly inputs: readonly Input[];
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,7 +24,6 @@ const SELECTIONS: Readonly<Record<string, (target: Target) => boolean>> = {
     '--tests': ({ test }) => test,
     '--benches': ({ kind }) => kind.includes('bench'),
 };
-const VERBS = ['build', 'check', 'fix', 'upgrade'];
 const TECHNOLOGIES = ['rust'];
 const RELEASE = 'release';
 
@@ -30,39 +33,31 @@ const locked = () => (isCI() === false ? [] : ['--locked']);
 
 const tokened = (path: Path.Path, file: string) => path.join('{workspaceRoot}', file);
 
-const target = (plugin: string, help: string, description: string, options: typeof Cargo.Type, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
-    executor: `${plugin}:cargo`,
+const target = (plugin: Plugin, help: string, description: string, options: typeof Cargo.Type, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
+    executor: `${plugin.name}:cargo`,
     options,
     metadata: { technologies: TECHNOLOGIES, description, help: { command: `cargo ${help} --help`, example: { args: ['--verbose'] } } },
     ...extra,
+    ...(extra.cache === true ? { inputs: [...(extra.inputs ?? []), ...plugin.inputs] } : {}),
 });
 
 const aggregated = (targets: Targets): Targets => ({
     ...targets,
-    ...Record.fromIterableWith(
-        VERBS.filter((verb) => Record.keys(targets).some((name) => name.startsWith(`${verb}--`))),
-        (verb) =>
-            [
-                verb,
-                {
-                    executor: 'nx:noop',
-                    dependsOn: [`${verb}--*`],
-                    inputs: [
-                        '...',
-                        ...Array.dedupe(
-                            Record.collect(
-                                Record.filter(targets, (_, name) => name.startsWith(`${verb}--`)),
-                                (_, held) => held.inputs ?? [],
-                            ).flat(),
-                        ),
-                    ],
-                    metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
-                } satisfies TargetConfiguration,
-            ] as const,
+    ...Record.map(
+        Array.groupBy(
+            Record.toEntries(targets).filter(([name]) => name.includes('--')),
+            ([name]) => name.slice(0, name.indexOf('--')),
+        ),
+        (members, verb): TargetConfiguration => ({
+            executor: 'nx:noop',
+            dependsOn: [`${verb}--*`],
+            inputs: ['...', ...Array.dedupe(members.flatMap(([, held]) => held.inputs ?? []))],
+            metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
+        }),
     ),
 });
 
-const crateTargets = (plugin: string, path: Path.Path, found: Workspace, files: ReadonlySet<string>, named: readonly Input[], crate: Crate, root: string): Targets => {
+const crateTargets = (plugin: Plugin, path: Path.Path, found: Workspace, files: ReadonlySet<string>, named: readonly Input[], crate: Crate, root: string): Targets => {
     const selected = { cwd: found.root, package: crate.name };
     const shared: readonly Input[] = [
         ...named,
@@ -120,11 +115,12 @@ const crateTargets = (plugin: string, path: Path.Path, found: Workspace, files: 
             ? {}
             : {
                   'check--dylint': target(plugin, 'dylint', `Reports Dylint findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) }, { cache: true, inputs: [...shared, ...libraries] }),
+                  'fix--dylint': target(plugin, 'dylint', `Applies Dylint suggestions to ${crate.name}`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, { cache: false }),
               }),
     };
 };
 
-const workspaceTargets = (plugin: string, path: Path.Path, found: Workspace): Targets => {
+const workspaceTargets = (plugin: Plugin, path: Path.Path, found: Workspace): Targets => {
     const manifests = Array.dedupe([...found.manifests, path.join(found.root, MANIFEST)]).map((file) => tokened(path, file));
     const lock = tokened(path, path.join(found.root, 'Cargo.lock'));
     return {
@@ -162,15 +158,15 @@ const workspaceTargets = (plugin: string, path: Path.Path, found: Workspace): Ta
     };
 };
 
-const released = (plugin: string, crate: Crate, cwd: string): Pick<ProjectConfiguration, 'release' | 'tags'> & { readonly targets: Targets } =>
+const released = (plugin: Plugin, crate: Crate, cwd: string): Pick<ProjectConfiguration, 'release' | 'tags'> & { readonly targets: Targets } =>
     crate.publish?.length === 0
         ? { targets: {} }
         : {
               tags: [RELEASE],
-              release: { version: { versionActions: `${plugin}/release/version-actions` } },
+              release: { version: { versionActions: `${plugin.name}/release/version-actions` } },
               targets: {
                   'nx-release-publish': {
-                      executor: `${plugin}:release-publish`,
+                      executor: `${plugin.name}:release-publish`,
                       dependsOn: ['^nx-release-publish'],
                       options: { cwd, package: crate.name },
                       metadata: { technologies: TECHNOLOGIES, description: `Publishes ${crate.name} with cargo publish` },

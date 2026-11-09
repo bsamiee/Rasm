@@ -12,6 +12,7 @@ from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import _sequenced, Descriptor, Value, written
 from rasm_bpy.data._rna.paths import _rna, _struct_at, Native, RnaPath, Struct
 from rasm_bpy.data._rna.snapshots import _applied, _Capture, _referenced, Applied
@@ -68,7 +69,7 @@ def _native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, 
         Native tree, refused fault for a removed struct.
     """
     return catch(_Capture[NativeValue](owner, partial(_native_read, owner), selection, prior=prior, native=True, inactive=True).tree, exception=ReferenceError)().map_error(
-        partial(Fault.of, Reason.REFUSED, repr(owner))
+        partial(Fault.of, Refusal.REFUSED, repr(owner))
     )
 
 

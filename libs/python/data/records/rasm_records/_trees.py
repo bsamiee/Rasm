@@ -1,11 +1,9 @@
-"""Keyed owner trees with their edits, layered layouts of linked boxes, and walks reaching each node once."""
+"""Keyed owner trees with their edits, and walks reaching each node once."""
 
 from collections.abc import Callable, Collection, Hashable, Iterable, Mapping
 from difflib import SequenceMatcher
-from enum import Enum
-from graphlib import TopologicalSorter
-from itertools import accumulate, chain
-from operator import eq, sub
+from itertools import chain
+from operator import eq
 from types import MappingProxyType
 from typing import Self
 
@@ -19,21 +17,7 @@ from rasm_records._faults import Nothing
 
 type Edit[V, K: Hashable, N: Hashable] = Inserted[V, K, N] | Deleted[V, K, N] | Moved[K] | Reparametrized[V, K, N]
 
-
-class Toward(Enum):
-    """One step through an ordered sequence, valued by the index change it makes."""
-
-    UP = -1
-    DOWN = 1
-
-    def stepped(self, index: int, count: int) -> int:
-        """Returns the index one step from `index`, held inside a sequence of `count` items."""
-        return min(max(index + self.value, 0), count - 1)
-
-
 # --- [MODELS] ---------------------------------------------------------------------------
-
-# --- [TREES]
 
 
 class Owner[V, K: Hashable, N: Hashable](msgspec.Struct, frozen=True, kw_only=True):
@@ -149,46 +133,6 @@ class Reparametrized[V, K: Hashable, N: Hashable](msgspec.Struct, frozen=True, k
         return cls.of(key, {name: value for name, value in before.items() if name in after}, {name: value for name, value in after.items() if name in before}, equal=equal)
 
 
-# --- [LAYOUTS]
-
-
-class Gaps(msgspec.Struct, frozen=True, kw_only=True):
-    """Layout gaps between columns, between rows, and between bands."""
-
-    across: float = 80.0
-    down: float = 20.0
-    band: float = 60.0
-
-    def arranged[K: Hashable](
-        self, sizes: Mapping[K, tuple[float, float]], links: tuple[tuple[K, int, K], ...], bands: Mapping[K, Option[K]], origin: Callable[[K], tuple[float, float]]
-    ) -> dict[K, tuple[float, float]]:
-        """Returns the top left corner per box of `(width, height)` size, columns by depth over acyclic (source, slot, target) links, rows by source slot order, one band's boxes stacked together, growing right and down from the first box's origin."""
-        if not sizes:
-            return {}
-        feeds: dict[K, list[tuple[K, int]]] = {key: [] for key in sizes}
-        for source, slot, target in links:
-            if target in feeds:
-                feeds[target].append((source, slot))
-        order = tuple(TopologicalSorter({key: tuple(source for source, _ in fed) for key, fed in feeds.items()}).static_order())
-        position = {key: index for index, key in enumerate(order)}
-        column: dict[K, int] = {}
-        for key in order:
-            column[key] = max((column[source] + 1 for source, _ in feeds[key]), default=0)
-        rank = {key: min(((position[source], slot) for source, slot in feeds[key]), default=(position[key], -1)) for key in order}
-        grouped: dict[Option[K], dict[int, list[K]]] = {}
-        widths: dict[int, float] = {}
-        for key in order:
-            depth, width = column[key], sizes[key][0]
-            grouped.setdefault(bands[key], {}).setdefault(depth, []).append(key)
-            widths[depth] = max(widths[depth], width) if depth in widths else width
-        cells = {(band, depth): sorted(rows[depth], key=rank.__getitem__) for band, rows in grouped.items() for depth in sorted(rows)}
-        left, top = origin(order[0])
-        lefts = tuple(accumulate((widths[depth] + self.across for depth in range(len(widths))), initial=left))
-        stacks = {band: tuple(sum(sizes[key][1] for key in cells[band, depth]) + self.down * (len(rows[depth]) - 1) for depth in rows) for band, rows in grouped.items()}
-        tops = dict(zip(grouped, accumulate(((max((*heights, 0.0)) if len(heights) < len(widths) else max(heights)) + self.band for heights in stacks.values()), sub, initial=top)))
-        return {key: (lefts[depth], y) for (band, depth), keys in cells.items() for key, y in zip(keys, accumulate((sizes[key][1] + self.down for key in keys), sub, initial=tops[band]))}
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [TREES]
@@ -275,4 +219,4 @@ def reached[T: Hashable](seeds: Iterable[T], children: Callable[[T], Iterable[T]
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Deleted", "Edit", "Gaps", "Inserted", "Moved", "Owner", "Place", "Reparametrized", "Toward", "Tree", "diff", "merge", "reached", "revert", "transfer"]
+__all__ = ["Deleted", "Edit", "Inserted", "Moved", "Owner", "Place", "Reparametrized", "Tree", "diff", "merge", "reached", "revert", "transfer"]

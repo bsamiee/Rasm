@@ -169,6 +169,7 @@ class _SceneSun(msgspec.Struct, frozen=True, kw_only=True):
                     yield (
                         _WorldEnvironment.attachment.bound(identity).bind(
                             lambda attached: _entered(
+                                identity,
                                 stack,
                                 tuple(
                                     Subscription(owner=kind, setting=kind.bl_rna.properties[name], body=stored).held(identity)

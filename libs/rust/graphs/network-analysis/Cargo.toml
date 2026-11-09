@@ -21,7 +21,6 @@ nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
-hashbrown            = { workspace = true }
 indexmap             = { workspace = true }
 itertools            = { workspace = true }
 serde                = { workspace = true }

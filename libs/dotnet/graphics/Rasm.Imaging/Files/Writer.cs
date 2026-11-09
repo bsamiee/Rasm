@@ -7,36 +7,69 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp.Formats;
+using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using Wacton.Unicolour;
+using Configuration = SixLabors.ImageSharp.Configuration;
 
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+[SmartEnum<string>]
+public sealed partial class JpegColor {
+    public static readonly JpegColor Luminance = new("luminance", JpegColorType.Luminance);
+    public static readonly JpegColor Ratio444 = new("ycbcr-444", JpegColorType.YCbCrRatio444);
+    public static readonly JpegColor Ratio422 = new("ycbcr-422", JpegColorType.YCbCrRatio422);
+    public static readonly JpegColor Ratio420 = new("ycbcr-420", JpegColorType.YCbCrRatio420);
+    public static readonly JpegColor Ratio411 = new("ycbcr-411", JpegColorType.YCbCrRatio411);
+    public static readonly JpegColor Ratio410 = new("ycbcr-410", JpegColorType.YCbCrRatio410);
+    public static readonly JpegColor Rgb = new("rgb", JpegColorType.Rgb);
+    public static readonly JpegColor Cmyk = new("cmyk", JpegColorType.Cmyk);
+    public static readonly JpegColor Ycck = new("ycck", JpegColorType.Ycck);
+
+    internal JpegColorType Type { get; }
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RasterCodec {
+    internal abstract IImageEncoder Encoder(bool alpha);
+
+    public sealed record Png(bool Wide) : RasterCodec {
+        internal override IImageEncoder Encoder(bool alpha) =>
+            new PngEncoder { BitDepth = Wide ? PngBitDepth.Bit16 : PngBitDepth.Bit8, ColorType = alpha ? PngColorType.RgbWithAlpha : PngColorType.Rgb };
+    }
+
+    public sealed record Jpeg(int Quality, JpegColor Color) : RasterCodec {
+        internal override IImageEncoder Encoder(bool alpha) => new JpegEncoder { Quality = Quality, ColorType = Color.Type };
+    }
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ImageFile {
-    public abstract IO<Unit> Write(FileMetadata metadata, Stream stream);
+    public abstract IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default);
 
-    public sealed record Raster(PixelFrame Frame, Option<ColorEncoding> Encoding, bool Alpha, IImageEncoder Encoder) : ImageFile {
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream) =>
+    public sealed record Raster(PixelFrame Frame, Option<ColorEncoding> Encoding, bool Alpha, RasterCodec Codec) : ImageFile {
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
             IO.liftAsync(async environment => {
-                using SixLabors.ImageSharp.Image<RgbaVector> image = new(Frame.Extent.Width, Frame.Extent.Height);
+                using SixLabors.ImageSharp.Image<RgbaVector> image = new(configuration.IfNone(Configuration.Default), Frame.Extent.Width, Frame.Extent.Height);
                 metadata.Into(image.Metadata, Encoding);
                 image.ProcessPixelRows(rows => {
                     for (int y = 0; y < rows.Height; y++)
                         Placed(Frame, Alpha, y, MemoryMarshal.Cast<RgbaVector, Vector4>(rows.GetRowSpan(y)));
                 });
-                await image.SaveAsync(stream, Encoder, environment.Token).ConfigureAwait(false);
+                await image.SaveAsync(stream, Codec.Encoder(Alpha), environment.Token).ConfigureAwait(false);
                 return unit;
             });
     }
 
     public sealed record Tiff(PixelFrame Frame, OutputDepth Depth, Option<ColorEncoding> Encoding, bool Alpha) : ImageFile {
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream) => Scanlines(stream, Frame, Depth, Alpha, metadata, Rgb(Depth, Encoding, metadata), []);
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
+            Scanlines(stream, Frame, Depth, Alpha, metadata, Rgb(Depth, Encoding, metadata), []);
     }
 
-    public sealed record Dng(PixelFrame Frame, Gamut Gamut, Option<float> Exposure, Option<Length> FocalLength, Option<float> Aperture) : ImageFile {
+    public sealed record Dng(PixelFrame Frame, Gamut Gamut, string CameraModel, Option<float> Exposure, Option<Length> FocalLength, Option<float> Aperture) : ImageFile {
         private const Photometric LinearRaw = (Photometric)34892;
         private const short D65 = 21;
         private static readonly Seq<TiffFieldInfo> Optics = [
@@ -46,7 +79,10 @@ public abstract partial record ImageFile {
 
         public static Seq<string> FileExtensions { get; } = ["dng"];
 
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream) =>
+        public Option<string> Make { get; init; }
+        public Option<string> Model { get; init; }
+
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
             from accepted in IO.lift(ImagingFault.Unless(
                 Exposure.ForAll(static stops => float.Abs(stops) < int.MaxValue) && FocalLength.ForAll(static focal => (double)focal.Millimeters is >= 0d and < int.MaxValue) && Aperture.ForAll(static stop => stop is >= 0f and < int.MaxValue),
                 ImagingReason.Range, (Exposure, FocalLength, Aperture)))
@@ -57,9 +93,9 @@ public abstract partial record ImageFile {
                 (TiffTag.SUBFILETYPE, [0]),
                 (TiffTag.PHOTOMETRIC, [LinearRaw]),
                 (TiffTag.COMPRESSION, [Compression.NONE]),
-                (TiffTag.MAKE, [metadata.Software]),
-                (TiffTag.MODEL, [metadata.Software]),
-                (TiffTag.UNIQUECAMERAMODEL, [metadata.Software]),
+                .. Make.Map(static make => (TiffTag.MAKE, new object[] { make })).ToSeq(),
+                .. Model.Map(static model => (TiffTag.MODEL, new object[] { model })).ToSeq(),
+                (TiffTag.UNIQUECAMERAMODEL, [CameraModel]),
                 (TiffTag.DNGVERSION, [new byte[] { 1, 4, 0, 0 }]),
                 (TiffTag.DNGBACKWARDVERSION, [new byte[] { 1, 4, 0, 0 }]),
                 (TiffTag.COLORMATRIX1, [9, new[] { image.M11, image.M21, image.M31, image.M12, image.M22, image.M32, image.M13, image.M23, image.M33 }]),

@@ -234,7 +234,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         def prepared() -> Generator[Outcome[None]]:
             with ExitStack() as stack:
                 stack.callback(bodies.clear)
-                yield _entered(stack, (kind,)).bind(lambda _: _realized(sections, identity)).map(bodies.append)
+                yield _entered(identity, stack, (kind,)).bind(lambda _: _realized(sections, identity)).map(bodies.append)
 
         with ExitStack() as stack:
             groups = tuple(group for row in preferred for group in stack.enter_context(_declaring(row.form, {}, Some(changed))))
@@ -308,7 +308,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
 
     def registered(now: tuple[FixedPlacement, ...]) -> Outcome[None]:
         with ExitStack() as entering:
-            if (answer := drawn.bind(lambda draws: _entered(entering, tuple(cls for (stem, _, condition), at in zip(sites, now) for cls in placed(draws, stem, at, condition))))).is_ok():
+            if (answer := drawn.bind(lambda draws: _entered(identity, entering, tuple(cls for (stem, _, condition), at in zip(sites, now) for cls in placed(draws, stem, at, condition))))).is_ok():
                 classes.enter_context(entering.pop_all())
                 held[:] = [now]
             return answer

@@ -17,7 +17,8 @@ use rasm_command::{
 };
 use socket2::SockRef;
 use tokio::{
-    net::{self, TcpSocket},
+    net::{self, TcpListener, TcpSocket},
+    task::JoinSet,
     time,
 };
 use tokio_util::sync::CancellationToken;
@@ -42,7 +43,6 @@ pub trait Daemon: Lifetime {
 enum Trigger {
     Signal,
     Lifetime,
-    Server,
 }
 
 #[derive(Debug, Clone, Copy, derive_more::Display)]
@@ -59,8 +59,6 @@ enum Operation {
     Bind,
     #[display("read address")]
     Address,
-    Listen,
-    Serve,
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -149,22 +147,25 @@ where
         .ok()?;
         let ipv4_ports = LazyCell::new(|| resolved.iter().flat_map(|(_, found)| found).filter(|address| address.is_ipv4()).map(SocketAddr::port).collect::<HashSet<_>>());
         let bind = |requested: SocketAddr, port: u16| {
-            let mut address = requested;
-            address.set_port(port);
-            let paired = requested.is_ipv6() && requested.ip().is_unspecified() && ipv4_ports.contains(&requested.port());
-            let socket = try bikeshed io::Result<TcpSocket> {
-                let socket = if address.is_ipv4() { TcpSocket::new_v4() } else { TcpSocket::new_v6() }?;
-                if paired {
+            const BACKLOG: u32 = 128;
+            let address = SocketAddr::new(requested.ip(), port);
+            let listener = if requested.is_ipv6() && requested.ip().is_unspecified() && ipv4_ports.contains(&requested.port()) {
+                try bikeshed io::Result<TcpListener> {
+                    let socket = TcpSocket::new_v6()?;
                     SockRef::from(&socket).set_only_v6(true)?;
+                    #[cfg(not(windows))]
+                    socket.set_reuseaddr(true)?;
+                    socket.bind(address)?;
+                    socket.listen(BACKLOG)?
                 }
-                #[cfg(not(windows))]
-                socket.set_reuseaddr(true)?;
-                socket.bind(address)?;
-                socket
+            } else {
+                std::net::TcpListener::bind(address).and_then(|listener| {
+                    listener.set_nonblocking(true)?;
+                    TcpListener::from_std(listener)
+                })
             }
             .map_err(failed(Operation::Bind, address))?;
-            let bound = socket.local_addr().map_err(failed(Operation::Address, address))?;
-            socket.listen(u32::MAX).map(|listener| (bound, listener)).map_err(failed(Operation::Listen, bound))
+            listener.local_addr().map(|bound| (bound, listener)).map_err(failed(Operation::Address, address))
         };
         let rows = resolved
             .iter()
@@ -186,29 +187,38 @@ where
         });
         drop(addresses);
         let service = Arc::clone(&daemon).router().into_make_service_with_connect_info::<SocketAddr>();
-        let serving = future::join_all(rows.into_iter().flatten().map(|(address, listener)| {
+        let servers = rows.into_iter().flatten().fold(JoinSet::new(), |mut servers, (address, listener)| {
             tracing::info!({ SERVER_ADDRESS } = %address.ip(), { SERVER_PORT } = address.port(), "listening");
             let accepted = listener.tap_io(|stream| stream.set_nodelay(true).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "TCP_NODELAY refused")));
-            axum::serve(accepted, service.clone()).with_graceful_shutdown(stopping.clone().cancelled_owned()).into_future().map(move |outcome| outcome.map_err(failed(Operation::Serve, address)))
-        }));
-        let mut server = pin!(future::maybe_done(serving));
+            servers.spawn(axum::serve(accepted, service.clone()).with_graceful_shutdown(stopping.clone().cancelled_owned()).into_future().map(drop));
+            servers
+        });
+        let mut server = pin!(future::maybe_done(servers.join_all().map(drop)));
         let mut lifetime = pin!(future::maybe_done(daemon.lifetime(stopping.child_token())));
         let trigger = tokio::select! {
             _ = signals.next() => Trigger::Signal,
             () = lifetime.as_mut() => Trigger::Lifetime,
-            () = server.as_mut() => Trigger::Server,
         };
         tracing::info!(%trigger, "shutting down");
         let mut drain = pin!(future::maybe_done(daemon.drain().inspect(|_| stopping.cancel())));
         let abandonment = tokio::select! {
             biased;
             ((), (), ()) = future::join3(drain.as_mut(), lifetime.as_mut(), server.as_mut()) => None,
-            _ = signals.skip(match trigger { Trigger::Signal => 0, Trigger::Lifetime | Trigger::Server => 1 }).into_future() => Some(Abandonment::Signal),
+            _ = signals.skip(match trigger { Trigger::Signal => 0, Trigger::Lifetime => 1 }).into_future() => Some(Abandonment::Signal),
             () = time::sleep(grace) => Some(Abandonment::Deadline(grace)),
         };
         let (drained, ended, closed) = (drain.as_mut().take_output(), lifetime.as_mut().take_output(), server.as_mut().take_output());
         let pending = [drained.is_none().then_some(Stage::Drain), ended.is_none().then_some(Stage::Lifetime), closed.is_none().then_some(Stage::Server)].into_iter().flatten().collect::<Vec<_>>();
         let abandoned = abandonment.zip(NEVec::try_from_vec(pending)).map(|(reason, pending)| DaemonError::Abandoned { reason, pending });
-        iter::chain(drained, ended).map(|outcome| outcome.map_err(DaemonError::Daemon)).chain(closed.into_iter().flatten()).chain(abandoned.map(Err)).collect::<Validated<(), _>>().ok()
+        iter::chain(drained, ended).map(|outcome| outcome.map_err(DaemonError::Daemon)).chain(abandoned.map(Err)).collect::<Validated<(), _>>().ok()
     })
 }
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use axum;
+pub use clap;
+pub use http;
+pub use nonempty_collections;
+pub use rasm_command;
+pub use tokio_util;

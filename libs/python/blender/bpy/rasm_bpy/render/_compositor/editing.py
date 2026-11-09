@@ -1,8 +1,11 @@
 """Node editor edits: owned group insertion into an edited tree under rollback of links and selection, node-space measurement, and deferred layered placement of owned nodes."""
 
-from collections.abc import Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Hashable, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from functools import reduce
+from graphlib import TopologicalSorter
+from itertools import accumulate
+from operator import sub
 from types import MappingProxyType
 from typing import Final
 
@@ -20,7 +23,7 @@ from rasm_bpy.nodes._addressing import InterfaceKeys, owned
 from rasm_bpy.nodes._trees import _created, _endpoints, _group_set, _linked, _links_of, _native, _ordered, _tree_of
 from rasm_bpy.nodes.changes import made, NodeGroup, valued
 from rasm_bpy.ui._drawing.handlers import draw_handler
-from rasm_records import accumulated, Fault, Gaps, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -29,15 +32,54 @@ type Incoming = bpy.types.NodeLink | tuple[bpy.types.NodeSocket, bool]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 LOCATION: Final = Descriptor(root=bpy.types.Node, prop=bpy.types.Node.bl_rna.properties["location_absolute"])
-_GAPS: Final = Gaps()
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _Gaps(msgspec.Struct, frozen=True, kw_only=True):
+    """Layout gaps between columns, between rows, and between bands."""
+
+    across: float = 80.0
+    down: float = 20.0
+    band: float = 60.0
+
+    def arranged[K: Hashable](
+        self, sizes: Mapping[K, tuple[float, float]], links: tuple[tuple[K, int, K], ...], bands: Mapping[K, Option[K]], origin: Callable[[K], tuple[float, float]]
+    ) -> dict[K, tuple[float, float]]:
+        """Returns the top left corner per box of `(width, height)` size, columns by depth over acyclic (source, slot, target) links, rows by source slot order, one band's boxes stacked together, growing right and down from the first box's origin."""
+        if not sizes:
+            return {}
+        feeds: dict[K, list[tuple[K, int]]] = {key: [] for key in sizes}
+        for source, slot, target in links:
+            if target in feeds:
+                feeds[target].append((source, slot))
+        order = tuple(TopologicalSorter({key: tuple(source for source, _ in fed) for key, fed in feeds.items()}).static_order())
+        position = {key: index for index, key in enumerate(order)}
+        column: dict[K, int] = {}
+        for key in order:
+            column[key] = max((column[source] + 1 for source, _ in feeds[key]), default=0)
+        rank = {key: min(((position[source], slot) for source, slot in feeds[key]), default=(position[key], -1)) for key in order}
+        grouped: dict[Option[K], dict[int, list[K]]] = {}
+        widths: dict[int, float] = {}
+        for key in order:
+            depth, width = column[key], sizes[key][0]
+            grouped.setdefault(bands[key], {}).setdefault(depth, []).append(key)
+            widths[depth] = max(widths[depth], width) if depth in widths else width
+        cells = {(band, depth): sorted(rows[depth], key=rank.__getitem__) for band, rows in grouped.items() for depth in sorted(rows)}
+        left, top = origin(order[0])
+        lefts = tuple(accumulate((widths[depth] + self.across for depth in range(len(widths))), initial=left))
+        stacks = {band: tuple(sum(sizes[key][1] for key in cells[band, depth]) + self.down * (len(rows[depth]) - 1) for depth in rows) for band, rows in grouped.items()}
+        tops = dict(zip(grouped, accumulate(((max((*heights, 0.0)) if len(heights) < len(widths) else max(heights)) + self.band for heights in stacks.values()), sub, initial=top)))
+        return {key: (lefts[depth], y) for (band, depth), keys in cells.items() for key, y in zip(keys, accumulate((sizes[key][1] + self.down for key in keys), sub, initial=tops[band]))}
+
+
+_GAPS: Final = _Gaps()
 
 
 class _Arranger(msgspec.Struct, frozen=True, kw_only=True):
     """Registration row arranging owned nodes on each editor draw."""
 
-    gaps: Gaps = Gaps()
+    gaps: _Gaps = _GAPS
 
     def moves(self, tree: bpy.types.NodeTree, identity: Identity) -> tuple[tuple[str, tuple[float, float]], ...]:
         """Returns changed owned node positions once every owned node draws."""
@@ -108,7 +150,7 @@ def _inserted(
     group: NodeGroup,
     identity: Identity,
     *,
-    gaps: Gaps = _GAPS,
+    gaps: _Gaps = _GAPS,
     inputs: Mapping[Key, Value] = MappingProxyType({}),
 ) -> Outcome[bpy.types.Node]:
     """Splices group after a node's first enabled output, routing each consumer link through group, at the cursor when no node leads.

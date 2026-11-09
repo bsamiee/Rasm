@@ -20,6 +20,7 @@ from rasm_bpy.commands.invocations import Save
 from rasm_bpy.commands.operators import Call, Done, Operator
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.images import _read
 from rasm_bpy.data._rna.conditions import Job
 from rasm_bpy.data._rna.descriptors import Value, written
@@ -173,7 +174,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 .bind(
                     lambda raw: paired(
                         source.source(view=call.properties.selected_view).bind(
-                            lambda file: source.source_encoding.filter_with(Option.is_some, lambda _: Fault.of(Reason.REQUIRED, "color encoding for Linear Raw DNG")).bind(
+                            lambda file: source.source_encoding.filter_with(Option.is_some, lambda _: Fault.of(Refusal.REQUIRED, "color encoding for Linear Raw DNG")).bind(
                                 lambda program: converted_image(source.config, PyOpenColorIO.ROLE_INTERCHANGE_SCENE, file, source=program)
                             )
                         ),
@@ -295,7 +296,7 @@ def proxied(image: bpy.types.Image, identity: Identity, downscale: Scaled | Long
         return (
             linear(file, width, height)
             .bind(lambda values: ImageFile(pixels=values, colorspace=file.colorspace, header=file.header).written(target, Storage(depth=depth), {}, config))
-            .bind(lambda _: catch(image.__setitem__, exception=TypeError)(key, str(source)).map_error(partial(Fault.of, Reason.REFUSED, repr(image))))
+            .bind(lambda _: catch(image.__setitem__, exception=TypeError)(key, str(source)).map_error(partial(Fault.of, Refusal.REFUSED, repr(image))))
             .bind(lambda _: written(image, ("filepath",), str(target)).map(lambda _: str(target)))
         )
 
@@ -319,7 +320,7 @@ def restored(image: bpy.types.Image, identity: Identity) -> Outcome[None]:
             .of_optional(try_downcast(str, image.get(key)))
             .map(
                 lambda source: (
-                    written(image, ("filepath",), source).bind(lambda _: catch(image.pop, exception=KeyError)(key).map_error(partial(Fault.of, Reason.REFUSED, repr(image)))).map(lambda _: None)
+                    written(image, ("filepath",), source).bind(lambda _: catch(image.pop, exception=KeyError)(key).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))).map(lambda _: None)
                 )
             )
             .default_value(Ok(None))

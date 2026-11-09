@@ -1,28 +1,33 @@
-#![feature(deref_patterns, float_conversions, try_blocks)]
+#![feature(deref_patterns)]
+#![cfg_attr(feature = "fmu", feature(float_conversions))]
+#![cfg_attr(any(feature = "fmu", feature = "ode"), feature(try_blocks))]
 
 use core::{fmt, iter};
+#[cfg(feature = "fmu")]
 use std::path::PathBuf;
 
+#[cfg(feature = "ode")]
 use diffsol::DiffsolError;
+#[cfg(feature = "ode")]
 use faer::sparse::{CreationError, linalg::LltError};
-use itertools::{Either, Itertools as _};
+#[cfg(feature = "ode")]
+use itertools::Either;
+use itertools::Itertools as _;
 use nalgebra::DMatrix;
 use nonempty_collections::NEVec;
-use petgraph::{
-    algo::Cycle,
-    graph::{EdgeIndex, NodeIndex},
+#[cfg(feature = "ode")]
+use petgraph::graph::{EdgeIndex, NodeIndex};
+#[cfg(feature = "ode")]
+use uom::si::{
+    f64::{HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature},
+    heat_capacity::joule_per_kelvin,
+    power::watt,
+    thermal_conductance::watt_per_kelvin,
+    thermodynamic_temperature::kelvin,
 };
 use uom::{
     fmt::DisplayStyle::Abbreviation,
-    si::{
-        Dimension,
-        f64::{HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature, Time},
-        heat_capacity::joule_per_kelvin,
-        power::watt,
-        thermal_conductance::watt_per_kelvin,
-        thermodynamic_temperature::kelvin,
-        time::second,
-    },
+    si::{Dimension, f64::Time, time::second},
     typenum::Integer as _,
 };
 
@@ -98,6 +103,7 @@ pub struct Port {
     pub causality: Causality,
     pub reference: usize,
     pub kind: Kind,
+    pub start: Option<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -134,8 +140,13 @@ pub struct Grid(NEVec<Time>);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Stop {
-    Root { function: usize },
-    Request { subsystem: usize, time: Time },
+    Root {
+        function: usize,
+    },
+    Request {
+        subsystem: usize,
+        time: Time,
+    },
     Cancelled,
 }
 
@@ -149,6 +160,7 @@ pub struct Trajectory {
     stop: Option<Stop>,
 }
 
+#[cfg(feature = "fmu")]
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
 #[display(rename_all = "lowercase")]
 pub enum Operation {
@@ -171,69 +183,163 @@ pub enum DynamicsError {
         "instants {} are not finite or do not follow their predecessors",
         instants.iter().format_with(", ", |(index, instant), write| write(&format_args!("{} at index {index}", instant.into_format_args(second, Abbreviation))))
     )]
-    Instants { instants: NEVec<(usize, Time)> },
+    Instants {
+        instants: NEVec<(usize, Time)>,
+    },
+    #[cfg(feature = "ode")]
     #[error("scenario has {found} parameters, expected {expected}")]
-    Parameters { expected: usize, found: usize },
+    Parameters {
+        expected: usize,
+        found: usize,
+    },
+    #[cfg(feature = "ode")]
     #[error("design column {column} holds parameters that are not finite at rows {}", rows.iter().format(", "))]
-    Design { column: usize, rows: NEVec<usize> },
+    Design {
+        column: usize,
+        rows: NEVec<usize>,
+    },
+    #[cfg(feature = "ode")]
     #[error("{}", fmt::from_fn(|formatter| match time {
         Some(instant) => write!(formatter, "solved values are not finite at {}", instant.into_format_args(second, Abbreviation)),
         None => formatter.write_str("adjoint gradient is not finite"),
     }))]
-    Diverged { time: Option<Time> },
+    Diverged {
+        time: Option<Time>,
+    },
+    #[cfg(feature = "ode")]
     #[error("{found} cotangent lanes state no objective{}", fmt::from_fn(|formatter| integrated.map_or(Ok(()), |count| write!(formatter, " over {count} integrated outputs"))))]
-    Cotangents { found: usize, integrated: Option<usize> },
+    Cotangents {
+        found: usize,
+        integrated: Option<usize>,
+    },
+    #[cfg(feature = "ode")]
     #[error("cotangent lanes {} need {} rows by {} instants of finite values", lanes.iter().format(", "), shape.0, shape.1)]
-    CotangentValues { lanes: NEVec<usize>, shape: (usize, usize) },
+    CotangentValues {
+        lanes: NEVec<usize>,
+        shape: (usize, usize),
+    },
+    #[cfg(feature = "ode")]
     #[error(transparent)]
     Solver(#[from] DiffsolError),
+    #[cfg(feature = "ode")]
     #[error("node {} holds capacity {} that is negative or not finite", node.index(), capacity.into_format_args(joule_per_kelvin, Abbreviation))]
-    Capacity { node: NodeIndex, capacity: HeatCapacity },
+    Capacity {
+        node: NodeIndex,
+        capacity: HeatCapacity,
+    },
+    #[cfg(feature = "ode")]
     #[error("edge {} holds conductance {} that is not a positive normal number", edge.index(), conductance.into_format_args(watt_per_kelvin, Abbreviation))]
-    Conductance { edge: EdgeIndex, conductance: ThermalConductance },
+    Conductance {
+        edge: EdgeIndex,
+        conductance: ThermalConductance,
+    },
+    #[cfg(feature = "ode")]
     #[error("{found} initial temperatures meet a network of {nodes} nodes")]
-    Initial { nodes: usize, found: usize },
+    Initial {
+        nodes: usize,
+        found: usize,
+    },
+    #[cfg(feature = "ode")]
     #[error("{}", settings.iter().format("; "))]
-    Settings { settings: NEVec<Setting> },
+    Settings {
+        settings: NEVec<Setting>,
+    },
+    #[cfg(feature = "ode")]
     #[error("forcing at {} holds values that are not finite: {}", time.into_format_args(second, Abbreviation), values.iter().format_with(", ", |(node, value), write| match value {
         Either::Left(temperature) => write(&format_args!("temperature {} of boundary node {}", temperature.into_format_args(kelvin, Abbreviation), node.index())),
         Either::Right(heat) => write(&format_args!("heat {} into node {}", heat.into_format_args(watt, Abbreviation), node.index())),
     }))]
-    Forcing { time: Time, values: NEVec<(NodeIndex, Either<ThermodynamicTemperature, Power>)> },
+    Forcing {
+        time: Time,
+        values: NEVec<(NodeIndex, Either<ThermodynamicTemperature, Power>)>,
+    },
+    #[cfg(feature = "ode")]
     #[error("network has {nodes} boundary nodes and no state to integrate")]
-    State { nodes: usize },
+    State {
+        nodes: usize,
+    },
+    #[cfg(feature = "ode")]
     #[error("components {} reach no boundary and hold no steady state", components.iter().map(|component| component.iter().map(|node| node.index()).format(", ")).format("; "))]
-    Floating { components: NEVec<Vec<NodeIndex>> },
+    Floating {
+        components: NEVec<Vec<NodeIndex>>,
+    },
+    #[cfg(feature = "ode")]
     #[error(transparent)]
     Assembly(#[from] CreationError),
+    #[cfg(feature = "ode")]
     #[error(transparent)]
     Factorization(#[from] LltError),
+    #[cfg(feature = "fmu")]
     #[error("FMU {} declares FMI {major}, neither 2 nor 3", path.display())]
-    Version { path: PathBuf, major: u64 },
+    Version {
+        path: PathBuf,
+        major: u64,
+    },
+    #[cfg(feature = "fmu")]
     #[error("variable communication step size from {} to {} is unsupported", shortest.into_format_args(second, Abbreviation), longest.into_format_args(second, Abbreviation))]
-    StepSizes { shortest: Time, longest: Time },
+    StepSizes {
+        shortest: Time,
+        longest: Time,
+    },
+    #[cfg(feature = "fmu")]
     #[error("{operation} failed")]
-    Fmi { operation: Operation, source: fmi::Error },
+    Fmi {
+        operation: Operation,
+        source: fmi::Error,
+    },
     #[error("port {reference} is no parameter or input")]
-    Reference { reference: usize },
+    Reference {
+        reference: usize,
+    },
     #[error("{endpoint} names no {causality} port")]
-    Endpoint { endpoint: Endpoint, causality: Causality },
+    Endpoint {
+        endpoint: Endpoint,
+        causality: Causality,
+    },
     #[error("connection from {} to {} joins {}, which no conversion relates", connection.source, connection.target, kinds.iter().format(" to "))]
-    Connection { connection: Connection, kinds: Box<[Kind; 2]> },
-    #[error("coupling cycle through subsystem {}", cycle.node_id().index())]
-    Cycle { cycle: Cycle<NodeIndex> },
+    Connection {
+        connection: Connection,
+        kinds: Box<[Kind; 2]>,
+    },
+    #[error("connection from {} to {} runs a step late, and neither port declares a start value", connection.source, connection.target)]
+    Start {
+        connection: Connection,
+    },
     #[error("subsystem {subsystem} failed at {}", time.into_format_args(second, Abbreviation))]
-    Subsystem { subsystem: usize, time: Time, source: Box<Self> },
+    Subsystem {
+        subsystem: usize,
+        time: Time,
+        source: Box<Self>,
+    },
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+#[cfg(feature = "fmu")]
 mod cosimulation;
+#[cfg(feature = "ode")]
 mod lumped;
+#[cfg(any(feature = "fmu", feature = "ode"))]
 pub mod master;
+#[cfg(feature = "ode")]
 pub mod ode;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+#[cfg(feature = "fmu")]
 pub use cosimulation::{Fmu, fmu};
+#[cfg(feature = "ode")]
+pub use diffsol;
+#[cfg(feature = "ode")]
+pub use faer;
+#[cfg(feature = "fmu")]
+pub use fmi;
+#[cfg(feature = "ode")]
+pub use itertools;
+#[cfg(feature = "ode")]
 pub use lumped::{Instance, Network, Node, Options, Parameter, Setting, instance, parameters, problem, steady};
+pub use nalgebra;
+pub use nonempty_collections;
+#[cfg(feature = "ode")]
+pub use petgraph;
+pub use uom;

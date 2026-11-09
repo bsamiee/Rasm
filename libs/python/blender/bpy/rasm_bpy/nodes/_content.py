@@ -15,6 +15,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.images import _filled, _loaded, Tag
 from rasm_bpy.data._ids.ownership import _kept, Mark, Ownership
 from rasm_bpy.data._rna.descriptors import _differing, Value, written
@@ -288,13 +289,13 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
         def built(values: npt.NDArray[np.float32]) -> Outcome[bpy.types.Image]:
             height, width, channels = values.shape
             return _kept(
-                catch(bpy.data.images.new, exception=RuntimeError)(self.name, width, height, alpha=channels == 4, float_buffer=True).map_error(partial(Fault.of, Reason.REFUSED, self.name)),
+                catch(bpy.data.images.new, exception=RuntimeError)(self.name, width, height, alpha=channels == 4, float_buffer=True).map_error(partial(Fault.of, Refusal.REFUSED, self.name)),
                 lambda image: (
                     self.tag
                     .members(Some(config))
                     .bind(partial(assigned, image))
                     .bind(lambda _: _filled(image, values))
-                    .bind(lambda _: catch(image.pack, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(image))))
+                    .bind(lambda _: catch(image.pack, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(image))))
                     .map(lambda _: image)
                 ),
             )

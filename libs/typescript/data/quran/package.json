@@ -4,6 +4,9 @@
     "description": "Quran text from CSV or a mushaf, selected by surah or division a riwayah counts, ayah marks set against a face",
     "sideEffects": false,
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
         ".": "./index.ts"
     },

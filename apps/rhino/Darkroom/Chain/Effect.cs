@@ -17,7 +17,7 @@ namespace Darkroom.Chain;
 [CustomPostEffect(PostEffectType.Early, "Darkroom",
     PostEffectStyles.ExecuteForProductionRendering | PostEffectStyles.ExecuteForRealtimeRendering | PostEffectStyles.ExecuteForViewportDisplay
     | PostEffectStyles.DefaultShown | PostEffectStyles.DefaultOn)]
-public sealed class DarkroomEffect : DefinedEffect<DarkroomEffect, ChainState>, IDefined<EffectDefinition<ChainState>> {
+internal sealed class DarkroomEffect : DefinedEffect<DarkroomEffect, ChainState>, IDefined<EffectDefinition<ChainState>> {
 
     // --- [STATE]
 

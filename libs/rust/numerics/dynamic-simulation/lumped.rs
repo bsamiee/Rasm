@@ -179,13 +179,24 @@ impl Scratch {
 #[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum Setting {
     #[error("initial temperature of node {} is not finite", node.index())]
-    InitialTemperature { node: NodeIndex },
+    InitialTemperature {
+        node: NodeIndex,
+    },
     #[error("{}relative tolerance {value} is negative or not finite", if *sensitivity { "sensitivity " } else { "" })]
-    RelativeTolerance { sensitivity: bool, value: f64 },
+    RelativeTolerance {
+        sensitivity: bool,
+        value: f64,
+    },
     #[error("{}absolute tolerance {} is not a positive normal number", if *sensitivity { "sensitivity " } else { "" }, value.into_format_args(temperature_interval::kelvin, Abbreviation))]
-    AbsoluteTolerance { sensitivity: bool, value: TemperatureInterval },
+    AbsoluteTolerance {
+        sensitivity: bool,
+        value: TemperatureInterval,
+    },
     #[error("sensor node {} lies outside a network of {nodes} nodes", sensor.index())]
-    Sensor { sensor: NodeIndex, nodes: usize },
+    Sensor {
+        sensor: NodeIndex,
+        nodes: usize,
+    },
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -573,14 +584,27 @@ pub fn instance(network: Network, initial: Vec<ThermodynamicTemperature>, method
         .node_weights()
         .enumerate()
         .map(|(reference, node)| match node {
-            Node::Boundary => Port { name: format!("temperature of node {reference}"), causality: Causality::Input, reference, kind: temperature },
-            Node::Capacity(_) => Port { name: format!("heat into node {reference}"), causality: Causality::Input, reference, kind: Kind::Real(Some(BaseUnit::of::<power::Dimension>())) },
+            Node::Boundary => Port {
+                name: format!("temperature of node {reference}"),
+                causality: Causality::Input,
+                reference,
+                kind: temperature,
+                start: initial.get(reference).map(ThermodynamicTemperature::get::<kelvin>),
+            },
+            Node::Capacity(_) => Port {
+                name: format!("heat into node {reference}"),
+                causality: Causality::Input,
+                reference,
+                kind: Kind::Real(Some(BaseUnit::of::<power::Dimension>())),
+                start: Some(Power::ZERO.get::<watt>()),
+            },
         })
         .chain(network.graph.node_indices().filter(|node| outputs.contains(node)).map(|node| Port {
             name: format!("temperature of node {}", node.index()),
             causality: Causality::Output,
             reference: node.index(),
             kind: temperature,
+            start: initial.get(node.index()).map(ThermodynamicTemperature::get::<kelvin>),
         }))
         .collect();
     let sensors = network.graph.node_indices().collect();

@@ -1,4 +1,4 @@
-#![feature(const_result_trait_fn, const_trait_impl, default_field_values, float_conversions, trait_alias, try_blocks_heterogeneous)]
+#![feature(default_field_values, float_conversions, trait_alias, try_blocks_heterogeneous)]
 
 use core::{
     borrow::Borrow,
@@ -94,17 +94,33 @@ pub enum Shortfall {
 #[derive(Debug, thiserror::Error)]
 pub enum ProximityError {
     #[error("{count} elements exceed the {MAX_LEAF_COUNT} leaf limit of the bounding volume hierarchy")]
-    Capacity { count: usize },
+    Capacity {
+        count: usize,
+    },
     #[error("{} inputs hold non-finite or overflowing coordinates, first at index {}", .indices.len(), .indices.first())]
-    NonFinite { indices: NEVec<usize> },
+    NonFinite {
+        indices: NEVec<usize>,
+    },
     #[error("non-finite initial pose {pose}")]
-    Pose { pose: Isometry3<f64> },
+    Pose {
+        pose: Isometry3<f64>,
+    },
     #[error("query point {point} lies inside compound element {element}, which has no signed depth")]
-    Compound { point: usize, element: usize },
+    Compound {
+        point: usize,
+        element: usize,
+    },
     #[error("no query between the shapes of inputs {left} and {right}")]
-    Unsupported { left: usize, right: usize, shapes: [ShapeType; 2] },
+    Unsupported {
+        left: usize,
+        right: usize,
+        shapes: [ShapeType; 2],
+    },
     #[error("{shortfall} at iteration {iteration}")]
-    Unfitted { iteration: NonZero<usize>, shortfall: Shortfall },
+    Unfitted {
+        iteration: NonZero<usize>,
+        shortfall: Shortfall,
+    },
     #[error(transparent)]
     Tree(#[from] ConstructionError),
 }
@@ -140,6 +156,11 @@ mod registration;
 
 pub use containment::containing;
 pub use distances::{Projection, project};
+pub use kiddo;
+pub use nalgebra;
+pub use nonempty_collections;
 pub use pairs::{Clash, Interference, clashes, separations};
+pub use parry3d_f64;
 pub use points::{Cloud, Item, Neighbor, Neighborhood, nearest, neighbors, normals};
+pub use rayon;
 pub use registration::{Fraction, FractionError, Icp, Kernel, Metric, Registration, Target, Weight, WeightError, fit, register};

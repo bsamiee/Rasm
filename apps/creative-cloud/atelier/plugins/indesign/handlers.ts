@@ -411,7 +411,7 @@ const handlers = InDesign.Contract.of({
         const [collections, scalars] = Array.partition(
             entries,
             Match.type<(typeof entries)[number]>().pipe(
-                Match.when({ value: { _tag: 'Success', success: model.collection } }, ({ name, value }) => ({ name, type: value.success.constructor.name, length: value.success.length, specifier: value.success.everyItem().toSpecifier() })),
+                Match.when({ value: { _tag: 'Success', success: model.collection } }, ({ name, value }) => ({ name, ...Model.collected(value.success) })),
                 Match.result,
             ),
         );
@@ -603,7 +603,7 @@ const link = Effect.gen(function* () {
         Effect.flatMap(Schema.decodeUnknownEffect(Uxp.Entry)),
         Effect.map(({ url }) => new URL(url)),
     );
-    return { linked: Peer.dial(InDesign.Contract, server, application, Uxp.readHome(Peer.link.key)), scripted };
+    return { linked: Peer.dial(InDesign.Contract, server, application), scripted };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

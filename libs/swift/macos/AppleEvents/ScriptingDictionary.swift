@@ -97,9 +97,16 @@ public final class ScriptingDictionary: Encodable, Sendable {
         }
         let extensions: [String?: [XMLElement]] = try Dictionary(grouping: elements("//class-extension")) { element in element.attribute(forName: "extends")?.stringValue }
         func inherited(_ element: XMLElement) -> [XMLElement] {
-            let name: String? = element.attribute(forName: "name")?.stringValue
-            return element.elements(forName: "property") + (name.flatMap { name in extensions[name] } ?? []).flatMap { extended in extended.elements(forName: "property") }
-                + (element.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? []).flatMap(inherited)
+            var lineage: OrderedSet<XMLElement> = [element]
+            var cursor: Int = 0
+            while cursor < lineage.count {
+                lineage.append(contentsOf: lineage[cursor].attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? [])
+                cursor += 1
+            }
+            return lineage.flatMap { (ancestor: XMLElement) -> [XMLElement] in
+                let extended: [XMLElement] = ancestor.attribute(forName: "name")?.stringValue.flatMap { name in extensions[name] } ?? []
+                return ancestor.elements(forName: "property") + extended.flatMap { element in element.elements(forName: "property") }
+            }
         }
         func sdefTypes(_ element: XMLElement) -> Set<String> {
             Set(([element.attribute(forName: "type")] + element.elements(forName: "type").map { type in type.attribute(forName: "type") }).compactMap { attribute in attribute?.stringValue })
@@ -202,9 +209,9 @@ extension ScriptingDictionary {
         return try Unmatched.single(found, subject: subject, query: query, candidates: OrderedSet(scopes.joined().map(\.name)).elements, named: \.code.sdef).get()
     }
 
-    public func command(handling eventIDs: [AEEventID]) throws(Unmatched) -> Command {
-        guard let handler: Command = eventIDs.lazy.compactMap({ eventID in self.commands.first { command in command.eventID == eventID } }).first else {
-            throw Unmatched(subject: "command handling \(eventIDs.map(\.sdef).joined(separator: ", "))", query: nil, candidates: OrderedSet(commands.map(\.name)).elements)
+    public func command(handling codes: [UInt64]) throws(Unmatched) -> Command {
+        guard let handler: Command = codes.lazy.compactMap({ code in self.commands.first { command in command.code == code } }).first else {
+            throw Unmatched(subject: "command handling \(codes.map(\.sdef).joined(separator: ", "))", query: nil, candidates: OrderedSet(commands.map(\.name)).elements)
         }
         return handler
     }

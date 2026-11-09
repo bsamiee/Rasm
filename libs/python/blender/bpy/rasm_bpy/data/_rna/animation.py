@@ -13,6 +13,7 @@ import msgspec
 import numpy as np
 from numpy.typing import NDArray
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import _differing, _DTYPES, Descriptor, Value, written
 from rasm_bpy.data._rna.paths import _rna, _struct_at, id_data, id_path, RnaPath, Struct
 from rasm_bpy.data._rna.snapshots import assigned
@@ -98,7 +99,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Whether a key, driver, mute, or modifier value changed, refused faults of every host call accumulated.
         """
-        refused = partial(Fault.of, Reason.REFUSED, f"{block!r}.{_rna(self.path)}")
+        refused = partial(Fault.of, Refusal.REFUSED, f"{block!r}.{_rna(self.path)}")
 
         def keyed(points: NDArray[np.float32], curve: bpy.types.FCurve) -> Outcome[bool]:
             held = np.empty(len(curve.keyframe_points) * 2, np.float32)
@@ -134,13 +135,13 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             def added(row: Modifier) -> Outcome[None]:
                 return (
                     catch(curve.modifiers.new, exception=TypeError)(row.kind)
-                    .map_error(partial(Fault.of, Reason.REFUSED, repr(curve.modifiers)))
+                    .map_error(partial(Fault.of, Refusal.REFUSED, repr(curve.modifiers)))
                     .bind(lambda made: Option.of_optional(made).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve.modifiers), member=row.kind)))
                     .bind(lambda made: assigned(made, row.values))
                 )
 
             return (
-                accumulated(catch(curve.modifiers.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, Reason.REFUSED, repr(curve.modifiers))) for modifier in held)
+                accumulated(catch(curve.modifiers.remove, exception=RuntimeError)(modifier).map_error(partial(Fault.of, Refusal.REFUSED, repr(curve.modifiers))) for modifier in held)
                 .bind(lambda _: accumulated(map(added, self.modifiers)))
                 .map(lambda _: True)
             )
@@ -181,7 +182,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         """Removes the channel's F-curve or driver."""
         return self.channel(block).bind(
             lambda found: accumulated(
-                catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, Reason.REFUSED, repr(curves)))
+                catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, Refusal.REFUSED, repr(curves)))
                 for curves in _struct_at(block, ("animation_data",), bpy.types.AnimData).bind(self.source.curves).to_list()
                 for curve in Option.of_optional(curves.find(_rna(found[1].member), index=found[1].index.default_value(0))).to_list()
             ).map(lambda _: None)

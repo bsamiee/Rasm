@@ -3,7 +3,7 @@
 from rasm_bpy.data._extension.events import Change
 from rasm_bpy.data._extension.identity import Identity, Key, Manifest
 from rasm_bpy.data._extension.registration import Acquisitions, CliCommand, Declaration, Declarations, Gathering, Handler, Registrable, Registration, Resource, Subscription, Timer, Translations
-from rasm_bpy.data._extension.reports import Pending, Reports
+from rasm_bpy.data._extension.reports import Pending, Refusal, Reports
 from rasm_bpy.data._ids.evaluation import hit, instances, meshed, Update
 from rasm_bpy.data._ids.images import aspect, normalized, Tag
 from rasm_bpy.data._ids.ownership import Mark, Ownership, Saved
@@ -53,6 +53,7 @@ __all__ = [
     "Ownership",
     "Pending",
     "Present",
+    "Refusal",
     "Registrable",
     "Registration",
     "Reports",

@@ -108,7 +108,7 @@ internal abstract class Outline : IDisposable {
             },
             icon: static (held, icon) => {
                 SKPath grid = icon.Outline.Path;
-                SKMatrix placed = ImageFit.Mapping(grid.Bounds, ImageFit.Contain.Fitted(SKRect.Inflate(held.Frame, -held.Inset, -held.Inset), grid.Bounds.Size));
+                SKMatrix placed = ImageFit.Mapping(icon.Set.Box, ImageFit.Contain.Fitted(SKRect.Inflate(held.Frame, -held.Inset, -held.Inset), icon.Set.Box.Size));
                 float weighted = icon.Set.Stem * placed.ScaleX * (((float)held.Weight / (float)SKFontStyleWeight.Normal) - 1f) / 2f;
                 return Offset(Built(path => path.AddPath(grid, in placed)), held.Offset + weighted);
             },

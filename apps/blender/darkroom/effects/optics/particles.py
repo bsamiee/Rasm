@@ -16,8 +16,8 @@ from scipy.spatial import cKDTree
 from rasm_bpy.data import Identity
 from rasm_bpy.nodes import decoded, fielded, Interface, InterfacePanel, item_key, POSITION, sampled, textures, W
 from rasm_bpy.render import Clock, CompositorEffect, CompositorRecord, lenses, Mix, motion, precise, Prepared, Shutter, Stage, toggled
-from rasm_imaging import Aperture, buffers, Estimate, fringed, Population, Precision, Region, tiles, transmitted
-from rasm_records import accumulated, AtLeastOne, Error, Fault, Finite, NonNegative, Ok, Outcome, paired, Positive, Reason, Seed, Unit
+from rasm_imaging import Aperture, buffers, Estimate, fringed, Population, Precision, Region, Seed, tiles, transmitted
+from rasm_records import accumulated, AtLeastOne, Error, Fault, Finite, NonNegative, Ok, Outcome, paired, Positive, Reason, Unit
 
 from . import bases, emission
 from .bases import Basis, density_range, evaluated, Perlin

@@ -11,6 +11,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -112,8 +113,8 @@ def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
 
 def _named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
     """Renames block, taken fault when another block holds name, the prior name restored where the host suffixed this one."""
-    prior, refused = block.name, partial(Fault.of, Reason.REFUSED, repr(block))
-    taken: Outcome[T] = Error(Fault.of(Reason.TAKEN, name, member=_member(type(block))))
+    prior, refused = block.name, partial(Fault.of, Refusal.REFUSED, repr(block))
+    taken: Outcome[T] = Error(Fault.of(Refusal.TAKEN, name, member=_member(type(block))))
 
     def answered(result: str) -> Outcome[T]:
         match result:

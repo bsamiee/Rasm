@@ -1,3 +1,4 @@
+
 use core::{cell::Cell, cmp, iter, mem, ops::RangeInclusive};
 use std::{borrow::Cow, collections::BTreeMap};
 
@@ -67,10 +68,10 @@ pub fn clip(elements: impl Into<StackSafe<Vec<Element>>>, region: &Region, keep:
         Ok(Some(reworked.map(Path::try_new).transpose()?.unwrap_or(path)).filter(|remaining| !remaining.is_empty()))
     };
     let area = |shape: Region| -> Result<Option<Region>, LineworkError> {
-        match (shape.is_empty(), bounds.overlaps(shape.bounding_box()), invert) {
+        match (shape.contours().is_empty(), bounds.overlaps(shape.bounding_box()), invert) {
             (true, _, _) | (false, false, false) => Ok(None),
             (false, false, true) => Ok(Some(shape)),
-            (false, true, _) => regions::boolean(&shape, [region], op, tolerance).map(|remaining| Some(remaining).filter(|remaining| !remaining.is_empty())),
+            (false, true, _) => regions::boolean(&shape, [region], op, tolerance).map(|remaining| Some(remaining).filter(|remaining| !remaining.contours().is_empty())),
         }
     };
     let maskable = |element: &Element| match element {
@@ -95,7 +96,7 @@ pub fn clip(elements: impl Into<StackSafe<Vec<Element>>>, region: &Region, keep:
             }
         }
     };
-    match (region.is_empty(), keep) {
+    match (region.contours().is_empty(), keep) {
         (true, Side::Inside) => Ok(Vec::new()),
         (true, Side::Outside) => Ok(elements),
         (false, Side::Inside | Side::Outside) => elements

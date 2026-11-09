@@ -1,6 +1,10 @@
 import Results
 public import Subprocess
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let errorLimit: Int = 1 << 20
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension PlatformOptions {
@@ -13,21 +17,21 @@ extension PlatformOptions {
 }
 
 extension Configuration {
-    public func run<Output: OutputProtocol, Error: ErrorOutputProtocol>(
+    public func run<Output: OutputProtocol>(
         output: Output,
         within timeout: Duration,
         input: some InputProtocol = .none,
-        error: Error = .discarded,
-    ) async throws(ProcessFailure) -> ExecutionResult<Void, Output, Error> {
+    ) async throws(ProcessFailure) -> ExecutionResult<Void, Output, StringOutput<UTF8>> {
         let subject: String = executable.description
-        let result: ExecutionResult<Void, Output, Error> = try await withTimeout(timeout, expired: ProcessFailure(subject: subject, reason: .timedOut(timeout))) { () async throws(ProcessFailure) in
+        let result: ExecutionResult<Void, Output, StringOutput<UTF8>> = try await withTimeout(timeout, expired: ProcessFailure(subject: subject, reason: .timedOut(timeout))) {
+            () async throws(ProcessFailure) in
             do {
-                return try await Subprocess.run(self, input: input, output: output, error: error)
+                return try await Subprocess.run(self, input: input, output: output, error: .string(limit: errorLimit))
             } catch {
                 throw ProcessFailure(subject: subject, error)
             }
         }
-        guard result.terminationStatus.isSuccess else { throw ProcessFailure(subject: subject, reason: .exit(result.terminationStatus)) }
+        guard result.terminationStatus.isSuccess else { throw ProcessFailure(subject: subject, reason: .exit(result.terminationStatus, standardError: result.standardError)) }
         return result
     }
 }

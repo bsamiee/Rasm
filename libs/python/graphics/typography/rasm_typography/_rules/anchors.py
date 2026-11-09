@@ -16,12 +16,12 @@ lazy from ufoLib2.objects import Component
 from rasm_typography._faces.declaration import Em, Ratio, Script
 from rasm_typography._rules.measures import _dotted, _middle, _nuqta, _placement, Rule
 lazy from rasm_records import Outcome
-lazy from rasm_typography._faces.glyphs import _Anchor, _Glyph, _Outline, _Side, _Source, Letter, Ligature, Mark
+lazy from rasm_typography._faces.glyphs import _Anchor, _Glyph, _Outline, _Side, Letter, Ligature, Mark, Source
 lazy from rasm_typography._faces.layout import _Adjustment, _Chain, Contextual, Lifts
 lazy from rasm_typography._outlines.measure import _gap
 lazy from rasm_typography._outlines.paths import _area, _bounds, _Box, _pieces, _strip, _transformed, _union
-lazy from rasm_typography._shaping.corpus import _Corpus
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ class Anchors(Rule, frozen=True, kw_only=True):
 # --- [CLEARANCE]
 
 
-def _clearances(original: _Binary, corpus: _Corpus, vowels: tuple[int, int], /) -> tuple[float, float]:
+def _clearances(original: Binary, corpus: Corpus, vowels: tuple[int, int], /) -> tuple[float, float]:
     """Median outline gap of the above vowel over and the below vowel under each form of each corpus letter shaped on the original, in its units."""
     marked = original.marks
     over, under = (
@@ -132,7 +132,7 @@ def _short(own: _Outline, other: _Outline, shift: float, reach: float, /) -> flo
     return max(reach - _gap(own, _transformed(other, Offset(shift, 0))), 0.0)
 
 
-def _cleared(source: _Source, rule: Anchors, /) -> tuple[tuple[_Glyph, ...], tuple[Contextual, ...]]:
+def _cleared(source: Source, rule: Anchors, /) -> tuple[tuple[_Glyph, ...], tuple[Contextual, ...]]:
     """Alternates of letters whose dot group stands within the dot clearance of a joined neighbor, the group moved away from it inside the advance, and the `calt` rules choosing them."""
     letters, reach, unit = tuple(drawn for glyph in source.by_role(Letter) if (drawn := source.drawn(glyph.name.text)).contours), rule.dots * source.upm, rule.stack * source.upm / 2
     boxes, area_ = {glyph.name.text: box for glyph in letters if (box := _bounds(glyph.contours))}, _area(_nuqta(source, rule.script.dotted))
@@ -167,7 +167,7 @@ def _cleared(source: _Source, rule: Anchors, /) -> tuple[tuple[_Glyph, ...], tup
     return (alternates, (Contextual(features=frozendict(calt=frozendict()), order=max((lookup.order for lookup in source.lookups), default=0) + 1, rules=rules),) if rules else ())
 
 
-def _lifts(source: _Source, rule: Anchors, /) -> tuple[Lifts, ...]:
+def _lifts(source: Source, rule: Anchors, /) -> tuple[Lifts, ...]:
     """Lifts above marks clear of neighboring letters, continuously for zero stack gap or rounded up to its half-step, within the joined and non-joining limits."""
     letters, reach, step = tuple(drawn for glyph in source.by_role(Letter) if (drawn := source.drawn(glyph.name.text)).contours), rule.clearance * source.upm, rule.stack * source.upm / 2
     stack = _union(
@@ -200,7 +200,7 @@ def _lifts(source: _Source, rule: Anchors, /) -> tuple[Lifts, ...]:
 # --- [COMPOSITION]
 
 
-def _anchored(source: _Source, rule: Anchors, /, *, original: _Binary, corpus: _Corpus) -> Outcome[_Source]:
+def _anchored(source: Source, rule: Anchors, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
     """Sets every base, ligature, and mark anchor from outlines at the original's mark clearance, attaches composite marks, and adds the `calt` dot alternates and neighbor lifts.
 
     Returns:
@@ -210,7 +210,7 @@ def _anchored(source: _Source, rule: Anchors, /, *, original: _Binary, corpus: _
     return _placement(source, original, script.stem).map(lambda held: _positioned(source, rule, held[1], held[2].xx, _clearances(original, corpus, script.vowels)))
 
 
-def _positioned(source: _Source, rule: Anchors, stem: _Box, scale: float, clearances: tuple[float, float], /) -> _Source:
+def _positioned(source: Source, rule: Anchors, stem: _Box, scale: float, clearances: tuple[float, float], /) -> Source:
     """Anchors bases, marks, spaces, and composites at the clearances scaled onto the source, then moves dot groups and lifts marks clear of neighbors."""
     script, stack, (above, below) = rule.script, rule.stack * source.upm, (scale * clearances[0], scale * clearances[1])
     marks = tuple((glyph, _Box.of(rect)) for glyph in source.by_role(Mark) if (rect := source.bounds(glyph.name.text)) is not None)

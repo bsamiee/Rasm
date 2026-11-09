@@ -13,7 +13,7 @@ lazy from ufo2ft.featureCompiler import FeatureCompiler
 lazy from ufo2ft.featureWriters import CursFeatureWriter, GdefFeatureWriter, MarkFeatureWriter
 lazy from ufoLib2 import Font
 
-lazy from rasm_typography._faces.glyphs import _Source
+lazy from rasm_typography._faces.glyphs import Source
 lazy from rasm_typography._faces.layout import _Adjustment, _Chain, Contextual, Lifts, Ligatures, Lookups, Pairs, Positions, Single
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -22,7 +22,7 @@ lazy from rasm_typography._faces.layout import _Adjustment, _Chain, Contextual, 
 class _FeatureWriter(msgspec.Struct, frozen=True, kw_only=True):
     """Native feature-writer conformance composing generated attachment handles with scoped source positioning."""
 
-    source: _Source
+    source: Source
     tableTag: ClassVar[str] = "GPOS"  # ruff: ignore[mixed-case-variable-in-class-scope]
     mode: ClassVar[str] = "append"
     insertFeatureMarker: ClassVar[None] = None  # ruff: ignore[mixed-case-variable-in-class-scope]
@@ -142,7 +142,7 @@ def _lookups(lookup: Lookups, name: str, /) -> tuple[ast.LookupBlock, ...]:
 # --- [EMISSION]
 
 
-def _systems(source: _Source, /) -> tuple[tuple[str, str], ...]:
+def _systems(source: Source, /) -> tuple[tuple[str, str], ...]:
     """Native language registrations from encoded scripts and every explicit source association."""
     tags = sorted({*ot_tags_from_script(held) for held in source.scripts})
     return tuple(dict.fromkeys((("DFLT", "dflt"), *((tag, "dflt") for tag in tags), *sorted({*held for lookup in source.lookups for held in lookup.features.values()}))))
@@ -166,13 +166,13 @@ def _statements(entries: Iterable[tuple[int, Lookups]], systems: tuple[tuple[str
     return statements
 
 
-def _rendered(source: _Source, entries: Iterable[tuple[int, Lookups]], /) -> str:
+def _rendered(source: Source, entries: Iterable[tuple[int, Lookups]], /) -> str:
     fea, systems = ast.FeatureFile(), _systems(source)
     fea.statements.extend((*starmap(ast.LanguageSystemStatement, systems), *_statements(entries, systems, {})))
     return fea.asFea()  # type: ignore[no-any-return] # ty: ignore[unsound-return-statement]
 
 
-def _emitted(source: _Source, /) -> str:
+def _emitted(source: Source, /) -> str:
     """Renders source lookup definitions and their exact native feature and language associations."""
     return _rendered(source, enumerate(source.lookups))
 

@@ -19,17 +19,17 @@ use krilla::{
 };
 use kurbo::{Point, Size};
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
-use pdf_oxide::compliance::{PdfUaLevel, PdfXLevel};
+use pdf_oxide::compliance::{PdfXLevel, validate_pdf_x};
 use rasm_drawing::{
     Tolerance, Visibility,
     pages::{self, Destination, Link, Page},
 };
+use uom::si::length::point_computer;
 use validated::Validated;
 
 use self::{content::Drawing, tagging::Leaves};
 use crate::{
-    Document, PdfError, Refusal, Resolution, Standard, Subject,
-    conformance::{self, Verdict},
+    Document, PdfError, Refusal, Resolution, Subject,
     layers::{self, Group},
     measurement,
     navigation::{self, Navigation},
@@ -59,8 +59,8 @@ where I: IntoNonEmptyIterator<Item: Borrow<Page>> {
     let settings = standards::settings(&options.standards)?;
     let layered = settings.configuration.version() >= PdfVersion::Pdf15;
     let labels = &options.navigation.labels;
-    let (count, scale) = (sheets.len(), crate::points_per_millimeter());
-    let annotation = |link: &Link| {
+    let count = sheets.len();
+    let annotation = |link: &Link, scale: f64| {
         let area = link.area.abs().scale_from_origin(scale);
         let quad = geom::Rect::from_ltrb(area.x0.cast::<f32>(), area.y0.cast::<f32>(), area.x1.cast::<f32>(), area.y1.cast::<f32>()).ok_or(PdfError::Area(link.area))?;
         let (target, alt) = match &link.destination {
@@ -81,14 +81,15 @@ where I: IntoNonEmptyIterator<Item: Borrow<Page>> {
         .enumerate()
         .map(|(index, page)| {
             let located = |error: PdfError| (Subject::Page(index), error);
-            let sized = Validated::from(dimensioned(page.size).map_err(located));
+            let scale = (*page.unit).get::<point_computer>();
+            let sized = Validated::from(dimensioned(page.size.to_rect().scale_from_origin(scale).size()).map_err(located));
             let paper = page
                 .viewports
                 .iter()
                 .map(|viewport| pages::paper(viewport.clone()).map_or_else(Validated::Fail, Validated::Good))
                 .collect::<Validated<Vec<_>, _>>()
                 .map_err(|errors| errors.into_nonempty_iter().map(|error| located(error.into())).collect());
-            let linked = page.links.iter().map(|link| annotation(link).map_err(located)).collect::<Validated<Vec<_>, _>>();
+            let linked = page.links.iter().map(|link| annotation(link, scale).map_err(located)).collect::<Validated<Vec<_>, _>>();
             let ((page_settings, _), paper, annotations) = match sized.map3(paper, linked, |sized, paper, annotations| (sized, paper, annotations)) {
                 Validated::Good(parts) => parts,
                 Validated::Fail(errors) => return Validated::Fail(errors),
@@ -180,22 +181,16 @@ fn closed(document: krilla::Document, sheets: &[&Page], groups: &[Vec<Group>], o
     let identifiers = structure.page_iter().collect::<Vec<_>>();
     iter::zip(identifiers, sheets).try_for_each(|(identifier, sheet)| crate::write_fields(&mut structure, &options.application, identifier, &sheet.fields, &options.created))?;
     let document = crate::saved(structure)?;
-    let Standards { archival: _, accessibility, press } = &options.standards;
-    let written = iter::chain(press.as_ref().map(|held| Standard::Press(*AsRef::<PdfXLevel>::as_ref(held))), accessibility.filter(|level| *level == PdfUaLevel::Ua2).map(Standard::Accessibility));
-    let refused = iter::zip(written.clone(), conformance::validate(&document, written)?)
-        .filter(|(_, verdict)| match verdict {
-            Verdict::Archival(result) => !result.is_compliant,
-            Verdict::Accessibility(result) => !result.is_compliant,
-            Verdict::Press(result) => !result.is_compliant,
-        })
-        .map(|(standard, verdict)| (Subject::Standard(standard), PdfError::Nonconforming(verdict)))
-        .collect::<Vec<_>>();
-    NEVec::try_from_vec(refused).map_or(Ok(document), |refused| Err(PdfError::Refused(refused)))
+    let Some(press) = &options.standards.press else {
+        return Ok(document);
+    };
+    let level = *AsRef::<PdfXLevel>::as_ref(press);
+    let verdict = validate_pdf_x(&mut crate::engine(&document)?, level)?;
+    if verdict.is_compliant { Ok(document) } else { Err(PdfError::Nonconforming { level, errors: verdict.errors }) }
 }
 
 fn dimensioned(paper: Size) -> Result<(PageSettings, geom::Size), PdfError> {
-    let scale = crate::points_per_millimeter();
-    let size = crate::extent(Size::new(paper.width * scale, paper.height * scale))?;
+    let size = crate::extent(paper)?;
     Ok((PageSettings::new(size).with_trim_box(geom::Rect::from_xywh(0.0, 0.0, size.width(), size.height())), size))
 }
 

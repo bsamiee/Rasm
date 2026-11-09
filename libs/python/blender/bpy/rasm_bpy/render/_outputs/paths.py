@@ -24,6 +24,7 @@ from rasm_bpy.commands.operators import Answer, Call, called, Done, Empty, Opera
 from rasm_bpy.data._extension.events import _located, _runtime
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Handler, Registrable, Subscription
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.conditions import Condition, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
@@ -133,7 +134,7 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
             shared = name.keys & stem.keys
             words, counted = shared - frozenset(NumberKey), NumberKey.VERSION in shared
             parsed = (
-                Result[Path, Faults].bind(blend.to_result_with(lambda: Fault.of(Reason.REQUIRED, Pathed.unsaved.message)), lambda path: stem.parse(path.stem)) if words or counted else Ok(Fields())
+                Result[Path, Faults].bind(blend.to_result_with(lambda: Fault.of(Refusal.REQUIRED, Pathed.unsaved.message)), lambda path: stem.parse(path.stem)) if words or counted else Ok(Fields())
             )
             host = (
                 {TextKey.SCENE: scene.name, TextKey.DATE: day.isoformat()}
@@ -208,7 +209,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
         def resolved(native: str, folder: str) -> Outcome[tuple[str, Path]]:
             base = Path(bpy.path.abspath(folder, start=blend.map(lambda file: str(file.parent)).to_optional()))
-            return Ok((native, base)) if base.is_absolute() else Error(Fault.of(Reason.REQUIRED, f"saved file or absolute output folder, {folder} resolving against the working directory"))
+            return Ok((native, base)) if base.is_absolute() else Error(Fault.of(Refusal.REQUIRED, f"saved file or absolute output folder, {folder} resolving against the working directory"))
 
         def root(outputs: Outputs) -> Outcome[tuple[str, Path]]:
             preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
@@ -284,7 +285,7 @@ def _frame(part: Field) -> Option[str]:
 
 def _frame_file(render: bpy.types.RenderSettings, frame: int, view: Option[bpy.types.SceneRenderView] = Nothing) -> Outcome[Path]:
     """Returns the native animation file path, with templates, frame, and camera-view suffix resolved."""
-    return catch(render.frame_path, exception=RuntimeError)(frame=frame, view=view.map(lambda held: held.name).default_value("")).map(Path).map_error(partial(Fault.of, Reason.REFUSED, repr(render)))
+    return catch(render.frame_path, exception=RuntimeError)(frame=frame, view=view.map(lambda held: held.name).default_value("")).map(Path).map_error(partial(Fault.of, Refusal.REFUSED, repr(render)))
 
 
 def _file_output_path(
@@ -306,7 +307,7 @@ def _file_output_path(
             case (path,):
                 return Ok(path)
             case candidates:
-                return Error(Fault.of(Reason.REQUIRED, repr(node), candidates, member="render mode for distinct still and animation paths"))
+                return Error(Fault.of(Refusal.REQUIRED, repr(node), candidates, member="render mode for distinct still and animation paths"))
 
     return (
         _extension(settings)

@@ -1,9 +1,6 @@
-using System.Drawing;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using Darkroom.Chain;
-using Emgu.CV;
-using Emgu.CV.CvEnum;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Pixels;
@@ -26,7 +23,7 @@ internal sealed partial class VideoStandard {
 
     public static Transfer Encoding(PassContext context) => context.Formed ? new Transfer.Linear() : context.Display.Encoding.Transfer;
 
-    public Fin<Unit> Decomposed(PixelFrame frame, PassContext context, Func<Mat, Mat, Mat, Fin<Unit>> planes) => Video.Decomposed(frame, Ybr, Encoding(context), planes);
+    public Fin<Unit> Decomposed(PixelFrame frame, PassContext context, Func<PixelPlane, PixelPlane, PixelPlane, Fin<Unit>> planes) => Video.Decomposed(frame, Ybr, Encoding(context), planes);
 }
 
 [ValueObject<int>(
@@ -146,20 +143,14 @@ internal sealed record AnalogVideo(
     private static Fin<Unit> Sync(AnalogVideo state, PixelExtent extent, float now, uint field, PixelFrame frame, Option<IProgress<int>> progress) {
         (float rise, float crest) = ((float)(Fraction((double)state.RollRate * now) * extent.Height), (float)((1d - Fraction((double)state.WrinkleRate * now)) * extent.Height));
         float jump = (float)(state.Bounce.Pixels(extent) * ((2d * CoordinateHash.Uniforms(Vector128<int>.Zero, CoordinateHash.Branch(field, 3u)).X) - 1d));
-        return Gaussian.Kernel(state.Jitter.IsSome ? state.JitterPeriod.Pixels(extent) * state.Lines / extent.Height : 0d, NormType.L2).Map(static taps => {
-            using (taps) {
-                double[] weights = new double[taps.Rows];
-                taps.CopyTo(weights);
-                return weights;
-            }
-        }).Bind(weights => new CoordinateMap.Composed(
+        return Gaussian.Kernel(state.Jitter.IsSome ? state.JitterPeriod.Pixels(extent) * state.Lines / extent.Height : 0d, 2d).Bind(weights => new CoordinateMap.Composed(
             new CoordinateMap.Composed(
                 new CoordinateMap.Planar(Matrix3x2.CreateTranslation(0f, rise), Sampling.Linear, (WrapMode.Periodic, WrapMode.Periodic)),
                 new CoordinateMap.Planar(Matrix3x2.CreateTranslation(0f, -jump), Sampling.Linear, (WrapMode.Black, WrapMode.Black))),
             new CoordinateMap.Analytic(Shifted(state, extent, crest, weights, CoordinateHash.Branch(field, 2u)), Sampling.Linear, (WrapMode.Clamp, WrapMode.Clamp))).Apply(frame, progress));
     }
 
-    private static Action<Span<Vector2>, Span<float>, PixelExtent> Shifted(AnalogVideo state, PixelExtent extent, float crest, double[] weights, uint draws) {
+    private static Action<Span<Vector2>, Span<float>, PixelExtent> Shifted(AnalogVideo state, PixelExtent extent, float crest, ImmutableArray<double> weights, uint draws) {
         const double crestShare = 0.9d;
         (double interlace, double jitter, double wrinkle, double wrinkleBand) =
             ((double)state.Interlace * extent.ShortSide, state.Jitter.Pixels(extent), (double)state.Wrinkle * extent.ShortSide, state.WrinkleHeight.Pixels(extent));
@@ -179,7 +170,7 @@ internal sealed record AnalogVideo(
         };
     }
 
-    private static Fin<Unit> Signal(AnalogVideo state, PixelExtent extent, float now, uint field, PixelFrame frame, (Mat Luma, Mat Blue, Mat Red) planes) {
+    private static Fin<Unit> Signal(AnalogVideo state, PixelExtent extent, float now, uint field, PixelFrame frame, (PixelPlane Luma, PixelPlane Blue, PixelPlane Red) planes) {
         if (state.CrossColor is not 0f)
             TelevisionSystem.Ntsc.CrossColor(planes.Luma, planes.Blue, planes.Red, frame, state.Lines, TelevisionSystem.Ntsc.Frame(now), state.CrossColor);
         return (state is { LumaNoise: 0f, ChromaNoise: 0f } ? unit
@@ -189,49 +180,35 @@ internal sealed record AnalogVideo(
             .Bind(_ => Chroma(state, extent, planes.Red));
     }
 
-    private static Fin<Unit> Luma(AnalogVideo state, PixelExtent extent, Mat luma) {
+    private static Fin<Unit> Luma(AnalogVideo state, PixelExtent extent, PixelPlane luma) {
         double sigma = state.LumaBandwidth.Pixels(extent);
-        (bool rings, bool embosses) = (sigma > 0d && state.Ringing is not 0f, sigma > 0d && state.Emboss is not 0f);
-        using Mat ring = new();
-        using Mat relief = new();
         return (sigma > 0d ? Filtered(luma, Gaussian.Kernel(sigma)) : unit)
-            .Bind(_ => {
-                if (rings)
-                    CvInvoke.Sobel(luma, ring, DepthType.Cv32F, 2, 0, 1, 1d, 0d, BorderType.Replicate);
-                if (embosses)
-                    CvInvoke.Sobel(luma, relief, DepthType.Cv32F, 1, 0, 1, 1d, 0d, BorderType.Replicate);
-                return rings ? Filtered(ring, Video.Echo(0d, (double)state.RingingDelay * extent.ShortSide, 1f)) : unit;
-            })
-            .Bind(_ => state.Smear.Filter(_ => state.SmearMix is not 0f).Map(smear => smear.Pixels(extent))
-                .Traverse(smear => Filtered(luma, Video.Echo(smear, smear, state.SmearMix))).As())
-            .Bind(_ => {
-                if (rings)
-                    CvInvoke.ScaleAdd(ring, -state.Ringing * sigma * sigma, luma, luma);
-                if (embosses)
-                    CvInvoke.ScaleAdd(relief, -state.Emboss * sigma / 2d, luma, luma);
-                return state.Ghost is 0f ? unit : Filtered(luma, Video.Echo(0d, (double)state.GhostDelay * extent.ShortSide, state.Ghost));
+            .Bind(_ => (Ring: sigma > 0d && state.Ringing is not 0f ? Some(luma.Derivative(2)) : None, Relief: sigma > 0d && state.Emboss is not 0f ? Some(luma.Derivative(1)) : None) switch {
+                var (ring, relief) => ring.Traverse(plane => Filtered(plane, Video.Echo(0d, (double)state.RingingDelay * extent.ShortSide, 1f))).As()
+                    .Bind(_ => state.Smear.Filter(_ => state.SmearMix is not 0f).Map(smear => smear.Pixels(extent))
+                        .Traverse(smear => Filtered(luma, Video.Echo(smear, smear, state.SmearMix))).As())
+                    .Bind(_ => {
+                        foreach (PixelPlane plane in ring.ToSpan())
+                            luma.Accumulate(plane, (float)(-state.Ringing * sigma * sigma));
+                        foreach (PixelPlane plane in relief.ToSpan())
+                            luma.Accumulate(plane, (float)(-state.Emboss * sigma / 2d));
+                        return state.Ghost is 0f ? unit : Filtered(luma, Video.Echo(0d, (double)state.GhostDelay * extent.ShortSide, state.Ghost));
+                    }),
             });
     }
 
-    private static Fin<Unit> Chroma(AnalogVideo state, PixelExtent extent, Mat plane) {
+    private static Fin<Unit> Chroma(AnalogVideo state, PixelExtent extent, PixelPlane plane) {
         foreach (double pitch in state.ChromaPitch.Map(chroma => chroma.Pixels(extent)).Filter(static pitch => pitch > 1d).ToSpan())
-            Resampled(plane, pitch);
+            plane.Subsampled(pitch);
         return state.ChromaBandwidth.Traverse(band => Filtered(plane, Gaussian.Kernel(band.Pixels(extent)))).As()
             .Bind(_ => state.ChromaVertical.Traverse(band => Filtered(plane, Gaussian.Kernel(band.Pixels(extent)), vertical: true)).As())
             .Bind(_ => state.ChromaDelay is 0f ? unit : Filtered(plane, Video.Echo(0d, (double)state.ChromaDelay * extent.ShortSide, 1f)))
             .Bind(_ => state.Ghost is 0f ? unit : Filtered(plane, Video.Echo(0d, (double)state.GhostDelay * extent.ShortSide, state.Ghost)));
     }
 
-    private static void Resampled(Mat plane, double pitch) {
-        using Mat coarse = new();
-        CvInvoke.Resize(plane, coarse, new Size(int.Max(1, (int)Math.Round(plane.Cols / pitch, MidpointRounding.ToEven)), plane.Rows), interpolation: Inter.Area);
-        CvInvoke.Resize(coarse, plane, plane.Size, interpolation: Inter.Linear);
-    }
-
-    private static Fin<Unit> Filtered(Mat plane, Fin<Mat> taps, bool vertical = false) =>
+    private static Fin<Unit> Filtered(PixelPlane plane, Fin<ImmutableArray<double>> taps, bool vertical = false) =>
         taps.Map(kernel => {
-            using (kernel)
-                Video.Filter(plane, kernel, vertical);
+            plane.Filter(kernel, vertical);
             return unit;
         });
 

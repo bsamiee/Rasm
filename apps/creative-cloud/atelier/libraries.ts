@@ -1,11 +1,10 @@
-import { homedir } from 'node:os';
 import type { Installation } from '@rasm/applications';
 import { Photoshop, Requests } from '@rasm/atelier-protocol';
 import { InDesign } from '@rasm/atelier-protocol/indesign';
 import { Peer } from '@rasm/atelier-protocol/peer';
 import { ExtensionManifest } from '@rasm/cep';
 import { UxpManifest } from '@rasm/uxp';
-import { Array, Effect, Layer } from 'effect';
+import { Array, Layer } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,7 +25,7 @@ const library = (installation: Installation) => Array.findFirst(LIBRARIES, ({ id
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const listening = Effect.suspend(() => Peer.listen(Libraries, Layer.empty, homedir()));
+const listening = Peer.listen(Libraries, Layer.empty);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

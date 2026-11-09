@@ -15,6 +15,7 @@ import msgspec
 
 from rasm_bpy.commands.operators import Answer, called, tallied, Unchanged
 from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Condition, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
 from rasm_bpy.data._rna.paths import rooted, Struct
@@ -324,7 +325,7 @@ def _synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
             aov = held.get(name) or layer.aovs.add()
             if (
                 answer := paired(written(aov, ("name",), name), written(aov, ("type",), kind))
-                .filter_with(lambda _: aov.name == name and aov.is_valid, lambda _: Fault.of(Reason.TAKEN, name, member=aov.name))
+                .filter_with(lambda _: aov.name == name and aov.is_valid, lambda _: Fault.of(Refusal.TAKEN, name, member=aov.name))
                 .map(lambda _: None)
             ).is_error() and name not in held:
                 layer.aovs.remove(aov)

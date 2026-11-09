@@ -1,12 +1,16 @@
+
 use core::{iter, num::NonZero};
 
 use indexmap::IndexMap;
 use itertools::Itertools as _;
 use nonempty_collections::{NESet, NEVec};
 use petgraph::graphmap::DiGraphMap;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use strum::VariantArray as _;
-use uom::si::f64::{Angle, Length};
+use uom::si::{
+    angle::degree,
+    f64::{Angle, Length},
+};
 use url::Url;
 use validated::Validated;
 
@@ -85,16 +89,30 @@ impl Attribute for Material {
 pub enum Relation<'model> {
     Aggregates,
     Contains,
-    Bounds { boundary: &'model Path },
+    Bounds {
+        boundary: &'model Path,
+    },
     Link(Link),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(untagged, deny_unknown_fields, expecting = "latitude and longitude or eastings and northings with an optional height, or a height alone")]
 pub enum Coordinates {
-    Geographic { latitude: Angle, longitude: Angle, height: Option<Length> },
-    Projected { eastings: Length, northings: Length, height: Option<Length> },
-    Vertical { height: Length },
+    Geographic {
+        #[serde(deserialize_with = "plane_angle")]
+        latitude: Angle,
+        #[serde(deserialize_with = "plane_angle")]
+        longitude: Angle,
+        height: Option<Length>,
+    },
+    Projected {
+        eastings: Length,
+        northings: Length,
+        height: Option<Length>,
+    },
+    Vertical {
+        height: Length,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -113,9 +131,9 @@ impl Attribute for SpaceBoundary {
 
 // --- [CLASSIFICATION]
 
-pub fn kind(node: &Composed) -> Result<Option<Kind>, IfcError> {
-    attribute::<Class>(node).map(|class| class.and_then(|Class { code, uri: _ }| code.trim_end_matches(|letter: char| letter.is_ascii_uppercase() || letter == '_').strip_prefix("Ifc")?.parse().ok()))
-}
+pub fn kind(node: &Composed) -> Result<Option<Kind>, IfcError> { attribute::<Class>(node).map(|class| class.and_then(|class| entity(&class)?.parse().ok())) }
+
+pub(crate) fn entity(Class { code, uri: _ }: &Class) -> Option<&str> { code.trim_end_matches(|letter: char| letter.is_ascii_uppercase() || letter == '_').strip_prefix("Ifc") }
 
 pub fn classifications(node: &Composed) -> Result<IndexMap<&str, Class>, NEVec<IfcError>> {
     node.attributes
@@ -215,4 +233,9 @@ pub fn georeference(node: &Composed) -> Result<IndexMap<NonZero<u32>, Coordinate
         .collect::<Validated<Vec<_>, _>>()
         .map(|georeferences| georeferences.into_iter().flatten().collect())
         .ok()
+}
+
+fn plane_angle<'de, D>(deserializer: D) -> Result<Angle, D::Error>
+where D: Deserializer<'de> {
+    f64::deserialize(deserializer).map(Angle::new::<degree>)
 }

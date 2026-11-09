@@ -62,7 +62,6 @@ nonisolated protocol ProviderFailure: LocalizedError {
     var requiresSignIn: Bool { get }
     var isAccountMismatch: Bool { get }
     var isCancellation: Bool { get }
-    var retryAfter: Date? { get }
 }
 
 nonisolated extension ProviderFailure {

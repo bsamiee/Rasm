@@ -1,15 +1,10 @@
-use core::{
-    cell::OnceCell,
-    convert, iter,
-    num::NonZero,
-    range::{Range, RangeInclusive},
-};
+
+use core::{cell::OnceCell, convert, iter, range::Range};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     io,
 };
 
-use dashu::base::ConversionError;
 use grib::{
     Grib2Read, Grib2SubmessageDecoder, LatLons as _, SubMessage,
     codetables::grib2::Table4_4,
@@ -17,37 +12,37 @@ use grib::{
         GridDefinitionTemplate, ProductDefinitionTemplate,
         template::{
             Template3_0, Template3_1, Template3_10, Template3_20, Template3_30, Template3_40, Template3_41, Template4_0, Template4_1, Template4_8, Template4_11,
-            param_set::{DateTime, EnsembleForecast, GaussianGrid, LatLonGrid, Statistical, StatisticalProcess, TimeRange},
+            param_set::{DateTime, EarthShape, EnsembleForecast, GaussianGrid, LatLonGrid, ScanningMode, Statistical, StatisticalProcess, TimeRange},
         },
     },
+    projection::{self, Lcc, LccParams, Merc, MercParams, Project, Stere, StereParams},
 };
 use indexmap::IndexMap;
 use itertools::{Either, Itertools as _};
 use jiff::{SignedDuration, Span, Timestamp, civil, tz::Offset};
-use nalgebra::{Point3, Rotation2, Vector2, Vector3};
+use nalgebra::{Rotation2, Vector2};
 use ndarray::{aview1, aview2};
 use ndarray_interp::{InterpolateError, interp2d::Interp2D};
-use nonempty_collections::{NESlice, nev};
-use rasm_numerical_analysis::roots;
-use rasm_proximity::{Cloud, Neighbor, nearest};
+use nonempty_collections::nev;
 use rasm_site::Place;
-use rasm_solar_geometry::{Sun, lapsed};
-use solar_positioning::Location;
-use uom::si::{
-    acceleration::{meter_per_second_squared, standard_gravity},
-    angle::degree,
-    f64::{Acceleration, Angle, HeatFluxDensity, Length, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity},
-    heat_flux_density::watt_per_square_meter,
-    length::{meter, millimeter},
-    pressure::pascal,
-    ratio::percent,
-    thermodynamic_temperature::kelvin,
-    time::second,
-    velocity::meter_per_second,
+use uom::{
+    ConstZero as _,
+    si::{
+        acceleration::{meter_per_second_squared, standard_gravity},
+        angle::degree,
+        f64::{Acceleration, Angle, HeatFluxDensity, Length, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity},
+        heat_flux_density::watt_per_square_meter,
+        length::{meter, millimeter},
+        pressure::pascal,
+        ratio::percent,
+        thermodynamic_temperature::kelvin,
+        time::second,
+        velocity::meter_per_second,
+    },
 };
 use validated::Validated;
 
-use crate::{Hour, Hours, Malformed, Record, Refusal, WeatherError, averaged, bearing, comfort, completed, heading, length, normal, position, reduced};
+use crate::{Hour, Hours, Malformed, Record, Refusal, WeatherError, averaged, bearing, heading, length};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -78,6 +73,12 @@ enum Field {
 const RESOLUTION: f64 = 1.0e-6;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Sampled {
+    pub surface: Option<Length>,
+    pub members: BTreeMap<Option<u8>, Hours>,
+}
 
 #[derive(Clone, Copy)]
 struct Product {
@@ -112,12 +113,12 @@ struct Reading {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn read<R, I>(suns: &[Sun], files: I) -> Result<Vec<BTreeMap<Option<u8>, Hours>>, WeatherError>
+pub fn read<R, I>(places: &[Place], files: I) -> Result<Vec<Sampled>, WeatherError>
 where
     R: io::Read + io::Seek,
     I: IntoIterator<Item = R>,
 {
-    fn sampled<R>(grid: &OnceCell<Grid>, locations: &[Location], message: SubMessage<'_, R>) -> Result<Vec<Reading>, Malformed>
+    fn sampled<R>(grid: &OnceCell<Grid>, locations: &[(f64, f64)], message: SubMessage<'_, R>) -> Result<Vec<Reading>, Malformed>
     where R: Grib2Read {
         let product = || -> Result<Option<Product>, Malformed> {
             const METEOROLOGY: u8 = 0;
@@ -223,7 +224,8 @@ where
         };
         let grid = grid.get_or_try_init(|| -> Result<_, Malformed> {
             const GRID_RELATIVE: u8 = 0b0000_1000;
-            let (flags, positive) = match &message.section3()?.payload.template {
+            let section = message.section3()?;
+            let (flags, positive) = match &section.payload.template {
                 GridDefinitionTemplate::_3_0(Template3_0 { lat_lon: LatLonGrid { scanning_mode, .. }, .. })
                 | GridDefinitionTemplate::_3_40(Template3_40 { gaussian: GaussianGrid { scanning_mode, .. }, .. }) => (None, scanning_mode.scans_positively_for_i()),
                 GridDefinitionTemplate::_3_1(Template3_1 { lat_lon: LatLonGrid { grid, scanning_mode, .. }, .. })
@@ -235,7 +237,7 @@ where
                 _ => return Err(Malformed::Grid),
             };
             let sign = if positive { 1.0 } else { -1.0 };
-            let sites = flags.map_or_else(|| geographic(&message, sign, locations), |flags| projected(&message, flags & GRID_RELATIVE != 0, sign, locations))?;
+            let sites = flags.map_or_else(|| geographic(&message, sign, locations), |flags| projected(&message, &section.payload.template, flags & GRID_RELATIVE != 0, locations))?;
             let wanted = sites.iter().flatten().flat_map(|cell| cell.corners).collect::<HashSet<_>>();
             let indices = message.ij()?.enumerate().filter_map(|(index, (column, row))| wanted.contains(&(row, column)).then_some((index, (row, column)))).collect_vec();
             Ok(Grid { sites, indices })
@@ -315,7 +317,7 @@ where
             .collect()
     }
 
-    fn series(sun: &Sun, orography: Option<f64>, instants: &[Reading], steps: &HashMap<Field, Vec<Reading>>) -> Result<Hours, WeatherError> {
+    fn series(place: &Place, instants: &[Reading], steps: &HashMap<Field, Vec<Reading>>) -> Result<Hours, WeatherError> {
         let ends = iter::chain(instants, steps.values().flatten()).map(|reading| reading.interval.end).sorted_unstable().dedup().collect_vec();
         let rotation = iter::chain(instants, steps.values().flatten()).find(|reading| reading.field == Field::Eastward).and_then(|reading| reading.rotation);
         let at = instants.iter().into_group_map_by(|reading| reading.interval.end);
@@ -326,67 +328,41 @@ where
                 Some(steps.values().flatten().map(|step| step.interval.start).filter(|&start| start < first).min().or(back).ok_or_else(|| nev![Refusal::Instant(first)])?)
             }
         };
-        let rise = orography.map(|height| *AsRef::<Place>::as_ref(sun).elevation - Length::new::<meter>(height));
-        let hour = |interval: Range<Timestamp>| -> Result<Hour, WeatherError> {
+        let hour = |interval: Range<Timestamp>| {
             let elapsed = length(interval);
-            let mean = |field: Field| -> Result<Option<f64>, ConversionError> {
-                steps
-                    .get(&field)
-                    .map(|run| averaged(run, interval, |step| step.interval, SignedDuration::ZERO, |step| step.value.map(|value| (value, 1.0))))
-                    .transpose()?
-                    .flatten()
-                    .map(|totals| reduced(totals, 1.0))
-                    .transpose()
-            };
-            let value = |field: Field| -> Result<Option<f64>, ConversionError> {
-                Ok(mean(field)?.or_else(|| at.get(&interval.end).and_then(|readings| readings.iter().find(|reading| reading.field == field)).and_then(|reading| reading.value)))
-            };
-            let [grid_dry_bulb, grid_dew_point] = [Field::DryBulb, Field::DewPoint].try_map(|field| value(field).map(|value| value.map(ThermodynamicTemperature::new::<kelvin>)))?;
-            let relative_humidity = value(Field::RelativeHumidity)?
-                .map(|humidity| Ratio::new::<percent>(humidity).min(Ratio::new::<percent>(100.0)))
-                .or_else(|| grid_dry_bulb.zip(grid_dew_point).map(|(air, dew)| comfort::relative_humidity(air, dew)));
-            let lifted = grid_dry_bulb.zip(rise).map(|(air, rise)| lapsed(air, rise));
-            let dry_bulb = lifted.map_or(grid_dry_bulb, |(air, _)| Some(air));
-            let dew_point = match (rise, dry_bulb, relative_humidity) {
-                (Some(_), Some(air), Some(humidity)) => comfort::dew_point(air, humidity)?,
-                (None | Some(_), _, _) => grid_dew_point,
-            };
-            let pressure = value(Field::Pressure)?.map(Pressure::new::<pascal>).and_then(|stated| match (rise, lifted) {
-                (None, _) => Some(stated),
-                (Some(_), Some((_, scale))) => Some(stated * scale),
-                (Some(_), None) => None,
-            });
-            let [infrared, global_irradiance, beam] = [Field::Infrared, Field::GlobalIrradiance, Field::DirectHorizontal]
-                .try_map(|field| value(field).map(|value| value.map(|flux| HeatFluxDensity::new::<watt_per_square_meter>(flux.max(0.0)))))?;
-            let direct_irradiance = beam.map(|beam| position(sun, interval).map(|(prepared, solar)| normal(beam, &prepared, &solar))).transpose()?;
-            let wind = value(Field::Eastward)?.zip(value(Field::Northward)?).map(|(eastward, northward)| -(rotation.unwrap_or_else(Rotation2::identity) * Vector2::new(eastward, northward)));
-            let precipitation = mean(Field::Precipitation)?.map(|rate| Length::new::<millimeter>((rate * elapsed.as_secs_f64()).max(0.0)));
-            Ok(Hour {
+            let mean = |field: Field| steps.get(&field).and_then(|run| averaged(run, interval, |step| step.interval, SignedDuration::ZERO, |step| step.value.map(|value| (value, 1.0))));
+            let value = |field: Field| mean(field).or_else(|| at.get(&interval.end).and_then(|readings| readings.iter().find(|reading| reading.field == field)).and_then(|reading| reading.value));
+            let [dry_bulb, dew_point] = [Field::DryBulb, Field::DewPoint].map(|field| value(field).map(ThermodynamicTemperature::new::<kelvin>));
+            let [infrared, global_irradiance, beam] =
+                [Field::Infrared, Field::GlobalIrradiance, Field::DirectHorizontal].map(|field| value(field).map(|flux| HeatFluxDensity::new::<watt_per_square_meter>(flux.max(0.0))));
+            let wind = value(Field::Eastward).zip(value(Field::Northward)).map(|(eastward, northward)| -(rotation.unwrap_or_else(Rotation2::identity) * Vector2::new(eastward, northward)));
+            let precipitation = mean(Field::Precipitation).map(|rate| Length::new::<millimeter>((rate * elapsed.as_secs_f64()).max(0.0)));
+            Hour {
                 interval,
                 dry_bulb,
                 dew_point,
-                relative_humidity,
-                pressure,
+                relative_humidity: value(Field::RelativeHumidity).map(|humidity| Ratio::new::<percent>(humidity).min(Ratio::new::<percent>(100.0))),
+                pressure: value(Field::Pressure).map(Pressure::new::<pascal>),
                 infrared,
                 global_irradiance,
-                direct_irradiance,
-                wind_direction: value(Field::WindDirection)?.map(Angle::new::<degree>).or_else(|| wind.map(bearing)),
-                wind_speed: value(Field::WindSpeed)?.or_else(|| wind.as_ref().map(Vector2::norm)).map(Velocity::new::<meter_per_second>),
-                total_sky_cover: value(Field::TotalSkyCover)?.map(Ratio::new::<percent>),
-                visibility: value(Field::Visibility)?.map(Length::new::<meter>),
-                precipitable_water: value(Field::PrecipitableWater)?.map(|depth| Length::new::<millimeter>(depth.max(0.0))),
-                snow_depth: value(Field::SnowDepth)?.map(|depth| Length::new::<meter>(depth.max(0.0))),
-                albedo: value(Field::Albedo)?.map(Ratio::new::<percent>),
+                diffuse_irradiance: global_irradiance.zip(beam).map(|(global, beam)| (global - beam).max(HeatFluxDensity::ZERO)),
+                wind_direction: value(Field::WindDirection).map(Angle::new::<degree>).or_else(|| wind.map(bearing)),
+                wind_speed: value(Field::WindSpeed).or_else(|| wind.as_ref().map(Vector2::norm)).map(Velocity::new::<meter_per_second>),
+                total_sky_cover: value(Field::TotalSkyCover).map(Ratio::new::<percent>),
+                visibility: value(Field::Visibility).map(Length::new::<meter>),
+                precipitable_water: value(Field::PrecipitableWater).map(|depth| Length::new::<millimeter>(depth.max(0.0))),
+                snow_depth: value(Field::SnowDepth).map(|depth| Length::new::<meter>(depth.max(0.0))),
+                albedo: value(Field::Albedo).map(Ratio::new::<percent>),
                 precipitation,
                 precipitation_period: precipitation.map(|_| Time::new::<second>(elapsed.as_secs_f64())),
                 ..
-            })
+            }
         };
-        let records = iter::chain(lead, ends.iter().copied()).tuple_windows().map(|(start, end)| hour(Range { start, end })).collect::<Result<Vec<_>, _>>()?;
-        completed(&Hours::try_new(sun.clone(), records)?)
+        let records = iter::chain(lead, ends.iter().copied()).tuple_windows().map(|(start, end)| hour(Range { start, end })).collect_vec();
+        Hours::try_new(place.clone(), records)
     }
 
-    let locations = suns.iter().map(|sun| *AsRef::<Location>::as_ref(sun)).collect_vec();
+    let locations = places.iter().map(|place| (place.position.latitude().get::<degree>(), place.position.longitude().get::<degree>())).collect_vec();
     let parsed = files.into_iter().map(grib::from_reader).collect::<Result<Vec<_>, _>>()?;
     let grids = parsed
         .iter()
@@ -407,7 +383,7 @@ where
     let orography = readings.iter().filter(|reading| reading.field == Field::Orography).map(|reading| (reading.site, reading.value)).into_grouping_map().reduce(|kept, _, next| kept.or(next));
     let by_site = {
         let (instants, totals): (Vec<_>, Vec<_>) = readings.into_iter().filter(|reading| reading.field != Field::Orography).partition(|reading| reading.interval.is_empty());
-        let by_site = instants.into_iter().fold(suns.iter().map(|_| IndexMap::<_, (Vec<_>, HashMap<_, _>)>::new()).collect_vec(), |mut by_site, reading| {
+        let by_site = instants.into_iter().fold(places.iter().map(|_| IndexMap::<_, (Vec<_>, HashMap<_, _>)>::new()).collect_vec(), |mut by_site, reading| {
             by_site[reading.site].entry(reading.member).or_default().0.push(reading);
             by_site
         });
@@ -416,16 +392,16 @@ where
             by_site
         })
     };
-    iter::zip(suns, by_site)
+    iter::zip(places, by_site)
         .enumerate()
-        .map(|(site, (sun, members))| {
-            let orography = orography.get(&site).copied().flatten();
-            members.into_iter().map(|(member, (instants, steps))| series(sun, orography, &instants, &steps).map(|hours| (member, hours))).collect::<Result<BTreeMap<_, _>, _>>()
+        .map(|(site, (place, members))| {
+            let members = members.into_iter().map(|(member, (instants, steps))| series(place, &instants, &steps).map(|hours| (member, hours))).collect::<Result<BTreeMap<_, _>, _>>()?;
+            Ok(Sampled { surface: orography.get(&site).copied().flatten().map(Length::new::<meter>), members })
         })
         .collect()
 }
 
-fn geographic<R>(message: &SubMessage<'_, R>, sign: f64, locations: &[Location]) -> Result<Vec<Option<Cell>>, Malformed> {
+fn geographic<R>(message: &SubMessage<'_, R>, sign: f64, locations: &[(f64, f64)]) -> Result<Vec<Option<Cell>>, Malformed> {
     let full = Angle::FULL_TURN.get::<degree>();
     let (ni, nj) = message.grid_shape()?;
     (ni >= 2 && nj >= 2).ok_or(Malformed::Grid)?;
@@ -452,70 +428,100 @@ fn geographic<R>(message: &SubMessage<'_, R>, sign: f64, locations: &[Location])
         |axis: &[(usize, f64)], at: f64| axis.get(axis.partition_point(|&(_, node)| node < at).saturating_sub(1).min(axis.len().saturating_sub(2))..).and_then(<[_]>::first_chunk::<2>).copied();
     locations
         .iter()
-        .map(|location| {
-            let longitude = longitudes.first().map_or(location.longitude, |&(_, first)| first + (location.longitude - first).rem_euclid(full));
-            let (Some([south, north]), Some([west, east])) = (bracket(&latitudes, location.latitude), bracket(&longitudes, longitude)) else {
+        .map(|&(latitude, longitude)| {
+            let longitude = longitudes.first().map_or(longitude, |&(_, first)| first + (longitude - first).rem_euclid(full));
+            let (Some([south, north]), Some([west, east])) = (bracket(&latitudes, latitude), bracket(&longitudes, longitude)) else {
                 return Err(Malformed::Grid);
             };
             Ok(Some(Cell {
                 corners: [(south.0, west.0), (south.0, east.0), (north.0, west.0), (north.0, east.0)],
                 axes: [[south.1, north.1], [west.1, east.1]],
-                at: (location.latitude, longitude),
+                at: (latitude, longitude),
                 rotation: None,
             }))
         })
         .collect()
 }
 
-fn projected<R>(message: &SubMessage<'_, R>, relative: bool, sign: f64, locations: &[Location]) -> Result<Vec<Option<Cell>>, Malformed> {
+fn projected<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, relative: bool, locations: &[(f64, f64)]) -> Result<Vec<Option<Cell>>, Malformed> {
+    const ANGLE: f64 = 1.0e-6;
+    const SPACING: f64 = 1.0e-3;
     let (ni, nj) = message.grid_shape()?;
-    let width = NonZero::new(ni).filter(|_| ni >= 2 && nj >= 2).ok_or(Malformed::Grid)?;
-    let unit = |latitude: f64, longitude: f64| {
-        let ((rise, reach), (sideways, forward)) = (latitude.to_radians().sin_cos(), longitude.to_radians().sin_cos());
-        (Vector3::new(reach * forward, reach * sideways, rise), Vector3::new(-sideways, forward, 0.0))
+    (ni >= 2 && nj >= 2).ok_or(Malformed::Grid)?;
+    let ellipsoid = |shape: &EarthShape| shape.radii().map(|(major, minor)| projection::Ellipsoid::from_a_and_b(major, minor)).ok_or(Malformed::Grid);
+    let spacing = |scanning: &ScanningMode, dx: u32, dy: u32| {
+        [(dx, scanning.scans_positively_for_i()), (dy, scanning.scans_positively_for_j())].map(|(step, positive)| f64::from(step) * SPACING * if positive { 1.0 } else { -1.0 })
     };
-    let points = Validated::from(message.ij())
-        .map2(Validated::from(message.latlons()), Iterator::zip)
-        .ok()
-        .map_err(Malformed::Decode)?
-        .map(|((column, row), (latitude, longitude))| (row.strict_mul(ni).strict_add(column), Point3::from(unit(latitude, longitude).0)))
-        .sorted_unstable_by_key(|&(index, _)| index)
-        .map(|(_, point)| point)
-        .collect_vec();
-    let frames = locations.iter().map(|location| unit(location.latitude, location.longitude)).collect_vec();
-    let cloud = NESlice::try_from_slice(&points).ok_or(Malformed::Grid).and_then(|points| Cloud::new(&points).map_err(Malformed::Proximity))?;
-    let closest = nearest(&cloud, &frames.iter().map(|&(up, _)| Point3::from(up)).collect_vec()).map_err(Malformed::Proximity)?;
-    iter::zip(frames, closest)
-        .map(|((up, east), Neighbor { point: _, item, distance: _ })| {
-            let north = up.cross(&east);
-            let plane = |point: &Point3<f64>| (point.coords.dot(&up) > 0.0).then(|| Vector2::new(point.coords.dot(&east), point.coords.dot(&north)));
-            let (nearest_row, nearest_column) = (item / width, item % width);
-            let corner = |row: usize, column: usize| points.get(row.strict_mul(ni).strict_add(column)).and_then(plane);
-            let shares = |south: usize, west: usize| {
-                let (upper, right) = (south.strict_add(1), west.strict_add(1));
-                let (Some(origin), Some(onward), Some(upward), Some(far)) = (corner(south, west), corner(south, right), corner(upper, west), corner(upper, right)) else {
-                    return Ok(None);
-                };
-                let (step, rise, twist, site) = (onward - origin, upward - origin, origin - onward - upward + far, -origin);
-                roots::real(&[site.perp(&step), step.perp(&rise) + site.perp(&twist), twist.perp(&rise)], RangeInclusive { start: 0.0, last: 1.0 }).map_err(Malformed::Analysis).map(|found| {
-                    found.into_iter().find_map(|upward_share| {
-                        let axis = step + twist * upward_share;
-                        let onward_share = (site - rise * upward_share).dot(&axis) / axis.norm_squared();
-                        (0.0..=1.0).contains(&onward_share).then_some(([(south, west), (south, right), (upper, west), (upper, right)], (upward_share, onward_share), axis))
-                    })
+    let radians = |longitude: f64, latitude: f64| (longitude.to_radians(), latitude.to_radians());
+    let (projection, first, [dx, dy]): (Box<dyn Project>, _, [f64; 2]) = match template {
+        GridDefinitionTemplate::_3_30(Template3_30 { earth_shape, first_point_lat, first_point_lon, lad, lov, dx, dy, scanning_mode, latin1, latin2, .. }) => (
+            Box::new(
+                Lcc::new(&LccParams {
+                    ellipsoid: ellipsoid(earth_shape)?,
+                    lat_0: f64::from(*lad) * ANGLE,
+                    lon_0: f64::from(*lov) * ANGLE,
+                    lat_1: f64::from(*latin1) * ANGLE,
+                    lat_2: f64::from(*latin2) * ANGLE,
                 })
+                .map_err(Malformed::Projection)?,
+            ),
+            radians(f64::from(*first_point_lon) * ANGLE, f64::from(*first_point_lat) * ANGLE),
+            spacing(scanning_mode, *dx, *dy),
+        ),
+        GridDefinitionTemplate::_3_20(Template3_20 { earth_shape, first_point_lat, first_point_lon, lad, lov, dx, dy, projection_centre, scanning_mode, .. }) if !projection_centre.is_bipolar() => (
+            Box::new(
+                Stere::new(&StereParams {
+                    ellipsoid: ellipsoid(earth_shape)?,
+                    lat_ts: f64::from(*lad) * ANGLE,
+                    lat_0: if projection_centre.contains_north_pole_on_projection_plane() { 90.0 } else { -90.0 },
+                    lon_0: f64::from(*lov) * ANGLE,
+                    k_0: 1.0,
+                })
+                .map_err(Malformed::Projection)?,
+            ),
+            radians(f64::from(*first_point_lon) * ANGLE, f64::from(*first_point_lat) * ANGLE),
+            spacing(scanning_mode, *dx, *dy),
+        ),
+        GridDefinitionTemplate::_3_10(Template3_10 { earth_shape, first_point_lat, first_point_lon, lad, last_point_lat, last_point_lon, scanning_mode, orientation: 0, .. }) => {
+            let full = Angle::FULL_TURN.get::<degree>();
+            let [west, east] = [first_point_lon, last_point_lon].map(|longitude| f64::from(*longitude) * ANGLE);
+            let (west, east) = match (scanning_mode.scans_positively_for_i(), east - west) {
+                (true, gap) if gap < 0.0 => (west, east + full),
+                (false, gap) if gap > 0.0 => (west + full, east),
+                (true | false, _) => (west, east),
             };
-            [nearest_row.checked_sub(1), Some(nearest_row)]
-                .into_iter()
-                .flatten()
-                .filter(|&south| south.strict_add(1) < nj)
-                .cartesian_product([nearest_column.checked_sub(1), Some(nearest_column)].into_iter().flatten().filter(|&west| west.strict_add(1) < ni))
-                .map(|(south, west)| shares(south, west))
-                .find_map(Result::transpose)
-                .transpose()
-                .map(|found| {
-                    found.map(|(corners, at, axis)| Cell { corners, axes: [[0.0, 1.0], [0.0, 1.0]], at, rotation: relative.then(|| Rotation2::rotation_between(&Vector2::x(), &(axis * sign))) })
+            let projection = Merc::new(&MercParams { ellipsoid: ellipsoid(earth_shape)?, lat_ts: f64::from(*lad) * ANGLE, lon_0: west.midpoint(east) }).map_err(Malformed::Projection)?;
+            let [start, end] = [(west, *first_point_lat), (east, *last_point_lat)]
+                .try_map(|(longitude, latitude)| projection.project(&radians(longitude, f64::from(latitude) * ANGLE), false))
+                .map_err(Malformed::Projection)?;
+            let spacing = [(end.0 - start.0, ni), (end.1 - start.1, nj)].map(|(span, count)| span / nalgebra::convert::<usize, f64>(count.strict_sub(1)));
+            (Box::new(projection), radians(west, f64::from(*first_point_lat) * ANGLE), spacing)
+        }
+        _ => return Err(Malformed::Grid),
+    };
+    let forward = |point: (f64, f64)| projection.project(&point, false).map_err(Malformed::Projection);
+    let origin = forward(first)?;
+    let cell = |at: f64, count: usize| {
+        (0.0..=nalgebra::convert::<usize, f64>(count.strict_sub(1))).contains(&at).then(|| {
+            let lower = at.floor().to_int_saturating::<usize>().min(count.strict_sub(2));
+            (lower, at - nalgebra::convert::<usize, f64>(lower))
+        })
+    };
+    locations
+        .iter()
+        .map(|&(latitude, longitude)| {
+            let site = radians(longitude, latitude);
+            let (x, y) = forward(site)?;
+            let rotation = relative
+                .then(|| {
+                    projection.project(&(x + dx.abs(), y), true).map(|(east, north)| Rotation2::rotation_between(&Vector2::x(), &Vector2::new((east - site.0).sin() * site.1.cos(), north - site.1)))
                 })
+                .transpose()
+                .map_err(Malformed::Projection)?;
+            Ok(cell((y - origin.1) / dy, nj).zip(cell((x - origin.0) / dx, ni)).map(|((south, row_at), (west, column_at))| {
+                let (upper, right) = (south.strict_add(1), west.strict_add(1));
+                Cell { corners: [(south, west), (south, right), (upper, west), (upper, right)], axes: [[0.0, 1.0], [0.0, 1.0]], at: (row_at, column_at), rotation }
+            }))
         })
         .collect()
 }

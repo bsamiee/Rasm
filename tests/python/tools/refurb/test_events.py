@@ -10,7 +10,8 @@ lazy from refurb.error import Error
 lazy import structlog
 
 from rasm_refurb.events import check, ErrorLostLogFieldError
-lazy from rasm_refurb import Findings, fullname
+lazy from rasm_refurb import fullname
+lazy from tools.refurb.conftest import Findings
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

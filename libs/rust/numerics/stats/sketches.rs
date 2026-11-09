@@ -14,12 +14,14 @@ pub struct Summary {
     moments: Variance,
     #[serde(serialize_with = "encode", deserialize_with = "decode")]
     digest: TDigestMut,
-    #[as_ref]
     non_finite: u64,
 }
 
 impl Summary {
     pub fn new(compression: u16) -> Result<Self, StatsError> { Ok(Self { moments: Variance::new(), digest: TDigestMut::new(compression)?, non_finite: 0 }) }
+
+    #[must_use]
+    pub const fn non_finite(&self) -> u64 { self.non_finite }
 }
 
 impl From<Summary> for TDigest {

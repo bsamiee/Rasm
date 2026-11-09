@@ -18,7 +18,7 @@ use tiff::{
 };
 use uom::si::{
     f64::{Length, Ratio},
-    length::{centimeter, inch, millimeter},
+    length::{centimeter, inch, point_computer},
     ratio::ratio,
 };
 use validated::Validated;
@@ -97,7 +97,7 @@ pub(crate) fn target(raster: &Raster, placed: Size, cap: Option<Resolution>) -> 
     };
     cap.map_or((width, height), |density| {
         let limited = |pixels: u32, paper: f64| {
-            let measure: Ratio = Length::new::<millimeter>(paper) * *density;
+            let measure: Ratio = Length::new::<point_computer>(paper) * *density;
             measure.get::<ratio>().ceil().to_int_saturating::<u32>().clamp(1, pixels.max(1))
         };
         (limited(width, placed.width), limited(height, placed.height))
@@ -183,7 +183,7 @@ fn decoded(reader: &mut Decoder<Cursor<&[u8]>>) -> Result<(Size, Frame), PdfErro
             Value::Rational(numerator, denominator) => f64::from(numerator) / f64::from(denominator),
             other => other.into_f64()?,
         };
-        (density.is_normal() && density.is_sign_positive()).ok_or(TiffError::FormatError(TiffFormatError::InvalidTag)).map(|()| (unit * (f64::from(pixels) / density)).get::<millimeter>())
+        (density.is_normal() && density.is_sign_positive()).ok_or(TiffError::FormatError(TiffFormatError::InvalidTag)).map(|()| (unit * (f64::from(pixels) / density)).get::<point_computer>())
     };
     let measured = Size::new(length(width, Tag::XResolution)?, length(height, Tag::YResolution)?);
     let icc_profile = reader.find_tag(Tag::IccProfile)?.map(Value::into_u8_vec).transpose()?.map(Arc::from);

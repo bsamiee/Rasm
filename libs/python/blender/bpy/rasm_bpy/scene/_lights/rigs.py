@@ -40,8 +40,8 @@ from rasm_bpy.ui._layout.rows import _FUNCTIONS, OperatorButton, Property
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
 from rasm_bpy.ui._screens.areas import AreaQuery, Located
-from rasm_imaging import LightingReading
-from rasm_records import accumulated, content_hash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Positive, Reason, Retention, SEED_BOUND, typed
+from rasm_imaging import LightingReading, SEED_BOUND
+from rasm_records import accumulated, content_hash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Positive, Reason, Retention, typed
 from rasm_rendering import Arranged, Disk, Gel, PlacedLight, PlacedRig, Point, ReferenceDistribution, ReferenceImage, REFERENCES, Rig, RIGS, Spot, Sun
 
 if TYPE_CHECKING:

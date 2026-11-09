@@ -1,7 +1,7 @@
 import { Array, Data, Effect, Equal, Filter, Option, Record, Schema, String, Struct } from 'effect';
 import { SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import { Column, type FieldName, type Fields, type Where } from '#/column';
-import { Engine } from '#/internal/engine';
+import { Engine } from '#/engine';
 import type { methods, referentialActions } from '#/internal/reconcile';
 
 // --- [TYPES] ---------------------------------------------------------------------------

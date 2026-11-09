@@ -12,6 +12,7 @@ import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.images import normalized
 from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._rna.conditions import Setting
@@ -26,7 +27,7 @@ from rasm_bpy.ui._drawing.handlers import HandlerRefresh
 from rasm_bpy.ui._images.views import _framed, image_type, overlaid
 from rasm_bpy.ui._resources.theme import Metrics
 from rasm_imaging import ChartPlacement, Colors, converted_colors, converted_image, Homography, ImageFile, PanoramaView, PublishedChart, Quad, rgba
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Error, Fault, Nothing, Ok, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -138,7 +139,7 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
                     lambda frame: paired(frame.source(), frame.source_encoding).bind(lambda found: converted_image(config, PyOpenColorIO.ROLE_SCENE_LINEAR, found[0], source=found[1]))
                 ).default_with(
                     lambda: (
-                        Error(Fault.of(Reason.REQUIRED, repr(image), member="explicit captured file and pass source"))
+                        Error(Fault.of(Refusal.REQUIRED, repr(image), member="explicit captured file and pass source"))
                         if image.type in {"RENDER_RESULT", "COMPOSITING", "MULTILAYER"}
                         else normalized(image, config)
                     )

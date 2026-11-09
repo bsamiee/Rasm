@@ -17,6 +17,7 @@ import msgspec
 from rasm_bpy.commands.operators import called, Operation, Operator, Setting
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _retained, _tracked
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import _definition, _subclass
@@ -122,7 +123,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, _Export
             try:
                 item = held.new(type=handler, name=name)  # ty: ignore[invalid-argument-type]
             except (ReferenceError, RuntimeError, TypeError) as error:
-                return Error(Fault.of(Reason.REFUSED, request, error))
+                return Error(Fault.of(Refusal.REFUSED, request, error))
             return _tracked(cleanup, held.remove, Ok(item))
 
         def placed(name: str, exporter: _Exporter) -> Outcome[None]:
@@ -148,7 +149,8 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, _Export
 
         def completed(_: tuple[None, ...]) -> Outcome[None]:
             return _retained(
-                accumulated(catch(held.remove, exception=RuntimeError)(item).map_error(partial(Fault.of, Reason.REFUSED, request)) for name, item in existing.items() if name not in exporters), cleanup
+                accumulated(catch(held.remove, exception=RuntimeError)(item).map_error(partial(Fault.of, Refusal.REFUSED, request)) for name, item in existing.items() if name not in exporters),
+                cleanup,
             ).map(lambda _: None)
 
         return accumulated(starmap(placed, exporters.items())).bind(completed)

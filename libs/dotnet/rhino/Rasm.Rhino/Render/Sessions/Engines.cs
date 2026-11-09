@@ -53,27 +53,22 @@ public sealed record RenderEngine(
 
     // --- [DECALS]
 
-    internal void InitializeDecalProperties(ref List<NamedValue> properties) => properties.AddRange(DecalDefaults);
+    internal void InitializeDecalProperties(List<NamedValue> properties) => properties.AddRange(DecalDefaults);
 
-    internal bool ShowDecalProperties(ref List<NamedValue> properties) {
-        List<NamedValue> current = properties;
-        return Session.Run(
-            EditDecal.Map(edit => edit(toSeq(current)).Map(edited => {
-                current.Clear();
-                current.AddRange(edited);
+    internal bool ShowDecalProperties(List<NamedValue> properties) =>
+        Session.Run(
+            EditDecal.Map(edit => edit(toSeq(properties)).Map(edited => {
+                properties.Clear();
+                properties.AddRange(edited);
                 return true;
             })).IfNone(IO.pure(value: false)),
             failed: false);
-    }
 
     // --- [MATERIALS]
 
-    internal static bool Pressed(Option<Func<RhinoDoc, Material, IO<Material>>> button, RhinoDoc doc, ref Material material) {
-        Material current = material;
-        Option<Material> pressed = Session.Run(button.Map(press => press(doc, current).Map(static held => Some(held))).IfNone(IO.pure(Option<Material>.None)), Option<Material>.None);
-        material = pressed.IfNone(current);
-        return pressed.IsSome;
-    }
+    internal static (bool Pressed, Material Material) Pressed(Option<Func<RhinoDoc, Material, IO<Material>>> button, RhinoDoc doc, Material material) =>
+        Session.Run(button.Map(press => press(doc, material).Map(static held => Some(held))).IfNone(IO.pure(Option<Material>.None)), Option<Material>.None)
+            .Match(Some: static held => (true, held), None: () => (false, material));
 
     // --- [CURRENT]
 

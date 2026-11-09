@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-ifc"
 edition.workspace = true
-description       = "IFC5 models: IFCX layers and imports, composition, schema validation, spatial and systems graphs, alignments, and geometry"
+description       = "IFC5 models: IFCX layers and imports, composition, schema validation, spatial and systems graphs, alignments, geometry, and BCF viewpoint presentation"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -17,7 +17,7 @@ bench   = false
 
 [dependencies]
 futures              = { workspace = true }
-tokio                = { workspace = true }
+blocking             = { workspace = true }
 nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
@@ -26,25 +26,35 @@ strum                = { workspace = true }
 hashbrown            = { workspace = true }
 indexmap             = { workspace = true }
 itertools            = { workspace = true }
-bytes                = { workspace = true }
+bytes                = { workspace = true, optional = true }
 data-encoding        = { workspace = true }
+sha2                 = { workspace = true }
 serde                = { workspace = true, features = ["rc"] }
 serde_json           = { workspace = true }
 serde_path_to_error  = { workspace = true }
 serde_with           = { workspace = true }
 nutype               = { workspace = true }
 jiff                 = { workspace = true }
-fs-err               = { workspace = true, features = ["tokio"] }
-aws-lc-rs            = { workspace = true }
-reqwest              = { workspace = true }
+fs-err               = { workspace = true, optional = true }
+reqwest              = { workspace = true, optional = true }
 url                  = { workspace = true }
 gauss-quad           = { workspace = true }
 nalgebra             = { workspace = true }
 uom                  = { workspace = true }
 petgraph             = { workspace = true }
-parry3d-f64          = { workspace = true }
-pcd-rs               = { workspace = true }
-color                = { workspace = true }
+parry3d-f64          = { workspace = true, optional = true }
+pcd-rs               = { workspace = true, optional = true }
+color                = { workspace = true, optional = true }
+rasm-bcf             = { workspace = true, optional = true }
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+default  = ["fetch", "geometry", "pcd", "bcf"]
+fetch    = ["dep:reqwest", "dep:bytes", "dep:fs-err"]
+geometry = ["dep:parry3d-f64", "dep:color"]
+pcd      = ["geometry", "dep:pcd-rs"]
+bcf      = ["dep:rasm-bcf"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

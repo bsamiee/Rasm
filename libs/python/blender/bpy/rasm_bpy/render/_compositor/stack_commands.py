@@ -13,6 +13,7 @@ import msgspec
 
 from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Unchanged
 from rasm_bpy.data._extension.identity import Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.images import _loaded, Tag
 from rasm_bpy.data._ids.ownership import _retained, _tracked, Mark
 from rasm_bpy.data._rna.descriptors import written
@@ -153,7 +154,7 @@ def add_render_pass_layer(stacking: LayerStackService, call: Call[PassSourced]) 
 def add_recombined_layer(stacking: LayerStackService, call: Call[RecombinedSourced]) -> Outcome[Answer]:
     """Add beauty from view layer light."""
     layer, picked = call.properties.layer, call.properties.recombination
-    recombination = catch(msgspec.convert, exception=msgspec.ValidationError)({"kind": picked}, Recombination.__value__).map_error(partial(Fault.of, Reason.REFUSED, picked))
+    recombination = catch(msgspec.convert, exception=msgspec.ValidationError)({"kind": picked}, Recombination.__value__).map_error(partial(Fault.of, Refusal.REFUSED, picked))
     return recombination.bind(lambda chosen: _inserted(stacking, call.context, (partial(_sourced, layer, Recombined(layer=layer, recombination=chosen)),))).map(lambda _: Done())
 
 
@@ -324,7 +325,7 @@ def _targeted(properties: LayerEdit) -> Outcome[StackTarget]:
     try:
         target: StackTarget = msgspec.convert(properties, StackTarget, from_attributes=True)  # ty: ignore[unsound-assignment]
     except msgspec.ValidationError as error:
-        return Error(Fault.of(Reason.REFUSED, repr(properties), error))
+        return Error(Fault.of(Refusal.REFUSED, repr(properties), error))
     return Ok(target)
 
 

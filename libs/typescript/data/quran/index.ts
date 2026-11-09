@@ -1,10 +1,11 @@
 import { AYAH_MARK, ayahMark, type MarkKind, Mushaf } from '@quran.ws/text';
 import { Unmatched } from '@rasm/search';
-import { Digits, type Settings, TypographyError } from '@rasm/typography';
+import { Digits, type Settings } from '@rasm/typography';
 import type { Face } from '@rasm/typography/shaping';
 import { Array, Effect, Equivalence, Number, Option, Order, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 import { findSurahAyahByAyahId, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, type PartBlock, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
+import { QuranError } from '#/error';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -88,7 +89,7 @@ class Quran extends Schema.Class<Quran, { readonly brand: unique symbol }>('Qura
         lines: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Break text where printed lines break' })),
     }).annotate({ description: 'Mushaf text rendering, ayah marks set against the face' });
     static readonly mushaf = Effect.fn('Quran.mushaf')(function* (json: Option.Option<string> = Option.none(), render: typeof Quran.Render.Type = {}, tables: readonly SurahNames[] = NAMES) {
-        const mushaf = yield* Effect.tryPromise({ try: () => Promise.resolve(Option.match(json, { onNone: Mushaf.hafs, onSome: Mushaf.fromJson })), catch: TypographyError.unreadable('mushaf') });
+        const mushaf = yield* Effect.tryPromise({ try: () => Promise.resolve(Option.match(json, { onNone: Mushaf.hafs, onSome: Mushaf.fromJson })), catch: (cause) => QuranError.make({ subject: Option.match(json, { onNone: () => 'bundled Hafs mushaf', onSome: () => 'mushaf JSON' }), cause }) });
         const keys = { bazzi: 'Bazzi', duri: 'Douri', hafs: 'Hafs', qalun: 'Qalun', shubah: 'Shuba', susi: 'Sousi', warsh: 'Warsh' } as const satisfies Record.ReadonlyRecord<string, RiwayaName>;
         const [, riwayah] = yield* Unmatched.single(Record.toEntries(keys), 'mushaf key', Option.some(mushaf.key), ([key]) => Array.of(key));
         const encoded = (surah: Mushaf['surahs'][number]) => {
@@ -159,4 +160,5 @@ const counted = Effect.fnUntraced(function* (quran: Quran, { part, number, from,
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+export { QuranError } from '#/error';
 export { Quran };

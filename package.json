@@ -7,6 +7,7 @@
     "author": "Bardia Samiee",
     "type": "module",
     "scripts": { "prepare": "effect-tsgo patch" },
+    "nx": { "includedScripts": [] },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
         "@effect/tsgo": "catalog:",
@@ -24,6 +25,7 @@
         "@types/node": "catalog:",
         "bootstrap-icons": "catalog:",
         "nx": "catalog:",
+        "publint": "catalog:",
         "typescript": "catalog:"
     }
 }

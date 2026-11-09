@@ -4,14 +4,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use itertools::Itertools as _;
 use ordered_float::OrderedFloat;
 use petgraph::{
-    EdgeType, Undirected,
+    Undirected,
     algo::kosaraju_scc,
-    stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph, StableUnGraph},
-    visit::{EdgeRef as _, IntoEdgeReferences as _},
+    graphmap::UnGraphMap,
+    visit::{EdgeRef as _, IntoNeighborsDirected},
 };
 use rustworkx_core::connectivity::{articulation_points, connected_components, stoer_wagner_min_cut};
 
-use crate::{Weight, compact};
+use crate::{Network, Weight, compact};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,24 +24,24 @@ pub enum Connectedness {
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Biconnected {
-    pub articulation_points: BTreeSet<NodeIndex>,
-    pub bridges: BTreeSet<EdgeIndex>,
-    pub blocks: Vec<BTreeSet<EdgeIndex>>,
+pub struct Biconnected<N, E> {
+    pub articulation_points: BTreeSet<N>,
+    pub bridges: BTreeSet<E>,
+    pub blocks: Vec<BTreeSet<E>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Cut {
+pub struct Cut<N, E> {
     pub value: f64,
-    pub side: BTreeSet<NodeIndex>,
-    pub edges: BTreeSet<EdgeIndex>,
+    pub side: BTreeSet<N>,
+    pub edges: BTreeSet<E>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn components<N, E, Ty>(graph: &StableGraph<N, E, Ty>, connectedness: Connectedness) -> Vec<BTreeSet<NodeIndex>>
-where Ty: EdgeType {
+pub fn components<G>(graph: G, connectedness: Connectedness) -> Vec<BTreeSet<G::NodeId>>
+where G: Network + IntoNeighborsDirected {
     match connectedness {
         Connectedness::Weak => connected_components(graph).into_iter().map(BTreeSet::from_iter).collect(),
         Connectedness::Strong => kosaraju_scc(graph).into_iter().map(BTreeSet::from_iter).collect(),
@@ -49,8 +49,8 @@ where Ty: EdgeType {
 }
 
 #[must_use]
-pub fn biconnected<N, E, Ty>(graph: &StableGraph<N, E, Ty>) -> Biconnected
-where Ty: EdgeType {
+pub fn biconnected<G>(graph: G) -> Biconnected<G::NodeId, G::EdgeId>
+where G: Network {
     let parallels = graph
         .edge_references()
         .filter(|edge| edge.source() != edge.target())
@@ -59,12 +59,12 @@ where Ty: EdgeType {
         .into_iter()
         .collect::<BTreeMap<_, _>>();
     let mut labels = <_>::default();
-    let points = articulation_points(&StableUnGraph::<(), ()>::from_edges(parallels.keys().copied().map(<(NodeIndex, NodeIndex)>::from)), Some(&mut labels));
+    let points = articulation_points(&UnGraphMap::<_, ()>::from_edges(parallels.keys().copied().map(<(G::NodeId, G::NodeId)>::from)), Some(&mut labels));
     let blocks = labels
         .into_iter()
         .flat_map(|((source, target), label)| parallels.get(&cmp::minmax(source, target)).into_iter().flatten().map(move |&edge| (label, edge)))
         .into_grouping_map()
-        .collect::<BTreeSet<EdgeIndex>>()
+        .collect::<BTreeSet<_>>()
         .into_iter()
         .sorted_unstable_by_key(|&(label, _)| label)
         .map(|(_, block)| block)
@@ -73,8 +73,8 @@ where Ty: EdgeType {
 }
 
 #[must_use]
-pub fn min_cut<N, E, Ty>(graph: &StableGraph<N, E, Ty>, weight: impl Fn(EdgeReference<'_, E>) -> Weight) -> Option<Cut>
-where Ty: EdgeType {
+pub fn min_cut<G>(graph: G, weight: impl Fn(G::EdgeRef) -> Weight) -> Option<Cut<G::NodeId, G::EdgeId>>
+where G: Network {
     let network = compact(graph, |edge| (OrderedFloat(weight(edge).into_inner()), edge.id())).into_edge_type::<Undirected>();
     let cut = stoer_wagner_min_cut(&network, |edge| Ok::<_, !>(edge.weight().0)).into_ok();
     cut.map(|(OrderedFloat(value), side)| {

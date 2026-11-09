@@ -36,20 +36,20 @@ public sealed partial class Terminator {
     internal QuantityValue Proportion { get; }
 }
 
-public sealed record StyleMetrics(SheetSize Size, LetteringForm Form, Terminator Terminator, DrawingScale Scale) {
+public sealed record StyleMetrics(SheetSize Size, DraftingConvention Convention, DrawingScale Scale) {
 
     // --- [LETTERING]
 
-    public Length Height => Size.Convention.Lettering.Height(Size);
-    public Length LineThickness => Height / Form.Divisor;
-    public Length LowercaseHeight => LineThickness * Form.Lowercase;
+    public Length Height => Convention.Lettering.Height(Size);
+    public Length LineThickness => Height / Convention.Lettering.Form.Divisor;
+    public Length LowercaseHeight => LineThickness * Convention.Lettering.Form.Lowercase;
     public Length CharacterSpacing => LineThickness * 2;
-    public Length BaselineSpacing => LineThickness * Form.Pitch;
+    public Length BaselineSpacing => LineThickness * Convention.Lettering.Form.Pitch;
     public Length Resolution => Scale.ToModel(LineThickness);
 
     // --- [DIMENSIONING]
 
-    public Length TerminatorLength => Height * Terminator.Proportion;
+    public Length TerminatorLength => Height * Convention.Terminator.Proportion;
     public Length ExtensionOvershoot => LineThickness * 8;
     public Length ExtensionGap => LineThickness * 8;
     public Length DimensionLineSpacing => BaselineSpacing * 2;

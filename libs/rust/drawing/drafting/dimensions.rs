@@ -1,3 +1,4 @@
+
 use core::{
     cmp,
     f64::consts::{FRAC_PI_2, TAU},
@@ -16,7 +17,6 @@ use uom::{
         self, Quantity, SI,
         angle::radian,
         f64::{Angle, Length},
-        length::millimeter,
     },
 };
 
@@ -72,7 +72,9 @@ pub struct Style {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Arrangement {
     Chain,
-    Parallel { spacing: Width },
+    Parallel {
+        spacing: Width,
+    },
     Running,
 }
 
@@ -297,7 +299,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             at + leaning * ((level - normal.dot(at - start)) / lean)
         };
         let position = dimension.position.map(|at| *placement * at);
-        let labels = |first: Point, second: Point| lengths("", tolerancing.as_ref(), Length::new::<millimeter>(measuring.dot(second - first).abs()));
+        let labels = |first: Point, second: Point| lengths("", tolerancing.as_ref(), *style.unit * measuring.dot(second - first).abs());
         let mut span =
             |first: Point, second: Point, level: f64| spanned(typesetter, style, &labels(first, second), &Line::new(foot(first, level), foot(second, level)), EitherOrBoth::Both((), ()), position);
         let points = iter::once(*origin).chain(ends.iter().copied());
@@ -316,7 +318,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 let outward = if offset.is_sign_negative() { -normal } else { normal };
                 let local = basis.inverse();
                 let terminator = &style.dimension.terminator;
-                let zero = beside(typesetter, &[Label { content: nominal(Length::new::<millimeter>(0.0)).into(), .. }], base + outward * overshoot, outward);
+                let zero = beside(typesetter, &[Label { content: nominal(*style.unit * 0.0).into(), .. }], base + outward * overshoot, outward);
                 let mut marked = |end: Point| {
                     let tip = foot(end, *offset);
                     joined([terminated(terminator, terminator.head, tip, (tip - base).normalize(), style.tolerance)], [beside(typesetter, &labels(*origin, end), tip + outward * overshoot, outward)])
@@ -379,7 +381,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             Size::Radius | Size::ControlledRadius | Size::SphericalRadius => circle.radius,
             Size::Diameter | Size::SphericalDiameter => circle.radius * 2.0,
         };
-        let labels = lengths(&size.to_string(), tolerancing.as_ref(), Length::new::<millimeter>(measured.abs()));
+        let labels = lengths(&size.to_string(), tolerancing.as_ref(), *style.unit * measured.abs());
         let position = dimension.position.map(|point| *placement * point);
         match (size, jog) {
             (Size::Radius | Size::ControlledRadius | Size::SphericalRadius, None) => spanned(typesetter, style, &labels, &Line::new(center, rim), EitherOrBoth::Right(()), position),
@@ -410,7 +412,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         let [opening, closing] = [near, far].map(|point| point - center);
         let curve = kurbo::Arc::new(center, Vec2::splat(radius), opening.atan2(), if parallel { opening.cross(closing).atan2(opening.dot(closing)) } else { sweep }, 0.0);
         let model_accuracy = accuracy / placement.determinant().abs().sqrt();
-        let labels = lengths("⌒", tolerancing.as_ref(), Length::new::<millimeter>(arc.to_path(model_accuracy).perimeter(model_accuracy)));
+        let labels = lengths("⌒", tolerancing.as_ref(), *style.unit * arc.to_path(model_accuracy).perimeter(model_accuracy));
         let [first, rest] = dimension.extensions;
         joined(
             [extended(first, start, near), extended(rest, end, far)].into_iter().flatten(),
@@ -432,11 +434,11 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 .map(|point| basis * point),
         );
         let outward = if offset.y.is_sign_negative() { -leading } else { leading };
-        let labels = lengths("", tolerancing.as_ref(), Length::new::<millimeter>(feature.get_coord(*axis) - origin.get_coord(*axis)));
+        let labels = lengths("", tolerancing.as_ref(), *style.unit * (feature.get_coord(*axis) - origin.get_coord(*axis)));
         joined([stroked(leader, &style.pen, None)], [beside(typesetter, &labels, tip, outward)])
     };
     let level = |typesetter: &mut Typesetter, Level { datum, instance, slot }: &Level| {
-        let value = dimension.stated.as_deref().map_or_else(|| notation::linear(&style.linear, Length::new::<millimeter>(instance.at.y - datum), Sign::Explicit), str::to_owned);
+        let value = dimension.stated.as_deref().map_or_else(|| notation::linear(&style.linear, *style.unit * (instance.at.y - datum), Sign::Explicit), str::to_owned);
         let content = format!("{}{value}{}", dimension.prefix.as_deref().unwrap_or_default(), dimension.suffix.as_deref().unwrap_or_default());
         symbols::draw(typesetter, style, placement, &symbols::Instance { slots: iter::chain(instance.slots.clone(), [(Arc::clone(slot), Arc::from(content))]).collect(), ..instance.clone() })
     };

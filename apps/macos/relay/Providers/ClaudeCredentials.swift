@@ -3,6 +3,8 @@ import CryptoKit
 import Encoding
 import Files
 import Foundation
+import Processes
+import Security
 import Subprocess
 import System
 
@@ -12,128 +14,15 @@ nonisolated struct ClaudeOAuthToken: Sendable {
     struct Attributes: Codable, Sendable {
         let accessToken: String?
         let refreshToken: String?
-        let scopes: [String]?
-        let expiresAt: Double?
-        let refreshTokenExpiresAt: Double?
         let subscriptionType: String?
-        let clientId: String?
-
-        var signedOut: Self {
-            Self(
-                accessToken: "",
-                refreshToken: "",
-                scopes: scopes,
-                expiresAt: 0,
-                refreshTokenExpiresAt: refreshTokenExpiresAt,
-                subscriptionType: subscriptionType,
-                clientId: clientId,
-            )
-        }
     }
 
     let document: JSONDocument<Attributes>
     let accessToken: String
-    let scopes: [String]
-
-    var expiresAt: Date? { Self.date(document.known.expiresAt) }
-    var refreshTokenExpiresAt: Date? { Self.date(document.known.refreshTokenExpiresAt) }
-
-    func needsRefresh(at now: Date) -> Bool {
-        expiresAt.map { expiry in expiry <= now.addingTimeInterval(300) } ?? false
-    }
-
-    func refreshToken(at now: Date) -> String? {
-        refreshTokenExpiresAt.map { expiry in expiry <= now } == true ? nil : document.known.refreshToken
-    }
-
-    func isUsable(at now: Date) -> Bool {
-        refreshToken(at: now) != nil || !needsRefresh(at: now)
-    }
 
     static func make(_ document: JSONDocument<Attributes>) throws(ClaudeFailure) -> Self? {
         guard let token: String = document.known.accessToken else { throw .invalidCredentials(nil) }
-        guard !token.isEmpty, document.known.refreshToken?.isEmpty != true else { return nil }
-        guard let scopes: [String] = document.known.scopes, !scopes.contains(where: \.isEmpty) else { throw .invalidCredentials(nil) }
-        return Self(document: document, accessToken: token, scopes: scopes)
-    }
-
-    private static func date(_ milliseconds: Double?) -> Date? {
-        milliseconds.flatMap { value in value > 0 ? Date(timeIntervalSince1970: value / 1000) : nil }
-    }
-}
-
-nonisolated struct ClaudeTokenRequest: Encodable, Sendable {
-    let grantType: String = "refresh_token"
-    let refreshToken: String
-    let clientId: String
-    let scope: String
-}
-
-nonisolated struct ClaudeTokenResponse: Decodable, Sendable {
-    struct Account: Decodable, Sendable {
-        let uuid: String?
-        let emailAddress: String?
-    }
-
-    struct Organization: Decodable, Sendable {
-        let uuid: String?
-    }
-
-    let accessToken: String
-    let refreshToken: String?
-    let expiresIn: TimeInterval
-    let refreshTokenExpiresIn: TimeInterval?
-    let scope: String?
-    let account: Account?
-    let organization: Organization?
-
-    func oauth(replacing token: ClaudeOAuthToken, posted: String, at now: Date) throws(ClaudeFailure) -> ClaudeOAuthToken {
-        let requestedScopes: [Substring]? = scope?.split(separator: " ")
-        let scopes: [String] = requestedScopes?.map(String.init) ?? token.scopes
-        let refreshTokenExpiresAt: Double? = token.document.known.refreshTokenExpiresAt.map { held in
-            min(held, refreshTokenExpiresIn.map { interval in Self.milliseconds(now.addingTimeInterval(interval)) } ?? held)
-        }
-        let attributes: ClaudeOAuthToken.Attributes = ClaudeOAuthToken.Attributes(
-            accessToken: accessToken,
-            refreshToken: refreshToken ?? posted,
-            scopes: scopes,
-            expiresAt: Self.milliseconds(now.addingTimeInterval(expiresIn)),
-            refreshTokenExpiresAt: refreshTokenExpiresAt,
-            subscriptionType: token.document.known.subscriptionType,
-            clientId: token.document.known.clientId,
-        )
-        guard let renewed: ClaudeOAuthToken = try ClaudeOAuthToken.make(JSONDocument(fields: token.document.fields, known: attributes)) else { throw .invalidResponse(.token, nil) }
-        return renewed
-    }
-
-    func identity(plan: String?) throws(ClaudeFailure) -> AccountIdentity? {
-        if let accountID: String = account?.uuid, let email: String = account?.emailAddress, let organizationID: String = organization?.uuid {
-            try AccountIdentity.make(accountID: accountID, organizationID: organizationID, email: email, plan: plan).mapError(ClaudeFailure.invalidIdentity).get()
-        } else {
-            nil
-        }
-    }
-
-    private static func milliseconds(_ date: Date) -> Double {
-        (date.timeIntervalSince1970 * 1000).rounded()
-    }
-}
-
-nonisolated struct ClaudeProfile: Decodable, Sendable {
-    struct Account: Decodable, Sendable {
-        let uuid: String
-        let email: String
-    }
-
-    struct Organization: Decodable, Sendable {
-        let uuid: String
-    }
-
-    let account: Account
-    let organization: Organization
-
-    func identity(plan: String?) throws(ClaudeFailure) -> AccountIdentity {
-        try AccountIdentity.make(accountID: account.uuid, organizationID: organization.uuid, email: account.email, plan: plan).mapError(ClaudeFailure.invalidIdentity).get()
+        return token.isEmpty || document.known.refreshToken?.isEmpty == true ? nil : Self(document: document, accessToken: token)
     }
 }
 
@@ -273,7 +162,85 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         return try data.map { data throws(ClaudeFailure) in try decode(JSONDocument<ClaudeAccountFile>.self, from: data) }
     }
 
-    static func decode<Document: Decodable>(_ type: Document.Type, from data: Data) throws(ClaudeFailure) -> Document {
+    private static func decode<Document: Decodable>(_ type: Document.Type, from data: Data) throws(ClaudeFailure) -> Document {
         try Result { try JSONDecoder().decode(type, from: data) }.mapError(ClaudeFailure.invalidCredentials).get()
+    }
+
+    // --- [KEYCHAIN_ITEM]
+
+    func readItem() async throws(ClaudeFailure) -> JSONDocument<ClaudeCredentialItem>? {
+        guard let printed: String = try await security(["find-generic-password", "-a", username, "-s", service, "-g"]) else { return nil }
+        let password: Data? =
+            switch printed.firstMatch(of: #/^password: (?:0x(?<hex>[0-9A-F]*)|"(?<text>.*)")?/#.anchorsMatchLineEndings())?.output {
+                case .some((_, .some(let hex), _)): Data(hexEncoded: hex)
+                case .some((_, .none, .some(let text))): Data(text.utf8)
+                case .some((_, .none, .none)): Data()
+                case .none: nil
+            }
+        guard let password else { throw .invalidCredentials(nil) }
+        return try Self.decode(JSONDocument<ClaudeCredentialItem>.self, from: password)
+    }
+
+    func writeOAuth(
+        _ oauth: JSONDocument<ClaudeOAuthToken.Attributes>,
+        over item: JSONDocument<ClaudeCredentialItem>?,
+    ) async throws(ClaudeFailure) {
+        let password: String = try Result { try JSONEncoder().encode(JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth))) }
+            .mapError(ClaudeFailure.invalidCredentials)
+            .get()
+            .hexEncoded()
+        let arguments: [String] = ["add-generic-password", "-U", "-a", username, "-s", service, "-X", password]
+        let line: String = arguments.map { argument in "\"" + argument.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\"" }.joined(separator: " ") + "\n"
+        _ = if line.utf8.count <= 4032 { try await security(["-i"], input: .string(line)) } else { try await security(Arguments(arguments)) }
+        do { _ = try ifPresent { try FileManager.default.removeItem(at: directory.appending(path: ".credentials.json")) } } catch { throw .filesystem(error) }
+    }
+
+    func deleteItem() async throws(ClaudeFailure) {
+        _ = try await security(["delete-generic-password", "-a", username, "-s", service])
+    }
+
+    private func security(_ arguments: Arguments, input: some InputProtocol = .none) async throws(ClaudeFailure) -> String? {
+        func code(_ status: OSStatus) -> Int32 { status & 0x00FF_FFFF }
+        do throws(ProcessFailure) {
+            return try await Configuration(
+                executable: .path("/usr/bin/security"),
+                arguments: arguments,
+                environment: .custom([:]),
+                workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
+                platformOptions: .session(),
+            )
+            .run(output: .discarded, within: .seconds(15), input: input)
+            .standardError
+        } catch {
+            return switch error.reason {
+                case .exit(.exited(code(errSecItemNotFound)), _): nil
+                case .exit(.exited(code(errSecInteractionNotAllowed)), _): throw .interactionNotAllowed
+                default: throw ClaudeFailure(process: error)
+            }
+        }
+    }
+
+    // --- [LOCKS]
+
+    static func storageWriteLockfile(in directory: URL) -> URL {
+        directory.appending(path: ".storage-write.lock")
+    }
+
+    static func withLock<Value: Sendable>(
+        directories: [URL],
+        _ body: @escaping @Sendable () async throws(ClaudeFailure) -> Value,
+    ) async throws(ClaudeFailure) -> Value {
+        let refresh: Backoff = Backoff(count: 5, base: .seconds(1), growth: 1, jitter: 1)
+        let storageWrite: Backoff = Backoff(count: 10, base: .milliseconds(100), cap: .seconds(1))
+        let lockfiles: [[Lockfile]] = try Set(directories).sorted { first, second in first.path(percentEncoded: false) < second.path(percentEncoded: false) }
+            .map { directory throws(ClaudeFailure) in
+                try Result { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()
+                let canonical: URL = try Result(catching: directory.canonical).mapError(ClaudeFailure.filesystem).get()
+                return [directory.appending(path: ".oauth_refresh.lock"), canonical.appendingPathExtension("lock")].map { url in
+                    Lockfile(url, stale: .seconds(60), update: .seconds(5), retry: refresh)
+                }
+                    + [Lockfile(storageWriteLockfile(in: directory), stale: .seconds(15), retry: storageWrite)]
+            }
+        return try await Lockfile.withLocks(lockfiles.flatMap(\.self), body)
     }
 }

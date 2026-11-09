@@ -12,7 +12,6 @@ dependencies    = []
 dev = [
     "fake-bpy-module-latest", # Stubs for bpy, bmesh, mathutils, and gpu
     "mypy",                   # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
-    "pydantic",               # `pydantic.mypy` plugin the root mypy configuration loads
     "ruff",                   # Linter and formatter hk runs from this root's environment
     "scipy-stubs",
     "ty",                     # Type checker of every member

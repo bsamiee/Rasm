@@ -40,8 +40,6 @@ public sealed class Shaping : IDisposable {
 
     internal HarfBuzzSharp.Buffer Buffer { get; } = new();
 
-    internal BreakIterator Graphemes { get; } = BreakIterator.GetCharacterInstance(CultureInfo.InvariantCulture);
-
     internal Func<CultureInfo, BreakIterator> LineBreaks { get; } = memo<CultureInfo, BreakIterator>(BreakIterator.GetLineInstance);
 
     // --- [TYPEFACES]

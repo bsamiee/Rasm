@@ -20,12 +20,13 @@ prerelease-mode = "allow"
 [manifest]
 members = [
     "rasm",
+    "rasm-foundry",
+    "rasm-foundry-tests",
     "rasm-records",
     "rasm-refurb",
     "rasm-refurb-tests",
     "rasm-testing",
     "rasm-typography",
-    "rasm-typography-tests",
 ]
 overrides = [
     { name = "cachebox", specifier = ">=6" },
@@ -214,15 +215,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e8/de/9731304fae332b5783fdc3ed18531dfaf4a3cc62a66aaaa74c047355b70f/altair-6.3.0.tar.gz", hash = "sha256:fa632121aca6d0fcb198a3d8a9f7d937fa5b7518ec947951cfffb44e736d97c8", size = 766362, upload-time = "2026-09-15T06:38:03.623Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ca/b9/10a8bb13a0462e0bc4e02c0b7b8237dc24ab590f5bb4be94bec5e8f1d532/altair-6.3.0-py3-none-any.whl", hash = "sha256:7defb6ca730676dfc99a299768e2769f51585fcb3dc960ea71aacc368929d65e", size = 797192, upload-time = "2026-09-15T06:38:01.791Z" },
-]
-
-[[package]]
-name = "annotated-doc"
-version = "0.0.5"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5a/8e/38aa427ed5402449e226975b649c5dc73ccadfefeb95e6aecb8f8ea4b6b6/annotated_doc-0.0.5.tar.gz", hash = "sha256:c7e58ce09192557605d8bbd92836d7e1d520ac9580096042c0bfd197efacf1bb", size = 10758, upload-time = "2026-07-28T13:50:58.129Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3e/30/e900b21425a860e195f32e37657aa1f7c7f2b1bfb26f03ca209b90933c06/annotated_doc-0.0.5-py3-none-any.whl", hash = "sha256:117bac03a25ede5df5440e855b32d556049ca169ead221505badf432fed4b101", size = 5302, upload-time = "2026-07-28T13:50:57.239Z" },
 ]
 
 [[package]]
@@ -2112,23 +2104,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/f2/d4/a93c2249e62eb01c8059b4dcd59fa0c2594cb0f642b55b16dbdf83147afa/fast_sugiyama-0.5.3-cp311-abi3-manylinux_2_34_aarch64.whl", hash = "sha256:10b8112a05650feb84b82fbd46a2e5553986a3f5c122df52b2811d1a7b140143", size = 316421, upload-time = "2026-03-10T16:51:19.127Z" },
     { url = "https://files.pythonhosted.org/packages/0d/11/b4c3dfc25ffa9518c9148be9d1f7f1edb92c83fae46c4900249d3798c9cb/fast_sugiyama-0.5.3-cp311-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:79ae9abd9a22398c87b161785c0f3174dfff25bf3d3464b45881a559860c6560", size = 328103, upload-time = "2026-03-10T16:51:20.808Z" },
     { url = "https://files.pythonhosted.org/packages/4a/b9/98c6cad41de1023055c5d4bae7191ef258b192a36a1d3497bc9a12777abb/fast_sugiyama-0.5.3-cp311-abi3-win_amd64.whl", hash = "sha256:a222fecca64a9db6b60dcf02fb9b3b8d69b9e9e7f592f70e830965899d612d78", size = 231425, upload-time = "2026-03-10T16:51:22.42Z" },
-]
-
-[[package]]
-name = "fastapi"
-version = "0.162.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "annotated-doc" },
-    { name = "opentelemetry-api" },
-    { name = "pydantic" },
-    { name = "starlette" },
-    { name = "typing-extensions" },
-    { name = "typing-inspection" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e9/eb/2cf8c80abf09b2800aef0a83b41066fbfda8ee5495b7a08b9d1af40f7046/fastapi-0.162.0.tar.gz", hash = "sha256:6a22c1e2e6e32e0633ee7e170f00009a29b8228b16feb219ee42f32fd8d88a8f", size = 527867, upload-time = "2026-10-23T18:47:33.264Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/4f/3f2c25c9b43970b5e9a08beb5e04776247edea684ddc0930f4f02f0bb6cb/fastapi-0.162.0-py3-none-any.whl", hash = "sha256:3785963de305dd09912426cb81f2d230fce98ab3521cdfe97265c8d14983128c", size = 148912, upload-time = "2026-10-23T18:47:31.734Z" },
 ]
 
 [[package]]
@@ -7888,6 +7863,66 @@ visualization = [
 ]
 
 [[package]]
+name = "rasm-foundry"
+version = "0.0.0"
+source = { editable = "apps/cli/foundry" }
+dependencies = [
+    { name = "anyio" },
+    { name = "cyclopts" },
+    { name = "expression" },
+    { name = "fonttools" },
+    { name = "msgspec" },
+    { name = "opentype-sanitizer" },
+    { name = "packaging" },
+    { name = "rasm-records" },
+    { name = "rasm-typography" },
+    { name = "sysexits" },
+    { name = "ufolib2" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anyio", specifier = ">=4.15.0" },
+    { name = "cyclopts", specifier = ">=4.10.0" },
+    { name = "expression", specifier = ">=5.2.0" },
+    { name = "fonttools", specifier = ">=4.66.0" },
+    { name = "msgspec", specifier = ">=0.22.0" },
+    { name = "opentype-sanitizer", specifier = ">=8.1.4.post3" },
+    { name = "packaging", specifier = ">=22.0" },
+    { name = "rasm-records", editable = "libs/python/data/records" },
+    { name = "rasm-typography", editable = "libs/python/graphics/typography" },
+    { name = "sysexits", specifier = ">=0.5.0" },
+    { name = "ufolib2", specifier = ">=0.18.0" },
+]
+
+[[package]]
+name = "rasm-foundry-tests"
+version = "0.0.0"
+source = { virtual = "tests/python/apps/cli/foundry" }
+dependencies = [
+    { name = "cyclopts" },
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "pytest" },
+    { name = "rasm-foundry" },
+    { name = "rasm-records" },
+    { name = "rasm-testing" },
+    { name = "sysexits" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cyclopts" },
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "pytest" },
+    { name = "rasm-foundry", editable = "apps/cli/foundry" },
+    { name = "rasm-records", editable = "libs/python/data/records" },
+    { name = "rasm-testing", editable = "tests/python/support" },
+    { name = "sysexits" },
+]
+
+[[package]]
 name = "rasm-records"
 version = "0.0.0"
 source = { editable = "libs/python/data/records" }
@@ -7934,10 +7969,9 @@ name = "rasm-refurb-tests"
 version = "0.0.0"
 source = { virtual = "tests/python/tools/refurb" }
 dependencies = [
+    { name = "expression" },
     { name = "fake-bpy-module-latest" },
-    { name = "fastapi" },
-    { name = "hypothesis" },
-    { name = "msgspec", extra = ["toml"] },
+    { name = "msgspec" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "rasm-refurb" },
@@ -7948,10 +7982,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "expression" },
     { name = "fake-bpy-module-latest" },
-    { name = "fastapi" },
-    { name = "hypothesis" },
-    { name = "msgspec", extras = ["toml"] },
+    { name = "msgspec" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "rasm-refurb", editable = "tools/refurb" },
@@ -7988,20 +8021,15 @@ name = "rasm-typography"
 version = "0.0.0"
 source = { editable = "libs/python/graphics/typography" }
 dependencies = [
-    { name = "anyio" },
-    { name = "cyclopts" },
     { name = "expression" },
     { name = "fonttools", extra = ["woff"] },
     { name = "httpx2" },
     { name = "msgspec" },
-    { name = "opentype-sanitizer" },
-    { name = "packaging" },
     { name = "platformdirs" },
     { name = "rasm-records" },
     { name = "scipy" },
     { name = "shapely" },
     { name = "skia-pathops" },
-    { name = "sysexits" },
     { name = "ttfautohint-py" },
     { name = "ufo2ft" },
     { name = "ufolib2" },
@@ -8010,51 +8038,19 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anyio", specifier = ">=4.15.0" },
-    { name = "cyclopts", specifier = ">=4.10.0" },
     { name = "expression", specifier = ">=5.2.0" },
     { name = "fonttools", extras = ["woff"], specifier = ">=4.66.0" },
     { name = "httpx2", specifier = ">=2.10.0" },
     { name = "msgspec", specifier = ">=0.22.0" },
-    { name = "opentype-sanitizer", specifier = ">=8.1.4.post3" },
-    { name = "packaging", specifier = ">=22.0" },
     { name = "platformdirs", specifier = ">=4.11.0" },
     { name = "rasm-records", editable = "libs/python/data/records" },
     { name = "scipy", specifier = ">=1.18.1" },
     { name = "shapely", specifier = ">=2.2.0" },
     { name = "skia-pathops", specifier = ">=0.9.0" },
-    { name = "sysexits", specifier = ">=0.5.0" },
     { name = "ttfautohint-py", specifier = ">=0.6.1" },
     { name = "ufo2ft", specifier = ">=3.8.0" },
     { name = "ufolib2", specifier = ">=0.18.0" },
     { name = "uharfbuzz", specifier = ">=0.55.0" },
-]
-
-[[package]]
-name = "rasm-typography-tests"
-version = "0.0.0"
-source = { virtual = "tests/python/libs/graphics/typography" }
-dependencies = [
-    { name = "cyclopts" },
-    { name = "expression" },
-    { name = "msgspec" },
-    { name = "pytest" },
-    { name = "rasm-records" },
-    { name = "rasm-testing" },
-    { name = "rasm-typography" },
-    { name = "sysexits" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cyclopts" },
-    { name = "expression" },
-    { name = "msgspec" },
-    { name = "pytest" },
-    { name = "rasm-records", editable = "libs/python/data/records" },
-    { name = "rasm-testing", editable = "tests/python/support" },
-    { name = "rasm-typography", editable = "libs/python/graphics/typography" },
-    { name = "sysexits" },
 ]
 
 [[package]]
@@ -8638,18 +8634,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/e3/55dcc2cfbc3ca9c29519eb6884dd1415ecb53b0e934862d3559ddcb7e20b/stack_data-0.6.3.tar.gz", hash = "sha256:836a778de4fec4dcd1dcd89ed8abff8a221f58308462e1c4aa2a3cf30148f0b9", size = 44707, upload-time = "2023-09-30T13:58:05.479Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/7b/ce1eafaf1a76852e2ec9b22edecf1daa58175c090266e9f6c64afcd81d91/stack_data-0.6.3-py3-none-any.whl", hash = "sha256:d5558e0c25a4cb0853cddad3d77da9891a08cb85dd9f9f91b9f8cd66e511e695", size = 24521, upload-time = "2023-09-30T13:58:03.53Z" },
-]
-
-[[package]]
-name = "starlette"
-version = "1.10.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anyio" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/48/bb/3d8757f21e9a53d9035c9eb039a777047139a16bfdbedfc7a58241c3d914/starlette-1.10.0.tar.gz", hash = "sha256:b8399098d4c1e3522734f7235dc79b1fc967f96cf139c81e0fa30479e0685f9b", size = 2734356, upload-time = "2026-10-24T15:04:12.342Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/2e/947cfe02def9371c07cd5bf5b6b61c829e9aecb9904db02a66cfafbc1eec/starlette-1.10.0-py3-none-any.whl", hash = "sha256:478c0ab3b4ced6e82719849c118fa406f0278a3499c1a898cd15cd31bdc38ce4", size = 80571, upload-time = "2026-10-24T15:04:10.371Z" },
 ]
 
 [[package]]

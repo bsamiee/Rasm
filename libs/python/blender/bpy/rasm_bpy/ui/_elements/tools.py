@@ -3,7 +3,6 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from functools import partial, reduce
-from pathlib import Path
 from typing import Literal, TYPE_CHECKING
 
 from bl_ui.space_toolsystem_common import ToolDef
@@ -18,12 +17,12 @@ from rasm_bpy.commands.keymaps import Bindings, resolved, Row
 from rasm_bpy.commands.operators import Command, idname, Operation, Operator, Placement
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _acquired, _Tier, Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.paths import _definition, Struct
 from rasm_bpy.ui._drawing.handlers import DrawCallback, Drawing
 from rasm_bpy.ui._elements.gizmos import GizmoGroup
 from rasm_bpy.ui._layout.rows import _realized, RowContent, RowDraw
-from rasm_bpy.ui._resources.icons import Icons
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -38,14 +37,14 @@ type _Draws = tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]]
 class Tool[S = None](msgspec.Struct, frozen=True, kw_only=True):
     """Toolbar tool labelled by its key, running an operator, with its icon, key bindings in the tool keymap, widget group, cursor drawing, and header settings.
 
-    `icon` names a stock geometry icon (`ops.generic.select_circle`) or a packaged `.dat` geometry icon, the only icon form the toolbar loads.
+    `icon` names a geometry icon Blender installs (`ops.generic.select_circle`), the only icon form the toolbar loads.
     `settings` draw over the operator's tool properties, every visible one while none is declared, `widget_settings` over the widget group's properties, and `extra_settings` in the host's extra options popover the header opens.
     Brush type narrows a brush tool's brushes and requires `USE_BRUSHES`.
     """
 
     key: Key
     operator: Command | Operation
-    icon: Path | str
+    icon: str
     bindings: Bindings = ()
     description: Option[str | Callable[[bpy.types.Context, ToolDef, bpy.types.KeyMap | None], str]] = Nothing
     cursor: "Option[rna_enums.WindowCursorItems]" = Nothing
@@ -118,7 +117,7 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 "bl_idname": name,
                 "bl_label": bpy.path.display_name(tool.key),
                 "bl_description": tool.description.to_optional(),
-                "bl_icon": Icons.path(identity, tool.icon) if isinstance(tool.icon, Path) else tool.icon,
+                "bl_icon": tool.icon,
                 "bl_cursor": tool.cursor.or_else(pending).to_optional(),
                 "bl_widget": widget.to_optional(),
                 "bl_widget_properties": list(tool.widget_properties),
@@ -154,7 +153,7 @@ def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[D
                     catch(bpy.utils.register_tool, exception=Exception)(cls, after=after, separator=tools.separator and first, group=tools.group and first)
                     .map(lambda _: stack.callback(bpy.utils.unregister_tool, cls))
                     .map(lambda _: None)
-                    .map_error(partial(Fault.of, Reason.UNREGISTERED, cls.__name__))
+                    .map_error(partial(Fault.of, Refusal.UNREGISTERED, cls.__name__))
                 )
             )
 

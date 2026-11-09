@@ -1,13 +1,7 @@
 use core::{iter, num::NonZero};
 
-use faer::{
-    MatMut, MatRef, Par, Spec,
-    diag::DiagMut,
-    dyn_stack::{MemBuffer, MemStack},
-    linalg::evd::{self, ComputeEigenvectors},
-};
 use kiddo::{Eytzinger, QueryResultItem, SquaredEuclidean, kd_tree::KdTree, leaf_strategies::VecOfArenas};
-use nalgebra::{Matrix3, Point3, Unit, Vector3};
+use nalgebra::{Matrix3, Point3, SymmetricEigen, Unit, Vector3};
 use nonempty_collections::NESlice;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
@@ -21,9 +15,16 @@ pub type Neighbor = QueryResultItem<Point3<f64>, usize, f64>;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Neighborhood {
-    Nearest { max_qty: NonZero<usize> },
-    Within { radius: Distance },
-    NearestWithin { max_qty: NonZero<usize>, radius: Distance },
+    Nearest {
+        max_qty: NonZero<usize>,
+    },
+    Within {
+        radius: Distance,
+    },
+    NearestWithin {
+        max_qty: NonZero<usize>,
+        radius: Distance,
+    },
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, PartialOrd)]
@@ -56,7 +57,7 @@ pub fn neighbors(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborh
 
 pub fn normals(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborhood, toward: Option<Point3<f64>>) -> Result<Vec<Option<Unit<Vector3<f64>>>>, ProximityError> {
     crate::bounded(iter::chain(queries, &toward))?;
-    Ok(search(cloud, queries, neighborhood).into_par_iter().map_init(|| None, |scratch, group| normal(&group, toward, scratch)).collect())
+    Ok(search(cloud, queries, neighborhood).into_par_iter().map(|group| normal(&group, toward)).collect())
 }
 
 pub(crate) fn search(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neighborhood) -> Vec<Vec<QueryResultItem<(), Item, f64>>> {
@@ -69,7 +70,7 @@ pub(crate) fn search(cloud: &Cloud, queries: &[Point3<f64>], neighborhood: Neigh
     .into_nested_vec()
 }
 
-pub(crate) fn normal(group: &[QueryResultItem<(), Item, f64>], toward: Option<Point3<f64>>, scratch: &mut Option<(Par, MemBuffer)>) -> Option<Unit<Vector3<f64>>> {
+pub(crate) fn normal(group: &[QueryResultItem<(), Item, f64>], toward: Option<Point3<f64>>) -> Option<Unit<Vector3<f64>>> {
     let centroid = group.iter().map(|neighbor| neighbor.item.point.coords).sum::<Vector3<f64>>() / nalgebra::convert::<usize, f64>(group.len());
     let covariance = group
         .iter()
@@ -78,23 +79,11 @@ pub(crate) fn normal(group: &[QueryResultItem<(), Item, f64>], toward: Option<Po
             offset * offset.transpose()
         })
         .sum::<Matrix3<f64>>();
-    let params = Spec::default();
-    let (parallel, scratch) = scratch.get_or_insert_with(|| {
-        let parallel = faer::get_global_parallelism();
-        (parallel, MemBuffer::new(evd::self_adjoint_evd_scratch::<f64>(covariance.nrows(), ComputeEigenvectors::Yes, parallel, params)))
-    });
-    let (mut vectors, mut values) = (Matrix3::<f64>::zeros(), Vector3::<f64>::zeros());
-    evd::self_adjoint_evd(
-        MatRef::from_column_major_slice(covariance.as_slice(), covariance.nrows(), covariance.ncols()),
-        DiagMut::from_slice_mut(values.as_mut_slice()),
-        Some(MatMut::from_column_major_slice_mut(vectors.as_mut_slice(), covariance.nrows(), covariance.ncols())),
-        *parallel,
-        MemStack::new(scratch),
-        params,
-    )
-    .ok()?;
-    (values.y > values.z * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| {
-        let normal = Unit::new_normalize(vectors.column(0).into_owned());
+    let SymmetricEigen { eigenvectors, eigenvalues } = covariance.symmetric_eigen();
+    let (lowest, highest) = (eigenvalues.imin(), eigenvalues.imax());
+    let middle = (0..covariance.nrows()).find(|&axis| axis != lowest && axis != highest)?;
+    (eigenvalues[middle] > eigenvalues[highest] * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| {
+        let normal = Unit::new_normalize(eigenvectors.column(lowest).into_owned());
         if toward.is_some_and(|toward| (toward.coords - centroid).dot(&normal) < 0.0) { -normal } else { normal }
     })
 }

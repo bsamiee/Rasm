@@ -13,6 +13,7 @@ import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import Mark, Ownership, Saved
 from rasm_bpy.data._rna.descriptors import _differing, Value, written
 from rasm_bpy.data._rna.paths import RnaPath
@@ -102,7 +103,7 @@ class Removed(msgspec.Struct, frozen=True, kw_only=True):
                 answer = catch(keyed.interface.tree.links.remove, exception=RuntimeError)(link)
             case node:
                 answer = catch(keyed.interface.tree.nodes.remove, exception=RuntimeError)(node)
-        return answer.map_error(partial(Fault.of, Reason.REFUSED, repr(keyed.interface.tree)))
+        return answer.map_error(partial(Fault.of, Refusal.REFUSED, repr(keyed.interface.tree)))
 
 
 class Added(msgspec.Struct, frozen=True, kw_only=True):

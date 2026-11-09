@@ -21,6 +21,7 @@ import numpy as np
 from numpy.typing import NDArray
 from typing_extensions import TypeForm
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import IdName
 from rasm_bpy.data._rna.paths import _defined, _definition, _definition_at, _rna, _struct_at, Native, RnaPath, root_in, Struct
 from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason, typed
@@ -370,7 +371,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # 
                         setattr(owner, name, native)
                 return Ok(None)
             except (AttributeError, TypeError, ValueError, ReferenceError) as error:
-                return Error(Fault.of(Reason.REFUSED, _rna(self.path), error))
+                return Error(Fault.of(Refusal.REFUSED, _rna(self.path), error))
 
         return Ok(Nothing) if self.equal(held, value) else stored().bind(hosted).bind(placed).map(published)
 

@@ -4,7 +4,7 @@ namespace Darkroom.Chain;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public sealed class Derivations {
+internal sealed class Derivations {
 
     // --- [STATE]
 

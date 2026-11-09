@@ -11,10 +11,10 @@ use itertools::Itertools as _;
 use kurbo::{Affine, Point, Rect, Shape, Size};
 use nonempty_collections::NEVec;
 use rasm_drawing::{
-    Content, Element, Opacity, Placement, Visibility,
+    Content, Element, Opacity, Placement, Unit, Visibility,
     pages::{self, Destination, Link, Page},
 };
-use uom::si::{f64::LinearNumberDensity, linear_number_density::per_millimeter};
+use uom::si::{f64::LinearNumberDensity, ratio::ratio};
 use validated::Validated;
 
 use crate::{DraftingError, Lookup, Style, Subject, text::Typesetter, validated, within};
@@ -88,12 +88,15 @@ impl Set {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Fit {
     Contain(Rect),
-    Density { origin: Point, density: LinearNumberDensity },
+    Density {
+        origin: Point,
+        density: LinearNumberDensity,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn raster(bytes: Arc<[u8]>, fit: Fit, opacity: Opacity) -> Result<Element, DraftingError> {
+pub fn raster(bytes: Arc<[u8]>, fit: Fit, unit: Unit, opacity: Opacity) -> Result<Element, DraftingError> {
     let size @ ImageSize { width, height } = blob_size(&bytes)?;
     let count = |pixels: usize| u32::try_from(pixels).ok().and_then(NonZero::new).map(|counted| f64::from(counted.get()));
     let (across, down) = count(width).zip(count(height)).ok_or(DraftingError::Raster(size))?;
@@ -101,7 +104,7 @@ pub fn raster(bytes: Arc<[u8]>, fit: Fit, opacity: Opacity) -> Result<Element, D
         Fit::Contain(frame) => frame.abs().inscribed_rect_with_aspect_ratio(across / down),
         Fit::Density { origin, density } => {
             (density.is_normal() && density.is_sign_positive()).ok_or(DraftingError::Density(density))?;
-            let per = density.get::<per_millimeter>();
+            let per = (*unit * density).get::<ratio>();
             Rect::from_origin_size(origin, (across / per, down / per))
         }
     };
@@ -123,6 +126,7 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
                 let mut merged = framed.into_iter().flatten().chain(linework).chain(annotation).map(|pages::Layer { name, print: _, view: _, elements }| (name, elements)).into_group_map();
                 Page {
                     size,
+                    unit: style.unit,
                     viewports: flat,
                     layers: table
                         .iter()

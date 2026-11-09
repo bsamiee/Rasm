@@ -5,7 +5,7 @@ import datetime
 import math
 import sys
 from types import MemberDescriptorType
-from typing import Annotated, Final, Self
+from typing import Annotated, Self
 
 from expression import Option, Some
 import msgspec
@@ -15,7 +15,6 @@ from rasm_records._faults import Nothing
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Seed = Annotated[int, msgspec.Meta(ge=0, le=SEED_BOUND)]
 type Finite = Annotated[float, msgspec.Meta(ge=-sys.float_info.max, le=sys.float_info.max)]
 type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
 type Percent = Annotated[float, msgspec.Meta(ge=0.0, le=100.0)]
@@ -30,20 +29,9 @@ type Name = Annotated[str, msgspec.Meta(min_length=1)]
 type Lens = tuple[object, ...]
 type _Parent = tuple[msgspec.Struct, MemberDescriptorType] | tuple[tuple[object, ...], int]
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-SEED_BOUND: Final = 2 ** (np.finfo(np.float32).nmant + 1)
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [BASES]
-
-
-class Knot(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
-    """Curve point."""
-
-    x: float
-    y: float
 
 
 class Frozen(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -171,7 +159,6 @@ def amended[T: msgspec.Struct, V](kind: type[V], record: T, lens: Lens, change: 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "SEED_BOUND",
     "AtLeastOne",
     "Bearing",
     "Case",
@@ -181,7 +168,6 @@ __all__ = [
     "Frozen",
     "History",
     "Inclination",
-    "Knot",
     "Lens",
     "Name",
     "NonNegative",
@@ -189,7 +175,6 @@ __all__ = [
     "Positive",
     "Retention",
     "Rgb",
-    "Seed",
     "Unit",
     "amended",
     "focused",

@@ -148,7 +148,10 @@ pub enum McpError {
         source: matchit::InsertError,
     },
     #[error("resource template {template} expression {{{expression}}} cannot route, use {{x}}, {{/x}}, {{.x}}, a final {{+x}}, {{?x}} or {{&x}}")]
-    Template { template: String, expression: String },
+    Template {
+        template: String,
+        expression: String,
+    },
     #[error("cannot compile tool {tool} input schema")]
     Schema {
         tool: Cow<'static, str>,
@@ -156,18 +159,27 @@ pub enum McpError {
         source: ValidationError<'static>,
     },
     #[error("tool name {tool} breaks MCP tool name format")]
-    ToolName { tool: Cow<'static, str> },
+    ToolName {
+        tool: Cow<'static, str>,
+    },
     #[error("completion names undeclared prompt {prompt}, register prompt before its completion")]
-    Completion { prompt: String },
+    Completion {
+        prompt: String,
+    },
     #[error("{count} declarations failed{listed}", count = .errors.len(), listed = fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
     Declarations {
         #[serde(skip)]
         errors: NEVec<Self>,
     },
     #[error("arguments break tool {tool} input schema, correct each violation at its path and call again")]
-    Arguments { tool: Cow<'static, str>, violations: NEVec<(Location, String)> },
+    Arguments {
+        tool: Cow<'static, str>,
+        violations: NEVec<(Location, String)>,
+    },
     #[error("{uri} names no resource, list resources and resource templates")]
-    ResourceNotFound { uri: String },
+    ResourceNotFound {
+        uri: String,
+    },
     #[error("{uri} variable percent-decodes to invalid UTF-8")]
     Encoding {
         uri: String,
@@ -185,7 +197,9 @@ pub enum McpError {
     #[error("server is shutting down, call again after restart")]
     Stopping,
     #[error("{reason}")]
-    Elicitation { reason: Unanswered },
+    Elicitation {
+        reason: Unanswered,
+    },
     #[error("requested form has no object schema, tool cannot ask question")]
     Form {
         #[serde(skip)]
@@ -350,3 +364,17 @@ mod server;
 
 pub use proxy::Proxy;
 pub use server::{App, CompletionRouter, Elicitation, IntoResourceContents, Registry, ResourceRouter, Server, Settings, ToolError};
+pub use bytes;
+pub use clap;
+pub use jsonschema;
+pub use matchit;
+pub use nonempty_collections;
+pub use rasm_command;
+pub use rasm_daemon;
+pub use rmcp;
+pub use serde;
+pub use serde_json;
+pub use serde_path_to_error;
+pub use sysexits;
+pub use tokio;
+pub use url;

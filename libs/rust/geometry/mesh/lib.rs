@@ -127,7 +127,7 @@ impl Solid {
     }
 
     pub fn hull_solids<'solids>(solids: impl IntoIterator<Item = &'solids Self>) -> Result<Option<Self>, MeshError> {
-        Self::checked(Operation::Hull, Manifold::hull(&solids.into_iter().flat_map(|solid| solid.0.as_impl().vert_pos.iter().copied()).collect::<Vec<_>>()), None)
+        Self::checked(Operation::Hull, Manifold::hull_manifolds(&solids.into_iter().map(|solid| solid.0.clone()).collect::<Vec<_>>()), None)
     }
 
     fn checked(operation: Operation, manifold: Manifold, token: Option<&CancelToken>) -> Result<Option<Self>, MeshError> {
@@ -156,11 +156,20 @@ impl Solid {
 #[derive(Debug, thiserror::Error)]
 pub enum MeshError {
     #[error("{operation} failed: {status}")]
-    Kernel { operation: Operation, status: Error },
+    Kernel {
+        operation: Operation,
+        status: Error,
+    },
     #[error("{operation} produced a surface that is {defect}")]
-    Invalid { operation: Operation, defect: Defect },
+    Invalid {
+        operation: Operation,
+        defect: Defect,
+    },
     #[error("{operation} built no triangle mesh")]
-    Mesh { operation: Operation, source: TriMeshBuilderError },
+    Mesh {
+        operation: Operation,
+        source: TriMeshBuilderError,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -226,8 +235,13 @@ mod sections;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use booleans::{Csg, Minkowski, boolean, minkowski};
+pub use bounded_integer;
 pub use decomposition::decompose;
+pub use manifold_rust;
 pub use measures::{Curvature, Measures, curvature, measure};
+pub use meshopt;
+pub use nalgebra;
+pub use parry3d_f64;
 pub use reduction::{Cloud, Reduction, Simplifier, reduce, reduce_points, simplify};
 pub use refinement::{Refinement, Smoothing, refine};
 pub use sections::{Contour, Trim, contours, segments, split, trim};

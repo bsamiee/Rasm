@@ -6,6 +6,7 @@ packages:
     - 'tests/typescript/**'
     - 'plugins/*'
     - 'infra'
+    - 'tools/ast-grep'
 catalogMode: strict
 saveExact: true
 minimumReleaseAge: 0
@@ -32,6 +33,8 @@ catalog:
 
     fast-xml-builder: 1.3.1
     fast-xml-parser: 5.11.2
+    '@xml-tools/parser': 1.0.12 # XML syntax tree with token offsets
+    '@xml-tools/ast': 5.0.6 # XML elements and attributes over parser tokens, for edits keeping layout
     cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
 
     # --- [TEXT]
@@ -47,11 +50,6 @@ catalog:
 
     '@parcel/watcher': 2.6.0
     minimatch: 11.0.3
-
-    # --- [REMOTE_PROCEDURE_CALLS]
-
-    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for argus MCP server
-    '@noble/hashes': 2.4.0 # HMAC for Effect's Mac in UXP and CEP plugins, which hold no crypto.subtle
 
     # --- [TRANSFER]
 
@@ -174,6 +172,24 @@ catalog:
     # --- [LINTING]
 
     '@biomejs/biome': 2.6.6
+    publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
+    refa: 0.12.1    # Regular expression character classes the ast-grep catalogs compare
+
+    # --- [GRAMMARS]
+
+    '@tree-sitter-grammars/tree-sitter-toml': 0.7.0
+    '@tree-sitter-grammars/tree-sitter-xml': github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
+    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2                           # Release ast-grep 0.51.1 bundles, npm stops at 0.7.1
+    tree-sitter-bash: 0.25.1
+    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5                  # Master commit holding C# 14 `extension` declarations, release 0.23.5 stops at C# 13
+    tree-sitter-java: 0.23.5
+    tree-sitter-javascript: 0.25.0
+    tree-sitter-postgres: 19.0.0-beta.4.1
+    tree-sitter-python: 0.25.0
+    tree-sitter-rust: github:tree-sitter/tree-sitter-rust#v0.24.2
+    tree-sitter-sqlite3: 0.1.0
+    tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#9e3b87f66f1fd2f3b931376fd3723ab788e337c3
+    tree-sitter-typescript: 0.23.2
 
     # --- [VERSIONING]
 
@@ -217,6 +233,12 @@ catalogs:
         nx: ^24.0.0
         typescript: '>=7.1.0-0'
         '@pulumi/pulumi': ^3.274.0-0
+        '@effect/platform-node': ^4.0.0
+        '@aws-sdk/client-s3': ^3.0.0
+        cf: ^1.0.0-0
+        '@vite-pwa/assets-generator': ^2.0.0
+        culori: ^4.0.0
+        postcss: ^8.0.0
 
 # --- [OVERRIDES] ------------------------------------------------------------------------
 
@@ -228,6 +250,8 @@ overrides:
     vite>@vitejs/devtools: 'catalog:'
     '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
     '@vitejs/plugin-react>@rolldown/plugin-babel': 'catalog:'
+    tree-sitter: '-'     # Node bindings the grammar packages name as peers, the build compiles their C sources alone
+    tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 
@@ -236,11 +260,24 @@ allowBuilds:
     '@parcel/watcher': true
     '@pulumi/docker': false
     '@pulumi/docker-build': false
+    '@tree-sitter-grammars/tree-sitter-toml': false
+    '@tree-sitter-grammars/tree-sitter-xml': false
+    '@tree-sitter-grammars/tree-sitter-yaml': false
     cpu-features: false
     esbuild: true
     nx: true
     protobufjs: true
     ssh2: false
+    tree-sitter-bash: false
+    tree-sitter-c-sharp: false
+    tree-sitter-java: false
+    tree-sitter-javascript: false
+    tree-sitter-postgres: false
+    tree-sitter-python: false
+    tree-sitter-rust: false
+    tree-sitter-sqlite3: false
+    tree-sitter-swift: false
+    tree-sitter-typescript: false
     workerd: true
 
 # --- [SKILLS] ---------------------------------------------------------------------------

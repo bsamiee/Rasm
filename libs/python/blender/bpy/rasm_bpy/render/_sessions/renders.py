@@ -16,7 +16,8 @@ import msgspec
 from rasm_bpy.commands.invocations import Popup
 from rasm_bpy.commands.operators import BoundBody, Call, called, Done, Operator, PopupKind, PopupTarget
 from rasm_bpy.data._extension.identity import Identity
-from rasm_bpy.data._extension.registration import Acquisitions, Declaration, Handler
+from rasm_bpy.data._extension.registration import _Startup, Acquisitions, Declaration
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Scenes, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
 from rasm_bpy.data._rna.paths import RnaPath, rooted
@@ -240,7 +241,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         case TargetSlot.DISPLAYED:
                             return Option.of_optional(slots.active).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(image), member="render_slots.active")).bind(renamed)
                         case TargetSlot.NEW:
-                            return catch(slots.new, exception=RuntimeError)(name=title).map_error(partial(Fault.of, Reason.REFUSED, f"{image!r}.render_slots.new")).bind(partial(added, image))
+                            return catch(slots.new, exception=RuntimeError)(name=title).map_error(partial(Fault.of, Refusal.REFUSED, f"{image!r}.render_slots.new")).bind(partial(added, image))
 
                 def renamed(slot: bpy.types.RenderSlot) -> Outcome[None]:
                     rollback.callback(written, slot, ("name",), slot.name)
@@ -276,7 +277,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return outcome.or_else_with(lambda faults: paired(Error(faults), bound.restored(day, scene)).map(lambda _: Done()))
 
         def checked(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Outcome[Done]:
-            return bound.recovery.stored.read(scene).bind(lambda held: Error(Fault.of(Reason.TAKEN, repr(scene), member=bound.recovery.stored.name)) if held.is_some() else scene_render(scene, layer))
+            return bound.recovery.stored.read(scene).bind(lambda held: Error(Fault.of(Refusal.TAKEN, repr(scene), member=bound.recovery.stored.name)) if held.is_some() else scene_render(scene, layer))
 
         def selected(scene: bpy.types.Scene) -> Outcome[Done]:
             def launched(layer: bpy.types.ViewLayer) -> Outcome[Done]:
@@ -289,25 +290,22 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [REGISTRATION]
 
-    @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
-        """Holds declarations and override recovery, restoring held scenes at file load, after a crash left them, and at scope exit."""
-        with ExitStack() as scope:
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+        """Builds declarations and override recovery, restoring the scenes an unfinished render left held after every file load and once registration ends."""
 
-            def built(bound: RenderBinding) -> Outcome[Acquisitions]:
-                def loaded() -> Outcome[None]:
-                    return accumulated(map(partial(bound.restored, _today()), bpy.data.scenes)).map(lambda _: None)
+        def built(bound: RenderBinding) -> Outcome[Acquisitions]:
+            def loaded() -> Outcome[None]:
+                return accumulated(map(partial(bound.restored, _today()), bpy.data.scenes)).map(lambda _: None)
 
-                scope.callback(lambda: identity.reports.reported(loaded)().to_optional())
-                return Ok((
-                    PresetMenu(source=Captured(preset=self.presets, scope=Scenes(), selection=(("render",), ("cycles",), ("eevee",)))),
-                    PresetMenu(source=Captured(preset=self.bakes, scope=Scenes(), selection=(("render", "bake"),))),
-                    self.rendering,
-                    self.viewporting,
-                    Handler(handlers=bpy.app.handlers.load_post, body=loaded),
-                ))
+            return Ok((
+                PresetMenu(source=Captured(preset=self.presets, scope=Scenes(), selection=(("render",), ("cycles",), ("eevee",)))),
+                PresetMenu(source=Captured(preset=self.bakes, scope=Scenes(), selection=(("render", "bake"),))),
+                self.rendering,
+                self.viewporting,
+                _Startup(body=loaded),
+            ))
 
-            yield self.bound(identity).bind(built)
+        return self.bound(identity).bind(built)
 
     # --- [SECTIONS]
 

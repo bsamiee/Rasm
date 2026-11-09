@@ -14,8 +14,8 @@ import OpenImageIO
 from rasm_bpy.data import Identity
 from rasm_bpy.nodes import column, decoded, Interface, InterfacePanel, Noise, POSITION, sampled, Voronoi, W
 from rasm_bpy.render import CLOCK, Clock, CompositorEffect, CompositorRecord, Mix, precise, Prepared, SEED, Stage, toggled, value
-from rasm_imaging import buffers, Estimate, footprint, Population, Precision, Raster, smoothstep, stream, uniforms
-from rasm_records import accumulated, AtLeastOne, NonNegative, Ok, Outcome, paired, Positive, Seed, Unit
+from rasm_imaging import buffers, Estimate, footprint, Population, Precision, Raster, Seed, smoothstep, stream, uniforms
+from rasm_records import accumulated, AtLeastOne, NonNegative, Ok, Outcome, paired, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

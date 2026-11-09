@@ -28,7 +28,7 @@ internal interface IPixelStage<TSelf> where TSelf : IPixelStage<TSelf> {
 // --- [MODELS] --------------------------------------------------------------------------
 
 [SmartEnum<RenderWindow.StandardChannels>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class GuideChannel {
+internal sealed partial class GuideChannel {
     private const float Background = 1e10f;
 
     public static readonly GuideChannel Depth = new(RenderWindow.StandardChannels.DistanceFromCamera, static (frame, meters) =>
@@ -47,9 +47,9 @@ public sealed partial class GuideChannel {
     public partial PixelFrame Measured(PixelFrame frame, float meters);
 }
 
-public sealed record SceneLights(Option<Vector3> Sun, HashMap<Guid, Vector3> Points, HashMap<Guid, Vector3> Directions);
+internal sealed record SceneLights(Option<Vector3> Sun, HashMap<Guid, Vector3> Points, HashMap<Guid, Vector3> Directions);
 
-public sealed record PassContext(
+internal sealed record PassContext(
     PixelExtent Extent, Gamut Working, DisplayDevice Display, Option<OutputDepth> Depth, Transfer Signal, double Exposure,
     Option<Camera> Camera, HashMap<GuideChannel, PixelFrame> Guides, Option<Duration> Time, Option<SceneLights> Lights, Derivations Derivations, GaussLegendreRule Integration) {
     public bool Rendering { get; init; }

@@ -1,6 +1,5 @@
-"""Record files, atomic writes, command arguments, content hashes and the generators they seed, and mirror paths."""
+"""Record files, atomic writes, content hashes, and mirror paths."""
 
-import base64
 from collections.abc import Callable, Iterable
 from contextlib import ExitStack
 from datetime import datetime
@@ -208,20 +207,6 @@ def files_copied(pairs: Iterable[tuple[Path, Path]]) -> Outcome[tuple[Path, ...]
     return accumulated(starmap(one, sorted(frozenset(pairs))))
 
 
-# --- [ARGUMENTS]
-
-
-def argument(record: msgspec.Struct) -> str:
-    """Returns the command argument holding record, base64 JSON that no shell, worker, or host argument parser rewrites."""
-    return base64.b64encode(msgspec.json.encode(record)).decode("ascii")
-
-
-def argued[T](decoder: msgspec.json.Decoder[T], subject: str, text: str, /) -> Outcome[T]:
-    """Returns the record a command argument holds, `UNREADABLE` fault over subject for text no `argument` wrote."""
-    unreadable = partial(Fault.of, Reason.UNREADABLE, subject)
-    return catch(base64.b64decode, exception=ValueError)(text, validate=True).map_error(unreadable).bind(lambda data: catch(decoder.decode, exception=msgspec.DecodeError)(data).map_error(unreadable))
-
-
 # --- [HASHES]
 
 
@@ -267,11 +252,6 @@ def content_hash(
     return hasher.digest()
 
 
-def rng(content: ContentHash, *key: int) -> np.random.Generator:
-    """Seeds independent generator from content hash and key."""
-    return np.random.default_rng(np.random.SeedSequence(int.from_bytes(content, "little"), spawn_key=key))
-
-
 # --- [PATHS]
 
 
@@ -288,20 +268,4 @@ def existing(path: Path) -> Path:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "ContentHash",
-    "Provider",
-    "RecordFile",
-    "argued",
-    "argument",
-    "committed",
-    "content_hash",
-    "existing",
-    "files_copied",
-    "folder_made",
-    "mirrored",
-    "no_clobber_move",
-    "read",
-    "removed",
-    "rng",
-]
+__all__ = ["ContentHash", "Provider", "RecordFile", "committed", "content_hash", "existing", "files_copied", "folder_made", "mirrored", "no_clobber_move", "read", "removed"]

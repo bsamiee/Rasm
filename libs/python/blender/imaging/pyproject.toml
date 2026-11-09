@@ -4,7 +4,7 @@
 name            = "rasm-imaging"
 version         = "0.0.0"
 description     = "Image science: OCIO color, film formation, OIIO and EXR files, lenses and panoramas, sampling, and metering"
-requires-python = "==3.13.*"
+requires-python = ">=3.13"
 
 dependencies = [
     # --- [CORE]
@@ -23,7 +23,7 @@ dependencies = [
 
     "colour-science", # CIE observer datasets, transfer functions, and colorimetry
     "imagecodecs",    # In-memory JPEG encoding and decoding for compressed image generations
-    "matplotlib",     # Colour imports its plotting API eagerly
+    "matplotlib",     # Colour imports its plotting API eagerly and mocks it into the shared interpreter without it
     "opencolorio",    # Color processing, config authoring, and LUT baking
     "openimageio",    # Image IO and analysis
     "psdtags",        # Photoshop layer records for layered documents

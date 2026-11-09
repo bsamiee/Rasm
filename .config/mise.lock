@@ -2133,6 +2133,58 @@ checksum_source = "mise-versions"
 url = "https://github.com/linebender/resvg/releases/download/v0.49.0/usvg-win-x86_64.zip"
 url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/672462722"
 
+[[tools."github:pmd/pmd"]]
+version = "7.29.0"
+backend = "github:pmd/pmd"
+specifiers = ["latest"]
+
+[tools."github:pmd/pmd".options]
+asset_pattern = "pmd-dist-*-bin.zip"
+version_prefix = "pmd_releases/"
+version_regex = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
+
+[tools."github:pmd/pmd"."platforms.linux-arm64"]
+checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
+checksum_source = "mise-versions"
+url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
+url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
+
+[tools."github:pmd/pmd"."platforms.linux-arm64-musl"]
+checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
+checksum_source = "mise-versions"
+url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
+url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
+
+[tools."github:pmd/pmd"."platforms.linux-x64"]
+checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
+checksum_source = "mise-versions"
+url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
+url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
+
+[tools."github:pmd/pmd"."platforms.linux-x64-musl"]
+checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
+checksum_source = "mise-versions"
+url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
+url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
+
+[tools."github:pmd/pmd"."platforms.macos-arm64"]
+checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
+checksum_source = "mise-versions"
+url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
+url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
+
+[tools."github:pmd/pmd"."platforms.macos-x64"]
+checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
+checksum_source = "mise-versions"
+url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
+url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
+
+[tools."github:pmd/pmd"."platforms.windows-x64"]
+checksum = "sha256:d27177c185b837fa57f097e482d1253468aa035379c5eb2671fa0a279109b179"
+checksum_source = "mise-versions"
+url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist-7.29.0-bin.zip"
+url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
+
 [[tools."github:sbdchd/squawk"]]
 version = "2.71.0"
 backend = "github:sbdchd/squawk"
@@ -2217,6 +2269,47 @@ checksum = "sha256:ab3f54d488992936de67aa5b4f4c8824ce2814c410650df5355b8993eba87
 url = "https://github.com/trailofbits/dylint/releases/download/v6.3.2/cargo-dylint-aarch64-apple-darwin-v6.3.2.tar.gz"
 url_api = "https://api.github.com/repos/trailofbits/dylint/releases/assets/693220757"
 provenance = "github-attestations"
+
+[[tools.google-java-format]]
+version = "2.0.0"
+backend = "aqua:google/google-java-format"
+specifiers = ["latest"]
+
+[tools.google-java-format."platforms.linux-arm64"]
+checksum = "sha256:3193ae2e3a32634a45effc9f575005e7adf202699ab4d9d6488ff1a715588d10"
+checksum_source = "mise-versions"
+url = "https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format_linux-arm64"
+url_api = "https://api.github.com/repos/google/google-java-format/releases/assets/692101364"
+
+[tools.google-java-format."platforms.linux-arm64-musl"]
+checksum = "sha256:3193ae2e3a32634a45effc9f575005e7adf202699ab4d9d6488ff1a715588d10"
+checksum_source = "mise-versions"
+url = "https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format_linux-arm64"
+url_api = "https://api.github.com/repos/google/google-java-format/releases/assets/692101364"
+
+[tools.google-java-format."platforms.linux-x64"]
+checksum = "sha256:c351f587e6dd1f11836be7296894ea2ab3bd91847dbd14101f4f04d390380fe9"
+checksum_source = "mise-versions"
+url = "https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format_linux-x86-64"
+url_api = "https://api.github.com/repos/google/google-java-format/releases/assets/692101694"
+
+[tools.google-java-format."platforms.linux-x64-musl"]
+checksum = "sha256:c351f587e6dd1f11836be7296894ea2ab3bd91847dbd14101f4f04d390380fe9"
+checksum_source = "mise-versions"
+url = "https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format_linux-x86-64"
+url_api = "https://api.github.com/repos/google/google-java-format/releases/assets/692101694"
+
+[tools.google-java-format."platforms.macos-arm64"]
+checksum = "sha256:04b13ad486bcc29ef64f7168c2d3eb330e73ae458610ba5bcf44f6018b655dc4"
+checksum_source = "mise-versions"
+url = "https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format_darwin-arm64"
+url_api = "https://api.github.com/repos/google/google-java-format/releases/assets/692102152"
+
+[tools.google-java-format."platforms.windows-x64"]
+checksum = "sha256:6e757021d3b5a8133ca3b5b1915c4cf38dc46ad0886bc9059fcc2ccb7b6036e5"
+checksum_source = "mise-versions"
+url = "https://github.com/google/google-java-format/releases/download/v2.0.0/google-java-format_windows-x86-64.exe"
+url_api = "https://api.github.com/repos/google/google-java-format/releases/assets/692103218"
 
 [[tools.hk]]
 version = "2.11.1"

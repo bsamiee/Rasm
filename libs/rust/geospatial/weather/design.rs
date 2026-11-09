@@ -1,10 +1,10 @@
 use core::f64::consts::PI;
 
 use csv::StringRecord;
-use dashu::base::ConversionError;
 use itertools::Itertools as _;
 use jiff::civil;
 use nalgebra::Vector2;
+use rasm_site::Place;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use statrs::{
@@ -49,20 +49,29 @@ pub struct Design {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Edition {
-    Ashrae2009 { hours: Option<Time> },
-    Ashrae2017 { minimum_wet_bulb: Option<ThermodynamicTemperature> },
-    Ashrae2021 { shielding: Option<Frequency> },
-    Ashrae2025 { shielding: Option<Frequency>, wet_bulb: Annual },
+    Ashrae2009 {
+        hours: Option<Time>,
+    },
+    Ashrae2017 {
+        minimum_wet_bulb: Option<ThermodynamicTemperature>,
+    },
+    Ashrae2021 {
+        shielding: Option<Frequency>,
+    },
+    Ashrae2025 {
+        shielding: Option<Frequency>,
+        wet_bulb: Annual,
+    },
 }
 
 #[serde_as]
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Humidification {
-    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde_as(as = "Option<Stated<Temperature, 0>>")]
     pub dew_point: Option<ThermodynamicTemperature>,
-    #[serde_as(as = "Option<Stated<MoistureRatio>>")]
+    #[serde_as(as = "Option<Stated<MoistureRatio, 0>>")]
     pub humidity_ratio: Option<Ratio>,
-    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde_as(as = "Option<Stated<Temperature, 0>>")]
     pub dry_bulb: Option<ThermodynamicTemperature>,
 }
 
@@ -70,12 +79,12 @@ pub struct Humidification {
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Heating {
     pub month: Option<i8>,
-    #[serde_as(as = "[Option<Stated<Temperature>>; 2]")]
+    #[serde_as(as = "[Option<Stated<Temperature, 0>>; 2]")]
     pub dry_bulb: [Option<ThermodynamicTemperature>; 2],
     pub humidification: [Humidification; 2],
-    #[serde_as(as = "[(Option<Stated<Speed>>, Option<Stated<Temperature>>); 2]")]
+    #[serde_as(as = "[(Option<Stated<Speed, 0>>, Option<Stated<Temperature, 0>>); 2]")]
     pub wind: [(Option<Velocity>, Option<ThermodynamicTemperature>); 2],
-    #[serde_as(as = "(Option<Stated<Speed>>, Option<Stated<Direction>>)")]
+    #[serde_as(as = "(Option<Stated<Speed, 0>>, Option<Stated<Direction, 0>>)")]
     pub coincident: (Option<Velocity>, Option<Angle>),
 }
 
@@ -83,27 +92,27 @@ pub struct Heating {
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Cooling {
     pub month: Option<i8>,
-    #[serde_as(as = "Option<Stated<Interval>>")]
+    #[serde_as(as = "Option<Stated<Interval, 0>>")]
     pub range: Option<TemperatureInterval>,
-    #[serde_as(as = "[(Option<Stated<Temperature>>, Option<Stated<Temperature>>); 3]")]
+    #[serde_as(as = "[(Option<Stated<Temperature, 0>>, Option<Stated<Temperature, 0>>); 3]")]
     pub dry_bulb: [(Option<ThermodynamicTemperature>, Option<ThermodynamicTemperature>); 3],
-    #[serde_as(as = "[(Option<Stated<Temperature>>, Option<Stated<Temperature>>); 3]")]
+    #[serde_as(as = "[(Option<Stated<Temperature, 0>>, Option<Stated<Temperature, 0>>); 3]")]
     pub wet_bulb: [(Option<ThermodynamicTemperature>, Option<ThermodynamicTemperature>); 3],
-    #[serde_as(as = "(Option<Stated<Speed>>, Option<Stated<Direction>>)")]
+    #[serde_as(as = "(Option<Stated<Speed, 0>>, Option<Stated<Direction, 0>>)")]
     pub coincident: (Option<Velocity>, Option<Angle>),
     pub dehumidification: [Humidification; 3],
-    #[serde_as(as = "[(Option<Stated<Enthalpy>>, Option<Stated<Temperature>>); 3]")]
+    #[serde_as(as = "[(Option<Stated<Enthalpy, 0>>, Option<Stated<Temperature, 0>>); 3]")]
     pub enthalpy: [(Option<AvailableEnergy>, Option<ThermodynamicTemperature>); 3],
 }
 
 #[serde_as]
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
 pub struct Annual {
-    #[serde_as(as = "[Option<Stated<Temperature>>; 2]")]
+    #[serde_as(as = "[Option<Stated<Temperature, 0>>; 2]")]
     pub mean: [Option<ThermodynamicTemperature>; 2],
-    #[serde_as(as = "[Option<Stated<Interval>>; 2]")]
+    #[serde_as(as = "[Option<Stated<Interval, 0>>; 2]")]
     pub deviation: [Option<TemperatureInterval>; 2],
-    #[serde_as(as = "[[Option<Stated<Temperature>>; 2]; 4]")]
+    #[serde_as(as = "[[Option<Stated<Temperature, 0>>; 2]; 4]")]
     pub returns: [[Option<ThermodynamicTemperature>; 2]; 4],
 }
 
@@ -124,12 +133,12 @@ struct Ashrae2009<'source> {
     heating: Heating,
     cooling_label: Heading,
     cooling: Cooling,
-    #[serde_as(as = "Option<Stated<Elapsed>>")]
+    #[serde_as(as = "Option<Stated<Elapsed, 0>>")]
     hours: Option<Time>,
     extremes_label: Heading,
-    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    #[serde_as(as = "[Option<Stated<Speed, 0>>; 3]")]
     wind: [Option<Velocity>; 3],
-    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde_as(as = "Option<Stated<Temperature, 0>>")]
     wet_bulb: Option<ThermodynamicTemperature>,
     dry_bulb: Annual,
 }
@@ -144,13 +153,13 @@ struct Ashrae2017<'source> {
     heating: Heating,
     cooling_label: Heading,
     cooling: Cooling,
-    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde_as(as = "Option<Stated<Temperature, 0>>")]
     wet_bulb: Option<ThermodynamicTemperature>,
     extremes_label: Heading,
-    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    #[serde_as(as = "[Option<Stated<Speed, 0>>; 3]")]
     wind: [Option<Velocity>; 3],
     dry_bulb: Annual,
-    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde_as(as = "Option<Stated<Temperature, 0>>")]
     #[serde(skip_serializing_if = "Option::is_none")]
     minimum_wet_bulb: Option<ThermodynamicTemperature>,
 }
@@ -163,14 +172,14 @@ struct Ashrae2021<'source> {
     blank: &'source str,
     heating_label: Heading,
     heating: Heating,
-    #[serde_as(as = "Option<Stated<Shielding>>")]
+    #[serde_as(as = "Option<Stated<Shielding, 0>>")]
     shielding: Option<Frequency>,
     cooling_label: Heading,
     cooling: Cooling,
-    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde_as(as = "Option<Stated<Temperature, 0>>")]
     wet_bulb: Option<ThermodynamicTemperature>,
     extremes_label: Heading,
-    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    #[serde_as(as = "[Option<Stated<Speed, 0>>; 3]")]
     wind: [Option<Velocity>; 3],
     dry_bulb: Annual,
 }
@@ -182,14 +191,14 @@ struct Ashrae2025<'source> {
     source: &'source str,
     heating_label: Heading,
     heating: Heating,
-    #[serde_as(as = "Option<Stated<Shielding>>")]
+    #[serde_as(as = "Option<Stated<Shielding, 0>>")]
     shielding: Option<Frequency>,
     cooling_label: Heading,
     cooling: Cooling,
-    #[serde_as(as = "Option<Stated<Temperature>>")]
+    #[serde_as(as = "Option<Stated<Temperature, 0>>")]
     wet_bulb: Option<ThermodynamicTemperature>,
     extremes_label: Heading,
-    #[serde_as(as = "[Option<Stated<Speed>>; 3]")]
+    #[serde_as(as = "[Option<Stated<Speed, 0>>; 3]")]
     wind: [Option<Velocity>; 3],
     dry_bulb: Annual,
     annual_wet_bulb: Annual,
@@ -213,7 +222,8 @@ pub fn profile(peak: ThermodynamicTemperature, range: TemperatureInterval) -> [T
     RANGE_FRACTIONS.map(|fraction| peak - range * fraction)
 }
 
-pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Design, WeatherError> {
+pub fn computed<S>(hours: &Hours<S>, source: String, coincidence: Ratio) -> Result<Design, WeatherError>
+where S: AsRef<Place> {
     type Sample<'hour> = (civil::DateTime, &'hour Hour, Option<Psychrometrics>);
     const HEATING: [f64; 2] = [0.004, 0.01];
     const COOLING: [f64; 3] = [0.996, 0.99, 0.98];
@@ -233,13 +243,11 @@ pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Des
         let low = low.min(ranked.len().saturating_sub(1));
         &ranked[low..high.max(low.strict_add(1)).min(ranked.len())]
     }
-    fn average<'sample, T>(within: impl IntoIterator<Item = &'sample T>, field: impl Fn(&T) -> Option<f64>) -> Result<Option<f64>, ConversionError>
+    fn average<'sample, T>(within: impl IntoIterator<Item = &'sample T>, field: impl Fn(&T) -> Option<f64>) -> Option<f64>
     where T: 'sample {
         weighted(within.into_iter().filter_map(|sample| field(sample).map(|value| (value, 1.0))))
     }
-    fn coincident<T>(within: &[(f64, &T)], share: f64, band: f64, other: impl Fn(&T) -> Option<f64>) -> Result<Option<f64>, ConversionError> {
-        average(window(within, share, band).iter().map(|&(_, sample)| sample), other)
-    }
+    fn coincident<T>(within: &[(f64, &T)], share: f64, band: f64, other: impl Fn(&T) -> Option<f64>) -> Option<f64> { average(window(within, share, band).iter().map(|&(_, sample)| sample), other) }
     let band = coincidence.get::<ratio>();
     let samples = hours
         .records
@@ -266,14 +274,13 @@ pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Des
         (toward.norm() > 0.0).then(|| bearing(toward))
     };
     let monthly = samples.iter().into_group_map_by(|sample| sample.0.month());
-    let (coldest, hottest) =
-        monthly.iter().filter_map(|(&month, within)| average(within.iter().copied(), dry_bulb).map(|mean| mean.map(|mean| (month, mean))).transpose()).process_results(|means| {
-            means
-                .minmax_by(|(left_month, colder), (right_month, warmer)| colder.total_cmp(warmer).then(left_month.cmp(right_month)))
-                .into_option()
-                .map(|((coldest, _), (hottest, _))| (coldest, hottest))
-                .unzip()
-        })?;
+    let (coldest, hottest) = monthly
+        .iter()
+        .filter_map(|(&month, within)| average(within.iter().copied(), dry_bulb).map(|mean| (month, mean)))
+        .minmax_by(|(left_month, colder), (right_month, warmer)| colder.total_cmp(warmer).then(left_month.cmp(right_month)))
+        .into_option()
+        .map(|((coldest, _), (hottest, _))| (coldest, hottest))
+        .unzip();
     let within = |month: Option<i8>| month.and_then(|month| monthly.get(&month)).map_or(&[][..], Vec::as_slice);
     let cold_wind = ranked(within(coldest).iter().copied(), speed);
     let range = within(hottest)
@@ -284,12 +291,10 @@ pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Des
         .sorted_by_key(|&(date, _)| date)
         .filter_map(|(_, day)| day.into_iter().filter_map(dry_bulb).minmax_by(f64::total_cmp).into_option())
         .map(|(low, high)| (high - low, 1.0));
-    let humidification = |share: f64| {
-        Ok::<_, ConversionError>(Humidification {
-            dew_point: temperature(level(&samples, dew_point, share)),
-            humidity_ratio: coincident(&dew, share, band, humidity_ratio)?.map(Ratio::new::<ratio>),
-            dry_bulb: temperature(coincident(&dew, share, band, dry_bulb)?),
-        })
+    let humidification = |share: f64| Humidification {
+        dew_point: temperature(level(&samples, dew_point, share)),
+        humidity_ratio: coincident(&dew, share, band, humidity_ratio).map(Ratio::new::<ratio>),
+        dry_bulb: temperature(coincident(&dew, share, band, dry_bulb)),
     };
     let yearly = samples
         .iter()
@@ -313,22 +318,18 @@ pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Des
         heating: Heating {
             month: coldest,
             dry_bulb: HEATING.map(|share| temperature(level(&samples, dry_bulb, share))),
-            humidification: HEATING.try_map(humidification)?,
-            wind: HEATING
-                .map(|share| 1.0 - share)
-                .try_map(|share| Ok::<_, ConversionError>((velocity(level(within(coldest), |sample| speed(sample), share)), temperature(coincident(&cold_wind, share, band, dry_bulb)?))))?,
-            coincident: (velocity(coincident(&dry, HEATING[0], band, speed)?), prevailing(HEATING[0])),
+            humidification: HEATING.map(humidification),
+            wind: HEATING.map(|share| 1.0 - share).map(|share| (velocity(level(within(coldest), |sample| speed(sample), share)), temperature(coincident(&cold_wind, share, band, dry_bulb)))),
+            coincident: (velocity(coincident(&dry, HEATING[0], band, speed)), prevailing(HEATING[0])),
         },
         cooling: Cooling {
             month: hottest,
-            range: weighted(range)?.map(TemperatureInterval::new::<temperature_interval::kelvin>),
-            dry_bulb: COOLING.try_map(|share| Ok::<_, ConversionError>((temperature(level(&samples, dry_bulb, share)), temperature(coincident(&dry, share, band, wet_bulb)?))))?,
-            wet_bulb: COOLING.try_map(|share| Ok::<_, ConversionError>((temperature(level(&samples, wet_bulb, share)), temperature(coincident(&wet, share, band, dry_bulb)?))))?,
-            coincident: (velocity(coincident(&dry, COOLING[0], band, speed)?), prevailing(COOLING[0])),
-            dehumidification: COOLING.try_map(humidification)?,
-            enthalpy: COOLING.try_map(|share| {
-                Ok::<_, ConversionError>((level(&samples, enthalpy, share).map(AvailableEnergy::new::<joule_per_kilogram>), temperature(coincident(&energy, share, band, dry_bulb)?)))
-            })?,
+            range: weighted(range).map(TemperatureInterval::new::<temperature_interval::kelvin>),
+            dry_bulb: COOLING.map(|share| (temperature(level(&samples, dry_bulb, share)), temperature(coincident(&dry, share, band, wet_bulb)))),
+            wet_bulb: COOLING.map(|share| (temperature(level(&samples, wet_bulb, share)), temperature(coincident(&wet, share, band, dry_bulb)))),
+            coincident: (velocity(coincident(&dry, COOLING[0], band, speed)), prevailing(COOLING[0])),
+            dehumidification: COOLING.map(humidification),
+            enthalpy: COOLING.map(|share| (level(&samples, enthalpy, share).map(AvailableEnergy::new::<joule_per_kilogram>), temperature(coincident(&energy, share, band, dry_bulb)))),
         },
         extremes: Extremes {
             wind: WIND.map(|share| velocity(level(&samples, speed, share))),

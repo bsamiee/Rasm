@@ -10,7 +10,7 @@ use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use parlance::{FontFamily, FontFeature, ParseFontFamilyError};
 use rasm_drawing::{
-    Anchor, Baseline, Color, Element, FontSize, FontStyle, FontWeight, FontWidth, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, Region, Tolerance, ToleranceError, Width,
+    Anchor, Baseline, Color, Element, FontSize, FontStyle, FontWeight, FontWidth, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, Region, Tolerance, ToleranceError, Unit, Width,
     regions, transform,
 };
 use skrifa::ScaleError;
@@ -19,8 +19,8 @@ use uom::{
     si::{
         angle::radian,
         f64::{Angle, Length, LinearNumberDensity},
-        length::millimeter,
         linear_number_density::per_millimeter,
+        ratio::ratio,
     },
 };
 use validated::Validated;
@@ -91,9 +91,15 @@ pub enum Subject {
     #[display("item {_0}")]
     Item(usize),
     #[display("{lookup} {name}")]
-    Named { lookup: Lookup, name: Arc<str> },
+    Named {
+        lookup: Lookup,
+        name: Arc<str>,
+    },
     #[display("cell at row {row}, column {column}")]
-    Cell { row: usize, column: usize },
+    Cell {
+        row: usize,
+        column: usize,
+    },
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -103,7 +109,10 @@ pub struct IncludedAngle(Angle);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Head {
-    Arrow { angle: IncludedAngle, arrowhead: Arrowhead },
+    Arrow {
+        angle: IncludedAngle,
+        arrowhead: Arrowhead,
+    },
     Oblique,
     Dot,
     Origin,
@@ -140,6 +149,7 @@ pub struct Style {
     pub dimension: dimensions::Style,
     pub leader: leaders::Style,
     pub arrow: Terminator,
+    pub unit: Unit,
     pub tolerance: Tolerance,
 }
 
@@ -196,15 +206,29 @@ pub enum DraftingError {
     #[error(transparent)]
     Svg(#[from] usvg::Error),
     #[error("font {position} holds no readable face")]
-    Font { position: usize },
+    Font {
+        position: usize,
+    },
     #[error("font family list {list} fails to parse")]
-    Stack { list: Arc<str>, source: ParseFontFamilyError },
+    Stack {
+        list: Arc<str>,
+        source: ParseFontFamilyError,
+    },
     #[error("no {lookup} named {name}")]
-    Unknown { lookup: Lookup, name: Arc<str> },
+    Unknown {
+        lookup: Lookup,
+        name: Arc<str>,
+    },
     #[error("face {index} {defect}")]
-    Face { index: u32, defect: Defect },
+    Face {
+        index: u32,
+        defect: Defect,
+    },
     #[error("glyph {glyph} draws no outline")]
-    Outline { glyph: u32, source: ScaleError },
+    Outline {
+        glyph: u32,
+        source: ScaleError,
+    },
     #[error("{0}")]
     Geometry(Geometry),
     #[error("{0} lies outside the linework model")]
@@ -218,9 +242,15 @@ pub enum DraftingError {
     #[error("scan density {} is not a positive normal value", .0.into_format_args(per_millimeter, Abbreviation))]
     Density(LinearNumberDensity),
     #[error("viewport {name} sits on sheets {} and {}", sheets[0], sheets[1])]
-    Duplicate { name: Arc<str>, sheets: [Arc<str>; 2] },
+    Duplicate {
+        name: Arc<str>,
+        sheets: [Arc<str>; 2],
+    },
     #[error("{subject}")]
-    Within { subject: Subject, source: Box<Self> },
+    Within {
+        subject: Subject,
+        source: Box<Self>,
+    },
 }
 
 impl From<DraftingError> for NEVec<DraftingError> {
@@ -423,7 +453,7 @@ fn edges(sizes: impl IntoIterator<Item = f64>) -> impl Iterator<Item = f64> {
     }))
 }
 
-fn units(length: Length) -> f64 { length.get::<millimeter>() }
+fn units(length: Length, unit: Unit) -> f64 { (length / *unit).get::<ratio>() }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -440,10 +470,25 @@ mod tolerances;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+pub use color;
+pub use colorgrad;
+pub use enum_map;
+pub use fontique;
+pub use imagesize;
+pub use indexmap;
+pub use kurbo;
 pub use legends::{Entry, Key, Layout, Legend, Ramp, Swatch};
+pub use linebender_resource_handle;
 pub use marks::{Breakline, Chord, ChordError, Mark};
+pub use nonempty_collections;
+pub use parlance;
+pub use rasm_drawing;
+pub use rust_decimal;
 pub use sheets::{Fit, Layer, Mention, Reference, Set, Sheet, Usage, Viewport, compose, raster};
+pub use skrifa;
 pub use symbols::{Base, Definition, Instance};
 pub use tables::{Cell, Column, Rule, Table};
 pub use text::{Block, Frame, Label, Note, Output, Typesetter};
 pub use tolerances::{Characteristic, Datum, FeatureControl, Modifier, Zone};
+pub use uom;
+pub use usvg;

@@ -1,5 +1,3 @@
 {
-    "extends": "../../../../.config/tsconfig.web.json",
-    "files": [ ".cloudflare/types/index.d.ts" ],
-    "include": [ "**/*" ]
+    "extends": "../../../../.config/tsconfig.web.json"
 }

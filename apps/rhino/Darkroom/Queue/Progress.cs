@@ -8,7 +8,6 @@ using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
-using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.Viewport;
 using Rhino;

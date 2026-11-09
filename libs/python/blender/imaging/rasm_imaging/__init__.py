@@ -61,7 +61,7 @@ from rasm_imaging._geometry.panoramas import (
 )
 from rasm_imaging._sampling import tiles
 from rasm_imaging._sampling.integration import Disc, Estimate, footprint, integrated, placement, Population, Precision, transmitted
-from rasm_imaging._sampling.tiles import Pupil, ranks, Specks, stream, uniforms
+from rasm_imaging._sampling.tiles import Pupil, ranks, rng, Seed, SEED_BOUND, Specks, stream, uniforms
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
@@ -73,6 +73,7 @@ __all__ = [
     "LATTICE_SIZES",
     "REC709_SCENE",
     "RGB_TO_HSY",
+    "SEED_BOUND",
     "SET_SPLINE_TYPE",
     "Aperture",
     "Arithmetic",
@@ -152,6 +153,7 @@ __all__ = [
     "Region",
     "Reversed",
     "Samples",
+    "Seed",
     "Severity",
     "Skewed",
     "Spacing",
@@ -206,6 +208,7 @@ __all__ = [
     "read_file",
     "rendering_basis",
     "rgba",
+    "rng",
     "slope",
     "smoothstep",
     "softened",

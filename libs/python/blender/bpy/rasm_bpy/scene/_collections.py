@@ -12,6 +12,7 @@ from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _kept, _released, _retained
 from rasm_bpy.data._ids.store import _resolved, Handle
 from rasm_bpy.data._rna.descriptors import Descriptor, written
@@ -122,7 +123,7 @@ def _relinked(collection: bpy.types.Collection, members: tuple[_Member, ...], *,
 def _linked(collection: bpy.types.Collection, member: _Member, *, linked: bool) -> Outcome[None]:
     """Links or unlinks one member through the host collection it belongs to."""
     members: bpy.types.CollectionObjects | bpy.types.CollectionChildren = collection.objects if isinstance(member, bpy.types.Object) else collection.children
-    return catch(members.link if linked else members.unlink, exception=RuntimeError)(member).map_error(partial(Fault.of, Reason.REFUSED, repr(collection)))
+    return catch(members.link if linked else members.unlink, exception=RuntimeError)(member).map_error(partial(Fault.of, Refusal.REFUSED, repr(collection)))
 
 
 # --- [PLACEMENT]
@@ -150,7 +151,7 @@ def _moved(item: bpy.types.Object, target: bpy.types.Collection, scene: bpy.type
 def instanced(collection: bpy.types.Collection, target: bpy.types.Collection, name: str) -> Outcome[bpy.types.Object]:
     """Creates empty instancing collection in target under name, removing it on fault."""
     return _kept(
-        catch(bpy.data.objects.new, exception=RuntimeError)(name, None).map_error(partial(Fault.of, Reason.REFUSED, name)),
+        catch(bpy.data.objects.new, exception=RuntimeError)(name, None).map_error(partial(Fault.of, Refusal.REFUSED, name)),
         lambda made: (
             accumulated((written(made, ("instance_type",), "COLLECTION"), written(made, ("instance_collection",), collection)))
             .bind(lambda _: _relinked(target, (made,), linked=True))
@@ -174,7 +175,7 @@ def _holders(item: bpy.types.Object, scene: bpy.types.Scene) -> tuple[bpy.types.
 
 def created(parent: Option[bpy.types.Collection], name: str) -> Outcome[bpy.types.Collection]:
     """Creates collection under parent named name, removing it on fault."""
-    return _kept(catch(bpy.data.collections.new, exception=RuntimeError)(name).map_error(partial(Fault.of, Reason.REFUSED, name)), lambda made: _parented(made, parent))
+    return _kept(catch(bpy.data.collections.new, exception=RuntimeError)(name).map_error(partial(Fault.of, Refusal.REFUSED, name)), lambda made: _parented(made, parent))
 
 
 def cloned(collection: bpy.types.Collection, parent: Option[bpy.types.Collection]) -> Outcome[bpy.types.Collection]:
@@ -233,7 +234,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
                         answers.append(
                             changed.bind(
                                 lambda change: accumulated(
-                                    catch(held.__setitem__, exception=ReferenceError)(name, replacement).map_error(partial(Fault.of, Reason.REFUSED, f"{held!r}[{name!r}]"))  # ty: ignore[unresolved-attribute]
+                                    catch(held.__setitem__, exception=ReferenceError)(name, replacement).map_error(partial(Fault.of, Refusal.REFUSED, f"{held!r}[{name!r}]"))  # ty: ignore[unresolved-attribute]
                                     for replacement in change.to_list()
                                 ).map(lambda _: None)
                             )

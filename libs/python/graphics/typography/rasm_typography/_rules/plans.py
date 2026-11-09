@@ -17,18 +17,18 @@ from rasm_typography._rules.scale import _scaled, Scale
 from rasm_typography._rules.spacing import _spaced, Spacing
 lazy from rasm_records import Faults, Ok, Outcome
 lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace, Sheared
-lazy from rasm_typography._faces.glyphs import _Source
-lazy from rasm_typography._shaping.corpus import _Corpus
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._faces.glyphs import Source
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Rules = Ornaments | Locale | Digits | Outlines | Marks | QuranicMarks | Joins | Scale | Anchors | Spacing | WordSigns | Records
+type Rules = Ornaments | Locale | Digits | Outlines | Marks | QuranicMarks | Joins | Scale | Anchors | Spacing | WordSigns | Records
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _planned(face: Faces, /) -> tuple[_Rules | Metrics, ...]:
+def planned(face: Faces, /) -> tuple[Rules | Metrics, ...]:
     """Returns a face's plan, each value the face's override or its genre's, each code point its script's, its slant from its shear."""
     match face:
         case Face(genre=genre, values=values, treatments=treatments):
@@ -51,7 +51,7 @@ def _planned(face: Faces, /) -> tuple[_Rules | Metrics, ...]:
             return (Ornaments(first=first), Outlines(sliver=0.001, snap=0.006), Metrics(pitch=None, stack=0.0), Records())
 
 
-def _applied(source: _Source, rule: _Rules, /, *, original: _Binary, corpus: _Corpus) -> Outcome[_Source]:
+def _applied(source: Source, rule: Rules, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
     """Applies one rule to a source, measuring the original where the source cannot shape yet."""
     match rule:
         case Ornaments():
@@ -86,9 +86,9 @@ def _named(rule: str, faults: Faults, /) -> Faults:
     return (head, *rest)
 
 
-def _executed(source: _Source, plan: tuple[_Rules | Metrics, ...], /, *, original: _Binary, corpus: _Corpus) -> Outcome[_Source]:
+def _executed(source: Source, plan: tuple[Rules | Metrics, ...], /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
     """Folds drawing rules over a source, leaving native layout metrics to font construction, the first refused rule naming itself on its faults."""
-    initial: Outcome[_Source] = Ok(source)
+    initial: Outcome[Source] = Ok(source)
     return reduce(
         lambda held, rule: held.bind(lambda current: _applied(current, rule, original=original, corpus=corpus).map_error(lambda faults: _named(type(rule).__name__.lower(), faults))),
         (rule for rule in plan if not isinstance(rule, Metrics)),
@@ -98,4 +98,4 @@ def _executed(source: _Source, plan: tuple[_Rules | Metrics, ...], /, *, origina
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["Rules", "planned"]

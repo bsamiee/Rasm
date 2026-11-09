@@ -1,3 +1,4 @@
+
 use core::{cell::OnceCell, iter, num::NonZero};
 use std::collections::HashMap;
 
@@ -20,7 +21,7 @@ use crate::{CurveStyle, Distance, Drawing, Extent, Hierarchy, Interpolation, Lay
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(const_fn, validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Into))]
+#[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Into))]
 pub struct Length(f64);
 
 #[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Into))]
@@ -28,7 +29,9 @@ pub struct Elasticity(f64);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Start {
-    Spectral { node_separation: Option<Distance> },
+    Spectral {
+        node_separation: Option<Distance>,
+    },
     Centers(NEBTreeMap<NodeIndex, Point>),
 }
 
@@ -51,7 +54,7 @@ pub struct Options {
     pub random_policy: FcoseRandomPolicy = FcoseRandomPolicy::seeded(FcoseRandomSource::XorShift64Star, 0),
     pub start: Start = Start::Spectral { node_separation: None },
     pub num_iter: Option<NonZero<usize>> = None,
-    pub default_edge_length: Length = Self::EDGE_LENGTH,
+    pub default_edge_length: Option<Length> = None,
     pub compound_padding: Option<Distance> = None,
     pub control_point_step_size: Distance = Self::STEP_SIZE,
     pub relocate_center: Option<Point> = None,
@@ -60,7 +63,6 @@ pub struct Options {
 }
 
 impl Options {
-    const EDGE_LENGTH: Length = Length::try_new(50.0).ok().unwrap();
     const STEP_SIZE: Distance = Distance::try_new(40.0).ok().unwrap();
 }
 
@@ -77,16 +79,15 @@ pub struct Edge {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn layout<N, E, Ty, W>(
+pub fn layout<N, E, Ty>(
     options: &Options,
-    work: &mut W,
+    work: &mut dyn WorkControl,
     node: impl Fn(NodeIndex, &N) -> Node,
     edge: impl Fn(EdgeIndex, &E) -> Edge,
     graph: StableGraph<N, E, Ty>,
 ) -> Result<Drawing<N, E, Ty>, LayoutError>
 where
     Ty: EdgeType,
-    W: WorkControl + ?Sized,
 {
     let constrained = options
         .alignment_constraint
@@ -152,7 +153,7 @@ where
                     source_anchor,
                     target_anchor,
                     curve_style_segments: curve_style.is_segments(),
-                    ideal_length: ideal_length.unwrap_or(options.default_edge_length).into_inner(),
+                    ideal_length: ideal_length.or(options.default_edge_length).map_or_default(Length::into_inner),
                     elasticity: elasticity.map_or_default(Elasticity::into_inner),
                 })
             })
@@ -194,7 +195,7 @@ where
             Start::Centers(_) => None,
         },
         num_iter: options.num_iter.map(NonZero::get),
-        default_edge_length: Some(options.default_edge_length.into_inner()),
+        default_edge_length: options.default_edge_length.map(Length::into_inner),
         alignment_constraint: Some(IndexedAlignmentConstraint { horizontal, vertical }),
         relative_placement_constraint,
         compound_padding: options.compound_padding.map(Distance::into_inner),

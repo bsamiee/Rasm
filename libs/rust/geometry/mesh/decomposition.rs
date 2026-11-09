@@ -3,7 +3,6 @@ use std::sync::OnceLock;
 
 use itertools::Itertools as _;
 use manifold_rust::{
-    boolean3::compose_meshes,
     impl_mesh::ManifoldImpl,
     linalg::Vec3,
     manifold::Manifold,
@@ -33,15 +32,14 @@ pub fn decompose(solid: &Solid) -> Vec<Solid> {
         .0
         .decompose()
         .into_iter()
-        .map(Manifold::into_impl)
-        .map(|shell| (shell.get_property(Property::Volume), shell, OnceLock::new()))
+        .map(|shell| (shell.as_impl().get_property(Property::Volume), shell, OnceLock::new()))
         .sorted_by(|(left, _, _), (right, _, _)| left.total_cmp(right))
         .partition(|&(volume, _, _)| volume > 0.0_f64);
     let mut enclosed = voids
         .into_par_iter()
         .filter_map(|(_, void, _)| {
-            let probe = R3::from_vec3(void.vert_pos[0]);
-            bodies.iter().position(|(_, body, surface)| body.bbox.contains_box(&void.bbox) && winding(body, surface, &probe) != 0_i32).map(|owner| (owner, void))
+            let probe = R3::from_vec3(void.as_impl().vert_pos[0]);
+            bodies.iter().position(|(_, body, surface)| body.as_impl().bbox.contains_box(&void.as_impl().bbox) && winding(body.as_impl(), surface, &probe) != 0_i32).map(|owner| (owner, void))
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -54,8 +52,8 @@ pub fn decompose(solid: &Solid) -> Vec<Solid> {
         .into_par_iter()
         .map(|(shell, cavities)| match cavities {
             None => shell,
-            Some(cavities) => compose_meshes(&iter::once(shell).chain(cavities).collect::<Vec<_>>()),
+            Some(cavities) => Manifold::compose(&iter::once(shell).chain(cavities).collect::<Vec<_>>()),
         })
-        .map(|shell| Solid(Manifold::from_impl(shell)))
+        .map(Solid)
         .collect()
 }

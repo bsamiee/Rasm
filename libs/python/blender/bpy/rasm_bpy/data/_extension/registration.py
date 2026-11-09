@@ -14,7 +14,6 @@ from threading import Event
 from types import MappingProxyType
 from typing import Final, NoReturn, Protocol, runtime_checkable
 
-import _bpy  # ty: ignore[import-not-found]  # ruff: ignore[import-private-name]
 import bpy
 from expression import Option, Result, Some
 from expression.collections import Block
@@ -23,10 +22,11 @@ import msgspec
 
 from rasm_bpy.data._extension.events import _runtime
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.reports import _rendered
+from rasm_bpy.data._extension.reports import _rendered, Refusal
 from rasm_bpy.data._rna.paths import _definition, Struct
 from rasm_bpy.data._rna.properties import _hosting, annotated
-from rasm_records import argued, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
+from rasm_records import Error, Fault, Faults, Nothing, Ok, Outcome, Reason
+from rasm_rendering import argued
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -351,7 +351,7 @@ class Registration:
 
             def opened(band: _Tier) -> Outcome[None]:
                 fresh = tuple((kind, acquisition) for (kind, acquisition), done in pairs.items() if kind is band and not done)
-                return _entered(stacks[band], tuple(acquisition for _, acquisition in fresh)).map(lambda _: pairs.update(dict.fromkeys(fresh, True)))
+                return _entered(identity, stacks[band], tuple(acquisition for _, acquisition in fresh)).map(lambda _: pairs.update(dict.fromkeys(fresh, True)))
 
             def declared(declaration: Declaration | Gathering, answer: _Answer) -> Outcome[Acquisitions]:
                 declarations.append(declaration)
@@ -392,20 +392,14 @@ class Registration:
             return _each(built, (_DISPATCHERS, *prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(lambda _: _each(opened, _Tier))
 
         with ExitStack() as stack:
-            owner = _bpy._bl_owner_id_get()  # ruff: ignore[private-member-access]
-            _bpy._bl_owner_id_set(self.package)  # ruff: ignore[private-member-access]
-            try:
-                outcome = Identity.read(self.package).bind(
-                    lambda identity: (
-                        catch(stack.enter_context, exception=OSError)(identity.reports)
-                        .map_error(partial(Fault.of, Reason.UNWRITABLE, str(identity.folder)))
-                        .bind(lambda _: registered(stack, identity))
-                        .map(lambda _: identity)
-                    )
+            yield Identity.read(self.package).bind(
+                lambda identity: (
+                    catch(stack.enter_context, exception=OSError)(identity.reports)
+                    .map_error(partial(Fault.of, Reason.UNWRITABLE, str(identity.folder)))
+                    .bind(lambda _: registered(stack, identity))
+                    .map(lambda _: identity)
                 )
-            finally:
-                _bpy._bl_owner_id_set(owner)  # ruff: ignore[private-member-access]
-            yield outcome
+            )
 
     def register(self) -> None:
         """Holds the acquired scope until unregister, raising rendered registration faults after cleanup."""
@@ -460,7 +454,7 @@ def _prerequisites(row: object, /) -> tuple[Declaration, ...]:
 # --- [CLASSES]
 
 
-def _entered(stack: ExitStack, acquisitions: tuple[_Acquisition, ...], /) -> Outcome[None]:
+def _entered(identity: Identity, stack: ExitStack, acquisitions: tuple[_Acquisition, ...], /) -> Outcome[None]:
     """Registers a band's classes after the pointer targets and parent panels they name, then its managers and deferred builds, onto stack until the first refusal or dependency cycle."""
     classes = tuple(acquisition for acquisition in acquisitions if isinstance(acquisition, type) and issubclass(acquisition, bpy.types.bpy_struct))
     declared = {cls: {name: value for base in reversed(cls.__mro__) for name, value in vars(base).items()} for cls in classes}
@@ -474,15 +468,22 @@ def _entered(stack: ExitStack, acquisitions: tuple[_Acquisition, ...], /) -> Out
     }
     return (
         catch(tuple, exception=graphlib.CycleError)(graphlib.TopologicalSorter({cls: held & targets.keys() for cls, held in targets.items()}).static_order())
-        .map_error(partial(Fault.of, Reason.UNREGISTERED, ", ".join(cls.__name__ for cls in classes)))
-        .bind(lambda order: _each(partial(_registered, stack), (*order, *(acquisition for acquisition in acquisitions if acquisition not in classes))))
+        .map_error(partial(Fault.of, Refusal.UNREGISTERED, ", ".join(cls.__name__ for cls in classes)))
+        .bind(lambda order: _each(partial(_registered, identity, stack), (*order, *(acquisition for acquisition in acquisitions if acquisition not in classes))))
     )
 
 
-def _registered(stack: ExitStack, acquisition: _Acquisition, /) -> Outcome[None]:
-    """Registers a class and pushes its release, enters a manager, or registers the classes a deferred build returns."""
+def _registered(identity: Identity, stack: ExitStack, acquisition: _Acquisition, /) -> Outcome[None]:
+    """Registers a class and pushes its release, enters a manager, or registers the classes a deferred build returns.
+
+    A property group registers under the extension's group name, the host taking its RNA identifier from the class name at registration, and keeps its own name after.
+
+    Returns:
+        Ok, or the `UNREGISTERED` fault of a class the host refused, or the faults of a manager or deferred build.
+    """
     match acquisition:
         case type() as cls:
+            named = cls.__name__
 
             def released() -> None:
                 """Unregisters class while the host holds it, a class whose property or `register` raised after the host took it included."""
@@ -491,13 +492,16 @@ def _registered(stack: ExitStack, acquisition: _Acquisition, /) -> Outcome[None]
 
             stack.callback(released)
             try:
+                cls.__name__ = identity.name(bpy.types.PropertyGroup, named) if issubclass(cls, bpy.types.PropertyGroup) else named
                 with _hosting(cls):
                     bpy.utils.register_class(cls)  # ty: ignore[invalid-argument-type]
             except (ValueError, RuntimeError, AttributeError) as error:
-                return Error(Fault.of(Reason.UNREGISTERED, cls.__name__, error))
+                return Error(Fault.of(Refusal.UNREGISTERED, named, error))
+            finally:
+                cls.__name__ = named
             return Ok(None)
         case _Classes(build=build):
-            return build().bind(partial(_entered, stack))
+            return build().bind(partial(_entered, identity, stack))
         case manager:
             return stack.enter_context(manager)
 
@@ -514,7 +518,7 @@ def _each[T](step: Callable[[T], Outcome[None]], items: Iterable[T], /) -> Outco
 def _scoped[H](subject: str, acquired: Callable[[], H], released: Callable[[H], object], /, *, exception: type[Exception] = ValueError) -> Generator[Outcome[None]]:
     """Runs a host acquisition and holds its handle's release until scope exit, yielding the unregistered fault on subject when it raises exception."""
     with ExitStack() as stack:
-        yield catch(acquired, exception=exception)().map(lambda handle: stack.callback(released, handle)).map(lambda _: None).map_error(partial(Fault.of, Reason.UNREGISTERED, subject))
+        yield catch(acquired, exception=exception)().map(lambda handle: stack.callback(released, handle)).map(lambda _: None).map_error(partial(Fault.of, Refusal.UNREGISTERED, subject))
 
 
 def _mapped(identity: Identity, website: str, /) -> tuple[str, list[tuple[str, str]]]:

@@ -19,7 +19,8 @@ from rasm_bpy.nodes._interfaces import InterfacePanel, Socket
 from rasm_bpy.render._compositor.colors import with_alpha
 from rasm_bpy.render._compositor.coordinates import dimensions
 from rasm_bpy.render._compositor.inputs import _addressed, _entry_values, _keyed, DerivedInputs
-from rasm_records import accumulated, Count, Fault, NonNegative, Ok, Outcome, paired, Reason, SEED_BOUND
+from rasm_imaging import SEED_BOUND
+from rasm_records import accumulated, Count, Fault, NonNegative, Ok, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

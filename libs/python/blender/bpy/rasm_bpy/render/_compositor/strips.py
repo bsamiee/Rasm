@@ -17,6 +17,7 @@ from rasm_bpy.commands.invocations import Popup
 from rasm_bpy.commands.operators import Answer, Call, Done, Operator, Placement, PopupKind, PopupTarget
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _retained
 from rasm_bpy.data._rna.conditions import AllOf, Present, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
@@ -157,7 +158,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     .bind(lambda group: made(msgspec.structs.replace(group, key=f"{group.key}_{_STRIP}"), call.identity, of=Some(scene)))
                     .bind(
                         lambda group: Result[bpy.types.Strip | bpy.types.StripModifier, Faults].bind(
-                            catch(held, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(strip))), lambda holder: written(holder, ("node_group",), group)
+                            catch(held, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(strip))), lambda holder: written(holder, ("node_group",), group)
                         )
                     )
                 )

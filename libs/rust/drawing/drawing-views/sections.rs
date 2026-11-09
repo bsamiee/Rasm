@@ -38,7 +38,7 @@ pub fn sections(view: &View) -> Result<Vec<(usize, Region)>, NEVec<ViewsError>> 
                 .map_err(LineworkError::from)
                 .and_then(|caps| Region::new(caps, FillRule::NonZero, *tolerance))
                 .and_then(|capped| boolean(&capped, [&Region::new(border, FillRule::NonZero, *tolerance)?], BinaryOp::Intersection, *tolerance))
-                .map(|region| (!region.is_empty()).then_some((*body, region)))
+                .map(|region| (!region.contours().is_empty()).then_some((*body, region)))
                 .map_err(|source| ViewsError::Linework { operation: Operation::Region(*body), source })
                 .transpose()
         })

@@ -1,7 +1,7 @@
 #![feature(float_conversions)]
 
 use core::fmt;
-use std::{path::PathBuf, sync::LazyLock};
+use std::path::PathBuf;
 
 use geo::{BoundingRect as _, GeodesicArea as _, LinesIter as _, Validation as _, validation::InvalidMultiPolygon};
 use geo_types::{Line, MultiPolygon, Point, Rect};
@@ -11,7 +11,6 @@ use nalgebra::Point3;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator, nev};
 use proj::{ProjCreateError, ProjError};
 use serde::{Deserialize, Serialize};
-use tzf_rs::DefaultFinder;
 use uom::si::{
     angle::degree,
     area::square_meter,
@@ -27,7 +26,10 @@ pub enum Operation {
     #[display("{_0}")]
     Crs(Crs),
     #[display("transformation from {from} to {to}")]
-    Transformation { from: Crs, to: Crs },
+    Transformation {
+        from: Crs,
+        to: Crs,
+    },
     #[display("grid directory {}", _0.display())]
     Search(PathBuf),
 }
@@ -76,6 +78,10 @@ pub struct Place {
     pub elevation: Elevation,
     #[serde(with = "jiff::fmt::serde::tz::required")]
     pub zone: TimeZone,
+}
+
+impl AsRef<Self> for Place {
+    fn as_ref(&self) -> &Self { self }
 }
 
 #[derive(Debug, Clone, PartialEq, derive_more::Deref, Deserialize)]
@@ -152,23 +158,48 @@ pub enum Defect {
 #[derive(Debug, thiserror::Error)]
 pub enum SiteError {
     #[error("invalid geometry{}", fmt::from_fn(|formatter| .defects.iter().try_for_each(|defect| write!(formatter, "\n{defect}"))))]
-    Geometry { defects: NEVec<Defect> },
+    Geometry {
+        defects: NEVec<Defect>,
+    },
     #[error("no time zone covers longitude {} and latitude {}", position.0.x(), position.0.y())]
-    Uncovered { position: Position },
+    Uncovered {
+        position: Position,
+    },
     #[error("jiff's time zone database lacks {name}, update it")]
-    Zone { name: &'static str, source: jiff::Error },
+    Zone {
+        name: String,
+        source: jiff::Error,
+    },
     #[error("PROJ refused {operation}")]
-    Create { operation: Operation, source: ProjCreateError },
+    Create {
+        operation: Operation,
+        source: ProjCreateError,
+    },
     #[error("PROJ failed on {operation}")]
-    Proj { operation: Operation, source: ProjError },
+    Proj {
+        operation: Operation,
+        source: ProjError,
+    },
     #[error("PROJJSON of {crs} does not convert")]
-    Projjson { crs: Crs, source: serde_path_to_error::Error<serde_json::Error> },
+    Projjson {
+        crs: Crs,
+        source: serde_path_to_error::Error<serde_json::Error>,
+    },
     #[error("{crs} is no projected coordinate reference system on linear axes, pass one")]
-    Unprojected { crs: Crs },
+    Unprojected {
+        crs: Crs,
+    },
     #[error("grid point {grid} lies outside the domain of {crs}")]
-    Domain { crs: Crs, grid: Point3<f64> },
+    Domain {
+        crs: Crs,
+        grid: Point3<f64>,
+    },
     #[error("anchor {anchor} turned {}° at {scale} scale is not finite, or the scale is not positive", rotation.get::<degree>())]
-    Anchor { anchor: Point3<f64>, rotation: Angle, scale: Scale },
+    Anchor {
+        anchor: Point3<f64>,
+        rotation: Angle,
+        scale: Scale,
+    },
 }
 
 impl From<NEVec<Defect>> for SiteError {
@@ -177,10 +208,9 @@ impl From<NEVec<Defect>> for SiteError {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn zone(position: Position) -> Result<TimeZone, SiteError> {
-    static FINDER: LazyLock<DefaultFinder> = LazyLock::new(DefaultFinder::new);
-    let name = Some(FINDER.get_tz_name(position.0.x(), position.0.y())).filter(|name| !name.is_empty()).ok_or(SiteError::Uncovered { position })?;
-    tz::db().get(name).map_err(|source| SiteError::Zone { name, source })
+pub fn zone<'name>(position: Position, find: impl FnOnce(f64, f64) -> &'name str) -> Result<TimeZone, SiteError> {
+    let name = Some(find(position.0.x(), position.0.y())).filter(|name| !name.is_empty()).ok_or(SiteError::Uncovered { position })?;
+    tz::db().get(name).map_err(|source| SiteError::Zone { name: name.to_owned(), source })
 }
 
 #[must_use]
@@ -212,3 +242,12 @@ mod frame;
 
 pub use crs::{Context, Crs, Encoding, Extent, Factors, Transformation};
 pub use frame::{Anchor, Frame, North, Scale, Toward};
+pub use geo;
+pub use geo_types;
+pub use jiff;
+pub use nalgebra;
+pub use nonempty_collections;
+pub use proj;
+pub use serde_json;
+pub use serde_path_to_error;
+pub use uom;

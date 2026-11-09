@@ -1,5 +1,7 @@
-#![feature(const_result_trait_fn, const_trait_impl, default_field_values, deref_patterns, f128, float_conversions)]
+#![feature(const_trait_impl, default_field_values, deref_patterns)]
+#![cfg_attr(feature = "drawing", feature(const_result_trait_fn, f128, float_conversions))]
 
+#[cfg(feature = "drawing")]
 use core::num::TryFromIntError;
 use std::{
     fmt,
@@ -7,9 +9,12 @@ use std::{
     sync::Arc,
 };
 
-use acadrust::{AuditIssue, AuditLocation, AuditSeverity, CadDocument, DwgReadOptions, DwgReader, DwgWriter, DxfError, DxfOmission, DxfReader, DxfReaderConfiguration, DxfWriter, Handle, ReadOutcome};
+#[cfg(feature = "drawing")]
+use acadrust::Handle;
+use acadrust::{AuditIssue, AuditLocation, CadDocument, DwgReadOptions, DwgReader, DwgWriter, DxfError, DxfOmission, DxfReader, DxfReaderConfiguration, DxfWriter, ReadOutcome};
 use derive_where::derive_where;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
+#[cfg(feature = "drawing")]
 use rasm_drawing::LineworkError;
 use uom::si::{
     f64::Length,
@@ -104,6 +109,7 @@ pub enum Operation {
     Table(String),
 }
 
+#[cfg(feature = "drawing")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum Refusal {
     #[error("has no linework form")]
@@ -138,6 +144,7 @@ pub enum Refusal {
     Boundary,
 }
 
+#[cfg(feature = "drawing")]
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
 pub enum Subject {
     #[display("{kind} {handle}")]
@@ -167,7 +174,7 @@ pub enum CadError {
     Drawing { operation: Operation, source: DxfError },
     #[error("drawing unit code {code} names no length")]
     Unit { code: i16 },
-    #[error("audit finds structural errors{}", fmt::from_fn(|formatter| .issues.iter().try_for_each(|AuditIssue { code: _, severity: _, location, handle: _, message, repairable: _ }| match location {
+    #[error("audit refuses the drawing{}", fmt::from_fn(|formatter| .issues.iter().try_for_each(|AuditIssue { code: _, severity: _, location, handle: _, message, repairable: _ }| match location {
         AuditLocation::Document => write!(formatter, "\ndocument: {message}"),
         AuditLocation::TableEntry { table, name, handle } => write!(formatter, "\n{table} entry {name} {handle}: {message}"),
         AuditLocation::Entity { handle } => write!(formatter, "\nentity {handle}: {message}"),
@@ -177,8 +184,10 @@ pub enum CadError {
     Audit { issues: NEVec<AuditIssue> },
     #[error("DXF save drops architecture records{}", fmt::from_fn(|formatter| .records.iter().try_for_each(|record| write!(formatter, "\n{} {}: {}", record.name, record.handle, record.reason))))]
     Omitted { records: NEVec<DxfOmission> },
+    #[cfg(feature = "drawing")]
     #[error("{subject} {reason}")]
     Refused { subject: Subject, reason: Refusal },
+    #[cfg(feature = "drawing")]
     #[error("{subject}")]
     Geometry { subject: Subject, source: LineworkError },
 }
@@ -205,16 +214,9 @@ where R: Read + Seek + 'static {
     .map_err(drawing)
 }
 
-pub fn write<W>(document: &CadDocument, format: Format, sink: W) -> Result<(), CadError>
+pub fn write<W>(document: &CadDocument, format: Format, refused: impl Fn(&AuditIssue) -> bool, sink: W) -> Result<(), CadError>
 where W: Write + Seek {
-    document
-        .audit()
-        .issues
-        .into_iter()
-        .filter(|issue| matches!(issue.severity, AuditSeverity::Error | AuditSeverity::Critical))
-        .try_into_nonempty_iter()
-        .map(NonEmptyIterator::collect::<NEVec<_>>)
-        .map_or(Ok(()), |issues| Err(CadError::Audit { issues }))?;
+    document.audit().issues.into_iter().filter(refused).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(()), |issues| Err(CadError::Audit { issues }))?;
     let drawing = |source| CadError::Drawing { operation: Operation::Write(format), source };
     let dxf = |writer: DxfWriter<'_>, output: W| {
         let writer = writer.with_version(document.version);
@@ -229,5 +231,15 @@ where W: Write + Seek {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+#[cfg(feature = "drawing")]
 pub mod layouts;
+#[cfg(feature = "drawing")]
 pub mod linework;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use acadrust;
+pub use nonempty_collections;
+#[cfg(feature = "drawing")]
+pub use rasm_drawing;
+pub use uom;

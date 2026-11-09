@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 import type { StackRequest, Stacks } from '@rasm/nx-pulumi/stacks';
-import { Array, Effect, FileSystem, Match, Option, type Path, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, type Layer, Match, Option, Record, Schema } from 'effect';
 import { hostingStack, hostingValues } from '#/hosting-stack';
 import manifest from '#/package.json' with { type: 'json' };
 import { repositoryStack } from '#/repository-stack';
@@ -32,7 +32,7 @@ const held = Effect.fnUntraced(function* (directory: string, production: boolean
     );
 }, Effect.scoped);
 
-const inline = <A extends Record<string, unknown>, E>({ program, ...args }: { readonly projectName: string; readonly stackName: string; readonly program: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path> }): InlineProgramArgs => ({
+const inline = <A extends Record<string, unknown>, E>({ program, ...args }: { readonly projectName: string; readonly stackName: string; readonly program: Effect.Effect<A, E, Layer.Success<typeof layer>> }): InlineProgramArgs => ({
     ...args,
     program: () => Effect.runPromise(Effect.provide(program, layer)),
 });

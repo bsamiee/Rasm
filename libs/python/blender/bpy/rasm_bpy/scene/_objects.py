@@ -16,6 +16,7 @@ import numpy.typing as npt
 
 from rasm_bpy.commands.operators import Answer, answered, Call, called, Operator
 from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _kept, _retained, Ownership
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.conditions import chosen, Objects, Scenes, Scope, scope_choice, SCOPE_COLLECTION, Selection, ViewLayers
@@ -78,7 +79,7 @@ class _ObjectState(msgspec.Struct, frozen=True, kw_only=True):
             (item.modifiers, Ok(partial(_modifier_moved, item.modifiers)), self.modifiers),
             (
                 item.constraints,
-                Ok(lambda name, index: catch(item.constraints.move, exception=RuntimeError)(item.constraints.find(name), index).map_error(partial(Fault.of, Reason.REFUSED, repr(item.constraints)))),
+                Ok(lambda name, index: catch(item.constraints.move, exception=RuntimeError)(item.constraints.find(name), index).map_error(partial(Fault.of, Refusal.REFUSED, repr(item.constraints)))),
                 self.constraints,
             ),
             (item.shader_effects, Ok(partial(_shader_effect_moved, item)), self.shader_effects),
@@ -131,7 +132,7 @@ def _extent(items: Iterable[bpy.types.Object], depsgraph: bpy.types.Depsgraph) -
 def _spawned(name: str, data: Option[bpy.types.ID], collection: bpy.types.Collection) -> Outcome[bpy.types.Object]:
     """Creates object linked into collection, removing it on fault."""
     return _kept(
-        catch(bpy.data.objects.new, exception=RuntimeError)(name, data.to_optional()).map_error(partial(Fault.of, Reason.REFUSED, name)),
+        catch(bpy.data.objects.new, exception=RuntimeError)(name, data.to_optional()).map_error(partial(Fault.of, Refusal.REFUSED, name)),
         lambda item: _relinked(collection, (item,), linked=True).map(lambda _: item),
     )
 
@@ -173,7 +174,7 @@ def _owned_object[D: bpy.types.ID](
             return (
                 Result[D, Faults]
                 .bind(
-                    catch(created, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, name)), lambda block: owner.owned(identity, block, of=of, filled=seeded, scope=Some(rollback))
+                    catch(created, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, name)), lambda block: owner.owned(identity, block, of=of, filled=seeded, scope=Some(rollback))
                 )
                 .bind(lambda block: _spawned(name, Some(block), collection))
             )
@@ -220,7 +221,7 @@ def _modifier_moved(stack: bpy.types.ObjectModifiers, name: str, index: int) -> 
     return (
         Error(Fault.of(Reason.OUTSIDE, repr(modifier), blocked, member="its pinned modifier segment"))
         if blocked
-        else catch(stack.move, exception=RuntimeError)(before, index).map_error(partial(Fault.of, Reason.REFUSED, repr(stack)))
+        else catch(stack.move, exception=RuntimeError)(before, index).map_error(partial(Fault.of, Refusal.REFUSED, repr(stack)))
     )
 
 
@@ -235,7 +236,7 @@ def _restacked(item: bpy.types.Object, stack: _Stack, move: Outcome[_Mover], ent
     wanted = tuple((name, {"type": entry.kind} if isinstance(entry, _StackEntry) else {}) for name, entry in entries.items())
     parameters = dict(wanted)
     leaving = tuple(name for name, values in live if parameters.get(name) != values)
-    refused = partial(Fault.of, Reason.REFUSED, repr(stack))
+    refused = partial(Fault.of, Refusal.REFUSED, repr(stack))
 
     def removed(key: str) -> Outcome[None]:
         return catch(stack.remove, exception=RuntimeError)(stack[key]).map_error(refused)
@@ -274,7 +275,7 @@ def _restacked(item: bpy.types.Object, stack: _Stack, move: Outcome[_Mover], ent
 
 def _diverged(state: _ObjectState, item: bpy.types.Object, layers: tuple[bpy.types.ViewLayer, ...], data: Option[bpy.types.ID], parent: Option[bpy.types.Object]) -> Outcome[tuple[_Step, ...]]:
     """Returns writes from object to state, accumulating independent faults before any write, the data and parent writes the host drops refused."""
-    refused = partial(Fault.of, Reason.REFUSED, repr(item))
+    refused = partial(Fault.of, Refusal.REFUSED, repr(item))
     unchanged: Outcome[tuple[_Step, ...]] = Ok(())
 
     def resized(slots: tuple[Snapshot, ...]) -> Outcome[tuple[_Step, ...]]:
@@ -394,7 +395,7 @@ def _shaped(mesh: bpy.types.Mesh, vertices: npt.NDArray[np.float32], faces: npt.
         mesh.update(calc_edges=True)
         mesh.shade_flat()
 
-    return filled().map_error(partial(Fault.of, Reason.REFUSED, repr(mesh)))
+    return filled().map_error(partial(Fault.of, Refusal.REFUSED, repr(mesh)))
 
 
 # --- [SCOPES]

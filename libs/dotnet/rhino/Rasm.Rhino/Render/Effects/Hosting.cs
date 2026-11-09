@@ -35,7 +35,7 @@ public sealed record EffectDefinition<TState>(TState Default, Func<TState, Effec
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public abstract class DefinedEffect<TSelf, TState> : PostEffect
-    where TSelf : DefinedEffect<TSelf, TState>, IDefined<EffectDefinition<TState>> where TState : notnull {
+    where TSelf : DefinedEffect<TSelf, TState>, IDefined<EffectDefinition<TState>>, new() where TState : notnull {
 
     // --- [STATE]
 

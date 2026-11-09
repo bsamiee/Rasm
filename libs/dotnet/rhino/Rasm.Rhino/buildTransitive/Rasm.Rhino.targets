@@ -1,0 +1,30 @@
+<Project>
+    <PropertyGroup Label="Rhino Icons">
+        <IconLightStylesheet Condition="'$(IconLightStylesheet)' == ''">$(MSBuildThisFileDirectory)icon-light.css</IconLightStylesheet>
+        <IconDarkStylesheet Condition="'$(IconDarkStylesheet)' == ''">$(MSBuildThisFileDirectory)icon-dark.css</IconDarkStylesheet>
+        <_IconDir>$(IntermediateOutputPath)Icons/</_IconDir>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Icons">
+        <EmbeddedResource Include="**/EmbeddedResources/**" Exclude="**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <_IconMaster Include="**/EmbeddedResources/**/*.svg" Exclude="$(PlugInIcon)" IconStem="%(Filename)" />
+        <_IconMaster Include="$(PlugInIcon)" IconStem="icon" Condition="Exists('$(PlugInIcon)')" />
+        <_IconMaster Update="@(_IconMaster)" Master="%(FullPath)" />
+        <_ThemedIcon Include="@(_IconMaster->'$(_IconDir)%(IconStem)%(Extension)')" Stylesheet="$(IconLightStylesheet)" />
+        <_ThemedIcon Include="@(_IconMaster->'$(_IconDir)%(IconStem)_darkmode%(Extension)')" Stylesheet="$(IconDarkStylesheet)" />
+        <EmbeddedResource Include="@(_ThemedIcon)" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <FileWrites Include="@(_ThemedIcon)" />
+    </ItemGroup>
+
+    <Target Name="PaintIcons" BeforeTargets="CoreCompile" Condition="'@(_ThemedIcon)' != '' and '$(DesignTimeBuild)' != 'true'" Inputs="%(_ThemedIcon.Master);%(_ThemedIcon.Stylesheet);$(MSBuildAllProjects)" Outputs="%(_ThemedIcon.FullPath)">
+        <MakeDir Directories="$(_IconDir)" />
+        <Exec Command="usvg --stylesheet &quot;%(_ThemedIcon.Stylesheet)&quot; &quot;%(_ThemedIcon.Master)&quot; &quot;%(_ThemedIcon.FullPath)&quot;" LogStandardErrorAsError="true" />
+    </Target>
+
+    <ItemDefinitionGroup Label="Rhino Plug-In Dependencies" Condition="'$(TargetExt)' == '.rhp'">
+        <RuntimeCopyLocalItems DestinationSubDirectory="lib/" />
+        <NativeCopyLocalItems DestinationSubDirectory="lib/" />
+        <ReferenceCopyLocalPaths DestinationSubDirectory="lib/" />
+        <ReferencePath DestinationSubDirectory="lib/" />
+    </ItemDefinitionGroup>
+</Project>

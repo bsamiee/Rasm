@@ -17,10 +17,11 @@ from makefun import create_function
 import numpy as np
 
 from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle, holder
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import Struct
-from rasm_records import Fault, Faults, Outcome, reached, Reason
+from rasm_records import Fault, Faults, Outcome, reached
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import PropertySubtypeStringItems
@@ -336,8 +337,8 @@ def _pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDefe
     with ExitStack() as stack:
         yield (
             Result[None, Faults](ok=None)
-            .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(Reason.TAKEN, request, member=owner.__name__))
-            .bind(lambda _: catch(setattr, exception=ValueError)(owner, name, _hosted(definition)).map_error(partial(Fault.of, Reason.REFUSED, request)))
+            .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(Refusal.TAKEN, request, member=owner.__name__))
+            .bind(lambda _: catch(setattr, exception=ValueError)(owner, name, _hosted(definition)).map_error(partial(Fault.of, Refusal.REFUSED, request)))
             .map(lambda _: stack.callback(delattr, owner, name))
             .map(lambda _: None)
         )

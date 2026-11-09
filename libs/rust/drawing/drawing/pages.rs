@@ -1,3 +1,4 @@
+
 use core::num::NonZero;
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -6,7 +7,7 @@ use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as
 use stacksafe::StackSafe;
 use validated::Validated;
 
-use crate::{Element, LineworkError, Placement, Region, Side, Visibility};
+use crate::{Element, LineworkError, Placement, Region, Side, Unit, Visibility};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,7 +36,10 @@ pub struct Viewport {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Destination {
     Uri(Arc<str>),
-    Page { index: usize, area: Option<Rect> },
+    Page {
+        index: usize,
+        area: Option<Rect>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,6 +51,7 @@ pub struct Link {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Page {
     pub size: Size,
+    pub unit: Unit,
     pub viewports: Vec<Viewport> = Vec::new(),
     pub layers: Vec<Layer> = Vec::new(),
     pub links: Vec<Link> = Vec::new(),

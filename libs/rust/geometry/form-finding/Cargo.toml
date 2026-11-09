@@ -24,10 +24,15 @@ derive_more          = { workspace = true }
 itertools            = { workspace = true }
 faer                 = { workspace = true }
 nalgebra             = { workspace = true }
-nlopt                = { workspace = true }
 petgraph             = { workspace = true }
 rasm-stats           = { workspace = true }
-rasm-optimization    = { workspace = true }
+rasm-optimization    = { workspace = true, features = ["nonlinear"], optional = true }
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+default = ["inverse"]
+inverse = ["dep:rasm-optimization"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

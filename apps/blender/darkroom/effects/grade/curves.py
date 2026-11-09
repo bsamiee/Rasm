@@ -19,7 +19,7 @@ from rasm_bpy.data import Identity, Key, rooted
 from rasm_bpy.nodes import CurveAxes, CurvePoints, Expr, item_key, math, owned, Points, rgba, Scalar
 from rasm_bpy.render import CompositorEffect, CompositorRecord, curved, GraphInputs, grouped, hsy, logarithmic, Mix, Named, READ
 from rasm_imaging import converted, GET_SPLINE_TYPE, HUE_CURVE, HUE_CURVE_TRANSFORM, ImageFile, lin_to_log, luma, RGB_TO_HSY, Samples, SET_SPLINE_TYPE
-from rasm_records import accumulated, Error, Fault, Knot, Nothing, Outcome, paired, Reason
+from rasm_records import accumulated, Error, Fault, Nothing, Outcome, paired, Reason
 
 from .colorimetry import unread
 
@@ -35,6 +35,13 @@ _NEUTRAL_KNOTS: Final = tuple(_NEUTRAL_RGB.master.getControlPoints())
 _STOPS: Final = (_NEUTRAL_KNOTS[0].x, _NEUTRAL_KNOTS[-1].x)
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Knot(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
+    """Curve point."""
+
+    x: float
+    y: float
 
 
 class Curve(msgspec.Struct, frozen=True, kw_only=True):
@@ -347,4 +354,4 @@ hue_curves: Final = CompositorEffect(record=HueCurves, mix=Mix.STRAIGHT, pointwi
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Curve", "Curves", "HueCurves", "curves", "hue_curves"]
+__all__ = ["Curve", "Curves", "HueCurves", "Knot", "curves", "hue_curves"]

@@ -34,7 +34,7 @@ class Slice extends Schema.Class<Slice, { readonly brand: unique symbol }>('Slic
         return items.slice(this.offset, Option.getOrUndefined(Option.map(this.limit, (limit) => this.offset + limit)));
     }
 }
-const Collection = Schema.Struct({ type: Schema.String, specifier: Schema.String, length: Schema.Int });
+const Collection = Schema.Struct({ type: Schema.String, specifier: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Every-item specifier, absent where the host gives the collection no every-item object (InDesign Panels)' })), length: Schema.Int });
 const Count = Schema.Struct({ length: Schema.Int }).pipe(Schema.decodeTo(Schema.Int, SchemaTransformation.transform({ decode: Struct.get('length'), encode: (length) => ({ length }) })));
 const ParagraphAttributes = {
     nestedGrepStyles: Schema.Array(Schema.Struct({ grepExpression: Schema.String, appliedCharacterStyle: Reference })).annotate({ description: 'In order' }),

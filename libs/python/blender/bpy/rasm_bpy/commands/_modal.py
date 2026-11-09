@@ -15,7 +15,7 @@ import msgspec
 
 from rasm_bpy.commands.operators import Body, Notes, Returns
 from rasm_bpy.data._extension.registration import _Tier, Acquisitions
-from rasm_bpy.data._extension.reports import _rendered
+from rasm_bpy.data._extension.reports import _rendered, Refusal
 from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
@@ -221,7 +221,7 @@ class _Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             """Disposes the run, restoring its snapshot when the native host supplies a cancellation context."""
 
             def released(action: Callable[[], None]) -> Outcome[None]:
-                return catch(action, exception=ReferenceError)().map_error(partial(Fault.of, Reason.REFUSED, operator.bl_idname))
+                return catch(action, exception=ReferenceError)().map_error(partial(Fault.of, Refusal.REFUSED, operator.bl_idname))
 
             def closed(run: _Run[S]) -> Outcome[None]:
                 restored = rollback.map(lambda context: self.restore(context, run.initial)).default_value(Ok(None))

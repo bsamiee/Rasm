@@ -15,8 +15,8 @@ from scipy.stats import qmc, sem
 
 from rasm_imaging._geometry.arithmetic import Arithmetic, smoothstep
 from rasm_imaging._geometry.frames import Raster, Region
-from rasm_imaging._sampling.tiles import uniforms
-from rasm_records import accumulated, content_hash, Fault, NonNegative, Outcome, Positive, Reason, rng, Seed, Unit
+from rasm_imaging._sampling.tiles import rng, Seed, uniforms
+from rasm_records import accumulated, content_hash, Fault, NonNegative, Outcome, Positive, Reason, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

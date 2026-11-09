@@ -112,7 +112,7 @@ let revisions: [String] = try await log.reduceLines(into: [], limit: limit) { ha
 - `limit` bounds standard error and each output line, a longer one throws `outputLimitExceeded`, and memory stays flat however long the output runs
 - `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
 - Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
-- Signalable processes report exit through `kqueue` `EVFILT_PROC` with `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL`, `data` holding wait status
+- Processes the caller may send `SIGKILL`, children or not, report exit through `kqueue` `EVFILT_PROC` with `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL`, `data` holding wait status, and any other process fails the registration with `EACCES` (XNU `filt_procattach`; `man 2 kqueue`'s "child processes only" is stale)
 - `kAEQuitApplication` with `keyAESaveOptions` set to `kAEYes` saves every document with a location, a quit a person or agent answers leaves it unset
 
 ## [04]-[COMMAND_LINES]

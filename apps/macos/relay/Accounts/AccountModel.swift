@@ -11,20 +11,18 @@ struct RunningOperation {
 
 @Observable
 final class AccountModel {
-    static let usageReadSpacing: TimeInterval = 180
+    static let usageReadSpacing: (selected: TimeInterval, parked: TimeInterval) = (180, 1800)
 
     var account: Account
     var authentication: AuthenticationState
     var usage: UsageState
-    var retryAfter: Date?
     var isSelected: Bool = false
     private(set) var running: RunningOperation?
 
-    init(account: Account, authentication: AuthenticationState, usage: UsageState, retryAfter: Date?) {
+    init(account: Account, authentication: AuthenticationState, usage: UsageState) {
         self.account = account
         self.authentication = authentication
         self.usage = usage
-        self.retryAfter = retryAfter
     }
 
     var isBusy: Bool { running != nil }
@@ -33,7 +31,10 @@ final class AccountModel {
     var canSelect: Bool { isConnected && acceptsOperation && !isSelected }
 
     var usageReadAfter: Date? {
-        [retryAfter, usage.usage?.observedAt.addingTimeInterval(Self.usageReadSpacing)].compactMap(\.self).max()
+        usage.usage.map { usage in
+            let spaced: Date = usage.observedAt.addingTimeInterval(isSelected ? Self.usageReadSpacing.selected : Self.usageReadSpacing.parked)
+            return usage.nextReset.map { reset in min(reset, spaced) } ?? spaced
+        }
     }
 
     func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {

@@ -1,1 +1,1 @@
-"""Suite of the rasm-refurb checks and driver."""
+"""Suite of the rasm-refurb checks."""

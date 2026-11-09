@@ -1,5 +1,6 @@
 """Local queue runs: host commands and run files, process launches, supervision of background Blender renders, sleep hold, and shutdown."""
 
+import base64
 from collections.abc import Callable, Mapping
 import ctypes
 from datetime import timedelta
@@ -21,7 +22,7 @@ from expression.extra.result import catch
 import msgspec
 from tenacity import retry_if_result, Retrying, stop_after_attempt
 
-from rasm_records import accumulated, argument, Case, Error, Fault, Faults, folder_made, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed
+from rasm_records import accumulated, Case, Error, Fault, Faults, folder_made, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed
 from rasm_rendering._batch.queue import Ending, Job, observed, Progress, RenderQueue
 
 if sys.platform == "win32":
@@ -122,6 +123,20 @@ class Run(Case, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [ARGUMENTS]
+
+
+def argument(record: msgspec.Struct) -> str:
+    """Returns the command argument holding record, base64 JSON that no shell, worker, or host argument parser rewrites."""
+    return base64.b64encode(msgspec.json.encode(record)).decode("ascii")
+
+
+def argued[T](decoder: msgspec.json.Decoder[T], subject: str, text: str, /) -> Outcome[T]:
+    """Returns the record a command argument holds, `UNREADABLE` fault over subject for text no `argument` wrote."""
+    unreadable = partial(Fault.of, Reason.UNREADABLE, subject)
+    return catch(base64.b64decode, exception=ValueError)(text, validate=True).map_error(unreadable).bind(lambda data: catch(decoder.decode, exception=msgspec.DecodeError)(data).map_error(unreadable))
+
+
 # --- [PROCESSES]
 
 
@@ -130,7 +145,7 @@ def ran(argv: tuple[str, ...]) -> Outcome[None]:
     return (
         catch(subprocess.run, exception=OSError)(argv, check=False)
         .map_error(partial(Fault.of, Reason.FAILED, shlex.join(argv)))
-        .filter_with(lambda done: done.returncode == 0, lambda done: Fault.of(Reason.ANSWERED, shlex.join(argv), member=f"exit code {done.returncode}"))
+        .filter_with(lambda done: done.returncode == 0, lambda done: Fault.of(Reason.FAILED, shlex.join(argv), f"exit code {done.returncode}"))
         .map(lambda _: None)
     )
 
@@ -200,7 +215,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, inte
     def confirmed(job: Job, code: int) -> Outcome[Progress]:
         return (
             Ok(code)
-            .filter_with(lambda held: held == 0, lambda held: Fault.of(Reason.ANSWERED, job.title, member=f"exit code {held}"))
+            .filter_with(lambda held: held == 0, lambda held: Fault.of(Reason.FAILED, job.title, f"exit code {held}"))
             .bind(lambda _: records.revised(lambda held: msgspec.structs.replace(held, pending=())))
         )
 
@@ -259,7 +274,7 @@ def awake[T](operation: Callable[[], Outcome[T]], /) -> Outcome[T]:
         unheld = partial(Fault.of, Reason.FAILED, shlex.join(argv))
         return (
             paired(catch(holder.terminate, exception=OSError)().map_error(unheld), catch(holder.wait, exception=OSError)().map_error(unheld))
-            .filter_with(lambda pair: pair[1] in {0, -signal.SIGTERM}, lambda pair: Fault.of(Reason.ANSWERED, shlex.join(argv), member=f"exit code {pair[1]}"))
+            .filter_with(lambda pair: pair[1] in {0, -signal.SIGTERM}, lambda pair: Fault.of(Reason.FAILED, shlex.join(argv), f"exit code {pair[1]}"))
             .map(lambda _: None)
         )
 
@@ -284,4 +299,21 @@ def shutdown_cancelled(progress: Progress) -> Outcome[None]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HostCommands", "LocalMachine", "Run", "RunCommand", "RunFile", "awake", "cleared", "detached", "ran", "shutdown", "shutdown_cancelled", "spawned", "stop", "supervise"]
+__all__ = [
+    "HostCommands",
+    "LocalMachine",
+    "Run",
+    "RunCommand",
+    "RunFile",
+    "argued",
+    "argument",
+    "awake",
+    "cleared",
+    "detached",
+    "ran",
+    "shutdown",
+    "shutdown_cancelled",
+    "spawned",
+    "stop",
+    "supervise",
+]

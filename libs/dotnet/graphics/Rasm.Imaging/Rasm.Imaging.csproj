@@ -37,7 +37,7 @@
         <PackageReference Include="TinyEXR.NET" />
     </ItemGroup>
 
-    <ItemGroup Label="Embedded Resources">
-        <EmbeddedResource Include="Quantization/BlueNoise.tif" />
+    <ItemGroup Label="Tables">
+        <FetchedResource Include="https://raw.githubusercontent.com/Calinou/free-blue-noise-textures/a64e300dcd96b5f8c42494c5e452c1eb409b0efb/256_256/HDR_RGBA_4.png" Sha256="bf9a2b89b097f441f2aba243a6a99be203109b31cb9ac8644e13bef9b61556d7" />
     </ItemGroup>
 </Project>

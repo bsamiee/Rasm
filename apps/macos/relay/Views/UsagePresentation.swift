@@ -74,20 +74,14 @@ extension AccountModel {
     }
 }
 
-extension ProviderError {
-    func description(at now: Date) -> String {
-        [failure.localizedDescription, failure.retryAfter.map { until in until.resetText(at: now) }].compactMap(\.self).joined(separator: separator)
-    }
-}
-
 extension AuthenticationPhase {
-    func description(at now: Date) -> String {
+    var description: String {
         switch self {
             case .pending: "Waiting for browser sign-in"
             case .completing: "Completing sign-in"
             case .refused(.differentAccount(let email)): "Signed-in account is not \(email)"
             case .refused(.alreadyConnected(let email)): "\(email) is already connected"
-            case .refused(.failure(let error)): error.description(at: now)
+            case .refused(.failure(let error)): error.failure.localizedDescription
             case .cancelling: "Canceling sign-in"
         }
     }

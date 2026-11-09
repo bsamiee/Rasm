@@ -11,7 +11,7 @@
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#analyzer": "./.build/release/nx-apple-analyzer"
+        "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
     },
     "exports": {
         ".": "./plugins/project-graph.ts",
@@ -20,9 +20,6 @@
         "./executors.json": "./executors.json"
     },
     "files": [ "dist", "executors.json", "executors/*/schema.json" ],
-    "scripts": {
-        "prepare": "swift build -c release --product nx-apple-analyzer"
-    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -34,6 +31,9 @@
     },
     "peerDependencies": {
         "nx": "catalog:peers"
+    },
+    "optionalDependencies": {
+        "@rasm/nx-apple-darwin-arm64": "workspace:*"
     },
     "publishConfig": {
         "access": "public",

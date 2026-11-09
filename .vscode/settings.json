@@ -50,7 +50,7 @@
         "Directory.Build.props": " Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config",
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
-        "nx.json": ".editorconfig, .globalconfig, .shellcheckrc, .yamllint.yaml, sgconfig.yml",
+        "nx.json": ".editorconfig, .globalconfig, .shellcheckrc, .squawk.toml, .yamllint.yaml, sgconfig.yml",
         "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, vitest.config.ts",
         "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": ".python-version, pixi.lock, uv.lock",

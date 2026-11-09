@@ -15,6 +15,7 @@ import msgspec
 import msgspec.structs
 
 from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import _differing, Value, written
 from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.data._rna.properties import _titled
@@ -157,7 +158,7 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
         kept: dict[str, dict[str, str]] = {}
         desired: list[str] = []
         answers: list[Outcome[object]] = []
-        refused = partial(Fault.of, Reason.REFUSED, repr(switch))
+        refused = partial(Fault.of, Refusal.REFUSED, repr(switch))
         try:
             for index in reversed(removed):
                 switch.enum_items.remove(switch.enum_items[index])
@@ -316,7 +317,7 @@ class Graph(Membered, frozen=True, kw_only=True):
             if item not in distinct:
                 distinct.append(item)
         return accumulated(
-            Ok((key, first)) if not rest else Error(Fault.of(Reason.REFUSED, f"Graph.nodes[{key!r}]", ValueError(f"{len(rest) + 1} different nodes share key {key!r}")))
+            Ok((key, first)) if not rest else Error(Fault.of(Refusal.REFUSED, f"Graph.nodes[{key!r}]", ValueError(f"{len(rest) + 1} different nodes share key {key!r}")))
             for key, (first, *rest) in claims.items()
         ).map(
             lambda nodes: cls(

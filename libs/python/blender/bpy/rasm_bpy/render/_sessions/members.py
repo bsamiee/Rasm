@@ -13,6 +13,7 @@ import msgspec
 
 from rasm_bpy.commands.operators import Answer, answered, Call, Done, Empty, tallied, Unchanged
 from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import Mark, Ownership, Saved
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import RnaPath, rooted
@@ -219,9 +220,9 @@ def _removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer
     """Removes a member scene, or a view layer from its scene."""
     match owner:
         case bpy.types.Scene() as scene:
-            return catch(bpy.data.scenes.remove, exception=RuntimeError)(scene).map_error(partial(Fault.of, Reason.REFUSED, repr(scene)))
+            return catch(bpy.data.scenes.remove, exception=RuntimeError)(scene).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene)))
         case (scene, layer):
-            return catch(scene.view_layers.remove, exception=RuntimeError)(layer).map_error(partial(Fault.of, Reason.REFUSED, repr(layer)))
+            return catch(scene.view_layers.remove, exception=RuntimeError)(layer).map_error(partial(Fault.of, Refusal.REFUSED, repr(layer)))
 
 
 def _added(members: Members, source: bpy.types.Scene, name: str) -> Outcome[bpy.types.Scene]:

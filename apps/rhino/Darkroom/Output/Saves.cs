@@ -2,7 +2,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using CommunityToolkit.HighPerformance;
 using Darkroom.Chain;
 using Darkroom.Queue;
@@ -18,7 +17,6 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
-using SixLabors.ImageSharp.PixelFormats;
 
 namespace Darkroom.Output;
 
@@ -136,9 +134,9 @@ internal sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Over
         RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(Placed(read)));
 
     private Fin<PixelFrame> Placed(BitmapData pixels) =>
-        Placed(pixels.Width, pixels.Height, (window, extent) => PixelFrame.From<Bgra32>(
-            pixels.Scan0 + ((window.Y + Frame.Pad.Height) * pixels.Stride) + ((window.X + Frame.Pad.Width) * Unsafe.SizeOf<Bgra32>()),
-            pixels.Stride, window.Location, extent, Frame.Frame));
+        Placed(pixels.Width, pixels.Height, (window, extent) => PixelFrame.From(
+            pixels.Scan0 + ((window.Y + Frame.Pad.Height) * pixels.Stride) + ((window.X + Frame.Pad.Width) * PixelLayout.Bgra32.Bytes),
+            pixels.Stride, window.Location, extent, Frame.Frame, PixelLayout.Bgra32));
 
     private Fin<PixelFrame> Placed(Memory2D<float> pixels) =>
         Placed(pixels.Width / 4, pixels.Height, (window, extent) => new PixelFrame(window.Location, extent, Frame.Frame, block =>

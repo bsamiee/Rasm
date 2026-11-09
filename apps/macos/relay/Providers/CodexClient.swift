@@ -14,7 +14,6 @@ import os
 
 private nonisolated struct CodexPackage: Decodable {
     let entrypoint: String
-    let version: String
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -133,6 +132,7 @@ actor CodexClient: ProviderClient {
         return await Result { () async throws(CodexFailure) in
             let connection: JSONRPCConnection<CodexProtocol.Method, CodexFailure> = try await connection(for: home)
             try await withTimeout(.seconds(300), expired: .timedOut(.seconds(300))) { () async throws(CodexFailure) in
+                let completions: AsyncStream<Result<CodexProtocol.LoginCompleted, CodexFailure>> = connection.subscribe(.accountLoginCompleted, to: CodexProtocol.LoginCompleted.self)
                 let started: CodexProtocol.LoginStarted = try await connection.request(
                     .accountLoginStart,
                     params: CodexProtocol.LoginStartParams(),
@@ -141,9 +141,13 @@ actor CodexClient: ProviderClient {
                 guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
                 guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
                 self.logger.info("Opened OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
-                let completed: CodexProtocol.LoginCompleted = try await connection.notification(.accountLoginCompleted, returning: CodexProtocol.LoginCompleted.self) {
-                    completed in completed.loginId == started.loginId
+                let completion: Result<CodexProtocol.LoginCompleted, CodexFailure>? = await completions.first { received in
+                    switch received {
+                        case .success(let completed): completed.loginId == started.loginId
+                        case .failure: true
+                    }
                 }
+                guard let completed: CodexProtocol.LoginCompleted = try completion?.get() else { throw .cancelled(CancellationError()) }
                 guard completed.success else { throw .signInRefused(reason: completed.error) }
             }
             let identity: AccountIdentity = try identity(at: home)
@@ -197,21 +201,28 @@ actor CodexClient: ProviderClient {
 
     private func connection(for home: URL) async throws(CodexFailure) -> JSONRPCConnection<CodexProtocol.Method, CodexFailure> {
         let identity: AccountIdentity? = try CodexAuthFile.read(in: home)?.identity
-        if let server: CodexServer = servers[home], server.identity == identity, !(await server.connection.isFinished) {
+        if let server: CodexServer = servers[home], server.identity == identity, !server.connection.isFinished {
             return server.connection
         }
         await stopServer(home)
         let excludedEnvironmentVariables: Set<Environment.Key> = ["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID"]
-        guard
-            let package: URL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.desktop).flatMap(Bundle.init(url:))?
-                .url(forResource: "codex-cli", withExtension: nil)
-        else { throw .applicationUnavailable }
-        let manifest: CodexPackage = try Result { try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json"))) }
-            .mapError(CodexFailure.storage)
-            .get()
+        let executable: FilePath
+        switch await Result(catching: { () async throws(SubprocessError) in try await Executable.name("codex").resolveExecutablePath(in: .custom(environment)) }) {
+            case .success(let found): executable = found
+            case .failure(let error) where error.code != .executableNotFound: throw .process(ProcessFailure(subject: "codex", error))
+            case .failure:
+                guard
+                    let package: URL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.desktop).flatMap(Bundle.init(url:))?
+                        .url(forResource: "codex-cli", withExtension: nil)
+                else { throw .executableMissing }
+                let manifest: CodexPackage = try Result { try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json"))) }
+                    .mapError(CodexFailure.storage)
+                    .get()
+                executable = FilePath(package.appending(path: manifest.entrypoint).path(percentEncoded: false))
+        }
         try Result { try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true) }.mapError(CodexFailure.storage).get()
         let invocation: Configuration = Configuration(
-            executable: .path(FilePath(package.appending(path: manifest.entrypoint).path(percentEncoded: false))),
+            executable: .path(executable),
             arguments: ["app-server"],
             environment: .custom(environment.filter { key, _ in !key.rawValue.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key) })
                 .updating(["CODEX_HOME": FilePath(home.path(percentEncoded: false)).string]),
@@ -226,19 +237,18 @@ actor CodexClient: ProviderClient {
             do {
                 let status: TerminationStatus = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
                     logger.info(
-                        "Started codex app-server \(manifest.version, privacy: .public) as PID \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
+                        "Started codex app-server \(executable.string, privacy: .public) as PID \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
                     )
                     await JSONRPCConnection<CodexProtocol.Method, CodexFailure>.run(
                         reading: execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded).map { line in Data(line.utf8) },
                         writing: { line in _ = try await execution.standardInputWriter.write(line) },
                         timeout: .seconds(60),
-                        retaining: [.accountLoginCompleted],
                         serving: { _, _ throws(JSONRPCError) in throw JSONRPCError(code: -32601, message: "Relay provides no agent tools") },
                         failure: { failure in
                             switch failure.reason {
                                 case .timedOut(let timeout): .timedOut(timeout)
                                 case .cancelled(let error): .cancelled(error)
-                                case .transport, .closed, .unreadable, .unencodable, .refused: .rpc(failure, serverVersion: manifest.version)
+                                case .transport, .closed, .unreadable, .unencodable, .refused: .rpc(failure)
                             }
                         },
                     ) { connection in

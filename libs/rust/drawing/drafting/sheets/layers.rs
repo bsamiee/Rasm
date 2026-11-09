@@ -90,7 +90,7 @@ pub(super) fn drawn(
     let trim = marked
         .iter()
         .map(|(.., mask)| mask)
-        .filter(|mask| !mask.is_empty())
+        .filter(|mask| !mask.contours().is_empty())
         .try_into_nonempty_iter()
         .map(|masks| -> Result<_, DraftingError> {
             Ok((

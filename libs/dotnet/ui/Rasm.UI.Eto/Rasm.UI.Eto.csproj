@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Eto host for Rasm.UI scenes: one drawable surface, placed native controls, popups, input, and host theme</Description>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color">
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
+    <ItemGroup Label="User Interface">
+        <PackageReference Include="Eto.Forms" />
+        <PackageReference Include="SkiaSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../Rasm.UI/Rasm.UI.csproj" />
+    </ItemGroup>
+</Project>

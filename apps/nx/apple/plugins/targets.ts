@@ -1,6 +1,7 @@
 import { findPackageJSON } from 'node:module';
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
-import { Effect, FileSystem, Formatter, Path, Schema, Stream } from 'effect';
+import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { Effect, FileSystem, Formatter, Path, Record, Schema, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import type { Run } from '#/executors/run/executor';
 
@@ -14,14 +15,14 @@ interface Part {
     readonly targets: Readonly<Record<string, TargetConfiguration>>;
     readonly release?: NonNullable<ProjectConfiguration['release']>;
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const TOOLCHAIN: NonNullable<TargetConfiguration['inputs']> = [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { externalDependencies: [] }];
+interface Plugin {
+    readonly name: string;
+    readonly inputs: NonNullable<TargetConfiguration['inputs']>;
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String }));
+const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String, optionalDependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -36,9 +37,18 @@ class AppleError extends Schema.TaggedError<AppleError, { readonly brand: unique
 const core = Effect.gen(function* () {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
-    const { name, version } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
+    const { name, version, optionalDependencies } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
     const analyzer = Effect.flatMap(Effect.try({ try: () => new URL(import.meta.resolve('#analyzer')), catch: (cause) => AppleError.make({ subject: '#analyzer', detail: Formatter.format(cause) }) }), path.fromFileUrl);
-    return { name, version, folder: path.dirname(located), analyzer };
+    const packages = [name, ...Record.keys(optionalDependencies)];
+    const plugin = (workspaceRoot: string) =>
+        Effect.map(
+            Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.relative(workspaceRoot, located)])),
+            (tracked): Plugin => ({
+                name,
+                inputs: [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, ...(tracked.length === 0 ? [{ externalDependencies: packages }] : [{ input: 'default', projects: packages }, { externalDependencies: [] }])],
+            }),
+        );
+    return { name, version, folder: path.dirname(located), analyzer, plugin };
 });
 
 const spawned = (command: string, args: readonly string[], options: { readonly cwd: string; readonly input?: string }) =>
@@ -54,10 +64,16 @@ const spawned = (command: string, args: readonly string[], options: { readonly c
         }),
     );
 
+const present = (command: string, args: readonly string[], cwd: string) =>
+    spawned(command, args, { cwd }).pipe(
+        Effect.asSome,
+        Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeedNone),
+    );
+
 const tokened = (path: Path.Path, at: string) => (path.isAbsolute(at) || at.startsWith('..') ? [] : [path.join('{workspaceRoot}', at)]);
 
-const target = (plugin: string, runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
-    executor: `${plugin}:run`,
+const target = (plugin: Plugin, runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
+    executor: `${plugin.name}:run`,
     options: { runs },
     metadata,
     ...extra,
@@ -65,4 +81,4 @@ const target = (plugin: string, runs: (typeof Run.Type)['runs'], metadata: NonNu
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleError, core, type Part, spawned, TOOLCHAIN, target, tokened };
+export { AppleError, core, type Part, type Plugin, present, spawned, target, tokened };

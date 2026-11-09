@@ -13,6 +13,7 @@ import msgspec
 
 from rasm_bpy.commands.operators import answered
 from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import _differing, Value
 from rasm_bpy.data._rna.paths import RnaPath, rooted, Struct
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
@@ -238,7 +239,7 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
             desired: list[str] = []
             inputs: bpy.types.NodeInputs = output.inputs  # ty: ignore[invalid-assignment]
             answers: list[Outcome[None]] = []
-            refused = partial(Fault.of, Reason.REFUSED, repr(output))
+            refused = partial(Fault.of, Refusal.REFUSED, repr(output))
             try:
                 for index in reversed(removed):
                     output.file_output_items.remove(output.file_output_items[index])

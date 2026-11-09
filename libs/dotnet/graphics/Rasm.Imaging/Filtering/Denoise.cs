@@ -37,7 +37,7 @@ public sealed partial class Denoiser : IDisposable {
 
     // --- [NATIVES]
 
-    private const string Library = "OpenImageDenoise.2";
+    public const string Library = "OpenImageDenoise.2";
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.U1)]

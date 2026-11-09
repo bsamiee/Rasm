@@ -20,12 +20,6 @@
       "version": {
         "up-to-next-major-version": "2.10.1",
       },
-    }, {
-      "kind": "remote",
-      "repository": "https://github.com/apple/swift-http-types",
-      "version": {
-        "up-to-next-major-version": "1.8.0",
-      },
     },
   ],
   "files": [
@@ -109,14 +103,6 @@
         }, {
           "package": "Sparkle",
           "product-name": "Sparkle",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "swift-http-types",
-          "product-name": "HTTPTypes",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "swift-http-types",
-          "product-name": "HTTPTypesFoundation",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],

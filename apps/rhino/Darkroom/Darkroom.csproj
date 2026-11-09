@@ -35,9 +35,9 @@
 
     <ItemGroup Label="Imaging">
         <PackageReference Include="Emgu.CV" />
-        <PackageReference Include="Emgu.CV.runtime.mini.macos" Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
-        <PackageReference Include="Emgu.CV.runtime.mini.windows" ExcludeAssets="buildTransitive" Condition="$(RuntimeIdentifier.StartsWith('win'))" />
-        <PackageReference Include="Emgu.runtime.windows.msvc.rt.arm64;Emgu.runtime.windows.msvc.rt.x64;Emgu.runtime.windows.msvc.rt.x86" ExcludeAssets="build;buildtransitive" NoWarn="NU1701" Condition="$(RuntimeIdentifier.StartsWith('win'))" />
+        <PackageReference Include="Emgu.CV.runtime.mini.macos" />
+        <PackageReference Include="Emgu.CV.runtime.mini.windows" ExcludeAssets="buildTransitive" />
+        <PackageReference Include="Emgu.runtime.windows.msvc.rt.arm64;Emgu.runtime.windows.msvc.rt.x64" ExcludeAssets="build;buildtransitive" NoWarn="NU1701" />
         <PackageReference Include="SixLabors.ImageSharp" />
         <PackageReference Include="TinyEXR.NET" />
     </ItemGroup>

@@ -2,9 +2,7 @@ public import Foundation
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct Unmatched: Equatable, LocalizedError, TaggedError {
-    public static let tag: String = "Unmatched"
-
+public struct Unmatched: Encodable, Equatable, LocalizedError {
     public let subject: String
     public let query: String?
     public let candidates: [String]

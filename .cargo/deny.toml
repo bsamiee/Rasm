@@ -15,4 +15,4 @@ ignore       = [
 # --- [SOURCES] --------------------------------------------------------------------------
 
 [sources]
-allow-org = { github = ["rust-lang"] }
+allow-org = { github = ["georust", "rust-lang"] }

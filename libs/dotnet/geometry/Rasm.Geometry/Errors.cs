@@ -14,6 +14,7 @@ public sealed partial class GeometryRule {
     public static readonly GeometryRule Range = new("value out of range");
     public static readonly GeometryRule Degenerate = new("degenerate extent");
     public static readonly GeometryRule Singular = new("singular map");
+    public static readonly GeometryRule Distortion = new("map distorts distance unevenly");
 
     public string Message { get; }
 }

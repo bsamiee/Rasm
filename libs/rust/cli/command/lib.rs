@@ -152,16 +152,25 @@ pub struct Process<A> {
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
     #[error("cannot {operation}")]
-    Io { operation: Operation, source: io::Error },
+    Io {
+        operation: Operation,
+        source: io::Error,
+    },
     #[error(transparent)]
     File(#[from] io::Error),
     #[error("cannot open log directory {directory}")]
-    Appender { directory: Utf8PathBuf, source: InitError },
+    Appender {
+        directory: Utf8PathBuf,
+        source: InitError,
+    },
     #[error("{}", fmt::from_fn(|formatter| match phase {
         settings::Phase::Parse(origin) | settings::Phase::Decode { path: _, origin: Some(origin) } => formatter.write_str(&origin.excerpt(&phase.to_string())),
         settings::Phase::Decode { path: _, origin: None } => write!(formatter, "{phase}"),
     }))]
-    Settings { phase: Phase, source: Box<de::Error> },
+    Settings {
+        phase: Phase,
+        source: Box<de::Error>,
+    },
 }
 
 impl From<CommandError> for sysexits::ExitCode {
@@ -287,3 +296,15 @@ pub mod telemetry;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use settings::{Layers, Origin, Phase, Provenance, decoded};
+pub use camino;
+pub use clap;
+pub use futures;
+pub use nonempty_collections;
+pub use opentelemetry;
+pub use serde;
+pub use serde_path_to_error;
+pub use sysexits;
+pub use tokio_stream;
+pub use toml;
+pub use tracing_appender;
+pub use tracing_subscriber;

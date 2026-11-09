@@ -543,87 +543,87 @@ mod manual;
 mod patterns;
 mod representation;
 
-dylint_linting::__maybe_mangle! {
-    pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
-        if let Some(folder) = session.io.input.opt_path().and_then(Path::parent) {
-            match Utf8Path::from_path(folder) {
-                Some(folder) => session.file_depinfo.lock().extend([Symbol::intern(folder.as_str())]),
-                None => _ = session.dcx().err(format!("`{}` is not UTF-8, so Cargo cannot track the modules in it", folder.display())),
-            }
+#[expect(unsafe_code, reason = "Dylint's driver loads this function by its unmangled name and calls it through `RegisterLintsFunc`, the signature written here")]
+#[unsafe(no_mangle)]
+pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
+    if let Some(folder) = session.io.input.opt_path().and_then(Path::parent) {
+        match Utf8Path::from_path(folder) {
+            Some(folder) => session.file_depinfo.lock().extend([Symbol::intern(folder.as_str())]),
+            None => _ = session.dcx().err(format!("`{}` is not UTF-8, so Cargo cannot track the modules in it", folder.display())),
         }
-        let format_args = FormatArgsStorage::default();
-        let early = format_args.clone();
-        store.register_early_lint_pass(Box::new(move || Box::new(FormatArgsCollector { format_args: FxHashMap::default(), storage: early.clone() })));
-        lints! {
-            store, tcx;
-            {
-                let bodies = LazyCell::new(|| Rc::new(duplication::Bodies::default()));
-                let recorded = LazyCell::new(|| Rc::new(Recorded::new(tcx)));
-                let reported = (!tcx.skippable_lints(()).contains(&LintId::of(macros::formatting::DISPLAY_FORMAT))).then(|| Rc::new(RefCell::new(LocalDefIdMap::default())));
-            }
-            concurrency::blocking_call_in_async,
-            concurrency::detached_task,
-            concurrency::short_circuited_join,
-            concurrency::unending_join,
-            duplication::duplicate_body(Rc::clone(&bodies)),
-            duplication::duplicate_trait_constant(Rc::clone(&bodies)),
-            duplication::duplicate_type(Rc::clone(&bodies)),
-            errors::canonicalize_without_path,
-            errors::debug_main_error,
-            errors::decode_without_path,
-            errors::discarded_error,
-            errors::discarded_error_source,
-            errors::error_field_without_sources(Rc::clone(&recorded)),
-            errors::manual_error_impl,
-            errors::partition_by_result,
-            errors::redundant_error_conversion,
-            errors::source_in_error_message,
-            errors::stringified_error(format_args.clone(), reported.clone()),
-            errors::untyped_error,
-            expressions::absurd_nonzero_comparison,
-            expressions::assertions_outside_tests,
-            expressions::environment_override,
-            expressions::explicit_iter_chain_zip,
-            expressions::redundant_clone_in_closure,
-            expressions::wrapping_arithmetic,
-            interior_mutability::interior_mutable_static,
-            interior_mutability::needless_cell,
-            items::modules,
-            items::needless_import_rename,
-            macros::formatting(format_args.clone(), reported.clone()),
-            macros::matching(format_args.clone()),
-            macros::renamed_function_params_in_macro,
-            macros::restriction_in_macro,
-            manual::manual_anonymous_impl(Rc::clone(&bodies)),
-            manual::manual_bool_toggle,
-            manual::manual_default_field_values,
-            manual::manual_deref_pattern,
-            manual::manual_drop_guard,
-            manual::manual_from_utf8_lossy_owned,
-            manual::manual_partition,
-            manual::manual_path_is_empty,
-            manual::manual_retain_back,
-            manual::manual_set_operator,
-            manual::manual_slice_as_array,
-            manual::manual_type_changing_struct_update,
-            manual::manual_upcast,
-            manual::manual_vec_from_fn,
-            patterns::rest_pattern_workspace_field,
-            patterns::wildcard_workspace_enum_match_arm,
-            representation::formatted_tracing_value(Rc::clone(&recorded), reported.clone()),
-            representation::manual_reference_impl,
-            representation::manual_serialization,
-            representation::manual_variant_array,
-            representation::needless_reference_field,
-            representation::needless_struct,
-            representation::option_field_pairs,
-            representation::restated_constant,
-            representation::sentinel_default,
-            representation::single_impl_trait,
-            representation::stringified_uuid(format_args.clone(), reported.clone()),
-            representation::stringly_typed_value,
-            representation::untyped_json_access,
-            representation::variant_constant_functions,
+    }
+    let format_args = FormatArgsStorage::default();
+    let early = format_args.clone();
+    store.register_early_lint_pass(Box::new(move || Box::new(FormatArgsCollector { format_args: FxHashMap::default(), storage: early.clone() })));
+    lints! {
+        store, tcx;
+        {
+            let bodies = LazyCell::new(|| Rc::new(duplication::Bodies::default()));
+            let recorded = LazyCell::new(|| Rc::new(Recorded::new(tcx)));
+            let reported = (!tcx.skippable_lints(()).contains(&LintId::of(macros::formatting::DISPLAY_FORMAT))).then(|| Rc::new(RefCell::new(LocalDefIdMap::default())));
         }
+        concurrency::blocking_call_in_async,
+        concurrency::detached_task,
+        concurrency::short_circuited_join,
+        concurrency::unending_join,
+        duplication::duplicate_body(Rc::clone(&bodies)),
+        duplication::duplicate_trait_constant(Rc::clone(&bodies)),
+        duplication::duplicate_type(Rc::clone(&bodies)),
+        errors::canonicalize_without_path,
+        errors::debug_main_error,
+        errors::decode_without_path,
+        errors::discarded_error,
+        errors::discarded_error_source,
+        errors::error_field_without_sources(Rc::clone(&recorded)),
+        errors::manual_error_impl,
+        errors::partition_by_result,
+        errors::redundant_error_conversion,
+        errors::source_in_error_message,
+        errors::stringified_error(format_args.clone(), reported.clone()),
+        errors::untyped_error,
+        expressions::absurd_nonzero_comparison,
+        expressions::assertions_outside_tests,
+        expressions::environment_override,
+        expressions::explicit_iter_chain_zip,
+        expressions::redundant_clone_in_closure,
+        expressions::wrapping_arithmetic,
+        interior_mutability::interior_mutable_static,
+        interior_mutability::needless_cell,
+        items::modules,
+        items::needless_import_rename,
+        macros::formatting(format_args.clone(), reported.clone()),
+        macros::matching(format_args.clone()),
+        macros::renamed_function_params_in_macro,
+        macros::restriction_in_macro,
+        manual::manual_anonymous_impl(Rc::clone(&bodies)),
+        manual::manual_bool_toggle,
+        manual::manual_default_field_values,
+        manual::manual_deref_pattern,
+        manual::manual_drop_guard,
+        manual::manual_from_utf8_lossy_owned,
+        manual::manual_partition,
+        manual::manual_path_is_empty,
+        manual::manual_retain_back,
+        manual::manual_set_operator,
+        manual::manual_slice_as_array,
+        manual::manual_type_changing_struct_update,
+        manual::manual_upcast,
+        manual::manual_vec_from_fn,
+        patterns::rest_pattern_workspace_field,
+        patterns::wildcard_workspace_enum_match_arm,
+        representation::formatted_tracing_value(Rc::clone(&recorded), reported.clone()),
+        representation::manual_reference_impl,
+        representation::manual_serialization,
+        representation::manual_variant_array,
+        representation::needless_reference_field,
+        representation::needless_struct,
+        representation::option_field_pairs,
+        representation::restated_constant,
+        representation::sentinel_default,
+        representation::single_impl_trait,
+        representation::stringified_uuid(format_args.clone(), reported.clone()),
+        representation::stringly_typed_value,
+        representation::untyped_json_access,
+        representation::variant_constant_functions,
     }
 }

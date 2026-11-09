@@ -17,9 +17,9 @@ import numpy as np
 import numpy.typing as npt
 
 from rasm_bpy.data._extension.registration import Resource
-from rasm_bpy.data._extension.reports import _redrawn
+from rasm_bpy.data._extension.reports import _redrawn, Refusal
 from rasm_bpy.ui._resources.theme import Checker, Metrics
-from rasm_records import Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import Fault, Nothing, Ok, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -192,10 +192,10 @@ def _uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
     pixels = np.ascontiguousarray(plane[::-1])
     return (
         catch(gpu.init, exception=SystemError)()
-        .map_error(partial(Fault.of, Reason.REFUSED, "gpu.init"))
+        .map_error(partial(Fault.of, Refusal.REFUSED, "gpu.init"))
         .bind(
             lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format=_FORMAT, data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # ty: ignore[invalid-argument-type]
-                partial(Fault.of, Reason.REFUSED, "gpu.types.GPUTexture")
+                partial(Fault.of, Refusal.REFUSED, "gpu.types.GPUTexture")
             )
         )
     )

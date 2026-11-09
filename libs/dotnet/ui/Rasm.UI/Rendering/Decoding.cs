@@ -17,7 +17,7 @@ namespace Rasm.UI.Rendering;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-internal sealed record ArtKey(GlyphSource Source, string Resource, Option<SKColor> Current, HashMap<string, SKColor> Classes, HashMap<Token, SKColorF> Chrome);
+internal sealed record ArtKey(GlyphSource Source, bool Shaded, Option<SKColor> Current, HashMap<string, SKColor> Classes, HashMap<Token, SKColorF> Chrome);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -125,8 +125,8 @@ internal sealed class Decoding {
         SKColorF under = layout.Inner.Background;
         Theme theme = layout.Cascade.Theme;
         return source.Animated
-            ? new ArtKey(source, source.Shown(under), None, [], [])
-            : new ArtKey(source, source.Shown(under),
+            ? new ArtKey(source, source.Shaded(under), None, [], [])
+            : new ArtKey(source, source.Shaded(under),
                 source.Tinted ? None : theme.Color(layout.Style.Text, layout.Style).Map(resting => (SKColor)theme.Legible(layout.Style, under, resting, text: false)),
                 toHashMap(toSeq(source.Classes.AsIterable()).Choose(pair => theme.Color(pair.Value, layout.Style).Map(resolved => (pair.Key, (SKColor)resolved)))), theme.Chrome);
     }
@@ -142,10 +142,7 @@ internal sealed class Decoding {
 
     // --- [LOADS]
 
-    internal Fin<LoadedMedia> Load(ArtKey key) {
-        using Stream? stream = key.Source.Assembly.GetManifestResourceStream(key.Resource);
-        return Optional(stream).ToFin(new UIFault(key.Resource, UIReason.Missing)).Bind(held => key.Source.Animated ? Motion(key, held) : Vector(key, held));
-    }
+    internal Fin<LoadedMedia> Load(ArtKey key) => key.Source.Animated ? Motion(key) : Vector(key);
 
     internal Fin<Decoded> Decode((ImageSource.Encoded Source, SKSizeI Pixels) key) {
         using SKCodec? codec = SKCodec.Create(key.Source.Data);
@@ -157,23 +154,24 @@ internal sealed class Decoding {
         });
     }
 
-    private static Fin<LoadedMedia> Motion(ArtKey key, Stream held) {
+    private static Fin<LoadedMedia> Motion(ArtKey key) {
         using AnimationBuilder builder = Animation.CreateBuilder();
         using DataUriResourceProvider embedded = new(preDecode: true);
         _ = builder.SetFontManager(SKFontManager.Default).SetResourceProvider(embedded);
-        return Optional(builder.Build(held)).ToFin(new UIFault(key.Resource, UIReason.Unreadable)).Map(static motion => (LoadedMedia)new LoadedMedia.Lottie(motion));
+        return Optional(builder.Build(key.Source.Shown(key.Shaded))).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Map(static motion => (LoadedMedia)new LoadedMedia.Lottie(motion));
     }
 
-    private Fin<LoadedMedia> Vector(ArtKey key, Stream held) {
+    private Fin<LoadedMedia> Vector(ArtKey key) {
+        using Stream held = key.Source.Shown(key.Shaded).AsStream();
         SvgDictionarySystemColorProvider colors = new(toSeq(Token.SystemColors.AsIterable()).Choose(pair => key.Chrome.Find(pair.Value).Map(color => (Name: pair.Key, Color: (SKColor)color)))
             .ToDictionary(static pair => pair.Name, static pair => Drawn(pair.Color), StringComparer.OrdinalIgnoreCase));
         using IDisposable scope = SvgSystemColorResolver.PushProvider(colors);
         string css = string.Concat(key.Classes.AsIterable().Select(static pair => Rule(pair.Key, pair.Value)));
         SvgParameters parameters = new(Entities: null, Css: css.Length > 0 ? css : null, CurrentColor: key.Current.Map(Drawn).ToNullable());
-        return Optional(SvgService.Open(held, parameters)).ToFin(new UIFault(key.Resource, UIReason.Unreadable)).Bind(document =>
+        return Optional(SvgService.Open(held, parameters)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Bind(document =>
             document.Descendants().OfType<SvgAnimationElement>().Any()
-                ? LoadedMedia.Smil.Of(document, settings => Configured(settings).SystemColorProvider = colors, key.Resource)
-                : Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new UIFault(key.Resource, UIReason.Unreadable)).Map(static art => (LoadedMedia)new LoadedMedia.Picture(art)));
+                ? LoadedMedia.Smil.Of(document, settings => Configured(settings).SystemColorProvider = colors, key.Source.Key)
+                : Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new UIFault(key.Source.Key, UIReason.Unreadable)).Map(static art => (LoadedMedia)new LoadedMedia.Picture(art)));
     }
 
     private SKSvgSettings Configured(SKSvgSettings settings) {

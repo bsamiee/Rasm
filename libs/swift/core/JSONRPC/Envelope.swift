@@ -7,7 +7,6 @@ struct Envelope<Payload: Sendable, Fault: Sendable>: Sendable {
     var id: JSONValue?
     var method: String?
     var params: Payload?
-    var chunk: Bool?
     var result: Payload?
     var error: Fault?
 }

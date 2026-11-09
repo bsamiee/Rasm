@@ -19,6 +19,7 @@ import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _Startup, _Tier, Acquisitions, Handler, Timer
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._ids.store import _embedded
 from rasm_bpy.data._rna.descriptors import _custom_read, Descriptor, stored
@@ -82,13 +83,13 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             _custom_read(host, self.name)
-            .map_error(partial(Fault.of, Reason.REFUSED, request))
+            .map_error(partial(Fault.of, Refusal.REFUSED, request))
             .bind(lambda held: Option.of_optional(held).map(lambda value: typed(IDPropertyGroup, request, value).bind(found).map(Some)).default_value(Ok(Nothing)))
         )
 
     def write(self, host: Holder, record: T) -> Outcome[None]:
         """Encodes record and replaces its stored group atomically."""
-        refused = partial(Fault.of, Reason.REFUSED, f"{host!r}[{self.name!r}]")
+        refused = partial(Fault.of, Refusal.REFUSED, f"{host!r}[{self.name!r}]")
         references: dict[str, bpy.types.ID] = {}
 
         def encoded(value: object) -> object:
@@ -107,7 +108,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
 
     def removed(self, host: Holder) -> Outcome[bool]:
         """Removes stored record, returning whether host held one."""
-        return _property(host, self.name, Nothing).map_error(partial(Fault.of, Reason.REFUSED, f"{host!r}[{self.name!r}]")).map(lambda found: found is not None)
+        return _property(host, self.name, Nothing).map_error(partial(Fault.of, Refusal.REFUSED, f"{host!r}[{self.name!r}]")).map(lambda found: found is not None)
 
 
 class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
@@ -424,7 +425,7 @@ class TextRecord[G: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_onl
         title = f"{identity.manifest.name} {bpy.path.display_name(self.key)}"
 
         def stored(snapshot: Snapshot) -> Outcome[None]:
-            return self.ownership.made(identity, lambda: catch(bpy.data.texts.new, exception=RuntimeError)(title).map_error(partial(Fault.of, Reason.REFUSED, title))).map(
+            return self.ownership.made(identity, lambda: catch(bpy.data.texts.new, exception=RuntimeError)(title).map_error(partial(Fault.of, Refusal.REFUSED, title))).map(
                 lambda text: text.from_string(snapshot.text)
             )
 

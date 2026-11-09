@@ -2,8 +2,6 @@
 #include <stdint.h>
 #include <wctype.h>
 
-#include "grammar.h"
-
 #define tree_sitter_c_sharp_external_scanner_scan(...) c_sharp_upstream_scan(__VA_ARGS__)
 
 static inline bool is_separator(int32_t character);

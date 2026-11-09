@@ -113,7 +113,7 @@ def install_tone_view(call: Call[Empty]) -> Outcome[Answer]:
             .found(call.identity, scene, settings.entry)
             .bind(lambda held: chain.pointwise(call.identity, held.entry).map(lambda _: held.entry))
             .bind(lambda entry: lattice.samples().bind(lambda plane: PreviewScene().sampled(call.identity, scene, (entry,), plane)))
-            .bind(lambda values: ConfigInstall(views=(ConfigView(name=settings.view, description=settings.description, transform=lambda: Ok(lattice.transform(values))),)).written())
+            .bind(lambda values: ConfigInstall(views=(ConfigView(name=settings.view, description=settings.description, transform=lambda: Ok(lattice.transform(values))),)).written(call.identity))
             .map(lambda path: Done(notes=(("INFO", f"Installed view {settings.view} into {path}, restart Blender to read it"),)))
         )
 

@@ -171,7 +171,7 @@ class _Engine(msgspec.Struct, frozen=True, kw_only=True):
 
         replay = cls(key=key, render=render, pass_builder=Some(passes)).built(identity)
         with ExitStack() as scope:
-            yield _entered(scope, (replay,)).map(lambda _: replay.bl_idname)
+            yield _entered(identity, scope, (replay,)).map(lambda _: replay.bl_idname)
 
     @contextmanager
     def joined(self, name: str) -> Generator[Outcome[None]]:

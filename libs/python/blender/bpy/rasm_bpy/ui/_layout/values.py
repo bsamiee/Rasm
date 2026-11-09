@@ -17,6 +17,7 @@ from rasm_bpy.commands import invocations, operators
 from rasm_bpy.commands.operators import Command, Placement
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Scoped
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import _definition, _rna, RnaPath, rooted, Struct
@@ -184,7 +185,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
             case (_, Path() as path) if self.preset.owned(identity, path):
                 return self.current(call.context).bind(partial(self.preset.written, path)).map(lambda _: operators.Done(notes=(("INFO", _reported("Replaced {}", path.stem)),)))
             case (_, _):
-                return Error(Fault.of(Reason.TAKEN, name, member=str(self.preset.folder(identity))))
+                return Error(Fault.of(Refusal.TAKEN, name, member=str(self.preset.folder(identity))))
             case None:
                 return self.current(call.context).bind(partial(self.preset.saved, identity, name)).map(lambda path: operators.Done(notes=(("INFO", _reported("Added {}", path.stem)),)))
 
@@ -210,7 +211,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         """Renames the saved preset file, a case change of its own name included."""
         identity, name, stem = call.identity, call.properties.name, call.properties.stem
         free = Ok(name).filter_with(
-            lambda held: _claimed(self.preset, identity, held).filter(lambda pair: pair[0] != stem).is_none(), partial(Fault.of, Reason.TAKEN, name, member=str(self.preset.folder(identity)))
+            lambda held: _claimed(self.preset, identity, held).filter(lambda pair: pair[0] != stem).is_none(), partial(Fault.of, Refusal.TAKEN, name, member=str(self.preset.folder(identity)))
         )
         return paired(_user(self.preset, identity, stem), free).bind(lambda pair: self.preset.renamed(*pair)).map(lambda _: operators.Done())
 

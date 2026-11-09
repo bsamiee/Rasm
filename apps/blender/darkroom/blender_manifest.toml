@@ -9,14 +9,14 @@ maintainer          = "Bardia Samiee"
 type                = "add-on"
 tags                = ["Compositing", "Render", "Sequencer"]
 blender_version_min = "5.4.0"
-license             = ["SPDX:MIT"]
+license             = ["SPDX:GPL-3.0-or-later", "SPDX:CC0-1.0"]
 platforms           = ["macos-arm64", "linux-x64", "windows-x64"]         # The `[tool.uv] environments` the lock resolves that Blender's manual lists
 
 # --- [PERMISSIONS] ----------------------------------------------------------------------
 
 [permissions]
 files     = "Writes renders, exports, presets, extension data, OCIO config"
-network   = "Submits jobs to Flamenco Manager and posts queue notices to ntfy"
+network   = "Sends Flamenco jobs and ntfy notices, downloads Tony McMapface"
 clipboard = "Copies and pastes setting values between scenes and files"
 
 # --- [BUILD] ----------------------------------------------------------------------------

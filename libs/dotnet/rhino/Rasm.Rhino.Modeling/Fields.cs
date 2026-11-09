@@ -1,5 +1,6 @@
 using Rasm.Geometry;
 using Rasm.Rhino.Document.Units;
+using Rhino;
 
 namespace Rasm.Rhino.Modeling;
 
@@ -10,18 +11,21 @@ public static class Fields {
     // --- [LEAVES]
 
     public static Fin<ScalarField.Moved> Solid(Box box) =>
-        RhinoFault.Unless(box.IsValid, RhinoReason.Invalid, box).Bind(_ =>
-            ScalarField.Moved.Of(new ScalarField.Box(new(box.X.Min, box.Y.Min, box.Z.Min), new(box.X.Max, box.Y.Max, box.Z.Max)), Transform.PlaneToPlane(Plane.WorldXY, box.Plane).ToMatrix()));
+        from valid in RhinoFault.Unless(box.IsValid, RhinoReason.Invalid, box)
+        from extent in Bounds.Validated(new(box.X.Min, box.Y.Min, box.Z.Min), new(box.X.Max, box.Y.Max, box.Z.Max))
+        from map in Transform.PlaneToPlane(Plane.WorldXY, box.Plane).ToAffine()
+        from moved in ScalarField.Moved.Of(new ScalarField.Box(extent), map, RhinoMath.ZeroTolerance)
+        select moved;
 
-    public static ScalarField Distance(GeometryBase source) =>
-        new ScalarField.Measured(point => Unsigned(source, point.ToPoint3d()), source.GetBoundingBox(accurate: true).ToBounds());
+    public static Fin<ScalarField> Distance(GeometryBase source) =>
+        source.GetBoundingBox(accurate: true).ToBounds().Map(ScalarField (bounds) => new ScalarField.Measured(point => Unsigned(source, point.ToPoint3d()), bounds));
 
-    public static ScalarField Signed(Tolerances tolerances, Interior region) =>
+    public static Fin<ScalarField> Signed(Tolerances tolerances, Interior region) =>
         region.Switch(
             solid: static solid => (Boundary: solid.Brep, Plane: Option<Plane>.None),
             closed: static closed => (Boundary: closed.Mesh, Plane: Option<Plane>.None),
             planar: static planar => (Boundary: (GeometryBase)planar.Curve, Plane: Some(planar.Plane))) switch {
-                var (boundary, plane) => new ScalarField.Measured(
+                var (boundary, plane) => (region is Interior.Planar ? None : Some(boundary)).Traverse(static held => held.GetBoundingBox(accurate: true).ToBounds()).As().Map(ScalarField (bounds) => new ScalarField.Measured(
                     point => point.ToPoint3d() switch {
                         var at => (region.Contains(tolerances, at), Unsigned(boundary, plane.Map(held => held.ClosestPoint(at)).IfNone(at))) switch {
                             (PointContainment.Inside, var distance) => -distance,
@@ -30,7 +34,7 @@ public static class Fields {
                             (PointContainment.Unset, _) => double.NaN,
                         },
                     },
-                    region is Interior.Planar ? None : Some(boundary.GetBoundingBox(accurate: true).ToBounds())),
+                    bounds)),
             };
 
     private static double Unsigned(GeometryBase source, Point3d point) =>
@@ -41,7 +45,7 @@ public static class Fields {
     public static IO<Mesh> Isosurface(ScalarField field, int resolution, int rootFindingSteps, Option<BoundingBox> box = default) =>
         from grid in IO.lift(() =>
             from found in Conversions.Required(box.Map(given => (Box: given, Resolution: resolution))
-                | field.Bounds.Map(bounds => (Box: bounds.Inflated(bounds.ToBoundingBox().Diagonal.MinimumCoordinate / resolution).ToBoundingBox(), Resolution: resolution + 2)))
+                | field.Bounds.Bind(bounds => bounds.Inflated(bounds.ToBoundingBox().Diagonal.MinimumCoordinate / resolution).ToOption()).Map(inflated => (Box: inflated.ToBoundingBox(), Resolution: resolution + 2)))
             from valid in RhinoFault.Unless(found.Box.IsValid && found.Box.IsDegenerate(0d) is 0, RhinoReason.Invalid, found.Box)
             select found)
         from failed in IO.lift(static () => Atom(value: false))

@@ -1,9 +1,5 @@
 """Darkroom registration over every row the extension declares: icons, preferences, effects, renders, color, and review."""
 
-from pathlib import Path
-
-from expression import Some
-
 from rasm_bpy.data import Registration
 from rasm_bpy.ui import Icons, PreferencesPage
 
@@ -16,7 +12,7 @@ from .review import calibration, metering, results
 
 REGISTRATION = Registration(
     __name__.rpartition(".")[0],
-    (Icons(brand=Some(Path("mark.svg"))), PreferencesPage(), *catalog.rows, *renders.rows, *luts.rows, *looks.rows, *response.rows, *metering.rows, *calibration.rows, *results.rows),
+    (Icons(turned=calibration.turned), PreferencesPage(), *catalog.rows, *renders.rows, *luts.rows, *looks.rows, *response.rows, *metering.rows, *calibration.rows, *results.rows),
 )
 register, unregister = REGISTRATION.register, REGISTRATION.unregister
 

@@ -1,3 +1,4 @@
+
 use core::{
     cell::{LazyCell, OnceCell},
     cmp::Ordering,
@@ -7,7 +8,6 @@ use core::{
 };
 use std::rc::Rc;
 
-use data_encoding::BASE64;
 use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jiff::fmt::temporal::Pieces;
@@ -17,8 +17,9 @@ use petgraph::{
 };
 use serde::{
     Deserialize, Serialize,
-    de::{self, DeserializeOwned, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Unexpected, Visitor},
+    de::{self, DeserializeOwned, DeserializeSeed, Deserializer, IntoDeserializer as _, MapAccess, SeqAccess, Unexpected, Visitor},
 };
+use serde_with::{DeserializeAs, base64::Base64};
 use serde_json::value::Serializer;
 use uom::si::f64 as si;
 
@@ -148,7 +149,7 @@ impl<'schema> Descriptions<'schema> {
             (Some(DataType::Enum { restrictions }), Unexpected::Str(text), _) =>
                 restrictions.options.iter().any(|option| **option == *text).then(|| Value::String(text.into())).ok_or_else(|| E::invalid_value(visited, &self)),
             (Some(DataType::Reference), Unexpected::Str(text), _) => text.parse().map(Value::Reference).map_err(E::custom),
-            (Some(DataType::Blob), Unexpected::Str(text), _) => BASE64.decode(text.as_bytes()).map(|bytes| Value::Blob(bytes.into_boxed_slice())).map_err(E::custom),
+            (Some(DataType::Blob), Unexpected::Str(text), _) => <Base64 as DeserializeAs<'_, Box<[u8]>>>::deserialize_as(text.into_deserializer()).map(Value::Blob),
             (
                 None
                 | Some(

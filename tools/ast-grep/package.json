@@ -1,0 +1,31 @@
+{
+    "name": "@rasm/ast-grep",
+    "private": true,
+    "description": "Tree-sitter grammars and outline catalogs ast-grep lacks, built by CMake into grammars/build",
+    "type": "module",
+    "imports": {
+        "#/*": "./*"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@tree-sitter-grammars/tree-sitter-toml": "catalog:",
+        "@tree-sitter-grammars/tree-sitter-xml": "catalog:",
+        "@tree-sitter-grammars/tree-sitter-yaml": "catalog:",
+        "effect": "catalog:",
+        "refa": "catalog:",
+        "tree-sitter-bash": "catalog:",
+        "tree-sitter-c-sharp": "catalog:",
+        "tree-sitter-java": "catalog:",
+        "tree-sitter-javascript": "catalog:",
+        "tree-sitter-postgres": "catalog:",
+        "tree-sitter-python": "catalog:",
+        "tree-sitter-rust": "catalog:",
+        "tree-sitter-sqlite3": "catalog:",
+        "tree-sitter-swift": "catalog:",
+        "tree-sitter-typescript": "catalog:",
+        "yaml": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    }
+}

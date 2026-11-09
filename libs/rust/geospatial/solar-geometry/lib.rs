@@ -1,4 +1,4 @@
-#![feature(array_try_map, float_conversions, iter_array_chunks, type_changing_struct_update)]
+#![feature(float_conversions, iter_array_chunks)]
 
 use core::range::Range;
 
@@ -6,6 +6,7 @@ use itertools::Itertools as _;
 use jiff::{SignedDuration, Timestamp, tz::Offset};
 use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
+#[cfg(feature = "proximity")]
 use rasm_proximity::ProximityError;
 use rasm_site::Place;
 use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions, delta_t, time::JulianDate};
@@ -60,8 +61,6 @@ pub struct Sun {
     #[as_ref]
     place: Place,
     #[as_ref]
-    location: Location,
-    #[as_ref]
     refraction: Option<RefractionCorrection>,
     #[as_ref]
     delta_t: Option<SignedDuration>,
@@ -80,8 +79,7 @@ impl Sun {
                 Refraction::Stated(correction) => Ok(correction),
             })
             .transpose()?;
-        let location = Location { latitude: place.position.latitude().get::<degree>(), longitude: place.position.longitude().get::<degree>() };
-        Ok(Self { place, location, refraction, delta_t })
+        Ok(Self { place, refraction, delta_t })
     }
 }
 
@@ -90,11 +88,17 @@ impl Sun {
 #[derive(Debug, thiserror::Error)]
 pub enum SolarError {
     #[error("solar-positioning refused the {operation}")]
-    Positioning { operation: Operation, source: solar_positioning::Error },
+    Positioning {
+        operation: Operation,
+        source: solar_positioning::Error,
+    },
     #[error("refused {}", inputs.iter().format(", "))]
-    Refused { inputs: NEVec<Input> },
+    Refused {
+        inputs: NEVec<Input>,
+    },
     #[error(transparent)]
     Time(#[from] jiff::Error),
+    #[cfg(feature = "proximity")]
     #[error(transparent)]
     Proximity(#[from] ProximityError),
 }
@@ -127,8 +131,10 @@ pub fn at(interval: Range<Timestamp>, share: f64) -> Result<Timestamp, SolarErro
 
 fn prepared(sun: &Sun, date: JulianDate) -> Result<(PreparedPositions, SolarPosition), solar_positioning::Error> {
     let prepared = SolarPositions::new().for_time_from_julian(date)?;
-    Ok((prepared, prepared.at(sun.location, sun.place.elevation.get::<meter>(), sun.refraction)?))
+    Ok((prepared, prepared.at(location(sun), sun.place.elevation.get::<meter>(), sun.refraction)?))
 }
+
+fn location(sun: &Sun) -> Location { Location { latitude: sun.place.position.latitude().get::<degree>(), longitude: sun.place.position.longitude().get::<degree>() } }
 
 fn julian(sun: &Sun, at: Timestamp) -> Result<JulianDate, SolarError> {
     let civil = Offset::UTC.to_datetime(at);
@@ -159,11 +165,24 @@ where I: IntoIterator<Item = Input> {
 
 mod dome;
 mod envelope;
-pub mod events;
+mod events;
+#[cfg(feature = "proximity")]
 mod exposure;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use dome::{Patch, bin, patches, sector};
 pub use envelope::{Envelope, envelope};
+pub use events::{events, path, sampled, windows};
+#[cfg(feature = "proximity")]
 pub use exposure::{Sensor, SkyMeasure, Transmittance, TransmittanceError, incidence, sky_view, sun_hours};
+pub use gauss_quad;
+pub use jiff;
+pub use nalgebra;
+pub use ndarray;
+pub use nonempty_collections;
+#[cfg(feature = "proximity")]
+pub use rasm_proximity;
+pub use rasm_site;
+pub use solar_positioning;
+pub use uom;

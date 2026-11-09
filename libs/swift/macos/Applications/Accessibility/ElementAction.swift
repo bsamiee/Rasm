@@ -90,7 +90,9 @@ extension ElementAction {
             return nil
         }
         let read: [String: CFTypeRef] = try node.values([kAXEnabledAttribute, kAXWindowAttribute])
-        let window: CGWindowID? = try read[kAXWindowAttribute].flatMap(AXUIElement.checked)?.window()
+        let window: CGWindowID? = try read[kAXWindowAttribute].flatMap(AXUIElement.checked).flatMap { window throws(ApplicationFailure) in
+            AXUIElement.window(framed: try window.values(frameAttributes), among: InstanceState.Window.owned(by: target.owner))
+        }
         let outcome: AXError =
             switch (self, read[kAXEnabledAttribute] as? Bool) {
                 case (.perform, false): throw ApplicationFailure(subject: description, reason: .disabled)

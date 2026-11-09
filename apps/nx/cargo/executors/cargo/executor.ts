@@ -82,13 +82,13 @@ const decided = (context: ExecutorContext, inputs: Readonly<Record<string, typeo
         const results = tasks.map(({ id, target: { project } }) => {
             const [at, name] = [root(project), inputs[id]?.package ?? ''];
             const reported = suites[name] ?? [];
-            const proven = { messages: built.has(at), tests: reported.length > 0, status: false }[command.report];
+            const proven = { messages: built.has(at), tests: reported.length > 0, status: run.code === 0 }[command.report];
             return { id, own: errored.has(at) || reported.some(({ event }) => event === 'failed'), blocked: reaches(project, new Set([project])), proven, terminalOutput: output(at, name) };
         });
         const attributed = results.some(({ own }) => own);
         return Record.fromIterableWith(results, ({ id, own, blocked, proven, terminalOutput }): readonly [string, TaskResult] => [
             id,
-            Match.value({ passed: run.code === 0 || (proven && !(own || blocked)), own, held: blocked || attributed }).pipe(
+            Match.value({ passed: proven && !(own || blocked), own, held: blocked || attributed }).pipe(
                 Match.when({ passed: true }, (): TaskResult => ({ success: true, terminalOutput })),
                 Match.when({ own: true }, (): TaskResult => ({ success: false, terminalOutput })),
                 Match.when({ held: true }, (): TaskResult => ({ success: false, status: 'skipped', terminalOutput: '' })),

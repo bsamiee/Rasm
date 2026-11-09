@@ -26,11 +26,12 @@ let modules: [Target] = [
 
     .target(name: "Encoding", path: "libs/swift/core/Encoding"),
     .target(name: "Results", path: "libs/swift/core/Results"),
-    .target(name: "JSONRPC", dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/core/JSONRPC"),
+    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
+    .target(name: "EffectRPC", dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/core/EffectRPC"),
 
     // --- [MACOS]
 
-    .target(name: "CurrentProcess", dependencies: ["Results"], path: "libs/swift/macos/CurrentProcess"),
+    .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
     .target(
         name: "Files",
         dependencies: [
@@ -67,7 +68,7 @@ let modules: [Target] = [
     .target(
         name: "ApplicationServer",
         dependencies: [
-            "AppleEvents", "Applications", "JSONRPC", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            "AppleEvents", "Applications", "EffectRPC", "Processes", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "OrderedCollections", package: "swift-collections"),
         ],
         path: "libs/swift/macos/ApplicationServer",
@@ -77,7 +78,7 @@ let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
         dependencies: [
-            "ApplicationServer", "Applications", "CurrentProcess", "Encoding", "JSONRPC", "Processes", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            "ApplicationServer", "Applications", "CurrentProcess", "EffectRPC", "Encoding", "Processes", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],

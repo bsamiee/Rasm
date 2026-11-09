@@ -260,10 +260,14 @@ impl Run {
     pub async fn command(&self, mut command: Command, active_case: Option<&Path>) -> io::Result<NonZero<u32>> {
         let program = PathBuf::from(command.as_std().get_program());
         let stem = program.file_stem().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "program has no file name"))?;
-        let named = |suffix: &str| self.directory.join([stem, OsStr::new(suffix)].into_iter().collect::<OsString>());
-        let (log, stderr) = (named(".log"), named("-stderr.log"));
-        let open = async |path: &Path| Ok::<_, io::Error>(fs_err::tokio::File::create_new(path).await?.into_std().await.into_file());
-        command.stdout(open(&log).await?).stderr(open(&stderr).await?);
+        let (prefix, directory) = ([stem, OsStr::new("-")].into_iter().collect::<OsString>(), self.directory.clone());
+        let ((log, output), (stderr, errors)) = task::spawn_blocking(move || {
+            let named = |suffix: &str| Builder::new().prefix(&prefix).suffix(suffix).tempfile_in(&directory)?.keep().map(|(file, path)| (path, file)).map_err(io::Error::from);
+            Ok::<_, io::Error>((named(".log")?, named(".stderr.log")?))
+        })
+        .await
+        .map_err(io::Error::other)??;
+        command.stdout(output).stderr(errors);
         let process = |pid, exit, case| Subject::Process { pid, program: &program, log: &log, stderr: &stderr, exit, case };
         let started = async |pid, _, _| self.record("process started", process(Some(pid), None, None)).await;
         let exited = async |pid, outcome: Result<ExitStatus, Stop>| {

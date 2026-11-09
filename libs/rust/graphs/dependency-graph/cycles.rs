@@ -1,16 +1,17 @@
+
 use core::{cmp::Reverse, iter};
 
 use itertools::{Either, Itertools as _};
 use nonempty_collections::{IntoIteratorExt as _, IntoNonEmptyIterator as _, NEVec, NonEmptyIterator};
 use petgraph::{
-    acyclic::{Acyclic, AcyclicEdgeError},
-    algo::{Cycle, astar, condensation, kosaraju_scc},
+    acyclic::AcyclicEdgeError,
+    algo::{astar, condensation, kosaraju_scc},
     stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
     visit::{EdgeRef as _, IntoEdgeReferences as _, NodeFiltered, NodeIndexable as _},
 };
 use rustworkx_core::connectivity::johnson_simple_cycles;
 
-use crate::{DependencyError, Edges, Evaluation, at, compact, dense, unweighted};
+use crate::{DependencyError, Edges, Evaluation, acyclic, at, compact, dense, unweighted};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,10 +29,11 @@ pub struct Torn<N, E> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn condensed<N, E>(graph: &StableDiGraph<N, E>) -> Result<Evaluation<NEVec<NodeIndex>, EdgeIndex>, Cycle<NodeIndex>> {
+#[must_use]
+pub fn condensed<N, E>(graph: &StableDiGraph<N, E>) -> Evaluation<NEVec<NodeIndex>, EdgeIndex> {
     let mut components = StableDiGraph::from(condensation(compact(graph), false));
     components.retain_edges(|retained, edge| retained.edge_endpoints(edge).is_some_and(distinct));
-    Acyclic::try_from(components.filter_map_owned(|_, members| NEVec::try_from_vec(members), |_, edge| Some(edge)))
+    acyclic(components.filter_map_owned(|_, members| NEVec::try_from_vec(members), |_, edge| Some(edge)))
 }
 
 pub fn simple<N, E>(graph: &StableDiGraph<N, E>) -> impl Iterator<Item = Vec<NodeIndex>> + use<N, E> {
@@ -41,10 +43,11 @@ pub fn simple<N, E>(graph: &StableDiGraph<N, E>) -> impl Iterator<Item = Vec<Nod
     iter::from_fn(move || cycles.next(&unweighted))
 }
 
-pub fn tear<N, E, K>(mut graph: StableDiGraph<N, E>, cost: impl Fn(&E) -> K) -> Result<Torn<N, E>, Cycle<NodeIndex>>
+#[must_use]
+pub fn tear<N, E, K>(mut graph: StableDiGraph<N, E>, cost: impl Fn(&E) -> K) -> Torn<N, E>
 where K: Ord {
     let components = components(&graph);
-    let mut kept = Acyclic::try_from(unweighted(&graph, |_| false))?;
+    let mut kept = acyclic(unweighted(&graph, |_| false));
     let cut = graph
         .edge_references()
         .sorted_by_cached_key(|edge| Reverse(cost(edge.weight())))
@@ -55,7 +58,7 @@ where K: Ord {
         })
         .collect::<Vec<_>>();
     let mut torn = cut.into_iter().filter_map(|(edge, (source, target))| Some((at(&components, source)?, (source, target, graph.remove_edge(edge)?)))).into_group_map();
-    let evaluation = Acyclic::try_from(graph)?;
+    let evaluation = acyclic(graph);
     let blocks = evaluation
         .nodes_iter()
         .filter_map(|node| Some((at(&components, node)?, node)))
@@ -66,7 +69,7 @@ where K: Ord {
             Some(Block { members: members.map(|(_, node)| node).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>)?, torn: torn.remove(&component).unwrap_or_default() })
         })
         .collect();
-    Ok(Torn { evaluation, blocks })
+    Torn { evaluation, blocks }
 }
 
 pub(crate) fn cycle<N, E>(graph: &StableDiGraph<N, E>) -> Option<DependencyError> {

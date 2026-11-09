@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-bcf"
 edition.workspace = true
-description       = "BCF 2.1 and 3.0 issue archives over IFC5 models: topics, comments, documents, and viewpoints"
+description       = "BCF 2.1 and 3.0 issue archives: topics, comments, documents, and viewpoints"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -24,7 +24,6 @@ strum                = { workspace = true }
 enum-map             = { workspace = true }
 indexmap             = { workspace = true }
 itertools            = { workspace = true }
-smallvec             = { workspace = true }
 data-encoding        = { workspace = true }
 data-encoding-macro  = { workspace = true }
 nutype               = { workspace = true }
@@ -32,15 +31,15 @@ jiff                 = { workspace = true }
 newtype-uuid         = { workspace = true }
 newtype-uuid-macros  = { workspace = true }
 uuid                 = { workspace = true }
+url                  = { workspace = true }
 xot                  = { workspace = true }
 typed-path           = { workspace = true }
 zip                  = { workspace = true }
-aws-lc-rs            = { workspace = true }
+sha2                 = { workspace = true }
 nalgebra             = { workspace = true }
 uom                  = { workspace = true }
 color                = { workspace = true }
 imagesize            = { workspace = true }
-rasm-ifc             = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

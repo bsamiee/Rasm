@@ -19,7 +19,8 @@
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "effect": "catalog:",
-        "image-size": "catalog:"
+        "image-size": "catalog:",
+        "plist": "catalog:"
     },
     "devDependencies": {
         "@rasm/atelier-extendscript": "workspace:*",

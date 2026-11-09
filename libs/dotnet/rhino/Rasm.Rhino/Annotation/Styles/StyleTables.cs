@@ -26,7 +26,7 @@ public sealed record StyleSpec {
     public Option<LinetypeTableState> LinetypeTable { get; init; }
     public Option<ComponentRef<DimensionStyle>> CurrentDimensionStyle { get; init; }
 
-    public static StyleSpec From(SheetSize size, LineGroup lines, Seq<DrawingScale> scales) =>
+    public static StyleSpec From(SheetSize size, DraftingConvention convention, LineGroup lines, Seq<DrawingScale> scales) =>
         (Narrow: lines.Width(LineWeight.Narrow), Hatching: lines.Width(LineRole.Hatching.Weight), Cut: lines.Width(LineRole.Cut.Weight)) switch {
             var widths => new() {
                 HatchPatterns = [(StyleTables.Sized(HatchingName, widths.Hatching), () => Styles.HatchPatterns.Hatching(lines))],
@@ -37,7 +37,7 @@ public sealed record StyleSpec {
                     Some(new SectionBoundary(1d, Some(PlotWeight.Of(widths.Cut)), None)),
                     Some(new SectionHatch(new ComponentRef<HatchPattern>.ByName(StyleTables.Sized(HatchingName, widths.Hatching)), 1d, UnitsNet.Angle.Zero, Some(PlotWeight.Of(widths.Hatching))))))],
                 DimensionStyles = scales.Map(scale => (Scaled(size, scale), new DimensionStyleSpec {
-                    Lettering = new StyleMetrics(size, size.Convention.Lettering.Form, size.Convention.Terminator, scale),
+                    Lettering = new StyleMetrics(size, convention, scale),
                 })),
                 CurrentDimensionStyle = scales.Head.Map<ComponentRef<DimensionStyle>>(scale => new ComponentRef<DimensionStyle>.ByName(Scaled(size, scale))),
             },
@@ -45,7 +45,7 @@ public sealed record StyleSpec {
 
     private const string HatchingName = "ISO 128-50";
 
-    private static string Scaled(SheetSize size, DrawingScale scale) => $"{size.Key} {scale}";
+    private static string Scaled(SheetSize size, DrawingScale scale) => $"{size.Name} {scale}";
 }
 
 public sealed record StylePlan(

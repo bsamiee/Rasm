@@ -16,6 +16,7 @@ import numpy as np
 from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _kept, Ownership, Saved
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
@@ -247,7 +248,7 @@ def _swapped(row: Ownership[bpy.types.World], values: Mapping[RnaPath, Value], s
             .map(lambda world: displayed(attached, world))
             .default_with(
                 lambda: _kept(
-                    catch(bpy.data.worlds.new, exception=RuntimeError)(f"{scene.name} {bpy.path.display_name(row.key)}").map_error(partial(Fault.of, Reason.REFUSED, row.key)), _emptied
+                    catch(bpy.data.worlds.new, exception=RuntimeError)(f"{scene.name} {bpy.path.display_name(row.key)}").map_error(partial(Fault.of, Refusal.REFUSED, row.key)), _emptied
                 ).bind(lambda world: row.owned(identity, world, of=predecessor, filled=lambda world: displayed(attached, world), scope=scope))
             )
         )

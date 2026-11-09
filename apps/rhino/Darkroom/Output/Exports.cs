@@ -3,12 +3,12 @@ using Darkroom.Chain;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
+using Rasm.Imaging.Quantization;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
 using Rhino;
 using Rhino.Input.Custom;
-using TinyEXR;
 
 namespace Darkroom.Output;
 
@@ -57,7 +57,7 @@ internal sealed record OutputEdit(OutputBook Book, int Current) {
             OptionSpecs.Of(OptionType.Toggle(LabelPair.NoYes), target.Alpha, alpha => Edited(kit, target with { Alpha = alpha })),
             OptionSpecs.Of(OptionType.List(target.FileFormat.Depths, static depth => depth.Key), target.ColorDepth, depth => Edited(kit, target with { ColorDepth = depth })),
             .. target.FileFormat == TargetFile.Exr
-                ? Seq(OptionSpecs.Of(OptionType.List(toSeq(Enum.GetValues<TinyEXR.Compression>()), static codec => codec.ToString()), target.Codec, codec => Edited(kit, target with { Codec = codec })))
+                ? Seq(OptionSpecs.Of(OptionType.List(toSeq(ExrCompression.Items), static codec => codec.Key), target.Codec, codec => Edited(kit, target with { Codec = codec })))
                 : [],
             OptionSpecs.Of(OptionType.List(Option<LayerReader>.None.Cons(toSeq(LayerReader.Items).Map(Some)), static reader => reader.Map(static held => held.Key).IfNone(LabelPair.OffOn.Off)),
                 target.Reader, reader => Edited(kit, target with { Reader = reader })),
@@ -115,7 +115,7 @@ internal static class Exports {
         from rendering in IO.lift(scene.Camera.Bind(static camera => camera.Lens is Projection.Rectilinear rectilinear ? Some(rectilinear) : None)
             .ToFin(new DarkroomFault(nameof(Projection.Rectilinear), DarkroomReason.Missing)))
         from map in IO.lift(lens.Map(rendering))
-        let image = new ImageFile.Exr([new ExrLayer("", map.ToSTMap(extent, extent), TargetFile.Rgba)], PixelType.Float, OutputTarget.Default.Codec, None, Multipart: false)
+        let image = new ImageFile.Exr([new ExrLayer("", map.ToSTMap(extent, extent), TargetFile.Rgba)], OutputDepth.Float32, OutputTarget.Default.Codec, None, Multipart: false)
         select new ExportFile(TargetFile.Exr.Extension, stream => image.Write(metadata, stream));
 
     // --- [BOOK]

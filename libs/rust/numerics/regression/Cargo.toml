@@ -27,9 +27,8 @@ faer                    = { workspace = true }
 nalgebra                = { workspace = true }
 num-dual                = { workspace = true }
 statrs                  = { workspace = true }
-nlopt                   = { workspace = true }
+basin                   = { workspace = true, features = ["nalgebra"] }
 rasm-stats              = { workspace = true }
-rasm-optimization       = { workspace = true }
 rasm-numerical-analysis = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------

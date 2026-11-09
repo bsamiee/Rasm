@@ -11,7 +11,8 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from rasm_records import content_hash, Fault, Finite, NonNegative, Outcome, Reason, Rgb, rng, Seed, SEED_BOUND, Unit
+from rasm_imaging import rng, Seed, SEED_BOUND
+from rasm_records import content_hash, Fault, Finite, NonNegative, Outcome, Reason, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 

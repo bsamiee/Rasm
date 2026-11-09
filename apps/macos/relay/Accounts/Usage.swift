@@ -34,10 +34,9 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
     let kind: QuotaKind
     let used: UsageAmount
     let resetsAt: Date?
-    let rejected: Bool
 
     func hasReset(at now: Date) -> Bool { resetsAt.map { reset in reset <= now } ?? false }
-    func blocks(at now: Date) -> Bool { !hasReset(at: now) && (used.isExhausted || rejected) }
+    func blocks(at now: Date) -> Bool { !hasReset(at: now) && used.isExhausted }
 }
 
 nonisolated struct AccountUsage: Equatable, Sendable {
@@ -47,6 +46,7 @@ nonisolated struct AccountUsage: Equatable, Sendable {
     let signInExpiresAt: Date?
 
     var weekly: QuotaWindow? { windows.first { window in window.kind == .weekly } }
+    var nextReset: Date? { windows.compactMap(\.resetsAt).filter { reset in reset > observedAt }.min() }
     func isBlocked(at now: Date) -> Bool { weekly?.blocks(at: now) == true || includedUsageAllowed == false }
 }
 
@@ -68,5 +68,4 @@ enum UsageState: Sendable {
 
 nonisolated enum QuotaFailure: Error {
     case invalidPercentage(Double)
-    case invalidResetDate(String, any Error)
 }

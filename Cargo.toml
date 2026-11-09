@@ -22,6 +22,7 @@ libraries = [{ path = "tools/dylint" }]
 # --- [ASYNC]
 
 backon           = "1.6.0"                                                                                                                       # Retry schedules with backoff, jitter, and a transient-failure predicate around one async operation
+blocking         = "1.7.0"                                                                                                                       # Blocking and CPU-bound work on a thread pool any executor awaits
 futures          = "0.3.34"                                                                                                                      # Future joins, stream combinators with ordered results, and a stream read as an iterator on a blocking thread
 pin-project-lite = "0.2.17"                                                                                                                      # Pinned fields of hand-written futures and tower response types without unsafe
 tokio            = { version = "1.54.1", features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync", "io-util", "time", "fs"] } # Async runtime every service, client, and store driver runs on
@@ -75,19 +76,18 @@ strum        = { version = "0.28.0", features = ["derive"] }                    
 
 # --- [COLLECTIONS]
 
-cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }          # HyperLogLog distinct counts that merge across shards
-datasketches          = { version = "0.6.0", features = ["tdigest"] }             # Mergeable t-digest quantile sketches that chunk reductions merge and query
-enum-map              = { version = "3.1.0", features = ["serde"] }               # Total maps holding one value per enum variant
-fastbloom             = "0.17.0"                                                  # Bloom filters that precheck membership
-fst                   = { version = "0.4.7", features = ["levenshtein"] }         # Finite-state sets and maps with prefix, range, and fuzzy queries
-hashbrown             = ">=0.16.1, <0.17"                                         # Hash maps rustworkx-core takes as keyed inputs (Katz `beta_map`), at the release rustworkx-core links
-imbl                  = { version = "7.0.2", features = ["serde"] }               # Persistent vectors and maps with structural sharing across tasks
-indexmap              = { version = "2.14.2", features = ["serde"] }              # Insertion-ordered maps and sets that keep iteration and output deterministic
-itertools             = "0.15.0"                                                  # Partitioned results, grouping, windows, and merges over iterators
-roaring               = "0.12.0"                                                  # Compressed integer sets with set algebra
-rust-lapper           = "2.0.0"                                                   # Interval overlap and stabbing queries
-slotmap               = "1.1.1"                                                   # Generational-index arenas holding graph and scene nodes
-smallvec              = { version = "2.0.0-beta.4", features = ["std", "serde"] } # Inline small vectors that spill to heap
+cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }  # HyperLogLog distinct counts that merge across shards
+datasketches          = { version = "0.6.0", features = ["tdigest"] }     # Mergeable t-digest quantile sketches that chunk reductions merge and query
+enum-map              = { version = "3.1.0", features = ["serde"] }       # Total maps holding one value per enum variant
+fastbloom             = "0.17.0"                                          # Bloom filters that precheck membership
+fst                   = { version = "0.4.7", features = ["levenshtein"] } # Finite-state sets and maps with prefix, range, and fuzzy queries
+hashbrown             = "0.17.1"                                          # Hash maps with `entry_ref`, inserting an owned key only on a miss from a borrowed lookup
+imbl                  = { version = "7.0.2", features = ["serde"] }       # Persistent vectors and maps with structural sharing across tasks
+indexmap              = { version = "2.14.2", features = ["serde"] }      # Insertion-ordered maps and sets that keep iteration and output deterministic
+itertools             = "0.15.0"                                          # Partitioned results, grouping, windows, and merges over iterators
+roaring               = "0.12.0"                                          # Compressed integer sets with set algebra
+rust-lapper           = "2.0.0"                                           # Interval overlap and stabbing queries
+slotmap               = "1.1.1"                                           # Generational-index arenas holding graph and scene nodes
 
 # --- [CRDT]
 
@@ -230,14 +230,14 @@ zstd              = { version = "0.14.3", features = ["zstdmt"] }               
 
 # --- [CRYPTOGRAPHY]
 
-argon2                   = "0.6.0"                                                                                               # Password hashing in PHC strings
-aws-lc-rs                = { version = "1.19.0", default-features = false, features = ["aws-lc-sys", "alloc", "prebuilt-nasm"] } # Digests, MACs, key derivation, AEAD, signatures, and key wrap, default `ring-io` and `ring-sig-verify` add untrusted 0.7 beside 0.9
-crypto_box               = "0.9.1"                                                                                               # NaCl public-key boxes
-rcgen                    = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }                    # X.509 certificates issued to loopback and test endpoints, default `ring` adds ring beside aws-lc-rs
-rustls                   = "0.23.46"                                                                                             # TLS stack with process-wide aws-lc-rs provider each binary installs
-rustls-platform-verifier = "0.7.1"                                                                                               # Certificate verification through OS trust store
-sigstore                 = { version = "0.15.0", default-features = false, features = ["full", "rustls-tls"] }                   # Keyless signing and transparency-log verification, default `native-tls` links platform TLS beside rustls
-x509-parser              = { version = "0.18.1", features = ["verify-aws"] }                                                     # X.509 certificate parsing and signature checks
+argon2                   = "0.6.0"                                                                             # Password hashing in PHC strings
+crypto_box               = "0.9.1"                                                                             # NaCl public-key boxes
+rcgen                    = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }  # X.509 certificates issued to loopback and test endpoints, default `ring` adds ring beside aws-lc-rs
+rustls                   = "0.23.46"                                                                           # TLS stack with process-wide aws-lc-rs provider each binary installs
+rustls-platform-verifier = "0.7.1"                                                                             # Certificate verification through OS trust store
+sha2                     = "0.11.1"                                                                            # SHA-2 digests in pure Rust
+sigstore                 = { version = "0.15.0", default-features = false, features = ["full", "rustls-tls"] } # Keyless signing and transparency-log verification, default `native-tls` links platform TLS beside rustls
+x509-parser              = { version = "0.18.1", features = ["verify-aws"] }                                   # X.509 certificate parsing and signature checks
 
 # --- [AUTHENTICATION]
 
@@ -285,12 +285,12 @@ url                = { version = "2.5.8", features = ["serde"] }                
 
 # --- [REMOTE_PROCEDURE_CALLS]
 
-async-lsp           = { version = "0.2.4", features = ["tokio"] }                                                                                                                            # Language Server Protocol clients and servers as tower services
-buffa               = { version = "0.9.2", features = ["json"] }                                                                                                                             # Protobuf messages with editions, views, and canonical JSON
-buffa-types         = { version = "0.9.2", features = ["json", "jiff"] }                                                                                                                     # Protobuf well-known types with JSON mapping and jiff conversion
-connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "axum"] }                                                                                                     # Connect, gRPC, and gRPC-Web services and clients
-protovalidate-buffa = { version = "0.7.3", features = ["json"] }                                                                                                                             # Protovalidate rules compiled into message validation
-rmcp                = { version = "3.9.0", features = ["client", "elicitation", "transport-child-process", "transport-streamable-http-client-reqwest", "transport-streamable-http-server"] } # MCP servers over Streamable HTTP and clients of child-process and Streamable HTTP servers
+async-lsp           = { version = "0.2.4", features = ["tokio"] }                                                                                # Language Server Protocol clients and servers as tower services
+buffa               = { version = "0.9.2", features = ["json"] }                                                                                 # Protobuf messages with editions, views, and canonical JSON
+buffa-types         = { version = "0.9.2", features = ["json", "jiff"] }                                                                         # Protobuf well-known types with JSON mapping and jiff conversion
+connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "axum"] }                                                         # Connect, gRPC, and gRPC-Web services and clients
+protovalidate-buffa = { version = "0.7.3", features = ["json"] }                                                                                 # Protovalidate rules compiled into message validation
+rmcp                = { version = "3.9.0", features = ["client", "elicitation", "transport-child-process", "transport-streamable-http-server"] } # MCP servers over Streamable HTTP and clients of child-process servers
 
 # --- [TRANSFER]
 
@@ -438,7 +438,7 @@ zarrs_object_store = ">=0.6.2, <0.7"                                            
 
 almost         = "0.2.0"                                                                                                # Relative float equality csaps tests data sites with
 average        = { version = "0.17.0", default-features = false, features = ["std", "serde"] }                          # Mergeable mean, variance, and covariance accumulators, default `libm` swaps std math for libm
-bilby          = "0.3.0"                                                                                                # Gaussian quadrature with native Jacobi nodes and weights
+bilby          = "0.3.0"                                                                                                # Gauss-Legendre, Jacobi, Laguerre, and Hermite nodes and weights through Golub-Welsch
 bytemuck       = "1.25.2"                                                                                               # nalgebra point slices read in place as the coordinate arrays k-d tree batches take
 csaps          = "0.5.0"                                                                                                # Cubic smoothing splines over weighted curves and grids, adds itertools 0.14 and, through the alga default of its sprs, approx 0.3 and num-complex 0.2 beside the catalog's, its LDL solve is LGPL-2.1 sprs-ldl
 dashu          = { version = "0.6.2", features = ["num-traits"] }                                                       # Arbitrary-precision integers, rationals, and floats with native numeric traits
@@ -460,7 +460,6 @@ rand_distr     = "0.6.0"                                                        
 rust_decimal   = { version = "1.43.0", features = ["serde-with-str"] }                                                  # Fixed-scale decimals holding money and exact values
 sobol_burley   = "0.5.0"                                                                                                # Owen-scrambled Sobol sequences for low-discrepancy sampling
 statrs         = "0.19.1"                                                                                               # Distributions and descriptive statistics
-twofloat       = "0.8.4"                                                                                                # Double-double arithmetic in ill-conditioned predicates
 uom            = { version = "0.38.0", features = ["use_serde"] }                                                       # Quantities with dimensions checked at compile time
 
 # --- [SIGNALS]
@@ -474,23 +473,20 @@ rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
 
-argmin       = { version = "0.11.0", default-features = false }                             # Brent root brackets, rand_xoshiro adds rand_core 0.9 beside 0.10
-argmin-math  = "0.5.1"                                                                      # Vec backend of argmin solvers, faer and nalgebra backends link faer 0.23 and nalgebra 0.34 beside the catalog
-basin        = "3.2.0"                                                                      # Native scalar minimization with absolute and relative position tolerances
-clarabel     = "0.11.1"                                                                     # Conic interior-point solves over typed cone blocks, its `sdp` cone over Accelerate on macOS and OpenBLAS elsewhere, adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
-diffsol      = "0.19.0"                                                                     # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
-fmi          = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes, and fmi adds zip 8 with its default `time` beside zip 9
-good_lp      = { version = "1.15.3", default-features = false, features = ["highs"] }       # LP and MIP models over HiGHS built through CMake and bindgen on libclang, bindgen adds itertools 0.13 beside the catalog's, default `coin_cbc` replaces HiGHS as `default_solver` with single-threaded CBC
-kasuari      = "0.4.13"                                                                     # Cassowary constraint solving of layouts
-nlopt        = "0.8.1"                                                                      # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
-nuts-rs      = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
-openblas-src = "0.10.16"                                                                    # BLAS and LAPACK under clarabel's `sdp` cone, built from source on Linux and linked from vcpkg on Windows through `system`
+basin    = "3.2.0"                                                                      # Scalar roots and minimization, bounded robust least squares over nalgebra
+clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }         # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks a backend through `rasm-optimization`'s `accelerate`, `openblas`, `netlib`, or `mkl` feature (Clarabel's own `sdp-*` features), adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
+diffsol  = "0.19.0"                                                                     # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
+fmi      = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes, and fmi adds zip 8 with its default `time` beside zip 9
+good_lp  = { version = "1.15.3", default-features = false, features = ["highs"] }       # LP and MIP models over HiGHS (CMake, bindgen on libclang), reached through `rasm-optimization`'s default `linear` feature, which a consumer turns off to skip the native build; `allocation` takes any good_lp `Solver` a caller enables
+kasuari  = "0.4.13"                                                                     # Cassowary constraint solving of layouts
+nlopt    = "0.8.1"                                                                      # Bounded, constrained, local and global optimization over NLopt 2.9.1 linked static, its Luksan algorithms under LGPL
+nuts-rs  = "0.19.1"                                                                     # No-U-Turn sampling chains over a `CpuLogpFunc`
 
 # --- [GRAPHS]
 
-dugong           = "0.10.0-alpha.2"                                                      # Layered layout of directed graphs with routed edges and clusters, at the release merman-render links
+dugong           = "0.10.0-alpha.2"                                                      # Layered layout of directed graphs with routed edges and clusters
 leiden-rs        = { version = "0.8.1", default-features = false, features = ["rayon"] } # Leiden community detection over a `GraphDataBuilder` graph holding node masses, default `cli` adds clap and `gryf` a second graph library
-manatee          = "0.10.0-alpha.2"                                                      # Force-directed fCoSE layout with constraints, at the release merman-render links
+manatee          = "0.10.0-alpha.2"                                                      # Force-directed fCoSE layout with constraints
 petgraph         = { version = "0.8.3", features = ["serde-1"] }                         # Graph structures with incremental acyclic order, traversal, ordering, shortest paths, maximum flow, and spanning forests
 petgraph-graphml = "5.0.0"                                                               # GraphML output of graphs
 rustworkx-core   = "0.18.1"                                                              # Keyed topological order, DAG layers, cycle search, simple cycles, pruned Dijkstra visits, eigenvector and Katz centrality, connected components, biconnected blocks, minimum cuts, matchings, and Steiner trees over petgraph
@@ -547,7 +543,8 @@ h3o               = { version = "0.11.1", features = ["geo"] }                  
 kml               = "0.15.0"                                                                                                                                               # KML and KMZ, default `zip` turns on zip `time` beside jiff
 osmpbf            = "0.3.8"                                                                                                                                                # OpenStreetMap PBF extracts
 pmtiles           = { version = "0.28.0", features = ["brotli", "http-async", "moka", "reqwest-rustls", "tilejson", "write", "zstd"] }                                     # PMTiles archives read from memory maps and HTTPS, and written, `object-store` links object_store 0.14 beside DataFusion's
-proj              = { version = "0.31.0", features = ["bundled_proj"] }                                                                                                    # CRS transforms over a static PROJ with its database embedded, a source build needing `cmake` and a `sqlite3` binary, `Transform` over geo-types geometries
+proj              = "0.31.0"                                                                                                                                               # CRS transforms over PROJ, the system library through pkg-config or else a source build needing `cmake` and a `sqlite3` binary, `Transform` over geo-types geometries
+proj-sys          = "0.27.0"                                                                                                                                               # PROJ C API for calls `proj` wraps none of, `proj_factors` for projection scale and convergence
 projjson          = "0.1.1"                                                                                                                                                # Typed PROJJSON coordinate systems, units, axes, and ellipsoids
 rstar             = "0.14.0"                                                                                                                                               # R*-tree envelope and nearest queries
 shapefile         = { version = "0.9.0", features = ["geo-types"] }                                                                                                        # Shapefiles
@@ -555,7 +552,6 @@ solar-positioning = { version = "0.7.2", default-features = false, features = ["
 stac              = { version = "0.17.7", features = ["std", "geo", "async"] }                                                                                             # STAC catalogs, items, and collections, `geoparquet` links arrow 58 beside DataFusion's
 stac-io           = "0.3.5"                                                                                                                                                # STAC reads, writes, and API searches
 thermalcomfort    = "4.6.2"                                                                                                                                                # PMV, UTCI, adaptive comfort, and psychrometrics; measurements 0.11 quantities, heapless 0.9 beside the 0.6 to 0.8 copies
-tzf-rs            = { version = "2.3.0", default-features = false, features = ["bundled"] }                                                                                # Time zones from coordinates, default `clap` adds a CLI
 
 # --- [COLOR]
 
@@ -614,6 +610,7 @@ plotly = "0.14.1"                                                               
 # --- [DOCUMENTS]
 
 calamine         = "0.38.0"                                                                                                    # XLSX, XLSB, XLS, and ODS reading, `dates` adds chrono beside jiff
+chrono           = { version = "0.4.45", default-features = false }                                                            # Durations spreadsheet-ods cells hold as `TimeDelta`, the type its `Value::TimeDuration` names beside jiff
 chromiumoxide    = "0.9.1"                                                                                                     # HTML printed to PDF through Chromium
 docx-rs          = "0.4.22"                                                                                                    # DOCX reading and writing
 hayro            = "0.9.0"                                                                                                     # PDF pages rasterized into caller render contexts
@@ -714,9 +711,9 @@ rasm-drawing-views      = { path = "libs/rust/drawing/drawing-views" }
 rasm-drafting           = { path = "libs/rust/drawing/drafting" }
 rasm-pdf                = { path = "libs/rust/documents/pdf" }
 rasm-site               = { path = "libs/rust/geospatial/site" }
-rasm-solar-geometry     = { path = "libs/rust/geospatial/solar-geometry" }
+rasm-solar-geometry     = { path = "libs/rust/geospatial/solar-geometry", default-features = false }
 rasm-dependency-graph   = { path = "libs/rust/graphs/dependency-graph" }
-rasm-optimization       = { path = "libs/rust/numerics/optimization" }
+rasm-optimization       = { path = "libs/rust/numerics/optimization", default-features = false }
 rasm-signal-processing  = { path = "libs/rust/numerics/signal-processing" }
 rasm-arrow              = { path = "libs/rust/data/arrow" }
 rasm-network-analysis   = { path = "libs/rust/graphs/network-analysis" }
@@ -731,7 +728,6 @@ rasm-regression         = { path = "libs/rust/numerics/regression" }
 rasm-weather            = { path = "libs/rust/geospatial/weather" }
 rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
-rasm-lints              = { path = "tools/dylint" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
 rasm-mcp-proxy          = { path = "tools/mcp-proxy", artifact = "bin" }
 
@@ -740,32 +736,35 @@ rasm-mcp-proxy          = { path = "tools/mcp-proxy", artifact = "bin" }
 # --- [RUST]
 
 [workspace.lints.rust]
-ambiguous_negative_literals   = "deny"                            # `-1.abs()` negating method result in place of literal
-closure_returning_async_block = "deny"                            # Closures returning `async` block, async closure is the direct form
-dead_code_pub_in_binary       = "deny"                            # `pub` items of binary crates nothing reads, removals delete every mention
-deprecated_in_future          = "deny"                            # Items marked deprecated from future release
-deref_into_dyn_supertrait     = "deny"                            # `Deref` impls from `dyn` subtrait to supertrait object, trait upcasting shadows each
-impl_trait_redundant_captures = "deny"                            # `use<..>` listing every in-scope parameter, edition 2024 `impl Trait` captures each by default
-let_underscore_drop           = "deny"                            # `let _ =` dropping values with destructors at once, acquisition and release pair in one resource scope
-macro_use_extern_crate        = "deny"                            # `#[macro_use] extern crate`, `use` paths import each macro from its owner
-missing_debug_implementations = "deny"                            # Public types without `Debug`, boundary tracing records values with `?`
-non_ascii_idents              = "deny"                            # Non-ASCII identifiers
-redundant_imports             = "deny"                            # Imports that prelude or earlier `use` items provide
-redundant_lifetimes           = "deny"                            # Lifetime parameters that bounds make equal to another named lifetime
-rust_2018_idioms              = { level = "deny", priority = -1 } # Hidden path lifetimes, inferable outlives bounds, and unused `extern crate` items
-single_use_lifetimes          = "deny"                            # Named lifetimes used once, `'_` states lifetime no second position shares
-unconditional_panic           = "forbid"                          # Operations rustc proves will panic
-unnameable_types              = "deny"                            # Types and traits public signatures expose but consumers cannot name
-unreachable_pub               = "deny"                            # `pub` items unreachable from the crate root, visibility states the reach consumers have
-unsafe_code                   = "forbid"                          # Unsafe code and unsafe attributes with no override, unsafe operations stay inside owning crates
-unused_import_braces          = "deny"                            # `use a::{b}` braces around one import, code keeps the direct form
-unused_lifetimes              = "deny"                            # Lifetime parameters nothing reads, removals delete every mention
-unused_macro_rules            = "deny"                            # `macro_rules!` rules nothing invokes, removals delete every mention
-unused_qualifications         = "deny"                            # Qualified paths to names in scope, code calls owning APIs directly
+ambiguous_negative_literals   = "deny"                                                             # `-1.abs()` negating method result in place of literal
+closure_returning_async_block = "deny"                                                             # Closures returning `async` block, async closure is the direct form
+dead_code_pub_in_binary       = "deny"                                                             # `pub` items of binary crates nothing reads, removals delete every mention
+deprecated_in_future          = "deny"                                                             # Items marked deprecated from future release
+deref_into_dyn_supertrait     = "deny"                                                             # `Deref` impls from `dyn` subtrait to supertrait object, trait upcasting shadows each
+impl_trait_redundant_captures = "deny"                                                             # `use<..>` listing every in-scope parameter, edition 2024 `impl Trait` captures each by default
+let_underscore_drop           = "deny"                                                             # `let _ =` dropping values with destructors at once, acquisition and release pair in one resource scope
+macro_use_extern_crate        = "deny"                                                             # `#[macro_use] extern crate`, `use` paths import each macro from its owner
+missing_debug_implementations = "deny"                                                             # Public types without `Debug`, boundary tracing records values with `?`
+non_ascii_idents              = "deny"                                                             # Non-ASCII identifiers
+redundant_imports             = "deny"                                                             # Imports that prelude or earlier `use` items provide
+redundant_lifetimes           = "deny"                                                             # Lifetime parameters that bounds make equal to another named lifetime
+rust_2018_idioms              = { level = "deny", priority = -1 }                                  # Hidden path lifetimes, inferable outlives bounds, and unused `extern crate` items
+single_use_lifetimes          = "deny"                                                             # Named lifetimes used once, `'_` states lifetime no second position shares
+unconditional_panic           = "forbid"                                                           # Operations rustc proves will panic
+unexpected_cfgs               = { level = "deny", check-cfg = ["cfg(dylint_lib, values(any()))"] } # `cfg` names and values no build states, Dylint's `dylint_lib` declared as its documented `cfg_attr` key
+unfulfilled_lint_expectations = "deny"                                                             # `#[expect]` whose lint no longer fires, a stale exception fails in place of warning
+unnameable_types              = "deny"                                                             # Types and traits public signatures expose but consumers cannot name
+unreachable_pub               = "deny"                                                             # `pub` items unreachable from the crate root, visibility states the reach consumers have
+unsafe_code                   = "deny"                                                             # Unsafe code and unsafe attributes, each exception an `#[expect]` on its narrowest item stating its safety argument
+unused_import_braces          = "deny"                                                             # `use a::{b}` braces around one import, code keeps the direct form
+unused_lifetimes              = "deny"                                                             # Lifetime parameters nothing reads, removals delete every mention
+unused_macro_rules            = "deny"                                                             # `macro_rules!` rules nothing invokes, removals delete every mention
+unused_qualifications         = "deny"                                                             # Qualified paths to names in scope, code calls owning APIs directly
 
 # --- [GROUPS]
 
 [workspace.lints.clippy]
+all      = { level = "deny", priority = -1 } # Default style, complexity, performance, suspicious, and correctness groups, every finding fails `check`
 cargo    = { level = "deny", priority = -1 } # Missing package metadata, negative or redundant feature names, and wildcard requirements
 nursery  = { level = "deny", priority = -1 } # Lints under development, code smells are fixed as found
 pedantic = { level = "deny", priority = -1 } # Strict lints with occasional false positives, code smells are fixed as found
@@ -793,7 +792,7 @@ use_debug      = "deny" # `{:?}` in format strings, text people read renders thr
 
 # --- [ATTRIBUTES]
 
-allow_attributes                = "deny" # `#[allow]` on lints, `#[expect]` fails once the suppressed lint stops firing
+allow_attributes                = "deny" # `#[allow]` on lints, `#[expect]` reports once the suppressed lint stops firing
 allow_attributes_without_reason = "deny" # `#[expect]` and `#[allow]` without `reason`, each suppression names the fact excusing it
 cfg_not_test                    = "deny" # `#[cfg(not(test))]` code, tests run what product runs
 redundant_test_prefix           = "deny" # `test_` prefixes on `#[test]` functions, each fact is stated once
@@ -900,6 +899,10 @@ non_kebab_case_features       = "deny"                            # Feature name
 non_kebab_case_packages       = "deny"                            # Package names off kebab case, Nx project, package, and installed binary share one spelling
 unused_workspace_dependencies = "allow"                           # Flags catalog rows held for future members, Cargo resolves inherited rows alone
 
+# --- [PATCHES] --------------------------------------------------------------------------
+
+[patch.crates-io]
+proj-sys = { git = "https://github.com/georust/proj", rev = "0961616823f3345f962c97ccd059ef98f4d2a060" } # 0.27.0 with `libsqlite3-sys` widened to any 0.x (georust/proj#261), unreleased, so the lock takes 0.39 and its SQLite 3.54 past RUSTSEC-2026-0459
 # --- [PROFILES] -------------------------------------------------------------------------
 
 [profile.dev]

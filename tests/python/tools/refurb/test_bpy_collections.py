@@ -9,7 +9,7 @@ import pytest
 lazy from refurb.error import Error
 
 from rasm_refurb.bpy_collections import check, ErrorCollectionTypeTestError
-lazy from rasm_refurb import Findings
+lazy from tools.refurb.conftest import Findings
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

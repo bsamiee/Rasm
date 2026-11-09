@@ -1,12 +1,8 @@
 use core::{borrow::Borrow, iter, num::NonZero};
 use std::sync::OnceLock;
 
-use faer::{
-    MatRef, Side,
-    linalg::{cholesky::llt::factor::LltError, solvers::Solve as _},
-};
 use itertools::{Either, Itertools as _};
-use nalgebra::{Isometry3, Matrix3, Matrix6, Point3, Rotation3, Translation3, Unit, UnitQuaternion, Vector3, Vector6};
+use nalgebra::{Isometry3, Matrix3, Matrix6, Point3, Rotation3, SVD, Translation3, Unit, UnitQuaternion, Vector3, Vector6};
 use nonempty_collections::{NESlice, NEVec};
 use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 
@@ -18,7 +14,7 @@ use crate::{
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[nutype::nutype(const_fn, validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
+#[nutype::nutype(validate(greater = 0.0, less = 1.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Fraction(f64);
 
 #[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
@@ -44,16 +40,12 @@ pub enum Kernel {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Icp {
-    pub iterations: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 49),
-    pub tolerance: Fraction = Self::TOLERANCE,
+    pub iterations: NonZero<usize>,
+    pub tolerance: Fraction,
     pub max_correspondence_distance: Option<Distance> = None,
     pub overlap: Option<Fraction> = None,
     pub kernel: Option<Kernel> = None,
     pub metric: Metric = Metric::Point,
-}
-
-impl Icp {
-    const TOLERANCE: Fraction = Fraction::try_new(1.0e-6_f64).ok().unwrap();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -91,10 +83,9 @@ where I: IntoIterator<Item: Borrow<(Point3<f64>, Point3<f64>, Weight)>, IntoIter
             (point.coords - source) * (corresponding.coords - target).transpose() * weight.into_inner()
         })
         .sum::<Matrix3<f64>>();
-    let svd = MatRef::from_column_major_slice(covariance.as_slice(), 3, 3).svd().ok()?;
-    let singular = svd.S().column_vector();
-    (*singular.get(1) > *singular.get(0) * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| {
-        let [left, right] = [svd.U(), svd.V()].map(|factor| Matrix3::from_fn(|row, column| *factor.get(row, column)));
+    let SVD { u: left, v_t: right, singular_values } = covariance.svd(true, true);
+    let (left, right) = left.zip(right.map(|transposed| transposed.transpose()))?;
+    (singular_values.y > singular_values.x * f64::EPSILON * nalgebra::convert::<usize, f64>(covariance.nrows())).then(|| {
         let rotation = UnitQuaternion::from_rotation_matrix(&Rotation3::from_matrix_unchecked(
             right * Matrix3::from_diagonal(&Vector3::new(1.0_f64, 1.0_f64, (right * left.transpose()).determinant().signum())) * left.transpose(),
         ));
@@ -131,9 +122,8 @@ pub fn register(
                 })
             })
             .fold((Matrix6::<f64>::zeros(), Vector6::<f64>::zeros()), |(hessian, gradient), (row, residual, weight)| (hessian + row * row.transpose() * weight, gradient - row * (residual * weight)));
-        MatRef::from_column_major_slice(hessian.as_slice(), 6, 6).llt(Side::Lower).map(|llt| {
-            let solution = llt.solve(MatRef::from_column_major_slice(gradient.as_slice(), 6, 1));
-            let increment = Vector6::from_fn(|row, _| *solution.get(row, 0));
+        hessian.cholesky().map(|llt| {
+            let increment = llt.solve(&gradient);
             let rotation = UnitQuaternion::from_scaled_axis(increment.fixed_rows::<3>(0).into_owned());
             Isometry3::from_parts(Translation3::from(rotation * pose.translation.vector + increment.fixed_rows::<3>(3)), rotation * pose.rotation)
         })
@@ -153,17 +143,14 @@ pub fn register(
                 };
                 (source.as_ref(), &transformed, found)
                     .into_par_iter()
-                    .map_init(
-                        || None,
-                        |scratch, (point, moved, neighbor)| {
-                            let Neighbor { point: corresponding, item, distance } = neighbor?;
-                            let normal = match metric {
-                                Metric::Point => None,
-                                Metric::Plane(neighborhood) => *normals[item].get_or_init(|| points::normal(&points::search(cloud, &[corresponding], neighborhood)[0], None, scratch)),
-                            };
-                            Some((point, moved, corresponding, normal, normal.map_or(distance, |normal| (moved - corresponding).dot(&normal).abs())))
-                        },
-                    )
+                    .map(|(point, moved, neighbor)| {
+                        let Neighbor { point: corresponding, item, distance } = neighbor?;
+                        let normal = match metric {
+                            Metric::Point => None,
+                            Metric::Plane(neighborhood) => *normals[item].get_or_init(|| points::normal(&points::search(cloud, &[corresponding], neighborhood)[0], None)),
+                        };
+                        Some((point, moved, corresponding, normal, normal.map_or(distance, |normal| (moved - corresponding).dot(&normal).abs())))
+                    })
                     .flatten()
                     .collect::<Vec<_>>()
             }
@@ -189,7 +176,7 @@ pub fn register(
             match metric {
                 Metric::Point =>
                     fit(pairs.iter().map(|&Correspondence { point, moved: _, corresponding, normal: _, weight }| (*point, corresponding, weight))).ok_or_else(|| shortfall(Shortfall::Degenerate)),
-                Metric::Plane(_) => planar(&pose, &pairs).map_err(|LltError::NonPositivePivot { index: _ }| shortfall(Shortfall::Degenerate)),
+                Metric::Plane(_) => planar(&pose, &pairs).ok_or_else(|| shortfall(Shortfall::Degenerate)),
             }
             .map(|fitted| (matched, fitted))
         })?;

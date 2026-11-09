@@ -17,6 +17,7 @@ import numpy.typing as npt
 
 from rasm_bpy.commands.operators import Answer, Call, Done, Operator, Unchanged
 from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import IdName
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import RnaPath, rooted
@@ -34,8 +35,8 @@ from rasm_bpy.render._view_layers.layers import _colors, Role
 from rasm_bpy.render._view_layers.passes import _layer_of, _LightSlot, CryptomatteKind, Derived, Family, Flags, PassFlags
 from rasm_bpy.scene._materials import _DataPass
 from rasm_bpy.settings._attachments import Attachment
-from rasm_imaging import Deflate, Depth, Document, LayerGroup, Matte, Multilayer, Pass, PassLayout, PassRole, PixelLayer, Storage, unassociated
-from rasm_records import accumulated, content_hash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, rng
+from rasm_imaging import Deflate, Depth, Document, LayerGroup, Matte, Multilayer, Pass, PassLayout, PassRole, PixelLayer, rng, Storage, unassociated
+from rasm_records import accumulated, content_hash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 from rasm_rendering import Output
 
 if TYPE_CHECKING:
@@ -238,7 +239,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
             .default_value(Ok(Nothing))
             .bind(lambda view: path.literal(layer.name, Output.MATTE, Some(entity.pass_name), scene.frame_current, suffix=Some(f"{view.map(lambda held: held.file_suffix).default_value('')}.exr")))
             .map(str)
-            .filter_with(lambda target: target != file.path, lambda target: Fault.of(Reason.TAKEN, target, member=file.path))
+            .filter_with(lambda target: target != file.path, lambda target: Fault.of(Refusal.TAKEN, target, member=file.path))
             .bind(
                 lambda target: Multilayer.written(
                     Path(target),

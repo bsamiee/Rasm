@@ -16,21 +16,28 @@ bench   = false
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-rayon                 = { workspace = true }
+rayon                 = { workspace = true, optional = true }
 nonempty-collections  = { workspace = true }
 thiserror             = { workspace = true }
-validated             = { workspace = true }
+validated             = { workspace = true, optional = true }
 derive_more           = { workspace = true }
-enum-map              = { workspace = true }
+enum-map              = { workspace = true, optional = true }
 itertools             = { workspace = true }
 nutype                = { workspace = true }
-faer                  = { workspace = true }
+faer                  = { workspace = true, optional = true }
 nalgebra              = { workspace = true }
 uom                   = { workspace = true }
-diffsol               = { workspace = true }
-fmi                   = { workspace = true }
-petgraph              = { workspace = true }
-rasm-dependency-graph = { workspace = true }
+diffsol               = { workspace = true, optional = true }
+fmi                   = { workspace = true, optional = true }
+petgraph              = { workspace = true, optional = true }
+rasm-dependency-graph = { workspace = true, optional = true }
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+default = ["fmu", "ode"]
+fmu     = ["dep:fmi", "dep:enum-map", "dep:petgraph", "dep:rasm-dependency-graph", "dep:validated"]
+ode     = ["dep:diffsol", "dep:faer", "dep:rayon", "dep:petgraph", "dep:rasm-dependency-graph", "dep:validated"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

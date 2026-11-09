@@ -91,7 +91,7 @@ pub fn fill(book: &mut Workbook, name: &str, block: &Range<Data>) -> Result<(), 
             Value::Boolean(boolean) => cell.set_value_bool(boolean),
             Value::DateTime(datetime) => cell.set_value_number(datetime.to_excel_serial_date() - epoch),
             Value::Duration(duration) => cell.set_value_number(duration.div_duration_f64(SignedDuration::from_hours(24))),
-            Value::Error(error) => cell.set_value(error.to_string()),
+            Value::Error(error) => cell.set_error(error.to_string()),
             Value::Empty => cell.set_blank(),
         };
     }

@@ -22,6 +22,7 @@ from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Operator, Pla
 from rasm_bpy.data._extension.events import _updated
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration, Handler, Subscription
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _retained, Mark, Ownership
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import Value, written
@@ -31,7 +32,7 @@ from rasm_bpy.data._rna.snapshots import Snapshot
 from rasm_bpy.files._interchange import _dropped_in, _Interchange
 from rasm_bpy.nodes._desired import item_key
 from rasm_bpy.render._compositor.effects import CompositorEffect, CompositorRecord, Entry, FromFile, Mix, Named
-from rasm_bpy.render._compositor.entries import _added_entry, _EXECUTING, _marked, _relocated, Pinned, StackEnd
+from rasm_bpy.render._compositor.entries import _added_entry, _EXECUTING, _marked, _relocated, Pinned, StackEnd, Toward
 from rasm_bpy.render._compositor.inputs import _defaulted, _FRAMING, _hold, _holding, _WORKING_SPACE, captured, PreviewFrame, valued
 from rasm_bpy.render._compositor.masks import BLEND, MODE, OPACITY
 from rasm_bpy.render._outputs.framing import FrameSize
@@ -41,7 +42,7 @@ from rasm_bpy.settings._attachments import Stored
 from rasm_bpy.ui._elements.menus import Append, Menu, Submenus
 from rasm_bpy.ui._layout.rows import Opens, OperatorButton
 from rasm_imaging import Raster
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, Toward
+from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -273,7 +274,7 @@ class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return (
                 Result[None, Faults]
                 .bind(
-                    catch(scene.compositor_effects.remove, exception=RuntimeError)(held.entry).map_error(partial(Fault.of, Reason.REFUSED, repr(scene))),
+                    catch(scene.compositor_effects.remove, exception=RuntimeError)(held.entry).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene))),
                     lambda _: self.release(identity, scene, row) if not row.entries(identity, scene) else Ok(None),
                 )
                 .bind(lambda _: accumulated(owner.removed(identity) for owner in row.ownerships))

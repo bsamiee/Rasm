@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using Darkroom.Chain;
-using Emgu.CV.CvEnum;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 using UnitsNet;
@@ -126,11 +125,11 @@ internal sealed record Mosaic(MosaicCell Cell, ShortSideLength Size, float Expon
 }
 
 internal sealed record GlyphCells(
-    string Characters, HersheyFonts Font, ShortSideLength Size, GlyphColoring Coloring, Unicolour Text,
+    string Characters, GlyphFont Font, ShortSideLength Size, GlyphColoring Coloring, Unicolour Text,
     Unicolour Background, float Saturation, float Jitter, int Seed, Timing Timing, Hold Hold, BlendingMode Mode)
     : IPixelStage<GlyphCells> {
     public static GlyphCells Default { get; } = new(
-        " .:-=+*#%@", HersheyFonts.Simplex, ShortSideLength.Create(1f / 24f), GlyphColoring.Input, new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d),
+        " .:-=+*#%@", GlyphFont.Simplex, ShortSideLength.Create(1f / 24f), GlyphColoring.Input, new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d),
         1f, 0.1f, 0, Timing.Default, Hold.Create(Duration.FromSeconds(6d / 24d)), BlendingMode.Normal);
 
     public static GlyphCells Binary { get; } = Default with { Characters = " 01" };

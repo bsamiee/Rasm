@@ -16,7 +16,7 @@ import msgspec
 from rasm_bpy.commands.operators import Body, Returns
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
-from rasm_bpy.data._extension.reports import _rendered
+from rasm_bpy.data._extension.reports import _rendered, Refusal
 from rasm_bpy.data._rna.descriptors import written
 from rasm_bpy.data._rna.paths import _definition, _preferred
 from rasm_bpy.data._rna.properties import annotated
@@ -278,7 +278,7 @@ def _opened(call: partial[Returns] | partial[None], names: tuple[str, ...], argu
     return (
         catch(call, exception=TypeError)(*(arguments[name] for name in names), **keywords)
         .map(lambda answer: set["rna_enums.OperatorReturnItems"](("INTERFACE",)) if answer is None else answer)
-        .map_error(partial(Fault.of, Reason.REFUSED, repr(call.func)))
+        .map_error(partial(Fault.of, Refusal.REFUSED, repr(call.func)))
     )
 
 

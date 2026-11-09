@@ -237,7 +237,7 @@ final class AccountStore {
             }
         }
         func observeCredentialWrites() async {
-            let lock: URL = ClaudeLock.storageWriteLockfile(in: claude.shared.directory)
+            let lock: URL = ClaudeCredentialStore.storageWriteLockfile(in: claude.shared.directory)
             do {
                 for try await present: Bool in FileEvent.presence(of: lock).map({ present in try present.get() }).removeDuplicates().dropFirst()
                 where !present {
@@ -253,23 +253,15 @@ final class AccountStore {
                 let now: Date = Date()
                 let base: Duration =
                     switch (isMenuBarExtraVisible, lastPanelOpen?.duration(to: .now)) {
-                        case (true, _): .seconds(AccountModel.usageReadSpacing)
+                        case (true, _): .seconds(AccountModel.usageReadSpacing.selected)
                         case (false, .some(..<Duration.seconds(15 * 60))): .seconds(5 * 60)
                         case (false, .some(..<Duration.seconds(60 * 60))): .seconds(15 * 60)
                         case (false, _): .seconds(30 * 60)
                     }
-                let boundary: Duration? = accounts.flatMap { model -> [Date] in
-                    let resets: [Date] =
-                        model.usage.usage.map { usage in
-                            usage.windows.compactMap(\.resetsAt).filter { date in date > usage.observedAt }
-                        } ?? []
-                    let earliest: Date? = model.usageReadAfter
-                    return (resets + [model.retryAfter].compactMap(\.self))
-                        .map { date in max(date, earliest ?? date) }
-                }
-                .filter { date in date > now }
-                .min()
-                .map { date in .seconds(date.timeIntervalSince(now) + 1) }
+                let boundary: Duration? = accounts.compactMap(\.usage.usage?.nextReset)
+                    .filter { date in date > now }
+                    .min()
+                    .map { date in .seconds(date.timeIntervalSince(now) + 1) }
                 let delay: Duration = min(base, boundary ?? base)
                 logger.debug("Next refresh in \(delay, privacy: .public)")
                 let (wakes, wake): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -309,14 +301,13 @@ final class AccountStore {
     }
 
     private func load() async {
-        switch await storage.load(at: Date()) {
+        switch await storage.load() {
             case .success(let loaded):
                 accounts = loaded.map { saved in
                     AccountModel(
                         account: saved.account,
                         authentication: saved.authentication,
                         usage: saved.usage.map(UsageState.stale) ?? .unavailable,
-                        retryAfter: saved.retryAfter,
                     )
                 }
                 storageState = .available
@@ -410,7 +401,6 @@ final class AccountStore {
                 account: Account(id: UUID(), provider: provider, identity: identity),
                 authentication: .connected,
                 usage: .unavailable,
-                retryAfter: nil,
             )
             accounts.append(model)
             logger.notice(
@@ -616,7 +606,6 @@ final class AccountStore {
                         account: Account(id: id, provider: provider, identity: identity),
                         authentication: .connected,
                         usage: replaced?.usage ?? .unavailable,
-                        retryAfter: nil,
                     )
                 if let replaced, let index: Int = accounts.firstIndex(where: { stored in stored.account.id == replaced.account.id }) {
                     accounts[index] = model
@@ -627,7 +616,6 @@ final class AccountStore {
                 }
                 model.account.identity = identity
                 model.authentication = .connected
-                model.retryAfter = nil
                 logger.notice("Signed in \(provider.name, privacy: .public) account \(id, privacy: .public) \(identity.email, privacy: .private)")
                 await save()
                 if stores.contains(.live(provider)) { await readSelection(provider, owning: stores) }
@@ -683,7 +671,6 @@ final class AccountStore {
             case .success(let usage):
                 model.usage = .current(usage)
                 model.authentication = .connected
-                model.retryAfter = nil
                 logger.log(level: operation.level, "\(operation.name, privacy: .public) succeeded for account \(model.account.id, privacy: .public)")
                 saves.continuation.yield()
                 refreshWake?.yield()
@@ -701,13 +688,6 @@ final class AccountStore {
         logger.error(
             "\(operation.name, privacy: .public) failed for \(model.account.provider.name, privacy: .public) account \(model.account.id, privacy: .public) \(model.account.identity.email, privacy: .private) with \(error.failure, privacy: .public), requires sign-in \(error.failure.requiresSignIn, privacy: .public)"
         )
-        if let retryAfter: Date = error.failure.retryAfter {
-            let held: Date = max(model.retryAfter ?? retryAfter, retryAfter)
-            model.retryAfter = held
-            logger.notice("Account \(model.account.id, privacy: .public) usage reads wait until \(held, privacy: .public)")
-            saves.continuation.yield()
-            refreshWake?.yield()
-        }
         guard error.failure.requiresSignIn else { return }
         model.authentication = .signInRequired
         model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
@@ -724,7 +704,6 @@ final class AccountStore {
                 account: model.account,
                 authentication: model.authentication,
                 usage: model.usage.usage,
-                retryAfter: model.retryAfter,
             )
         }
         switch await storage.save(snapshot) {

@@ -13,7 +13,7 @@ _JOINS = (("", ""), ("", "\N{ZERO WIDTH JOINER}"), ("\N{ZERO WIDTH JOINER}", "\N
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
+class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """Unmarked prose by BCP 47 language, texts by the check that shapes them, and the letters and mark stacks the mark matrix crosses."""
 
     prose: frozendict[str, tuple[str, ...]]
@@ -99,4 +99,4 @@ def _runs(letters: tuple[int, ...], count: int, marks: tuple[str, ...], contexts
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["Corpus"]

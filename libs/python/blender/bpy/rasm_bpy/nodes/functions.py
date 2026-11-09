@@ -18,6 +18,7 @@ import numpy.typing as npt
 from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.evaluation import _evaluated
 from rasm_bpy.data._ids.ownership import _tracked
 from rasm_bpy.data._rna.descriptors import written
@@ -336,7 +337,7 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
         def attributed(name: str, values: npt.NDArray[np.float32]) -> Outcome[None]:
             kind, member, _ = _STORED[_COLUMNS[1 if values.ndim == 1 else values.shape[1]]]
             attribute: _Attribute = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))  # ty: ignore[invalid-assignment]
-            return catch(attribute.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Reason.REFUSED, repr(attribute)))
+            return catch(attribute.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Refusal.REFUSED, repr(attribute)))
 
         def column_read(points: bpy.types.PointCloud, name: str, socket_type: SocketType) -> Outcome[npt.NDArray[np.float32]]:
             _, member, width = _STORED[socket_type]
@@ -345,14 +346,14 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
             def read(attribute: _Attribute) -> Outcome[npt.NDArray[np.float32]]:
                 return (
                     catch(attribute.data.foreach_get, exception=TypeError)(member, values)
-                    .map_error(partial(Fault.of, Reason.REFUSED, repr(attribute)))
+                    .map_error(partial(Fault.of, Refusal.REFUSED, repr(attribute)))
                     .map(lambda _: values if width == 1 else values.reshape(count, width))
                 )
 
             return (
                 catch(lambda: points.attributes[name], exception=KeyError)()
                 .map_error(partial(Fault.of, Reason.ABSENT, repr(points.attributes), member=name))
-                .bind(lambda found: read(found) if isinstance(found, _Attribute) else Error(Fault.of(Reason.REFUSED, repr(found), found.data_type)))
+                .bind(lambda found: read(found) if isinstance(found, _Attribute) else Error(Fault.of(Refusal.REFUSED, repr(found), found.data_type)))
             )
 
         def geometry_read(tree: bpy.types.NodeTree) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
@@ -360,7 +361,7 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
             return (
                 written(modifier, ("node_group",), tree)
                 .bind(lambda _: _evaluated(scene.view_layers[0]))
-                .bind(lambda depsgraph: catch(holder.evaluated_get(depsgraph).evaluated_geometry, exception=TypeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(holder))))
+                .bind(lambda depsgraph: catch(holder.evaluated_get(depsgraph).evaluated_geometry, exception=TypeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(holder))))
                 .bind(
                     lambda geometry: (
                         Option

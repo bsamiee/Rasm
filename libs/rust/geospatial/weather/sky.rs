@@ -1,22 +1,20 @@
 use core::{
     f64::consts::{FRAC_PI_2, PI},
-    hash::{BuildHasher, Hash},
+    hash::Hash,
     iter,
     num::NonZero,
 };
-use std::collections::HashMap;
 
 use bounded_integer::BoundedU8;
-use itertools::{Either, EitherOrBoth, Itertools as _, izip};
+use itertools::{EitherOrBoth, Itertools as _, izip};
 use jiff::civil;
-use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
-use ndarray::{Array2, ArrayView1, Axis, ShapeBuilder as _};
-use rasm_proximity::{Assembly, Distance};
-use rasm_solar_geometry::{Sensor, Transmittance, direction, incidence, patches};
+use nalgebra::{UnitQuaternion, UnitVector3};
+use ndarray::{Array2, Axis, ShapeBuilder as _};
+use rasm_solar_geometry::{Sun, direction, patches};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use uom::si::{
     angle::{degree, radian},
-    f64::{Angle, HeatFluxDensity, Illuminance, Ratio, Time},
+    f64::{Angle, Ratio, Time},
     heat_flux_density::watt_per_square_meter,
     illuminance::lux,
     length::centimeter,
@@ -26,6 +24,17 @@ use uom::si::{
     time::second,
 };
 use validated::Validated;
+#[cfg(feature = "proximity")]
+use {
+    core::hash::BuildHasher,
+    itertools::Either,
+    nalgebra::Vector3,
+    ndarray::ArrayView1,
+    rasm_proximity::{Assembly, Distance},
+    rasm_solar_geometry::{Sensor, Transmittance, incidence},
+    std::collections::HashMap,
+    uom::si::f64::{HeatFluxDensity, Illuminance},
+};
 
 use crate::{Defect, Hour, Hours, Refusal, WeatherError, cos_zenith, extraterrestrial, length, local};
 
@@ -79,7 +88,7 @@ struct ClearnessBin {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn matrix<K>(hours: &Hours, sky: Sky, key: impl Fn(civil::DateTime, &Hour) -> Option<K>) -> Result<(Vec<(K, Time)>, Matrix), WeatherError>
+pub fn matrix<K>(hours: &Hours<Sun>, sky: Sky, key: impl Fn(civil::DateTime, &Hour) -> Option<K>) -> Result<(Vec<(K, Time)>, Matrix), WeatherError>
 where K: Ord + Hash {
     const NIGHT: f64 = 1.0e-4;
     const GENERAL: [[f64; 5]; 15] = [
@@ -226,7 +235,7 @@ where K: Ord + Hash {
         .collect_vec();
     let members =
         groups.iter().enumerate().flat_map(|(column, (_, total, run))| run.iter().map(move |&(index, hour)| (column, index, hour, length(hour.interval).as_secs_f64() / total))).collect_vec();
-    let positions = members.par_iter().map(|&(_, _, hour, _)| crate::position(&hours.sun, hour.interval)).collect::<Result<Vec<_>, _>>()?;
+    let positions = members.par_iter().map(|&(_, _, hour, _)| crate::position(&hours.site, hour.interval)).collect::<Result<Vec<_>, _>>()?;
     let readings = iter::zip(&members, &positions)
         .map(|(&(_, index, hour, _), (prepared, position))| {
             let zenith = position.zenith_angle().clamp(3.0, 90.0).to_radians();
@@ -307,6 +316,7 @@ where K: Ord + Hash {
     Ok((groups.into_iter().map(|(group, total, _)| (group, Time::new::<second>(total))).collect(), Matrix { sky, radiance, sun }))
 }
 
+#[cfg(feature = "proximity")]
 pub fn irradiance<S>(
     matrix: &Matrix,
     north: UnitQuaternion<f64>,

@@ -19,6 +19,7 @@ import numpy as np
 
 from rasm_bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Placement, Unchanged
 from rasm_bpy.data._extension.identity import Identity
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Scenes, ViewLayers
 from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
 from rasm_bpy.data._rna.paths import rooted
@@ -207,7 +208,7 @@ def _grid(context: bpy.types.Context) -> tuple[tuple[str, ...], tuple[_Branch[bp
 def _moved(context: bpy.types.Context, current: int, row: int) -> Outcome[None]:
     """Moves the context scene's view layer at `current` to `row`."""
     return rooted(bpy.types.Scene, context).bind(
-        lambda scene: catch(scene.view_layers.move, exception=RuntimeError)(current, row).map(lambda _: None).map_error(partial(Fault.of, Reason.REFUSED, repr(scene.view_layers)))
+        lambda scene: catch(scene.view_layers.move, exception=RuntimeError)(current, row).map(lambda _: None).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene.view_layers)))
     )
 
 

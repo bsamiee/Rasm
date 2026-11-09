@@ -1,43 +1,34 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Numerics.Tensors;
-using MathNet.Numerics.LinearAlgebra;
 
 namespace Rasm.Geometry;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record Bounds(Vector3D<double> Min, Vector3D<double> Max) {
-    public Bounds Union(Bounds other) => new(Each(Min, other.Min, double.Min), Each(Max, other.Max, double.Max));
-    public Bounds Intersection(Bounds other) => new(Each(Min, other.Min, double.Max), Each(Max, other.Max, double.Min));
-    public Bounds Inflated(double amount) => new Vector3D<double>(amount, amount, amount) switch { var margin => new(Min - margin, Max + margin) };
+public sealed record Bounds {
+    private Bounds(Vector3D<double> min, Vector3D<double> max) => (Min, Max) = (min, max);
+    public Vector3D<double> Min { get; }
+    public Vector3D<double> Max { get; }
 
-    public Bounds Transformed(Matrix<double> map) {
-        (Vector3D<double> X, Vector3D<double> Y, Vector3D<double> Z, Vector3D<double> Translation) rows = Transforms.Rows(map);
-        ReadOnlySpan<double> xEnds = [Min.X, Max.X];
-        ReadOnlySpan<double> yEnds = [Min.Y, Max.Y];
-        ReadOnlySpan<double> zEnds = [Min.Z, Max.Z];
-        int count = xEnds.Length * yEnds.Length * zEnds.Length;
-        Span<double> xCoordinates = stackalloc double[count];
-        Span<double> yCoordinates = stackalloc double[count];
-        Span<double> zCoordinates = stackalloc double[count];
-        int index = 0;
-        foreach (double x in xEnds)
-            foreach (double y in yEnds)
-                foreach (double z in zEnds) {
-                    Vector3D<double> corner = rows.Apply(new Vector3D<double>(x, y, z));
-                    xCoordinates[index] = corner.X;
-                    yCoordinates[index] = corner.Y;
-                    zCoordinates[index++] = corner.Z;
-                }
-        return new(new(TensorPrimitives.Min(xCoordinates), TensorPrimitives.Min(yCoordinates), TensorPrimitives.Min(zCoordinates)), new(TensorPrimitives.Max(xCoordinates), TensorPrimitives.Max(yCoordinates), TensorPrimitives.Max(zCoordinates)));
-    }
+    public Bounds Union(Bounds other) => new(Each(Min, other.Min, double.Min), Each(Max, other.Max, double.Max));
+    public Option<Bounds> Intersection(Bounds other) => Validated(Each(Min, other.Min, double.Max), Each(Max, other.Max, double.Min)).ToOption();
+    public Fin<Bounds> Inflated(double amount) => new Vector3D<double>(amount, amount, amount) switch { var margin => Validated(Min - margin, Max + margin) };
+
+    public Fin<Bounds> Transformed(AffineMap map) =>
+        (from x in Seq(Min.X, Max.X) from y in Seq(Min.Y, Max.Y) from z in Seq(Min.Z, Max.Z) select map.Apply(new Vector3D<double>(x, y, z))) switch {
+            var corners => Validated(corners.Fold(corners[0], static (low, corner) => Each(low, corner, double.Min)), corners.Fold(corners[0], static (high, corner) => Each(high, corner, double.Max))),
+        };
+
+    public static Fin<Bounds> Validated(Vector3D<double> min, Vector3D<double> max) =>
+        (GeometryFault.Unless(min.IsFinite && max.IsFinite, GeometryRule.Range, (min, max)), GeometryFault.Unless(min.X <= max.X && min.Y <= max.Y && min.Z <= max.Z, GeometryRule.Order, (min, max)))
+            .Apply((_, _) => new Bounds(min, max)).As();
+
     private static Vector3D<double> Each(Vector3D<double> a, Vector3D<double> b, Func<double, double, double> pick) => new(pick(a.X, b.X), pick(a.Y, b.Y), pick(a.Z, b.Z));
 }
 
 [SmartEnum]
 public sealed partial class Combination {
     public static readonly Combination Union = new(double.PositiveInfinity, double.Min, static operands => from found in operands.Traverse(static bounds => bounds).As() from head in found.Head select found.Tail.Fold(head, static (held, next) => held.Union(next)));
-    public static readonly Combination Intersection = new(double.NegativeInfinity, double.Max, static operands => operands.Somes() switch { var found => found.Head.Map(head => found.Tail.Fold(head, static (held, next) => held.Intersection(next))) });
+    public static readonly Combination Intersection = new(double.NegativeInfinity, double.Max, static operands => operands.Somes() switch { var found => found.Tail.Fold(found.Head, static (held, next) => held.Bind(bounds => bounds.Intersection(next))) });
 
     public double Identity { get; }
 
@@ -59,14 +50,37 @@ public abstract partial record ScalarField {
 
     // --- [LEAVES]
 
-    public sealed record HalfSpace(Vector3D<double> Origin, Vector3D<double> Normal) : ScalarField {
+    public sealed record HalfSpace : ScalarField {
+        private HalfSpace(Vector3D<double> origin, Vector3D<double> normal) => (Origin, Normal) = (origin, normal);
+        public Vector3D<double> Origin { get; }
+        public Vector3D<double> Normal { get; }
         [SuppressMessage("Performance", "MA0168:Use readonly struct for in or ref readonly parameter", Justification = "HyperJet declares readonly Dot with an in parameter of mutable Vector3D<T>, preserving projection arithmetic.")]
-        public override double Distance(Vector3D<double> point) => (point - Origin).Dot(Normal) / Normal.Length();
+        public override double Distance(Vector3D<double> point) => (point - Origin).Dot(Normal);
+
+        public static Fin<HalfSpace> Validated(Vector3D<double> origin, Vector3D<double> normal) =>
+            (GeometryFault.Unless(origin.IsFinite, GeometryRule.Range, origin), GeometryFault.Unless(normal.Length() is var length && double.IsFinite(length) && length > 0d, GeometryRule.Degenerate, normal))
+                .Apply((_, _) => new HalfSpace(origin, normal.Normalize())).As();
     }
 
-    public sealed record Ball(Vector3D<double> Center, double Radius) : ScalarField { public override Option<Bounds> Bounds => new Bounds(Center, Center).Inflated(Radius); public override double Distance(Vector3D<double> point) => (point - Center).Length() - Radius; }
+    public sealed record Ball : ScalarField {
+        private Ball(Vector3D<double> center, double radius) => (Center, Radius) = (center, radius);
+        public Vector3D<double> Center { get; }
+        public double Radius { get; }
+        public override Option<Bounds> Bounds => new Vector3D<double>(Radius, Radius, Radius) switch { var reach => Geometry.Bounds.Validated(Center - reach, Center + reach).ToOption() };
+        public override double Distance(Vector3D<double> point) => (point - Center).Length() - Radius;
 
-    public sealed record Box(Vector3D<double> Min, Vector3D<double> Max) : ScalarField { public override Option<Bounds> Bounds => new Bounds(Min, Max); public override double Distance(Vector3D<double> point) => new Vector3D<double>(double.Max(Min.X - point.X, point.X - Max.X), double.Max(Min.Y - point.Y, point.Y - Max.Y), double.Max(Min.Z - point.Z, point.Z - Max.Z)) switch { var reach => new Vector3D<double>(double.Max(reach.X, 0d), double.Max(reach.Y, 0d), double.Max(reach.Z, 0d)).Length() + double.Min(double.Max(reach.X, double.Max(reach.Y, reach.Z)), 0d) }; }
+        public static Fin<Ball> Validated(Vector3D<double> center, double radius) =>
+            (GeometryFault.Unless(center.IsFinite, GeometryRule.Range, center), GeometryFault.Unless(double.IsFinite(radius) && radius > 0d, GeometryRule.Range, radius))
+                .Apply((_, _) => new Ball(center, radius)).As();
+    }
+
+    public sealed record Box(Bounds Extent) : ScalarField {
+        public override Option<Bounds> Bounds => Extent;
+        public override double Distance(Vector3D<double> point) =>
+            new Vector3D<double>(double.Max(Extent.Min.X - point.X, point.X - Extent.Max.X), double.Max(Extent.Min.Y - point.Y, point.Y - Extent.Max.Y), double.Max(Extent.Min.Z - point.Z, point.Z - Extent.Max.Z)) switch {
+                var reach => new Vector3D<double>(double.Max(reach.X, 0d), double.Max(reach.Y, 0d), double.Max(reach.Z, 0d)).Length() + double.Min(double.Max(reach.X, double.Max(reach.Y, reach.Z)), 0d),
+            };
+    }
 
     public sealed record Measured : ScalarField {
         private readonly Func<Vector3D<double>, double> _sample;
@@ -77,7 +91,14 @@ public abstract partial record ScalarField {
 
     public sealed record Level(Func<Vector3D<DScalar3<double>>, DScalar3<double>> Field) : ScalarField { public override double Distance(Vector3D<double> point) => DScalar3<double>.Variables(point.X, point.Y, point.Z) switch { var (x, y, z) => Field(new(x, y, z)) switch { var f => f.Value is 0d ? 0d : f.Value / new Vector3D<double>(f.G(0), f.G(1), f.G(2)).Length() } }; }
 
-    public sealed record Uniform(double Value) : ScalarField { public override Option<double> Constant => Value; public override double Distance(Vector3D<double> point) => Value; }
+    public sealed record Uniform : ScalarField {
+        private Uniform(double value) => Value = value;
+        public double Value { get; }
+        public override Option<double> Constant => Value;
+        public override double Distance(Vector3D<double> point) => Value;
+
+        public static Fin<Uniform> Validated(double value) => GeometryFault.Unless(double.IsFinite(value), GeometryRule.Range, value).Map(_ => new Uniform(value));
+    }
 
     // --- [COMBINATORS]
 
@@ -85,27 +106,31 @@ public abstract partial record ScalarField {
 
     public sealed record Difference(ScalarField Body, ScalarField Cutter) : ScalarField { public override Option<Bounds> Bounds => Body.Bounds; public override double Distance(Vector3D<double> point) => double.Max(Body.Distance(point), -Cutter.Distance(point)); }
 
-    public sealed record Blend(ScalarField A, ScalarField B, double Radius) : ScalarField { public override Option<Bounds> Bounds => from a in A.Bounds from b in B.Bounds select a.Union(b).Inflated(Radius / 4d); public override double Distance(Vector3D<double> point) => (A.Distance(point), B.Distance(point)) switch { var (a, b) => double.Max(Radius - double.Abs(a - b), 0d) switch { var overlap => double.Min(a, b) - (overlap * overlap / (4d * Radius)) } }; }
+    public sealed record Blend : ScalarField {
+        private Blend(ScalarField a, ScalarField b, double radius) => (A, B, Radius) = (a, b, radius);
+        public ScalarField A { get; }
+        public ScalarField B { get; }
+        public double Radius { get; }
+        public override Option<Bounds> Bounds => from a in A.Bounds from b in B.Bounds from inflated in a.Union(b).Inflated(Radius / 4d).ToOption() select inflated;
+        public override double Distance(Vector3D<double> point) => (A.Distance(point), B.Distance(point)) switch { var (a, b) => double.Max(Radius - double.Abs(a - b), 0d) switch { var overlap => double.Min(a, b) - (overlap * overlap / (4d * Radius)) } };
 
-    public sealed record Offset(ScalarField Field, ScalarField Amount) : ScalarField { public override Option<Bounds> Bounds => from amount in Amount.Constant from bounds in Field.Bounds select bounds.Inflated(double.Max(amount, 0d)); public override double Distance(Vector3D<double> point) => Field.Distance(point) - Amount.Distance(point); }
+        public static Fin<Blend> Validated(ScalarField a, ScalarField b, double radius) => GeometryFault.Unless(double.IsFinite(radius) && radius > 0d, GeometryRule.Range, radius).Map(_ => new Blend(a, b, radius));
+    }
 
-    public sealed record Shell(ScalarField Field, ScalarField Thickness) : ScalarField { public override Option<Bounds> Bounds => from thickness in Thickness.Constant from bounds in Field.Bounds select bounds.Inflated(double.Max(thickness / 2d, 0d)); public override double Distance(Vector3D<double> point) => double.Abs(Field.Distance(point)) - (Thickness.Distance(point) / 2d); }
+    public sealed record Offset(ScalarField Field, ScalarField Amount) : ScalarField { public override Option<Bounds> Bounds => from amount in Amount.Constant from bounds in Field.Bounds from inflated in bounds.Inflated(double.Max(amount, 0d)).ToOption() select inflated; public override double Distance(Vector3D<double> point) => Field.Distance(point) - Amount.Distance(point); }
+
+    public sealed record Shell(ScalarField Field, ScalarField Thickness) : ScalarField { public override Option<Bounds> Bounds => from thickness in Thickness.Constant from bounds in Field.Bounds from inflated in bounds.Inflated(double.Max(thickness / 2d, 0d)).ToOption() select inflated; public override double Distance(Vector3D<double> point) => double.Abs(Field.Distance(point)) - (Thickness.Distance(point) / 2d); }
 
     public sealed record Moved : ScalarField {
-        private readonly Matrix<double> map;
-        private Moved(ScalarField field, Matrix<double> map, Matrix<double> inverse) => (Field, this.map, Inverse) = (field, map, Transforms.Rows(inverse));
+        private Moved(ScalarField field, AffineMap map, double scale) => (Field, Map, Scale, Inverse) = (field, map, scale, map.Inverse());
         public ScalarField Field { get; }
-        public Matrix<double> Map => map.Clone();
-        public override Option<Bounds> Bounds => Field.Bounds.Map(bounds => bounds.Transformed(map));
-        private (Vector3D<double> X, Vector3D<double> Y, Vector3D<double> Z, Vector3D<double> Translation) Inverse { get; }
-        public override double Distance(Vector3D<double> point) => Field.Distance(Inverse.Apply(point));
+        public AffineMap Map { get; }
+        private double Scale { get; }
+        private AffineMap Inverse { get; }
+        public override Option<Bounds> Bounds => Field.Bounds.Bind(bounds => bounds.Transformed(Map).ToOption());
+        public override double Distance(Vector3D<double> point) => Scale * Field.Distance(Inverse.Apply(point));
 
-        public static Fin<Moved> Of(ScalarField field, Matrix<double> map) =>
-            from shape in GeometryFault.Unless(map.RowCount is 4 && map.ColumnCount == map.RowCount, GeometryRule.Shape, (map.RowCount, map.ColumnCount))
-            let owned = map.Clone()
-            let factor = owned.Svd()
-            let rank = factor.Rank
-            from nonsingular in GeometryFault.Unless(rank == owned.RowCount, GeometryRule.Singular, rank)
-            select new Moved(field, owned, factor.Solve(Matrix<double>.Build.DenseIdentity(owned.RowCount)));
+        public static Fin<Moved> Of(ScalarField field, AffineMap map, double tolerance) =>
+            map.UniformScale(tolerance).ToFin(new GeometryFault(map, GeometryRule.Distortion)).Map(scale => new Moved(field, map, scale));
     }
 }

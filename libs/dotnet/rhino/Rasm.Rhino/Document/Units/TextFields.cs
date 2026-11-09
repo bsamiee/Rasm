@@ -15,6 +15,41 @@ public abstract partial record FieldRun {
     public sealed record Evaluator(string Function, Seq<Option<string>> Arguments) : FieldRun;
 }
 
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+public abstract partial record TitleSource {
+    public virtual Option<string> Key => None;
+
+    public sealed record DocumentText(string Stored) : TitleSource { public override Option<string> Key => Stored; }
+
+    public sealed record LayoutText(string Stored) : TitleSource { public override Option<string> Key => Stored; }
+
+    public sealed record PageName : TitleSource;
+
+    public sealed record SheetFact(Func<Sheet, string> Read) : TitleSource;
+
+    public static HashMap<TitleField, TitleSource> Iso7200 { get; } = HashMap<TitleField, TitleSource>(
+        (TitleField.LegalOwner, new DocumentText("legal-owner")),
+        (TitleField.IdentificationNumber, new PageName()),
+        (TitleField.RevisionIndex, new LayoutText("revision-index")),
+        (TitleField.DateOfIssue, new LayoutText("date-of-issue")),
+        (TitleField.SegmentNumber, new LayoutText("segment-number")),
+        (TitleField.SegmentCount, new LayoutText("segment-count")),
+        (TitleField.LanguageCode, new DocumentText("language-code")),
+        (TitleField.Title, new LayoutText("title")),
+        (TitleField.SupplementaryTitle, new LayoutText("supplementary-title")),
+        (TitleField.ResponsibleDepartment, new DocumentText("responsible-department")),
+        (TitleField.TechnicalReference, new DocumentText("technical-reference")),
+        (TitleField.ApprovalPerson, new LayoutText("approval-person")),
+        (TitleField.Creator, new LayoutText("creator")),
+        (TitleField.DocumentType, new DocumentText("document-type")),
+        (TitleField.Classification, new DocumentText("classification")),
+        (TitleField.DocumentStatus, new LayoutText("document-status")),
+        (TitleField.PaperSize, new SheetFact(static sheet => sheet.Size.Name)),
+        (TitleField.ProjectName, new DocumentText("project-name")),
+        (TitleField.Client, new DocumentText("client")),
+        (TitleField.Checker, new LayoutText("checker")));
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class FieldFormulas {
@@ -23,13 +58,13 @@ public static class FieldFormulas {
 
     public static FieldRun Field(string function, params Seq<Option<string>> arguments) => new FieldRun.Evaluator(function, arguments);
 
-    public static Option<FieldRun> Title(TitleField field, Option<Sheet> sheet) =>
-        field.Entry.Switch(
-            (Sheet: sheet, field.Key),
-            projectEntry: static (state, _) => Some(Field(nameof(TextFields.DocumentText), state.Key)),
-            sheetEntry: static (state, _) => Some(Field(nameof(TextFields.LayoutUserText), state.Key)),
-            sheetName: static (_, _) => Some(Field(nameof(TextFields.PageName))),
-            sheetFact: static (state, fact) => state.Sheet.Map<FieldRun>(page => fact.Read(page)));
+    public static Option<FieldRun> Title(TitleSource source, Option<Sheet> sheet) =>
+        source.Switch(
+            sheet,
+            documentText: static (_, document) => Some(Field(nameof(TextFields.DocumentText), document.Stored)),
+            layoutText: static (_, layout) => Some(Field(nameof(TextFields.LayoutUserText), layout.Stored)),
+            pageName: static (_, _) => Some(Field(nameof(TextFields.PageName))),
+            sheetFact: static (held, fact) => held.Map<FieldRun>(page => fact.Read(page)));
 
     // --- [RENDERING]
 

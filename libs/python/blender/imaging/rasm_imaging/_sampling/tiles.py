@@ -3,7 +3,7 @@
 from fractions import Fraction
 import math
 from types import MemberDescriptorType
-from typing import Annotated
+from typing import Annotated, Final
 
 from expression import Option, Some
 import msgspec
@@ -21,7 +21,15 @@ from rasm_imaging._color.colorimetry import matching, observer
 from rasm_imaging._files.buffers import Depth, pixels
 from rasm_imaging._geometry.frames import Raster
 from rasm_imaging._geometry.lenses import Aperture
-from rasm_records import content_hash, NonNegative, Nothing, Ok, Outcome, rng, Seed
+from rasm_records import content_hash, ContentHash, NonNegative, Nothing, Ok, Outcome
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Seed = Annotated[int, msgspec.Meta(ge=0, le=SEED_BOUND)]
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+SEED_BOUND: Final = 2 ** (np.finfo(np.float32).nmant + 1)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -100,6 +108,11 @@ class Specks(msgspec.Struct, frozen=True, kw_only=True):
 # --- [DRAWS]
 
 
+def rng(content: ContentHash, *key: int) -> np.random.Generator:
+    """Seeds independent generator from content hash and key."""
+    return np.random.default_rng(np.random.SeedSequence(int.from_bytes(content, "little"), spawn_key=key))
+
+
 def stream(*parts: object) -> int:
     """Returns the draw stream of a key path within the float32 significand, record fields keyed by struct and name, kinds by qualified name, and integers by text."""
 
@@ -159,4 +172,4 @@ def correlated(plane: npt.NDArray[np.float32]) -> npt.NDArray[np.float64]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pupil", "Specks", "correlated", "gaussian_tile", "normal_scores", "ranks", "stream", "uniforms"]
+__all__ = ["SEED_BOUND", "Pupil", "Seed", "Specks", "correlated", "gaussian_tile", "normal_scores", "ranks", "rng", "stream", "uniforms"]

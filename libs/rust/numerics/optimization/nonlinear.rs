@@ -53,11 +53,11 @@ pub struct Optimizer {
 #[derive(Debug, Clone)]
 pub struct Settings<'problem> {
     pub optimizer: Optimizer,
+    pub seed: u32,
     pub local_optimizer: Option<Optimizer> = None,
     pub stopval: Option<Stopval> = None,
     pub initial_step: Option<DVector<f64>> = None,
     pub constraints: Vec<Constraint<'problem>> = Vec::new(),
-    pub seed: Option<u32> = None,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -94,59 +94,58 @@ where F: Objective<E> {
     .ok()
     .map_err(Either::Right)?;
     let ends = |end: fn(&Bounds) -> f64| space.values().into_iter().map(end).collect::<Vec<_>>();
+    let (lower, upper) = (ends(|bounds| bounds.start), ends(|bounds| bounds.last));
     let worst = match target {
         Target::Minimize => f64::INFINITY,
         Target::Maximize => f64::NEG_INFINITY,
     };
-    let mut nlopt = Nlopt::new(
-        settings.optimizer.algorithm,
-        dimensions,
-        |point: &[f64], slot: Option<&mut [f64]>, (objective, failure): &mut (F, Option<E>)| match failure {
-            Some(_) => worst,
-            None => objective(point, slot).unwrap_or_else(|error| {
-                *failure = Some(error);
-                worst
-            }),
-        },
-        target,
-        (objective, None),
-    );
-    (try {
-        nlopt.set_lower_bounds(&ends(|bounds| bounds.start))?;
-        nlopt.set_upper_bounds(&ends(|bounds| bounds.last))?;
-        configure(&mut nlopt, &settings.optimizer)?;
-        settings.stopval.map(|stopval| nlopt.set_stopval(stopval.into_inner())).transpose()?;
-        settings.initial_step.as_ref().map(|initial_step| nlopt.set_initial_step(initial_step.as_slice())).transpose()?;
-        if let Some(local) = &settings.local_optimizer {
-            let mut local_optimizer = nlopt.get_local_optimizer(local.algorithm);
-            configure(&mut local_optimizer, local)?;
-            nlopt.set_local_optimizer(local_optimizer)?;
-        }
-    })
-    .map_err(|state| Either::Right(NEVec::new(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state })))?;
-    settings
-        .constraints
-        .iter()
-        .enumerate()
-        .try_for_each(|(constraint, Constraint { relation, tolerances, evaluate })| {
+    let algorithm = settings.optimizer.algorithm;
+    let solved: Result<Solution, Either<E, OptimizeError>> = try bikeshed Result<Solution, Either<E, OptimizeError>> {
+        let mut nlopt = Nlopt::new(
+            algorithm,
+            dimensions,
+            |point: &[f64], slot: Option<&mut [f64]>, (objective, failure): &mut (F, Option<E>)| match failure {
+                Some(_) => worst,
+                None => objective(point, slot).unwrap_or_else(|error| {
+                    *failure = Some(error);
+                    worst
+                }),
+            },
+            target,
+            (objective, None),
+        );
+        (try {
+            nlopt.set_lower_bounds(&lower)?;
+            nlopt.set_upper_bounds(&upper)?;
+            configure(&mut nlopt, &settings.optimizer)?;
+            settings.stopval.map(|stopval| nlopt.set_stopval(stopval.into_inner())).transpose()?;
+            settings.initial_step.as_ref().map(|initial_step| nlopt.set_initial_step(initial_step.as_slice())).transpose()?;
+            if let Some(local) = &settings.local_optimizer {
+                let mut local_optimizer = nlopt.get_local_optimizer(local.algorithm);
+                configure(&mut local_optimizer, local)?;
+                nlopt.set_local_optimizer(local_optimizer)?;
+            }
+        })
+        .map_err(|state| Either::Right(OptimizeError::Algorithm { algorithm, state }))?;
+        settings.constraints.iter().enumerate().try_for_each(|(constraint, Constraint { relation, tolerances, evaluate })| {
             let tolerances = tolerances.iter().map(|tolerance| tolerance.map_or_default(Tolerance::into_inner)).collect::<Vec<_>>();
             match relation {
                 Relation::Inequality => nlopt.add_inequality_mconstraint(tolerances.len(), *evaluate, (), &tolerances),
                 Relation::Equality => nlopt.add_equality_mconstraint(tolerances.len(), *evaluate, (), &tolerances),
             }
             .map(drop)
-            .map_err(|state| OptimizeError::Constraint { constraint, state })
-        })
-        .map_err(|failure| Either::Right(NEVec::new(failure)))?;
-    Nlopt::<fn(&[f64], Option<&mut [f64]>, &mut ()) -> f64, ()>::srand_seed(settings.seed.map(u64::from));
-    let mut point = start;
-    let outcome = nlopt.optimize(point.as_mut_slice());
-    match (outcome, nlopt.recover_user_data().1) {
-        (Err((state @ (FailState::InvalidArgs | FailState::OutOfMemory), _)), _) => Err(Either::Right(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state })),
-        (_, Some(failure)) => Err(Either::Left(failure)),
-        (Err((state, value)), None) => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: Some(state) })),
-        (Ok((_, value)), None) if !value.is_finite() => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: None })),
-        (Ok((status, value)), None) => Ok(Solution { point, objective: value, status }),
-    }
-    .map_err(|failure| failure.map_right(NEVec::new))
+            .map_err(|state| Either::Right(OptimizeError::Constraint { constraint, state }))
+        })?;
+        Nlopt::<fn(&[f64], Option<&mut [f64]>, &mut ()) -> f64, ()>::srand_seed(Some(u64::from(settings.seed)));
+        let mut point = start;
+        let outcome = nlopt.optimize(point.as_mut_slice());
+        match (outcome, nlopt.recover_user_data().1) {
+            (Err((state @ (FailState::InvalidArgs | FailState::OutOfMemory), _)), _) => Err(Either::Right(OptimizeError::Algorithm { algorithm, state })),
+            (_, Some(failure)) => Err(Either::Left(failure)),
+            (Err((state, value)), None) => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: Some(state) })),
+            (Ok((_, value)), None) if !value.is_finite() => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: None })),
+            (Ok((status, value)), None) => Ok(Solution { point, objective: value, status }),
+        }?
+    };
+    solved.map_err(|failure| failure.map_right(NEVec::new))
 }

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rules needing semantic analysis, each reported as a compile error</Description>
+        <RootNamespace>Rasm.Analyzers</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup Label="Analyzer Authoring">
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Collections">
+        <PackageReference Include="System.Collections.Immutable" />
+    </ItemGroup>
+
+    <ItemGroup Label="Release Tracking">
+        <AdditionalFiles Include="AnalyzerReleases.Shipped.md;AnalyzerReleases.Unshipped.md" />
+    </ItemGroup>
+
+    <ItemGroup Label="Help Links">
+        <AssemblyMetadata Include="Help" Value="$(PackageProjectUrl)/blob/main/apps/roslyn/Rasm.Analyzers.Package/README.md" />
+    </ItemGroup>
+</Project>

@@ -1,8 +1,8 @@
-use core::{num::NonZero, range::RangeInclusive};
+use core::range::RangeInclusive;
 
+use basin::{BrentRoot, BrentRootError};
 use itertools::Either;
-use rasm_numerical_analysis::roots;
-use rasm_stats::{Bounds, BoundsError};
+use rasm_solar_geometry::Sun;
 use solar_positioning::SolarPosition;
 use thermalcomfort::{
     ClothingInsulation, MetabolicRate, PmvPpdResult, Speed, Temperature,
@@ -15,7 +15,7 @@ use thermalcomfort::{
         at, heat_index_rothfusz, humidex, pet_steady,
         pmv::{PmvPpdAshraeOptions, PmvPpdInputs, PmvPpdIsoOptions, pmv_ppd_ashrae},
         set_tmp,
-        solar_gain::{SolarGainInputs, SolarGainOptions, solar_gain},
+        solar_gain::{SolarGainInputs, SolarGainOptions, SolarGainPosture, solar_gain},
         utci::{self, StressCategory, UtciInputs, UtciOptions, UtciResult},
         wind_chill_temperature,
     },
@@ -23,16 +23,19 @@ use thermalcomfort::{
     psychrometrics::{PsyTaRhOptions, PsychrometricValues, p_sat, psy_ta_rh},
     v_relative,
 };
-use uom::si::{
-    angle::{degree, radian},
-    available_energy::joule_per_kilogram,
-    f64::{Angle, AvailableEnergy, Pressure, Ratio, SpecificVolume, ThermodynamicTemperature, Velocity},
-    heat_flux_density::watt_per_square_meter,
-    pressure::pascal,
-    ratio::ratio,
-    specific_volume::cubic_meter_per_kilogram,
-    thermodynamic_temperature::{degree_celsius, kelvin},
-    velocity::meter_per_second,
+use uom::{
+    ConstZero as _,
+    si::{
+        angle::{degree, radian},
+        available_energy::joule_per_kilogram,
+        f64::{Angle, AvailableEnergy, Pressure, Ratio, SpecificVolume, ThermodynamicTemperature, Velocity},
+        heat_flux_density::watt_per_square_meter,
+        pressure::pascal,
+        ratio::ratio,
+        specific_volume::cubic_meter_per_kilogram,
+        thermodynamic_temperature::{degree_celsius, kelvin},
+        velocity::meter_per_second,
+    },
 };
 
 use crate::{Hour, Hours, Refusal, WeatherError, atmospheric, cos_zenith, humidity, position, positive, quantity, refused, temperature};
@@ -67,6 +70,7 @@ pub struct Exposure {
     pub sky_view: Ratio,
     pub sunlit: Ratio,
     pub surfaces: Option<ThermodynamicTemperature>,
+    pub air_speed: Velocity,
     pub options: SolarGainOptions,
 }
 
@@ -89,8 +93,15 @@ pub struct Limit {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Limits {
-    Ashrae { acceptability_80: Limit, acceptability_90: Limit },
-    En { category_i: Limit, category_ii: Limit, category_iii: Limit },
+    Ashrae {
+        acceptability_80: Limit,
+        acceptability_90: Limit,
+    },
+    En {
+        category_i: Limit,
+        category_ii: Limit,
+        category_iii: Limit,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -102,8 +113,16 @@ pub struct Adaptive {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Index {
-    Set { met: MetabolicRate, clo: ClothingInsulation, options: SetOptions },
-    Pet { met: MetabolicRate, clo: ClothingInsulation, options: PetOptions },
+    Set {
+        met: MetabolicRate,
+        clo: ClothingInsulation,
+        options: SetOptions,
+    },
+    Pet {
+        met: MetabolicRate,
+        clo: ClothingInsulation,
+        options: PetOptions,
+    },
     Heat(HeatIndexRothfuszOptions),
     Humidex(HumidexOptions),
     Apparent(AtOptions),
@@ -151,59 +170,67 @@ pub fn dew_point(dry_bulb: ThermodynamicTemperature, relative_humidity: Ratio) -
 }
 
 fn root<F>(equation: F, start: f64, last: f64) -> Result<Option<f64>, WeatherError>
-where F: Fn(f64) -> f64 + Sync {
-    match Bounds::try_new(RangeInclusive { start, last }) {
-        Ok(bounds) => roots::bracketed(equation, bounds, NonZero::<usize>::MIN, None, (None, None)).map(|found| found.first().copied()).map_err(WeatherError::Analysis),
-        Err(BoundsError::PredicateViolated) => Ok(start.total_cmp(&last).is_eq().then_some(start)),
+where F: Fn(f64) -> f64 {
+    match BrentRoot::new(start, last).solve(|at| Ok::<_, !>(equation(at))) {
+        Ok(found) => Ok(Some(found.root())),
+        Err(BrentRootError::NotBracketed { .. }) => Ok(None),
+        Err(BrentRootError::InvalidInterval { lower, upper }) => Ok(lower.total_cmp(&upper).is_eq().then_some(lower)),
+        Err(source) => Err(WeatherError::Root(source)),
     }
 }
 
 // --- [OUTDOOR]
 
-pub fn outdoor(hours: &Hours, mut exposure: impl FnMut(&Hour, SolarPosition) -> Exposure) -> impl Iterator<Item = Result<(&Hour, Option<Conditions>), WeatherError>> {
-    const BODY_EMISSIVITY: f64 = 0.95;
-    const RADIATIVE_COEFFICIENT: f64 = 6.0;
-    let conditions = |hour: &Hour, sun: SolarPosition, Exposure { facing, transmittance, sky_view, sunlit, surfaces, options }: Exposure| -> Option<Conditions> {
+pub fn outdoor(hours: &Hours<Sun>, mut exposure: impl FnMut(&Hour, SolarPosition) -> Exposure) -> impl Iterator<Item = Result<(&Hour, Option<Conditions>), WeatherError>> {
+    let conditions = |hour: &Hour, sun: SolarPosition, Exposure { facing, transmittance, sky_view, sunlit, surfaces, air_speed, options }: Exposure| -> Option<Conditions> {
         let dry_bulb = hour.dry_bulb?;
         let (surfaces, transmittance, half_sky) = (surfaces.unwrap_or(dry_bulb).get::<kelvin>(), transmittance.get::<ratio>(), 0.5 * sky_view.get::<ratio>());
         let sky = (hour.infrared?.get::<watt_per_square_meter>() / STEFAN_BOLTZMANN).powf(0.25);
         let solar = if sun.is_sun_up() {
             let (direct, diffuse) = (hour.direct_irradiance?, hour.diffuse_irradiance?);
             let (sine, cosine) = (Angle::new::<degree>(sun.azimuth()) - facing).sin_cos();
-            let beam = solar_gain(
-                SolarGainInputs {
-                    sol_altitude: thermalcomfort::Angle::from_degrees(sun.elevation_angle()),
-                    sharp: thermalcomfort::Angle::from_radians(sine.abs().atan2(cosine).get::<radian>()),
-                    sol_radiation_dir: thermalcomfort::HeatFluxDensity::from_watts_per_square_meter(direct.get::<watt_per_square_meter>()),
-                    sol_transmittance: transmittance,
-                    f_svv: 0.0,
-                    f_bes: sunlit.get::<ratio>(),
-                },
-                SolarGainOptions { round_output: false, ..options },
-            );
-            let (global, scattered) = ((direct * cos_zenith(&sun) + diffuse).get::<watt_per_square_meter>(), diffuse.get::<watt_per_square_meter>());
-            beam.delta_mrt.as_celsius() + half_sky * transmittance * options.floor_reflectance.mul_add(global, scattered) * options.asw / (BODY_EMISSIVITY * RADIATIVE_COEFFICIENT)
+            let gain = |altitude: f64, sharp: Angle, radiation: f64, f_svv: f64, f_bes: f64, options: SolarGainOptions| {
+                solar_gain(
+                    SolarGainInputs {
+                        sol_altitude: thermalcomfort::Angle::from_degrees(altitude),
+                        sharp: thermalcomfort::Angle::from_radians(sharp.get::<radian>()),
+                        sol_radiation_dir: thermalcomfort::HeatFluxDensity::from_watts_per_square_meter(radiation),
+                        sol_transmittance: transmittance,
+                        f_svv,
+                        f_bes,
+                    },
+                    SolarGainOptions { round_output: false, ..options },
+                )
+                .delta_mrt
+                .as_celsius()
+            };
+            let scattered = (direct * cos_zenith(&sun) + diffuse).get::<watt_per_square_meter>().mul_add(options.floor_reflectance, diffuse.get::<watt_per_square_meter>());
+            let reflected = SolarGainOptions { posture: SolarGainPosture::Standing, floor_reflectance: 1.0, ..options };
+            let zenith = Angle::HALF_TURN.get::<degree>() / 2.0;
+            gain(sun.elevation_angle(), Angle::new::<radian>(sine.abs().atan2(cosine).get::<radian>()), direct.get::<watt_per_square_meter>(), 0.0, sunlit.get::<ratio>(), options)
+                + gain(zenith, Angle::ZERO, scattered, sky_view.get::<ratio>(), 0.0, reflected)
+                - gain(0.0, Angle::ZERO, scattered, sky_view.get::<ratio>(), 0.0, reflected)
         } else {
             0.0
         };
         Some(Conditions {
             dry_bulb,
             mean_radiant: Some(half_sky.mul_add(sky - surfaces, surfaces + solar)).filter(|radiant: &f64| radiant.is_finite()).map(ThermodynamicTemperature::new::<kelvin>)?,
-            air_speed: hour.wind_speed?,
+            air_speed,
             relative_humidity: hour.relative_humidity?,
             pressure: hour.pressure,
         })
     };
-    hours.records.iter().map(move |hour| position(&hours.sun, hour.interval).map(|(_, sun)| (hour, conditions(hour, sun, exposure(hour, sun)))))
+    hours.records.iter().map(move |hour| position(&hours.site, hour.interval).map(|(_, sun)| (hour, conditions(hour, sun, exposure(hour, sun)))))
 }
 
 // --- [INDICES]
 
 #[must_use]
-pub fn utci(conditions: Conditions) -> Option<(ThermodynamicTemperature, StressCategory)> {
-    let (tdb, tr, speed, rh) = environment(conditions);
+pub fn utci(conditions: Conditions, wind: Velocity) -> Option<(ThermodynamicTemperature, StressCategory)> {
+    let (tdb, tr, _, rh) = environment(conditions);
     let UtciResult { utci, stress_category } =
-        utci::utci(UtciInputs { tdb, tr, v: Speed::from_meters_per_second(speed.as_meters_per_second().clamp(0.5, 17.0)), rh }, UtciOptions { round_output: false, ..UtciOptions::default() });
+        utci::utci(UtciInputs { tdb, tr, v: Speed::from_meters_per_second(wind.get::<meter_per_second>()), rh }, UtciOptions { round_output: false, ..UtciOptions::default() });
     stress_category.map(|category| (quantity(Temperature::from_celsius(utci)), category))
 }
 

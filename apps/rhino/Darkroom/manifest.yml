@@ -3,5 +3,6 @@ version: $version
 authors:
   - Bardia Samiee
 description: Post-production from raw render to finished image
+license: GPL-3.0-or-later
 url: https://github.com/bsamiee/Rasm
 icon: icon.png

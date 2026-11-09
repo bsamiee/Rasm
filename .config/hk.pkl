@@ -4,6 +4,11 @@ import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtin
 // --- [STEPS] ----------------------------------------------------------------------------
 
 steps {
+    ["ast-grep"] {
+        glob = "**/*"
+        check = "cmake -S tools/ast-grep/grammars --preset default >/dev/null && cmake --build tools/ast-grep/grammars/build >/dev/null && ast-grep scan --custom-languages allow {{files}}"
+        fix = "cmake -S tools/ast-grep/grammars --preset default >/dev/null && cmake --build tools/ast-grep/grammars/build >/dev/null && ast-grep scan --custom-languages allow --update-all {{files}}"
+    }
     ["biome"] = (Builtins.biome) {
         glob = "**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,grit}"
         check { command { argv = List("biome", "check", "--error-on-warnings", "--no-errors-on-unmatched", "{{files}}") } }
@@ -13,6 +18,20 @@ steps {
         glob = "**/*.cs"
         check = new CommandSpec { command = new Command { argv = List("dotnet", "format", "whitespace", "--folder", "--verify-no-changes", "--include", "{{files}}") }; effect = "read" }
         fix = new CommandSpec { command = new Command { argv = List("dotnet", "format", "whitespace", "--folder", "--include", "{{files}}") }; effect = "write" }
+    }
+    ["google-java-format"] = (Builtins.google_java_format) {
+        check { command { argv = List("google-java-format", "--aosp", "--dry-run", "--set-exit-if-changed", "{{files}}") } }
+        check_list_files { command { argv = List("google-java-format", "--aosp", "--dry-run", "{{files}}") } }
+        fix { command { argv = List("google-java-format", "--aosp", "--replace", "{{files}}") } }
+    }
+    ["javac"] {
+        glob = "**/*.java"
+        check = "javac -Xlint:all,-path -Werror -d .cache/javac -cp \"$GHIDRA_CLASSPATH\" -sourcepath .claude/skills/use-ghidra/scripts {{files}}"
+    }
+    ["pmd"] {
+        glob = "**/*.java"
+        depends = "javac"
+        check = "pmd check --rulesets .config/pmd.xml --no-cache --no-progress --aux-classpath \".cache/javac:$JAVA_HOME/lib/jrt-fs.jar:$GHIDRA_CLASSPATH\" {{files}}"
     }
     ["hk"] {
         glob = ".config/hk.pkl"

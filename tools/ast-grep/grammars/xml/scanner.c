@@ -2,8 +2,6 @@
 #include <stdint.h>
 #include <wctype.h>
 
-#include "grammar.h"
-
 #define tree_sitter_xml_external_scanner_scan(...) xml_upstream_scan(__VA_ARGS__)
 
 static inline bool name_start(uint32_t code);

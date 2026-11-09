@@ -8,7 +8,6 @@ nonisolated struct SavedAccount: Sendable {
     let account: Account
     let authentication: AuthenticationState
     let usage: AccountUsage?
-    let retryAfter: Date?
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -45,13 +44,13 @@ actor AccountStorage {
 
     // --- [PERSISTENCE]
 
-    func load(at now: Date) -> Result<[SavedAccount], AccountStorageFailure> {
+    func load() -> Result<[SavedAccount], AccountStorageFailure> {
         let decoder: JSONDecoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return Result { try ifPresent { try Data(contentsOf: fileURL) }.map { data in try decoder.decode(Document.self, from: data) } }
             .mapError(AccountStorageFailure.read)
             .flatMap { document in
-                document?.savedAccounts(at: now) ?? .success([])
+                document?.savedAccounts() ?? .success([])
             }
     }
 
@@ -78,8 +77,8 @@ actor AccountStorage {
             records = value.map(Record.init)
         }
 
-        func savedAccounts(at now: Date) -> Result<[SavedAccount], AccountStorageFailure> {
-            traverse(records) { record in record.savedAccount(at: now) }.mapError(AccountStorageFailure.invalidData)
+        func savedAccounts() -> Result<[SavedAccount], AccountStorageFailure> {
+            traverse(records) { record in record.savedAccount() }.mapError(AccountStorageFailure.invalidData)
         }
     }
 
@@ -92,7 +91,6 @@ actor AccountStorage {
         let plan: String?
         let authentication: AuthenticationState
         let usage: Snapshot?
-        let retryAfter: Date?
 
         init(_ value: SavedAccount) {
             id = value.account.id
@@ -103,10 +101,9 @@ actor AccountStorage {
             plan = value.account.identity.plan
             authentication = value.authentication
             usage = value.usage.map(Snapshot.init)
-            retryAfter = value.retryAfter
         }
 
-        func savedAccount(at now: Date) -> Result<SavedAccount, AggregateError<AccountStorageError>> {
+        func savedAccount() -> Result<SavedAccount, AggregateError<AccountStorageError>> {
             let identity: Result<AccountIdentity, AggregateError<AccountStorageError>> = AccountIdentity.make(
                 accountID: accountID,
                 organizationID: organizationID,
@@ -120,7 +117,6 @@ actor AccountStorage {
                     account: Account(id: id, provider: provider, identity: identity),
                     authentication: authentication,
                     usage: snapshot,
-                    retryAfter: retryAfter.flatMap { date in date > now ? date : nil },
                 )
             }
         }
@@ -130,19 +126,17 @@ actor AccountStorage {
         let kind: QuotaKind
         let percent: Double
         let resetsAt: Date?
-        let rejected: Bool
 
         init(_ value: QuotaWindow) {
             kind = value.kind
             percent = value.used.percent
             resetsAt = value.resetsAt
-            rejected = value.rejected
         }
 
         func quotaWindow(id: UUID) -> Result<QuotaWindow, AggregateError<AccountStorageError>> {
             UsageAmount.make(percent: percent)
                 .aggregated { failure in .invalidUsage(id: id, kind: kind, failure: failure) }
-                .map { amount in QuotaWindow(kind: kind, used: amount, resetsAt: resetsAt, rejected: rejected) }
+                .map { amount in QuotaWindow(kind: kind, used: amount, resetsAt: resetsAt) }
         }
     }
 

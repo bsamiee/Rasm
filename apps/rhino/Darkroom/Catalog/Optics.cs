@@ -1,9 +1,6 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
 using Darkroom.Chain;
-using Emgu.CV;
-using Emgu.CV.Structure;
-using Rasm.Imaging.Files;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
@@ -16,15 +13,9 @@ namespace Darkroom.Catalog;
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 [JsonPolymorphic]
-[JsonDerivedType(typeof(Image), nameof(Image))]
 [JsonDerivedType(typeof(Specks), nameof(Specks))]
-public abstract partial record LensDirt {
+internal abstract partial record LensDirt {
     public abstract Fin<PixelFrame> Soil(PassContext context);
-
-    public sealed record Image(string Path) : LensDirt {
-        public override Fin<PixelFrame> Soil(PassContext context) =>
-            context.Derivations.Derived(Path, static path => ImageFile.Read(path).RunSafe()).Map(static read => read.Frame);
-    }
 
     public sealed record Specks(float Coverage, ShortSideLength Scale, int Seed) : LensDirt {
         public static Specks Default { get; } = new(0.2f, ShortSideLength.Create(0.05f * ReferenceFrame.GreaterSide), 0);
@@ -56,9 +47,9 @@ internal sealed record StarGlare(Iris Aperture, ShortSideLength Radius) : IPixel
 
     public static Fin<Option<PixelPass>> Pass(StarGlare state, PassContext context) =>
         state.Aperture.Obstruction is 1d ? None
-            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => context.Derivations.Held((State: state, context.Extent, Window: frame.Size, context.Working),
-                static key => Fin.Succ(PointSpread.Diffraction(key.State.Aperture, key.State.Radius.Pixels(key.Extent), key.Window, key.Extent, key.Working)),
-                spread => frame.Spread(0f, 0f, light => spread.Convolve(light), BlendingMode.Normal, 1f, [], progress))));
+            : Some<PixelPass>(new PixelPass.Frame((frame, progress) => context.Derivations.Derived((State: state, context.Extent, Window: frame.Size, context.Working),
+                static key => PointSpread.Diffraction(key.State.Aperture, key.State.Radius.Pixels(key.Extent), key.Window, key.Extent, key.Working)).Bind(
+                spread => frame.Spread(0f, 0f, light => spread.Convolve(light, WrapMode.Black), BlendingMode.Normal, 1f, [], progress))));
 }
 
 internal sealed record Ghosts(float Threshold, float Knee, int Iterations, float Modulation) : IPixelStage<Ghosts> {
@@ -75,9 +66,11 @@ internal sealed record Halation(float Threshold, float Knee, ShortSideLength Rad
     public static Fin<Option<PixelPass>> Pass(Halation state, PassContext context) =>
         Some<PixelPass>(new PixelPass.Frame((frame, progress) => RampLight.Light(state.Color, context) switch {
             var linear => frame.Spread(state.Threshold, state.Knee, light => {
-                using ScalarArray tint = new(new MCvScalar(linear.X, linear.Y, linear.Z, 0d));
-                CvInvoke.Multiply(light, tint, light);
-                light.Blur(light, state.Radius.Pixels(frame.Extent) / 3d);
+                light.Rows((row, _, _) => {
+                    foreach (ref Vector4 pixel in row)
+                        pixel *= linear with { W = 0f };
+                });
+                light.Blur(state.Radius.Pixels(frame.Extent) / 3d, WrapMode.Clamp);
             }, BlendingMode.Add, 1f, [], progress),
         }));
 }
@@ -109,7 +102,7 @@ internal sealed record Defocus(
 
     public static Fin<Option<PixelPass>> Pass(Defocus state, PassContext context) => state.Field.Pass(state, context, (float)state.Radius.Pixels(context.Extent));
 
-    public Action<PixelFrame, Mat> Focal(PassContext context, float aspect, int power, float cap) =>
+    public Action<PixelFrame, PixelPlane> Focal(PassContext context, float aspect, int power, float cap) =>
         Bokeh.Focal(
             DistanceField.Frame(context.Extent, context.Extent.Point(Placement.Center) + new Vector2(0.5f), Placement.Rotation),
             aspect > 0f ? DistanceField.Ellipse(new Vector2(Extent / aspect, Extent), 2f) : DistanceField.Box(new Vector2(float.PositiveInfinity, Extent), 0f),

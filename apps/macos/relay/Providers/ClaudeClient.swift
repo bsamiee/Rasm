@@ -3,9 +3,8 @@ import CurrentProcess
 import Encoding
 import Files
 import Foundation
-import HTTPTypes
-import HTTPTypesFoundation
 import Processes
+import Results
 import Subprocess
 import System
 import os
@@ -19,6 +18,65 @@ nonisolated struct ClaudePendingSwitch: Codable, Equatable, Sendable {
     var copies: [UUID] { [incoming, outgoing].compactMap(\.self) }
 }
 
+nonisolated struct ClaudeAuthStatus: Decodable, Sendable {
+    let loggedIn: Bool
+    let email: String?
+    let orgId: String?
+    let subscriptionType: String?
+    let loginExpiresAt: Date?
+}
+
+nonisolated struct ClaudeUsageReport: Decodable, Sendable {
+    enum Meter: String, Sendable {
+        case weeklyAll = "weekly_all"
+        case weeklyScoped = "weekly_scoped"
+    }
+
+    struct Limit: Decodable, Sendable {
+        struct Scope: Decodable, Sendable {
+            struct Model: Decodable, Sendable {
+                let displayName: String
+            }
+
+            let model: Model?
+        }
+
+        let kind: Lenient<Meter>
+        let percent: Double
+        let resetsAt: Date?
+        let scope: Scope?
+
+        var quota: QuotaKind? {
+            switch (kind, scope?.model) {
+                case (.known(.weeklyAll), _): .weekly
+                case (.known(.weeklyScoped), .some(let model)): .model(model.displayName)
+                case (.known(.weeklyScoped), .none), (.unknown, _): nil
+            }
+        }
+    }
+
+    struct RateLimits: Decodable, Sendable {
+        let limits: [Limit]?
+    }
+
+    let rateLimits: RateLimits?
+
+    func usage(observedAt: Date, signInExpiresAt: Date?) throws(ClaudeFailure) -> AccountUsage {
+        guard let limits: [Limit] = rateLimits?.limits else { throw .usageUnavailable }
+        let windows: [QuotaWindow] = try traverse(limits.compactMap { limit in limit.quota.map { kind in (kind, limit) } }) { kind, limit in
+            UsageAmount.make(percent: limit.percent).aggregated(\.self).map { amount in QuotaWindow(kind: kind, used: amount, resetsAt: limit.resetsAt) }
+        }
+        .mapError(ClaudeFailure.invalidQuota)
+        .get()
+        guard !windows.isEmpty else { throw .protocolFailure(nil) }
+        return AccountUsage(windows: windows, includedUsageAllowed: nil, observedAt: observedAt, signInExpiresAt: signInExpiresAt)
+    }
+}
+
+private nonisolated struct ClaudeStreamMessage: Decodable {
+    let usageReport: ClaudeUsageReport?
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 actor ClaudeClient: ProviderClient {
@@ -28,21 +86,22 @@ actor ClaudeClient: ProviderClient {
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
     private let username: String
-    private let session: URLSession
     private let logger: Logger = Logger(for: ClaudeClient.self)
-    private var verifiedIdentities: [String: AccountIdentity] = [:]
     private var lastCredential: ClaudeCredential?
-    private var installedVersion: Task<Result<Substring, ClaudeFailure>, Never>?
+    private var reading: Task<Result<ClaudeUsageReport?, ClaudeFailure>, Never>?
+
+    private static let output: JSONDecoder = {
+        let decoder: JSONDecoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        return decoder
+    }()
 
     init(paths: FileLocations, environment: [Environment.Key: String]) {
         self.paths = paths
         self.environment = environment
         let candidate: String = environment["USER"].flatMap { value in value.isEmpty ? nil : value } ?? NSUserName()
         username = candidate.contains(#/^[a-zA-Z0-9._-]+$/#) ? candidate : "claude-code-user"
-        let configuration: URLSessionConfiguration = .ephemeral
-        configuration.timeoutIntervalForResource = 30
-        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        session = URLSession(configuration: configuration)
         shared = ClaudeCredentialStore(home: paths.home, environment: environment, username: username)
     }
 
@@ -58,13 +117,13 @@ actor ClaudeClient: ProviderClient {
 
     func currentSelection(selected: Account?) async -> Result<AccountIdentity?, ProviderError> {
         await Result { () async throws(ClaudeFailure) in
-            let content: ClaudeStoreContent = try await identified(shared.read(), in: shared)
+            let content: ClaudeStoreContent = try await shared.read()
             let identity: AccountIdentity? = if let held: ClaudeCredential = content[case: \.credential] { held.identity } else { try shared.identity() }
             if let selected, let saved: ClaudeCredential = lastCredential, saved.identity.isSameAccount(as: selected.identity),
                 !(identity.map(saved.identity.isSameAccount(as:)) ?? false)
             {
                 let store: ClaudeCredentialStore = privateStore(selected.id)
-                try await ClaudeLock.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in try await store.write(saved, over: store.readItem()) }
+                try await ClaudeCredentialStore.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in try await store.write(saved, over: store.readItem()) }
                 logger.notice("Saved account \(selected.id, privacy: .public) credential to private store after outside sign-in")
             }
             lastCredential = content[case: \.credential]
@@ -75,15 +134,12 @@ actor ClaudeClient: ProviderClient {
 
     func holdsCredential(for account: Account, isSelected: Bool) async -> Result<Bool, ProviderError> {
         let now: Date = Date()
-        return await Result(catching: store(for: account, isSelected: isSelected).read)
-            .map { content in
-                switch content {
-                    case .signedOut: false
-                    case .unidentified(let token): token.isUsable(at: now)
-                    case .credential(let credential): credential.identity.isSameAccount(as: account.identity) && credential.token.isUsable(at: now)
-                }
-            }
-            .mapError(ProviderError.init(failure:))
+        return await Result { () async throws(ClaudeFailure) in
+            try await signedIn(store(for: account, isSelected: isSelected)).map { signedIn in
+                signedIn.identity.isSameAccount(as: account.identity) && signedIn.expiresAt.map { expiry in expiry > now } ?? true
+            } ?? false
+        }
+        .mapError(ProviderError.init(failure:))
     }
 
     nonisolated func pendingSwitch() -> Result<ClaudePendingSwitch?, ProviderError> {
@@ -93,7 +149,9 @@ actor ClaudeClient: ProviderClient {
 
     func completePendingSwitch(_ pending: ClaudePendingSwitch) async -> Result<Void, ProviderError> {
         await Result { () async throws(ClaudeFailure) in
-            try await ClaudeLock.withLock(directories: ([shared] + pending.copies.map(privateStore)).map(\.directory)) { () async throws(ClaudeFailure) in try await self.finish(pending) }
+            try await ClaudeCredentialStore.withLock(directories: ([shared] + pending.copies.map(privateStore)).map(\.directory)) { () async throws(ClaudeFailure) in
+                try await self.finish(pending)
+            }
         }
         .mapError(ProviderError.init(failure:))
     }
@@ -120,12 +178,12 @@ actor ClaudeClient: ProviderClient {
         let incoming: ClaudeCredentialStore = privateStore(account.id)
         let outgoingStore: ClaudeCredentialStore? = outgoing.map { outgoing in privateStore(outgoing.id) }
         let pending: ClaudePendingSwitch = ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id)
+        let last: ClaudeCredential? = lastCredential
         return await Result { () async throws(ClaudeFailure) in
-            for store: ClaudeCredentialStore in [shared, incoming] where try store.identity() == nil {
-                _ = try await identified(store.read(), in: store)
+            for store: ClaudeCredentialStore in [shared, incoming] where try await store.read().is(\.unidentified) {
+                _ = try await report(of: store)
             }
-            let last: ClaudeCredential? = lastCredential
-            let credential: ClaudeCredential = try await ClaudeLock.withLock(directories: [shared, incoming, outgoingStore].compactMap(\.self).map(\.directory)) {
+            let credential: ClaudeCredential = try await ClaudeCredentialStore.withLock(directories: [shared, incoming, outgoingStore].compactMap(\.self).map(\.directory)) {
                 () async throws(ClaudeFailure) in
                 let current: ClaudeStoreContent = try await self.shared.read()
                 let stored: ClaudeCredential? = try await incoming.read()[case: \.credential]
@@ -151,7 +209,7 @@ actor ClaudeClient: ProviderClient {
                 return entering
             }
             lastCredential = credential
-            return try await verify(credential).identity
+            return credential.identity
         }
         .mapError(ProviderError.init(failure:))
     }
@@ -181,11 +239,11 @@ actor ClaudeClient: ProviderClient {
                 output: .discarded,
                 input: .sequence(codes.prefix(1).map { code in Data((code + "\n").utf8) }),
             )
-            return switch try await store.read() {
-                case .credential(let credential) where expected.map(credential.identity.isSameAccount(as:)) ?? true: credential.identity
-                case .credential:
+            return switch try await signedIn(store) {
+                case .some(let signedIn) where expected.map(signedIn.identity.isSameAccount(as:)) ?? true: signedIn.identity
+                case .some:
                     throw .accountChanged.releasing(await Result { () async throws(ClaudeFailure) in try await run(["auth", "logout"], store: store, within: .seconds(60), output: .discarded) })
-                case .unidentified, .signedOut: throw .signInRequired
+                case .none: throw .signInRequired
             }
         }
         .mapError(ProviderError.init(failure:))
@@ -204,185 +262,60 @@ actor ClaudeClient: ProviderClient {
     // --- [USAGE]
 
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
-        func send(_ credential: ClaudeCredential) async throws(ClaudeFailure) -> AccountUsage {
-            guard let beta: HTTPField.Name = HTTPField.Name("anthropic-beta") else { throw .invalidResponse(.usage, nil) }
-            let headerFields: HTTPFields = [.authorization: "Bearer \(credential.token.accessToken)", beta: "oauth-2025-04-20", .accept: Self.jsonMediaType]
-            return try await fetch(ClaudeUsageResponse.self, from: .usage, headerFields: headerFields).usage(observedAt: Date(), signInExpiresAt: credential.token.refreshTokenExpiresAt)
-        }
+        let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
         return await Result { () async throws(ClaudeFailure) in
-            let stored: ClaudeCredential = try await credential(for: account, isSelected: isSelected, replacing: nil)
-            let sent: Result<AccountUsage, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in try await send(verify(stored)) }
-            guard sent[case: \.failure]?.cause[case: \.http]?.status == .unauthorized else { return try sent.get() }
-            logger.notice("Refreshing account \(account.id, privacy: .public) token after unauthorized usage read")
-            verifiedIdentities[stored.token.accessToken] = nil
-            return try await send(verify(credential(for: account, isSelected: isSelected, replacing: stored)))
+            let report: ClaudeUsageReport? = try await report(of: store)
+            guard let signedIn: (identity: AccountIdentity, expiresAt: Date?) = try await signedIn(store) else { throw .signInRequired }
+            guard signedIn.identity.isSameAccount(as: account.identity) else { throw .accountChanged }
+            guard let report else { throw .protocolFailure(nil) }
+            return try report.usage(observedAt: Date(), signInExpiresAt: signedIn.expiresAt)
         }
         .mapError(ProviderError.init(failure:))
     }
 
-    private func credential(
-        for account: Account,
-        isSelected: Bool,
-        replacing stale: ClaudeCredential?,
-    ) async throws(ClaudeFailure) -> ClaudeCredential {
-        let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
-        let stored: ClaudeCredential = try await Self.matched(identified(store.read(), in: store), to: account.identity)
-        let current: ClaudeCredential =
-            if stored.token.needsRefresh(at: Date()) || stored.token.accessToken == stale?.token.accessToken {
-                try await withTaskCancellationShield { () async throws(ClaudeFailure) in
-                    try await ClaudeLock.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in
-                        let locked: ClaudeCredential = try await Self.matched(store.read(), to: stored.identity)
-                        guard locked.token.accessToken == stored.token.accessToken else {
-                            self.logger.notice("Adopted token another process refreshed for account \(account.id, privacy: .public)")
-                            return locked
-                        }
-                        return try await self.renew(locked, in: store)
-                    }
-                }
-            } else {
-                stored
-            }
-        if isSelected { lastCredential = current }
-        return current
-    }
-
-    // --- [RENEWAL]
-
-    private func renew(
-        _ current: ClaudeCredential,
-        in store: ClaudeCredentialStore,
-    ) async throws(ClaudeFailure) -> ClaudeCredential {
-        guard let posted: String = current.token.refreshToken(at: Date()) else { throw .signInRequired }
-        let grant: ClaudeTokenRequest = ClaudeTokenRequest(
-            refreshToken: posted,
-            clientId: current.token.document.known.clientId ?? "9d1c250a-e61b-44d9-88ed-5944d1962f5e",
-            scope: current.token.scopes.joined(separator: " "),
-        )
-        let exchanged: Result<ClaudeTokenResponse, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in
-            let body: Data = try Result { try ClaudeEndpoint.encoder.encode(grant) }.mapError(ClaudeFailure.invalidCredentials).get()
-            return try await fetch(ClaudeTokenResponse.self, from: .token, headerFields: [.contentType: Self.jsonMediaType], body: body)
-        }
-        switch exchanged {
-            case .success(let response):
-                let now: Date = Date()
-                let item: JSONDocument<ClaudeCredentialItem>? = try await store.readItem()
-                guard let held: String = item?.known.claudeAiOauth?.known.refreshToken, ["", posted].contains(held) else {
-                    logger.notice("Kept token another process wrote for Claude account \(current.identity.accountID, privacy: .public)")
-                    return try await Self.matched(store.read(), to: current.identity)
-                }
-                let token: ClaudeOAuthToken = try response.oauth(replacing: current.token, posted: posted, at: now)
-                try await store.writeOAuth(token.document, over: item)
-                if let identity: AccountIdentity = try response.identity(plan: token.document.known.subscriptionType) { verifiedIdentities[token.accessToken] = identity }
-                logger.notice("Refreshed Claude account \(current.identity.accountID, privacy: .public) token, rotated \(response.refreshToken != nil, privacy: .public)")
-                return ClaudeCredential(token: token, account: current.account, identity: current.identity)
-            case .failure(.signInRequired):
-                throw .signInRequired.releasing(
-                    await Result { () async throws(ClaudeFailure) in
-                        let item: JSONDocument<ClaudeCredentialItem>? = try await store.readItem()
-                        if let oauth: JSONDocument<ClaudeOAuthToken.Attributes> = item?.known.claudeAiOauth, oauth.known.refreshToken == posted {
-                            try await store.writeOAuth(JSONDocument(fields: oauth.fields, known: oauth.known.signedOut), over: item)
-                        }
-                    }
-                )
-            case .failure(let error):
-                throw error
-        }
-    }
-
-    // --- [IDENTITY]
-
-    private static func matched(
-        _ content: ClaudeStoreContent,
-        to identity: AccountIdentity,
-    ) throws(ClaudeFailure) -> ClaudeCredential {
-        switch content {
-            case .credential(let credential) where credential.identity.isSameAccount(as: identity): credential
-            case .credential, .unidentified: throw .accountChanged
-            case .signedOut: throw .signInRequired
-        }
-    }
-
-    private func identified(
-        _ content: ClaudeStoreContent,
-        in store: ClaudeCredentialStore,
-    ) async throws(ClaudeFailure) -> ClaudeStoreContent {
-        guard case .unidentified(let token) = content else { return content }
-        let identity: AccountIdentity = try await profile(of: token)
-        let account: JSONDocument<ClaudeOAuthAccount> = JSONDocument(
-            fields: [:],
-            known: ClaudeOAuthAccount(
-                accountUuid: identity.accountID,
-                emailAddress: identity.email,
-                organizationUuid: identity.organizationID,
-                organizationType: token.document.known.subscriptionType,
-            ),
-        )
-        try await store.writeAccount(account)
-        logger.notice("Identified Claude account \(identity.accountID, privacy: .public) \(identity.email, privacy: .private), wrote account file")
-        verifiedIdentities[token.accessToken] = identity
-        return .credential(ClaudeCredential(token: token, account: account, identity: identity))
-    }
-
-    private func verify(_ credential: ClaudeCredential) async throws(ClaudeFailure) -> ClaudeCredential {
-        let identity: AccountIdentity = if let verified: AccountIdentity = verifiedIdentities[credential.token.accessToken] { verified } else { try await profile(of: credential.token) }
-        guard identity.isSameAccount(as: credential.identity) else { throw .accountChanged }
-        verifiedIdentities[credential.token.accessToken] = identity
-        return credential
-    }
-
-    private func profile(of token: ClaudeOAuthToken) async throws(ClaudeFailure) -> AccountIdentity {
-        let headerFields: HTTPFields = [.authorization: "Bearer \(token.accessToken)", .contentType: Self.jsonMediaType, .cacheControl: "no-cache"]
-        return try await fetch(ClaudeProfile.self, from: .profile, headerFields: headerFields).identity(plan: token.document.known.subscriptionType)
-    }
-
-    // --- [HTTP]
-
-    private static let jsonMediaType: String = "application/json"
-
-    private func fetch<Value: Decodable>(
-        _: Value.Type,
-        from endpoint: ClaudeEndpoint,
-        headerFields: HTTPFields,
-        body: Data? = nil,
-    ) async throws(ClaudeFailure) -> Value {
-        guard let url: URL = URL(string: endpoint.rawValue) else { throw .invalidResponse(endpoint, nil) }
-        let reading: Task<Result<Substring, ClaudeFailure>, Never> =
-            installedVersion
-            ?? Task {
-                await Result { () async throws(ClaudeFailure) in
-                    guard let version: Substring = try await run(["--version"], store: shared, within: .seconds(15), output: .string(limit: 1 << 10)).split(whereSeparator: \.isWhitespace).first else {
-                        throw .protocolFailure
-                    }
-                    logger.info("Read installed Claude Code version \(version, privacy: .public) for User-Agent header")
-                    return version
-                }
-            }
-        installedVersion = reading
-        let read: Result<Substring, ClaudeFailure> = await reading.value
-        if read.is(\.failure), installedVersion == reading { installedVersion = nil }
-        let installedVersion: Substring = try read.get()
-        var request: HTTPRequest = HTTPRequest(method: body == nil ? .get : .post, url: url, headerFields: headerFields)
-        request.headerFields[.userAgent] = "claude-cli/\(installedVersion) (external, cli)"
-        let (data, response): (Data, HTTPResponse) = try await Result {
-            if let body { try await session.upload(for: request, from: body) } else { try await session.data(for: request) }
-        }
-        .mapError { error -> ClaudeFailure in
-            switch error {
-                case let error as CancellationError: .cancelled(error)
-                case URLError.cancelled: .cancelled(CancellationError())
-                default: .transport(error)
-            }
-        }
-        .get()
-        logger.debug("Claude \(endpoint.rawValue, privacy: .public) answered \(response.status, privacy: .public)")
-        return switch response.status {
-            case .ok where Task.isCancelled: throw .cancelled(CancellationError())
-            case .ok: try Result { try ClaudeEndpoint.decoder.decode(Value.self, from: data) }.mapError { error in ClaudeFailure.invalidResponse(endpoint, error) }.get()
-            default: throw .rejection(by: endpoint, status: response.status, body: data, retryAfter: response.headerFields[.retryAfter], at: Date())
-        }
-    }
-
     // --- [CHILDREN]
+
+    private func report(of store: ClaudeCredentialStore) async throws(ClaudeFailure) -> ClaudeUsageReport? {
+        let previous: Task<Result<ClaudeUsageReport?, ClaudeFailure>, Never>? = reading
+        let read: Task<Result<ClaudeUsageReport?, ClaudeFailure>, Never> = Task {
+            _ = await previous?.value
+            return await Result { () async throws(ClaudeFailure) -> ClaudeUsageReport? in
+                let output: String = try await run(
+                    ["-p", "/usage", "--output-format", "stream-json", "--verbose", "--no-session-persistence", "--strict-mcp-config", "--settings", #"{"disableClaudeAiConnectors":true}"#],
+                    store: store,
+                    within: .seconds(60),
+                    output: .string(limit: 1 << 20),
+                )
+                let reports: [ClaudeUsageReport?] = try output.split(separator: "\n").map { line throws(ClaudeFailure) in
+                    try Self.decode(ClaudeStreamMessage.self, from: Data(line.utf8)).usageReport
+                }
+                return reports.compactMap(\.self).first
+            }
+        }
+        reading = read
+        return try await withTaskCancellationHandler {
+            await read.value
+        } onCancel: {
+            read.cancel()
+        }.get()
+    }
+
+    private func signedIn(_ store: ClaudeCredentialStore) async throws(ClaudeFailure) -> (identity: AccountIdentity, expiresAt: Date?)? {
+        let printed: Result<String, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in
+            try await run(["auth", "status", "--json"], store: store, within: .seconds(15), output: .string(limit: 1 << 16))
+        }
+        guard printed[case: \.failure]?.cause[case: \.process]?.reason[case: \.exit]?.0 != .exited(1) else { return nil }
+        let status: ClaudeAuthStatus = try Self.decode(ClaudeAuthStatus.self, from: Data(printed.get().utf8))
+        guard status.loggedIn else { return nil }
+        return try AccountIdentity.make(accountID: store.readAccount()?.known.accountUuid, organizationID: status.orgId, email: status.email, plan: status.subscriptionType)
+            .map { identity in (identity, status.loginExpiresAt) }
+            .mapError(ClaudeFailure.invalidIdentity)
+            .get()
+    }
+
+    private static func decode<Value: Decodable>(_ type: Value.Type, from data: Data) throws(ClaudeFailure) -> Value {
+        try Result { try output.decode(type, from: data) }.mapError { error in ClaudeFailure.protocolFailure(error) }.get()
+    }
 
     private func run<Output: OutputProtocol>(
         _ arguments: Arguments,

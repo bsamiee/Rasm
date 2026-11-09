@@ -143,11 +143,19 @@ impl ExtensionType for Units {
 #[derive(Debug, thiserror::Error)]
 pub enum TablesError {
     #[error("columns refuse their record types{}", fmt::from_fn(|formatter| .columns.iter().try_for_each(|(column, source)| write!(formatter, "\n{}: {}", column.name(), Report::new(source)))))]
-    Columns { found: SchemaRef, columns: NEVec<(FieldRef, ArrowError)> },
+    Columns {
+        found: SchemaRef,
+        columns: NEVec<(FieldRef, ArrowError)>,
+    },
     #[error("record holds no uuid key column {column}")]
-    KeyColumn { column: String },
+    KeyColumn {
+        column: String,
+    },
     #[error("instant {at} precedes the Unix epoch a version 7 key encodes")]
-    Key { at: Timestamp, source: jiff::Error },
+    Key {
+        at: Timestamp,
+        source: jiff::Error,
+    },
     #[error(transparent)]
     Records(#[from] serde_arrow::Error),
     #[error(transparent)]
@@ -253,4 +261,16 @@ mod storage;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+pub use arrow;
+pub use arrow_schema;
+pub use futures;
+pub use jiff;
+pub use newtype_uuid;
+pub use nonempty_collections;
+pub use parquet;
+pub use serde;
+pub use serde_arrow;
+pub use serde_with;
 pub use storage::{Scan, lookup, properties, read, write};
+pub use uom;
+pub use uuid;

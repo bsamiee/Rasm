@@ -1,4 +1,5 @@
-#![feature(default_field_values, deref_patterns, float_conversions, gen_blocks, iterator_try_collect, vec_into_chunks)]
+#![feature(default_field_values, deref_patterns, float_conversions, gen_blocks)]
+#![cfg_attr(feature = "geometry", feature(iterator_try_collect, vec_into_chunks))]
 
 use core::{
     borrow::Borrow,
@@ -10,7 +11,6 @@ use core::{
 };
 use std::{
     collections::{HashMap, HashSet},
-    io,
     sync::Arc,
 };
 
@@ -18,7 +18,6 @@ use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jiff::fmt::temporal::Pieces;
 use nonempty_collections::{NEVec, NonEmptyIterator as _, iter};
-use parry3d_f64::shape::TriMeshBuilderError;
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{
@@ -27,7 +26,6 @@ use serde::{
     },
 };
 use serde_with::{DefaultOnNull, DeserializeFromStr, DisplayFromStr, SerializeDisplay, base64::Base64, serde_as};
-use tokio::task::JoinError;
 use uom::si::{self, f64::Length};
 use url::Url;
 
@@ -225,19 +223,10 @@ macro_rules! quantities {
             )+
         }
 
-        impl Serialize for Quantity {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where S: Serializer {
-                serializer.serialize_f64(match self {
-                    $(Self::$kind(value) => value.get::<si::$module::$unit>(),)+
-                })
-            }
-        }
-
         impl From<Quantity> for f64 {
             fn from(value: Quantity) -> Self {
                 match value {
-                    $(Quantity::$kind(quantity) => quantity.value,)+
+                    $(Quantity::$kind(quantity) => quantity.get::<si::$module::$unit>(),)+
                 }
             }
         }
@@ -265,6 +254,13 @@ quantities! {
     Energy(Energy, energy::joule, "Energy"),
     Power(Power, power::watt, "Power"),
     Volume(Volume, volume::cubic_meter, "Volume"),
+}
+
+impl Serialize for Quantity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_f64(f64::from(*self))
+    }
 }
 
 // --- [VALUES]
@@ -401,7 +397,7 @@ pub struct Model {
     roots: Vec<Arc<Composed>>,
     nodes: Vec<Arc<Composed>>,
     holders: HashMap<Path, Vec<(Name, Arc<Composed>)>>,
-    holding: hashbrown::HashMap<Box<str>, Vec<Arc<Composed>>>,
+    holding: hashbrown::HashMap<String, Vec<Arc<Composed>>>,
 }
 
 impl Model {
@@ -473,22 +469,42 @@ pub enum Fault {
     Undeclared,
     #[error("is absent")]
     Absent,
-    #[error("lacks field {0}")]
-    Field(&'static str),
+    #[cfg(feature = "pcd")]
+    #[error("lacks PCD field {0}")]
+    Column(geometry::Column),
     #[error("holds {colors} colors for {points} points")]
-    Colors { colors: usize, points: usize },
+    Colors {
+        colors: usize,
+        points: usize,
+    },
     #[error("holds {count} values outside whole tuples")]
-    Partial { count: usize },
+    Partial {
+        count: usize,
+    },
     #[error("counts curve vertices other than its {points} points")]
-    Counts { points: usize },
+    Counts {
+        points: usize,
+    },
     #[error("names vertex {index} of {points} points")]
-    Face { index: u32, points: usize },
+    Face {
+        index: u32,
+        points: usize,
+    },
     #[error("holds {value} outside its range")]
-    Range { value: f64 },
+    Range {
+        value: f64,
+    },
     #[error("is singular or projective")]
     Singular,
     #[error("cants {cant} past rail head distance {distance}")]
-    Cant { cant: f64, distance: f64 },
+    Cant {
+        cant: f64,
+        distance: f64,
+    },
+    #[error("names a segment type IFC 4.3 does not define")]
+    Unknown,
+    #[error("lacks the values that determine its geometry")]
+    Underdetermined,
 }
 
 #[derive(Debug, Clone, PartialEq, derive_more::Display)]
@@ -502,39 +518,92 @@ pub enum Constraint {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum IfcError {
     #[error("{} holds no IFCX layer", .url.as_ref().map_or("input", Url::as_str))]
-    Decode { url: Option<Url>, source: serde_path_to_error::Error<serde_json::Error> },
+    Decode {
+        url: Option<Url>,
+        source: serde_path_to_error::Error<serde_json::Error>,
+    },
+    #[cfg(feature = "fetch")]
     #[error("import {url} is unreachable")]
-    Request { url: Url, source: reqwest::Error },
+    Request {
+        url: Url,
+        source: reqwest::Error,
+    },
+    #[cfg(feature = "fetch")]
     #[error("import {url} is unreadable")]
-    Read { url: Url, source: io::Error },
-    #[error(transparent)]
-    Task(#[from] JoinError),
+    Read {
+        url: Url,
+        source: std::io::Error,
+    },
     #[error("import {uri} is no URL")]
-    Url { uri: Box<str>, source: url::ParseError },
+    Url {
+        uri: Box<str>,
+        source: url::ParseError,
+    },
     #[error("import {url}: {reason}")]
-    Refused { url: Url, reason: Refusal },
+    Refused {
+        url: Url,
+        reason: Refusal,
+    },
     #[error("{head} composes through itself")]
-    Cycle { head: Name },
+    Cycle {
+        head: Name,
+    },
     #[error("no node at {path}")]
-    Missing { path: Path },
+    Missing {
+        path: Path,
+    },
     #[error("{attribute} on {node} {reason}")]
-    Attribute { node: Path, attribute: Box<str>, reason: Fault },
+    Attribute {
+        node: Path,
+        attribute: Box<str>,
+        reason: Fault,
+    },
     #[error("{node} holds {attribute} outside its schema")]
-    Invalid { node: Path, attribute: Box<str>, source: serde_path_to_error::Error<serde_json::Error> },
+    Invalid {
+        node: Path,
+        attribute: Box<str>,
+        source: serde_path_to_error::Error<serde_json::Error>,
+    },
     #[error("{0}")]
     Constrained(Constraint),
     #[error("{node} names {attribute} with no EPSG code")]
-    Epsg { node: Path, attribute: Box<str>, source: ParseIntError },
+    Epsg {
+        node: Path,
+        attribute: Box<str>,
+        source: ParseIntError,
+    },
     #[error("{node} holds a curve of {count} vertices, past the u32 vertex count range")]
-    Vertices { node: Path, count: usize, source: TryFromIntError },
+    Vertices {
+        node: Path,
+        count: usize,
+        source: TryFromIntError,
+    },
     #[error("{path} holds conflicting opinions on {opinion}")]
-    Conflict { path: Path, opinion: Subject },
+    Conflict {
+        path: Path,
+        opinion: composition::Subject,
+    },
+    #[cfg(feature = "bcf")]
+    #[error("{node} is named by no GUID")]
+    Guid {
+        node: Path,
+        source: rasm_bcf::BcfError,
+    },
+    #[cfg(feature = "geometry")]
     #[error("{node} holds no triangle mesh")]
-    Mesh { node: Path, source: TriMeshBuilderError },
+    Mesh {
+        node: Path,
+        source: parry3d_f64::shape::TriMeshBuilderError,
+    },
+    #[cfg(feature = "pcd")]
     #[error("{node} holds an unreadable PCD point cloud")]
-    Cloud { node: Path, source: pcd_rs::Error },
+    Cloud {
+        node: Path,
+        source: pcd_rs::Error,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -573,17 +642,25 @@ fn distinct<'model>(starts: impl IntoIterator<Item = &'model Arc<Composed>>) -> 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-mod alignment;
-mod composition;
-mod edits;
+pub mod alignment;
+pub mod composition;
+pub mod edits;
+#[cfg(feature = "geometry")]
 pub mod geometry;
-mod imports;
+pub mod imports;
 pub mod schemas;
 pub mod spatial;
+#[cfg(feature = "bcf")]
+pub mod viewpoints;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use alignment::{Alignment, Evaluation, LinearReference};
-pub use composition::{Opinions, Stated, Subject, compose, compose_partial, conflicts, federate, opinions};
-pub use edits::{diff, effective_diff, merge, overlay};
-pub use imports::{Fetch, Sri, Stack, closure, stack};
+#[cfg(feature = "geometry")]
+pub use {color, parry3d_f64};
+pub use {indexmap, itertools, jiff, nalgebra, nonempty_collections, petgraph, serde, serde_json, serde_path_to_error, strum, uom, url};
+#[cfg(feature = "pcd")]
+pub use pcd_rs;
+#[cfg(feature = "bcf")]
+pub use rasm_bcf;
+#[cfg(feature = "fetch")]
+pub use reqwest;

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using SkiaSharp;
 using Wacton.Unicolour.Datasets;
@@ -80,22 +81,31 @@ public abstract partial record ImageSource {
 }
 
 public sealed record GlyphSource {
-    public GlyphSource(Assembly assembly, string resource) =>
-        (Assembly, Resource, Dark) = (assembly, resource, $"{Path.ChangeExtension(resource, extension: null)}_darkmode{Path.GetExtension(resource)}" switch {
-            var dark => Optional(assembly.GetManifestResourceInfo(dark)).Map(_ => dark),
-        });
+    public GlyphSource(string key, SKData light) => (Key, Light, Animated) = (key, light, light.AsSpan().TrimStart(" \t\r\n﻿"u8) is [(byte)'{', ..]);
 
-    public Assembly Assembly { get; }
-    public string Resource { get; }
+    public string Key { get; }
+    public SKData Light { get; }
+    public Option<SKData> Dark { get; init; }
     public bool Tinted { get; init; }
     public HashMap<string, ColorValue> Classes { get; init; }
 
-    internal Option<string> Dark { get; }
+    internal bool Animated { get; }
 
-    internal bool Animated => Path.GetExtension(Resource).Equals(".json", StringComparison.OrdinalIgnoreCase);
+    public bool Equals([NotNullWhen(true)] GlyphSource? other) => other is not null && string.Equals(Key, other.Key, StringComparison.Ordinal) && Tinted == other.Tinted && Classes == other.Classes;
 
-    internal string Shown(SKColorF under) =>
-        under.ToUnicolour() switch {
-            var held => held.Contrast(Css.White) > held.Contrast(Css.Black) ? Dark.IfNone(Resource) : Resource,
-        };
+    public override int GetHashCode() => HashCode.Combine(StringComparer.Ordinal.GetHashCode(Key), Tinted, Classes);
+
+    public static Fin<GlyphSource> Embedded(Assembly assembly, string resource, Option<string> dark = default) =>
+        (Read(assembly, resource), dark.Traverse(name => Read(assembly, name)).As())
+            .Apply((light, shade) => new GlyphSource($"{assembly.GetName().Name}/{resource}", light) { Dark = shade })
+            .As();
+
+    internal bool Shaded(SKColorF under) => Dark.IsSome && under.ToUnicolour() switch { var held => held.Contrast(Css.White) > held.Contrast(Css.Black) };
+
+    internal SKData Shown(bool shaded) => shaded ? Dark.IfNone(Light) : Light;
+
+    private static Fin<SKData> Read(Assembly assembly, string resource) {
+        using Stream? stream = assembly.GetManifestResourceStream(resource);
+        return Optional(stream).ToFin(new UIFault(resource, UIReason.Missing)).Map(static held => SKData.Create(held));
+    }
 }

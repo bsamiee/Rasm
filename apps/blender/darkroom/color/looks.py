@@ -21,6 +21,7 @@ from rasm_records import Nothing, Outcome
 
 from ..catalog import stacks, tiles
 from ..effects.formation.display import displays, Formation, looked
+from ..effects.formation.tone import download_tony_tables
 from .luts import install_tone_view
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -134,7 +135,8 @@ rows: Final = (
             rows=(
                 Gallery(target=Member(root=LOOKS, path=("look",))),
                 stacks.look,
-                Layout(rows=(OperatorButton(target=install.installing), OperatorButton(target=install_tone_view)), container=Some(aligned)),
+                Layout(rows=(OperatorButton(target=install.installing), OperatorButton(target=install_tone_view), OperatorButton(target=install.removing)), container=Some(aligned)),
+                Layout(rows=(OperatorButton(target=download_tony_tables),)),
             ),
         ),
         at=Child(parent=RENDER_PT_color_management),

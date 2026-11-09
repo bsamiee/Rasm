@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Numerics;
+using System.Numerics.Tensors;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
@@ -80,6 +81,76 @@ public sealed partial class WrapMode {
     private (int Start, int Size) Window(int origin, int stored, int extent) => Border is BorderType.Constant ? (origin, stored) : (0, extent);
 }
 
+[SmartEnum<string>]
+public abstract partial class PixelLayout {
+    public static readonly PixelLayout Bgra32 = new Layout<Bgra32>("bgra32");
+    public static readonly PixelLayout Rgba32 = new Layout<Rgba32>("rgba32");
+    public static readonly PixelLayout Argb32 = new Layout<Argb32>("argb32");
+    public static readonly PixelLayout Bgr24 = new Layout<Bgr24>("bgr24");
+    public static readonly PixelLayout Rgb24 = new Layout<Rgb24>("rgb24");
+    public static readonly PixelLayout Rgb48 = new Layout<Rgb48>("rgb48");
+    public static readonly PixelLayout Rgba64 = new Layout<Rgba64>("rgba64");
+    public static readonly PixelLayout HalfVector4 = new Layout<HalfVector4>("half-vector4");
+    public static readonly PixelLayout RgbaVector = new Layout<RgbaVector>("rgba-vector");
+
+    public abstract int Bytes { get; }
+
+    internal abstract void Read(nint address, int stride, Span2D<Vector4> target);
+
+    private sealed class Layout<TPixel>(string key) : PixelLayout(key) where TPixel : unmanaged, IPixel<TPixel> {
+        public override int Bytes => Unsafe.SizeOf<TPixel>();
+
+        internal override unsafe void Read(nint address, int stride, Span2D<Vector4> target) {
+            for (int y = 0; y < target.Height; y++)
+                PixelOperations<TPixel>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, new ReadOnlySpan<TPixel>((void*)(address + ((nint)y * stride)), target.Width), target.GetRowSpan(y));
+        }
+    }
+}
+
+public sealed class PixelPlane {
+    private readonly float[] samples;
+
+    public PixelPlane(PixelExtent size) : this(size, 1) { }
+
+    internal PixelPlane(PixelExtent size, int channels) => (Size, Channels, samples) = (size, channels, GC.AllocateArray<float>(size.Width * size.Height * channels, pinned: true));
+
+    public PixelExtent Size { get; }
+    public int Channels { get; }
+    public Memory2D<float> View => new(samples, Size.Height, Size.Width * Channels);
+    internal Span<float> Samples => samples;
+
+    public PixelPlane Copy() {
+        PixelPlane copy = new(Size, Channels);
+        samples.CopyTo(copy.samples, 0);
+        return copy;
+    }
+
+    public PixelPlane Derivative(int order, bool vertical = false) {
+        PixelPlane slope = new(Size, Channels);
+        using Mat source = Header();
+        using Mat target = slope.Header();
+        CvInvoke.Sobel(source, target, DepthType.Cv32F, vertical ? 0 : order, vertical ? order : 0, 1, 1d, 0d, BorderType.Replicate);
+        return slope;
+    }
+
+    public void Filter(ImmutableArray<double> taps, bool vertical = false) {
+        using Mat plane = Header();
+        using Mat kernel = Filtering.Gaussian.Header(taps, vertical);
+        CvInvoke.Filter2D(plane, plane, kernel, new Point(-1, -1), 0d, BorderType.Replicate);
+    }
+
+    public void Accumulate(PixelPlane source, float weight) => TensorPrimitives.FusedMultiplyAdd(source.samples, weight, samples, samples);
+
+    public void Subsampled(double pitch) {
+        using Mat plane = Header();
+        using Mat coarse = new();
+        CvInvoke.Resize(plane, coarse, new Size(int.Max(1, (int)double.Round(Size.Width / pitch, MidpointRounding.ToEven)), Size.Height), interpolation: Inter.Area);
+        CvInvoke.Resize(coarse, plane, plane.Size, interpolation: Inter.Linear);
+    }
+
+    internal Mat Header() => new PinnedHeader(samples, Size.Height, Size.Width, Channels);
+}
+
 public sealed class PixelFrame {
     private readonly Vector4[] pixels;
 
@@ -98,38 +169,10 @@ public sealed class PixelFrame {
 
     public PixelFrame Copy() => new(Origin, Size, Extent, destination => Block.CopyTo(destination));
 
-    public Mat Header() => new PixelHeader(pixels, Size);
-
-    public static unsafe PixelFrame From<TPixel>(nint address, int stride, Point origin, PixelExtent size, PixelExtent extent) where TPixel : unmanaged, IPixel<TPixel> {
+    public static PixelFrame From(nint address, int stride, Point origin, PixelExtent size, PixelExtent extent, PixelLayout layout) {
         PixelFrame frame = new(origin, size, extent);
-        Span2D<Vector4> target = frame.View.Span;
-        for (int y = 0; y < size.Height; y++)
-            PixelOperations<TPixel>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, new ReadOnlySpan<TPixel>((void*)(address + ((nint)y * stride)), size.Width), target.GetRowSpan(y));
+        layout.Read(address, stride, frame.View.Span);
         return frame;
-    }
-
-    public Mat Premultiplied() {
-        Mat associated = new(Size.Height, Size.Width, DepthType.Cv32F, 4);
-        Associated(pixels, associated.GetSpan<Vector4>());
-        return associated;
-    }
-
-    public Fin<Unit> Filter(Func<Mat, Fin<Unit>> apply) {
-        using Mat header = Header();
-        return Try.lift(() => apply(header)).Run();
-    }
-
-    public Fin<Unit> Mutate(Action<SixLabors.ImageSharp.Image<RgbaVector>> edit) {
-        Span2D<float> samples = MemoryMarshal.Cast<Vector4, float>(pixels.AsSpan()).AsSpan2D(pixels.Length, 4);
-        using SpanOwner<float> alpha = SpanOwner<float>.Allocate(pixels.Length);
-        samples.GetColumn(3).CopyTo(alpha.Span);
-        samples.GetColumn(3).Fill(1f);
-        Fin<Unit> edited = Try.lift(() => {
-            using SixLabors.ImageSharp.Image<RgbaVector> image = SixLabors.ImageSharp.Image.WrapMemory(SixLabors.ImageSharp.Configuration.Default, pixels.AsMemory().Cast<Vector4, RgbaVector>(), Size.Width, Size.Height);
-            edit(image);
-        }).Run();
-        alpha.Span.CopyTo(samples.GetColumn(3));
-        return edited;
     }
 
     public void Rows(Action<Span<Vector4>, int, int> row, Option<IProgress<int>> progress = default) =>
@@ -169,18 +212,37 @@ public sealed class PixelFrame {
         }
     }
 
+    internal Mat Header() => new PinnedHeader(pixels, Size.Height, Size.Width, 4);
+
+    internal Mat Premultiplied() {
+        Mat associated = new(Size.Height, Size.Width, DepthType.Cv32F, 4);
+        Associated(pixels, associated.GetSpan<Vector4>());
+        return associated;
+    }
+
+    internal Fin<Unit> Filter(Func<Mat, Fin<Unit>> apply) {
+        using Mat header = Header();
+        return Try.lift(() => apply(header)).Run();
+    }
+
+    internal Fin<Unit> Mutate(Action<SixLabors.ImageSharp.Image<RgbaVector>> edit) {
+        Span2D<float> samples = MemoryMarshal.Cast<Vector4, float>(pixels.AsSpan()).AsSpan2D(pixels.Length, 4);
+        using SpanOwner<float> alpha = SpanOwner<float>.Allocate(pixels.Length);
+        samples.GetColumn(3).CopyTo(alpha.Span);
+        samples.GetColumn(3).Fill(1f);
+        Fin<Unit> edited = Try.lift(() => {
+            using SixLabors.ImageSharp.Image<RgbaVector> image = SixLabors.ImageSharp.Image.WrapMemory(SixLabors.ImageSharp.Configuration.Default, pixels.AsMemory().Cast<Vector4, RgbaVector>(), Size.Width, Size.Height);
+            edit(image);
+        }).Run();
+        alpha.Span.CopyTo(samples.GetColumn(3));
+        return edited;
+    }
+
     private readonly struct RowAction(PixelFrame frame, Action<Span<Vector4>, int, int> row, Option<IProgress<int>> progress, StrongBox<int> finished) : IAction {
         public void Invoke(int i) {
             row(frame.pixels.AsSpan(i * frame.Size.Width, frame.Size.Width), frame.Origin.X, frame.Origin.Y + i);
             if (progress.Case is IProgress<int> report)
                 report.Report(Interlocked.Increment(ref finished.Value));
-        }
-    }
-
-    private sealed class PixelHeader(Vector4[] pixels, PixelExtent size) : Mat(size.Height, size.Width, DepthType.Cv32F, 4, Marshal.UnsafeAddrOfPinnedArrayElement(pixels, 0), step: 0) {
-        protected override void DisposeObject() {
-            base.DisposeObject();
-            GC.KeepAlive(pixels);
         }
     }
 }
@@ -214,11 +276,21 @@ public abstract partial class PixelPass {
     }
 }
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
+file sealed class PinnedHeader(Array data, int rows, int columns, int channels)
+    : Mat(rows, columns, DepthType.Cv32F, channels, Marshal.UnsafeAddrOfPinnedArrayElement(data, 0), step: 0) {
+    protected override void DisposeObject() {
+        base.DisposeObject();
+        GC.KeepAlive(data);
+    }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class PixelSampling {
     extension(Mat plane) {
-        public unsafe Span2D<T> View<T>() where T : unmanaged =>
+        internal unsafe Span2D<T> View<T>() where T : unmanaged =>
             (plane.Cols * plane.ElementSize / sizeof(T)) switch {
                 var width => new((void*)plane.DataPointer, plane.Rows, width, (plane.Step / sizeof(T)) - width),
             };

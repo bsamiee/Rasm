@@ -7,7 +7,6 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using TinyEXR;
-using UnitsNet;
 
 namespace Darkroom.Catalog;
 
@@ -89,12 +88,6 @@ internal sealed record SceneExposure(float Stops, Metering Meter) : IPixelStage<
 
     public static PassContext Continued(SceneExposure state, float mix, PassContext context) =>
         context with { Exposure = context.Exposure + double.Log2(double.Lerp(1d, double.Exp2(state.Stops), mix)) };
-}
-
-public sealed record PeakMapping(Luminance Target, float Black, float Knee) {
-    public static PeakMapping Default { get; } = new(DisplayDevice.Rec2100PqHdr.Peak, 0f, DisplayDevice.Bt2390KneeOffset);
-
-    public Option<Action<Span<Vector4>>> Rolled(DisplayDevice device, Luminance source) => (device with { Peak = Target }).Eetf(source, Black, Knee);
 }
 
 internal sealed record CurveControls(float PreserveHue, float Purity, Option<Gamut> Basis, Vector3 Inset, Vector3 Rotation) {

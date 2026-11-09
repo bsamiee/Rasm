@@ -18,6 +18,7 @@ import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _Tier, Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _tracked
 from rasm_bpy.data._rna.snapshots import assigned
 from rasm_bpy.files._libraries import _blocks_loaded, _library_written, _listed
@@ -148,7 +149,7 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
                     .filter(lambda row: row.extension_id == stamp)
                     .try_head()
                     .map(Ok)
-                    .default_with(lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, Reason.REFUSED, repr(rows))))
+                    .default_with(lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, Refusal.REFUSED, repr(rows))))
                     .bind(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rows), member=self.title)))
                 )
                 return _tracked(lifetime, rows.remove, found)

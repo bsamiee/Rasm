@@ -31,8 +31,8 @@
     </ItemGroup>
 
     <ItemGroup Label="Build Engine">
-        <PackageVersion Include="Microsoft.Build"                                         Version="18.11.0" />                           <!-- MSBuild evaluation, project instance, and project graph APIs -->
-        <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.11.0" />                           <!-- MSBuild task, logger, and event interfaces -->
+        <PackageVersion Include="Microsoft.Build"                                         Version="18.6.3" />                            <!-- MSBuild evaluation and project graph APIs, compiled against alone: the newest release built for net10.0, the LTS runtime a tool loading the running SDK MSBuild targets -->
+        <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.6.3" />                            <!-- MSBuild task, logger, and event interfaces, paired with Microsoft.Build -->
         <PackageVersion Include="Microsoft.Build.Locator"                                 Version="1.11.2" />                            <!-- Registers the MSBuild of the SDK global.json selects before MSBuild types load -->
     </ItemGroup>
 
@@ -342,7 +342,6 @@
         <PackageVersion Include="Emgu.CV.runtime.ubuntu-26.04-x64"                        Version="5.0.0.6584" />                        <!-- Full OpenCV native binaries for Ubuntu -->
         <PackageVersion Include="Emgu.runtime.windows.msvc.rt.arm64"                      Version="19.51.36257" />                       <!-- Microsoft Visual C++ runtime libraries Emgu CV loads on Windows arm64 -->
         <PackageVersion Include="Emgu.runtime.windows.msvc.rt.x64"                        Version="19.51.36257" />                       <!-- Microsoft Visual C++ runtime libraries Emgu CV loads on Windows x64 -->
-        <PackageVersion Include="Emgu.runtime.windows.msvc.rt.x86"                        Version="19.51.36257" />                       <!-- Microsoft Visual C++ runtime libraries Emgu CV loads on Windows x86 -->
         <PackageVersion Include="Magick.NET-Q16-HDRI-AnyCPU"                              Version="15.0.0" />                            <!-- ImageMagick image processing with 16-bit HDRI pixel channels -->
         <PackageVersion Include="SixLabors.ImageSharp"                                    Version="4.1.3" />                             <!-- Managed image decoding, encoding, and processing -->
         <PackageVersion Include="TextureCompressor"                                       Version="0.1.0" />                             <!-- Managed BCn, ETC, ASTC, and PVRTC texture codecs -->
@@ -364,9 +363,10 @@
         <PackageVersion Include="HarfBuzzSharp"                                           Version="14.4.0.100-preview.1.26512.10" />     <!-- Text shaping engine bindings -->
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.macOS"                        Version="14.4.0.100-preview.1.26512.10" />     <!-- macOS native binaries -->
         <PackageVersion Include="HarfBuzzSharp.NativeAssets.Win32"                        Version="14.4.0.100-preview.1.26512.10" />     <!-- Windows native binaries -->
-        <PackageVersion Include="ICU4N"                                                   Version="60.1.0-alpha.440" />                  <!-- Unicode break iteration, character properties, and locale data -->
+        <PackageVersion Include="ICU4N"                                                   Version="60.1.0-alpha.440" />                  <!-- Unicode line break iteration with locale tailoring -->
         <PackageVersion Include="SkiaSharp.HarfBuzz"                                      Version="4.156.0-preview.1.26512.10" />        <!-- Shaped text drawing on Skia canvases -->
         <PackageVersion Include="Topten.RichTextKit"                                      Version="0.6.170" />                           <!-- Rich text layout, measurement, and rendering for Skia -->
+        <PackageVersion Include="UnicodeInformation"                                      Version="2.7.1" />                             <!-- Unicode 15.0 character data with emoji properties -->
     </ItemGroup>
 
     <ItemGroup Label="Visualization">
@@ -723,6 +723,7 @@
         <PackageVersion Include="Dock.Model.ReactiveUI.Services.Reactive"                 Version="12.1.0.13" />                         <!-- Service layer for reactive docking layout models -->
         <PackageVersion Include="Dock.Serializer.SystemTextJson"                          Version="12.1.0.13" />                         <!-- Layout persistence serializer producing JSON -->
         <PackageVersion Include="DynamicData"                                             Version="9.5.0" />                             <!-- Reactive collection transformations, caching, and change set operators -->
+        <PackageVersion Include="Eto.Forms"                                               Version="2.13.0" />                            <!-- Cross-platform native controls, drawables, and windows, the toolkit Rhino ships -->
         <PackageVersion Include="FluentAvaloniaUI"                                        Version="3.1.0" />                             <!-- WinUI control ports with Fluent design theming -->
         <PackageVersion Include="FluentIcons.Avalonia"                                    Version="2.1.345" />                           <!-- Icon controls and markup extensions -->
         <PackageVersion Include="FluentIcons.Common"                                      Version="2.1.345" />                           <!-- Symbol enums and glyph metadata -->
@@ -758,7 +759,6 @@
         <PackageVersion Include="SkiaSharp.NativeAssets.macOS"                            Version="4.156.0-preview.1.26512.10" />        <!-- macOS native binaries -->
         <PackageVersion Include="SkiaSharp.NativeAssets.Win32"                            Version="4.156.0-preview.1.26512.10" />        <!-- Windows native binaries -->
         <PackageVersion Include="SkiaSharp.Resources"                                     Version="4.156.0-preview.1.26512.10" />        <!-- Resource providers resolving Skottie image and font assets -->
-        <PackageVersion Include="SkiaSharp.SceneGraph"                                    Version="4.156.0-preview.1.26512.10" />        <!-- Scene graph invalidation tracking for Skottie animations -->
         <PackageVersion Include="SkiaSharp.Skottie"                                       Version="4.156.0-preview.1.26512.10" />        <!-- Lottie animation loading, seeking, and rendering over Skia -->
         <PackageVersion Include="Svg.Controls.Skia.Avalonia"                              Version="12.0.0.17" />                         <!-- SVG image display controls and markup extensions -->
         <PackageVersion Include="Svg.Custom"                                              Version="5.2.3" />                             <!-- SVG document model, parsing, and system color resolution -->
@@ -842,7 +842,6 @@
         <PackageVersion Include="Microsoft.IdentityModel.Protocols"                       Version="8.23.0" />                            <!-- Protocol base types for OpenID Connect and WS-Federation -->
         <PackageVersion Include="Microsoft.ML.CpuMath"                                    Version="6.0.0-preview.26513.4" />             <!-- Vectorized CPU math kernels for machine learning workloads -->
         <PackageVersion Include="Microsoft.ML.DataView"                                   Version="6.0.0-preview.26513.4" />             <!-- IDataView abstractions for tabular machine learning data pipelines -->
-        <PackageVersion Include="Microsoft.NET.StringTools"                               Version="18.11.0" />                           <!-- String weak interning and pooled span-based building -->
         <PackageVersion Include="Microsoft.Reactive.Testing"                              Version="7.0.0" />                             <!-- Test scheduler and recorded notification assertions for Rx -->
         <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry"                  Version="2.5.2" />                             <!-- Testing platform telemetry -->
         <PackageVersion Include="Microsoft.Testing.Platform.MSBuild"                      Version="2.5.2" />                             <!-- MSBuild integration and entry point generation for testing platform -->

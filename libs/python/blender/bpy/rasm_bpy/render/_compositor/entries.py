@@ -14,6 +14,7 @@ import msgspec
 from rasm_bpy.commands.operators import called
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Resource
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _tracked, Mark, Ownership, Saved
 from rasm_bpy.data._rna.conditions import Condition, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
@@ -22,7 +23,7 @@ from rasm_bpy.nodes._graphs import Expr, group_input
 from rasm_bpy.nodes._interfaces import Interface
 from rasm_bpy.nodes.changes import made
 from rasm_bpy.render._compositor.colors import COLOR_INPUT, COLOR_RESULT
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Fault, Nothing, Ok, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -46,7 +47,18 @@ class StackEnd(Enum):
     TAIL = auto()
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+class Toward(Enum):
+    """One step through an ordered sequence, valued by the index change it makes."""
+
+    UP = -1
+    DOWN = 1
+
+    def stepped(self, index: int, count: int) -> int:
+        """Returns the index one step from `index`, held inside a sequence of `count` items."""
+        return min(max(index + self.value, 0), count - 1)
+
+
+# --- [CONSTANTS]------------------------------------------------------------------------
 
 _EXECUTING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 _composites: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["use_compositing"]))
@@ -86,7 +98,7 @@ def _added_entry(
     Returns:
         `Ok` of the entry, `refused` when the host refuses the entry, and faults of its group, enable, and move writes.
     """
-    created = catch(scene.compositor_effects.new, exception=RuntimeError)(name.default_value(group.name)).map_error(partial(Fault.of, Reason.REFUSED, repr(scene.compositor_effects)))
+    created = catch(scene.compositor_effects.new, exception=RuntimeError)(name.default_value(group.name)).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene.compositor_effects)))
     return _tracked(scope, scene.compositor_effects.remove, created).bind(
         lambda entry: (
             accumulated((written(entry, ("node_group",), group), *(enabled.descriptor.write(entry, enabled in enables) for enabled in Enabled)))
@@ -141,4 +153,4 @@ def capturing(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Enabled", "Pinned", "StackEnd", "capturing"]
+__all__ = ["Enabled", "Pinned", "StackEnd", "Toward", "capturing"]

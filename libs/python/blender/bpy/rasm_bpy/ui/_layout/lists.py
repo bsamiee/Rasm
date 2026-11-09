@@ -18,6 +18,7 @@ from rasm_bpy.commands._modal import _Gesture, _Modal, Travel
 from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _acquired, _Classes, _Tier, Acquisitions, Declaration
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Condition
 from rasm_bpy.data._rna.descriptors import _assign
 from rasm_bpy.data._rna.paths import _context_path, _definition, _rna, _struct_at, Struct
@@ -390,7 +391,7 @@ def _began[O: Struct](where: Option[_Predicate[O]], name: str, items: str, index
         origin, members = getattr(chosen, index), getattr(data, items)
         pitch = float(Metrics.read().unit) * (1.0 if ui.use_filter_sort_reverse else -1.0)
         visible = accumulated(_held(predicate, context, ui, item) for predicate in where.to_list() for item in members).filter_with(
-            all, lambda _: Fault.of(Reason.REQUIRED, f"{ui.list_id} without hidden items")
+            all, lambda _: Fault.of(Refusal.REQUIRED, f"{ui.list_id} without hidden items")
         )
         selected = Ok(origin).filter_with(lambda held: 0 <= held < len(members), lambda _: Fault.of(Reason.ABSENT, items, member=f"{index} {origin}"))
         return paired(visible, selected).map(lambda _: _Drag(origin=origin, pitch=pitch, items=(data, items), selection=(chosen, index)))
@@ -399,7 +400,7 @@ def _began[O: Struct](where: Option[_Predicate[O]], name: str, items: str, index
         Option
         .of_optional(context.ui_list)
         .to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member="ui_list"))
-        .filter_with(lambda held: not held.filter_name, lambda held: Fault.of(Reason.REQUIRED, f"{held.list_id} without name filter")),
+        .filter_with(lambda held: not held.filter_name, lambda held: Fault.of(Refusal.REQUIRED, f"{held.list_id} without name filter")),
         pointer(name),
         pointer(_active(name)),
     ).bind(lambda parts: state(*parts))
@@ -421,7 +422,7 @@ def _placed(move: Option[_Move], context: bpy.types.Context, state: _Drag, targe
         members, current = getattr(*state.items), getattr(*state.selection)
         row = min(max(target, 0), len(members) - 1)
     except ReferenceError as error:
-        return Error(Fault.of(Reason.REFUSED, state.items[1], error))
+        return Error(Fault.of(Refusal.REFUSED, state.items[1], error))
     if row == current:
         return Ok(None)
 
@@ -429,14 +430,14 @@ def _placed(move: Option[_Move], context: bpy.types.Context, state: _Drag, targe
         try:
             members.move(current, row)
         except (IndexError, TypeError) as error:
-            return Error(Fault.of(Reason.REFUSED, "bpy_prop_collection.move", error))
+            return Error(Fault.of(Refusal.REFUSED, "bpy_prop_collection.move", error))
         return Ok(None)
 
     return (
         move
         .map(lambda reorder: reorder(context, current, row))
         .default_with(native)
-        .bind(lambda _: _assign(*state.selection, row).map_error(partial(Fault.of, Reason.REFUSED, state.selection[1])))
+        .bind(lambda _: _assign(*state.selection, row).map_error(partial(Fault.of, Refusal.REFUSED, state.selection[1])))
         .map(lambda _: None)
     )
 

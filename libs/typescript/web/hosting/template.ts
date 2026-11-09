@@ -11,8 +11,8 @@ const POLICY = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri'
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Template extends Context.Service<Template, { readonly template: Effect.Effect<string, HostingError> }>()('@rasm/hosting/template') {
-    static readonly layer = (assets: { readonly fetch: (request: Request) => Promise<Response> }) =>
+class Template extends Context.Service<Template, { readonly template: Effect.Effect<string, HostingError>; readonly policy: boolean }>()('@rasm/hosting/template') {
+    static readonly layer = (assets: { readonly fetch: (request: Request) => Promise<Response> }, policy: boolean) =>
         Layer.effect(
             Template,
             Effect.tryPromise({ try: (signal) => assets.fetch(new Request('http://localhost/', { signal })), catch: HostingError.template('fetch') }).pipe(
@@ -22,7 +22,7 @@ class Template extends Context.Service<Template, { readonly template: Effect.Eff
                 ),
                 Effect.flatMap((response) => Effect.tryPromise({ try: () => response.text(), catch: HostingError.template('read') })),
                 Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
-                Effect.bindTo('template'),
+                Effect.map((template) => ({ template, policy })),
             ),
         );
     static readonly render = Effect.fn('Template.render')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, value: S['Type']) {
@@ -48,7 +48,7 @@ class Template extends Context.Service<Template, { readonly template: Effect.Eff
         upsert('title', '<title>').text((_, current) => Option.getOrElse(title, Function.constant(current)));
         const tagged = (attribute: string, contents: Record.ReadonlyRecord<string, string>) => Record.collect(contents, (key, content) => upsert(`meta[${attribute}="${key}"]`, '<meta>').attr({ [attribute]: key, content }));
         Record.collect(Record.map(meta, Record.getSomes), tagged);
-        return HttpServerResponse.html(document.html()).pipe(import.meta.env.PROD ? HttpServerResponse.setHeader('Content-Security-Policy', Record.collect({ ...POLICY, ...shell.policy }, (directive, sources) => `${directive} ${sources.join(' ')}`).join('; ')) : Function.identity);
+        return HttpServerResponse.html(document.html()).pipe(page.policy ? HttpServerResponse.setHeader('Content-Security-Policy', Record.collect({ ...POLICY, ...shell.policy }, (directive, sources) => `${directive} ${sources.join(' ')}`).join('; ')) : Function.identity);
     });
 }
 

@@ -1,0 +1,49 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-foundry"
+version         = "0.0.0"
+description     = "Builds, checks, approves, and publishes a declared set of Persian and Arabic font faces from their originals with rasm-typography"
+license         = "MIT"
+authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
+classifiers     = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Text Processing :: Fonts", "Typing :: Typed"]
+requires-python = ">=3.15"
+
+dependencies = [
+    # --- [CORE]
+
+    "anyio>=4.15.0",                   # Worker processes running each face of a set in parallel, `amap` from 4.15.0
+    "expression>=5.2.0",               # Results and options of every module, `Result.merge` from 5.2.0
+    "msgspec>=0.22.0",                 # Declaration, report, and stamp records with TOML and JSON codecs, `frozendict` fields from 0.22.0
+    "packaging>=22.0",                 # Requirement markers the installed dependency closure walks, PEP 685 extras from 22.0
+    "rasm-records",                    # Fault results, record files, and atomic writes
+    "rasm-typography",                 # Face construction, compilation, shaping approvals, and requirement checks
+
+    # --- [COMMANDS]
+
+    "cyclopts>=4.10.0",                # Command parser of the `foundry` script from typed signatures, `App.error_formatter` from 4.10.0
+    "sysexits>=0.5.0",                 # Portable process exit codes
+
+    # --- [CHECKS]
+
+    "fonttools>=4.66.0",               # UFO reader of an ornament face's mapped code points, Python 3.15 from 4.66.0
+    "opentype-sanitizer>=8.1.4.post3", # OTS acceptance of a built binary, macOS arm64 wheels from 8.1.4.post3
+    "ufoLib2>=0.18.0",                 # Width classes a declared face table names, free of the `fs` package from 0.18.0
+]
+
+[project.urls]
+Homepage = "https://github.com/bsamiee/Rasm/tree/main/apps/cli/foundry"
+Source   = "https://github.com/bsamiee/Rasm"
+Issues   = "https://github.com/bsamiee/Rasm/issues"
+
+[project.scripts]
+foundry = "rasm_foundry._cli:app"
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

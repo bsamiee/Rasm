@@ -1,74 +1,63 @@
 cmake_minimum_required(VERSION 4.4)
 
+project(grammars LANGUAGES C)
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+find_program(TREE_SITTER tree-sitter REQUIRED)
+find_program(NODE node REQUIRED)
+cmake_path(GET CMAKE_CURRENT_SOURCE_DIR PARENT_PATH package_dir)
+cmake_path(GET package_dir PARENT_PATH tools_dir)
+cmake_path(GET tools_dir PARENT_PATH workspace_dir)
+set(node_modules "${package_dir}/node_modules")
+set(sgconfig "${workspace_dir}/sgconfig.yml")
+file(GLOB upstream CONFIGURE_DEPENDS
+    "${node_modules}/tree-sitter-*/grammar.js" "${node_modules}/tree-sitter-*/*/grammar.js"
+    "${node_modules}/@tree-sitter-grammars/*/grammar.js" "${node_modules}/@tree-sitter-grammars/*/*/grammar.js"
+)
+set(shared "${CMAKE_CURRENT_SOURCE_DIR}/derive.js" "${CMAKE_CURRENT_SOURCE_DIR}/compose.js" "${package_dir}/package.json" "${TREE_SITTER}" ${upstream})
+file(GLOB entries RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*/grammar.js")
+file(GLOB catalogs CONFIGURE_DEPENDS "${package_dir}/outline/*.yml")
+
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-if(CMAKE_SCRIPT_MODE_FILE)
-    execute_process(
-        COMMAND "${CMAKE_COMMAND}" -S "${CMAKE_CURRENT_LIST_DIR}" -B "${BINARY_DIR}" -DCMAKE_BUILD_TYPE=Release
-            "-DGRAMMAR_SOURCE:FILEPATH=${GRAMMAR_SOURCE}" "-DNODE_MODULES:PATH=${NODE_MODULES}" "-DSCANNER=${SCANNER}"
-        COMMAND_ERROR_IS_FATAL ANY
+foreach(entry IN LISTS entries)
+    cmake_path(GET entry PARENT_PATH language)
+    set(source "${CMAKE_CURRENT_SOURCE_DIR}/${language}")
+    set(generated "${CMAKE_CURRENT_BINARY_DIR}/${language}")
+    add_custom_command(OUTPUT "${generated}/src/grammar.json" "${generated}/src/node-types.json"
+        COMMAND "${TREE_SITTER}" generate --no-parser --output "${generated}/src" "${source}/grammar.js"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+        DEPENDS "${source}/grammar.js" ${shared}
+        VERBATIM
     )
-    execute_process(COMMAND "${CMAKE_COMMAND}" --build "${BINARY_DIR}" --config Release COMMAND_ERROR_IS_FATAL ANY)
-    return()
-endif()
+    add_custom_command(OUTPUT "${generated}/parser/parser.c"
+        COMMAND "${TREE_SITTER}" generate --output "${generated}/parser" "${generated}/src/grammar.json"
+        DEPENDS "${generated}/src/grammar.json" "${TREE_SITTER}"
+        VERBATIM
+    )
+    add_custom_command(OUTPUT "${generated}/grammar.h"
+        COMMAND "${CMAKE_COMMAND}" "-DGRAMMAR=${generated}/src/grammar.json" "-DOUTPUT=${generated}/grammar.h" -P "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
+        DEPENDS "${generated}/src/grammar.json" "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
+        VERBATIM
+    )
+    file(GLOB scanner "${source}/scanner.c")
+    add_library(${language} MODULE "${generated}/parser/parser.c" "${generated}/grammar.h" "${CMAKE_CURRENT_SOURCE_DIR}/compose.c" ${scanner})
+    target_include_directories(${language} PRIVATE "${generated}/parser" "${node_modules}")
+    target_compile_features(${language} PRIVATE c_std_11)
+    target_compile_options(${language} PRIVATE "SHELL:-include ${generated}/grammar.h" "$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>")
+    set_target_properties(${language} PROPERTIES PREFIX "" C_VISIBILITY_PRESET hidden LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+endforeach()
 
-project(grammar LANGUAGES C)
-
-set(GRAMMAR_SOURCE "" CACHE FILEPATH "Grammar extension or composition")
-set(NODE_MODULES "" CACHE PATH "Installed packages")
-set(SCANNER "" CACHE STRING "External scanner")
-
-cmake_path(GET CMAKE_CURRENT_BINARY_DIR PARENT_PATH published_dir)
-cmake_path(GET published_dir FILENAME language)
-cmake_path(GET published_dir PARENT_PATH library_dir)
-set(declared_dir "${CMAKE_CURRENT_BINARY_DIR}/src")
-
-execute_process(COMMAND tree-sitter generate --no-parser --output "${declared_dir}" "${GRAMMAR_SOURCE}" WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" COMMAND_ERROR_IS_FATAL ANY)
-execute_process(COMMAND tree-sitter --version OUTPUT_VARIABLE generator COMMAND_ERROR_IS_FATAL ANY)
-file(READ "${declared_dir}/grammar.json" grammar)
-string(SHA256 parser_key "${generator}${grammar}")
-set(generated_dir "${published_dir}/parser/${parser_key}")
-if(NOT EXISTS "${generated_dir}/parser.c")
-    execute_process(COMMAND tree-sitter generate --output "${CMAKE_CURRENT_BINARY_DIR}/parser" "${declared_dir}/grammar.json" COMMAND_ERROR_IS_FATAL ANY)
-    file(MAKE_DIRECTORY "${published_dir}/parser")
-    file(RENAME "${CMAKE_CURRENT_BINARY_DIR}/parser" "${generated_dir}" RESULT stored)
-endif()
-string(JSON name GET "${grammar}" name)
-string(JSON dialect GET "${grammar}" inherits)
-string(JSON external_count LENGTH "${grammar}" externals)
-string(JSON constants ERROR_VARIABLE constantless GET "${grammar}" rules _constants members)
-
-add_library(${PROJECT_NAME} MODULE "${generated_dir}/parser.c" ${SCANNER})
-target_include_directories(${PROJECT_NAME} PRIVATE "${generated_dir}" "${NODE_MODULES}" "${CMAKE_CURRENT_BINARY_DIR}")
-target_compile_features(${PROJECT_NAME} PRIVATE c_std_11)
-set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".so" OUTPUT_NAME "${language}" C_VISIBILITY_PRESET hidden)
-set_property(SOURCE ${SCANNER} PROPERTY COMPILE_OPTIONS "$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>")
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${published_dir}/src"
-    COMMAND "${CMAKE_COMMAND}" -E rename "${declared_dir}/grammar.json" "${published_dir}/src/grammar.json"
-    COMMAND "${CMAKE_COMMAND}" -E rename "${declared_dir}/node-types.json" "${published_dir}/src/node-types.json"
-    COMMAND "${CMAKE_COMMAND}" -E rename "$<TARGET_FILE:${PROJECT_NAME}>" "${library_dir}/${language}.so"
-    VERBATIM
-)
-
-if(NOT constantless)
-    string(JSON constant_count LENGTH "${constants}")
-    math(EXPR constant_last "${constant_count} - 1")
-    set(constant_rows "")
-    foreach(index RANGE 0 ${constant_last} 2)
-        math(EXPR value_at "${index} + 1")
-        string(JSON constant GET "${constants}" ${index} value)
-        string(JSON value GET "${constants}" ${value_at} value)
-        string(APPEND constant_rows "#define ${constant} ${value}\n")
-    endforeach()
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/grammar.h" "${constant_rows}")
-endif()
-if(NOT name STREQUAL dialect)
-    math(EXPR hole_symbol "${external_count} - 1")
-    foreach(function IN ITEMS create destroy serialize deserialize)
-        set_property(SOURCE ${SCANNER} APPEND PROPERTY COMPILE_DEFINITIONS "tree_sitter_${dialect}_external_scanner_${function}=tree_sitter_${name}_external_scanner_${function}")
-    endforeach()
-    set_property(SOURCE ${SCANNER} APPEND PROPERTY COMPILE_DEFINITIONS "tree_sitter_${dialect}_external_scanner_scan=dialect_scan")
-    set_property(SOURCE compose.c PROPERTY COMPILE_DEFINITIONS "COMPOSITE_SCAN=tree_sitter_${name}_external_scanner_scan" "HOLE_SYMBOL=${hole_symbol}")
-    target_sources(${PROJECT_NAME} PRIVATE compose.c)
-endif()
+foreach(catalog IN LISTS catalogs)
+    cmake_path(GET catalog FILENAME name)
+    set(outline "${CMAKE_CURRENT_BINARY_DIR}/outline/${name}")
+    add_custom_command(OUTPUT "${outline}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/outline"
+        COMMAND "${NODE}" "${package_dir}/outline/main.ts" "${sgconfig}" "${catalog}" "${outline}"
+        DEPENDS "${catalog}" "${package_dir}/outline/main.ts" "${sgconfig}"
+        VERBATIM
+    )
+    list(APPEND outlines "${outline}")
+endforeach()
+add_custom_target(outlines ALL DEPENDS ${outlines})

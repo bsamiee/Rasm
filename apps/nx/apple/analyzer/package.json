@@ -1,0 +1,25 @@
+{
+    "name": "@rasm/nx-apple-darwin-arm64",
+    "version": "0.0.0",
+    "description": "macOS arm64 build of the @rasm/nx-apple core reading Xcode projects, workspaces, and schemes",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "apps/nx/apple/analyzer"
+    },
+    "license": "MIT",
+    "exports": {
+        "./nx-apple-analyzer": "./.build/out/Products/Release/nx-apple-analyzer",
+        "./package.json": "./package.json"
+    },
+    "files": [ ".build/out/Products/Release/nx-apple-analyzer" ],
+    "scripts": {
+        "prepare": "swift build --configuration release --product nx-apple-analyzer"
+    },
+    "os": [ "darwin" ],
+    "cpu": [ "arm64" ],
+    "publishConfig": {
+        "access": "public",
+        "executableFiles": [ "./.build/out/Products/Release/nx-apple-analyzer" ]
+    }
+}

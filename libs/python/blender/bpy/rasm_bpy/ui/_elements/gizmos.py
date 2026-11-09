@@ -17,6 +17,7 @@ from rasm_bpy.commands.keymaps import Location, nesting
 from rasm_bpy.commands.operators import filled, Pairs, Placement
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import _acquired, _Classes, _Tier, Acquisitions, Declaration
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Condition, satisfied
 from rasm_bpy.data._rna.descriptors import _assign
 from rasm_bpy.data._rna.paths import _rna, Struct
@@ -198,7 +199,7 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
                 catch(manager.gizmo_group_type_ensure, exception=RuntimeError)(name)
                 .map(lambda _: stack.callback(manager.gizmo_group_type_unlink_delayed, name))
                 .map(lambda _: None)
-                .map_error(partial(Fault.of, Reason.REFUSED, name))
+                .map_error(partial(Fault.of, Refusal.REFUSED, name))
             )
 
 
@@ -217,7 +218,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
         return _resolved_at(member, context, context).bind(
             lambda found: found.starmap(
                 lambda setting, at: catch(gizmo.target_set_prop, exception=RuntimeError)(key, *at, index=setting.index.default_value(-1)).map_error(
-                    partial(Fault.of, Reason.REFUSED, _rna(setting.path))
+                    partial(Fault.of, Refusal.REFUSED, _rna(setting.path))
                 )
             ).default_value(Ok(None))
         )
@@ -261,7 +262,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
         def setup(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
             made = tuple((owner.gizmos.new(kind), kind, part) for kind, part in zip(kinds, parts))
             written = accumulated(
-                _assign(gizmo, member, value).map_error(partial(Fault.of, Reason.REFUSED, f"{kind}.{member}"))
+                _assign(gizmo, member, value).map_error(partial(Fault.of, Refusal.REFUSED, f"{kind}.{member}"))
                 for (gizmo, kind, part), icon in zip(made, icons)
                 for member, value in (("use_undo", isinstance(part.bind, Member | TargetHandler)), *(("icon_value", value) for value in icon.to_list()), *part.properties.items())
             )

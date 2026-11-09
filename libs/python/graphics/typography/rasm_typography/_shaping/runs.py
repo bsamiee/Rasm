@@ -8,7 +8,6 @@ lazy from graphlib import TopologicalSorter
 lazy from io import BytesIO
 lazy from itertools import accumulate, groupby
 lazy from math import fsum
-lazy from pathlib import Path
 lazy from time import perf_counter
 
 import msgspec
@@ -17,7 +16,7 @@ lazy from fontTools.ttLib import getTableClass, TTFont
 lazy from fontTools.ttLib.ttFont import GlyphOrder
 lazy from uharfbuzz import Buffer, Face, Font, OTLayoutGlyphClass, shape  # ty: ignore[import-not-found]
 
-lazy from rasm_records import Fault, Ok, Outcome, read, Reason
+lazy from rasm_records import Fault, Ok, Outcome, Reason
 lazy from rasm_typography._faces.glyphs import _Outline, _traced
 lazy from rasm_typography._outlines.paths import _bounds, _Box, _transformed
 
@@ -41,7 +40,7 @@ class _Placed(msgspec.Struct, frozen=True, kw_only=True):
     dy: int
 
 
-class _Shaped(msgspec.Struct, frozen=True, kw_only=True):
+class Shaped(msgspec.Struct, frozen=True, kw_only=True):
     """Text shaped under one language, its glyphs in visual order and the glyph list `hb-shape` prints between its brackets, the form fontspector expectations hold."""
 
     text: str
@@ -69,7 +68,7 @@ class _Shaped(msgspec.Struct, frozen=True, kw_only=True):
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
-class _Binary[T: bytes | TTFont = bytes]:
+class Binary[T: bytes | TTFont = bytes]:
     """Font bytes or native tables with their HarfBuzz reader and geometry caches, released with the binary.
 
     Native tables compile once when opened; later edits enter shaping through a new reader.
@@ -82,7 +81,7 @@ class _Binary[T: bytes | TTFont = bytes]:
     @override
     def __eq__(self, other: object, /) -> bool:
         """Compares byte inputs by value and native table snapshots by reader identity."""
-        return self is other or (isinstance(self.data, bytes) and isinstance(other, _Binary) and self.data == other.data)
+        return self is other or (isinstance(self.data, bytes) and isinstance(other, Binary) and self.data == other.data)
 
     @override
     def __hash__(self) -> int:
@@ -114,7 +113,7 @@ class _Binary[T: bytes | TTFont = bytes]:
         return Font(self.face)
 
     @staticmethod
-    def of(data: bytes, /) -> Outcome[_Binary[bytes]]:
+    def of(data: bytes, /) -> Outcome[Binary[bytes]]:
         """Opens font bytes through HarfBuzz.
 
         Args:
@@ -123,16 +122,7 @@ class _Binary[T: bytes | TTFont = bytes]:
         Returns:
             Ok(binary), `UNREADABLE` fault for bytes HarfBuzz reads no glyph from.
         """
-        return Ok(_Binary(data=data)).filter_with(lambda binary: binary.face.glyph_count > 0, lambda _: Fault.of(Reason.UNREADABLE, "font binary", "HarfBuzz reads no glyph"))
-
-    @staticmethod
-    def read(path: Path, /) -> Outcome[_Binary[bytes]]:
-        """Reads a font file through `of`.
-
-        Returns:
-            Ok(binary), `UNREADABLE` fault for a file that cannot be read or bytes HarfBuzz reads no glyph from.
-        """
-        return read(path).bind(_Binary.of)
+        return Ok(Binary(data=data)).filter_with(lambda binary: binary.face.glyph_count > 0, lambda _: Fault.of(Reason.UNREADABLE, "font binary", "HarfBuzz reads no glyph"))
 
     @cached_property
     def order(self) -> tuple[str, ...]:
@@ -165,7 +155,7 @@ class _Binary[T: bytes | TTFont = bytes]:
         features: Mapping[str, int | bool | Sequence[tuple[int, int, int | bool]]] = frozendict(),
         shapers: tuple[str, ...] = ("ot",),
         direction: _Direction | None = None,
-    ) -> _Shaped:
+    ) -> Shaped:
         """Shapes text with script and direction guessed from its characters.
 
         Args:
@@ -182,7 +172,7 @@ class _Binary[T: bytes | TTFont = bytes]:
             Unavailable requested shapers raise the native RuntimeError.
         """
         if not text:
-            return _Shaped(text=text, language=language, placed=(), serialized="")
+            return Shaped(text=text, language=language, placed=(), serialized="")
         font, buffer = self._font, Buffer()
         buffer.add_utf8(text.encode())
         if direction is not None:
@@ -192,7 +182,7 @@ class _Binary[T: bytes | TTFont = bytes]:
         shape(font, buffer, dict(features), shapers=list(shapers))
         positions = buffer.glyph_positions
         pens = zip(accumulate((position.x_advance for position in positions), initial=0), accumulate((position.y_advance for position in positions), initial=0), strict=False)
-        return _Shaped(
+        return Shaped(
             text=text,
             language=language,
             placed=tuple(
@@ -252,11 +242,11 @@ class _Binary[T: bytes | TTFont = bytes]:
 
         return placed
 
-    def drawn(self, run: _Shaped, /) -> tuple[_Outline, ...]:
+    def drawn(self, run: Shaped, /) -> tuple[_Outline, ...]:
         """Moves each glyph outline of a run to its placed position, in visual order."""
         return tuple(_transformed(self.outline(placed.glyph), Offset(placed.x, placed.y)) for placed in run.placed)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["Binary", "Shaped"]

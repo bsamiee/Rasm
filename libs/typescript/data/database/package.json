@@ -9,7 +9,9 @@
     },
     "exports": {
         ".": "./index.ts",
-        "./pg-client": "./pg-client.ts"
+        "./d1": "./d1.ts",
+        "./pg": "./pg.ts",
+        "./sqlite": "./sqlite.ts"
     },
     "dependencies": {
         "@pgsql/traverse": "catalog:",
@@ -28,6 +30,9 @@
         "effect": "catalog:peers"
     },
     "peerDependenciesMeta": {
+        "@effect/sql-d1": {
+            "optional": true
+        },
         "@effect/sql-pg": {
             "optional": true
         }

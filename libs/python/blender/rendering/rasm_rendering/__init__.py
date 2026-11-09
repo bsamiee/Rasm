@@ -3,7 +3,7 @@
 from rasm_rendering._batch import supervision
 from rasm_rendering._batch.notices import Cancelled, Completed, Estimated, Failed, Listener, Notice, published, Started, Test
 from rasm_rendering._batch.queue import Ending, FixedCamera, Forecast, Frames, FrameTime, Job, JobCamera, Liveness, MarkedCamera, Marker, observed, PackedFile, Progress, RenderFrames, RenderQueue
-from rasm_rendering._batch.supervision import awake, cleared, detached, HostCommands, LocalMachine, Run, RunCommand, RunFile, shutdown, shutdown_cancelled, supervise
+from rasm_rendering._batch.supervision import argued, argument, awake, cleared, detached, HostCommands, LocalMachine, Run, RunCommand, RunFile, shutdown, shutdown_cancelled, supervise
 from rasm_rendering._batch.targets import Endpoint, Flamenco, JobFile, Manager, Renderon, Target
 from rasm_rendering._lighting.references import Blinds, Dapple, Gel, Highlight, ReferenceDistribution, ReferenceImage, REFERENCES, Rim
 from rasm_rendering._lighting.rigs import AmbientLight, Arranged, Background, Disk, Light, LightRole, Matched, PlacedLight, PlacedRig, Point, Rig, RIGS, Spot, Sun
@@ -84,6 +84,8 @@ __all__ = [
     "Text",
     "TextField",
     "TextKey",
+    "argued",
+    "argument",
     "awake",
     "cleared",
     "detached",

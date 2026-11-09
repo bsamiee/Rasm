@@ -93,7 +93,10 @@ pub enum Input<K, I> {
 #[derive(Debug, thiserror::Error)]
 pub enum ScreenError {
     #[error("cannot {operation} the screen")]
-    Terminal { operation: Operation, source: io::Error },
+    Terminal {
+        operation: Operation,
+        source: io::Error,
+    },
     #[error("cannot {} the screen, standard output is not a terminal", Operation::Draw)]
     Detached,
 }
@@ -208,3 +211,10 @@ mod view;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use keymap::{Action, Binding, Pane};
+pub use clap;
+pub use crossterm;
+pub use futures;
+pub use nonempty_collections;
+pub use rasm_command;
+pub use ratatui;
+pub use sysexits;

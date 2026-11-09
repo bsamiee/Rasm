@@ -13,7 +13,7 @@ lazy from scipy.special import cosdg, sindg
 from rasm_typography._faces.coverage import Coverage
 from rasm_typography._faces.declaration import Derived, Script
 from rasm_typography._rules.measures import _dotted, _made, _nuqta, Rule
-lazy from rasm_typography._faces.glyphs import _Component, _Glyph, _joined, _Joining, _Outline, _Source, Mark
+lazy from rasm_typography._faces.glyphs import _Component, _Glyph, _joined, _Joining, _Outline, Mark, Source
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import _Form, _GlyphName
 lazy from rasm_typography._outlines.paths import _area, _bounds, _Box, _pieces, _transformed
@@ -39,7 +39,7 @@ def _forms(code: int, /) -> tuple[_Form, ...]:
     return tuple(form for form in _Form if (not form.right or kind in {_Joining.DUAL, _Joining.RIGHT}) and (not form.left or kind in {_Joining.DUAL, _Joining.LEFT}))
 
 
-def _resolved(source: _Source, code: int, form: _Form, /) -> tuple[str, ...]:
+def _resolved(source: Source, code: int, form: _Form, /) -> tuple[str, ...]:
     """Keys of the glyphs drawing a code point in a form: its own glyph, else the parts its canonical, positional, or no-break decomposition names resolved alike, empty where a part has none."""
     if (own := source.key(code, form if form in _forms(code) and form is not _Form.ISOL else None)) in source.named:
         return (own,)
@@ -51,7 +51,7 @@ def _resolved(source: _Source, code: int, form: _Form, /) -> tuple[str, ...]:
     return tuple(*keys for keys in held) if parts and all(held) else ()
 
 
-def _composed(source: _Source, code: int, form: _Form, /) -> tuple[_Glyph, ...]:
+def _composed(source: Source, code: int, form: _Form, /) -> tuple[_Glyph, ...]:
     """Encodes an existing isolated glyph or composes missing geometry from resolved parts, retaining native glyph identity."""
     name = _GlyphName(stem=(code,), form=form)
     if (glyph := source.named.get(name.text)) is not None:
@@ -64,7 +64,7 @@ def _composed(source: _Source, code: int, form: _Form, /) -> tuple[_Glyph, ...]:
             return ()
 
 
-def _bodies(source: _Source, codes: frozenset[int], area_: float, /) -> tuple[_Glyph, ...]:
+def _bodies(source: Source, codes: frozenset[int], area_: float, /) -> tuple[_Glyph, ...]:
     """Forms of letters the face lacks, each the dotless body of the same form of a letter in its joining group."""
     groups = {code: group for code in source.encoded if (group := _joined().get(code, (_Joining.NONE, "No_Joining_Group"))[1]) != "No_Joining_Group"}
     return tuple(
@@ -92,7 +92,7 @@ def _lowest(contours: _Outline, /) -> _Outline:
     return min(sorted(held, key=_area)[:2], key=lambda piece: extent.ymin if (extent := _bounds(piece)) else 0.0) if len(held) > 2 else ()
 
 
-def _derived(source: _Source, rule: Derived, /) -> _Glyph | None:
+def _derived(source: Source, rule: Derived, /) -> _Glyph | None:
     """Draws a glyph from its model: its lowest small piece around a circle a share of the reference height across, or scaled to that share, turned with its foot at its own, the baseline, or the reference middle, and that piece repeated after it."""
     model = source.glyph(source.key(rule.model) if isinstance(rule.model, int) else rule.model).map(lambda glyph: source.drawn(glyph.name.text)).default_value(None)
     reference = _Box.of(rect) if rule.reference is not None and (rect := source.bounds(source.key(rule.reference))) is not None else None
@@ -125,7 +125,7 @@ def _derived(source: _Source, rule: Derived, /) -> _Glyph | None:
 # --- [LOOKUPS]
 
 
-def _relaid(source: _Source, added: tuple[_Glyph, ...], script: Script, /) -> tuple[Lookups, ...]:
+def _relaid(source: Source, added: tuple[_Glyph, ...], script: Script, /) -> tuple[Lookups, ...]:
     """Adds the joined forms of new glyphs to the form lookups, moves the required ligatures to `rlig`, and writes the language's `locl` forms and variants in place of any held."""
     forms = {
         form.value: {source.key(glyph.name.codes[0]): glyph.name.text for glyph in added if len(glyph.name.codes) == 1 and glyph.name.form is form} for form in (_Form.INIT, _Form.MEDI, _Form.FINA)
@@ -158,7 +158,7 @@ def _relaid(source: _Source, added: tuple[_Glyph, ...], script: Script, /) -> tu
     return (*((Single(features=frozendict({"locl": frozendict({script.language: False})}), order=-1, mapping=frozendict(local)),) if local else ()), *relaid)
 
 
-def _localized(source: _Source, rule: Locale, /) -> _Source:
+def _localized(source: Source, rule: Locale, /) -> Source:
     """Draws the derived signs, composes every required and kept-block code point the face lacks from its own glyphs, blanks the format controls at zero advance, and lays out their lookups."""
     script, coverage = rule.script, rule.coverage
     derived = tuple(glyph for drawn in script.derived if (glyph := _derived(source, drawn)) and not (drawn.kept and (held := source.named.get(glyph.name.text)) and held.contours))

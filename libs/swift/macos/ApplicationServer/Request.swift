@@ -3,7 +3,7 @@ public import AppleEvents
 public import Applications
 import AsyncAlgorithms
 import CoreServices
-public import JSONRPC
+public import EffectRPC
 import OrderedCollections
 import Processes
 import Results

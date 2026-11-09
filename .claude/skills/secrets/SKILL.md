@@ -5,7 +5,7 @@ description: "Use when a command, build, or agent reads a secret or credential, 
 
 # [SECRETS]
 
-Each value lives in one store. 1Password holds machine and personal credentials, which Parametric Forge exports into every shell and GUI session from `Tokens`. Doppler holds job values alone, one project per repository and one config per job kind, synced into GitHub Actions; its topology is code in Parametric Forge `services/topology.ts`.
+1Password and Doppler each hold every secret and stay aligned: no value is dropped, moved, deduplicated, or consolidated between them. Parametric Forge exports machine and personal credentials from 1Password `Tokens` into every shell and GUI session. Doppler holds one project per repository and one config per job kind, synced into GitHub Actions; its topology is code in Parametric Forge `services/topology.ts`.
 
 ## [01]-[DOPPLER_SCOPES]
 

@@ -16,7 +16,6 @@ use image::{FlatSamples, GenericImage as _, ImageError, Pixel, RgbImage, Rgba, R
 use image_compare::{Algorithm, Similarity};
 use kurbo::Affine;
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
-use uom::si::linear_number_density::per_millimeter;
 use validated::Validated;
 use vello_common::pixmap::unpremultiply_rgba8;
 
@@ -26,8 +25,13 @@ use crate::{Document, OutputIntent, PdfError, Resolution, Subject, page};
 
 #[derive(Debug, Clone)]
 pub enum Appearance {
-    Screen { background: AlphaColor<Srgb> },
-    Press { intent: OutputIntent, rendering: RenderingIntent },
+    Screen {
+        background: AlphaColor<Srgb>,
+    },
+    Press {
+        intent: OutputIntent,
+        rendering: RenderingIntent,
+    },
 }
 
 #[derive(Clone)]
@@ -47,7 +51,7 @@ pub struct Raster {
 pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<RgbaImage, PdfError> {
     let page = page(document, index)?;
     let (frame, paper) = crate::frame(page);
-    let density = raster.resolution.get::<per_millimeter>();
+    let density = crate::per_point(raster.resolution);
     let [width, height] = [paper.width, paper.height].map(|side| (side * density).ceil().to_int_saturating::<u64>());
     let (columns, rows) = match (u32::try_from(width), u32::try_from(height)) {
         (Ok(columns), Ok(rows)) => alloc::Layout::array::<Rgba<u8>>(u64::from(columns).strict_mul(u64::from(rows)).saturating_cast())

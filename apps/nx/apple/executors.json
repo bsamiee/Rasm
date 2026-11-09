@@ -1,9 +1,19 @@
 {
     "executors": {
+        "install": {
+            "implementation": "./dist/executors/install/executor#execute",
+            "schema": "./executors/install/schema.json",
+            "description": "Builds a SwiftPM executable product and replaces it in SwiftPM's install folder"
+        },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",
             "schema": "./executors/run/schema.json",
             "description": "Runs swift or xcodebuild invocations in order, with Nx's per-task environment removed"
+        },
+        "zip": {
+            "implementation": "./dist/executors/zip/executor#execute",
+            "schema": "./executors/zip/schema.json",
+            "description": "Zips each archived app, exporting, notarizing, and stapling it first under a notary profile"
         }
     }
 }

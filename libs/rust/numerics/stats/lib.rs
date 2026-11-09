@@ -1,4 +1,4 @@
-#![feature(float_conversions, gen_blocks, iterator_try_collect)]
+#![feature(gen_blocks, iterator_try_collect)]
 
 use core::{num::NonZero, range::RangeInclusive};
 
@@ -89,8 +89,16 @@ mod sketches;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use calibration::{Convergence, Fit, Resolution, Trace, calibrate, calibrated, convergence, fit};
+pub use anyhow;
+pub use average;
+pub use calibration::{Convergence, Fit, Trace, calibrate, calibrated, convergence, fit};
+pub use datasketches;
 pub use inference::{Confidence, ConfidenceError, Interval, bootstrap, interval};
+pub use nalgebra;
+pub use nonempty_collections;
+pub use nuts_rs;
+pub use rand;
 pub use sampling::{Design, Window, WindowError, sample};
 pub use sensitivity::{Effects, Indices, Levels, LevelsError, Morris, Outputs, Saltelli, Sensitivity};
 pub use sketches::Summary;
+pub use statrs;

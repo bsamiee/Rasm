@@ -16,8 +16,8 @@ lazy from rasm_typography._faces.glyphs import _Joining, _Outline, _Side
 lazy from rasm_typography._faces.names import _GlyphName
 lazy from rasm_typography._outlines.measure import _column_coverage, _gap
 lazy from rasm_typography._outlines.paths import _area, _bounds, _Box, _combined, _iou, _meets, _offset, _pieces, _transformed, _union
-lazy from rasm_typography._shaping.corpus import _Corpus
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -37,21 +37,21 @@ def _hull(boxes: Iterable[_Box], /) -> _Box | None:
 # --- [GLYPHS]
 
 
-def _nuqta(binary: _Binary, /) -> float:
+def _nuqta(binary: Binary, /) -> float:
     """Median area of the pieces apart from the largest across the mapped letters, the dot most of them draw."""
     letters = tuple(glyph for code, glyph in binary.encoded.items() if unicodedata.category(chr(code)).startswith("L"))
     sizes = {glyph: sorted(map(_area, _pieces(binary.outline(glyph))))[:-1] for glyph in dict.fromkeys(letters)}
     return median(tuple(*sizes[glyph] for glyph in letters) or (0.0,))
 
 
-def _split(binary: _Binary, nuqta: float, glyph: str, /) -> tuple[_Outline, tuple[_Outline, ...]]:
+def _split(binary: Binary, nuqta: float, glyph: str, /) -> tuple[_Outline, tuple[_Outline, ...]]:
     """Body of a glyph and its dots and hamzas, the pieces apart from its largest of at most 3.5 nuqtas, a larger one a split part of the body."""
     limit = 3.5 * nuqta
     held = sorted(((_area(piece), piece) for piece in _pieces(binary.outline(glyph))), key=lambda held: held[0], reverse=True)
     return tuple(contour for index, (size, piece) in enumerate(held) if index == 0 or size > limit for contour in piece), tuple(piece for size, piece in held[1:] if size <= limit)
 
 
-def _letter(binary: _Binary, form: str, language: str, /) -> str:
+def _letter(binary: Binary, form: str, language: str, /) -> str:
     """Drawn glyph the letter of a form run shapes to, the joiners before it and the marks after it passed over."""
     cluster = len(form.encode()) - len(form.lstrip("\N{ZERO WIDTH JOINER}").encode())
     return next((placed.glyph for placed, _ in binary.placed_extents(form, language) if placed.cluster == cluster and placed.glyph not in binary.marks), binary.order[0])
@@ -60,7 +60,7 @@ def _letter(binary: _Binary, form: str, language: str, /) -> str:
 # --- [MARKS]
 
 
-def _clearance(binary: _Binary, corpus: _Corpus, floor: float, /) -> tuple[_Breach, ...]:
+def _clearance(binary: Binary, corpus: Corpus, floor: float, /) -> tuple[_Breach, ...]:
     """Mark and dot gaps over the matrix, letter pairs unwrapped and between two dual-joining letters, and whole words, under each corpus language.
 
     Args:
@@ -100,7 +100,7 @@ def _clearance(binary: _Binary, corpus: _Corpus, floor: float, /) -> tuple[_Brea
     return tuple((f"{' '.join(pair)} in {text}", measured, bound) for pair, group in groupby(found, key=lambda clash: clash[0]) for _, measured, bound, text in (next(group),))
 
 
-def _mark_line(binary: _Binary, corpus: _Corpus, tolerance: float, /) -> tuple[_Breach, ...]:
+def _mark_line(binary: Binary, corpus: Corpus, tolerance: float, /) -> tuple[_Breach, ...]:
     """Spread of the bottoms of the single above marks over each letter form, held within a tolerance in em."""
     above, held = tuple(stack for stack in corpus.vowel_stacks if len(stack) == 1 and _Side.of(ord(stack)) is _Side.ABOVE), binary.marks
     return tuple(  # ty: ignore[unsound-return-statement]
@@ -118,7 +118,7 @@ def _mark_line(binary: _Binary, corpus: _Corpus, tolerance: float, /) -> tuple[_
 # --- [LETTERS]
 
 
-def _ligature_area(binary: _Binary, ratio: float, /) -> tuple[_Breach, ...]:
+def _ligature_area(binary: Binary, ratio: float, /) -> tuple[_Breach, ...]:
     """Filled area of each GSUB ligature against its components' summed area and its span against its advance, zero references meeting either bound."""
     font = binary.tables
     ligatures = dict.fromkeys(
@@ -142,7 +142,7 @@ def _ligature_area(binary: _Binary, ratio: float, /) -> tuple[_Breach, ...]:
     )
 
 
-def _distinct(binary: _Binary, bound: float, /) -> tuple[_Breach, ...]:
+def _distinct(binary: Binary, bound: float, /) -> tuple[_Breach, ...]:
     """Intersection over union of every two digits of one script, held under a bound."""
     digits = sorted((code - unicodedata.digit(chr(code)), glyph) for code, glyph in binary.encoded.items() if unicodedata.category(chr(code)) == "Nd")
     return tuple(
@@ -153,7 +153,7 @@ def _distinct(binary: _Binary, bound: float, /) -> tuple[_Breach, ...]:
     )
 
 
-def _identity(binary: _Binary, original: _Binary, corpus: _Corpus, /) -> tuple[_Breach, ...]:
+def _identity(binary: Binary, original: Binary, corpus: Corpus, /) -> tuple[_Breach, ...]:
     """Dots and hamzas of each letter form both fonts draw, every piece of either meeting the other's once the original is scaled by the median body height ratio and centered on the body.
 
     Args:
@@ -186,7 +186,7 @@ def _identity(binary: _Binary, original: _Binary, corpus: _Corpus, /) -> tuple[_
     )
 
 
-def _join_parity(binary: _Binary, corpus: _Corpus, /) -> tuple[_Breach, ...]:
+def _join_parity(binary: Binary, corpus: Corpus, /) -> tuple[_Breach, ...]:
     """Distance between the pen positions of each joined letter pair with `kern` on against off, held at zero."""
     held = binary.marks
 
@@ -208,7 +208,7 @@ def _join_parity(binary: _Binary, corpus: _Corpus, /) -> tuple[_Breach, ...]:
 # --- [RUNS]
 
 
-def _seam(binary: _Binary, corpus: _Corpus, band: tuple[float, float], sizes: tuple[int, ...], /) -> tuple[_Breach, ...]:
+def _seam(binary: Binary, corpus: Corpus, band: tuple[float, float], sizes: tuple[int, ...], /) -> tuple[_Breach, ...]:
     """Filled area of each seam column composited glyph by glyph against the merged outline, per pixel cell at each size, held inside a band.
 
     Args:
@@ -253,13 +253,13 @@ def _seam(binary: _Binary, corpus: _Corpus, band: tuple[float, float], sizes: tu
     )
 
 
-def _pitch(binary: _Binary, /) -> float:
+def _pitch(binary: Binary, /) -> float:
     """Line pitch in em the `hhea` ascender, descender, and line gap state."""
     hhea = binary.tables["hhea"]
     return (hhea.ascent - hhea.descent + hhea.lineGap) / binary.face.upem  # type: ignore[no-any-return] # ty: ignore[unresolved-attribute, unsound-return-statement]
 
 
-def _metrics(binary: _Binary, original: _Binary, corpus: _Corpus, pitch: tuple[float, float] | None, /) -> tuple[_Breach, ...]:
+def _metrics(binary: Binary, original: Binary, corpus: Corpus, pitch: tuple[float, float] | None, /) -> tuple[_Breach, ...]:
     """Line pitch in em inside its band, and win ascent and descent over every glyph and every corpus and matrix run the face reaches.
 
     Args:
@@ -292,7 +292,7 @@ def _metrics(binary: _Binary, original: _Binary, corpus: _Corpus, pitch: tuple[f
     )
 
 
-def _reachable(binary: _Binary, corpus: _Corpus, shapers: tuple[str, ...], /) -> tuple[_Breach, ...]:
+def _reachable(binary: Binary, corpus: Corpus, shapers: tuple[str, ...], /) -> tuple[_Breach, ...]:
     """Counts glyph 0 under every shaper and language, with native backend failures reported independently."""
 
     def measured(text: str, language: str, shaper: str, /) -> tuple[_Breach, ...]:

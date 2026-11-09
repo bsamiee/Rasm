@@ -62,12 +62,6 @@
         "resolved": "6.4.1",
         "contentHash": "LIcjQnTKbAeLNEB8sTQ7Z1J136qWWKCXn1YUWdM0J7JmNZiGwBf1o/4wIKh8ip7Of00IpcjdSEwJnd0sibuc5Q=="
       },
-      "System.Numerics.Tensors": {
-        "type": "Direct",
-        "requested": "[11.0.0-rc.3.26522.148, )",
-        "resolved": "11.0.0-rc.3.26522.148",
-        "contentHash": "9IVKWWs7IRbKJXWdBKbZBr32BOTvJ71qY6Um44w6iAI2kcQ4MS/ucaBGTHWY8HLfH2KEV+uQTwJaKGwWyaiYWA=="
-      },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
         "requested": "[10.6.0, )",

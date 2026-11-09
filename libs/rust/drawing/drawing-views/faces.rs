@@ -138,7 +138,7 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
         .into_par_iter()
         .filter_map(|((body, source), ((point, normal), outline))| {
             Region::new(outline, FillRule::NonZero, tolerance)
-                .map(|region| (!region.is_empty()).then_some((Face { body, source, normal, region }, point)))
+                .map(|region| (!region.contours().is_empty()).then_some((Face { body, source, normal, region }, point)))
                 .map_err(|refusal| ViewsError::Linework { operation: Operation::Region(body), source: refusal })
                 .transpose()
         })

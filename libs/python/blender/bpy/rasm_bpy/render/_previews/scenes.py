@@ -21,6 +21,7 @@ import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.images import _filled, _loaded, Tag
 from rasm_bpy.data._ids.ownership import _kept, Ownership, Saved
 from rasm_bpy.data._ids.store import Handle, IdName
@@ -302,14 +303,14 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
 
         def built() -> Outcome[bpy.types.Image]:
             created = catch(bpy.data.images.new, exception=RuntimeError)("Preview Input", width=width, height=height, alpha=True, float_buffer=True)
-            return _kept(created.map_error(partial(Fault.of, Reason.REFUSED, self.image.key)), lambda image: tag.applied(image).map(lambda _: image))
+            return _kept(created.map_error(partial(Fault.of, Refusal.REFUSED, self.image.key)), lambda image: tag.applied(image).map(lambda _: image))
 
         def graphed(image: bpy.types.Image) -> Outcome[bpy.types.NodeTree]:
             source = Expr(kind=bpy.types.CompositorNodeImage, members={"image": IdName.of(image)}, socket="Image", socket_type=bpy.types.NodeSocketColor)
             face = Interface(outputs=(Socket(key="image", name="Image", kind=bpy.types.NodeSocketColor),))
             return (
                 catch(image.scale, exception=RuntimeError)(width, height)
-                .map_error(partial(Fault.of, Reason.REFUSED, self.image.key))
+                .map_error(partial(Fault.of, Refusal.REFUSED, self.image.key))
                 .bind(lambda _: _filled(image, pixels))
                 .bind(lambda _: functions.built(self.input_group.key, face, {"image": source}, bpy.types.CompositorNodeTree, name=Some("Preview Input")))
                 .bind(lambda group: made(msgspec.structs.replace(group, saved=Saved.NEVER), identity))
@@ -342,7 +343,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
         release = ExitStack()
 
         def undone(request: object, step: Callable[[], object]) -> None:
-            release.callback(_released, identity, lambda: catch(step, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(request))))
+            release.callback(_released, identity, lambda: catch(step, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(request))))
 
         def lit(light: bpy.types.Object, data: bpy.types.Light) -> Outcome[None]:
             def relit() -> None:
@@ -372,9 +373,9 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 undone(subject, lambda: scene.collection.objects.unlink(subject))
 
             return accumulated((
-                *(catch(shown, exception=RuntimeError)(shape, item, mesh).map_error(partial(Fault.of, Reason.REFUSED, repr(item))) for shape, (item, mesh) in shapes),
+                *(catch(shown, exception=RuntimeError)(shape, item, mesh).map_error(partial(Fault.of, Refusal.REFUSED, repr(item))) for shape, (item, mesh) in shapes),
                 *(
-                    catch(linked, exception=RuntimeError)(subject).map_error(partial(Fault.of, Reason.REFUSED, repr(scene)))
+                    catch(linked, exception=RuntimeError)(subject).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene)))
                     for subject in (staging.viewpoint,)
                     if isinstance(subject, bpy.types.Object)
                 ),

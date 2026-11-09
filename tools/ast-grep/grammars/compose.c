@@ -5,7 +5,7 @@
 
 #include "tree_sitter/parser.h"
 
-#include "grammar.h"
+#ifdef COMPOSITE_SCAN
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -265,3 +265,5 @@ bool COMPOSITE_SCAN(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     lexer->result_symbol = replay.lexer.result_symbol;
     return found;
 }
+
+#endif

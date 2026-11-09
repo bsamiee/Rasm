@@ -2,23 +2,23 @@ use core::borrow::Borrow;
 use std::collections::BTreeSet;
 
 use petgraph::{
-    EdgeType,
+    Undirected,
     algo::min_spanning_tree,
     data::Element,
-    stable_graph::{EdgeIndex, EdgeReference, NodeIndex, StableGraph, StableUnGraph},
-    visit::EdgeRef as _,
+    graph::NodeIndex,
+    visit::{EdgeRef as _, GraphProp},
 };
 use rustworkx_core::steiner_tree::{SteinerTreeResult, steiner_tree};
 use validated::Validated;
 
-use crate::{NetworkError, Weight, compact, locate};
+use crate::{Failure, Network, NetworkError, Weight, compact, locate};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[must_use]
-pub fn tree<N, E, Ty, W>(graph: &StableGraph<N, E, Ty>, weight: impl Fn(EdgeReference<'_, E>) -> W) -> BTreeSet<EdgeIndex>
+pub fn tree<G, W>(graph: G, weight: impl Fn(G::EdgeRef) -> W) -> BTreeSet<G::EdgeId>
 where
-    Ty: EdgeType,
+    G: Network,
     W: Ord + Clone,
 {
     min_spanning_tree(&compact(graph, |edge| (weight(edge), edge.id())))
@@ -29,11 +29,12 @@ where
         .collect()
 }
 
-pub fn steiner<N, E>(
-    graph: &StableUnGraph<N, E>,
-    terminals: impl IntoIterator<Item: Borrow<NodeIndex>>,
-    cost: impl Fn(EdgeReference<'_, E>) -> Weight,
-) -> Result<Option<BTreeSet<EdgeIndex>>, NetworkError> {
+pub fn steiner<G>(graph: G, terminals: impl IntoIterator<Item: Borrow<G::NodeId>>, cost: impl Fn(G::EdgeRef) -> Weight) -> Result<Option<BTreeSet<G::EdgeId>>, Failure<G>>
+where
+    G: Network + GraphProp<EdgeType = Undirected>,
+    G::NodeId: Send + Sync,
+    G::EdgeId: Send + Sync,
+{
     let network = compact(graph, |edge| (cost(edge), edge.id()));
     let located = terminals.into_iter().map(|node| locate(&network, *node.borrow())).collect::<Validated<BTreeSet<_>, _>>().ok().map_err(NetworkError::Refused)?;
     let tree = steiner_tree(&network, &located.into_iter().collect::<Vec<_>>(), |edge| Ok::<f64, !>(edge.weight().0.into_inner())).into_ok();

@@ -15,13 +15,14 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.images import _pixels
 from rasm_bpy.data._ids.store import IdName
 from rasm_bpy.data._rna.descriptors import _DTYPES, Descriptor, Value
 from rasm_bpy.data._rna.paths import _definition, _struct_at, Native, RnaPath, Struct
 from rasm_bpy.data._rna.snapshots import _Capture, Snapshot
 from rasm_bpy.nodes._trees import _endpoints, _upstream
-from rasm_records import accumulated, content_hash, ContentHash, Fault, Nothing, Ok, Outcome, paired, Reason, Tree
+from rasm_records import accumulated, content_hash, ContentHash, Fault, Nothing, Ok, Outcome, paired, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -237,7 +238,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
             valued=Some(lambda descriptor: not isinstance(descriptor.prop, bpy.types.CollectionProperty | bpy.types.PointerProperty) or isinstance(descriptor.prop.fixed_type, bpy.types.ID)),
             inactive=True,
         )
-        captured = (catch(native.tree, exception=ReferenceError)().map_error(partial(Fault.of, Reason.REFUSED, repr(block))).map(lambda tree: (tree, *references(block, tree))),)
+        captured = (catch(native.tree, exception=ReferenceError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(block))).map(lambda tree: (tree, *references(block, tree))),)
         seed = captured[0].map(
             lambda parts: (
                 Some(

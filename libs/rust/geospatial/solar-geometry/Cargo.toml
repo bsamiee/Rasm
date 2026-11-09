@@ -16,7 +16,7 @@ bench   = false
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-rayon                = { workspace = true }
+rayon                = { workspace = true, optional = true }
 nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 derive_more          = { workspace = true }
@@ -29,8 +29,14 @@ ndarray              = { workspace = true }
 uom                  = { workspace = true }
 rstar                = { workspace = true }
 solar-positioning    = { workspace = true }
-rasm-proximity       = { workspace = true }
+rasm-proximity       = { workspace = true, optional = true }
 rasm-site            = { workspace = true }
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+default   = ["proximity"]
+proximity = ["dep:rasm-proximity", "dep:rayon"]
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

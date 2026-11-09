@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Numerics.Tensors;
+using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -7,6 +8,7 @@ using Emgu.CV;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
 using Rasm.Imaging.Color;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 using SixLabors.ImageSharp;
@@ -63,20 +65,21 @@ public sealed partial class TelevisionSystem {
 
     public long Frame(double seconds) => (long)double.Floor(seconds * lineRate / lines);
 
-    public void CrossColor(Mat luma, Mat blue, Mat red, PixelFrame frame, int raster, long count, float amount) {
+    public void CrossColor(PixelPlane luma, PixelPlane blue, PixelPlane red, PixelFrame frame, int raster, long count, float amount) {
         double step = cycles * ActiveSamples * lineRate / SamplingRate / frame.Extent.Width;
+        using Mat source = luma.Header();
         using Mat detail = new();
         using SpanOwner<float> waves = SpanOwner<float>.Allocate(2 * frame.Size.Width);
         Span<float> sine = waves.Span[..frame.Size.Width];
         Span<float> cosine = waves.Span[frame.Size.Width..];
-        CvInvoke.GaussianBlur(luma, detail, new System.Drawing.Size(0, 1), 1d / (6d * step), 0d, BorderType.Replicate);
-        CvInvoke.Subtract(luma, detail, detail);
+        CvInvoke.GaussianBlur(source, detail, new System.Drawing.Size(0, 1), 1d / (6d * step), 0d, BorderType.Replicate);
+        CvInvoke.Subtract(source, detail, detail);
         for (int x = 0; x < sine.Length; x++)
             sine[x] = (float)(2d * double.Ieee754Remainder(step * (frame.Origin.X + x), 1d));
         TensorPrimitives.SinCosPi(sine, sine, cosine);
         ReadOnlySpan2D<float> leak = detail.View<float>();
-        Span2D<float> cb = blue.View<float>();
-        Span2D<float> cr = red.View<float>();
+        Span2D<float> cb = blue.View.Span;
+        Span2D<float> cr = red.View.Span;
         for (int y = 0; y < frame.Size.Height; y++) {
             long line = (count * lines) + Video.Line(frame.Origin.Y + y, raster, frame.Extent.Height);
             (double sin, double cos) = double.SinCosPi(2d * double.Ieee754Remainder(cycles * line, 1d));
@@ -92,34 +95,31 @@ public sealed partial class TelevisionSystem {
 public static class Video {
     public static long Line(long row, int lines, int height) => (long)CellGrid.Floored((Int128)row * lines, height).Quotient;
 
-    public static Fin<Mat> Echo(double sigma, double delay, float share) => Gaussian.Taps(double.Abs(delay) + (3d * sigma)).Map(count => {
+    public static Fin<ImmutableArray<double>> Echo(double sigma, double delay, float share) => Gaussian.Taps(double.Abs(delay) + (3d * sigma)).Map(count => {
         double nearest = double.Abs(delay - double.Round(delay, MidpointRounding.ToEven));
         double[] shape = [.. Enumerable.Range(0, count).Select(tap => double.Abs(tap - (count / 2) + delay))
             .Select(distance => sigma > 0d ? double.Exp(((nearest * nearest) - (distance * distance)) / (2d * sigma * sigma)) : double.Max(1d - distance, 0d))];
         TensorPrimitives.Multiply(shape, share / TensorPrimitives.Sum(shape), shape);
         shape[count / 2] += 1d - share;
-        Mat taps = new(count, 1, DepthType.Cv64F, 1);
-        taps.SetTo(shape);
-        return taps;
+        return ImmutableCollectionsMarshal.AsImmutableArray(shape);
     });
 
-    public static void Filter(Mat plane, Mat taps, bool vertical = false) {
-        using Mat kernel = taps.Reshape(1, vertical ? taps.Rows : 1);
-        CvInvoke.Filter2D(plane, plane, kernel, new System.Drawing.Point(-1, -1), 0d, BorderType.Replicate);
-    }
-
-    public static Fin<Unit> Decomposed(PixelFrame frame, YbrConfiguration ybr, Transfer encoding, Func<Mat, Mat, Mat, Fin<Unit>> planes) {
+    public static Fin<Unit> Decomposed(PixelFrame frame, YbrConfiguration ybr, Transfer encoding, Func<PixelPlane, PixelPlane, PixelPlane, Fin<Unit>> planes) {
         Wacton.Unicolour.Configuration signal = new(ybrConfig: ybr);
         LutTable into = LutTable.Of([encoding.Encode, new LutTable.Affine(Gamut.Columns(signal, ColourSpace.Rgb, signal, ColourSpace.Ypbpr))]);
         LutTable back = LutTable.Of([new LutTable.Affine(Gamut.Columns(signal, ColourSpace.Ypbpr, signal, ColourSpace.Rgb)), encoding.Decode]);
         frame.Rows((row, _, _) => into.Apply(row));
         Fin<Unit> processed = frame.Filter(header => {
-            using VectorOfMat channels = new();
-            CvInvoke.Split(header, channels);
-            using Mat luma = channels[0];
-            using Mat blue = channels[1];
-            using Mat red = channels[2];
-            return planes(luma, blue, red).Map(_ => { CvInvoke.Merge(channels, header); return unit; });
+            (PixelPlane luma, PixelPlane blue, PixelPlane red) = (new(frame.Size), new(frame.Size), new(frame.Size));
+            using Mat y = luma.Header();
+            using Mat cb = blue.Header();
+            using Mat cr = red.Header();
+            using VectorOfMat channels = new(y, cb, cr);
+            CvInvoke.MixChannels(header, channels, [0, 0, 1, 1, 2, 2]);
+            return planes(luma, blue, red).Map(_ => {
+                CvInvoke.MixChannels(channels, header, [0, 0, 1, 1, 2, 2]);
+                return unit;
+            });
         });
         frame.Rows((row, _, _) => back.Apply(row));
         return processed;
@@ -150,24 +150,23 @@ public static class Video {
         return unit;
     });
 
-    public static Fin<Unit> LineNoise(Mat luma, Mat blue, Mat red, PixelFrame frame, int lines, double length, float lumaLevel, float chromaLevel, uint field) =>
-        Gaussian.Kernel(length, NormType.L2).Map(taps => {
-            using (taps) {
-                (int width, int reach) = (taps.Rows + frame.Size.Width - 1, taps.Rows / 2);
-                using Mat draws = new(frame.Size.Height, width, DepthType.Cv32F, 4);
-                Span2D<Vector4> cells = draws.View<Vector4>();
+    public static Fin<Unit> LineNoise(PixelPlane luma, PixelPlane blue, PixelPlane red, PixelFrame frame, int lines, double length, float lumaLevel, float chromaLevel, uint field) =>
+        Gaussian.Kernel(length, 2d).Map(taps => {
+            (int width, int reach) = (taps.Length + frame.Size.Width - 1, taps.Length / 2);
+            using Mat draws = new(frame.Size.Height, width, DepthType.Cv32F, 4);
+            using Mat kernel = Gaussian.Header(taps);
+            Span2D<Vector4> cells = draws.View<Vector4>();
+            for (int y = 0; y < frame.Size.Height; y++) {
+                int scan = (int)Line(frame.Origin.Y + y, lines, frame.Extent.Height);
+                for (int column = 0; column < width; column++)
+                    cells[y, column] = CoordinateHash.Normals(Vector128.Create(frame.Origin.X - reach + column, scan, 0, 0), field);
+            }
+            CvInvoke.Filter2D(draws, draws, kernel, new System.Drawing.Point(-1, -1), 0d, BorderType.Replicate);
+            foreach ((PixelPlane plane, float level, int channel) in Seq((luma, lumaLevel, 0), (blue, chromaLevel, 1), (red, chromaLevel, 2))) {
+                Span2D<float> target = plane.View.Span;
                 for (int y = 0; y < frame.Size.Height; y++) {
-                    int scan = (int)Line(frame.Origin.Y + y, lines, frame.Extent.Height);
-                    for (int column = 0; column < width; column++)
-                        cells[y, column] = CoordinateHash.Normals(Vector128.Create(frame.Origin.X - reach + column, scan, 0, 0), field);
-                }
-                Filter(draws, taps);
-                foreach ((Mat plane, float level, int channel) in Seq((luma, lumaLevel, 0), (blue, chromaLevel, 1), (red, chromaLevel, 2))) {
-                    Span2D<float> target = plane.View<float>();
-                    for (int y = 0; y < frame.Size.Height; y++) {
-                        for (int x = 0; x < frame.Size.Width; x++)
-                            target[y, x] += level * cells[y, x + reach][channel];
-                    }
+                    for (int x = 0; x < frame.Size.Width; x++)
+                        target[y, x] += level * cells[y, x + reach][channel];
                 }
             }
             return unit;
@@ -185,10 +184,10 @@ public static class Video {
             }
         });
 
-    public static void Corrupted(Mat luma, Mat blue, Mat red, PixelFrame frame, float lumaLevel, float chromaLevel, Func<Vector2, Option<System.Drawing.Point>> site, uint field) {
-        Span2D<float> y = luma.View<float>();
-        Span2D<float> cb = blue.View<float>();
-        Span2D<float> cr = red.View<float>();
+    public static void Corrupted(PixelPlane luma, PixelPlane blue, PixelPlane red, PixelFrame frame, float lumaLevel, float chromaLevel, Func<Vector2, Option<System.Drawing.Point>> site, uint field) {
+        Span2D<float> y = luma.View.Span;
+        Span2D<float> cb = blue.View.Span;
+        Span2D<float> cr = red.View.Span;
         for (int row = 0; row < frame.Size.Height; row++) {
             for (int x = 0; x < frame.Size.Width; x++) {
                 if (site(new Vector2(frame.Origin.X + x + 0.5f - (frame.Extent.Width / 2f), frame.Origin.Y + row + 0.5f - (frame.Extent.Height / 2f))).ToSpan() is not [var cell])
@@ -203,12 +202,13 @@ public static class Video {
         static float Bent(float value, float power) => float.CopySign(float.Pow(float.Abs(value), power), value);
     }
 
-    public static Fin<Unit> Recompressed(PixelFrame frame, Transfer encoding, JpegEncoder encoder, int generations, Option<PixelExtent> coded) {
+    public static Fin<Unit> Recompressed(PixelFrame frame, Transfer encoding, RasterCodec.Jpeg codec, int generations, Option<PixelExtent> coded) {
         const int Tile = ushort.MaxValue & ~15;
         PixelExtent size = coded.IfNone(frame.Size);
         frame.Rows((row, _, _) => encoding.Apply(row, inverted: false));
         PixelFrame working = new(System.Drawing.Point.Empty, size, size, block =>
             ImageProcessing.Resize(frame.Block, frame.Size.Width, frame.Size.Height, block, size.Width, size.Height, 4, ResizeFilter.Box, alphaChannel: 3));
+        IImageEncoder encoder = codec.Encoder(alpha: false);
         Fin<Unit> recoded = working.Mutate(image => {
             foreach (Rectangle tile in
                      from top in Enumerable.Range(0, ((size.Height - 1) / Tile) + 1)

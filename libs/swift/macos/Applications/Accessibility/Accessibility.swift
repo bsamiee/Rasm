@@ -8,6 +8,7 @@ private let labelAttributes: [String] = [kAXTitleAttribute, kAXDescriptionAttrib
 private let absentAttribute: Set<AXError> = [.noValue, .attributeUnsupported, .invalidUIElement]
 private let menuMark: Data = Data("menu".utf8)
 let menuBars: [String] = [kAXMenuBarAttribute, kAXExtrasMenuBarAttribute]
+let frameAttributes: [String] = [kAXPositionAttribute, kAXSizeAttribute]
 let messagingTimeout: Duration = .seconds(1)
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -127,12 +128,16 @@ extension AXUIElement {
         (try values([attribute])[attribute] as? [CFTypeRef] ?? []).compactMap(Self.checked)
     }
 
-    func window() throws(ApplicationFailure) -> CGWindowID? {
-        var id: CGWindowID = 0
-        return switch unsafe windowIdentifier(self, &id) {
-            case .success: id
-            case let error where error == .cannotComplete || error == .apiDisabled: throw failure(error, reading: ["_AXUIElementGetWindow"])
-            default: nil
+    static func window(framed read: [String: CFTypeRef], among listed: [InstanceState.Window]) -> CGWindowID? {
+        guard let origin: CGPoint = AXValue.unpacked(read[kAXPositionAttribute], .cgPoint, CGPoint.zero),
+            let size: CGSize = AXValue.unpacked(read[kAXSizeAttribute], .cgSize, CGSize.zero)
+        else { return nil }
+        let framed: [InstanceState.Window] = listed.filter { row in row.frame == CGRect(origin: origin, size: size) }
+        let shown: [InstanceState.Window] = framed.filter(\.onScreen)
+        return switch (framed.count, shown.count) {
+            case (1, _): framed.first?.number
+            case (_, 1): shown.first?.number
+            case (_, _): nil
         }
     }
 
@@ -174,9 +179,6 @@ extension AXUIElement {
         }
     }
 }
-
-@_silgen_name("_AXUIElementGetWindow")
-private func windowIdentifier(_: AXUIElement, _: UnsafeMutablePointer<CGWindowID>) -> AXError
 
 @_silgen_name("_AXUIElementRemoteTokenCreate")
 private func remoteToken(_: AXUIElement) -> Unmanaged<CFData>

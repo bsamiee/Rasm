@@ -1,9 +1,7 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
 using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using Darkroom.Chain;
-using Emgu.CV;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
@@ -172,11 +170,11 @@ internal sealed record LightRays(
         state.Source.Pass(context, (point, occlusion) => (frame, progress) =>
             frame.Spread(state.Threshold, state.Softness, light => Marched(state, context, frame, point, occlusion, light), state.Layer.Mode, 1f, [], progress));
 
-    private static void Marched(LightRays state, PassContext context, PixelFrame frame, Vector2 source, Option<Occluder> occlusion, Mat light) {
-        Span2D<Vector4> lit = light.View<Vector4>();
+    private static void Marched(LightRays state, PassContext context, PixelFrame frame, Vector2 source, Option<Occluder> occlusion, PixelFrame light) {
+        Span2D<Vector4> lit = light.View.Span;
         if (occlusion.Case is Occluder occluder)
             Hidden(occluder, frame, lit);
-        PixelFrame key = new(frame.Origin, frame.Size, frame.Extent, block => MemoryMarshal.Cast<Vector4, float>(light.GetSpan<Vector4>()).CopyTo(block));
+        PixelFrame key = light.Copy();
         PixelFrame rays = new(frame.Origin, frame.Size, frame.Extent);
         rays.Rows(Rays(state, context, source, key));
         rays.View.Span.CopyTo(lit);

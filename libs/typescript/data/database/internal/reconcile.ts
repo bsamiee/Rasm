@@ -3,7 +3,7 @@ import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column } from '#/column';
 import { ReconcileError } from '#/error';
-import type { Engine } from '#/internal/engine';
+import type { Engine } from '#/engine';
 import type { Relation } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------

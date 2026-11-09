@@ -3,10 +3,8 @@
 [project]
 name            = "rasm-typography"
 version         = "0.0.0"
-description     = "Font capability over fontTools, ufo2ft, HarfBuzz and skia-pathops, with the pipeline that reconciles a declared font set from its originals"
-readme          = "README.md"
+description     = "Font engineering over bytes and design records with fontTools, ufo2ft, HarfBuzz and skia-pathops: face import, Perso-Arabic rules as data, compilation, and requirement checks"
 license         = "MIT"
-license-files   = ["LICENSE"]
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
 classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Multimedia :: Graphics", "Topic :: Text Processing :: Fonts", "Typing :: Typed"]
 requires-python = ">=3.15"
@@ -14,51 +12,40 @@ requires-python = ">=3.15"
 dependencies = [
     # --- [CORE]
 
-    "anyio>=4.15.0",                   # Worker processes running each face of a set in parallel, `amap` from 4.15.0
-    "expression>=5.2.0",               # Results, options, and collections of every module, `Result.merge` from 5.2.0
-    "msgspec>=0.22.0",                 # Records, tagged unions, field bounds, and TOML and JSON codecs, `frozendict` fields from 0.22.0
-    "packaging>=22.0",                 # Requirement markers the installed dependency closure walks, PEP 685 extras from 22.0
-    "rasm-records",                    # Fault results, record files, and atomic writes every typography module answers in
-
-    # --- [COMMANDS]
-
-    "cyclopts>=4.10.0",                # Command parser of the `foundry` script from typed signatures, `App.error_formatter` from 4.10.0
-    "sysexits>=0.5.0",                 # Portable process exit codes
+    "expression>=5.2.0",       # Results, options, and collections of every module, `Result.merge` from 5.2.0
+    "msgspec>=0.22.0",         # Records, tagged unions, field bounds, and JSON codecs, `frozendict` fields from 0.22.0
+    "rasm-records",            # Fault results and atomic writes every typography module answers in
 
     # --- [FONTS]
 
-    "fonttools[woff]>=4.66.0",         # Font tables, feature AST, pens, WOFF2, and Unicode scripts and blocks, Python 3.15 from 4.66.0
-    "ufo2ft>=3.8.0",                   # UFO to TrueType compile with its mark, cursive, kern and GDEF writers and filters, anchor propagation from 3.8.0
-    "ufoLib2>=0.18.0",                 # UFO source object model the compile reads, free of the `fs` package from 0.18.0
+    "fonttools[woff]>=4.66.0", # Font tables, feature AST, pens, WOFF2, and Unicode scripts and blocks, Python 3.15 from 4.66.0
+    "ufo2ft>=3.8.0",           # UFO to TrueType compile with its mark, cursive, kern and GDEF writers and filters, anchor propagation from 3.8.0
+    "ufoLib2>=0.18.0",         # UFO source object model the compile reads, free of the `fs` package from 0.18.0
 
     # --- [UNICODE]
 
-    "httpx2>=2.10.0",                  # Download of the pinned `ArabicShaping.txt`, Python 3.15 from 2.10.0
-    "platformdirs>=4.11.0",            # User cache folder holding `ArabicShaping.txt`, Python 3.15 from 4.11.0
+    "httpx2>=2.10.0",          # Download of the pinned `ArabicShaping.txt`, Python 3.15 from 2.10.0
+    "platformdirs>=4.11.0",    # User cache folder holding `ArabicShaping.txt`, Python 3.15 from 4.11.0
 
     # --- [GEOMETRY]
 
-    "scipy>=1.18.1",                   # Scalar optimization over glyph outlines, Python 3.15 from 1.18.1
-    "shapely>=2.2.0",                  # Planar topology and outline geometry, Python 3.15 from 2.2.0
-    "skia-pathops>=0.9.0",             # Path booleans, simplify and stroke over glyph outlines, Python 3.15 from 0.9.0
+    "scipy>=1.18.1",           # Scalar optimization over glyph outlines, Python 3.15 from 1.18.1
+    "shapely>=2.2.0",          # Planar topology and outline geometry, Python 3.15 from 2.2.0
+    "skia-pathops>=0.9.0",     # Path booleans, simplify and stroke over glyph outlines, Python 3.15 from 0.9.0
 
     # --- [SHAPING]
 
-    "uharfbuzz>=0.55.0",               # HarfBuzz shaping with the `ot` and `coretext` shapers and glyph drawing, table tag callbacks from 0.55.0
+    "uharfbuzz>=0.55.0",       # HarfBuzz shaping with the `ot` and `coretext` shapers and glyph drawing, table tag callbacks from 0.55.0
 
-    # --- [VERIFICATION]
+    # --- [HINTING]
 
-    "opentype-sanitizer>=8.1.4.post3", # OTS acceptance of a built binary, macOS arm64 wheels from 8.1.4.post3
-    "ttfautohint-py>=0.6.1",           # TrueType hinting where a face's plan asks for it, `epoch` from 0.6.1
+    "ttfautohint-py>=0.6.1",   # TrueType hinting where a face's genre asks for it, `epoch` from 0.6.1
 ]
 
 [project.urls]
 Homepage = "https://github.com/bsamiee/Rasm/tree/main/libs/python/graphics/typography"
 Source   = "https://github.com/bsamiee/Rasm"
 Issues   = "https://github.com/bsamiee/Rasm/issues"
-
-[project.scripts]
-foundry = "rasm_typography._cli:app"
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 

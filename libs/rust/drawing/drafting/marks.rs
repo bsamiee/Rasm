@@ -5,10 +5,7 @@ use kurbo::{Affine, Arc, BezPath, Circle, Line, ParamCurve as _, ParamCurveArcle
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
 use rasm_drawing::{Anchor, Baseline, Linetype, Path, Pen, Placement, Width};
-use uom::si::{
-    f64::{Angle, Length},
-    length::millimeter,
-};
+use uom::si::f64::{Angle, Length};
 
 use crate::{
     DraftingError, Geometry, Graphics, Head, bounds, directed, edges, filled, graduated, indexed, joined, located, measured,
@@ -25,20 +22,59 @@ pub struct Chord(f64);
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Breakline {
-    Zigzag { stations: NEVec<f64> },
+    Zigzag {
+        stations: NEVec<f64>,
+    },
     Wavy,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mark {
-    Cloud { boundary: Path, arc: Chord },
-    Break { line: Line, size: Width, form: Breakline },
-    Arrow { path: Path, start: Option<Head> = None, label: Option<Label> = None },
-    Bar { at: Point, angle: Angle, divisions: NEVec<Length>, subdivisions: Vec<Length> = Vec::new(), height: Width, linear: Option<notation::Linear> = None },
-    Center { circle: Circle, size: Width, overshoot: Option<Width> = None, linetype: Option<Linetype> = None },
-    Axis { line: Line, overshoot: Width, linetype: Option<Linetype> = None, bubbles: Option<EitherOrBoth<Label, Label>> = None },
-    Cut { path: Path, pen: Pen, end: Width, linetype: Option<Linetype> = None, labels: Option<EitherOrBoth<Label, Label>> = None },
-    Insulation { path: Path, thickness: Length },
+    Cloud {
+        boundary: Path,
+        arc: Chord,
+    },
+    Break {
+        line: Line,
+        size: Width,
+        form: Breakline,
+    },
+    Arrow {
+        path: Path,
+        start: Option<Head> = None,
+        label: Option<Label> = None,
+    },
+    Bar {
+        at: Point,
+        angle: Angle,
+        divisions: NEVec<Length>,
+        subdivisions: Vec<Length> = Vec::new(),
+        height: Width,
+        linear: Option<notation::Linear> = None,
+    },
+    Center {
+        circle: Circle,
+        size: Width,
+        overshoot: Option<Width> = None,
+        linetype: Option<Linetype> = None,
+    },
+    Axis {
+        line: Line,
+        overshoot: Width,
+        linetype: Option<Linetype> = None,
+        bubbles: Option<EitherOrBoth<Label, Label>> = None,
+    },
+    Cut {
+        path: Path,
+        pen: Pen,
+        end: Width,
+        linetype: Option<Linetype> = None,
+        labels: Option<EitherOrBoth<Label, Label>> = None,
+    },
+    Insulation {
+        path: Path,
+        thickness: Length,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -98,15 +134,16 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             let thickness = height.into_inner();
             let lengths = indexed::<_, Vec<_>, _>(
                 iter::chain(subdivisions, divisions.iter())
-                    .map(|division| (division.is_finite() && division.value > 0.0).then_some(units(*division)).ok_or_else(|| DraftingError::Geometry(Geometry::Extent).into())),
+                    .map(|division| (division.is_finite() && division.value > 0.0).then_some(units(*division, style.unit)).ok_or_else(|| DraftingError::Geometry(Geometry::Extent).into())),
             )?;
-            let left = subdivisions.iter().map(|division| units(*division)).sum::<f64>();
+            let left = subdivisions.iter().map(|division| units(*division, style.unit)).sum::<f64>();
             let positions = edges(lengths).collect::<Vec<_>>();
             let basis = oriented(origin, direction) * Affine::FLIP_Y * Affine::translate((-left * scale, 0.0));
             let solid = positions.array_windows().step_by(2).flat_map(|&[from, to]| Rect::new(from * scale, 0.0, to * scale, thickness).path_elements(accuracy)).collect::<BezPath>();
-            let ticks = positions.iter().enumerate().map(|(index, &position)| {
-                (position * scale, (index == 0 || index >= subdivisions.len()).then(|| notation::linear(linear, Length::new::<millimeter>((position - left).abs()), Sign::Negative)))
-            });
+            let ticks = positions
+                .iter()
+                .enumerate()
+                .map(|(index, &position)| (position * scale, (index == 0 || index >= subdivisions.len()).then(|| notation::linear(linear, *style.unit * (position - left).abs(), Sign::Negative))));
             joined(
                 [filled(basis * solid, FillRule::NonZero, style.pen.color.clone(), style.pen.opacity, style.tolerance)],
                 [graduated(
@@ -164,7 +201,7 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 views.into_iter().filter_map(|(base, view, label)| label.map(|label| beyond(label, base + view * reach, view))),
             )
         }
-        Mark::Insulation { path, thickness } => insulation(style, &(*placement * &**path), units(*thickness) * placement.determinant().abs().sqrt() * 0.5),
+        Mark::Insulation { path, thickness } => insulation(style, &(*placement * &**path), units(*thickness, style.unit) * placement.determinant().abs().sqrt() * 0.5),
     }
 }
 

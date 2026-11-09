@@ -22,9 +22,18 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Swatch {
-    Line { pen: Pen, linetype: Option<Linetype> = None },
-    Fill { color: Color, opacity: Opacity = Opacity::OPAQUE },
-    Hatch { pattern: Pattern, pen: Pen },
+    Line {
+        pen: Pen,
+        linetype: Option<Linetype> = None,
+    },
+    Fill {
+        color: Color,
+        opacity: Opacity = Opacity::OPAQUE,
+    },
+    Hatch {
+        pattern: Pattern,
+        pen: Pen,
+    },
     Symbol(Arc<Definition>),
 }
 

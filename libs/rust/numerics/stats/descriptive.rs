@@ -1,7 +1,7 @@
 use core::iter;
 
 use average::Covariance;
-use nalgebra::{DMatrix, DMatrixView, convert};
+use nalgebra::{DMatrix, DMatrixView};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use statrs::statistics::{Data, OrderStatistics as _, RankTieBreaker};
 
@@ -21,21 +21,7 @@ pub enum Dependence {
 
 #[must_use]
 pub fn quantile(frequencies: impl IntoIterator<Item = (f64, usize)>, probability: f64) -> Option<f64> {
-    (0.0..=1.0).contains(&probability).then_some(())?;
-    let mut frequencies = frequencies.into_iter().filter(|&(_, count)| count > 0).collect::<Vec<_>>();
-    let total = frequencies.iter().try_fold(0_usize, |total, &(_, count)| total.checked_add(count))?;
-    let third = 1.0 / 3.0;
-    let position = (convert::<usize, f64>(total) + third).mul_add(probability, third);
-    frequencies.sort_unstable_by(|(left, _), (right, _)| left.total_cmp(right));
-    match position.to_int_saturating::<usize>() {
-        0 => frequencies.first().map(|&(value, _)| value),
-        rank if rank >= total => frequencies.last().map(|&(value, _)| value),
-        rank => {
-            let mut samples = frequencies.into_iter().flat_map(|(value, count)| iter::repeat_n(value, count)).skip(rank.strict_sub(1));
-            let (lower, upper) = (samples.next()?, samples.next()?);
-            Some((position - convert::<usize, f64>(rank)).mul_add(upper - lower, lower))
-        }
-    }
+    Some(Data::new(frequencies.into_iter().flat_map(|(value, count)| iter::repeat_n(value, count)).collect::<Vec<_>>()).quantile(probability)).filter(|quantile| !quantile.is_nan())
 }
 
 // --- [DEPENDENCE]

@@ -13,6 +13,10 @@ const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite
 });
 const Cep = Schema.Struct({ ExtensionBundleId: Schema.String }).annotate({ description: 'ExtensionManifest attributes of a CEP CSXS/manifest.xml' });
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class TypeScriptError extends Schema.TaggedError<TypeScriptError, { readonly brand: unique symbol }>()('TypeScriptError', { message: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {}
+
 // --- [TABLES] --------------------------------------------------------------------------
 
 const PACKAGES = {
@@ -20,11 +24,10 @@ const PACKAGES = {
         manifest: 'manifest.json',
         archive: '.ccx',
         variables: [],
-        description: 'Packs the built UXP plugin into <project>.ccx, a zip with manifest.json at its root',
+        description: 'Packs the UXP plugin a build wrote, else its source folder, into <project>.ccx, a zip with manifest.json at its root',
         accepts: (text: string) => Effect.succeed(Option.isSome(Schema.decodeOption(Uxp)(text))),
-        pack: Effect.fnUntraced(function* (folder: string, file: string) {
+        pack: Effect.fnUntraced(function* (folder: string, names: readonly string[], file: string) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const names = yield* Effect.filter((yield* fs.readDirectory(folder, { recursive: true })).toSorted(), (name) => Effect.map(fs.stat(path.join(folder, name)), ({ type }) => type === 'File'));
             yield* Stream.fromIterable(names).pipe(
                 Stream.map((name) => Zip.fileStream(name.split(path.sep).join('/'), fs.stream(path.join(folder, name)))),
                 Stream.pipeThroughChannel(Zip.encode()),
@@ -37,7 +40,7 @@ const PACKAGES = {
         manifest: 'CSXS/manifest.xml',
         archive: '.zxp',
         variables: SIGNING,
-        description: 'Signs a copy of the built CEP extension into <project>.zxp with ZXPSignCmd, in the release configuration',
+        description: 'Signs a copy of the CEP extension a build wrote, else its source folder, into <project>.zxp with ZXPSignCmd, in the release configuration',
         accepts: (text: string) =>
             Stream.make(text).pipe(
                 Stream.pipeThroughChannel(Xml.decodeString()),
@@ -46,11 +49,11 @@ const PACKAGES = {
                 Effect.map(Option.exists(({ attributes }) => Schema.is(Cep)(attributes))),
                 Effect.orElseSucceed(() => false),
             ),
-        pack: Effect.fnUntraced(function* (folder: string, file: string, timestampAuthority?: string) {
+        pack: Effect.fnUntraced(function* (folder: string, names: readonly string[], file: string, timestampAuthority?: string) {
             const [fs, path, certificate, password] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.Redacted(SIGNING[0]), Config.Redacted(SIGNING[1])]);
             const p12 = yield* Effect.fromResult(Base64.decode(Redacted.value(certificate)));
             const signed = path.join(yield* fs.makeTempDirectoryScoped(), path.basename(folder));
-            yield* fs.copy(folder, signed);
+            yield* Effect.forEach(names, (name) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(signed, name)), { recursive: true }), fs.copyFile(path.join(folder, name), path.join(signed, name))), { discard: true });
             const handle = yield* ChildProcess.make('ZXPSignCmd', ['-sign', signed, file, '/dev/fd/3', Redacted.value(password), ...Array.flatMap(Option.toArray(Option.fromUndefinedOr(timestampAuthority)), (url) => ['-tsa', url])], {
                 extendEnv: true,
                 stdin: 'ignore',
@@ -65,4 +68,4 @@ const PACKAGES = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { PACKAGES };
+export { PACKAGES, TypeScriptError };

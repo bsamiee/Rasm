@@ -1,8 +1,7 @@
-#![feature(const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns, float_minimum_maximum, integer_casts)]
+#![feature(const_convert, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns, float_minimum_maximum, integer_casts)]
 
 use core::{borrow::Borrow, iter, range::RangeInclusive};
 
-use argmin::core::Error;
 use bilby::QuadratureError;
 use csaps::CsapsError;
 use itertools::{Itertools as _, iproduct};
@@ -19,9 +18,7 @@ use validated::Validated;
 
 pub type SearchHooks<'hooks> = (
     Option<&'hooks basin::CancellationToken>,
-    Option<
-        &'hooks (dyn Fn() -> (Box<dyn for<'state, 'solver, 'event> FnMut(&'state basin::PointState<f64>, &'solver basin::GoldenSection, basin::ObservationEvent<'event>)>, basin::ObserverMode) + Sync),
-    >,
+    Option<&'hooks (dyn Fn() -> (Box<dyn for<'state, 'solver, 'event> FnMut(&'state basin::PointState<f64>, &'solver basin::Brent, basin::ObservationEvent<'event>)>, basin::ObserverMode) + Sync)>,
 );
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -131,8 +128,8 @@ pub struct Prediction<T> {
 
 #[derive(Debug, derive_more::Display, derive_more::Error)]
 pub enum RootSource {
-    Argmin(Error),
     Bounds(BoundsError),
+    Bracket(Box<basin::RootError<AnalysisError>>),
     Basin(Box<basin::ConstraintSolveError<AnalysisError>>),
 }
 
@@ -233,6 +230,15 @@ mod splines;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+pub use basin;
+pub use bilby;
+pub use nalgebra;
+pub use ndarray;
+pub use nonempty_collections;
+pub use num_complex;
+pub use num_dual;
 pub use quadrature::{Domain, Integral, Settings, Weight, integrate, weighted};
+pub use rasm_stats;
 pub use scattered::{Constrained, Delaunay, Flatness, FlatnessError, Interpolant, Kernel, Kriging, Observation, Sites, barycentric, constrain, gradients, interpolate, krige, predict, triangulate};
+pub use spade;
 pub use splines::{Extrapolation, GridAxis, Method, Reading, Smooth, SmoothError, Spline, SplineAxis, crossings, curve, evaluate, grid};

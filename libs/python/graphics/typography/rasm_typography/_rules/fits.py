@@ -9,7 +9,7 @@ lazy from scipy.optimize import root_scalar
 
 from rasm_typography._faces.declaration import Em, Ratio
 from rasm_typography._rules.measures import _band, _dotted, _nuqta, Rule
-lazy from rasm_typography._faces.glyphs import _Glyph, _Outline, _Source, Letter
+lazy from rasm_typography._faces.glyphs import _Glyph, _Outline, Letter, Source
 lazy from rasm_typography._faces.names import _Form
 lazy from rasm_typography._outlines.measure import _counters, _gap, _inradius
 lazy from rasm_typography._outlines.paths import _area, _bounds, _combined, _offset, _transformed, _union
@@ -76,7 +76,7 @@ def _fit(rule: Outlines, joins: tuple[float, float] | None, canonical: _Outline,
     return msgspec.structs.replace(glyph, contours=_floored(body, redrawn, rule.floor * em) if rule.floor is not None and redrawn else (*body, *(*piece for piece in redrawn)))
 
 
-def _fitted(source: _Source, rule: Outlines, /) -> _Source:
+def _fitted(source: Source, rule: Outlines, /) -> Source:
     """Cleans every drawn glyph and redraws each letter's single dots as the face's nuqta, at least the floor off the body."""
     counted = frozenset(source.key(code, form) for code in rule.letters for form in _Form)
     fit = partial(_fit, rule, _band(source) if rule.spurs else None, _nuqta(source, rule.dot) if rule.dot is not None else (), counted, source.upm)

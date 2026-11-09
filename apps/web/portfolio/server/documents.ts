@@ -1,4 +1,4 @@
-import { atomic } from '@rasm/database';
+import { Engine } from '@rasm/database';
 import { HostingError } from '@rasm/hosting';
 import { Array, Effect, Function, Match, Schema, SchemaGetter } from 'effect';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';
@@ -62,7 +62,7 @@ const storeDraft = SqlSchema.findOne({
             const current = sql`SELECT COALESCE(MAX(revision), 0) AS revision, COALESCE(MAX(body = ${body}), 0) AS stored,
             (SELECT json_group_array(json_object('path', u.fullkey, 'assetId', u.asset_id)) FROM (${unplaced}) u) AS unplaced
             FROM documents WHERE state = 'draft'`;
-            return Effect.map(atomic([save, ...(publish ? [published] : []), current]), Array.lastNonEmpty);
+            return Effect.map(Engine.atomic([save, ...(publish ? [published] : []), current]), Array.lastNonEmpty);
         }),
 });
 const writeDocument = Effect.fn('writeDocument')(

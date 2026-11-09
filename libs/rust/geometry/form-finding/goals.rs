@@ -6,11 +6,9 @@ use faer::{
     linalg::solvers::Solve as _,
     sparse::{SparseColMat, Triplet, linalg::matmul::sparse_dense_matmul},
 };
-use itertools::Itertools as _;
 use nalgebra::{DMatrixView, DVector, Isometry3, Point3, Unit, Vector3};
-use nlopt::Target;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use rasm_optimization::{Settings, Solution, optimize};
+use rasm_optimization::{Settings, Solution, nlopt::Target, optimize};
 use rasm_stats::Space;
 use rayon::iter::{Either, ParallelIterator as _};
 use validated::Validated;
@@ -56,19 +54,8 @@ pub fn optima<K>(
 where
     K: Ord + Sync,
 {
-    let (first, _) = space.values().next();
-    let side = (!first.contains(&0.0)).then_some(first.start.is_sign_positive());
     let dimensions = space.keys().into_iter().enumerate().map(|(dimension, key)| (key, dimension)).collect::<BTreeMap<_, _>>();
-    let refusals = iter::chain(
-        (groups.len() != network.edges.len()).then_some(FormError::Shape { input: Input::Groups, expected: network.edges.len(), found: groups.len() }),
-        space
-            .values()
-            .into_iter()
-            .positions(|bounds| bounds.contains(&0.0) || side.is_some_and(|side| bounds.start.is_sign_positive() != side))
-            .map(|index| FormError::Entry { input: Input::Bounds, index }),
-    )
-    .map(Err)
-    .collect::<Validated<(), _>>();
+    let refusals = Validated::from((groups.len() == network.edges.len()).ok_or(FormError::Shape { input: Input::Groups, expected: network.edges.len(), found: groups.len() }));
     let memberships = groups
         .iter()
         .enumerate()
@@ -100,7 +87,7 @@ where
                 optimize(space, start.into_owned(), Target::Minimize, |point: &[f64], slot: Option<&mut [f64]>| objective(network, &resolved, &grouping, &mut densities, point, slot), settings)
                     .map_err(|failure| failure.either(NEVec::new, |failures| failures.into_nonempty_iter().map(FormError::from).collect()))?;
             grouped(&grouping, solution.point.as_slice(), &mut densities);
-            let Solved { factor: _, sign: _, spans, free } = solved(network, densities.as_view()).map_err(NEVec::new)?;
+            let Solved { factor: _, spans, free } = solved(network, densities.as_view()).map_err(NEVec::new)?;
             Ok(Optimum { solution, form: form(network, free.as_ref(), spans.as_ref(), densities.as_view(), balance(network, spans.as_ref(), densities.as_view())) })
         })
         .collect())
@@ -119,7 +106,7 @@ fn grouped(grouping: &SparseColMat<usize, f64>, point: &[f64], densities: &mut D
 
 fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat<usize, f64>, densities: &mut DVector<f64>, point: &[f64], slot: Option<&mut [f64]>) -> Result<f64, FormError> {
     grouped(grouping, point, densities);
-    let Solved { factor, sign, spans, free } = solved(network, densities.as_view())?;
+    let Solved { factor, spans, free } = solved(network, densities.as_view())?;
     let edge = |column: usize| Unit::try_new_and_get(vector(spans.row(column)), 0.0).map_or_else(|| (Vector3::zeros(), 0.0), |(direction, length)| (direction.into_inner(), length));
     let terms = goals.iter().map(|&(column, Goal { weight, measure })| match measure {
         Measure::Position { node: _, target } => {
@@ -157,8 +144,7 @@ fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat
                     (total + value, nodal, spanned, explicit)
                 });
             let adjoint = network.free.as_ref() * factor.solve(nodal + network.free.as_ref().transpose() * &spanned);
-            let gradient =
-                iter::zip(explicit, iter::zip(adjoint.row_iter(), spans.row_iter())).map(|(explicit, (adjoint, span))| (-sign).mul_add(adjoint * span.transpose(), explicit)).collect::<Vec<_>>();
+            let gradient = iter::zip(explicit, iter::zip(adjoint.row_iter(), spans.row_iter())).map(|(explicit, (adjoint, span))| explicit - adjoint * span.transpose()).collect::<Vec<_>>();
             sparse_dense_matmul(
                 MatMut::from_column_major_slice_mut(slot, grouping.ncols(), 1),
                 Accum::Replace,

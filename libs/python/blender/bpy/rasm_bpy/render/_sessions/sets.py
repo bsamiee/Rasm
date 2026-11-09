@@ -17,6 +17,7 @@ from rasm_bpy.commands.operators import Answer, BoundBody, Call, confirmed, Done
 from rasm_bpy.data._extension.events import _updated
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Handler, Registrable
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Descriptor, written
 from rasm_bpy.data._rna.paths import _parsed, rooted
 from rasm_bpy.data._rna.properties import enum_choices
@@ -56,7 +57,7 @@ from rasm_bpy.ui._layout.rows import Layout, Opens, OperatorButton, Property, Ro
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.tables import _SettingsTable
 from rasm_bpy.ui._layout.values import _menu_key, Captured
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -300,7 +301,7 @@ def _converted(members: Members, form: Form, context: bpy.types.Context) -> Outc
                     rollback.callback(_removed, (source, target))
                     return scene, layer, target
 
-                return catch(created, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, f"{source!r}.view_layers.new({name!r})"))
+                return catch(created, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, f"{source!r}.view_layers.new({name!r})"))
 
             def filled(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, target: bpy.types.ViewLayer) -> Outcome[str]:
                 return (

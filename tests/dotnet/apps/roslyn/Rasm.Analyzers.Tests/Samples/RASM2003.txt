@@ -1,0 +1,16 @@
+using System.Threading.Tasks;
+using Rhino;
+
+namespace Rasm.Rhino {
+    public static class Session {
+        public static T OnUiThread<T>(T value) => value;
+    }
+}
+
+internal static class TaskRunDocument {
+    internal static Task<int> Counted(RhinoDoc doc) => Task.Run(() => {|#0:doc|}.Objects.Count);
+}
+
+internal static class TaskRunValue {
+    internal static Task<int> Detached(int count) => Task.Run(() => count + 1);
+}

@@ -15,6 +15,7 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.data._rna.snapshots import assigned
@@ -71,7 +72,9 @@ class Tag(msgspec.Struct, frozen=True, kw_only=True):
 
 def _loaded(path: str, tag: Tag) -> Outcome[bpy.types.Image]:
     """Loads or reuses file image, then applies tag."""
-    return catch(bpy.data.images.load, exception=RuntimeError)(path, check_existing=True).map_error(partial(Fault.of, Reason.REFUSED, path)).bind(lambda image: tag.applied(image).map(lambda _: image))
+    return (
+        catch(bpy.data.images.load, exception=RuntimeError)(path, check_existing=True).map_error(partial(Fault.of, Refusal.REFUSED, path)).bind(lambda image: tag.applied(image).map(lambda _: image))
+    )
 
 
 # --- [PIXELS]
@@ -81,7 +84,7 @@ def _pixels(image: bpy.types.Image) -> Outcome[npt.NDArray[np.float32]]:
     """Reads float32 pixels bottom row first as height, width, channels, refused fault for an image holding no buffer."""
     (width, height), channels = np.asarray(image.size), image.channels
     plane = np.empty((height, width, channels), np.float32)
-    return catch(image.pixels.foreach_get, exception=TypeError)(plane.reshape(-1)).map_error(partial(Fault.of, Reason.REFUSED, repr(image))).map(lambda _: plane)
+    return catch(image.pixels.foreach_get, exception=TypeError)(plane.reshape(-1)).map_error(partial(Fault.of, Refusal.REFUSED, repr(image))).map(lambda _: plane)
 
 
 def aspect(image: bpy.types.Image) -> Outcome[float]:
@@ -110,11 +113,11 @@ def normalized(image: bpy.types.Image, config: PyOpenColorIO.Config) -> Outcome[
         Associated pixels with their encoding, or native configuration, export, and read faults.
     """
     if image.source == "VIEWER" or image.type == "MULTILAYER":
-        return Error(Fault.of(Reason.REQUIRED, repr(image), member="render encoding colorspace"))
+        return Error(Fault.of(Refusal.REQUIRED, repr(image), member="render encoding colorspace"))
     settings: bpy.types.ColorManagedInputColorspaceSettings = image.colorspace_settings  # ty: ignore[invalid-assignment]
     if settings.is_data:
         return _read(image, settings.name)
-    refused = partial(Fault.of, Reason.REFUSED, repr(image))
+    refused = partial(Fault.of, Refusal.REFUSED, repr(image))
 
     def captured(space: str, scene: bpy.types.Scene) -> Outcome[ImageFile]:
         try:
@@ -158,7 +161,7 @@ def _filled(image: bpy.types.Image, plane: npt.NDArray[np.float32]) -> Outcome[N
     padded = np.pad(color, ((0, 0), (0, 0), (0, image.channels - color.shape[2])))
     if color.shape[2] < 4 and image.channels == 4:
         padded[..., 3] = 1.0
-    return catch(image.pixels.foreach_set, exception=TypeError)(padded[::-1].reshape(-1)).map_error(partial(Fault.of, Reason.REFUSED, repr(image))).map(lambda _: image.update())
+    return catch(image.pixels.foreach_set, exception=TypeError)(padded[::-1].reshape(-1)).map_error(partial(Fault.of, Refusal.REFUSED, repr(image))).map(lambda _: image.update())
 
 
 def _straight(image: bpy.types.Image) -> bool:

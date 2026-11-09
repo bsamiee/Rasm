@@ -9,7 +9,7 @@ import System
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let beatAttributes: [String] = [kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute]
-private let modalSessionTag: UInt64 = 0x8000_0000
+private let modalPanelLayer: Int = Int(CGWindowLevelForKey(.modalPanelWindow))
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,28 +29,6 @@ struct Beat: Sendable {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-private func modalSessions(among windows: some Sequence<CGWindowID>) -> Set<CGWindowID> {
-    guard let skyLight: UnsafeMutableRawPointer = unsafe dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_NOW) else { return [] }
-    func symbol<Function>(_ name: String) -> Function? { unsafe dlsym(skyLight, name).map { address in unsafe unsafeBitCast(address, to: Function.self) } }
-    guard let connection: @convention(c) () -> Int32 = symbol("SLSMainConnectionID"),
-        let query: @convention(c) (Int32, CFArray, Int32) -> Unmanaged<CFTypeRef>? = unsafe symbol("SLSWindowQueryWindows"),
-        let results: @convention(c) (CFTypeRef) -> Unmanaged<CFTypeRef>? = unsafe symbol("SLSWindowQueryResultCopyWindows"),
-        let advance: @convention(c) (CFTypeRef) -> Bool = symbol("SLSWindowIteratorAdvance"),
-        let tags: @convention(c) (CFTypeRef) -> UInt64 = symbol("SLSWindowIteratorGetTags")
-    else { return [] }
-    return Set(
-        windows.filter { number in
-            if let found: CFTypeRef = unsafe query(connection(), [NSNumber(value: number)] as CFArray, 1)?.takeRetainedValue(),
-                let iterator: CFTypeRef = unsafe results(found)?.takeRetainedValue(), advance(iterator)
-            {
-                tags(iterator) & modalSessionTag != 0
-            } else {
-                false
-            }
-        }
-    )
-}
 
 private func blocking(_ number: CGWindowID, in beat: Beat, tagged: Bool, flat: Bool) -> InstanceState.Window.Description {
     switch (beat.described[number], tagged, flat && beat.answered.map { answered in !answered.contains(number) } == true) {
@@ -95,16 +73,17 @@ extension NSRunningApplication {
         if !heartbeat || next.tokens != tokens || next.numbers != numbers {
             let helper: Bool = isDialogHelper
             let elements: [(window: CGWindowID?, element: Element)] = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in
-                try candidate.described(walking: walked, helper: helper)
+                try candidate.described(walking: walked, helper: helper, among: listed)
             }
             .compactMap(\.self)
             next.described = Dictionary(elements.compactMap { row in row.window.map { window in (window, row.element) } }) { first, second in first.asking ? first : second }
             let bars: [String: CFTypeRef] = try application.values(menuBars)
             let barred: [Element] = try menuBars.enumerated().map { index, bar throws(ApplicationFailure) in
-                try bars[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, bar: index)?.element
+                try bars[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, among: listed, bar: index)?.element
             }
             .compactMap(\.self)
-            next.menus = try barred + application.applicationMenus().map { menu throws(ApplicationFailure) in try menu.described(walking: walked, helper: helper)?.element }.compactMap(\.self)
+            next.menus =
+                try barred + application.applicationMenus().map { menu throws(ApplicationFailure) in try menu.described(walking: walked, helper: helper, among: listed)?.element }.compactMap(\.self)
         }
         let status: InstanceState.Running.Status = isFinishedLaunching || next.described.values.contains(where: \.asking) ? .responding : .launching
         next.status = status
@@ -120,7 +99,7 @@ extension NSRunningApplication {
     private func silent(after held: Beat, sampling: Bool, process: ProcessStatus, listed: [InstanceState.Window]) throws(ApplicationFailure) -> Beat {
         let time: Duration
         do { time = try mainThreadUserTime(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
-        let tagged: Set<CGWindowID> = modalSessions(among: listed.map(\.number))
+        let tagged: Set<CGWindowID> = Set(listed.filter { window in window.layer == modalPanelLayer }.map(\.number))
         let idle: Bool = held.mainThread == time
         let flat: Bool = isFinishedLaunching && idle
         let status: InstanceState.Running.Status =

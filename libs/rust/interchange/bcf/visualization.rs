@@ -6,23 +6,18 @@ use data_encoding::{HEXUPPER, HEXUPPER_PERMISSIVE};
 use itertools::{Either, EitherOrBoth};
 use nalgebra::{Isometry3, Point3, Translation3, Unit, UnitQuaternion, Vector3};
 use nonempty_collections::NEVec;
-use rasm_ifc::{
-    Composed, Model, Path, PositiveLength,
-    schemas::{Attribute as _, attribute},
-    spatial::{Class, SpaceBoundary},
-};
 use strum::VariantArray as _;
 use uom::si::{
     angle::degree,
     f64::{Angle, Length},
     length::meter,
 };
-use uuid::{Uuid, fmt::Hyphenated};
+use uuid::Uuid;
 use validated::Validated;
 use xot::Node;
 
 use crate::{
-    ASPECT_RATIO, Alphabet, BcfError, Constraint, IFC_GUID_DIGITS, Image, ImageFormat, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, REFERENCE, Text,
+    ASPECT_RATIO, Alphabet, BcfError, Constraint, Image, ImageFormat, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, REFERENCE, Text,
     xml::{Codec, Reader, Simple, Writer, codec, local_name, named, sides},
 };
 
@@ -76,6 +71,17 @@ pub enum Projection {
     Orthogonal(PositiveLength),
     Perspective(FieldOfView),
 }
+
+#[nutype::nutype(
+    validate(
+        with = |length: &Length| -> Result<(), BcfError> {
+            (length.is_normal() && length.is_sign_positive()).ok_or(BcfError::Constrained(Constraint::Length(length.get::<meter>())))
+        },
+        error = BcfError
+    ),
+    derive(Debug, Clone, Copy, PartialEq, PartialOrd, AsRef, Deref, TryFrom, Into)
+)]
+pub struct PositiveLength(Length);
 
 #[nutype::nutype(
     validate(
@@ -199,7 +205,7 @@ impl Simple for FieldOfView {
 }
 
 impl Simple for PositiveLength {
-    fn decode(text: &str) -> Result<Self, BcfError> { f64::decode(text).and_then(|length| Self::try_new(Length::new::<meter>(length)).map_err(BcfError::from)) }
+    fn decode(text: &str) -> Result<Self, BcfError> { f64::decode(text).and_then(|length| Self::try_new(Length::new::<meter>(length))) }
 
     fn encode(&self) -> String { self.get::<meter>().encode() }
 }
@@ -347,42 +353,13 @@ pub fn presentation(components: &Components) -> impl Fn(Option<&Reference>, Opti
     }
 }
 
-pub fn node_presentation(components: &Components) -> impl Fn(&Composed) -> Result<Option<Presentation>, BcfError> {
-    let present = presentation(components);
-    move |node| reference(&node.path).and_then(|reference| hint(node).map(|hint| present(reference.as_ref(), hint)))
-}
-
-pub fn reference(path: &Path) -> Result<Option<Reference>, BcfError> {
-    let head = path.head();
-    matches!(head.len(), IFC_GUID_DIGITS | Hyphenated::LENGTH).then(|| Uuid::decode(head).map(EitherOrBoth::Left)).transpose()
-}
-
 #[must_use]
-pub fn referent<'model>(model: &'model Model, reference: &Reference) -> Option<&'model Composed> {
-    let &identity = reference.as_ref().left()?;
-    let mut text = [0; Hyphenated::LENGTH];
-    model.head(identity.hyphenated().encode_lower(&mut text)).or_else(|| model.head(&identity.encode()))
-}
-
-pub fn hint(node: &Composed) -> Result<Option<ViewSetupHint>, BcfError> {
-    attribute::<Class>(node)
-        .map(|class| match class.as_ref().map(|class| &*class.code) {
-            Some("IfcSpace") => Some(ViewSetupHint::Spaces),
-            Some("IfcOpeningElement" | "IfcOpeningStandardCase") => Some(ViewSetupHint::Openings),
-            _ => node.attributes.contains_key(SpaceBoundary::ID).then_some(ViewSetupHint::SpaceBoundaries),
-        })
-        .map_err(BcfError::from)
-}
-
-#[must_use]
-pub fn visibility<V, H>(visible: V, hidden: H) -> Visibility
+pub fn visibility<V, H>(default: bool, visible: V, hidden: H) -> Visibility
 where
     V: IntoIterator<Item = (Component, Option<ViewSetupHint>)>,
     H: IntoIterator<Item = (Component, Option<ViewSetupHint>)>,
 {
     let visible = visible.into_iter().collect::<Vec<_>>();
-    let hidden = hidden.into_iter().collect::<Vec<_>>();
-    let default = hidden.len() < visible.len();
     let view_setup_hints = if default { visible.iter().filter_map(|&(_, hint)| hint).collect() } else { BTreeSet::new() };
     let stated = Visibility { default, view_setup_hints, exceptions: Vec::new() };
     let exceptions = visible.into_iter().filter(|&(_, hint)| !shown(&stated, hint)).chain(hidden.into_iter().filter(|&(_, hint)| shown(&stated, hint))).map(|(component, _)| component).collect();

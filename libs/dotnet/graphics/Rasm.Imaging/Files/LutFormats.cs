@@ -12,7 +12,6 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 
@@ -120,7 +119,7 @@ public sealed partial class LutFormat {
                 from extent in width(cube.Size).Bind(columns => PixelExtent.Validated(columns, (int)(Cubed(cube.Size) / columns)).ToOption())
                 select Filled(new PixelFrame(default, extent, extent), cube, start),
                 key,
-                (frame, stream) => new ImageFile.Raster(frame, None, Alpha: false, new PngEncoder { BitDepth = PngBitDepth.Bit16, ColorType = PngColorType.Rgb })
+                (frame, stream) => new ImageFile.Raster(frame, None, Alpha: false, new RasterCodec.Png(Wide: true))
                     .Write(metadata with { Fields = metadata.Fields.AddOrUpdate("Title", name) }, stream)));
 
     private static Fin<Func<Stream, IO<Unit>>> Written<T>(Option<T> content, string key, Func<T, Stream, IO<Unit>> write) =>

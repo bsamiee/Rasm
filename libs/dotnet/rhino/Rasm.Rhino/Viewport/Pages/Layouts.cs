@@ -5,6 +5,7 @@ using LanguageExt.ClassInstances;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Document.Units;
+using NodaTime.Text;
 using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.Display;
@@ -39,15 +40,15 @@ public static class Layouts {
     public static IO<RhinoPageView> Ensure(RhinoDoc doc, LayoutSheet sheet) =>
         from extent in IO.lift(() => (Width: Quantities.As(sheet.Sheet.Extent.Width, doc.PageUnits), Height: Quantities.As(sheet.Sheet.Extent.Height, doc.PageUnits)))
         from page in Find(doc, sheet.Name).Match(Some: IO.pure, None: () => Products.Of(() => doc.Views.AddPageView(sheet.Name, extent.Width, extent.Height, setActive: false)))
-        from held in SheetOf(doc, page)
-        from sized in unless(held == Some(sheet.Sheet), IO.lift(() => { (page.PageWidth, page.PageHeight) = extent; })).As()
+        from held in SheetOf(doc, page, [sheet.Sheet.Size])
+        from sized in unless(held.Exists(found => found.Orientation == sheet.Sheet.Orientation), IO.lift(() => { (page.PageWidth, page.PageHeight) = extent; })).As()
         from described in IO.lift(() => sheet.Description.Iter(text => Update(page.Description, text, value => page.Description = value)))
         from printed in IO.lift(() => sheet.Printer.Iter(name => Update(page.PrinterName, name, value => page.PrinterName = value)))
         from framed in sheet.Frame.Traverse(style => Frame(doc, page, sheet.Sheet, style)).As()
         select page;
 
-    public static IO<Option<Sheet>> SheetOf(RhinoDoc doc, RhinoPageView page) =>
-        IO.lift(() => Sheet.Match(Quantities.From(page.PageWidth, doc.PageUnits), Quantities.From(page.PageHeight, doc.PageUnits), Quantities.From(doc.PageAbsoluteTolerance, doc.PageUnits)));
+    public static IO<Option<Sheet>> SheetOf(RhinoDoc doc, RhinoPageView page, Seq<SheetSize> sizes) =>
+        IO.lift(() => Sheet.Match(sizes, Quantities.From(page.PageWidth, doc.PageUnits), Quantities.From(page.PageHeight, doc.PageUnits), Quantities.From(doc.PageAbsoluteTolerance, doc.PageUnits)));
 
     public static IO<RhinoPageView> Duplicate(RhinoPageView page, LayoutName name, bool duplicatePageGeometry) =>
         from copy in Products.Of(() => page.Duplicate(duplicatePageGeometry))
@@ -62,28 +63,31 @@ public static class Layouts {
 
     // --- [TITLES]
 
-    public static IO<Unit> Title(RhinoDoc doc, RhinoPageView page, DraftingConvention convention, HashMap<TitleField, string> entries) =>
-        from accepted in IO.lift(TitleField.Accept(convention, entries))
-        from written in accepted.TraverseM(entry => entry.Field.Entry.Switch(
-            (Doc: doc, Page: page, entry.Field.Key, entry.Text),
-            projectEntry: static (state, _) => IO.lift(() => KeyName.Validated(state.Key))
+    public static IO<Unit> Title(RhinoDoc doc, RhinoPageView page, DraftingConvention convention, HashMap<TitleField, TitleSource> sources, HashMap<TitleField, string> entries) =>
+        from block in IO.lift(TitleBlock.Validated(toSeq(sources.Filter(static source => source.Key.IsSome).Keys), convention.Revisions, entries))
+        from written in toSeq(sources.Filter((field, _) => entries.ContainsKey(field)).AsIterable()).TraverseM(entry => entry.Value.Switch(
+            (Doc: doc, Page: page, Text: block.Values.Find(entry.Key).Map(static value => value.Switch(
+                text: static text => text.Value,
+                revision: static revision => revision.Index.ToString(),
+                date: static date => LocalDatePattern.Iso.Format(date.Day)))),
+            documentText: static (state, document) => IO.lift(() => KeyName.Validated(document.Stored))
                 .Bind(name => UserStrings.Write(state.Doc, new DocumentKey(name), state.Text)).Map(static _ => unit),
-            sheetEntry: static (state, _) => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((state.Key, state.Text)))),
-            sheetName: static (_, _) => IO.pure(unit),
+            layoutText: static (state, layout) => UserStrings.Write(state.Page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((layout.Stored, state.Text)))),
+            pageName: static (_, _) => IO.pure(unit),
             sheetFact: static (_, _) => IO.pure(unit))).As()
         select unit;
 
-    public static IO<Seq<(TextFields.InstanceAttributeField Attribute, Option<TitleField> Field)>> TitleFields(InstanceDefinition block) =>
-        IO.lift(() => toSeq(TextFields.GetInstanceAttributeFields(block))
-            .Map(static attribute => (Attribute: attribute, Field: TitleField.TryGet(attribute.Key, out TitleField? field) ? Some(field) : None))
-            .Strict());
+    public static IO<Seq<(TextFields.InstanceAttributeField Attribute, Option<TitleField> Field)>> TitleFields(InstanceDefinition block, HashMap<TitleField, TitleSource> sources) =>
+        IO.lift(() => toHashMap<EqStringOrdinalIgnoreCase, string, TitleField>(toSeq(sources.AsIterable()).Choose(static entry => entry.Value.Key.Map(key => (key, entry.Key)))) switch {
+            var fields => toSeq(TextFields.GetInstanceAttributeFields(block)).Map(attribute => (Attribute: attribute, Field: fields.Find(attribute.Key))).Strict(),
+        });
 
     // --- [ZONES]
 
-    public static IO<Option<string>> Zone(RhinoDoc doc, RhinoObject placed) =>
+    public static IO<Option<string>> Zone(RhinoDoc doc, RhinoObject placed, Seq<SheetSize> sizes) =>
         IO.lift(() => toSeq(doc.Views.GetPageViews()).Find(page => placed.Attributes.Space is ActiveSpace.PageSpace && page.MainViewport.Id == placed.Attributes.ViewportId))
             .Bind(found => found.Match(
-                Some: page => SheetOf(doc, page).Map(sheet =>
+                Some: page => SheetOf(doc, page, sizes).Map(sheet =>
                     from held in sheet
                     from center in Conversions.Present(placed.Geometry.GetBoundingBox(accurate: true)).Map(static box => box.Center)
                     from zone in held.Locate(Quantities.From(center.X, doc.PageUnits), Quantities.From(center.Y, doc.PageUnits))
@@ -119,29 +123,30 @@ public static class Layouts {
         from placed in IO.lift(() => pages.Iter((offset, page) => Update(page.PageNumber, start + offset, position => page.PageNumber = position)))
         select placed;
 
-    public static IO<Unit> Renumber(RhinoDoc doc, NamingStandard grammar, Seq<RhinoPageView> ordered) =>
+    public static IO<Unit> Renumber(RhinoDoc doc, NamingStandard grammar, HashMap<TitleField, TitleSource> sources, Seq<RhinoPageView> ordered) =>
         from numbered in IO.lift(() => ordered.Traverse(page => StandardName.From(grammar, page.PageName).Map(number => (Sheet: page, Number: number))).As())
         from others in Sheets(doc, grammar).Map(sheets => sheets.Filter(sheet => !ordered.Exists(sheet.Page.Equals)).Map(static sheet => sheet.Number))
         from renumbered in IO.lift(StandardName.Renumber(numbered, others))
         from named in IO.lift(() => renumbered.Iter(static sheet => Update(sheet.Sheet.PageName, sheet.Number.Text, name => sheet.Sheet.PageName = name)))
         from arranged in Arrange(renumbered.Map(static sheet => sheet.Sheet))
-        from counted in Number(doc, grammar)
+        from counted in Number(doc, grammar, sources)
         select counted;
 
-    public static IO<Unit> Number(RhinoDoc doc, NamingStandard grammar) =>
+    public static IO<Unit> Number(RhinoDoc doc, NamingStandard grammar, HashMap<TitleField, TitleSource> sources) =>
         from sheets in Sheets(doc, grammar)
         let positions = toHashMap(StandardName.Positions(sheets).Map(static sheet => (sheet.Sheet.RuntimeSerialNumber, (sheet.Ordinal, sheet.Count))))
         from written in Viewports.Pages(doc.Views.GetPageViews()).TraverseM(page =>
             from position in IO.pure(positions.Find(page.RuntimeSerialNumber))
             from stored in UserStrings.Write(page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq(
-                (TitleField.SegmentNumber.Key, position.Map(static at => at.Ordinal.ToString(CultureInfo.InvariantCulture))),
-                (TitleField.SegmentCount.Key, position.Map(static at => at.Count.ToString(CultureInfo.InvariantCulture))))))
+                    (Field: TitleField.SegmentNumber, Text: position.Map(static at => at.Ordinal.ToString(CultureInfo.InvariantCulture))),
+                    (Field: TitleField.SegmentCount, Text: position.Map(static at => at.Count.ToString(CultureInfo.InvariantCulture))))
+                .Choose(entry => sources.Find(entry.Field).Bind(static source => source.Key).Map(key => (key, entry.Text)))))
             select stored).As()
         select unit;
 
-    public static IO<Unit> NumberFollowsPages(NamingStandard grammar) =>
+    public static IO<Unit> NumberFollowsPages(NamingStandard grammar, HashMap<TitleField, TitleSource> sources) =>
         from post in Mailboxes.Idle<uint, Unit>(serials =>
-            Products.Each(toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(doc => Number(doc, grammar))).Map(unit))
+            Products.Each(toSeq(serials.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(doc => Number(doc, grammar, sources))).Map(unit))
         from attached in Subscriptions.Merged(
                 Subscriptions.Merged(
                         Subscriptions.On<ViewEventArgs>(static h => RhinoView.Create += h, static h => RhinoView.Create -= h),

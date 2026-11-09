@@ -95,6 +95,20 @@ public sealed partial class SpotFunction {
     private static float Arc(float rho, float x) => float.Sqrt((rho * rho) - (x * x)) switch { var y => ((x * y) + (rho * rho * float.Atan2(x, y))) / 2f };
 }
 
+[SmartEnum<string>]
+public sealed partial class GlyphFont {
+    public static readonly GlyphFont Simplex = new("simplex", HersheyFonts.Simplex);
+    public static readonly GlyphFont Plain = new("plain", HersheyFonts.Plain);
+    public static readonly GlyphFont Duplex = new("duplex", HersheyFonts.Duplex);
+    public static readonly GlyphFont Complex = new("complex", HersheyFonts.Complex);
+    public static readonly GlyphFont Triplex = new("triplex", HersheyFonts.Triplex);
+    public static readonly GlyphFont ComplexSmall = new("complex-small", HersheyFonts.ComplexSmall);
+    public static readonly GlyphFont ScriptSimplex = new("script-simplex", HersheyFonts.ScriptSimplex);
+    public static readonly GlyphFont ScriptComplex = new("script-complex", HersheyFonts.ScriptComplex);
+
+    internal HersheyFonts Face { get; }
+}
+
 public sealed class GlyphAtlas {
     private readonly PixelExtent extent;
     private readonly ReadOnlyMemory2D<byte> planes;
@@ -105,7 +119,7 @@ public sealed class GlyphAtlas {
 
     public CellGrid Grid { get; }
 
-    public static Fin<GlyphAtlas> Rendered(string glyphs, HersheyFonts font, double cell, PixelExtent extent) =>
+    public static Fin<GlyphAtlas> Rendered(string glyphs, GlyphFont font, double cell, PixelExtent extent) =>
         ImagingFault.Unless(glyphs.Length > 0 && !glyphs.AsSpan().ContainsAnyExceptInRange(' ', '~') && toHashSet(glyphs).Count == glyphs.Length, ImagingReason.Range, glyphs)
             .Map(_ => Drawn(glyphs, font, cell, extent));
 
@@ -117,10 +131,10 @@ public sealed class GlyphAtlas {
                 (int)((long)Grid.Column(x, extent.Width).Remainder * planes.Width / extent.Width)] / (float)byte.MaxValue,
         };
 
-    private static GlyphAtlas Drawn(string glyphs, HersheyFonts font, double cell, PixelExtent extent) {
+    private static GlyphAtlas Drawn(string glyphs, GlyphFont font, double cell, PixelExtent extent) {
         (Size Size, int Baseline)[] measures = [.. glyphs.Select(glyph => {
             int baseline = 0;
-            return (CvInvoke.GetTextSize(glyph.ToString(), font, 1d, 1, ref baseline), baseline);
+            return (CvInvoke.GetTextSize(glyph.ToString(), font.Face, 1d, 1, ref baseline), baseline);
         })];
         (int widest, int tallest) = (measures.Max(static measure => measure.Size.Width), measures.Max(static measure => measure.Size.Height + measure.Baseline));
         CellGrid grid = CellGrid.Fit(extent, cell * widest / tallest, cell);
@@ -131,7 +145,7 @@ public sealed class GlyphAtlas {
             using Mat plane = new(tile.Height, tile.Width, DepthType.Cv8U, 1, Marshal.UnsafeAddrOfPinnedArrayElement(texels, i * tile.Width * tile.Height), tile.Width);
             CvInvoke.PutText(
                 plane, glyphs[i].ToString(), new Point((int)double.Round((tile.Width - (measures[i].Size.Width * scale)) / 2d, MidpointRounding.ToEven), tile.Height - (int)double.Ceiling(measures[i].Baseline * scale)),
-                font, scale, new MCvScalar(byte.MaxValue), int.Max(1, (int)double.Round(scale, MidpointRounding.ToEven)), LineType.AntiAlias);
+                font.Face, scale, new MCvScalar(byte.MaxValue), int.Max(1, (int)double.Round(scale, MidpointRounding.ToEven)), LineType.AntiAlias);
             return CvInvoke.Mean(plane).V0;
         })];
         return new(grid, extent, new ReadOnlyMemory2D<byte>(texels, glyphs.Length * tile.Height, tile.Width), [.. Enumerable.Range(0, glyphs.Length).OrderBy(i => means[i])]);

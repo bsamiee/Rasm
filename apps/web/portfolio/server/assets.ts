@@ -1,4 +1,4 @@
-import { atomic } from '@rasm/database';
+import { Engine } from '@rasm/database';
 import { HostingError, ObjectStorage } from '@rasm/hosting';
 import { Array, ByteSize, Cause, Effect, Exit, Function, Option, Record, Schema, SchemaIssue, Sink, Stream, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
@@ -138,7 +138,7 @@ const releaseUploads = Effect.fn('releaseUploads')(
                         Discard: () => [discard(pending), released()] as const,
                         Delete: () => [sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql)}) WHERE asset_id = assets.id)`, discard(sql`removing IS TRUE`), sql`${released()} AND a.removing IS TRUE`] as const,
                     });
-                    return Effect.map(atomic(statements), Array.lastNonEmpty);
+                    return Effect.map(Engine.atomic(statements), Array.lastNonEmpty);
                 }),
         }),
         Effect.map(Struct.get('objects')),
@@ -148,7 +148,7 @@ const releaseUploads = Effect.fn('releaseUploads')(
 const finishRelease = Effect.fn('finishRelease')(
     (assetId: typeof AssetId.Type, keys: Array.NonEmptyReadonlyArray<string>) =>
         SqlClient.SqlClient.use((sql) =>
-            atomic([
+            Engine.atomic([
                 sql`UPDATE assets SET body = json_set(body, '$.uploads', json((
                     SELECT json_group_array(json(value)) FROM (
                         SELECT CASE WHEN u.value ->> '$.discard' = 1

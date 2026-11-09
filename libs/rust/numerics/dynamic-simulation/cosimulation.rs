@@ -20,7 +20,7 @@ use fmi::{
     fmi3::{
         self, CoSimulation as _, Fmi3Error, Fmi3Model as _, GetSet,
         import::Fmi3Import,
-        schema::{ArrayableVariableTrait, FloatVariableAlias, TypeDefinition, TypedVariableTrait as _, Variable, VariableAlias},
+        schema::{ArrayableVariableTrait, FloatVariableAlias, InitializableVariableTrait as _, TypeDefinition, TypedVariableTrait as _, Variable, VariableAlias},
     },
     import::{from_path, peek_descr_path},
     schema::traits::{DefaultExperiment, FmiModelDescription as _},
@@ -214,8 +214,12 @@ impl Fmu {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, DynamicsError> {
-    fn numbered<S>(members: impl Iterator<Item = ((S, u32), String, Causality, Kind)>) -> (Vec<(S, u32)>, Vec<Port>) {
-        members.enumerate().map(|(reference, (variable, name, causality, kind))| (variable, Port { name, causality, reference, kind })).unzip()
+    fn numbered<S>(members: impl Iterator<Item = ((S, u32), String, Causality, Kind, Option<f64>)>) -> (Vec<(S, u32)>, Vec<Port>) {
+        members.enumerate().map(|(reference, (variable, name, causality, kind, start))| (variable, Port { name, causality, reference, kind, start })).unzip()
+    }
+    fn first<T>(start: Option<&[T]>) -> Option<f64>
+    where T: Copy + Into<f64> {
+        start?.first().copied().map(Into::into)
     }
     let path = path.as_ref();
     let failed = |operation: fn(PathBuf) -> Operation| move |source| DynamicsError::Fmi { operation: operation(path.to_path_buf()), source };
@@ -241,10 +245,11 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
                 })
                 .collect::<HashMap<_, _>>();
             let (variables, ports) = numbered(description.model_variables.variables.iter().filter_map(|variable| {
-                let (typed, kind) = match &variable.elem {
-                    ScalarVariableElement::Real(real) => (Fmi2Type::Real, Kind::Real(real.declared_type.as_deref().and_then(|declared| units.get(declared).copied()))),
-                    ScalarVariableElement::Integer(_) | ScalarVariableElement::Enumeration => (Fmi2Type::Integer, Kind::Integer),
-                    ScalarVariableElement::Boolean(_) => (Fmi2Type::Boolean, Kind::Boolean),
+                let (typed, kind, start) = match &variable.elem {
+                    ScalarVariableElement::Real(real) => (Fmi2Type::Real, Kind::Real(real.declared_type.as_deref().and_then(|declared| units.get(declared).copied())), real.start),
+                    ScalarVariableElement::Integer(integer) => (Fmi2Type::Integer, Kind::Integer, integer.start.map(f64::from)),
+                    ScalarVariableElement::Enumeration => (Fmi2Type::Integer, Kind::Integer, None),
+                    ScalarVariableElement::Boolean(boolean) => (Fmi2Type::Boolean, Kind::Boolean, boolean.start.map(f64::from)),
                     ScalarVariableElement::String => return None,
                 };
                 let causality = match variable.causality {
@@ -253,7 +258,7 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
                     fmi2::schema::Causality::Output => Some(Causality::Output),
                     fmi2::schema::Causality::CalculatedParameter | fmi2::schema::Causality::Local | fmi2::schema::Causality::Independent => None,
                 }?;
-                Some(((typed, variable.value_reference), variable.name.clone(), causality, kind))
+                Some(((typed, variable.value_reference), variable.name.clone(), causality, kind, start))
             }));
             let instance = import.instantiate_cs(&description.model_name, false, false).map_err(failed(Operation::Instantiate))?;
             Ok(Fmu { instance: Instance::Fmi2 { instance: Box::new(instance), import, variables }, tolerance, ports })
@@ -298,16 +303,16 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
                     .variables
                     .iter()
                     .filter_map(|variable| {
-                        let (scalar, typed, kind, aliases): (&dyn ArrayableVariableTrait, _, _, _) = match variable {
-                            Variable::Float32(float) => (float, Fmi3Type::Float32, real(float.declared_type()), float_aliases(&float.aliases)),
-                            Variable::Float64(float) => (float, Fmi3Type::Float64, real(float.declared_type()), float_aliases(&float.aliases)),
-                            Variable::Int8(integer) => (integer, Fmi3Type::Int8, Kind::Integer, plain_aliases(&integer.aliases)),
-                            Variable::UInt8(integer) => (integer, Fmi3Type::UInt8, Kind::Integer, plain_aliases(&integer.aliases)),
-                            Variable::Int16(integer) => (integer, Fmi3Type::Int16, Kind::Integer, plain_aliases(&integer.aliases)),
-                            Variable::UInt16(integer) => (integer, Fmi3Type::UInt16, Kind::Integer, plain_aliases(&integer.aliases)),
-                            Variable::Int32(integer) => (integer, Fmi3Type::Int32, Kind::Integer, plain_aliases(&integer.aliases)),
-                            Variable::UInt32(integer) => (integer, Fmi3Type::UInt32, Kind::Integer, plain_aliases(&integer.aliases)),
-                            Variable::Boolean(boolean) => (boolean, Fmi3Type::Boolean, Kind::Boolean, plain_aliases(&boolean.aliases)),
+                        let (scalar, typed, kind, aliases, start): (&dyn ArrayableVariableTrait, _, _, _, _) = match variable {
+                            Variable::Float32(float) => (float, Fmi3Type::Float32, real(float.declared_type()), float_aliases(&float.aliases), first(float.start())),
+                            Variable::Float64(float) => (float, Fmi3Type::Float64, real(float.declared_type()), float_aliases(&float.aliases), first(float.start())),
+                            Variable::Int8(integer) => (integer, Fmi3Type::Int8, Kind::Integer, plain_aliases(&integer.aliases), first(integer.start())),
+                            Variable::UInt8(integer) => (integer, Fmi3Type::UInt8, Kind::Integer, plain_aliases(&integer.aliases), first(integer.start())),
+                            Variable::Int16(integer) => (integer, Fmi3Type::Int16, Kind::Integer, plain_aliases(&integer.aliases), first(integer.start())),
+                            Variable::UInt16(integer) => (integer, Fmi3Type::UInt16, Kind::Integer, plain_aliases(&integer.aliases), first(integer.start())),
+                            Variable::Int32(integer) => (integer, Fmi3Type::Int32, Kind::Integer, plain_aliases(&integer.aliases), first(integer.start())),
+                            Variable::UInt32(integer) => (integer, Fmi3Type::UInt32, Kind::Integer, plain_aliases(&integer.aliases), first(integer.start())),
+                            Variable::Boolean(boolean) => (boolean, Fmi3Type::Boolean, Kind::Boolean, plain_aliases(&boolean.aliases), first(boolean.start())),
                             Variable::Int64(_) | Variable::UInt64(_) | Variable::String(_) | Variable::Binary(_) | Variable::Clock(_) => return None,
                         };
                         let causality = match scalar.causality() {
@@ -322,7 +327,7 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
                         }
                         .filter(|_| scalar.dimensions().is_empty())?;
                         let reference = scalar.value_reference();
-                        Some(iter::once(scalar.name().to_owned()).chain(aliases).map(move |name| ((typed, reference), name, causality, kind)))
+                        Some(iter::once(scalar.name().to_owned()).chain(aliases).map(move |name| ((typed, reference), name, causality, kind, start)))
                     })
                     .flatten(),
             );

@@ -11,8 +11,6 @@
         ".": "./stacks.ts"
     },
     "dependencies": {
-        "@cloudflare/build-output-utils": "catalog:",
-        "@cloudflare/config": "catalog:",
         "@effect/platform-node": "catalog:",
         "@pulumi/docker": "catalog:",
         "@pulumi/docker-build": "catalog:",

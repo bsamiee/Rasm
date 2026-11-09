@@ -4,9 +4,7 @@
 name            = "rasm-records"
 version         = "0.0.0"
 description     = "Fault records and results, record field domains, record files and stores, and keyed record trees"
-readme          = "README.md"
 license         = "MIT"
-license-files   = ["LICENSE"]
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
 classifiers     = ["Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Software Development :: Libraries", "Typing :: Typed"]
 requires-python = ">=3.13"

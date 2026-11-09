@@ -9,7 +9,7 @@ namespace Arches;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public sealed class ArchesPlugIn : DefinedPlugIn<ArchesPlugIn>, IDefined<PlugInDefinition>, IRuiSource {
+internal abstract class ArchesPlugIn : IDefined<PlugInDefinition>, IRuiSource {
     public static PlugInDefinition Definition { get; } = new() {
         Commands = toSeq(ArchFamily.Items).Map(static family =>
             (PlugInCommand)new CommandDefinition<CommandInput.Run>(family.Command, new CommandInput.Run((doc, _, _) => ArchPrompts.Run(doc, family)))),

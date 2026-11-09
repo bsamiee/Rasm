@@ -18,9 +18,9 @@ import msgspec
 from scipy.cluster.hierarchy import DisjointSet
 from typing_extensions import TypeForm
 
-from rasm_records import accumulated, argument, Case, committed, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason, RecordFile
+from rasm_records import accumulated, Case, committed, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason, RecordFile
 from rasm_rendering._batch.queue import PackedFile, RenderFrames, RenderQueue
-from rasm_rendering._batch.supervision import detached, HostCommands, LocalMachine, ran, RunCommand, RunFile
+from rasm_rendering._batch.supervision import argument, detached, HostCommands, LocalMachine, ran, RunCommand, RunFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -384,11 +384,7 @@ def _sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[_Bo
     return (
         catch(client.request, exception=httpx2.RequestError)(method, path, content=data, headers=headers)
         .map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error))
-        .bind(
-            lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(
-                lambda error: Fault.of(Reason.ANSWERED, str(error.request.url), error, member=f"HTTP {error.response.status_code}")
-            )
-        )
+        .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error)))
     )
 
 

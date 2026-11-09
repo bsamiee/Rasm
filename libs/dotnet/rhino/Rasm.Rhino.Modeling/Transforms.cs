@@ -1,4 +1,3 @@
-using MathNet.Numerics.LinearAlgebra;
 using Rasm.Geometry;
 
 namespace Rasm.Rhino.Modeling;
@@ -129,10 +128,12 @@ public static class Transformations {
         public Fin<ParameterSpan> ToSpan() => ParameterSpan.Validated(interval.T0, interval.T1);
     }
     extension(Transform xform) {
-        public Matrix<double> ToMatrix() => Matrix<double>.Build.Dense(4, 4, xform.ToDoubleArray(rowDominant: false));
+        public Fin<AffineMap> ToAffine() =>
+            RhinoFault.Unless(xform.IsAffine, RhinoReason.Unsupported, xform)
+                .Bind(_ => AffineMap.Validated(new(xform.M00, xform.M01, xform.M02), new(xform.M10, xform.M11, xform.M12), new(xform.M20, xform.M21, xform.M22), new(xform.M03, xform.M13, xform.M23)));
     }
     extension(BoundingBox box) {
-        public Bounds ToBounds() => new(box.Min.ToVector3D(), box.Max.ToVector3D());
+        public Fin<Bounds> ToBounds() => Bounds.Validated(box.Min.ToVector3D(), box.Max.ToVector3D());
     }
     extension(Bounds bounds) {
         public BoundingBox ToBoundingBox() => new(bounds.Min.ToPoint3d(), bounds.Max.ToPoint3d());

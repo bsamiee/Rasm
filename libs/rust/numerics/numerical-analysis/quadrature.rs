@@ -7,12 +7,12 @@ use core::{
 };
 use std::collections::BTreeMap;
 
+use bilby::{GaussHermite, GaussJacobi, GaussLaguerre, GaussLegendre, QuadratureRule};
 use dashu::{
     base::BitTest as _,
     float::{Context, FBig, Repr, round::mode::HalfEven},
     integer::IBig,
 };
-use gauss_quad::{FiniteAboveNegOneF64, GaussHermite, GaussLaguerre, GaussLegendre};
 use itertools::{Either, Itertools as _};
 use libm::frexp;
 use nalgebra::{DVector, DVectorView, MatrixXx3, Rotation3, UnitVector3, Vector2, Vector3, convert};
@@ -35,10 +35,13 @@ pub enum Domain {
     Sphere,
 }
 
+#[nutype::nutype(validate(finite, greater = -1.0), derive(Debug, Clone, Copy, PartialEq))]
+pub struct Exponent(f64);
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Weight {
-    Jacobi { interval: Bounds, alpha: FiniteAboveNegOneF64, beta: FiniteAboveNegOneF64 },
-    Laguerre { alpha: FiniteAboveNegOneF64 },
+    Jacobi { interval: Bounds, alpha: Exponent, beta: Exponent },
+    Laguerre { alpha: Exponent },
     Hermite,
 }
 
@@ -296,7 +299,7 @@ where
             Domain::Sphere => (Chart::Spherical(None), nev![(0.0, PI), (0.0, TAU)]),
         })
         .collect::<NEVec<_>>();
-    let rule = GaussLegendre::new(settings.degree);
+    let rule = GaussLegendre::new(settings.degree.get()).map_err(|source| NEVec::new(source.into()))?;
     let outputs = {
         let (mapping, bounds) = parts.first();
         let nodes = bounds.iter().map(|&(start, last)| (f64::midpoint(start, last), (1.0, 0))).collect::<Vec<_>>();
@@ -311,7 +314,7 @@ where
         let nodes = iter::zip(lower.iter(), upper.iter())
             .map(|(&start, &last)| {
                 let (middle, (half, width)) = (f64::midpoint(start, last), half_width(start, last));
-                rule.iter().map(move |&(node, weight)| (half.mul_add(node, middle), mass([(weight, 0), width])))
+                iter::zip(rule.nodes(), rule.weights()).map(move |(&node, &weight)| (half.mul_add(node, middle), mass([(weight, 0), width])))
             })
             .multi_cartesian_product()
             .map(|nodes| {
@@ -319,7 +322,7 @@ where
                 (integrand(point.column(0)), mass(nodes.iter().map(|&(_, weight)| weight).chain(iter::once(jacobian))))
             });
         let interval = || iter::zip(lower.iter(), upper.iter()).map(|(&start, &last)| RangeInclusive { start, last }).collect();
-        summed(outputs, nodes, interval, &norm).map(|sum| (sum, iter::repeat_n(rule.degree(), lower.len().get()).fold(1, usize::saturating_mul)))
+        summed(outputs, nodes, interval, &norm).map(|sum| (sum, iter::repeat_n(rule.order(), lower.len().get()).fold(1, usize::saturating_mul)))
     };
     let seeded = joined(parts.iter().map(|(mapping, bounds)| {
         let (lower, upper) = bounds.nonempty_iter().copied().unzip();
@@ -355,22 +358,15 @@ where
         Weight::Hermite => RangeInclusive { start: f64::NEG_INFINITY, last: f64::INFINITY },
     };
     let measured = |degree: NonZero<usize>, width: Option<usize>| -> Result<(DVector<T>, usize), AnalysisError> {
-        let (rule, scale, shift) = match weighting {
-            Weight::Jacobi { interval, alpha, beta } => {
-                let half = half_width(interval.start, interval.last);
-                (Either::Left(bilby::GaussJacobi::new(degree.get(), alpha.get(), beta.get())?), half, f64::midpoint(interval.start, interval.last))
-            }
-            Weight::Laguerre { alpha } => (Either::Right(GaussLaguerre::new(degree, alpha).into_node_weight_pairs()), (1.0, (1.0, 0)), 0.0),
-            Weight::Hermite => (Either::Right(GaussHermite::new(degree).into_node_weight_pairs()), (1.0, (1.0, 0)), 0.0),
+        let (QuadratureRule { nodes, weights }, scale, shift) = match weighting {
+            Weight::Jacobi { interval, alpha, beta } =>
+                (GaussJacobi::new(degree.get(), alpha.into_inner(), beta.into_inner())?.rule().clone(), half_width(interval.start, interval.last), f64::midpoint(interval.start, interval.last)),
+            Weight::Laguerre { alpha } => (GaussLaguerre::new(degree.get(), alpha.into_inner())?.rule().clone(), (1.0, (1.0, 0)), 0.0),
+            Weight::Hermite => (GaussHermite::new(degree.get())?.rule().clone(), (1.0, (1.0, 0)), 0.0),
         };
-        let (first, nodes) = match &rule {
-            Either::Left(rule) => ((rule.nodes()[0], rule.weights()[0]), Either::Left(iter::zip(&rule.nodes()[1..], &rule.weights()[1..]).map(|(&node, &mass)| (node, mass)))),
-            Either::Right(nodes) => (nodes[0], Either::Right(nodes[1..].iter().copied())),
-        };
-        let evaluate = |(node, weight): (f64, f64)| (integrand(node.mul_add(scale.0, shift)), mass([(weight, 0), scale.1]));
-        let first = evaluate(first);
-        let width = width.unwrap_or(first.0.len());
-        summed(width, iter::once(first).chain(nodes.map(evaluate)), || vec![span], &norm).map(|sum| (sum, degree.get()))
+        let mut evaluated = iter::zip(nodes, weights).map(|(node, weight)| (integrand(node.mul_add(scale.0, shift)), mass([(weight, 0), scale.1]))).peekable();
+        let width = width.or_else(|| evaluated.peek().map(|(first, _)| first.len())).unwrap_or_default();
+        summed(width, evaluated, || vec![span], &norm).map(|sum| (sum, degree.get()))
     };
     let doubled = |degree: &NonZero<usize>| degree.checked_mul(const { NonZero::new(2).unwrap() }).filter(|next| next.get() <= settings.degree.get().saturating_mul(settings.limit.get()));
     let (coarse, cost) = measured(settings.degree, None)?;

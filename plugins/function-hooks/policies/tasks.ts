@@ -2,7 +2,7 @@ import { matchesGlob } from 'node:path';
 import process from 'node:process';
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Option, type Predicate, Record } from 'effect';
-import { all, become, type Call, cut, edited, type Fix, feedsJq, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix';
+import { all, become, type Call, cut, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import { analyzed, Shell, type Site } from '#/shell/site';
 
@@ -20,6 +20,7 @@ interface Runner {
 const CACHE_FLAGS = new Set(['--skip-nx-cache', '--disable-nx-cache']);
 const AGGREGATE = 'nx:noop';
 const SEARCH_PATH = 'PYTHONPATH';
+const PUBLISH = /(?:^|[:,])nx-release-publish(?:,|$)/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -267,11 +268,12 @@ const TASKS: Policy = {
             flags: ['-c, --configuration=', '-t, --targets=', '--target=', '-p, --projects=', '--args='],
             fixes: [
                 when(has(...CACHE_FLAGS), cacheFlags),
+                when((site) => holds(PUBLISH)(site) || holds(PUBLISH, '--targets', '--target')(site), refuse('publishes dependencies for real', 'run nx release')),
                 unassign(/^NX_DAEMON=false$/u, false),
                 when((site) => site.tail.length > 0, aggregateArgs),
                 when((site) => site.tail.length > 0 || site.has('--args'), forwardedOptions),
                 (site) => (launcherStart(site) === site.head ? [] : edited(site, { start: launcherStart(site).start, end: site.head.start }, '')),
-                perSubcommand({ show: [hiddenErrors], graph: [hiddenErrors], reset: [refuse('drops the graph', 'fix the inputs')] }),
+                perSubcommand({ show: [hiddenErrors], graph: [hiddenErrors], reset: [(site, { host }) => (Option.exists(folderOf(host, site), (place) => host.inside(place, host.root)) ? refuse('drops the graph', 'fix the inputs')(site) : [])] }),
                 looped('nx tasks', 'use one nx run-many', 'show'),
             ],
         },
@@ -282,7 +284,11 @@ const TASKS: Policy = {
             routes: { selects: ['--project'], ignores: ['--noEmit', '--pretty', '--incremental'] },
         },
         cargo: { flags: ['-p, --package=', '--profile='], routes: { selects: ['--package'], modes: { '--fix': 'fix' } } },
-        uv: { flags: ['--package=', '-U, --upgrade', '--check', '--locked'], routes: { selects: ['--package'], modes: { '--check': 'check', '--upgrade': 'upgrade' }, ignores: ['--locked'] } },
+        uv: {
+            flags: ['--package=', '--script=', '--all-packages', '-U, --upgrade', '--check', '--locked'],
+            routes: { selects: ['--package'], modes: { '--check': 'check', '--upgrade': 'upgrade' }, ignores: ['--locked'] },
+            fixes: [perSubcommand({ sync: [ensure('--all-packages', '--package', '--script')] })],
+        },
         dotnet: { flags: ['-warnaserror', '--verify-no-changes'], routes: { modes: { '--verify-no-changes': 'check', '-warnaserror': 'check' } } },
         rustfmt: { flags: ['--config-path=', '--config=', '--edition=', '--emit=', '--print-config='] },
         swiftlint: { dump: true },

@@ -19,6 +19,7 @@ import numpy as np
 import numpy.typing as npt
 
 from rasm_bpy.data._extension.registration import Resource
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.ui._resources.theme import _CLEAR, Checker, Color, Metrics, Theme
 from rasm_bpy.ui._screens.areas import _region_in, _visible_bounds, Located
 from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
@@ -302,7 +303,7 @@ class _Offscreen(msgspec.Struct, frozen=True, kw_only=True):
                 depth = gpu.types.GPUTexture((color.width, color.height), format="DEPTH32F_STENCIL8")
                 buffer = gpu.types.GPUFrameBuffer(depth_slot=depth, color_slots=color)
             except (TypeError, RuntimeError) as error:
-                return Error(Fault.of(Reason.REFUSED, type(self).__name__, error))
+                return Error(Fault.of(Refusal.REFUSED, type(self).__name__, error))
             return Ok((color, depth, buffer))
 
         def drawn(target: tuple[gpu.types.GPUTexture, gpu.types.GPUTexture, gpu.types.GPUFrameBuffer]) -> Outcome[npt.NDArray[np.float32]]:
@@ -315,7 +316,7 @@ class _Offscreen(msgspec.Struct, frozen=True, kw_only=True):
                     gpu.state.scissor_set(0, 0, color.width, color.height)
                     return draw(buffer).bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(color.width), height=float(color.height))))
 
-        return catch(gpu.init, exception=SystemError)().map_error(partial(Fault.of, Reason.REFUSED, "gpu.init")).bind(lambda _: opened()).bind(drawn)
+        return catch(gpu.init, exception=SystemError)().map_error(partial(Fault.of, Refusal.REFUSED, "gpu.init")).bind(lambda _: opened()).bind(drawn)
 
     def drawn(self, canvas: Canvas, draw: Callable[[Canvas], None]) -> Outcome[npt.NDArray[np.float32]]:
         """Draws a cleared pixel canvas under pixel projection with depth test off, returning top-first RGBA."""
@@ -450,7 +451,7 @@ def viewed(
                     do_color_management=do_color_management,
                     draw_background=draw_background,
                 )
-                .map_error(partial(Fault.of, Reason.REFUSED, "gpu.types.GPUOffScreen.draw_view3d"))
+                .map_error(partial(Fault.of, Refusal.REFUSED, "gpu.types.GPUOffScreen.draw_view3d"))
                 .bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(buffer.width), height=float(buffer.height))))
             )
 
@@ -460,7 +461,7 @@ def viewed(
         .default_with(lambda: _region_in(located.area))
         .bind(
             lambda region: (
-                catch(camera.matrix_world.normalized().inverted, exception=ValueError)().map_error(partial(Fault.of, Reason.REFUSED, "mathutils.Matrix.inverted")).bind(partial(painted, region))
+                catch(camera.matrix_world.normalized().inverted, exception=ValueError)().map_error(partial(Fault.of, Refusal.REFUSED, "mathutils.Matrix.inverted")).bind(partial(painted, region))
             )
         )
     )
@@ -478,7 +479,7 @@ def captured(rect: Rect) -> Outcome[npt.NDArray[np.float32]]:
     return (
         catch(gpu.state.active_framebuffer_get().read_color, exception=ValueError)(round(rect.x), round(rect.y), round(rect.width), round(rect.height), 4, 0, "FLOAT")
         .map(lambda read: np.ascontiguousarray(np.asarray(read, np.float32)[::-1]))
-        .map_error(partial(Fault.of, Reason.REFUSED, "gpu.types.GPUFrameBuffer.read_color"))
+        .map_error(partial(Fault.of, Refusal.REFUSED, "gpu.types.GPUFrameBuffer.read_color"))
     )
 
 

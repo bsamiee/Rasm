@@ -1,26 +1,24 @@
 use core::iter;
 use std::sync::Arc;
 
-use hayro_syntax::object::dict::keys::{
-    DEST_OUTPUT_PROFILE, DISPLAY_DOC_TITLE, INFO, METADATA, N, OUTPUT_CONDITION, OUTPUT_CONDITION_IDENTIFIER, OUTPUT_INTENT, OUTPUT_INTENTS, S, TYPE, VIEWER_PREFERENCES,
-};
+use hayro_syntax::object::dict::keys::{DEST_OUTPUT_PROFILE, INFO, METADATA, N, OUTPUT_CONDITION, OUTPUT_CONDITION_IDENTIFIER, OUTPUT_INTENT, OUTPUT_INTENTS, S, TYPE};
 use krilla::{
     SerializeSettings,
     configure::{Accessibility, Archival, ConfigurationBuilder, PdfVersion, ValidationError},
 };
 use lopdf::{Dictionary, Object, Stream, dictionary, text_string};
 use moxcms::{ColorProfile, ProfileText};
-use pdf_oxide::compliance::{PdfUaLevel, PdfXLevel};
+use pdf_oxide::compliance::PdfXLevel;
 use xot::{NameId, Node, Xot};
 
-use crate::{GTS_PDFX_VERSION, OutputIntent, PART, PDFUAID_NAMESPACE, PDFXID_NAMESPACE, PdfError, Refusal};
+use crate::{GTS_PDFX_VERSION, OutputIntent, PDFXID_NAMESPACE, PdfError, Refusal};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct Standards {
     pub archival: Option<Archival> = None,
-    pub accessibility: Option<PdfUaLevel> = None,
+    pub accessibility: Option<Accessibility> = None,
     pub press: Option<Press> = None,
 }
 
@@ -45,23 +43,11 @@ pub(crate) fn settings(standards: &Standards) -> Result<SerializeSettings, PdfEr
         [PdfVersion::Pdf14, PdfVersion::Pdf15, PdfVersion::Pdf16, PdfVersion::Pdf17, PdfVersion::Pdf20]
             .into_iter()
             .find(|version| version.as_str().strip_prefix("PDF ") == Some(level.required_pdf_version()))
-            .map(|version| (level, version))
             .ok_or(PdfError::Press(level))
     };
-    let version = match (standards.press.as_ref().map(|press| stated(press.level)).transpose()?, standards.accessibility) {
-        (Some((press, version)), Some(accessibility @ PdfUaLevel::Ua2)) if version != PdfVersion::Pdf20 => return Err(PdfError::Versions { press, accessibility }),
-        (Some((_, version)), _) => Some(version),
-        (None, Some(PdfUaLevel::Ua2)) => Some(PdfVersion::Pdf20),
-        (None, Some(PdfUaLevel::Ua1) | None) => None,
-    };
-    let dated = version.into_iter().fold(ConfigurationBuilder::new(), ConfigurationBuilder::with_version);
+    let dated = standards.press.as_ref().map(|press| stated(press.level)).transpose()?.into_iter().fold(ConfigurationBuilder::new(), ConfigurationBuilder::with_version);
     let archived = standards.archival.into_iter().fold(dated, ConfigurationBuilder::with_archival_validator);
-    let configuration = (standards.accessibility == Some(PdfUaLevel::Ua1))
-        .then_some(Accessibility::UA1)
-        .into_iter()
-        .fold(archived, ConfigurationBuilder::with_accessibility_validator)
-        .finish()
-        .map_err(PdfError::Configuration)?;
+    let configuration = standards.accessibility.into_iter().fold(archived, ConfigurationBuilder::with_accessibility_validator).finish().map_err(PdfError::Configuration)?;
     Ok(SerializeSettings {
         configuration,
         no_device_cs: standards.press.is_some(),
@@ -81,8 +67,6 @@ pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> R
         const RDF_NAMESPACE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
         const PDF_NAMESPACE: &str = "http://ns.adobe.com/pdf/1.3/";
         const EXTENSION_NAMESPACE: &str = "http://www.aiim.org/pdfa/ns/extension/";
-        const PDFUA_PREFIX: &str = "pdfuaid";
-        const PDFUA_REVISION: &str = "2024";
         const PDFX_EXTENSION_SCHEMA: &str = r#"<rdf:li xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#"
     xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#" rdf:parseType="Resource">
     <pdfaSchema:schema>PDF/X Identification</pdfaSchema:schema>
@@ -111,17 +95,16 @@ pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> R
         let rdf = xot.add_namespace(RDF_NAMESPACE);
         let description_name = xot.add_name_ns("Description", rdf);
         let description = element(&xot, document, description_name)?;
-        let press = standards.press.iter().flat_map(|held| [("pdfxid", PDFXID_NAMESPACE, GTS_PDFX_VERSION, held.level.xmp_version()), ("pdf", PDF_NAMESPACE, TRAPPED, UNTRAPPED)]);
-        let universal = (standards.accessibility == Some(PdfUaLevel::Ua2))
-            .then_some([(PDFUA_PREFIX, PDFUAID_NAMESPACE, PART, PdfUaLevel::Ua2.xmp_part()), (PDFUA_PREFIX, PDFUAID_NAMESPACE, "rev", PDFUA_REVISION)]);
-        iter::chain(press, universal.into_iter().flatten()).try_for_each(|(prefix, namespace, name, value)| {
-            let (uri, declared) = (xot.add_namespace(namespace), xot.add_prefix(prefix));
-            xot.set_namespace(description, declared, uri);
-            let property = xot.add_name_ns(name, uri);
-            let added = xot.new_element(property);
-            xot.append(description, added)?;
-            xot.append_text(added, value)
-        })?;
+        standards.press.iter().flat_map(|held| [("pdfxid", PDFXID_NAMESPACE, GTS_PDFX_VERSION, held.level.xmp_version()), ("pdf", PDF_NAMESPACE, TRAPPED, UNTRAPPED)]).try_for_each(
+            |(prefix, namespace, name, value)| {
+                let (uri, declared) = (xot.add_namespace(namespace), xot.add_prefix(prefix));
+                xot.set_namespace(description, declared, uri);
+                let property = xot.add_name_ns(name, uri);
+                let added = xot.new_element(property);
+                xot.append(description, added)?;
+                xot.append_text(added, value)
+            },
+        )?;
         if standards.press.is_some() && older {
             let extension = xot.add_namespace(EXTENSION_NAMESPACE);
             let schemas_name = xot.add_name_ns("schemas", extension);
@@ -178,12 +161,5 @@ pub(crate) fn close(structure: &mut lopdf::Document, standards: &Standards) -> R
             information.set(TRAPPED, UNTRAPPED);
         }
     }
-    let universal = standards.accessibility == Some(PdfUaLevel::Ua2);
-    if universal {
-        let catalog = structure.catalog()?;
-        let mut preferences = catalog.as_hashmap().get(VIEWER_PREFERENCES).map(|value| structure.dereference(value)?.1.as_dict().cloned()).transpose()?.unwrap_or_default();
-        preferences.set(DISPLAY_DOC_TITLE, true);
-        structure.catalog_mut()?.set(VIEWER_PREFERENCES, preferences);
-    }
-    if standards.press.is_some() || universal { metadata(structure, standards) } else { Ok(()) }
+    if standards.press.is_some() { metadata(structure, standards) } else { Ok(()) }
 }

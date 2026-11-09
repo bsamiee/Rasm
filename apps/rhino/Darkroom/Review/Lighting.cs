@@ -1,15 +1,7 @@
 using System.Numerics;
-using Darkroom.Chain;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using Rasm.Imaging.Pixels;
-using Rasm.Imaging.Tone;
-using Rasm.Rhino.Document;
-using Rasm.Rhino.Objects;
-using Rasm.Rhino.Persistence;
-using Rhino;
-using Rhino.Display;
-using UnitsNet;
 
 namespace Darkroom.Review;
 
@@ -220,47 +212,6 @@ internal sealed partial class ReferenceDistribution {
 
     [UseDelegateFromConstructor]
     private partial ReferenceScene Roll(Random random);
-}
-
-public sealed record RigReference(Vector3 KeyColor, Vector3 FillColor, Vector2 Direction, float Ratio, float Hardness) {
-    public static RigReference Of(LightingReading reading) =>
-        reading.Gels.Match(Some: static gels => (Key: gels.Key.Color, Fill: gels.Accent.Color), None: () => (Key: reading.KeyColor, Fill: reading.FillColor)) switch {
-            var (key, fill) => reading.Gamut.MatrixTo(ChainScene.Working.Gamut) switch {
-                var toRender => new RigReference(Vector3.Transform(key, toRender), Vector3.Transform(fill, toRender), reading.Direction, reading.Ratio, reading.Hardness),
-            },
-        };
-}
-
-public sealed record RigLayout(
-    RigReference Reference, RigEmitter Key, double KeySoftness, Angle FillSize, Option<double> Fill, Option<double> Rim, ColorFilter Tint, double ColorSaturation, double Distance) {
-    private static readonly Vector3d InverseSquared = new(0d, 0d, 1d);
-
-    public Fin<Seq<RigLight>> Rigged =>
-        (Azimuth: Angle.FromRadians(Reference.Direction.X * Math.PI / 2d),
-         Elevation: Angle.FromRadians(Reference.Direction.Y * Math.PI / 2d),
-         Size: Angle.FromRadians(Reference.Hardness > 0f ? Math.Atan2(KeySoftness * Reference.Ratio, Reference.Hardness) : Math.PI / 2d),
-         Key: Peaked(Reference.KeyColor)) switch {
-             var held => (Seq(
-                     Row("key", Key, held.Azimuth, held.Elevation, held.Size, 0d, held.Key),
-                     Row("fill", new RigEmitter.RectangularLight(), -held.Azimuth, Angle.Zero, FillSize, Fill.IfNone(-Reference.Ratio), Peaked(Reference.FillColor)))
-                 + Rim.Map(rim => Row("rim", Key, Angle.FromRadians(Math.IEEERemainder(held.Azimuth.Radians.ToDouble() + Math.PI, Math.Tau)), held.Elevation, held.Size, rim, held.Key)).ToSeq())
-                 .Traverse(static light => light)
-                 .As(),
-         };
-
-    public IO<Seq<(string Slot, Guid Id, bool Created)>> Placed(RhinoDoc doc, KeyName name, RigTarget target, RigBasis basis, double level) =>
-        IO.lift(Rigged)
-            .Bind(lights => LightRigs.Reconcile(doc, new LightRig(name, target, basis, level, Angle.Zero, Angle.Zero, lights), (string)name, new RedrawPolicy.AllViews(Deferred: true)))
-            .Map(static committed => committed.Value);
-
-    private static Color4f Peaked(Vector3 color) => color == Vector3.Zero ? Color4f.White : Lights.Peaked(color.X, color.Y, color.Z).Light;
-
-    private Fin<RigLight> Row(string slot, RigEmitter emitter, Angle azimuth, Angle elevation, Angle size, double stops, Color4f color) =>
-        ColorFilter.Validated(
-                Tint.Red * (1d + (ColorSaturation * (color.R - 1d))),
-                Tint.Green * (1d + (ColorSaturation * (color.G - 1d))),
-                Tint.Blue * (1d + (ColorSaturation * (color.B - 1d))))
-            .Map(filter => new RigLight(slot, slot, emitter, azimuth, elevation, Distance, size, stops, new LightColor.Linear(filter), InverseSquared));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -10,16 +10,15 @@
     "license": "MIT",
     "type": "module",
     "imports": {
-        "#/*": "./*.ts",
-        "#blender": "./executors/extension-build/blender.py"
+        "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./plugins/workspace.ts",
+        ".": "./plugins/project-graph.ts",
         "./release/version-actions": "./version-actions.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json", "executors/extension-build/blender.py" ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
@@ -37,14 +36,13 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/workspace.js",
+            ".": "./dist/plugins/project-graph.js",
             "./release/version-actions": "./dist/version-actions.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json"
         },
         "imports": {
-            "#/*": "./dist/*.js",
-            "#blender": "./executors/extension-build/blender.py"
+            "#/*": "./dist/*.js"
         }
     },
     "executors": "./executors.json"

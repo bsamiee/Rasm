@@ -1,3 +1,4 @@
+
 use core::{iter, mem, ops::ControlFlow};
 use std::{borrow::Cow, collections::HashSet, sync::Arc, vec::IntoIter};
 
@@ -35,7 +36,7 @@ pub struct Projection {
     pub tolerance: Tolerance,
     pub unit: Option<Unit> = None,
     pub plot_styles: Vec<PlotStyleTable> = Vec::new(),
-    pub lineweight: Option<Width> = None,
+    pub lineweight: Option<Length> = None,
     pub families: Cow<'static, [FontFamilyName<'static>]> = Cow::Borrowed(&[FontFamilyName::Generic(GenericFamily::SansSerif)]),
 }
 
@@ -49,6 +50,7 @@ pub struct Authoring {
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Context<'source> {
     pub(crate) frame: Affine,
+    pub(crate) unit: rasm_drawing::Unit,
     pub(crate) table: Option<&'source PlotStyleTable>,
     pub(crate) viewport: Option<&'source Viewport>,
     pub(crate) drafting: Option<f64>,
@@ -62,9 +64,8 @@ struct Expansion {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn layers(document: &mut CadDocument, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
-    let code = document.header.insertion_units;
-    let unit = projection.unit.or_else(|| Unit::from_repr(code)).ok_or(CadError::Unit { code }).map_err(NEVec::new)?;
+pub fn layers(document: &mut CadDocument, projection: &Projection) -> Result<(rasm_drawing::Unit, Vec<pages::Layer>), NEVec<CadError>> {
+    let unit = insertion_unit(document, projection)?;
     let model = document.header.model_space_block_handle;
     let sheet = document.objects.values().find_map(|object| {
         if let ObjectType::Layout(layout) = object
@@ -76,18 +77,24 @@ pub fn layers(document: &mut CadDocument, projection: &Projection) -> Result<Vec
         }
     });
     let context = Context {
-        frame: Affine::scale(Length::from(unit).get::<millimeter>()),
+        frame: Affine::IDENTITY,
+        unit,
         table: sheet.and_then(|sheet| projection.plot_styles.iter().find(|table| table.name.eq_ignore_ascii_case(sheet))),
         viewport: None,
         drafting: None,
         view_height: document.vports.get("*Active").map_or(document.header.model_space_extents_max.y - document.header.model_space_extents_min.y, |active| active.view_height),
     };
-    projected(document, "*Model_Space", &context, projection)
+    projected(document, "*Model_Space", &context, projection).map(|layers| (unit, layers))
 }
 
-pub fn drawing(layers: Vec<pages::Layer>, authoring: &Authoring) -> Result<CadDocument, NEVec<CadError>> {
+pub fn drawing(layers: Vec<pages::Layer>, unit: rasm_drawing::Unit, authoring: &Authoring) -> Result<CadDocument, NEVec<CadError>> {
     let mut document = authored(authoring);
-    written(&mut document, "Model", layers, authoring).map(|_| document)
+    written(&mut document, "Model", layers, unit, authoring).map(|_| document)
+}
+
+pub(crate) fn insertion_unit(document: &CadDocument, projection: &Projection) -> Result<rasm_drawing::Unit, NEVec<CadError>> {
+    let code = document.header.insertion_units;
+    projection.unit.or_else(|| Unit::from_repr(code)).and_then(|unit| rasm_drawing::Unit::try_new(Length::from(unit)).ok()).ok_or(CadError::Unit { code }).map_err(NEVec::new)
 }
 
 #[must_use]
@@ -207,8 +214,8 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                     .unwrap_or(layer.transparency),
                 Transparency::ByBlock | Transparency::Explicit(_) => common.transparency,
             };
-            let width = Width::try_new(stated.or_else(|| weight.millimeters()).unwrap_or_else(|| projection.lineweight.map_or(0.25, Width::into_inner)))
-                .map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| Refusal::Unsupported)?;
+            let width = stated.or_else(|| weight.millimeters()).map(Length::new::<millimeter>).or(projection.lineweight).unwrap_or_else(|| Length::new::<millimeter>(0.25));
+            let width = Width::try_new((width / *context.unit).get::<ratio>()).map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| Refusal::Unsupported)?;
             Opacity::try_new(1.0 - transparency.as_percent())
                 .map(|opacity| Pen { width, color: rasm_drawing::Color::Srgb(color), opacity, .. })
                 .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| Refusal::Unsupported)
@@ -479,8 +486,8 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
     }
 }
 
-pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages::Layer>, authoring: &Authoring) -> Result<Vec<Handle>, NEVec<CadError>> {
-    let unit = Affine::scale(Length::from(authoring.unit).get::<millimeter>().recip());
+pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages::Layer>, unit: rasm_drawing::Unit, authoring: &Authoring) -> Result<Vec<Handle>, NEVec<CadError>> {
+    let frame = Affine::scale((*unit / Length::from(authoring.unit)).get::<ratio>());
     let space = Arc::<str>::from(space);
     layers
         .into_iter()
@@ -503,7 +510,7 @@ pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages
                 .enumerate()
                 .map(|(index, element)| -> Validated<(), CadError> {
                     let subject = Subject::Element { space: Arc::clone(&space), layer: Arc::clone(&name), index };
-                    entities(document, element, &name, unit, authoring.tolerance, &subject)
+                    entities(document, element, &name, (frame, unit), authoring.tolerance, &subject)
                         .and_then(|entities| {
                             entities.into_iter().try_for_each(|entity| {
                                 document.add_entity_to_layout(entity, &space).map(|_| ()).map_err(|source| NEVec::new(CadError::Drawing { operation: Operation::Layout(Arc::clone(&space)), source }))
@@ -521,7 +528,14 @@ pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages
 }
 
 #[stacksafe::stacksafe]
-fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Affine, tolerance: Tolerance, subject: &Subject) -> Result<Vec<EntityType>, NEVec<CadError>> {
+fn entities(
+    document: &mut CadDocument,
+    element: Element,
+    layer: &str,
+    (frame, unit): (Affine, rasm_drawing::Unit),
+    tolerance: Tolerance,
+    subject: &Subject,
+) -> Result<Vec<EntityType>, NEVec<CadError>> {
     #[stacksafe::stacksafe]
     fn masked(element: &Element) -> bool {
         match element {
@@ -542,11 +556,11 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
     let weighted = |width: Width| {
         (u8::MIN..=LineWeight::Default.to_dwg_index())
             .map(LineWeight::from_dwg_index)
-            .filter_map(|weight| weight.millimeters().map(|millimeters| (weight, (millimeters - width.into_inner()).abs())))
+            .filter_map(|weight| weight.millimeters().map(|millimeters| (weight, (millimeters - (*unit * width.into_inner()).get::<millimeter>()).abs())))
             .min_by(|(_, left), (_, right)| left.total_cmp(right))
             .map_or(LineWeight::Default, |(weight, _)| weight)
     };
-    let placed = |region: &Region| Placement::try_new(unit).and_then(|placement| region.transform(placement)).map_err(misshapen);
+    let placed = |region: &Region| Placement::try_new(frame).and_then(|placement| region.transform(placement)).map_err(misshapen);
     let styled = |mut entity: EntityType, (color, transparency): (Color, Transparency), line_weight: LineWeight, linetype: String| {
         let common = entity.common_mut();
         layer.clone_into(&mut common.layer);
@@ -557,7 +571,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
         entity
     };
     let mut lettered = |text: &rasm_drawing::Text, color: &rasm_drawing::Color, opacity: Opacity| -> Result<Vec<EntityType>, NEVec<CadError>> {
-        let (entity, style) = text::written(text, unit);
+        let (entity, style) = text::written(text, frame);
         let colored = dxf_color(color, opacity)?;
         if !document.text_styles.contains(&style.name) {
             let name = style.name.clone();
@@ -575,7 +589,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
                         Alignment::Start { dash_offset } => dash_offset.into_inner(),
                         Alignment::Center | Alignment::Corners { angle: _ } => 0.0,
                     };
-                    let scale = unit.determinant().abs().sqrt();
+                    let scale = frame.determinant().abs().sqrt();
                     let lengths = curves::signed(&linetype.dashes, offset).into_iter().map(|length| length * scale).collect::<Vec<_>>();
                     if let Some(entry) = document.line_types.iter().find(|entry| entry.elements.iter().map(|dash| dash.length).eq(lengths.iter().copied())) {
                         Ok(entry.name.clone())
@@ -594,7 +608,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
                 .transpose()?;
             let weight = weighted(pen.width);
             let mut path = path.into_inner();
-            path.apply_affine(unit);
+            path.apply_affine(frame);
             Ok(curves::curves(&path).into_iter().map(|entity| styled(entity, colored, weight, named.clone().unwrap_or_default())).collect())
         }
         Element::Fill { region, color, opacity } => {
@@ -603,7 +617,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
         }
         Element::Hatch { region, pattern, placement, pen } => {
             let colored = dxf_color(&pen.color, pen.opacity)?;
-            let drawing = unit * *placement;
+            let drawing = frame * *placement;
             let [across_x, across_y, up_x, up_y, _, _] = drawing.as_coeffs();
             let (across, up) = (Vec2::new(across_x, across_y), Vec2::new(up_x, up_y));
             let reach = f64::EPSILON * 64.0 * across.hypot2();
@@ -656,7 +670,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
         Element::Clip { region, keep, elements } => cleanup::clip(elements, &region, keep, tolerance)
             .map_err(|errors| errors.into_nonempty_iter().map(|source| CadError::Geometry { subject: subject.clone(), source }).collect::<NEVec<_>>())?
             .into_iter()
-            .map(|clipped| entities(document, clipped, layer, unit, tolerance, subject).map_or_else(Validated::Fail, Validated::Good))
+            .map(|clipped| entities(document, clipped, layer, (frame, unit), tolerance, subject).map_or_else(Validated::Fail, Validated::Good))
             .collect::<Validated<Vec<_>, _>>()
             .ok()
             .map(|groups| groups.into_iter().flatten().collect()),

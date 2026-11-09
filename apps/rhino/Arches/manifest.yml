@@ -3,5 +3,6 @@ version: $version
 authors:
   - Bardia Samiee
 description: Historical arch forms drawn by their traditional geometric constructions
+license: MIT
 url: https://github.com/bsamiee/Rasm
 icon: icon.png

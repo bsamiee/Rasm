@@ -1,12 +1,12 @@
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using Darkroom.Chain;
+using Rasm.Imaging.Files;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 using Rasm.Imaging.Warping;
-using SixLabors.ImageSharp.Formats.Jpeg;
 using UnitsNet;
 
 namespace Darkroom.Catalog;
@@ -20,8 +20,8 @@ internal sealed record PixelSort(SortMetric Key, float Low, float High, SortDire
         Some(state.Direction.Sorted(state.Key, context.Formed ? GradingStyle.Video : GradingStyle.Linear, context.Working.Luminance, state.Low, state.High));
 }
 
-internal sealed record CodecDamage(int Quality, JpegColorType ColorType, int Generations) : IPixelStage<CodecDamage> {
-    public static CodecDamage Default { get; } = new(75, JpegColorType.YCbCrRatio420, 1);
+internal sealed record CodecDamage(int Quality, JpegColor ColorType, int Generations) : IPixelStage<CodecDamage> {
+    public static CodecDamage Default { get; } = new(75, JpegColor.Ratio420, 1);
 
     public static CodecDamage Jpeg { get; } = Default with { Quality = 60, Coded = 360 };
 
@@ -33,7 +33,7 @@ internal sealed record CodecDamage(int Quality, JpegColorType ColorType, int Gen
         Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
             from size in state.Coded.Traverse(lines =>
                 PixelExtent.Validated(int.CreateSaturating(double.Max(1d, double.Round((double)frame.Size.Width * lines / frame.Size.Height, MidpointRounding.ToEven))), lines)).As()
-            from recoded in Video.Recompressed(frame, VideoStandard.Encoding(context), new JpegEncoder { Quality = state.Quality, ColorType = state.ColorType }, state.Generations, size)
+            from recoded in Video.Recompressed(frame, VideoStandard.Encoding(context), new RasterCodec.Jpeg(state.Quality, state.ColorType), state.Generations, size)
             select progress.Iter(report => report.Report(frame.Size.Height))));
 }
 

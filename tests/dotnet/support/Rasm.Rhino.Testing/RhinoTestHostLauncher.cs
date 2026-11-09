@@ -43,7 +43,7 @@ public sealed class RhinoTestHostLauncher : ITestHostLauncher {
                         .Map(static pair => $"{pair.Key}={pair.Value}")
                     + Seq($"HOME={profile}", $"CFFIXED_USER_HOME={profile}", $"RHINO_TEST_ASSEMBLY={tests.Location}", $"RHINO_TEST_ARGUMENTS={JsonSerializer.Serialize(context.Arguments)}"))
                     .Bind(static variable => Seq("--environment", variable)),
-                "--",
+                "--arguments",
                 $"""
                 -runscript=_-ScriptEditor _Run "{Path.Combine(AppContext.BaseDirectory, "Boot.cs")}"
                 """,

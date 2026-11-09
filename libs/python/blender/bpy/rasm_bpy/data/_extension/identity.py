@@ -14,7 +14,7 @@ from expression import Option, Result, try_downcast
 from expression.extra.result import catch
 import msgspec
 
-from rasm_bpy.data._extension.reports import Reports
+from rasm_bpy.data._extension.reports import Refusal, Reports
 from rasm_bpy.data._rna.paths import _addon_preferences, Struct
 from rasm_records import Fault, Outcome, paired, Reason
 
@@ -41,6 +41,7 @@ _FORMS: Final[Mapping[type[Struct], str]] = MappingProxyType({
     },
     **dict.fromkeys((bpy.types.NodeTree, bpy.types.Node, bpy.types.NodeSocket, bpy.types.NodeTreeInterfaceSocket, bpy.types.KeyingSetInfo, bpy.types.USDHook), "{ID}_{BASE}_{key}"),
     bpy.types.Operator: "{id}.{key}",
+    bpy.types.PropertyGroup: "{ID}_{key}",
 })
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -80,8 +81,6 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def name(self, base: type[Struct], key: Key, /) -> str:
         """Returns the host class name under the extension key."""
         match base:
-            case bpy.types.PropertyGroup:
-                return f"GROUP_{uuid5(NAMESPACE_URL, f'{self.manifest.id}/{key}').hex}"
             case bpy.types.RenderEngine:
                 scope, stem = self.manifest.id.upper(), key.upper()
                 return (
@@ -118,7 +117,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         )
         folder = (
             catch(bpy.utils.extension_path_user, exception=ValueError)(package, create=True)
-            .map_error(partial(Fault.of, Reason.UNREGISTERED, package))
+            .map_error(partial(Fault.of, Refusal.UNREGISTERED, package))
             .filter(bool, Fault.of(Reason.UNWRITABLE, package, "host created no user folder"))
             .map(Path)
         )

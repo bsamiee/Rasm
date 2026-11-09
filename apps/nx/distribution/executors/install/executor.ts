@@ -1,8 +1,8 @@
 import process from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
-import { Effect, Option } from 'effect';
-import { built, DistributionError, installable } from '#/plugins/host-packages';
+import { Array, Effect, Option } from 'effect';
+import { built, DistributionError } from '#/plugins/host-packages';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -10,12 +10,19 @@ const execute = (_options: unknown, context: ExecutorContext) =>
     Effect.runPromise(
         Effect.gen(function* () {
             const { project, outputs, configurations, packages } = yield* built(context, Option.none());
-            const local = packages.filter(installable);
+            const local = packages.filter(
+                ({ host, platforms }) =>
+                    platforms.length === 0 ||
+                    Array.some(
+                        Array.flatMap(Option.toArray(Option.fromUndefinedOr(host.platforms[process.platform])), (os) => [os, `${os}-${process.arch}`]),
+                        (name) => platforms.includes(name),
+                    ),
+            );
             const detail = [
                 `build wrote no host package for ${process.platform}-${process.arch} under ${outputs.join(', ') || 'its outputs, which name no path'}`,
                 ...(configurations.length === 0 ? [] : [`its targets declare the configurations ${configurations.join(', ')}, which nx install ${project} -c <configuration> passes down`]),
             ].join('; ');
-            yield* local.length === 0 ? DistributionError.make({ subject: project, detail }) : Effect.forEach(local, (held) => held.host.install.run(held), { discard: true });
+            yield* local.length === 0 ? DistributionError.make({ subject: project, detail }) : Effect.forEach(local, (held) => held.host.install?.run(held) ?? Effect.void, { discard: true });
             return { success: true };
         }).pipe(Effect.provide(layer)),
     );

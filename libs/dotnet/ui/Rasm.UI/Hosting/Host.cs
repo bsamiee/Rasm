@@ -42,6 +42,7 @@ public sealed record Host(SKSize Size, Theme Theme, Visibility Visibility, Key R
 }
 
 public sealed record SceneBackend(
+    SKImageInfo Format,
     Func<SKImageInfo, Fin<SKSurface>> Allocated,
     Func<Seq<SKRectI>, IO<Unit>> Invalidated,
     Func<Func<Duration, IO<Unit>>, IO<Func<bool, IO<Unit>>>> DisplayLinked) {

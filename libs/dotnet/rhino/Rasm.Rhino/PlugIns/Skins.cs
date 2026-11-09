@@ -11,6 +11,22 @@ using Rhino.Resources;
 using Rhino.Runtime;
 using Rhino.UI;
 using Rhino.UI.Controls;
+using Platform = Eto.Platform;
+using SkinMembers = (
+    string ApplicationName,
+    System.Drawing.Bitmap? MainRhinoIcon,
+    System.Action<int> OnBeginLoadAtStartPlugIns,
+    System.Action<string> OnBeginLoadPlugIn,
+    System.Action OnEndLoadPlugIn,
+    System.Action OnEndLoadAtStartPlugIns,
+    System.Action OnMainFrameWindowCreated,
+    System.Action OnLicenseCheckCompleted,
+    System.Action OnBuiltInCommandsRegistered,
+    System.Action ShowSplash,
+    System.Action HideSplash,
+    System.Action ShowHelp,
+    System.Action ShowChooseTemplate,
+    System.Action ShowChooseRecent);
 
 namespace Rasm.Rhino.PlugIns;
 
@@ -18,9 +34,9 @@ namespace Rasm.Rhino.PlugIns;
 
 internal sealed record Splash(Form Window, Label Status, ProgressBar Bar);
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSkin<TSelf>, IDefined<SkinDefinition>, new() {
+internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined<SkinDefinition> {
 
     // --- [STATE]
 
@@ -55,40 +71,54 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
     private readonly Atom<SkinLoad> load = Atom<SkinLoad>(new SkinLoad.Starting());
     private readonly Ref<Option<Owned<Splash>>> splash = Ref(Option<Owned<Splash>>.None);
 
-    protected DefinedSkin() =>
+    private readonly Func<bool> hasBootSplash;
+    private readonly Action<int> setBootSplashProgress;
+    private readonly Action dismissBootSplash;
+    private readonly Func<string, RhinoDoc?> openNewDocument;
+
+    public SkinBody(Skin host, Func<bool> hasBootSplash, Action<int> setBootSplashProgress, Action dismissBootSplash, Func<string, RhinoDoc?> openNewDocument) {
+        (this.hasBootSplash, this.setBootSplashProgress, this.dismissBootSplash, this.openNewDocument) = (hasBootSplash, setBootSplashProgress, dismissBootSplash, openNewDocument);
+        Platform.Instance.LoadAssembly(typeof(SkinBody<TDefinition>).Assembly);
         _ = Session.RunSafe(
-            IO.lift(static () => AssemblyLoading.Initialized) >> Session.Bind(this, TSelf.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
+            Session.Bind(host, typeof(TDefinition), TDefinition.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
                 .Attach(static _ => Session.Close).Scoped()),
             CancellationToken.None).ThrowIfFail();
+    }
+
+    // --- [MEMBERS]
+
+    public SkinMembers Members =>
+        (ApplicationName, MainRhinoIcon, OnBeginLoadAtStartPlugIns, OnBeginLoadPlugIn, OnEndLoadPlugIn, OnEndLoadAtStartPlugIns, OnMainFrameWindowCreated,
+            OnLicenseCheckCompleted, OnBuiltInCommandsRegistered, ShowSplash, HideSplash, ShowHelp, ShowChooseTemplate, ShowChooseRecent);
 
     // --- [IDENTITY]
 
-    protected sealed override string ApplicationName =>
-        TSelf.Definition.ApplicationName.IfNone(static () => typeof(TSelf).Assembly switch {
-            var assembly => Optional(assembly.GetCustomAttribute<AssemblyTitleAttribute>()).Map(static title => title.Title).IfNone(() => assembly.GetName().Name ?? typeof(TSelf).Name),
+    private static string ApplicationName =>
+        TDefinition.Definition.ApplicationName.IfNone(static () => typeof(TDefinition).Assembly switch {
+            var assembly => Optional(assembly.GetCustomAttribute<AssemblyTitleAttribute>()).Map(static title => title.Title).IfNone(() => assembly.GetName().Name ?? typeof(TDefinition).Name),
         });
 
-    protected sealed override System.Drawing.Bitmap? MainRhinoIcon =>
-        IconResource.PlugIn(typeof(TSelf).Assembly).Traverse(static art => IconSlot.Application.Square.Bind(pixels => Icons.Raster(art, pixels))).As().Map(static bitmap => bitmap.ValueUnsafe()).Run();
+    private static System.Drawing.Bitmap? MainRhinoIcon =>
+        IconResource.PlugIn(typeof(TDefinition).Assembly).Traverse(static art => IconSlot.Application.Square.Bind(pixels => Icons.Raster(art, pixels))).As().Map(static bitmap => bitmap.ValueUnsafe()).Run();
 
     private static IO<Option<Control>> Mark =>
-        TSelf.Definition.Splash.Match(
+        TDefinition.Definition.Splash.Match(
             Some: static content => content.Map(static control => Some(control)),
             None: static () =>
-                IconResource.PlugIn(typeof(TSelf).Assembly).TraverseM(static art => Icons.Frames(art, IconSlot.Splash).Bind(static icon => use(() => new ImageView { Image = icon })))
+                IconResource.PlugIn(typeof(TDefinition).Assembly).TraverseM(static art => Icons.Frames(art, IconSlot.Splash).Bind(static icon => use(() => new ImageView { Image = icon })))
                     .As().Map(static view => view.Map(static image => (Control)image)));
 
     // --- [LOADS]
 
-    protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>
-        _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current) >> PlugInRegistry.LoadPlugIns(TSelf.Definition.PlugIns));
+    private void OnBeginLoadAtStartPlugIns(int expectedCount) =>
+        _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current) >> PlugInRegistry.LoadPlugIns(TDefinition.Definition.PlugIns));
 
-    protected sealed override void OnBeginLoadPlugIn(string description) => _ = Session.Run(Advanced(current => current.Begin(description)));
+    private void OnBeginLoadPlugIn(string description) => _ = Session.Run(Advanced(current => current.Begin(description)));
 
-    protected sealed override void OnEndLoadPlugIn() =>
-        _ = Session.Run(Advanced(static current => current.End()).Bind(static next => IO.lift(() => next.Percent.Iter(SetBootSplashProgress))));
+    private void OnEndLoadPlugIn() =>
+        _ = Session.Run(Advanced(static current => current.End()).Bind(next => IO.lift(() => next.Percent.Iter(setBootSplashProgress))));
 
-    protected sealed override void OnEndLoadAtStartPlugIns() => _ = Session.Run(Advanced(static _ => new SkinLoad.Ready()).Bind(static _ => IO.lift(DismissBootSplash)));
+    private void OnEndLoadAtStartPlugIns() => _ = Session.Run(Advanced(static _ => new SkinLoad.Ready()).Bind(_ => IO.lift(dismissBootSplash)));
 
     private IO<SkinLoad> Advanced(Func<SkinLoad, SkinLoad> transition) =>
         from next in load.SwapIO(transition)
@@ -103,18 +133,18 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     // --- [HOOKS]
 
-    protected sealed override void OnMainFrameWindowCreated() => _ = Session.Run(TSelf.Definition.MainFrameCreated.IfNone(IO.pure(unit)));
+    private void OnMainFrameWindowCreated() => _ = Session.Run(TDefinition.Definition.MainFrameCreated.IfNone(IO.pure(unit)));
 
-    protected sealed override void OnLicenseCheckCompleted() => _ = Session.Run(TSelf.Definition.LicenseChecked.IfNone(IO.pure(unit)));
+    private void OnLicenseCheckCompleted() => _ = Session.Run(TDefinition.Definition.LicenseChecked.IfNone(IO.pure(unit)));
 
-    protected sealed override void OnBuiltInCommandsRegistered() => _ = Session.Run(TSelf.Definition.CommandsRegistered.IfNone(IO.pure(unit)));
+    private void OnBuiltInCommandsRegistered() => _ = Session.Run(TDefinition.Definition.CommandsRegistered.IfNone(IO.pure(unit)));
 
     // --- [SPLASH]
 
-    protected sealed override void ShowSplash() =>
-        _ = Session.Run(unless(HasBootSplash, Products.Replace(splash, Splashed).Scoped().Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
+    private void ShowSplash() =>
+        _ = Session.Run(unless(hasBootSplash(), Products.Replace(splash, Splashed).Scoped().Bind(static _ => IO.lift(static () => Application.Instance.RunIteration()))).As());
 
-    protected sealed override void HideSplash() => _ = Session.Run(Products.Clear(splash).Scoped());
+    private void HideSplash() => _ = Session.Run(Products.Clear(splash).Scoped());
 
     private IO<Splash> Splashed =>
         from mark in Mark
@@ -143,10 +173,10 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     // --- [HELP]
 
-    protected sealed override void ShowHelp() =>
+    private void ShowHelp() =>
         _ = Session.Run(
             from mark in Mark
-            from detail in TSelf.Definition.About.IfNone(static () =>
+            from detail in TDefinition.Definition.About.IfNone(static () =>
                 use(static () => new Label { Text = LocalText.Of("Rhino {0}", arguments: [RhinoApp.Version]).Local, Font = EtoFonts.NormalFont, TextAlignment = TextAlignment.Center })
                     .Map(static label => (Control)label))
             from content in Layout(mark, detail)
@@ -162,21 +192,21 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     // --- [DOCUMENTS]
 
-    protected sealed override void ShowChooseTemplate() =>
+    private void ShowChooseTemplate() =>
         _ = Session.Run(
             Chosen(
                 from paths in HostDialogs.ShowOpenFileDialog(static dialog => {
                     dialog.Title = LocalText.Of("New from Template").Local;
                     dialog.Filter = HostDialogs.Filter(Seq((LocalText.Of("Rhino Templates").Local, Seq(".3dm"))));
-                    dialog.InitialDirectory = TSelf.Definition.TemplateFolder.IfNone(static () => FileSettings.TemplateFolder);
+                    dialog.InitialDirectory = TDefinition.Definition.TemplateFolder.IfNone(static () => FileSettings.TemplateFolder);
                 })
-                from opened in paths.TraverseM(static path => IO.lift(() => Conversions.Required(OpenNewDocument(path)))).As()
+                from opened in paths.TraverseM(path => IO.lift(() => Conversions.Required(openNewDocument(path)))).As()
                 select unit));
 
-    protected sealed override void ShowChooseRecent() =>
+    private void ShowChooseRecent() =>
         _ = Session.Run(
             Chosen(
-                from recent in TSelf.Definition.Recent.IfNone(static () => IO.lift(static () => toSeq(FileSettings.RecentlyOpenedFiles())))
+                from recent in TDefinition.Definition.Recent.IfNone(static () => IO.lift(static () => toSeq(FileSettings.RecentlyOpenedFiles())))
                 from files in IO.pure(recent.Map(static path => new ChoiceItem<string>(path, path)).AsIterableNE())
                 from opened in files.TraverseM(Reopened).As()
                 select unit));
@@ -206,8 +236,8 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
             None: () => bar.Indeterminate = true);
     }
 
-    private IO<StackLayout> Layout(Option<Control> mark, Control detail) =>
-        from heading in use(() => new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont })
+    private static IO<StackLayout> Layout(Option<Control> mark, Control detail) =>
+        from heading in use(static () => new Label { Text = ApplicationName, Font = EtoFonts.HeadingFont })
         from layout in use(() => new StackLayout([.. mark.ToSeq().Map<StackLayoutItem>(static control => control), heading, new StackLayoutItem(detail, HorizontalAlignment.Stretch)]) {
             Padding = RhinoLayout.Padding(RhinoLayout.PaddingType.Dialog),
             Spacing = RhinoLayout.StackedSpacing(Orientation.Vertical, RhinoLayout.SpacingType.Dialog),
@@ -219,4 +249,15 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
         window.ClientSize = client;
         window.Location = Eto.Drawing.Point.Round(Screen.PrimaryScreen.WorkingArea.Center - ((SizeF)window.Size / 2f));
     }
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+public static partial class PlugInShell {
+
+    // --- [SKINS]
+
+    public static SkinMembers Skin<TDefinition>(Skin host, Func<bool> hasBootSplash, Action<int> setBootSplashProgress, Action dismissBootSplash, Func<string, RhinoDoc?> openNewDocument)
+        where TDefinition : IDefined<SkinDefinition> =>
+        new SkinBody<TDefinition>(host, hasBootSplash, setBootSplashProgress, dismissBootSplash, openNewDocument).Members;
 }

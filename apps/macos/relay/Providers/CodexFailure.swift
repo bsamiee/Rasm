@@ -8,11 +8,11 @@ import Results
 
 @CasePathable
 nonisolated enum CodexFailure: ProviderFailure {
-    case applicationUnavailable
+    case executableMissing
     case process(ProcessFailure)
     case timedOut(Duration)
     case cancelled(CancellationError)
-    case rpc(JSONRPCFailure, serverVersion: String)
+    case rpc(JSONRPCFailure)
     case invalidResponse(CodexProtocol.Method)
     case invalidAuthFile(URL, any Error?)
     case invalidIdentity(AggregateError<IdentityError>)
@@ -38,15 +38,13 @@ nonisolated enum CodexFailure: ProviderFailure {
 
     var isCancellation: Bool { self[case: \.cancelled] != nil }
 
-    var retryAfter: Date? { nil }
-
     var errorDescription: String? {
         switch self {
-            case .applicationUnavailable: "Codex app not installed"
+            case .executableMissing: "Codex not installed"
             case .process(let failure): failure.localizedDescription
             case .timedOut(let timeout): "Codex app server timed out after \(timeout.formatted(.units(width: .wide)))"
             case .cancelled: "Codex app server was canceled"
-            case .rpc(let failure, let serverVersion): "Codex app server \(serverVersion) failed. \(failure.localizedDescription)"
+            case .rpc(let failure): "Codex app server failed. \(failure.localizedDescription)"
             case .invalidResponse(let method): "Unreadable Codex \(method.rawValue) response"
             case .invalidAuthFile(let url, _): "Unreadable Codex \(url.lastPathComponent)"
             case .invalidIdentity: "Incomplete OpenAI account identity"

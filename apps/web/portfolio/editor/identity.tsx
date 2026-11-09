@@ -1,5 +1,5 @@
 import { useAtomSet } from '@effect/atom-react';
-import { User } from '@rasm/hosting';
+import { Sites } from '@rasm/hosting/sites';
 import { Field } from '@rasm/ui';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';
@@ -39,7 +39,7 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
                     </PlacementFields>
                 </>
             )}
-            <a className="mt-8.75 text-sm underline" href={User.href('signout', '/')} target="_top">
+            <a className="mt-8.75 text-sm underline" href={Sites.identity.href('signout', '/')} target="_top">
                 Sign out
             </a>
         </>

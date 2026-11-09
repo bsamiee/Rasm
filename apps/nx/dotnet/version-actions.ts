@@ -1,13 +1,13 @@
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type Tree, workspaceRoot } from '@nx/devkit';
-import { Array, Effect, Option, Schema } from 'effect';
+import { Array, Effect, Option, Result, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
-import { isValid, sortReversed } from 'verkit';
-import { assembly, DotnetError, spawned } from '#/plugins/project-graph';
+import { getMajor, getMinor, getPatch, isPrerelease, isValid, sortReversed } from 'verkit';
+import { analyzer, DotnetError, spawned } from '#/plugins/project-graph';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ projectFile: Schema.String });
+const Options = Schema.Struct({ projectFile: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) });
 const Metadata = Schema.UndefinedOr(Schema.Struct({ registry: Schema.optionalKey(Schema.String) }));
 const Evaluated = Schema.fromJsonString(Schema.Struct({ Properties: Schema.Struct({ PackageId: Schema.String, Version: Schema.String }) }));
 const Searched = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Array(Schema.Struct({ packages: Schema.Array(Schema.Struct({ version: Schema.String })) })) }));
@@ -29,8 +29,19 @@ const searched = Effect.fnUntraced(function* (project: string, metadata: Readonl
     };
 });
 
-const written = Effect.fnUntraced(function* (text: string, version: string) {
-    return yield* spawned([yield* assembly(workspaceRoot), 'version', version], workspaceRoot, text);
+const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), () => DotnetError.make({ subject: file, detail: 'is missing' }));
+
+const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files: (typeof Options.Type)['releases'][number]) {
+    const [held, pending] = yield* Effect.all([read(tree, files.shipped), read(tree, files.unshipped)]);
+    const [rows, comments] = Array.partition(pending.split('\n'), (line) => (line.trimStart().startsWith(';') ? Result.fail(line) : Result.succeed(line)));
+    const moved = rows.join('\n').trim();
+    return yield* moved === '' || isPrerelease(version) === true
+        ? Effect.succeed([])
+        : Effect.sync(() => {
+              tree.write(files.shipped, `${[held.trimEnd(), `## Release ${getMajor(version)}.${getMinor(version)}.${getPatch(version)}`, moved].filter((part) => part !== '').join('\n\n')}\n`);
+              tree.write(files.unshipped, comments.map((line) => `${line}\n`).join(''));
+              return [`Unshipped rules of ${files.unshipped} moved to ${files.shipped} under release ${version}`];
+          });
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -38,12 +49,14 @@ const written = Effect.fnUntraced(function* (text: string, version: string) {
 class DotnetVersionActions extends VersionActions {
     override validManifestFilenames: string[] = [];
     override readonly excludeManifestsFromFormatting = true;
+    #releases: (typeof Options.Type)['releases'] = [];
 
     override init(tree: Tree) {
         return run(
-            Effect.flatMap(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ projectFile }) =>
+            Effect.flatMap(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ projectFile, releases }) =>
                 Effect.promise(() => {
                     this.validManifestFilenames = [projectFile];
+                    this.#releases = releases;
                     return super.init(tree);
                 }),
             ),
@@ -68,11 +81,11 @@ class DotnetVersionActions extends VersionActions {
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
         const { project } = this;
+        const releases = this.#releases;
         return run(
             Effect.gen(function* () {
-                const text = yield* Effect.fromNullishOr(tree.read(project, 'utf-8')).pipe(Effect.mapError(() => DotnetError.make({ subject: project, detail: 'is missing' })));
-                tree.write(project, yield* written(text, newVersion));
-                return [`New version ${newVersion} written to manifest: ${project}`];
+                tree.write(project, yield* spawned([yield* analyzer, 'version', newVersion], workspaceRoot, yield* read(tree, project)));
+                return [`New version ${newVersion} written to manifest: ${project}`, ...(yield* Effect.forEach(releases, (files) => shipped(tree, newVersion, files))).flat()];
             }),
         );
     }

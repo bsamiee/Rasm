@@ -40,18 +40,18 @@ class AppleVersionActions extends VersionActions {
     }
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
-        const located = this.manifest;
         return run(
-            Effect.gen(function* () {
-                const { at } = yield* located;
-                const { version } = yield* versioned(tree, at, []);
-                return { currentVersion: yield* Effect.fromNullishOr(version).pipe(Effect.mapError(() => AppleError.make({ subject: at, detail: 'sets no project-level MARKETING_VERSION' }))), manifestPath: at };
-            }),
+            Effect.flatMap(this.manifest, ({ at }) =>
+                versioned(tree, at, []).pipe(
+                    Effect.flatMap(({ version }) => Effect.mapError(Effect.fromNullishOr(version), () => AppleError.make({ subject: at, detail: 'sets no project-level MARKETING_VERSION' }))),
+                    Effect.map((currentVersion) => ({ currentVersion, manifestPath: at })),
+                ),
+            ),
         );
     }
 
     override readCurrentVersionFromRegistry() {
-        return run(Effect.flatMap(this.manifest, ({ at }) => AppleError.make({ subject: at, detail: 'names an app, which publishes through its host channel and has no registry version; use the disk or git-tag current version resolver' })));
+        return Promise.resolve(null);
     }
 
     override readCurrentVersionOfDependency() {
@@ -59,14 +59,13 @@ class AppleVersionActions extends VersionActions {
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        const located = this.manifest;
         return run(
-            Effect.gen(function* () {
-                const { at } = yield* located;
-                const { project } = yield* versioned(tree, at, ['--marketing-version', newVersion]);
-                tree.write(at, project);
-                return [`New version ${newVersion} written to manifest: ${at}`];
-            }),
+            Effect.flatMap(this.manifest, ({ at }) =>
+                Effect.map(versioned(tree, at, ['--marketing-version', newVersion]), ({ project }) => {
+                    tree.write(at, project);
+                    return [`New version ${newVersion} written to manifest: ${at}`];
+                }),
+            ),
         );
     }
 

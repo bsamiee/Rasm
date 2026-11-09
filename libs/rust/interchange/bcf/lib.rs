@@ -10,20 +10,22 @@ use std::{
     io::{Read, Seek, Write},
 };
 
-use aws_lc_rs::digest::{self, Digest};
 use data_encoding::{DecodeError, Encoding, HEXLOWER};
 use enum_map::EnumMap;
 use imagesize::{ImageError, ImageType};
 use indexmap::{IndexMap, IndexSet};
+use itertools::Either;
+use jiff::{Timestamp, civil};
 use newtype_uuid_macros::impl_typed_uuid_kinds;
 use nonempty_collections::{NEVec, nev};
-use rasm_ifc::IfcError;
+use sha2::{Digest as _, Sha256, digest::Output};
+use url::Url;
 use uuid::Uuid;
 use validated::Validated;
 use xot::{Node, Xot};
 use zip::{CompressionMethod, ZIP64_BYTES_THR, ZipArchive, ZipWriter, result::ZipError, write::SimpleFileOptions};
 
-use self::xml::{Codec, Keyed, Reader, Simple, Writer, archive_error, codec, document, local_name, required, resolve, stated, stored, unique};
+use self::xml::{Codec, Keyed, Reader, Simple, Upgrade, Writer, archive_error, codec, document, local_name, required, resolve, stated, stored, unique};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -36,6 +38,8 @@ impl_typed_uuid_kinds! {
         DocumentReference = {},
     },
 }
+
+pub type DateTime = Either<Timestamp, civil::DateTime>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From, derive_more::Display)]
 pub enum Guid {
@@ -63,27 +67,9 @@ pub enum Extension {
 }
 
 impl Simple for Uuid {
-    fn decode(text: &str) -> Result<Self, BcfError> {
-        if text.len() != IFC_GUID_DIGITS {
-            return text.parse().map_err(|source| BcfError::Uuid { text: text.into(), source });
-        }
-        let mut input = [b'0'; 24];
-        input[2..].copy_from_slice(text.as_bytes());
-        let mut bytes = [0; 18];
-        IFC_GUID.decode_mut(&input, &mut bytes).map_err(|source| BcfError::Encoded { text: text.into(), alphabet: Alphabet::IfcGuid, source: source.error })?;
-        match bytes {
-            [0, 0, uuid @ ..] => Ok(Self::from_bytes(uuid)),
-            _ => Err(BcfError::Constrained(Constraint::IfcGuid(text.into()))),
-        }
-    }
+    fn decode(text: &str) -> Result<Self, BcfError> { guid(text) }
 
-    fn encode(&self) -> String {
-        let mut bytes = [0; 18];
-        bytes[2..].copy_from_slice(self.as_bytes());
-        let mut text = IFC_GUID.encode(&bytes);
-        text.replace_range(..2, "");
-        text
-    }
+    fn encode(&self) -> String { ifc_guid(self) }
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -91,7 +77,7 @@ impl Simple for Uuid {
 const IFC_GUID: Encoding = data_encoding_macro::new_encoding! {
     symbols: "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$",
 };
-const IFC_GUID_DIGITS: usize = 22;
+pub const IFC_GUID_DIGITS: usize = 22;
 const GUID: &str = "Guid";
 const TOPIC: &str = "Topic";
 const FILE: &str = "File";
@@ -164,7 +150,7 @@ impl Codec for Image {
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> {
         let Self { format, content } = self;
-        let held = digest::digest(&digest::SHA256, content);
+        let held = Sha256::digest(content);
         let name = format!("{}.{}", HEXLOWER.encode_display(held.as_ref()), <&str>::from(format));
         writer.xot.append_text(node, &name).map_err(writer.xml())?;
         (writer.store)(&resolve(writer.entry, &name), content, held, CompressionMethod::Stored)
@@ -236,10 +222,18 @@ codec! {
 
 impl Codec for EnumMap<Extension, IndexSet<Text>> {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, BcfError> {
-        EnumMap::from_fn(|kind| reader.element(node, &[plural(kind)], kind.into()).map(|values| (kind, values))).into_values().collect()
+        EnumMap::from_fn(|kind| {
+            let [plural, _] = names(kind);
+            reader.element(node, &[plural], kind.into()).map(|values| (kind, values))
+        })
+        .into_values()
+        .collect()
     }
 
-    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> { self.iter().try_for_each(|(kind, values)| writer.element(node, &[plural(kind)], kind.into(), values)) }
+    fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), BcfError> { self.iter().try_for_each(|(kind, values)| {
+            let [plural, _] = names(kind);
+            writer.element(node, &[plural], kind.into(), values)
+        }) }
 }
 
 impl Keyed<DocumentUuid> for Document {
@@ -265,6 +259,8 @@ impl Keyed<DocumentUuid> for Document {
 pub enum Constraint {
     #[display("number {_0} is not finite")]
     Finite(f64),
+    #[display("length {_0} m is not positive")]
+    Length(f64),
     #[display("aspect ratio {_0} is not positive")]
     AspectRatio(f64),
     #[display("field of view {_0}° lies outside 0° to 180°")]
@@ -289,36 +285,80 @@ pub enum Alphabet {
 
 #[derive(Debug, thiserror::Error)]
 pub enum BcfError {
-    #[error(transparent)]
-    Ifc(#[from] IfcError),
     #[error("{0}")]
     Constrained(Constraint),
     #[error("{text} is no number")]
-    Number { text: Box<str>, source: ParseFloatError },
+    Number {
+        text: Box<str>,
+        source: ParseFloatError,
+    },
     #[error("{text} is no integer")]
-    Integer { text: Box<str>, source: ParseIntError },
+    Integer {
+        text: Box<str>,
+        source: ParseIntError,
+    },
     #[error("{text} is no timestamp")]
-    Timestamp { text: Box<str>, source: jiff::Error },
+    Timestamp {
+        text: Box<str>,
+        source: jiff::Error,
+    },
     #[error("{text} is no UUID")]
-    Uuid { text: Box<str>, source: uuid::Error },
+    Uuid {
+        text: Box<str>,
+        source: uuid::Error,
+    },
+    #[error("{text} is no URI")]
+    Uri {
+        text: Box<str>,
+        source: url::ParseError,
+    },
     #[error("{text} is no {alphabet} text")]
-    Encoded { text: Box<str>, alphabet: Alphabet, source: DecodeError },
+    Encoded {
+        text: Box<str>,
+        alphabet: Alphabet,
+        source: DecodeError,
+    },
     #[error("BCF entry {entry} exceeds the ZIP64 size range")]
-    Size { entry: Box<str>, source: TryFromIntError },
+    Size {
+        entry: Box<str>,
+        source: TryFromIntError,
+    },
     #[error("BCF {found} is no BCF release this crate reads")]
-    Version { found: Box<str> },
+    Version {
+        found: Box<str>,
+    },
     #[error("BCF entry {entry} is unreadable")]
-    Archive { entry: Box<str>, source: ZipError },
+    Archive {
+        entry: Box<str>,
+        source: ZipError,
+    },
     #[error("BCF entry {entry} holds malformed XML")]
-    Xml { entry: Box<str>, source: xot::Error },
+    Xml {
+        entry: Box<str>,
+        source: xot::Error,
+    },
     #[error("BCF entry {entry} holds {element} as {}", .text.as_deref().unwrap_or("nothing"))]
-    Element { entry: Box<str>, element: Box<str>, text: Option<Box<str>> },
+    Element {
+        entry: Box<str>,
+        element: Box<str>,
+        text: Option<Box<str>>,
+    },
     #[error("BCF entry {entry} holds a malformed {element}")]
-    Content { entry: Box<str>, element: Box<str>, source: Box<Self> },
+    Content {
+        entry: Box<str>,
+        element: Box<str>,
+        source: Box<Self>,
+    },
     #[error("BCF entry {entry} repeats {guid}")]
-    Duplicate { entry: Box<str>, guid: Guid },
+    Duplicate {
+        entry: Box<str>,
+        guid: Guid,
+    },
     #[error("BCF topic {topic} names absent {guid}")]
-    Dangling { topic: TopicUuid, guid: Guid },
+    Dangling {
+        topic: TopicUuid,
+        guid: Guid,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -344,10 +384,11 @@ where R: Read + Seek {
         file.read_to_end(&mut content)?;
         Ok(content.into_boxed_slice())
     };
-    let found = required(document(&open, false, VERSION, |reader, root| reader.attribute::<Text>(root, &[], VERSION_ID)), VERSION.0).ok()?;
-    let upgrading = match found.as_str() {
-        RELEASE => false,
-        UPGRADED_RELEASE => true,
+    let found = required(document(&open, None, VERSION, |reader, root| reader.attribute::<Text>(root, &[], VERSION_ID)), VERSION.0).ok()?;
+    let upgraded = Upgrade::default();
+    let upgrade = match found.as_str() {
+        RELEASE => None,
+        UPGRADED_RELEASE => Some(&upgraded),
         _ => return Err(nev![BcfError::Version { found: found.into_inner().into_boxed_str() }]),
     };
     let topics = entries
@@ -355,30 +396,72 @@ where R: Read + Seek {
         .filter(|name| name.split_once('/').is_some_and(|(_, file)| file == MARKUP.0))
         .map(|entry| {
             required(
-                document(&open, upgrading, (entry, MARKUP.1), |reader, root| reader.attribute::<TopicUuid>(root, &[TOPIC], GUID).map2(Topic::read(reader, root), |guid, topic| (guid, topic))),
+                document(&open, upgrade, (entry, MARKUP.1), |reader, root| reader.attribute::<TopicUuid>(root, &[TOPIC], GUID).map2(Topic::read(reader, root), |guid, topic| (guid, topic))),
                 entry,
             )
         })
         .collect::<Validated<Vec<_>, _>>();
-    document(&open, upgrading, PROJECT_INFO, |reader, root| reader.element(root, &[], PROJECT))
+    let listed = |schema: &Text| -> Validated<EnumMap<Extension, IndexSet<Text>>, BcfError> {
+        let mut xot = Xot::new();
+        let (name, value) = (xot.add_name("name"), xot.add_name("value"));
+        let parsed = match Url::parse(schema) {
+            Ok(_) => Ok(None),
+            Err(url::ParseError::RelativeUrlWithoutBase) => {
+                let entry = resolve(PROJECT_INFO.0, schema);
+                open(&entry).map_err(archive_error(&entry)).and_then(|bytes| xot.parse_bytes(&bytes).map(Some).map_err(|source| BcfError::Xml { entry: entry.as_str().into(), source: source.into() }))
+            }
+            Err(source) => Err(BcfError::Uri { text: schema.as_str().into(), source }),
+        };
+        parsed.map_or_else(Validated::fail, |root| {
+            EnumMap::from_fn(|kind| {
+                let [_, restricted] = names(kind);
+                root.into_iter()
+                    .flat_map(|root| xot.descendants(root))
+                    .filter(|&node| local_name(&xot, node) == "simpleType" && xot.get_attribute(node, name) == Some(restricted))
+                    .flat_map(|node| xot.descendants(node))
+                    .filter(|&node| local_name(&xot, node) == "enumeration")
+                    .filter_map(|node| xot.get_attribute(node, value))
+                    .map(|text| Validated::from(Text::try_new(text)))
+                    .collect::<Validated<IndexSet<_>, _>>()
+                    .map(|values| (kind, values))
+            })
+            .into_values()
+            .collect()
+        })
+    };
+    let project = document(&open, upgrade, PROJECT_INFO, |reader, root| {
+        reader.element::<Option<Project>>(root, &[], PROJECT).map2(reader.element::<Option<Text>>(root, &[], "ExtensionSchema"), |project, schema| (project, schema))
+    })
+    .ok()
+    .map_or_else(Validated::Fail, |info| {
+        let (project, schema) = info.unwrap_or_default();
+        schema.map_or(Validated::Good(EnumMap::default()), |schema| listed(&schema)).map(|listed| (project, listed))
+    });
+    let read = project
         .map4(
-            document(&open, upgrading, EXTENSIONS, EnumMap::read),
-            document(&open, upgrading, DOCUMENT_INFO, |reader, root| reader.keyed(root, &[DOCUMENTS], DOCUMENT, None)),
+            document(&open, upgrade, EXTENSIONS, EnumMap::read),
+            document(&open, upgrade, DOCUMENT_INFO, |reader, root| reader.keyed(root, &[DOCUMENTS], DOCUMENT, None)),
             topics.ok().map_or_else(Validated::Fail, |held| unique(CENTRAL_DIRECTORY, held)),
-            |project, extensions, documents, topics| (project, extensions.unwrap_or_default(), documents.unwrap_or_default(), topics),
+            |(project, mut listed), extensions, documents, topics| {
+                extensions.into_iter().flatten().for_each(|(kind, values)| listed[kind].extend(values));
+                (project, listed, documents.unwrap_or_default(), topics)
+            },
         )
-        .ok()
-        .and_then(|(project, extensions, documents, topics)| Issues::new(project, extensions, documents, topics))
+        .ok();
+    read.and_then(|(project, extensions, mut documents, topics)| {
+        documents.extend(upgraded.into_inner());
+        Issues::new(project, extensions, documents, topics)
+    })
 }
 
 pub fn write<W>(issues: &Issues, sink: W) -> Result<W, BcfError>
 where W: Write + Seek {
     let Issues { project, extensions, documents, topics } = issues;
     let zip = RefCell::new(ZipWriter::new(sink));
-    let written = RefCell::new(HashMap::<String, Digest>::new());
-    let store = |entry: &str, content: &[u8], held: Digest, method: CompressionMethod| -> Result<(), BcfError> {
+    let written = RefCell::new(HashMap::<String, Output<Sha256>>::new());
+    let store = |entry: &str, content: &[u8], held: Output<Sha256>, method: CompressionMethod| -> Result<(), BcfError> {
         match written.borrow_mut().insert(entry.to_owned(), held) {
-            Some(previous) if previous.as_ref() == held.as_ref() => Ok(()),
+            Some(previous) if previous == held => Ok(()),
             Some(_) | None => {
                 let large = u64::try_from(content.len()).map_err(|source| BcfError::Size { entry: entry.into(), source })? >= ZIP64_BYTES_THR;
                 let mut archive = zip.borrow_mut();
@@ -429,16 +512,17 @@ where W: Write + Seek {
 }
 
 #[must_use]
-pub fn merge(left: Issues, right: Issues) -> Issues {
+pub fn merge<F>(left: Issues, right: Issues, mut topic: F) -> Issues
+where F: FnMut(Topic, Topic) -> Topic {
     let Issues { project, mut extensions, mut documents, mut topics } = left;
     let Issues { project: other_project, extensions: other_extensions, documents: other_documents, topics: other_topics } = right;
     documents.extend(other_documents);
-    other_topics.into_iter().for_each(|(guid, topic)| match topics.swap_remove_full(&guid) {
+    other_topics.into_iter().for_each(|(guid, incoming)| match topics.swap_remove_full(&guid) {
         Some((index, guid, held)) => {
-            let (last, _) = topics.insert_full(guid, markup::merged(held, topic));
+            let (last, _) = topics.insert_full(guid, topic(held, incoming));
             topics.swap_indices(index, last);
         }
-        None => drop(topics.insert(guid, topic)),
+        None => drop(topics.insert(guid, incoming)),
     });
     other_extensions.into_iter().for_each(|(kind, values)| extensions[kind].extend(values));
     Issues { project: project.or(other_project), extensions, documents, topics }
@@ -448,16 +532,41 @@ pub fn merge(left: Issues, right: Issues) -> Issues {
 
 fn document_entry(guid: DocumentUuid) -> String { format!("{DOCUMENTS}/{guid}") }
 
-const fn plural(kind: Extension) -> &'static str {
+const fn names(kind: Extension) -> [&'static str; 2] {
     match kind {
-        Extension::TopicType => "TopicTypes",
-        Extension::TopicStatus => "TopicStatuses",
-        Extension::Priority => "Priorities",
-        Extension::TopicLabel => "TopicLabels",
-        Extension::User => "Users",
-        Extension::SnippetType => "SnippetTypes",
-        Extension::Stage => "Stages",
+        Extension::TopicType => ["TopicTypes", "TopicType"],
+        Extension::TopicStatus => ["TopicStatuses", "TopicStatus"],
+        Extension::Priority => ["Priorities", "Priority"],
+        Extension::TopicLabel => ["TopicLabels", "TopicLabel"],
+        Extension::User => ["Users", "UserIdType"],
+        Extension::SnippetType => ["SnippetTypes", "SnippetType"],
+        Extension::Stage => ["Stages", "Stage"],
     }
+}
+
+// --- [GUIDS]
+
+pub fn guid(text: &str) -> Result<Uuid, BcfError> {
+    if text.len() != IFC_GUID_DIGITS {
+        return text.parse().map_err(|source| BcfError::Uuid { text: text.into(), source });
+    }
+    let mut input = [b'0'; 24];
+    input[2..].copy_from_slice(text.as_bytes());
+    let mut bytes = [0; 18];
+    IFC_GUID.decode_mut(&input, &mut bytes).map_err(|source| BcfError::Encoded { text: text.into(), alphabet: Alphabet::IfcGuid, source: source.error })?;
+    match bytes {
+        [0, 0, uuid @ ..] => Ok(Uuid::from_bytes(uuid)),
+        _ => Err(BcfError::Constrained(Constraint::IfcGuid(text.into()))),
+    }
+}
+
+#[must_use]
+pub fn ifc_guid(uuid: &Uuid) -> String {
+    let mut bytes = [0; 18];
+    bytes[2..].copy_from_slice(uuid.as_bytes());
+    let mut text = IFC_GUID.encode(&bytes);
+    text.replace_range(..2, "");
+    text
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -469,8 +578,9 @@ mod visualization;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use markup::{BimSnippet, Comment, DocumentReference, File, Remark, Resource, Target, Topic, Viewpoint};
+pub use markup::{BimSnippet, Comment, DocumentReference, File, Remark, Resource, Target, Topic, Viewpoint, newest};
 pub use visualization::{
-    AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, Presentation, Projection, Reference, ViewSetupHint, Visibility, Visualization, hint,
-    node_presentation, presentation, reference, referent, visibility,
+    AspectRatio, Bitmap, Camera, ClippingPlane, Coloring, Component, Components, FieldOfView, Line, PositiveLength, Presentation, Projection, Reference, ViewSetupHint, Visibility,
+    Visualization, presentation, visibility,
 };
+pub use {color, data_encoding, enum_map, indexmap, itertools, jiff, nalgebra, newtype_uuid, nonempty_collections, uom, url, uuid, xot, zip};

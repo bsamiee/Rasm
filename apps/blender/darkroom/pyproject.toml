@@ -10,10 +10,14 @@ dependencies = [
 
     "expression",     # Results, options, and collections of every stage and panel
     "msgspec",        # Records and tagged unions for stage settings, looks, and review results
-    "rasm-bpy",       # Blender's bpy API behind one boundary
+    "rasm-bpy",       # Registration, commands, nodes, render sessions, and interface over Blender's bpy API
     "rasm-imaging",   # Image science every stage drives
     "rasm-records",   # Fault model, field domains, and record files
     "rasm-rendering", # Output naming of render passes
+
+    # --- [HTTP]
+
+    "httpx2",         # Tony McMapface table downloads at their pinned commit
 
     # --- [MATHEMATICS]
 
@@ -31,11 +35,9 @@ dependencies = [
 dev = [
     "fake-bpy-module-latest", # Stubs for bpy, bmesh, mathutils, and gpu
     "mypy",                   # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
-    "pydantic",               # `pydantic.mypy` plugin the root mypy configuration loads
     "ruff",                   # Linter and formatter hk runs from this root's environment
     "scipy-stubs",
     "ty",                     # Type checker of every member
-    "types-networkx",
     "types-opencolorio",      # Stubs for PyOpenColorIO
 ]
 
@@ -93,17 +95,3 @@ ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repositor
 [tool.ty]
 environment = { python-platform = "all", root = [".."] }               # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own; `..` holds the `darkroom` package its relative imports climb
 rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
-
-# --- [RASM_ENG] -------------------------------------------------------------------------
-
-[tool.rasm-eng.turned]
-flip-vertical = "flip"
-
-[tool.rasm-eng.fetch."effects/formation/fetched"]
-base = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9"
-
-[tool.rasm-eng.fetch."effects/formation/fetched".files]
-"OCIO/config.ocio"                     = "78e80ab792fefbfcb312973ff7991fff0d1a793f4fef6474b6087c252bc1b0c7"
-"OCIO/LUTs/tony_log_to_rational.spi1d" = "4d92af631fd1815891f66addcbcb5a461b9091880a57eae680ba5a892d860914"
-"OCIO/LUTs/sRGB_OETF.spi1d"            = "3ea89cbb69cd8933a007073ac9c9fd60dd2546d768987ab5a8fefb623d8625a0"
-"OCIO/LUTs/tony_mc_mapface.spi3d"      = "6c80e03844ec1d569995c140efbead5a0287c441f6dcb579c0edfa264797bc65"

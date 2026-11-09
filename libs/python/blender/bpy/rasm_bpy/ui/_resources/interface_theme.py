@@ -5,7 +5,6 @@ from contextlib import contextmanager, ExitStack
 from functools import partial, reduce
 from graphlib import CycleError, TopologicalSorter
 import math
-import os
 from pathlib import Path
 import re
 import tempfile
@@ -26,7 +25,7 @@ from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import _rna, Struct
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
 from rasm_bpy.ui._resources.theme import _color
-from rasm_records import accumulated, argued, Case, Error, Fault, Ok, Outcome, Reason
+from rasm_records import accumulated, Case, Error, Fault, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -180,12 +179,6 @@ class _InterfaceTheme(msgspec.Struct, frozen=True, kw_only=True):
     def __post_init__(self) -> None:
         """Refuses a gamut mapping coloraide lacks, which it reads only for a color outside the gamut."""
         ColorAll("srgb", [2.0, 0.0, 0.0]).fit(**self.fit)
-
-
-class _Declared(msgspec.Struct, frozen=True):
-    """Themes an extension declares by name, the `theme` member of the record `rasm-eng assets` passes."""
-
-    theme: Mapping[str, _InterfaceTheme] = MappingProxyType({})
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -394,25 +387,6 @@ def installed(context: bpy.types.Context, theme: _InterfaceTheme, name: str, /) 
     return answer.map(lambda _: Path(preferences.themes[0].filepath))
 
 
-def themes_written(declared: str, source: str, folder: str, /) -> str | None:
-    """Writes each theme an extension declares to `<name>.xml` in a folder, a relative base file read from the extension folder.
-
-    Args:
-        declared: `argument` text of the extension's `[tool.rasm-eng]` table.
-        source: Extension folder relative base files resolve under.
-        folder: Folder each theme file is written into.
-
-    Returns:
-        None, or the message of every fault, the value `sys.exit` exits with.
-    """
-    os.chdir(source)
-    match argued(msgspec.json.Decoder(_Declared), source, declared).bind(lambda found: accumulated(_written(bpy.context, theme, Path(folder) / f"{name}.xml") for name, theme in found.theme.items())):
-        case Result(tag="ok"):
-            return None
-        case Result(error=faults):
-            return "\n".join(fault.message for fault in faults)
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Adjust", "Closest", "Composite", "Filter", "Harmony", "Legible", "Mix", "Ramp", "installed", "themes_written"]
+__all__ = ["Adjust", "Closest", "Composite", "Filter", "Harmony", "Legible", "Mix", "Ramp", "installed"]

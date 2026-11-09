@@ -148,15 +148,6 @@
           "SkiaSharp": "4.156.0-preview.1.26512.10"
         }
       },
-      "SkiaSharp.SceneGraph": {
-        "type": "Direct",
-        "requested": "[4.156.0-preview.1.26512.10, )",
-        "resolved": "4.156.0-preview.1.26512.10",
-        "contentHash": "YoTeQ9ulW6z1bGbuCbaTqQltjaJDUlcnyyC/ewY5YNwuCq8puPoYb2EUQm0r++o7zrjLoNBQFOVCYj6H0OxzPw==",
-        "dependencies": {
-          "SkiaSharp": "4.156.0-preview.1.26512.10"
-        }
-      },
       "SkiaSharp.Skottie": {
         "type": "Direct",
         "requested": "[4.156.0-preview.1.26512.10, )",
@@ -239,6 +230,15 @@
           "SkiaSharp.NativeAssets.Linux": "4.153.1"
         }
       },
+      "UnicodeInformation": {
+        "type": "Direct",
+        "requested": "[2.7.1, )",
+        "resolved": "2.7.1",
+        "contentHash": "1DS5NpdLm+NBDK1eJRrhrH46vlyBYJ0Q668VDu8YKsllhNn0LqW6/RATSiJooOs6oCbv5hoUmzoZ367c/pzxLA==",
+        "dependencies": {
+          "System.ComponentModel.Annotations": "4.5.0"
+        }
+      },
       "Wacton.Unicolour": {
         "type": "Direct",
         "requested": "[8.0.0, )",
@@ -273,6 +273,14 @@
         "type": "Transitive",
         "resolved": "5.2.3",
         "contentHash": "BBmIvh70WduWEF8C9HeU12LmHkg6+h2SRwJzey/tmztRk4ttAxhyu9eAD/jlsNGlqquYpoCQyyTx+QynavyfVA=="
+      },
+      "SkiaSharp.SceneGraph": {
+        "type": "Transitive",
+        "resolved": "4.156.0-preview.1.26512.10",
+        "contentHash": "YoTeQ9ulW6z1bGbuCbaTqQltjaJDUlcnyyC/ewY5YNwuCq8puPoYb2EUQm0r++o7zrjLoNBQFOVCYj6H0OxzPw==",
+        "dependencies": {
+          "SkiaSharp": "4.156.0-preview.1.26512.10"
+        }
       },
       "Svg.Animation": {
         "type": "Transitive",
@@ -390,6 +398,12 @@
         "requested": "[4.156.0-preview.1.26512.10, )",
         "resolved": "4.156.0-preview.1.26512.10",
         "contentHash": "uztKI2iI36TljjzgS5ST9vxn6AY6u6TYpagkCHdY8hB1AdKf9ceWSc8Z8WoQ4ZgVQZfmFw1iVF8C81thGzo9xw=="
+      },
+      "System.ComponentModel.Annotations": {
+        "type": "CentralTransitive",
+        "requested": "[5.0.0, )",
+        "resolved": "4.5.0",
+        "contentHash": "UxYQ3FGUOtzJ7LfSdnYSFd7+oEv6M8NgUatatIN2HxNtDdlcvFAf+VIq4Of9cDMJEJC0aSRv/x898RYhB4Yppg=="
       },
       "Thinktecture.Runtime.Extensions.SourceGenerator": {
         "type": "CentralTransitive",

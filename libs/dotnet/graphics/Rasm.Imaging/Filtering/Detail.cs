@@ -49,7 +49,7 @@ public static class LocalContrast {
             using Mat alpha = new();
             using Mat mask = new();
             using ScalarArray zero = new(0d);
-            EdgeSource.Luma(gamut.Luminance)(header, levels);
+            EdgeSource.Luma(gamut.Luminance).Extract(header, levels);
             TensorPrimitives.Max(levels.GetSpan<float>(), LuminanceSamples.Floor, levels.GetSpan<float>());
             TensorPrimitives.Log2(levels.GetSpan<float>(), levels.GetSpan<float>());
             CvInvoke.ExtractChannel(header, alpha, 3);
@@ -154,25 +154,24 @@ public static class GrainNoise {
 
     public static Fin<Unit> Multiplied(
         PixelFrame frame, Action<Span<Vector4>, int, int> draw, double sigma, float deviation, float chroma, Func<float, float> weight, Gamut gamut, Option<IProgress<int>> progress = default) =>
-        Gaussian.Kernel(sigma, NormType.L2).Bind(kernel => {
-            using (kernel) {
-                (int reach, float bias, Vector4 mix, Vector3 luminance) = (kernel.Rows / 2, deviation * deviation / 2f, deviation * Mix(chroma), gamut.Luminance);
-                return from padded in PixelExtent.Validated(frame.Size.Width + (2 * reach), frame.Size.Height + (2 * reach))
-                       let plane = new PixelFrame(new Point(frame.Origin.X - reach, frame.Origin.Y - reach), padded, frame.Extent)
-                       from drawn in new PixelPass.Positional(draw).Run(plane)
-                       from shaped in plane.Filter(draws => {
-                           CvInvoke.SepFilter2D(draws, draws, DepthType.Cv32F, kernel, kernel, new Point(-1, -1), 0d, BorderType.Reflect101);
-                           return unit;
-                       })
-                       from applied in new PixelPass.Positional((row, _, y) => {
-                           ReadOnlySpan<Vector4> draws = plane.View.Span.GetRowSpan(y - frame.Origin.Y + reach)[reach..];
-                           for (int x = 0; x < row.Length; x++) {
-                               Vector4 log = mix * draws[x];
-                               row[x] *= new Vector4(Vector3.Lerp(Vector3.One, Vector3.Exp(log.AsVector3() + new Vector3(log.W - bias)), weight(Vector3.Dot(luminance, row[x].AsVector3()))), 1f);
-                           }
-                       }).Run(frame, progress)
-                       select applied;
-            }
+        Gaussian.Kernel(sigma, 2d).Bind(taps => {
+            using Mat kernel = Gaussian.Header(taps);
+            (int reach, float bias, Vector4 mix, Vector3 luminance) = (taps.Length / 2, deviation * deviation / 2f, deviation * Mix(chroma), gamut.Luminance);
+            return from padded in PixelExtent.Validated(frame.Size.Width + (2 * reach), frame.Size.Height + (2 * reach))
+                   let plane = new PixelFrame(new Point(frame.Origin.X - reach, frame.Origin.Y - reach), padded, frame.Extent)
+                   from drawn in new PixelPass.Positional(draw).Run(plane)
+                   from shaped in plane.Filter(draws => {
+                       CvInvoke.SepFilter2D(draws, draws, DepthType.Cv32F, kernel, kernel, new Point(-1, -1), 0d, BorderType.Reflect101);
+                       return unit;
+                   })
+                   from applied in new PixelPass.Positional((row, _, y) => {
+                       ReadOnlySpan<Vector4> draws = plane.View.Span.GetRowSpan(y - frame.Origin.Y + reach)[reach..];
+                       for (int x = 0; x < row.Length; x++) {
+                           Vector4 log = mix * draws[x];
+                           row[x] *= new Vector4(Vector3.Lerp(Vector3.One, Vector3.Exp(log.AsVector3() + new Vector3(log.W - bias)), weight(Vector3.Dot(luminance, row[x].AsVector3()))), 1f);
+                       }
+                   }).Run(frame, progress)
+                   select applied;
         });
 
     public static PixelPass.Positional Photon(float shot, float read, float chroma, double exposure, Gamut gamut, uint field) {

@@ -6,10 +6,6 @@
     },
     "plugins": [
         {
-            "name": "argus",
-            "source": "./argus"
-        },
-        {
             "name": "function-hooks",
             "source": "./function-hooks"
         },

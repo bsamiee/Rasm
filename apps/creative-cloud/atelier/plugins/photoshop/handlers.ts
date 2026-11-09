@@ -228,7 +228,6 @@ const link = Peer.dial(
         const path = yield* Path.Path;
         return yield* path.toFileUrl(reply.executablePath._path);
     }),
-    Uxp.readHome(Peer.link.key),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

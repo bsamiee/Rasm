@@ -5,64 +5,89 @@ namespace Rasm.Drafting;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class DraftingConvention {
-    public static readonly DraftingConvention Iso = new(binding: Length.FromMillimeters(20), border: Length.FromMillimeters(10), rowsFromTop: true, columnsFromRight: false, smallestTopRight: true,
-        centering: Some((Reach: Length.FromMillimeters(10), TitleBlock: Length.FromMillimeters(180))), lettering: LetteringStandard.Iso3098, terminator: Terminator.ClosedArrow, revisions: RevisionAlphabet.Iso,
-        divisions: static (side, _, _) =>
-            from pitch in Seq(Length.FromMillimeters(50))
-            from half in Seq((int)QuantityValue.Round(side / pitch / 2, MidpointRounding.ToEven))
-            from k in toSeq(Range(1 - half, (2 * half) - 1))
-            select (side / 2) + (pitch * k));
-    public static readonly DraftingConvention Asme = new(binding: Length.FromInches(0.5m), border: Length.FromInches(0.5m), rowsFromTop: false, columnsFromRight: true, smallestTopRight: false,
-        centering: None, lettering: LetteringStandard.AsmeY142, terminator: Terminator.ClosedArrow, revisions: RevisionAlphabet.Asme,
-        divisions: static (side, _, _) =>
-            from count in Seq(2 * (int)QuantityValue.Round(side / Length.FromInches(5.5m) / 2, MidpointRounding.ToPositiveInfinity))
-            from k in toSeq(Range(1, count - 1))
-            select side * k / count);
-    public static readonly DraftingConvention Ncs = new(binding: Length.FromInches(1.5m), border: Length.FromInches(0.75m), rowsFromTop: false, columnsFromRight: false, smallestTopRight: false,
-        centering: None, lettering: LetteringStandard.AsmeY142, terminator: Terminator.Oblique, revisions: RevisionAlphabet.Asme,
-        divisions: static (_, first, last) =>
-            from pitch in Seq(Length.FromInches(1.5m))
-            from k in toSeq(Range(1, (int)QuantityValue.Round((last - first) / pitch, MidpointRounding.ToPositiveInfinity) - 1))
-            select first + (pitch * k));
+public sealed record DraftingConvention {
+    private readonly Func<Length, Length, Length, Seq<Length>> divisions;
+
+    private DraftingConvention(Length binding, Length border, bool rowsFromTop, bool columnsFromRight, Option<Length> topRightZonesUpTo, Option<(Length Reach, Length TitleBlock)> centering,
+        LetteringStandard lettering, Terminator terminator, RevisionAlphabet revisions, string zoneLetters, Func<Length, Length, Length, Seq<Length>> divisions) =>
+        (Binding, Border, RowsFromTop, ColumnsFromRight, TopRightZonesUpTo, Centering, Lettering, Terminator, Revisions, ZoneLetters, this.divisions) =
+        (binding, border, rowsFromTop, columnsFromRight, topRightZonesUpTo, centering, lettering, terminator, revisions, zoneLetters, divisions);
 
     public Length Binding { get; }
     public Length Border { get; }
     public bool RowsFromTop { get; }
     public bool ColumnsFromRight { get; }
-    public bool SmallestTopRight { get; }
+    public Option<Length> TopRightZonesUpTo { get; }
     public Option<(Length Reach, Length TitleBlock)> Centering { get; }
     public LetteringStandard Lettering { get; }
     public Terminator Terminator { get; }
     public RevisionAlphabet Revisions { get; }
+    public string ZoneLetters { get; }
 
-    [UseDelegateFromConstructor]
-    public partial Seq<Length> Divisions(Length side, Length first, Length last);
+    public Seq<Length> Divisions(Length side, Length first, Length last) => divisions(side, first, last);
+
+    private const string IsoZoneLetters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+
+    public static readonly DraftingConvention Iso = new(Length.FromMillimeters(20), Length.FromMillimeters(10), rowsFromTop: true, columnsFromRight: false, Some(Length.FromMillimeters(210)),
+        Some((Reach: Length.FromMillimeters(10), TitleBlock: Length.FromMillimeters(180))), LetteringStandard.Iso3098, Terminator.ClosedArrow, RevisionAlphabet.Iso, IsoZoneLetters,
+        static (side, _, _) =>
+            from pitch in Seq(Length.FromMillimeters(50))
+            from half in Seq((int)QuantityValue.Round(side / pitch / 2, MidpointRounding.ToEven))
+            from k in toSeq(Range(1 - half, (2 * half) - 1))
+            select (side / 2) + (pitch * k));
+    public static readonly DraftingConvention Asme = new(Length.FromInches(0.5m), Length.FromInches(0.5m), rowsFromTop: false, columnsFromRight: true, None,
+        None, LetteringStandard.AsmeY142, Terminator.ClosedArrow, RevisionAlphabet.Asme, IsoZoneLetters,
+        static (side, _, _) =>
+            from count in Seq(2 * (int)QuantityValue.Round(side / Length.FromInches(5.5m) / 2, MidpointRounding.ToPositiveInfinity))
+            from k in toSeq(Range(1, count - 1))
+            select side * k / count);
+    public static readonly DraftingConvention Ncs = new(Length.FromInches(1.5m), Length.FromInches(0.75m), rowsFromTop: false, columnsFromRight: false, None,
+        None, LetteringStandard.AsmeY142, Terminator.Oblique, RevisionAlphabet.Asme, IsoZoneLetters,
+        static (_, first, last) =>
+            from pitch in Seq(Length.FromInches(1.5m))
+            from k in toSeq(Range(1, (int)QuantityValue.Round((last - first) / pitch, MidpointRounding.ToPositiveInfinity) - 1))
+            select first + (pitch * k));
+
+    public static Fin<DraftingConvention> Validated(Length binding, Length border, bool rowsFromTop, bool columnsFromRight, Option<Length> topRightZonesUpTo,
+        Option<(Length Reach, Length TitleBlock)> centering, LetteringStandard lettering, Terminator terminator, RevisionAlphabet revisions, string zoneLetters,
+        Func<Length, Length, Length, Seq<Length>> divisions) =>
+        (DraftingFault.Unless(Seq(binding, border).ForAll(Measured) && topRightZonesUpTo.ForAll(Measured) && centering.ForAll(static held => Measured(held.Reach) && Measured(held.TitleBlock)),
+                DraftingReason.Measure, (binding, border, topRightZonesUpTo, centering)),
+         DraftingFault.Unless(zoneLetters.Length > 0 && toHashSet(zoneLetters).Count == zoneLetters.Length, DraftingReason.Repeated, zoneLetters))
+            .Apply((_, _) => new DraftingConvention(binding, border, rowsFromTop, columnsFromRight, topRightZonesUpTo, centering, lettering, terminator, revisions, zoneLetters, divisions)).As();
+
+    internal static bool Measured(Length length) => QuantityValue.IsFinite(length.Value) && length >= Length.Zero;
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[ValidationError<DraftingFault>]
-public sealed partial class SheetSize {
-    public static readonly SheetSize A0 = new("A0", DraftingConvention.Iso, (Length.FromMillimeters(841), Length.FromMillimeters(1189)));
-    public static readonly SheetSize A1 = new("A1", DraftingConvention.Iso, (Length.FromMillimeters(594), Length.FromMillimeters(841)));
-    public static readonly SheetSize A2 = new("A2", DraftingConvention.Iso, (Length.FromMillimeters(420), Length.FromMillimeters(594)));
-    public static readonly SheetSize A3 = new("A3", DraftingConvention.Iso, (Length.FromMillimeters(297), Length.FromMillimeters(420)));
-    public static readonly SheetSize A4 = new("A4", DraftingConvention.Iso, (Length.FromMillimeters(210), Length.FromMillimeters(297)));
-    public static readonly SheetSize AnsiA = new("ANSI A", DraftingConvention.Asme, (Length.FromInches(8.5m), Length.FromInches(11)));
-    public static readonly SheetSize AnsiB = new("ANSI B", DraftingConvention.Asme, (Length.FromInches(11), Length.FromInches(17)));
-    public static readonly SheetSize AnsiC = new("ANSI C", DraftingConvention.Asme, (Length.FromInches(17), Length.FromInches(22)));
-    public static readonly SheetSize AnsiD = new("ANSI D", DraftingConvention.Asme, (Length.FromInches(22), Length.FromInches(34)));
-    public static readonly SheetSize AnsiE = new("ANSI E", DraftingConvention.Asme, (Length.FromInches(34), Length.FromInches(44)));
-    public static readonly SheetSize ArchA = new("ARCH A", DraftingConvention.Ncs, (Length.FromInches(9), Length.FromInches(12)));
-    public static readonly SheetSize ArchB = new("ARCH B", DraftingConvention.Ncs, (Length.FromInches(12), Length.FromInches(18)));
-    public static readonly SheetSize ArchC = new("ARCH C", DraftingConvention.Ncs, (Length.FromInches(18), Length.FromInches(24)));
-    public static readonly SheetSize ArchD = new("ARCH D", DraftingConvention.Ncs, (Length.FromInches(24), Length.FromInches(36)));
-    public static readonly SheetSize ArchE1 = new("ARCH E1", DraftingConvention.Ncs, (Length.FromInches(30), Length.FromInches(42)));
-    public static readonly SheetSize ArchE = new("ARCH E", DraftingConvention.Ncs, (Length.FromInches(36), Length.FromInches(48)));
-
-    public DraftingConvention Convention { get; }
+public sealed record SheetSize {
+    private SheetSize(string name, (Length Short, Length Long) sides, DraftingConvention convention) => (Name, Sides, Convention) = (name, sides, convention);
+    public string Name { get; }
     public (Length Short, Length Long) Sides { get; }
+    public DraftingConvention Convention { get; }
+
+    public static readonly SheetSize A0 = new("A0", (Length.FromMillimeters(841), Length.FromMillimeters(1189)), DraftingConvention.Iso);
+    public static readonly SheetSize A1 = new("A1", (Length.FromMillimeters(594), Length.FromMillimeters(841)), DraftingConvention.Iso);
+    public static readonly SheetSize A2 = new("A2", (Length.FromMillimeters(420), Length.FromMillimeters(594)), DraftingConvention.Iso);
+    public static readonly SheetSize A3 = new("A3", (Length.FromMillimeters(297), Length.FromMillimeters(420)), DraftingConvention.Iso);
+    public static readonly SheetSize A4 = new("A4", (Length.FromMillimeters(210), Length.FromMillimeters(297)), DraftingConvention.Iso);
+    public static readonly SheetSize AnsiA = new("ANSI A", (Length.FromInches(8.5m), Length.FromInches(11)), DraftingConvention.Asme);
+    public static readonly SheetSize AnsiB = new("ANSI B", (Length.FromInches(11), Length.FromInches(17)), DraftingConvention.Asme);
+    public static readonly SheetSize AnsiC = new("ANSI C", (Length.FromInches(17), Length.FromInches(22)), DraftingConvention.Asme);
+    public static readonly SheetSize AnsiD = new("ANSI D", (Length.FromInches(22), Length.FromInches(34)), DraftingConvention.Asme);
+    public static readonly SheetSize AnsiE = new("ANSI E", (Length.FromInches(34), Length.FromInches(44)), DraftingConvention.Asme);
+    public static readonly SheetSize ArchA = new("ARCH A", (Length.FromInches(9), Length.FromInches(12)), DraftingConvention.Ncs);
+    public static readonly SheetSize ArchB = new("ARCH B", (Length.FromInches(12), Length.FromInches(18)), DraftingConvention.Ncs);
+    public static readonly SheetSize ArchC = new("ARCH C", (Length.FromInches(18), Length.FromInches(24)), DraftingConvention.Ncs);
+    public static readonly SheetSize ArchD = new("ARCH D", (Length.FromInches(24), Length.FromInches(36)), DraftingConvention.Ncs);
+    public static readonly SheetSize ArchE1 = new("ARCH E1", (Length.FromInches(30), Length.FromInches(42)), DraftingConvention.Ncs);
+    public static readonly SheetSize ArchE = new("ARCH E", (Length.FromInches(36), Length.FromInches(48)), DraftingConvention.Ncs);
+
+    public static readonly Seq<SheetSize> Standard = [A0, A1, A2, A3, A4, AnsiA, AnsiB, AnsiC, AnsiD, AnsiE, ArchA, ArchB, ArchC, ArchD, ArchE1, ArchE];
+
+    public static Fin<SheetSize> Validated(string name, Length width, Length height, DraftingConvention convention) =>
+        (DraftingFault.Unless(!string.IsNullOrWhiteSpace(name), DraftingReason.Blank, name),
+         DraftingFault.Unless(DraftingConvention.Measured(width) && DraftingConvention.Measured(height) && width > Length.Zero && height > Length.Zero, DraftingReason.Measure, (width, height)))
+            .Apply((_, _) => new SheetSize(name.Trim(), width <= height ? (width, height) : (height, width), convention)).As();
 }
 
 [SmartEnum]
@@ -78,9 +103,7 @@ public sealed record PaperRectangle(Length Left, Length Bottom, Length Right, Le
 
 public sealed record ZoneGrid(Seq<Length> Columns, Seq<Length> Rows, DraftingConvention Convention, bool AllEdges) {
     public string Column(int index) => (Convention.ColumnsFromRight ? Columns.Count + 1 - index : index + 1).ToString(CultureInfo.InvariantCulture);
-    public string Row(int index) => Letter(RevisionAlphabet.Iso.Symbols, Convention.RowsFromTop ? Rows.Count - index : index);
-
-    private static string Letter(string letters, int row) => new(letters[row % letters.Length], (row / letters.Length) + 1);
+    public string Row(int index) => (Convention.ZoneLetters, Convention.RowsFromTop ? Rows.Count - index : index) switch { var (letters, row) => new(letters[row % letters.Length], (row / letters.Length) + 1) };
 }
 
 [Union]
@@ -90,20 +113,20 @@ public abstract partial record FrameMark {
     public sealed record Label(string Text, (Length X, Length Y) Center, Length Height) : FrameMark;
 }
 
-public sealed record Sheet(SheetSize Size, SheetOrientation Orientation) {
+public sealed record Sheet(SheetSize Size, SheetOrientation Orientation, DraftingConvention Convention) {
     public (Length Width, Length Height) Extent => Orientation.Extent(Size);
-    public PaperRectangle Field => Extent switch { var (width, height) => new(Size.Convention.Binding, Size.Convention.Border, width - Size.Convention.Border, height - Size.Convention.Border) };
+    public PaperRectangle Field => Extent switch { var (width, height) => new(Convention.Binding, Convention.Border, width - Convention.Border, height - Convention.Border) };
     public ZoneGrid Zones =>
         (Extent, Field) switch {
-            var ((width, height), drawing) => new(Size.Convention.Divisions(width, drawing.Left, drawing.Right), Size.Convention.Divisions(height, drawing.Bottom, drawing.Top), Size.Convention,
-                !Size.Convention.SmallestTopRight || toSeq(SheetSize.Items).Exists(other => other.Convention == Size.Convention && other.Sides.Short < Size.Sides.Short)),
+            var ((width, height), drawing) => new(Convention.Divisions(width, drawing.Left, drawing.Right), Convention.Divisions(height, drawing.Bottom, drawing.Top), Convention,
+                Convention.TopRightZonesUpTo.ForAll(limit => Size.Sides.Short > limit)),
         };
 
     public Seq<FrameMark> Frame {
         get {
-            ((Length width, Length height), PaperRectangle paper, ZoneGrid zones, Length letter) = (Extent, Field, Zones, Size.Convention.Lettering.ZoneHeight);
-            Option<Length> reach = Size.Convention.Centering.Map(static centering => centering.Reach);
-            Option<Length> blocked = Size.Convention.Centering.Map(centering => width / 2 < paper.Right - centering.TitleBlock ? centering.Reach : Length.Zero);
+            ((Length width, Length height), PaperRectangle paper, ZoneGrid zones, Length letter) = (Extent, Field, Zones, Convention.Lettering.ZoneHeight);
+            Option<Length> reach = Convention.Centering.Map(static centering => centering.Reach);
+            Option<Length> blocked = Convention.Centering.Map(centering => width / 2 < paper.Right - centering.TitleBlock ? centering.Reach : Length.Zero);
             return Seq<FrameMark>(new FrameMark.Stroke(LineWeight.ExtraWide, [(paper.Left, paper.Bottom), (paper.Right, paper.Bottom), (paper.Right, paper.Top), (paper.Left, paper.Top), (paper.Left, paper.Bottom)]))
                 + Edges(zones.Columns, (paper.Left, paper.Right), width, letter, zones.Column, static (along, across) => (along, across),
                     [(paper.Top, height, true, reach), (paper.Bottom, Length.Zero, zones.AllEdges, blocked)])
@@ -116,8 +139,8 @@ public sealed record Sheet(SheetSize Size, SheetOrientation Orientation) {
         Some(Field).Filter(drawing => x >= drawing.Left && x <= drawing.Right && y >= drawing.Bottom && y <= drawing.Top)
             .Map(_ => Zones switch { var zones => zones.Row(zones.Rows.Filter(division => division <= y).Count) + zones.Column(zones.Columns.Filter(division => division <= x).Count) });
 
-    public static Option<Sheet> Match(Length width, Length height, Length tolerance) =>
-        (from size in toSeq(SheetSize.Items) from orientation in toSeq(SheetOrientation.Items) select new Sheet(size, orientation))
+    public static Option<Sheet> Match(Seq<SheetSize> sizes, Length width, Length height, Length tolerance) =>
+        (from size in sizes from orientation in toSeq(SheetOrientation.Items) select new Sheet(size, orientation, size.Convention))
             .Find(sheet => sheet.Extent.Width.Equals(width, tolerance) && sheet.Extent.Height.Equals(height, tolerance));
 
     private static Seq<FrameMark> Edges(

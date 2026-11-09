@@ -41,14 +41,20 @@ public abstract partial record Shape {
     public sealed record Combined(Shape First, SKPathOp Op, Shape Second) : Shape;
 }
 
-[SmartEnum]
+[ComplexValueObject(SkipFactoryMethods = true)]
 public sealed partial class IconSet {
-    public static readonly IconSet Lucide = new(stem: 2f);
-    public static readonly IconSet Tabler = new(stem: 2f);
-    public static readonly IconSet Fluent = new(stem: 1f);
-    public static readonly IconSet MaterialCommunity = new(stem: 2f);
+    public static IconSet Lucide { get; } = new(24f, 2f);
+    public static IconSet Tabler { get; } = new(24f, 2f);
+    public static IconSet Fluent { get; } = new(20f, 1f);
+    public static IconSet MaterialCommunity { get; } = new(24f, 2f);
 
+    public float Grid { get; }
     public float Stem { get; }
+
+    internal SKRect Box => SKRect.Create(Grid, Grid);
+
+    public static Fin<IconSet> Validated(float grid, float stem) =>
+        UIFault.Unless(float.IsFinite(grid) && grid > 0f && float.IsFinite(stem) && stem >= 0f, UIReason.Range, (grid, stem)).Map(_ => new IconSet(grid, stem));
 }
 
 [ComplexValueObject(SkipFactoryMethods = true)]

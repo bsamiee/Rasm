@@ -1,0 +1,25 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Zip",
+    "description": "Zips each archived app with ditto; an archive with a method is exported with it first, notarized with notarytool, stapled, and zipped again",
+    "type": "object",
+    "properties": {
+        "exports": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "archive": { "type": "string", "description": "Archive xcodebuild archive wrote" },
+                    "folder": { "type": "string", "description": "Folder holding the zip, and the export of a notarized archive" },
+                    "method": { "type": "string", "description": "Export method, present where the archive configuration signs with a Developer ID Application identity and the hardened runtime" }
+                },
+                "required": [ "archive", "folder" ]
+            },
+            "description": "Archives the plugin infers for the scheme's archive configuration, none in any other configuration"
+        },
+        "profile": { "type": "string", "description": "notarytool keychain profile from the plugin's notaryProfile option, required by archives with a method" },
+        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to notarytool submit, else to ditto" }
+    },
+    "required": [ "exports" ]
+}

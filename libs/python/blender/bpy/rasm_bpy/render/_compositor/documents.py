@@ -14,6 +14,7 @@ import OpenImageIO
 import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.nodes._addressing import _grouped_value, owned
 from rasm_bpy.nodes._desired import item_key
@@ -45,7 +46,7 @@ def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: Di
         .try_head()
         .bind(lambda part: Option.of_optional(try_downcast(str, part.getattribute("Frame", OpenImageIO.TypeString))))
         .to_result_with(partial(Fault.of, Reason.ABSENT, str(frame.path), member="Frame"))
-        .bind(lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Reason.REFUSED, str(frame.path))))
+        .bind(lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Refusal.REFUSED, str(frame.path))))
     )
 
     def read_tree(tree: bpy.types.NodeTree, record: LayerStack, at: int, valued: Callable[[Key], Outcome[Value]]) -> Outcome[_Planes]:

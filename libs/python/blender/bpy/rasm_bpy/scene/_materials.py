@@ -19,6 +19,7 @@ from rasm_bpy.commands.invocations import Open
 from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Operator, Unchanged
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.images import Tag
 from rasm_bpy.data._ids.ownership import _kept, _retained, Ownership, Saved
 from rasm_bpy.data._rna.conditions import Present, Scenes
@@ -189,7 +190,7 @@ def _classified(paths: tuple[str, ...]) -> Outcome[dict[_MapKind, str]]:
     """Classifies files by map kind, accumulating each later file of a kind as a collision with its first."""
     first: dict[_MapKind, str] = {}
     return accumulated(
-        Ok((member, path)).filter_with(lambda pair: first.setdefault(*pair) == pair[1], lambda pair: Fault.of(Reason.TAKEN, pair[1], member=first[pair[0]]))
+        Ok((member, path)).filter_with(lambda pair: first.setdefault(*pair) == pair[1], lambda pair: Fault.of(Refusal.TAKEN, pair[1], member=first[pair[0]]))
         for path in paths
         for member in _map_kind(path).to_list()
     ).map(dict)
@@ -283,7 +284,7 @@ def _material(setup: _ShadingSetup, identity: Identity, scope: Option[ExitStack]
     """Reuses or creates owned setup material, storing the setup on its tree, removing a created one on fault or scope unwind."""
 
     def built() -> Outcome[bpy.types.Material]:
-        return _kept(catch(bpy.data.materials.new, exception=RuntimeError)(bpy.path.display_name(setup.ownership.key)).map_error(partial(Fault.of, Reason.REFUSED, setup.ownership.key)), _emptied)
+        return _kept(catch(bpy.data.materials.new, exception=RuntimeError)(bpy.path.display_name(setup.ownership.key)).map_error(partial(Fault.of, Refusal.REFUSED, setup.ownership.key)), _emptied)
 
     return setup.ownership.made(identity, built, filled=lambda held: _tree_of(held).bind(lambda tree: stored(identity).write(tree, setup)).bind(lambda _: _shaded(held, setup, identity)), scope=scope)
 

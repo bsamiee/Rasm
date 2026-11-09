@@ -1,11 +1,12 @@
-"""Tinted icon previews from packaged SVG images, data-block icons, and tool icon paths."""
+"""Tinted icon previews from packaged SVG images and their quarter-turned variants, data-block icons, and tool icon paths."""
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, nullcontext
 from functools import partial
 import importlib.resources
 from importlib.resources.abc import Traversable
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final, Self, TYPE_CHECKING
 
 import bpy
@@ -23,7 +24,7 @@ from rasm_bpy.data._rna.paths import _definition
 from rasm_bpy.ui._drawing.handlers import _refreshing, Refresh
 from rasm_bpy.ui._resources.previews import _filled, _PREVIEWS
 from rasm_bpy.ui._resources.theme import _color, Color, Metrics
-from rasm_records import Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -64,6 +65,16 @@ class _IconSet:
 
         return cls(collection=collection, sources=dict(source(entry) for entry in Icons.folder(identity).iterdir() if Path(entry.name).suffix == ".svg"))
 
+    def turned(self, identity: Identity, variants: Mapping[Path, Path]) -> Outcome[None]:
+        """Adds each variant as its master turned a quarter clockwise, the host's bottom-first rows turning a quarter counterclockwise, absent fault for a master the folder lacks."""
+        missing = tuple(master for master in variants.values() if master not in self.sources)
+        for variant, master in variants.items() if not missing else ():
+            size = self.collection[master.as_posix()].image_size
+            pixels = np.ascontiguousarray(np.rot90(self.sources[master][0].reshape(size[1], size[0], 4))).reshape(-1, 4)
+            _filled(self.collection.new(variant.as_posix()), pixels.reshape(-1), (size[1], size[0]))
+            self.sources[variant] = (pixels, Nothing)
+        return accumulated(Error(Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=master.as_posix())) for master in missing).map(lambda _: None)
+
     def retinted(self, tint: Callable[[Path], Option[Color]]) -> bool:
         """Writes changed tints over source alpha, returning whether one changed."""
         changed = {source: (original, current) for source, (original, applied) in self.sources.items() if applied != (current := tint(source))}
@@ -85,13 +96,14 @@ class _IconSet:
 
 
 class Icons(msgspec.Struct, frozen=True, kw_only=True):
-    """Packaged image icons of one extension with an optional brand icon, tinted in regular widget text color by default and tinted again after each `watched` source fires."""
+    """Packaged image icons of one extension with an optional brand icon and quarter-turned variants keyed by the name rows state, tinted in regular widget text color by default and tinted again after each `watched` source fires."""
 
     # --- [STATE]
 
     tint: Callable[[Path], Option[Color]] = lambda _: Some(_color(Metrics.read().preferences.themes[0].user_interface.wcol_regular.text))
     watched: tuple[Refresh, ...] = ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
     brand: Option[Path] = Nothing
+    turned: Mapping[Path, Path] = MappingProxyType({})
 
     # --- [REGISTRATION]
 
@@ -105,13 +117,14 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
 
         @contextmanager
         def tinted() -> Generator[Outcome[None]]:
-            """Tints icons and records the brand icon."""
+            """Adds turned variants, tints icons, and records the brand icon."""
             icons = _ICONS[identity]
+            turned = icons.turned(identity, self.turned)
             icons.retinted(self.tint)
             branded: Outcome[Option[int]] = self.brand.map(lambda source: icons.icon(identity, source).map(Some)).default_value(Ok(Nothing))
             for brand in branded.to_option().to_list():
                 icons.brand = brand
-            yield branded.map(lambda _: None)
+            yield paired(turned, branded).map(lambda _: None)
 
         with identity.reports.deferred(retinted) as later:
             yield (_ICONS, (_Tier.RESOURCES, tinted()), (_Tier.SUBSCRIPTIONS, _refreshing(identity, self.watched, lambda: Ok(later()))))
@@ -144,11 +157,6 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                 )
             case _:
                 return Ok(Nothing)
-
-    @staticmethod
-    def path(identity: Identity, source: Path) -> str:
-        """Returns suffixless absolute path for tool `bl_icon`."""
-        return str(Icons.folder(identity).joinpath(source.with_suffix("").as_posix()))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

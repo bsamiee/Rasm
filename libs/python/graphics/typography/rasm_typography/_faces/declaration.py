@@ -1,9 +1,6 @@
-"""Font set declarations: families, faces, genres, treatments, value overrides, and ornament sets."""
+"""Face design records: scripts, genres, treatments, value overrides, and the text and ornament faces they describe."""
 
-from collections import Counter
 from enum import auto, StrEnum
-from functools import partialmethod
-from pathlib import Path
 from typing import Annotated, Literal
 lazy from itertools import batched
 lazy import math
@@ -14,17 +11,16 @@ from ufoLib2.objects.info import WidthClass
 
 from rasm_typography._faces.coverage import Coverage
 from rasm_typography._faces.layout import Tag
-lazy from rasm_records import Outcome, paired, RecordFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Name = Annotated[str, msgspec.Meta(min_length=1)]
-type _Style = Annotated[str, msgspec.Meta(pattern=r"\A[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*\Z")]
-type _Code = Annotated[int, msgspec.Meta(ge=0, le=0x10FFFF)]
+type Style = Annotated[str, msgspec.Meta(pattern=r"\A[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*\Z")]
+type Code = Annotated[int, msgspec.Meta(ge=0, le=0x10FFFF)]
+type Weight = Annotated[int, msgspec.Meta(ge=1, le=1000)]
 type Em = Annotated[float, msgspec.Meta(ge=0.0, le=4.0)]
 type Ratio = Annotated[float, msgspec.Meta(gt=0.0)]
 type Band = tuple[Em, Em]
-type _Members[F] = Annotated[tuple[F, ...], msgspec.Meta(min_length=1)]
 
 
 class Recipe(StrEnum):
@@ -40,10 +36,6 @@ class Recipe(StrEnum):
     DOTS = auto()
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_PROFILE = Path(__file__).parents[1] / "_verification" / "fontspector.toml"
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 # --- [SCRIPTS]
@@ -52,12 +44,12 @@ _PROFILE = Path(__file__).parents[1] / "_verification" / "fontspector.toml"
 class Derived(msgspec.Struct, frozen=True, kw_only=True):
     """Glyph drawn from a model glyph: turned with its foot at a height, scaled to a share of a reference glyph's height, or its lowest small piece repeated in a row or around a circle."""
 
-    code: _Code
+    code: Code
     variant: str = ""
-    model: _Code | _Name
+    model: Code | _Name
     turned: bool = False
     foot: Literal["own", "base", "middle"] = "own"
-    reference: _Code | None = None
+    reference: Code | None = None
     height: Ratio | None = None
     repeats: int = 0
     around: int = 0
@@ -68,26 +60,26 @@ class Script(msgspec.Struct, frozen=True, kw_only=True):
     """Code points and texts the rules of one writing system read, stated once here and in no rule."""
 
     scripts: frozenset[str]
-    stem: _Code
-    dotted: _Code
-    head: _Code
-    teeth: _Code
-    kashida: _Code | None
-    carrier: _Code | None
-    spaces: tuple[_Code, ...]
-    vowels: tuple[_Code, _Code]
-    recipes: frozendict[_Code, Recipe]
-    iqlab: tuple[_Code, ...]
-    hairlines: frozenset[_Code]
-    counters: tuple[_Code, ...]
-    standing: frozenset[_Code]
-    locl: frozendict[_Code, _Code]
+    stem: Code
+    dotted: Code
+    head: Code
+    teeth: Code
+    kashida: Code | None
+    carrier: Code | None
+    spaces: tuple[Code, ...]
+    vowels: tuple[Code, Code]
+    recipes: frozendict[Code, Recipe]
+    iqlab: tuple[Code, ...]
+    hairlines: frozenset[Code]
+    counters: tuple[Code, ...]
+    standing: frozenset[Code]
+    locl: frozendict[Code, Code]
     language: tuple[Tag, Tag]
-    rlig: frozendict[_Code, frozenset[_Code]]
+    rlig: frozendict[Code, frozenset[Code]]
     derived: tuple[Derived, ...]
-    digits: tuple[_Code, _Code]
+    digits: tuple[Code, Code]
     shared: frozenset[int]
-    signs: frozendict[_Code, tuple[str, ...]]
+    signs: frozendict[Code, tuple[str, ...]]
 
     @staticmethod
     def spelled(*codes: int) -> frozendict[int, tuple[str, ...]]:
@@ -274,13 +266,12 @@ class Values(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
     lowest_ppem: Annotated[int, msgspec.Meta(ge=1)] | None = None
 
 
-class _Member(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower, forbid_unknown_fields=True):
-    """Face of a declared family or ornament set, its family name filled by its owner."""
+class _Named(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower, forbid_unknown_fields=True):
+    """Face named by its family, its style, and a suffix naming a family of its own."""
 
-    style: _Style
-    original: str
+    family: _Name
+    style: Style
     suffix: str = ""
-    family: str = ""
 
     @property
     def typographic(self) -> str:
@@ -288,153 +279,35 @@ class _Member(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=s
         return f"{self.family} {self.suffix}".strip()
 
     @property
-    def stem(self) -> str:
-        """File stem of the face's builds, names joined without spaces (`BannaiOutline-Regular`)."""
+    def postscript(self) -> str:
+        """PostScript name ufo2ft writes from the typographic family and style, names joined without spaces (`BannaiOutline-Regular`)."""
         return f"{self.typographic}-{self.style}".replace(" ", "")
 
 
-class Face(_Member, frozen=True, kw_only=True):
+class Face(_Named, frozen=True, kw_only=True):
     """Text face with weight, width, treatments, and value overrides, its genre filled from its family."""
 
-    weight: Annotated[int, msgspec.Meta(ge=1, le=1000)] = 400
+    weight: Weight = 400
     width: WidthClass = WidthClass.NORMAL
     treatments: tuple[Treatments, ...] = ()
     values: Values = Values()
     genre: Genres = TextNaskh()
 
 
-class OrnamentFace(_Member, frozen=True, kw_only=True):
+class OrnamentFace(_Named, frozen=True, kw_only=True):
     """Ornament face re-encoded from a first Private Use code point."""
 
-    first: _Code = 0xE000
+    first: Code = 0xE000
 
 
 type Faces = Face | OrnamentFace
-
-# --- [SETS]
-
-
-class _Set(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    """Named group under one original folder."""
-
-    name: _Name
-    original: str
-    notes: str = ""
-
-
-class _Family(_Set, frozen=True, kw_only=True):
-    """Text family under one genre, its faces filled with its name and genre."""
-
-    genre: Genres
-    faces: _Members[Face]
-
-    def __post_init__(self) -> None:
-        """Fills each face's family name and genre."""
-        msgspec.structs.force_setattr(self, "faces", tuple(msgspec.structs.replace(face, family=self.name, genre=self.genre) for face in self.faces))
-
-
-class _OrnamentSet(_Set, frozen=True, kw_only=True):
-    """Ornament family, its faces filled with its name."""
-
-    faces: _Members[OrnamentFace]
-
-    def __post_init__(self) -> None:
-        """Fills each ornament's family name."""
-        msgspec.structs.force_setattr(self, "faces", tuple(msgspec.structs.replace(face, family=self.name) for face in self.faces))
-
-
-class _FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    """Declared font set: families, ornament sets, and the shaping corpus, its path relative to the declaration."""
-
-    name: _Name
-    corpus: str
-    families: tuple[_Family, ...]
-    ornaments: tuple[_OrnamentSet, ...] = ()
-
-    def __post_init__(self) -> None:
-        """Refuses a group name or face stem declared twice.
-
-        Raises:
-            ValueError: If a group name or face stem repeats.
-        """
-        if repeated := tuple(name for name, count in Counter((*(group.name for group in self.groups), *(face.stem for face in self.faces))).items() if count > 1):
-            raise ValueError(f"declared twice: {', '.join(repeated)}")
-
-    @property
-    def groups(self) -> tuple[_Family | _OrnamentSet, ...]:
-        """Every family and ornament set in declaration order."""
-        return (*self.families, *self.ornaments)
-
-    @property
-    def faces(self) -> tuple[Faces, ...]:
-        """Every text and ornament face in declaration order."""
-        return tuple(*group.faces for group in self.groups)
-
-
-class _Shaping(msgspec.Struct, frozen=True, kw_only=True):
-    test_directory: str
-
-
-class _Fontspector(msgspec.Struct, frozen=True, kw_only=True):
-    """Fontspector table a set reads from the library's profile: the shaping test directory, relative to the set's declaration."""
-
-    shaping: _Shaping
-
-
-class _Declared(msgspec.Struct, frozen=True, kw_only=True):
-    """Decoded font set with the folder its relative paths resolve against, the folder its builds write to, and the folder of its approved shaping expectations."""
-
-    set: _FontSet
-    root: Path
-    output: Path
-    approvals: Path
-
-    @property
-    def corpus(self) -> Path:
-        """Shaping corpus file."""
-        return self.root / self.set.corpus
-
-    def original(self, face: Faces, /) -> Path:
-        """Returns the original binary a face reads."""
-        return self.root / next(group.original for group in self.set.groups if group.name == face.family) / face.original
-
-    def approved(self, face: Faces, /) -> Path:
-        """Returns the approved shaping expectations of a face."""
-        return self.approvals / f"{face.stem}.json"
-
-    def _output(self, folder: str, suffix: str, face: Faces, /) -> Path:
-        """Returns a face's output file under a folder, an empty folder name selecting the family folder."""
-        return self.output / (folder or face.family.replace(" ", "")) / f"{face.stem}{suffix}"
-
-    source = partialmethod(_output, "source", ".ufo")
-    binary = partialmethod(_output, "", ".ttf")
-    check = partialmethod(_output, "check", ".json")
-    stamp = partialmethod(_output, "", ".json")
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _declared(path: Path, output: Path, /) -> Outcome[_Declared]:
-    """Reads a set declaration, its approvals in the profile's test directory under the declaration's folder and its builds under an output folder.
-
-    Args:
-        path: Set declaration TOML.
-        output: Folder the set's sources, binaries, and check reports write to.
-
-    Returns:
-        Ok(declared), `UNREADABLE` for a failed read and `INVALID` for a refused decode.
-    """
-    return paired(RecordFile(path=path, form=_FontSet).read(), RecordFile(path=_PROFILE, form=_Fontspector).read()).map(
-        lambda found: _Declared(set=found[0], root=path.parent, output=output, approvals=path.parent / found[1].shaping.test_directory)
-    )
-
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "Band",
     "BlackNaskh",
+    "Code",
     "Contour",
     "Derived",
     "Diwani",
@@ -454,9 +327,11 @@ __all__ = [
     "Segmented",
     "Shadow",
     "Sheared",
+    "Style",
     "TextNaskh",
     "Thuluth",
     "Treatment",
     "Treatments",
     "Values",
+    "Weight",
 ]

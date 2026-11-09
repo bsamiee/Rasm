@@ -14,8 +14,8 @@ lazy from rasm_typography._faces.glyphs import _Side
 lazy from rasm_typography._faces.names import _Form
 lazy from rasm_typography._outlines.measure import _counter
 lazy from rasm_typography._outlines.paths import _Box
-lazy from rasm_typography._shaping.corpus import _Corpus
-lazy from rasm_typography._shaping.runs import _Binary
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -42,7 +42,7 @@ class Records(Rule, frozen=True, kw_only=True):
 # --- [EXTENTS]
 
 
-def _reach(binary: _Binary[TTFont], texts: tuple[tuple[str, str], ...], /) -> tuple[float, float]:
+def _reach(binary: Binary[TTFont], texts: tuple[tuple[str, str], ...], /) -> tuple[float, float]:
     """Baseline and actual outline extrema after native substitutions and positioning under each run's language."""
     return reduce(lambda held, box: (max(held[0], box.ymax), min(held[1], box.ymin)), (box for text, language in texts for _, box in binary.placed_extents(text, language)), (0.0, 0.0))
 
@@ -57,7 +57,7 @@ def _typo(plain: tuple[float, float], marked: tuple[float, float], pitch: tuple[
     return (top + pad + extra, foot - pad)
 
 
-def _win(source: glyphs._Source, stack: float, stacks: int, reached: tuple[float, float], /) -> tuple[int, int]:
+def _win(source: glyphs.Source, stack: float, stacks: int, reached: tuple[float, float], /) -> tuple[int, int]:
     """Win ascent and descent over native corpus outlines, every glyph, and a stack of the tallest marks on every base anchor."""
     boxes = {name: _Box.of(rect) for name in source.named if (rect := source.bounds(name)) is not None}
     feet = {side: tuple((glyph, foot) for glyph in source.by_role(glyphs.Mark) if glyph.role == glyphs.Mark(side=side) for foot in glyph.anchors if foot.name.startswith("_")) for side in _Side}
@@ -70,7 +70,7 @@ def _win(source: glyphs._Source, stack: float, stacks: int, reached: tuple[float
     return (math.ceil(top), math.ceil(-foot))
 
 
-def _measured(source: glyphs._Source, rule: Metrics, /, *, corpus: _Corpus, binary: _Binary[TTFont]) -> glyphs._Metrics:
+def _measured(source: glyphs.Source, rule: Metrics, /, *, corpus: Corpus, binary: Binary[TTFont]) -> glyphs._Metrics:
     """Measures final vertical metrics on compiled native layout, retaining the source's records.
 
     Args:
@@ -100,7 +100,7 @@ def _measured(source: glyphs._Source, rule: Metrics, /, *, corpus: _Corpus, bina
 # --- [RECORDS]
 
 
-def _recorded(source: glyphs._Source, rule: Records, /) -> glyphs._Source:
+def _recorded(source: glyphs.Source, rule: Records, /) -> glyphs.Source:
     """Sets the lowest readable size one pixel across the median counter of the letters, or of every glyph, the x and cap heights at the outline tops of `x` and `H`, and the slant's italic angle and caret shift."""
     names = frozenset(source.key(code, form) for code in rule.letters for form in _Form)
     counters = tuple(width for glyph in source.glyphs if (not rule.letters or glyph.name.text in names) and (width := _counter(source.drawn(glyph.name.text).contours)) > 0)

@@ -4,7 +4,6 @@ using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
-using Emgu.CV.Util;
 using MathNet.Numerics;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
@@ -120,29 +119,25 @@ public sealed partial class Iris {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public static class Bokeh {
-    public static Fin<VectorOfMat> Spread(Iris iris, double fringe, Vector4 radii) =>
-        toSeq(Range(0, 4)).Traverse(channel => Gaussian.Taps(radii[channel] * iris.Circumradius / double.Min(iris.Squeeze, 1d))).As().Map(taps => {
-            VectorOfMat kernels = new(taps.Count);
-            for (int channel = 0; channel < kernels.Size; channel++) {
-                int side = taps[channel];
-                using Mat kernel = kernels[channel];
-                kernel.Create(side, side, DepthType.Cv32F, 1);
-                Span2D<float> cells = kernel.View<float>();
-                for (int y = 0; y < side; y++) {
-                    for (int x = 0; x < side; x++)
-                        cells[y, x] = Tap(iris, fringe, iris.Outline(new Vector2((side / 2) - x, (side / 2) - y)), radii[channel])[channel];
+    public static Fin<Seq<PixelPlane>> Spread(Iris iris, double fringe, Vector4 radii) =>
+        toSeq(Enumerable.Range(0, 4)).Traverse(channel => Gaussian.Taps(radii[channel] * iris.Circumradius / double.Min(iris.Squeeze, 1d))
+            .Bind(static side => PixelExtent.Validated(side, side)).Map(extent => {
+                PixelPlane kernel = new(extent);
+                Span2D<float> cells = kernel.View.Span;
+                for (int y = 0; y < extent.Height; y++) {
+                    for (int x = 0; x < extent.Width; x++)
+                        cells[y, x] = Tap(iris, fringe, iris.Outline(new Vector2((extent.Width / 2) - x, (extent.Height / 2) - y)), radii[channel])[channel];
                 }
-                CvInvoke.Normalize(kernel, kernel, 1d, 0d, NormType.L1);
-            }
-            return kernels;
-        });
+                using Mat header = kernel.Header();
+                CvInvoke.Normalize(header, header, 1d, 0d, NormType.L1);
+                return kernel;
+            })).As();
 
     public static PixelPass Correlated(Iris iris, double fringe, Vector4 radii) =>
         new PixelPass.Frame((frame, progress) =>
             from spread in Spread(iris, fringe, radii)
             from convolved in frame.Filter(header => {
-                using (spread) {
-                    using Mat light = frame.Premultiplied();
+                using (Mat light = frame.Premultiplied()) {
                     spread.Convolve(light, BorderType.Replicate);
                     light.CopyTo(header);
                 }
@@ -151,48 +146,49 @@ public static class Bokeh {
             })
             select convolved);
 
-    public static Action<PixelFrame, Mat> Focal(Matrix3x2 field, DistanceField region, float feather, int power, float cap) =>
+    public static Action<PixelFrame, PixelPlane> Focal(Matrix3x2 field, DistanceField region, float feather, int power, float cap) =>
         (frame, radii) => {
-            Span2D<float> radius = radii.View<float>();
+            Span2D<float> radius = radii.View.Span;
             for (int y = 0; y < radius.Height; y++) {
                 for (int x = 0; x < radius.Width; x++)
                     radius[y, x] = cap * float.Pow(float.Clamp(region.Distance(Vector2.Transform(new Vector2(frame.Origin.X + x + 0.5f, frame.Origin.Y + y + 0.5f), field)) / feather, 0f, 1f), power);
             }
         };
 
-    public static Option<Action<PixelFrame, Mat>> Depth(PixelFrame depth, Camera camera, double cap) =>
+    public static Option<Action<PixelFrame, PixelPlane>> Depth(PixelFrame depth, Camera camera, double cap) =>
         from focus in camera.Focus
         from lens in camera.Lens is Projection.Rectilinear rectilinear ? Some(rectilinear) : None
         let distance = focus.FocusDistance.Meters.ToDouble()
         let focal = focus.FocalLength.Meters.ToDouble()
         let scale = focal * lens.Extent.ShortSide / (2d * focus.FNumber * (distance - focal) * float.Min(lens.Window.Size.X, lens.Window.Size.Y))
-        select new Action<PixelFrame, Mat>((frame, radii) => {
-            using Mat spread = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
-            Span2D<float> radius = radii.View<float>();
-            Span2D<float> magnitude = spread.View<float>();
+        select new Action<PixelFrame, PixelPlane>((frame, radii) => {
+            PixelPlane spread = new(radii.Size);
+            Span2D<float> radius = radii.View.Span;
+            Span2D<float> magnitude = spread.View.Span;
             ReadOnlySpan2D<Vector4> distances = depth.View.Span;
             for (int y = 0; y < radius.Height; y++) {
                 for (int x = 0; x < radius.Width; x++)
                     magnitude[y, x] = float.Abs(radius[y, x] = (float)double.Clamp(
                         scale * (1d - (distance / distances[int.Clamp(frame.Origin.Y + y - depth.Origin.Y, 0, distances.Height - 1), int.Clamp(frame.Origin.X + x - depth.Origin.X, 0, distances.Width - 1)].X)), -cap, cap));
             }
-            spread.Blur(spread, cap / 3d);
-            TensorPrimitives.MinMagnitude(radii.GetSpan<float>(), spread.GetSpan<float>(), spread.GetSpan<float>());
-            TensorPrimitives.CopySign(spread.GetSpan<float>(), radii.GetSpan<float>(), radii.GetSpan<float>());
+            spread.Blur(cap / 3d, WrapMode.Clamp);
+            TensorPrimitives.MinMagnitude(radii.Samples, spread.Samples, spread.Samples);
+            TensorPrimitives.CopySign(spread.Samples, radii.Samples, radii.Samples);
         });
 
-    public static PixelPass Gathered(Iris iris, double fringe, Action<PixelFrame, Mat> radii) =>
+    public static PixelPass Gathered(Iris iris, double fringe, Action<PixelFrame, PixelPlane> radii) =>
         new PixelPass.Frame((frame, progress) => {
             using Mat source = frame.Premultiplied();
-            using Mat field = Mat.Zeros(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 1);
+            PixelPlane field = new(frame.Size);
             radii(frame, field);
-            field.MinMax(out double[] least, out double[] most, out Point[] _, out Point[] _);
+            using Mat header = field.Header();
+            header.MinMax(out double[] least, out double[] most, out Point[] _, out Point[] _);
             (double circumradius, double near) = (iris.Circumradius / double.Min(iris.Squeeze, 1d), double.Max(0d, -least[0]));
             return Gaussian.Taps(double.Max(near, most[0]) * circumradius).Bind(side => {
                 (double Reach, double Edge)[] outlines = [.. from y in Enumerable.Range(0, side) from x in Enumerable.Range(0, side) select iris.Outline(new Vector2((side / 2) - x, (side / 2) - y))];
                 return new PixelPass.Positional((row, _, top) => {
                     ReadOnlySpan2D<Vector4> light = source.View<Vector4>();
-                    ReadOnlySpan2D<float> radius = field.View<float>();
+                    ReadOnlySpan2D<float> radius = field.View.Span;
                     ReadOnlySpan2D<(double Reach, double Edge)> shapes = new(outlines, side, side);
                     int y = top - frame.Origin.Y;
                     for (int x = 0; x < row.Length; x++) {

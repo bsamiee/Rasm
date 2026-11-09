@@ -10,6 +10,7 @@ from expression import Option, Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import _rna
 from rasm_bpy.data._rna.snapshots import Snapshot
@@ -17,7 +18,7 @@ from rasm_bpy.render._compositor.effects import CompositorEffect, Entry
 from rasm_bpy.render._compositor.entries import _relocated, Enabled
 from rasm_bpy.render._compositor.inputs import _hold, _rebased, _regrouped, _restored, captured, PreviewFrame
 from rasm_bpy.render._compositor.offered import OfferedEffects
-from rasm_records import accumulated, Error, Fault, Name, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Error, Fault, Name, Nothing, Ok, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -115,7 +116,7 @@ def _applied(
         restores = accumulated(map(rows.offering, retired))
         names = accumulated(
             Descriptor.validated(_NAME.prop, name).bind(
-                lambda _: Error(Fault.of(Reason.TAKEN, name, member=repr(scene.compositor_effects[name]))) if name not in current and name in scene.compositor_effects else Ok(None)
+                lambda _: Error(Fault.of(Refusal.TAKEN, name, member=repr(scene.compositor_effects[name]))) if name not in current and name in scene.compositor_effects else Ok(None)
             )
             for name in requested
         )

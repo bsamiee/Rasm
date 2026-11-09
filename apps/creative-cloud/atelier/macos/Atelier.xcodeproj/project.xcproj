@@ -89,11 +89,11 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "Encoding",
+          "product-name": "EffectRPC",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "JSONRPC",
+          "product-name": "Encoding",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",

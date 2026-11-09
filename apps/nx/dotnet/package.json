@@ -11,7 +11,7 @@
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#analyzer": "./analyzer/MsbuildAnalyzer.csproj"
+        "#analyzer": "./dist/lib/MsbuildAnalyzer.dll"
     },
     "exports": {
         ".": "./plugins/project-graph.ts",
@@ -20,6 +20,9 @@
         "./executors.json": "./executors.json"
     },
     "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "scripts": {
+        "prepare": "dotnet build analyzer --configuration Release"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",

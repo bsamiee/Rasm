@@ -1,6 +1,5 @@
 using System.Numerics;
 using Darkroom.Chain;
-using Emgu.CV;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
@@ -41,12 +40,11 @@ internal sealed record Fog(NoiseSource Noise, float Variation, Length Start, flo
         .Traverse(static opacity => opacity).As()
         .Bind(found => found.Traverse(opacity => RampLight.Of(state.Colors, context) switch {
             var table => state.Diffusion.Match(
-                Some: radius => Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Filter(source => {
-                    PixelFrame spread = new(frame.Origin, frame.Size, frame.Extent);
-                    using Mat target = spread.Header();
-                    source.Blur(target, radius.Pixels(context.Extent) / 3d);
+                Some: radius => Some<PixelPass>(new PixelPass.Frame((frame, progress) => {
+                    PixelFrame spread = frame.Copy();
+                    spread.Blur(radius.Pixels(context.Extent) / 3d, WrapMode.Clamp);
                     return state.Layer.Run(Fill(state, table, opacity, (x, y) => spread.View.Span[y - spread.Origin.Y, x - spread.Origin.X].AsVector3()), frame, progress);
-                }))),
+                })),
                 None: () => state.Layer.Pass(Fill(state, table, opacity, static (_, _) => Vector3.One))),
         }).As())
         .Map(static staged => staged.Flatten());

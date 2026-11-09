@@ -1,0 +1,18 @@
+version = 1
+revision = 5
+requires-python = ">=3.13"
+
+[options]
+prerelease-mode = "allow"
+
+[manifest]
+requirements = [{ name = "vendorize" }]
+
+[[package]]
+name = "vendorize"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/80/84e3070c19d294b1c8036d337d4900da0bee2cd1b30fb3e72638bacbc884/vendorize-0.3.0.tar.gz", hash = "sha256:d3fc6f1ce436887f46b80ed0c13fb546a8201906d6e763d9b2aaf7ec40193792", size = 11425, upload-time = "2022-10-04T18:23:17.488Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/dc/c66b94d76662180aa8c7e043b59fa33d777e5da54575e14e914231a72fcf/vendorize-0.3.0-py3-none-any.whl", hash = "sha256:d6c163755369d4f6120f3a69b5d2112f04bb124555550b002813265463fb43c9", size = 12769, upload-time = "2022-10-04T18:23:15.63Z" },
+]

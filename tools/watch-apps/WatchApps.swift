@@ -6,8 +6,8 @@ import AsyncAlgorithms
 import Carbon.HIToolbox
 import CasePaths
 import CurrentProcess
+import EffectRPC
 import Encoding
-import JSONRPC
 import OrderedCollections
 import Processes
 import Results
@@ -638,7 +638,7 @@ private struct Serve: AsyncParsableCommand {
         let calls: DispatchQueue = DispatchQueue(label: "\(program).calls", attributes: .concurrent)
         let output: DispatchSerialQueue = DispatchSerialQueue(label: "\(program).output")
         await Run.execute(output: nil, accessibility: false) { run throws(ApplicationFailure) in
-            do throws(JSONRPCFailure) {
+            do throws(EffectRPCFailure) {
                 try await serve(
                     reading: FileHandle.standardInput.bytes.jsonLines,
                     writing: { line in _ = try await withTaskExecutorPreference(output) { try FileDescriptor.standardOutput.writeAll(line) } },

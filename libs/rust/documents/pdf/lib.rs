@@ -1,6 +1,6 @@
 #![feature(array_try_map, default_field_values, deref_patterns, error_reporter, float_conversions, gen_blocks, integer_casts, iterator_try_collect)]
 
-use core::{borrow::Borrow, fmt, str::Utf8Error};
+use core::{borrow::Borrow, cell::LazyCell, fmt, num::NonZero, str::Utf8Error};
 use std::{
     collections::{BTreeMap, HashSet},
     error::Report,
@@ -10,7 +10,7 @@ use std::{
 use hayro::hayro_interpret::TransformExt as _;
 use hayro_syntax::{
     DecryptionError, LoadPdfError, Pdf,
-    object::dict::keys::{ID, KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, USER_UNIT},
+    object::dict::keys::{ID, KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, STD_CF, USER_UNIT},
     page::Page,
 };
 use jiff::Zoned;
@@ -22,15 +22,21 @@ use krilla::{
     pdf,
 };
 use kurbo::{Affine, Rect, Size};
-use lopdf::{Dictionary, IncrementalDocument, LoadOptions, Object, ObjectId, decode_text_string, dictionary, text_string};
+use lopdf::{
+    Dictionary, EncryptionState, EncryptionVersion, IncrementalDocument, LoadOptions, Object, ObjectId, Permissions, StringFormat, decode_text_string, dictionary,
+    encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter},
+    text_string,
+};
 use moxcms::{CmsError, ColorProfile, DataColorSpace, ProfileClass};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use pdf_oxide::{
     PdfDocument,
-    compliance::{PdfALevel, PdfUaLevel, PdfXLevel},
-    editor::{DocumentEditor, SaveOptions},
+    compliance::{PdfALevel, PdfUaLevel, PdfXLevel, XComplianceError},
+    editor::{DocumentEditor, EncryptionAlgorithm, EncryptionConfig, SaveOptions},
+    encryption::generate_file_id,
     ocr::OcrError,
 };
+use rand::{CryptoRng, RngExt as _};
 use rasm_drawing::{LineworkError, WidthError};
 use rasn::{
     error::{DecodeError, EncodeError},
@@ -40,7 +46,8 @@ use rasn_cms::tsp::PkiStatus;
 use secrecy::{ExposeSecret as _, SecretString};
 use uom::si::{
     f64::{Length, LinearNumberDensity},
-    length::{millimeter, point_computer},
+    length::point_computer,
+    ratio::ratio,
 };
 use validated::Validated;
 
@@ -205,13 +212,22 @@ pub enum PdfError {
     #[error(transparent)]
     Recognition(#[from] OcrError),
     #[error("{refusal}: {name}")]
-    Named { name: Arc<str>, refusal: Refusal },
+    Named {
+        name: Arc<str>,
+        refusal: Refusal,
+    },
     #[error("page {index} lies past the {count} pages of the document")]
-    Page { index: usize, count: usize },
+    Page {
+        index: usize,
+        count: usize,
+    },
     #[error("area of {} by {} encloses nothing", .0.width(), .0.height())]
     Area(Rect),
     #[error("font data of {family} holds no face {index}")]
-    Font { family: Arc<str>, index: u32 },
+    Font {
+        family: Arc<str>,
+        index: u32,
+    },
     #[error("document holds no optional content group {} {} R", .0.0, .0.1)]
     Group(ObjectId),
     #[error("PDF metadata cannot represent year {0}")]
@@ -220,10 +236,11 @@ pub enum PdfError {
     Intent,
     #[error("{0} needs output the writer cannot produce")]
     Press(PdfXLevel),
-    #[error("{press} and {accessibility} require different PDF versions")]
-    Versions { press: PdfXLevel, accessibility: PdfUaLevel },
     #[error("document claims {family} conformance {claim}, which no validator checks")]
-    Claim { family: Family, claim: Arc<str> },
+    Claim {
+        family: Family,
+        claim: Arc<str>,
+    },
     #[error("page label range at page {0} numbers from zero, where ISO 32000 starts at one")]
     Numbering(usize),
     #[error("timestamp authority answered {}", fmt::from_fn(|formatter| match .0 {
@@ -234,25 +251,61 @@ pub enum PdfError {
     #[error("timestamp token stamps other bytes")]
     Imprint,
     #[error("raster of {width} by {height} pixels exceeds addressable memory")]
-    Raster { width: u64, height: u64 },
+    Raster {
+        width: u64,
+        height: u64,
+    },
     #[error("document is encrypted, and the signer appends its signature dictionary unencrypted")]
     Encrypted,
-    #[error("validator refused the claim{}", fmt::from_fn(|formatter| match .0 {
-        Verdict::Archival(result) => result.errors.iter().try_for_each(|error| write!(formatter, "\n{error}")),
-        Verdict::Accessibility(result) => result.errors.iter().try_for_each(|error| write!(formatter, "\n{error}")),
-        Verdict::Press(result) => result.errors.iter().try_for_each(|error| write!(formatter, "\n{error}")),
-    }))]
-    Nonconforming(Verdict),
+    #[error("document holds {0} signatures, and filling rewrites the whole file, which invalidates them")]
+    Signed(NonZero<usize>),
+    #[error("{level} validator refused the claim{}", fmt::from_fn(|formatter| errors.iter().try_for_each(|error| write!(formatter, "\n{error}"))))]
+    Nonconforming {
+        level: PdfXLevel,
+        errors: Vec<XComplianceError>,
+    },
     #[error("refused{}", fmt::from_fn(|formatter| .0.iter().try_for_each(|(subject, error)| write!(formatter, "\n{subject}: {}", Report::new(error)))))]
     Refused(NEVec<(Subject, Self)>),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn save(document: &Document, options: SaveOptions) -> Result<Vec<u8>, PdfError> {
-    match options {
+pub fn save<R>(document: &Document, options: SaveOptions, generator: &mut R) -> Result<Vec<u8>, PdfError>
+where R: CryptoRng + ?Sized {
+    match &options {
         SaveOptions { incremental: true, compress: false, linearize: false, garbage_collect: false, encryption: None } => Ok(document.data().as_ref().to_vec()),
-        rewrite => editor(document).and_then(|mut editor| editor.save_to_bytes_with_options(rewrite).map_err(PdfError::from)),
+        SaveOptions { encryption: None, .. } => Ok(editor(document)?.save_to_bytes_with_options(options)?),
+        SaveOptions { encryption: Some(EncryptionConfig { user_password, owner_password, algorithm, permissions }), .. } => {
+            let key = LazyCell::new(|| generator.random::<[u8; 32]>());
+            let permissions = Permissions::from_bits_truncate(u64::from(permissions.to_bits().cast_unsigned()));
+            let filters = |filter: Arc<dyn CryptFilter>| BTreeMap::from([(STD_CF.to_vec(), filter)]);
+            encrypted(&editor(document)?.save_to_bytes_with_options(SaveOptions { encryption: None, ..options })?, None, |structure| {
+                EncryptionState::try_from(match algorithm {
+                    EncryptionAlgorithm::Rc4_40 => EncryptionVersion::V1 { document: structure, owner_password, user_password, permissions },
+                    EncryptionAlgorithm::Rc4_128 => EncryptionVersion::V2 { document: structure, owner_password, user_password, key_length: 128, permissions },
+                    EncryptionAlgorithm::Aes128 => EncryptionVersion::V4 {
+                        document: structure,
+                        encrypt_metadata: true,
+                        crypt_filters: filters(Arc::new(Aes128CryptFilter)),
+                        stream_filter: STD_CF.to_vec(),
+                        string_filter: STD_CF.to_vec(),
+                        owner_password,
+                        user_password,
+                        permissions,
+                    },
+                    EncryptionAlgorithm::Aes256 => EncryptionVersion::V5 {
+                        encrypt_metadata: true,
+                        crypt_filters: filters(Arc::new(Aes256CryptFilter)),
+                        file_encryption_key: &*key,
+                        stream_filter: STD_CF.to_vec(),
+                        string_filter: STD_CF.to_vec(),
+                        owner_password,
+                        user_password,
+                        permissions,
+                    },
+                })
+            })
+        }
     }
 }
 
@@ -335,17 +388,20 @@ fn revised(document: &Document, edit: impl FnOnce(&mut lopdf::Document) -> Resul
 
 fn sealed(document: &Document, bytes: Vec<u8>) -> Result<Document, PdfError> {
     let source = structure(document)?;
-    let Some(state) = source.encryption_state else {
-        return Document::new(bytes, None);
-    };
-    let mut rewritten = lopdf::Document::load_mem(&bytes)?;
-    if let Some(identifier) = source.trailer.as_hashmap().get(ID) {
-        rewritten.trailer.set(ID, identifier.clone());
+    match source.encryption_state {
+        None => Document::new(bytes, None),
+        Some(state) => Document::new(encrypted(&bytes, source.trailer.as_hashmap().get(ID), |_| Ok(state))?, document.password.as_ref()),
     }
-    rewritten.encrypt(&state)?;
+}
+
+fn encrypted(bytes: &[u8], identifier: Option<&Object>, state: impl FnOnce(&lopdf::Document) -> Result<EncryptionState, lopdf::Error>) -> Result<Vec<u8>, PdfError> {
+    let mut structure = lopdf::Document::load_mem(bytes)?;
+    structure.trailer.set(ID, identifier.cloned().unwrap_or_else(|| Object::Array(<[_; 2]>::from(generate_file_id()).map(|part| Object::String(part, StringFormat::Hexadecimal)).into())));
+    let state = state(&structure)?;
+    structure.encrypt(&state)?;
     let mut encrypted = Vec::new();
-    rewritten.save_to(&mut encrypted).map_err(lopdf::Error::from)?;
-    Document::new(encrypted, document.password.as_ref())
+    structure.save_to(&mut encrypted).map_err(lopdf::Error::from)?;
+    Ok(encrypted)
 }
 
 fn extent(size: Size) -> Result<geom::Size, PdfError> { geom::Size::from_wh(size.width.cast::<f32>(), size.height.cast::<f32>()).ok_or(PdfError::Area(size.to_rect())) }
@@ -359,10 +415,10 @@ fn page(document: &Document, index: usize) -> Result<&Page<'_>, PdfError> {
     pages.get(index).ok_or(PdfError::Page { index, count: pages.len() })
 }
 
-fn points_per_millimeter() -> f64 { Length::new::<millimeter>(1.0).get::<point_computer>() }
+fn per_point(resolution: Resolution) -> f64 { (Length::new::<point_computer>(1.0) * *resolution).get::<ratio>() }
 
 fn frame(page: &Page<'_>) -> (Affine, Size) {
-    let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0) / points_per_millimeter();
+    let unit = page.raw().get::<f64>(USER_UNIT).filter(|unit| unit.is_normal() && unit.is_sign_positive()).unwrap_or(1.0);
     let (width, height) = page.render_dimensions();
     (Affine::scale(unit) * page.initial_transform(true).to_kurbo(), Size::new(f64::from(width) * unit, f64::from(height) * unit))
 }
@@ -452,10 +508,34 @@ mod proofs;
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 pub use authoring::{Options, Press, Standards, author, scan};
+pub use color;
 pub use conformance::{Verdict, claims, convert, validate};
 pub use editing::{Authority, Finish, Level, Part, Redaction, assemble, fill, form_fields, overlay, redact, sign, split};
 pub use extraction::{Paths, extract, paths, recognize};
+pub use fast_image_resize;
+pub use fontdb;
+pub use hayro;
+pub use hayro_syntax;
+pub use image;
+pub use image_compare;
+pub use jiff;
+pub use krilla;
+pub use kurbo;
 pub use layers::{Group, groups, set};
+pub use lopdf;
 pub use measurement::{Measure, locate, measures};
+pub use moxcms;
 pub use navigation::{Navigation, label, read};
+pub use nonempty_collections;
+pub use pdf_oxide;
 pub use proofs::{Appearance, Raster, compare, render, svg};
+pub use rand;
+pub use rasm_drawing;
+pub use rasn;
+pub use rasn_cms;
+pub use reqwest;
+pub use secrecy;
+pub use tiff;
+pub use uom;
+pub use usvg;
+pub use xot;

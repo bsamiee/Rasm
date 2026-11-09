@@ -1,9 +1,7 @@
 use core::{cmp::Ordering, iter, range::RangeInclusive};
 
 use good_lp::{
-    Constraint, DualValues as _, Expression, ProblemVariables, Solution as _, SolutionStatus, SolutionWithDual as _, SolverModel as _, Variable, highs,
-    solvers::{MipGapError, highs::HighsProblem},
-    variable,
+    Constraint, DualValues as _, Expression, ProblemVariables, ResolutionError, Solution as _, SolutionStatus, SolutionWithDual, Solver, SolverModel, Variable, solvers::MipGapError, variable,
 };
 use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView};
@@ -52,10 +50,19 @@ pub struct Allocation {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn allocation<M, C>(costs: DMatrixView<'_, f64>, resources: &[Resource<'_>], coverage: Coverage, integrality: Integrality, model: M, configure: C) -> Result<Allocation, NEVec<OptimizeError>>
+pub fn allocation<S, M, C>(
+    costs: DMatrixView<'_, f64>,
+    resources: &[Resource<'_>],
+    coverage: Coverage,
+    integrality: Integrality,
+    solver: S,
+    model: M,
+    configure: C,
+) -> Result<Allocation, NEVec<OptimizeError>>
 where
+    S: Solver<Model: SolverModel<Error = ResolutionError, Solution: for<'solution> SolutionWithDual<'solution>>>,
     M: FnOnce(&mut ProblemVariables, &DMatrix<Variable>) -> (Expression, Vec<Constraint>),
-    C: FnOnce(HighsProblem) -> Result<HighsProblem, MipGapError>,
+    C: FnOnce(S::Model) -> Result<S::Model, MipGapError>,
 {
     fn weighted<'term>(terms: impl IntoIterator<Item = (&'term f64, &'term bool, &'term Variable)>) -> Expression {
         let mut expression = Expression::default();
@@ -96,8 +103,10 @@ where
     };
     let (terms, constraints) = model(&mut variables, &shares);
     let integer = variables.iter_variables_with_def().any(|(_, definition)| definition.is_integer());
+    #[expect(clippy::needless_collect, reason = "`minimise` consumes the variables before the solution reads the handles")]
+    let added = variables.iter_variables_with_def().skip(shares.len()).map(|(added, _)| added).collect::<Vec<_>>();
     let objective = weighted(izip!(costs, &permitted, &shares)) + terms;
-    let mut problem = configure(variables.minimise(&objective).using(highs)).map_err(|source| NEVec::new(source.into()))?;
+    let mut problem = configure(variables.minimise(&objective).using(solver)).map_err(|source| NEVec::new(source.into()))?;
     let bounds = shares
         .row_iter()
         .map(|row| {
@@ -127,6 +136,6 @@ where
                 constraints: rows.into_iter().map(|row| dual.dual(row)).collect(),
             }
         }),
-        variables: solution.into_inner().columns()[shares.len()..].to_vec(),
+        variables: added.into_iter().map(|added| solution.value(added)).collect(),
     })
 }

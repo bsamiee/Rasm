@@ -8,9 +8,9 @@
 { "plugins": ["@rasm/nx-pulumi"] }
 ```
 
-- The plugin takes no options: package manifests state every fact it reads
-- A program package declares `@pulumi/pulumi` in `dependencies` and exports `stacks` from its entry
-- A project is hosted by a program package when it declares that package in `dependencies`, `devDependencies`, or `optionalDependencies`
+- Options: none, since package manifests state every fact the plugin reads
+- Program packages declare `@pulumi/pulumi` in `dependencies` and `@rasm/nx-pulumi` in any dependency field, and export `stacks` from their entry
+- Projects declaring a program package in `dependencies`, `devDependencies`, or `optionalDependencies` are hosted by it
 - Hosted projects carry the `release` tag, so `"release": { "projects": ["tag:release"] }` in `nx.json` selects them with no list of names
 
 ```ts
@@ -21,40 +21,45 @@ const stacks: Stacks = (request) => [{ projectName: 'hosting', stackName: `${req
 export { stacks };
 ```
 
-`stacks` receives one `StackRequest` case and returns Pulumi's own `InlineProgramArgs`:
+`stacks` receives one `StackRequest` case and returns Pulumi's `InlineProgramArgs`, each optionally with `LocalWorkspaceOptions` fields (`projectSettings` with its backend, `stackSettings`, `secretsProvider`, `envVars`):
 
-| [INDEX] | [CASE]    | [FIELDS]           | [SENT_BY]                              |
-| :-----: | :-------- | :----------------- | :------------------------------------- |
-|  [01]   | `Install` | `context`          | `install`                              |
-|  [02]   | `Deploy`  | `context`, `stack` | `deploy`, `stack` from `--stack=<x>`   |
-|  [03]   | `Release` | `context`, `version` | `nx-release-publish` under `nx release` |
+| [INDEX] | [CASE]    | [FIELDS]             | [SENT_BY]                            |
+| :-----: | :-------- | :------------------- | :----------------------------------- |
+|  [01]   | `Install` | `context`            | `install`                            |
+|  [02]   | `Deploy`  | `context`, `stack`   | `deploy`, `stack` from `--stack=<x>` |
+|  [03]   | `Release` | `context`, `version` | `nx-release-publish`                 |
 
 - `context` is the Nx `ExecutorContext` of the task, so the package reads the project, its root, and `nx.json` from it
-- The package decides what `stack` means and which stacks a request selects
+- Program packages decide what `stack` means and which stacks a request selects
 
 ## [02]-[INFERENCE]
 
-| [INDEX] | [SOURCE]                                        | [GIVES]                                               |
-| :-----: | :---------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `package.json` with `@pulumi/pulumi` dependency | Program package, `deploy` on its own project          |
-|  [02]   | `package.json` depending on a program package   | Hosted project: `install`, `deploy`, `nx-release-publish`, tag `release` |
+| [INDEX] | [SOURCE]                                      | [GIVES]                                     |
+| :-----: | :-------------------------------------------- | :------------------------------------------ |
+|  [01]   | `package.json` stating both packages above    | Program package, `deploy`                   |
+|  [02]   | `package.json` depending on a program package | Hosted project: every target, tag `release` |
 
+- Packages depending on `@pulumi/pulumi` alone (component libraries) take no target
 - Nx's own package graph adds the edge from each hosted project to its program package, so `^install` reaches the program package's `install`
-- A manifest that does not parse fails by name and keeps every other project
+- Target descriptions come from `executors.json`
+- Manifests that do not parse fail by name and keep every other project
 
 ## [03]-[TARGETS]
 
-| [INDEX] | [TARGET]             | [OPERATION]                                    | [DEPENDS_ON]             | [CACHE] |
-| :-----: | :------------------- | :--------------------------------------------- | :----------------------- | :-----: |
-|  [01]   | `install`            | `Stack.up` with refresh                        | `^install`               |   No    |
-|  [02]   | `deploy`             | `Stack.up` with refresh, `Stack.destroy` with `--destroy` | None          |   No    |
-|  [03]   | `nx-release-publish` | `Stack.up` with refresh, `Stack.preview` under a dry run | `^nx-release-publish` |   No    |
+| [INDEX] | [TARGET]             | [OPERATION]                                               | [DEPENDS_ON]          | [CACHE] |
+| :-----: | :------------------- | :-------------------------------------------------------- | :-------------------- | :-----: |
+|  [01]   | `install`            | `Stack.up` with refresh                                   | `^install`            |   No    |
+|  [02]   | `deploy`             | `Stack.up` with refresh, `Stack.destroy` with `--destroy` | None                  |   No    |
+|  [03]   | `nx-release-publish` | `Stack.up` with refresh, `Stack.preview` under a dry run  | `^nx-release-publish` |   No    |
 
-- Each stack runs in its own temporary work folder, so no `Pulumi.yaml` lands in the tree
-- Every selected stack runs concurrently in one process and prints one JSON line: `project`, `stack`, and `changes` with non-secret `outputs`, `missing` for a stack a preview or destroy found absent, or `error`
-- A task fails after every line prints when any stack failed
-- The Automation API loads from the program package's own `@pulumi/pulumi`, the copy its inline programs register with
-- `nx-release-publish` skips a project `nx release` left unversioned, and maps `dryRun` or `NX_DRY_RUN` to `Stack.preview`, which creates no stack
+- Stacks run in their own temporary work folder unless their options name a `workDir`, so no `Pulumi.yaml` lands in the tree
+- Selected stacks run concurrently in one process, each printing one JSON line: `project`, `stack`, and `changes` with non-secret `outputs`, `missing`, or `error`
+- `missing` marks a stack a preview or destroy found absent
+- Program packages failing to load or to state their stacks print the error to stderr while other programs' stacks run on
+- Tasks fail after every line prints when any stack or program failed
+- Automation API loads from the program package's own `@pulumi/pulumi`, the copy its inline programs register with
+- `nx-release-publish` takes the version `nx release` resolved and skips a project it left unversioned; run by `nx release publish` alone, it takes the `package.json` version Nx read
+- `dryRun` or `NX_DRY_RUN` maps `nx-release-publish` to `Stack.preview`, which creates no stack
 - Refresh, preview, and destroy run the program (`runProgram`), so providers configure from the program's current values
 
 ## [04]-[LAYOUT]

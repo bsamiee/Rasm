@@ -27,6 +27,9 @@ office-crypto    = { workspace = true }
 rust_xlsxwriter  = { workspace = true }
 spreadsheet-ods  = { workspace = true }
 umya-spreadsheet = { workspace = true }
+chrono           = { workspace = true }
+roxmltree        = { workspace = true }
+zip              = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

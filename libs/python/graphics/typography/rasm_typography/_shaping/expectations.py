@@ -1,86 +1,77 @@
-"""Fontspector shaping expectations: the JSON records, their codec, and the expectations a font's corpus runs yield."""
+"""Approved shaping expectations: the JSON record fontspector and fontbakery shaping tests read, the expectations a font's corpus runs yield, and the runs a build no longer shapes alike."""
 
 from functools import partial
+from typing import Self
 
 import msgspec
 lazy from expression.extra.result import catch
 
-from rasm_typography._shaping.runs import _Binary, _Direction
 lazy from rasm_records import Fault, Outcome, Reason
-lazy from rasm_typography._shaping.corpus import _Corpus
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _Defaults(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
-    """Shaping options every test shares, an unset option left to the shaper's guess or default."""
-
-    script: str = ""
-    language: str = ""
-    direction: _Direction | None = None
-    features: frozendict[str, bool] = frozendict()
-    shaper: str | None = None
-    variations: frozendict[str, float] = frozendict()
-
-
-class _Expectation(_Defaults, frozen=True, kw_only=True):
-    """Input text, the glyph list its shaping must equal, and the options of this test beside the shared defaults, flattened as fontspector reads them."""
+class _Test(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    """Input text, the language it shapes under, and the glyph list its shaping must equal."""
 
     input: str
     expectation: str
-    note: str = ""
-    only: tuple[str, ...] = ()
-    exclude: tuple[str, ...] = ()
+    language: str = ""
 
 
 class _Configuration(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
-    """Options every test shares and glyphs no shaped run may hold."""
+    """Glyphs no shaped test may hold."""
 
-    defaults: _Defaults = _Defaults()
     forbidden_glyphs: tuple[str, ...] = ()
 
 
-class _Expectations(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
-    """Shaping file fontspector's shaping checks read from its test directory."""
+class Expected(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    """Approved shaping of a font: one test per corpus line and language, and the glyphs no test may shape to."""
 
     configuration: _Configuration
-    tests: tuple[_Expectation, ...]
+    tests: tuple[_Test, ...]
 
+    @classmethod
+    def of(cls, binary: Binary, corpus: Corpus, /) -> Self:
+        """Records the serialization of every corpus line under each corpus language, script and direction guessed per line.
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
+        Args:
+            binary: Font whose shaping the expectations approve.
+            corpus: Lines and languages to shape, an empty language shaping under the font's default system.
 
+        Returns:
+            Expectations forbidding the font's glyph 0, one test per line and language.
+        """
+        return cls(
+            configuration=_Configuration(forbidden_glyphs=binary.order[:1]),
+            tests=tuple(_Test(input=line, expectation=binary.shaped(line, language=language).serialized, language=language) for line in corpus.lines for language in corpus.languages),
+        )
 
-def _encoded(expectations: _Expectations, /) -> bytes:
-    """Encodes expectations as indented JSON with sorted mapping keys and a final newline, equal records giving equal bytes."""
-    return msgspec.json.format(msgspec.json.encode(expectations, order="deterministic")) + b"\n"
+    @classmethod
+    def decoded(cls, raw: bytes, /) -> Outcome[Self]:
+        """Decodes shaping JSON.
 
+        Returns:
+            Ok(expectations), `INVALID` fault for malformed JSON or a field outside its record.
+        """
+        return catch(lambda: msgspec.json.decode(raw, type=cls), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "shaping expectations"))
 
-def decoded(raw: bytes, /) -> Outcome[_Expectations]:
-    """Decodes shaping JSON.
+    @property
+    def encoded(self) -> bytes:
+        """Indented JSON with sorted mapping keys and a final newline, equal records giving equal bytes."""
+        return msgspec.json.format(msgspec.json.encode(self, order="deterministic")) + b"\n"
 
-    Returns:
-        Ok(expectations), `INVALID` fault for malformed JSON or a field outside its record.
-    """
-    return catch(lambda: msgspec.json.decode(raw, type=_Expectations), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "shaping expectations"))
-
-
-def _expected(binary: _Binary, corpus: _Corpus, file: str, /) -> _Expectations:
-    """Records the serialization of every corpus line under each corpus language, script and direction guessed per line.
-
-    Args:
-        binary: Font whose shaping the expectations approve.
-        corpus: Lines and languages to shape, an empty language shaping under the font's default system.
-        file: Font file name every test selects through fontspector's `only`, beside other faces' tests in one test directory.
-
-    Returns:
-        Expectations forbidding the font's glyph 0, one test per line and language.
-    """
-    return _Expectations(
-        configuration=_Configuration(forbidden_glyphs=binary.order[:1]),
-        tests=tuple(_Expectation(input=line, expectation=binary.shaped(line, language=language).serialized, language=language, only=(file,)) for line in corpus.lines for language in corpus.languages),
-    )
+    def regressed(self, binary: Binary, /) -> tuple[tuple[str, str, str], ...]:
+        """Each test a font shapes apart from its expectation, and each forbidden glyph a test shapes to, as input, measured glyphs, and bound."""
+        runs = tuple((test, binary.shaped(test.input, language=test.language)) for test in self.tests)
+        return (
+            *((test.input, run.serialized, test.expectation) for test, run in runs if run.serialized != test.expectation),
+            *((test.input, glyph, "no forbidden glyph") for test, run in runs for glyph in run.names if glyph in self.configuration.forbidden_glyphs),
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["decoded"]
+__all__ = ["Expected"]

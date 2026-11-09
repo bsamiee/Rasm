@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Unicode;
 using HarfBuzzSharp;
 using ICU4N;
 using ICU4N.Globalization;
@@ -204,32 +205,31 @@ internal static class Typesetting {
     private const int TextPresentation = 0xFE0E;
     private const int EmojiPresentation = 0xFE0F;
 
-    private static readonly string[] Emoji = [$"und-{UScript.GetShortName(UScript.SymbolsEmoji)}"];
+    private static readonly string[] EmojiScript = ["und-Zsye"];
 
     private static Seq<(string Text, TextStyle Style)> FaceRuns(Shaping shaping, string text, TextStyle style, CultureInfo culture) {
         Font primary = shaping.HarfBuzzFont(shaping.Mapper.TypefaceFromStyle(style, ignoreFontVariants: false));
-        return toSeq(Segments(shaping.Graphemes, text)
+        return toSeq(Graphemes(text)
             .GroupAdjacent(segment => Fallback(text[segment.Start..segment.End], style, primary, culture),
                 (face, segments) => (Text: text[segments[0].Start..segments[^1].End], Style: face.Map(fallback => style with { Fallback = fallback }).IfNone(style)))).Strict();
     }
 
     private static Option<SKTypeface> Fallback(string grapheme, TextStyle style, Font primary, CultureInfo culture) {
         Seq<int> points = toSeq(grapheme.EnumerateRunes()).Map(static rune => rune.Value).Strict();
-        Option<(string[] Tags, int Point)> wanted = (points.Exists(static point => point is TextPresentation) ? None : Presenting(points)).Map(static point => (Tags: Emoji, Point: point))
+        Option<(string[] Tags, int Point)> wanted = (points.Exists(static point => point is TextPresentation) ? None : Presenting(points)).Map(static point => (Tags: EmojiScript, Point: point))
             | (points.ForAll(point => primary.TryGetGlyph(point, out uint _)) ? None : points.Head.Map(point => (Tags: new[] { style.Language.IfNone(culture).Name }, Point: point)));
         return wanted.Bind(held => Optional(SKFontManager.Default.MatchCharacter(style.FontFamily, style.FontWeight, (int)style.FontWidth, style.FontItalic ? SKFontStyleSlant.Italic : SKFontStyleSlant.Upright, held.Tags, held.Point)));
     }
 
     private static Option<int> Presenting(Seq<int> points) =>
-        points.Find(static point => UChar.HasBinaryProperty(point, UProperty.Emoji_Presentation) && !UChar.HasBinaryProperty(point, UProperty.Emoji_Component))
+        points.Find(static point => UnicodeInfo.GetCharInfo(point).EmojiProperties is var held && held.HasFlag(EmojiProperties.EmojiPresentation) && !held.HasFlag(EmojiProperties.EmojiComponent))
         | points.Find(static point => point is EmojiPresentation)
-        | points.Find(static point => UChar.HasBinaryProperty(point, UProperty.Emoji_Modifier))
-        | points.Find(static point => UChar.HasBinaryProperty(point, UProperty.Emoji_Presentation));
+        | points.Find(static point => UnicodeInfo.GetCharInfo(point).EmojiProperties.HasFlag(EmojiProperties.EmojiModifier))
+        | points.Find(static point => UnicodeInfo.GetCharInfo(point).EmojiProperties.HasFlag(EmojiProperties.EmojiPresentation));
 
-    private static Seq<(int Start, int End)> Segments(BreakIterator breaks, string text) {
-        breaks.SetText(text);
-        return toSeq(SuperEnumerable.Generate(breaks.First(), _ => breaks.Next()).TakeWhile(static stop => stop != BreakIterator.Done).Window(2, static pair => (Start: pair[0], End: pair[1]))).Strict();
-    }
+    private static Seq<(int Start, int End)> Graphemes(string text) =>
+        toSeq(SuperEnumerable.Generate((Start: 0, End: StringInfo.GetNextTextElementLength(text, 0)), prior => (prior.End, prior.End + StringInfo.GetNextTextElementLength(text, prior.End)))
+            .TakeWhile(segment => segment.Start < text.Length)).Strict();
 
     // --- [SETS]
 
@@ -457,7 +457,7 @@ internal static class Typesetting {
             bool rightToLeft = direction is TextDirection.RTL;
             string value = Utf32Utils.FromUtf32(text);
             Utf32Buffer decoded = [with(value)];
-            Seq<(int Start, int End)> graphemes = Segments(shaping.Graphemes, value).Map(held => (decoded.Utf16OffsetToUtf32Offset(held.Start), decoded.Utf16OffsetToUtf32Offset(held.End))).Strict();
+            Seq<(int Start, int End)> graphemes = Graphemes(value).Map(held => (decoded.Utf16OffsetToUtf32Offset(held.Start), decoded.Utf16OffsetToUtf32Offset(held.End))).Strict();
             float[] boundaries = new float[text.Length + 1];
             for (int index = 0; index < graphemes.Count; index++)
                 boundaries.AsSpan(graphemes[index].Start, graphemes[index].End - graphemes[index].Start).Fill((rightToLeft ? graphemes.Count - index : index) * advance);

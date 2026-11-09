@@ -52,7 +52,7 @@ public static class Products {
         IO.lift(() => call() ? Fin.Succ(unit) : new RhinoFault(member, RhinoReason.Declined));
 
     public static IO<T> Copied<T>(T source, [CallerArgumentExpression(nameof(source))] string member = "") where T : GeometryBase =>
-        use(IO.lift(() => Conversions.Required(source.Duplicate() as T, call: member)));
+        IO.lift(() => Conversions.Required(source.Duplicate() as T, call: member));
 
     private static IO<Seq<T>> Listed<T>(IEnumerable<T?>? products, string label, bool required) where T : class =>
         Optional(products).Map(static rows => toSeq(rows).Strict()).Filter(rows => !required || !rows.IsEmpty).Match(
@@ -62,7 +62,7 @@ public static class Products {
             None: () => IO.fail<Seq<T>>(new RhinoFault(label, RhinoReason.Missing)));
 
     private static IO<T> Owning<T>(T product, string label, Option<int> index) where T : class =>
-        when(product is IDisposable, use(() => (IDisposable)product).Map(unit)).As() >> IO.lift(() => product switch {
+        when(product is IDisposable and not CommonObject, use(() => (IDisposable)product).Map(unit)).As() >> IO.lift(() => product switch {
             CommonObject geometry when !geometry.IsValidWithLog(out string log) => Fin.Fail<T>(new RhinoFault(label, RhinoReason.Invalid, index, Error.New(log))),
             var held => held,
         });

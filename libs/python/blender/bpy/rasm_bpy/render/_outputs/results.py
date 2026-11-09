@@ -25,6 +25,7 @@ import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import _DISPATCHERS, Acquisitions, Declaration, Handler, Resource
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import _assign, Descriptor
 from rasm_bpy.data._rna.snapshots import Snapshot
@@ -197,9 +198,9 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
             prior = image.render_slots.active
             with ExitStack() as selection:
                 selection.callback(setattr, image.render_slots, "active", prior)
-                return _assign(image.render_slots, "active", slot).map_error(partial(Fault.of, Reason.REFUSED, repr(image.render_slots))).bind(lambda _: _exported(image, scene, path))
+                return _assign(image.render_slots, "active", slot).map_error(partial(Fault.of, Refusal.REFUSED, repr(image.render_slots))).bind(lambda _: _exported(image, scene, path))
 
-        return self.target.to_result_with(partial(Fault.of, Reason.REQUIRED, repr(scene), member="pre-operator render target slot")).bind(selected)
+        return self.target.to_result_with(partial(Fault.of, Refusal.REQUIRED, repr(scene), member="pre-operator render target slot")).bind(selected)
 
     def saved(self, scene: bpy.types.Scene, path: Path) -> Outcome[Path]:
         """Retains a borrowed native slot or one authoritative multilayer scene receipt."""
@@ -209,10 +210,10 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
                 case (file,):
                     return catch(copyfile, exception=OSError)(file.path, path).map(lambda _: path).map_error(partial(Fault.of, Reason.FAILED, str(path)))
                 case found:
-                    return Error(Fault.of(Reason.REQUIRED, repr(scene), tuple(file.path for file in found), member="one native multilayer render receipt"))
+                    return Error(Fault.of(Refusal.REQUIRED, repr(scene), tuple(file.path for file in found), member="one native multilayer render receipt"))
 
         if self.target.is_none():
-            return self.written.to_result_with(partial(Fault.of, Reason.REQUIRED, repr(scene), member="pre-operator target or native written receipt")).bind(lambda produced: produced[0].bind(copied))
+            return self.written.to_result_with(partial(Fault.of, Refusal.REQUIRED, repr(scene), member="pre-operator target or native written receipt")).bind(lambda produced: produced[0].bind(copied))
         with _SAVED.held(scene.render.image_settings) as formatted:
             return formatted.bind(lambda _: self.exported(scene, path))
 
@@ -228,7 +229,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
                 case (file,):
                     return read_codes(Path(file.path))
                 case found:
-                    return Error(Fault.of(Reason.REQUIRED, repr(scene), tuple(file.view for file in found), member="one native camera-view code receipt"))
+                    return Error(Fault.of(Refusal.REQUIRED, repr(scene), tuple(file.view for file in found), member="one native camera-view code receipt"))
 
         def preview(capture: tuple[Snapshot, str]) -> Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]]:
             settings, suffix = capture
@@ -399,7 +400,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
         if scene.session_uid in intermediates or (job := service.pending.get(scene.session_uid)) is None or not (captures := tuple(service.consumers)):
             return Ok(None)
         if not supported():
-            service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Error(Fault.of(Reason.REQUIRED, repr(scene), member="native interface lock for automatic render capture")))
+            service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Error(Fault.of(Refusal.REQUIRED, repr(scene), member="native interface lock for automatic render capture")))
             return Ok(None)
         config = deepcopy(PyOpenColorIO.GetCurrentConfig())
         linear = config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()
@@ -441,7 +442,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
                 .filter(lambda held: held in {Depth.UINT8, Depth.UINT16})
                 .map(
                     lambda _: (
-                        Error(Fault.of(Reason.REQUIRED, repr(scene), member="explicit individual camera-view preview receipt"))
+                        Error(Fault.of(Refusal.REQUIRED, repr(scene), member="explicit individual camera-view preview receipt"))
                         if render.use_multiview and settings.views_format == "INDIVIDUAL"
                         else Snapshot.capture(
                             scene,
@@ -461,7 +462,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
     def written(scene: bpy.types.Scene) -> Outcome[None]:
         if scene.session_uid in intermediates or (job := service.pending.get(scene.session_uid)) is None or not (service.consumers or service.finishers):
             return Ok(None)
-        files = job.files.to_result_with(lambda: Fault.of(Reason.REQUIRED, f"owned native write receipt for {scene!r}")).bind(lambda provider: provider(scene))
+        files = job.files.to_result_with(lambda: Fault.of(Refusal.REQUIRED, f"owned native write receipt for {scene!r}")).bind(lambda provider: provider(scene))
         finished = files.bind(lambda receipts: service.finished(scene, receipts, identity))
         service.pending[scene.session_uid] = msgspec.structs.replace(job, written=Some((files, finished)))
         return finished
@@ -543,7 +544,7 @@ def _saved(scene: bpy.types.Scene) -> Outcome[str]:
 
 def _exported(image: bpy.types.Image, scene: bpy.types.Scene, path: Path) -> Outcome[Path]:
     """Writes a native image through its producing scene under the current native output settings."""
-    return committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, Reason.REFUSED, repr(image)))).map(lambda _: path)
+    return committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))).map(lambda _: path)
 
 
 def _animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
@@ -554,7 +555,7 @@ def _animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
     return accumulated(
         catch(render.frame_path, exception=RuntimeError)(frame=scene.frame_current, view=view.default_value(""))
         .map(lambda path: (Path(path), view))
-        .map_error(partial(Fault.of, Reason.REFUSED, repr(render)))
+        .map_error(partial(Fault.of, Refusal.REFUSED, repr(render)))
         for view in views
     ).map(lambda paths: Written.scene(scene, paths))
 
@@ -586,7 +587,7 @@ def _source(file: Multilayer, config: PyOpenColorIO.Config, raw: RenderSource, *
     return (
         layer
         .or_else_with(lambda: Option.of_optional(raw.layer))
-        .to_result_with(partial(Fault.of, Reason.REQUIRED, str(file.path), member="raw render view layer"))
+        .to_result_with(partial(Fault.of, Refusal.REQUIRED, str(file.path), member="raw render view layer"))
         .bind(lambda name: _combined_part(file, config, lambda _: Some(name), view))
         .map(lambda image: msgspec.structs.replace(image, colorspace=raw.space))
     )
@@ -617,7 +618,7 @@ def _combined_part(file: Multilayer, config: PyOpenColorIO.Config, selection: Ca
             case (found,):
                 return file.image(found, ("R", "G", "B", "A"), config)
             case (first, *rest):
-                return Error(Fault.of(Reason.REQUIRED, f"camera view for {owner}.{COMBINED} in {file.path}", tuple(views[found.part] for found in (first, *rest))))
+                return Error(Fault.of(Refusal.REQUIRED, f"camera view for {owner}.{COMBINED} in {file.path}", tuple(views[found.part] for found in (first, *rest))))
             case _:
                 return Error(Fault.of(Reason.ABSENT, str(file.path), member=f"{owner}.{COMBINED}" + view.map(lambda name: f" ({name})").default_value("")))
 

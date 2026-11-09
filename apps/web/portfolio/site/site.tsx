@@ -1,5 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
-import { User } from '@rasm/hosting';
+import { Sites } from '@rasm/hosting/sites';
 import { Backdrop } from '@rasm/ui';
 import { flow, Option, Schema } from 'effect';
 import { UrlParams } from 'effect/http';
@@ -95,7 +95,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session === 'signedIn' ? User.href('signout', '/') : User.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
+                    <a className="quiet-link" href={session === 'signedIn' ? Sites.identity.href('signout', '/') : Sites.identity.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
                         {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}

@@ -17,8 +17,7 @@ public static partial class Session {
 
     private sealed record Bound(Either<Skin, PlugIn> Host, Assembly Assembly, ILoggerFactory Loggers, ILogger Logger, EnvIO Scope, JoinableTaskCollection Pending);
 
-    internal static readonly JoinableTaskContext Threading = Eto.Forms.Application.Instance.Invoke(static () =>
-        Eto.Forms.Application.Instance.Properties.Create(typeof(JoinableTaskContext), static () => new JoinableTaskContext()));
+    internal static readonly JoinableTaskContext Threading = new();
 
     private static readonly Ref<Option<Bound>> State = Ref(Option<Bound>.None);
 
@@ -35,9 +34,9 @@ public static partial class Session {
 
     // --- [LIFECYCLE]
 
-    public static IO<Unit> Bind(PlugIn plugIn, Seq<Action<ILoggingBuilder>> logging) => Opened(Right(plugIn), plugIn.GetType(), logging);
+    public static IO<Unit> Bind(PlugIn plugIn, Type definition, Seq<Action<ILoggingBuilder>> logging) => Opened(Right(plugIn), definition, logging);
 
-    public static IO<Unit> Bind(Skin skin, Seq<Action<ILoggingBuilder>> logging) => Opened(Left(skin), skin.GetType(), logging);
+    public static IO<Unit> Bind(Skin skin, Type definition, Seq<Action<ILoggingBuilder>> logging) => Opened(Left(skin), definition, logging);
 
     public static IO<Unit> Close =>
         (from taken in atomicIO(static () => {

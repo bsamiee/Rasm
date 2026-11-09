@@ -10,11 +10,12 @@ use kurbo::{Affine, BezPath, Cap, Join, ParamCurveDeriv as _, PathEl, PathSeg, P
 use linebender_resource_handle::FontData;
 use linesweeper::{
     Error, FillRule,
-    topology::{Contour, ContourIdx, Topology, WindingNumber},
+    topology::{Contour, ContourIdx, Topology},
 };
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFeature, FontVariation};
 use stacksafe::StackSafe;
+use uom::si::f64::Length;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -73,6 +74,9 @@ pub enum Dash {
 #[nutype::nutype(validate(finite, greater = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Tolerance(f64);
 
+#[nutype::nutype(validate(predicate = |unit: &Length| unit.is_normal() && unit.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref))]
+pub struct Unit(Length);
+
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Width(f64);
 
@@ -114,7 +118,9 @@ pub struct Slant(f32);
 pub enum FontStyle {
     Normal,
     Italic,
-    Oblique { angle: Option<Slant> },
+    Oblique {
+        angle: Option<Slant>,
+    },
 }
 
 impl From<FontStyle> for parlance::FontStyle {
@@ -159,9 +165,13 @@ pub struct Dashes(NEVec<f64>);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Alignment {
-    Start { dash_offset: DashOffset },
+    Start {
+        dash_offset: DashOffset,
+    },
     Center,
-    Corners { angle: Deflection },
+    Corners {
+        angle: Deflection,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -176,7 +186,11 @@ pub struct Cmyk {
 pub enum Color {
     Srgb(OpaqueColor<Srgb>),
     Cmyk(Cmyk),
-    Spot { name: Arc<str>, tint: u8, alternate: Cmyk },
+    Spot {
+        name: Arc<str>,
+        tint: u8,
+        alternate: Cmyk,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -216,8 +230,7 @@ pub struct Pattern {
     pub target: Target,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, derive_more::Deref)]
-#[deref(forward)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Region(Arc<[Contour]>);
 
 impl Region {
@@ -228,12 +241,16 @@ impl Region {
             .flat_map(|elements| iter::chain(elements.iter().copied(), (!matches!(elements.last(), Some(PathEl::ClosePath))).then_some(PathEl::ClosePath)))
             .collect::<BezPath>();
         finite(&closed)?;
-        swept::<i32>(iter::once((&closed, ())), tolerance, |&winding| fill_rule.is_inside(winding))
+        Ok(Self(Topology::from_path(&closed, tolerance.into_inner()).map_err(Error::from)?.contours(|&winding| fill_rule.is_inside(winding)).into_contours().collect()))
     }
+
+    #[must_use]
+    pub fn contours(&self) -> &[Contour] { &self.0 }
 
     pub fn transform(&self, affine: Placement) -> Result<Self, LineworkError> {
         let mirrored = affine.determinant().is_sign_negative();
-        self.iter()
+        self.0
+            .iter()
             .map(|Contour { path, parent, outer }| {
                 let moved = *affine * path;
                 let path = if mirrored { moved.reverse_subpaths() } else { moved };
@@ -248,15 +265,15 @@ impl Region {
 impl Shape for Region {
     type PathElementsIter<'iter> = impl Iterator<Item = PathEl> + 'iter;
 
-    fn path_elements(&self, _tolerance: f64) -> Self::PathElementsIter<'_> { self.iter().flat_map(|contour| contour.path.iter()) }
+    fn path_elements(&self, _tolerance: f64) -> Self::PathElementsIter<'_> { self.0.iter().flat_map(|contour| contour.path.iter()) }
 
-    fn area(&self) -> f64 { self.iter().map(|contour| contour.path.area()).sum() }
+    fn area(&self) -> f64 { self.0.iter().map(|contour| contour.path.area()).sum() }
 
-    fn perimeter(&self, accuracy: f64) -> f64 { self.iter().map(|contour| contour.path.perimeter(accuracy)).sum() }
+    fn perimeter(&self, accuracy: f64) -> f64 { self.0.iter().map(|contour| contour.path.perimeter(accuracy)).sum() }
 
-    fn winding(&self, pt: Point) -> i32 { self.iter().map(|contour| contour.path.winding(pt)).sum() }
+    fn winding(&self, pt: Point) -> i32 { self.0.iter().map(|contour| contour.path.winding(pt)).sum() }
 
-    fn bounding_box(&self) -> Rect { self.iter().map(|contour| contour.path.bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default() }
+    fn bounding_box(&self) -> Rect { self.0.iter().map(|contour| contour.path.bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default() }
 
     fn as_rect(&self) -> Option<Rect> {
         match self.0.as_ref() {
@@ -338,18 +355,50 @@ pub struct GlyphRun {
 pub enum Content {
     Svg(Arc<[u8]>),
     Raster(Arc<[u8]>),
-    Pdf { bytes: Arc<[u8]>, page: usize },
+    Pdf {
+        bytes: Arc<[u8]>,
+        page: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Element {
-    Stroke { path: Path, pen: Pen, linetype: Option<Linetype> },
-    Fill { region: Region, color: Color, opacity: Opacity = Opacity::OPAQUE },
-    Hatch { region: Region, pattern: Pattern, placement: Placement, pen: Pen },
-    Text { text: Text, color: Color, opacity: Opacity = Opacity::OPAQUE },
-    Glyphs { run: GlyphRun, color: Color, opacity: Opacity = Opacity::OPAQUE },
-    Placed { content: Content, placement: Placement, opacity: Opacity = Opacity::OPAQUE },
-    Clip { region: Region, keep: Side, elements: StackSafe<Vec<Self>> },
+    Stroke {
+        path: Path,
+        pen: Pen,
+        linetype: Option<Linetype>,
+    },
+    Fill {
+        region: Region,
+        color: Color,
+        opacity: Opacity = Opacity::OPAQUE,
+    },
+    Hatch {
+        region: Region,
+        pattern: Pattern,
+        placement: Placement,
+        pen: Pen,
+    },
+    Text {
+        text: Text,
+        color: Color,
+        opacity: Opacity = Opacity::OPAQUE,
+    },
+    Glyphs {
+        run: GlyphRun,
+        color: Color,
+        opacity: Opacity = Opacity::OPAQUE,
+    },
+    Placed {
+        content: Content,
+        placement: Placement,
+        opacity: Opacity = Opacity::OPAQUE,
+    },
+    Clip {
+        region: Region,
+        keep: Side,
+        elements: StackSafe<Vec<Self>>,
+    },
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -363,11 +412,20 @@ pub enum LineworkError {
     #[error("{0} leaves its range once scaled")]
     Scaled(Dash),
     #[error("hatch family {family} places its rows {spacing} apart on paper, under the tolerance")]
-    Spacing { family: usize, spacing: f64 },
+    Spacing {
+        family: usize,
+        spacing: f64,
+    },
     #[error("element {index}: {}", errors.iter().format("; "))]
-    Element { index: usize, errors: NEVec<StackSafe<Self>> },
+    Element {
+        index: usize,
+        errors: NEVec<StackSafe<Self>>,
+    },
     #[error("layer {name}: {}", errors.iter().format("; "))]
-    Layer { name: Arc<str>, errors: NEVec<StackSafe<Self>> },
+    Layer {
+        name: Arc<str>,
+        errors: NEVec<StackSafe<Self>>,
+    },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -462,14 +520,6 @@ fn scaled(Linetype { dashes, alignment, target }: Linetype, scale: f64) -> Valid
 
 fn invertible(affine: &Affine) -> Result<(), LineworkError> { (affine.is_finite() && affine.determinant().is_normal()).ok_or(LineworkError::Placement(*affine)) }
 
-fn swept<'path, W>(paths: impl IntoIterator<Item = (&'path BezPath, W::Tag), IntoIter: Clone>, tolerance: Tolerance, inside: impl Fn(&W) -> bool) -> Result<Region, LineworkError>
-where W: WindingNumber {
-    let paths = paths.into_iter();
-    let bounds = paths.clone().map(|(path, _)| path.bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default();
-    let magnitude = bounds.min_x().min(bounds.min_y()).abs().max(bounds.max_x().max(bounds.max_y()).abs());
-    Ok(Region(Topology::<W>::from_paths(paths, tolerance.into_inner().max(magnitude * (f64::EPSILON * 64.0_f64))).map_err(Error::from)?.contours(inside).into_contours().collect()))
-}
-
 fn finite(path: &BezPath) -> Result<(), Error> {
     match path {
         path if path.is_finite() => Ok(()),
@@ -500,14 +550,14 @@ fn flattened(elements: impl IntoIterator<Item = PathEl>, tolerance: Tolerance) -
 
 fn polygons(region: &Region, tolerance: Tolerance) -> MultiPolygon<f64> {
     let ring = |path: &BezPath| flattened(path.iter(), tolerance).into_iter().flat_map(|line| line.0).collect::<LineString<f64>>();
-    let holes = region.iter().fold(vec![Vec::new(); region.len()], |mut holes, contour| match contour {
+    let holes = region.0.iter().fold(vec![Vec::new(); region.0.len()], |mut holes, contour| match contour {
         Contour { path, parent: Some(ContourIdx(parent)), outer: false } => {
             holes.get_mut(*parent).into_iter().for_each(|group| group.push(ring(path)));
             holes
         }
         Contour { path: _, parent: _, outer: _ } => holes,
     });
-    region.iter().zip(holes).filter_map(|(contour, holes)| contour.outer.then(|| Polygon::new(ring(&contour.path), holes))).collect()
+    region.0.iter().zip(holes).filter_map(|(contour, holes)| contour.outer.then(|| Polygon::new(ring(&contour.path), holes))).collect()
 }
 
 fn path(lines: impl IntoIterator<Item = LineString<f64>>) -> BezPath {
@@ -530,3 +580,14 @@ pub mod hatches;
 pub mod pages;
 pub mod regions;
 pub mod strokes;
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+pub use color;
+pub use kurbo;
+pub use linebender_resource_handle;
+pub use linesweeper;
+pub use nonempty_collections;
+pub use parlance;
+pub use stacksafe;
+pub use uom;

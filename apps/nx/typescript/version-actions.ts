@@ -1,53 +1,42 @@
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type Tree } from '@nx/devkit';
-import { Effect, Schema, Stream } from 'effect';
-import { Xml } from 'effect/encoding';
+import ast from '@xml-tools/ast';
+import xml, { type DocumentCstNode } from '@xml-tools/parser';
+import { Array, Effect, Option, pipe, Schema } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { VersionActions } from 'nx/release';
-import { PACKAGES } from '#/plugins/adobe-packages';
-import { TypeScriptError } from '#/plugins/project-graph';
+import { PACKAGES, TypeScriptError } from '#/plugins/adobe-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const NUMERIC = /^\d+\.\d+\.\d+$/u;
-const BUNDLE = /(?<open>\bExtensionBundleVersion=")[^"]*(?<close>")/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ manifest: Schema.Literals([PACKAGES.uxp.manifest, PACKAGES.zxpsigncmd.manifest]) });
 const Uxp = Schema.fromJsonString(Schema.Struct({ version: Schema.String }));
-const Cep = Schema.Struct({ ExtensionBundleVersion: Schema.String });
 
 // --- [TABLES] --------------------------------------------------------------------------
 
 const MANIFESTS = {
-    [PACKAGES.uxp.manifest]: {
-        read: (text: string) => Effect.map(Schema.decodeEffect(Uxp)(text), ({ version }) => version),
-        write: (text: string, version: string) => applyEdits(text, modify(text, ['version'], version, {})),
-    },
-    [PACKAGES.zxpsigncmd.manifest]: {
-        read: (text: string) =>
-            Stream.make(text).pipe(
-                Stream.pipeThroughChannel(Xml.decodeString()),
-                Stream.pipeThroughChannel(Xml.elements(['ExtensionManifest'])),
-                Stream.runHead,
-                Effect.flatMap(Effect.fromOption),
-                Effect.flatMap(({ attributes }) => Schema.decodeUnknownEffect(Cep)(attributes)),
-                Effect.map(({ ExtensionBundleVersion }) => ExtensionBundleVersion),
-            ),
-        write: (text: string, version: string) => text.replace(BUNDLE, `$<open>${version}$<close>`),
+    [PACKAGES.uxp.manifest]: (text: string) => Option.map(Schema.decodeOption(Uxp)(text), ({ version }) => ({ version, write: (next: string) => applyEdits(text, modify(text, ['version'], next, {})) })),
+    [PACKAGES.zxpsigncmd.manifest]: (text: string) => {
+        const { cst, tokenVector } = xml.parse(text);
+        return pipe(
+            Option.liftPredicate(cst, (node): node is DocumentCstNode => node.name === 'document'),
+            Option.flatMap((document) => Option.fromNullOr(ast.buildAst(document, tokenVector).rootElement)),
+            Option.flatMap(({ attributes }) => Array.findFirst(attributes, ({ key, value, syntax }) => (key === 'ExtensionBundleVersion' && value !== null && syntax.value !== undefined ? Option.some({ version: value, at: syntax.value }) : Option.none()))),
+            Option.map(({ version, at }) => ({ version, write: (next: string) => `${text.slice(0, at.startOffset + 1)}${next}${text.slice(at.endOffset)}` })),
+        );
     },
 } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => Effect.runPromise(effect.pipe(Effect.provide(layer)));
-
 const located = Effect.fnUntraced(function* (tree: Tree, root: string, options: unknown) {
     const { manifest } = yield* Schema.decodeUnknownEffect(Options)(options);
     const at = joinPathFragments(root, manifest);
     const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => TypeScriptError.make({ message: `${at} is missing` })));
-    return { at, text, ...MANIFESTS[manifest] };
+    return { at, ...(yield* Effect.fromOption(MANIFESTS[manifest](text), () => TypeScriptError.make({ message: `${at} states no version` }))) };
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -57,7 +46,7 @@ class AdobeVersionActions extends VersionActions {
     override readonly excludeManifestsFromFormatting = true;
 
     override init(tree: Tree) {
-        return run(
+        return Effect.runPromise(
             Effect.flatMap(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ manifest }) =>
                 Effect.promise(() => {
                     this.validManifestFilenames = [manifest];
@@ -68,18 +57,11 @@ class AdobeVersionActions extends VersionActions {
     }
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
-        const { root } = this.projectGraphNode.data;
-        const options = this.finalConfigForProject.versionActionsOptions;
-        return run(
-            Effect.gen(function* () {
-                const { at, text, read } = yield* located(tree, root, options);
-                return { currentVersion: yield* Effect.mapError(read(text), (cause) => TypeScriptError.make({ message: `${at} states no version`, cause })), manifestPath: at };
-            }),
-        );
+        return Effect.runPromise(Effect.map(located(tree, this.projectGraphNode.data.root, this.finalConfigForProject.versionActionsOptions), ({ at, version }) => ({ currentVersion: version, manifestPath: at })));
     }
 
     override readCurrentVersionFromRegistry() {
-        return run(Effect.fail(TypeScriptError.make({ message: `${this.projectGraphNode.name} ships through Adobe's portals and GitHub release files, which hold no registry version; use the disk or git-tag current version resolver` })));
+        return Effect.runPromise(Effect.fail(TypeScriptError.make({ message: `${this.projectGraphNode.name} ships through Adobe's portals and GitHub release files, which hold no registry version; use the disk or git-tag current version resolver` })));
     }
 
     override readCurrentVersionOfDependency() {
@@ -89,11 +71,11 @@ class AdobeVersionActions extends VersionActions {
     override updateProjectVersion(tree: Tree, newVersion: string) {
         const { root } = this.projectGraphNode.data;
         const options = this.finalConfigForProject.versionActionsOptions;
-        return run(
+        return Effect.runPromise(
             Effect.gen(function* () {
-                const { at, text, write } = yield* located(tree, root, options);
+                const { at, write } = yield* located(tree, root, options);
                 yield* NUMERIC.test(newVersion) ? Effect.void : TypeScriptError.make({ message: `${at} takes a major.minor.patch version alone, which ${newVersion} is not` });
-                tree.write(at, write(text, newVersion));
+                tree.write(at, write(newVersion));
                 return [`New version ${newVersion} written to manifest: ${at}`];
             }),
         );

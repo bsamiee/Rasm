@@ -13,7 +13,7 @@ MSBuild directory files and central package versions own every shared .NET decla
 - Package metadata reads NuGet's HTTP cache under its default age, `GetDownloadResourceResultAsync` reads the global packages folder before the feed
 - Rows move down when their current version is unlisted or incompatible with a consuming project's target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
-- SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves disabled (CA1021, CA1045) take their own `.config/analyzers.globalconfig` rows
+- SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves disabled (CA1021, CA1045) take their own `.globalconfig` rows
 
 ## [02]-[FILE_BASED_APPS]
 
@@ -67,7 +67,7 @@ Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/rosl
 - Plug-in library copies set `RunAnalyzers` false, `AssignPlugInLibraryCopies` skips references with `ReferenceOutputAssembly` false, analyzer projects building once
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types
 - Analyzer fixtures compile with NuGet assets selected by MSBuild for the project's target framework
-- Diagnostics fail builds through the `.config/analyzers.globalconfig` severity floor, a descriptor's default severity sets no exemption
+- Diagnostics fail builds through the `.globalconfig` severity floor, a descriptor's default severity sets no exemption
 - Global config `none` skips running an analyzer unless its descriptor carries `CustomSeverityConfigurable` (IDE0007), an `.editorconfig` `none` still runs it
 - Rules a package disables by default and source generator diagnostics (Mapperly `RMG`) escape the floor and take their own rows
 - `dotnet_analyzer_diagnostic.severity` skips `CustomSeverityConfigurable` and not-configurable descriptors

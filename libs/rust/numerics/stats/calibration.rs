@@ -23,16 +23,7 @@ use statrs::{
 };
 use validated::Validated;
 
-use crate::{Bounds, Moment, Sample, Space, StatsError};
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
-#[display(rename_all = "lowercase")]
-pub enum Resolution {
-    Monthly,
-    Hourly,
-}
+use crate::{Bounds, Moment, Sample, Space, StatsError, Tolerance};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -278,10 +269,4 @@ pub fn fit(pairs: impl IntoIterator<Item = (f64, f64)>, parameters: u32) -> Resu
 }
 
 #[must_use]
-pub const fn calibrated(fit: Fit, resolution: Resolution) -> bool {
-    let (nmbe, cv_rmse): (f64, f64) = match resolution {
-        Resolution::Monthly => (0.05, 0.15),
-        Resolution::Hourly => (0.10, 0.30),
-    };
-    fit.nmbe.abs() <= nmbe && fit.cv_rmse <= cv_rmse
-}
+pub const fn calibrated(fit: Fit, nmbe: Tolerance, cv_rmse: Tolerance) -> bool { fit.nmbe.abs() <= nmbe.into_inner() && fit.cv_rmse <= cv_rmse.into_inner() }

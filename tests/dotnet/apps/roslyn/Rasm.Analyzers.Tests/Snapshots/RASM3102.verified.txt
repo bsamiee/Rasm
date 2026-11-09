@@ -1,0 +1,24 @@
+RASM3012 `MissingNumber` forwards `RhinoMath.UnsetValue`, read `RhinoMath.UnsetValue` at each use
+#0 `Entry` receives sentinel `Id.Empty` for an absent member, take `Option` or a case holding only the facts its path supplies
+#1 `Entry` receives sentinel `default` for an absent member, take `Option` or a case holding only the facts its path supplies
+#2 `Entry` receives sentinel `new Id()` for an absent member, take `Option` or a case holding only the facts its path supplies
+#3 `Entry` receives sentinel `Id.Empty` for an absent member, take `Option` or a case holding only the facts its path supplies
+#4 `DateEntry` receives sentinel `DateTime.MinValue` for an absent member, take `Option` or a case holding only the facts its path supplies
+#5 `DateEntry` receives sentinel `new DateTime()` for an absent member, take `Option` or a case holding only the facts its path supplies
+#6 `NumericEntry` receives sentinel `double.NaN` for an absent member, take `Option` or a case holding only the facts its path supplies
+#7 `WideEntry` receives sentinel `default` for an absent member, take `Option` or a case holding only the facts its path supplies
+#8 `WideEntry` receives sentinel `default` for an absent member, take `Option` or a case holding only the facts its path supplies
+#9 `TextEntry` receives sentinel `""` for an absent member, take `Option` or a case holding only the facts its path supplies
+#10 `TextEntry` receives sentinel `""` for an absent member, take `Option` or a case holding only the facts its path supplies
+#11 `TextEntry` receives sentinel `""` for an absent member, take `Option` or a case holding only the facts its path supplies
+#12 `Entry` receives sentinel `Id.Empty` for an absent member, take `Option` or a case holding only the facts its path supplies
+#13 `Entry` receives sentinel `Id.Empty` for an absent member, take `Option` or a case holding only the facts its path supplies
+#14 `OffsetEntry` receives sentinel `DateTimeOffset.MinValue` for an absent member, take `Option` or a case holding only the facts its path supplies
+#15 `NumericEntry` receives sentinel `float.NaN` for an absent member, take `Option` or a case holding only the facts its path supplies
+#16 `TextEntry` receives sentinel `""` for an absent member, take `Option` or a case holding only the facts its path supplies
+#17 `Entry` receives sentinel `Id.Empty` for an absent member, take `Option` or a case holding only the facts its path supplies
+#18 `NumericEntry` receives sentinel `Point3d.Unset` for an absent member, take `Option` or a case holding only the facts its path supplies
+#19 `Entry` receives sentinel `Id.Empty` for an absent member, take `Option` or a case holding only the facts its path supplies
+#20 `StoredText` receives sentinel `""` for an absent member, take `Option` or a case holding only the facts its path supplies
+#21 `NumericEntry` receives sentinel `RhinoMath.UnsetValue` for an absent member, take `Option` or a case holding only the facts its path supplies
+#22 `NumericEntry` receives sentinel `RhinoMath.UnsetValue` for an absent member, take `Option` or a case holding only the facts its path supplies

@@ -14,22 +14,22 @@ namespace Darkroom.Review;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record RenderingState(Guid Session, string Engine, Guid EngineId, Duration Elapsed, Option<string> Note) {
+internal sealed record RenderingState(Guid Session, string Engine, Guid EngineId, Duration Elapsed, Option<string> Note) {
     internal static readonly JsonTypeInfo<RenderingState> Info = ArchivableDictionaries.Info<RenderingState>();
 }
 
-public sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, Option<RenderingState> State) {
+internal sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, Option<RenderingState> State) {
     public static ChainState Ungraded { get; } = new([], ValueSet.Empty);
 
     public Fin<ChainState> Chain =>
-        Image.Running.Exists(static id => id == typeof(DarkroomEffect).GUID) ? EffectList.State(Image, typeof(DarkroomEffect).GUID, ChainState.Default) : Ungraded;
+        Image.Running.Exists(static id => id == typeof(DarkroomEffect).GUID) ? EffectList.State<DarkroomEffect, ChainState>(Image) : Ungraded;
 
     public IO<PixelFrame> Frame => Plane(RenderWindow.StandardChannels.RGBA);
 
     public IO<PixelFrame> Plane(RenderWindow.StandardChannels channel) =>
         Image.Channel(channel).Map(pixels => new PixelFrame(System.Drawing.Point.Empty, Extent, Extent, block => pixels.Span.CopyTo(block)));
 
-    public IO<ChainState> RestoreChain(RhinoDoc doc) => IO.lift(Chain).Bind(state => new ChainEdit.Restore(state).Committed(doc));
+    public IO<ChainState> RestoreChain(RhinoDoc doc) => IO.lift(Chain).Bind(state => state.Restored(doc));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-ignores: ['tools/roslyn/**']
+ignores: ['apps/roslyn/**']
 utils:
     predicate:
         any:

@@ -1,5 +1,6 @@
 public import AppKit
 import Processes
+import System
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -25,7 +26,10 @@ extension NSWorkspace {
         let creating: Bool = newInstance || running.isEmpty
         if let reused: NSRunningApplication = running.first, !creating, documents.isEmpty { return (reused, false) }
         let executable: String? = installation.executable?.path(percentEncoded: false)
-        let before: Set<pid_t> = executable.map(processes(executing:)) ?? []
+        let listing: (String) throws(ApplicationFailure) -> Set<pid_t> = { executable throws(ApplicationFailure) in
+            do throws(Errno) { return try processes(executing: executable) } catch { throw ApplicationFailure(subject: executable, reason: .system(error)) }
+        }
+        let before: Set<pid_t> = try executable.map(listing) ?? []
         let configuration: OpenConfiguration = OpenConfiguration()
         configuration.activates = false
         configuration.addsToRecentItems = false
@@ -51,7 +55,7 @@ extension NSWorkspace {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error as NSError))
         }
         guard opened.processIdentifier == -1, let executable else { return (opened, !running.contains(opened)) }
-        let after: Set<pid_t> = processes(executing: executable)
+        let after: Set<pid_t> = try listing(executable)
         let started: pid_t? = after.subtracting(before).first
         guard let instance: NSRunningApplication = (started ?? after.first).flatMap(NSRunningApplication.init(processIdentifier:)) else {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .noProcess)

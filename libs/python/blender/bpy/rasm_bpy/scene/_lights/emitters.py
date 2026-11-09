@@ -16,6 +16,7 @@ import numpy as np
 from rasm_bpy.commands.operators import Call, Done, Operator
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import _acquired, Acquisitions
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import _kept, Ownership, Saved
 from rasm_bpy.data._ids.store import Handle, IdName
 from rasm_bpy.data._rna.descriptors import Descriptor, written
@@ -33,7 +34,7 @@ from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import OperatorButton
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
-from rasm_records import accumulated, Fault, Nothing, Outcome, paired, Reason, Retention, typed
+from rasm_records import accumulated, Fault, Nothing, Outcome, paired, Retention, typed
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -179,7 +180,7 @@ def _lit(record: MeshLight, item: bpy.types.Object, identity: Identity) -> Outco
     vertices = Descriptor.quantized(_VERTEX.prop, np.array(((-half, -half, 0.0), (-half, half, 0.0), (half, half, 0.0), (half, -half, 0.0)), dtype=np.float64))
 
     def built() -> Outcome[bpy.types.Material]:
-        return _kept(catch(bpy.data.materials.new, exception=RuntimeError)(item.name).map_error(partial(Fault.of, Reason.REFUSED, f"{item.name} material")), _emptied)
+        return _kept(catch(bpy.data.materials.new, exception=RuntimeError)(item.name).map_error(partial(Fault.of, Refusal.REFUSED, f"{item.name} material")), _emptied)
 
     return (
         typed(bpy.types.Mesh, f"{item!r}.data", item.data)
@@ -226,7 +227,7 @@ def _made(record: MeshLight, scene: bpy.types.Scene, collection: bpy.types.Colle
         )
 
     return _kept(
-        catch(bpy.data.meshes.new, exception=RuntimeError)("Mesh Light").map_error(partial(Fault.of, Reason.REFUSED, "Mesh Light mesh")),
+        catch(bpy.data.meshes.new, exception=RuntimeError)("Mesh Light").map_error(partial(Fault.of, Refusal.REFUSED, "Mesh Light mesh")),
         lambda mesh: _MeshLights.light.made(identity, lambda: _spawned("Mesh Light", Some(mesh), collection), filled=configured),
     )
 

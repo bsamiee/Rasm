@@ -63,8 +63,6 @@ nonisolated enum CodexProtocol {
         let limitId: String?
         let primary: RateLimitWindow?
         let secondary: RateLimitWindow?
-        let rateLimitReachedType: String?
-        let spendControlReached: Bool?
 
         var isCodex: Bool { limitId == nil || limitId == Self.codexLimitID }
     }
@@ -80,7 +78,6 @@ nonisolated enum CodexProtocol {
             guard let limits: RateLimitSnapshot = rateLimitsByLimitId?[RateLimitSnapshot.codexLimitID] ?? (rateLimits.isCodex ? rateLimits : nil) else {
                 throw .invalidResponse(.accountRateLimitsRead)
             }
-            let reached: Bool = limits.rateLimitReachedType != nil || limits.spendControlReached == true
             let weekly: [RateLimitWindow] = [limits.primary, limits.secondary].compactMap(\.self).filter { window in (window.windowDurationMins ?? 0) >= 7 * 24 * 60 }
             let windows: [QuotaWindow] = try traverse(weekly) { window in
                 UsageAmount.make(percent: window.usedPercent)
@@ -90,7 +87,6 @@ nonisolated enum CodexProtocol {
                             kind: .weekly,
                             used: amount,
                             resetsAt: window.resetsAt.map { seconds in Date(timeIntervalSince1970: TimeInterval(seconds)) },
-                            rejected: reached && amount.isExhausted,
                         )
                     }
             }

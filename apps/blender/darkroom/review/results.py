@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from contextlib import nullcontext
 from functools import cache, cached_property, lru_cache, partial
-from pathlib import Path
 from typing import ClassVar, Final
 
 from bl_ui.space_image import IMAGE_HT_header, IMAGE_PT_render_slots, IMAGE_PT_view_histogram
@@ -219,7 +218,7 @@ def ungraded(identity: Identity, scene: bpy.types.Scene) -> Outcome[DisplayView]
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 charts: Final = FrameCharts()
-history: Final = HistoryBrowser(icon=Path("vertical-wipe.svg"), view=ungraded)
+history: Final = HistoryBrowser(icon="SPLIT_VERTICAL", view=ungraded)
 rows: Final = (
     charts,
     Append(target=IMAGE_PT_view_histogram, rows=(charts.clips,)),

@@ -2,8 +2,8 @@ import AppleEvents
 import ApplicationServer
 import Applications
 import CoreServices
+import EffectRPC
 import Foundation
-import JSONRPC
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

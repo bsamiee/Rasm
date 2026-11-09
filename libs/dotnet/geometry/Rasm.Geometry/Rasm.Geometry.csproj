@@ -13,7 +13,6 @@
     <ItemGroup Label="Mathematics">
         <PackageReference Include="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" />
         <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
     <ItemGroup Label="Algorithms and Data Structures">

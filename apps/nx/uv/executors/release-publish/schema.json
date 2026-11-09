@@ -6,7 +6,6 @@
     "type": "object",
     "properties": {
         "index": { "type": "string", "description": "Name of a [[tool.uv.index]] entry whose publish-url receives the upload and whose url uv checks for files it already holds" },
-        "registry": { "type": "string", "description": "Upload URL nx release publish passes as --registry" },
         "dryRun": { "type": "boolean", "description": "Validates the distributions without uploading them" },
         "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
     }

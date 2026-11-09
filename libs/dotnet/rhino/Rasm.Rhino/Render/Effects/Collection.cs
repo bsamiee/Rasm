@@ -70,9 +70,9 @@ public static class EffectList {
             Some: data => Recalled(ContentFields.Unwrapped<string>(() => data.GetParameter(StateKey), StateKey), @default),
             None: () => IO.pure(@default)));
 
-    public static IO<TState> State<TState>(EffectSource source, Guid effect, TState @default) where TState : notnull =>
+    public static IO<TState> State<TEffect, TState>(EffectSource source) where TEffect : DefinedEffect<TEffect, TState>, IDefined<EffectDefinition<TState>>, new() where TState : notnull =>
         source.Switch(
-            (Effect: effect, Default: @default),
+            (Effect: typeof(TEffect).GUID, TEffect.Definition.Default),
             document: static (wanted, held) => RenderSettingsSources.Read(held.Doc, scope => State(scope.Settings, wanted.Effect, wanted.Default)),
             section: static (wanted, held) => IO.lift(() => Listed(held.Host).Find(listed => listed.Id == wanted.Effect).ToFin(Missing(wanted.Effect)))
                 .Bind(listed => Recalled(IO.lift(() => {
@@ -80,12 +80,12 @@ public static class EffectList {
                     return listed.GetParam(StateKey, ref value) ? Optional(value as string) : None;
                 }), wanted.Default)));
 
-    public static Fin<TState> State<TState>(Rimage image, Guid effect, TState @default) where TState : notnull =>
-        image.State.Find(effect).Bind(static fields => fields.Find(StateKey)).Match(Some: Decoded<TState>, None: () => @default);
+    public static Fin<TState> State<TEffect, TState>(Rimage image) where TEffect : DefinedEffect<TEffect, TState>, IDefined<EffectDefinition<TState>>, new() where TState : notnull =>
+        image.State.Find(typeof(TEffect).GUID).Bind(static fields => fields.Find(StateKey)).Match(Some: Decoded<TState>, None: static () => TEffect.Definition.Default);
 
-    public static IO<Unit> Tune<TState>(EffectSource source, Guid effect, TState state) where TState : notnull =>
+    public static IO<Unit> Tune<TEffect, TState>(EffectSource source, TState state) where TEffect : DefinedEffect<TEffect, TState>, IDefined<EffectDefinition<TState>>, new() where TState : notnull =>
         source.Switch(
-            (Effect: effect, Text: Encoded(state)),
+            (Effect: typeof(TEffect).GUID, Text: Encoded(state)),
             document: static (tuned, held) => RenderSettingsSources.Edit(held.Doc, scope => Edit(scope.Settings, [Tuned(tuned.Effect, tuned.Text)])),
             section: static (tuned, held) => SectionModels.Write(held.Host, Provider.RdkRenderingPostEffects, _ =>
                 IO.lift(() => Listed(held.Host).Find(listed => listed.Id == tuned.Effect).ToFin(Missing(tuned.Effect)))

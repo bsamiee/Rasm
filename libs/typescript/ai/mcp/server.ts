@@ -2,7 +2,7 @@ import { Unmatched } from '@rasm/search';
 import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, Function, flow, Layer, Match, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, type Scope, Stream, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { FindMyWay, Headers, HttpRouter, HttpServerRequest, HttpServerResponse, HttpTraceContext } from 'effect/http';
-import { NetAddress } from 'effect/net';
+import { Host, NetAddress } from 'effect/net';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -69,10 +69,10 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
         ).pipe(Layer.provideMerge(Layer.succeed(Server)({ uri: (path) => `${scheme}://${path}` })));
     static readonly layerHttp = <E, R>(
         manifest: { readonly name: typeof Server.Scheme.Type; readonly version: string; readonly description: string },
-        options: { readonly address: NetAddress.InetAddress; readonly hosts: readonly string[]; readonly retention: Duration.Duration; readonly instructions: readonly string[] },
+        options: { readonly address: Host.HostPort; readonly hosts: readonly string[]; readonly retention: Duration.Duration; readonly instructions: readonly string[] },
         app: Layer.Layer<never, E, R>,
     ) => {
-        const allowed = new Set([...options.hosts, 'localhost', ...[...NetAddress.loopbackAddresses, ...(NetAddress.isUnspecified(options.address.address) ? [] : [options.address.address])].map(NetAddress.formatUrlHost)]);
+        const allowed = new Set([...options.hosts, 'localhost', ...NetAddress.loopbackAddresses.map(NetAddress.formatUrlHost), Host.formatHostPort(options.address)]);
         const hostValidation = HttpRouter.middleware(
             (next) =>
                 Effect.flatMap(

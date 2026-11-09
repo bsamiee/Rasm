@@ -1,6 +1,5 @@
 using System.Numerics;
 using Darkroom.Chain;
-using Emgu.CV;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Filtering;
 using Rasm.Imaging.Pixels;
@@ -21,7 +20,7 @@ internal sealed partial class EdgeChannel {
     public static readonly EdgeChannel Alpha = new("alpha", static _ => EdgeSource.Alpha);
 
     [UseDelegateFromConstructor]
-    public partial Action<Mat, Mat> Plane(Gamut gamut);
+    public partial EdgeSource Plane(Gamut gamut);
 }
 
 [SmartEnum<string>]
@@ -31,7 +30,7 @@ internal sealed partial class EdgeRendering {
     public static readonly EdgeRendering LinesOnFill = new("lines-on-fill", static (state, context, frame, edges, progress) => state.Stroked(context, frame, edges, state.Fill, 1f, progress));
 
     [UseDelegateFromConstructor]
-    public partial Fin<Unit> Render(EdgeDetect state, PassContext context, PixelFrame frame, Mat edges, Option<IProgress<int>> progress);
+    public partial Fin<Unit> Render(EdgeDetect state, PassContext context, PixelFrame frame, PixelPlane edges, Option<IProgress<int>> progress);
 }
 
 [SmartEnum<string>]
@@ -49,11 +48,11 @@ internal sealed partial class LineClass {
 [SmartEnum<string>]
 internal sealed partial class OutlineSource {
     public static readonly OutlineSource Silhouette = new("silhouette", GuideChannel.Depth, static outline => outline.Silhouette,
-        static (state, context) => context.Camera.Map(camera => Contours.Silhouette(camera.Lens, state.Step)));
+        static (state, context) => context.Camera.Map(camera => ContourMarks.Silhouette(camera.Lens, state.Step)));
     public static readonly OutlineSource Crease = new("crease", GuideChannel.Normal, static outline => outline.Crease,
-        static (state, _) => Some(Contours.Crease(state.CreaseAngle.Radians.ToDouble())));
-    public static readonly OutlineSource Object = new("object", GuideChannel.ObjectId, static outline => outline.Object, static (_, _) => Some<ContourMarks>(Contours.Identity));
-    public static readonly OutlineSource Material = new("material", GuideChannel.MaterialId, static outline => outline.Material, static (_, _) => Some<ContourMarks>(Contours.Identity));
+        static (state, _) => Some(ContourMarks.Crease(state.CreaseAngle.Radians.ToDouble())));
+    public static readonly OutlineSource Object = new("object", GuideChannel.ObjectId, static outline => outline.Object, static (_, _) => Some(ContourMarks.Identity));
+    public static readonly OutlineSource Material = new("material", GuideChannel.MaterialId, static outline => outline.Material, static (_, _) => Some(ContourMarks.Identity));
 
     public GuideChannel Channel { get; }
 
@@ -80,7 +79,7 @@ internal sealed record EdgeDetect(
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Operator.Detected(frame, state.Source.Plane(context.Working),
                 state.Softening.Pixels(context.Extent), edges => state.Rendering.Render(state, context, frame, edges, progress))));
 
-    public Fin<Unit> Stroked(PassContext context, PixelFrame frame, Mat edges, Unicolour ground, float floor, Option<IProgress<int>> progress) =>
+    public Fin<Unit> Stroked(PassContext context, PixelFrame frame, PixelPlane edges, Unicolour ground, float floor, Option<IProgress<int>> progress) =>
         Contours.Lines(frame, edges, Threshold, (float)Width.Pixels(context.Extent), RampLight.Light(Line, context).AsVector3(), RampLight.Light(ground, context).AsVector3(), floor, Mode, progress);
 }
 

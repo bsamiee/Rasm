@@ -11,6 +11,7 @@ from expression import Option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import _embedded
 from rasm_bpy.data._rna.descriptors import written
 from rasm_bpy.data._rna.paths import _definition, _struct_at
@@ -159,7 +160,7 @@ def _new_group[T: bpy.types.NodeTree](kind: type[T], name: str, /) -> Outcome[T]
         tree: T = bpy.data.node_groups.new(name, _definition(kind).identifier)  # ty: ignore[invalid-argument-type, invalid-assignment]
         return tree
 
-    return catch(added, exception=TypeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(bpy.data.node_groups)))
+    return catch(added, exception=TypeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(bpy.data.node_groups)))
 
 
 @overload
@@ -213,14 +214,14 @@ def _created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outc
                 tree.nodes.remove(made)
                 return Error(Fault.of(Reason.OUTSIDE, repr(tree.nodes), replaced, member=identifier))
 
-    return catch(tree.nodes.new, exception=RuntimeError)(identifier).map_error(partial(Fault.of, Reason.REFUSED, repr(tree.nodes))).bind(narrowed)
+    return catch(tree.nodes.new, exception=RuntimeError)(identifier).map_error(partial(Fault.of, Refusal.REFUSED, repr(tree.nodes))).bind(narrowed)
 
 
 def _group_set(node: bpy.types.Node, group: bpy.types.NodeTree) -> Outcome[None]:
     """Points group node at group, `refused` fault for group containing node's tree."""
     host: bpy.types.NodeTree = node.id_data  # ty: ignore[invalid-assignment]
     return (
-        Error(Fault.of(Reason.REFUSED, f"{node!r}.node_tree", ValueError(f"{group.name} contains {host.name}")))
+        Error(Fault.of(Refusal.REFUSED, f"{node!r}.node_tree", ValueError(f"{group.name} contains {host.name}")))
         if group.contains_tree(host)
         else written(node, ("node_tree",), group).map(lambda _: None)
     )
@@ -246,12 +247,12 @@ def _linked(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.
                 return Ok(link)
             case bpy.types.NodeLink():
                 tree.links.remove(link)
-                return Error(Fault.of(Reason.REFUSED, repr(tree.links), ValueError(f"Link from {source!r} to {target!r} is invalid")))
+                return Error(Fault.of(Refusal.REFUSED, repr(tree.links), ValueError(f"Link from {source!r} to {target!r} is invalid")))
             case None:
                 return Error(Fault.of(Reason.ABSENT, repr(tree.links), member=repr((source, target))))
 
     linked: Outcome[bpy.types.NodeLink | None] = catch(tree.links.new, exception=RuntimeError)(source, target, verify_limits=verify_limits, handle_dynamic_sockets=handle_dynamic_sockets).map_error(
-        partial(Fault.of, Reason.REFUSED, repr(tree.links))
+        partial(Fault.of, Refusal.REFUSED, repr(tree.links))
     )
     return linked.bind(answered)
 
@@ -269,7 +270,7 @@ def _ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ..
             positions[held], positions[wanted] = position, index
             swaps.append((held, wanted))
     return reduce(
-        lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(partial(Fault.of, Reason.REFUSED, repr(pair[0])))),
+        lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(partial(Fault.of, Refusal.REFUSED, repr(pair[0])))),
         swaps,
         Result[None, Faults](ok=None),
     )

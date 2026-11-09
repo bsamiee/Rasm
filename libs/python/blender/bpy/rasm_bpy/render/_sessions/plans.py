@@ -18,6 +18,7 @@ import numpy as np
 
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Resource
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Setting
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import rooted
@@ -283,7 +284,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     @staticmethod
     def connected() -> Outcome[None]:
         """Requires `bpy.app.online_access`, set by preferences and `--offline-mode`."""
-        return Ok(None) if bpy.app.online_access else Error(Fault.of(Reason.REQUIRED, _ONLINE.message))
+        return Ok(None) if bpy.app.online_access else Error(Fault.of(Refusal.REQUIRED, _ONLINE.message))
 
     @staticmethod
     def posted(listener: Listener, notice: Notice) -> Outcome[None]:
@@ -370,7 +371,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             )
             state.observed = current
             for messages in fresh.map(lambda now: now.refused).filter(bool).to_list():
-                self.identity.reports.logged(Fault.of(Reason.REFUSED, RunCommand.PREPARE, " ".join(messages)))
+                self.identity.reports.logged(Fault.of(Refusal.REFUSED, RunCommand.PREPARE, " ".join(messages)))
             ended = current.bind(lambda held: held.progress).bind(lambda pair: Option.of_optional(pair[0].ending))
             pending = current.map(lambda held: not held.refused and held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(value=True)).default_value(
                 value=False
@@ -440,7 +441,7 @@ def _templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames
     )
     return paired(
         accumulated(path.literal(layer, output, Nothing, frames.start) for layer in layers for output in Output),
-        accumulated(Error(Fault.of(Reason.REQUIRED, f"{{{field}}} in output template to name one file per {field}")) for field in varied),
+        accumulated(Error(Fault.of(Refusal.REQUIRED, f"{{{field}}} in output template to name one file per {field}")) for field in varied),
     ).map(lambda _: None)
 
 
