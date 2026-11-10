@@ -46,7 +46,11 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Opt
     const containers = files.filter((file) => path.basename(file) === 'project.xcproj' || (path.basename(file) === 'contents.xcworkspacedata' && path.extname(path.dirname(path.dirname(file))) !== '.xcodeproj'));
     const unsupported = files.filter((file) => path.basename(file) === 'project.pbxproj' && !paths.has(path.join(path.dirname(file), 'project.xcproj')));
     const marker = (container: string) => containers.find((file) => path.dirname(file) === container) ?? container;
-    const [info, xcodebuild, compiled] = yield* Effect.all([present('swift', ['-print-target-info'], { cwd: workspaceRoot }), containers.length === 0 ? Effect.succeedNone : present('xcodebuild', ['-version'], { cwd: workspaceRoot }), containers.length === 0 ? Effect.succeedNone : Effect.option(analyzer)]);
+    const [info, xcodebuild, compiled] = yield* Effect.all([
+        present('swift', ['-print-target-info'], { cwd: workspaceRoot }),
+        containers.length === 0 ? Effect.succeedNone : present('xcodebuild', ['-version'], { cwd: workspaceRoot }),
+        containers.length === 0 ? Effect.succeedNone : Effect.option(Effect.tap(analyzer, (at) => fs.stat(at))),
+    ]);
     const host = yield* Effect.transposeOption(Option.map(info, (text) => Effect.map(Schema.decodeEffect(Host)(text), ({ target: { platform } }) => platform)));
     const reader = Option.map(Option.all({ xcodebuild, compiled }), ({ compiled: at }) => at);
     const readable = Option.isSome(info) ? manifests : [];

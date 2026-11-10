@@ -47,6 +47,9 @@ testcontainers         = { workspace = true }
 testcontainers-modules = { workspace = true }
 rasm-store-proto       = { workspace = true }
 
+[target."cfg(windows)".dependencies]
+rdkafka = { workspace = true, features = ["cmake-build"] } # librdkafka configures through CMake on Windows, through its own script elsewhere
+
 [dev-dependencies]
 backon = { workspace = true }
 claims = { workspace = true }

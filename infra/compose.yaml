@@ -89,7 +89,7 @@ x-telemetry-client: &telemetry-client
 x-bucket: &bucket
     <<: *oneshot
     entrypoint: [sh, -c, '{ aws s3api head-bucket --bucket "$$0" 2>/dev/null || aws s3 mb "s3://$$0"; } && aws s3api put-bucket-lifecycle-configuration --bucket "$$0" --lifecycle-configuration "$$1"']
-    image: amazon/aws-cli:2.39.7
+    image: amazon/aws-cli:2.40.0
     restart: on-failure:6 # A bucket behind Traefik answers 404 until Traefik routes its healthy store, within its 2 s provider throttle
 x-node: &node
     <<: *server
@@ -266,7 +266,7 @@ services:
         healthcheck:
             <<: *probe
             test: [CMD, curl, --fail, --silent, http://127.0.0.1:9000/health/ready]
-        image: rustfs/rustfs:1.0.4
+        image: rustfs/rustfs:1.0.5
         labels:
             traefik.enable: "true"
             traefik.http.routers.storage.entrypoints: websecure
@@ -399,7 +399,7 @@ services:
         healthcheck:
             <<: *probe
             test: [CMD, curl, --fail, --silent, http://127.0.0.1:3000/api/health]
-        image: grafana/grafana:13.3.0
+        image: grafana/grafana:13.3.1
         labels:
             traefik.enable: "true"
             traefik.http.routers.grafana.entrypoints: websecure
@@ -604,7 +604,7 @@ services:
     # --- [TOOLS]
 
     verapdf:
-        image: verapdf/cli:v1.30.3
+        image: verapdf/cli:v1.30.4
         network_mode: none
         profiles: [tools]
 
