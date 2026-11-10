@@ -67,39 +67,39 @@
         "roslyn-codelens": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": [ "run", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--env", "DOTNET_ROLL_FORWARD=Major", "--", "roslyn-codelens-mcp" ]
+            "args": [ "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--env", "DOTNET_ROLL_FORWARD=Major", "--", "roslyn-codelens-mcp" ]
         },
         "nuget": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": [ "run", "--share", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "nuget-mcp-server" ]
+            "args": [ "--per", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "nuget-mcp-server" ]
         },
         "binlog": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": [ "run", "--share", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "binlog-mcp" ]
+            "args": [ "--per", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "binlog-mcp" ]
         },
         "ast-grep": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": [ "run", "--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml" ]
+            "args": [ "--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml" ]
         },
         "rhino-mcp-platform": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": [ "run", "--share", "user", "--env", "RHINO_MCP_DEFAULT_VERSION=9", "--", "rhino-mcp-router" ],
+            "args": [ "--per", "user", "--env", "RHINO_MCP_DEFAULT_VERSION=9", "--", "rhino-mcp-router" ],
             "timeout": 600000
         },
         "blender": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": [ "run", "--share", "user", "--env", "BLENDER_MCP_PORT=9877", "--", "blender-mcp" ],
+            "args": [ "--per", "user", "--env", "BLENDER_MCP_PORT=9877", "--", "blender-mcp" ],
             "timeout": 600000
         },
         "mcp-for-blender": {
             "type": "stdio",
             "command": "mcp-muxer",
-            "args": [ "run", "--share", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--env", "MCP_FOR_BLENDER_PORT", "--env", "BLENDERMCP_SKETCHFAB_API_KEY", "--env", "BLENDERMCP_POLYPIZZA_API_KEY", "--", "mcp-for-blender" ],
+            "args": [ "--per", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--env", "MCP_FOR_BLENDER_PORT", "--env", "BLENDERMCP_SKETCHFAB_API_KEY", "--env", "BLENDERMCP_POLYPIZZA_API_KEY", "--", "mcp-for-blender" ],
             "timeout": 600000
         }
     }
