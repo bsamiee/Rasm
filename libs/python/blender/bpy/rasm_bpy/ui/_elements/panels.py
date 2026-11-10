@@ -19,7 +19,7 @@ from rasm_bpy.data._extension.registration import Acquisitions, Declaration, ent
 from rasm_bpy.data._rna.conditions import Condition, satisfied
 from rasm_bpy.data._rna.paths import rna_definition, Struct
 from rasm_bpy.data._rna.properties import declaring
-from rasm_bpy.settings._attachments import Attached, Attachment
+from rasm_bpy.settings._attachments import Attached, Attachment, LogPreferences
 from rasm_bpy.ui._drawing.handlers import Signal
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import layout_method, OperatorButton, Property, realized, RowContent, RowDraw
@@ -158,12 +158,16 @@ class Preference(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # 
         )
 
 
+_LOGS: Final = Preference(key="logs", form=LogPreferences)
+
+
 class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
     """Add-on preferences page over the preferences it and every other row declare, with its own sections, firing `changed` on each edit.
 
     Page derives one section per preference, then its own sections, Confirmations turning a dismissed confirmation back on,
     Shortcuts over each keymap, and Stored Settings clearing every attachment's stored values, each derived section present while what it draws is declared.
     Each suppressible command's `ask_<key>` flag sits on the preferences beside the preference groups.
+    The page declares the extension's log preference and reopens the extension log file under it at registration and after each edit.
     """
 
     preferences: tuple[Preference[bpy.types.PropertyGroup], ...] = ()
@@ -172,8 +176,8 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
-        """Preferences the page declares."""
-        return self.preferences
+        """Preferences the page declares, the extension's log preference first."""
+        return (_LOGS, *self.preferences)
 
     @contextmanager
     def gathered(self, identity: Identity, declared: tuple[Declaration | Gathering, ...], /) -> Generator[Acquisitions]:
@@ -206,8 +210,11 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         )
         clear = operators.Operator.of(operators.Empty, icon=Some("TRASH"), options=frozenset({"INTERNAL", "UNDO"}), invoke=Some(confirmation))(clear_stored_settings)
 
+        def logging() -> Outcome[None]:
+            return _LOGS.read(identity).bind(lambda held: identity.reports.configured(held.settings, held.collector))
+
         def changed(_owner: Struct, _context: bpy.types.Context) -> None:
-            identity.reports.faulted(self.changed.fired())
+            identity.reports.faulted(paired(logging(), self.changed.fired()))
 
         flags = {invocations.Suppressible.flag(row.key): bpy.props.BoolProperty(name=row.title, description=row.description, default=True, update=changed) for row in asks}
         bodies: list[RowDraw] = []
@@ -235,7 +242,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         def prepared() -> Generator[Outcome[None]]:
             with ExitStack() as stack:
                 stack.callback(bodies.clear)
-                yield entered(identity, stack, (kind,)).bind(lambda _: realized(sections, identity)).map(bodies.append)
+                yield entered(identity, stack, (kind,)).bind(lambda _: realized(sections, identity)).map(bodies.append).bind(lambda _: logging())
 
         with ExitStack() as stack:
             groups = tuple(group for row in preferred for group in stack.enter_context(declaring(row.form, {}, Some(changed))))

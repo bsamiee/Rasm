@@ -10,33 +10,40 @@ requires-python = ">=3.13"
 dependencies = [
     # --- [CORE]
 
-    "expression",           # Results, options, and collections of every module
-    "makefun",              # Callback signatures for Blender's declared host slots
-    "msgspec",              # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
-    "rasm-imaging",         # Image science the render and interface layers drive
-    "rasm-records",         # Fault model, field domains, record files, and record trees
-    "rasm-rendering",       # Render queues, light rigs, and output naming
-    "structlog",            # Structured logging through typed bound loggers holding each extension's context
-    "typing-extensions",    # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
-    "typing-inspection",    # Annotation metadata and generic type-alias inspection
-    "tzdata",               # IANA time zones for zoneinfo on platforms without a database
+    "expression",                         # Results, options, and collections of every module
+    "makefun",                            # Callback signatures for Blender's declared host slots
+    "msgspec",                            # Records, tagged unions, field bounds, and JSON, TOML, and MessagePack codecs
+    "rasm-imaging",                       # Image science the render and interface layers drive
+    "rasm-records",                       # Fault model, field domains, record files, and record trees
+    "rasm-rendering",                     # Render queues, light rigs, and output naming
+    "rasm-telemetry[otlp-http,process]",  # Log settings and handler, bound logger, exception hooks, the tracer provider of one extension, the collector a preference names, and the process part a background command enters
+    "structlog",                          # Stdlib level names of the log preference
+    "typing-extensions",                  # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
+    "typing-inspection",                  # Annotation metadata and generic type-alias inspection
+    "tzdata",                             # IANA time zones for zoneinfo on platforms without a database
+
+    # --- [TELEMETRY]
+
+    "opentelemetry-api",                  # Operator and command spans
+    "opentelemetry-sdk",                  # Tracer provider type of one extension, the batch span processor of a background command, and the variable disabling the SDK offline
+    "opentelemetry-semantic-conventions", # `error.type` of a failed span and `process.exit.code` of a failed process record
 
     # --- [FILES]
 
-    "blender-asset-tracer", # Blend file packs with paths rewritten across linked libraries
+    "blender-asset-tracer",               # Blend file packs with paths rewritten across linked libraries
 
     # --- [MATHEMATICS]
 
-    "networkx",             # Strongly connected rename groups and their condensation order
-    "numpy",                # Arrays for image planes, previews, and analysis
+    "networkx",                           # Strongly connected rename groups and their condensation order
+    "numpy",                              # Arrays for image planes, previews, and analysis
 
     # --- [IMAGING]
 
-    "coloraide",            # Color spaces, interpolation, compositing, filters, contrast, and gamut fitting of interface themes
-    "colour-science",       # CIE observer datasets
-    "opencolorio",          # Color processing, config authoring, and LUT baking
-    "openimageio",          # Image IO and analysis
-    "psdtags",              # Photoshop layer records for layered documents
+    "coloraide",                          # Color spaces, interpolation, compositing, filters, contrast, and gamut fitting of interface themes
+    "colour-science",                     # CIE observer datasets
+    "opencolorio",                        # Color processing, config authoring, and LUT baking
+    "openimageio",                        # Image IO and analysis
+    "psdtags",                            # Photoshop layer records for layered documents
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------

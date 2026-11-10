@@ -1,49 +1,57 @@
-import { Effect, Record, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { basename, dirname } from 'node:path';
+import { Array, Effect, Formatter, Function, Predicate, Result, Schema, SchemaTransformation } from 'effect';
+import { DockerComposeEnvironment, getContainerRuntimeClient } from 'testcontainers';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Inspected = Schema.fromJsonString(
-    Schema.Tuple([
-        Schema.Struct({
-            Config: Schema.Struct({ Env: Schema.Array(Schema.String) }),
-            NetworkSettings: Schema.Struct({ Ports: Schema.Record(Schema.String, Schema.NullOr(Schema.Array(Schema.Struct({ HostIp: Schema.String, HostPort: Schema.String })))) }),
-        }),
-    ]),
-).annotate({ description: 'docker container inspect: the environment a container runs with and the host addresses each container port is published on' });
+const Environment = Schema.String.pipe(Schema.decodeTo(Schema.Record(Schema.String, Schema.String), SchemaTransformation.splitKeyValue({ separator: '\0' }))).annotate({
+    description: 'container environment, its `KEY=VALUE` entries joined by NUL, which no entry holds',
+});
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ServiceError extends Schema.TaggedError<ServiceError, { readonly brand: unique symbol }>()('ServiceError', { subject: Schema.String, detail: Schema.String }) {
+class ServiceError extends Schema.TaggedError<ServiceError, { readonly brand: unique symbol }>()('ServiceError', {
+    reason: Schema.TaggedUnion({ Unreachable: {}, Unstarted: {}, Absent: { running: Schema.Int }, Unpublished: { port: Schema.Int, published: Schema.Array(Schema.Int) } }),
+    subject: Schema.String,
+    cause: Schema.optionalKey(Schema.Defect()),
+}) {
+    static readonly of = (reason: ServiceError['reason'], subject: string) => (cause?: unknown) => ServiceError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
+
     override get message() {
-        return `${this.subject}: ${this.detail}`;
+        const reason = ServiceError.fields.reason.match(this.reason, {
+            Unreachable: () => 'container runtime refused the call',
+            Unstarted: () => 'services did not start',
+            Absent: ({ running }) => `${running} containers run where one names the service`,
+            Unpublished: ({ port, published }) => `publishes host ports [${published.join(', ')}] for container port ${port} where one names the service`,
+        });
+        return [`${this.subject}: ${reason}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const docker = Effect.fnUntraced(function* (args: readonly string[]) {
-    const handle = yield* ChildProcess.make('docker', args, { extendEnv: true, stdin: 'ignore' });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout.trim() : yield* ServiceError.make({ subject: ['docker', ...args].join(' '), detail: `exited ${code}: ${stderr.trim()}` });
-}, Effect.scoped);
-
-const service = Effect.fn('service')(function* (project: string, name: string) {
+const service = Effect.fn('service')(function* (project: string, name: string, port: number) {
     const subject = `${project}/${name}`;
-    const container = yield* docker(['compose', '--project-name', project, 'ps', '--quiet', name]).pipe(
-        Effect.filterOrElse(
-            (id) => id !== '',
-            () => ServiceError.make({ subject, detail: `not running; start the ${project} Compose project` }),
-        ),
-    );
-    const [{ Config, NetworkSettings }] = yield* Effect.flatMap(docker(['container', 'inspect', container]), Schema.decodeEffect(Inspected));
-    const published = Object.values(NetworkSettings.Ports).flatMap((bindings) => (bindings ?? []).map(({ HostIp, HostPort }) => `${HostIp}:${HostPort}`));
-    const [address, ...others] = published;
-    return address === undefined || others.length > 0
-        ? yield* ServiceError.make({ subject, detail: `publishes host addresses [${published.join(', ')}] where one address names the service` })
-        : { address, environment: Record.fromIterableWith(Config.Env, (entry) => [entry.slice(0, entry.indexOf('=')), entry.slice(entry.indexOf('=') + 1)]) };
+    const unreachable = ServiceError.of({ _tag: 'Unreachable' }, subject);
+    const client = yield* Effect.tryPromise({ try: getContainerRuntimeClient, catch: unreachable });
+    const [container] = yield* Effect.tryPromise({
+        try: () => client.container.dockerode.listContainers({ filters: { label: [`com.docker.compose.project=${project}`, `com.docker.compose.service=${name}`] } }),
+        catch: unreachable,
+    }).pipe(Effect.filterOrFail(Predicate.isTupleOf(1), ({ length }) => ServiceError.of({ _tag: 'Absent', running: length }, subject)()));
+    const published = Array.dedupe(Array.filterMap(container.Ports, ({ PrivatePort, PublicPort, Type }) => (PrivatePort === port && Type === 'tcp' && PublicPort !== undefined ? Result.succeed(PublicPort) : Result.failVoid)));
+    const [bound] = yield* Effect.fromResult(Result.liftPredicate(published, Predicate.isTupleOf(1), (ports) => ServiceError.of({ _tag: 'Unpublished', port, published: ports }, subject)()));
+    const { Config } = yield* Effect.tryPromise({ try: () => client.container.inspect(client.container.getById(container.Id)), catch: unreachable });
+    return { address: `${client.info.containerRuntime.host}:${bound}`, environment: yield* Effect.orDie(Schema.decodeEffect(Environment)(Config.Env.join('\0'))) };
 });
+
+const environment = (file: string, services: Array.NonEmptyReadonlyArray<string>, configure: (environment: DockerComposeEnvironment) => DockerComposeEnvironment = Function.identity) =>
+    Effect.acquireDisposable(
+        Effect.tryPromise({
+            try: () => configure(new DockerComposeEnvironment(dirname(file), basename(file)).withEnvironment({ COMPOSE_PROFILES: '*' })).up([...services]),
+            catch: ServiceError.of({ _tag: 'Unstarted' }, `${file} ${services.join(' ')}`),
+        }),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ServiceError, service };
+export { environment, ServiceError, service };

@@ -1,16 +1,14 @@
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type Tree } from '@nx/devkit';
+import { runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Effect, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
-import { AppleError, VersionActionsOptions, versioned } from '#/plugins/targets';
+import { VersionActionsOptions, versioned } from '#/plugins/targets';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => effect.pipe(Effect.provide(layer), Effect.runPromise);
-
 const edited = (tree: Tree, at: string, newVersion?: string) =>
     Effect.flatMap(
-        Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), () => AppleError.make({ subject: at, detail: 'is missing' })),
+        Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), () => ToolError.make({ subject: at, detail: 'is missing' })),
         (text) => versioned(tree.root, at, text, newVersion),
     );
 
@@ -25,7 +23,7 @@ class AppleVersionActions extends VersionActions {
     }
 
     override init(tree: Tree) {
-        return run(
+        return runtime.runPromise(
             Effect.flatMap(this.manifest, ({ file }) =>
                 Effect.promise(() => {
                     this.validManifestFilenames = [file];
@@ -37,11 +35,11 @@ class AppleVersionActions extends VersionActions {
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
         const { manifest } = this;
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const { at } = yield* manifest;
                 const { version } = yield* edited(tree, at);
-                const currentVersion = yield* Effect.mapError(Effect.fromNullishOr(version), () => AppleError.make({ subject: at, detail: 'states no version' }));
+                const currentVersion = yield* Effect.mapError(Effect.fromNullishOr(version), () => ToolError.make({ subject: at, detail: 'states no version' }));
                 return { currentVersion, manifestPath: at };
             }),
         );
@@ -57,7 +55,7 @@ class AppleVersionActions extends VersionActions {
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
         const { manifest } = this;
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const { at } = yield* manifest;
                 const { project } = yield* edited(tree, at, newVersion);

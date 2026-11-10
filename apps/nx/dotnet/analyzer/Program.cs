@@ -3,40 +3,38 @@ using System.Xml;
 using Microsoft.Build.Construction;
 using Microsoft.Build.Evaluation;
 using Microsoft.Build.Locator;
-using NuGet.Common;
 using NuGet.Configuration;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 using NuGet.Versioning;
+using Rasm.Hosting;
 
 namespace MsbuildAnalyzer;
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
 internal static class Program {
-    private static readonly FrozenSet<string> Pinned = FrozenSet.Create(StringComparer.OrdinalIgnoreCase, "PackageVersion", "GlobalPackageReference");
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true };
 
     public static int Main(string[] args) =>
-        args switch {
+        ProcessEntry.Run(_ => IO.lift(() => args switch {
             ["version", var version] => Registered(Environment.CurrentDirectory, () => Versioned(version)),
             ["upgrade", var central] => Registered(Path.GetDirectoryName(Path.GetFullPath(central)) ?? Environment.CurrentDirectory, () => Upgraded(Path.GetFullPath(central))),
             [var root] => Registered(Path.GetFullPath(root), () => Write(Path.GetFullPath(root))),
-            _ => Refuse("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line; MsbuildAnalyzer version <version>, with a project file on stdin; or MsbuildAnalyzer upgrade <central-package-file>"),
-        };
+            _ => Error.New("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line; MsbuildAnalyzer version <version>, with a project file on stdin; or MsbuildAnalyzer upgrade <central-package-file>, with the project files reading it on stdin, one per line"),
+        }));
 
-    private static int Registered(string root, Func<int> run) =>
+    private static Fin<int> Registered(string root, Func<int> run) =>
         toSeq(MSBuildLocator.QueryVisualStudioInstances(new VisualStudioInstanceQueryOptions { DiscoveryTypes = DiscoveryType.DotNetSdk, WorkingDirectory = root }))
             .Head
-            .Match(
-                Some: sdk => {
-                    MSBuildLocator.RegisterInstance(sdk);
-                    return run();
-                },
-                None: () => Refuse($"No .NET SDK resolves from {root}"));
+            .ToFin(Error.New($"No .NET SDK resolves from {root}"))
+            .Map(sdk => {
+                MSBuildLocator.RegisterInstance(sdk);
+                return run();
+            });
 
     private static int Write(string root) {
-        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, toSeq(Console.In.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))), Json));
+        Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, Listed()), Json));
         return 0;
     }
 
@@ -53,36 +51,18 @@ internal static class Program {
         using ProjectCollection collection = new();
         using SourceCacheContext cache = new();
         ISettings settings = Settings.LoadDefaultSettings(Path.GetDirectoryName(central));
-        PackageSourceMapping mapping = PackageSourceMapping.GetPackageSourceMapping(settings);
-        Seq<SourceRepository> repositories = toSeq(new PackageSourceProvider(settings).LoadPackageSources()).Filter(static source => source.IsEnabled).Map(static source => Repository.Factory.GetCoreV3(source));
-        IO<Option<NuGetVersion>> Newest(string id) =>
-            IO.liftAsync(async env => Optional(Enumerable.Max(toSeq(await Task.WhenAll(repositories
-                .Filter(repository => !mapping.IsEnabled || mapping.GetConfiguredPackageSources(id).Contains(repository.PackageSource.Name, StringComparer.OrdinalIgnoreCase))
-                .Map(async repository => await repository.GetResourceAsync<PackageMetadataResource>(env.Token).ConfigureAwait(false) is { } resource
-                    ? toSeq(await resource.GetMetadataAsync(id, includePrerelease: true, includeUnlisted: false, cache, NullLogger.Instance, env.Token).ConfigureAwait(false)).Map(static found => found.Identity.Version)
-                    : Seq<NuGetVersion>())).ConfigureAwait(false)).Bind(static found => found))));
-        Map<int, (string Attribute, string Id, string Text, NuGetVersion Current, NuGetVersion Found)> moved = toMap(toSeq(ProjectRootElement.Open(central, collection, preserveFormatting: true).Items)
-            .Filter(static item => Pinned.Contains(item.ItemType) && item.Include.Length > 0)
-            .Choose(static item => toSeq(item.Metadata).Find(static metadata => metadata.ExpressedAsAttribute && metadata.Name is "Version").Bind(metadata => NuGetVersion.TryParse(metadata.Value, out NuGetVersion? current) ? Some((Line: item.Location.Line - 1, Attribute: metadata.Name, Id: item.Include, Text: metadata.Value, Current: current)) : None))
-            .Traverse(row => Newest(row.Id).Map(newest => newest.Filter(found => found > row.Current).Map(found => (row.Line, (row.Attribute, row.Id, row.Text, row.Current, Found: found)))))
-            .As()
-            .Run()
-            .Somes());
-        string Rewritten(string line, (string Attribute, string Id, string Text, NuGetVersion Current, NuGetVersion Found) row) {
-            int start = line.IndexOf(row.Text, line.IndexOf($"{row.Attribute}=", StringComparison.Ordinal), StringComparison.Ordinal);
-            int end = start + row.Text.Length;
-            string found = row.Found.ToNormalizedString();
-            int close = line.IndexOf("/>", end, StringComparison.Ordinal) + 2;
-            int gap = line.Length - close - line[close..].TrimStart().Length;
-            return string.Concat(line[..start], found, line[end..close], gap > 0 && line.Length > close + gap ? new string(' ', int.Max(1, gap - found.Length + end - start)) : line[close..(close + gap)], line[(close + gap)..]);
-        }
-        File.WriteAllText(central, string.Join('\n', File.ReadAllText(central).Split('\n').Select((line, index) => moved.Find(index).Match(row => Rewritten(line, row), () => line))));
-        Console.Out.Write(string.Concat(moved.Values.Select(static row => $"{row.Id} {row.Current} -> {row.Found}\n")));
+        Feeds feeds = new(
+            toSeq(new PackageSourceProvider(settings).LoadPackageSources()).Filter(static source => source.IsEnabled).Map(static source => Repository.Factory.GetCoreV3(source)),
+            PackageSourceMapping.GetPackageSourceMapping(settings),
+            new PackageDownloadContext(cache),
+            SettingsUtility.GetGlobalPackagesFolder(settings));
+        Seq<(Row Row, Either<string, NuGetVersion> Decision)> decided = Packages.Decided(feeds, Packages.Rows(ProjectRootElement.Open(central, collection, preserveFormatting: true)), Packages.Consumed(Listed())).Run();
+        Map<int, (Row Row, NuGetVersion Found)> moved = toMap(decided.Choose(static held => held.Decision.ToOption().Map(found => (held.Row.Line, (held.Row, found)))));
+        File.WriteAllText(central, string.Join('\n', File.ReadAllText(central).Split('\n').Select((line, index) => moved.Find(index).Match(row => Packages.Rewritten(line, row.Row, row.Found), () => line))));
+        Console.Out.Write(string.Concat(decided.Map(static held => held.Decision.Match(Left: reason => $"{held.Row.Id} {held.Row.Text} holds: {reason}\n", Right: found => $"{held.Row.Id} {held.Row.Text} -> {found}\n"))));
         return 0;
     }
 
-    private static int Refuse(string message) {
-        Console.Error.WriteLine(message);
-        return 2;
-    }
+    private static Seq<string> Listed() =>
+        toSeq(Console.In.ReadToEnd().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 }

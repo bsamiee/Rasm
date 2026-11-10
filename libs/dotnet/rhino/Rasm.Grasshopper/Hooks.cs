@@ -3,13 +3,14 @@ using Grasshopper2;
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
 using Grasshopper2.UI;
+using Rasm.Telemetry;
 using Rhino.Commands;
 
 namespace Rasm.Grasshopper;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public static partial class Hooks {
+public static class Hooks {
 
     // --- [SESSIONS]
 
@@ -80,16 +81,7 @@ public static partial class Hooks {
 
     internal static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
         effect.RunSafe().IfFail(error => {
-            Seq<Error> causes = toSeq(LanguageExt.List.unfold(error.AsIterable().ToSeq(), static pending => pending.Head.Map(cause =>
-                (cause, cause.Inner.ToSeq().Bind(static inner => inner.AsIterable().ToSeq()) + pending.Tail))));
-            if (error.Count is 1 && error.Is(Errors.Cancelled)) Canceled(Session.Logger, member);
-            else Failed(Session.Logger, member, string.Join(Environment.NewLine, causes.Map(static cause => cause.Message)), causes.Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
+            _ = Session.Logger.Failed(error, member);
             return failed;
         });
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}")]
-    private static partial void Failed(ILogger logger, string member, string message, Exception? exception);
-
-    [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} canceled")]
-    private static partial void Canceled(ILogger logger, string member);
 }

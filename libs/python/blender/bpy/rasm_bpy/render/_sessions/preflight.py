@@ -26,7 +26,7 @@ from rasm_bpy.render._outputs.paths import Pathed
 from rasm_bpy.ui._layout.rows import OperatorButton
 from rasm_bpy.ui._layout.sections import Section
 from rasm_records import accumulated, Error, existing, Fault, Nothing, Ok, Outcome, Reason
-from rasm_rendering import detached
+from rasm_rendering import spawned
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -138,7 +138,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def opened(block: bpy.types.ID) -> Outcome[Answer]:
             match block if isinstance(block, bpy.types.Library) else block.library:
                 case bpy.types.Library() as library:
-                    return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), call.identity.folder / "library.log").map(lambda _: Done())
+                    return spawned((bpy.app.binary_path, bpy.path.abspath(library.filepath)), detached=True).map(lambda _: Done())
                 case None:
                     return Error(Fault.of(Reason.ABSENT, repr(block), member="library"))
 

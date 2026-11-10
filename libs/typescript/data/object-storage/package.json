@@ -1,0 +1,51 @@
+{
+    "name": "@rasm/object-storage",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Objects in an R2 or S3 bucket served with ranges and preconditions and written through whole-body and resumable uploads",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/data/object-storage"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./r2": "./r2.ts",
+        "./s3": "./s3.ts"
+    },
+    "files": [ "dist" ],
+    "dependencies": {
+        "partial-content": "catalog:"
+    },
+    "devDependencies": {
+        "@aws-sdk/client-s3": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "@aws-sdk/client-s3": "catalog:peers",
+        "effect": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@aws-sdk/client-s3": {
+            "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./r2": "./dist/r2.js",
+            "./s3": "./dist/s3.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    }
+}

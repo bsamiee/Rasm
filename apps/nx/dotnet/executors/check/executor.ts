@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
+import { runtime } from '@rasm/nx-devkit/process';
 import { Array, Console, Effect, FileSystem, flow, Path, Schema, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -33,8 +33,8 @@ const execute = flow(
             .filter((result) => result.suppressions === undefined && Schema.is(Failing)(result.level));
         yield* Effect.forEach(findings, (finding) => Console.log(rendered(finding)));
         return { success: findings.length === 0 };
-    }, Effect.provide(layer)),
-    Effect.runPromise,
+    }),
+    runtime.runPromise,
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

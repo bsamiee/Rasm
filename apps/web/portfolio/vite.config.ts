@@ -1,29 +1,24 @@
 import { cloudflare } from '@cloudflare/vite-plugin';
 import { sites } from '@openai/sites-vite-plugin';
 import { siteHead } from '@rasm/hosting/head';
-import { Sites } from '@rasm/hosting/sites';
+import { Sites } from '@rasm/hosting/openai-sites';
 import { nodeServer } from '@rasm/hosting/vite';
 import { pdfjs } from '@rasm/media/vite';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { bindings } from 'cf/config';
-import { Config, Effect } from 'effect';
 import { defineConfig } from 'vite';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const tooling = Effect.map(Effect.all([Config.withDefault(Config.Boolean('VITEST'), false), Config.withDefault(Config.Boolean('STORYBOOK'), false)]), ([vitest, storybook]) => vitest || storybook);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, mode }) => ({
     build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true } } },
     plugins: [
         react({ compiler: { panicThreshold: 'all_errors' } }),
         tailwindcss(),
         pdfjs(),
         sites(),
-        ...(Effect.runSync(tooling)
+        ...(mode === 'test'
             ? []
             : [
                   siteHead({ master: 'favicon.svg', stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' }),

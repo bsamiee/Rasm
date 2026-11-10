@@ -15,6 +15,15 @@ node_modules/
 /.cargo/rustc-source
 dist/
 .cloudflare/
+.buf/
+.vitest/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright-cli/
+.playwright-mcp/
+storybook-static/
 .vs/
 *.received.*
 *.pending-snap

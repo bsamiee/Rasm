@@ -1,66 +1,54 @@
+import { normalizePath } from '@nx/devkit';
 import { API, type ParsedCommandLine } from '@typescript/native/sync';
-import { Array, Effect, FileSystem, Option, Path, Result } from 'effect';
-import { ancestors } from '#/inference';
+import { Array, Effect, Option, Path, Result } from 'effect';
+import { CONFIG } from '#/inference';
 import { ToolError } from '#/process';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-const CONFIG = 'tsconfig.json';
+type Solution = Result.Result.Success<Effect.Success<ReturnType<typeof configured>>[number][1]>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const configured = Effect.fnUntraced(function* (workspaceRoot: string, configs: readonly string[]) {
+const configured = Effect.fn('configured')(function* (workspaceRoot: string, configs: readonly string[]) {
     const path = yield* Path.Path;
-    const api = yield* Effect.acquireRelease(
-        Effect.sync(() => new API({ cwd: workspaceRoot })),
-        (opened) => Effect.sync(() => opened.close()),
-    );
+    const unopened = ToolError.of(workspaceRoot, 'opens no TypeScript project');
+    const api = yield* Effect.acquireDisposable(Effect.sync(() => new API({ cwd: workspaceRoot })));
     const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (path.extname(at) === '.json' ? at : path.join(at, CONFIG)));
-    const solutions = configs.map((config) =>
-        Result.try({
-            try: () => {
-                const file = path.resolve(workspaceRoot, config);
-                const parsed = api.parseConfigFile(file);
-                return { config, errors: parsed.errors.map(({ text }) => text), owned: [file, ...referenced(parsed)] };
-            },
-            catch: ToolError.of(config, 'does not read as a TypeScript configuration'),
-        }),
+    const solutions = configs.map(
+        (config) =>
+            [
+                config,
+                Result.try({
+                    try: () => {
+                        const file = path.resolve(workspaceRoot, config);
+                        const parsed = api.parseConfigFile(file);
+                        return { errors: parsed.errors.map(({ text }) => text), owned: [file, ...referenced(parsed)] };
+                    },
+                    catch: ToolError.of(config, 'does not read as a TypeScript configuration'),
+                }),
+            ] as const,
     );
-    const files = Array.dedupe(Array.getSuccesses(solutions).flatMap(({ owned }) => owned));
-    const members = yield* Effect.try({
-        try: () => {
-            const snapshot = api.createSnapshot({ openProjects: files });
-            return new Map(
-                Array.getSomes(
-                    files.map((file) =>
-                        Option.map(Option.fromUndefinedOr(snapshot.getConfiguredProject(file)), (project) => [file, { config: file, parsed: project.parsedCommandLine, chain: project.program.getConfigFileNames().map((at) => path.relative(workspaceRoot, at)) }] as const),
-                    ),
+    const files = Array.dedupe(Array.getSuccesses(solutions.map(([, read]) => read)).flatMap(({ owned }) => owned));
+    const snapshot = yield* Effect.acquireDisposable(Effect.try({ try: () => api.createSnapshot({ openProjects: files }), catch: unopened }));
+    const opened = yield* Effect.try({
+        try: () =>
+            Array.filterMap(files, (file) =>
+                Result.map(
+                    Result.fromNullishOr(snapshot.getConfiguredProject(file), () => file),
+                    (project) => [file, { config: path.relative(workspaceRoot, file), parsed: project.parsedCommandLine, chain: project.program.getConfigFileNames() }] as const,
                 ),
-            );
-        },
-        catch: ToolError.of(workspaceRoot, 'opens no TypeScript project'),
+            ),
+        catch: unopened,
     });
-    return solutions.map(Result.map(({ config, errors, owned }) => ({ config, errors, members: Array.getSomes(owned.map((file) => Option.fromUndefinedOr(members.get(file)))) })));
+    const members = new Map(opened);
+    const joined = (owned: readonly string[]) => {
+        const held = Array.getSomes(owned.map((file) => Option.fromUndefinedOr(members.get(file))));
+        return { members: held, chain: Array.dedupe(held.flatMap((member) => member.chain)).map((at) => normalizePath(path.relative(workspaceRoot, at))) };
+    };
+    return solutions.map(([config, read]) => [config, Result.map(read, ({ errors, owned }) => ({ config, errors, ...joined(owned) }))] as const);
 }, Effect.scoped);
-
-const chained = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const nearest = yield* Effect.forEach(roots, (root) =>
-        Effect.findFirst(
-            ancestors(path, root).map((at) => path.join(at, CONFIG)),
-            (file) => fs.exists(path.join(workspaceRoot, file)),
-        ),
-    );
-    const configs = Array.dedupe(Array.getSomes(nearest));
-    const solved = new Map(Array.zip(configs, Array.isReadonlyArrayNonEmpty(configs) ? yield* configured(workspaceRoot, configs) : []));
-    return Array.zipWith(roots, nearest, (root, config) =>
-        Option.match(
-            Option.flatMap(config, (file) => Option.flatMap(Option.fromUndefinedOr(solved.get(file)), Result.getSuccess)),
-            { onNone: () => [], onSome: ({ members }) => Array.dedupe(members.flatMap(({ chain }) => chain)).filter((at) => !(at.startsWith('..') || at.startsWith(`${root}/`) || at.split(path.sep).includes('node_modules'))) },
-        ),
-    );
-});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CONFIG, chained, configured };
+export { configured, type Solution };

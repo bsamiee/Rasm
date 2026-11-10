@@ -82,8 +82,20 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
         const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
         return yield* sql.withTransaction(Effect.andThen(sql`SELECT set_config(${setting}, ${encoded}, true)`, effect));
     });
+    static readonly #stored = Function.memoize((relation: Relation) => Function.memoize((rename: (name: string) => string): Relation => relation.#renamed(rename)));
+    #renamed(rename: (name: string) => string) {
+        return new Relation<Shape, Options>({
+            ...this,
+            name: rename(this.name),
+            ...definition(
+                this.schema.fields,
+                Option.getOrElse(this.options, () => ({})),
+                rename,
+            ),
+        });
+    }
     named(rename: (name: string) => string) {
-        return new Relation<Shape, Options>({ ...this, name: rename(this.name), ...definition(this.schema.fields, Option.getOrElse(this.options, () => ({})), rename) });
+        return Relation.#stored(this)(rename);
     }
 }
 
@@ -123,7 +135,7 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>, re
         mergeTree: {
             expires: Option.map(Option.fromUndefinedOr(options.mergeTree?.expires), ({ column, after }) => ({ column: rename(column), after: Duration.fromInputUnsafe(after) })),
             version: Option.map(Option.fromUndefinedOr(options.mergeTree?.version), rename),
-            codecs: Record.fromIterableWith(Object.entries<Array.NonEmptyReadonlyArray<string>>(options.mergeTree?.codecs ?? {}), ([column, codec]) => [rename(column), codec]),
+            codecs: Record.getSomes(Record.mapEntries(columns, ({ name }, field) => [name, Option.fromUndefinedOr(options.mergeTree?.codecs?.[field])])),
         },
         retired: { columns: retired, indexes: (options.retiredIndexes ?? []).map((parts) => parts.map(rename)) },
         paths: Array.getSomes(Object.values<Column>(columns).map(({ projection }) => Option.filter(projection, Column.Projection.$is('Path')))).map(Struct.get('jsonPath')),

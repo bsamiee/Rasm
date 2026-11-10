@@ -16,34 +16,39 @@ test = false
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-backon              = { workspace = true }
-futures             = { workspace = true }
-tokio               = { workspace = true, features = ["io-std"] }
-tokio-stream        = { workspace = true }
-tokio-util          = { workspace = true }
-dirs                = { workspace = true }
-interprocess        = { workspace = true }
-sysinfo             = { workspace = true }
-which               = { workspace = true }
-sysexits            = { workspace = true }
-thiserror           = { workspace = true }
-derive_more         = { workspace = true }
-bytes               = { workspace = true }
-serde               = { workspace = true }
-serde_json          = { workspace = true }
-serde_path_to_error = { workspace = true }
-jiff                = { workspace = true }
-xxhash-rust         = { workspace = true }
-fs-err              = { workspace = true, features = ["tokio"] }
-rmcp                = { workspace = true, default-features = false, features = ["server"] }
-json-subscriber     = { workspace = true }
-tracing             = { workspace = true }
-tracing-appender    = { workspace = true }
-tracing-subscriber  = { workspace = true }
-clap                = { workspace = true }
-rasm-ipc            = { workspace = true }
-rasm-mcp            = { workspace = true, features = ["proxy"] }
-rasm-process        = { workspace = true }
+backon                             = { workspace = true }
+futures                            = { workspace = true }
+tokio                              = { workspace = true, features = ["io-std"] }
+itertools                          = { workspace = true }
+tokio-util                         = { workspace = true }
+nonempty-collections               = { workspace = true }
+camino                             = { workspace = true }
+tempfile                           = { workspace = true }
+dirs                               = { workspace = true }
+interprocess                       = { workspace = true }
+rlimit                             = { workspace = true }
+sysinfo                            = { workspace = true }
+which                              = { workspace = true }
+sysexits                           = { workspace = true }
+thiserror                          = { workspace = true }
+derive_more                        = { workspace = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+serde_path_to_error                = { workspace = true }
+jiff                               = { workspace = true }
+xxhash-rust                        = { workspace = true }
+fs-err                             = { workspace = true, features = ["tokio"] }
+rmcp                               = { workspace = true, default-features = false, features = ["server"] }
+opentelemetry                      = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+tracing-subscriber                 = { workspace = true }
+clap                               = { workspace = true }
+rasm-command                       = { workspace = true }
+rasm-ipc                           = { workspace = true }
+rasm-mcp                           = { workspace = true, features = ["proxy"] }
+rasm-process                       = { workspace = true }
+rasm-observability                 = { workspace = true, features = ["metrics"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

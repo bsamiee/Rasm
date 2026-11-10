@@ -158,13 +158,14 @@ Repository `user_default` holds extensions installed from a file, remote reposit
 
 Each source writes its log to one place:
 
-| [INDEX] | [SOURCE]           | [OUTPUT]                                                                      |
-| :-----: | :----------------- | :---------------------------------------------------------------------------- |
-|  [01]   | Background run     | Calling shell                                                                 |
-|  [02]   | `build`, `install` | Nx task output, native install output forwarded from the GUI                  |
-|  [03]   | Task GUI           | `execute_blender_code` answers, Info editor lines in `window_manager.reports` |
-|  [04]   | Crash, Blender     | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR` |
-|  [05]   | Extension logger   | `extension.log` under `extension_path_user`, JSON lines across sessions       |
+| [INDEX] | [SOURCE]           | [OUTPUT]                                                                                               |
+| :-----: | :----------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | Background run     | Calling shell                                                                                          |
+|  [02]   | `build`, `install` | Nx task output, native install output forwarded from the GUI                                           |
+|  [03]   | Task GUI           | `execute_blender_code` answers, Info editor lines in `window_manager.reports`                          |
+|  [04]   | Crash, Blender     | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR`                          |
+|  [05]   | Extension logger   | `logs/<extension id>.log`, `logs/<command id>.log` per background command, under `extension_path_user` |
+|  [06]   | Queue run          | `runs/<key>.log` under `extension_path_user`, output of render and farm programs as JSON records       |
 
 Log reads follow host rules:
 - Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`

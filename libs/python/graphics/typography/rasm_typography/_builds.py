@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC
 lazy from functools import partial, reduce
 lazy from io import BytesIO
+lazy from pathlib import Path
 
 from fontTools.ttLib import TTFont
 import msgspec
@@ -20,7 +21,7 @@ lazy from ufo2ft import compileTTF
 lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TRUETYPE_INSTRUCTIONS_KEY
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 
-from rasm_typography._faces.glyphs import Category, Source
+from rasm_typography._faces.glyphs import Category, fetched, Source
 lazy from rasm_records import Error, Fault, Faults, Ok, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces
 lazy from rasm_typography._faces.importing import imported
@@ -131,23 +132,26 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     return Construction(source=msgspec.structs.replace(source, metrics=vertical), ufo=ufo, font=font)
 
 
-def constructed(original: Binary, face: Faces, corpus: Corpus, /) -> Outcome[Construction]:
+def constructed(original: Binary, face: Faces, corpus: Corpus, /, *, cache: Path) -> Outcome[Construction]:
     """Imports an original under a face's design record, folds the face's drawing rules over it, and constructs its UFO and ufo2ft font with metrics measured on its own layout.
 
     Args:
         original: Font the face is rebuilt from.
         face: Design record whose plan the rules execute.
         corpus: Runs the rules and metrics measure.
+        cache: Folder holding the pinned Unicode joining table, downloaded where it lacks a copy.
 
     Returns:
         Ok(construction), the faults of the import and of the first refused rule, its name leading each fault's member, and `FAILED` for an outline operation the native boolean refuses.
     """
     plan = planned(face)
     try:
-        executed: Outcome[Source] = reduce(
-            lambda held, rule: held.bind(lambda source: rule.applied(source, original=original, corpus=corpus).map_error(partial(_named, type(rule).__name__.lower()))),
-            (rule for rule in plan if not isinstance(rule, Metrics)),
-            imported(original.data, face),
+        executed: Outcome[Source] = fetched(cache).bind(
+            lambda joinings: reduce(
+                lambda held, rule: held.bind(lambda source: rule.applied(source, original=original, corpus=corpus, joinings=joinings).map_error(partial(_named, type(rule).__name__.lower()))),
+                (rule for rule in plan if not isinstance(rule, Metrics)),
+                imported(original.data, face, joinings),
+            )
         )
         return executed.map(partial(_built, next(rule for rule in plan if isinstance(rule, Metrics)), corpus))
     except PathOpsError as error:

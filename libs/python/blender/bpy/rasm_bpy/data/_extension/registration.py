@@ -9,6 +9,7 @@ from functools import partial, reduce
 import graphlib
 import inspect
 from itertools import chain
+import os
 import sys
 from threading import Event
 from types import MappingProxyType
@@ -270,12 +271,7 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Builds the prefixed command acquisition, stderr holding command faults."""
         command = identity.identifier(self.key)
-        return (
-            (
-                Tier.REGISTRIES,
-                scoped(command, partial(bpy.utils.register_cli_command, command, lambda arguments: self.executed(command, arguments).default_with(_refused)), bpy.utils.unregister_cli_command),
-            ),
-        )
+        return ((Tier.REGISTRIES, scoped(command, partial(bpy.utils.register_cli_command, command, partial(self.traced, identity, command)), bpy.utils.unregister_cli_command)),)
 
     def executed(self, command: str, arguments: list[str], /) -> Outcome[int]:
         """Runs over the decoded first argument and the rest unchanged, unreadable fault for an undecodable document, absent fault for no argument."""
@@ -284,6 +280,15 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
                 return argued(self.decoder, command, document).bind(lambda value: self.run(value, tuple(trailing)))
             case _:
                 return Error(Fault.of(Reason.ABSENT, command, member="arguments"))
+
+    def traced(self, identity: Identity, command: str, arguments: list[str], /) -> int:
+        """Runs the command as the program of its process: recorded under the command's name, inside one span continuing the trace its launcher wrote into the environment, its faults and the one `INFO` entry of the run logged, returning its exit code."""
+        with identity.reports.commanded(command, os.environ):
+            answer = identity.reports.spanned(command, partial(self.executed, command, arguments))
+            identity.reports.faulted(answer)
+            status = answer.default_with(_refused)
+            identity.reports.logger.info("Command ended", status=status)
+            return status
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

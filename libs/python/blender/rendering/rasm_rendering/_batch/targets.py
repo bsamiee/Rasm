@@ -15,12 +15,13 @@ from expression.collections import Block
 from expression.extra.result import catch
 import httpx2
 import msgspec
+from opentelemetry.instrumentation.httpx import HTTPX2ClientInstrumentor
 from scipy.cluster.hierarchy import DisjointSet
 from typing_extensions import TypeForm
 
 from rasm_records import accumulated, Case, committed, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason, RecordFile
 from rasm_rendering._batch.queue import PackedFile, RENDER_QUEUE_DECODER, RenderFrames, RenderQueue
-from rasm_rendering._batch.supervision import argument, detached, HostCommands, LocalMachine, ran, RunCommand, RunFile
+from rasm_rendering._batch.supervision import argument, HostCommands, LocalMachine, Program, RunCommand, RunFile, spawned
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -49,10 +50,11 @@ class Endpoint(msgspec.Struct, frozen=True, kw_only=True):
             raise ValueError(self.timeout)
 
     def opened[T](self, operation: Callable[[httpx2.Client], Outcome[T]]) -> Outcome[T]:
-        """Runs operation inside one client scope, the client closing on every path."""
+        """Runs operation inside one client scope, the client closing on every path and each of its requests a client span carrying the current trace context to the server."""
 
         def held(url: httpx2.URL) -> Outcome[T]:
             with httpx2.Client(base_url=url, timeout=self.timeout.total_seconds()) as client:
+                HTTPX2ClientInstrumentor.instrument_client(client)
                 return operation(client)
 
         return catch(httpx2.URL, exception=httpx2.InvalidURL)(self.url).map_error(partial(Fault.of, Reason.FAILED, self.url)).bind(held)
@@ -318,7 +320,7 @@ class Renderon(Case, frozen=True, kw_only=True):
     blender: str = "Default"
 
     def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
-        """Writes one queue line per frame range, then starts B-Renderon on the lines when executable is set, returning the queue path."""
+        """Writes one queue line per frame range, then starts a detached supervisor running B-Renderon on the lines when executable is set, returning the queue path."""
         match accumulated(
             Error(Fault.of(Reason.OUTSIDE, type(self).__name__, cause, member=member))
             for cause, member in (
@@ -344,7 +346,7 @@ class Renderon(Case, frozen=True, kw_only=True):
                 lambda written: (
                     Option
                     .of_optional(self.executable)
-                    .map(lambda program: detached((program, "-sq", str(written)), host.path(queue.stem, RunFile.RENDERON_LOG)).map(lambda _: written))
+                    .map(lambda program: spawned(host.argv(RunCommand.SUPERVISE, Program(key=queue.stem, argv=(program, "-sq", str(written)))), detached=True).map(lambda _: written))
                     .default_value(Ok(written))
                 )
             )
@@ -359,12 +361,12 @@ class JobFile(Case, frozen=True, kw_only=True):
     command: str | None = None
 
     def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
-        """Writes queue file into folder when set, then passes the file to command when set, returning the queue file path."""
+        """Writes queue file into folder when set, then runs command over the file when set, its output relayed into the run log, returning the queue file path."""
         path = Option.of_optional(self.folder).map(lambda held: msgspec.structs.replace(host, folder=held)).default_value(host).path(queue.stem, RunFile.QUEUE)
         return (
             RecordFile(path=path, decoder=RENDER_QUEUE_DECODER)
             .written(queue)
-            .bind(lambda written: Option.of_optional(self.command).map(lambda program: ran((program, str(written))).map(lambda _: written)).default_value(Ok(written)))
+            .bind(lambda written: Option.of_optional(self.command).map(lambda program: host.run(queue.stem, (program, str(written))).map(lambda _: written)).default_value(Ok(written)))
             .map(lambda written: (Ok(str(written)),))
         )
 

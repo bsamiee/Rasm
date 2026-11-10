@@ -30,18 +30,31 @@ let modules: [Target] = [
     .target(name: "Encoding", path: "libs/swift/core/Encoding"),
     .target(name: "Results", path: "libs/swift/core/Results"),
     .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
-    .target(name: "EffectRPC", dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/core/EffectRPC"),
+    .target(
+        name: "EffectRPC",
+        dependencies: [
+            "Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Tracing", package: "swift-distributed-tracing"),
+        ],
+        path: "libs/swift/core/EffectRPC",
+    ),
 
     // --- [MACOS]
 
-    .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
     .target(
         name: "Files",
         dependencies: [
-            "CurrentProcess", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
-            .product(name: "CasePathsCore", package: "swift-case-paths"),
+            "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"),
         ],
         path: "libs/swift/macos/Files",
+    ),
+    .target(
+        name: "Telemetry",
+        dependencies: [
+            "Encoding", "Files", .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Tracing", package: "swift-distributed-tracing"),
+        ],
+        path: "libs/swift/macos/Telemetry",
     ),
     .target(
         name: "Processes",
@@ -76,13 +89,24 @@ let modules: [Target] = [
         ],
         path: "libs/swift/macos/ApplicationServer",
     ),
+    .target(
+        name: "CurrentProcess",
+        dependencies: [
+            "Applications", "Files", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
+            .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "SystemMetrics", package: "swift-system-metrics"),
+        ],
+        path: "libs/swift/macos/CurrentProcess",
+    ),
 ]
 let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
         dependencies: [
-            "ApplicationServer", "Applications", "CurrentProcess", "EffectRPC", "Encoding", "Files", "Processes", "Results",
-            .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            "ApplicationServer", "Applications", "CurrentProcess", "EffectRPC", "Encoding", "Files", "Processes", "Results", "Telemetry",
+            .product(name: "ArgumentParser", package: "swift-argument-parser"), .product(name: "Configuration", package: "swift-configuration"),
+            .product(name: "Logging", package: "swift-log"), .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"),
+            .product(name: "Tracing", package: "swift-distributed-tracing"), .product(name: "UnixSignals", package: "swift-service-lifecycle"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],
@@ -140,7 +164,16 @@ let package = Package(
         // --- [SYSTEM]
 
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
+        .package(url: "https://github.com/apple/swift-configuration", from: "1.5.0"),
+        .package(url: "https://github.com/swift-server/swift-service-lifecycle", from: "2.13.0"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
+
+        // --- [TELEMETRY]
+
+        .package(url: "https://github.com/apple/swift-distributed-tracing", from: "1.7.4"),
+        .package(url: "https://github.com/apple/swift-log", from: "1.17.0"),
+        .package(url: "https://github.com/swift-otel/swift-otel", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-system-metrics", from: "1.3.0"),
 
         // --- [TESTING]
 

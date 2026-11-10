@@ -1,12 +1,12 @@
 import { constants } from 'node:fs';
 import { homedir } from 'node:os';
 import { platform, stderr, stdout } from 'node:process';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
+import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Cause, Effect, Equivalence, Exit, FileSystem, Option, Path, Record, Schema, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Zip } from 'effect/encoding';
-import { DistributionError, spawned, UNREAL } from '#/plugins/host-packages';
+import { UNREAL } from '#/plugins/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ const engine = Effect.fnUntraced(function* (descriptor: string, engines: Readonl
             ),
         ]),
         () =>
-            DistributionError.make({
+            ToolError.make({
                 subject: descriptor,
                 detail: Option.match(named, { onNone: () => 'names no engine, and no engine tree encloses it', onSome: (key) => `names engine "${key}", which the engines option, the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` }),
             }),
@@ -77,13 +77,13 @@ const archived = Effect.fnUntraced(function* (folder: string, file: string) {
 
 const run = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof Build.Type) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const host = yield* Effect.fromNullishOr(UNREAL[platform]).pipe(Effect.mapError(() => DistributionError.make({ subject: platform, detail: `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}` })));
+    const host = yield* Effect.fromNullishOr(UNREAL[platform]).pipe(Effect.mapError(() => ToolError.make({ subject: platform, detail: `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}` })));
     const absolute = (at: string) => path.resolve(workspaceRoot, at);
     const located = (descriptor: string) => engine(absolute(descriptor), options.engines ?? {}, workspaceRoot);
     const script = (root: string, name: string) => path.join(root, 'Engine', 'Build', 'BatchFiles', name);
     const args = options.args ?? [];
     return yield* options.descriptor.endsWith('.uproject')
-        ? Effect.flatMap(located(options.descriptor), ({ root }) => spawned(script(root, 'RunUBT.sh'), ['-TargetType=Editor', host, 'Development', `-Project=${absolute(options.descriptor)}`, '-WaitMutex', ...args], workspaceRoot, { stdout, stderr }))
+        ? Effect.flatMap(located(options.descriptor), ({ root }) => printed(script(root, 'RunUBT.sh'), ['-TargetType=Editor', host, 'Development', `-Project=${absolute(options.descriptor)}`, '-WaitMutex', ...args], { cwd: workspaceRoot, echo: { stdout, stderr } }))
         : Effect.gen(function* () {
               const name = path.basename(options.descriptor, path.extname(options.descriptor));
               const declared = yield* Effect.flatMap(fs.readFileString(absolute(options.descriptor)), Schema.decodeEffect(Descriptor));
@@ -99,7 +99,7 @@ const run = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof 
                   engines,
                   Effect.fnUntraced(function* ({ root, version }) {
                       const staged = yield* fs.makeTempDirectoryScoped();
-                      const log = yield* spawned(script(root, 'RunUAT.sh'), ['BuildPlugin', `-Package=${staged}`, ...flags], workspaceRoot, { stdout, stderr });
+                      const log = yield* printed(script(root, 'RunUAT.sh'), ['BuildPlugin', `-Package=${staged}`, ...flags], { cwd: workspaceRoot, echo: { stdout, stderr } });
                       yield* archived(staged, path.join(folder, UndefinedOr.match(declared.VersionName, { onUndefined: () => `${name}-${version}-${host}.zip`, onDefined: (versionName) => `${name}-${versionName}-${version}-${host}.zip` })));
                       return log;
                   }, Effect.scoped),
@@ -123,7 +123,7 @@ const decided = (context: ExecutorContext, inputs: Readonly<Record<string, unkno
                       Effect.map(Exit.match({ onFailure: (cause): TaskResult => ({ success: false, terminalOutput: Cause.pretty(cause) }), onSuccess: (terminalOutput): TaskResult => ({ success: true, terminalOutput }) })),
                       Effect.map((result) => ({ ...done, [id]: result })),
                   ),
-    ).pipe(Effect.provide(layer));
+    );
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -134,9 +134,9 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
     return { success: Object.values(results).every(({ success }) => success) };
 });
 
-const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(Effect.runPromise);
+const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(runtime.runPromise);
 
-const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => Effect.runPromise(decided(context, inputs, taskGraph));
+const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => runtime.runPromise(decided(context, inputs, taskGraph));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

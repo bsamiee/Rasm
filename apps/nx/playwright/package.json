@@ -18,19 +18,17 @@
     },
     "files": [ "dist" ],
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@nx/js": "catalog:",
         "@rasm/nx-devkit": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
         "@playwright/test": "catalog:",
         "@types/node": "catalog:",
-        "@typescript/native": "catalog:",
         "nx": "catalog:"
     },
     "peerDependencies": {
-        "@typescript/native": "catalog:peers",
         "nx": "catalog:peers"
     },
     "publishConfig": {

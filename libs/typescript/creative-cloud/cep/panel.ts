@@ -1,6 +1,8 @@
 import { fillColor } from '@rasm/mark';
+import { errorReporter, layerOtlp } from '@rasm/telemetry';
 import { wcagContrast } from 'culori';
-import { Effect, FiberSet, Function, Layer, Logger, Predicate, Queue, Record, Schema, type Scope, Stream, Struct } from 'effect';
+import { Effect, ErrorReporter, FiberSet, Function, Layer, Logger, Predicate, Queue, Record, Schema, type Scope, Stream, Struct } from 'effect';
+import { FetchHttpClient } from 'effect/http';
 import { ExtensionManifest } from '#/index';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -79,7 +81,14 @@ const servePanel = <E = never, F = never>({ link, face }: { readonly link?: (cep
             const forked = yield* FiberSet.makeRuntime<never, void, never>();
             yield* face(document.body, (work) => forked(Effect.ignore(Effect.tapCause(Effect.asVoid(work), Effect.logError))));
         }
-    }).pipe(Layer.effectDiscard, Layer.launch, Effect.tapCause(Effect.logError), Effect.provideService(Logger.LogToStderr, true), Effect.runFork);
+    }).pipe(
+        Layer.effectDiscard,
+        Layer.launch,
+        Effect.provide(Layer.merge(ErrorReporter.layer([errorReporter], { mergeWithExisting: true }), Layer.unwrap(Effect.map(cepHost, (cep) => layerOtlp({ serviceName: cep.getExtensionId() }))).pipe(Layer.provide(FetchHttpClient.layer)))),
+        Effect.tapCause(Effect.logError),
+        Effect.provideService(Logger.LogToStderr, true),
+        Effect.runFork,
+    );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

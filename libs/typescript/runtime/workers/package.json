@@ -1,0 +1,69 @@
+{
+    "name": "@rasm/workers",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Cloudflare Workers entry module of an Effect program: one layer built once per isolate and projected into fetch, scheduled, and queue handlers, with the Worker's configuration row and Pulumi deployment",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/runtime/workers"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./runtime/worker.ts",
+        "./config": "./platform/config.ts",
+        "./deploy": "./platform/deploy.ts",
+        "./execution": "./runtime/execution.ts"
+    },
+    "files": [ "dist" ],
+    "dependencies": {
+        "@rasm/telemetry": "workspace:*"
+    },
+    "devDependencies": {
+        "@cloudflare/build-output-utils": "catalog:",
+        "@cloudflare/workers-types": "catalog:",
+        "@pulumi/cloudflare": "catalog:",
+        "@pulumi/pulumi": "catalog:",
+        "@types/node": "catalog:",
+        "cf": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "@cloudflare/build-output-utils": "catalog:peers",
+        "@pulumi/cloudflare": "catalog:peers",
+        "@pulumi/pulumi": "catalog:peers",
+        "cf": "catalog:peers",
+        "effect": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@cloudflare/build-output-utils": {
+            "optional": true
+        },
+        "@pulumi/cloudflare": {
+            "optional": true
+        },
+        "@pulumi/pulumi": {
+            "optional": true
+        },
+        "cf": {
+            "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/runtime/worker.js",
+            "./config": "./dist/platform/config.js",
+            "./deploy": "./dist/platform/deploy.js",
+            "./execution": "./dist/runtime/execution.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    }
+}

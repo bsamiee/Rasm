@@ -22,7 +22,7 @@
         "upgrade": {
             "implementation": "./dist/executors/upgrade/executor#execute",
             "schema": "./executors/upgrade/schema.json",
-            "description": "Moves a central package file's versions to the newest listed releases, then restores its projects with dotnet restore --force-evaluate"
+            "description": "Moves a central package file's versions to the newest listed releases its consumers accept, then restores its projects with dotnet restore --force-evaluate"
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",

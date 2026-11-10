@@ -1,0 +1,32 @@
+{
+    "name": "@rasm/nx-cloudflare",
+    "version": "0.0.0",
+    "description": "Nx plugin inferring Cloudflare Worker type generation from each cloudflare.config.ts",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "apps/nx/cloudflare"
+    },
+    "license": "MIT",
+    "type": "module",
+    "exports": {
+        ".": "./plugins/project-graph.ts",
+        "./package.json": "./package.json"
+    },
+    "files": [ "dist" ],
+    "dependencies": {
+        "@nx/devkit": "catalog:",
+        "@rasm/nx-devkit": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/plugins/project-graph.js",
+            "./package.json": "./package.json"
+        }
+    }
+}

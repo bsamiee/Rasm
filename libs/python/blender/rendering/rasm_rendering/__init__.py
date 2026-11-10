@@ -21,7 +21,7 @@ from rasm_rendering._batch.queue import (
     RenderFrames,
     RenderQueue,
 )
-from rasm_rendering._batch.supervision import argued, argument, awake, cleared, detached, HostCommands, LocalMachine, Run, RunCommand, RunFile, shutdown, shutdown_cancelled, supervise
+from rasm_rendering._batch.supervision import argued, argument, awake, cleared, HostCommands, LocalMachine, Program, Run, RunCommand, RunFile, shutdown, shutdown_cancelled, spawned, supervise
 from rasm_rendering._batch.targets import Endpoint, Flamenco, JobFile, Manager, Renderon, Target
 from rasm_rendering._lighting.references import Blinds, Dapple, Gel, Highlight, ReferenceDistribution, ReferenceImage, REFERENCES, Rim
 from rasm_rendering._lighting.rigs import AmbientLight, Arranged, Background, Disk, Light, LightRole, Matched, PlacedLight, PlacedRig, Point, Rig, RIGS, Spot, Sun
@@ -80,6 +80,7 @@ __all__ = [
     "PlacedRig",
     "Point",
     "Polar",
+    "Program",
     "Progress",
     "ReferenceDistribution",
     "ReferenceImage",
@@ -108,11 +109,11 @@ __all__ = [
     "argument",
     "awake",
     "cleared",
-    "detached",
     "observed",
     "published",
     "shutdown",
     "shutdown_cancelled",
+    "spawned",
     "stepped",
     "supervise",
     "supervision",

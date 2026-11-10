@@ -32,7 +32,7 @@ internal sealed class CommandBody<TInput>(CommandDefinition<TInput> definition) 
 
     // --- [EXECUTION]
 
-    public Result Run(IO<Unit> body) => Session.Run(Results.Of(body), Result.Failure, member: definition.EnglishName);
+    public Result Run(IO<Unit> body) => Session.Operation($"{nameof(Command)}.{definition.EnglishName}", Results.Of(body), Result.Failure);
 
     public bool Replay(ReplayHistoryData data, Func<ReplayHistoryData, bool> inherited) =>
         Session.Run(

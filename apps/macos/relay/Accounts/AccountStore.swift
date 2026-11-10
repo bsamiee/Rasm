@@ -4,6 +4,7 @@ import CasePathsCore
 import CurrentProcess
 import Files
 import Foundation
+import Logging
 import Network
 import Observation
 import Results
@@ -11,6 +12,8 @@ import ServiceManagement
 import Subprocess
 import SwiftUI
 import System
+import Telemetry
+import Tracing
 import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -39,12 +42,14 @@ final class AccountStore {
     private(set) var isMenuBarExtraVisible: Bool = false
     private var isStopping: Bool = false
     private var occupiedStores: Set<CredentialStore> = []
+    @ObservationIgnored private var failures: [UUID: (operation: AccountOperation, cause: String, repeats: Int)] = [:]
 
     private let locations: FileLocations
     private let storage: AccountStorage
     private let claude: ClaudeClient
     private let codex: CodexClient
-    private let logger: Logger = .init(for: AccountStore.self)
+    private let logger: Logging.Logger = .init(label: String(reflecting: AccountStore.self))
+    private let signposter: OSSignposter = .init(subsystem: Program.current.identifier, category: String(reflecting: AccountStore.self))
     private let saves: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     @ObservationIgnored private var root: Task<Void, Never>?
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
@@ -70,8 +75,6 @@ final class AccountStore {
             case .openAI: codex
         }
     }
-
-    private var signposter: OSSignposter { OSSignposter(logger: logger) }
 
     // --- [CREDENTIAL_OWNERSHIP]
 
@@ -100,11 +103,11 @@ final class AccountStore {
         model.run(operation) { [self] in
             let account = model.account
             let interval = signposter.beginInterval(operation.name, id: signposter.makeSignpostID(), "\(account.id, privacy: .public)")
-            logger.log(
-                level: operation.level,
-                "\(operation.name, privacy: .public) started for \(account.provider.name, privacy: .public) account \(account.id, privacy: .public) \(account.identity.email, privacy: .private)",
-            )
-            await work()
+            logger.log(level: operation.level, "Account operation started", metadata: account.metadata.merging(["operation": "\(operation.name, privacy: .public)"]) { _, stated in stated })
+            await withSpan(operation.name.description) { span in
+                span.attributes["account.id"] = account.id.uuidString
+                await work()
+            }
             signposter.endInterval(operation.name, interval)
         }
     }
@@ -147,7 +150,7 @@ final class AccountStore {
                     try await codex.preconditions()
                     logger.debug("Codex switch preconditions hold")
                 } catch {
-                    logger.error("Codex switch check failed with \(error, privacy: .public)")
+                    logger.error("Codex switch check failed", error: error)
                 }
             }
         }
@@ -155,20 +158,20 @@ final class AccountStore {
             await withStores([.live(.claude)]) { live in
                 switch claude.pendingSwitch() {
                     case .success(.some(let pending)):
-                        logger.notice("Completing pending Claude switch over private stores \(pending.copies, privacy: .public)")
+                        logger.notice("Completing pending Claude switch", metadata: ["copies": "\(pending.copies, privacy: .public)"])
                         await withStores(
                             Set(pending.copies.map(CredentialStore.privateAccount)),
                             owning: live,
                         ) { _ in
                             switch await claude.completePendingSwitch(pending) {
-                                case .success: logger.notice("Completed Claude switch to \(pending.incoming, privacy: .public)")
+                                case .success: logger.notice("Completed Claude switch", metadata: ["account": "\(pending.incoming, privacy: .public)"])
                                 case .failure(let error):
-                                    logger.error("Claude switch to \(pending.incoming, privacy: .public) failed with \(error.failure, privacy: .public)")
+                                    logger.error("Claude switch failed", error: error.failure, metadata: ["account": "\(pending.incoming, privacy: .public)"])
                             }
                         }
                     case .success(.none): break
                     case .failure(let error):
-                        logger.error("Pending Claude switch read failed with \(error.failure, privacy: .public)")
+                        logger.error("Pending Claude switch read failed", error: error.failure)
                 }
             }
             guard !accounts.isEmpty else { return }
@@ -177,16 +180,20 @@ final class AccountStore {
             switch locations.orphanAccountDirectories(excluding: Set(accounts.map(\.account.id) + [authentication?.id].compactMap(\.self))) {
                 case .success(let found): orphans = found
                 case .failure(let error):
-                    logger.error("Accounts directory listing failed with \(error, privacy: .public)")
+                    logger.error("Accounts directory listing failed", error: error)
                     orphans = []
             }
             guard !orphans.isEmpty else { return }
-            logger.notice("Deleting orphan account directories \(orphans, privacy: .public)")
+            logger.notice("Deleting orphan account directories", metadata: ["accounts": "\(orphans, privacy: .public)"])
             await withDiscardingTaskGroup { group in
                 for (id, provider) in orphans.flatMap({ id in Provider.allCases.map { provider in (id, provider) } }) {
                     group.addTask(name: "\(provider.name) orphan deletion") { [client = client(for: provider), logger] in
                         if case .failure(let error) = await client.deletePrivateStore(id: id) {
-                            logger.error("\(provider.name, privacy: .public) orphan \(id, privacy: .public) delete failed with \(error.failure, privacy: .public)")
+                            logger.error(
+                                "Orphan private store delete failed",
+                                error: error.failure,
+                                metadata: ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)"],
+                            )
                         }
                     }
                 }
@@ -201,7 +208,7 @@ final class AccountStore {
                 }).removeDuplicates()
                     .dropFirst().debounce(for: .milliseconds(300))
                 {
-                    logger.debug("\(provider.name, privacy: .public) live store \(file.lastPathComponent, privacy: .public) changed")
+                    logger.debug("Live store changed", metadata: ["provider": "\(provider.name, privacy: .public)", "file": "\(file.lastPathComponent, privacy: .public)"])
                     let before = Dictionary(
                         uniqueKeysWithValues: accounts.map { model in (model.account.id, model.isSelected) }
                     )
@@ -213,7 +220,7 @@ final class AccountStore {
                     refresh(changed)
                 }
             } catch {
-                logger.error("\(provider.name, privacy: .public) live store \(file.lastPathComponent, privacy: .public) watch failed with \(error, privacy: .public)")
+                logger.error("Live store watch failed", error: error, metadata: ["provider": "\(provider.name, privacy: .public)", "file": "\(file.lastPathComponent, privacy: .public)"])
             }
         }
         func observeActivation() async {
@@ -245,7 +252,7 @@ final class AccountStore {
                     await readSelection(.claude)
                 }
             } catch {
-                logger.error("Claude storage write lock watch failed with \(error, privacy: .public)")
+                logger.error("Claude storage write lock watch failed", error: error)
             }
         }
         func schedule() async {
@@ -263,7 +270,7 @@ final class AccountStore {
                     .min()
                     .map { date in Duration.seconds(date.timeIntervalSince(now) + 1) }
                 let delay = min(base, boundary ?? base)
-                logger.debug("Next refresh in \(delay, privacy: .public)")
+                logger.debug("Scheduled next refresh", metadata: ["delay": "\(delay, privacy: .public)"])
                 let (wakes, wake) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
                 refreshWake = wake
                 let slept = await Result {
@@ -295,7 +302,7 @@ final class AccountStore {
             }
             logger.notice("Stopped account work")
         } catch {
-            logger.error("Account work stop failed with \(error, privacy: .public)")
+            logger.error("Account work stop failed", error: error)
         }
         await save()
     }
@@ -311,10 +318,13 @@ final class AccountStore {
                     )
                 }
                 storageState = .available
-                logger.notice("Loaded \(loaded.count, privacy: .public) accounts from \(self.locations.accountsFile.lastPathComponent, privacy: .public)")
+                logger.notice(
+                    "Loaded accounts",
+                    metadata: ["count": .stringConvertible(loaded.count), "file": "\(self.locations.accountsFile.lastPathComponent, privacy: .public)"],
+                )
             case .failure(let error):
                 storageState = .unavailable
-                logger.error("\(self.locations.accountsFile.lastPathComponent, privacy: .public) load failed with \(error, privacy: .public)")
+                logger.error("Accounts load failed", error: error, metadata: ["file": "\(self.locations.accountsFile.lastPathComponent, privacy: .public)"])
         }
     }
 
@@ -336,7 +346,7 @@ final class AccountStore {
         loginItem = Result { try SMAppService.mainApp.register() }.map { SMAppService.mainApp.status }
         switch loginItem {
             case .success: logger.notice("Registered login item")
-            case .failure(let error): logger.error("Login item register failed with \(error, privacy: .public)")
+            case .failure(let error): logger.error("Login item register failed", error: error)
         }
     }
 
@@ -344,7 +354,7 @@ final class AccountStore {
         loginItem = await Result { try await SMAppService.mainApp.unregister() }.map { SMAppService.mainApp.status }
         switch loginItem {
             case .success: logger.notice("Unregistered login item")
-            case .failure(let error): logger.error("Login item unregister failed with \(error, privacy: .public)")
+            case .failure(let error): logger.error("Login item unregister failed", error: error)
         }
     }
 
@@ -352,7 +362,7 @@ final class AccountStore {
 
     func moveAccounts(from offsets: IndexSet, to destination: Int) {
         accounts.move(fromOffsets: offsets, toOffset: destination)
-        logger.info("Moved accounts at \(Array(offsets), privacy: .public) to position \(destination, privacy: .public)")
+        logger.info("Moved accounts", metadata: ["offsets": "\(Array(offsets), privacy: .public)", "destination": .stringConvertible(destination)])
         saves.continuation.yield()
     }
 
@@ -386,7 +396,7 @@ final class AccountStore {
                         }
                     case .failure(let error) where error.failure.isCancellation: break
                     case .failure(let error):
-                        logger.error("\(provider.name, privacy: .public) selection read failed with \(error.failure, privacy: .public)")
+                        logger.error("Selection read failed", error: error.failure, metadata: ["provider": "\(provider.name, privacy: .public)"])
                 }
             }
         }
@@ -403,9 +413,7 @@ final class AccountStore {
                 usage: .unavailable,
             )
             accounts.append(model)
-            logger.notice(
-                "Registered \(provider.name, privacy: .public) account \(model.account.id, privacy: .public) \(identity.email, privacy: .private) from live store"
-            )
+            logger.notice("Registered account from live store", metadata: model.account.metadata)
             apply(selected: model.account.id)
             saves.continuation.yield()
             refresh([model])
@@ -414,9 +422,9 @@ final class AccountStore {
             let previous = accounts.first { model in model.account.provider == provider && model.isSelected }
             switch accounts.first(where: { model in model.account.provider == provider && model.account.id == id }) {
                 case .some(let selected) where selected !== previous:
-                    logger.notice("\(provider.name, privacy: .public) selection moved to account \(selected.account.id, privacy: .public) \(selected.account.identity.email, privacy: .private)")
-                case .none where previous != nil: logger.notice("\(provider.name, privacy: .public) selection cleared, live store holds no connected account")
-                case .some, .none: logger.debug("\(provider.name, privacy: .public) selection unchanged")
+                    logger.notice("Selection moved", metadata: selected.account.metadata)
+                case .none where previous != nil: logger.notice("Selection cleared, live store holds no connected account", metadata: ["provider": "\(provider.name, privacy: .public)"])
+                case .some, .none: logger.debug("Selection unchanged", metadata: ["provider": "\(provider.name, privacy: .public)"])
             }
             for model in accounts where model.account.provider == provider {
                 let selected = model.account.id == id
@@ -435,7 +443,7 @@ final class AccountStore {
             await withStores([.live(account.provider)]) { live in
                 await readSelection(account.provider, owning: live)
                 guard !model.isSelected else {
-                    logger.notice("Account \(id, privacy: .public) already selected in live store")
+                    logger.notice("Account already selected in live store", metadata: ["account": "\(id, privacy: .public)"])
                     return
                 }
                 let outgoing = accounts.first { other in
@@ -447,7 +455,8 @@ final class AccountStore {
                             model.account.identity = identity
                             saves.continuation.yield()
                             logger.notice(
-                                "Switched \(account.provider.name, privacy: .public) to account \(id, privacy: .public) \(identity.email, privacy: .private) from \([outgoing?.account.id].compactMap(\.self), privacy: .public)"
+                                "Switched account",
+                                metadata: model.account.metadata.merging(["outgoing": "\([outgoing?.account.id].compactMap(\.self), privacy: .public)"]) { _, stated in stated },
                             )
                         case .failure(let error): await record(error, of: .selecting, for: model, owning: stores)
                     }
@@ -473,7 +482,7 @@ final class AccountStore {
     func submitAuthenticationCode(_ code: String) {
         let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let pending = authentication, pending.phase.is(\.pending), !trimmed.isEmpty else { return }
-        logger.notice("Submitted sign-in code for \(pending.provider.name, privacy: .public) account \(pending.id, privacy: .public)")
+        logger.notice("Submitted sign-in code", metadata: ["provider": "\(pending.provider.name, privacy: .public)", "account": "\(pending.id, privacy: .public)"])
         authentication?.phase = .completing
         authentication?.codes.yield(trimmed)
         authentication?.codes.finish()
@@ -483,7 +492,7 @@ final class AccountStore {
         guard let pending = authentication else { return }
         switch pending.phase {
             case .pending, .completing:
-                logger.notice("\(AccountOperation.signingIn.name, privacy: .public) cancel requested for \(pending.provider.name, privacy: .public) account \(pending.id, privacy: .public)")
+                logger.notice("Sign-in cancel requested", metadata: ["provider": "\(pending.provider.name, privacy: .public)", "account": "\(pending.id, privacy: .public)"])
                 authentication?.phase = .cancelling
                 authenticationTask?.cancel()
             case .refused, .cancelling: return
@@ -504,7 +513,7 @@ final class AccountStore {
                     model.authentication = .signInRequired
                     model.usage = .unavailable
                     saves.continuation.yield()
-                    logger.notice("Signed out \(account.provider.name, privacy: .public) account \(id, privacy: .public) \(account.identity.email, privacy: .private)")
+                    logger.notice("Signed out account", metadata: account.metadata)
                 case .failure(let error): await record(error, of: .signingOut, for: model, owning: stores)
             }
             if stores.contains(.live(account.provider)) {
@@ -526,7 +535,8 @@ final class AccountStore {
                     accounts.removeAll { other in other.account.id == id }
                     removeAccountDirectory(id)
                     saves.continuation.yield()
-                    logger.notice("Removed \(account.provider.name, privacy: .public) account \(id, privacy: .public) \(account.identity.email, privacy: .private)")
+                    failures[account.id] = nil
+                    logger.notice("Removed account", metadata: account.metadata)
                 case .failure(let error): await record(error, of: .removing, for: model, owning: stores)
             }
             if stores.contains(.live(account.provider)) {
@@ -544,7 +554,8 @@ final class AccountStore {
             let interval = signposter.beginInterval(AccountOperation.signingIn.name, id: signposter.makeSignpostID(), "\(id, privacy: .public)")
             defer { signposter.endInterval(AccountOperation.signingIn.name, interval) }
             logger.notice(
-                "\(AccountOperation.signingIn.name, privacy: .public) started for \(provider.name, privacy: .public) account \(id, privacy: .public), new \(existing == nil, privacy: .public)"
+                "Sign-in started",
+                metadata: ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)", "new": .stringConvertible(existing == nil)],
             )
             await withStores(existing.map(stores(of:)) ?? [.privateAccount(id)]) { stores in
                 let result = await client(for: provider).signIn(
@@ -563,13 +574,11 @@ final class AccountStore {
                         if let existing {
                             await record(error, of: .signingIn, for: existing, owning: stores)
                         } else {
-                            logger.error(
-                                "\(AccountOperation.signingIn.name, privacy: .public) failed for new \(provider.name, privacy: .public) account \(id, privacy: .public) with \(error.failure, privacy: .public)"
-                            )
+                            logger.error("Sign-in failed for new account", error: error.failure, metadata: ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)"])
                         }
                         authentication?.phase = .refused(refusal)
                     case .success, .failure:
-                        logger.notice("\(AccountOperation.signingIn.name, privacy: .public) canceled for \(provider.name, privacy: .public) account \(id, privacy: .public)")
+                        logger.notice("Sign-in canceled", metadata: ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)"])
                         if existing == nil { await withTaskCancellationShield { await deletePrivateStore(id, provider: provider, owning: stores) } }
                         authentication = nil
                 }
@@ -593,7 +602,8 @@ final class AccountStore {
                 let duplicate = matchingAccount()
                 if let duplicate, duplicate.isConnected || duplicate.isBusy {
                     logger.notice(
-                        "\(AccountOperation.signingIn.name, privacy: .public) for account \(id, privacy: .public) refused, account \(duplicate.account.id, privacy: .public) holds \(identity.email, privacy: .private)"
+                        "Sign-in refused, another account holds its identity",
+                        metadata: ["account": "\(id, privacy: .public)", "holder": "\(duplicate.account.id, privacy: .public)", "email": "\(identity.email, privacy: .private)"],
                     )
                     if existing == nil { await deletePrivateStore(id, provider: provider, owning: stores) }
                     authentication?.phase = .refused(.alreadyConnected(email: identity.email))
@@ -609,14 +619,17 @@ final class AccountStore {
                     )
                 if let replaced, let index = accounts.firstIndex(where: { stored in stored.account.id == replaced.account.id }) {
                     accounts[index] = model
-                    logger.notice("Account \(id, privacy: .public) replaces signed-out account \(replaced.account.id, privacy: .public) with same identity")
+                    logger.notice("Account replaces signed-out account with same identity", metadata: ["account": "\(id, privacy: .public)", "replaced": "\(replaced.account.id, privacy: .public)"])
                     await deletePrivateStore(replaced.account.id, provider: provider, owning: stores)
                 } else if existing == nil {
                     accounts.append(model)
                 }
                 model.account.identity = identity
                 model.authentication = .connected
-                logger.notice("Signed in \(provider.name, privacy: .public) account \(id, privacy: .public) \(identity.email, privacy: .private)")
+                logger.notice(
+                    "Signed in account",
+                    metadata: ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)", "email": "\(identity.email, privacy: .private)"],
+                )
                 await save()
                 if stores.contains(.live(provider)) { await readSelection(provider, owning: stores) }
                 authentication = nil
@@ -631,8 +644,9 @@ final class AccountStore {
     private func deletePrivateStore(_ id: UUID, provider: Provider, owning: Set<CredentialStore>) async {
         await withStores([.privateAccount(id)], owning: owning) { _ in
             switch await client(for: provider).deletePrivateStore(id: id) {
-                case .success: logger.info("Deleted \(provider.name, privacy: .public) private store of account \(id, privacy: .public)")
-                case .failure(let error): logger.error("\(provider.name, privacy: .public) private store delete of account \(id, privacy: .public) failed with \(error.failure, privacy: .public)")
+                case .success: logger.info("Deleted private store", metadata: ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)"])
+                case .failure(let error):
+                    logger.error("Private store delete failed", error: error.failure, metadata: ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)"])
             }
             removeAccountDirectory(id)
         }
@@ -650,11 +664,11 @@ final class AccountStore {
                 let held = await (model.isConnected ? nil : client(for: model.account.provider).holdsCredential(for: model.account, isSelected: model.isSelected))
                 switch held {
                     case .some(.success(true)):
-                        logger.notice("Signed-out account \(model.account.id, privacy: .public) holds credential, marked connected")
+                        logger.notice("Signed-out account holds credential, marked connected", metadata: ["account": "\(model.account.id, privacy: .public)"])
                         model.authentication = .connected
                         saves.continuation.yield()
                     case .some(.success(false)):
-                        logger.debug("Signed-out account \(model.account.id, privacy: .public) holds no credential")
+                        logger.debug("Signed-out account holds no credential", metadata: ["account": "\(model.account.id, privacy: .public)"])
                         return
                     case .some(.failure(let error)):
                         await record(error, of: .refreshing, for: model, owning: stores)
@@ -671,7 +685,10 @@ final class AccountStore {
             case .success(let usage):
                 model.usage = .current(usage)
                 model.authentication = .connected
-                logger.log(level: operation.level, "\(operation.name, privacy: .public) succeeded for account \(model.account.id, privacy: .public)")
+                if let cleared = failures.removeValue(forKey: model.account.id) {
+                    logger.notice("Account failure cleared", metadata: ["account": "\(model.account.id, privacy: .public)", "repeats": .stringConvertible(cleared.repeats)])
+                }
+                logger.log(level: operation.level, "Account operation succeeded", metadata: ["operation": "\(operation.name, privacy: .public)", "account": "\(model.account.id, privacy: .public)"])
                 saves.continuation.yield()
                 refreshWake?.yield()
             case .failure(let error) where error.failure.isCancellation: return
@@ -685,9 +702,21 @@ final class AccountStore {
 
     private func record(_ error: ProviderError, of operation: AccountOperation, for model: AccountModel, owning: Set<CredentialStore>) async {
         guard !error.failure.isCancellation else { return }
-        logger.error(
-            "\(operation.name, privacy: .public) failed for \(model.account.provider.name, privacy: .public) account \(model.account.id, privacy: .public) \(model.account.identity.email, privacy: .private) with \(error.failure, privacy: .public), requires sign-in \(error.failure.requiresSignIn, privacy: .public)"
-        )
+        let cause = String(describing: error.failure)
+        let last = failures[model.account.id]
+        let repeated: Bool = last?.operation == operation && last?.cause == cause
+        let repeats: Int = repeated ? (last?.repeats ?? 0) + 1 : 0
+        failures[model.account.id] = (operation, cause, repeats)
+        if repeats == 0 {
+            logger.error(
+                "Account operation failed",
+                error: error.failure,
+                metadata: model.account.metadata.merging([
+                    "operation": "\(operation.name, privacy: .public)", "requiresSignIn": .stringConvertible(error.failure.requiresSignIn),
+                ]) { _, stated in stated
+                },
+            )
+        }
         guard error.failure.requiresSignIn else { return }
         model.authentication = .signInRequired
         model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
@@ -708,9 +737,12 @@ final class AccountStore {
         }
         switch await storage.save(snapshot) {
             case .success:
-                logger.debug("Saved \(snapshot.count, privacy: .public) accounts to \(self.locations.accountsFile.lastPathComponent, privacy: .public)")
+                logger.debug(
+                    "Saved accounts",
+                    metadata: ["count": .stringConvertible(snapshot.count), "file": "\(self.locations.accountsFile.lastPathComponent, privacy: .public)"],
+                )
             case .failure(let error):
-                logger.error("\(self.locations.accountsFile.lastPathComponent, privacy: .public) save failed with \(error, privacy: .public)")
+                logger.error("Accounts save failed", error: error, metadata: ["file": "\(self.locations.accountsFile.lastPathComponent, privacy: .public)"])
         }
     }
 
@@ -718,7 +750,7 @@ final class AccountStore {
         do {
             _ = try ifPresent { try FileManager.default.removeItem(at: locations.accountDirectory(id)) }
         } catch {
-            logger.error("Account \(id, privacy: .public) directory remove failed with \(error, privacy: .public)")
+            logger.error("Account directory remove failed", error: error, metadata: ["account": "\(id, privacy: .public)"])
         }
     }
 }

@@ -1,13 +1,22 @@
 import { env } from 'cloudflare:workers';
 import { Catalog } from '@rasm/database';
 import { d1Engine } from '@rasm/database/d1';
-import { Sites } from '@rasm/hosting/sites';
+import { Access } from '@rasm/hosting';
+import { App } from '@rasm/hosting/app';
+import { Sites } from '@rasm/hosting/openai-sites';
 import { Template } from '@rasm/hosting/template';
-import { CloudflareAccess, r2Storage, serveWorker } from '@rasm/hosting/worker';
-import { Layer } from 'effect';
+import { r2Storage } from '@rasm/object-storage/r2';
+import { Worker } from '@rasm/workers';
+import { layerTelemetry } from '@rasm/workers/execution';
+import { Config, Effect, Layer, Option } from 'effect';
+import { HttpServer } from 'effect/http';
+import hosting from '#/hosting.config';
 import { app } from '#/server/app';
 import { catalog } from '#/server/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default serveWorker(env, Layer.mergeAll(app(env.OWNER_EMAIL, Layer.mergeAll(Catalog.layer(catalog, d1Engine({ db: env.DB })), r2Storage(env.BUCKET))), Template.layer(env.ASSETS, import.meta.env.PROD), CloudflareAccess.middleware(Sites.identity)));
+const services = Layer.mergeAll(Catalog.layer(catalog, d1Engine({ db: env.DB })), r2Storage({ bucket: env.BUCKET, uploadPrefix: App.uploads }), Template.layer(env.ASSETS)).pipe(Layer.provideMerge(layerTelemetry({ serviceName: hosting.name })));
+const access = Access.config.pipe(Config.option, Effect.map(Option.match({ onNone: () => Layer.empty, onSome: (source) => source.layer(Sites.identity) })), Layer.unwrap);
+
+export default Worker(services, Worker.fetch(Layer.merge(app(env.OWNER_EMAIL, services), access).pipe(Layer.provide(HttpServer.layerServices))));

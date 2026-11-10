@@ -160,6 +160,7 @@ class QueuePreferences(bpy.types.PropertyGroup):
         ),
     ]
     misses: Annotated[int, bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=10)]
+    kept: Annotated[int, bpy.props.IntProperty(name="Runs Kept", description="Newest plans and queues whose run files and logs stay in extension folder", min=1, max=1000, default=16)]
     scripts_folder: Annotated[str, bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")]
 
     @property
@@ -274,7 +275,6 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
     identity: Identity
     state: QueueState
-    host: HostCommands
     members: Members
     framed: Framed
     routing: PassRouting
@@ -285,6 +285,13 @@ class Dispatcher(msgspec.Struct, frozen=True):
     preference: Preference[QueuePreferences]
 
     # --- [ACCESS]
+
+    @property
+    def host(self) -> HostCommands:
+        """Run commands of the running binary over the extension's `runs` folder, each run log written under the extension's log settings by the program this process records as."""
+        return HostCommands(
+            binary=bpy.app.binary_path, folder=str(self.identity.folder / "runs"), commands={command: self.identity.identifier(command) for command in RunCommand}, logs=self.identity.reports.handler
+        )
 
     @staticmethod
     def connected() -> Outcome[None]:

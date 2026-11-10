@@ -1,8 +1,15 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading.Channels;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.VisualStudio.Threading;
+using OpenTelemetry;
+using OpenTelemetry.Resources;
+using Rasm.Rhino.Persistence;
+using Rasm.Telemetry;
 using Rhino;
 using Rhino.PlugIns;
 using Rhino.Runtime;
@@ -11,11 +18,11 @@ namespace Rasm.Rhino;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public static partial class Session {
+public static class Session {
 
     // --- [STATE]
 
-    private sealed record Bound(Either<Skin, PlugIn> Host, Assembly Assembly, ILoggerFactory Loggers, ILogger Logger, EnvIO Scope, JoinableTaskCollection Pending);
+    private sealed record Bound(Either<Skin, PlugIn> Host, Assembly Assembly, ActivitySource Activities, Lazy<Fin<ILogger>> Logger, EnvIO Scope, JoinableTaskCollection Pending);
 
     private static readonly Atom<Option<JoinableTaskContext>> UiThread = Atom(Option<JoinableTaskContext>.None);
 
@@ -33,7 +40,9 @@ public static partial class Session {
 
     public static Assembly Assembly => Read(static bound => bound.Assembly);
 
-    public static ILogger Logger => Read(static bound => bound.Logger);
+    public static ActivitySource Activities => Read(static bound => bound.Activities);
+
+    public static ILogger Logger => Read(static bound => bound.Logger.Value.ThrowIfFail());
 
     public static EnvIO Scope => Read(static bound => bound.Scope);
 
@@ -42,9 +51,9 @@ public static partial class Session {
 
     // --- [LIFECYCLE]
 
-    public static IO<Unit> Bind(PlugIn plugIn, Type definition, Seq<Action<ILoggingBuilder>> logging) => Opened(Right(plugIn), definition, logging);
+    public static IO<Unit> Bind(PlugIn plugIn, Type definition) => Opened(Right(plugIn), definition);
 
-    public static IO<Unit> Bind(Skin skin, Type definition, Seq<Action<ILoggingBuilder>> logging) => Opened(Left(skin), definition, logging);
+    public static IO<Unit> Bind(Skin skin, Type definition) => Opened(Left(skin), definition);
 
     public static IO<Unit> Close =>
         (from taken in atomicIO(static () => {
@@ -57,20 +66,45 @@ public static partial class Session {
              IO.liftAsync(() => bound.Pending.JoinTillEmptyAsync(CancellationToken.None).ToUnit()),
              IO.lift(bound.Scope.DisposeResources),
              IO.lift(bound.Scope.DisposeNonResources),
-             IO.lift(bound.Loggers.Dispose))).Map(unit)).As()
+             IO.lift(bound.Activities.Dispose))).Map(unit)).As()
          select unit).Uninterruptible();
 
-    private static IO<Unit> Opened(Either<Skin, PlugIn> host, Type category, Seq<Action<ILoggingBuilder>> logging) =>
+    private static IO<Unit> Opened(Either<Skin, PlugIn> host, Type category) =>
         from threading in Threading
-        from fresh in IO.lift(() => LoggerFactory.Create(builder => (Seq<Action<ILoggingBuilder>>(window => window.AddProvider(new CommandWindowLoggerProvider(threading))) + logging).Iter(row => row(builder))) switch {
-            var loggers => new Bound(host, category.Assembly, loggers, loggers.CreateLogger(category), EnvIO.New(token: CancellationToken.None), threading.CreateCollection()),
+        from name in IO.lift(Conversions.Required(category.Assembly.GetName().Name))
+        from fresh in IO.lift(() => (Activities: new ActivitySource(name, category.Assembly.GetName().Version?.ToString()), Scope: EnvIO.New(token: CancellationToken.None)) switch {
+            var held => new Bound(
+                host, category.Assembly, held.Activities,
+                new(() => RunSafe(Composed(threading, host, category, held.Activities).Scoped(held.Scope), CancellationToken.None)),
+                held.Scope, threading.CreateCollection()),
         })
         from bound in atomicIO(() => State.Swap(prior => prior | Some(fresh)))
         from taken in unless(bound.Exists(held => ReferenceEquals(held, fresh)), IO.lift(() => {
             fresh.Scope.Dispose();
-            fresh.Loggers.Dispose();
+            fresh.Activities.Dispose();
         }) >> IO.fail<Unit>(new RhinoFault(category, RhinoReason.Taken))).As()
         select unit;
+
+    private static IO<ILogger> Composed(JoinableTaskContext threading, Either<Skin, PlugIn> host, Type category, ActivitySource activities) =>
+        from settings in use(() => new ConfigurationRoot([
+            new PersistentSettingsConfigurationProvider(() => host.Match(Left: static skin => skin.Settings, Right: static plugIn => plugIn.Settings)),
+            new EnvironmentVariablesConfigurationProvider(ProcessEnvironment.Key(Some(activities.Name), "")),
+        ]))
+        from configuration in use(() => new ConfigurationRoot([
+            new EnvironmentVariablesConfigurationProvider(),
+            new ChainedConfigurationProvider(new ChainedConfigurationSource { Configuration = settings }),
+        ]))
+        from reloaded in host.Match(Left: static _ => SettingsNode.Application, Right: static plugIn => new SettingsNode(new SettingsRoot.PlugInNode(plugIn.Id))).Saved
+            .Attach(_ => IO.lift(settings.Reload).OnUiThread())
+        from sdk in use(() => OpenTelemetrySdk.Create(sdk => sdk
+            .WithTracing(tracing => tracing.AddSource(activities.Name))
+            .UseConfiguredExporters(configuration, RhinoApp.IsInternetAccessAllowed ? SignalExporter.Known : [], resource => resource
+                .AddService(activities.Name, serviceVersion: activities.Version)
+                .AddOperatingSystemDetector().AddProcessDetector().AddProcessRuntimeDetector())
+            .Services
+            .AddSingleton<IConfiguration>(configuration)
+            .AddLogging(builder => builder.AddProvider(new CommandWindowLoggerProvider(threading)).AddJsonLines(settings, activities.Name, Optional(activities.Version), [activities.Name]))))
+        select sdk.GetLoggerFactory().CreateLogger(category);
 
     // --- [EXECUTION]
 
@@ -85,20 +119,34 @@ public static partial class Session {
 
     public static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
         Read(bound => RunSafe(effect, CancellationToken.None).IfFail(error => {
-            _ = Failed(bound.Logger, error, member);
+            _ = bound.Logger.Value.IfSucc(logger => logger.Failed(error, member));
             return failed;
         }));
 
     public static Unit Run<T>(IO<T> effect, [CallerMemberName] string member = "") => Run(effect.Map(unit), unit, member);
+
+    public static T Operation<T>(string name, IO<T> effect, T failed) =>
+        Read(bound => {
+            using Activity? activity = bound.Activities.StartActivity(name);
+            return Run(effect, failed, name);
+        });
 
     public static Unit Start<T>(IO<T> effect, [CallerMemberName] string member = "", IDisposable? owned = null) => ignore(StartAsync(effect, member, owned));
 
     public static Task<Fin<T>> StartAsync<T>(IO<T> effect, [CallerMemberName] string member = "", IDisposable? owned = null) =>
         Read(bound => bound.Pending.Context.CreateFactory(bound.Pending).RunAsync(async () => {
             Fin<T> answer = await RunSafeAsync(effect, bound.Scope.Token, owned).ConfigureAwait(false);
-            _ = answer.Match(Succ: static _ => unit, Fail: error => Failed(bound.Logger, error, member));
+            _ = answer.IfFail(error => bound.Logger.Value.IfSucc(logger => logger.Failed(error, member)));
             return answer;
         }).Task);
+
+    public static Task<Fin<T>> StartOperationAsync<T>(string name, IO<T> effect, IDisposable? owned = null, ActivityKind kind = ActivityKind.Internal, ActivityContext parent = default) =>
+        Read(bound => bound.Pending.Context.CreateFactory(bound.Pending).RunAsync(async () => {
+            using Activity? activity = bound.Activities.StartActivity(name, kind, parent);
+            return await StartAsync(effect, name, owned).ConfigureAwait(false);
+        }).Task);
+
+    public static Unit Failed(Error error, [CallerMemberName] string member = "") => Read(bound => bound.Logger.Value.IfSucc(held => held.Failed(error, member)));
 
     // --- [THREADS]
 
@@ -118,39 +166,16 @@ public static partial class Session {
 
         public IO<T> Scoped() => IO.liftVAsync(_ => effect.RunAsync(Scope));
     }
-
-    // --- [LOGS]
-
-    public static Unit Failed(Error error, [CallerMemberName] string member = "") => Failed(Logger, error, member);
-
-    public static string Messages(Error error) => string.Join(Environment.NewLine, Causes(error).Map(static cause => cause.Message));
-
-    public static bool Cancellation(Error error) => error.Count is 1 && error.Is(Errors.Cancelled);
-
-    private static Unit Failed(ILogger logger, Error error, string member) {
-        if (Cancellation(error)) Canceled(logger, member);
-        else if (logger.IsEnabled(LogLevel.Error)) Failed(logger, member, Messages(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
-        return unit;
-    }
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}", SkipEnabledCheck = true)]
-    private static partial void Failed(ILogger logger, string member, string message, Exception? exception);
-
-    [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} canceled")]
-    private static partial void Canceled(ILogger logger, string member);
-
-    private static Seq<Error> Causes(Error error) =>
-        toSeq(LanguageExt.List.unfold(error.AsIterable().ToSeq(), static pending => pending.Head.Map(cause =>
-            (cause, cause.Inner.ToSeq().Bind(static inner => inner.AsIterable().ToSeq()) + pending.Tail))));
 }
 
 [ProviderAlias("CommandWindow")]
-internal sealed class CommandWindowLoggerProvider : ILoggerProvider, ISupportExternalScope {
+internal sealed class CommandWindowLoggerProvider : ILoggerProvider {
 
     // --- [STATE]
 
-    private readonly Channel<string> lines = Channel.CreateUnbounded<string>(new UnboundedChannelOptions { SingleReader = true });
-    private readonly Atom<IExternalScopeProvider> scopes = Atom<IExternalScopeProvider>(new LoggerExternalScopeProvider());
+    private const int Pending = 256;
+
+    private readonly Channel<string> lines = Channel.CreateBounded<string>(new BoundedChannelOptions(Pending) { SingleReader = true, FullMode = BoundedChannelFullMode.DropOldest });
     private readonly JoinableTask drain;
 
     public CommandWindowLoggerProvider(JoinableTaskContext threading) =>
@@ -161,13 +186,7 @@ internal sealed class CommandWindowLoggerProvider : ILoggerProvider, ISupportExt
 
     // --- [LOGGERS]
 
-    public ILogger CreateLogger(string categoryName) => new CommandWindowLogger(categoryName, this);
-
-    public void SetScopeProvider(IExternalScopeProvider scopeProvider) => _ = scopes.Swap(_ => scopeProvider);
-
-    internal IExternalScopeProvider Scopes => scopes.Value;
-
-    internal void Write(string line) => _ = lines.Writer.TryWrite(line);
+    public ILogger CreateLogger(string categoryName) => new CommandWindowLogger(categoryName, lines.Writer);
 
     // --- [RELEASE]
 
@@ -177,16 +196,12 @@ internal sealed class CommandWindowLoggerProvider : ILoggerProvider, ISupportExt
     }
 }
 
-internal sealed class CommandWindowLogger(string category, CommandWindowLoggerProvider provider) : ILogger {
-    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => provider.Scopes.Push(state);
+internal sealed class CommandWindowLogger(string category, ChannelWriter<string> lines) : ILogger {
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-    public bool IsEnabled(LogLevel logLevel) => logLevel is not LogLevel.None;
+    public bool IsEnabled(LogLevel logLevel) => logLevel is >= LogLevel.Warning and not LogLevel.None;
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) {
-        if (!IsEnabled(logLevel)) return;
-        StringBuilder line = new(category);
-        provider.Scopes.ForEachScope(static (scope, text) => text.Append(" => ").Append(scope), line);
-        _ = line.Append(": ").Append(formatter(state, exception));
-        provider.Write(exception is null ? line.ToString() : line.Append(Environment.NewLine).Append(exception).ToString());
+        if (IsEnabled(logLevel)) _ = lines.TryWrite(exception is null ? $"{category}: {formatter(state, exception)}" : $"{category}: {formatter(state, exception)}: {exception.Message}");
     }
 }

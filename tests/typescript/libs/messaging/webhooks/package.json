@@ -1,0 +1,22 @@
+{
+    "name": "@rasm/test-webhooks",
+    "private": true,
+    "description": "Webhook suites on Node and in workerd: known-answer signatures per scheme row, tolerance, secret rotation, delivery ids, duplicate deliveries, and signed delivery with retry",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@cloudflare/vitest-plugin": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/test-support": "workspace:*",
+        "@rasm/webhooks": "workspace:*",
+        "@types/node": "catalog:",
+        "cf": "catalog:",
+        "effect": "catalog:",
+        "standardwebhooks": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

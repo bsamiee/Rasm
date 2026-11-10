@@ -4,18 +4,126 @@ name: rasm
 
 # --- [DEFAULTS] -------------------------------------------------------------------------
 
-x-server: &server {logging: {driver: local}, oom_score_adj: -500, restart: on-failure}
-x-app: &app {logging: {driver: local}, oom_score_adj: 500, profiles: [app], restart: on-failure}
-x-probe: &probe {interval: 5m, start_interval: 1s, start_period: 5m}
-x-postgres: &postgres {<<: *server, image: rasm-postgres}
-x-backup: &backup {AWS_ACCESS_KEY_ID: "${BACKUP_ACCESS_KEY_ID:-}", AWS_ENDPOINT_URL: "${BACKUP_ENDPOINT:-}", AWS_REGION: "${BACKUP_REGION:-}", AWS_SECRET_ACCESS_KEY: "${BACKUP_SECRET_ACCESS_KEY:-}"}
-x-bucket: &bucket
-    entrypoint: [sh, -c, '{ aws s3api head-bucket --bucket "$$0" 2>/dev/null || aws s3 mb "s3://$$0"; } && aws s3api put-bucket-lifecycle-configuration --bucket "$$0" --lifecycle-configuration "$$1"']
-    image: "amazon/aws-cli:2.39.7"
-    logging: {driver: local}
-    profiles: [deployed]
+x-service: &service
+    logging:
+        driver: local
+x-server: &server
+    <<: *service
+    oom_score_adj: -500
+    restart: unless-stopped
+    stop_grace_period: 2m
+x-oneshot: &oneshot
+    <<: *service
     restart: "no"
-x-litestream: &litestream {<<: *app, configs: [{source: litestream, target: /etc/litestream.yml}], environment: *backup, image: "litestream/litestream:0.5.18-scratch"}
+x-app: &app
+    <<: *server
+    oom_score_adj: 500
+    profiles: [app]
+x-probe: &probe
+    start_period: 5m
+x-socket: &socket postgres-socket:/var/run/postgresql
+x-postgres-image: &postgres-image rasm-postgres
+x-postgres: &postgres
+    image: *postgres-image
+    user: postgres
+    volumes:
+        - *socket
+x-retention: &retention "30"
+x-pgbackrest: &pgbackrest
+    PGBACKREST_ARCHIVE_PUSH_QUEUE_MAX: 4GiB
+    PGBACKREST_COMPRESS_TYPE: zst
+    PGBACKREST_PROCESS_MAX: "4"
+    PGBACKREST_REPO1_AZURE_ACCOUNT: null
+    PGBACKREST_REPO1_AZURE_CONTAINER: null
+    PGBACKREST_REPO1_AZURE_ENDPOINT: null
+    PGBACKREST_REPO1_AZURE_KEY: null
+    PGBACKREST_REPO1_BLOCK: "y"
+    PGBACKREST_REPO1_BUNDLE: "y"
+    PGBACKREST_REPO1_PATH: /postgres
+    PGBACKREST_REPO1_RETENTION_FULL: *retention
+    PGBACKREST_REPO1_RETENTION_FULL_TYPE: time
+    PGBACKREST_REPO1_S3_BUCKET: null
+    PGBACKREST_REPO1_S3_ENDPOINT: null
+    PGBACKREST_REPO1_S3_KEY: null
+    PGBACKREST_REPO1_S3_KEY_SECRET: null
+    PGBACKREST_REPO1_S3_REGION: null
+    PGBACKREST_REPO1_S3_URI_STYLE: path
+    PGBACKREST_REPO1_TYPE: null
+    PGBACKREST_STANZA: postgres
+    PGBACKREST_START_FAST: "y"
+x-clickhouse-backup: &clickhouse-backup
+    <<: *server
+    environment: &clickhouse-backup-environment
+        AZBLOB_ACCOUNT_KEY: null
+        AZBLOB_ACCOUNT_NAME: null
+        AZBLOB_CONTAINER: null
+        AZBLOB_ENDPOINT_SCHEMA: null
+        AZBLOB_ENDPOINT_SUFFIX: null
+        AZBLOB_PATH: &clickhouse-path clickhouse
+        BACKUPS_TO_KEEP_LOCAL: "-1"
+        BACKUPS_TO_KEEP_REMOTE: *retention
+        CLICKHOUSE_HOST: clickhouse
+        CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"
+        REMOTE_STORAGE: null
+        S3_ACCESS_KEY: null
+        S3_BUCKET: null
+        S3_ENDPOINT: null
+        S3_FORCE_PATH_STYLE: "true"
+        S3_PATH: *clickhouse-path
+        S3_REGION: null
+        S3_SECRET_KEY: null
+        WATCH_BACKUP_NAME_TEMPLATE: "{type}-{time:20060102150405}"
+        WATCH_SCHEDULES: name=daily,full=@monthly,increment=@daily
+    image: altinity/clickhouse-backup:2.8.3
+    profiles: [backup]
+x-storage-client: &storage-client
+    AWS_ACCESS_KEY_ID: "${RUSTFS_ACCESS_KEY:-rustfsadmin}"
+    AWS_ENDPOINT_URL: &storage-endpoint http://storage:9000
+    AWS_REGION: &region us-east-1
+    AWS_SECRET_ACCESS_KEY: "${RUSTFS_SECRET_KEY:-rustfsadmin}"
+x-bucket: &bucket
+    <<: *oneshot
+    entrypoint: [sh, -c, '{ aws s3api head-bucket --bucket "$$0" 2>/dev/null || aws s3 mb "s3://$$0"; } && aws s3api put-bucket-lifecycle-configuration --bucket "$$0" --lifecycle-configuration "$$1"']
+    image: amazon/aws-cli:2.39.7
+    restart: on-failure:6 # A bucket behind Traefik answers 404 until Traefik routes its healthy store, within its 2 s provider throttle
+x-node: &node
+    <<: *server
+    build: &node-build
+        additional_contexts:
+            node: docker-image://dhi.io/node:${NODE_VERSION}
+        dockerfile_inline: |
+            FROM scratch AS assets
+            FROM node
+            ARG ASSETS
+            WORKDIR /app
+            COPY --from=assets . ./$${ASSETS}
+            COPY . .
+    command: [index.js]
+    entrypoint: [node]
+    environment: &node-environment
+        OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
+        OTEL_LOGS_EXPORTER: otlp
+        OTEL_METRICS_EXPORTER: otlp
+        OTEL_TRACES_EXPORTER: otlp
+        PORT: &node-port "8080"
+    expose:
+        - *node-port
+    healthcheck:
+        <<: *probe
+        test: [CMD, node, --input-type=module, --eval, "const response = await fetch('http://127.0.0.1:' + process.env.PORT + '/readyz'); if (response.status !== 204) throw new Error('HTTP ' + response.status);"]
+x-litestream: &litestream
+    <<: *app
+    configs:
+        - source: litestream
+          target: /etc/litestream.yml
+    environment:
+        LITESTREAM_ACCESS_KEY_ID: null
+        LITESTREAM_AZURE_ACCOUNT_KEY: null
+        LITESTREAM_ENDPOINT: null
+        LITESTREAM_REGION: null
+        LITESTREAM_REPLICA_URL: null
+        LITESTREAM_SECRET_ACCESS_KEY: null
+    image: litestream/litestream:0.5.18-scratch
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -24,140 +132,297 @@ services:
     # --- [STORES]
 
     postgres:
-        <<: *postgres
+        <<: *server
         build:
-            additional_contexts: {postgres: "docker-image://postgres:19rc1-trixie"}
+            additional_contexts:
+                postgres: docker-image://postgres:19rc1-trixie
+            args:
+                EXTENSIONS: "${POSTGRES_EXTENSIONS:-cron hypopg partman pgaudit pgvector postgis-3}"
             dockerfile_inline: |
                 FROM postgres
-                RUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates pgbackrest pgbouncer postgresql-$${PG_MAJOR}-cron postgresql-$${PG_MAJOR}-hypopg postgresql-$${PG_MAJOR}-partman postgresql-$${PG_MAJOR}-pgaudit postgresql-$${PG_MAJOR}-pgvector postgresql-$${PG_MAJOR}-postgis-3 && rm -rf /var/lib/apt/lists/*
+                ARG EXTENSIONS
+                RUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates pgbackrest pgbouncer $$(printf "postgresql-$${PG_MAJOR}-%s " $${EXTENSIONS}) && rm -rf /var/lib/apt/lists/* && sed --in-place '$$a trusted = true' /usr/share/postgresql/$${PG_MAJOR}/extension/*.control
+                COPY <<HBA /etc/postgresql/pg_hba.conf
+                local all all trust
+                host all all all scram-sha-256
+                HBA
                 ENV PGBACKREST_PG1_PATH=$${PGDATA}
-        command: [postgres, -c, "shared_preload_libraries=pg_stat_statements,auto_explain,pg_plan_advice,pgaudit,pg_cron", -c, auto_explain.log_format=json, -c, auto_explain.log_min_duration=1s, -c, temp_file_limit=10GB,
-            -c, "synchronous_commit=${POSTGRES_SYNCHRONOUS_COMMIT:-off}", -c, "archive_mode=${POSTGRES_ARCHIVE_MODE:-off}", -c, "archive_command=${POSTGRES_ARCHIVE_COMMAND:-}", -c, "pgaudit.log=${POSTGRES_AUDIT_LOG:-none}", -c, "shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}"]
-        configs: [{source: postgres-init, target: /docker-entrypoint-initdb.d/extensions.sql}]
-        environment: &postgres-environment {PGBACKREST_ARCHIVE_PUSH_QUEUE_MAX: 4GiB, PGBACKREST_COMPRESS_TYPE: zst, PGBACKREST_PROCESS_MAX: "4", PGBACKREST_REPO1_BLOCK: "y", PGBACKREST_REPO1_BUNDLE: "y", PGBACKREST_REPO1_PATH: /postgres,
-            PGBACKREST_REPO1_RETENTION_FULL: "${BACKUP_RETENTION_DAYS:-30}", PGBACKREST_REPO1_RETENTION_FULL_TYPE: time, PGBACKREST_REPO1_S3_BUCKET: "${BACKUP_BUCKET:-}", PGBACKREST_REPO1_S3_ENDPOINT: "${BACKUP_HOST:-}",
-            PGBACKREST_REPO1_S3_KEY: "${BACKUP_ACCESS_KEY_ID:-}", PGBACKREST_REPO1_S3_KEY_SECRET: "${BACKUP_SECRET_ACCESS_KEY:-}", PGBACKREST_REPO1_S3_REGION: "${BACKUP_REGION:-}", PGBACKREST_REPO1_S3_URI_STYLE: path, PGBACKREST_REPO1_TYPE: s3,
-            PGBACKREST_STANZA: postgres, PGBACKREST_START_FAST: "y", PGPASSWORD: "${POSTGRES_PASSWORD:-postgres}", POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}", POSTGRES_USER: postgres,
-            POSTGRES_INITDB_ARGS: --auth-local=scram-sha-256 --locale-provider=builtin --builtin-locale=PG_UNICODE_FAST}
-        healthcheck: {<<: *probe, test: [CMD, pg_isready, --host, /var/run/postgresql]}
-        labels: {docker-volume-backup.archive-pre: "gosu postgres sh -c 'pgbackrest backup --type=$$([ \"$$(date +%u)\" = 1 ] && echo full || echo incr)'"}
-        ports: [{app_protocol: postgresql, host_ip: 127.0.0.1, target: 5432}]
-        stop_grace_period: 2m
-        volumes: [postgres:/var/lib/postgresql, postgres-socket:/var/run/postgresql]
+        command:
+            - postgres
+            - --hba_file=/etc/postgresql/pg_hba.conf
+            - --shared_preload_libraries=${POSTGRES_PRELOAD:-pg_stat_statements,auto_explain,pg_plan_advice,pg_stash_advice,pgaudit,pg_cron}
+            - --max_connections=${POSTGRES_MAX_CONNECTIONS:-100}
+            - --superuser_reserved_connections=10
+            - --fsync=${POSTGRES_DURABILITY:-on}
+            - --full_page_writes=${POSTGRES_DURABILITY:-on}
+            - --synchronous_commit=${POSTGRES_DURABILITY:-on}
+            - --shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}
+            - --effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4GB}
+            - --maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}
+            - --temp_file_limit=10GB
+            - --random_page_cost=1.1
+            - --wal_compression=on
+            - --max_worker_processes=16
+            - --autovacuum_max_parallel_workers=2
+            - --archive_mode=${POSTGRES_ARCHIVE_MODE:-off}
+            - --archive_command=pgbackrest archive-push %p
+            - --archive_timeout=${POSTGRES_ARCHIVE_TIMEOUT:-0}
+            - --password_expiration_warning_threshold=0
+            - --pgaudit.log=${POSTGRES_AUDIT_LOG:-none}
+            - --auto_explain.log_format=json
+            - --auto_explain.log_min_duration=1s
+            - --auto_explain.log_analyze=on
+            - --auto_explain.log_timing=off
+            - --auto_explain.log_io=on
+            - --track_io_timing=on
+            - --track_wal_io_timing=on
+            - "--log_line_prefix=%m [%p] %q%u@%d/%a "
+        environment:
+            <<: *pgbackrest
+            POSTGRES_INITDB_ARGS: --locale-provider=builtin --builtin-locale=PG_UNICODE_FAST
+            POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+            POSTGRES_USER: postgres
+        healthcheck:
+            <<: *probe
+            test: [CMD, pg_isready, --host, 127.0.0.1, --username, postgres]
+        labels:
+            docker-volume-backup.archive-pre: gosu postgres sh -c 'pgbackrest backup --type=$$([ "$$(date +%u)" = 1 ] && echo full || echo incr)'
+        image: *postgres-image
+        ports:
+            - app_protocol: postgresql
+              host_ip: &loopback 127.0.0.1
+              published: &postgres-port "${POSTGRES_PORT:-7411}"
+              target: 5432
+        volumes:
+            - postgres:/var/lib/postgresql
+            - *socket
+    postgres-catalog:
+        <<: [*oneshot, *postgres]
+        command: [psql, --set, ON_ERROR_STOP=1, --set, consumers=grafana hooks, --file, /etc/postgresql/catalog.sql]
+        configs:
+            - source: postgres-catalog
+              target: /etc/postgresql/catalog.sql
+        depends_on:
+            postgres:
+                condition: service_healthy
     pgbouncer:
-        <<: *postgres
+        <<: [*server, *postgres]
         command: [pgbouncer, /etc/pgbouncer/pgbouncer.ini]
-        configs: [{source: pgbouncer, target: /etc/pgbouncer/pgbouncer.ini}, {source: pgbouncer-users, target: /etc/pgbouncer/userlist.txt}]
-        depends_on: {postgres: {condition: service_healthy}}
-        healthcheck: {<<: *probe, test: [CMD, pg_isready, --host, 127.0.0.1, --port, "6432"]}
-        ports: [{app_protocol: postgresql, host_ip: 127.0.0.1, target: 6432}]
-        user: postgres
-        volumes: [postgres-socket:/var/run/postgresql]
+        configs:
+            - source: pgbouncer
+              target: /etc/pgbouncer/pgbouncer.ini
+        depends_on:
+            postgres-catalog:
+                condition: service_completed_successfully
+        healthcheck:
+            <<: *probe
+            test: [CMD, pg_isready, --host, 127.0.0.1, --port, "6432"]
+        ports:
+            - app_protocol: postgresql
+              host_ip: *loopback
+              target: 6432
+        stop_signal: SIGINT
     clickhouse:
         <<: *server
-        configs: [{source: clickhouse, target: /etc/clickhouse-server/config.d/rasm.xml}, {source: clickhouse-users, target: /etc/clickhouse-server/users.d/rasm.xml}]
-        environment: {CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1", CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}", CLICKHOUSE_READER_MEMORY: "${CLICKHOUSE_READER_MEMORY:-0}", CLICKHOUSE_READER_PASSWORD: "${CLICKHOUSE_READER_PASSWORD:-clickhouse-reader}", CLICKHOUSE_USER: default}
-        healthcheck: {<<: *probe, test: [CMD, clickhouse, client, --query, SELECT 1]}
+        configs:
+            - source: clickhouse
+              target: /etc/clickhouse-server/config.d/rasm.xml
+            - source: clickhouse-users
+              target: /etc/clickhouse-server/users.d/rasm.xml
+        environment:
+            CLICKHOUSE_CACHE_SIZE_TO_RAM_MAX_RATIO: ${CLICKHOUSE_CACHE_SIZE_TO_RAM_MAX_RATIO:-0.5}
+            CLICKHOUSE_DATABASE_ATOMIC_DELAY_BEFORE_DROP_TABLE_SEC: ${CLICKHOUSE_DATABASE_ATOMIC_DELAY_BEFORE_DROP_TABLE_SEC:-480}
+            CLICKHOUSE_DATABASE_CATALOG_DROP_TABLE_CONCURRENCY: ${CLICKHOUSE_DATABASE_CATALOG_DROP_TABLE_CONCURRENCY:-16}
+            CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_CLEANUP_PERIOD_SEC: ${CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_CLEANUP_PERIOD_SEC:-86400}
+            CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_HIDE_TIMEOUT_SEC: ${CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_HIDE_TIMEOUT_SEC:-3600}
+            CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_RM_TIMEOUT_SEC: ${CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_RM_TIMEOUT_SEC:-2592000}
+            CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+            CLICKHOUSE_MAX_SERVER_MEMORY_USAGE_TO_RAM_RATIO: ${CLICKHOUSE_MAX_SERVER_MEMORY_USAGE_TO_RAM_RATIO:-0.9}
+            CLICKHOUSE_MERGES_MUTATIONS_MEMORY_USAGE_TO_RAM_RATIO: ${CLICKHOUSE_MERGES_MUTATIONS_MEMORY_USAGE_TO_RAM_RATIO:-0.5}
+            CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"
+            CLICKHOUSE_READER_PASSWORD: "${CLICKHOUSE_READER_PASSWORD:-clickhouse-reader}"
+        healthcheck:
+            <<: *probe
+            test: [CMD, clickhouse, client, --query, SELECT 1]
         image: clickhouse/clickhouse-server:26.10.3.7
-        ports: [{host_ip: 127.0.0.1, target: 9000}, {app_protocol: http, host_ip: 127.0.0.1, target: 8123}]
-        stop_grace_period: 2m
-        ulimits: {nofile: 262144}
-        volumes: [clickhouse:/var/lib/clickhouse]
-    otelcol:
-        <<: *server
-        configs: [{source: otelcol, target: /etc/otelcol-contrib/config.yaml}]
-        depends_on: {clickhouse: {condition: service_healthy}}
-        environment: {CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"}
-        image: otel/opentelemetry-collector-contrib:0.165.0
-        ports: [{app_protocol: grpc, host_ip: 127.0.0.1, published: "4317", target: 4317}, {app_protocol: http, host_ip: 127.0.0.1, published: "4318", target: 4318}]
-        user: "0"
-        volumes: [otelcol:/var/lib/otelcol/file_storage]
+        ports:
+            - app_protocol: http
+              host_ip: *loopback
+              published: "${CLICKHOUSE_PORT:-7413}"
+              target: 8123
+        ulimits:
+            nofile: 262144
+        volumes:
+            - clickhouse:/var/lib/clickhouse
     storage:
         <<: *server
-        environment: {RUSTFS_ACCESS_KEY: "${RUSTFS_ACCESS_KEY:-rustfsadmin}", RUSTFS_CONSOLE_ENABLE: "false", RUSTFS_REGION: &region us-east-1, RUSTFS_SECRET_KEY: "${RUSTFS_SECRET_KEY:-rustfsadmin}"}
-        healthcheck: {<<: *probe, test: [CMD, curl, --fail, --silent, http://127.0.0.1:9000/health/ready]}
+        environment:
+            RUSTFS_ACCESS_KEY: "${RUSTFS_ACCESS_KEY:-rustfsadmin}"
+            RUSTFS_CONSOLE_ENABLE: "false"
+            RUSTFS_REGION: *region
+            RUSTFS_SECRET_KEY: "${RUSTFS_SECRET_KEY:-rustfsadmin}"
+        healthcheck:
+            <<: *probe
+            test: [CMD, curl, --fail, --silent, http://127.0.0.1:9000/health/ready]
         image: rustfs/rustfs:1.0.4
-        ports: [{app_protocol: http, host_ip: 127.0.0.1, target: 9000}]
-        volumes: [storage:/data]
+        labels:
+            traefik.enable: "true"
+            traefik.http.routers.storage.entrypoints: websecure
+            traefik.http.routers.storage.rule: Host(`storage.${PLATFORM_DOMAIN:-rasm.localhost}`)
+            traefik.http.services.storage.loadbalancer.server.port: "9000"
+        ports:
+            - app_protocol: http
+              host_ip: *loopback
+              published: &storage-port "${STORAGE_PORT:-7412}"
+              target: 9000
+        volumes:
+            - storage:/data
+    cache:
+        <<: *app
+        command: [valkey-server, --save, "", --databases, "10000", --maxmemory, "${CACHE_MEMORY:-256mb}", --maxmemory-policy, volatile-lfu]
+        healthcheck:
+            <<: *probe
+            test: [CMD, valkey-cli, ping]
+        image: valkey/valkey:9.2.0-rc2-trixie
+        ports:
+            - app_protocol: redis
+              host_ip: *loopback
+              published: "${CACHE_PORT:-7415}"
+              target: 6379
+        profiles: [app, store]
 
     # --- [PLATFORM]
 
     traefik:
         <<: *server
-        environment: {TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_STORAGE: /var/lib/traefik/acme.json, TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_TLSCHALLENGE: "true", TRAEFIK_ENTRYPOINTS_WEB_ADDRESS: ":80", TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS: ":443", TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS: "true", TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_CERTRESOLVER: "${TRAEFIK_CERTRESOLVER:-}", TRAEFIK_ENTRYPOINTS_WEBSECURE_TRANSPORT_RESPONDINGTIMEOUTS_READTIMEOUT: 30m, TRAEFIK_PING: "true", TRAEFIK_PROVIDERS_DOCKER: "true", TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"}
-        healthcheck: {<<: *probe, test: [CMD, traefik, healthcheck]}
+        environment:
+            TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_STORAGE: /var/lib/traefik/acme.json
+            TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_TLSCHALLENGE: "true"
+            TRAEFIK_ENTRYPOINTS_WEB_ADDRESS: ":80"
+            TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS: ":443"
+            TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS: "true"
+            TRAEFIK_ENTRYPOINTS_WEBSECURE_HTTP_TLS_CERTRESOLVER: "${TRAEFIK_CERTRESOLVER:-}"
+            TRAEFIK_ENTRYPOINTS_WEBSECURE_TRANSPORT_RESPONDINGTIMEOUTS_READTIMEOUT: 30m
+            TRAEFIK_PING: "true"
+            TRAEFIK_PROVIDERS_DOCKER: "true"
+            TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"
+        healthcheck:
+            <<: *probe
+            test: [CMD, traefik, healthcheck]
         image: traefik:v3.8.0-rc.1
-        ports: ["80:80", "443:443"]
-        profiles: [platform]
-        volumes: [/var/run/docker.sock:/var/run/docker.sock:ro, traefik:/var/lib/traefik]
+        networks:
+            default:
+                aliases:
+                    - storage.${PLATFORM_DOMAIN:-rasm.localhost}
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - traefik:/var/lib/traefik
     authelia:
         <<: *server
-        configs: [{source: authelia, target: /config/configuration.yml}, {source: authelia-users, target: /config/users.yml}]
-        environment: {AUTHELIA_SESSION_SECRET: "${AUTHELIA_SESSION_SECRET:-authelia-session}", AUTHELIA_STORAGE_ENCRYPTION_KEY: "${AUTHELIA_STORAGE_ENCRYPTION_KEY:-authelia-storage-encryption}"}
-        healthcheck: {<<: *probe, test: [CMD, /app/healthcheck.sh]}
+        configs:
+            - source: authelia
+              target: /config/configuration.yml
+            - source: authelia-users
+              target: /config/users.yml
+        environment:
+            AUTHELIA_SESSION_SECRET: "${AUTHELIA_SESSION_SECRET:-authelia-session}"
+            AUTHELIA_STORAGE_ENCRYPTION_KEY: "${AUTHELIA_STORAGE_ENCRYPTION_KEY:-authelia-storage-encryption}"
+        healthcheck:
+            <<: *probe
+            test: [CMD, /app/healthcheck.sh]
         image: authelia/authelia:4.39.28
-        labels: {traefik.enable: "true", traefik.http.routers.authelia.rule: "Host(`auth.${PLATFORM_DOMAIN:-rasm.localhost}`)", traefik.http.routers.authelia.entrypoints: websecure, traefik.http.middlewares.authelia.chain.middlewares: "authelia-strip,authelia-check",
-            traefik.http.middlewares.authelia-strip.headers.customrequestheaders.Remote-User: "", traefik.http.middlewares.authelia-strip.headers.customrequestheaders.Remote-Email: "",
-            traefik.http.middlewares.authelia-check.forwardauth.address: "http://authelia:9091/api/authz/forward-auth", traefik.http.middlewares.authelia-check.forwardauth.authResponseHeaders: "Remote-User,Remote-Email"}
-        profiles: [platform]
-        volumes: [authelia:/var/lib/authelia]
-    grafana-database:
-        <<: *postgres
-        command: [sh, -c, 'psql --tuples-only --command "SELECT 1 FROM pg_database WHERE datname = ''grafana''" | grep --quiet 1 || createdb grafana']
-        depends_on: {postgres: {condition: service_healthy}}
-        environment: {PGPASSWORD: "${POSTGRES_PASSWORD:-postgres}"}
-        profiles: [platform]
-        restart: "no"
-        user: postgres
-        volumes: [postgres-socket:/var/run/postgresql]
+        labels:
+            traefik.enable: "true"
+            traefik.http.middlewares.authelia-check.forwardauth.address: http://authelia:9091/api/authz/forward-auth
+            traefik.http.middlewares.authelia-check.forwardauth.authResponseHeaders: Remote-User,Remote-Email
+            traefik.http.middlewares.authelia-strip.headers.customrequestheaders.Remote-Email: ""
+            traefik.http.middlewares.authelia-strip.headers.customrequestheaders.Remote-User: ""
+            traefik.http.middlewares.authelia.chain.middlewares: authelia-strip,authelia-check
+            traefik.http.routers.authelia.entrypoints: websecure
+            traefik.http.routers.authelia.rule: Host(`auth.${PLATFORM_DOMAIN:-rasm.localhost}`)
+        volumes:
+            - authelia:/var/lib/authelia
+
+    # --- [TELEMETRY]
+
+    otelcol:
+        <<: *server
+        configs:
+            - source: otelcol
+              target: /etc/otelcol-contrib/config.yaml
+        depends_on:
+            clickhouse:
+                condition: service_healthy
+        environment:
+            CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"
+            GOMEMLIMIT: 410MiB
+        image: otel/opentelemetry-collector-contrib:0.165.0
+        ports:
+            - app_protocol: grpc
+              host_ip: *loopback
+              published: "4317"
+              target: 4317
+            - app_protocol: http
+              host_ip: *loopback
+              published: "4318"
+              target: 4318
+        user: "0"
+        volumes:
+            - otelcol:/var/lib/otelcol/file_storage
     grafana:
         <<: *server
-        configs: [{source: grafana-datasources, target: /etc/grafana/provisioning/datasources/clickhouse.yaml}, {source: grafana-dashboards, target: /etc/grafana/provisioning/dashboards/clickhouse.yaml}]
-        depends_on: {grafana-database: {condition: service_completed_successfully}}
-        environment: {CLICKHOUSE_READER_PASSWORD: "${CLICKHOUSE_READER_PASSWORD:-clickhouse-reader}", GF_AUTH_PROXY_ENABLED: "true", GF_AUTH_PROXY_HEADER_NAME: Remote-User, GF_AUTH_PROXY_HEADERS: "Email:Remote-Email",
-            GF_DATABASE_HOST: "postgres:5432", GF_DATABASE_PASSWORD: "${POSTGRES_PASSWORD:-postgres}", GF_DATABASE_TYPE: postgres, GF_DATABASE_USER: postgres, GF_PLUGINS_PREINSTALL_SYNC: grafana-clickhouse-datasource@4.23.4,
-            GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true", GF_SERVER_ROOT_URL: "https://grafana.${PLATFORM_DOMAIN:-rasm.localhost}", GF_USERS_AUTO_ASSIGN_ORG_ROLE: Admin}
-        healthcheck: {<<: *probe, test: [CMD, curl, --fail, --silent, http://127.0.0.1:3000/api/health]}
+        configs:
+            - source: grafana-datasources
+              target: /etc/grafana/provisioning/datasources/clickhouse.yaml
+            - source: grafana-dashboards
+              target: /etc/grafana/provisioning/dashboards/clickhouse.yaml
+        depends_on:
+            postgres-catalog:
+                condition: service_completed_successfully
+        environment:
+            CLICKHOUSE_READER_PASSWORD: "${CLICKHOUSE_READER_PASSWORD:-clickhouse-reader}"
+            GF_AUTH_PROXY_ENABLED: "true"
+            GF_AUTH_PROXY_HEADER_NAME: Remote-User
+            GF_AUTH_PROXY_HEADERS: Email:Remote-Email
+            GF_DATABASE_HOST: /var/run/postgresql
+            GF_DATABASE_TYPE: postgres
+            GF_DATABASE_USER: grafana
+            GF_PLUGINS_PREINSTALL_SYNC: grafana-clickhouse-datasource@4.23.4
+            GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+            GF_SERVER_ROOT_URL: https://grafana.${PLATFORM_DOMAIN:-rasm.localhost}
+            GF_USERS_AUTO_ASSIGN_ORG_ROLE: Admin
+        healthcheck:
+            <<: *probe
+            test: [CMD, curl, --fail, --silent, http://127.0.0.1:3000/api/health]
         image: grafana/grafana:13.3.0
-        labels: {traefik.enable: "true", traefik.http.routers.grafana.entrypoints: websecure, traefik.http.routers.grafana.middlewares: authelia, traefik.http.routers.grafana.rule: "Host(`grafana.${PLATFORM_DOMAIN:-rasm.localhost}`)"}
+        labels:
+            traefik.enable: "true"
+            traefik.http.routers.grafana.entrypoints: websecure
+            traefik.http.routers.grafana.middlewares: authelia
+            traefik.http.routers.grafana.rule: Host(`grafana.${PLATFORM_DOMAIN:-rasm.localhost}`)
         profiles: [platform]
-        volumes: [grafana:/var/lib/grafana]
+        volumes:
+            - grafana:/var/lib/grafana
+            - *socket
 
     # --- [DEPLOYED]
 
-    backup:
-        <<: *server
-        environment: {AWS_ACCESS_KEY_ID: "${BACKUP_ACCESS_KEY_ID:-}", AWS_ENDPOINT: "${BACKUP_HOST:-}", AWS_S3_BUCKET_NAME: "${BACKUP_BUCKET:-}", AWS_S3_PATH: volumes, AWS_SECRET_ACCESS_KEY: "${BACKUP_SECRET_ACCESS_KEY:-}", BACKUP_PRUNING_PREFIX: backup-, BACKUP_RETENTION_DAYS: "${BACKUP_RETENTION_DAYS:-30}",
-            EXEC_FORWARD_OUTPUT: "true"}
-        depends_on: {backup-bucket: {condition: service_completed_successfully}, postgres-stanza: {condition: service_completed_successfully}}
-        image: offen/docker-volume-backup:v2.50.1
-        profiles: [deployed]
-        volumes: [/var/run/docker.sock:/var/run/docker.sock:ro, authelia:/backup/authelia:ro]
-    clickhouse-backup:
-        <<: *server
-        command: [watch]
-        depends_on: {backup-bucket: {condition: service_completed_successfully}, clickhouse: {condition: service_healthy}}
-        environment: {BACKUPS_TO_KEEP_LOCAL: "-1", BACKUPS_TO_KEEP_REMOTE: "${BACKUP_RETENTION_DAYS:-30}", CLICKHOUSE_HOST: clickhouse, CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}", REMOTE_STORAGE: s3, S3_ACCESS_KEY: "${BACKUP_ACCESS_KEY_ID:-}", S3_BUCKET: "${BACKUP_BUCKET:-}",
-            S3_ENDPOINT: "${BACKUP_ENDPOINT:-}", S3_FORCE_PATH_STYLE: "true", S3_PATH: clickhouse, S3_REGION: "${BACKUP_REGION:-}", S3_SECRET_KEY: "${BACKUP_SECRET_ACCESS_KEY:-}", WATCH_BACKUP_NAME_TEMPLATE: "{type}-{time:20060102150405}",
-            WATCH_SCHEDULES: "name=daily,full=@monthly,increment=@daily"}
-        image: altinity/clickhouse-backup:2.8.3
-        profiles: [deployed]
-        volumes: [clickhouse:/var/lib/clickhouse]
-
-    backup-bucket:
-        <<: *bucket
-        command: ["${BACKUP_BUCKET:-backup}", '{"Rules": [{"ID": "versions", "Status": "Enabled", "Filter": {"Prefix": ""}, "NoncurrentVersionExpiration": {"NoncurrentDays": 1}, "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}}]}']
-        environment: *backup
-    postgres-stanza: {<<: *postgres, command: [pgbackrest, stanza-create], depends_on: {backup-bucket: {condition: service_completed_successfully}, postgres: {condition: service_healthy}}, environment: *postgres-environment, profiles: [deployed], restart: "no", user: postgres, volumes: [postgres:/var/lib/postgresql, postgres-socket:/var/run/postgresql]}
     nx-cache-bucket:
         <<: *bucket
         command: [&nx-cache nx-cache, '{"Rules": [{"ID": "age", "Status": "Enabled", "Filter": {"Prefix": ""}, "Expiration": {"Days": 7}}]}']
-        depends_on: {storage: {condition: service_healthy}}
-        environment: &storage-client {AWS_ACCESS_KEY_ID: "${RUSTFS_ACCESS_KEY:-rustfsadmin}", AWS_ENDPOINT_URL: &storage-endpoint "http://storage:9000", AWS_REGION: *region, AWS_SECRET_ACCESS_KEY: "${RUSTFS_SECRET_KEY:-rustfsadmin}"}
+        depends_on:
+            storage:
+                condition: service_healthy
+        environment: *storage-client
+        profiles: [deployed]
     nx-cache:
         <<: *server
         build:
-            additional_contexts: {distroless: "docker-image://gcr.io/distroless/cc-debian13:nonroot"}
+            additional_contexts:
+                distroless: docker-image://gcr.io/distroless/cc-debian13:nonroot
             dockerfile_inline: |
                 FROM scratch AS amd64
                 ADD --checksum=sha256:18fa55033d5f0d1b18fc192b75ca35f39d2cb81938bbc559f7a9f5b686f4046f --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.4.5/nx-cache-aws-v1.4.5-linux-x86_64 /nx-cache-aws
@@ -167,85 +432,233 @@ services:
                 FROM distroless
                 COPY --from=release /nx-cache-aws /
                 ENTRYPOINT ["/nx-cache-aws"]
-        depends_on: {nx-cache-bucket: {condition: service_completed_successfully}}
-        environment: {<<: *storage-client, READ_ONLY_ACCESS_TOKEN: "${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-nx-cache-read}", S3_BUCKET_NAME: *nx-cache, S3_ENDPOINT_URL: *storage-endpoint, SERVICE_ACCESS_TOKEN: "${NX_CACHE_WRITE_TOKEN:-nx-cache-write}"}
+        depends_on:
+            nx-cache-bucket:
+                condition: service_completed_successfully
+        environment:
+            <<: *storage-client
+            READ_ONLY_ACCESS_TOKEN: "${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN:-nx-cache-read}"
+            S3_BUCKET_NAME: *nx-cache
+            S3_ENDPOINT_URL: *storage-endpoint
+            SERVICE_ACCESS_TOKEN: "${NX_CACHE_WRITE_TOKEN:-nx-cache-write}"
         image: rasm-nx-cache
-        labels: {traefik.enable: "true", traefik.http.routers.nx-cache.entrypoints: websecure, traefik.http.routers.nx-cache.rule: "Host(`nx-cache.${PLATFORM_DOMAIN:-rasm.localhost}`)", traefik.http.services.nx-cache.loadbalancer.server.port: "3000"}
+        labels:
+            traefik.enable: "true"
+            traefik.http.routers.nx-cache.entrypoints: websecure
+            traefik.http.routers.nx-cache.rule: Host(`nx-cache.${PLATFORM_DOMAIN:-rasm.localhost}`)
+            traefik.http.services.nx-cache.loadbalancer.server.port: "3000"
         profiles: [deployed]
+    hooks:
+        <<: *node
+        build:
+            <<: *node-build
+            context: ../.artifacts/vite/@rasm/hooks/node
+        depends_on:
+            postgres-catalog:
+                condition: service_completed_successfully
+        environment:
+            <<: *node-environment
+            POSTGRES_URL: postgres:///hooks?host=/var/run/postgresql&user=hooks
+            TAILSCALE_HOSTS: "${TAILSCALE_HOSTS:-}"
+            TAILSCALE_WEBHOOK_SECRET: "${TAILSCALE_WEBHOOK_SECRET:-}"
+        image: rasm-hooks
+        labels:
+            traefik.enable: "true"
+            traefik.http.routers.hooks.entrypoints: websecure
+            traefik.http.routers.hooks.rule: Host(`hooks.${PLATFORM_DOMAIN:-rasm.localhost}`)
+        profiles: [deployed]
+        volumes:
+            - *socket
+
+    # --- [BACKUP]
+
+    backup-bucket:
+        <<: *bucket
+        command: ["${AWS_S3_BUCKET_NAME:-backup}", '{"Rules": [{"ID": "versions", "Status": "Enabled", "Filter": {"Prefix": ""}, "NoncurrentVersionExpiration": {"NoncurrentDays": 1}, "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 1}}]}']
+        depends_on:
+            storage:
+                condition: service_healthy
+            traefik:
+                condition: service_healthy
+        environment:
+            AWS_ACCESS_KEY_ID: null
+            AWS_ENDPOINT_URL: null
+            AWS_REGION: null
+            AWS_SECRET_ACCESS_KEY: null
+        profiles: [backup-s3]
+    backup-remote:
+        <<: [*oneshot, *clickhouse-backup]
+        command: [list, remote]
+        depends_on:
+            backup-bucket:
+                condition: service_completed_successfully
+                required: false
+            clickhouse:
+                condition: service_healthy
+    clickhouse-backup:
+        <<: *clickhouse-backup
+        command: [watch]
+        depends_on:
+            backup-remote:
+                condition: service_completed_successfully
+        volumes:
+            - clickhouse:/var/lib/clickhouse
+    postgres-stanza:
+        <<: [*oneshot, *postgres]
+        command: [pgbackrest, stanza-create]
+        depends_on:
+            backup-remote:
+                condition: service_completed_successfully
+            postgres:
+                condition: service_healthy
+        environment: *pgbackrest
+        profiles: [backup]
+        volumes:
+            - postgres:/var/lib/postgresql
+            - *socket
+    backup:
+        <<: *server
+        depends_on:
+            postgres-stanza:
+                condition: service_completed_successfully
+        environment:
+            AWS_ACCESS_KEY_ID: null
+            AWS_ENDPOINT: null
+            AWS_S3_BUCKET_NAME: null
+            AWS_S3_PATH: &backup-path volumes
+            AWS_SECRET_ACCESS_KEY: null
+            AZURE_STORAGE_ACCOUNT_NAME: null
+            AZURE_STORAGE_CONTAINER_NAME: null
+            AZURE_STORAGE_ENDPOINT: null
+            AZURE_STORAGE_PATH: *backup-path
+            AZURE_STORAGE_PRIMARY_ACCOUNT_KEY: null
+            BACKUP_PRUNING_PREFIX: backup-
+            BACKUP_RETENTION_DAYS: *retention
+            EXEC_FORWARD_OUTPUT: "true"
+        image: offen/docker-volume-backup:v2.50.1
+        profiles: [backup]
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+            - authelia:/backup/authelia:ro
 
     # --- [APP]
 
     app:
-        <<: *app
+        <<: [*app, *node]
+        cpus: ${APP_CPUS:-0}
+        mem_limit: ${APP_MEMORY:-0}
+    litestream-restore:
+        <<: [*oneshot, *litestream]
+        command: [restore, -config, /etc/litestream.yml, -if-db-not-exists, -if-replica-exists, -integrity-check, quick, /data/database.sqlite]
+    litestream:
+        <<: *litestream
+        command: [replicate, -config, /etc/litestream.yml]
+
+    # --- [STORE]
+
+    store:
+        <<: *node
         build:
-            additional_contexts: {node: "docker-image://dhi.io/node:${NODE_VERSION}"}
-            dockerfile_inline: |
-                FROM scratch AS assets
-                FROM node
-                ARG ASSETS
-                WORKDIR /app
-                COPY --from=assets . $${ASSETS}
-                COPY . .
-        cpus: 1
-        entrypoint: [node]
-        environment: {OTEL_EXPORTER_OTLP_ENDPOINT: "http://otelcol:4318"}
-        extra_hosts: [host.docker.internal:host-gateway]
-        mem_limit: 1g
-    litestream-restore: {<<: *litestream, command: [restore, -config, /etc/litestream.yml, -if-db-not-exists, -if-replica-exists, -integrity-check, quick, /data/database.sqlite], restart: "no"}
-    litestream: {<<: *litestream, command: [replicate, -config, /etc/litestream.yml]}
-    cache:
-        <<: *app
-        command: [valkey-server, --save, "", --maxmemory-policy, allkeys-lfu]
-        healthcheck: {<<: *probe, test: [CMD, valkey-cli, ping]}
-        image: valkey/valkey:9.2.0-rc2-trixie
-        ports: [{app_protocol: redis, host_ip: 127.0.0.1, target: 6379}]
+            <<: *node-build
+            context: ../.artifacts/vite/@rasm/store/node
+        depends_on:
+            cache:
+                condition: service_healthy
+            clickhouse:
+                condition: service_healthy
+            postgres:
+                condition: service_healthy
+            storage:
+                condition: service_healthy
+        environment:
+            <<: [*node-environment, *storage-client]
+            POSTGRES_CONNECTIONS: "4"
+            POSTGRES_URL: postgres:///postgres?host=/var/run/postgresql&user=postgres
+            PUBLISHED_HOST: *loopback
+            PUBLISHED_POSTGRES: *postgres-port
+            PUBLISHED_STORAGE: *storage-port
+            STORE_AGE_LIMIT: 1 hour
+            STORE_CONNECTIONS: "5"
+        image: rasm-store
+        ports:
+            - app_protocol: http
+              host_ip: *loopback
+              published: "${STORE_PORT:-}"
+              target: *node-port
+        profiles: [store]
+        volumes:
+            - *socket
 
     # --- [TOOLS]
 
-    verapdf: {image: "verapdf/cli:v1.30.3", network_mode: none, profiles: [tools]}
+    verapdf:
+        image: verapdf/cli:v1.30.3
+        network_mode: none
+        profiles: [tools]
 
 # --- [CONFIGS] --------------------------------------------------------------------------
 
 configs:
-    postgres-init: {content: "CREATE ROLE store NOLOGIN CREATEROLE;\n\\connect template1\nCREATE EXTENSION pg_stat_statements;\nCREATE EXTENSION vector;\n"}
+    postgres-catalog:
+        content: |
+            SELECT format('CREATE EXTENSION IF NOT EXISTS %I', name) FROM pg_available_extensions WHERE name = ANY (string_to_array(current_setting('shared_preload_libraries'), ',')) \gexec
+            SELECT format('CREATE ROLE %I LOGIN', consumer) FROM unnest(string_to_array(:'consumers', ' ')) AS consumer WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = consumer) \gexec
+            SELECT format('CREATE DATABASE %I OWNER %I', consumer, consumer) FROM unnest(string_to_array(:'consumers', ' ')) AS consumer WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = consumer) \gexec
     pgbouncer:
         content: |
             [databases]
             * = host=/var/run/postgresql
-            [users]
-            postgres = pool_mode=session max_user_connections=5
             [pgbouncer]
             listen_addr = *
             auth_type = scram-sha-256
-            auth_file = /etc/pgbouncer/userlist.txt
             auth_user = postgres
-            admin_users = postgres
             pool_mode = transaction
             max_client_conn = 1000
-            default_pool_size = 3
-            max_user_connections = 90
-            server_idle_timeout = 10
-            autodb_idle_timeout = 60
-    pgbouncer-users: {content: "\"postgres\" \"${POSTGRES_PASSWORD:-postgres}\"\n"}
     clickhouse:
         content: |
             <clickhouse>
-                <cache_size_to_ram_max_ratio>0.2</cache_size_to_ram_max_ratio>
+                <cache_size_to_ram_max_ratio from_env="CLICKHOUSE_CACHE_SIZE_TO_RAM_MAX_RATIO"/>
                 <concurrent_threads_scheduler>max_min_fair</concurrent_threads_scheduler>
+                <database_atomic_delay_before_drop_table_sec from_env="CLICKHOUSE_DATABASE_ATOMIC_DELAY_BEFORE_DROP_TABLE_SEC"/>
+                <database_catalog_drop_table_concurrency from_env="CLICKHOUSE_DATABASE_CATALOG_DROP_TABLE_CONCURRENCY"/>
+                <database_catalog_unused_dir_cleanup_period_sec from_env="CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_CLEANUP_PERIOD_SEC"/>
+                <database_catalog_unused_dir_hide_timeout_sec from_env="CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_HIDE_TIMEOUT_SEC"/>
+                <database_catalog_unused_dir_rm_timeout_sec from_env="CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_RM_TIMEOUT_SEC"/>
+                <max_server_memory_usage_to_ram_ratio from_env="CLICKHOUSE_MAX_SERVER_MEMORY_USAGE_TO_RAM_RATIO"/>
+                <merges_mutations_memory_usage_to_ram_ratio from_env="CLICKHOUSE_MERGES_MUTATIONS_MEMORY_USAGE_TO_RAM_RATIO"/>
                 <merge_tree><default_compression_codec>ZSTD(3)</default_compression_codec></merge_tree>
                 <query_log><ttl>event_date + INTERVAL 30 DAY DELETE</ttl></query_log>
                 <part_log><ttl>event_date + INTERVAL 30 DAY DELETE</ttl></part_log>
-                <asynchronous_metric_log remove="1"/><metric_log remove="1"/><query_metric_log remove="1"/><text_log remove="1"/><trace_log remove="1"/>
+                <asynchronous_metric_log remove="1"/>
+                <metric_log remove="1"/>
+                <query_metric_log remove="1"/>
+                <text_log remove="1"/>
+                <trace_log remove="1"/>
                 <storage_configuration><disks><default><keep_free_space_bytes>10737418240</keep_free_space_bytes></default></disks></storage_configuration>
             </clickhouse>
     clickhouse-users:
         content: |
             <clickhouse>
-                <profiles><reader><readonly>1</readonly><max_memory_usage from_env="CLICKHOUSE_READER_MEMORY"/><constraints><max_execution_time><changeable_in_readonly/></max_execution_time></constraints></reader></profiles>
-                <users>
-                    <reader><password from_env="CLICKHOUSE_READER_PASSWORD"/><profile>reader</profile><grants><query>GRANT SELECT ON *.*</query></grants></reader>
-                </users>
+                <profiles><reader><readonly>1</readonly><constraints><max_execution_time><changeable_in_readonly/></max_execution_time></constraints></reader></profiles>
+                <users><reader><password from_env="CLICKHOUSE_READER_PASSWORD"/><profile>reader</profile><grants><query>GRANT SELECT ON *.*</query></grants></reader></users>
             </clickhouse>
+    authelia:
+        content: |
+            access_control:
+                default_policy: one_factor
+                rules:
+                    - {domain: "grafana.${PLATFORM_DOMAIN:-rasm.localhost}", policy: one_factor}
+                    - {domain: "*.${PLATFORM_DOMAIN:-rasm.localhost}", methods: [POST, PUT, PATCH, DELETE], policy: one_factor}
+                    - {domain: "*.${PLATFORM_DOMAIN:-rasm.localhost}", resources: ["^/signin-with-chatgpt([?].*)?$$"], policy: one_factor}
+                    - {domain: "*.${PLATFORM_DOMAIN:-rasm.localhost}", policy: bypass}
+            authentication_backend: {file: {path: /config/users.yml}, password_reset: {disable: true}}
+            notifier: {filesystem: {filename: /var/lib/authelia/notification.txt}}
+            ntp: {disable_startup_check: true}
+            session: {cookies: [{domain: "${PLATFORM_DOMAIN:-rasm.localhost}", authelia_url: "https://auth.${PLATFORM_DOMAIN:-rasm.localhost}"}]}
+            storage: {local: {path: /var/lib/authelia/db.sqlite3}}
+    authelia-users:
+        content: |
+            users: {owner: {displayname: Owner, email: "${OWNER_EMAIL:-}", password: "${AUTHELIA_OWNER_PASSWORD_HASH:-$$argon2id$$v=19$$m=65536,t=3,p=4$$zmt3mCR+EL+Uztmb1lGodA$$r1md2sKE/sApAFxtq/Dod8SCo7vuQxthluI4elOHsUw}"}}
     otelcol:
         content: |
             extensions: {file_storage: {}}
@@ -255,15 +668,6 @@ configs:
             service:
                 extensions: [file_storage]
                 pipelines: {logs: &otelcol-pipeline {receivers: [otlp], processors: [memory_limiter], exporters: [clickhouse]}, metrics: *otelcol-pipeline, traces: *otelcol-pipeline}
-    authelia:
-        content: |
-            access_control: {default_policy: one_factor}
-            authentication_backend: {file: {path: /config/users.yml}, password_reset: {disable: true}}
-            notifier: {filesystem: {filename: /var/lib/authelia/notification.txt}}
-            ntp: {disable_startup_check: true}
-            session: {cookies: [{domain: "${PLATFORM_DOMAIN:-rasm.localhost}", authelia_url: "https://auth.${PLATFORM_DOMAIN:-rasm.localhost}"}]}
-            storage: {local: {path: /var/lib/authelia/db.sqlite3}}
-    authelia-users: {content: "users: {owner: {displayname: Owner, email: \"${OWNER_EMAIL:-}\", password: \"${AUTHELIA_OWNER_PASSWORD_HASH:-$$argon2id$$v=19$$m=65536,t=3,p=4$$zmt3mCR+EL+Uztmb1lGodA$$r1md2sKE/sApAFxtq/Dod8SCo7vuQxthluI4elOHsUw}\"}}\n"}
     grafana-datasources:
         content: |
             apiVersion: 1
@@ -273,9 +677,22 @@ configs:
                   type: grafana-clickhouse-datasource
                   jsonData: {host: clickhouse, port: 9000, protocol: native, username: reader, defaultDatabase: otel, logs: {defaultDatabase: otel, defaultTable: otel_logs, otelEnabled: true, otelVersion: latest}, traces: {defaultDatabase: otel, defaultTable: otel_traces, otelEnabled: true, otelVersion: latest}}
                   secureJsonData: {password: $$CLICKHOUSE_READER_PASSWORD}
-    grafana-dashboards: {content: "apiVersion: 1\nproviders: [{name: clickhouse, options: {path: /var/lib/grafana/plugins/grafana-clickhouse-datasource/dashboards}}]\n"}
-    litestream: {content: "dbs: [{path: /data/database.sqlite, replica: {url: \"$${LITESTREAM_REPLICA_URL}\", endpoint: \"$${AWS_ENDPOINT_URL}\"}}]\n"}
+    grafana-dashboards:
+        content: |
+            apiVersion: 1
+            providers: [{name: clickhouse, options: {path: /var/lib/grafana/plugins/grafana-clickhouse-datasource/dashboards}}]
+    litestream:
+        content: |
+            dbs: [{path: /data/database.sqlite, replica: {url: "$${LITESTREAM_REPLICA_URL}", endpoint: "$${LITESTREAM_ENDPOINT}", region: "$${LITESTREAM_REGION}"}}]
 
 # --- [VOLUMES] --------------------------------------------------------------------------
 
-volumes: {authelia: {}, clickhouse: {}, grafana: {}, otelcol: {}, postgres: {}, postgres-socket: {}, storage: {}, traefik: {}}
+volumes:
+    authelia: {}
+    clickhouse: {}
+    grafana: {}
+    otelcol: {}
+    postgres: {}
+    postgres-socket: {}
+    storage: {}
+    traefik: {}

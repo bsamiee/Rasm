@@ -66,7 +66,7 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
         (this.hasBootSplash, this.setBootSplashProgress, this.dismissBootSplash, this.openNewDocument) = (hasBootSplash, setBootSplashProgress, dismissBootSplash, openNewDocument);
         Eto.Platform.Instance.LoadAssembly(typeof(SkinBody<TDefinition>).Assembly);
         _ = Session.RunSafe(
-            Session.Bind(host, typeof(TDefinition), TDefinition.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
+            Session.Bind(host, typeof(TDefinition)).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
                 .Attach(static _ => Session.Close).Scoped()),
             CancellationToken.None).ThrowIfFail();
     }

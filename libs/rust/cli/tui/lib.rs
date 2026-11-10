@@ -24,7 +24,7 @@ use futures::stream::{self, LocalBoxStream};
 use futures::{Stream, StreamExt as _, executor};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::telemetry::{Defaults, Failure, Handle, Layer};
+use rasm_command::telemetry::{self, Failure, Layer};
 use rasm_command::{CommandError, Invocation};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::Rect;
@@ -109,7 +109,12 @@ impl From<ScreenError> for ExitCode {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, L, P, S>(defaults: Defaults, layer: L, runtime: impl FnOnce(&A) -> Builder, start: impl AsyncFnOnce(A, Handle) -> Result<(P, S), NEVec<P::Error>> + Send + 'static) -> process::ExitCode
+pub fn run<A, L, P, S>(
+    program: telemetry::Program,
+    layer: L,
+    runtime: impl FnOnce(&A) -> Builder,
+    start: impl AsyncFnOnce(Invocation<A>) -> Result<(P, S), NEVec<P::Error>> + Send + 'static,
+) -> process::ExitCode
 where
     A: CommandFactory + FromArgMatches + Send + 'static,
     L: Layer,
@@ -118,17 +123,18 @@ where
 {
     const BATCH: usize = 256;
     let held = Arc::new(Held { lines: Mutex::default(), depth: P::HISTORY });
-    rasm_command::run(defaults, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), runtime, async move |Invocation { args, styles, mut signals, filter, level }| {
+    rasm_command::run(program, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), runtime, async move |invocation: Invocation<A>| {
         let styles = match AutoStream::choice(&io::stdout()) {
             ColorChoice::Never => Styles::plain(),
-            ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => styles,
+            ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => invocation.styles.clone(),
         };
-        let level = level.as_log();
+        let (filter, level) = (invocation.filter.clone(), invocation.filter.level().as_log());
+        let mut signals = rasm_command::signals().map_err(|error| NEVec::new(P::Error::from(error)))?;
         tui_logger::set_default_level(tui_logger::LevelFilter::Trace);
         tui_logger::set_buffer_depth(P::HISTORY.get());
         task::spawn_blocking(move || {
             io::stdout().is_terminal().ok_or_else(|| NEVec::new(P::Error::from(ScreenError::Detached)))?;
-            let Either::Left((started, _)) = executor::block_on(select(pin!(start(args, filter.clone())), signals.next())) else {
+            let Either::Left((started, _)) = executor::block_on(select(pin!(start(invocation)), signals.next())) else {
                 return Ok(ExitCode::TempFail);
             };
             let (program, items) = started?;
@@ -147,7 +153,7 @@ where
                     panic = "abort" => true,
                     _ => thread::current().id() == owner,
                 } {
-                    session::left(P::MODES, &hooked).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "terminal release failed"));
+                    session::left(P::MODES, &hooked).for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(&error), "terminal release failed"));
                 }
                 hook(info);
             });

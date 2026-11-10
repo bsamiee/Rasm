@@ -33,4 +33,4 @@ rule:
                                 matches: rendering
                 - matches: swift-let-alias
 message: '`$RENDER` enters a log message as an interpolated literal or as text rendered from a value'
-note: 'Interpolate `Error`, `NSObject`, metatype, or `CustomStringConvertible` value itself with `privacy:`, and write a literal into the message'
+note: 'Pass an `Error` as `error:`, interpolate any other value itself with `privacy:` in `metadata:`, and write a literal into the message'

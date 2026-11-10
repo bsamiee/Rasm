@@ -1,0 +1,12 @@
+{
+    "name": "@rasm/test-portfolio",
+    "private": true,
+    "description": "Portfolio suite in Chromium against the Vite dev server",
+    "type": "module",
+    "devDependencies": {
+        "@playwright/test": "catalog:",
+        "@rasm/portfolio": "workspace:*",
+        "@rasm/test-support": "workspace:*",
+        "@types/node": "catalog:"
+    }
+}

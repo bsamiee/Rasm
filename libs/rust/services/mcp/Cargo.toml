@@ -16,8 +16,8 @@ bench   = false
 # --- [FEATURES] -------------------------------------------------------------------------
 
 [features]
-proxy     = ["dep:backon", "dep:bytes", "dep:memchr", "dep:serde_path_to_error", "serde_json/raw_value"]
-telemetry = ["dep:opentelemetry", "dep:opentelemetry-semantic-conventions", "dep:tracing-opentelemetry"]
+proxy     = ["dep:backon", "dep:bytes", "dep:memchr", "dep:serde_path_to_error", "dep:jiff", "serde_json/raw_value", "tokio-util/time", "rmcp/client"]
+telemetry = ["dep:opentelemetry", "dep:tracing-opentelemetry"]
 app       = ["dep:arc-swap", "dep:nonempty-collections", "dep:validated", "dep:derive-where", "dep:bytes", "dep:data-encoding", "dep:serde_path_to_error", "dep:serde_urlencoded", "dep:jsonschema", "dep:uuid", "dep:form_urlencoded", "dep:matchit", "dep:percent-encoding", "dep:url", "rmcp/elicitation"]
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
@@ -43,6 +43,7 @@ serde_json                         = { workspace = true }
 serde_path_to_error                = { workspace = true, optional = true }
 serde_urlencoded                   = { workspace = true, optional = true }
 jsonschema                         = { workspace = true, optional = true }
+jiff                               = { workspace = true, optional = true }
 uuid                               = { workspace = true, optional = true }
 form_urlencoded                    = { workspace = true, optional = true }
 matchit                            = { workspace = true, optional = true }
@@ -50,7 +51,7 @@ percent-encoding                   = { workspace = true, optional = true }
 url                                = { workspace = true, optional = true }
 rmcp                               = { workspace = true, default-features = false, features = ["server"] }
 opentelemetry                      = { workspace = true, optional = true }
-opentelemetry-semantic-conventions = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 tracing-opentelemetry              = { workspace = true, optional = true }
 

@@ -54,15 +54,14 @@ from rasm_bpy.ui._layout.sections import Section
 from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Ok, Outcome, paired, Reason, RecordFile, typed
 from rasm_rendering import (
     Cancelled,
-    detached,
     Ending,
     FixedCamera,
     Flamenco,
-    HostCommands,
     Liveness,
     LocalMachine,
     Manager,
     MarkedCamera,
+    Program,
     Progress,
     PROGRESS_DECODER,
     RenderFrames,
@@ -70,6 +69,7 @@ from rasm_rendering import (
     RunCommand,
     RunFile,
     shutdown_cancelled,
+    spawned,
     supervision,
     Test,
 )
@@ -139,17 +139,16 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
     def bound(self, identity: Identity) -> Outcome[Dispatcher]:
         """Binds dispatcher to identity stores, render sets, routing, render, planning, and queue preference."""
-        host = HostCommands(binary=bpy.app.binary_path, folder=str(identity.folder), commands={command: identity.identifier(command) for command in RunCommand})
         return paired(self.sets.bound(identity), FrameSize().bound(identity), RoutingRow.bound(identity), QueueRun.record.attachment.bound(identity)).map(
-            lambda parts: Dispatcher(identity, QUEUES[identity], host, *parts, self.render, self.planning, self.preparing.or_else(self.planning), self.preference)
+            lambda parts: Dispatcher(identity, QUEUES[identity], *parts, self.render, self.planning, self.preparing.or_else(self.planning), self.preference)
         )
 
     @staticmethod
-    def cli(dispatcher: Dispatcher) -> tuple[CliCommand[PrepareArguments], CliCommand[Run], CliCommand[Run | RenderFrames]]:
+    def cli(dispatcher: Dispatcher) -> tuple[CliCommand[PrepareArguments], CliCommand[Run | Program], CliCommand[Run | RenderFrames]]:
         """Returns `prepare`, `supervise`, and `render` command rows."""
         return (
             CliCommand(key=RunCommand.PREPARE, decoder=msgspec.json.Decoder(PrepareArguments), run=partial(prepared, dispatcher)),
-            CliCommand(key=RunCommand.SUPERVISE, decoder=msgspec.json.Decoder(Run), run=partial(supervised, dispatcher)),
+            CliCommand(key=RunCommand.SUPERVISE, decoder=msgspec.json.Decoder[Run | Program](Run | Program), run=partial(supervised, dispatcher)),
             CliCommand(key=RunCommand.RENDER, decoder=msgspec.json.Decoder[Run | RenderFrames](Run | RenderFrames), run=partial(commanded, dispatcher)),
         )
 
@@ -266,16 +265,13 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
             accumulated(scene_of(scope.scene) for scope in plan.scopes)
             .bind(lambda scenes: accumulated(pathed.took(scene, day) for scene in dict.fromkeys(scenes)))
             .bind(lambda _: RecordFile(path=dispatcher.host.path(stem, RunFile.PLAN), decoder=PLAN_DECODER).written(plan))
+            .bind(lambda _: dispatcher.host.pruned(lambda keys: keys[: preferences.kept]))
             .bind(lambda _: assigned(dispatcher.queued.struct(manager), {("plan",): stem}))
             .bind(lambda _: saved(Path(bpy.data.filepath), bpy.ops.wm.save_mainfile))
-            .bind(
-                lambda source: detached(
-                    dispatcher.host.argv(RunCommand.PREPARE, PrepareArguments(plan=stem, target=preferences.target), Some(str(source))), dispatcher.host.path(stem, RunFile.PLAN_LOG)
-                )
-            )
+            .bind(lambda source: spawned(dispatcher.host.argv(RunCommand.PREPARE, PrepareArguments(plan=stem, target=preferences.target), Some(str(source))), detached=True))
             .map(partial(dispatcher.state.started, stem))
-            .map(lambda _: dispatcher.host.path(stem, RunFile.PLAN_LOG))
-            .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {log}"),)))
+            .map(lambda _: identity.reports.logger.info("Plan sent", plan=stem, jobs=len(plan.scopes)))
+            .map(lambda _: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {identity.reports.log(identity.identifier(RunCommand.PREPARE))}"),)))
         )
 
     return (
@@ -320,15 +316,15 @@ def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 
 
 def open_log(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
-    """Opens the log of the last sent queue, else of the last plan."""
+    """Opens the render log of the last sent queue, else the log of the `prepare` command its plan ran."""
 
-    def opened(plan: str) -> Outcome[Done]:
+    def opened(_plan: str) -> Outcome[Done]:
         log = (
             dispatcher.state.observed
             .bind(lambda held: held.sent)
             .filter(lambda record: isinstance(record.target, LocalMachine))
             .map(lambda record: dispatcher.host.path(record.queue.stem, RunFile.LOG))
-            .default_with(lambda: dispatcher.host.path(plan, RunFile.PLAN_LOG))
+            .default_value(call.identity.reports.log(call.identity.identifier(RunCommand.PREPARE)))
         )
         return called(bpy.ops.wm.path_open, {"filepath": str(log)}).map(lambda _: Done())
 

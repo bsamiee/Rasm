@@ -8,6 +8,13 @@
     "permissions": {
         "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli", "mcp__binlog__stop", "mcp__binlog__stop_instance", "mcp__roslyn-codelens__load_solution", "mcp__roslyn-codelens__unload_solution", "mcp__roslyn-codelens__set_active_solution" ]
     },
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [ { "type": "command", "command": "echo 'eval \"$(mise env -s bash)\"' > \"$CLAUDE_ENV_FILE\"" }, { "type": "command", "command": "mise exec -- pitchfork project enter --pid \"$PPID\" && mise daemons start" } ]
+            }
+        ]
+    },
     "enableAllProjectMcpServers": true,
     "disabledMcpjsonServers": [ "greptile", "arena" ],
     "worktree": {

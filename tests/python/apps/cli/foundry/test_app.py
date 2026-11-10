@@ -4,13 +4,15 @@ from datetime import timedelta
 from functools import partial
 from pathlib import Path
 
+import anyio
 from cyclopts.exceptions import CycloptsError
 from expression import Result
 import msgspec
 import pytest
 import sysexits
 
-from rasm_foundry import Action, app, exited, Report
+from rasm_cli import exited
+from rasm_foundry import Action, app, Report
 from rasm_records import Error, Fault, Ok, Reason
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -45,7 +47,8 @@ def test_declared_input_failures_keep_their_cli_status(text: str | None, status:
     declaration = tmp_path / "set.toml"
     if text is not None:
         declaration.write_text(text, encoding="utf-8")
-    assert exited(app(["build", str(declaration), "--output", str(tmp_path / "build")], result_action="return_value", exit_on_error=False)) == status
+    command, bound, _ = app.parse_args(["build", str(declaration), "--output", str(tmp_path / "build")], exit_on_error=False)
+    assert exited(anyio.run(partial(command, *bound.args, **bound.kwargs, cache=tmp_path / "cache"))) == status
     captured = capsys.readouterr()
     assert not captured.out
     assert captured.err.startswith(str(declaration))
@@ -58,7 +61,8 @@ def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path, ca
     declaration.write_text(
         'name="Set"\ncorpus="missing.toml"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test.ttf"\n', encoding="utf-8"
     )
-    outcome = app(["build", str(declaration), "Missing", "--output", str(tmp_path / "build")], result_action="return_value", exit_on_error=False)
+    command, bound, _ = app.parse_args(["build", str(declaration), "Missing", "--output", str(tmp_path / "build")], exit_on_error=False)
+    outcome = anyio.run(partial(command, *bound.args, **bound.kwargs, cache=tmp_path / "cache"))
     match outcome:
         case Result(error=faults):
             assert tuple(fault.reason for fault in faults) == (Reason.UNREADABLE, Reason.ABSENT)

@@ -1,10 +1,9 @@
 import AppKit
 import CasePathsCore
-import CurrentProcess
+import Logging
 import Processes
 import Sparkle
 import SwiftUI
-import os
 
 // --- [VIEWS] ---------------------------------------------------------------------------
 
@@ -127,7 +126,7 @@ struct MenuBarExtraContent: View {
                 try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
             }
             if case .failure(let error) = reopened {
-                Logger(for: Self.self).error("Relay activation failed with \(error, privacy: .public)")
+                Logger(label: String(reflecting: Self.self)).error("Relay activation failed", error: error)
             }
         }
     }

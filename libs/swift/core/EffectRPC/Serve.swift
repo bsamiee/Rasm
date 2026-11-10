@@ -3,6 +3,7 @@ import Encoding
 public import Foundation
 import JSONRPC
 import Results
+import Tracing
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,6 +17,10 @@ enum Control: String {
 public enum Response: Sendable {
     case value((any Encodable & Sendable)?)
     case stream(any AsyncSequence<any Encodable & Sendable, Never> & Sendable)
+}
+
+private struct Headers: Extractor {
+    func extract(key: String, from carrier: [String: String]) -> String? { carrier[key] }
 }
 
 enum Reason: Encodable, Sendable {
@@ -149,11 +154,23 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
             do { await output.send(try exit(id, AggregateError(first: .die(error)))) } catch { dropped(EffectRPCFailure(subject: method, reason: .unencodable(error))) }
         }
     }
-    @concurrent @Sendable func answer(_ id: JSONValue, _ method: String, _ params: JSONValue?, acknowledged acks: AsyncStream<Void>) async {
-        let outcome = await Result { () async throws(AggregateError<Reason>) -> Response in
+    @concurrent @Sendable func answer(_ id: JSONValue, _ method: String, _ envelope: Envelope<JSONValue, JSONValue>, acknowledged acks: AsyncStream<Void>) async {
+        var context = InstrumentationContext.current ?? .topLevel
+        if let trace = envelope.traceId, let span = envelope.spanId {
+            InstrumentationSystem.instrument.extract(["traceparent": "00-\(trace)-\(span)-\(envelope.sampled == false ? "00" : "01")"], into: &context, using: Headers())
+        }
+        let outcome = await Result { [context] () async throws(AggregateError<Reason>) -> Response in
             let request: Request
-            do { request = try JSONValue.object([method: params ?? .object([:])]).decode(Request.self) } catch { throw AggregateError(first: .die(error)) }
-            do throws(Failure) { return try await perform(request) } catch { throw AggregateError(failing: error) }
+            do { request = try JSONValue.object([method: envelope.params ?? .object([:])]).decode(Request.self) } catch { throw AggregateError(first: .die(error)) }
+            do {
+                return try await withSpan(method, context: context, ofKind: .server) { span in
+                    span.attributes["rpc.system"] = "jsonrpc"
+                    span.attributes["rpc.method"] = method
+                    return try await perform(request)
+                }
+            } catch {
+                throw AggregateError(failing: error)
+            }
         }
         switch outcome {
             case .success(.value(let value?)): await send(id, answering: method) { try result(id, value) }
@@ -177,7 +194,7 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
         switch (envelope.id, envelope.method, envelope.method.flatMap(Control.init(rawValue:)), target) {
             case (_, _, .interrupt, .some(let target)): await calls.interrupt(target)
             case (_, _, .ack, .some(let target)): await calls.acknowledge(target)
-            case (.some(let id), .some(let method), .none, _): await calls.start(id) { acks in await answer(id, method, envelope.params, acknowledged: acks) }
+            case (.some(let id), .some(let method), .none, _): await calls.start(id) { acks in await answer(id, method, envelope, acknowledged: acks) }
             case (_, _, .some, .none), (.none, _, .none, _), (.some, .none, .none, _): break
         }
     }

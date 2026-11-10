@@ -1,11 +1,13 @@
 import AppKit
 import CasePathsCore
 import CurrentProcess
+import Logging
 import Observation
 import Processes
+import ServiceLifecycle
 import Sparkle
 import SwiftUI
-import os
+import Telemetry
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -53,20 +55,30 @@ struct RelayApp: App {
 @Observable
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var store: Result<AccountStore, ProcessFailure>?
+    private let logger: Logger
+    private let services: ServiceGroup
     @ObservationIgnored private var launch: Task<Void, Never>?
+    @ObservationIgnored private var running: Task<Void, Never>?
+
+    override init() {
+        let telemetry = Program.current.telemetry(scopes: [AppDelegate.self])
+        logger = Logger(label: String(reflecting: AppDelegate.self))
+        services = ServiceGroup(services: [telemetry, MetricKitReports(to: logger)], logger: logger)
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_: Notification) {
-        let logger = Logger(for: AppDelegate.self)
+        running = Task(name: "Telemetry") { [services, logger] in
+            do { try await services.run() } catch { logger.error("Telemetry services failed", error: error) }
+        }
         launch = Task(name: "Launch Relay") { [self] in
             switch await Result(catching: { () async throws(ProcessFailure) in try await loginShellEnvironment(within: .seconds(5)) }).map(AccountStore.init(environment:)) {
                 case .failure(let failure) where failure.reason.is(\.cancelled): logger.info("Quit canceled launch during login shell read")
                 case let launched:
                     store = launched
                     switch launched {
-                        case .success(let started):
-                            logger.notice("Launched with login shell environment")
-                            started.start()
-                        case .failure(let error): logger.error("Login shell environment read failed with \(error, privacy: .public), launch stopped")
+                        case .success(let started): started.start()
+                        case .failure(let error): logger.error("Login shell environment read failed", error: error)
                     }
             }
         }
@@ -77,6 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launch?.cancel()
             await launch?.value
             if case .success(let launched) = store { await launched.stop() }
+            await services.triggerGracefulShutdown()
+            await running?.value
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

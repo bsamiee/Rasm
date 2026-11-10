@@ -1,6 +1,6 @@
+use core::iter;
 use core::num::NonZero;
 use core::ops::ControlFlow;
-use core::{iter, mem};
 use std::collections::VecDeque;
 use std::error::Report;
 use std::io::{self, Write};
@@ -18,7 +18,7 @@ use futures::future::Either;
 use itertools::Itertools as _;
 use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::telemetry::Handle;
+use rasm_command::telemetry::Filter;
 use ratatui::DefaultTerminal;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::text::{Line, Span, Text};
@@ -27,7 +27,6 @@ use ratatui_core::style::Style;
 #[cfg(unix)]
 use rustix::process::{Signal, kill_current_process_group};
 use tracing_log::AsTrace as _;
-use tracing_subscriber::filter::Directive;
 use tui_logger::{LevelFilter, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 use validated::Validated;
 
@@ -76,7 +75,7 @@ where P: Program
     pub(crate) pane: Option<Pane>,
     pub(crate) level: LevelFilter,
     pub(crate) logs: TuiWidgetState,
-    pub(crate) filter: Handle,
+    pub(crate) filter: Filter,
     pub(crate) effects: Effects<P>,
     pub(crate) held: Arc<Held>,
     pub(crate) failures: Vec<P::Error>,
@@ -123,10 +122,8 @@ pub(crate) fn failed(operation: Operation) -> impl Fn(io::Error) -> ScreenError 
 
 pub(crate) fn left(modes: &[Mode], held: &Held) -> impl Iterator<Item = ScreenError> { released(modes, held).err().into_iter().flatten().map(failed(Operation::Leave)) }
 
-pub(crate) fn reloaded(filter: &Handle, level: LevelFilter) {
-    if let Err(error) = filter.modify(|filter| *filter = mem::take(filter).add_directive(Directive::from(level.as_trace()))) {
-        tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "tracing filter reload failed");
-    }
+pub(crate) fn reloaded(filter: &Filter, level: LevelFilter) {
+    filter.reload(level.as_trace()).unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&error), "tracing filter reload failed"));
 }
 
 pub(crate) fn batched<P>(

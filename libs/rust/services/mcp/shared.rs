@@ -1,10 +1,12 @@
 use core::future::ready;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashSet};
+use std::error::Report;
 use std::sync::{Arc, OnceLock, Weak};
 
 use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, stream};
 use itertools::Either;
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::model::{
     CancelTaskRequest, ClientNotification, ClientRequest, CreateTaskResult, GetTaskRequest, PromptListChangedNotification, ProtocolVersion, ResourceListChangedNotification,
     ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ResourcesCapability, ServerCapabilities, ServerConfig, ServerNotification, ServerResult, SubscribeRequestMethod,
@@ -19,7 +21,6 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::{AbortOnDropHandle, TaskTracker};
 use tracing::Instrument as _;
 
-use crate::error::report;
 use crate::{McpError, Subscribe};
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -85,7 +86,9 @@ where S: Subscribe
     }
 
     fn subscribed<'uri>(&self, uris: impl IntoIterator<Item = &'uri String>) -> Held {
-        uris.into_iter().filter_map(|uri| self.subscribe(uri).map(|held| (uri.clone(), held)).inspect_err(|error| tracing::debug!(error = %report(error), "subscription refused")).ok()).collect()
+        uris.into_iter()
+            .filter_map(|uri| self.subscribe(uri).map(|held| (uri.clone(), held)).inspect_err(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "subscription refused")).ok())
+            .collect()
     }
 
     fn listen(&self, filter: SubscriptionFilter, held: watch::Receiver<Held>) -> impl Stream<Item = ServerNotification> + Send + 'static {
@@ -131,7 +134,12 @@ where S: Subscribe
             return Err(McpError::Task { task: task.clone() }.into());
         }
         let result = match request {
-            request @ (ClientRequest::SubscribeRequest(_) | ClientRequest::UnsubscribeRequest(_) | ClientRequest::SubscriptionsListenRequest(_)) => self.subscriptions.handle_request(request, context).await,
+            request @ (ClientRequest::InitializeRequest(_)
+            | ClientRequest::DiscoverRequest(_)
+            | ClientRequest::PingRequest(_)
+            | ClientRequest::SubscribeRequest(_)
+            | ClientRequest::UnsubscribeRequest(_)
+            | ClientRequest::SubscriptionsListenRequest(_)) => self.subscriptions.handle_request(request, context).await,
             request => shared.service.handle_request(request, context).await,
         }?;
         if let ServerResult::CreateTaskResult(CreateTaskResult { task: Task { task_id, .. }, .. }) = &result {
@@ -145,7 +153,7 @@ where S: Subscribe
             let shared = &self.subscriptions.shared;
             let (notifications, peer) = (shared.listen(list_changes(&shared.service.get_info().capabilities), self.subscriptions.subscribed.subscribe()), context.peer.clone());
             let sent = async move { notifications.map(Ok).try_for_each(|notification| peer.send_notification(notification)).await };
-            self.broadcast.get_or_init(|| AbortOnDropHandle::new(tokio::spawn(sent.unwrap_or_else(|error| tracing::debug!(error = %report(&error), "connection closed")))));
+            self.broadcast.get_or_init(|| AbortOnDropHandle::new(tokio::spawn(sent.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "connection closed")))));
         }
         self.subscriptions.shared.service.handle_notification(notification, context).await
     }
@@ -198,18 +206,18 @@ where S: Subscribe
         self.accepted.send_modify(|accepted| accepted.retain(|uri, _| !held.contains_key(uri)));
         let notifications = self.shared.listen(context.accepted().clone(), watch::channel(held).1).take_until(self.shared.stopping.cancelled()).take_until(context.cancelled());
         let sent = notifications.map(Ok).try_for_each(|notification| context.sink().send(notification));
-        sent.unwrap_or_else(|error| tracing::debug!(error = %report(&error), "subscription closed")).await;
+        sent.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "subscription closed")).await;
         Ok(())
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn list_changes(capabilities: &ServerCapabilities) -> SubscriptionFilter {
+pub(crate) fn list_changes(capabilities: &ServerCapabilities) -> SubscriptionFilter {
     SubscriptionFilter::builder().tools_list_changed().prompts_list_changed().resources_list_changed().build().supported_by(capabilities)
 }
 
-fn resynced<U>(filter: &SubscriptionFilter, uris: U) -> impl Iterator<Item = ServerNotification> + use<U>
+pub(crate) fn resynced<U>(filter: &SubscriptionFilter, uris: U) -> impl Iterator<Item = ServerNotification> + use<U>
 where U: IntoIterator<Item = String> {
     [
         (filter.tools_list_changed, ToolListChangedNotification::default().into()),

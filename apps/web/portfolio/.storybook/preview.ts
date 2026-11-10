@@ -1,7 +1,7 @@
-import { storybookPreview } from '@rasm/test-support/storybook';
+import { previewAddons } from '@rasm/test-support/storybook';
 import { definePreview } from '@storybook/react-vite';
 import '#/site/theme.css';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default definePreview({ ...storybookPreview, parameters: { ...storybookPreview.parameters, layout: 'fullscreen' } });
+export default definePreview({ addons: previewAddons, tags: ['autodocs'], parameters: { layout: 'fullscreen' } });

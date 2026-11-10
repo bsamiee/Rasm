@@ -1,13 +1,13 @@
-import { Engine } from '@rasm/database';
-import { HostingError, ObjectStorage } from '@rasm/hosting';
-import { Array, ByteSize, Cause, Effect, Exit, Function, Option, Record, Schema, SchemaIssue, Sink, Stream, Struct } from 'effect';
+import { Rows } from '@rasm/database';
+import { ObjectStorage } from '@rasm/object-storage';
+import { Array, ByteSize, Cause, Duration, Effect, Exit, Function, Option, Record, Schema, SchemaIssue, Sink, Stream, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { SqlClient, type SqlError, SqlSchema, type Statement } from 'effect/sql';
 import { Api, Recovery, UploadRefused, uploadField } from '#/model/api';
 import { Asset, type AssetId } from '#/model/asset';
-import { assets, projectedPaths, references, UploadAttempt } from '#/server/catalog';
+import { assets, projectedPaths, references, UploadAttempt, unavailable } from '#/server/catalog';
 import { OwnerAccount } from '#/server/owner';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -36,7 +36,7 @@ const readAsset = Effect.fn('readAsset')(
                     WHERE a.available`,
                 ),
         }),
-        Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable, () => HttpApiError.NotFound.make()),
+        Effect.catchTag(['SqlError', 'SchemaError'], unavailable, () => HttpApiError.NotFound.make()),
     ),
 );
 const readRecovery = SqlSchema.findAll({
@@ -48,7 +48,7 @@ const readRecovery = SqlSchema.findAll({
             CASE WHEN removing IS TRUE THEN 'removing' WHEN ${sql('objectKey')} IS NULL THEN 'incomplete' ELSE 'cleanup' END AS status
             FROM assets WHERE NOT available OR EXISTS (SELECT 1 FROM json_each(uploads) WHERE value ->> '$.id' <> ${sql('objectKey')})`,
         ),
-})(undefined).pipe(Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable), Effect.withSpan('readRecovery'));
+})(undefined).pipe(Effect.catchTag(['SqlError', 'SchemaError'], unavailable), Effect.withSpan('readRecovery'));
 
 // --- [UPLOADS]
 
@@ -70,14 +70,14 @@ const beginUpload = Effect.fn('beginUpload')(
                 ),
         }),
         Effect.map(Function.flow(Struct.get('objectKey'), Option.isSome)),
-        Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable, () => HttpApiError.Conflict.make()),
+        Effect.catchTag(['SqlError', 'SchemaError'], unavailable, () => HttpApiError.Conflict.make()),
     ),
 );
 const claimed = <A, R>(statement: Effect.Effect<readonly A[], SqlError.SqlError, R>) =>
     statement.pipe(
         Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => HttpApiError.Conflict.make()),
         Effect.asVoid,
-        Effect.catchTag('SqlError', HostingError.unavailable),
+        Effect.catchTag('SqlError', unavailable),
     );
 const attachUpload = Effect.fn('attachUpload')(
     (assetId: typeof AssetId.Type, key: string, uploadId: string) =>
@@ -110,7 +110,7 @@ const receive = Effect.fnUntraced(function* (assetId: typeof AssetId.Type, store
         : ObjectStorage.upload(object).pipe(
               Effect.tap(({ uploadToken }) => attachUpload(assetId, object.key, uploadToken)),
               Effect.flatMap(({ write }) => write(file.content)),
-              Effect.catchTag('BadRequest', () => UploadRefused.make({ reason: { _tag: 'Size', index } })),
+              Effect.catchReason('ObjectStorageError', 'Refused', () => UploadRefused.make({ reason: { _tag: 'Size', index } })),
           );
 });
 
@@ -138,17 +138,17 @@ const releaseUploads = Effect.fn('releaseUploads')(
                         Discard: () => [discard(pending), released()] as const,
                         Delete: () => [sql`UPDATE assets SET body = json_set(body, '$.removing', json('true')) WHERE id = ${assetId} AND NOT EXISTS (SELECT 1 FROM (${references(sql)}) WHERE asset_id = assets.id)`, discard(sql`removing IS TRUE`), sql`${released()} AND a.removing IS TRUE`] as const,
                     });
-                    return Effect.map(Engine.atomic(statements), Array.lastNonEmpty);
+                    return Effect.map(Rows.atomic(statements), Array.lastNonEmpty);
                 }),
         }),
         Effect.map(Struct.get('objects')),
-        Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable),
+        Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
     ),
 );
 const finishRelease = Effect.fn('finishRelease')(
     (assetId: typeof AssetId.Type, keys: Array.NonEmptyReadonlyArray<string>) =>
         SqlClient.SqlClient.use((sql) =>
-            Engine.atomic([
+            Rows.atomic([
                 sql`UPDATE assets SET body = json_set(body, '$.uploads', json((
                     SELECT json_group_array(json(value)) FROM (
                         SELECT CASE WHEN u.value ->> '$.discard' = 1
@@ -160,7 +160,7 @@ const finishRelease = Effect.fn('finishRelease')(
             ]),
         ),
     Effect.asVoid,
-    Effect.catchTag('SqlError', HostingError.unavailable),
+    Effect.catchTag('SqlError', unavailable),
 );
 const releaseObjects = Effect.fnUntraced(function* (release: typeof Release.Type) {
     const [released, failures] = yield* Effect.partition(yield* releaseUploads(release), ({ key, uploadId }) => Effect.as(ObjectStorage.remove(key, uploadId), key), { concurrency: 'unbounded' });
@@ -205,7 +205,13 @@ const upload = HttpApiBuilder.handler(
             return { id: asset.id };
         },
         Effect.scoped,
-        Effect.catchTags({ MultipartError: ({ reason }) => UploadRefused.make({ reason: { _tag: 'Multipart', cause: reason._tag } }), HostingError: HostingError.unavailable }),
+        Effect.catchTag('MultipartError', ({ reason }) => UploadRefused.make({ reason: { _tag: 'Multipart', cause: reason._tag } })),
+        Effect.catchReason(
+            'ObjectStorageError',
+            'Conflict',
+            () => HttpApiError.Conflict.make(),
+            (_, error) => unavailable(error),
+        ),
     ),
 );
 const read = HttpApiBuilder.handler(
@@ -217,7 +223,7 @@ const read = HttpApiBuilder.handler(
         if (!published) {
             yield* Effect.catchTag(OwnerAccount.authorize, 'Forbidden', () => HttpApiError.NotFound.make());
         }
-        return yield* ObjectStorage.serve({ key: objectKey, mime, ...Record.getSomes({ filename: name }) }, { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }) });
+        return yield* ObjectStorage.serve({ key: objectKey, mime, ...Record.getSomes({ filename: name }), ...(published && { cacheControl: `private, max-age=${Duration.toSeconds(Duration.days(1))}` }) }, { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }) });
     }),
 );
 const assetGroup = HttpApiBuilder.group(Api, 'assets', (handlers) =>

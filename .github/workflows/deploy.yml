@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+    workflow_dispatch:
+        inputs:
+            stack:
+                description: Host stack of @rasm/infra to apply
+                required: true
+                type: string
+
+permissions: {}
+
+concurrency:
+    group: deploy-${{ inputs.stack }}
+    cancel-in-progress: false
+
+defaults:
+    run:
+        shell: bash
+
+jobs:
+    deploy:
+        runs-on: ubuntu-26.04
+        timeout-minutes: 30
+        environment: deploy
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+            - run: pnpm install
+            - if: vars.TAILSCALE_OAUTH_CLIENT_ID != ''
+              uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
+              with:
+                  oauth-client-id: ${{ vars.TAILSCALE_OAUTH_CLIENT_ID }}
+                  audience: ${{ vars.TAILSCALE_AUDIENCE }}
+                  tags: ${{ vars.TAILSCALE_TAGS }}
+            - run: nx deploy @rasm/infra --stack="${STACK}"
+              env:
+                  DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+                  STACK: ${{ inputs.stack }}
+                  TAILSCALE_OAUTH_CLIENT_ID: ${{ vars.TAILSCALE_OAUTH_CLIENT_ID }}
+                  TAILSCALE_AUDIENCE: ${{ vars.TAILSCALE_AUDIENCE }}

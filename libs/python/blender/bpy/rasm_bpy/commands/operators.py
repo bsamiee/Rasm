@@ -347,8 +347,8 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
     # --- [EXECUTION]
 
     def performed(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...] = (), /) -> Outcome[Answer]:
-        """Runs the command over the operator properties and the paths its invoke form chose."""
-        return self.command.run(Call(identity=self.identity, context=context, properties=self.properties(operator), paths=paths))
+        """Runs the command over the operator properties and the paths its invoke form chose, inside one span named by the operator and failed by its first fault."""
+        return self.identity.reports.spanned(operator.bl_idname, lambda: self.command.run(Call(identity=self.identity, context=context, properties=self.properties(operator), paths=paths)))
 
     def chose(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...], /) -> set["rna_enums.OperatorReturnItems"]:
         """Runs the command over the paths a browser chose and reports its result, required fault when no path was chosen."""

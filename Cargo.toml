@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members  = ["apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*", "tests/rust/apps/*/*"]
+members  = ["apps/data/*", "apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*", "tests/rust/apps/*/*", "tests/rust/support"]
 
 # --- [IDENTITY]
 
@@ -31,33 +31,35 @@ tokio-util       = { version = "0.7.20", features = ["codec", "rt"] }           
 
 # --- [CONCURRENCY]
 
-arc-swap = "1.9.4"                                           # Read-mostly snapshots replaced whole while readers keep their copy
+arc-swap = "1.9.5"                                           # Read-mostly snapshots replaced whole while readers keep their copy
 deadpool = { version = "0.13.1", features = ["rt_tokio_1"] } # Async pools of reusable connections and handles
 papaya   = "0.2.5"                                           # Concurrent maps with lock-free reads across await points
 rayon    = "1.12.0"                                          # Data parallelism over independent CPU-bound work
 
 # --- [CACHES]
 
-foyer = { version = "0.22.6", features = ["tracing", "serde"] } # Hybrid memory and disk caches holding results larger than memory
-moka  = { version = "0.12.16", features = ["future", "sync"] }  # Bounded caches with per-entry expiry and coalesced async loads
+foyer = { version = "0.22.6", features = ["tracing", "serde"] }                                                                        # Hybrid memory and disk caches holding results larger than memory
+moka  = { version = "0.12.16", features = ["future", "sync"] }                                                                         # Bounded caches with per-entry expiry and coalesced async loads
+redis = { version = "2.0.0-rc.2", features = ["tokio-rustls-comp", "tls-rustls-native-roots", "connection-manager", "cluster-async"] } # Valkey commands, pub/sub, streams, and cluster connections over rustls, `tls-rustls-native-roots` naming the root store 2.0 requires beside `tls-rustls`
 
 # --- [SYSTEM]
 
-dirs            = "7.0.0"                                             # Per-user cache, configuration, state, and runtime folders each platform names
-interprocess    = { version = "2.4.8", features = ["tokio"] }         # Local sockets as Unix domain sockets and Windows named pipes under one name type
-libc            = "0.2.191"                                           # Native constants missing from higher-level process APIs
-libproc         = "0.15.0"                                            # Darwin process group membership and process information
-nix             = { version = "0.31.3", features = ["user"] }         # Account identity and home directories from the operating system
-process-wrap    = { version = "10.0.1", features = ["tokio1"] }       # Child processes in groups and job objects that die with their owner
-rustix          = { version = "1.1.6", features = ["fs", "process"] } # Typed POSIX calls returning errno values where std stops
-sd-notify       = "0.5.0"                                             # Readiness and watchdog signals to systemd
-socket2         = "0.6.5"                                             # Socket options tokio sockets lack, IPv6-only binding
-which           = "8.0.6"                                             # Executables resolved against a given PATH and working directory
-windows         = "0.62.2"                                            # Win32 process creation flags process-wrap wrappers take
-stacksafe       = "1.0.3"                                             # Stack growth for recursive operations over nested values
-velopack        = "1.2.161"                                           # Product installation and in-place updates
-wasmtime        = "50.0.1"                                            # In-process WebAssembly sandbox around untrusted guest code
-windows-service = "0.8.1"                                             # Windows service installation and control events
+dirs            = "7.0.0"                                                 # Per-user cache, configuration, state, and runtime folders each platform names
+interprocess    = { version = "2.4.8", features = ["tokio"] }             # Local sockets as Unix domain sockets and Windows named pipes under one name type
+libc            = "0.2.191"                                               # Native constants missing from higher-level process APIs
+libproc         = "0.15.0"                                                # Darwin process group membership and process information
+nix             = { version = "0.31.3", features = ["resource", "user"] } # Account identity, home directories, and process resource usage from the operating system
+process-wrap    = { version = "10.0.1", features = ["tokio1"] }           # Child processes in groups and job objects that die with their owner
+rlimit          = "0.11.0"                                                # Open file limit raised to the per-process maximum each platform allows
+rustix          = { version = "1.1.6", features = ["fs", "process"] }     # Typed POSIX calls returning errno values where std stops
+sd-notify       = "0.5.0"                                                 # Readiness and watchdog signals to systemd
+socket2         = "0.6.5"                                                 # Socket options tokio sockets lack, IPv6-only binding
+which           = "8.0.6"                                                 # Executables resolved against a given PATH and working directory
+windows         = "0.62.2"                                                # Win32 process creation flags process-wrap wrappers take
+stacksafe       = "1.0.3"                                                 # Stack growth for recursive operations over nested values
+velopack        = "1.2.161"                                               # Product installation and in-place updates
+wasmtime        = "50.0.1"                                                # In-process WebAssembly sandbox around untrusted guest code
+windows-service = "0.8.1"                                                 # Windows service installation and control events
 
 # --- [ERRORS]
 
@@ -141,7 +143,7 @@ ordered-float   = { version = "5.5.1", features = ["serde"] }                   
 # --- [TIME]
 
 croner = { version = "4.0.3", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
-jiff   = { version = "0.2.41", features = ["serde"] }                         # Instants, zoned date-times, spans, and zone database
+jiff   = { version = "0.2.42", features = ["serde"] }                         # Instants, zoned date-times, spans, and zone database
 
 # --- [IDENTIFIERS]
 
@@ -180,14 +182,14 @@ ast-grep-language  = "0.51.1"                                                   
 cel                = { version = "0.15.0", features = ["json"] }                                   # Common Expression Language policies
 chumsky            = { version = "0.13.0", features = ["pratt"] }                                  # Parser combinators that recover and collect every error
 ec4rs              = "2.0.0-rc.1"                                                                  # EditorConfig properties resolved per path
-oxc                = { version = "0.157.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
+oxc                = { version = "0.158.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
 regex-syntax       = "0.8.11"                                                                      # Parser and Unicode classes the regex engine and tree-sitter link
 regex-automata     = "0.4.18"                                                                      # Compiled regex programs the regex engine runs, with their heap size
 regex              = "1.13.1"                                                                      # Unicode patterns with linear-time matching
-sqlparser          = { version = "0.63.0", features = ["visitor"] }                                # SQL text parsed into dialect ASTs
+sqlparser          = { version = "0.64.0", features = ["visitor"] }                                # SQL text parsed into dialect ASTs
 syntect            = { version = "5.3.0", default-features = false, features = ["default-fancy"] } # Syntax definitions looked up by name, alias, and extension, default `regex-onig` builds Oniguruma C beside `regex-fancy`
 tree-sitter        = "0.27.2"                                                                      # Incremental parsing runtime that loads grammar crates
-tree-sitter-sequel = "0.3.11"                                                                      # SQL grammar
+tree-sitter-sequel = "0.3.12"                                                                      # SQL grammar
 tree-sitter-xml    = "0.7.0"                                                                       # XML and DTD grammar
 winnow             = "1.0.5"                                                                       # Parser combinators with caller-defined error types
 
@@ -212,8 +214,8 @@ file-format           = { version = "0.29.0", features = ["reader-zip", "reader-
 fs-err                = "3.3.2"                                                                                                                                                                             # File calls with errors that name path
 globset               = "0.4.21"                                                                                                                                                                            # One path matched against many globs in one pass
 ignore                = "0.4.34"                                                                                                                                                                            # Gitignore-aware parallel directory walks
-notify                = { version = "9.0.0-rc.7", features = ["tokio"] }                                                                                                                                    # File system change events
-notify-debouncer-full = { version = "0.8.0-rc.2", features = ["tokio"] }                                                                                                                                    # Debounced, rename-aware change batches
+notify                = { version = "9.0.0-rc.8", features = ["tokio"] }                                                                                                                                    # File system change events
+notify-debouncer-full = { version = "0.8.0-rc.3", features = ["tokio"] }                                                                                                                                    # Debounced, rename-aware change batches
 tempfile              = "3.27.0"                                                                                                                                                                            # Temporary files and atomic writes that keep occupied destinations
 walkdir               = "2.5.0"                                                                                                                                                                             # Recursive directory iteration without following symlinks
 typed-path            = { version = "0.13.0", default-features = false }                                                                                                                                    # Archive entry names normalized by Unix path rules on every host
@@ -238,6 +240,7 @@ zstd              = { version = "0.14.3", features = ["zstdmt"] }               
 argon2                   = "0.6.0"                                                                             # Password hashing in PHC strings
 crypto_box               = "0.9.1"                                                                             # NaCl public-key boxes
 rcgen                    = { version = "0.14.10", default-features = false, features = ["aws_lc_rs", "pem"] }  # X.509 certificates issued to loopback and test endpoints, default `ring` adds ring beside aws-lc-rs
+rsa                      = { version = "0.10.0", features = ["pkcs1v15"] }                                     # PKCS#1 v1.5 signing `pdf_oxide` 0.3.78 calls under `signatures` while requesting `rsa` with default features, which 0.10.0 no longer includes
 rustls                   = "0.23.46"                                                                           # TLS stack with process-wide aws-lc-rs provider each binary installs
 rustls-platform-verifier = "0.7.1"                                                                             # Certificate verification through OS trust store
 sha2                     = "0.11.1"                                                                            # SHA-2 digests in pure Rust
@@ -255,8 +258,9 @@ webbrowser    = "1.2.6"                                                         
 
 # --- [SECRETS]
 
-aws-config                      = { version = "1.13.0", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
-aws-sdk-kms                     = { version = "1.129.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds hyper 0.14 client on ring
+aws-config                      = { version = "1.13.1", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
+aws-sdk-kms                     = { version = "1.130.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds hyper 0.14 client on ring
+aws-sdk-sts                     = { version = "1.125.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # STS session credentials under a session policy, default `rustls` adds hyper 0.14 client on ring
 azure_identity                  = { version = "1.0.0", features = ["tokio"] }                                                                                   # Microsoft Entra ID credential chain
 azure_security_keyvault_keys    = "1.0.1"                                                                                                                       # Azure Key Vault keys and cryptographic operations
 azure_security_keyvault_secrets = "1.0.1"                                                                                                                       # Azure Key Vault secrets
@@ -274,6 +278,7 @@ form_urlencoded    = "1.2.2"                                                    
 headers            = "0.4.2"                                                                                                                                                                                    # Typed conditional, range, and entity-tag headers
 hickory-resolver   = "0.26.3"                                                                                                                                                                                   # Async DNS resolution with SRV lookups
 http               = "1.5.0"                                                                                                                                                                                    # Request, response, URI, and header types axum and hyper share
+http-body          = "1.1.0"                                                                                                                                                                                    # Body trait and frames that response bodies of tower layers implement
 http-cache-reqwest = "1.0.0-alpha.10"                                                                                                                                                                           # RFC 9111 response cache in embedded store
 matchit            = "0.9.2"                                                                                                                                                                                    # Reader routes over URI templates with parameter suffixes and slashless paths
 mime               = "0.3.18"                                                                                                                                                                                   # Media types parsed with their parameters
@@ -283,7 +288,7 @@ progenitor         = "0.16.0"                                                   
 reqwest            = { version = "0.13.5", features = ["json", "stream", "gzip", "zstd", "brotli", "blocking"] }                                                                                                # HTTP client with pooling, streaming, and decompression, and a blocking client typst-kit's synchronous downloader reads
 reqwest-middleware = { version = "0.5.2", features = ["json", "rustls"] }                                                                                                                                       # Middleware chain around HTTP clients
 reqwest-tracing    = "0.7.1"                                                                                                                                                                                    # Client request spans with semantic-convention attributes
-sfv                = "0.16.0"                                                                                                                                                                                   # HTTP structured field values
+sfv                = "0.16.1"                                                                                                                                                                                   # HTTP structured field values
 tower              = { version = "0.5.3", features = ["util", "timeout", "limit", "load-shed"] }                                                                                                                # Service and layer composition with timeouts, limits, and load shedding
 tower-http         = { version = "0.7.1", features = ["trace"] }                                                                                                                                                # Request tracing layers on served routes
 url                = { version = "2.5.8", features = ["serde"] }                                                                                                                                                # WHATWG URLs parsed at boundaries
@@ -294,8 +299,14 @@ async-lsp           = { version = "0.2.4", features = ["tokio"] }               
 buffa               = { version = "0.9.2", features = ["json"] }                         # Protobuf messages with editions, views, and canonical JSON
 buffa-types         = { version = "0.9.2", features = ["json", "jiff"] }                 # Protobuf well-known types with JSON mapping and jiff conversion
 connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "axum"] } # Connect, gRPC, and gRPC-Web services and clients
-protovalidate-buffa = { version = "0.7.3", features = ["json"] }                         # Protovalidate rules compiled into message validation
+prost               = "0.14.4"                                                           # Protobuf message encoding that generated gRPC types derive
+prost-types         = "0.14.4"                                                           # Protobuf well-known types and the descriptor set gRPC reflection serves
+protovalidate-buffa = { version = "0.7.4", features = ["json"] }                         # Protovalidate rules compiled into message validation
 rmcp                = "3.9.0"                                                            # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports
+tonic               = { version = "0.14.9", features = ["gzip"] }                        # gRPC servers and clients over HTTP/2 with deadlines, streaming, and the gzip messages Connect clients send by default
+tonic-health        = "0.14.9"                                                           # Standard `grpc.health.v1` service with a status reporter per served service
+tonic-prost         = "0.14.9"                                                           # prost codec that generated gRPC clients and servers encode messages with
+tonic-reflection    = "0.14.9"                                                           # gRPC server reflection over an encoded descriptor set
 
 # --- [TRANSFER]
 
@@ -307,25 +318,26 @@ suppaftp     = { version = "12.2.1", features = ["tokio-rustls-aws-lc-rs"] }    
 
 # --- [OBSERVABILITY]
 
-json-subscriber                    = { version = "0.3.1", features = ["tracing-opentelemetry-0-34"] }    # JSON lines with flattened span fields, static service fields, and request trace and span ids
-log                                = "0.4.35"                                                            # Logger registration failure `LogTracer::init` returns
-opentelemetry                      = "0.33.1"                                                            # Trace, metric, and log API
-opentelemetry-appender-tracing     = { version = "0.33.1", features = ["experimental_span_attributes"] } # Tracing events exported as log records with enclosing span fields
-opentelemetry-http                 = "0.33.1"                                                            # W3C trace context injected into and extracted from HTTP headers
-opentelemetry-otlp                 = { version = "0.33.1", features = ["reqwest-rustls", "gzip-http"] }  # OTLP over HTTP/protobuf and rustls HTTPS, gzip bodies when `OTEL_EXPORTER_OTLP_COMPRESSION` names gzip
-opentelemetry-proto                = "0.33.1"                                                            # OTLP messages decoded from OTLP JSON
-opentelemetry-resource-detectors   = "0.13.0"                                                            # Host, OS, process, container, and service instance resource attributes
-opentelemetry-semantic-conventions = { version = "0.33.1", features = ["semconv_experimental"] }         # Semantic-convention attribute names
-opentelemetry_sdk                  = "0.33.1"                                                            # Tracer, meter, and logger providers with processors and samplers
-pprof                              = { version = "0.15.0", features = ["flamegraph", "frame-pointer"] }  # In-process CPU profiles and flamegraphs
-pyroscope                          = { version = "2.1.5", features = ["backend-pprof-rs"] }              # Continuous profiles pushed to Pyroscope
-sysinfo                            = "0.40.1"                                                            # Process and host resource readings
-tokio-metrics                      = "0.5.2"                                                             # Runtime and task metrics on stable tokio
-tracing                            = "0.1.44"                                                            # Spans and events emitted at service boundaries
-tracing-appender                   = "0.2.5"                                                             # Rolling and non-blocking file writers, the rolling clock adds `time` 0.3 beside jiff
-tracing-log                        = "0.2.0"                                                             # `log` records forwarded into tracing at every level, reloadable filter decides each
-tracing-opentelemetry              = "0.34.0"                                                            # Tracing spans exported as OpenTelemetry spans
-tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                   # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
+instrumented-object-store          = ">=55.0.0, <56"                                                                                                                        # Tracing spans around object store reads, writes, and lists, at the release linking object_store 0.13 with DataFusion 55
+log                                = "0.4.35"                                                                                                                               # Logger registration failure `LogTracer::init` returns
+opentelemetry                      = "0.33.1"                                                                                                                               # Trace, metric, and log API
+opentelemetry-appender-tracing     = "0.33.1"                                                                                                                               # Tracing events exported as log records
+opentelemetry-http                 = "0.33.1"                                                                                                                               # W3C trace context injected into and extracted from HTTP headers
+opentelemetry-otlp                 = { version = "0.33.1", features = ["grpc-tonic", "http-json", "reqwest-rustls", "tls-aws-lc", "tls-roots", "gzip-http", "gzip-tonic"] } # OTLP over gRPC, HTTP/protobuf, or HTTP/JSON as `OTEL_EXPORTER_OTLP_PROTOCOL` names, TLS from native roots, gzip when `OTEL_EXPORTER_OTLP_COMPRESSION` names it
+opentelemetry-proto                = "0.33.1"                                                                                                                               # OTLP messages decoded from OTLP JSON
+opentelemetry-resource-detectors   = "0.13.0"                                                                                                                               # Host, OS, process, container, and service instance resource attributes
+opentelemetry-semantic-conventions = { version = "0.33.1", features = ["semconv_experimental"] }                                                                            # Semantic-convention attribute names
+opentelemetry_sdk                  = "0.33.1"                                                                                                                               # Tracer, meter, and logger providers with processors and samplers
+oxtel-sql                          = { version = "0.3.1", features = ["sqlx-0.9"] }                                                                                         # Database client spans with OpenTelemetry semantic-convention fields around sqlx queries, recorded through tracing
+pprof                              = { version = "0.15.0", features = ["flamegraph", "frame-pointer"] }                                                                     # In-process CPU profiles and flamegraphs
+pyroscope                          = { version = "2.1.5", features = ["backend-pprof-rs"] }                                                                                 # Continuous profiles pushed to Pyroscope
+sysinfo                            = { version = "0.40.1", default-features = false, features = ["system"] }                                                                # Process and host resource readings, `system` alone links no IOKit
+tokio-metrics                      = "0.5.2"                                                                                                                                # Runtime and task metrics on stable tokio
+tracing                            = "0.1.44"                                                                                                                               # Spans and events emitted at service boundaries
+tracing-appender                   = "0.2.5"                                                                                                                                # Rolling and non-blocking file writers, the rolling clock adds `time` 0.3 beside jiff
+tracing-log                        = "0.2.0"                                                                                                                                # `log` records forwarded into tracing at every level, reloadable filter decides each
+tracing-opentelemetry              = "0.34.0"                                                                                                                               # Tracing spans exported as OpenTelemetry spans
+tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                                                                                      # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
 
 # --- [USER_INTERFACE]
 
@@ -357,51 +369,26 @@ winit                = "0.31.0-beta.4"                                          
 
 # --- [DATA_STORAGE]
 
-clickhouse       = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                                                                          # Typed row inserts and selects over ClickHouse
-duckdb           = { version = "1.20000.1", features = ["json", "parquet", "appender-arrow"] }                                                                                                      # In-process analytics over Parquet, CSV, JSON, and attached databases
-falkordb         = { version = "0.11.1", features = ["tokio-rustls"] }                                                                                                                              # FalkorDB graph queries
-fjall            = "3.1.13"                                                                                                                                                                         # Embedded LSM key-value store holding write-heavy state
-influxdb3-client = "0.3.0"                                                                                                                                                                          # InfluxDB 3 writes and queries
-jiff-sqlx        = { version = "0.2.2", features = ["postgres", "sqlite"] }                                                                                                                         # jiff values as sqlx column types
-kurrentdb        = "1.2.0"                                                                                                                                                                          # KurrentDB event streams and subscriptions
-mongodb          = { version = "3.10.0", default-features = false, features = ["rustls-tls-aws-lc", "dns-resolver", "compat-3-3-0", "bson-3"] }                                                     # MongoDB documents, aggregation, and change streams, default `compat-3-0-0` adds bson 2 and `rustls-tls` adds ring
-neo4rs           = "0.9.0-rc.11"                                                                                                                                                                    # Neo4j graph queries over Bolt
-pgvector         = { version = "0.4.2", features = ["sqlx", "halfvec", "serde"] }                                                                                                                   # pgvector column types
-redb             = "4.5.0"                                                                                                                                                                          # Embedded transactional key-value store with typed tables
-scylla           = { version = "1.10.0", features = ["rustls-023", "metrics"] }                                                                                                                     # Cassandra and ScyllaDB queries
-sea-query        = { version = "1.0.2", features = ["with-jiff", "with-uuid", "with-json", "postgres-vector", "postgres-array"] }                                                                   # DDL and dynamic queries built from typed table definitions
-sea-schema       = { version = "0.18.1", features = ["sqlx-postgres", "sqlx-sqlite", "sqlx-mysql", "runtime-tokio"] }                                                                               # Live schema discovery that owning types diff against
-snowflake-api    = "0.14.0"                                                                                                                                                                         # Snowflake SQL with Arrow results
-sqlx             = { version = "0.9.0", features = ["runtime-tokio", "tls-rustls-aws-lc-rs", "postgres", "sqlite-bundled", "sqlite-load-extension", "mysql", "uuid", "rust_decimal", "sqlx-toml"] } # PostgreSQL, SQLite, and MySQL pools with compile-time query checks, SQLite extensions (sqlite-vec `vec0`) load for checks through `sqlx.toml` with no `unsafe` run-time load
-surrealdb        = "4.0.0"                                                                                                                                                                          # SurrealDB queries
-tiberius         = { version = "0.13.0", default-features = false, features = ["tds80", "winauth", "rustls", "sql-browser-tokio", "rust_decimal"] }                                                 # SQL Server client, default `native-tls` links platform TLS beside rustls
-turso            = { version = "0.9.0-pre.2", default-features = false, features = ["sync", "fts"] }                                                                                                # SQLite-compatible embedded database with concurrent writes and cloud sync, default `mimalloc` replaces global allocator
-
-# --- [SEARCH]
-
-elasticsearch   = { version = "9.1.0-alpha.1", default-features = false, features = ["rustls-tls"] } # Elasticsearch indexes and search, default `native-tls` links platform TLS beside rustls, sole alternative `rustls-tls` runs reqwest 0.12 on ring
-lancedb         = { version = "0.41.0", features = ["aws"] }                                         # Embedded vector tables with ANN, full-text, and hybrid search
-meilisearch-sdk = { version = "0.33.0", default-features = false, features = ["jwt_aws_lc_rs"] }     # Meilisearch indexes and search, default `reqwest` and `tls` add reqwest 0.12 on ring beside aws-lc-rs
-opensearch      = { version = "2.4.0", default-features = false, features = ["rustls-tls"] }         # OpenSearch indexes and search, default `native-tls` links platform TLS beside rustls
-qdrant-client   = "1.20.0"                                                                           # Qdrant vector search
-tantivy         = { version = "0.27.0", features = ["zstd-compression"] }                            # Embedded full-text index
-usearch         = "2.26.6"                                                                           # HNSW vector indexes
+aws-sdk-s3     = { version = "1.158.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # S3 buckets, tags, and per-request header changes, default `rustls` adds hyper 0.14 client on ring and `sigv4a` its elliptic-curve signer
+clickhouse     = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                       # Typed row inserts and selects over ClickHouse
+duckdb         = { version = "1.20000.1", features = ["json", "parquet", "appender-arrow"] }                                                   # In-process analytics over Parquet, CSV, JSON, and attached databases
+jiff-sqlx      = { version = "0.2.2", features = ["postgres", "sqlite"] }                                                                      # jiff values as sqlx column types
+pgvector       = { version = "0.4.2", features = ["sqlx", "halfvec", "serde"] }                                                                # pgvector column types
+sea-query      = { version = "1.0.2", features = ["with-jiff", "with-uuid", "with-json", "postgres-vector", "postgres-array"] }                # DDL and dynamic queries built from typed table definitions
+sea-schema     = { version = "0.18.1", features = ["sqlx-postgres", "sqlx-sqlite", "runtime-tokio"] }                                          # Live schema discovery that owning types diff against
+libsqlite3-sys = "0.39.1"                                                                                                                      # SQLite C API whose `sqlite3_auto_extension` registers sqlite-vec, SQLite 3.54 past RUSTSEC-2026-0459
+sqlite-vec     = "0.1.9"                                                                                                                       # `vec0` vector tables linked beside the SQLite `sqlx` bundles, registered by an `unsafe` `sqlite3_auto_extension` call, at the newest release that builds (0.1.10-alpha.4 omits `sqlite-vec-diskann.c` and `sqlite-vec-rescore.c`, which its `sqlite-vec.c` includes)
+sqlx           = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-aws-lc-rs"] }                         # Database pools on tokio with rustls, each member adds the databases and column types it reads
 
 # --- [MESSAGING]
 
-async-nats                = { version = "0.52.0", default-features = false, features = ["aws-lc-rs", "crypto", "jetstream", "kv", "nkeys", "nuid", "object-store", "server_2_10", "server_2_11", "server_2_12", "server_2_14", "service", "websockets"] } # NATS core, JetStream, key-value, object store, and services, default `ring` adds ring beside aws-lc-rs
-cloudevents-sdk           = { version = "0.9.0", features = ["axum", "http-binding"] }                                                                                                                                                                    # CloudEvents envelopes with HTTP bindings
-lapin                     = "4.12.3"                                                                                                                                                                                                                      # AMQP 0-9-1 client
-lettre                    = { version = "0.11.23", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] }                                                     # Mail messages over pooled SMTP, default `native-tls` links platform TLS beside rustls
-nkeys                     = "0.4.5"                                                                                                                                                                                                                       # NATS key pairs that sign and verify credentials
-pulsar                    = { version = "6.9.1", default-features = false, features = ["tokio-rustls-runtime", "compression"] }                                                                                                                           # Pulsar producers, consumers, and readers, defaults add async-std runtime and native-tls, `auth-oauth2` adds reqwest 0.12 on ring through default openidconnect
-rdkafka                   = { version = "0.39.0", features = ["cmake-build", "zstd"] }                                                                                                                                                                    # Kafka producers, consumers, and admin
-redis                     = { version = "1.8.1", features = ["tokio-rustls-comp", "connection-manager", "cluster-async", "json"] }                                                                                                                        # Redis and Valkey commands, pub/sub, streams, and cluster
-rumqttc-next              = { version = "0.34.0", features = ["tracing"] }                                                                                                                                                                                # MQTT 5 client
-schema_registry_converter = { version = "6.0.0", default-features = false, features = ["futures", "avro", "json", "proto_raw", "rustls_tls"] }                                                                                                            # Schema Registry serdes over Avro, JSON Schema, and Protobuf, default `native_tls` links platform TLS beside rustls
-temporalio-client         = { version = "1.1.2", default-features = false, features = ["envconfig", "tls-aws-lc"] }                                                                                                                                       # Workflow starts, signals, queries, and results, default `tls-ring` adds ring beside aws-lc-rs
-temporalio-sdk            = "1.1.2"                                                                                                                                                                                                                       # Durable workflows and activities replayed from history
-zeromq                    = "0.7.0"                                                                                                                                                                                                                       # ZeroMQ sockets
+cloudevents-sdk           = { version = "0.9.0", features = ["axum", "http-binding"] }                                                                                                                # CloudEvents envelopes with HTTP bindings
+lettre                    = { version = "0.11.23", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] } # Mail messages over pooled SMTP, default `native-tls` links platform TLS beside rustls
+rdkafka                   = { version = "0.39.0", features = ["cmake-build", "zstd"] }                                                                                                                # Kafka producers, consumers, and admin over librdkafka built from source
+rumqttc-next              = { version = "0.34.0", features = ["tracing"] }                                                                                                                            # MQTT 5 client
+schema_registry_converter = { version = "6.0.0", default-features = false, features = ["futures", "avro", "json", "proto_raw", "rustls_tls"] }                                                        # Schema Registry serdes over Avro, JSON Schema, and Protobuf, default `native_tls` links platform TLS beside rustls
+standardwebhooks          = "1.0.1"                                                                                                                                                                   # Standard Webhooks signing and signature verification over `http` 1 header maps
+zeromq                    = "0.7.0"                                                                                                                                                                   # ZeroMQ sockets
 
 # --- [DEVICES]
 
@@ -478,7 +465,7 @@ rustfft      = "6.4.1"                                     # FFT of any length
 
 # --- [SOLVERS]
 
-basin    = "3.2.0"                                                                      # Scalar roots and minimization, bounded robust least squares over nalgebra
+basin    = "3.3.0"                                                                      # Scalar roots and minimization, bounded robust least squares over nalgebra
 clarabel = { version = "0.11.1", features = ["sdp", "blas-src", "lapack-src"] }         # Conic interior-point solves over typed cone blocks, `SolverError` names serde_json under default `serde` alone, `sdp` names `blas_src` and `lapack_src`, which compile empty until the final binary picks one implementation through its own `blas-src` and `lapack-src` rows (Clarabel's `sdp-*` features restate them and exclude each other), adds thiserror 1, itertools 0.11, derive_builder's darling 0.14 with strsim 0.10 on syn 1 and a wasm web-time 0.2 beside the catalog
 diffsol  = "0.19.0"                                                                     # ODE and DAE solves under BDF, SDIRK and explicit Runge-Kutta with forward sensitivities and adjoint gradients over faer sparse and dense backends
 fmi      = { version = "0.8.0", default-features = false, features = ["fmi2", "fmi3"] } # FMI 2 and 3 Co-Simulation imports and instances, default `ls-bus` adds the FMI 3 bus layer and bytes; fmi-sys builds its FMI 2, FMI 3 and default `ls-bus` bindings through bindgen on libclang whatever features fmi takes, and fmi adds zip 8 with its default `time` beside zip 9
@@ -662,17 +649,20 @@ mistralrs   = { version = "0.8.1", features = ["metal"] }                       
 ort         = { version = "2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "tracing", "download-binaries", "copy-dylibs", "tls-rustls-no-provider", "api-31", "coreml"] } # ONNX Runtime inference, default `tls-native` links platform TLS beside rustls
 safetensors = "0.8.0"                                                                                                                                                                           # Safetensors weights
 tiktoken-rs = "0.12.1"                                                                                                                                                                          # tiktoken vocabularies
-tokenizers  = "1.0.0-rc.3"                                                                                                                                                                      # BPE, WordPiece, Unigram, and SentencePiece tokenizers
+tokenizers  = "1.0.0-rc.4"                                                                                                                                                                      # BPE, WordPiece, Unigram, and SentencePiece tokenizers
 whisper-rs  = { version = "0.16.0", features = ["metal"] }                                                                                                                                      # Speech recognition
 
 # --- [BUILD]
 
-cargo_metadata = "0.23.1"                                            # Cargo workspace, dependency graph, and compiler message reads
-litrs          = "1.0.1"                                             # Rust string literals decoded from source files outside compiler parsing
-prettyplease   = "0.3.0"                                             # Generated Rust syntax formatted as checked-in source
-quote          = "1.0.47"                                            # Rust token generation
-syn            = { version = "3.0.9", features = ["full", "visit"] } # Rust syntax trees that code generation builds
-tame-index     = "0.27.1"                                            # Crate versions and feature tables read from crates.io sparse index
+build-rs          = "0.3.5"                                              # Build script inputs Cargo passes through the environment, read as typed values
+cargo_metadata    = "0.23.1"                                             # Cargo workspace, dependency graph, and compiler message reads
+litrs             = "1.0.1"                                              # Rust string literals decoded from source files outside compiler parsing
+prettyplease      = "0.3.0"                                              # Generated Rust syntax formatted as checked-in source
+protox            = "0.10.0"                                             # Protobuf descriptor sets compiled from `.proto` files with no `protoc` binary
+quote             = "1.0.47"                                             # Rust token generation
+syn               = { version = "3.0.10", features = ["full", "visit"] } # Rust syntax trees that code generation builds
+tame-index        = "0.27.2"                                             # Crate versions and feature tables read from crates.io sparse index
+tonic-prost-build = "0.14.9"                                             # gRPC clients and servers generated from a descriptor set in a build script
 
 # --- [LINTING]
 
@@ -681,34 +671,37 @@ dylint_linting = "6.3.2"                                                        
 
 # --- [TESTING]
 
-approx                 = { version = "0.6.0-rc2", features = ["vec_impl", "derive"] }                                                                                                                        # Tolerance comparisons in float assertions
-assert_fs              = "1.1.4"                                                                                                                                                                             # Temporary directory fixtures with path predicates
-claims                 = "0.8.0"                                                                                                                                                                             # Typed values from outcome assertions
-escargot               = "1.0.1"                                                                                                                                                                        # Workspace binaries built and located from tests through Cargo messages
-hdrhistogram           = "7.6.0"                                                                                                                                                                        # Latency histograms with percentile queries at fixed relative error
-criterion              = { version = "0.8.2", features = ["async_tokio"] }                                                                                                                                   # Statistical benchmarks with saved baselines
-insta                  = "1.49.0"                                                                                                                                                                            # Inline and file snapshot assertions
-insta-cmd              = "0.7.0"                                                                                                                                                                             # Binary runs snapshotted with exit code and output
-libtest-mimic          = "0.8.2"                                                                                                                                                                             # Custom test runners with native libtest discovery
-proptest               = { version = "1.12.0", features = ["attr-macro"] }                                                                                                                                   # Property tests with shrinking and persisted failures
-proptest-derive        = "0.9.0"                                                                                                                                                                             # Strategies derived from record types
-proptest-state-machine = "0.9.0"                                                                                                                                                                             # Model-based tests over operation sequences
-rstest                 = "0.28.0"                                                                                                                                                                            # Fixtures, parameterized cases, and per-test timeouts
-similar-asserts        = "2.0.0"                                                                                                                                                                             # Diffed assertion failures over large values
-testcontainers         = { version = "0.28.0", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog"] }                                                                           # Disposable service containers with HTTP readiness waits and removal on termination signals, default `ring` adds ring beside aws-lc-rs
-testcontainers-modules = { version = "0.15.0", default-features = false, features = ["aws-lc-rs", "localstack", "minio", "kafka", "nats", "rabbitmq", "mosquitto", "hashicorp_vault", "postgres", "redis"] } # Prebuilt service definitions that integration tests start, default `ring` adds ring beside aws-lc-rs
-tracing-test           = "0.2.6"                                                                                                                                                                             # Captured spans and events asserted in tests
-wiremock               = "0.6.5"                                                                                                                                                                             # HTTP doubles on loopback server
+approx                 = { version = "0.6.0-rc2", features = ["vec_impl", "derive"] }                                                                                                                                      # Tolerance comparisons in float assertions
+assert_fs              = "1.1.4"                                                                                                                                                                                           # Temporary directory fixtures with path predicates
+claims                 = "0.8.0"                                                                                                                                                                                           # Typed values from outcome assertions
+escargot               = "1.0.1"                                                                                                                                                                                           # Workspace binaries built and located from tests through Cargo messages
+hdrhistogram           = "7.6.0"                                                                                                                                                                                           # Latency histograms with percentile queries at fixed relative error
+criterion              = { version = "0.8.2", features = ["async_tokio"] }                                                                                                                                                 # Statistical benchmarks with saved baselines
+oci-spec               = { version = "0.10.0", default-features = false, features = ["distribution"] }                                                                                                                     # Image references parsed into registry, repository, tag, and digest
+insta                  = "1.49.0"                                                                                                                                                                                          # Inline and file snapshot assertions
+insta-cmd              = "0.7.0"                                                                                                                                                                                           # Binary runs snapshotted with exit code and output
+libtest-mimic          = "0.8.2"                                                                                                                                                                                           # Custom test runners with native libtest discovery
+proptest               = { version = "1.12.0", features = ["attr-macro"] }                                                                                                                                                 # Property tests with shrinking and persisted failures
+proptest-derive        = "0.9.0"                                                                                                                                                                                           # Strategies derived from record types
+proptest-state-machine = "0.9.0"                                                                                                                                                                                           # Model-based tests over operation sequences
+rstest                 = "0.28.0"                                                                                                                                                                                          # Fixtures, parameterized cases, and per-test timeouts
+similar-asserts        = "2.0.0"                                                                                                                                                                                           # Diffed assertion failures over large values
+test-context           = "0.5.8"                                                                                                                                                                                           # Setup and teardown around each test through a context type, teardown running after a panic
+testcontainers         = { version = ">=0.27.3, <0.28", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog", "docker-compose"] }                                                              # Disposable service containers and Compose projects with HTTP readiness waits and removal on termination signals, at the release testcontainers-modules 0.15 links (0.28 pins another `bollard-stubs` and fails resolution beside it), default `ring` adds ring beside aws-lc-rs
+testcontainers-modules = { version = "0.15.0", default-features = false, features = ["aws-lc-rs", "clickhouse", "kafka", "localstack", "minio", "mosquitto", "hashicorp_vault", "postgres", "redis", "rustfs", "valkey"] } # Prebuilt service definitions that integration tests start, default `ring` adds ring beside aws-lc-rs
+tracing-test           = "0.2.6"                                                                                                                                                                                           # Captured spans and events asserted in tests
+wiremock               = "0.6.5"                                                                                                                                                                                           # HTTP doubles on loopback server
 
 # --- [MEMBERS]
 
-rasm-command            = { path = "libs/rust/cli/command" }
+rasm-command            = { path = "libs/rust/runtime/command" }
 rasm-console            = { path = "libs/rust/cli/console" }
 rasm-tui                = { path = "libs/rust/cli/tui" }
 rasm-http               = { path = "libs/rust/services/http" }
 rasm-ipc                = { path = "libs/rust/services/ipc" }
 rasm-mcp                = { path = "libs/rust/services/mcp" }
 rasm-process            = { path = "libs/rust/services/process" }
+rasm-observability      = { path = "libs/rust/runtime/observability" }
 rasm-mesh               = { path = "libs/rust/geometry/mesh" }
 rasm-proximity          = { path = "libs/rust/geometry/proximity" }
 rasm-planar-geometry    = { path = "libs/rust/geometry/planar-geometry" }
@@ -724,6 +717,9 @@ rasm-dependency-graph   = { path = "libs/rust/graphs/dependency-graph" }
 rasm-optimization       = { path = "libs/rust/numerics/optimization", default-features = false }
 rasm-signal-processing  = { path = "libs/rust/numerics/signal-processing" }
 rasm-arrow              = { path = "libs/rust/data/arrow" }
+rasm-store-proto        = { path = "libs/rust/data/store-proto" }
+rasm-provisioning       = { path = "libs/rust/data/provisioning" }
+rasm-grpc               = { path = "libs/rust/transport/grpc" }
 rasm-network-analysis   = { path = "libs/rust/graphs/network-analysis" }
 rasm-graph-layout       = { path = "libs/rust/graphs/graph-layout" }
 rasm-typst              = { path = "libs/rust/documents/typst" }
@@ -737,6 +733,7 @@ rasm-weather            = { path = "libs/rust/geospatial/weather" }
 rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
+rasm-test-support       = { path = "tests/rust/support" }
 mcp-muxer               = { path = "apps/mcp/muxer" }
 
 # --- [LINTS] ----------------------------------------------------------------------------
@@ -916,7 +913,14 @@ unused_workspace_dependencies = "allow"                           # Flags catalo
 # --- [PATCHES] --------------------------------------------------------------------------
 
 [patch.crates-io]
-proj-sys = { git = "https://github.com/georust/proj", rev = "0961616823f3345f962c97ccd059ef98f4d2a060" } # 0.27.0 with `libsqlite3-sys` widened to any 0.x (georust/proj#261), unreleased, so the lock takes 0.39 and its SQLite 3.54 past RUSTSEC-2026-0459
+proj-sys         = { git = "https://github.com/georust/proj", rev = "0961616823f3345f962c97ccd059ef98f4d2a060" }     # 0.27.0 with `libsqlite3-sys` widened to any 0.x (georust/proj#261), unreleased, so the lock takes 0.39 and its SQLite 3.54 past RUSTSEC-2026-0459
+sqlx             = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Database pools on tokio with rustls, each member adds the databases and column types it reads
+sqlx-core        = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`, one `sqlx-core` under `jiff-sqlx`, `pgvector`, `sea-schema`, and `oxtel-sql`
+sqlx-macros      = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
+sqlx-macros-core = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
+sqlx-mysql       = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
+sqlx-postgres    = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
+sqlx-sqlite      = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`, its `libsqlite3-sys` bound below 0.40
 
 # --- [PROFILES] -------------------------------------------------------------------------
 

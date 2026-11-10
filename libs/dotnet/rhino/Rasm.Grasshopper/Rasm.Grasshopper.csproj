@@ -33,4 +33,8 @@
     <ItemGroup Label="Application Hosting">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
+    </ItemGroup>
 </Project>

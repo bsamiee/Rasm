@@ -21,6 +21,7 @@ rule:
     kind: call_expression
     all:
         - matches: log-message
+        - not: {inside: {stopBy: end, kind: function_declaration, has: {field: name, regex: '^log$'}, inside: {stopBy: end, kind: class_declaration, has: {kind: inheritance_specifier, regex: 'LogHandler$'}}}}
         - has: {nthChild: 1, pattern: $LOGGER}
         - any:
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: nameless-literal}}}}

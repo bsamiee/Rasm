@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Place",
+    "description": "Places the unpacked plug-in the project's builds wrote into the host's per-user plug-in folder in one exchange, registers a UXP plug-in in its host's registry file, and signs a CEP extension before placing it",
+    "type": "object",
+    "properties": {
+        "dryRun": { "type": "boolean", "description": "Prints the folder and registry row that would change and writes nothing; NX_DRY_RUN sets the default" },
+        "removeData": { "type": "boolean", "description": "Also removes the data folders UXP hosts keep for this plug-in id, for a clean install", "default": false },
+        "variables": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2, "description": "Environment variables holding the base64 .p12 and its password that sign a CEP extension; unset, a self-signed certificate ZXPSignCmd creates once in the Nx workspace data folder signs it" }
+    }
+}

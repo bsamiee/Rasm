@@ -1,14 +1,14 @@
 import AppKit
-import CurrentProcess
 import Encoding
 import Files
 import Foundation
 import JSONRPC
+import Logging
 import Processes
 import Results
 import Subprocess
 import System
-import os
+import Telemetry
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ actor CodexClient: ProviderClient {
     nonisolated let liveHome: URL
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
-    private let logger: Logger = .init(for: CodexClient.self)
+    private let logger: Logger = .init(label: String(reflecting: CodexClient.self))
     private var servers: [URL: CodexServer] = [:]
 
     init(paths: FileLocations, environment: [Environment.Key: String]) {
@@ -115,7 +115,10 @@ actor CodexClient: ProviderClient {
                 guard live?.identity.map({ identity in outgoing?.identity.isSameAccount(as: identity) == true }) ?? (outgoing == nil) else { throw .identityChanged }
                 if let outgoing, let live { try installFile(live.data, to: CodexAuthFile.file(in: paths.codexHome(outgoing.id))) }
                 try installFile(saved.data, to: liveAuthFile)
-                logger.notice("Installed account \(account.id, privacy: .public) auth file in live CODEX_HOME, outgoing saved \(outgoing != nil && live != nil, privacy: .public)")
+                logger.notice(
+                    "Installed account auth file in live CODEX_HOME",
+                    metadata: ["account": "\(account.id, privacy: .public)", "outgoingSaved": .stringConvertible(outgoing != nil && live != nil)],
+                )
             }
             try remove(CodexAuthFile.file(in: incoming))
             return identity
@@ -146,7 +149,7 @@ actor CodexClient: ProviderClient {
                 )
                 guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
                 guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
-                self.logger.info("Opened OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
+                self.logger.info("Opened OpenAI sign-in page", metadata: ["home": "\(home.path(percentEncoded: false), privacy: .private)"])
                 let completion = await completions.first { received in
                     switch received {
                         case .success(let completed): completed.loginId == started.loginId
@@ -237,10 +240,23 @@ actor CodexClient: ProviderClient {
         let ready = AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>.makeStream()
         let task = Task(name: "codex app-server \(home.lastPathComponent)") { [logger] in
             do {
-                let status = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                let status = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .sequence) { execution in
                     logger.info(
-                        "Started codex app-server \(executable.string, privacy: .public) as PID \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
+                        "Started codex app-server",
+                        metadata: [
+                            "executable": "\(executable.string, privacy: .private)", "pid": "\(execution.processIdentifier, privacy: .public)",
+                            "home": "\(home.path(percentEncoded: false), privacy: .private)",
+                        ],
                     )
+                    async let standardError: Void = {
+                        do {
+                            for try await line in execution.standardError.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded) {
+                                logger.debug("codex app-server wrote standard error", metadata: ["line": "\(line, privacy: .private)"])
+                            }
+                        } catch {
+                            logger.error("codex app-server standard error read failed", error: error)
+                        }
+                    }()
                     await JSONRPCConnection<CodexProtocol.Method, CodexFailure>.run(
                         reading: execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded).map { line in Data(line.utf8) },
                         writing: { line in _ = try await execution.standardInputWriter.write(line) },
@@ -264,11 +280,17 @@ actor CodexClient: ProviderClient {
                         ready.continuation.finish()
                         _ = await connection.finished()
                     }
+                    try await execution.standardInputWriter.finish()
+                    await standardError
                 }
                 .terminationStatus
                 logger.log(
-                    level: Task.isCancelled ? .info : .default,
-                    "codex app-server for \(home.path(percentEncoded: false), privacy: .private) ended with \(status, privacy: .public), stopped by Relay \(Task.isCancelled, privacy: .public)",
+                    level: Task.isCancelled ? .info : .notice,
+                    "codex app-server ended",
+                    metadata: [
+                        "home": "\(home.path(percentEncoded: false), privacy: .private)", "status": "\(status, privacy: .public)",
+                        "stoppedByRelay": .stringConvertible(Task.isCancelled),
+                    ],
                 )
             } catch {
                 ready.continuation.yield(.failure(CodexFailure(process: ProcessFailure(subject: invocation.executable.description, error))))
@@ -288,7 +310,7 @@ actor CodexClient: ProviderClient {
 
     private func stopServer(_ home: URL) async {
         guard let server = servers.removeValue(forKey: home) else { return }
-        logger.info("Stopping codex app-server for \(home.path(percentEncoded: false), privacy: .private)")
+        logger.info("Stopping codex app-server", metadata: ["home": "\(home.path(percentEncoded: false), privacy: .private)"])
         server.task.cancel()
         await server.task.value
     }

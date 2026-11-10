@@ -5,6 +5,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { Automation } from '@rasm/applications/node';
 import { Peer } from '@rasm/atelier-protocol/peer';
 import { serve } from '@rasm/mcp/node';
+import { teardown } from '@rasm/process';
 import { Array, Duration, Effect, Equal, FileSystem, identity, Layer, Option, Path, Result, Schema, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { parse } from 'plist';
@@ -79,4 +80,4 @@ Effect.gen(function* () {
         ),
         replaced,
     );
-}).pipe(Effect.provide(layer), runMain({ teardown: serve.teardown }));
+}).pipe(Effect.provide(layer), runMain({ teardown }));

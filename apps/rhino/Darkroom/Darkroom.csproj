@@ -47,13 +47,14 @@
 
     <ItemGroup Label="Application Hosting">
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" />
         <PackageReference Include="NtfyCator" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../libs/dotnet/graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/runtime/Rasm.Telemetry/Rasm.Telemetry.csproj" />
     </ItemGroup>
 
     <PropertyGroup Label="Tables">

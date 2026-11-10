@@ -34,7 +34,7 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
     dots: Em = 0.015
     wide: Ratio = 1.15
 
-    def applied(self, source: Source, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
+    def applied(self, source: Source, /, *, original: Binary, corpus: Corpus, **_: object) -> Outcome[Source]:
         """Sets every base, ligature, and mark anchor from outlines at the original's median mark clearance in each corpus letter form, attaches composite marks, and adds the `calt` dot alternates and neighbor lifts.
 
         Returns:

@@ -1,5 +1,6 @@
-import { Array, Effect, Equal, Filter, Function, Graph, HashSet, Match, Option, Order, Result, Schema, Struct } from 'effect';
-import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
+import { Array, Cause, Effect, Equal, Filter, Function, flow, Graph, HashSet, Match, Option, Order, Record, Result, Schema, Struct } from 'effect';
+import { Digest } from 'effect/crypto';
+import { type SqlClient, SqlSchema, type Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
 import { Column } from '#/column';
 import type { Engine } from '#/engine';
@@ -11,22 +12,20 @@ import type { Relation } from '#/relation';
 type Finding = ReconcileError['findings'][number];
 interface Live {
     readonly name: string;
-    readonly identity: string | null;
+    readonly identity: Option.Option<typeof Identity.Type>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const digestBase = 257;
-const digestModulus = 2_147_483_647;
 const encoder = new TextEncoder();
 const referentialActions = ['NO ACTION', 'RESTRICT', 'CASCADE', 'SET NULL', 'SET DEFAULT'] as const;
 const methods = ['btree', 'gin', 'gist', 'brin'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Identity = Schema.Struct({ origin: Schema.String, generation: Schema.Int, digest: Schema.optionalKey(Schema.Int) });
+const Identity = Schema.Struct({ origin: Schema.String, generation: Schema.Int, digest: Schema.optionalKey(Schema.String.pipe(Schema.catchDecoding(() => Effect.succeedNone))) });
+const Stamp = Schema.fromJsonString(Identity);
 const Populated = Schema.Struct({ populated: Schema.BooleanFromBit });
-const stored = Schema.decodeOption(Schema.fromJsonString(Identity));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -38,14 +37,25 @@ const constant = ({ kind }: Column, value: string | number) =>
         Match.whenOr('integer', 'real', 'boolean', () => `${value}`),
         Match.orElse(() => literal(`${value}`)),
     );
-const rename: Engine['Service']['rename'] = (sql, from, to) => sql`ALTER TABLE ${sql(from)} RENAME TO ${to}`;
-const digest = (text: string) => encoder.encode(text).reduce((hash, byte) => (hash * digestBase + byte) % digestModulus, 0);
+const renameTable: Engine['Service']['rename'] = (sql, from, to) => sql`ALTER TABLE ${sql(from)} RENAME TO ${to}`;
+const unmigrated: Engine['Service']['role'] = (sql) => new Cause.IllegalArgumentError(`${sql.driver} has no role to migrate as`);
+const digest = (text: string) =>
+    Effect.provide(
+        Digest.Digest.use((service) => service.digestHex(Digest.sha256, encoder.encode(text))),
+        Digest.layerWebCrypto,
+    );
+const replacement = (table: string) => `${table}__rebuild`;
 const identifier = (parts: readonly string[]) => {
-    const identifierBytes = 63;
-    const name = parts.join('_');
+    const bytes = 63;
     const radix = 36;
-    const suffix = `_${digest(name).toString(radix)}`;
-    return encoder.encode(name).length <= identifierBytes ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(identifierBytes - suffix.length)).read)}${suffix}`;
+    const base = 257;
+    const modulus = 2_147_483_647;
+    const name = parts.join('_');
+    const suffix = `_${encoder
+        .encode(name)
+        .reduce((hash, byte) => (hash * base + byte) % modulus, 0)
+        .toString(radix)}`;
+    return encoder.encode(name).length <= bytes ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(bytes - suffix.length)).read)}${suffix}`;
 };
 
 // --- [REFUSALS]
@@ -66,30 +76,10 @@ const refusals = ({ name: owner, key, references, columns, indexes }: Relation) 
 
 // --- [RENDERING]
 
-const render = (
-    sql: SqlClient.SqlClient,
-    engine: Omit<Engine['Service'], 'names'>,
-    catalog: Catalog,
-    declared: Relation,
-    {
-        target = (name) => sql`${sql(name)}`,
-        elements = [],
-        autoincrement = false,
-        identity = Option.none(),
-        identities = () => Option.none(),
-        inline = Function.constTrue,
-    }: {
-        readonly target?: (name: string) => Statement.Fragment;
-        readonly elements?: readonly Statement.Fragment[];
-        readonly autoincrement?: boolean;
-        readonly identity?: Option.Option<typeof Identity.Type>;
-        readonly identities?: (name: string) => Option.Option<typeof Identity.Type>;
-        readonly inline?: (link: { readonly name: string; readonly target: string }) => boolean;
-    } = {},
-) => {
+const rendering = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'names'>, catalog: Catalog, declared: Relation) {
     const { name: owner, key, references, search, tenant, indexes } = declared;
-    const [entries, relation] = [Object.values(declared.columns), target(owner)];
     const quoted = (name: string) => sql`${sql(name)}`;
+    const [entries, relation] = [Object.values(declared.columns), quoted(owner)];
     const spaced = sql.join(' ', false);
     const conjunction = sql.join(' AND ', false);
     const list = (columns: readonly string[]) => sql.csv(columns.map(quoted));
@@ -110,71 +100,61 @@ const render = (
             extensions: Option.match(opclass, { onNone: () => [], onSome: Struct.get('extensions') }),
         };
     };
-    const definitions = entries.map((entry) => {
-        const [type, defaulted, name] = [engine.type(entry), Option.map(entry.default, (value) => engine.constant(entry, value)), quoted(entry.name)];
-        const checked = (subject: Statement.Fragment) =>
-            Column.Bound.$match({
-                Compare: ({ op, value, subject: measured }) => spaced([measured === 'codePoints' ? engine.codePoints(sql, subject) : subject, op, value instanceof Date ? literal(value.toISOString()) : `${value}`]),
-                MultipleOf: ({ divisor }) => spaced([subject, '%', `${divisor}`, '= 0']),
-                Cased: ({ case: casing }): Statement.Fragment => {
-                    const text = engine.text(sql, subject, entry.kind);
-                    return sql`${sql.literal(casing)}(${text}) = ${text}`;
-                },
-            });
-        const rule = (subject: Statement.Fragment) =>
-            Option.map(
-                Option.liftPredicate(
-                    [
-                        ...(Array.isReadonlyArrayNonEmpty(entry.literals)
-                            ? [
-                                  within(
-                                      subject,
-                                      entry,
-                                      entry.literals.map((value) => (typeof value === 'number' ? value : `${value}`)),
-                                  ),
-                              ]
-                            : []),
-                        ...(entry.kind === 'integer' && !entry.textual ? [sql`${subject} BETWEEN ${sql.literal((-Number.MAX_SAFE_INTEGER).toString())} AND ${sql.literal(Number.MAX_SAFE_INTEGER.toString())}`] : []),
-                        ...entry.bounds.map(checked(subject)),
-                        ...engine.domain(sql, subject, entry.kind),
-                    ],
-                    (all) => Option.isNone(entry.projection) && Array.isReadonlyArrayNonEmpty(all),
-                ),
-                (all) => spaced(['CHECK', sql`(${conjunction(all)})`]),
-            );
-        const checkName = label([entry.name, 'check']);
-        const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
-        const origin = Option.getOrElse(entry.renamedFrom, () => entry.name);
-        const stamp = Option.getOrElse(identities(entry.name), () => ({ origin, generation: entry.generation }));
-        const hashed = digest(sql`${spaced([...parts, ...Option.toArray(rule(sql.literal('subject')))])}`.compile(true)[0]);
-        const comment = engine.comment(sql, entry.name, { origin: stamp.origin, generation: stamp.generation, digest: hashed });
-        const check = rule(name);
-        return {
-            ...entry,
-            type,
-            check: Option.map(check, (text) => ({ ...checkName, text })),
-            default: defaulted,
-            identity: stamp,
-            digest: hashed,
-            comment,
-            text: spaced([sql`${name}${comment.inline}`, ...parts, ...Option.toArray(check).map((text) => engine.constraint(sql, checkName.name, text))]),
-        };
-    });
-    const links = references.map(({ columns, target: parent, key: parentKey, onDelete }) => ({ ...label([...columns, 'fkey']), columns, target: parent, onDelete, text: spaced(['FOREIGN KEY', sql`(${list(columns)})`, 'REFERENCES', target(parent), sql`(${list(parentKey)})`, `ON DELETE ${onDelete}`]) }));
+    const definitions = yield* Effect.forEach(
+        entries,
+        Effect.fnUntraced(function* (entry) {
+            const [type, defaulted, name] = [engine.type(entry), Option.map(entry.default, (value) => engine.constant(entry, value)), quoted(entry.name)];
+            const checked = (subject: Statement.Fragment) =>
+                Column.Bound.$match({
+                    Compare: ({ op, value, subject: measured }) => spaced([measured === 'codePoints' ? engine.codePoints(sql, subject) : subject, op, value instanceof Date ? literal(value.toISOString()) : `${value}`]),
+                    MultipleOf: ({ divisor }) => spaced([subject, '%', `${divisor}`, '= 0']),
+                    Cased: ({ case: casing }) => engine.cased(sql, subject, entry.kind, casing),
+                });
+            const rule = (subject: Statement.Fragment) =>
+                Option.map(
+                    Option.liftPredicate(
+                        [
+                            ...(Array.isReadonlyArrayNonEmpty(entry.literals)
+                                ? [
+                                      within(
+                                          subject,
+                                          entry,
+                                          entry.literals.map((value) => (typeof value === 'number' ? value : `${value}`)),
+                                      ),
+                                  ]
+                                : []),
+                            ...(entry.kind === 'integer' && !entry.textual ? [sql`${subject} BETWEEN ${sql.literal((-Number.MAX_SAFE_INTEGER).toString())} AND ${sql.literal(Number.MAX_SAFE_INTEGER.toString())}`] : []),
+                            ...entry.bounds.map(checked(subject)),
+                            ...engine.domain(sql, subject, entry.kind),
+                        ],
+                        (all) => Option.isNone(entry.projection) && Array.isReadonlyArrayNonEmpty(all),
+                    ),
+                    flow(conjunction, (condition) => ({ condition, text: spaced(['CHECK', sql`(${condition})`]) })),
+                );
+            const [checkName, check] = [label([entry.name, 'check']), rule(name)];
+            const parts = [type, ...Option.toArray(projection(entry)).map((expression) => engine.generated(sql, expression)), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(defaulted).map((value) => `DEFAULT ${value}`)];
+            const identity = { origin: Option.getOrElse(entry.renamedFrom, () => entry.name), generation: entry.generation };
+            const hashed = yield* digest(sql`${spaced([...parts, ...Option.toArray(rule(sql.literal('subject'))).map(Struct.get('text'))])}`.compile(true)[0]);
+            const [stamp, written] = [{ ...identity, digest: hashed }, (held: typeof identity) => spaced([sql`${name}${engine.comment(sql, entry.name, { ...held, digest: hashed }).inline}`, ...parts, ...Option.toArray(check).map(({ text }) => engine.constraint(sql, checkName.name, text))])];
+            return { ...entry, type, check: Option.map(check, Struct.assign(checkName)), default: defaulted, identity, stamp, digest: hashed, comment: engine.comment(sql, entry.name, stamp), written, text: written(identity) };
+        }),
+    );
+    const linked = (target: (name: string) => Statement.Fragment) =>
+        references.map(({ columns, target: parent, key: parentKey, onDelete }) => ({ ...label([...columns, 'fkey']), columns, target: parent, onDelete, text: spaced(['FOREIGN KEY', sql`(${list(columns)})`, 'REFERENCES', target(parent), sql`(${list(parentKey)})`, `ON DELETE ${onDelete}`]) }));
     const built = indexes
         .filter(({ method }) => engine.methods.includes(method))
         .map((index) => {
             const { keys, unique, include, where, method, parts } = index;
             const [{ name }, covering, columns] = [label(parts), engine.covering(sql, unique, include), keys.map((part) => keyed(part, method))];
-            const text = (modifiers: readonly string[]) =>
+            const text = (modifiers: readonly string[], on: Statement.Fragment = relation) =>
                 sql`${spaced([
                     'CREATE',
                     ...(unique ? ['UNIQUE'] : []),
                     'INDEX',
                     ...modifiers,
-                    Statement.fragment([sql(name)]),
+                    quoted(name),
                     'ON',
-                    relation,
+                    on,
                     ...(method === 'btree' ? [] : ['USING', method]),
                     sql.join('', false)(['(', sql.csv([...columns.map(Struct.get('text')), ...covering.keys]), ')']),
                     ...covering.clause,
@@ -183,20 +163,41 @@ const render = (
             return { name, parts, extensions: Array.dedupe(columns.flatMap(Struct.get('extensions'))), configuration: Option.none(), text, declared: Option.some(index) };
         });
     const searched = Option.map(search, (searchable) => engine.fulltext(sql, owner, searchable));
-    const stamp = Option.getOrElse(identity, () => ({ origin: Option.getOrElse(declared.renamedFrom, () => owner), generation: Array.countBy(catalog.retired, Equal.equals(owner)) }));
-    const comment = engine.comment(sql, owner, stamp);
+    const identity = { origin: Option.getOrElse(declared.renamedFrom, () => owner), generation: Array.countBy(catalog.retired, Equal.equals(owner)) };
     return {
         relation,
-        identity: stamp,
+        identity,
         definitions,
-        links,
-        indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, text: (modifiers: readonly string[]) => index.text(modifiers, relation), declared: Option.none<Relation['indexes'][number]>() })))],
+        links: linked(quoted),
+        indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, text: (modifiers: readonly string[], on: Statement.Fragment = relation) => index.text(modifiers, on), declared: Option.none<Relation['indexes'][number]>() })))],
         virtual: Option.flatMap(searched, Struct.get('virtual')),
-        policy: Option.flatMap(tenant, ({ column, setting }) => Option.map(engine.policy(sql, owner, column.name, engine.type(column), setting), (rule) => ({ ...rule, text: (role: Statement.Fragment) => rule.text(relation, role) }))),
-        create: sql`CREATE TABLE ${relation}${comment.inline} (${sql.csv([...definitions.map(({ text }) => text), ...elements, spaced(['PRIMARY KEY', sql.join('', false)(['(', spaced([list(key), ...(autoincrement ? ['AUTOINCREMENT'] : [])]), ')'])]), ...links.filter(inline).map(({ name, text }) => engine.constraint(sql, name, text))])})${engine.suffix(sql, declared)}`,
-        comments: [...comment.statements(relation, Option.none()), ...definitions.flatMap(({ name, comment: stamped }) => stamped.statements(relation, Option.some(name)))],
+        policy: Option.flatMap(tenant, ({ column, setting }) => Option.map(engine.policy(sql, owner, column.name, engine.type(column), setting), (rule) => ({ ...rule, text: (role: Statement.Fragment, on: Statement.Fragment = relation) => rule.text(on, role) }))),
+        comments: [...engine.comment(sql, owner, identity).statements(relation, Option.none()), ...definitions.flatMap(({ name, comment }) => comment.statements(relation, Option.some(name)))],
+        create: ({
+            target = quoted,
+            elements = [],
+            autoincrement = false,
+            inline = Function.constTrue,
+            claimed = Option.none(),
+        }: {
+            readonly target?: (name: string) => Statement.Fragment;
+            readonly elements?: readonly Statement.Fragment[];
+            readonly autoincrement?: boolean;
+            readonly inline?: (link: { readonly name: string }) => boolean;
+            readonly claimed?: Option.Option<{ readonly identity: typeof identity; readonly fields: readonly { readonly definition: { readonly name: string }; readonly identity: typeof identity }[] }>;
+        } = {}) => {
+            const stamps = Record.fromIterableWith(Option.match(claimed, { onNone: () => [], onSome: Struct.get('fields') }), (field) => [field.definition.name, field.identity]);
+            const stamp = Option.match(claimed, { onNone: () => identity, onSome: Struct.get('identity') });
+            const columns = definitions.map((definition) => definition.written(Option.getOrElse(Record.get(stamps, definition.name), () => definition.identity)));
+            const primary = spaced(['PRIMARY KEY', sql.join('', false)(['(', spaced([list(key), ...(autoincrement ? ['AUTOINCREMENT'] : [])]), ')'])]);
+            const constraints = linked(target)
+                .filter(inline)
+                .map(({ name, text }) => engine.constraint(sql, name, text));
+            return sql`CREATE TABLE ${target(owner)}${engine.comment(sql, owner, stamp).inline} (${sql.csv([...columns, ...elements, primary, ...constraints])})${engine.suffix(sql, declared)}`;
+        },
     };
-};
+});
+const render = (sql: SqlClient.SqlClient, engine: Omit<Engine['Service'], 'names'>, catalog: Catalog) => Effect.forEach(catalog.tables, (declared) => Effect.map(rendering(sql, engine, catalog, declared), (rendered) => ({ declared, rendered })));
 
 // --- [DIFF]
 
@@ -204,15 +205,14 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
     sql: SqlClient.SqlClient,
     engine: Pick<Engine['Service'], 'rename'>,
     catalog: Catalog,
-    rendered: readonly { readonly declared: Relation; readonly rendered: ReturnType<typeof render> }[],
-    tables: readonly L[],
+    rendered: Effect.Success<ReturnType<typeof render>>,
+    observed: readonly L[],
 ) => {
     const claim = <R extends Live, D extends { readonly name: string; readonly renamedFrom: Option.Option<string>; readonly identity: typeof Identity.Type }>(live: readonly R[], retired: readonly string[], declared: readonly D[]) => {
         const generations = Map.groupBy(retired, Function.identity);
         const [standing, retiring] = Array.partition(live, (row) => {
-            const recorded = Option.flatMap(Option.fromNullOr(row.identity), stored);
-            const { origin, generation } = Option.getOrElse(recorded, () => ({ origin: row.name, generation: 0 }));
-            return generation < (generations.get(row.name)?.length ?? 0) ? Result.fail(row) : Result.succeed({ row, origin, generation, recorded });
+            const { origin, generation } = Option.getOrElse(row.identity, () => ({ origin: row.name, generation: 0 }));
+            return generation < (generations.get(row.name)?.length ?? 0) ? Result.fail(row) : Result.succeed({ row, origin, generation, recorded: row.identity });
         });
         type Candidate = (typeof standing)[number];
         const take = (claimed: HashSet.HashSet<string>, matches: (candidate: Candidate) => boolean) => {
@@ -239,7 +239,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
         return { found, retiring, renamed, claimed: Array.getSomes(found.map(Struct.get('row'))) };
     };
     const located = claim(
-        tables,
+        observed,
         catalog.retired,
         rendered.map((table) => ({ table, name: table.declared.name, renamedFrom: table.declared.renamedFrom, identity: table.rendered.identity })),
     );
@@ -269,7 +269,9 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
             required: added.filter((definition) => !definition.nullable && Option.isNone(definition.default) && Option.isNone(definition.projection)),
         };
     });
-    const [matched, unordered] = Array.partition(entries, (entry) => Option.match(entry.row, { onNone: () => Result.fail(entry), onSome: (live) => Result.succeed({ ...entry, live, retiredIndexes: entry.declared.retired.indexes.map((parts) => identifier([live.name, ...parts])) }) }));
+    const [matched, unordered] = Array.partition(entries, (entry) =>
+        Option.match(entry.row, { onNone: () => Result.fail(entry), onSome: (live) => Result.succeed({ ...entry, live, prior: (parts: readonly string[]) => identifier([live.name, ...parts.map(entry.original)]), retiredIndexes: entry.declared.retired.indexes.map((parts) => identifier([live.name, ...parts])) }) }),
+    );
     const positions = new Map(unordered.map(({ declared }, index) => [declared.name, index]));
     const edges = unordered.flatMap((entry, child) =>
         Array.filterMap(entry.rendered.links, (link) => {
@@ -285,7 +287,7 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
     const components = Graph.stronglyConnectedComponents(graph(edges));
     const cyclic = edges.filter(({ parent, child }) => components.some((component) => component.includes(parent) && component.includes(child)));
     const created = Array.fromIterable(Graph.entries(Graph.topo()(graph(Array.difference(edges, cyclic))))).map(([index, entry]) => ({ ...entry, deferred: cyclic.filter(({ child }) => child === index).map(Struct.get('link')) }));
-    const kept = Array.difference(tables, [...located.retiring, ...located.claimed]);
+    const kept = Array.difference(observed, [...located.retiring, ...located.claimed]);
     const removed = located.retiring.map(({ name }) => name);
     const occupied = SqlSchema.findOne({ Request: Schema.String, Result: Populated, execute: (name) => sql`SELECT EXISTS (SELECT 1 FROM ${sql(name)}) AS populated` });
     const referenced = new Map(matched.map((entry) => [entry.live.name, entry]));
@@ -350,4 +352,4 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { constant, diff, digest, Identity, identifier, literal, mergeTreeRefusals, methods, referentialActions, refusals, rename, render, unsupported };
+export { constant, diff, digest, Identity, identifier, literal, mergeTreeRefusals, methods, referentialActions, refusals, renameTable, render, replacement, Stamp, unmigrated, unsupported };

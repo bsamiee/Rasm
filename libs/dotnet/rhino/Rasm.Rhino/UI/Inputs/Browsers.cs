@@ -1,6 +1,7 @@
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.UI.Rows;
+using Rasm.Telemetry;
 using Rhino.UI;
 using Rhino.UI.Controls;
 
@@ -84,6 +85,6 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
             Products.Forked((from cached in Products.Replace(tiles, (current.Key(item), item, current.TileSize), Products.Acquired(current.Tile(scope, item, current.TileSize))).Scoped(owned.Resources)
                              from posted in refreshed
                              select unit)
-                    | @catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error, nameof(BrowserRow<,>)))))).As()
+                    | @catch(static error => !error.IsCancellation, static error => IO.lift(() => Session.Failed(error, nameof(BrowserRow<,>)))))).As()
         select unit;
 }

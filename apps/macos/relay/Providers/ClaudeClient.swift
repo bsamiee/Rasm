@@ -1,13 +1,13 @@
 import CasePathsCore
-import CurrentProcess
 import Encoding
 import Files
 import Foundation
+import Logging
 import Processes
 import Results
 import Subprocess
 import System
-import os
+import Telemetry
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -86,7 +86,7 @@ actor ClaudeClient: ProviderClient {
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
     private let username: String
-    private let logger: Logger = .init(for: ClaudeClient.self)
+    private let logger: Logger = .init(label: String(reflecting: ClaudeClient.self))
     private var lastCredential: ClaudeCredential?
     private var reading: Task<Result<ClaudeUsageReport?, ClaudeFailure>, Never>?
 
@@ -124,7 +124,7 @@ actor ClaudeClient: ProviderClient {
             {
                 let store = privateStore(selected.id)
                 try await ClaudeCredentialStore.withLock(directories: [store.directory]) { () async throws(ClaudeFailure) in try await store.write(saved, over: store.readItem()) }
-                logger.notice("Saved account \(selected.id, privacy: .public) credential to private store after outside sign-in")
+                logger.notice("Saved credential to private store after outside sign-in", metadata: ["account": "\(selected.id, privacy: .public)"])
             }
             lastCredential = content[case: \.credential]
             return identity
@@ -163,7 +163,7 @@ actor ClaudeClient: ProviderClient {
             if let duplicate = try await copy.read()[case: \.credential], duplicate.token.accessToken == current {
                 try await shared.writeAccount(duplicate.account)
                 try await copy.deleteItem()
-                logger.notice("Restored live account file from account \(id, privacy: .public) duplicate and deleted it")
+                logger.notice("Restored live account file from duplicate and deleted it", metadata: ["account": "\(id, privacy: .public)"])
             }
         }
         try writePendingSwitch(nil)
@@ -204,7 +204,11 @@ actor ClaudeClient: ProviderClient {
                 }
                 if case .failure(let error) = moved { throw error.releasing(await Result { () async throws(ClaudeFailure) in try await self.finish(pending) }) }
                 self.logger.notice(
-                    "Switched to account \(account.id, privacy: .public), outgoing saved \(outgoingCredential != nil, privacy: .public), live item replaced \(selected == nil, privacy: .public)"
+                    "Switched live store to account",
+                    metadata: [
+                        "account": "\(account.id, privacy: .public)", "outgoingSaved": .stringConvertible(outgoingCredential != nil),
+                        "liveItemReplaced": .stringConvertible(selected == nil),
+                    ],
                 )
                 return entering
             }

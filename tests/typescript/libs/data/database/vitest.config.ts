@@ -1,18 +1,17 @@
 import { cloudflareTest } from '@cloudflare/vitest-plugin';
-import { defaults } from '@rasm/test-support/vitest';
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { testPolicy } from '@rasm/test-support/vitest';
+import { defineConfig } from 'vitest/config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default mergeConfig(
-    defaults(import.meta.filename),
-    defineConfig({
-        test: {
-            projects: [
-                { extends: true, test: { name: 'node', include: ['node.test.ts'] } },
-                { extends: true, plugins: [cloudflareTest({ config: true })], test: { name: 'workers', include: ['d1.test.ts'] } },
-                { extends: true, test: { name: 'postgres', include: ['postgres.test.ts'] } },
-            ],
-        },
-    }),
-);
+export default defineConfig({
+    plugins: [testPolicy()],
+    test: {
+        projects: [
+            { extends: true, test: { name: 'node', include: ['node.test.ts'] } },
+            { extends: true, plugins: [cloudflareTest({ config: true })], test: { name: 'workers', include: ['d1.test.ts'] } },
+            { extends: true, test: { name: 'postgres', include: ['postgres.test.ts'] } },
+            { extends: true, test: { name: 'clickhouse', include: ['clickhouse.test.ts'] } },
+        ],
+    },
+});

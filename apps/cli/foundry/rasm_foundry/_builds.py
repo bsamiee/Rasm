@@ -4,7 +4,7 @@ from datetime import timedelta
 from enum import auto, StrEnum
 from pathlib import Path
 import sys
-from typing import Final, get_args, Self
+from typing import Annotated, Final, get_args, Self
 lazy from collections import Counter
 lazy from collections.abc import Callable
 lazy from functools import partial
@@ -12,6 +12,7 @@ lazy import hashlib
 lazy from importlib import metadata
 lazy import time
 
+from cyclopts import Parameter
 from expression.extra.result import catch
 import msgspec
 lazy from anyio import amap, to_process, to_thread
@@ -93,12 +94,13 @@ _CORPUS_DECODER: Final = msgspec.json.Decoder(rasm_typography.Corpus)
 
 
 class _Builds(msgspec.Struct, frozen=True, kw_only=True):
-    """One invocation's declaration and corpus with the digests of its shared inputs, plain values each worker process receives whole."""
+    """One invocation's declaration, corpus, and cache folder with the digests of its shared inputs, plain values each worker process receives whole."""
 
     # --- [STATE]
 
     declaration: Declared
     texts: rasm_typography.Corpus
+    cache: Path
     shared: bytes
     modules: frozendict[str, bytes]
     common: frozenset[str]
@@ -107,7 +109,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
     # --- [INPUTS]
 
     @classmethod
-    def opened(cls, declaration: Declared, texts: rasm_typography.Corpus, closure: frozendict[str, str], /) -> Self:
+    def opened(cls, declaration: Declared, texts: rasm_typography.Corpus, closure: frozendict[str, str], cache: Path, /) -> Self:
         """Hashes the corpus, installed closure, interpreter, platform, and the library and app sources once, sorting modules a build reads apart from check-only ones and rule modules apart from the rest."""
         modules = {
             ".".join((root.name, *path.relative_to(root).with_suffix("").parts)): hashlib.sha256(path.read_bytes()).digest()
@@ -118,6 +120,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         return cls(
             declaration=declaration,
             texts=texts,
+            cache=cache,
             shared=b"".join(map(_digest, (texts, closure, sys.version_info, sys.platform))),
             modules=frozendict(modules),
             common=frozenset(modules.keys() - checked - {rule.__module__ for rule in (*get_args(rasm_typography.Rules.__value__), rasm_typography.Metrics)}),
@@ -146,7 +149,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
     def made(self, face: Faces, original: rasm_typography.Binary, /) -> Outcome[rasm_typography.Construction]:
         """Constructs a face from its original and writes its UFO source through ufoLib2, replacing the held source in one atomic step."""
         path = self.declaration.source(face)
-        return rasm_typography.constructed(original, face, self.texts).bind(
+        return rasm_typography.constructed(original, face, self.texts, cache=self.cache).bind(
             lambda made: committed(path, lambda stage: catch(made.ufo.save, exception=OSError)(stage).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))).map(lambda _: made)
         )
 
@@ -252,7 +255,7 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         references = paired(self.covering(face), RecordFile(path=found.approved(face), decoder=_EXPECTED_DECODER).found())
         return (
             paired(binaries, references)
-            .bind(lambda held: rasm_typography.verified(held[0][0], face, coverage=held[1][0], original=held[0][1], corpus=self.texts, approved=held[1][1]))
+            .bind(lambda held: rasm_typography.verified(held[0][0], face, coverage=held[1][0], original=held[0][1], corpus=self.texts, approved=held[1][1], cache=self.cache))
             .map(lambda findings: (ots.sanitize(str(done.path), capture_output=True), findings))
             .map(
                 lambda held: (
@@ -387,7 +390,9 @@ async def _across[R](step: Callable[[Faces], R], faces: tuple[Faces, ...], /) ->
     return await amap(lambda face: to_process.run_sync(step, face), faces)
 
 
-async def performed(action: Action, declaration: Path, /, name: str | None = None, destination: Path | None = None, *, output: Path) -> Outcome[tuple[Report, ...]]:
+async def performed(
+    action: Action, declaration: Path, /, name: str | None = None, destination: Path | None = None, *, output: Path, cache: Annotated[Path, Parameter(parse=False)]
+) -> Outcome[tuple[Report, ...]]:
     """Runs an action across worker processes over each face a name selects in a set declaration, keeping every face's faults.
 
     Args:
@@ -396,6 +401,7 @@ async def performed(action: Action, declaration: Path, /, name: str | None = Non
         name: Set, family, ornament set, typographic family, or PostScript name, `None` for the whole set.
         destination: Folder a publication copies into.
         output: Folder the set's sources, binaries, and check reports write to.
+        cache: Folder holding the pinned Unicode joining table, the tool's cache folder from the invocation.
 
     Builds key on the installed version of every distribution the app requires, transitively, each requirement taken where its marker holds for the extras requesting it.
 
@@ -429,7 +435,7 @@ async def performed(action: Action, declaration: Path, /, name: str | None = Non
     )
     match found.bind(lambda _: paired(opened, selected)):
         case Result(tag="ok", ok=(inputs, faces)):
-            return await _Builds.opened(*inputs).acted(action, faces, destination)
+            return await _Builds.opened(*inputs, cache).acted(action, faces, destination)
         case Result(error=faults):
             return Error(faults)
 

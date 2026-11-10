@@ -17,30 +17,55 @@ catalog:
 
     # --- [CORE]
 
-    effect: 4.1.2
-    '@effect/platform-node': 4.1.2
+    effect: 4.1.3
+    '@effect/platform-node': 4.1.3
+    '@effect/platform-bun': 4.1.3
+    '@effect/platform-browser': 4.1.3
+    '@effect/platform-cloudflare': 4.1.3
+
+    # --- [SERIALIZATION]
+
+    jsesc: 3.1.0 # JavaScript literals for Acrobat scripts
+    '@types/jsesc': 3.0.3
+    '@solana/codecs': 8.7.0-canary-20261109145639 # Bidirectional binary format declarations for Adobe palette exchange
+    '@bufbuild/protobuf': 2.17.0
+    '@bufbuild/protoc-gen-es': 2.17.0 # `buf generate` plugin writing TypeScript messages and service descriptors from a `.proto`
+    '@bufbuild/protovalidate': 1.3.0
+    '@msgpack/msgpack': 3.1.3
+    rfc6902: 5.4.0
+    avsc: 6.0.0-alpha.15
+    '@oslojs/encoding': 1.1.0
 
     # --- [PARSING]
 
-    plist: 5.0.0 # Property-list parser and builder
+    plist: 5.1.1 # Property-list parser and builder
+    ssh-config: 5.3.0 # OpenSSH client configuration parser and writer
     yaml: 3.0.0-2
     '@decimalturn/toml-patch': 3.3.2 # TOML edits keeping layout and comments
     jsonc-parser: 4.0.0-next.2 # JSON edits keeping layout
+    json5: 2.2.3 # Xcode project file parser
+    chevrotain: 13.2.0
+    ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through compiler API
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
+    astring: 1.9.0 # JavaScript source text from ESTree syntax trees
 
     # --- [MARKUP]
 
     fast-xml-builder: 1.3.1
-    fast-xml-parser: 5.11.2
+    fast-xml-parser: 5.12.0
+    '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
     '@xml-tools/parser': 1.0.12 # XML syntax tree with token offsets
     '@xml-tools/ast': 5.0.6 # XML elements and attributes over parser tokens, for edits keeping layout
     cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
+    parse5: 8.1.1 # Serializer for MCP application documents
+    isomorphic-dompurify: 4.7.0
 
     # --- [TEXT]
 
     validator: 13.15.35
     '@types/validator': 13.15.10
+    shell-quote: 1.12.0 # POSIX shell argument quoting and parsing
 
     # --- [SEARCH]
 
@@ -48,64 +73,290 @@ catalog:
 
     # --- [FILES]
 
+    chokidar: 6.0.0
     '@parcel/watcher': 2.6.0
-    minimatch: 11.0.3
+    jszip: 3.10.2
+    minimatch: 11.0.5
+    package-directory: 8.2.0 # Nearest package directory from existing or generated paths
+    env-paths: 4.0.0 # Per-user data, config, cache, log, and temp folders of each platform
+
+    # --- [HASHING]
+
+    hash-wasm: 4.13.0
+    '@node-rs/argon2': 2.2.2
+    '@noble/hashes': 2.4.0
+
+    # --- [AUTHENTICATION]
+
+    jose: 6.2.17
+    openid-client: 6.8.9
+    '@simplewebauthn/browser': 14.0.0
+    '@simplewebauthn/server': 14.1.0
+    otplib: 13.6.0
+    '@otplib/core': 13.6.0
+
+    # --- [SECRETS]
+
+    '@dopplerhq/node-sdk': 1.3.0
+
+    # --- [FEATURE_FLAGS]
+
+    '@openfeature/server-sdk': 1.23.0
+
+    # --- [REMOTE_PROCEDURE_CALLS]
+
+    '@connectrpc/connect': 2.3.0
+    '@connectrpc/connect-web': 2.3.0
+    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests, notifications, and stdio connections
+    vscode-languageserver-textdocument: 1.0.16
+    '@connectrpc/connect-node': 2.3.0
 
     # --- [TRANSFER]
 
-    '@aws-sdk/client-s3': 3.1161.0
+    '@aws-sdk/client-s3': 3.1165.0
+    '@aws-sdk/client-sts': 3.1165.0 # AssumeRole credentials scoped to one bucket
+    '@smithy/core': 3.39.0 # Request type AWS SDK middleware narrows before setting a header
+    '@aws-sdk/s3-request-presigner': 3.1165.0
+    '@aws-sdk/lib-storage': 3.1165.0
+    '@effect-aws/client-s3': 2.0.0 # S3 commands as Effects with tagged service errors, paginator streams, and scoped client release
+    '@effect-aws/client-sts': 2.0.0 # STS commands as Effects with tagged service errors and scoped client release
+    '@tus/server': 2.4.7
+    '@tus/s3-store': 2.1.0
+    webdav: 5.11.0
+    basic-ftp: 6.2.6
     partial-content: 5.0.0
     '@uppy/core': 6.3.1
-    '@uppy/dashboard': 6.0.2
-    '@uppy/react': 6.1.0
+    '@uppy/dashboard': 6.0.3
+    '@uppy/react': 6.1.1
     '@uppy/xhr-upload': 6.0.1
+    tus-js-client: 5.0.0-pre3
+
+    # --- [MESSAGING]
+
+    cloudevents: 10.0.0
+    mqtt: 5.16.1
+    '@platformatic/kafka': 2.15.0 # Kafka producers, consumer groups under the KIP-848 protocol, transactions, and admin calls with no native build
+    '@platformatic/kafka-opentelemetry': 0.5.0 # Producer and consumer spans for `@platformatic/kafka`
+    '@confluentinc/schemaregistry': 1.11.0 # Schema Registry client with Avro, Protobuf, and JSON Schema serializers
+    zeromq: 6.8.0 # ZeroMQ sockets over the bundled libzmq build
+    standardwebhooks: 1.1.1 # Standard Webhooks signing and signature verification
+    nodemailer: 10.4.0
+    '@types/nodemailer': 8.0.2
+
+    # --- [OBSERVABILITY]
+
+    '@effect/opentelemetry': 4.1.3
+    '@opentelemetry/semantic-conventions': 1.45.0
+    '@opentelemetry/api': 1.10.0
+    '@opentelemetry/api-logs': 0.223.0 # Severity numbers `@effect/opentelemetry` imports, `@opentelemetry/api` holds every other log type
+    '@opentelemetry/context-async-hooks': 3.1.1
+    '@opentelemetry/context-zone': 3.1.1
+    '@opentelemetry/core': 3.1.1
+    '@opentelemetry/otlp-exporter-base': 0.301.1
+    '@opentelemetry/resources': 3.1.1
+    '@opentelemetry/resource-detector-aws': 3.1.0
+    '@opentelemetry/resource-detector-container': 0.9.1
+    '@opentelemetry/resource-detector-gcp': 0.60.0
+    '@opentelemetry/opentelemetry-browser-detector': 0.301.1
+    '@opentelemetry/sdk-logs': 3.1.1
+    '@opentelemetry/sdk-metrics': 3.1.1
+    '@opentelemetry/sdk-trace': 3.1.1
+    '@opentelemetry/sdk-node': 0.301.1 # Providers, exporters, propagators, and resource detectors built from `OTEL_*` variables
+    '@opentelemetry/propagator-env-carrier': 0.301.1 # Getter and setter carrying trace context and baggage through process environment variables
+    '@opentelemetry/instrumentation-host-metrics': 0.8.0
+    '@opentelemetry/baggage-span-processor': 0.6.1
+    '@opentelemetry/exporter-metrics-otlp-grpc': 0.301.1
+    '@opentelemetry/exporter-metrics-otlp-http': 0.301.1
+    '@opentelemetry/exporter-metrics-otlp-proto': 0.301.1
+    '@opentelemetry/exporter-trace-otlp-http': 0.301.1
+    '@opentelemetry/exporter-trace-otlp-proto': 0.301.1
+    '@opentelemetry/exporter-logs-otlp-http': 0.301.1
+    '@opentelemetry/exporter-logs-otlp-proto': 0.301.1
+    '@opentelemetry/instrumentation': 0.301.1
+    '@opentelemetry/instrumentation-http': 0.301.1
+    '@opentelemetry/instrumentation-pg': 0.78.0
+    '@opentelemetry/instrumentation-undici': 0.35.0
+    '@opentelemetry/instrumentation-runtime-node': 0.38.0
+    '@opentelemetry/instrumentation-fetch': 0.301.1
+    '@opentelemetry/instrumentation-document-load': 0.70.0
+    '@opentelemetry/instrumentation-user-interaction': 0.69.0
+    '@opentelemetry/instrumentation-xml-http-request': 0.301.1
+    '@pyroscope/nodejs': 0.7.1
+    web-vitals: 6.2.3
+    '@opentelemetry/instrumentation-aws-sdk': 0.80.0 # Spans for AWS SDK calls, recorded by a registered OpenTelemetry tracer provider
+    '@opentelemetry/instrumentation-redis': 0.73.0 # Spans for `redis` commands against Valkey
+    rotating-file-stream: 3.2.10 # Log file stream rotated by size and interval, kept by count and total size, compressed with gzip
+
+    # --- [LANGUAGE_MODELS]
+
+    '@effect/ai-anthropic': 4.1.3
+    '@effect/ai-openai': 4.1.3
+    '@effect/ai-openrouter': 4.1.3
+    '@effect/ai-openai-compat': 4.1.3
+    '@effect/ai-cloudflare': 4.1.3
+    '@effect/ai-typesafe': 4.1.3
+    '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
 
     # --- [USER_INTERFACE]
 
+    '@panzoom/panzoom': 4.6.2 # Pan and zoom gestures over snapshots
+    nuqs: 2.10.2
+    '@dnd-kit/helpers': 0.5.3
+    '@dnd-kit/react': 0.5.3
     embla-carousel-react: 9.0.0-rc04
     react-zoom-pan-pinch: 4.2.0
-    react: 19.3.0
-    react-dom: 19.3.0
+    react: 19.3.1
+    react-dom: 19.3.1
     '@types/react': 19.3.0
     '@types/react-dom': 19.3.0
+    react-aria: 3.53.1
     react-aria-components: 3.0.0-nightly-99e610236-261006
+    react-stately: 3.51.0
+    '@react-aria/live-announcer': 3.5.1
+    react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.6
     scheduler: 0.28.0
-    '@effect/atom-react': 4.1.2
+    '@effect/atom-react': 4.1.3
+    '@floating-ui/react': 0.27.20
+    '@tanstack/react-table': 9.3.1
+    '@tanstack/react-virtual': 3.14.26
+    '@tanstack/store': 0.11.2
     '@use-gesture/react': 10.3.1
+    react-resizable-panels: 4.21.0
+    outlay: 1.4.1 # Content-sized web grid tracks
 
     # --- [STYLING]
 
-    tailwindcss: 4.3.3
+    class-variance-authority: 0.7.1
+    clsx: 2.1.1
+    tailwindcss: 4.3.5
+    '@tailwindcss/typography': 0.5.20
     tailwindcss-react-aria-components: 3.0.0-nightly-99e610236-261006
+    tailwind-merge: 3.7.0
+    tw-animate-css: 1.4.0
 
     # --- [ICONS]
 
-    lucide-react: 1.66.0
+    lucide-react: 1.70.0
     bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
 
     # --- [ANIMATION]
 
-    motion: 14.9.0
+    motion: 14.11.1
+
+    # --- [RICH_TEXT]
+
+    prosemirror-model: 1.25.13
+    prosemirror-state: 1.4.4
+    prosemirror-view: 1.43.0-beta2
+    prosemirror-transform: 1.12.5
+    prosemirror-commands: 1.7.2
+    prosemirror-keymap: 1.2.3
+    prosemirror-history: 1.5.1
+    prosemirror-inputrules: 1.5.1
+    prosemirror-schema-list: 1.6.0
+    prosemirror-gapcursor: 1.4.1
+    prosemirror-dropcursor: 1.8.4
+    prosemirror-collab: 1.3.1
+
+    # --- [SERVICE_WORKERS]
+
+    workbox-build: 7.4.1
+    workbox-window: 7.4.1
 
     # --- [DATA_STORAGE]
 
-    '@effect/sql-pg': 4.1.2
-    '@effect/sql-sqlite-node': 4.1.2
-    '@effect/sql-d1': 4.1.2
-    '@effect/sql-clickhouse': 4.1.2
-    '@pgsql/traverse': 18.8.3
+    '@electric-sql/d2mini': 0.1.8
+    '@electric-sql/d2ts': 0.1.8
+    '@effect/sql-pg': 4.1.3
+    '@effect/sql-sqlite-node': 4.1.3
+    '@effect/sql-sqlite-bun': 4.1.3
+    '@effect/sql-sqlite-wasm': 4.1.3
+    '@effect/sql-d1': 4.1.3
+    '@effect/sql-clickhouse': 4.1.3
+    '@effect/sql-sqlite-do': 4.1.3
+    '@clickhouse/client': 1.25.0 # ClickHouse HTTP client with row streams, typed settings, and query parameters
+    '@clickhouse/client-web': 1.25.0 # ClickHouse HTTP client over `fetch` for browsers and Workers
+    '@pgsql/traverse': 18.8.4
     '@pgsql/types': 18.0.0
     pgsql-parser: 18.3.3
+    pgvector: 0.3.1 # pgvector, halfvec, and sparsevec values encoded to and from SQL text
+    sqlite-vec: 0.1.10-alpha.4 # Loadable SQLite extension for `vec0` vector tables
+    idb-keyval: 6.3.0
+    redis: 6.4.0-beta.0 # Valkey client `@effect/platform-node` `NodeRedis` wraps
+
+    # --- [COLUMNAR]
+
+    '@duckdb/node-api': 2.0.0-r.1 # In-process DuckDB for Node with prepared statements, appenders, and chunked results
+    '@duckdb/duckdb-wasm': 1.33.1-dev114.0 # DuckDB compiled to WebAssembly for browsers
+    '@apache-arrow/adbc-driver-manager': 0.25.0 # ADBC drivers loaded from shared libraries, results read as Arrow tables
+    '@qualithm/arrow-flight-client': 0.3.0
+    parquet-wasm: 0.9.0
+    apache-arrow: 21.2.0 # Arrow tables and record batches ADBC results arrive as
+
+    # --- [SOLVERS]
+
+    '@lume/kiwi': 0.4.4
+
+    # --- [GRAPHS]
+
+    '@xyflow/react': 13.0.0-next.3
+    elkjs: 0.12.1
+
+    # --- [GEOMETRY]
+
+    watlas: 1.0.1
+    flatbush: 4.7.0 # Static spatial index for snap candidates
+    clipper2-ts: 2.0.1-19 # Polygon offset and boolean operations for trap and bleed outlines
+
+    # --- [INTERCHANGE]
+
+    '@gltf-transform/core': 4.5.1
+    '@gltf-transform/extensions': 4.5.1
+    '@gltf-transform/functions': 4.5.1
+    ktx-parse: 2.0.0
+    meshoptimizer: 1.3.0
+
+    # --- [GEOSPATIAL]
+
+    maplibre-gl: 6.17.0
+    '@deck.gl/core': 9.4.1
+    '@deck.gl/geo-layers': 9.4.1
+    '@deck.gl/layers': 9.4.1
+    '@deck.gl/mapbox': 9.4.1
+    '@deck.gl/mesh-layers': 9.4.1
+    '@deck.gl/extensions': 9.4.1
+    '@loaders.gl/3d-tiles': "5.0.0-alpha.12"
+    '@loaders.gl/core': "5.0.0-beta.6"
+    '@loaders.gl/las': "5.0.0-alpha.14"
+    '@loaders.gl/wkt': "5.0.0-alpha.14" # WKB and EWKB geometry values PostGIS returns, read and written
+    '@geoarrow/deck.gl-geoarrow': 0.4.2
+    '@turf/turf': 7.4.0
+    '@types/geojson': 7946.0.16
+
+    # --- [GRAPHICS]
+
+    three: 0.187.0
+    '@types/three': 0.187.0
+    three-mesh-bvh: 0.9.18
+    '@google/model-viewer': 4.4.0
+    '@webgpu/types': 0.1.74
+    typegpu: 0.12.10
 
     # --- [COLOR]
 
+    colorjs.io: 0.7.1
+    '@texel/color': 1.1.11 # Cusp gamut mapping, Okhsl and Okhsv over RGB gamuts
     culori: 4.0.2 # Deficiency filters, monotone splines, nearest color
     '@types/culori': 4.0.1
+    color-space: 3.5.0 # Conformance vectors, CIECAM16, ICC v2 profile writer
+    spectral.js: 3.0.0 # Kubelka-Munk pigment mixing over reflectance
+    jscolorengine: 1.7.1 # ICC profile decode, rendering intents, black point, proofing
 
     # --- [IMAGING]
 
-    image-size: 2.0.4 # Image width and height read from encoded bytes
+    sharp: 0.35.5
+    image-size: 2.1.0 # Image width and height read from encoded bytes
     '@resvg/resvg-js': 2.7.0-alpha.2 # resvg rendering and usvg simplification of painted SVG masters
 
     # --- [TYPOGRAPHY]
@@ -114,67 +365,156 @@ catalog:
     harfbuzzjs: 1.6.4 # HarfBuzz text shaping and glyph extents compiled to WebAssembly
     fontkit: 2.0.4
     '@types/fontkit': 2.0.9
+    '@capsizecss/unpack': 4.0.1 # Font metrics and weighted width from font bytes
+    '@capsizecss/core': 4.1.3 # Leading trim and fallback metric overrides
+    subset-font: 2.9.0 # Variable font instance as a font file
+    flo-bezier3: 10.0.1 # Bezier intersection, area, and curvature over glyph outlines
+    flo-boolean: 6.0.5 # Outline overlap removal
+    flo-mat: 5.0.7 # Medial axis for stroke thickness and stress
+    hyphen: 1.14.1 # Liang hyphenation patterns
+    '@types/hyphen': 1.14.0
+    justif: 0.9.2 # Justified total-fit line breaking with protrusion, expansion, and tracking
+    knuth-plass-linebreak: 0.9.6 # Ragged and centered total-fit line breaking
+    utopia-core: 1.6.0 # Fluid viewport type and space scales
+    '@persian-tools/persian-tools': 5.0.0-beta.0 # Persian number words
     quran-meta: 7.0.0 # Quran divisions per riwayah
     '@quran.ws/text': 0.1.0 # Mushaf text, marks, pages, lines, and words
+    '@quran.ws/tajwid-rules': 0.1.0 # Tajweed rule and hukm names
+    '@quran.ws/tajwid-annotations': 0.1.0 # Tajweed spans pinned to a Mushaf edition
+
+    # --- [VISUALIZATION]
+
+    d3: 7.9.2
+    d3-array: 3.2.5 # Nearest guide bisection on one axis
+    '@types/d3-array': 3.2.2
+    uplot: 1.6.32
+    '@observablehq/plot': 0.6.19
+    '@visx/scale': 4.0.0
+    '@visx/shape': 4.0.0
+    '@visx/axis': 4.0.0
+    '@visx/group': 4.0.0
+    '@visx/responsive': 4.0.0
+    '@perspective-dev/client': 5.9.0
+    '@perspective-dev/viewer': 5.9.0
+    '@perspective-dev/viewer-datagrid': 5.9.0
+    '@perspective-dev/viewer-charts': 5.9.0
 
     # --- [DOCUMENTS]
 
-    pdfjs-dist: 6.4.299
+    hucre: 1.3.0
+    jspdf: 4.2.1
+    '@embedpdf/core-geometry': 3.1.0
+    '@embedpdf/engine': 3.1.0
+    '@embedpdf/react': 3.1.0
+    pdfjs-dist: 6.5.438
+    papersizes-guide: 1.1.1 # Named paper formats with their standards
+    fraction.js: 5.3.4 # Exact ratios of declared dimensions
+    printing-services: 1.5.1 # Cover dimensions and print service constants
+    pdfnative: 1.9.0 # PDF/X-4 check, page boxes, printer marks
+    mupdf: 1.28.6 # PDF painted object walk and bounds
+    kura-pdf: 1.4.1 # PDF/X and PDF/A conversion and preflight
+    kura-pdf-wasm: 1.4.1
+    page-validation-wasm: 0.12.1 # PDF/A and PDF/UA rule check
+    '@wasm-zoo/ghostscript': 0.7.2 # Ghostscript plate rasters and CMYK colorant coverage
 
     # --- [ADOBE_HOSTS]
 
     types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
     '@adobe-uxp-types/photoshop': 0.1.8
+    '@types/photoshop': 27.11.0
+    '@adobe/premierepro': 27.1.0-beta.16
     indesign-uxp-types: 1.0.0
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
 
     # --- [INFRASTRUCTURE]
 
-    '@pulumi/pulumi': "3.274.0-alpha.x95dc869"
-    '@pulumi/postgresql': "3.19.0-alpha.1793376798"
-    '@pulumi/tls': "5.7.0-alpha.1793431378"
-    '@pulumi/random': "4.22.0-alpha.1792650729"
+    '@pulumi/pulumi': "3.275.0-alpha.xc9c1940"
+    '@pulumi/kubernetes': "4.35.0-alpha.1794164200"
+    '@pulumi/aws': 7.54.0
+    '@pulumi/awsx': "3.13.0-alpha.1794231037"
+    '@pulumi/gcp': "10.3.0-alpha.1794230945"
+    '@pulumi/postgresql': "3.19.0-alpha.1793836452"
+    '@pulumi/tls': "5.7.0-alpha.1793836799"
+    '@pulumi/random': "4.22.0-alpha.1793836591"
     '@pulumi/docker': "5.3.0-alpha.1793426566"
-    '@pulumi/docker-build': "0.1.0-alpha.1793426269"
+    '@pulumi/docker-build': "0.1.0-alpha.1794232428"
     '@pulumi/minio': "1.0.0-alpha.1789107308"
-    '@pulumi/github': "6.16.0-alpha.1793373074"
+    '@pulumi/policy': "1.22.0-alpha.1787747072"
+    '@pulumi/github': "6.16.0-alpha.1793835936"
+    '@pulumi/synced-folder': 0.13.0
+    '@pulumi/esc-sdk': 0.14.0
+    '@pulumi/pulumiservice': "1.8.0-alpha.1794256563"
+    '@pulumiverse/acme': "0.20.0-alpha.1794232718"
     '@pulumi/cloudflare': "6.24.0-alpha.1793839704"
     '@pulumi/command': "1.4.0-alpha.1794116294"
+    '@pulumi/tailscale': "1.0.0-alpha.1793836665"
     '@pulumiverse/doppler': "0.9.0" # Newest published Doppler SDK, `@dopplerhq/pulumi-doppler` replaces it once on npm
+    '@pulumiverse/grafana': 2.45.0
+    '@grafana/grafana-foundation-sdk': 0.0.22
+    '@pulumi/eks': "4.6.0-alpha.1793517416"
+    '@pulumi/cloudinit': "1.7.0-alpha.1793835586"
 
     # --- [COMPILERS]
 
     '@effect/tsgo': 0.67.5 # Effect diagnostics for native TypeScript compiler and language server
     typescript: npm:@typescript/typescript6@6.0.2 # Classic compiler API for every tool loading `typescript` by name, native TypeScript ships none
     '@typescript/native': npm:typescript@7.1.0-dev.20261106.1 # Native TypeScript release `@effect/tsgo` supports
-    '@swc/wasm': 1.16.21
+    '@swc/wasm': 1.16.22
+    tslib: 2.9.1
     '@types/node': 26.6.6
 
     # --- [BUILD]
 
-    '@cloudflare/vite-plugin': 2.0.0-beta.v.12
+    babel-plugin-react-compiler: 1.0.0
+    '@cloudflare/vite-plugin': 2.0.0-beta.v.13
+    '@cloudflare/workers-types': 5.20261110.1
     '@openai/sites-vite-plugin': 0.2.0
-    '@cloudflare/build-output-utils': 0.9.10 # Build Output tree reader for hosting programs
-    '@cloudflare/config': 0.30.2 # `cloudflare.config.ts` uncached loader and parser for hosting programs
+    '@cloudflare/build-output-utils': 0.9.11 # Build Output tree reader for hosting programs
+    '@cloudflare/config': 0.31.0 # `cloudflare.config.ts` uncached loader and parser for hosting programs
     cf: 1.0.0-beta.28 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
     nx: 24.0.5
     '@nx/devkit': 24.0.5
+    '@nx/dotnet': 24.0.5
     '@nx/js': 24.0.5
+    '@nx/playwright': 24.0.5
+    '@nx/vite': 24.0.5
+    '@nx/vitest': 24.0.5
+    signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
+    tinyglobby: 0.2.17 # Types of the file lister Vitest lists test files through
     vite-plugin-static-copy: 4.1.1
-    vite: 8.3.6
-    '@vitejs/plugin-react': 6.2.1
-    oxc-transform-react: 0.156.0
-    '@tailwindcss/vite': 4.3.3
-    '@rolldown/plugin-babel': 0.3.0
+    vite: 8.3.7
+    '@vitejs/plugin-react': 6.3.0
+    oxc-transform-react: 0.158.0
+    '@tailwindcss/vite': 4.3.5
+    '@rolldown/plugin-babel': 0.3.1
+    rollup-plugin-visualizer: 7.1.3
+    lightningcss: 1.33.0
     postcss: 8.5.32
+    rolldown: 1.3.1
+    vite-plugin-pwa: 2.0.0
     '@vite-pwa/assets-generator': 2.0.0 # Favicon, Apple touch icon and head links from one painted master
     '@types/web-app-manifest': 1.0.9
-    '@vitejs/devtools': 0.8.0
+    vite-plugin-compression2: 2.5.4
+    vite-plugin-csp-guard: 4.0.1
+    vite-plugin-image-optimizer: 2.0.3
+    vite-plugin-inspect: 12.1.0
+    '@vitejs/devtools': 0.8.2
+    '@vitejs/devtools-kit': 0.8.2
+    vite-plugin-svgr: 5.2.0
+    vite-plugin-webfont-dl: 3.14.0
+
+    # --- [GENERATORS]
+
+    '@effect/docgen': 4.1.3
+    '@effect/openapi-generator': 4.1.3
+    '@effect/graphql-generator': 4.1.3
 
     # --- [LINTING]
 
+    '@ast-grep/napi': 0.51.1 # Structural search and rewrite over syntax trees from Node
     '@biomejs/biome': 2.6.6
+    dependency-cruiser: 18.8.0-beta-2 # Library root entry load closures
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
     refa: 0.12.1    # Regular expression character classes the ast-grep catalogs compare
 
@@ -196,26 +536,41 @@ catalog:
 
     # --- [VERSIONING]
 
+    '@octokit/rest': 22.0.1
+    actions-up: 2.0.0
+    npm-check-updates: 23.1.1
     '@renovatebot/pep440': 6.0.0 # PEP 440 version comparison
     verkit: 0.5.0 # SemVer 2 ordering of NuGet registry versions
 
     # --- [TESTING]
 
     vitest: 5.1.0
-    '@effect/vitest': 4.1.2
+    '@effect/vitest': 4.1.3
+    fast-check: 4.10.2
     '@vitest/browser-playwright': 5.1.0
     '@vitest/coverage-v8': 5.1.0
+    '@vitest/browser': 5.1.0
     '@vitest/ui': 5.1.0
     vitest-browser-react: 2.3.0
-    '@playwright/test': 1.66.0-alpha-2026-11-07
-    '@axe-core/playwright': 4.14.1-b609be2.0.sha-b609be2
-    storybook: 11.0.0-beta.0
-    '@storybook/react-vite': 11.0.0-beta.0
-    '@storybook/addon-vitest': 11.0.0-beta.0
-    '@storybook/addon-a11y': 11.0.0-beta.0
-    '@storybook/addon-docs': 11.0.0-beta.0
-    '@cloudflare/vitest-plugin': 1.6.0
+    '@playwright/test': 1.66.0-alpha-2026-11-10
+    playwright: 1.66.0-alpha-2026-11-10
+    '@axe-core/playwright': 4.14.1-d1531a9.0.sha-d1531a9
+    axe-core: 4.14.0
+    storybook: 11.0.0-beta.1
+    '@storybook/react-vite': 11.0.0-beta.1
+    '@storybook/addon-vitest': 11.0.0-beta.1
+    '@storybook/addon-a11y': 11.0.0-beta.1
+    '@storybook/addon-docs': 11.0.0-beta.1
+    '@cloudflare/vitest-plugin': 1.6.1
     testcontainers: 12.2.1
+    '@testcontainers/postgresql': 12.2.1
+    '@testcontainers/clickhouse': 12.2.1
+    '@testcontainers/valkey': 12.2.1
+    '@testcontainers/redis': 12.2.1
+    '@testcontainers/minio': 12.2.1
+    '@testcontainers/localstack': 12.2.1
+    '@testcontainers/kafka': 12.2.1
+    '@modelcontextprotocol/inspector': 2.14.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
 
 catalogs:
 
@@ -234,16 +589,41 @@ catalogs:
         '@effect/sql-pg': ^4.0.0
         '@effect/sql-d1': ^4.0.0
         '@effect/sql-clickhouse': ^4.0.0
+        redis: ^6.0.0-0
+        '@playwright/test': ^1.66.0-0
         pdfjs-dist: ^6.0.0
-        nx: ^24.0.0
+        nx: 24.0.5
         '@typescript/native': 'npm:typescript@>=7.1.0-0'
         '@pulumi/pulumi': ^3.274.0-0
+        '@pulumi/cloudflare': ^6.0.0-0
+        '@pulumi/command': ^1.0.0-0
+        '@cloudflare/build-output-utils': ^0.9.0
         '@effect/platform-node': ^4.0.0
         '@aws-sdk/client-s3': ^3.0.0
+        '@aws-sdk/client-sts': ^3.0.0
+        '@smithy/core': ^3.0.0
         cf: ^1.0.0-0
         '@vite-pwa/assets-generator': ^2.0.0
         culori: ^4.0.0
         postcss: ^8.0.0
+        cheerio: ^1.0.0
+        rotating-file-stream: ^3.0.0
+        '@effect/opentelemetry': ^4.0.0
+        '@opentelemetry/api': ^1.10.0
+        '@opentelemetry/api-logs': '>=0.203.0 <0.300.0'
+        '@opentelemetry/core': ^3.0.0
+        '@opentelemetry/resources': ^3.0.0
+        '@opentelemetry/semantic-conventions': ^1.33.0
+        '@opentelemetry/sdk-logs': ^3.0.0
+        '@opentelemetry/sdk-metrics': ^3.0.0
+        '@opentelemetry/sdk-node': ^0.301.0
+        '@opentelemetry/propagator-env-carrier': ^0.301.0
+        '@opentelemetry/exporter-metrics-otlp-grpc': ^0.301.0
+        '@opentelemetry/exporter-metrics-otlp-http': ^0.301.0
+        '@opentelemetry/exporter-metrics-otlp-proto': ^0.301.0
+        '@opentelemetry/instrumentation': ^0.301.0
+        '@opentelemetry/instrumentation-host-metrics': ^0.8.0
+        '@opentelemetry/instrumentation-runtime-node': ^0.38.0
 
 # --- [OVERRIDES] ------------------------------------------------------------------------
 
@@ -255,36 +635,53 @@ overrides:
     vite>@vitejs/devtools: 'catalog:'
     '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
     '@vitejs/plugin-react>@rolldown/plugin-babel': 'catalog:'
+    vite-plugin-inspect>@vitejs/devtools-kit: 'catalog:'
+    '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
+    '@google/model-viewer>three': 'catalog:'
+    '@effect/docgen>typescript': 'catalog:'
+    '@modelcontextprotocol/inspector>yaml': 'catalog:'
+    '@effect/opentelemetry>@opentelemetry/resources': 'catalog:'
+    '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
+    '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
+    '@opentelemetry/api': 'catalog:' # OpenTelemetry 2 under `@pulumi/pulumi` peers below 1.10, a second copy splits every `vitest` snapshot
+    cf>@cloudflare/config: 'catalog:'
+    cf>@cloudflare/build-output-utils: 'catalog:'
+    cloudevents>uuid: 14.0.3 # `cloudevents` 10.0.0 names `uuid` 8, a release line npm marks unsupported
+    '@axe-core/playwright>playwright-core:peer': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version
     tree-sitter: '-'     # Node bindings the grammar packages name as peers, the build compiles their C sources alone
     tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
-
-# --- [PATCHES] --------------------------------------------------------------------------
-
-patchedDependencies:
-    icu@2.4.0: patches/icu@2.4.0.patch # Relative declaration imports given their .js extension, which nodenext resolution requires
 
 # --- [UPDATE] ---------------------------------------------------------------------------
 
 update:
     ignoreDeps:
         - '@typescript/native' # Held at the native TypeScript release `@effect/tsgo` supports
+        - '@duckdb/duckdb-wasm' # Held at tag `next`, SemVer orders `dev57` of tag `latest` above the later `dev114`
+        - react-compiler-runtime # Held at tag `latest`, tag `rc` names 19.1.0-rc.3 from the numbering before 1.0.0
+        - babel-plugin-react-compiler # Held at tag `latest`, tag `rc` names 19.1.0-rc.3 from the numbering before 1.0.0
+        - '@grafana/grafana-foundation-sdk' # Held at tag `latest`, tags per Grafana release name builds older than it
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 
 allowBuilds:
+    '@datadog/pprof': true
     '@launchql/protobufjs': false
+    '@modelcontextprotocol/inspector': false
     '@parcel/watcher': true
     '@pulumi/command': false
     '@pulumi/docker': false
     '@pulumi/docker-build': false
+    '@pulumi/kubernetes': false
     '@tree-sitter-grammars/tree-sitter-toml': false
     '@tree-sitter-grammars/tree-sitter-xml': false
     '@tree-sitter-grammars/tree-sitter-yaml': false
+    core-js: true
     cpu-features: false
     esbuild: true
     nx: true
     protobufjs: true
     ssh2: false
+    tldjs: false
     tree-sitter-bash: false
     tree-sitter-c-sharp: false
     tree-sitter-java: false
@@ -296,6 +693,7 @@ allowBuilds:
     tree-sitter-swift: false
     tree-sitter-typescript: false
     workerd: true
+    zeromq: true
 
 # --- [SKILLS] ---------------------------------------------------------------------------
 

@@ -1,7 +1,6 @@
-import { layer } from '@effect/platform-node/NodeServices';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
+import { ran, runtime } from '@rasm/nx-devkit/process';
 import { Config, Effect, flow, Path, Schema } from 'effect';
-import { ChildProcess } from 'effect/process';
 import { BUILD } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -23,21 +22,15 @@ const execute = flow(
             ? { success: true }
             : {
                   success:
-                      (yield* Effect.scoped(
-                          Effect.flatMap(
-                              ChildProcess.make('uv', ['publish', path.join(yield* Effect.fromNullishOr(distributions), '*'), ...(publish.index === undefined ? [] : ['--index', publish.index]), ...(publish.dryRun === true || dry ? ['--dry-run'] : [])], {
-                                  cwd: context.root,
-                                  extendEnv: true,
-                                  stdin: 'inherit',
-                                  stdout: 'inherit',
-                                  stderr: 'inherit',
-                              }),
-                              (handle) => handle.exitCode,
-                          ),
-                      )) === 0,
+                      (yield* ran('uv', ['publish', path.join(yield* Effect.fromNullishOr(distributions), '*'), ...(publish.index === undefined ? [] : ['--index', publish.index]), ...(publish.dryRun === true || dry ? ['--dry-run'] : [])], {
+                          cwd: context.root,
+                          stdin: 'inherit',
+                          stdout: 'inherit',
+                          stderr: 'inherit',
+                      })).code === 0,
               };
-    }, Effect.provide(layer)),
-    Effect.runPromise,
+    }),
+    runtime.runPromise,
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

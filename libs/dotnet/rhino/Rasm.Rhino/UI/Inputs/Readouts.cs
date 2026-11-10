@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Eto.Forms;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.Telemetry;
 using Rhino.UI;
 
 namespace Rasm.Rhino.UI.Inputs;
@@ -103,7 +104,7 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
                     .Finally(Products.Clear(working).Scoped(owned))
                 let worker = Products.Forked(
                     (Products.Acquired(row.Compute(row.Request), row.Release).Map(static value => (Loading<TValue>)new Loading<TValue>.Ready(value))
-                        | @catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error, nameof(ComputedRow<,>))).Map(_ => (Loading<TValue>)new Loading<TValue>.Failed(error))))
+                        | @catch(static error => !error.IsCancellation, static error => IO.lift(() => Session.Failed(error, nameof(ComputedRow<,>))).Map(_ => (Loading<TValue>)new Loading<TValue>.Failed(error))))
                     .Bind(content => received(id, content)))
                 from started in Products.Replace(working, worker).Scoped(owned)
                 select unit).As()

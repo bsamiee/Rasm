@@ -44,7 +44,6 @@ dev = [
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-python-preference             = "only-managed"
 environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -83,6 +82,7 @@ rasm-imaging           = { workspace = "../../../libs/python/blender" }
 rasm-opencolorio-stubs = { workspace = "../../../libs/python/blender" }
 rasm-records           = { workspace = "../../.." }
 rasm-rendering         = { workspace = "../../../libs/python/blender" }
+rasm-telemetry         = { workspace = "../../.." }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 

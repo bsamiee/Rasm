@@ -21,7 +21,6 @@ public sealed record PlugInDefinition {
     public Option<PlugInLoadTime> LoadTime { get; init; }
     public Option<LicenseDefinition> License { get; init; }
     public Seq<Guid> Dependencies { get; init; }
-    public Seq<Action<ILoggingBuilder>> Logging { get; init; }
     public Seq<PlugInCommand> Commands { get; init; }
     public Seq<View> Views { get; init; }
     public Option<DisplayModeSpec> Modes { get; init; }
@@ -60,7 +59,6 @@ public sealed record RendererDefinition {
 }
 
 public sealed record SkinDefinition {
-    public Seq<Action<ILoggingBuilder>> Logging { get; init; }
     public Seq<Guid> PlugIns { get; init; }
     public Option<string> ApplicationName { get; init; }
     public Option<IO<Control>> Splash { get; init; }

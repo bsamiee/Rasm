@@ -85,8 +85,8 @@ const registerRpcGroup = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & Rpc
         route,
         invoke,
     }: {
-        readonly tools: { readonly [Tag in Rpcs['_tag']]?: ToolRow<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>> };
-        readonly resources: { readonly [Tag in Rpcs['_tag']]?: ResourceRow<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, keyof Rpc.ExtractTag<Rpcs, Tag>['payloadSchema']['fields'] & string> };
+        readonly tools: { readonly [Tag in Rpcs['_tag']]?: ToolRow<Rpc.Success<Extract<Rpcs, { readonly _tag: Tag }>>> };
+        readonly resources: { readonly [Tag in Rpcs['_tag']]?: ResourceRow<Rpc.Success<Extract<Rpcs, { readonly _tag: Tag }>>, keyof Extract<Rpcs, { readonly _tag: Tag }>['payloadSchema']['fields'] & string> };
         readonly route: <Tag extends Rpcs['_tag']>(tag: Tag) => RpcRoute<Chosen, Fields, R>;
         readonly invoke: (rpc: Rpcs) => (payload: Rpc.Payload<Rpcs>, chosen: Chosen) => Effect.Effect<Rpc.Success<Rpcs>, Error, R>;
     },

@@ -2,7 +2,7 @@
     "name": "@rasm/hosting",
     "version": "0.0.0",
     "private": true,
-    "description": "One web app declared once and served by any provider",
+    "description": "One web app declared once and hosted by any provider: its bindings, sign-in source, Node bundle and server, Cloudflare projection and deployment, and server-rendered page",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -15,34 +15,36 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
-        "./app": "./app.ts",
-        "./browser": "./browser.ts",
-        "./cloudflare": "./cloudflare.ts",
-        "./head": "./head.ts",
-        "./node": "./node.ts",
-        "./s3": "./s3.ts",
-        "./sites": "./sites.ts",
-        "./template": "./template.ts",
-        "./vite": "./vite.ts",
-        "./worker": "./worker.ts"
+        ".": "./identity/identity.ts",
+        "./app": "./app/app.ts",
+        "./cloudflare": "./cloudflare/worker-config.ts",
+        "./head": "./rendering/site-head.ts",
+        "./hydrate": "./rendering/hydrate.ts",
+        "./node": "./node/node-server.ts",
+        "./openai-sites": "./identity/openai-sites.ts",
+        "./pulumi": "./cloudflare/worker-deploy.ts",
+        "./shell": "./rendering/shell.ts",
+        "./template": "./rendering/template.ts",
+        "./vite": "./node/node-bundle.ts"
     },
     "files": [ "dist" ],
     "dependencies": {
-        "cheerio": "catalog:",
-        "partial-content": "catalog:"
+        "@types/web-app-manifest": "catalog:"
     },
     "devDependencies": {
-        "@aws-sdk/client-s3": "catalog:",
         "@effect/platform-node": "catalog:",
+        "@pulumi/cloudflare": "catalog:",
+        "@pulumi/command": "catalog:",
+        "@pulumi/pulumi": "catalog:",
         "@rasm/mark": "workspace:*",
+        "@rasm/workers": "workspace:*",
         "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
-        "@types/web-app-manifest": "catalog:",
         "@vite-pwa/assets-generator": "catalog:",
         "cf": "catalog:",
+        "cheerio": "catalog:",
         "culori": "catalog:",
         "effect": "catalog:",
         "postcss": "catalog:",
@@ -51,11 +53,15 @@
         "vite": "catalog:"
     },
     "peerDependencies": {
-        "@aws-sdk/client-s3": "catalog:peers",
         "@effect/platform-node": "catalog:peers",
+        "@pulumi/cloudflare": "catalog:peers",
+        "@pulumi/command": "catalog:peers",
+        "@pulumi/pulumi": "catalog:peers",
         "@rasm/mark": "workspace:*",
+        "@rasm/workers": "workspace:*",
         "@vite-pwa/assets-generator": "catalog:peers",
         "cf": "catalog:peers",
+        "cheerio": "catalog:peers",
         "culori": "catalog:peers",
         "effect": "catalog:peers",
         "postcss": "catalog:peers",
@@ -64,19 +70,31 @@
         "vite": "catalog:peers"
     },
     "peerDependenciesMeta": {
-        "@aws-sdk/client-s3": {
-            "optional": true
-        },
         "@effect/platform-node": {
             "optional": true
         },
+        "@pulumi/cloudflare": {
+            "optional": true
+        },
+        "@pulumi/command": {
+            "optional": true
+        },
+        "@pulumi/pulumi": {
+            "optional": true
+        },
         "@rasm/mark": {
+            "optional": true
+        },
+        "@rasm/workers": {
             "optional": true
         },
         "@vite-pwa/assets-generator": {
             "optional": true
         },
         "cf": {
+            "optional": true
+        },
+        "cheerio": {
             "optional": true
         },
         "culori": {
@@ -98,17 +116,17 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/index.js",
-            "./app": "./dist/app.js",
-            "./browser": "./dist/browser.js",
-            "./cloudflare": "./dist/cloudflare.js",
-            "./head": "./dist/head.js",
-            "./node": "./dist/node.js",
-            "./s3": "./dist/s3.js",
-            "./sites": "./dist/sites.js",
-            "./template": "./dist/template.js",
-            "./vite": "./dist/vite.js",
-            "./worker": "./dist/worker.js"
+            ".": "./dist/identity/identity.js",
+            "./app": "./dist/app/app.js",
+            "./cloudflare": "./dist/cloudflare/worker-config.js",
+            "./head": "./dist/rendering/site-head.js",
+            "./hydrate": "./dist/rendering/hydrate.js",
+            "./node": "./dist/node/node-server.js",
+            "./openai-sites": "./dist/identity/openai-sites.js",
+            "./pulumi": "./dist/cloudflare/worker-deploy.js",
+            "./shell": "./dist/rendering/shell.js",
+            "./template": "./dist/rendering/template.js",
+            "./vite": "./dist/node/node-bundle.js"
         },
         "imports": {
             "#/*": "./dist/*.js"

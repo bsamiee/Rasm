@@ -74,6 +74,10 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
+          "product-name": "Configuration",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "CurrentProcess",
           "build-phase": { "build-phase": "frameworks" },
         }, {
@@ -90,6 +94,10 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
+          "product-name": "Logging",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "Processes",
           "build-phase": { "build-phase": "frameworks" },
         }, {
@@ -98,7 +106,19 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
+          "product-name": "ServiceLifecycle",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "Subprocess",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Telemetry",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Tracing",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "Sparkle",

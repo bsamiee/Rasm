@@ -59,11 +59,12 @@ internal sealed class AsyncContext : AsyncRenderContext {
     }
 
     private void Rendered(RenderWindow window, IO<Unit> render, Option<ExecutionControl> control, string caption) {
-        RenderSuccessCode answer = Session.Run(
+        RenderSuccessCode answer = Session.Operation(
+            $"{nameof(RenderPipeline)}.{nameof(RenderPipeline.Render)}",
             IO.lift(() => Session.RunSafe(render, cancellation.Token))
                 .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))
                 .Map(static _ => RenderSuccessCode.Completed),
-            failed: RenderSuccessCode.Failed);
+            RenderSuccessCode.Failed);
         _ = Session.Run(Products.Each(Seq(IO.lift(() => window.SetProgress(caption, 1f)), IO.lift(() => window.EndAsyncRender(answer)))));
         _ = control.Iter(GC.KeepAlive);
     }

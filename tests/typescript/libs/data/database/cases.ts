@@ -1,13 +1,13 @@
 import { D1Client } from '@effect/sql-d1';
 import { assert, type TestContext, type Vitest } from '@effect/vitest';
-import { Catalog, Column, Engine, Relation, Tokenizer } from '@rasm/database';
+import { Catalog, Column, Relation, Rows, Tokenizer } from '@rasm/database';
 import { Array, BigDecimal, DateTime, Effect, Equal, Exit, Fiber, type Layer, Option, Order, Predicate, Schema, type Scope, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient, SqlError } from 'effect/sql';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Client<F, Q> = Parameters<typeof Catalog.layer<never, F, Q>>[1];
+type Client<F, Q> = Parameters<typeof Catalog.layer<Rows, F, Q>>[1];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -70,7 +70,7 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
     const rows = (name: string) => SqlClient.SqlClient.use((sql) => sql`SELECT * FROM ${sql(name)} ORDER BY 1`);
     const tables = SqlClient.SqlClient.use((sql) =>
         sql.onDialectOrElse({
-            pg: () => sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() ORDER BY 1`,
+            pg: () => sql`SELECT table_name AS name FROM information_schema.tables WHERE table_schema = current_schema() AND table_type = 'BASE TABLE' ORDER BY 1`,
             orElse: () => sql`SELECT name FROM pragma_table_list WHERE schema = 'main' AND type = 'table' AND name NOT GLOB '_cf_*' AND name NOT GLOB 'sqlite_*' ORDER BY 1`,
         }),
     );
@@ -107,7 +107,7 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
     const seeded = Effect.fn('seeded')(function* (reconcile: ReturnType<typeof reconciling>) {
         const sql = yield* SqlClient.SqlClient;
         yield* reconcile(declared([parents, children]));
-        yield* Engine.atomic([
+        yield* Rows.atomic([
             sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`,
             sql`INSERT INTO children ${sql.insert([
                 { id: 'a', parentId: 'p', rank: 1 },
@@ -120,7 +120,7 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
         Effect.fnUntraced(
             function* () {
                 const sql = yield* SqlClient.SqlClient;
-                yield* Engine.atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
+                yield* Rows.atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
                 yield* sql`UPDATE children SET ${sql.update({ parentId: 'p', rank: 2 })} WHERE ${sql('parentId')} = ${'p'}`;
                 assert.deepStrictEqual(yield* Relation.select(children, { parentId: ['p'] }), [{ id: 'a', parentId: 'p', rank: 2 }]);
                 assert.deepStrictEqual(yield* sql.withoutTransforms()`SELECT parent_id FROM children`, [{ parent_id: 'p' }]);
@@ -415,11 +415,14 @@ const cases = <R, F, W = never>(it: Vitest.MethodsNonLive<R>, client: Client<F, 
                     Relation.make('legacy_quoted', { id: Schema.String, value: Schema.Literal('with"quote') }, { renamed: { value: 'with"quote' } }),
                 ]),
             );
-            assert.deepStrictEqual(yield* sql`SELECT table_name AS name, column_name AS field FROM information_schema.columns WHERE table_schema = current_schema() AND column_name <> 'id' ORDER BY table_name`, [
-                { name: 'legacy_function', field: 'value' },
-                { name: 'legacy_quoted', field: 'value' },
-                { name: 'legacy_type', field: 'value' },
-            ]);
+            assert.deepStrictEqual(
+                yield* sql`SELECT c.table_name AS name, c.column_name AS field FROM information_schema.columns c JOIN information_schema.tables t USING (table_schema, table_name) WHERE c.table_schema = current_schema() AND t.table_type = 'BASE TABLE' AND c.column_name <> 'id' ORDER BY c.table_name`,
+                [
+                    { name: 'legacy_function', field: 'value' },
+                    { name: 'legacy_quoted', field: 'value' },
+                    { name: 'legacy_type', field: 'value' },
+                ],
+            );
         }),
     );
     it.effect.runIf(postgres)(

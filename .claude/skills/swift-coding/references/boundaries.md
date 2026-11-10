@@ -68,6 +68,10 @@ func attachment(_ name: FilePath, under root: FileDescriptor) throws(OrderError)
 - `stat` throws `Errno` typed, and `catch` binds `Errno` with its host code
 - C calls fail by returned status (`posix_spawn*`) or by `-1` or `NULL` with global `errno`, read as `Errno(rawValue:)`
 - NUL-terminated C buffers read as `String(validating: buffer.prefix { unit in unit != 0 }, as: UTF8.self)`
+- Per-user folders read `URL` members (`applicationSupportDirectory`, `cachesDirectory`, `temporaryDirectory`), `Library/Logs` under `libraryDirectory`
+- `Program.current.settings` from `CurrentProcess` reads key `<stem>` from `<NAME>_<STEM>` in the environment, then from the bundle identifier's defaults domain
+- `Program.current.directory(_:)` names a process's own log, cache, state, or runtime folder by bundle identifier, at the path its `<kind>.dir` setting holds when set
+- `defaults write <bundle id> <stem> <value>` sets a defaults key, typed `-int` for a number and `-array` for a list
 
 ## [03]-[PROCESSES]
 
@@ -149,25 +153,32 @@ struct Report: ParsableCommand {
 
 ## [05]-[LOGGING]
 
-`Logger` derives a subsystem from the bundle and a category from an owning type, with neither spelled at a call site:
+Code logs through swift-log, a `Logger` labeled by its owning type, with a literal message, values in `metadata:`, and an `Error` as `error:`:
 
 ```swift
-extension Logger {
-    init(for owner: any Any.Type) {
-        self.init(subsystem: Bundle.main.bundleIdentifier ?? ProcessInfo.processInfo.processName, category: String(reflecting: owner))
-    }
-}
+let logger: Logger = .init(label: String(reflecting: Orders.self))
+logger.error("Order save failed", error: error, metadata: ["order": "\(order.id, privacy: .public)", "file": "\(file.path(percentEncoded: false), privacy: .private)"])
 ```
 
-Each interpolation states `privacy:` by the value it marks:
+Each metadata interpolation states `privacy:` from `Telemetry` by the value it marks:
 
-| [INDEX] | [VALUE]                               | [PRIVACY]               |
-| :-----: | :------------------------------------ | :---------------------- |
-|  [01]   | Count, state, or generated identifier | `.public`               |
-|  [02]   | Path, name, or message body           | `.private`              |
-|  [03]   | Identifier correlated across lines    | `.private(mask: .hash)` |
-|  [04]   | Credential                            | `.sensitive`            |
+| [INDEX] | [VALUE]                                 | [PRIVACY]  |
+| :-----: | :-------------------------------------- | :--------- |
+|  [01]   | Count, state, or generated identifier   | `.public`  |
+|  [02]   | Path, name, message body, or credential | `.private` |
 
-- Errors, metatypes, and `CustomStringConvertible` values interpolate whole with a mark, and the log renders them
+- `.stringConvertible(<value>)` keeps a number or flag typed in the log file and public in every sink, a private number goes through the interpolation
 - Messages name the operation and its subject, a failure that paths share logs once where they join
-- `OSSignposter(logger:)` marks intervals: `withIntervalSignpost` around synchronous work, `beginInterval` and `endInterval` across a suspension
+- Libraries create loggers and spans alone, a process entry alone calls `Program.current.telemetry(scopes:)` from `CurrentProcess`, passing one type of each module it logs at its own level
+- `telemetry(scopes:)` sets the process-wide `LoggingSystem`, and `MetricsSystem` and `InstrumentationSystem` for an exported signal, and returns the `ServiceGroup` its entry runs
+- Entries reach a rotating JSON lines file through `JSONLogHandler`, and `OSLogHandler` writes the unified log for code composing its own `Logger(label:factory:)`
+- Libraries log through `Logger.current` or a `Logger` parameter at `info` and below, and return a failure typed without logging it
+- File records hold `timestamp`, `severity_text`, `severity_number`, `body`, `scope`, `trace_id`, `span_id`, `trace_flags`, `attributes`, and `resource`
+- Code location enters `attributes` at `WARN` and above, `exception.type` and `exception.message` with an `error:`, `exception.stacktrace` at `ERROR` and above or for an underlying error
+- Settings `log.level`, `log.filter`, `log.target`, `log.dir`, `log.size`, `log.age`, `log.files`, `cache.dir`, `state.dir`, and `runtime.dir` read `<NAME>_<STEM>` then defaults key `<stem>`
+- `Program.current.directory(.state)` names a per-user folder by bundle identifier, `.log`, `.cache`, and `.runtime` alike
+- `OTEL_LOGS_EXPORTER`, `OTEL_METRICS_EXPORTER`, and `OTEL_TRACES_EXPORTER` each start one signal's export, unset registers nothing, and swift-otel reads every other `OTEL_*` variable
+- `withSpan` from `Tracing` wraps a boundary operation, and `EnvironmentCarrier` from `Telemetry` carries `TRACEPARENT` and `TRACESTATE` through a child's environment
+- `serve` from `EffectRPC` opens one server span per request under the envelope's `traceId` and `spanId`
+- `MetricKitReports` logs each MetricKit `DiagnosticReport` and `MetricReport`, and `metrickitd` registers a client signed with a team identity alone
+- `OSSignposter(subsystem: Program.current.identifier, category:)` marks Instruments intervals: `withIntervalSignpost` around synchronous work, `beginInterval` and `endInterval` across a suspension

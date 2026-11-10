@@ -4,12 +4,16 @@ import CurrentProcess
 import EffectRPC
 import Encoding
 import Foundation
+import Logging
 import Results
+import ServiceLifecycle
 import ServiceManagement
 import Sparkle
 import System
+import Telemetry
+import Tracing
 import UniformTypeIdentifiers
-import os
+import UnixSignals
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -44,43 +48,55 @@ private func disclaim(_: UnsafeMutablePointer<posix_spawnattr_t?>, _: Int32) -> 
 @main
 enum Atelier {
     static func main() async {
-        let logger = Logger(for: Self.self)
-        let input = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }
-        guard case .success(let stat) = input, [FileType.fifo, .socket].contains(stat.type) else {
+        let serving = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }.map { stat in [FileType.fifo, .socket].contains(stat.type) } == .success(true)
+        let disclaimed = Result { () throws(Errno) in if serving { try disclaimResponsibility() } }
+        let telemetry = Program(name: Bundle.main.bundleIdentifier).telemetry(scopes: [Self.self])
+        let logger = Logger(label: String(reflecting: Self.self))
+        let work = ClosureService { @MainActor in
             do {
-                let agents = try FileManager.default.contentsOfDirectory(
-                    at: Bundle.main.bundleURL.appending(components: "Contents", "Library", "LaunchAgents"),
-                    includingPropertiesForKeys: nil,
-                )
-                .filter { file in UTType(filenameExtension: file.pathExtension)?.conforms(to: .propertyList) == true }
-                .map { file in SMAppService.agent(plistName: file.lastPathComponent) }
-                _ = try traverse(agents.filter { agent in agent.status != .requiresApproval }) { agent in Result { try agent.register() }.aggregated(\.self) }.get()
-                if agents.contains(where: { agent in agent.status == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
+                try disclaimed.get()
+                guard serving else {
+                    let agents = try FileManager.default.contentsOfDirectory(
+                        at: Bundle.main.bundleURL.appending(components: "Contents", "Library", "LaunchAgents"),
+                        includingPropertiesForKeys: nil,
+                    )
+                    .filter { file in UTType(filenameExtension: file.pathExtension)?.conforms(to: .propertyList) == true }
+                    .map { file in SMAppService.agent(plistName: file.lastPathComponent) }
+                    _ = try traverse(agents.filter { agent in agent.status != .requiresApproval }) { agent in Result { try agent.register() }.aggregated(\.self) }.get()
+                    if agents.contains(where: { agent in agent.status == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
+                    return
+                }
+                do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust", error: error) }
+                if !CGRequestScreenCaptureAccess() { logger.notice("Started without Screen Recording grant") }
+                let definitions = ScriptingDefinitions()
+                let calls = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
+                let output = DispatchSerialQueue(label: "Atelier.output")
+                let updaterDelegate = UpdaterDelegate()
+                let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
+                defer { extendLifetime((updater, updaterDelegate)) }
+                var context = InstrumentationContext.topLevel
+                InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())
+                try await cancelWhenGracefulShutdown { [context] in
+                    try await InstrumentationContext.withValue(context) {
+                        try await serve(
+                            reading: FileHandle.standardInput.bytes.jsonLines,
+                            writing: { line in try await withTaskExecutorPreference(output) { try FileHandle.standardOutput.write(contentsOf: line) } },
+                            dropped: { failure in logger.debug("Dropped request", error: failure) },
+                            { (request: HelperRequest) in try await withTaskExecutorPreference(calls) { try await request.perform(definitions: definitions) } },
+                        )
+                    }
+                }
             } catch {
-                logger.fault("Atelier left its server unregistered, \(error, privacy: .public)")
-                exit(EXIT_FAILURE)
+                guard case .cancelled? = (error as? EffectRPCFailure)?.reason else {
+                    logger.critical(serving ? "Request serving failed" : "Server agent registration failed", error: error)
+                    throw error
+                }
+                logger.info("Request serving canceled")
             }
-            return
         }
-        let definitions = ScriptingDefinitions()
-        let calls = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
-        let output = DispatchSerialQueue(label: "Atelier.output")
-        do {
-            try disclaimResponsibility()
-            do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust, \(error, privacy: .public)") }
-            if !CGRequestScreenCaptureAccess() { logger.notice("Started without Screen Recording grant") }
-            let updaterDelegate = UpdaterDelegate()
-            let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
-            defer { extendLifetime((updater, updaterDelegate)) }
-            try await serve(
-                reading: FileHandle.standardInput.bytes.jsonLines,
-                writing: { line in try await withTaskExecutorPreference(output) { try FileHandle.standardOutput.write(contentsOf: line) } },
-                dropped: { failure in logger.debug("Dropped \(failure, privacy: .public)") },
-                { (request: HelperRequest) in try await withTaskExecutorPreference(calls) { try await request.perform(definitions: definitions) } },
-            )
-        } catch {
-            logger.fault("Atelier stopped with \(error, privacy: .public)")
-            exit(EXIT_FAILURE)
-        }
+        let services =
+            [ServiceGroupConfiguration.ServiceConfiguration(service: telemetry)] + (serving ? [.init(service: MetricKitReports(to: logger))] : [])
+            + [.init(service: work, successTerminationBehavior: .gracefullyShutdownGroup, failureTerminationBehavior: .gracefullyShutdownGroup)]
+        do { try await ServiceGroup(configuration: ServiceGroupConfiguration(services: services, gracefulShutdownSignals: [.sigterm, .sigint], logger: logger)).run() } catch { exit(EXIT_FAILURE) }
     }
 }

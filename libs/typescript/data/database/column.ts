@@ -15,9 +15,10 @@ type Projection = Data.TaggedEnum<{
     Where: { readonly where: readonly { readonly column: string; readonly negated: boolean; readonly values: Option.Option<Constants<Fields[string]>> }[] };
 }>;
 type Collection = Data.TaggedEnum<{
-    Array: { readonly element: Kind | Collection };
-    Map: { readonly value: Kind | Collection };
-    Nested: { readonly members: { readonly [name: string]: Kind | Collection } };
+    Scalar: { readonly kind: Kind };
+    Array: { readonly element: Collection };
+    Map: { readonly value: Collection };
+    Records: { readonly members: { readonly [name: string]: Collection } };
 }>;
 type Limit = number | bigint | Date;
 type Range = { readonly [K in 'minimum' | 'maximum' | 'minCodePoints' | 'maxCodePoints']?: Limit | undefined } & { readonly [K in 'exclusiveMinimum' | 'exclusiveMaximum']?: Limit | true | undefined };
@@ -136,26 +137,28 @@ class Column extends Data.Class<{
             Match.whenOr({ node: { _tag: 'Declaration' } }, { node: { _tag: 'Arrays' } }, () => 'blob'),
             Match.orElse(() => 'text'),
         );
-        const collected = (node: SchemaRepresentation.Representation): Option.Option<Kind | Collection> =>
+        const scalar = (held: Kind) => Option.some(Column.Collection.Scalar({ kind: held }));
+        const collected = (node: SchemaRepresentation.Representation): Option.Option<Collection> =>
             Match.value(node).pipe(
-                Match.withReturnType<Option.Option<Kind | Collection>>(),
-                Match.tag('String', () => Option.some('text')),
-                Match.tag('Boolean', () => Option.some('boolean')),
-                Match.tag('BigInt', () => Option.some('integer')),
-                Match.tag('Number', (leaf) => Option.some(Array.isReadonlyArrayNonEmpty(payloads([leaf])(SchemaRepresentation.isIntReviver)) ? 'integer' : 'real')),
-                Match.when(instant, () => Option.some('instant')),
+                Match.withReturnType<Option.Option<Collection>>(),
+                Match.tag('String', () => scalar('text')),
+                Match.tag('Boolean', () => scalar('boolean')),
+                Match.tag('BigInt', () => scalar('integer')),
+                Match.tag('Number', (leaf) => scalar(Array.isReadonlyArrayNonEmpty(payloads([leaf])(SchemaRepresentation.isIntReviver)) ? 'integer' : 'real')),
+                Match.when(instant, () => scalar('instant')),
                 Match.when({ _tag: 'Arrays', elements: [], rest: [{ _tag: 'Objects', indexSignatures: [] }] }, ({ rest: [{ propertySignatures }] }) =>
-                    Option.map(Option.all(Record.fromIterableWith(propertySignatures, (member) => [`${member.name.toString()}`, collected(member.type)])), (members) => Column.Collection.Nested({ members })),
+                    Option.map(Option.all(Record.fromIterableWith(propertySignatures, (member) => [member.name.toString(), collected(member.type)])), (named) => Column.Collection.Records({ members: named })),
                 ),
                 Match.when({ _tag: 'Arrays', elements: [], rest: [Match.any] }, ({ rest: [item] }) => Option.map(collected(item), (element) => Column.Collection.Array({ element }))),
                 Match.when({ _tag: 'Objects', propertySignatures: [], indexSignatures: [{ parameter: { _tag: 'String' } }] }, ({ indexSignatures: [{ type }] }) => Option.map(collected(type), (value) => Column.Collection.Map({ value }))),
-                Match.orElse(() => Option.none()),
+                Match.option,
+                Option.flatten,
             );
         return new Column({
             name,
             schema,
             kind,
-            collection: kind === 'json' && decoded.length === 1 ? Option.filter(Option.flatMap(Array.head(decoded), collected), (element) => typeof element !== 'string') : Option.none(),
+            collection: kind === 'json' && decoded.length === 1 ? Option.filter(Option.flatMap(Array.head(decoded), collected), Predicate.not(Column.Collection.$is('Scalar'))) : Option.none(),
             textual,
             ascii: has(SchemaRepresentation.isAsciiReviver),
             refusal: Match.value({ mixed: Array.dedupe(values.flatMap(storage)).length > 1, unbounded: number && !(finite || integer) }).pipe(
@@ -191,4 +194,4 @@ class Column extends Data.Class<{
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Column, type FieldName, type Fields, type Kind, type Projection, type Where };
+export { type Collection, Column, type FieldName, type Fields, type Kind, type Projection, type Where };

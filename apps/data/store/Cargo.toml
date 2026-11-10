@@ -1,0 +1,50 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-store"
+edition.workspace = true
+description       = "Store service: sessions owning isolated PostgreSQL, bucket, ClickHouse, and cache stores on shared servers, served over gRPC"
+publish           = false
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[[bin]]
+name = "rasm-store"
+path = "main.rs"
+test = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+backon               = { workspace = true }
+futures              = { workspace = true }
+tokio                = { workspace = true }
+tokio-util           = { workspace = true }
+redis                = { workspace = true }
+nonempty-collections = { workspace = true }
+sysexits             = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+jiff                 = { workspace = true }
+aws-config           = { workspace = true }
+aws-sdk-sts          = { workspace = true }
+secrecy              = { workspace = true }
+axum                 = { workspace = true }
+http                 = { workspace = true }
+tonic                = { workspace = true }
+tonic-health         = { workspace = true }
+tracing-subscriber   = { workspace = true }
+clap                 = { workspace = true }
+aws-sdk-s3           = { workspace = true }
+clickhouse           = { workspace = true }
+sqlx                 = { workspace = true, features = ["postgres"] }
+rasm-command         = { workspace = true }
+rasm-http            = { workspace = true }
+rasm-provisioning    = { workspace = true, features = ["postgres", "bucket", "clickhouse", "cache"] }
+rasm-store-proto     = { workspace = true }
+rasm-grpc            = { workspace = true, features = ["health", "reflection", "telemetry"] }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

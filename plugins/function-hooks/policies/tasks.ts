@@ -119,7 +119,7 @@ const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, si
     const named = new Set(modes.filter(([flag]) => site.has(flag)).map(([, verb]) => verb));
     const moded = new Set(modes.map(([, verb]) => verb));
     const targets = targetsOf(node);
-    return running.map((target): Runner => ({ node, target, verb: verbOf(targets, target) })).filter(({ verb }) => (named.size > 0 ? named.has(verb) : !moded.has(verb)));
+    return running.map((target): Runner => ({ node, target, verb: verbOf(targets, target) })).filter(({ verb, target }) => (named.size > 0 ? named.has(verb) : !moded.has(verb) && targets[target]?.cache === true));
 });
 
 const launcherStart = ({ head, outer }: Site): Word => outer[outer.findLastIndex(({ row, path }) => !(row.launcher === true || row.module !== undefined || row.wraps === '--' || path.length > 0)) + 1]?.head ?? head;
@@ -136,10 +136,12 @@ const route: Fix = Effect.fnUntraced(function* (site, call) {
     const owners = yield* Option.match(yield* host.graph, { onNone: () => Effect.succeed<readonly ProjectGraphProjectNode[]>([]), onSome: (graph) => ownersOf(graph, site, places, folder, host) });
     const runners = yield* Effect.forEach(owners, (node) => runnersOf(node, site, words, host));
     const [first, ...others] = runners.flatMap((runner) => (runner.length === 1 ? runner : []));
-    if (first === undefined || others.length + 1 !== owners.length || others.some(({ verb }) => verb !== first.verb)) {
+    const uncached = first !== undefined && targetsOf(first.node)[first.target]?.cache !== true;
+    if (first === undefined || others.length + 1 !== owners.length || others.some(({ verb }) => verb !== first.verb) || (uncached && others.length > 0)) {
         return [];
     }
-    const named = others.length === 0 ? `nx ${first.verb} ${quote(first.node.name)}` : `nx run-many -t ${first.verb} -p ${[first, ...others].map(({ node }) => quote(node.name)).join(',')}`;
+    const one = uncached ? `nx run ${quote([first.node.name, first.target].join(':'))}` : `nx ${first.verb} ${quote(first.node.name)}`;
+    const named = others.length === 0 ? one : `nx run-many -t ${first.verb} -p ${[first, ...others].map(({ node }) => quote(node.name)).join(',')}`;
     return whole(site, named, site.program, launcherStart(site));
 });
 
@@ -321,7 +323,7 @@ const outsideScript: Fix = Effect.fnUntraced(function* (site, { host }) {
 
 const CONFIGURED = when(holds(/^[^=]+$/u, '--config'), (site) => (site.has('--no-cache') ? [] : inserted(site, (site.operands.at(0) ?? site.head).end, ' --no-cache')));
 
-const BOOT_MODE: Predicate.Predicate<Site> = ({ informational, operands, has: supplied }) => process.platform === 'darwin' && !informational && Option.exists(Array.get(operands, 1), ({ text }) => ['start', 'run'].includes(text)) && supplied('--force');
+const FORCED_SUPERVISOR: Predicate.Predicate<Site> = ({ informational, operands, has: supplied }) => process.platform === 'darwin' && !informational && Option.exists(Array.get(operands, 1), ({ text }) => ['start', 'run'].includes(text)) && supplied('--force');
 
 const TASKS: Policy = {
     programs: {
@@ -392,6 +394,7 @@ const TASKS: Policy = {
         },
         ty: { flags: ['--python-version=', '--exclude='], routes: {} },
         python: { fixes: [outsideScript] },
+        pnpm: { fixes: [perSubcommand({ patch: [refuse('copies a package into the tree', 'set the package option, a newer release, or the consumer tsconfig')], 'patch-commit': [refuse('copies a package into the tree', 'set the package option, a newer release, or the consumer tsconfig')] })] },
         pulumi: {
             fixes: [
                 perSubcommand({
@@ -407,7 +410,7 @@ const TASKS: Policy = {
             routes: { ignores: ['--run'] },
             fixes: [looped('vitest', 'use --repeats')],
         },
-        pitchfork: { flags: ['-f, --force'], fixes: [perSubcommand({ supervisor: [when(BOOT_MODE, () => refusal('Forced supervisor restart drops boot mode, use launchd'))] })] },
+        pitchfork: { flags: ['-f, --force'], fixes: [perSubcommand({ supervisor: [when(FORCED_SUPERVISOR, () => refusal('Forced supervisor start replaces the launchd-owned supervisor, use launchd'))] })] },
     },
     every: [route, hooked],
 };

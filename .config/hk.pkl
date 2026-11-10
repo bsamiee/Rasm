@@ -73,10 +73,8 @@ steps {
   ["compose"] {
     glob = "**/compose*.{yaml,yml}"
     check = new CommandSpec {
-      command = new Command {
-        argv =
-          List("docker", "compose", "--profile", "*", "--file", "{{files}}", "config", "--quiet")
-      }
+      command =
+        "for file in {{files}}; do docker compose --profile '*' --file \"$file\" config --quiet || failed=1; done; [ -z \"${failed:-}\" ]"
       effect = "read"
     }
   }

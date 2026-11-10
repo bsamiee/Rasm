@@ -1,10 +1,9 @@
-import { findPackageJSON } from 'node:module';
-import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, DependencyType, hashArray, logger, type ProjectConfiguration, type RawProjectGraphDependency, validateDependency } from '@nx/devkit';
-import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, DependencyType, hashArray, logger, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext } from '@nx/devkit/internal';
+import { cached, identity, inferred, reported } from '@rasm/nx-devkit/inference';
+import { present, printed, ToolError } from '@rasm/nx-devkit/process';
 import { major, minor, minSatisfying, validRange } from '@renovatebot/pep440';
-import { Array, Effect, Equivalence, FileSystem, Formatter, flow, Option, Path, Predicate, Record, Schema, SchemaTransformation, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Effect, Equivalence, Option, Path, Predicate, Record, Schema, SchemaTransformation } from 'effect';
 import { CHECKERS, CONFIGS, declared, documents, PIXI, targets } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -22,7 +21,6 @@ const SEPARATORS = /[-_.]+/gu;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) });
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 const Declared = Schema.Struct({
     project: Schema.Struct({
         name: Schema.optionalKey(Schema.String),
@@ -51,21 +49,7 @@ const Metadata = Schema.fromJsonString(
     }),
 );
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class UvError extends Schema.TaggedError<UvError, { readonly brand: unique symbol }>()('UvError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
-    override get message() {
-        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const spawned = Effect.fnUntraced(function* (command: string, args: readonly string[], cwd: string) {
-    const handle = yield* ChildProcess.make(command, args, { cwd, extendEnv: true, stdin: 'ignore' });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* UvError.make({ subject: [command, ...args].join(' '), detail: `exited ${code} in ${cwd}: ${stderr.trim()}` });
-}, Effect.scoped);
 
 const normalized = (name: string) => name.toLowerCase().replaceAll(SEPARATORS, '-');
 
@@ -109,7 +93,6 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
                 { onNone: () => metadata.workspace.id, onSome: ({ id }) => id },
             )
         ]?.dependency_groups ?? [];
-    const locals = Array.dedupe(Array.getSomes(Object.values(resolution).map(local)));
     return {
         lock,
         members: members.map((member) => {
@@ -127,9 +110,6 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
                 published: packaged && Option.exists(manifest(member.root), ({ classifiers, dynamic }) => !(dynamic.includes('classifiers') || classifiers.some((classifier) => classifier.startsWith(PRIVATE)))),
                 lock,
                 nested: members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`))),
-                manifests: Array.dedupe([workspace, ...locals])
-                    .map((root) => path.join(root, 'pyproject.toml'))
-                    .toSorted(),
                 checks: Record.getSomes(
                     Record.map(CHECKERS, (_, key) => {
                         const distributed = (node: typeof Node.Type) => node.name === key && Option.isNone(local(node));
@@ -162,53 +142,52 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
 const built = new Map<string, readonly ReturnType<typeof report>[]>();
 
 const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: object, files: readonly string[]) {
-    const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
+    const path = yield* Path.Path;
     const locks = files.filter((file) => path.basename(file) === LOCK).toSorted();
-    const { name } = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url)).pipe(Effect.flatMap(fs.readFileString), Effect.flatMap(Schema.decodeEffect(Manifest)));
-    const modules = (yield* fs.readDirectory(import.meta.dirname)).toSorted().map((module) => path.join(import.meta.dirname, module));
-    const hash = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [FILES])), ...(yield* Effect.forEach(modules, (module) => fs.readFileString(module))), hashObject(options), ...files.toSorted()]);
-    const cache = new PluginCache<readonly ReturnType<typeof report>[]>(path.join(workspaceDataDirectory, `${path.basename(name)}-${hashObject(options)}.hash`));
-    const cached = Option.fromNullishOr(cache.get(hash));
+    const plugin = yield* identity(import.meta.url, workspaceRoot);
+    const hash = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [FILES])), plugin.digest, ...files.toSorted()]);
+    const cache = yield* cached<readonly ReturnType<typeof report>[]>(plugin, options);
+    const held = yield* cache.get(FILES, () => Effect.succeed(hash));
+    const installed = Option.isSome(held) || Option.isSome(yield* present('uv', ['--version']));
     const [located, unlocked] = yield* Effect.partition(
-        Option.isSome(cached) ? [] : locks,
+        Option.isSome(held) || !installed ? [] : locks,
         (lock) =>
-            spawned('uv', ['workspace', 'metadata', '--preview-features', 'workspace-metadata', '--quiet'], path.join(workspaceRoot, path.dirname(lock))).pipe(
+            printed('uv', ['workspace', 'metadata', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: path.join(workspaceRoot, path.dirname(lock)) }).pipe(
                 Effect.flatMap(Schema.decodeEffect(Metadata)),
-                Effect.catchTag('SchemaError', (cause) => UvError.make({ subject: `uv workspace metadata for ${lock}`, detail: 'does not decode', cause })),
-                Effect.mapBoth({ onFailure: (error) => ({ lock, error }), onSuccess: (metadata) => ({ lock, metadata }) }),
+                Effect.mapBoth({ onFailure: (error) => [lock, ToolError.of(`uv workspace metadata for ${lock}`, 'does not decode')(error)] as const, onSuccess: (metadata) => ({ lock, metadata }) }),
             ),
         { concurrency: 'unbounded' },
     );
-    yield* Effect.forEach(unlocked, ({ error }) => Effect.sync(() => logger.warn(`${error.message}; its root keeps its workspace targets alone until uv reads it`)));
+    yield* Effect.sync(() => {
+        if (!installed && locks.length > 0) {
+            logger.warn(`uv is absent on this host, so ${locks.join(', ')} keep their workspace targets alone, and their runs report the missing tool`);
+        }
+    });
     const read = [
         ...located,
-        ...unlocked.map(({ lock }) => {
+        ...(installed ? [] : locks).map((lock) => {
             const at = path.join(workspaceRoot, path.dirname(lock));
             return { lock, metadata: { schema: { version: 'preview' as const }, workspace: { path: at, id: `workspace+${at}` }, members: [], resolution: {} } };
         }),
     ];
-    const documented = yield* documents(
+    const { documented, unparsed } = yield* documents(
         workspaceRoot,
         read.flatMap(({ metadata }) => [metadata.workspace.path, ...metadata.members.map((member) => member.path)]).map((at) => path.relative(workspaceRoot, at) || '.'),
     );
-    const releases = Option.isSome(cached)
-        ? []
-        : Array.dedupe(
-              (yield* spawned('uv', ['python', 'list', 'cpython', '--only-downloads', '--all-versions', '--offline', '--output-format', 'json'], workspaceRoot).pipe(
-                  Effect.flatMap(Schema.decodeEffect(Releases)),
-                  Effect.catchTag('SchemaError', (cause) => UvError.make({ subject: 'uv python list', detail: 'does not decode', cause })),
-              )).map(({ version }) => version),
-          );
-    const reports = Option.getOrElse(cached, () => read.map(({ lock, metadata }) => report(path, workspaceRoot, lock, metadata, documented, releases)));
-    yield* Option.isNone(cached) && unlocked.length === 0
-        ? Effect.sync(() => {
-              cache.set(hash, reports);
-              cache.writeToDisk();
-          })
-        : Effect.void;
-    const reported = reports.flatMap(({ members }) => members);
+    const releases =
+        Option.isSome(held) || !installed
+            ? []
+            : Array.dedupe(
+                  (yield* printed('uv', ['python', 'list', 'cpython', '--only-downloads', '--all-versions', '--offline', '--output-format', 'json'], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(Releases)), Effect.mapError(ToolError.of('uv python list', 'does not decode')))).map(
+                      ({ version }) => version,
+                  ),
+              );
+    const reports = Option.getOrElse(held, () => read.map(({ lock, metadata }) => report(path, workspaceRoot, lock, metadata, documented, releases)));
+    const failures = [...unlocked, ...unparsed];
+    yield* Option.isNone(held) && installed && failures.length === 0 ? cache.set(FILES, reports, hash) : Effect.void;
+    const members = reports.flatMap((workspace) => workspace.members);
     const globbed = yield* Effect.forEach(
-        reported.flatMap(({ root, checks }) => Object.values(checks).map((check) => [root, check] as const)),
+        members.flatMap(({ root, checks }) => Object.values(checks).map((check) => [root, check] as const)),
         ([root, check]) =>
             Effect.map(
                 Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [...check.patterns])),
@@ -217,52 +196,46 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: objec
         { concurrency: 'unbounded' },
     );
     built.set(hashArray([workspaceRoot, hashObject(options)]), reports);
-    return { name, reports, roots: new Map(reported.map((member) => [member.root, member])), present: new Map(globbed.filter(([, , matched]) => matched).map(([check, base]) => [check, base])) };
+    return { name: plugin.name, cleaner: plugin.cleaner, reports, roots: new Map(members.map((member) => [member.root, member])), found: new Map(globbed.filter(([, , matched]) => matched).map(([check, base]) => [check, base])), failures };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes<typeof Options.Encoded> = [
     FILES,
-    flow(
-        Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
-            const settings = options ?? {};
-            const [path, { outputPath }, { name, reports, roots, present }] = yield* Effect.all([Path.Path, Schema.decodeEffect(Options)(settings), graph(context.workspaceRoot, settings, files)]).pipe(Effect.mapError((error) => new AggregateCreateNodesError([[null, error]], [])));
-            return reports.map(({ lock, members }): CreateNodesResultArray[number] => [
-                lock,
-                {
-                    projects: Record.fromIterableWith(members, (member): readonly [string, Omit<ProjectConfiguration, 'root'>] => [
-                        member.root,
+    (files, options, context: CreateNodesContext) =>
+        inferred(
+            Effect.gen(function* () {
+                const settings = options ?? {};
+                const [path, { outputPath }, { name, cleaner, reports, roots, found, failures }] = yield* Effect.all([Path.Path, Schema.decodeEffect(Options)(settings), graph(context.workspaceRoot, settings, files)]);
+                return yield* reported(
+                    reports.map(({ lock, members }): CreateNodesResultArray[number] => [
+                        lock,
                         {
-                            ...(member.name === undefined ? {} : { name: member.name }),
-                            metadata: { technologies: ['python'] },
-                            targets: { ...targets(path, member, roots, name, 'production' in getNamedInputs(member.root, context) ? '^production' : '^default', present, outputPath) },
-                            ...(member.published ? { tags: [RELEASE], release: { version: { versionActions: `${name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } } : {}),
+                            projects: Record.fromIterableWith(members, (member): readonly [string, Omit<ProjectConfiguration, 'root'>] => [
+                                member.root,
+                                {
+                                    ...(member.name === undefined ? {} : { name: member.name }),
+                                    metadata: { technologies: ['python'] },
+                                    targets: { ...targets(path, member, roots, name, cleaner, 'production' in getNamedInputs(member.root, context) ? '^production' : '^default', found, outputPath) },
+                                    ...(member.published ? { tags: [RELEASE], release: { version: { versionActions: `${name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } } : {}),
+                                },
+                            ]),
                         },
                     ]),
-                },
-            ]);
-        }),
-        Effect.provide(layer),
-        Effect.runPromise,
-    ),
+                    failures,
+                );
+            }),
+        ),
 ];
 
 const createDependencies: CreateDependencies<typeof Options.Encoded> = (options, context) => {
     const names = createProjectRootMappingsFromProjectConfigurations(context.projects);
     return Array.getSomes(
-        (built.get(hashArray([context.workspaceRoot, hashObject(options ?? {})])) ?? [])
-            .flatMap(({ edges }) => edges)
-            .map((edge) =>
-                Option.map(Option.all([Option.fromUndefinedOr(names.get(edge.source)), Option.fromUndefinedOr(names.get(edge.target))]), ([source, target]) => {
-                    const dependency = { ...edge, source, target };
-                    validateDependency(dependency, context);
-                    return dependency;
-                }),
-            ),
+        (built.get(hashArray([context.workspaceRoot, hashObject(options ?? {})])) ?? []).flatMap(({ edges }) => edges).map((edge) => Option.map(Option.all([Option.fromUndefinedOr(names.get(edge.source)), Option.fromUndefinedOr(names.get(edge.target))]), ([source, target]) => ({ ...edge, source, target }))),
     );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createDependencies, createNodes, LOCK, type Member, normalized, spawned, UvError };
+export { createDependencies, createNodes, LOCK, type Member, normalized };

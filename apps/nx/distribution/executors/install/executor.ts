@@ -1,8 +1,8 @@
 import process from 'node:process';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
+import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Config, Effect, Option, Path, Schema, UndefinedOr } from 'effect';
-import { built, DistributionError, spawned } from '#/plugins/host-packages';
+import { built } from '#/plugins/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,7 +23,7 @@ const installed = Effect.fnUntraced(function* (options: unknown, context: Execut
         ...(configurations.length === 0 ? [] : [`its targets declare the configurations ${configurations.join(', ')}, which nx install ${project} -c <configuration> passes down`]),
     ].join('; ');
     const loaders = yield* Array.match(local, {
-        onEmpty: () => DistributionError.make({ subject: project, detail }),
+        onEmpty: () => ToolError.make({ subject: project, detail }),
         onNonEmpty: Effect.forEach((bundle) => (dryRun === true || dry ? Effect.as(Effect.logInfo(`Would run ${bundle.host.install?.command} for ${bundle.file}`), Option.none<string>()) : (bundle.host.install?.run(bundle) ?? Effect.succeedNone))),
     });
     const applications = Array.dedupe(
@@ -39,7 +39,7 @@ const installed = Effect.fnUntraced(function* (options: unknown, context: Execut
         ),
     );
     const listing = Option.filter(Option.fromUndefinedOr(PROCESSES[process.platform]), () => applications.length > 0);
-    const running = yield* Option.match(listing, { onNone: () => Effect.succeed(Array.empty<string>()), onSome: ([command, ...args]) => Effect.map(spawned(command, args), (printed) => printed.split('\n')) });
+    const running = yield* Option.match(listing, { onNone: () => Effect.succeed(Array.empty<string>()), onSome: ([command, ...args]) => Effect.map(printed(command, args), (listed) => listed.split('\n')) });
     const stale = applications.filter((application) => running.some((executable) => executable.startsWith(path.join(application, 'Contents', 'MacOS', path.sep))));
     yield* stale.length === 0 ? Effect.void : Effect.logInfo(`${stale.map((application) => path.basename(application, '.app')).join(', ')} runs the build it loaded at start, restart it to load this one`);
     return { success: true };
@@ -47,7 +47,7 @@ const installed = Effect.fnUntraced(function* (options: unknown, context: Execut
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) => installed(options, context).pipe(Effect.provide(layer), Effect.runPromise);
+const execute = (options: unknown, context: ExecutorContext) => installed(options, context).pipe(runtime.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

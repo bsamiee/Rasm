@@ -11,6 +11,10 @@ rule:
                 kind: value_arguments
                 any:
                     - not: {has: {kind: value_argument}}
-                    - has: {kind: value_argument, has: {field: name, regex: '^subsystem$'}}
+                    - has:
+                        kind: value_argument
+                        all:
+                            - has: {field: name, regex: '^subsystem$'}
+                            - not: {has: {field: value, regex: '^(Program\.current\.)?identifier$'}}
 message: '`$TYPE` spells a subsystem at its call site or logs under the empty default'
-note: 'Construct `Logger(for: <Owner>.self)` from `CurrentProcess` in place of `OSLog`, and `OSSignposter(logger:)` over it'
+note: 'Log through `Logging.Logger(label:)`, and pass `Program.current.identifier` from `CurrentProcess` as the subsystem of an `OSSignposter`'

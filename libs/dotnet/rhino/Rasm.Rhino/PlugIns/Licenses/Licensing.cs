@@ -1,5 +1,6 @@
 using System.Drawing;
 using Rasm.Rhino.UI.Styling;
+using Rasm.Telemetry;
 using Rhino;
 using Rhino.PlugIns;
 using Rhino.Runtime;
@@ -40,7 +41,7 @@ public static class Licensing {
                 IO.pure(productKey).Bind(validate)
                     .Map(static data => (ValidateResult.Success, data))
                     .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure((ValidateResult.ErrorHideMessage, new LicenseData())))
-                    .Catch(static error => error.IsExpected, static error => IO.pure((ValidateResult.ErrorShowMessage, new LicenseData { ErrorMessage = Session.Messages(error) }))),
+                    .Catch(static error => error.IsExpected, static error => IO.pure((ValidateResult.ErrorShowMessage, new LicenseData { ErrorMessage = error.Messages() }))),
                 (ValidateResult.ErrorShowMessage, new LicenseData()));
             return result;
         };

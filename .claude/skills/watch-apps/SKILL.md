@@ -92,8 +92,11 @@ watch-apps serve
 - Refused and unanswered actions can have run, `read` the instance before retrying one
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
 - `log` prints one line per run sharing the caller's `WATCH_APPS_SESSION` with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
-- Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log` here), else `~/Library/Logs/watch-apps/watch-apps.log`, run `exit` holding its exit `status`, and `signal` for a run a signal ended
-- Log files of 4 MB or more rotate to `.1` through `.3` beside them, the oldest replaced, and `log` reads the kept files with the live one
+- Each run writes `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to its own file `watch-apps/<session>.<pid>.jsonl` in `$WATCH_APPS_LOG_DIR` (`.artifacts/logs` here), else `~/Library/Logs/app.rasm.watch-apps`, a run with no session as `<pid>.jsonl`
+- Run `exit` holds its exit `status`, and `signal` for a run a signal ended
+- Run files past 1 MB keep the run start and its last line per key, and the newest 64 run files stay
+- Failures append one OpenTelemetry log record each to `watch-apps.log` in the same folder, with `trace_id` and `span_id` of the run while traces export, a `TRACEPARENT` in the environment being its parent
+- `watch-apps.log` rotates at 8 MB or 1 day to `.1` through `.7` beside it, the oldest replaced and each one older than 1 day deleted
 - `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants
 
 ## [03]-[STATES]

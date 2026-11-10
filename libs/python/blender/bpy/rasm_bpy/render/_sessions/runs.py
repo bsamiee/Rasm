@@ -34,9 +34,11 @@ from rasm_rendering import (
     Flamenco,
     FrameTime,
     Job,
+    LocalMachine,
     observed,
     Output,
     PackedFile,
+    Program,
     Progress,
     PROGRESS_DECODER,
     RENDER_QUEUE_DECODER,
@@ -262,11 +264,11 @@ def commanded(dispatcher: Dispatcher, arguments: Run | RenderFrames, trailing: t
 # --- [SUPERVISION]
 
 
-def supervised(dispatcher: Dispatcher, run: Run, trailing: tuple[str, ...]) -> Outcome[int]:
-    """Supervises local render processes, sleep held off while the preferences keep the machine awake, posting notices."""
+def supervised(dispatcher: Dispatcher, run: Run | Program, trailing: tuple[str, ...]) -> Outcome[int]:
+    """Supervises local render processes, sleep held off while the preferences keep the machine awake, posting notices, or runs another program under its run key to its exit."""
     identity, host = dispatcher.identity, dispatcher.host
 
-    def ran(queue: RenderQueue, preferences: QueuePreferences) -> Outcome[Progress]:
+    def ran(target: LocalMachine, queue: RenderQueue, preferences: QueuePreferences) -> Outcome[Progress]:
         def completed(progress: Progress) -> Outcome[Progress]:
             identity.reports.reported(dispatcher.posted)(preferences.listener, Completed(frames=len(progress.marks), elapsed=progress.elapsed)).to_optional()
             return (shutdown() if preferences.shutdown else Ok(None)).map(lambda _: progress)
@@ -278,17 +280,21 @@ def supervised(dispatcher: Dispatcher, run: Run, trailing: tuple[str, ...]) -> O
         def started(observations: Option[tuple[Progress, datetime.datetime]]) -> Outcome[Progress]:
             if not Progress.resumed(observations, queue, os.getpid()).marks:
                 identity.reports.reported(dispatcher.posted)(preferences.listener, Started(jobs=len(queue.jobs), frames=len(queue.steps))).to_optional()
-            operation = partial(supervise, run.target, queue, host, datetime.timedelta(seconds=preferences.interval))
+            operation = partial(supervise, target, queue, host, datetime.timedelta(seconds=preferences.interval))
             return (awake(operation) if preferences.awake else operation()).map(completed).default_with(failed)
 
         return observed(host.path(queue.stem, RunFile.PROGRESS)).bind(started)
 
-    return (
-        _no_trailing(RunCommand.SUPERVISE, trailing)
-        .bind(lambda _: paired(RecordFile(path=Path(run.queue), decoder=RENDER_QUEUE_DECODER).read(), dispatcher.preference.read(identity)))
-        .bind(lambda pair: ran(*pair))
-        .map(lambda _: 0)
-    )
+    match run:
+        case Program(key=key, argv=argv):
+            return _no_trailing(RunCommand.SUPERVISE, trailing).bind(lambda _: host.run(key, argv)).map(lambda _: 0)
+        case Run(queue=file, target=target):
+            return (
+                _no_trailing(RunCommand.SUPERVISE, trailing)
+                .bind(lambda _: paired(RecordFile(path=Path(file), decoder=RENDER_QUEUE_DECODER).read(), dispatcher.preference.read(identity)))
+                .bind(lambda pair: ran(target, *pair))
+                .map(lambda _: 0)
+            )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

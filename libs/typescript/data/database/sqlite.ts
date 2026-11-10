@@ -1,9 +1,9 @@
-import { Array, Cause, Effect, Equal, Filter, Function, Graph, HashSet, Layer, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Effect, Equal, Filter, Formatter, Function, Graph, HashSet, Layer, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
-import { Column, type Kind } from '#/column';
+import type { Kind } from '#/column';
 import { type Dialect, Engine, Rows } from '#/engine';
-import { constant, diff, identifier, literal, mergeTreeRefusals, referentialActions, rename, render, unsupported } from '#/reconcile';
+import { constant, diff, literal, mergeTreeRefusals, referentialActions, renameTable, render, replacement, Stamp, unmigrated, unsupported } from '#/reconcile';
 import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -63,7 +63,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly type: Engine['Service']['type'] = ({ kind }) => types[kind];
     static readonly constant: Engine['Service']['constant'] = constant;
     static readonly codePoints: Engine['Service']['codePoints'] = (sql, subject) => sql`length(${subject})`;
-    static readonly text: Engine['Service']['text'] = (_, subject) => subject;
+    static readonly cased: Engine['Service']['cased'] = (sql, subject, _, casing) => sql`${sql.literal(casing)}(${subject}) = ${subject}`;
     static readonly domain: Engine['Service']['domain'] = (sql, subject, kind) =>
         Match.value(kind).pipe(
             Match.when('boolean', () => [sql`${subject} IN (0, 1)`]),
@@ -79,7 +79,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly methods: Engine['Service']['methods'] = ['btree'];
     static readonly covering: Engine['Service']['covering'] = (sql, unique, include) => ({ keys: unique ? [] : include.map((name) => sql`${sql(name)}`), clause: [] });
     static readonly suffix: Engine['Service']['suffix'] = (sql, { withoutRowid }) => sql.literal(withoutRowid ? ' STRICT, WITHOUT ROWID' : ' STRICT');
-    static readonly rename = rename;
+    static readonly rename = renameTable;
     static readonly fulltext: Engine['Service']['fulltext'] = (sql, owner, { columns: searched, tokenizer }) => {
         const name = `${owner}_fts`;
         const [virtual, table, values] = [sql(name), sql(owner), sql.csv(searched.map((entry) => sql`${sql(entry.name)}`))];
@@ -100,7 +100,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         };
     };
     static readonly policy: Engine['Service']['policy'] = () => Option.none();
-    static readonly comment: Engine['Service']['comment'] = (sql, _, identity) => ({ inline: sql.literal(` /* ${JSON.stringify(identity).replaceAll('*/', '*\\/')} */`), statements: () => [] });
+    static readonly comment: Engine['Service']['comment'] = (sql, _, identity) => ({ inline: sql.literal(` /* ${Formatter.formatJson(identity).replaceAll('*/', '*\\/')} */`), statements: () => [] });
 
     // --- [RECONCILIATION]
 
@@ -117,7 +117,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             ...mergeTreeRefusals(relation),
         ];
     };
-    static readonly role: Engine['Service']['role'] = (sql) => new Cause.IllegalArgumentError(`${sql.driver} has no role to migrate as`);
+    static readonly role = unmigrated;
     static readonly open: Engine['Service']['open'] = (sql) => Effect.andThen(sql`PRAGMA synchronous = NORMAL`, sql`PRAGMA optimize = 0x10002`);
     static readonly execute = Engine.transaction;
     static readonly transactional = true;
@@ -133,9 +133,9 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const cuts = Array.filterMap(body, ({ token, depth }, index) => (depth === 1 && token === ',' ? Result.succeed(index) : Result.failVoid));
         const segments = Array.window([-1, ...cuts, body.length], 2).map(([start, end]) => body.slice(start + 1, end).map(Struct.get('token')));
         const comment = (token: Option.Option<string>) =>
-            Option.map(
+            Option.flatMap(
                 Option.filter(token, (text) => text.startsWith('/*')),
-                (text) => text.slice(2, -2).trim(),
+                (text) => Schema.decodeOption(Stamp)(text.slice(2, -2).trim()),
             );
         const unquoted = (token: string) => UndefinedOr.match(quotes[token.charAt(0)], { onUndefined: () => token, onDefined: (close) => token.slice(1, -1).replaceAll(`${close}${close}`, close) });
         const defined = Array.filterMap(
@@ -152,10 +152,10 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         return {
             ...table,
             autoincrement: body.some(({ token }) => token.toUpperCase() === 'AUTOINCREMENT'),
-            identity: Option.getOrNull(comment(Array.findFirst(Array.take(tokens, Math.max(opening, 0)), (token) => token.startsWith('/*')))),
+            identity: comment(Array.findFirst(Array.take(tokens, Math.max(opening, 0)), (token) => token.startsWith('/*'))),
             columns: columns.map((column) => {
                 const parsed = Record.get(definitions, column.name);
-                return { ...column, identity: Option.getOrNull(Option.flatMap(parsed, Struct.get('identity'))), constrained: Option.exists(parsed, Struct.get('constrained')) };
+                return { ...column, identity: Option.flatMap(parsed, Struct.get('identity')), constrained: Option.exists(parsed, Struct.get('constrained')) };
             }),
         };
     };
@@ -177,12 +177,11 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                         'virtual', (SELECT json_group_array(json_object('name', r.name, 'sql', r.sql)) FROM relations r WHERE r.type = 'virtual')
                     ) AS observed`,
         })();
-        const rendered = catalog.tables.map((declared) => ({ declared, rendered: render(sql, Sqlite, catalog, declared) }));
-        const resolved = diff(sql, Sqlite, catalog, rendered, live.tables.map(Sqlite.identities));
+        const resolved = diff(sql, Sqlite, catalog, yield* render(sql, Sqlite, catalog), live.tables.map(Sqlite.identities));
         const populated = yield* resolved.populated;
-        return yield* live.#reconcile(sql, catalog, resolved, populated);
+        return yield* live.#reconcile(sql, resolved, populated);
     });
-    #reconcile(sql: SqlClient.SqlClient, catalog: Catalog, resolved: ReturnType<typeof diff<ReturnType<typeof Sqlite.identities>>>, populated: readonly string[]) {
+    #reconcile(sql: SqlClient.SqlClient, resolved: ReturnType<typeof diff<ReturnType<typeof Sqlite.identities>>>, populated: readonly string[]) {
         const quoted = (name: string) => sql`${sql(name)}`;
         const analyze = (entry: (typeof resolved.matched)[number]) => {
             const dropping = new Set(entry.dropping.map(Struct.get('name')));
@@ -197,7 +196,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                 entry.fields,
                 Filter.fromPredicateOption(({ found, ...field }) => found.pipe(Option.bindTo('found'), Option.map(Struct.assign(field)))),
             );
-            const wanted = entry.rendered.indexes.map((index) => ({ ...index, created: index.text([]), prior: identifier([entry.live.name, ...index.parts.map(entry.original)]) }));
+            const wanted = entry.rendered.indexes.map((index) => ({ ...index, created: index.text([]), prior: entry.prior(index.parts) }));
             const wantedNames = new Set(wanted.map(Struct.get('name')));
             const indexesByName = Map.groupBy(
                 wanted.flatMap((index) => Array.dedupe([index.name, index.prior]).map((name) => ({ name, index }))),
@@ -230,8 +229,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                         (Array.isReadonlyArrayNonEmpty(entry.required) && !populated.includes(entry.live.name)) ||
                         entry.rendered.links.some((link) => !HashSet.has(links, Struct.pick(link, ['target', 'columns', 'onDelete']))) ||
                         linked.some(({ columns }) => !new Set(columns).isDisjointFrom(dropping)) ||
-                        (entry.live.name !== entry.declared.name && entry.live.identity === null) ||
-                        fields.some(({ definition, found }) => found.name !== definition.name && found.identity === null) ||
+                        (entry.live.name !== entry.declared.name && Option.isNone(entry.live.identity)) ||
+                        fields.some(({ definition, found }) => found.name !== definition.name && Option.isNone(found.identity)) ||
                         fields.some(
                             ({ definition, found: { type, required, default: stored }, recorded }) =>
                                 definition.retype && (!Option.contains(type, definition.type) || required === definition.nullable || !Equal.equals(stored, definition.default) || !Option.contains(Option.map(recorded, Struct.get('digest')), definition.digest)),
@@ -252,7 +251,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
         const reached = new Set(Graph.values(Graph.dfs(graph, { start: Graph.findNodes(graph, Struct.get('rebuild')) })));
         const rebuilds = tables.filter((entry) => reached.has(entry));
         const rebuildingNames = new Set(rebuilds.map(({ declared }) => declared.name));
-        const temporary = (name: string) => (rebuildingNames.has(name) ? `${name}__rebuild` : name);
+        const temporary = (name: string) => (rebuildingNames.has(name) ? replacement(name) : name);
         const virtualSql = Record.map(Record.fromIterableBy(this.virtual, Struct.get('name')), Struct.get('sql'));
         const searched = (entry: (typeof tables)[number], recreated: boolean) =>
             Option.match(entry.rendered.virtual, {
@@ -277,7 +276,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             const observed = sql.csv([...(entry.live.withoutRowid ? [] : [quoted('rowid')]), ...entry.live.columns.map(({ name }) => quoted(entry.renamed(name)))]);
             const elements = [
                 ...kept.map(({ name, type, required: needed, default: stored, identity }) =>
-                    sql.join(' ', false)([sql`${sql(name)}`, ...Array.fromNullishOr(identity).map((text) => `/* ${text} */`), Option.getOrElse(type, () => 'ANY'), ...(needed ? ['NOT NULL'] : []), ...Option.toArray(stored).map((value) => `DEFAULT ${value}`)]),
+                    sql.join(' ', false)([sql`${sql(name)}${Option.match(identity, { onNone: () => sql.literal(''), onSome: (stamp) => Sqlite.comment(sql, name, stamp).inline })}`, Option.getOrElse(type, () => 'ANY'), ...(needed ? ['NOT NULL'] : []), ...Option.toArray(stored).map((value) => `DEFAULT ${value}`)]),
                 ),
                 ...entry.unstated.map(({ columns, target, to, onDelete, onUpdate }) =>
                     sql.join(' ', false)(['FOREIGN KEY', sql`(${sql.csv(columns.map(quoted))})`, 'REFERENCES', quoted(temporary(target)), ...Array.match(to, { onEmpty: () => [], onNonEmpty: (keys) => [sql`(${sql.csv(keys.map(quoted))})`] }), `ON UPDATE ${onUpdate} ON DELETE ${onDelete}`]),
@@ -286,17 +285,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             return {
                 ...entry,
                 search: searched(entry, true),
-                create: render(sql, Sqlite, catalog, entry.declared, {
-                    target: Function.flow(temporary, quoted),
-                    elements,
-                    autoincrement: entry.live.autoincrement,
-                    identity: Option.some(entry.identity),
-                    identities: (name) =>
-                        Option.map(
-                            Array.findFirst(entry.fields, ({ definition }) => definition.name === name),
-                            Struct.get('identity'),
-                        ),
-                }).create,
+                create: entry.rendered.create({ target: Function.flow(temporary, quoted), elements, autoincrement: entry.live.autoincrement, claimed: Option.some(entry) }),
                 copy: sql`WITH live(${observed}) AS (SELECT ${sql.literal(entry.live.withoutRowid ? '*' : '"rowid", *')} FROM ${entry.rendered.relation}) INSERT INTO ${quoted(temporary(entry.declared.name))} (${copied}) SELECT ${copied} FROM live`,
             };
         };
@@ -316,7 +305,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             opening: Array.isReadonlyArrayNonEmpty(rebuilds) || Array.isReadonlyArrayNonEmpty(resolved.removed) ? [sql`PRAGMA defer_foreign_keys = on`] : [],
             statements: [
                 ...this.virtual.filter(({ name }) => resolved.removed.some((owner) => name === `${owner}_fts`)).map(({ name }) => sql`DROP TABLE ${sql(name)}`),
-                ...resolved.created.flatMap(({ rendered: table }) => [table.create, ...table.indexes.map(({ text }) => text([])), ...Option.match(table.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
+                ...resolved.created.flatMap(({ rendered: table }) => [table.create(), ...table.indexes.map(({ text }) => text([])), ...Option.match(table.virtual, { onNone: () => [], onSome: (virtual) => [virtual.create, ...virtual.triggers.map(({ create }) => create)] })]),
                 ...altered.flatMap((entry) => [
                     ...entry.dropped.map(({ name }) => sql`DROP INDEX ${sql(name)}`),
                     ...entry.search.dropped,

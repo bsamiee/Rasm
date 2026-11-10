@@ -40,6 +40,8 @@ test                  = [
     "pytest-randomly",                                                            # Random test order and seeds
     "pytest-socket",                                                              # Block unrequested network connections
     "pytest-timeout",                                                             # Per-test deadline
+    "rasm-testing",                                                               # Store, SQLite, and server fixtures, loaded by pytest as a plugin
+    "testcontainers",                                                             # Disposable service containers a test starts, stops, and restarts, with Postgres, ClickHouse, Valkey, MinIO, and Kafka modules in one distribution
 ]
 core                  = [
     "beartype",                                                                   # Runtime type checks over annotations
@@ -62,13 +64,17 @@ observability         = [
     "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
     "opentelemetry-instrumentation-asgi",                                         # ASGI server spans and W3C context extraction per Connect request
     "opentelemetry-instrumentation-asyncio",                                      # Trace context across coroutines, `to_thread` calls, and futures
+    "opentelemetry-instrumentation-botocore",                                     # botocore request spans for S3 calls through boto3
+    "opentelemetry-instrumentation-confluent-kafka",                              # confluent-kafka producer and consumer spans with trace context in message headers
     "opentelemetry-instrumentation-dbapi",                                        # PEP 249 spans for uninstrumented drivers (duckdb, ADBC DBAPI)
     "opentelemetry-instrumentation-httpx",                                        # `HTTPX2ClientInstrumentor` client spans with W3C trace context
     "opentelemetry-instrumentation-jinja2",                                       # Jinja template-render spans
     "opentelemetry-instrumentation-psycopg",                                      # psycopg 3 DBAPI spans
+    "opentelemetry-instrumentation-redis",                                        # redis-py command spans against Valkey
     "opentelemetry-instrumentation-sqlite3",                                      # sqlite3 DBAPI spans
     "opentelemetry-instrumentation-system-metrics",                               # Host and process gauges over psutil
     "opentelemetry-instrumentation-threading",                                    # Cross-thread trace-context propagation
+    "opentelemetry-instrumentation-urllib3",                                      # urllib3 request spans under clickhouse-connect queries
     "opentelemetry-processor-baggage",                                            # Baggage entries copied to span attributes for tenant dimension
     "opentelemetry-resource-detector-containerid",                                # container.id resource detector
     "opentelemetry-sdk",                                                          # Tracer provider, span processors, and in-memory span exporter
@@ -93,9 +99,10 @@ parsing               = [
 ]
 data-exchange         = [
     "asyncssh",                                                                   # SSH and SFTP client for remote workers
+    "boto3",                                                                      # AWS SDK S3 client, the one Python S3 client an OpenTelemetry instrumentation patches
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
-    "confluent-kafka[avro,json,protobuf,schemaregistry]<4",                       # Classic Kafka client and Schema Registry serdes, the Rust-core 4.x prerelease omits serializers and uses a different API
+    "confluent-kafka[avro,json,protobuf,schemaregistry]<4",                       # Kafka client over librdkafka with Schema Registry serdes, built against Pixi `librdkafka` where no cp315 wheel exists, the Rust-core 4.x prerelease under the same name omits serializers, an sdist, and Windows wheels
     "connectrpc",                                                                 # Connect, gRPC, and gRPC-Web ASGI services and typed clients
     "detools",                                                                    # Binary-delta engine
     "fastavro",                                                                   # Avro codec and .avsc validation
@@ -104,16 +111,16 @@ data-exchange         = [
     "hypercorn",                                                                  # HTTP/2 and h2c ASGI server for gRPC streams on TCP and UNIX binds
     "jsonschema",                                                                 # Document validation against fetched JSON Schemas
     "lz4",                                                                        # LZ4 compression
-    "nats-py",                                                                    # NATS Core and JetStream client
     "obspec-utils",                                                               # Multi-store ObjectStoreRegistry companion to obstore
     "obstore",                                                                    # Object-store backend
     "paho-mqtt",                                                                  # MQTT client for telemetry and edge-device transport
-    "pika",                                                                       # Blocking AMQP 0-9-1 client run through to_thread
     "protobuf",                                                                   # google-protobuf runtime under Substrait and ONNX IR
     "protobuf-py",                                                                # Buf runtime for generated `_pb.py` codecs and descriptors
     "protovalidate",                                                              # Descriptor rules checked at transport and document producers
     "py7zr",                                                                      # 7z archive read and write
     "python-dateutil",                                                            # RFC 3339 isoparse for CloudEvents bindings and format readers
+    "pyzmq",                                                                      # ZeroMQ sockets over the bundled libzmq
+    "standardwebhooks",                                                           # Standard Webhooks signing and signature verification
     "stream-unzip",                                                               # Bounded-memory streaming unzip inverse for stream-zip
     "stream-zip",                                                                 # Bounded-memory streaming zip with ZIP64 and AES-256
     "universal-pathlib",                                                          # UPath storage_options and protocol resolution over fsspec registry
@@ -179,16 +186,19 @@ data-storage          = [
     "adbc-driver-flightsql",                                                      # Arrow Flight SQL remote driver
     "adbc-driver-manager",                                                        # ADBC driver manager for Arrow Flight SQL and DuckDB
     "adbc-driver-postgresql",                                                     # PostgreSQL driver for COPY ingest and partitioned Arrow reads
-    "adbc-driver-snowflake",                                                      # Snowflake driver for federation, chunked reads, and bulk ingest
     "adbc-driver-sqlite",                                                         # SQLite driver for local-file federation and Arrow ingest
     "arro3-compute",                                                              # Arrow compute kernels without pyarrow
     "arro3-core",                                                                 # Arrow core bridge
     "arro3-io",                                                                   # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
+    "clickhouse-connect",                                                         # ClickHouse HTTP client with compressed native-format inserts and streamed queries
     "deltalake",                                                                  # Lakehouse tables
     "nanoarrow",                                                                  # Arrow C Data Interface interop
+    "pgvector",                                                                   # pgvector, halfvec, and sparsevec adapters for psycopg and NumPy arrays
+    "psycopg[binary,pool]",                                                       # PostgreSQL driver with sync and async APIs, pipeline mode, COPY, and connection pools
     "pyarrow",                                                                    # Arrow C++ bridge
     "pyiceberg",                                                                  # Apache Iceberg tables
-    "pylance",                                                                    # Lance columnar/vector format
+    "redis[hiredis]",                                                             # Valkey client with commands, pub/sub, streams, and cluster over the hiredis reply parser
+    "sqlite-vec",                                                                 # Loadable SQLite extension for `vec0` vector tables in standard `sqlite3`
 ]
 arrays                = [
     "awkward",                                                                    # Ragged arrays
@@ -222,6 +232,7 @@ geospatial            = [
     "pystac-client",                                                              # STAC API search and discovery client
     "rasterio",                                                                   # Raster geospatial IO
     "rioxarray",                                                                  # rasterio accessor for CF DataArray and COG raster writes
+    "shapely",                                                                    # Geometry values psycopg adapts to and from PostGIS columns
     "stac-geoparquet",                                                            # STAC item GeoParquet table interchange
     "xvec",                                                                       # Vector data cubes with geometry-indexed xarray dimensions
 ]
@@ -346,7 +357,6 @@ identification        = [
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-python-preference        = "only-managed"
 default-groups           = "all"
 environments             = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
@@ -364,15 +374,21 @@ members = [
     "apps/cli/foundry",
     "libs/python/data/records",
     "libs/python/graphics/typography",
+    "libs/python/runtime/cli",
+    "libs/python/runtime/telemetry",
     "tests/python/apps/cli/foundry",
+    "tests/python/support",
     "tests/python/tools/refurb",
     "tools/refurb",
 ]
 
 [tool.uv.sources]
+rasm-cli        = { workspace = true }
 rasm-foundry    = { workspace = true }
 rasm-records    = { workspace = true }
 rasm-refurb     = { workspace = true }
+rasm-telemetry  = { workspace = true }
+rasm-testing    = { workspace = true }
 rasm-typography = { workspace = true }
 
 [tool.uv.config-settings-package.manifold3d]
@@ -389,10 +405,10 @@ no-default-feature = true
 
 [tool.pixi.environments.default.dependencies]
 hdf5         = "2.2.*"
-icu          = "78.*"
+icu          = "78.*"   # 79 fails the solve: every libxml2 build libpdal-core 2.10 requires links ICU below 79
 libpdal-core = "2.10.*"
+librdkafka   = "2.16.*" # Headers and library the `confluent-kafka` sdist builds against on CPython 3.15
 llvm-openmp  = "*"
-librdkafka   = "2.16.*"
 libmagic     = "*"
 libpango     = "*"
 libharfbuzz  = "*"
@@ -425,7 +441,7 @@ WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 cache-dir   = ".cache/ruff"
 preview     = true
 line-length = 200
-src         = ["apps/cli/*", "libs/python/*/*", "tools/refurb"]
+src         = ["apps/cli/*", "libs/python/*/*", "tests/python/support", "tools/refurb"]
 format      = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -496,15 +512,19 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }                                                       # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**"                                                  = ["assert"]
-"apps/nx/distribution/executors/extension-build/blender.py" = ["banned-api", "implicit-namespace-package"] # Blender runs this script by path in its bundled interpreter, which holds no `msgspec`
+"tests/**"                                                           = ["assert"]
+"apps/nx/distribution/executors/extension-build/blender.py"          = ["banned-api", "implicit-namespace-package"]                   # Blender runs this script by path in its bundled interpreter, which holds no `msgspec`
+"libs/python/runtime/telemetry/rasm_telemetry/_entries.py"           = ["banned-api"]                                                 # Holds the stdlib logger under each bound logger, the `logging.getLogger` call every other module leaves to it
+"libs/python/runtime/telemetry/rasm_telemetry/export.py"             = ["import-private-name"]                                        # opentelemetry-api holds the entry point lookup the SDK caches in private `_importlib_metadata` alone
+"libs/python/runtime/telemetry/rasm_telemetry/process.py"            = ["banned-api", "import-private-name", "private-member-access"] # Composition root the `logging` rows name, opentelemetry-api holds environment carriers and its cached entry point lookup, the SDK its exporter name resolution, and system-metrics its default table in private members alone
+"libs/python/blender/bpy/rasm_bpy/data/_extension/reports.py"        = ["import-private-name"]                                        # opentelemetry-semantic-conventions holds `process.exit.code` in `_incubating` alone
+"libs/python/blender/rendering/rasm_rendering/_batch/supervision.py" = ["import-private-name"]                                        # opentelemetry-api holds `EnvironmentSetter` in private `_envcarrier` alone
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-lazy             = ["abc", "os", "sys"] # Interpreter startup loads them before any module runs
 ban-relative-imports = "all"
 require-lazy         = [
     "adbc_driver_flightsql",
-    "adbc_driver_snowflake",
     "daft",
     "dataframely",
     "datafusion",
@@ -621,7 +641,7 @@ exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
 strict_bytes            = true
-untyped_calls_exclude   = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "ots", "ufo2ft"]                                                                                                                                                                                                                                              # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
+untyped_calls_exclude   = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "ots", "ufo2ft"]                                                                                                                                       # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
 enable_error_code       = ["deprecated", "exhaustive-match", "explicit-override", "narrowed-type-not-subtype", "redundant-expr", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type"]                                                        # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
 overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }, { module = ["PyOpenColorIO.PyOpenColorIO.ColorSpaceHelpers", "PyOpenColorIO.PyOpenColorIO.DisplayViewHelpers"], follow_imports = "skip", follow_imports_for_stubs = true }] # OpenColorIO binds `AddColorSpace` and `AddDisplayView` with a required parameter after a defaulted one, which no stub states
@@ -706,19 +726,23 @@ disable    = [
 # --- [PYTEST] ---------------------------------------------------------------------------
 
 [tool.pytest]
-strict                   = true
-cache_dir                = ".cache/pytest"
-testpaths                = ["tests/python"]
-collect_imported_tests   = false
-empty_parameter_set_mark = "fail_at_collect"
-addopts                  = [
-    "--disable-plugin-autoload",             # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
+strict                    = true
+cache_dir                 = ".cache/pytest"
+testpaths                 = ["tests/python"]
+collect_imported_tests    = false
+empty_parameter_set_mark  = "fail_at_collect"
+addopts                   = [
+    "--disable-plugin-autoload",                                                                                         # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
     "-p",
     "hypothesispytest",
     "-p",
     "pytest_cov",
     "-p",
+    "pytester",                                                                                                          # Inner pytest runs for the suites of pytest plugins
+    "-p",
     "randomly",
+    "-p",
+    "rasm_testing.plugin",                                                                                               # Store, SQLite, and server fixtures of `tests/python/support`
     "-p",
     "socket",
     "-p",
@@ -728,8 +752,10 @@ addopts                  = [
     "--disable-socket",
     "--allow-unix-socket",
 ]
-filterwarnings           = ["error"]
-timeout                  = "30"
+filterwarnings            = ["error"]
+timeout                   = "30"
+store_silent              = "store service at {subject} granted no session, `nx install @rasm/infra -c store` starts it"
+tmp_path_retention_policy = "failed"                                                                                     # Keeps the folders of failed tests alone, as a store is kept for its failed test
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 

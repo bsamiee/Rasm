@@ -1,0 +1,61 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-observability"
+edition.workspace = true
+description       = "Logging and telemetry parts over tracing and OpenTelemetry: a JSON log record formatter, a rotating log file several processes append to, a panic record, an environment carrier, OTLP providers with their resource, and process and runtime metrics"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+clap    = ["dep:clap"]
+export  = ["dep:tokio", "dep:nonempty-collections", "dep:sysexits", "dep:thiserror", "dep:validated", "dep:opentelemetry-appender-tracing", "dep:opentelemetry-otlp", "dep:opentelemetry-resource-detectors", "dep:opentelemetry_sdk", "dep:tracing-opentelemetry"]
+metrics = ["dep:tokio", "dep:libproc", "dep:nix", "dep:sysinfo"]
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+tokio                              = { workspace = true, optional = true }
+nonempty-collections               = { workspace = true, optional = true }
+sysexits                           = { workspace = true, optional = true }
+thiserror                          = { workspace = true, optional = true }
+validated                          = { workspace = true, optional = true }
+derive_more                        = { workspace = true }
+enum-map                           = { workspace = true }
+itertools                          = { workspace = true }
+nutype                             = { workspace = true }
+serde_json                         = { workspace = true }
+jiff                               = { workspace = true }
+camino                             = { workspace = true }
+fs-err                             = { workspace = true }
+opentelemetry                      = { workspace = true }
+opentelemetry-appender-tracing     = { workspace = true, optional = true }
+opentelemetry-otlp                 = { workspace = true, optional = true }
+opentelemetry-resource-detectors   = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry_sdk                  = { workspace = true, optional = true }
+sysinfo                            = { workspace = true, optional = true }
+tracing                            = { workspace = true }
+tracing-log                        = { workspace = true }
+tracing-opentelemetry              = { workspace = true, optional = true }
+tracing-subscriber                 = { workspace = true }
+clap                               = { workspace = true, optional = true }
+
+[target."cfg(unix)".dependencies]
+nix = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+libproc = { workspace = true, optional = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

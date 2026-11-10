@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Viewport;
+using Rasm.Telemetry;
 using Rhino;
 using Rhino.ApplicationSettings;
 using Rhino.Collections;
@@ -123,7 +124,7 @@ public abstract partial record StageStep<TStage, TValue> {
             trail,
             advance: static (at, advance) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(advance.Undoable ? new StageTrail<TStage>(advance.Stage, at.Current.Cons(at.Earlier)) : at with { Current = advance.Stage })),
             back: static (_, back) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(new StageTrail<TStage>(back.Stage, back.Earlier))),
-            retry: static (at, retry) => IO.lift(() => RhinoApp.WriteLine(Session.Messages(retry.Rejection))).Map(_ => Next.Loop<StageTrail<TStage>, TValue>(at)),
+            retry: static (at, retry) => IO.lift(() => RhinoApp.WriteLine(retry.Rejection.Messages())).Map(_ => Next.Loop<StageTrail<TStage>, TValue>(at)),
             done: static (_, done) => IO.pure(Next.Done<StageTrail<TStage>, TValue>(done.Value)))
         select next;
 
@@ -164,7 +165,7 @@ public static class Getters {
     // --- [ROUTES]
 
     public static bool Retried(Error error) =>
-        error.IsExpected && !Session.Cancellation(error) && !Results.Ends(error);
+        error.IsExpected && !error.IsCancellation && !Results.Ends(error);
 
     private static IO<T> Run<TBase, TGetter, T>(Func<TGetter> create, GetterRequest<TBase, T> request, RhinoDoc doc, Func<TGetter, IO<GetResult>> get, Func<TGetter, Seq<Route<T>>> own)
         where TBase : GetBaseClass

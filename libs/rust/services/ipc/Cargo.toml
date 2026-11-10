@@ -24,8 +24,10 @@ derive_more         = { workspace = true }
 serde               = { workspace = true }
 serde_json          = { workspace = true }
 serde_path_to_error = { workspace = true }
-dirs                = { workspace = true }
 fs-err              = { workspace = true, features = ["tokio"] }
+
+[target."cfg(unix)".dependencies]
+socket2 = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

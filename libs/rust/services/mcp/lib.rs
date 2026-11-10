@@ -1,9 +1,12 @@
+#![feature(error_reporter)]
 #![cfg_attr(feature = "app", feature(associated_type_defaults, default_field_values, integer_casts, lock_value_accessors, nonpoison_mutex, sync_nonpoison))]
 
 use core::future::{Ready, ready};
 use core::pin::pin;
+use std::error::Report;
 
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
+use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::model::{ProgressNotificationParam, ProgressToken};
 use rmcp::service::RequestContext;
 use rmcp::{RoleServer, Service};
@@ -43,7 +46,7 @@ impl Progress {
         .scan(0.0_f64, |sent, latest| ready(Some(latest.filter(|held| held.progress > *sent).inspect(|held| *sent = held.progress))))
         .filter_map(ready);
         async move {
-            let relayed = updates.map(Ok).try_for_each(|held| peer.notify_progress(held)).unwrap_or_else(|error| tracing::debug!(error = %error::report(&error), "progress relay failed"));
+            let relayed = updates.map(Ok).try_for_each(|held| peer.notify_progress(held)).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed"));
             match future::select(pin!(call), pin!(relayed)).await {
                 future::Either::Left((output, _)) => output,
                 future::Either::Right(((), call)) => call.await,
@@ -70,8 +73,6 @@ mod error;
 #[cfg(feature = "proxy")]
 mod proxy;
 mod shared;
-#[cfg(feature = "proxy")]
-mod stdio;
 #[cfg(feature = "telemetry")]
 mod telemetry;
 
@@ -85,9 +86,12 @@ pub use app::{
 };
 pub use error::{McpError, ToolError};
 #[cfg(feature = "proxy")]
-pub use proxy::{Catalog, Link, Liveness, Phase, Policy, Proxy, Retention, Status};
+pub use proxy::{
+    Catalog, Era, History, Key, Link, Liveness, Phase, Policy, Proxy, Retention, Status,
+    jsonrpc::{Envelope, Line, Lines, Message, Meta, Method, Params, Severity, decode, encoded, identity, refusal},
+    pool::{Pool, Store},
+    session::{Ended, Resumable},
+};
 pub use shared::{Connection, Shared};
-#[cfg(feature = "proxy")]
-pub use stdio::{Envelope, Line, Lines, Message, Meta, Params, identity};
 #[cfg(feature = "telemetry")]
 pub use telemetry::Traced;

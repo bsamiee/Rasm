@@ -17,8 +17,8 @@ use opentelemetry_semantic_conventions::attribute::{
 };
 use opentelemetry_semantic_conventions::metric::{MCP_SERVER_OPERATION_DURATION, MCP_SERVER_SESSION_DURATION};
 use rmcp::model::{
-    CallToolRequest, CallToolResult, ClientNotification, ClientRequest, GetPromptRequest, InitializeRequest, MetaObject, ProtocolVersion, ReadResourceRequest, ServerConfig, ServerResult, SubscribeRequest,
-    UnsubscribeRequest,
+    CallToolRequest, CallToolResult, ClientNotification, ClientRequest, GetPromptRequest, InitializeRequest, MetaObject, ProtocolVersion, ReadResourceRequest, ServerConfig, ServerResult,
+    SubscribeRequest, UnsubscribeRequest,
 };
 use rmcp::service::{NotificationContext, RequestContext};
 use rmcp::{ErrorData, RoleServer, Service};
@@ -104,7 +104,7 @@ where S: Service<RoleServer>
             span.set_status(Status::error(failure.map_or_else(|| kind.clone(), |error| error.message.clone())));
         }
         if let Some(error) = failure {
-            tracing::warn!(parent: &span, elapsed = elapsed.as_secs_f64(), { EXCEPTION_MESSAGE } = %error.message, "request failed");
+            tracing::debug!(parent: &span, elapsed = elapsed.as_secs_f64(), { EXCEPTION_MESSAGE } = %error.message, "request failed");
         } else {
             tracing::debug!(parent: &span, elapsed = elapsed.as_secs_f64(), "request completed");
         }

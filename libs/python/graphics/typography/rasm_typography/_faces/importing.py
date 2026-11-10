@@ -21,7 +21,7 @@ lazy from fontTools.unicodedata import script_extension
 
 lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace
-lazy from rasm_typography._faces.glyphs import Anchor, fetched, Glyph, Info, Ornament, Point, role, Side, Source, traced, VerticalMetrics
+lazy from rasm_typography._faces.glyphs import Anchor, Glyph, Info, Joinings, Ornament, Point, role, Side, Source, traced, VerticalMetrics
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
 
@@ -69,7 +69,7 @@ def subtables(lookup: BaseTable, /) -> Iterator[BaseTable]:
 # --- [SOURCES]
 
 
-def _source(original: bytes, face: Faces, /) -> Source:
+def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
     """Builds the source of a binary: ornament faces under their original names, text glyphs named by their first claim (primary script and digits, code order, presentation forms, layout) and anchored from GPOS mark attachment, each mark class on the side most of its marks take."""
     font = TTFont(BytesIO(original), lazy=True, recalcBBoxes=False, recalcTimestamp=False)
     cmap, advances, order = font.getBestCmap() or {}, font["hmtx"].metrics, font.getGlyphOrder()
@@ -210,7 +210,7 @@ def _source(original: bytes, face: Faces, /) -> Source:
         glyphs=tuple(
             Glyph(
                 name=name,
-                role=Ornament() if art and isinstance(name.stem, str) and name.stem != ".notdef" else role(name, components=renamed.get(glyph, ())),
+                role=Ornament() if art and isinstance(name.stem, str) and name.stem != ".notdef" else role(joinings, name, components=renamed.get(glyph, ())),
                 advance=advances[glyph][0],
                 codes=frozenset(encodings[glyph]),
                 contours=outline(glyph),
@@ -238,17 +238,18 @@ def _source(original: bytes, face: Faces, /) -> Source:
     )
 
 
-def imported(original: bytes, face: Faces, /) -> Outcome[Source]:
+def imported(original: bytes, face: Faces, joinings: Joinings, /) -> Outcome[Source]:
     """Reads a TrueType or CFF original into a source under a face's design record.
 
     Args:
         original: Font file contents the face is rebuilt from.
         face: Design record the source carries.
+        joinings: Unicode joining type and group of each code point `fetched` read.
 
     Returns:
-        Ok(source), `UNREADABLE` for bytes fontTools refuses, and the faults of holding the pinned Unicode joining table.
+        Ok(source), `UNREADABLE` for bytes fontTools refuses.
     """
-    return fetched().bind(lambda _: catch(_source, exception=TTLibError)(original, face).map_error(partial(Fault.of, Reason.UNREADABLE, face.postscript)))
+    return catch(_source, exception=TTLibError)(original, face, joinings).map_error(partial(Fault.of, Reason.UNREADABLE, face.postscript))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,9 +1,8 @@
-import { findPackageJSON } from 'node:module';
 import { extname } from 'node:path';
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
-import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Effect, FileSystem, Formatter, Path, Record, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { identity, type Members } from '@rasm/nx-devkit/inference';
+import { printed, ToolError } from '@rasm/nx-devkit/process';
+import { Effect, Path, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -13,63 +12,36 @@ interface Part {
     readonly name: string;
     readonly file: string;
     readonly technologies: readonly string[];
-    readonly targets: Readonly<Record<string, TargetConfiguration>>;
+    readonly clean: string;
+    readonly members: Members;
+    readonly published?: TargetConfiguration;
     readonly release?: NonNullable<ProjectConfiguration['release']>;
 }
 interface Plugin {
     readonly name: string;
     readonly inputs: NonNullable<TargetConfiguration['inputs']>;
+    readonly cleaner: string;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SHORT_VERSION = 'CFBundleShortVersionString';
+const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', GIT_CONFIG_VALUE_0: 'false' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const VersionActionsOptions = Schema.Struct({ manifest: Schema.String });
 const Kind = Schema.Literals(['.plist', '.xcproj']);
 const Versioned = Schema.fromJsonString(Schema.Struct({ version: Schema.NullOr(Schema.String), project: Schema.String }));
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String, optionalDependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }));
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class AppleError extends Schema.TaggedError<AppleError, { readonly brand: unique symbol }>()('AppleError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
-    static readonly of = (subject: string, detail: string) => (cause: unknown) => AppleError.make({ subject, detail, cause });
-
-    override get message() {
-        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const core = Effect.gen(function* () {
-    const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
-    const { name, version, optionalDependencies } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
-    const analyzer = Effect.flatMap(Effect.try({ try: () => new URL(import.meta.resolve('#analyzer')), catch: AppleError.of('#analyzer', 'does not resolve') }), path.fromFileUrl);
-    const packages = [name, ...Record.keys(optionalDependencies)];
-    const plugin = (workspaceRoot: string) =>
-        Effect.map(
-            Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.relative(workspaceRoot, located)])),
-            (tracked): Plugin => ({
-                name,
-                inputs: [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { runtime: 'swift -print-target-info' }, ...(tracked.length === 0 ? [{ externalDependencies: packages }] : [{ input: 'default', projects: packages }, { externalDependencies: [] }])],
-            }),
-        );
-    return { name, version, folder: path.dirname(located), analyzer, plugin };
+const analyzer = Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return yield* path.fromFileUrl(yield* Effect.try({ try: () => new URL(import.meta.resolve('#analyzer')), catch: ToolError.of('#analyzer', 'does not resolve') }));
 });
 
-const spawned = Effect.fnUntraced(function* (command: string, args: readonly string[], options: { readonly cwd: string; readonly input?: string }) {
-    const handle = yield* ChildProcess.make(command, args, {
-        cwd: options.cwd,
-        extendEnv: true,
-        ...(options.input === undefined ? {} : { stdin: Stream.encodeText(Stream.succeed(options.input)) }),
-    });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* AppleError.make({ subject: [command, ...args].join(' '), detail: `exited ${code}: ${stderr.trim()}` });
-}, Effect.scoped);
+const core = (workspaceRoot: string) => Effect.map(identity(import.meta.url, workspaceRoot), (plugin) => ({ ...plugin, inputs: [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, ...plugin.inputs] }));
 
 const tokened = (path: Path.Path, at: string) => (path.isAbsolute(at) || at.startsWith('..') ? [] : [path.join('{workspaceRoot}', at)]);
 
@@ -89,28 +61,27 @@ const EDITORS = {
     '.plist': {
         command: Effect.succeed('plutil'),
         args: (newVersion?: string) => (newVersion === undefined ? ['-extract', SHORT_VERSION, 'raw', '-o', '-', '-'] : ['-replace', SHORT_VERSION, '-string', newVersion, '-o', '-', '-']),
-        read: (printed: string, newVersion?: string) => Effect.succeed({ version: newVersion ?? printed.trim(), project: printed }),
+        read: (output: string, newVersion?: string) => Effect.succeed({ version: newVersion ?? output.trim(), project: output }),
     },
     '.xcproj': {
-        command: Effect.flatMap(core, ({ analyzer }) => analyzer),
+        command: analyzer,
         args: (newVersion?: string) => ['version', ...(newVersion === undefined ? [] : ['--marketing-version', newVersion])],
-        read: (printed: string) => Schema.decodeEffect(Versioned)(printed),
+        read: (output: string) => Schema.decodeEffect(Versioned)(output),
     },
 } as const satisfies Record<typeof Kind.Type, unknown>;
 
 const versioned = Effect.fnUntraced(function* (root: string, at: string, text: string, newVersion?: string) {
-    const editor = EDITORS[yield* Effect.mapError(Schema.decodeUnknownEffect(Kind)(extname(at)), AppleError.of(at, `is no ${Kind.literals.join(' or ')} manifest`))];
-    const printed = yield* spawned(yield* editor.command, [...editor.args(newVersion)], { cwd: root, input: text });
-    return yield* editor.read(printed, newVersion);
+    const editor = EDITORS[yield* Effect.mapError(Schema.decodeUnknownEffect(Kind)(extname(at)), ToolError.of(at, `is no ${Kind.literals.join(' or ')} manifest`))];
+    return yield* editor.read(yield* printed(yield* editor.command, [...editor.args(newVersion)], { cwd: root, input: text }), newVersion);
 });
 
-const target = (plugin: Plugin, runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
+const target = (plugin: Plugin, runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, { options, ...extra }: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
     executor: `${plugin.name}:run`,
-    options: { runs },
+    options: { runs, env: GIT_STATUS, ...options },
     metadata,
     ...extra,
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleError, core, type Part, type Plugin, published, SHORT_VERSION, spawned, target, tokened, VersionActionsOptions, versioned };
+export { analyzer, core, GIT_STATUS, type Part, type Plugin, published, SHORT_VERSION, target, tokened, VersionActionsOptions, versioned };

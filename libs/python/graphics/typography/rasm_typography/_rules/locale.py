@@ -13,7 +13,7 @@ from rasm_typography._faces.coverage import Coverage
 from rasm_typography._faces.declaration import Foot, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Ok, Outcome
-lazy from rasm_typography._faces.glyphs import Component, Glyph, joined, Joining, Mark, Point, Source
+lazy from rasm_typography._faces.glyphs import Component, Glyph, Joining, Joinings, Mark, Point, Source
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
 lazy from rasm_typography._outlines import paths
@@ -27,7 +27,7 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
     script: Script
     coverage: Coverage
 
-    def applied(self, source: Source, /, **_: object) -> Outcome[Source]:
+    def applied(self, source: Source, /, *, joinings: Joinings, **_: object) -> Outcome[Source]:
         """Draws the derived signs, composes every required and kept-block code point the face lacks from its own glyphs, blanks the format controls at zero advance, and lays out their lookups."""
         script, coverage = self.script, self.coverage
         derived: list[Glyph] = []
@@ -40,6 +40,7 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
                     radius, step = sign.height * reference.height / 2, 1.25 * dot.width
                     turns = (np.float64(360 * index / sign.around) for index in range(sign.around))
                     glyph = measures.made(
+                        joinings,
                         name,
                         2 * (radius + step),
                         contours=tuple(
@@ -54,6 +55,7 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
                     foot, (x, y) = {Foot.OWN: factor * box.ymin, Foot.BASE: 0.0, Foot.MIDDLE: reference.middle[1] if reference else 0.0}[sign.foot], (extent := paths.bounds(scaled) or box).middle
                     turned = paths.transformed(scaled, Transform().translate(0, foot - extent.ymin).translate(x, y).scale(-1, -1).translate(-x, -y)) if sign.turned else scaled
                     glyph = measures.made(
+                        joinings,
                         name,
                         advance * factor + sign.repeats * step,
                         contours=(*paths.transformed(turned, Offset(sign.repeats * step, 0)), *(*paths.transformed(ring, Offset(index * step, 0)) for index in range(sign.repeats))),
@@ -70,21 +72,21 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
             if (code in script.spaces or unicodedata.category(chr(code)) not in {"Cn", "Zs"}) and coverage.exclusion(code).is_none()
         )
         bases = {int(parts[0], 16) for code in wanted if (parts := unicodedata.decomposition(chr(code)).split()) and not parts[0].startswith("<")}
-        groups = {code: group for code in drawn.encoded if (group := joined().get(code, (Joining.NONE, "No_Joining_Group"))[1]) != "No_Joining_Group"}
+        groups = {code: group for code in drawn.encoded if (group := joinings.get(code, (Joining.NONE, "No_Joining_Group"))[1]) != "No_Joining_Group"}
         nuqta = paths.area(measures.nuqta(drawn, script.dotted))
         based = drawn.replaced(
             *(
-                measures.made(GlyphName(stem=(code,), form=form), model.advance, contours=measures.dotted(model, nuqta)[0])
+                measures.made(joinings, GlyphName(stem=(code,), form=form), model.advance, contours=measures.dotted(model, nuqta)[0])
                 for code in sorted({*drawn.encoded, *bases})
                 if not unicodedata.decomposition(chr(code))
-                for form in _forms(code)
+                for form in _forms(joinings, code)
                 if drawn.key(code, form) not in drawn.named
                 and (
                     model := next(
                         (
                             held
                             for other, group in groups.items()
-                            if other != code and group == joined().get(code, (Joining.NONE, "No_Joining_Group"))[1] and (held := drawn.named.get(drawn.key(other, form))) and held.contours
+                            if other != code and group == joinings.get(code, (Joining.NONE, "No_Joining_Group"))[1] and (held := drawn.named.get(drawn.key(other, form))) and held.contours
                         ),
                         None,
                     )
@@ -94,22 +96,24 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
         composed = tuple(
             glyph
             for code in wanted
-            for form in _forms(code)
+            for form in _forms(joinings, code)
             for name in (GlyphName(stem=(code,), form=form),)
             for held in (based.named.get(name.text),)
-            for keys in (() if held is not None else _resolved(based, code, form),)
+            for keys in (() if held is not None else _resolved(joinings, based, code, form),)
             for parts in (tuple(based.named[key] for key in keys),)
             for glyph in (
                 ((msgspec.structs.replace(held, codes=held.codes | {code}),) if form is Form.ISOL else ())
                 if held is not None
-                else (measures.made(name, parts[0].advance, components=tuple(Component(name=key) for key in keys)),)
+                else (measures.made(joinings, name, parts[0].advance, components=tuple(Component(name=key) for key in keys)),)
                 if len(parts) == 1 or (len(parts) == 2 and isinstance(parts[1].role, Mark))
                 else ()
             )
         )
         blanks = frozenset(glyph.name.codes for glyph in composed)
         controls = tuple(
-            measures.made(GlyphName(stem=(code,)), 0.0) for code in wanted if (code,) not in blanks and unicodedata.category(chr(code)) == "Cf" and unicodedata.bidirectional(chr(code)) != "AN"
+            measures.made(joinings, GlyphName(stem=(code,)), 0.0)
+            for code in wanted
+            if (code,) not in blanks and unicodedata.category(chr(code)) == "Cf" and unicodedata.bidirectional(chr(code)) != "AN"
         )
         added = (*(glyph for glyph in based.glyphs if glyph.name.text not in source.named), *composed, *controls)
         forms = {
@@ -153,21 +157,21 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _forms(code: int, /) -> tuple[Form, ...]:
+def _forms(joinings: Joinings, code: int, /) -> tuple[Form, ...]:
     """Forms a letter's joining type takes, each side a form joins one the type joins on."""
-    kind = Joining.of(code)
+    kind = Joining.of(joinings, code)
     return tuple(form for form in Form if (not form.right or kind in {Joining.DUAL, Joining.RIGHT}) and (not form.left or kind in {Joining.DUAL, Joining.LEFT}))
 
 
-def _resolved(source: Source, code: int, form: Form, /) -> tuple[str, ...]:
+def _resolved(joinings: Joinings, source: Source, code: int, form: Form, /) -> tuple[str, ...]:
     """Keys of the glyphs drawing a code point in a form: its own glyph, else the parts its canonical, positional, or no-break decomposition names resolved alike, empty where a part has none."""
-    if (own := source.key(code, form if form in _forms(code) and form is not Form.ISOL else None)) in source.named:
+    if (own := source.key(code, form if form in _forms(joinings, code) and form is not Form.ISOL else None)) in source.named:
         return (own,)
     tag, *rest = unicodedata.decomposition(chr(code)).split() or ("",)
     same = not tag.startswith("<") or tag[1:5] in Form or tag == "<noBreak>"
     parts = tuple(int(part, 16) for part in (rest if tag.startswith("<") else (tag, *rest)) if part and same)
     shape = Form(tag[1:5]) if tag[1:5] in Form else form
-    held = tuple(_resolved(source, part, shape if not index else Form.ISOL) for index, part in enumerate(parts))
+    held = tuple(_resolved(joinings, source, part, shape if not index else Form.ISOL) for index, part in enumerate(parts))
     return tuple(*keys for keys in held) if parts and all(held) else ()
 
 

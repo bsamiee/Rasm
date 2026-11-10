@@ -2,6 +2,7 @@ using Eto.Forms;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
+using Rasm.Telemetry;
 using Rhino.Resources;
 using Rhino.UI;
 using Rhino.UI.Controls;
@@ -80,7 +81,7 @@ internal static class Entries {
             new Command<Invoke>.Run(new CommandFace("text-browse", "Browse") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.OpenSvg)) },
                 new Invoke.Effect(held =>
                     from current in IO.lift(() => box.Text)
-                    from path in browse.Asked(title, current, types, held) | @catch(Session.Cancellation, IO.pure(Option<string>.None))
+                    from path in browse.Asked(title, current, types, held) | @catch(static error => error.IsCancellation, IO.pure(Option<string>.None))
                     from committed in path.Match(Some: commit, None: static () => IO.pure(unit))
                     select committed)),
             IconSlot.Small, scope)

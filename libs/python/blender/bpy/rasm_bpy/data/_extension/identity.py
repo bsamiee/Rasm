@@ -120,7 +120,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             .filter(bool, Fault.of(Reason.UNWRITABLE, package, "host created no user folder"))
             .map(Path)
         )
-        return paired(manifest, folder).map(lambda pair: cls(package=package, manifest=pair[0], folder=pair[1], reports=Reports(package, pair[1], extension=pair[0].id)))
+        return paired(manifest, folder).map(lambda pair: cls(package=package, manifest=pair[0], folder=pair[1], reports=Reports(package, pair[1], extension=pair[0].id, version=pair[0].version)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

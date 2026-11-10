@@ -33,7 +33,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [03]-[WORKER]
 
-[HANDLERS]: Worker is one Effect `Layer` graph, `serveWorker` builds its handler once per isolate on its first request:
+[HANDLERS]: Worker is one Effect `Layer` graph, `Worker` of `@rasm/workers` builds it once per isolate on its first invocation:
 - Operations are `Effect.fn` spans, `Effect.catchTag` turns SQL, schema, and platform failures into a logged `ServiceUnavailable`
 - `SqlClient` stores complete encoded documents and assets as JSON, object storage holds media bytes
 - Store reads decode joined JSON documents and asset collections through `PortfolioData` at store boundaries
@@ -47,7 +47,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Upload bodies send the asset field, then each rendition named by its width in asset order, then the original, each typed with its media type
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
-- Asset reads serve assets placed in published work to anyone, every other asset to the owner alone and `NotFound` to visitors
+- Asset reads serve assets placed in published work to anyone with a one-day browser cache lifetime, every other asset to the owner alone and `NotFound` to visitors
 
 ## [04]-[PAGE]
 
@@ -111,19 +111,32 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [07]-[HOSTING]
 
-[SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names, sync generator `hosting-bindings` writes both names and the host assigns `project_id`:
-- `cloudflare.config.ts` declares the Worker name, entrypoint, and data bindings through `hostedWorker`
+[DECLARATION]: `hosting.config.ts` declares the app once as an `App`: `DB` a `sqlite` store, `BUCKET` a `bucket` with its lifecycle rules, `OWNER_EMAIL` a `text` value, `allowed` the addresses a provider sign-in accepts, and `limits` the CPU count and memory of the hosted container:
+- `cloudflare.config.ts` projects it through `worker(hosting, config)`, and the hosting row names each deployed Worker and resource by its mode
+- `server/main.ts` passes it to `serveNode`, which reads each store variable from the environment and each `text` value from the declaration
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- `server/worker.ts` passes `cloudflare:workers` `env` and its `Layer` to `serveWorker`, `server/main.ts` passes `cloudflare.config.ts` and an `env` callback to `serveNode`, each host providing `Template` from the assets binding
-- `server/app.ts` composes routes over passed services, D1 and `ObjectStorage.r2` from the Worker, SQLite and path-style `ObjectStorage.s3` from Node
-- `nx run @rasm/portfolio:infra [-- docker]` prints the stack difference and `--apply` builds and deploys to a Cloudflare account or a Docker host
-- Untagged `HEAD` takes Cloudflare mode `disposable` with its own Worker and resources, and Docker mode `production` under a `-disposable` name
-- Sites, `CloudflareAccess.middleware`, or Docker proxy send user id and email as `User.sites` headers
-- `hosting` takes `favicon.svg` and `site/theme.css` tokens, `siteHead` emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and the `color-scheme` the tokens hold
+- `.openai/hosting.json` names the D1 and R2 bindings OpenAI Sites supplies, written by hand, and the host assigns `project_id`
+- `nx install @rasm/portfolio` applies the app on the local engine, `nx deploy @rasm/portfolio --stack=<row>` on one hosting row
+- Row `cloudflare` deploys the built Worker with its D1 database, R2 bucket and lifecycle rules, and an Access application on the sign-in path
+- `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
+
+[SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node:
+- `server/worker.ts` passes its services and `Worker.fetch` over its routes to `Worker`, with `Template` from the assets binding and `layerTelemetry` of `@rasm/workers/execution`
+- Worker `layerTelemetry` writes one JSON log record per console line, records each span in the Workers trace, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names at the end of each invocation
+- `server/main.ts` passes `Sites.identity` and an `env` callback to `serveNode`, then the HTTP server on `PORT` and the app name as `serviceName` to `layerTelemetry` of `@rasm/process` with target `stderr`
+- `layerTelemetry` reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`, writes one JSON log record per line to stderr, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names through the OpenTelemetry SDK
+- `vite.config.ts` adds `siteHead`, `nodeServer`, and `cloudflare` unless Vite mode is `test`, which Vitest sets and `.storybook/main.ts` passes
+- `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
+- `site/shell.tsx` states the whole content security policy of a production build, and `Template.render` sets no header without one
+
+[IDENTITY]: Views and handlers read `Sites.identity` headers, which each server sets from one trusted source after removing any a client sent:
+- OpenAI Sites signs users in at its own boundary, a Worker with no `ACCESS` variable serving its headers unchanged
+- `ACCESS` holds one `Access` as JSON, source `Cloudflare` verifying a Cloudflare Access token from its header or `CF_Authorization` cookie and source `Forwarded` reading headers a proxy sets
+- `serveNode` fails at start without `ACCESS`
+- Pages are public, the trusted source guards the sign-in path of `Sites.identity.paths`, and owner endpoints refuse every other session
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
-- `cloudflare.config.ts` states the owner address as `hostedWorker`'s `owner`, the commit author address and no secret, modes `production`, `cloudflare`, and `disposable` bind it to `OWNER_EMAIL` as text, every other mode binds the `sites()` local sign-in address, `cloudflare` and `disposable` also declare the `CloudflareAccess.binding` JSON secret
-- `site/shell.tsx` states the page's content security sources beside the policy `Template.render` holds
+- `hosting.config.ts` states the owner address, the commit author address and no secret, and `vite dev` binds the `sites()` local sign-in address
 
 [STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:
 - `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start

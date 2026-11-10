@@ -16,14 +16,18 @@
     },
     "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-devkit": "workspace:*",
         "effect": "catalog:",
+        "verkit": "catalog:",
         "yaml": "catalog:"
     },
     "devDependencies": {
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "nx": "catalog:"
+    },
+    "peerDependencies": {
+        "nx": "catalog:peers"
     },
     "publishConfig": {
         "access": "public",

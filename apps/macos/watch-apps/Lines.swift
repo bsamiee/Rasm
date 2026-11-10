@@ -1,10 +1,12 @@
 import AppKit
 import Applications
+import Configuration
+import CurrentProcess
 import Processes
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-let sessionVariable: String = "WATCH_APPS_SESSION"
+let callerSession: String? = Program.current.settings.string(forKey: "session").flatMap { session in session.isEmpty ? nil : session }
 let dateFormat: Date.ISO8601FormatStyle = .init(includingFractionalSeconds: true)
 let encoder: JSONEncoder = {
     let encoder = JSONEncoder()
@@ -27,7 +29,7 @@ struct Record<Line> {
     var exit: Exit?
 
     init(argv: [String]? = nil, line: Line? = nil, exit: Exit? = nil) {
-        (at, pid, session, self.argv, self.line, self.exit) = (.now, getpid(), argv.flatMap { _ in ProcessInfo.processInfo.environment[sessionVariable] }, argv, line, exit)
+        (at, pid, session, self.argv, self.line, self.exit) = (.now, getpid(), argv.flatMap { _ in callerSession }, argv, line, exit)
     }
 }
 

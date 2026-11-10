@@ -4,6 +4,7 @@ use core::pin::pin;
 use core::time::Duration;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::error::Report;
 use std::sync::Arc;
 
 use futures::future::{self, BoxFuture, Either};
@@ -32,7 +33,7 @@ use uuid::Uuid;
 use validated::Validated;
 
 use super::{Router, Server};
-use crate::error::{internal, report};
+use crate::error::internal;
 use crate::{McpError, Progress, ToolError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -53,7 +54,7 @@ where E: Serialize + Error
             error: &'error E,
             message: String,
         }
-        serde_json::to_value(Rendered { error: &self.0, message: report(&self.0).to_string() }).map(|value| CallToolResult::structured_error(value).into()).map_err(|error| internal(&error))
+        serde_json::to_value(Rendered { error: &self.0, message: Report::new(&self.0).to_string() }).map(|value| CallToolResult::structured_error(value).into()).map_err(internal)
     }
 }
 
@@ -120,7 +121,9 @@ impl Elicitation {
             self.context.peer.create_elicitation(params).await.map_err(|source| McpError::Service { source })?
         } else {
             let (responder, answered) = oneshot::channel();
-            self.asked.send((Uuid::new_v4().to_string(), AwaitingInput { request: InputRequest::Elicitation(ElicitRequest::new(params)), responder })).map_err(|mpsc::error::SendError(_)| abandoned())?;
+            self.asked
+                .send((Uuid::new_v4().to_string(), AwaitingInput { request: InputRequest::Elicitation(ElicitRequest::new(params)), responder }))
+                .map_err(|mpsc::error::SendError(_)| abandoned())?;
             let answer = answered.await.map_err(|oneshot::error::RecvError { .. }| abandoned())?;
             serde_path_to_error::deserialize(&answer).map_err(|source| McpError::Answer { data: answer, source })?
         };
@@ -177,7 +180,7 @@ where A: Server {
                 biased;
                 completed = &mut call => match completed? {
                     CallToolResponse::Complete(result) => Ok(result),
-                    _ => Err(TaskExit::Error(internal(&ServiceError::UnexpectedResponse))),
+                    _ => Err(TaskExit::Error(internal(ServiceError::UnexpectedResponse))),
                 },
                 () = task.cancelled(), if !destructive => Err(TaskExit::Cancelled),
                 () = halted.cancelled(), if !destructive => Err(TaskExit::Cancelled),
@@ -251,7 +254,7 @@ where A: Server {
                 if running.destructive {
                     recorded(&server.routers.executions, server.retention, running.execution, running.call).await;
                 }
-                Err(internal(&ServiceError::Cancelled { reason: None }))
+                Err(internal(ServiceError::Cancelled { reason: None }))
             }
         }
     } else {

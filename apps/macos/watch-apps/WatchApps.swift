@@ -1,10 +1,7 @@
 import Applications
 import ArgumentParser
+import CurrentProcess
 import Foundation
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-let program: String = ProcessInfo.processInfo.processName
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -25,8 +22,8 @@ struct WatchApps: AsyncParsableCommand {
             exit(withError: error)
         } catch {
             let run = Run()
-            run.fail(program, ApplicationFailure(subject: CommandLine.arguments.dropFirst().joined(separator: " "), reason: .malformed(message(for: error))))
-            run.finish()
+            run.fail(Program.current.name, ApplicationFailure(subject: CommandLine.arguments.dropFirst().joined(separator: " "), reason: .malformed(message(for: error))))
+            await run.finish()
         }
     }
 }

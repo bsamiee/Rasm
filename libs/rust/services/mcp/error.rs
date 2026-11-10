@@ -1,12 +1,10 @@
 use core::error::Error;
-use core::fmt::Display;
-use core::iter;
 #[cfg(feature = "app")]
 use core::{fmt, str::Utf8Error};
 #[cfg(feature = "app")]
 use std::borrow::Cow;
+use std::error::Report;
 
-use itertools::Itertools as _;
 #[cfg(feature = "app")]
 use jsonschema::{ValidationError, paths::Location};
 #[cfg(feature = "app")]
@@ -29,7 +27,7 @@ pub struct ToolError<E>(pub E);
 impl<E> From<ToolError<E>> for ErrorData
 where E: Serialize + Error
 {
-    fn from(value: ToolError<E>) -> Self { serde_json::to_value(&value.0).map_or_else(|error| internal(&error), |data| Self::internal_error(report(&value.0).to_string(), Some(data))) }
+    fn from(value: ToolError<E>) -> Self { serde_json::to_value(&value.0).map_or_else(internal, |data| Self::internal_error(Report::new(&value.0).to_string(), Some(data))) }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -61,7 +59,7 @@ pub enum McpError {
     #[error("completion names undeclared prompt {prompt}, register prompt before its completion")]
     Completion { prompt: String },
     #[cfg(feature = "app")]
-    #[error("cannot register {} declarations{}", .errors.len(), fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", report(error)))))]
+    #[error("cannot register {} declarations{}", .errors.len(), fmt::from_fn(|formatter| .errors.iter().try_for_each(|error| write!(formatter, "\n{}", Report::new(error)))))]
     Declarations {
         #[serde(skip)]
         errors: NEVec<Self>,
@@ -154,6 +152,4 @@ impl From<McpError> for ErrorData {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(crate) fn report(error: &dyn Error) -> impl Display { iter::successors(Some(error), |&cause| cause.source()).format(": ") }
-
-pub(crate) fn internal(error: &dyn Error) -> ErrorData { ErrorData::internal_error(report(error).to_string(), None) }
+pub(crate) fn internal(error: impl Error) -> ErrorData { ErrorData::internal_error(Report::new(error).to_string(), None) }

@@ -18,6 +18,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Help Links">
-        <AssemblyMetadata Include="Help" Value="$(PackageProjectUrl)/blob/main/libs/dotnet/rhino/Rasm.Rhino/README.md" />
+        <AssemblyMetadata Include="Help" Value="$(PackageProjectUrl)/blob/main/apps/roslyn/Rasm.Rhino.Analyzers/AnalyzerReleases.Shipped.md" />
     </ItemGroup>
 </Project>

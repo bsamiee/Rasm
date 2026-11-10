@@ -1,8 +1,8 @@
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { isCI } from '@nx/devkit/internal';
-import { Array, Effect, Option, type Path, Predicate, pipe, Record, Schema } from 'effect';
+import type { Members } from '@rasm/nx-devkit/inference';
+import { Array, Effect, Option, type Path, pipe, Record, Schema } from 'effect';
 import type { Options } from '#/plugins/project-graph';
-import { type Part, type Plugin, published, target } from '#/plugins/targets';
+import { GIT_STATUS, type Part, type Plugin, published, target } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,6 +17,7 @@ interface Package {
 
 const MANIFEST = 'Package.swift';
 const INFO = 'Info.plist';
+const RESOLVED = 'Package.resolved';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -39,47 +40,49 @@ const locals = (manifest: typeof Described.Type, described: ReadonlyMap<string, 
 
 const sources = (path: Path.Path, { root, manifest }: Package, described: ReadonlyMap<string, Package>): readonly string[] => [
     ...manifest.targets.map((module) => path.join('{workspaceRoot}', root, module.path, '**/*')),
-    ...[MANIFEST, 'Package@swift-*.swift', 'Package.resolved', '.swiftpm/configuration/*.json'].map((file) => path.join('{workspaceRoot}', root, file)),
+    ...[MANIFEST, 'Package@swift-*.swift', RESOLVED, '.swiftpm/configuration/*.json'].map((file) => path.join('{workspaceRoot}', root, file)),
     ...locals(manifest, described)
         .flatMap((local) => sources(path, local, described))
-        .filter((input) => !input.endsWith('Package.resolved')),
+        .filter((input) => !input.endsWith(RESOLVED)),
 ];
 
 const packageParts = (path: Path.Path, options: Options, plugin: Plugin, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
     const { file, root, plists, manifest } = local;
     const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
-    const flags = Predicate.isTruthy(isCI()) ? ['--disable-automatic-resolution'] : [];
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(path, local, described), path.join('{workspaceRoot}', '.swift-version'), ...plugin.inputs];
-    const build = ['swift', 'build', '--package-path', root, ...flags] as const;
-    const work: Readonly<Record<string, TargetConfiguration>> = {
-        'build--swift-build': target(
-            plugin,
-            [build],
-            { technologies: ['swift'], description: `Builds ${manifest.name} with SwiftPM, in release under the release configuration`, help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } } },
-            { inputs, configurations: { release: { runs: [[...build, '--configuration', 'release']] } } },
-        ),
-        'check--swift-build': { executor: 'nx:noop', dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Compiles ${manifest.name} as its type check` } },
-        ...(suites.length === 0
-            ? {}
-            : {
-                  test: target(
-                      plugin,
-                      [['swift', 'test', '--package-path', root, ...flags]],
-                      { technologies: ['swift'], description: `Tests ${manifest.name} with SwiftPM`, help: { command: 'swift test --help', example: { args: ['--filter', suites[0]?.name ?? manifest.name] } } },
-                      { cache: true, dependsOn: ['build--swift-build'], inputs },
-                  ),
-              }),
-    };
+    const build = ['swift', 'build', '--package-path', root] as const;
+    const work = {
+        build: {
+            'swift-build': target(
+                plugin,
+                [build],
+                { technologies: ['swift'], description: `Builds ${manifest.name} with SwiftPM, in release under the release configuration`, help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } } },
+                { inputs, outputs: [path.join('{workspaceRoot}', root, RESOLVED)], configurations: { release: { runs: [[...build, '--configuration', 'release']] } } },
+            ),
+        },
+        check: { 'swift-build': { executor: 'nx:noop', dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Compiles ${manifest.name} as its type check` } } },
+        test:
+            suites.length === 0
+                ? {}
+                : {
+                      swift: target(
+                          plugin,
+                          [['swift', 'test', '--package-path', root]],
+                          { technologies: ['swift'], description: `Tests ${manifest.name} with SwiftPM`, help: { command: 'swift test --help', example: { args: ['--filter', suites[0]?.name ?? manifest.name] } } },
+                          { cache: true, dependsOn: ['build--swift-build'], inputs: [...inputs, { dependentTasksOutputFiles: path.join(root, RESOLVED) }] },
+                      ),
+                  },
+    } satisfies Members;
     const executables = new Set(manifest.targets.filter(({ type }) => Schema.is(Executable)(type)).map(({ name }) => name));
     const products = new Map(manifest.products.flatMap(({ name, targets }) => targets.filter((owner) => executables.has(owner) && plists.has(owner)).map((owner) => [owner, name] as const)));
-    const shipped = (product: string, at: string): Readonly<Record<string, TargetConfiguration>> => {
+    const shipped = (product: string, at: string) => {
         const zipped = pipe(
             Option.fromUndefinedOr(options.outputPath),
             Option.map((output) => path.join(output, 'swiftpm', product)),
             Option.map((folder) => ({
-                'build--ditto': {
+                ditto: {
                     executor: `${plugin.name}:zip`,
                     dependsOn: ['build--swift-build'],
                     inputs: [path.join('{workspaceRoot}', at, INFO), ...plugin.inputs],
@@ -88,36 +91,50 @@ const packageParts = (path: Path.Path, options: Options, plugin: Plugin, local: 
                     outputs: [path.join('{workspaceRoot}', folder, `${product}-*.zip`)],
                     metadata: { technologies: ['swift'], description: `Zips the release build of ${product} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
                 },
-                'nx-release-publish': published(plugin, 'swift', [folder], []),
+                published: published(plugin, 'swift', [folder], []),
             })),
         );
         return {
-            'install--swift-package': {
+            zipped,
+            install: {
                 executor: `${plugin.name}:install`,
-                options: { package: root, product },
-                cache: false,
+                options: { package: root, product, env: GIT_STATUS },
                 metadata: { technologies: ['swift'], description: `Builds ${product} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
             },
-            ...Option.getOrElse(zipped, () => ({})),
         };
     };
-    const forwardedInputs = ['default', '^default', ...[MANIFEST, 'Package.resolved'].map((at) => path.join('{workspaceRoot}', root, at)), ...plugin.inputs];
-    const forwarded = (module: string) =>
+    const forwardedInputs = ['default', '^default', ...[MANIFEST, RESOLVED].map((at) => path.join('{workspaceRoot}', root, at)), ...plugin.inputs];
+    const forwarded = (module: string): Members =>
         Record.map(
-            Record.filter(work, (_, verb) => verb !== 'test' || tested.has(module)),
-            (_, verb): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [{ projects: [manifest.name], target: verb }], inputs: forwardedInputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:${verb}` } }),
+            Record.filter<string, Readonly<Record<string, TargetConfiguration>>>(work, (_, verb) => verb !== 'test' || tested.has(module)),
+            (tools, verb) => Record.map(tools, (_, tool): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [{ projects: [manifest.name], target: `${verb}--${tool}` }], inputs: forwardedInputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:${verb}--${tool}` } })),
         );
     const upgrade = target(
         plugin,
         [['swift', 'package', '--package-path', root, 'update']],
         { technologies: ['swift'], description: `Moves ${manifest.name}'s remote dependencies to the newest versions its requirements allow and rewrites Package.resolved`, help: { command: 'swift package update --help', example: { args: ['--dry-run'] } } },
-        { cache: false, inputs },
+        { inputs },
     );
-    return [{ name: manifest.name, at: root, own: { ...work, 'upgrade--swift-package': upgrade } }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own }): Part => {
-        const product = products.get(name);
-        return product === undefined
-            ? { root: at, name, file, technologies: ['swift'], targets: own }
-            : { root: at, name, file, technologies: ['swift'], targets: { ...own, ...shipped(product, at) }, release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: INFO } } } };
+    const cleaned: TargetConfiguration = {
+        executor: plugin.cleaner,
+        options: { commands: [['swift', 'package', '--package-path', root, 'clean']] },
+        metadata: { technologies: ['swift'], description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } },
+    };
+    const owned: Members = { ...work, upgrade: { 'swift-package': upgrade }, clean: { 'swift-package': cleaned } };
+    return [{ name: manifest.name, at: root, own: owned }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own }): Part => {
+        const part = { root: at, name, file, technologies: ['swift'], clean: 'swift-package' };
+        return Option.match(
+            Option.map(Option.fromUndefinedOr(products.get(name)), (product) => shipped(product, at)),
+            {
+                onNone: () => ({ ...part, members: own }),
+                onSome: ({ install, zipped }) => ({
+                    ...part,
+                    members: { ...own, build: { ...own.build, ...Option.getOrUndefined(Option.map(zipped, ({ ditto }) => ({ ditto }))) }, install: { 'swift-package': install } },
+                    ...Option.getOrUndefined(Option.map(zipped, ({ published: release }) => ({ published: release }))),
+                    release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: INFO } } },
+                }),
+            },
+        );
     });
 };
 
@@ -134,4 +151,4 @@ const packageEdges = ({ file, manifest }: Package, described: ReadonlyMap<string
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, sources };
+export { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources };

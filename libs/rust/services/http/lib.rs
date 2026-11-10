@@ -43,6 +43,7 @@ pub trait Service {
 enum Trigger {
     Request,
     Lifetime,
+    Server,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -150,31 +151,39 @@ pub async fn bind<X>(listen: impl IntoIterator<Item = Authority>, port: u16, bac
         .ok()
 }
 
-pub async fn serve<A, L, S>(listeners: impl IntoIterator<Item = L>, app: Arc<A>, requests: S, grace: Duration) -> Result<(), NEVec<HttpError<A::Error>>>
+pub async fn accept<L>(listeners: impl IntoIterator<Item = L>, router: Router, stopping: CancellationToken) -> Vec<io::Result<()>>
 where
-    A: Service,
     L: Listener,
     L::Addr: Debug + Clone + Sync + 'static,
     for<'stream> L::Addr: Connected<IncomingStream<'stream, L>>,
+{
+    let service = router.into_make_service_with_connect_info::<L::Addr>();
+    let servers = listeners.into_iter().map(|listener| axum::serve(listener, service.clone()).with_graceful_shutdown(stopping.clone().cancelled_owned()).into_future());
+    servers.collect::<JoinSet<_>>().join_all().await
+}
+
+pub async fn serve<A, O, S>(app: Arc<A>, server: impl AsyncFnOnce(Router, CancellationToken) -> O, requests: S, grace: Duration) -> Result<(), NEVec<HttpError<A::Error>>>
+where
+    A: Service,
+    O: IntoIterator<Item = io::Result<()>>,
     S: Stream,
 {
     let stopping = CancellationToken::new();
     let _stopped = stopping.drop_guard_ref();
-    let service = Arc::clone(&app).router(stopping.child_token()).into_make_service_with_connect_info::<L::Addr>();
-    let servers = listeners.into_iter().map(|listener| axum::serve(listener, service.clone()).with_graceful_shutdown(stopping.clone().cancelled_owned()).into_future()).collect::<JoinSet<_>>();
-    let mut server = pin!(maybe_done(servers.join_all()));
+    let mut server = pin!(maybe_done(server(Arc::clone(&app).router(stopping.child_token()), stopping.clone())));
     let mut lifetime = pin!(maybe_done(app.lifetime(stopping.child_token())));
     let mut requests = pin!(requests);
     let trigger = tokio::select! {
         Some(_) = requests.next() => Trigger::Request,
         () = lifetime.as_mut() => Trigger::Lifetime,
+        () = server.as_mut() => Trigger::Server,
     };
     tracing::info!(%trigger, "shutting down");
     let mut drain = pin!(maybe_done(app.drain().inspect(|_| stopping.cancel())));
     let abandonment = tokio::select! {
         biased;
         ((), (), ()) = join3(drain.as_mut(), lifetime.as_mut(), server.as_mut()) => None,
-        (Some(_), _) = requests.skip(match trigger { Trigger::Request => 0, Trigger::Lifetime => 1 }).into_future() => Some(Timeout::Request),
+        (Some(_), _) = requests.skip(match trigger { Trigger::Request => 0, Trigger::Lifetime | Trigger::Server => 1 }).into_future() => Some(Timeout::Request),
         () = time::sleep(grace) => Some(Timeout::Deadline(grace)),
     };
     let (drained, ended, closed) = (drain.as_mut().take_output(), lifetime.as_mut().take_output(), server.as_mut().take_output());

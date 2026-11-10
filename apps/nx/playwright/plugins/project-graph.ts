@@ -1,123 +1,66 @@
-import { findPackageJSON } from 'node:module';
-import process, { env } from 'node:process';
-import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, detectPackageManager, hashArray, type TargetConfiguration } from '@nx/devkit';
-import { calculateHashesForCreateNodes, getLockFileName, hashObject, loadConfigFile, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { walkTsconfigExtendsChain } from '@nx/js/internal';
-import type { PlaywrightTestConfig } from '@playwright/test';
-import { Array, Effect, FileSystem, Option, Path, Predicate, pipe, Record, Result, Schema } from 'effect';
+import type { CreateNodes, CreateNodesContext, CreateNodesResultArray, TargetConfiguration } from '@nx/devkit';
+import { aggregated, identity, inferred, launcher, line, reported } from '@rasm/nx-devkit/inference';
+import { resolved } from '@rasm/nx-devkit/reader';
+import { Array, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
+import { Job, Report } from '#/plugins/reader';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORTS: Record.ReadonlyRecord<string, string> = { html: 'playwright-report', blob: 'blob-report' };
+const READER = import.meta.resolve('#/plugins/reader');
+const TECHNOLOGIES = ['playwright'];
+const DIRECTED = { PLAYWRIGHT_JUNIT_OUTPUT_FILE: ['junit', 'junit.xml'], PLAYWRIGHT_HTML_OUTPUT_DIR: ['html', 'playwright-report'], PLAYWRIGHT_BLOB_OUTPUT_DIR: ['blob', 'blob-report'] } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String), outputFolder: Schema.optionalKey(Schema.String) }).annotate({
-    description: 'The output options of a Playwright reporter entry, read in the order @nx/playwright reads them',
-});
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String })).annotate({ description: 'The package.json closest to this module, its own package in the tree and in dist alike' });
+const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), deadline: Schema.DurationFromString.pipe(Schema.withDecodingDefaultKey(Effect.succeed('1 minute'))) }).annotate({ description: 'Plugin options from the nx.json row' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const written = ({ outputDir = 'test-results', projects = [], reporter = [] }: PlaywrightTestConfig) => [
-    outputDir,
-    ...Array.getSomes(projects.map((project) => Option.fromUndefinedOr(project.outputDir))),
-    ...Array.getSomes(
-        (Predicate.isString(reporter) ? [[reporter, {}] as const] : reporter).map(([name, options]) =>
-            Option.firstSomeOf([Option.flatMap(Schema.decodeUnknownOption(Reported)(options), ({ outputFile, outputDir: folder, outputFolder }) => Option.fromUndefinedOr(outputFile ?? folder ?? outputFolder)), Record.get(REPORTS, name)]),
-        ),
-    ),
-];
+const placed = (path: Path.Path, root: string, outputPath: Option.Option<string>) => Option.map(outputPath, (at) => path.relative(root, path.join(at, 'playwright', '{projectName}')));
 
-const read = Effect.fnUntraced(function* (path: Path.Path, workspaceRoot: string, root: string, file: string) {
-    const before = yield* Effect.sync(() => {
-        Reflect.deleteProperty(process, '__pw_initiator__');
-        return { ...env };
-    });
-    const config = yield* Effect.tryPromise(() => loadConfigFile<PlaywrightTestConfig>(path.join(workspaceRoot, file))).pipe(
-        Effect.ensuring(
-            Effect.sync(() => {
-                Object.keys(env)
-                    .filter((key) => !(key in before))
-                    .forEach((key) => Reflect.deleteProperty(env, key));
-                Object.assign(env, before);
-            }),
-        ),
-    );
-    return written(config).map((at) => path.relative(workspaceRoot, path.resolve(workspaceRoot, root, at)));
-});
-
-const chained = (path: Path.Path, workspaceRoot: string, root: string) => {
-    const jsonCache = new Map();
-    const folders = [root, ...Array.unfold(root, (at) => (at === '.' ? Option.none() : Option.some([path.dirname(at), path.dirname(at)] as const)))];
-    const visited: string[] = [];
-    folders.forEach((at) =>
-        walkTsconfigExtendsChain(
-            path.join(workspaceRoot, at, 'tsconfig.json'),
-            (file) => {
-                visited.push(path.relative(workspaceRoot, file));
-                return 'continue';
-            },
-            { jsonCache },
-        ),
-    );
-    return Array.dedupe(visited).filter((at) => !(at.startsWith('..') || at.startsWith(`${root}/`) || at.split(path.sep).includes('node_modules')));
+const tested = (path: Path.Path, exec: string, { root, flags }: typeof Job.Type, read: readonly string[], folders: readonly string[], outputPath: Option.Option<string>): TargetConfiguration => {
+    const at = placed(path, root, outputPath);
+    const within = Option.map(at, (folder) => path.join(root, folder));
+    return {
+        executor: 'nx:run-commands',
+        options: { command: line(['playwright', 'test', ...flags]), cwd: root, ...Option.getOrUndefined(Option.map(at, (folder) => ({ env: Record.map(DIRECTED, ([, name]) => path.join(folder, name)) }))) },
+        cache: true,
+        inputs: ['default', '^default', ...read.filter((loaded) => !loaded.startsWith(`${root}/`)).map((loaded) => path.join('{workspaceRoot}', loaded)), { env: 'CI' }, { externalDependencies: ['@playwright/test'] }],
+        outputs: [...Option.toArray(within), ...folders.filter((written) => !Option.exists(within, (folder) => written.startsWith(`${folder}/`)))].map((written) => path.join('{workspaceRoot}', written)),
+        metadata: { technologies: TECHNOLOGIES, description: 'Runs every Playwright project of the suite with playwright test', help: { command: `${exec} playwright test --help`, example: { args: ['--debug=cli'] } } },
+    };
 };
 
-const tested = (path: Path.Path, root: string, chain: readonly string[], folders: readonly string[]): TargetConfiguration => ({
-    executor: 'nx:run-commands',
-    options: { command: 'playwright test', cwd: root },
-    cache: true,
-    inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { env: 'CI' }, { runtime: 'node -p process.platform+process.arch' }, { externalDependencies: ['@playwright/test'] }],
-    outputs: Array.dedupe(folders)
-        .filter((at, _, all) => !all.some((other) => at.startsWith(`${other}/`)))
-        .map((at) => path.join('{workspaceRoot}', at)),
-    metadata: { technologies: ['playwright'], description: 'Runs every Playwright project of the suite with playwright test', help: { command: 'playwright test --help', example: { args: ['--debug=cli'] } } },
-});
-
-const inferred = Effect.fnUntraced(function* (files: readonly string[], options: unknown, context: CreateNodesContext) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const { workspaceRoot } = context;
-    const found = yield* Effect.filter(
-        files.map((file) => ({ file, root: path.dirname(file) })),
+const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, { workspaceRoot }: CreateNodesContext) {
+    const [fs, path, decoded] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Options)(options ?? {})]);
+    const outputPath = Option.fromUndefinedOr(decoded.outputPath);
+    const suites = yield* Effect.filter(
+        files.map((file) => {
+            const root = path.dirname(file);
+            return Job.make({ root, file, ...Option.match(placed(path, root, outputPath), { onNone: () => ({ flags: [], directed: [] }), onSome: (at) => ({ flags: ['--output', path.join(at, 'test-results')], directed: Object.values(DIRECTED).map(([reporter]) => reporter) }) }) });
+        }),
         ({ root }) => fs.exists(path.join(workspaceRoot, root, 'package.json')),
         { concurrency: 'unbounded' },
     );
-    const projects = found.map((project) => ({ ...project, chain: chained(path, workspaceRoot, project.root) }));
-    const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
-    const { name } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
-    const source = hashArray(yield* Effect.forEach((yield* fs.readDirectory(import.meta.dirname)).toSorted(), (module) => fs.readFileString(path.join(import.meta.dirname, module))));
-    const lockfile = getLockFileName(detectPackageManager(workspaceRoot));
-    const hashes = yield* Effect.promise(() =>
-        calculateHashesForCreateNodes(
-            projects.map(({ root }) => root),
-            { options, source },
-            context,
-            projects.map(({ chain }) => [lockfile, ...chain]),
+    const plugin = yield* identity(import.meta.url, workspaceRoot);
+    const { answers, failures } = yield* resolved({ entry: READER, job: Job, report: Report, launch: () => ({}), plugin, options, workspaceRoot, jobs: suites, deadline: decoded.deadline });
+    const exec = launcher(workspaceRoot);
+    return yield* reported(
+        Array.getSomes(
+            answers.map(({ job, report, chain, loaded }) =>
+                Option.map(Option.fromUndefinedOr(report.folders), (folders): CreateNodesResultArray[number] => [
+                    job.file,
+                    { projects: { [job.root]: { targets: aggregated({ test: { playwright: tested(path, exec, job, [...chain, ...loaded], folders, outputPath) } }, TECHNOLOGIES, { executor: plugin.cleaner, tool: 'playwright' }) } } },
+                ]),
+            ),
         ),
+        failures,
     );
-    const cache = new PluginCache<readonly string[]>(path.join(workspaceDataDirectory, `${path.basename(name)}-${hashObject(options ?? {})}.hash`));
-    const results = yield* Effect.forEach(Array.zip(projects, hashes), ([{ file, root }, hash]) => pipe(Option.fromNullishOr(cache.get(hash)), Option.match({ onSome: (outputs) => Effect.succeed<readonly string[]>(outputs), onNone: () => read(path, workspaceRoot, root, file) }), Effect.result));
-    const fresh = Array.filterMap(Array.zip(hashes, results), ([hash, result]) => Result.map(result, (outputs) => ({ hash, outputs })));
-    yield* Effect.sync(() => fresh.forEach(({ hash, outputs }) => cache.set(hash, outputs)));
-    yield* Effect.sync(() => cache.writeToDisk());
-    const nodes = Array.getSomes(Array.zipWith(projects, hashes, ({ file, root, chain }, hash) => Option.map(Option.fromNullishOr(cache.get(hash)), (folders): CreateNodesResultArray[number] => [file, { projects: { [root]: { targets: { test: tested(path, root, chain, folders) } } } }])));
-    const failures = Array.filterMap(Array.zip(projects, results), ([{ file }, result]) => Result.map(Result.flip(result), (failure): [string, Error] => [file, failure]));
-    return yield* Array.match(failures, { onEmpty: () => Effect.succeed(nodes), onNonEmpty: (errors) => Effect.fail(new AggregateCreateNodesError(errors, nodes)) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes = [
-    '**/playwright.config.{js,ts,cjs,cts,mjs,mts}',
-    (files, options, context) =>
-        inferred(files, options, context).pipe(
-            Effect.mapError((error) => (error instanceof AggregateCreateNodesError ? error : new AggregateCreateNodesError([[null, error]], []))),
-            Effect.provide(layer),
-            Effect.runPromise,
-        ),
-];
+const createNodes: CreateNodes<typeof Options.Encoded> = ['**/playwright.config.{js,ts,cjs,cts,mjs,mts}', (files, options, context) => inferred(nodes(files, options, context))];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -5,7 +5,7 @@ utils:
     sql-text: {kind: 'string_literal, raw_string_literal, verbatim_string_literal'}
     sqlite-evidence: {kind: identifier, regex: '^(?:Sqlite(?:Connection|Command|Transaction|DataReader)|UseSqlite)$'}
     npgsql-evidence: {kind: identifier, regex: '^(?:Npgsql(?:Connection|Command|Batch(?:Command)?|(?:Slim)?DataSource(?:Builder)?|Transaction|DataReader)|UseNpgsql)$'}
-    foreign-evidence: {kind: identifier, regex: '^(?:(?:Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)|Use(?:ClickHouse|SqlServer|MySql|Oracle|Cosmos|Firebird))$'}
+    foreign-evidence: {kind: identifier, regex: '^(?:(?:DuckDB|ClickHouse)(?:Connection|Command|DataSource)|UseClickHouse)$'}
     stated-file:
         kind: compilation_unit
         any:

@@ -1,9 +1,7 @@
-import { matchesGlob } from 'node:path';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
-import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Path, pipe, Schema, UndefinedOr } from 'effect';
-import { built, DistributionError, HOSTS } from '#/plugins/host-packages';
+import { runtime, ToolError } from '@rasm/nx-devkit/process';
+import { Array, Effect, FileSystem, Option, Path, Schema, UndefinedOr } from 'effect';
+import { sourced } from '#/plugins/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,30 +12,13 @@ const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), t
 const packed = Effect.fnUntraced(function* (context: ExecutorContext, outputPath: string, timestampAuthority: Option.Option<string>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const target = yield* Effect.fromNullishOr(context.targetName);
-    const { project, root, written } = yield* built(context, Option.fromUndefinedOr(context.configurationName), target);
-    const files = yield* Option.match(written, {
-        onSome: Effect.succeed,
-        onNone: () =>
-            Effect.map(
-                Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(root, '**')])),
-                Array.map((file) => path.join(context.root, file)),
-            ),
-    });
-    const packers = Array.getSomes(HOSTS.map((host) => Option.all({ host: Option.some(host), archive: Option.fromUndefinedOr(host.archive), pack: Option.fromUndefinedOr(host.build?.pack) })));
-    const candidates = files.flatMap((file) => packers.map((packer) => ({ ...packer, file, folder: path.join(file, path.relative(packer.host.manifest, '.')) })).filter(({ host, folder }) => matchesGlob(path.relative(folder, file), host.manifest)));
-    const read = yield* Effect.forEach(candidates, ({ host, file }) => Effect.flatMap(fs.readFileString(file), (text) => host.read(text, file)));
+    const { project, manifests: found } = yield* sourced(context, Option.fromUndefinedOr(context.configurationName), target);
     const manifests = yield* Array.match(
         Array.getSomes(
-            Array.zipWith(candidates, read, (candidate, fields) =>
-                pipe(
-                    fields,
-                    Option.flatMap(({ version }) => Option.fromUndefinedOr(version)),
-                    Option.map((version) => ({ ...candidate, version })),
-                ),
-            ),
+            found.map(({ host, folder, names, fields }) => Option.all({ pack: Option.fromUndefinedOr(host.build?.pack), archive: Option.fromUndefinedOr(host.archive), version: Option.flatMap(fields, ({ version }) => Option.fromUndefinedOr(version)), folder: Option.some(folder), names: Option.some(names) })),
         ),
         {
-            onEmpty: () => DistributionError.make({ subject: project, detail: `finds no ${packers.map(({ host }) => host.manifest).join(' or ')} in what its builds wrote` }),
+            onEmpty: () => ToolError.make({ subject: project, detail: 'finds no manifest.json or CSXS/manifest.xml in what its builds wrote' }),
             onNonEmpty: Effect.succeed,
         },
     );
@@ -45,17 +26,7 @@ const packed = Effect.fnUntraced(function* (context: ExecutorContext, outputPath
     yield* fs.makeDirectory(directory, { recursive: true });
     const stale = (yield* fs.readDirectory(directory)).filter((name) => manifests.some(({ archive }) => name.endsWith(archive)));
     yield* Effect.forEach(stale, (name) => fs.remove(path.join(directory, name)), { discard: true });
-    yield* Effect.forEach(
-        manifests,
-        ({ pack, folder, version, archive }) =>
-            pack(
-                folder,
-                files.filter((other) => other.startsWith(`${folder}/`)).map((other) => path.relative(folder, other)),
-                path.join(directory, `${path.basename(project)}-${version}${archive}`),
-                timestampAuthority,
-            ),
-        { discard: true },
-    );
+    yield* Effect.forEach(manifests, ({ pack, folder, names, version, archive }) => pack(folder, names, path.join(directory, `${path.basename(project)}-${version}${archive}`), timestampAuthority), { discard: true });
     return { success: true };
 });
 
@@ -64,8 +35,7 @@ const packed = Effect.fnUntraced(function* (context: ExecutorContext, outputPath
 const execute = (options: unknown, context: ExecutorContext) =>
     Schema.decodeUnknownEffect(Options)(options).pipe(
         Effect.flatMap(({ outputPath, timestampAuthority }) => UndefinedOr.match(outputPath, { onUndefined: () => Effect.succeed({ success: true }), onDefined: (at) => packed(context, at, Option.fromUndefinedOr(timestampAuthority)) })),
-        Effect.provide(layer),
-        Effect.runPromise,
+        runtime.runPromise,
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

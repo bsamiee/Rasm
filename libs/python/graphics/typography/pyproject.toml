@@ -25,7 +25,6 @@ dependencies = [
     # --- [UNICODE]
 
     "httpx2>=2.10.0",          # Download of the pinned `ArabicShaping.txt`, Python 3.15 from 2.10.0
-    "platformdirs>=4.11.0",    # User cache folder holding `ArabicShaping.txt`, Python 3.15 from 4.11.0
 
     # --- [GEOMETRY]
 

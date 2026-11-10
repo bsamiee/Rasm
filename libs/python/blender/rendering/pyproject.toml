@@ -9,31 +9,35 @@ requires-python = ">=3.13"
 dependencies = [
     # --- [CORE]
 
-    "expression",        # Results, options, and collections of every module
-    "msgspec",           # Records, tagged unions, and field bounds
-    "rasm-imaging",      # Image analysis the light rigs read
-    "rasm-records",      # Fault model, field domains, and record files
-    "typing-extensions", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
-    "tzdata",            # IANA time zones for zoneinfo on platforms without a database
+    "expression",                          # Results, options, and collections of every module
+    "msgspec",                             # Records, tagged unions, and field bounds
+    "opentelemetry-api",                   # Span around each program a run starts, and trace context written into its environment
+    "opentelemetry-instrumentation-httpx", # Client span and trace context header of each request to a render farm server
+    "opentelemetry-semantic-conventions",  # `error.type` of a failed program span
+    "rasm-imaging",                        # Image analysis the light rigs read
+    "rasm-records",                        # Fault model, field domains, and record files
+    "rasm-telemetry",                      # Program output relayed as records through the handler of a run log
+    "typing-extensions",                   # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
+    "tzdata",                              # IANA time zones for zoneinfo on platforms without a database
 
     # --- [MATHEMATICS]
 
-    "numpy",             # Arrays for sun positions and light rigs
-    "pvlib",             # Solar position, refraction, and horizon event times
-    "scipy",             # Vector quadrature over light rigs
+    "numpy",                               # Arrays for sun positions and light rigs
+    "pvlib",                               # Solar position, refraction, and horizon event times
+    "scipy",                               # Vector quadrature over light rigs
 
     # --- [IMAGING]
 
-    "opencolorio",       # Color processing of render outputs
+    "opencolorio",                         # Color processing of render outputs
 
     # --- [HTTP]
 
-    "httpx2",            # HTTP for batch render targets and notices
-    "tenacity",          # Batch target retries over configured domain retry policies
+    "httpx2",                              # HTTP for batch render targets and notices
+    "tenacity",                            # Batch target retries over configured domain retry policies
 
     # --- [POWER]
 
-    "wakepy",            # System sleep held off while a local queue renders
+    "wakepy",                              # System sleep held off while a local queue renders
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------

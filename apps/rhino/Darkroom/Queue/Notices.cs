@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Darkroom.Chain;
 using NtfyCator.Messages;
 using Rasm.Rhino;
+using Rasm.Telemetry;
 
 namespace Darkroom.Queue;
 
@@ -42,7 +43,7 @@ internal abstract partial record QueueEvent {
     }
 
     public sealed record Failed(Error Error) : QueueEvent(NtfyPriority.Max, "x") {
-        public override string Description(DateTimeZone zone) => Session.Messages(Error);
+        public override string Description(DateTimeZone zone) => Error.Messages();
     }
 
     public sealed record RetriesExhausted(int Retries) : QueueEvent(NtfyPriority.Max, "x") {
@@ -74,7 +75,7 @@ internal sealed partial class NoticeSender : IDisposable {
          from held in settings
          from sent in held.Topic.Traverse(topic => Sent(held.Server, topic, queued, description)).As()
          select unit)
-            | @catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error)));
+            | @catch(static error => !error.IsCancellation, static error => IO.lift(() => Session.Failed(error)));
 
     private IO<Unit> Sent(Uri server, string topic, QueueEvent queued, string description) =>
         IO.liftAsync(async environment => {

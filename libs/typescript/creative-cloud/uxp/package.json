@@ -24,7 +24,8 @@
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
         "@rasm/automation": "workspace:*",
-        "@rasm/mark": "workspace:*"
+        "@rasm/mark": "workspace:*",
+        "@rasm/telemetry": "workspace:*"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",

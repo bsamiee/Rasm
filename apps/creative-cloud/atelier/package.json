@@ -14,6 +14,7 @@
         "@rasm/automation": "workspace:*",
         "@rasm/cep": "workspace:*",
         "@rasm/mcp": "workspace:*",
+        "@rasm/process": "workspace:*",
         "@rasm/quran": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",

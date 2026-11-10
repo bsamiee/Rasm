@@ -1,5 +1,6 @@
 import { Catalog, Relation } from '@rasm/database';
-import { Schema } from 'effect';
+import { Cause, Effect, Schema } from 'effect';
+import { HttpApiError } from 'effect/http-api';
 import { type SqlClient, Statement } from 'effect/sql';
 import { AssetId } from '#/model/asset';
 import { StoredPortfolio } from '#/model/portfolio';
@@ -26,9 +27,10 @@ const projectedPaths = Statement.csv(assets.paths.map((path) => Statement.fragme
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const unavailable = Effect.fn('unavailable')((error: Cause.YieldableError) => Effect.andThen(Effect.logError(Cause.fail(error)), HttpApiError.ServiceUnavailable.make()));
 const references = (sql: SqlClient.SqlClient, source: Statement.Fragment = sql`${sql(documents.name)}`) => sql`SELECT d.state, j.value AS asset_id, j.fullkey, j.json -> j.path AS placement
     FROM ${source} d, json_tree(d.body) j WHERE j.key = 'assetId' AND j.type = 'text'`;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assets, catalog, documents, owner, projectedPaths, references, UploadAttempt };
+export { assets, catalog, documents, owner, projectedPaths, references, UploadAttempt, unavailable };

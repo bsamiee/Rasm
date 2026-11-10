@@ -148,7 +148,7 @@ languageInjections:
                     stopBy: end
                     kind: compilation_unit
                     has: {stopBy: end, matches: dialect-evidence}
-                    not: {has: {stopBy: end, kind: identifier, regex: '^(?:(?:Sqlite|Npgsql)(?:Connection|Command|Transaction|DataReader)|Npgsql(?:Batch(?:Command)?|(?:Slim)?DataSource(?:Builder)?)|(?:Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)|Use(?:Sqlite|Npgsql|ClickHouse|SqlServer|MySql|Oracle|Cosmos|Firebird))$', not: {matches: dialect-evidence}}}
+                    not: {has: {stopBy: end, kind: identifier, regex: '^(?:(?:Sqlite|Npgsql)(?:Connection|Command|Transaction|DataReader)|Npgsql(?:Batch(?:Command)?|(?:Slim)?DataSource(?:Builder)?)|(?:DuckDB|ClickHouse)(?:Connection|Command|DataSource)|Use(?:Sqlite|Npgsql|ClickHouse))$', not: {matches: dialect-evidence}}}
                   any:
                     - inside: {kind: assignment_expression, has: *csharp-command-text}
                     - inside: {kind: argument, nthChild: 1, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, has: {field: name, regex: '^(?:FromSql|SqlQuery|ExecuteSql)(?:Raw|Interpolated)?(?:Async)?(?:<|$)'}}}}}
@@ -220,7 +220,7 @@ languageInjections:
                       any:
                         - inside: {stopBy: end, kind: &tsx-class 'class_declaration, abstract_class_declaration', has: {field: name, regex: &tsx-class-name '^(?:Sqlite|Pg)$', not: {matches: own}}}
                         - not: {inside: {stopBy: end, kind: *tsx-class, has: {field: name, regex: *tsx-class-name}}}
-                          inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, any: [{matches: other-import}, {regex: '^["'']@effect/sql-(?:mysql2|mssql|clickhouse)["''/]'}]}}, not: {has: {kind: import_statement, has: {field: source, matches: own-import}}}}
+                          inside: {stopBy: end, kind: program, has: {kind: import_statement, has: {field: source, any: [{matches: other-import}, {regex: '^["'']@effect/sql-clickhouse["''/]'}]}}, not: {has: {kind: import_statement, has: {field: source, matches: own-import}}}}
       constraints:
         CONTENT: {not: {inside: &block-scope {stopBy: end, kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^#block$'}}}}}}
       utils:
@@ -228,7 +228,7 @@ languageInjections:
             any:
                 - regex: '^[\["''`]*(?i-u:sqlite)(?-u:\b)'
                 - has: {field: function, regex: '^it\.effect\.(?:runIf\(sqlite\)|skipIf\(postgres\))$'}
-        own-import: &sqlite-import {regex: '^["''](?:@effect/sql-(?:sqlite-[a-z-]+|libsql)|sqlite-vec|node:sqlite|bun:sqlite)["''/]'}
+        own-import: &sqlite-import {regex: '^["''](?:@effect/sql-sqlite-[a-z-]+|sqlite-vec|node:sqlite|bun:sqlite)["''/]'}
         other-import: &pg-import {regex: '^["''](?:@effect/sql-pg|@pgsql/[a-z]+|pgsql-parser)["''/]'}
         dialect-entry: &tsx-dialect-entry
             any:

@@ -383,7 +383,7 @@ class _Job:
             case OpenImageIO.ImageBuf():
                 return value
             case _:
-                self.identity.reports.logger.info("Staged estimate", entry=entry.name, view=view, standard_error=float(np.max(value.standard_error, initial=0.0)))
+                self.identity.reports.logger.debug("Staged estimate", entry=entry.name, view=view, standard_error=float(np.max(value.standard_error, initial=0.0)))
                 return value.value
 
     def published(self, target: tuple[bpy.types.SceneCompositorEffect, StageTarget], owner: _Owner, views: tuple[tuple[str, Option[Prepared], tuple[Raster, Raster]], ...]) -> Outcome[_Authored]:

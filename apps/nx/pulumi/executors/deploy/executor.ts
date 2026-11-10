@@ -1,10 +1,10 @@
 import { createRequire } from 'node:module';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import type { InlineProgramArgs, LocalWorkspaceOptions, Stack, UpOptions } from '@pulumi/pulumi/automation/index.js';
-import { Console, Data, Effect, FileSystem, Formatter, Function, Option, Path, Record, Schema } from 'effect';
+import { runtime, ToolError } from '@rasm/nx-devkit/process';
+import { Console, Data, Effect, FileSystem, Function, flow, Option, Path, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -37,16 +37,6 @@ const Line = Schema.fromJsonString(
 );
 const Program = Schema.Struct({ stacks: Schema.declare((value: unknown): value is Stacks => typeof value === 'function') });
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class StackError extends Schema.TaggedError<StackError, { readonly brand: unique symbol }>()('StackError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
-    static readonly of = (subject: string, detail: string) => (cause: unknown) => StackError.make({ subject, detail, cause });
-
-    override get message() {
-        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const OPERATIONS = {
@@ -75,8 +65,8 @@ const applied = Effect.fnUntraced(function* (automation: typeof import('@pulumi/
     const fs = yield* FileSystem.FileSystem;
     const subject = { project: args.projectName, stack: args.stackName };
     const workspace = { workDir: yield* fs.makeTempDirectoryScoped(), ...args };
-    return yield* Effect.tryPromise({ try: () => (operation.create ? automation.LocalWorkspace.createOrSelectStack(args, workspace) : automation.LocalWorkspace.selectStack(args, workspace)), catch: StackError.of(args.stackName, 'cannot select the stack') }).pipe(
-        Effect.flatMap((stack) => Effect.tryPromise({ try: (signal) => operation.run(stack, { signal, onOutput: (out) => process.stderr.write(out) }), catch: StackError.of(args.stackName, 'failed') })),
+    return yield* Effect.tryPromise({ try: () => (operation.create ? automation.LocalWorkspace.createOrSelectStack(args, workspace) : automation.LocalWorkspace.selectStack(args, workspace)), catch: ToolError.of(args.stackName, 'cannot select the stack') }).pipe(
+        Effect.flatMap((stack) => Effect.tryPromise({ try: (signal) => operation.run(stack, { signal, onOutput: (out) => process.stderr.write(out) }), catch: ToolError.of(args.stackName, 'failed') })),
         Effect.map((result): typeof Line.Type => ({ ...subject, ...result })),
         Effect.catchIf(
             (error) => !operation.create && error.cause instanceof automation.StackNotFoundError,
@@ -87,15 +77,15 @@ const applied = Effect.fnUntraced(function* (automation: typeof import('@pulumi/
 }, Effect.scoped);
 
 const programmed = Effect.fnUntraced(function* (entry: string, { program, request, operation }: { readonly program: string; readonly request: StackRequest; readonly operation: keyof typeof OPERATIONS }) {
-    const resolved = yield* Effect.try({ try: () => createRequire(entry).resolve(program), catch: StackError.of(program, `unresolvable from ${entry}`) });
-    const module: unknown = yield* Effect.tryPromise({ try: () => import(pathToFileURL(resolved).href), catch: StackError.of(program, `failed to load ${resolved}`) });
-    const automation: typeof import('@pulumi/pulumi/automation/index.js') = yield* Effect.try({ try: () => createRequire(resolved)('@pulumi/pulumi/automation/index.js'), catch: StackError.of(program, 'declares no @pulumi/pulumi') });
-    const { stacks } = yield* Effect.mapError(Schema.decodeUnknownEffect(Program)(module), StackError.of(program, `${resolved} exports no stacks function`));
-    const selected = yield* Effect.tryPromise({ try: () => stacks(request), catch: StackError.of(program, 'stacks failed') });
+    const resolved = yield* Effect.try({ try: () => createRequire(entry).resolve(program), catch: ToolError.of(program, `unresolvable from ${entry}`) });
+    const module: unknown = yield* Effect.tryPromise({ try: () => import(pathToFileURL(resolved).href), catch: ToolError.of(program, `failed to load ${resolved}`) });
+    const automation: typeof import('@pulumi/pulumi/automation/index.js') = yield* Effect.try({ try: () => createRequire(resolved)('@pulumi/pulumi/automation/index.js'), catch: ToolError.of(program, 'declares no @pulumi/pulumi') });
+    const { stacks } = yield* Effect.mapError(Schema.decodeUnknownEffect(Program)(module), ToolError.of(program, `${resolved} exports no stacks function`));
+    const selected = yield* Effect.tryPromise({ try: () => stacks(request), catch: ToolError.of(program, 'stacks failed') });
     return yield* Effect.forEach(selected, (args) => applied(automation, args, OPERATIONS[operation]), { concurrency: 'unbounded' });
 });
 
-const run = (select: (options: typeof Options.Type, context: ExecutorContext, project: string) => Effect.Effect<Option.Option<{ readonly request: StackRequest; readonly operation: keyof typeof OPERATIONS }>, StackError>) => {
+const run = (select: (options: typeof Options.Type, context: ExecutorContext, project: string) => Effect.Effect<Option.Option<{ readonly request: StackRequest; readonly operation: keyof typeof OPERATIONS }>, ToolError>) => {
     const executed = Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
         const [path, decoded, project] = yield* Effect.all([Path.Path, Schema.decodeUnknownEffect(Options)(options), Effect.fromNullishOr(context.projectName)]);
         const { root } = yield* Effect.fromNullishOr(context.projectsConfigurations.projects[project]);
@@ -109,8 +99,8 @@ const run = (select: (options: typeof Options.Type, context: ExecutorContext, pr
         yield* Effect.forEach(lines, (line) => Effect.flatMap(Schema.encodeEffect(Line)(line), Console.log));
         yield* Effect.forEach(failures, (failure) => Console.error(failure.message));
         return { success: failures.length === 0 && lines.every(({ error }) => error === undefined) };
-    }, Effect.provide(layer));
-    return (options: unknown, context: ExecutorContext) => Effect.runPromise(executed(options, context));
+    });
+    return flow(executed, runtime.runPromise);
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -119,4 +109,4 @@ const execute = run(({ stack, destroy }, context) => Effect.succeedSome({ reques
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute, run, StackError, StackRequest, type Stacks };
+export { execute, run, StackRequest, type Stacks };

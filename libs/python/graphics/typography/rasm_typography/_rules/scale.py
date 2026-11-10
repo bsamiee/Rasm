@@ -24,7 +24,7 @@ class Scale(measures.Rule, frozen=True, kw_only=True):
     cap: Em
     upm: int = 2048
 
-    def applied(self, source: Source, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
+    def applied(self, source: Source, /, *, original: Binary, corpus: Corpus, **_: object) -> Outcome[Source]:
         """Scales script glyphs to the stem height, the marked corpus spanning at most the cap, and moves every glyph onto the new units per em.
 
         Returns:

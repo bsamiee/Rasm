@@ -27,7 +27,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
         let bundleInfo: [String: String]?
     }
 
-    public static let directory: URL = .libraryDirectory.appending(components: "Logs", "DiagnosticReports")
+    public static let directory: URL = .libraryDirectory.appending(components: "Logs", "DiagnosticReports", directoryHint: .isDirectory)
 
     public let url: URL
     public let pid: pid_t

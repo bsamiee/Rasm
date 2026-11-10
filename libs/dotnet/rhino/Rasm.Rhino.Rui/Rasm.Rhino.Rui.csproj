@@ -18,6 +18,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../runtime/Rasm.Hosting/Rasm.Hosting.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>
 </Project>

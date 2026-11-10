@@ -1,9 +1,8 @@
-import { Array, Data, type Duration, Effect, Formatter, Layer, Option, Struct } from 'effect';
-import { Digest } from 'effect/crypto';
+import { Array, Data, type Duration, Effect, Formatter, Layer, Option, Struct, UndefinedOr } from 'effect';
 import { SqlClient, type Statement } from 'effect/sql';
 import { Engine } from '#/engine';
 import { ReconcileError } from '#/error';
-import { refusals } from '#/reconcile';
+import { digest, refusals } from '#/reconcile';
 import type { Relation } from '#/relation';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -17,22 +16,17 @@ class Catalog extends Data.Class<{
     static readonly make = ({ tables, retired = [], reader, timeouts }: Pick<Catalog, 'tables'> & Partial<Pick<Catalog, 'retired'>> & { readonly reader?: string; readonly timeouts?: Option.Option.Value<Catalog['timeouts']> }) =>
         new Catalog({ tables, retired, reader: Option.fromUndefinedOr(reader), timeouts: Option.fromUndefinedOr(timeouts) });
     static readonly digest = ({ tables, retired, reader }: Catalog) =>
-        Digest.Digest.use((digest) =>
-            digest.digestHex(
-                Digest.sha256,
-                new TextEncoder().encode(
-                    Formatter.formatJson({
-                        tables: tables.map(({ columns, search, tenant, ...table }) => ({
-                            ...Struct.omit(table, ['schema', 'options', 'queries', 'paths']),
-                            columns: Object.values(columns).map(Struct.omit(['schema'])),
-                            search: Option.map(search, ({ columns: searched, tokenizer }) => ({ columns: searched.map(Struct.get('name')), tokenizer })),
-                            tenant: Option.map(tenant, ({ column, setting }) => ({ column: column.name, setting })),
-                        })),
-                        retired,
-                        reader,
-                    }),
-                ),
-            ),
+        digest(
+            Formatter.formatJson({
+                tables: tables.map(({ columns, search, tenant, ...table }) => ({
+                    ...Struct.omit(table, ['schema', 'options', 'queries', 'paths']),
+                    columns: Object.values(columns).map(Struct.omit(['schema'])),
+                    search: Option.map(search, ({ columns: searched, tokenizer }) => ({ columns: searched.map(Struct.get('name')), tokenizer })),
+                    tenant: Option.map(tenant, ({ column, setting }) => ({ column: column.name, setting })),
+                })),
+                retired,
+                reader,
+            }),
         );
     static readonly plan = Effect.fn('Catalog.plan')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, () => Effect.void),
@@ -53,9 +47,9 @@ class Catalog extends Data.Class<{
 
 const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>, engine: Engine['Service']) => Effect.Effect<unknown, E, R>) {
     const [client, engine] = yield* Effect.all([SqlClient.SqlClient, Engine]);
-    const stored = Option.match(Option.fromUndefinedOr(engine.names.transformQueryNames), {
-        onNone: () => catalog,
-        onSome: (rename) => new Catalog({ ...catalog, tables: Array.map(catalog.tables, (table) => table.named(rename)), retired: catalog.retired.map(rename) }),
+    const stored = UndefinedOr.match(engine.names.transformQueryNames, {
+        onUndefined: () => catalog,
+        onDefined: (rename) => new Catalog({ ...catalog, tables: Array.map(catalog.tables, (table) => table.named(rename)), retired: catalog.retired.map(rename) }),
     });
     yield* ReconcileError.raise([...stored.tables.flatMap(refusals), ...stored.tables.flatMap(engine.refusals)]);
     const steps = engine.plan(client.withoutTransforms(), stored, runtime);

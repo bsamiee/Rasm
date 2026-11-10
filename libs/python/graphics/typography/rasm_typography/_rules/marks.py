@@ -16,7 +16,7 @@ lazy from scipy.special import cosdg, sindg
 from rasm_typography._faces.declaration import Em, Ratio, Recipe, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Error, Nothing, Ok, Outcome
-lazy from rasm_typography._faces.glyphs import Glyph, Mark, Point, Side, Source, traced
+lazy from rasm_typography._faces.glyphs import Glyph, Joinings, Mark, Point, Side, Source, traced
 lazy from rasm_typography._faces.layout import Chain, Contextual
 lazy from rasm_typography._faces.names import Form, GlyphName
 lazy from rasm_typography._outlines import measure, paths
@@ -39,7 +39,7 @@ class Marks(measures.Rule, frozen=True, kw_only=True):
     small: Ratio = 0.75
     tolerance: Ratio = 0.08
 
-    def applied(self, source: Source, /, **_: object) -> Outcome[Source]:
+    def applied(self, source: Source, /, *, joinings: Joinings, **_: object) -> Outcome[Source]:
         """Offsets or draws each recipe mark at the pen the stem stroke, the band, the stated ratio, and the floor give, `ABSENT` naming the stem outline a face lacks."""
 
         def rebuilt(code: int, recipe: Recipe, /) -> tuple[tuple[Point, ...], ...]:
@@ -96,7 +96,7 @@ class Marks(measures.Rule, frozen=True, kw_only=True):
                 case code, recipe:
                     if (contours := source.drawn(glyph.name.text).contours) and (self.drawn or abs(measure.stroke(contours) / pen - 1) <= self.tolerance):
                         return msgspec.structs.replace(glyph, codes=glyph.codes | {code}, advance=0.0)
-                    return _with_contours(glyph, code, 0.0, measure.restroked(contours, pen) if contours else rebuilt(code, recipe))
+                    return _with_contours(joinings, glyph, code, 0.0, measure.restroked(contours, pen) if contours else rebuilt(code, recipe))
 
         match measures.bounded_glyph(source, self.script.stem):
             case Result(tag="ok", ok=(drawn, height)):
@@ -112,7 +112,8 @@ class Marks(measures.Rule, frozen=True, kw_only=True):
                 recipes = {glyph.name.text: (code, script.recipes[code]) for glyph, code in targets if glyph is not None}
                 return Ok(
                     source.replaced(
-                        *(changed(glyph) for glyph in source.by_role(Mark)), *(_with_contours(None, code, 0.0, rebuilt(code, script.recipes[code])) for glyph, code in targets if glyph is None)
+                        *(changed(glyph) for glyph in source.by_role(Mark)),
+                        *(_with_contours(joinings, None, code, 0.0, rebuilt(code, script.recipes[code])) for glyph, code in targets if glyph is None),
                     )
                 )
             case Result(error=faults):
@@ -127,7 +128,7 @@ class QuranicMarks(measures.Rule, frozen=True, kw_only=True):
     width: Em = 0.42
     height: Ratio = 0.45
 
-    def applied(self, source: Source, /, *, original: Binary, **_: object) -> Outcome[Source]:
+    def applied(self, source: Source, /, *, original: Binary, joinings: Joinings, **_: object) -> Outcome[Source]:
         """Shapes each spelled small mark on the original, maps it into the source, holds it to the mark box at the vowel pen, and adds the iqlab composition, `ABSENT` naming the stem outline a face lacks."""
         model = source.drawn(name) if (name := source.key(self.script.vowels[0])) in source.named else None
         pen = measure.stroke(model.contours) if model and model.contours else 0.0
@@ -149,7 +150,7 @@ class QuranicMarks(measures.Rule, frozen=True, kw_only=True):
                     spelling = Nothing
             spelled.append((glyph, code, spelling))
         thin = tuple(
-            _with_contours(glyph, code, glyph.advance, measure.restroked(contours, pen))
+            _with_contours(joinings, glyph, code, glyph.advance, measure.restroked(contours, pen))
             for glyph, code in _targets(source, self.script.hairlines)
             if glyph is not None and (contours := source.drawn(glyph.name.text).contours) and measure.stroke(contours) < 0.85 * pen
         )
@@ -170,7 +171,7 @@ class QuranicMarks(measures.Rule, frozen=True, kw_only=True):
             lambda held: msgspec.structs.replace(
                 source.replaced(
                     *(
-                        _with_contours(glyph, code, 0.0, measure.restroked(paths.transformed(contours, (factor, 0, 0, factor, -factor * box.middle[0], -factor * foot)), pen))
+                        _with_contours(joinings, glyph, code, 0.0, measure.restroked(paths.transformed(contours, (factor, 0, 0, factor, -factor * box.middle[0], -factor * foot)), pen))
                         for glyph, code, contours in (
                             (glyph, code, paths.transformed(measures.text_outline(original, text), held[2])) for glyph, code, spelling in spelled for text in spelling.to_list()
                         )
@@ -192,13 +193,14 @@ class WordSigns(measures.Rule, frozen=True, kw_only=True):
     stack: Em
     block: tuple[Ratio, Ratio] = (1.5, 1.6)
 
-    def applied(self, source: Source, /, *, original: Binary, **_: object) -> Outcome[Source]:
+    def applied(self, source: Source, /, *, original: Binary, joinings: Joinings, **_: object) -> Outcome[Source]:
         """Shapes each sign's rows on the original, maps them into the source, stacks them top to bottom the gap apart, each centered on the first, and places the outline at the stem's bearings, `ABSENT` naming the stem outline a face lacks."""
         (wide, tall), gap = self.block, self.stack * source.upm
         return measures.placement(source, original, self.script.stem).map(
             lambda held: source.replaced(
                 *(
                     _with_contours(
+                        joinings,
                         own,
                         code,
                         factor * extent.width + 2 * bearing,
@@ -240,12 +242,12 @@ def _targets(source: Source, codes: Collection[int], /) -> tuple[tuple[Glyph | N
     return tuple(targets.values())
 
 
-def _with_contours(glyph: Glyph | None, code: int, advance: float, contours: tuple[tuple[Point, ...], ...], /) -> Glyph:
+def _with_contours(joinings: Joinings, glyph: Glyph | None, code: int, advance: float, contours: tuple[tuple[Point, ...], ...], /) -> Glyph:
     """Writes generated contours, preserving an existing native glyph's identity and every cmap mapping."""
     return (
         msgspec.structs.replace(glyph, codes=glyph.codes | {code}, advance=advance, contours=contours, components=())
         if glyph is not None
-        else measures.made(GlyphName(stem=(code,)), advance, contours=contours)
+        else measures.made(joinings, GlyphName(stem=(code,)), advance, contours=contours)
     )
 
 

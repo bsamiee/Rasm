@@ -12,7 +12,7 @@ import { cases } from '#/cases';
 describe('sqlite', () => {
     cases(
         it,
-        Sqlite.layer((options) => SqliteClient.layer({ filename: ':memory:', ...options })),
+        Sqlite.layer((names) => SqliteClient.layer({ filename: ':memory:', ...names })),
     );
     it.effect(
         'reopens the SQLite file in WAL mode and retains application tables with a D1 reserved prefix',
@@ -23,7 +23,7 @@ describe('sqlite', () => {
             const catalog = Catalog.make({ tables: [records] });
             const storage = Catalog.layer(
                 catalog,
-                Sqlite.layer((options) => SqliteClient.layer({ filename: path.join(directory, 'database.sqlite'), ...options })),
+                Sqlite.layer((names) => SqliteClient.layer({ filename: path.join(directory, 'database.sqlite'), ...names })),
             );
             const row = { id: 'saved' };
             yield* Relation.insert(records, [row]).pipe(Effect.provide(storage));

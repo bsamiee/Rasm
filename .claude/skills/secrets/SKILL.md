@@ -5,7 +5,7 @@ description: "Use when a command, build, or agent reads a secret or credential, 
 
 # [SECRETS]
 
-1Password and Doppler each hold every secret and stay aligned: no value is dropped, moved, deduplicated, or consolidated between them. Parametric Forge exports machine and personal credentials from 1Password `Tokens` into every shell and GUI session. Doppler holds one project per repository, declared in that repository's own IaC: `infra/repository-stack.ts` declares project `rasm`, its configs, and its GitHub Actions syncs.
+1Password and Doppler each hold every secret and stay aligned: no value is dropped, moved, deduplicated, or consolidated between them. Shell and GUI sessions on the owner's machine hold machine and personal credentials exported from 1Password `Tokens`. Doppler holds one project per repository, declared in that repository's own IaC: `infra/repository-stack.ts` declares project `rasm`, its configs, and its GitHub Actions syncs.
 
 ## [01]-[DOPPLER_SCOPES]
 
@@ -35,6 +35,7 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, 
 - Pulumi reads its backend login from `pulumi login`
 - New job values go in through `doppler secrets set <NAME> --config <job>`, new configs and syncs are rows of `infra/repository-stack.ts`
 - Values shared between configs sit in one, each other config holds reference `${<config>.<NAME>}`
+- Rows selecting one provider hold reference `${<NAME>}` to a provider-named row of their config (`BACKUP_*` to `RUSTFS_*` or `BACKBLAZE_*`)
 - References name plain values alone, Doppler refuses one naming a value that holds a reference
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
 

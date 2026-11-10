@@ -1,8 +1,9 @@
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { interpolate } from '@nx/devkit/internal';
+import { line } from '@rasm/nx-devkit/inference';
+import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Config, Effect, FileSystem, Match, Option, Path, Schema } from 'effect';
-import { AppleError, spawned, VersionActionsOptions, versioned } from '#/plugins/targets';
+import { VersionActionsOptions, versioned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,13 +18,13 @@ const Feed = Schema.Tuple([Schema.Literal(''), Schema.String, Schema.String, Sch
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const released = (tag: string, cwd: string, repository: readonly string[]) => Effect.option(Effect.flatMap(spawned('gh', ['release', 'view', tag, ...repository, '--json', 'isImmutable,assets'], { cwd }), Schema.decodeEffect(Release)));
+const released = (tag: string, cwd: string, repository: readonly string[]) => Effect.option(Effect.flatMap(printed('gh', ['release', 'view', tag, ...repository, '--json', 'isImmutable,assets'], { cwd }), Schema.decodeEffect(Release)));
 
 const appcast = Effect.fnUntraced(
     function* (zip: string, feed: string, tag: string, cwd: string, dry: boolean) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const [, owner, repo, , , channel, asset] = yield* Effect.mapError(Schema.decodeUnknownEffect(Feed)(new URL(feed).pathname.split('/')), () =>
-            AppleError.make({ subject: feed, detail: 'is the SUFeedURL, and the Sparkle feed publishes to a GitHub release asset (https://github.com/<owner>/<repo>/releases/download/<tag>/<file>)' }),
+            ToolError.make({ subject: feed, detail: 'is the SUFeedURL, and the Sparkle feed publishes to a GitHub release asset (https://github.com/<owner>/<repo>/releases/download/<tag>/<file>)' }),
         );
         const repository = ['--repo', `${owner}/${repo}`];
         const existing = yield* released(channel, cwd, repository);
@@ -35,14 +36,14 @@ const appcast = Effect.fnUntraced(
             ['gh', 'release', 'upload', channel, ...repository, '--clobber', path.join(staging, asset)],
         ];
         return yield* dry
-            ? Effect.forEach(steps, (step) => Effect.logInfo(`Would run ${step.join(' ')}`), { discard: true })
+            ? Effect.forEach(steps, (step) => Effect.logInfo(`Would run ${line(step)}`), { discard: true })
             : Effect.andThen(
                   fs.copyFile(path.join(cwd, zip), path.join(staging, path.basename(zip))),
-                  Effect.forEach(steps, ([command, ...args]) => spawned(command, args, { cwd }), { discard: true }),
+                  Effect.forEach(steps, ([command, ...args]) => printed(command, args, { cwd }), { discard: true }),
               );
     },
     Effect.scoped,
-    Effect.catchTag('PlatformError', AppleError.of('Sparkle feed', 'does not publish')),
+    Effect.catchTag('PlatformError', ToolError.of('Sparkle feed', 'does not publish')),
 );
 
 const stated = Effect.fnUntraced(function* (context: ExecutorContext, project: string) {
@@ -51,7 +52,7 @@ const stated = Effect.fnUntraced(function* (context: ExecutorContext, project: s
     const { manifest } = yield* Schema.decodeUnknownEffect(VersionActionsOptions)(node.release?.version?.versionActionsOptions);
     const at = path.join(node.root, manifest);
     const { version } = yield* Effect.flatMap(fs.readFileString(path.join(context.root, at)), (text) => versioned(context.root, at, text));
-    return yield* Effect.mapError(Effect.fromNullishOr(version), () => AppleError.make({ subject: at, detail: 'states no version' }));
+    return yield* Effect.mapError(Effect.fromNullishOr(version), () => ToolError.make({ subject: at, detail: 'states no version' }));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -64,12 +65,12 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
         return yield* Effect.as(Effect.logInfo(`Skipped ${project}, nx release left it unversioned`), { success: true });
     }
     const known = version === undefined ? yield* stated(context, project) : version;
-    const pattern = yield* Effect.mapError(Effect.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern), () => AppleError.make({ subject: 'nx.json release.releaseTag.pattern', detail: 'is unset, and names the GitHub release each zip attaches to' }));
+    const pattern = yield* Effect.mapError(Effect.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern), () => ToolError.make({ subject: 'nx.json release.releaseTag.pattern', detail: 'is unset, and names the GitHub release each zip attaches to' }));
     const tag = interpolate(pattern, { projectName: project, version: known });
     const listed = yield* Effect.forEach(folders, (folder) => Effect.orElseSucceed(fs.readDirectory(path.join(context.root, folder)), Array.empty<string>));
     const zips = yield* Effect.forEach(Array.zip(folders, listed), ([folder, names]) =>
         Effect.mapBoth(Effect.fromOption(Array.findFirst(names, (name) => name.endsWith(`-${known}.zip`))), {
-            onFailure: () => AppleError.make({ subject: folder, detail: `holds no zip at ${known}; run nx build ${project} -c release after nx release versions it` }),
+            onFailure: () => ToolError.make({ subject: folder, detail: `holds no zip at ${known}; run nx build ${project} -c release after nx release versions it` }),
             onSuccess: (name) => ({ folder, zip: path.join(folder, name) }),
         }),
     );
@@ -82,8 +83,8 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
             Match.value({ dry, attached: attached.has(path.basename(zip)), immutable: Option.exists(release, ({ isImmutable }) => isImmutable) }).pipe(
                 Match.when({ dry: true }, () => Effect.logInfo(`Would run gh release upload ${tag} ${zip}`)),
                 Match.when({ attached: true }, () => Effect.logInfo(`Skipped ${zip}, GitHub release ${tag} already holds it`)),
-                Match.when({ immutable: true }, () => AppleError.make({ subject: tag, detail: `is an immutable GitHub release, which takes no asset after nx release publishes it, so ${zip} stays unattached` })),
-                Match.orElse(() => Effect.andThen(spawned('gh', ['release', 'upload', tag, zip], { cwd: context.root }), Effect.logInfo(`Attached ${zip} to GitHub release ${tag}`))),
+                Match.when({ immutable: true }, () => ToolError.make({ subject: tag, detail: `is an immutable GitHub release, which takes no asset after nx release publishes it, so ${zip} stays unattached` })),
+                Match.orElse(() => Effect.andThen(printed('gh', ['release', 'upload', tag, zip], { cwd: context.root }), Effect.logInfo(`Attached ${zip} to GitHub release ${tag}`))),
             ),
         { discard: true },
     );
@@ -92,15 +93,15 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
     const apps = Array.zip(exported, contents).flatMap(([{ folder, zip }, names]) => names.filter((name) => path.extname(name) === '.app').map((app) => ({ zip, plist: path.join(folder, app, 'Contents', 'Info.plist') })));
     const feeds = yield* Effect.forEach(apps, ({ zip, plist }) =>
         Effect.map(
-            Effect.option(spawned('plutil', ['-extract', 'SUFeedURL', 'raw', '-o', '-', plist], { cwd: context.root })),
+            Effect.option(printed('plutil', ['-extract', 'SUFeedURL', 'raw', '-o', '-', plist], { cwd: context.root })),
             Option.map((feed) => ({ zip, feed: feed.trim() })),
         ),
     );
     yield* Effect.forEach(Array.getSomes(feeds), ({ zip, feed }) => appcast(zip, feed, tag, context.root, dry), { discard: true });
     return { success: true };
-}, Effect.provide(layer));
+});
 
-const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(Effect.runPromise);
+const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(runtime.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

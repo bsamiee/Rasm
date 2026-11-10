@@ -11,7 +11,7 @@ use inquire::InquireError;
 use inquire::error::InquireResult;
 use minus::MinusError;
 use nonempty_collections::NEVec;
-use rasm_command::telemetry::{Defaults, Failure, Handle, Layer};
+use rasm_command::telemetry::{Failure, Layer, Program};
 use rasm_command::{Augmented, CommandError, Invocation};
 use serde::Serialize;
 use sysexits::ExitCode;
@@ -74,7 +74,7 @@ where T: Send + 'static {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, L, R, E, S>(defaults: Defaults, layer: L, runtime: impl FnOnce(&A) -> Builder, work: impl AsyncFnOnce(A, Handle) -> Result<S, NEVec<E>> + Send + 'static) -> process::ExitCode
+pub fn run<A, L, R, E, S>(program: Program, layer: L, runtime: impl FnOnce(&A) -> Builder, work: impl AsyncFnOnce(Invocation<A>) -> Result<S, NEVec<E>> + Send + 'static) -> process::ExitCode
 where
     A: CommandFactory + FromArgMatches + Send + 'static,
     L: Layer,
@@ -85,15 +85,15 @@ where
     let progress = IndicatifLayer::new().with_span_field_formatter(hide_indicatif_span_fields(DefaultFields::new()));
     let (stderr, stdout) = (progress.get_stderr_writer(), progress.get_stdout_writer());
     rasm_command::run(
-        defaults,
+        program,
         stderr,
         progress.with_filter(IndicatifFilter::new(false)).and_then(layer),
         |Augmented { options: _, args }| runtime(args),
-        async move |Invocation { args: Augmented { options, args }, styles, mut signals, filter, level: _ }| {
+        async move |Invocation { args: Augmented { options, args }, executable, styles, folders, filter, parent, settings, export }| {
             inquire::set_global_render_config(theme::prompts(&styles));
-            let header = *styles.get_header();
+            let (header, mut signals) = (*styles.get_header(), rasm_command::signals().map_err(|error| NEVec::new(E::from(error)))?);
             task::spawn_blocking(move || {
-                let outcome = match executor::block_on(select(pin!(work(args, filter)), signals.next())) {
+                let outcome = match executor::block_on(select(pin!(work(Invocation { args, executable, styles, folders, filter, parent, settings, export })), signals.next())) {
                     Either::Left((started, next)) => started.and_then(|items| formats::written(options, header, stdout, Box::pin(items).take_until(next))),
                     Either::Right(_) => Ok(ExitCode::TempFail),
                 };

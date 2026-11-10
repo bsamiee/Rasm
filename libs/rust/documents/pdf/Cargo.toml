@@ -53,6 +53,7 @@ krilla               = { workspace = true }
 krilla-svg           = { workspace = true }
 lopdf                = { workspace = true }
 pdf_oxide            = { workspace = true }
+rsa                  = { workspace = true }
 rasm-drawing         = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------

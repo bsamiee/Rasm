@@ -1,0 +1,21 @@
+{
+    "name": "@rasm/test-object-storage",
+    "private": true,
+    "description": "Object storage suites over R2 and S3",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@cloudflare/vitest-plugin": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/object-storage": "workspace:*",
+        "@rasm/test-support": "workspace:*",
+        "@types/node": "catalog:",
+        "cf": "catalog:",
+        "effect": "catalog:",
+        "partial-content": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

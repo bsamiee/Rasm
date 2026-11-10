@@ -1,30 +1,39 @@
-"""Local queue runs: host commands and run files, process launches, supervision of background Blender renders, sleep hold, and shutdown."""
+"""Local queue runs: host commands and run files with their retention, process launches, another program run to its exit with its output relayed into the bounded log of its run, supervision of background Blender renders, sleep hold, and shutdown."""
 
 import base64
-from collections.abc import Callable, Mapping
-from contextlib import ExitStack
+from collections import deque
+from collections.abc import Callable, Collection, Mapping
+from contextlib import closing, ExitStack
+import contextvars
 from datetime import timedelta
 from enum import auto, StrEnum
 from functools import partial
 from graphlib import TopologicalSorter
 from heapq import heappop, heappush
 from itertools import count, groupby
+import logging
 import os
 from pathlib import Path
 import shlex
 import signal
 import subprocess
 import sys
-from typing import Annotated
+import threading
+from typing import Annotated, Final
 
 from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
+from opentelemetry import propagate, trace
+from opentelemetry.propagators._envcarrier import EnvironmentSetter
+from opentelemetry.semconv.attributes.error_attributes import ERROR_TYPE
+from opentelemetry.trace import Status, StatusCode
 from tenacity import retry_if_result, Retrying, stop_after_attempt
 from wakepy import keep
 
-from rasm_records import accumulated, Case, Error, Fault, Faults, folder_made, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed
-from rasm_rendering._batch.queue import Ending, Job, observed, Progress, PROGRESS_DECODER, RENDER_QUEUE_DECODER, RenderQueue
+from rasm_records import accumulated, Case, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed
+from rasm_rendering._batch.queue import Ending, observed, Progress, PROGRESS_DECODER, RENDER_QUEUE_DECODER, RenderQueue
+from rasm_telemetry import relayed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -41,25 +50,28 @@ class RunFile(StrEnum):
     """Run file suffix after the key of the plan or queue it belongs to."""
 
     PLAN = ".plan.json"
-    PLAN_LOG = ".plan.log"
     REFUSED = ".refused.json"
     SENT = ".sent.json"
     QUEUE = ".json"
     PROGRESS = ".progress.json"
     LOG = ".log"
     RENDERON = ".renderon.json"
-    RENDERON_LOG = ".renderon.log"
 
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_TRACER: Final = trace.get_tracer(__name__)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class HostCommands(msgspec.Struct, frozen=True, kw_only=True):
-    """Running host binary, run folder, and registered name of each run command."""
+    """Running host binary, run folder, registered name of each run command, and the handler writing the log of a run at a path."""
 
     binary: str
     folder: str
     commands: Mapping[RunCommand, str]
+    logs: Callable[[Path], logging.Handler]
 
     def argv(self, command: RunCommand, record: msgspec.Struct, file: Option[str] = Nothing) -> tuple[str, ...]:
         """Returns background command line opening `file` and passing `record` as its command argument."""
@@ -68,6 +80,52 @@ class HostCommands(msgspec.Struct, frozen=True, kw_only=True):
     def path(self, key: str, file: RunFile) -> Path:
         """Returns path of the run file of a plan or queue key."""
         return Path(self.folder, f"{key}{file}")
+
+    def pruned(self, kept: Callable[[tuple[str, ...]], Collection[str]], /) -> Outcome[None]:
+        """Removes every file of the runs `kept` leaves out of the run keys it receives newest first, rotated logs and lock files with them, a run as new as its newest file.
+
+        Returns:
+            Ok, `UNREADABLE` fault for a folder refusing its listing, `UNWRITABLE` for each file refusing removal.
+        """
+        try:
+            aged = sorted(((entry.stat().st_mtime, entry.name.removeprefix(".__").partition(".")[0], Path(entry.path)) for entry in os.scandir(self.folder) if entry.is_file()), reverse=True)
+        except OSError as error:
+            return Error(Fault.of(Reason.UNREADABLE, self.folder, error))
+        held = kept(tuple(dict.fromkeys(key for _, key, _ in aged)))
+        return accumulated(removed(path) for _, key, path in aged if key not in held).map(lambda _: None)
+
+    def run(self, key: str, argv: tuple[str, ...], /, waited: Callable[[subprocess.Popen[bytes]], Outcome[int]] = lambda child: Ok(child.wait())) -> Outcome[None]:
+        """Runs another program to its exit under a run key inside one span, its output relayed line by line into the run's log for the whole run.
+
+        The process calling this stays alive for the program, so the log's rotation bounds the output and the exit reaches a caller.
+
+        Returns:
+            Ok, `UNWRITABLE` fault for a refused log, `FAILED` for a refused launch, `FAILED` holding the exit code and last 20 output lines for a nonzero exit, or the first fault of `waited`.
+        """
+        tail, subject = deque[str](maxlen=20), shlex.join(argv)
+
+        def attended(log: logging.Handler, child: subprocess.Popen[bytes]) -> Outcome[None]:
+            relay = threading.Thread(target=contextvars.copy_context().run, args=(tail.extend, relayed(child.stdout or (), log, Path(argv[0]).stem)))
+            relay.start()
+            with child:
+                answer = waited(child)
+                relay.join()
+            return answer.bind(
+                lambda code: catch(subprocess.CompletedProcess(argv, code, "\n".join(tail)).check_returncode, exception=subprocess.CalledProcessError)().map_error(
+                    partial(Fault.of, Reason.FAILED, subject)
+                )
+            )
+
+        def logged(log: logging.Handler) -> Outcome[None]:
+            with closing(log):
+                return spawned(argv).bind(partial(attended, log))
+
+        with _TRACER.start_as_current_span(type(self).run.__qualname__) as span:
+            answer = catch(self.logs, exception=OSError)(self.path(key, RunFile.LOG)).map_error(partial(Fault.of, Reason.UNWRITABLE, key)).bind(logged)
+            for fault in answer.swap().default_value(())[:1]:
+                span.set_status(Status(StatusCode.ERROR, fault.message))
+                span.set_attribute(ERROR_TYPE, fault.reason.name)
+            return answer
 
 
 class LocalMachine(Case, frozen=True, kw_only=True):
@@ -105,7 +163,7 @@ class LocalMachine(Case, frozen=True, kw_only=True):
         return (
             RecordFile(path=host.path(queue.stem, RunFile.QUEUE), decoder=RENDER_QUEUE_DECODER)
             .written(queue)
-            .bind(lambda path: detached(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), log))
+            .bind(lambda path: spawned(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), detached=True))
             .map(lambda _: (Ok(str(log)),))
         )
 
@@ -115,6 +173,13 @@ class Run(Case, frozen=True, kw_only=True):
 
     queue: str
     target: LocalMachine
+
+
+class Program(Case, frozen=True, kw_only=True):
+    """Command line of another program a supervisor runs under a run key, decoded by the `supervise` command."""
+
+    key: str
+    argv: tuple[str, ...]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -137,49 +202,46 @@ def argued[T](decoder: msgspec.json.Decoder[T], subject: str, text: str, /) -> O
 
 
 def ran(argv: tuple[str, ...]) -> Outcome[None]:
-    """Runs process to exit, nonzero code as fault."""
-    return (
-        catch(subprocess.run, exception=OSError)(argv, check=False)
-        .map_error(partial(Fault.of, Reason.FAILED, shlex.join(argv)))
-        .filter_with(lambda done: done.returncode == 0, lambda done: Fault.of(Reason.FAILED, shlex.join(argv), f"exit code {done.returncode}"))
-        .map(lambda _: None)
-    )
+    """Runs a system utility to its exit, a refused launch or a nonzero exit as `FAILED` fault, the exit's cause holding its code and output."""
+    try:
+        subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        return Error(Fault.of(Reason.FAILED, shlex.join(argv), error))
+    return Ok(None)
 
 
-def spawned(argv: tuple[str, ...], stream: int | None = None) -> Outcome[subprocess.Popen[bytes]]:
-    """Starts process, stdin and stdout on stream."""
+def spawned(argv: tuple[str, ...], *, detached: bool = False) -> Outcome[subprocess.Popen[bytes]]:
+    """Starts process with the current trace context in its environment, its output on a pipe its parent reads to the end, or detached in its own session.
+
+    A detached process is a command of the host that records for itself under the trace it continues, so its standard streams hold nothing and go nowhere.
+
+    Returns:
+        Ok(process handle for `poll`), `FAILED` fault for a refused launch.
+    """
+    flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS if sys.platform == "win32" and detached else 0  # ty: ignore[possibly-missing-attribute]
+    environment = os.environ.copy()
+    propagate.inject(environment, setter=EnvironmentSetter())
 
     @catch(exception=OSError)
     def started() -> subprocess.Popen[bytes]:
-        return subprocess.Popen(argv, stdin=stream, stdout=stream)
+        return subprocess.Popen(
+            argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL if detached else subprocess.PIPE, stderr=subprocess.STDOUT, env=environment, start_new_session=detached, creationflags=flags
+        )
 
     return started().map_error(partial(Fault.of, Reason.FAILED, shlex.join(argv)))
-
-
-def detached(argv: tuple[str, ...], log: Path) -> Outcome[subprocess.Popen[bytes]]:
-    """Starts process in own session with output appended to log, returning its handle for `poll`."""
-
-    @catch(exception=OSError)
-    def launched() -> subprocess.Popen[bytes]:
-        with log.open("ab") as sink:
-            if sys.platform == "win32":
-                return subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS)  # ty: ignore[possibly-missing-attribute]
-            return subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=sink, stderr=subprocess.STDOUT, start_new_session=True)
-
-    return folder_made(log.parent).bind(lambda _: launched().map_error(partial(Fault.of, Reason.FAILED, shlex.join(argv))))
 
 
 # --- [SUPERVISION]
 
 
 def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, interval: timedelta, /) -> Outcome[Progress]:
-    """Renders remaining frames one job group per process, touching the progress record every `interval` and restarting crashed renders."""
+    """Renders remaining frames one job group per process through `HostCommands.run`, touching the progress record every `interval` and restarting a render that exits with a code other than 1."""
     records = RecordFile(path=host.path(queue.stem, RunFile.PROGRESS), decoder=PROGRESS_DECODER)
     run = Run(queue=str(host.path(queue.stem, RunFile.QUEUE)), target=target)
     schedule = target.schedule(queue)
     restarted = Retrying(
         stop=stop_after_attempt(target.retries + 1),
-        retry=retry_if_result(lambda answer: answer.map(lambda code: code not in {0, 1}).default_value(value=False)),
+        retry=retry_if_result(lambda answer: any(isinstance(fault.cause, subprocess.CalledProcessError) and fault.cause.returncode != 1 for fault in answer.swap().default_value(()))),
         retry_error_callback=lambda state: state.outcome and state.outcome.result(),
     )
 
@@ -192,28 +254,24 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, inte
         )
 
     def waited(child: subprocess.Popen[bytes]) -> Outcome[int]:
-        with child:
-            return next(answer for _ in count() for answer in polled(child).to_list())
+        return next(answer for _ in count() for answer in polled(child).to_list())
 
     def rendered(progress: Progress) -> Outcome[Progress]:
         while True:
             remaining = frozenset(progress.remaining(queue))
             if not (pending := (progress.pending or next((tuple(group) for _, group in groupby((step for step in schedule if step in remaining), lambda step: step[0])), ()))):
                 return Ok(progress)
-            job = queue.jobs[pending[0][0]]
-            argv = host.argv(RunCommand.RENDER, run, Some(job.file))
-            match records.written(msgspec.structs.replace(progress, pending=pending)).bind(lambda _: restarted(lambda: spawned(argv).bind(waited))).bind(lambda code: confirmed(job, code)):
+            argv = host.argv(RunCommand.RENDER, run, Some(queue.jobs[pending[0][0]].file))
+            match (
+                records
+                .written(msgspec.structs.replace(progress, pending=pending))
+                .bind(lambda _: restarted(lambda: host.run(queue.stem, argv, waited)))
+                .bind(lambda _: records.revised(lambda held: msgspec.structs.replace(held, pending=())))
+            ):
                 case Result(tag="ok", ok=held):
                     progress = held
                 case Result(error=faults):
                     return Error(faults)
-
-    def confirmed(job: Job, code: int) -> Outcome[Progress]:
-        return (
-            Ok(code)
-            .filter_with(lambda held: held == 0, lambda held: Fault.of(Reason.FAILED, job.title, f"exit code {held}"))
-            .bind(lambda _: records.revised(lambda held: msgspec.structs.replace(held, pending=())))
-        )
 
     def ended(ending: Ending) -> Outcome[Progress]:
         return records.revised(lambda held: msgspec.structs.replace(held, ending=ending))
@@ -235,8 +293,8 @@ def stop(progress: Progress) -> Outcome[None]:
 
 
 def cleared(queue: RenderQueue, host: HostCommands) -> Outcome[None]:
-    """Deletes queue, progress, and log files of finished run."""
-    return accumulated(removed(host.path(queue.stem, file)) for file in (RunFile.QUEUE, RunFile.PROGRESS, RunFile.LOG)).map(lambda _: None)
+    """Deletes every run file of a finished run's queue key: its queue, progress, and log with the log's rotated files and lock."""
+    return host.pruned(lambda keys: frozenset(keys) - {queue.stem})
 
 
 # --- [POWER]
@@ -270,21 +328,4 @@ def shutdown_cancelled(progress: Progress) -> Outcome[None]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "HostCommands",
-    "LocalMachine",
-    "Run",
-    "RunCommand",
-    "RunFile",
-    "argued",
-    "argument",
-    "awake",
-    "cleared",
-    "detached",
-    "ran",
-    "shutdown",
-    "shutdown_cancelled",
-    "spawned",
-    "stop",
-    "supervise",
-]
+__all__ = ["HostCommands", "LocalMachine", "Program", "Run", "RunCommand", "RunFile", "argued", "argument", "awake", "cleared", "ran", "shutdown", "shutdown_cancelled", "spawned", "stop", "supervise"]

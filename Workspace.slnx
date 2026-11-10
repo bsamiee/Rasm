@@ -31,6 +31,11 @@
         <Project Path="libs/dotnet/rhino/Rasm.Rhino.Rui/Rasm.Rhino.Rui.csproj" />
         <Project Path="libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </Folder>
+    <Folder Name="/libs/dotnet/runtime/">
+        <Project Path="libs/dotnet/runtime/Rasm.Hosting/Rasm.Hosting.csproj" />
+        <Project Path="libs/dotnet/runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
+        <Project Path="libs/dotnet/runtime/Rasm.Telemetry/Rasm.Telemetry.csproj" />
+    </Folder>
     <Folder Name="/libs/dotnet/ui/">
         <Project Path="libs/dotnet/ui/Rasm.UI.Eto/Rasm.UI.Eto.csproj" />
         <Project Path="libs/dotnet/ui/Rasm.UI/Rasm.UI.csproj" />
@@ -47,5 +52,7 @@
     </Folder>
     <Folder Name="/tests/dotnet/support/">
         <Project Path="tests/dotnet/support/Rasm.Rhino.Testing/Rasm.Rhino.Testing.csproj" />
+        <Project Path="tests/dotnet/support/Rasm.Testing.Tests/Rasm.Testing.Tests.csproj" />
+        <Project Path="tests/dotnet/support/Rasm.Testing/Rasm.Testing.csproj" />
     </Folder>
 </Solution>

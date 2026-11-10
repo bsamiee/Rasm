@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
@@ -12,6 +13,7 @@ using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.Viewport;
+using Rasm.Telemetry;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Input.Custom;
@@ -71,8 +73,6 @@ internal static partial class Dispatch {
     private static readonly CommandDefinition<CommandInput.Run> Queued = new("DarkroomQueue", new CommandInput.Run(static (doc, _, _) => Edited(doc)));
     private static readonly CommandDefinition<CommandInput.Run> RenderJob = new("DarkroomRenderJob", new CommandInput.Run(static (_, _, _) => Job));
     private static readonly CommandDefinition<CommandInput.Run> RenderFarm = new("DarkroomRenderFarm", new CommandInput.Run(static (doc, mode, _) => FarmJob(doc, mode)));
-
-    public static Action<ILoggingBuilder> Logging { get; } = static logging => logging.AddConsole(static options => options.LogToStandardErrorThreshold = LogLevel.Error);
 
     public static Seq<PlugInCommand> Commands { get; } = [Queued, RenderJob, RenderFarm];
 
@@ -169,17 +169,17 @@ internal static partial class Dispatch {
                       from verdict in IO.lift(check.Refusals.Traverse(static refusal => Fin.Fail<Unit>(refusal.Error)).As().Map(static _ => unit))
                       select target.Switch(
                           (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed, Scope: scope),
-                          local: static (state, _) => IO.lift(Unit () => Session.Start((
+                          local: static (state, _) => IO.lift(Unit () => ignore(Session.StartOperationAsync($"{nameof(QueueRuns)}.{nameof(QueueRuns.Run)}", (
                               from batch in state.Plan.Resolved(state.Doc, state.Resumed).OnUiThread()
                               from ran in QueueRuns.Run(state.Context, state.Doc, batch, None, state.Resumed)
-                              select ran).Bracket().Scoped(state.Scope.Resources), owned: state.Scope)),
+                              select ran).Bracket().Scoped(state.Scope.Resources), owned: state.Scope))),
                           packaged: static (state, packaged) => Completed(packaged.Use.Quits
                               ? Handed(state.Context, state.Doc, state.Plan, state.Stamp, state.Resumed, packaged.Folder, packaged.Stem)
                               : Packed(state.Doc, state.Plan, state.Resumed, packaged.Folder, packaged.Stem, state.Stamp).OnUiThread().Map(static _ => unit), state.Scope),
                           flamenco: static (state, farm) => Completed(
                               from installed in farm.Farm.Scripts.Traverse(InstallCompiler).As()
                               from paths in Packed(state.Doc, state.Plan, state.Resumed, farm.Folder, farm.Stem, state.Stamp).OnUiThread()
-                              from submitted in Submitted(farm.Farm, paths[PackageFile.Copy], farm.Farm.Platform.Arguments(FarmScript))
+                              from submitted in Session.Activities.Span($"{nameof(QueueTarget.Flamenco)}.{nameof(Submitted)}", Submitted(farm.Farm, paths[PackageFile.Copy], farm.Farm.Platform.Arguments(FarmScript)))
                               from noticed in state.Context.Notify(new QueueEvent.Submitted(submitted))
                               select unit, state.Scope))).Scoped(scope).Flatten()).Uninterruptible());
 
@@ -244,18 +244,22 @@ internal static partial class Dispatch {
          from quit in Quit.OnUiThread()
          select unit).Bracket();
 
-    private static Fin<ProcessStartInfo> Launch(string job) =>
-        ($"_{RenderJob.EnglishName}", Environment.ProcessId.ToString(CultureInfo.InvariantCulture)) switch {
-            var (script, parent) => OperatingSystem.IsMacOS()
-                ? new ProcessStartInfo("open", [
-                    "-n", "-g", "-a", RhinoApp.GetInstallDirectory().FullName,
-                    "--env", $"{JobVariable}={job}", "--env", $"{ParentVariable}={parent}", "--args", .. WorkerPlatform.MacOs.Arguments(script),
-                ]) { UseShellExecute = false }
-                : Conversions.Required(Environment.ProcessPath).Map(path => new ProcessStartInfo(path, WorkerPlatform.Windows.Arguments(script)) {
-                    Environment = { [JobVariable] = job, [ParentVariable] = parent },
-                    UseShellExecute = false,
-                }),
-        };
+    private static Fin<ProcessStartInfo> Launch(string job) {
+        string script = $"_{RenderJob.EnglishName}";
+        Dictionary<string, string?> variables = new(StringComparer.Ordinal) { [JobVariable] = job, [ParentVariable] = Environment.ProcessId.ToString(CultureInfo.InvariantCulture) };
+        _ = ProcessEnvironment.Inject(variables, Some(Session.Activities.Name));
+        return OperatingSystem.IsMacOS()
+            ? new ProcessStartInfo("open", [
+                "-n", "-g", "-a", RhinoApp.GetInstallDirectory().FullName,
+                .. variables.SelectMany(static variable => Seq("--env", $"{variable.Key}={variable.Value}")), "--args", .. WorkerPlatform.MacOs.Arguments(script),
+            ]) { UseShellExecute = false }
+            : Conversions.Required(Environment.ProcessPath).Map(path => variables.Aggregate(
+                new ProcessStartInfo(path, WorkerPlatform.Windows.Arguments(script)) { UseShellExecute = false },
+                static (start, variable) => {
+                    start.Environment[variable.Key] = variable.Value;
+                    return start;
+                }));
+    }
 
     private static IO<Unit> Quit =>
         from flushed in IO.lift(PlugIn.FlushSettingsSavedQueue)
@@ -264,28 +268,31 @@ internal static partial class Dispatch {
 
     // --- [JOBS]
 
-    private static string JobVariable => $"RENDER_JOB_{Session.PlugIn.Id:N}";
+    private static string JobVariable => ProcessEnvironment.Key(Some(Session.Activities.Name), "RENDER_JOB");
 
-    private static string ParentVariable => $"RENDER_PARENT_{Session.PlugIn.Id:N}";
+    private static string ParentVariable => ProcessEnvironment.Key(Some(Session.Activities.Name), "RENDER_PARENT");
 
     private static IO<Unit> Job =>
         from path in IO.lift(static () => Conversions.Present(Environment.GetEnvironmentVariable(JobVariable)).ToFin(new DarkroomFault(JobVariable, DarkroomReason.Missing)))
         from parent in IO.lift(Conversions.Present(Environment.GetEnvironmentVariable(ParentVariable))
             .Traverse(static text => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
-        from started in IO.lift(Unit () => Session.Start(Launched(parent.Traverse(static id =>
+        from started in IO.lift(Unit () => ignore(Session.StartOperationAsync($"{nameof(Dispatch)}.{nameof(Job)}", Launched(
+            from exited in parent.Traverse(static id =>
                 (from process in Products.Of(() => Process.GetProcessById(id))
                  from waited in IO.liftAsync(environment => process.WaitForExitAsync(environment.Token).ToUnit())
                  select waited).Bracket()
-                    | @catch(static error => error.HasException<ArgumentException>(), IO.pure(unit))).As().Bind(_ => Run(path)))))
+                    | @catch(static error => error.HasException<ArgumentException>(), IO.pure(unit))).As()
+            from finished in Run(path)
+            select finished), kind: ActivityKind.Consumer, parent: ProcessEnvironment.Extract(Some(Session.Activities.Name)))))
         select unit;
 
     private static IO<Unit> FarmJob(RhinoDoc doc, RunMode mode) =>
         from scripted in IO.lift(() => DarkroomFault.Unless(mode is RunMode.Scripted, DarkroomReason.Invalid, mode))
-        from started in IO.lift(() => Session.Start(
+        from started in IO.lift(() => ignore(Session.StartOperationAsync($"{nameof(Dispatch)}.{nameof(FarmJob)}",
             from code in Farmed(doc).Map(static _ => 0).Catch(static error => IO.lift(() => Session.Failed(error)).Map(_ => QueueRuns.Stopping(error) ? 2 : 1)).As()
             from flushed in IO.lift(PlugIn.FlushSettingsSavedQueue).OnUiThread()
             from exited in IO.lift(() => Environment.Exit(code)).OnUiThread()
-            select unit))
+            select unit)))
         select unit;
 
     private static IO<Unit> Farmed(RhinoDoc doc) =>

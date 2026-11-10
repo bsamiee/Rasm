@@ -31,6 +31,11 @@
             "schema": "./executors/unreal-build/schema.json",
             "preferBatch": true,
             "description": "Builds Unreal Engine projects' editor targets through UnrealBuildTool and packages plug-ins through AutomationTool's BuildPlugin, one task at a time"
+        },
+        "place": {
+            "implementation": "./dist/executors/place/executor#execute",
+            "schema": "./executors/place/schema.json",
+            "description": "Places an unpacked Adobe UXP plug-in or CEP extension into its host folder by rename"
         }
     }
 }

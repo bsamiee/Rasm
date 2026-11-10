@@ -21,8 +21,8 @@ dependencies = [
 
     # --- [COMMANDS]
 
-    "cyclopts>=4.10.0",                # Command parser of the `foundry` script from typed signatures, `App.error_formatter` from 4.10.0
-    "sysexits>=0.5.0",                 # Portable process exit codes
+    "cyclopts>=4.10.0",                # App, commands, and variable source of the `foundry` script, `App.error_formatter` from 4.10.0
+    "rasm-cli",                        # Process settings, results as JSON lines, fault exit statuses, and each invocation inside the telemetry scope
 
     # --- [CHECKS]
 
@@ -37,7 +37,7 @@ Source   = "https://github.com/bsamiee/Rasm"
 Issues   = "https://github.com/bsamiee/Rasm/issues"
 
 [project.scripts]
-foundry = "rasm_foundry._cli:app"
+foundry = "rasm_foundry._cli:app.meta"
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 

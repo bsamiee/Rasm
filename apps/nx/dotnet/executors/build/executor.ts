@@ -1,9 +1,9 @@
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Array, Console, Effect, Equal, FileSystem, flow, Option, Path, Predicate, Record, Schema, type Scope, Stream, Struct } from 'effect';
+import { line } from '@rasm/nx-devkit/inference';
+import { iterated, ran, runtime } from '@rasm/nx-devkit/process';
+import { Array, Console, Effect, Equal, FileSystem, flow, Option, Path, Predicate, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { dotnet } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -48,36 +48,32 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     const projects = Array.map(group, ([, { project }]) => path.resolve(root, project));
     const file = path.join(yield* fs.makeTempDirectoryScoped(), 'batch.proj');
     yield* fs.writeFileString(file, yield* traversal(projects));
-    const run = yield* dotnet([Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), '-t:Dispatch', '-getItem:Built', ...(args ?? [])], root);
+    const argv = [Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), '-t:Dispatch', '-getItem:Built', ...(args ?? [])];
+    const run = yield* ran('dotnet', argv, { cwd: root });
     const succeeded = Option.map(Schema.decodeOption(Results)(run.stdout), ({ Items }) => new Set(Items.Built.map(({ Identity }) => Identity)));
     const lines = run.stderr.split('\n');
-    return Array.map(Array.zip(group, projects), ([[id], project]): readonly [string, TaskResult] => {
+    return Array.map(Array.zip(group, projects), ([[task], project]) => {
         const success = Option.exists(succeeded, (set) => set.has(project));
-        const own = lines.filter((line) => line.includes(` [${project}`));
-        return [id, { success, terminalOutput: (success || own.length > 0 ? own : [run.stderr, run.stdout]).join('\n') }];
+        const own = lines.filter((text) => text.includes(` [${project}`));
+        const result: TaskResult = { success, terminalOutput: (success ? own : [line(['dotnet', ...argv]), ...(own.length > 0 ? own : [run.stderr, run.stdout])]).join('\n') };
+        return { task, result };
     });
 });
 
-const ordered = (graph: TaskGraph, root: string, pending: readonly Array.NonEmptyReadonlyArray<Planned>[], decided: Readonly<Record<string, TaskResult>>): Effect.Effect<Readonly<Record<string, TaskResult>>, Effect.Error<ReturnType<typeof built>>, Exclude<Effect.Services<ReturnType<typeof built>>, Scope.Scope>> => {
-    const waiting = (group: readonly Planned[]) => {
-        const elsewhere = new Set(pending.filter((other) => other !== group).flatMap((other) => other.map(([id]) => id)));
-        return group.some(([task]) => (graph.dependencies[task] ?? []).some(({ id }) => elsewhere.has(id)));
-    };
-    return Option.match(Array.head(pending), {
-        onNone: () => Effect.succeed(decided),
-        onSome: (first) => {
-            const next = Option.getOrElse(Array.findFirst(pending, Predicate.not(waiting)), () => first);
-            return Effect.flatMap(Effect.scoped(built(root, next)), (results) =>
-                ordered(
-                    graph,
-                    root,
-                    pending.filter((group) => group !== next),
-                    { ...decided, ...Record.fromEntries(results) },
-                ),
-            );
-        },
+const ordered = (graph: TaskGraph, root: string, groups: readonly Array.NonEmptyReadonlyArray<Planned>[]) =>
+    Stream.paginate(groups, (pending) => {
+        const waiting = (group: readonly Planned[]) => {
+            const elsewhere = new Set(pending.filter((other) => other !== group).flatMap((other) => other.map(([id]) => id)));
+            return group.some(([task]) => (graph.dependencies[task] ?? []).some(({ id }) => elsewhere.has(id)));
+        };
+        return Option.match(Array.head(pending), {
+            onNone: () => Effect.succeed([[], Option.none()] as const),
+            onSome: (first) => {
+                const next = Option.getOrElse(Array.findFirst(pending, Predicate.not(waiting)), () => first);
+                return Effect.map(Effect.scoped(built(root, next)), (results) => [results, Option.some(pending.filter((group) => group !== next))] as const);
+            },
+        });
     });
-};
 
 const grouped = <A extends { readonly project: string }>(planned: readonly (readonly [string, A])[]) => {
     const keyed = ([, options]: readonly [string, A]) => Struct.omit(options, ['project']);
@@ -94,19 +90,20 @@ const grouped = <A extends { readonly project: string }>(planned: readonly (read
 const execute = flow(
     Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
         const build = yield* Schema.decodeUnknownEffect(Build)(options);
-        const [[, result]] = yield* Effect.scoped(built(context.root, [[context.root, build]]));
+        const [{ result }] = yield* Effect.scoped(built(context.root, [[context.root, build]]));
         yield* Console.log(result.terminalOutput);
         return { success: result.success };
-    }, Effect.provide(layer)),
-    Effect.runPromise,
+    }),
+    runtime.runPromise,
 );
 
-const batch = flow(
-    Effect.fnUntraced(function* (graph: TaskGraph, inputs: Readonly<Record<string, unknown>>, _: unknown, context: ExecutorContext) {
-        const planned = yield* Effect.forEach(Record.toEntries(inputs), ([task, options]) => Effect.map(Schema.decodeUnknownEffect(Build)(options), (build): Planned => [task, build]));
-        return yield* ordered(graph, context.root, grouped(planned), {});
-    }, Effect.provide(layer)),
-    Effect.runPromise,
+const batch = iterated((graph: TaskGraph, inputs: Readonly<Record<string, unknown>>, _: unknown, context: ExecutorContext) =>
+    pipe(
+        Record.toEntries(inputs),
+        Effect.forEach(([task, options]) => Effect.map(Schema.decodeUnknownEffect(Build)(options), (build): Planned => [task, build])),
+        Effect.map((planned) => ordered(graph, context.root, grouped(planned))),
+        Stream.unwrap,
+    ),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

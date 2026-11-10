@@ -1,0 +1,120 @@
+{
+    "name": "@rasm/telemetry",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Logs, traces, and metrics of an Effect program: log records in the OpenTelemetry log data model, failures reported as log records, OTLP export over the caller's HTTP client, and for Node a rotated log file, trace context through process environments, crash capture, and OpenTelemetry SDK export with runtime and host metrics",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/runtime/telemetry"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./node": "./node.ts"
+    },
+    "files": [ "dist" ],
+    "devDependencies": {
+        "@effect/opentelemetry": "catalog:",
+        "@opentelemetry/api": "catalog:",
+        "@opentelemetry/api-logs": "catalog:",
+        "@opentelemetry/core": "catalog:",
+        "@opentelemetry/exporter-metrics-otlp-grpc": "catalog:",
+        "@opentelemetry/exporter-metrics-otlp-http": "catalog:",
+        "@opentelemetry/exporter-metrics-otlp-proto": "catalog:",
+        "@opentelemetry/instrumentation": "catalog:",
+        "@opentelemetry/instrumentation-host-metrics": "catalog:",
+        "@opentelemetry/instrumentation-runtime-node": "catalog:",
+        "@opentelemetry/propagator-env-carrier": "catalog:",
+        "@opentelemetry/resources": "catalog:",
+        "@opentelemetry/sdk-logs": "catalog:",
+        "@opentelemetry/sdk-metrics": "catalog:",
+        "@opentelemetry/sdk-node": "catalog:",
+        "@opentelemetry/semantic-conventions": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "rotating-file-stream": "catalog:"
+    },
+    "peerDependencies": {
+        "@effect/opentelemetry": "catalog:peers",
+        "@opentelemetry/api": "catalog:peers",
+        "@opentelemetry/api-logs": "catalog:peers",
+        "@opentelemetry/core": "catalog:peers",
+        "@opentelemetry/exporter-metrics-otlp-grpc": "catalog:peers",
+        "@opentelemetry/exporter-metrics-otlp-http": "catalog:peers",
+        "@opentelemetry/exporter-metrics-otlp-proto": "catalog:peers",
+        "@opentelemetry/instrumentation": "catalog:peers",
+        "@opentelemetry/instrumentation-host-metrics": "catalog:peers",
+        "@opentelemetry/instrumentation-runtime-node": "catalog:peers",
+        "@opentelemetry/propagator-env-carrier": "catalog:peers",
+        "@opentelemetry/resources": "catalog:peers",
+        "@opentelemetry/sdk-logs": "catalog:peers",
+        "@opentelemetry/sdk-metrics": "catalog:peers",
+        "@opentelemetry/sdk-node": "catalog:peers",
+        "@opentelemetry/semantic-conventions": "catalog:peers",
+        "effect": "catalog:peers",
+        "rotating-file-stream": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@effect/opentelemetry": {
+            "optional": true
+        },
+        "@opentelemetry/api-logs": {
+            "optional": true
+        },
+        "@opentelemetry/core": {
+            "optional": true
+        },
+        "@opentelemetry/exporter-metrics-otlp-grpc": {
+            "optional": true
+        },
+        "@opentelemetry/exporter-metrics-otlp-http": {
+            "optional": true
+        },
+        "@opentelemetry/exporter-metrics-otlp-proto": {
+            "optional": true
+        },
+        "@opentelemetry/instrumentation": {
+            "optional": true
+        },
+        "@opentelemetry/instrumentation-host-metrics": {
+            "optional": true
+        },
+        "@opentelemetry/instrumentation-runtime-node": {
+            "optional": true
+        },
+        "@opentelemetry/propagator-env-carrier": {
+            "optional": true
+        },
+        "@opentelemetry/resources": {
+            "optional": true
+        },
+        "@opentelemetry/sdk-logs": {
+            "optional": true
+        },
+        "@opentelemetry/sdk-metrics": {
+            "optional": true
+        },
+        "@opentelemetry/sdk-node": {
+            "optional": true
+        },
+        "rotating-file-stream": {
+            "optional": true
+        }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./node": "./dist/node.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    }
+}

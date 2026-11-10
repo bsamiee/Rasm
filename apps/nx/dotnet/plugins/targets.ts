@@ -1,19 +1,15 @@
 import type { TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Formatter, Option, Path, Record, Schema, Stream, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { aggregated, type Members } from '@rasm/nx-devkit/inference';
+import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Node = typeof Node.Type;
-type Targets = Readonly<Record<string, TargetConfiguration>>;
 interface Plugin {
     readonly name: string;
     readonly inputs: NonNullable<TargetConfiguration['inputs']>;
+    readonly cleaner: string;
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const HOST = { runtime: 'dotnet --info' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -38,32 +34,13 @@ const Node = Schema.Struct({
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class DotnetError extends Schema.TaggedError<DotnetError, { readonly brand: unique symbol }>()('DotnetError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
-    override get message() {
-        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const dotnet = Effect.fnUntraced(function* (args: readonly string[], cwd: string, input?: string) {
-    const handle = yield* ChildProcess.make('dotnet', args, { cwd, extendEnv: true, stdin: input === undefined ? 'ignore' : Stream.encodeText(Stream.succeed(input)) });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return { code, stdout, stderr };
-}, Effect.scoped);
-
-const spawned = Effect.fnUntraced(function* (args: readonly string[], cwd: string, input?: string) {
-    const run = yield* dotnet(args, cwd, input);
-    return run.code === 0 ? run.stdout : yield* DotnetError.make({ subject: ['dotnet', ...args].join(' '), detail: `exited ${run.code}: ${run.stderr.trim()}` });
-});
 
 const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(import.meta.resolve('#analyzer'))));
 
 const metadata = (technologies: readonly string[], verb: string, description: string) => ({ technologies: [...technologies], description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
-const targets = (plugin: Plugin, path: Path.Path, node: Node, named: string): Targets => {
+const targets = (plugin: Plugin, path: Path.Path, node: Node, named: string): Readonly<Record<string, TargetConfiguration>> => {
     const root = path.dirname(node.file);
     const project = path.join('{projectRoot}', path.basename(node.file));
     const technologies = ['dotnet', node.language];
@@ -94,50 +71,64 @@ const targets = (plugin: Plugin, path: Path.Path, node: Node, named: string): Ta
         inputs: Array.dedupe([...inputs, ...plugin.inputs]),
         metadata: metadata(technologies, Array.headNonEmpty(Array.headNonEmpty(commands)), description),
     });
-    return {
-        'build--dotnet': {
-            executor: `${plugin.name}:build`,
-            options: { project },
-            ...configured(({ verb, args, outputs }) => ({ command: [verb, ...args], outputs })),
-            outputs: Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`),
-            dependsOn: ['^build--dotnet'],
-            cache: true,
-            inputs: Array.dedupe([...inputs, ...plugin.inputs, { workingDirectory: 'absolute' as const }, HOST]),
-            metadata: metadata(technologies, 'build', node.publishable ? `Builds ${node.name} with its references in one MSBuild run, publishing it in every configuration` : `Builds ${node.name} with its references in one MSBuild run`),
+    const members: Members = {
+        build: {
+            dotnet: {
+                executor: `${plugin.name}:build`,
+                options: { project },
+                ...configured(({ verb, args, outputs }) => ({ command: [verb, ...args], outputs })),
+                outputs: Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`),
+                dependsOn: ['^build--dotnet'],
+                cache: true,
+                inputs: Array.dedupe([...inputs, ...plugin.inputs, { workingDirectory: 'absolute' as const }]),
+                metadata: metadata(technologies, node.publishable ? 'publish' : 'build', node.publishable ? `Builds ${node.name} with its references in one MSBuild run, publishing it in every configuration` : `Builds ${node.name} with its references in one MSBuild run`),
+            },
         },
-        'check--dotnet-build': {
-            executor: `${plugin.name}:check`,
-            ...configured(({ reports }) => ({ reports })),
-            dependsOn: ['build--dotnet'],
-            cache: true,
-            inputs: [...plugin.inputs, { dependentTasksOutputFiles: '**/*.sarif', transitive: false }],
-            metadata: { technologies, description: `Fails on each warning or error in the SARIF report the compile of ${node.name} wrote, printed as file(line,col): level id: text` },
+        check: {
+            'dotnet-build': {
+                executor: `${plugin.name}:check`,
+                ...configured(({ reports }) => ({ reports })),
+                dependsOn: ['build--dotnet'],
+                cache: true,
+                inputs: [...plugin.inputs, { dependentTasksOutputFiles: '**/*.sarif', transitive: false }],
+                metadata: { technologies, description: `Fails on each warning or error in the SARIF report the compile of ${node.name} wrote, printed as file(line,col): level id: text` },
+            },
+            'dotnet-format': { ...formatted([['format', 'style', '--no-restore', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
         },
-        ...(node.test
+        test: node.test
             ? {
-                  test: {
+                  dotnet: {
                       executor: 'nx:run-commands',
                       options: { command: 'dotnet test --no-build', cwd: '{projectRoot}' },
                       ...configured(({ args }) => ({ args })),
                       dependsOn: ['build--dotnet'],
                       cache: true,
-                      inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, HOST],
+                      inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
                       outputs: node.results.map((results) => path.join('{workspaceRoot}', results)),
                       metadata: metadata(technologies, 'test', `Tests ${node.name} with dotnet test`),
                   },
               }
-            : {}),
-        'check--dotnet-format': { ...formatted([['format', 'style', '--no-restore', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
-        'fix--dotnet-format': {
-            ...formatted(
+            : {},
+        clean: {
+            dotnet: {
+                executor: plugin.cleaner,
+                options: { commands: [['dotnet', 'clean', node.file]] },
+                ...configured(({ args }) => ({ commands: [['dotnet', 'clean', node.file, ...args]] })),
+                metadata: metadata(technologies, 'clean', `Removes the build outputs of ${node.name} with dotnet clean`),
+            },
+        },
+        fix: {
+            'dotnet-format': formatted(
                 [
                     ['format', 'style', '--no-restore'],
                     ['format', 'analyzers', '--no-restore'],
                 ],
                 `Applies the code style and analyzer fixes of ${node.name} with dotnet format style and analyzers`,
             ),
-            cache: false,
         },
+    };
+    return {
+        ...aggregated(members, technologies),
         ...(node.packable
             ? {
                   'nx-release-publish': {
@@ -151,32 +142,17 @@ const targets = (plugin: Plugin, path: Path.Path, node: Node, named: string): Ta
     };
 };
 
-const upgraded = (plugin: Plugin, path: Path.Path, central: string, consumers: readonly Node[]): Targets => ({
-    'upgrade--dotnet': {
-        executor: `${plugin.name}:upgrade`,
-        options: { central: path.join('{projectRoot}', path.basename(central)), projects: consumers.map(({ file }) => path.join('{workspaceRoot}', file)) },
-        cache: false,
-        outputs: [path.join('{projectRoot}', path.basename(central)), ...consumers.flatMap(({ locks }) => locks.map((locked) => path.join('{workspaceRoot}', locked)))],
-        metadata: metadata(['dotnet'], 'restore', `Moves every version ${path.basename(central)} pins to the newest listed release, then restores the projects reading it with dotnet restore --force-evaluate`),
+const upgraded = (plugin: Plugin, path: Path.Path, central: string, consumers: readonly Node[]): Members => ({
+    upgrade: {
+        dotnet: {
+            executor: `${plugin.name}:upgrade`,
+            options: { central: path.join('{projectRoot}', path.basename(central)), projects: consumers.map(({ file }) => path.join('{workspaceRoot}', file)) },
+            outputs: [path.join('{projectRoot}', path.basename(central)), ...consumers.flatMap(({ locks }) => locks.map((locked) => path.join('{workspaceRoot}', locked)))],
+            metadata: { technologies: ['dotnet'], description: `Moves each plain version ${path.basename(central)} pins to the newest release its consumers' frameworks, hosts, and repository partners accept, then restores the projects reading it with dotnet restore --force-evaluate` },
+        },
     },
-});
-
-const aggregated = (declared: Targets, technologies: readonly string[]): Targets => ({
-    ...declared,
-    ...Record.map(
-        Array.groupBy(
-            Record.toEntries(declared).filter(([name]) => name.includes('--')),
-            ([name]) => name.slice(0, name.indexOf('--')),
-        ),
-        (members, verb): TargetConfiguration => ({
-            executor: 'nx:noop',
-            dependsOn: [`${verb}--*`],
-            inputs: ['...', ...Array.dedupe(members.flatMap(([, member]) => member.inputs ?? []))],
-            metadata: { technologies: [...technologies], description: `Runs every ${verb}--* target` },
-        }),
-    ),
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { aggregated, analyzer, DotnetError, dotnet, Node, spawned, targets, upgraded };
+export { analyzer, Node, targets, upgraded };

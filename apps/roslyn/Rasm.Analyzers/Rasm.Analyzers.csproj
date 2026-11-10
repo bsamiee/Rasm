@@ -2,7 +2,6 @@
     <PropertyGroup>
         <Description>Roslyn analyzers and code fixes holding C# to functional form over LanguageExt, Thinktecture, and Microsoft.Extensions.Logging, every rule an error</Description>
         <PackageTags>roslyn;analyzers;languageext;thinktecture;logging</PackageTags>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
         <IsPackable>true</IsPackable>
         <IncludeBuildOutput>false</IncludeBuildOutput>
         <DevelopmentDependency>true</DevelopmentDependency>
@@ -28,11 +27,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Help Links">
-        <AssemblyMetadata Include="Help" Value="$(PackageProjectUrl)/blob/main/apps/roslyn/Rasm.Analyzers/README.md" />
+        <AssemblyMetadata Include="Help" Value="$(PackageProjectUrl)/blob/main/apps/roslyn/Rasm.Analyzers/AnalyzerReleases.Shipped.md" />
     </ItemGroup>
 
     <ItemGroup Label="Package Files">
-        <None Include="README.md" Pack="true" PackagePath="/" />
         <None Include="build/Rasm.Analyzers.props" Pack="true" PackagePath="build/" />
     </ItemGroup>
 

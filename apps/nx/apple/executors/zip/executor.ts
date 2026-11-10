@@ -1,8 +1,8 @@
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
+import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, Option, Path, Result, Schema } from 'effect';
 import { commands } from '#/executors/run/executor';
-import { AppleError, SHORT_VERSION, spawned } from '#/plugins/targets';
+import { SHORT_VERSION } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,12 +26,12 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
         ),
     );
     const keychain = Option.fromUndefinedOr(profile);
-    yield* Option.isNone(keychain) && notarized.length > 0 ? AppleError.make({ subject: 'notaryProfile', detail: "is unset in nx.json's @rasm/nx-apple row; notarytool needs the keychain profile `notarytool store-credentials` saved" }) : Effect.void;
-    const applications = yield* Effect.forEach(exports, ({ archive }) => Effect.flatMap(spawned('plutil', ['-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')], { cwd: context.root }), Schema.decodeEffect(Application)));
-    const binaries = yield* Effect.forEach(products, ({ package: root }) => spawned('swift', ['build', '--package-path', root, '--configuration', 'release', '--show-bin-path'], { cwd: context.root }));
-    const versions = yield* Effect.forEach(products, ({ manifest }) => spawned('plutil', ['-extract', SHORT_VERSION, 'raw', '-o', '-', manifest], { cwd: context.root }));
+    yield* Option.isNone(keychain) && notarized.length > 0 ? ToolError.make({ subject: 'notaryProfile', detail: "is unset in nx.json's @rasm/nx-apple row; notarytool needs the keychain profile `notarytool store-credentials` saved" }) : Effect.void;
+    const applications = yield* Effect.forEach(exports, ({ archive }) => Effect.flatMap(printed('plutil', ['-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')], { cwd: context.root }), Schema.decodeEffect(Application)));
+    const binaries = yield* Effect.forEach(products, ({ package: root }) => printed('swift', ['build', '--package-path', root, '--configuration', 'release', '--show-bin-path'], { cwd: context.root }));
+    const versions = yield* Effect.forEach(products, ({ manifest }) => printed('plutil', ['-extract', SHORT_VERSION, 'raw', '-o', '-', manifest], { cwd: context.root }));
     const encoded = yield* Effect.forEach(notarized, ({ method }) => Schema.encodeEffect(ExportOptions)({ method }));
-    yield* Effect.forEach(Array.zip(notarized, encoded), ([{ settings }, input]) => spawned('plutil', ['-convert', 'xml1', '-o', settings, '-'], { cwd: context.root, input }));
+    yield* Effect.forEach(Array.zip(notarized, encoded), ([{ settings }, input]) => printed('plutil', ['-convert', 'xml1', '-o', settings, '-'], { cwd: context.root, input }));
     const archived = Array.zip(exports, applications).flatMap(([{ archive, folder, method }, { ApplicationPath, [SHORT_VERSION]: version }]): readonly (readonly [string, ...string[]])[] => {
         const app = method === undefined ? path.join(archive, 'Products', ApplicationPath) : path.join(folder, path.basename(ApplicationPath));
         const zip = path.join(folder, `${path.basename(ApplicationPath, path.extname(ApplicationPath))}-${version}.zip`);
@@ -48,9 +48,9 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
     });
     const built = Array.zipWith(Array.zip(products, binaries), versions, ([{ product, folder }, bin], version): readonly [string, ...string[]] => ['ditto', '-c', '-k', path.join(bin.trim(), product), path.join(folder, `${product}-${version.trim()}.zip`), ...args]);
     return yield* commands({ runs: [...archived, ...built] }, context.root);
-}, Effect.provide(layer));
+});
 
-const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(Effect.runPromise);
+const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(runtime.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

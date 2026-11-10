@@ -1,9 +1,8 @@
 import { patch } from '@decimalturn/toml-patch';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
+import { runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, Order, Path, Record, Schema, String } from 'effect';
 import { probed, toml } from '#/executors/extension-build/executor';
-import { DistributionError } from '#/plugins/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -29,7 +28,7 @@ const constrained = Effect.fnUntraced(function* (options: unknown, context: Exec
     const [path, fs, project, { manifest }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Effect.fromNullishOr(context.projectName), Schema.decodeUnknownEffect(Options)(options)]);
     const file = path.join((yield* Effect.fromNullishOr(context.projectGraph.nodes[project])).data.root, manifest);
     const [{ distributions, undeclared }, text] = yield* Effect.all([probed(context.root), fs.readFileString(path.join(context.root, file))]);
-    const root = yield* Effect.flatMap(toml(text, file), Schema.decodeUnknownEffect(Root)).pipe(Effect.catchTag('SchemaError', DistributionError.of(file, 'states no [tool.uv] table a uv root reads constraints from')));
+    const root = yield* Effect.flatMap(toml(text, file), Schema.decodeUnknownEffect(Root)).pipe(Effect.catchTag('SchemaError', ToolError.of(file, 'states no [tool.uv] table a uv root reads constraints from')));
     const exact = '==';
     const bundled = Record.collect({ ...distributions, ...undeclared }, (name, version) => [canonical(name), [name, version].join(exact)] as const);
     const pinned = Record.fromEntries(bundled);
@@ -46,7 +45,7 @@ const constrained = Effect.fnUntraced(function* (options: unknown, context: Exec
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) => constrained(options, context).pipe(Effect.provide(layer), Effect.runPromise);
+const execute = (options: unknown, context: ExecutorContext) => constrained(options, context).pipe(runtime.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

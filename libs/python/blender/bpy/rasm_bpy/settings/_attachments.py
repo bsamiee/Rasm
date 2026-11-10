@@ -16,6 +16,7 @@ from expression.collections import Block
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
+from structlog.stdlib import LEVEL_TO_NAME
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Handler, Startup, Tier, Timer
@@ -24,10 +25,12 @@ from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._ids.store import embedded_tree
 from rasm_bpy.data._rna.descriptors import custom_read, Descriptor, stored
 from rasm_bpy.data._rna.paths import Native, RnaPath, rooted, Struct
-from rasm_bpy.data._rna.properties import annotated, Callbacks, Changed, declaring, pointed
+from rasm_bpy.data._rna.properties import annotated, Callbacks, Changed, choices, declaring, pointed
 from rasm_bpy.data._rna.restoration import BeforeAfter, equal, native, NativeTree, NativeValue, persisted
 from rasm_bpy.data._rna.snapshots import Applied, Snapshot
 from rasm_records import accumulated, Dated, Error, Fault, History, merge, Nothing, Ok, Outcome, paired, Reason, Retention, transfer, Tree, typed
+from rasm_telemetry import LogSettings
+from rasm_telemetry.otlp import Collector
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -175,6 +178,36 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
             return self.before_after_of(kept).restored().bind(lambda _: self.stored.removed(holder))
 
         return self.stored.read(holder).bind(lambda found: found.map(restored).default_value(Ok(value=False)))
+
+
+class LogPreferences(bpy.types.PropertyGroup):
+    """Extension log level and rotation and the collector its spans export to, read as the settings and collector the extension's reports take."""
+
+    level: Annotated[
+        str,
+        bpy.props.EnumProperty(
+            name="Level", description="Least severe entry logged", items=choices((name, name.title(), None) for _, name in sorted(LEVEL_TO_NAME.items())), default=LogSettings().level
+        ),
+    ]
+    size: Annotated[int, bpy.props.IntProperty(name="Size", description="Megabytes log file reaches before rotating", min=1, max=1024, default=LogSettings().size >> 20)]
+    age: Annotated[float, bpy.props.FloatProperty(name="Age", description="Days log file reaches before rotating", min=1.0 / 24.0, max=365.0, default=LogSettings().age / datetime.timedelta(days=1))]
+    files: Annotated[int, bpy.props.IntProperty(name="Files", description="Rotated log files kept", min=1, max=100, default=LogSettings().files)]
+    use_export: Annotated[bool, bpy.props.BoolProperty(name="Export", description="Send operator and command spans to OpenTelemetry collector while online access is allowed")]
+    endpoint: Annotated[str, bpy.props.StringProperty(name="Collector", description="OTLP HTTP address of collector", default=Collector().endpoint)]
+    timeout: Annotated[
+        float,
+        bpy.props.FloatProperty(name="Export Timeout", description="Seconds one export holds interface at most", unit="TIME_ABSOLUTE", min=0.1, max=60.0, default=Collector().timeout.total_seconds()),
+    ]
+
+    @property
+    def settings(self) -> LogSettings:
+        """Log settings record of the level, size, age, and count."""
+        return LogSettings(level=self.level, size=self.size << 20, age=datetime.timedelta(days=self.age), files=self.files)
+
+    @property
+    def collector(self) -> Option[Collector]:
+        """Collector record while export is on, `Nothing` while off."""
+        return Some(Collector(endpoint=self.endpoint, timeout=datetime.timedelta(seconds=self.timeout))).filter(lambda _: self.use_export)
 
 
 class RetentionSettings(bpy.types.PropertyGroup):
@@ -498,4 +531,4 @@ def _skipped(struct: Struct) -> frozenset[RnaPath]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Attached", "Attachment", "Holder", "Host", "Recovery", "RetentionSettings", "Stored", "TextRecord"]
+__all__ = ["Attached", "Attachment", "Holder", "Host", "LogPreferences", "Recovery", "RetentionSettings", "Stored", "TextRecord"]

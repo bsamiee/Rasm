@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Configuration;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -106,6 +107,18 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
     private static readonly HostEvent<Unit> SettingsSaved =
         Subscriptions.On<PersistentSettingsSavedEventArgs>(static handler => add_SettingsSaved(owner: null, handler), static handler => remove_SettingsSaved(owner: null, handler))
             .Choose(static _ => Some(unit));
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+internal sealed class PersistentSettingsConfigurationProvider(Func<PersistentSettings> root) : ConfigurationProvider {
+    public override void Load() =>
+        Data = new Dictionary<string, string?>(Rows(root(), []).Map(static row => KeyValuePair.Create(row.Key, (string?)row.Value)), StringComparer.OrdinalIgnoreCase);
+
+    private static Seq<(string Key, string Value)> Rows(PersistentSettings settings, Seq<string> path) =>
+        toSeq(settings.Keys).Choose(key => SettingOverloads<string>.Read(settings, key, []).Map(value => (Key: ConfigurationPath.Combine(path.Add(key)), Value: value)))
+        + toSeq(settings.ChildKeys).Choose(key => Conversions.Present(settings.TryGetChild(key, out PersistentSettings child), (Key: key, Child: child)))
+            .Bind(held => Rows(held.Child, path.Add(held.Key)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

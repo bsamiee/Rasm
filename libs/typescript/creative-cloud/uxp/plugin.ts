@@ -2,7 +2,44 @@ import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
 import { HostError } from '@rasm/automation';
 import { fillColor } from '@rasm/mark';
-import { Array, Cause, Clock, Console, Context, Deferred, Duration, Effect, Exit, Fiber, FiberHandle, FiberSet, Function, flow, Layer, Logger, ManagedRuntime, Option, Path, PlatformError, Predicate, pipe, Queue, Record, Result, Schema, SchemaGetter, Scope, ScopedRef, Sink, Stdio, Stream, Struct } from 'effect';
+import { errorReporter, layerOtlp } from '@rasm/telemetry';
+import {
+    Array,
+    Cause,
+    Clock,
+    Console,
+    Context,
+    Deferred,
+    Duration,
+    Effect,
+    ErrorReporter,
+    Exit,
+    Fiber,
+    FiberHandle,
+    FiberSet,
+    Function,
+    flow,
+    Layer,
+    Logger,
+    ManagedRuntime,
+    Option,
+    Path,
+    PlatformError,
+    Predicate,
+    pipe,
+    Queue,
+    Record,
+    Result,
+    Schema,
+    SchemaGetter,
+    Scope,
+    ScopedRef,
+    Sink,
+    Stdio,
+    Stream,
+    Struct,
+} from 'effect';
+import { FetchHttpClient } from 'effect/http';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { UxpManifest } from '#/index';
 
@@ -53,6 +90,7 @@ class Uxp extends Context.Service<Uxp, { readonly uxp: typeof uxp; readonly fs: 
             ),
             Layer.succeed(Uxp)(modules),
             Layer.succeed(Logger.LogToStderr)(true),
+            ErrorReporter.layer([errorReporter], { mergeWithExisting: true }),
             Path.layer,
         );
     static readonly thrown = (cause: unknown): HostError => {
@@ -152,7 +190,7 @@ class Plugin extends Context.Service<Plugin, typeof UxpManifest.identity.Type>()
                 Effect.mapError(HostError.refused('UXP plugin folder')),
             );
             const linked = link === undefined ? Layer.empty : Layer.launch(link(manifest.id, root)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
-            const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(hosted)));
+            const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(manifest)), Layer.provideMerge(Layer.provide(layerOtlp({ serviceName: manifest.id }), FetchHttpClient.layer)), Layer.provideMerge(hosted)));
             const [handled, shown] = yield* Effect.all([
                 Effect.all(
                     Record.map(

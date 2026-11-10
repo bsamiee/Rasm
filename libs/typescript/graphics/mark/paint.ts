@@ -5,7 +5,7 @@ import type { Fill } from '#/index';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const paint = Effect.fn('paint')(function* (master: string, { color, opacity = 1 }: Fill, width?: number) {
+const paint = Effect.fnUntraced(function* (master: string, { color, opacity = 1 }: Fill, width?: number) {
     const fs = yield* FileSystem.FileSystem;
     const document = load(yield* fs.readFileString(master), { xml: true });
     document

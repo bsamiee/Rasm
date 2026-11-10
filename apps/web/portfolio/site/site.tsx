@@ -1,5 +1,5 @@
 import { useAtomValue } from '@effect/atom-react';
-import { Sites } from '@rasm/hosting/sites';
+import { Sites } from '@rasm/hosting/openai-sites';
 import { Backdrop } from '@rasm/ui';
 import { flow, Option, Schema } from 'effect';
 import { UrlParams } from 'effect/http';

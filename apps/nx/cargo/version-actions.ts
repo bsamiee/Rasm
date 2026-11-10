@@ -1,12 +1,12 @@
 import { parse, patch } from '@decimalturn/toml-patch';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
+import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema, String } from 'effect';
-import { FetchHttpClient, type HttpClient } from 'effect/http';
+import { FetchHttpClient } from 'effect/http';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { sortReversed } from 'verkit';
 import { releases } from '#/executors/release-publish/executor';
-import { CargoError, LOCK, MANIFEST, spawned } from '#/plugins/workspace';
+import { LOCK, MANIFEST } from '#/plugins/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -28,17 +28,15 @@ const Options = Schema.Struct({ lock: Schema.String, registry: Schema.optionalKe
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpClient>) => effect.pipe(Effect.provide([layer, FetchHttpClient.layer]), Effect.runPromise);
-
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const text = yield* Effect.fromOption(Option.fromNullishOr(tree.read(file, 'utf-8')), () => CargoError.make({ subject: file, detail: 'is missing' }));
-    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: CargoError.of(file, 'does not parse as TOML') }));
+    const text = yield* Effect.fromOption(Option.fromNullishOr(tree.read(file, 'utf-8')), () => ToolError.make({ subject: file, detail: 'is missing' }));
+    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: ToolError.of(file, 'does not parse as TOML') }));
     return { text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });
 
-const located = (tree: Tree, manifest: string) => Effect.map(Effect.all([Path.Path, Effect.flatMap(spawned('cargo', ['locate-project', '--workspace', '--manifest-path', manifest], tree.root), Schema.decodeEffect(Located))]), ([path, { root }]) => path.relative(tree.root, root));
+const located = (tree: Tree, manifest: string) => Effect.map(Effect.all([Path.Path, Effect.flatMap(printed('cargo', ['locate-project', '--workspace', '--manifest-path', manifest], { cwd: tree.root }), Schema.decodeEffect(Located))]), ([path, { root }]) => path.relative(tree.root, root));
 
 const versioned = Effect.fnUntraced(function* (tree: Tree, manifest: string) {
     const own = yield* read(tree, manifest);
@@ -72,12 +70,12 @@ class CargoVersionActions extends VersionActions {
         return super
             .validate(tree)
             .then(() =>
-                run(
+                runtime.runPromise(
                     Effect.forEach(
                         manifests,
                         ({ manifestPath }) =>
                             Effect.flatMap(versioned(tree, manifestPath), ({ file, inherited }) =>
-                                inherited && projectsRelationship === 'independent' ? CargoError.make({ subject: manifestPath, detail: `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}` }) : Effect.void,
+                                inherited && projectsRelationship === 'independent' ? ToolError.make({ subject: manifestPath, detail: `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}` }) : Effect.void,
                             ),
                         { discard: true },
                     ),
@@ -90,12 +88,12 @@ class CargoVersionActions extends VersionActions {
     }
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
-        return run(Effect.map(versioned(tree, `${this.projectGraphNode.data.root}/${MANIFEST}`), ({ file, current }) => ({ manifestPath: file, currentVersion: current })));
+        return runtime.runPromise(Effect.map(versioned(tree, `${this.projectGraphNode.data.root}/${MANIFEST}`), ({ file, current }) => ({ manifestPath: file, currentVersion: current })));
     }
 
     readCurrentVersionFromRegistry(tree: Tree) {
         const [{ name, data }, options] = [this.projectGraphNode, this.finalConfigForProject.versionActionsOptions];
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const [{ registry }, { manifest }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), read(tree, `${data.root}/${MANIFEST}`)]);
                 const published = yield* Effect.transposeOption(
@@ -105,14 +103,14 @@ class CargoVersionActions extends VersionActions {
                     ),
                 );
                 return Option.getOrNull(Option.map(published, ({ url, published: versions }) => ({ currentVersion: Option.getOrNull(Array.head(sortReversed(versions.filter(({ yanked }) => yanked !== true).map(({ vers }) => vers)))), logText: `crates.io index ${url}` })));
-            }),
+            }).pipe(Effect.provide(FetchHttpClient.layer)),
         );
     }
 
     readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
         const manifest = `${this.projectGraphNode.data.root}/${MANIFEST}`;
         const dependency = projectGraph.nodes[dependencyProjectName]?.name ?? dependencyProjectName;
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const crates = new Set([dependency]);
                 const declared = Array.head(requirements((yield* read(tree, manifest)).raw, crates));
@@ -126,7 +124,7 @@ class CargoVersionActions extends VersionActions {
     }
 
     updateProjectVersion(tree: Tree, newVersion: string) {
-        return run(
+        return runtime.runPromise(
             Effect.forEach(this.manifestsToUpdate, ({ manifestPath }) =>
                 Effect.map(versioned(tree, manifestPath), ({ file, text, raw, field }) => {
                     tree.write(file, patch(text, assigned(raw, field, newVersion)));
@@ -139,7 +137,7 @@ class CargoVersionActions extends VersionActions {
     updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
         const manifests = this.manifestsToUpdate;
         const versions = new Map(Record.collect(dependenciesToUpdate, (project, version) => [projectGraph.nodes[project]?.name ?? project, version] as const));
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const crates = new Set(versions.keys());
                 const own = yield* Effect.forEach(manifests, ({ manifestPath }) => Effect.map(read(tree, manifestPath), (manifest) => ({ file: manifestPath, ...manifest })));
@@ -177,7 +175,7 @@ class CargoVersionActions extends VersionActions {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, rootVersionActionsOptions }) =>
-    run(
+    runtime.runPromise(
         Effect.gen(function* () {
             const [path, fs, options] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeEffect(Root)(rootVersionActionsOptions ?? {})]);
             const locks =
@@ -192,7 +190,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, roo
                               ),
                           ),
                       );
-            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(spawned('cargo', ['update', '--workspace'], path.join(cwd, path.dirname(lock))), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
+            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(printed('cargo', ['update', '--workspace'], { cwd: path.join(cwd, path.dirname(lock)) }), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
             return { changedFiles: changed, deletedFiles: [] };
         }),
     );

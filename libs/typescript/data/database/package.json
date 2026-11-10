@@ -18,6 +18,7 @@
         ".": "./index.ts",
         "./clickhouse": "./clickhouse.ts",
         "./d1": "./d1.ts",
+        "./hyperdrive": "./hyperdrive.ts",
         "./pg": "./pg.ts",
         "./sqlite": "./sqlite.ts"
     },
@@ -28,7 +29,6 @@
         "pgsql-parser": "catalog:"
     },
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
         "@effect/sql-clickhouse": "catalog:",
         "@effect/sql-d1": "catalog:",
         "@effect/sql-pg": "catalog:",
@@ -58,6 +58,7 @@
             ".": "./dist/index.js",
             "./clickhouse": "./dist/clickhouse.js",
             "./d1": "./dist/d1.js",
+            "./hyperdrive": "./dist/hyperdrive.js",
             "./pg": "./dist/pg.js",
             "./sqlite": "./dist/sqlite.js"
         },

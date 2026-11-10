@@ -1,0 +1,46 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-cli"
+version         = "0.0.0"
+description     = "Process entry of a command-line tool over cyclopts: settings and per-user folders from flags and the tool's variables, each command line inside the process telemetry scope, results as JSON lines, and fault exit statuses"
+license         = "MIT"
+authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]
+classifiers     = ["Environment :: Console", "Intended Audience :: Developers", "Operating System :: OS Independent", "Topic :: Software Development :: Libraries", "Typing :: Typed"]
+requires-python = ">=3.15"
+
+dependencies = [
+    # --- [CORE]
+
+    "expression>=5.2.0",                                                 # Results every command answers in, `Result.or_else_with` from 5.2.0
+    "msgspec>=0.22.0",                                                   # JSON lines of command results, `frozendict` fields from 0.22.0
+    "rasm-records",                                                      # Fault results and the reasons exit statuses key on
+
+    # --- [COMMANDS]
+
+    "cyclopts>=4.10.0",                                                  # Settings class bound to flags and variables, bounded integer types, and meta app parsing, `App.error_formatter` from 4.10.0
+    "platformdirs>=4.11.0",                                              # Per-user cache, log, runtime, and state folders on each platform, Python 3.15 from 4.11.0
+    "sysexits>=0.5.0",                                                   # Portable process exit codes
+
+    # --- [TELEMETRY]
+
+    "opentelemetry-api",                                                 # Root span of each invocation and its failed status
+    "opentelemetry-configuration",                                       # Refusal of a declarative configuration file an invocation exits on
+    "opentelemetry-semantic-conventions",                                # `error.type` attribute of a refused invocation
+    "rasm-telemetry[configuration,metrics,otlp-grpc,otlp-http,process]", # Log settings and the instrumented process scope with every part a setting can ask for
+    "structlog",                                                         # Bound logger of each invocation
+]
+
+[project.urls]
+Homepage = "https://github.com/bsamiee/Rasm/tree/main/libs/python/runtime/cli"
+Source   = "https://github.com/bsamiee/Rasm"
+Issues   = "https://github.com/bsamiee/Rasm/issues"
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""

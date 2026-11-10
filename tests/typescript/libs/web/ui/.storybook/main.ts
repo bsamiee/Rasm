@@ -1,8 +1,12 @@
-import { addons, core, framework } from '@rasm/test-support/storybook/node';
 import { defineMain } from '@storybook/react-vite/node';
 import react from '@vitejs/plugin-react';
 import { mergeConfig } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineMain({ framework, addons, core, stories: ['./*.stories.@(ts|tsx)'], viteFinal: (config) => mergeConfig(config, { plugins: [react({ compiler: { panicThreshold: 'all_errors' } })] }) });
+export default defineMain({
+    framework: '@storybook/react-vite',
+    addons: ['@rasm/test-support/storybook'],
+    stories: ['./*.stories.@(ts|tsx)'],
+    viteFinal: (config) => mergeConfig(config, { plugins: [react({ compiler: { panicThreshold: 'all_errors' } })] }),
+});

@@ -5,8 +5,8 @@ import CurrentProcess
 import EffectRPC
 import Encoding
 import Foundation
+import Logging
 import System
-import os
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -14,15 +14,16 @@ struct Serve: AsyncParsableCommand {
     static let configuration: CommandConfiguration = .init(abstract: "Serves ApplicationServer requests as JSON lines over standard input and output, under its parent's privacy grants")
 
     func run() async {
+        let logger = Logger(label: String(reflecting: Self.self))
         let definitions = ScriptingDefinitions()
-        let calls = DispatchQueue(label: "\(program).calls", attributes: .concurrent)
-        let output = DispatchSerialQueue(label: "\(program).output")
-        await Run.execute(output: nil, accessibility: false) { run throws(ApplicationFailure) in
+        let calls = DispatchQueue(label: "\(Program.current.name).calls", attributes: .concurrent)
+        let output = DispatchSerialQueue(label: "\(Program.current.name).output")
+        await Run.execute(Self.self, output: nil, accessibility: false) { run throws(ApplicationFailure) in
             do throws(EffectRPCFailure) {
                 try await serve(
                     reading: FileHandle.standardInput.bytes.jsonLines,
                     writing: { line in _ = try await withTaskExecutorPreference(output) { try FileDescriptor.standardOutput.writeAll(line) } },
-                    dropped: { failure in Logger(for: Self.self).debug("Dropped \(failure, privacy: .public)") },
+                    dropped: { failure in logger.debug("Dropped request", error: failure) },
                 ) { (request: Request) in
                     let response = try await withTaskExecutorPreference(calls) {
                         try await request.perform(admitting: { NSPredicate(value: true) }, refusing: { _ in [] }, definitions: definitions)

@@ -78,7 +78,7 @@ Each fact a review settles has one owner, read before a verdict states it and ed
 |  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `apps/roslyn`, `tools/refurb`, a `tsconfig.base.json` row         |
 |  [04]   | Fact a checker computes from a grammar or engine     | That checker's code under `tools/`, consumers rebuilt to its finding              |
 |  [05]   | Fact no checker decides soundly for every instance   | Language skill section whose heading covers it, else the family skill covering it |
-|  [06]   | Placement, target, entry point, or catalog feature   | README `[OWNERS]` row, the Nx plugin README, the catalog or manifest row          |
+|  [06]   | Placement, target, entry point, or catalog feature   | README `[OWNERS]` row, the catalog or manifest row |
 |  [07]   | Divider, section order, or wording                   | `clean-prose` and `prose.py`                                                      |
 
 Owner criteria:

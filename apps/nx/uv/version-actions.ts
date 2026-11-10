@@ -1,11 +1,11 @@
 import { parse, patch } from '@decimalturn/toml-patch';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
+import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { clean, compare, explain } from '@renovatebot/pep440';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema, SemVer, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { LOCK, normalized, spawned, UvError } from '#/plugins/project-graph';
+import { LOCK, normalized } from '#/plugins/project-graph';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -57,13 +57,13 @@ const Semantic = Schema.Struct({
 const semver = (version: string) =>
     Schema.decodeUnknownEffect(Semantic)(explain(version)).pipe(
         Effect.flatMap(({ release: [major, minor = 0, micro = 0], pre }) => Effect.fromResult(SemVer.fromInput({ major, minor, patch: micro, prerelease: pre === null ? [] : [PRERELEASES[pre[0]], pre[1]] }))),
-        Effect.mapBoth({ onFailure: (cause) => UvError.make({ subject: version, detail: 'has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state', cause }), onSuccess: SemVer.format }),
+        Effect.mapBoth({ onFailure: (cause) => ToolError.make({ subject: version, detail: 'has an epoch, post, dev, or local part, or more than three release numbers, which SemVer cannot state', cause }), onSuccess: SemVer.format }),
     );
 
 const pep440 = (version: string) =>
     Effect.fromOption(
         Option.filter(Option.fromNullishOr(clean(version)), (cleaned) => explain(cleaned)?.post === null),
-        () => UvError.make({ subject: version, detail: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' }),
+        () => ToolError.make({ subject: version, detail: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' }),
     );
 
 const named = (requirement: string) =>
@@ -73,8 +73,8 @@ const named = (requirement: string) =>
     );
 
 const document = Effect.fnUntraced(function* (tree: Tree, at: string) {
-    const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => UvError.make({ subject: at, detail: 'is missing' })));
-    const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => UvError.make({ subject: at, detail: 'does not parse as TOML', cause }) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
+    const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => ToolError.make({ subject: at, detail: 'is missing' })));
+    const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => ToolError.make({ subject: at, detail: 'does not parse as TOML', cause }) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
     return { text, parsed };
 });
 
@@ -83,8 +83,6 @@ const project = Effect.fnUntraced(function* (tree: Tree, root: string) {
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
     return { text, parsed, project: decoded.project, table: raw.project };
 });
-
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | HttpClient.HttpClient>) => effect.pipe(Effect.provide([layer, FetchHttpClient.layer]), Effect.runPromise);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -102,7 +100,7 @@ class UvVersionActions extends VersionActions {
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
         const { root } = this.projectGraphNode.data;
-        return run(
+        return runtime.runPromise(
             project(tree, root).pipe(
                 Effect.flatMap((manifest) => semver(manifest.project.version)),
                 Effect.map((currentVersion) => ({ currentVersion, manifestPath: joinPathFragments(root, PYPROJECT) })),
@@ -112,7 +110,7 @@ class UvVersionActions extends VersionActions {
 
     override readCurrentVersionFromRegistry(tree: Tree, currentVersionResolverMetadata: Record<string, unknown> | undefined) {
         const [located, root] = [this.lock, this.projectGraphNode.data.root];
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const [lock, { project: declared }, { index }] = yield* Effect.all([located, project(tree, root), Schema.decodeEffect(Metadata)(currentVersionResolverMetadata ?? {})]);
                 const configured = yield* Effect.forEach(
@@ -121,7 +119,7 @@ class UvVersionActions extends VersionActions {
                 );
                 const url = yield* UndefinedOr.match(index, {
                     onUndefined: () => Effect.succeed('https://pypi.org/simple'),
-                    onDefined: (name) => Effect.mapBoth(Effect.fromOption(Array.findFirst(configured.flat(), (entry) => entry.name === name)), { onFailure: () => UvError.make({ subject: name, detail: `names no uv index in the uv.toml or pyproject.toml beside ${lock}` }), onSuccess: (entry) => entry.url }),
+                    onDefined: (name) => Effect.mapBoth(Effect.fromOption(Array.findFirst(configured.flat(), (entry) => entry.name === name)), { onFailure: () => ToolError.make({ subject: name, detail: `names no uv index in the uv.toml or pyproject.toml beside ${lock}` }), onSuccess: (entry) => entry.url }),
                 });
                 const response = yield* HttpClient.execute(HttpClientRequest.get(`${url.replace(TRAILING, '')}/${normalized(declared.name)}/`).pipe(HttpClientRequest.setHeader('Accept', 'application/vnd.pypi.simple.v1+json')));
                 const versions = yield* HttpClientResponse.matchStatus(response, {
@@ -132,13 +130,13 @@ class UvVersionActions extends VersionActions {
                     onNone: () => Effect.succeed<{ readonly currentVersion: string | null; readonly logText: string }>({ currentVersion: null, logText: `${declared.name} has no release on ${url}` }),
                     onSome: (newest) => Effect.map(semver(newest), (currentVersion) => ({ currentVersion, logText: `${declared.name} ${newest} on ${url}` })),
                 });
-            }),
+            }).pipe(Effect.provide(FetchHttpClient.layer)),
         );
     }
 
     override readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
         const { root } = this.projectGraphNode.data;
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const node = yield* Effect.fromNullishOr(projectGraph.nodes[dependencyProjectName]);
                 const [{ project: dependent }, { project: dependency }] = yield* Effect.all([project(tree, root), project(tree, node.data.root)]);
@@ -157,7 +155,7 @@ class UvVersionActions extends VersionActions {
     override updateProjectVersion(tree: Tree, newVersion: string) {
         const { root } = this.projectGraphNode.data;
         const at = joinPathFragments(root, PYPROJECT);
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const [{ text, parsed, table }, version] = yield* Effect.all([project(tree, root), pep440(newVersion)]);
                 tree.write(at, patch(text, { ...parsed, project: { ...table, version } }));
@@ -168,7 +166,7 @@ class UvVersionActions extends VersionActions {
 
     override updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
         const [located, { root }] = [this.lock, this.projectGraphNode.data];
-        return run(
+        return runtime.runPromise(
             Effect.gen(function* () {
                 const lock = yield* located;
                 const [{ text, parsed, table, project: dependent }, { package: locked }] = yield* Effect.all([project(tree, root), Effect.flatMap(document(tree, lock), (lockfile) => Schema.decodeUnknownEffect(Locked)(lockfile.parsed))]);
@@ -203,7 +201,7 @@ class UvVersionActions extends VersionActions {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun }) =>
-    run(
+    runtime.runPromise(
         Effect.gen(function* () {
             const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
             const locks =
@@ -218,7 +216,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun }) =
                               ),
                           ),
                       );
-            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(spawned('uv', ['lock'], path.join(cwd, path.dirname(lock))), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
+            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(printed('uv', ['lock'], { cwd: path.join(cwd, path.dirname(lock)) }), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
             return { changedFiles: changed, deletedFiles: [] };
         }),
     );

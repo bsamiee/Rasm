@@ -21,6 +21,7 @@
     "files": [ "dist" ],
     "dependencies": {
         "@effect/platform-node": "catalog:",
+        "@rasm/process": "workspace:*",
         "@rasm/search": "workspace:*"
     },
     "devDependencies": {

@@ -12,23 +12,27 @@
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@pulumi/aws": "catalog:",
         "@pulumi/cloudflare": "catalog:",
         "@pulumi/command": "catalog:",
-        "@pulumi/docker": "catalog:",
-        "@pulumi/docker-build": "catalog:",
         "@pulumi/github": "catalog:",
         "@pulumi/minio": "catalog:",
         "@pulumi/postgresql": "catalog:",
         "@pulumi/pulumi": "catalog:",
         "@pulumi/random": "catalog:",
+        "@pulumi/tailscale": "catalog:",
         "@pulumi/tls": "catalog:",
         "@pulumiverse/doppler": "catalog:",
+        "@rasm/hooks": "workspace:*",
         "@rasm/hosting": "workspace:*",
+        "@rasm/ssh": "workspace:*",
+        "@rasm/webhooks": "workspace:*",
         "effect": "catalog:",
+        "nx": "catalog:",
         "vite": "catalog:"
     },
     "devDependencies": {
-        "@nx/devkit": "catalog:",
         "@rasm/nx-pulumi": "workspace:*",
         "@types/node": "catalog:"
     }

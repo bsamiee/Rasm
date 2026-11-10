@@ -1,6 +1,8 @@
 import process from 'node:process';
-import { Effect, Formatter, Option, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { layer } from '@effect/platform-node/NodeServices';
+import { Boolean, Effect, Formatter, ManagedRuntime, Option, Schema, Stream } from 'effect';
+import { ChildProcess, CommandLine } from 'effect/process';
+import { onExit } from 'signal-exit';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -21,30 +23,24 @@ class ToolError extends Schema.TaggedError<ToolError, { readonly brand: unique s
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const children = new Set<number>();
-
-const ended = () => children.forEach((pid) => Option.liftThrowable(process.kill)(pid, 'SIGTERM'));
-
-const spawned = (command: string, args: readonly string[], options: ChildProcess.CommandOptions = {}) =>
-    Effect.tap(ChildProcess.make(command, args, { extendEnv: true, stdin: 'ignore', ...options, detached: false }), ({ pid }) =>
-        Effect.acquireRelease(
-            Effect.sync(() => {
-                if (children.size === 0) {
-                    process.once('exit', ended);
-                }
-                children.add(pid);
-            }),
-            () =>
-                Effect.sync(() => {
-                    children.delete(pid);
-                    if (children.size === 0) {
-                        process.off('exit', ended);
-                    }
-                }),
-        ),
+const spawned = Effect.fn('spawned')(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions = {}) {
+    const handle = yield* ChildProcess.make(command, args, { extendEnv: true, stdin: 'ignore', ...options });
+    const succeeded = Effect.map(
+        Effect.when(handle.exitCode, Effect.map(handle.isRunning, Boolean.not)),
+        Option.exists((code: number) => code === 0),
     );
+    yield* Effect.acquireRelease(
+        Effect.sync(() =>
+            onExit(() => {
+                Option.liftThrowable(process.kill)(process.platform === 'win32' ? handle.pid : -handle.pid, 'SIGTERM');
+            }),
+        ),
+        (unhooked) => Effect.ignore(Effect.andThen(Effect.sync(unhooked), Effect.when(handle.unref, succeeded))),
+    );
+    return handle;
+});
 
-const ran = Effect.fnUntraced(function* (command: string, args: readonly string[], { input, echo, ...options }: Run = {}) {
+const ran = Effect.fn('ran')(function* (command: string, args: readonly string[], { input, echo, ...options }: Run = {}) {
     const handle = yield* spawned(command, args, input === undefined ? options : { ...options, stdin: Stream.encodeText(Stream.succeed(input)) });
     const read = (stream: typeof handle.stdout, sink: NodeJS.WritableStream | undefined) => Stream.mkString(sink === undefined ? Stream.decodeText(stream) : Stream.tap(Stream.decodeText(stream), (chunk) => Effect.sync(() => sink.write(chunk))));
     const [stdout, stderr, code] = yield* Effect.all([read(handle.stdout, echo?.stdout), read(handle.stderr, echo?.stderr), handle.exitCode], { concurrency: 'unbounded' });
@@ -57,14 +53,26 @@ const printed = (command: string, args: readonly string[], options: Run = {}) =>
             ? Effect.succeed(stdout)
             : Effect.fail(
                   ToolError.make({
-                      subject: [command, ...args].join(' '),
+                      subject: CommandLine.display([command, ...args]),
                       detail: [`exited ${code}`, ...(options.cwd === undefined ? [] : [` in ${options.cwd}`]), ...(options.echo === undefined ? [`: ${[stdout, stderr].join('\n').trim()}`] : [])].join(''),
                   }),
               ),
     );
 
-const present = (command: string, args: readonly string[]) => Effect.map(ran(command, args), ({ code }) => code === 0).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(false)));
+const present = (command: string, args: readonly string[], options: Run = {}) => Effect.map(ran(command, args, options), ({ code, stdout }) => Option.liftPredicate(stdout, () => code === 0)).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeedNone));
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const runtime = ManagedRuntime.make(layer);
+
+const iterated =
+    <Args extends readonly unknown[], A, E>(results: (...args: Args) => Stream.Stream<A, E, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>) =>
+    (...args: Args): AsyncIterableIterator<A> => {
+        const pulled = runtime.runPromise(Effect.map(Stream.toAsyncIterableEffect(results(...args)), (iterable) => iterable[Symbol.asyncIterator]()));
+        const iterator: AsyncIterableIterator<A> = { [Symbol.asyncIterator]: () => iterator, next: () => pulled.then((held) => held.next()) };
+        return iterator;
+    };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { present, printed, type Run, ran, spawned, ToolError };
+export { iterated, present, printed, ran, runtime, spawned, ToolError };

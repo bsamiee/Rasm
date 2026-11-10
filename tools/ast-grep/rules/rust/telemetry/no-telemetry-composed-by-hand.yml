@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
-ignores: ['libs/rust/cli/command/telemetry.rs']
+ignores: ['libs/rust/runtime/command/telemetry.rs']
 utils:
     tracer-builder:
         any:

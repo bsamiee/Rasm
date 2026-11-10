@@ -23,3 +23,7 @@ build-backend = "hatchling.build"
 bypass-selection = true # The build hook supplies every file the wheel holds
 
 [tool.hatch.build.targets.wheel.hooks.custom]
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { file = "hatch_build.py" }, { file = "../pyproject.toml" }] # uv rebuilds the generated stubs when the build hook or the workspace OpenColorIO pin changes

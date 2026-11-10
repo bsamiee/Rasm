@@ -8,6 +8,7 @@ using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.UI;
+using Rasm.Telemetry;
 using Rhino;
 using Rhino.Commands;
 using Rhino.FileIO;
@@ -82,7 +83,7 @@ internal sealed class PlugInBody {
         (this.host, assembly, this.definition, this.register, this.license) = (host, defined.Assembly, definition, register, license);
         catalog = new ViewCatalog(definition, definition.Views.Concat(kindViews));
         Platform.Instance.LoadAssembly(typeof(PlugInBody).Assembly);
-        _ = Session.RunSafe(Session.Bind(host, defined, definition.Logging), CancellationToken.None).ThrowIfFail();
+        _ = Session.RunSafe(Session.Bind(host, defined), CancellationToken.None).ThrowIfFail();
     }
 
     // --- [MEMBERS]
@@ -98,9 +99,11 @@ internal sealed class PlugInBody {
                 from filled in saved.Traverse(doc => Products.Each(definition.Frames.Map(frame => frame.Filled(doc, options)))).As()
                 select filled.Exists(static held => held.Exists(identity)),
                 failed: false),
-            (doc, archive, options) => _ = Session.Run(definition.Frames.TraverseM(frame => frame.Write(doc, archive, options)).As()),
-            (doc, archive, options) => _ = Session.Run(IO.lift(() => options.OpenMode || options.NewMode)
-                .Bind(opened => when(opened, definition.Frames.TraverseM(frame => frame.Read(doc, archive)).As().Map(unit)).As())));
+            (doc, archive, options) => _ = Session.Operation($"{nameof(DocumentFrame)}.{nameof(DocumentFrame.Write)}", definition.Frames.TraverseM(frame => frame.Write(doc, archive, options)).As().Map(unit), unit),
+            (doc, archive, options) => _ = Session.Operation(
+                $"{nameof(DocumentFrame)}.{nameof(DocumentFrame.Read)}",
+                IO.lift(() => options.OpenMode || options.NewMode).Bind(opened => when(opened, definition.Frames.TraverseM(frame => frame.Read(doc, archive)).As().Map(unit)).As()),
+                unit));
 
     private PlugInLoadTime LoadTime =>
         definition.LoadTime.IfNone(() =>
@@ -113,14 +116,15 @@ internal sealed class PlugInBody {
 
     private (LoadReturnCode Code, string Message) Load() =>
         Session.RunSafe(
-                Loading.Scoped().Map(static _ => (LoadReturnCode.Success, ""))
+                Session.Activities.Span($"{nameof(PlugIn)}.{nameof(Load)}", Loading.Scoped().Map(static _ => (LoadReturnCode.Success, ""))
                     .Catch(static error => IO.lift(() => Session.Failed(error)) >> Session.Close
-                        >> IO.pure(Session.Cancellation(error) ? (LoadReturnCode.ErrorNoDialog, "") : (LoadReturnCode.ErrorShowDialog, Session.Messages(error))))
-                    .As(),
+                        >> IO.pure(error.IsCancellation ? (LoadReturnCode.ErrorNoDialog, "") : (LoadReturnCode.ErrorShowDialog, error.Messages())))
+                    .As()),
                 CancellationToken.None)
-            .IfFail(static error => (LoadReturnCode.ErrorShowDialog, Session.Messages(error)));
+            .IfFail(static error => (LoadReturnCode.ErrorShowDialog, error.Messages()));
 
     private IO<Unit> Loading =>
+        from composed in IO.lift(static () => Session.Logger)
         from licensed in definition.License.TraverseM(held => Licensing.Request(held, license)).As()
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
         from views in ViewCatalog.Load(catalog)
@@ -187,7 +191,8 @@ internal static class FileFormats {
             new FileTypeList());
 
     private static T Run<TOptions, T>(IterableNE<FileFormat<TOptions>> formats, int index, string path, RhinoDoc doc, TOptions options, T done, T cancelled, T failed) where TOptions : class =>
-        Session.Run(
+        Session.Operation(
+            $"{nameof(FileFormat<>)}.{nameof(FileFormat<>.Run)}",
             (from format in IO.lift(() => Conversions.Required(toSeq(formats).At(index), index))
              from ran in format.Run(path, doc, options)
              select done)

@@ -1,0 +1,9 @@
+{
+    "executors": {
+        "clean": {
+            "implementation": "./dist/executors/clean/executor#execute",
+            "schema": "./executors/clean/schema.json",
+            "description": "Removes the declared outputs of a project's targets and runs the tool's own clean command"
+        }
+    }
+}

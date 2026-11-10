@@ -1,9 +1,8 @@
-import { findPackageJSON } from 'node:module';
 import { matchesGlob } from 'node:path';
-import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, createNodesFromFiles, type TargetConfiguration } from '@nx/devkit';
-import { getNamedInputs, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, UndefinedOr } from 'effect';
+import { type CreateNodes, type CreateNodesContext, type CreateNodesResult, createNodesFromFiles, type TargetConfiguration } from '@nx/devkit';
+import { getNamedInputs } from '@nx/devkit/internal';
+import { aggregated, identity, inferred } from '@rasm/nx-devkit/inference';
+import { Array, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, UndefinedOr } from 'effect';
 import { type Fields, HOSTS, type Host } from '#/plugins/host-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -23,16 +22,8 @@ const FILES = `**/{${Array.dedupe(HOSTS.map(({ manifest: file }) => file.split('
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), engines: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) });
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const aggregate = (technology: string, verb: string, inputs: TargetConfiguration['inputs']): TargetConfiguration => ({
-    executor: 'nx:noop',
-    dependsOn: [`${verb}--*`],
-    inputs: ['...', ...(inputs ?? [])],
-    metadata: { technologies: [technology], description: `Runs every ${verb}--* target` },
-});
 
 const published = (plugin: string, host: Host, inputs: NonNullable<TargetConfiguration['inputs']>): TargetConfiguration => ({
     executor: `${plugin}:release-publish`,
@@ -49,12 +40,9 @@ const published = (plugin: string, host: Host, inputs: NonNullable<TargetConfigu
     },
 });
 
-const inferred = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
+const nodes = Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
     const [fs, path, { outputPath, engines }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Options)(options ?? {})]);
-    const located = yield* Effect.fromNullishOr(findPackageJSON(import.meta.url));
-    const { name } = yield* Effect.flatMap(fs.readFileString(located), Schema.decodeEffect(Manifest));
-    const tracked = yield* Effect.promise(() => globWithWorkspaceContext(context.workspaceRoot, [path.relative(context.workspaceRoot, located)]));
-    const own = tracked.length === 0 ? [{ externalDependencies: [name] }] : [{ input: 'default', projects: [name] }, { externalDependencies: [] }];
+    const { name, inputs: own, cleaner } = yield* identity(import.meta.url, context.workspaceRoot);
     const read = yield* Effect.forEach(
         Array.getSomes(
             files.map((file) =>
@@ -79,19 +67,19 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
     const uses = (item: Discovered) => discovered.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
     const described = (item: Discovered) => (item.host.standalone === true ? { descriptor: item.file, hosts: hosts(item).map((other) => other.file), dependencies: uses(item).map((other) => other.file), ...(engines === undefined ? {} : { engines }) } : {});
     const builds = (item: Discovered) =>
-        Option.map(Option.fromUndefinedOr(item.host.build), ({ executor, command, variables = [], pack }): TargetConfiguration => {
+        Option.map(Option.fromUndefinedOr(item.host.build), ({ executor, command, variables, pack }): TargetConfiguration => {
             const named = pack === undefined ? { folder: item.fields.name, file: UndefinedOr.match(item.fields.version, { onUndefined: () => `${item.fields.name}-*`, onDefined: (version) => `${item.fields.name}-${version}*` }) } : { folder: '{projectName}', file: '*' };
             const destination = { outputPath: outputPath === undefined ? path.join('dist', item.root) : path.join(outputPath, item.host.technology, named.folder), ...described(item) };
             return {
                 executor: `${name}:${executor}`,
                 ...(pack === undefined ? {} : { dependsOn: ['build--*'] }),
-                ...Array.match(variables, { onEmpty: () => ({ options: destination }), onNonEmpty: () => ({ options: {}, configurations: { [RELEASE]: destination } }) }),
+                ...UndefinedOr.match(variables, { onUndefined: () => ({ options: destination }), onDefined: () => ({ options: {}, configurations: { [RELEASE]: destination } }) }),
                 cache: item.host.archive !== undefined,
                 inputs: [
                     '{projectRoot}/**/*',
                     'production' in getNamedInputs(item.root, context) ? '^production' : '^default',
-                    ...(pack === undefined ? [{ runtime: 'node -p process.platform+process.arch' }] : [{ dependentTasksOutputFiles: '**/*' }]),
-                    ...variables.map((env) => ({ env })),
+                    ...(pack === undefined ? [] : [{ dependentTasksOutputFiles: '**/*' }]),
+                    ...UndefinedOr.match(variables, { onUndefined: Array.empty, onDefined: Array.map((env) => ({ env })) }),
                     ...hosts(item)
                         .filter((other) => other !== item)
                         .map((other) => `{workspaceRoot}/${other.file}`),
@@ -111,51 +99,71 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
                     root,
                     {
                         targets: {
-                            [`upgrade--${tool}`]: {
-                                executor: `${name}:${executor}`,
-                                options: { manifest },
-                                cache: false,
-                                outputs: ['{projectRoot}/{options.manifest}'],
-                                metadata: { technologies: [item.host.technology], description: `Rewrites the constraint rows of ${manifest} from the distributions the installed ${item.host.technology} bundles` },
-                            },
+                            ...aggregated(
+                                {
+                                    upgrade: {
+                                        [tool]: {
+                                            executor: `${name}:${executor}`,
+                                            options: { manifest },
+                                            outputs: ['{projectRoot}/{options.manifest}'],
+                                            metadata: { technologies: [item.host.technology], description: `Rewrites the constraint rows of ${manifest} from the distributions the installed ${item.host.technology} bundles` },
+                                        },
+                                    },
+                                },
+                                [item.host.technology],
+                            ),
                             [before]: { dependsOn: ['...', `upgrade--${tool}`] },
-                            upgrade: aggregate(item.host.technology, 'upgrade', undefined),
                         } satisfies Record<string, TargetConfiguration>,
                         tags: [`host:${item.host.technology}`],
                     },
                 ]),
         });
     const installs = (item: Discovered): Option.Option<TargetConfiguration> =>
-        Option.orElse(
-            Option.map(Option.fromUndefinedOr(item.host.install), ({ command }) => ({
-                executor: `${name}:install`,
-                dependsOn: ['build'],
-                cache: false,
-                metadata: { technologies: [item.host.technology], description: `Installs the ${item.host.technology} packages build wrote in the run's configuration, through ${command}`, help: { command: `${command} --help`, example: { options: { dryRun: true } } } },
-            })),
-            () =>
-                Option.liftPredicate(
-                    {
-                        executor: 'nx:noop',
-                        dependsOn: [{ projects: hosts(item).map((other) => other.fields.name), target: 'build' }],
-                        metadata: {
-                            technologies: [item.host.technology],
-                            description: `Builds ${hosts(item)
-                                .map((other) => other.fields.name)
-                                .join(', ')}, the host the result loads in`,
-                        },
+        Option.firstSomeOf([
+            Option.map(
+                Option.fromUndefinedOr(item.host.install),
+                ({ command }): TargetConfiguration => ({
+                    executor: `${name}:install`,
+                    dependsOn: ['build'],
+                    metadata: { technologies: [item.host.technology], description: `Installs the ${item.host.technology} packages build wrote in the run's configuration, through ${command}`, help: { command: `${command} --help`, example: { options: { dryRun: true } } } },
+                }),
+            ),
+            Option.map(
+                Option.fromUndefinedOr(item.host.place),
+                (): TargetConfiguration => ({
+                    executor: `${name}:place`,
+                    dependsOn: [`build--!(${item.host.technology})`],
+                    ...UndefinedOr.match(item.host.build?.variables, {
+                        onUndefined: () => ({ metadata: { technologies: [item.host.technology], description: `Places the unpacked ${item.host.technology} plug-in the project's builds wrote into its host's per-user folder, keeping the plug-in's data unless removeData is set` } }),
+                        onDefined: (variables) => ({
+                            configurations: { [RELEASE]: { variables } },
+                            metadata: {
+                                technologies: [item.host.technology],
+                                description: `Signs the unpacked ${item.host.technology} plug-in the project's builds wrote and places it into its host's per-user folder, with the certificate ${variables[0]} holds in ${RELEASE} and this machine's self-signed certificate otherwise`,
+                            },
+                        }),
+                    }),
+                }),
+            ),
+            Option.liftPredicate(
+                {
+                    executor: 'nx:noop',
+                    dependsOn: [{ projects: hosts(item).map((other) => other.fields.name), target: 'build' }],
+                    metadata: {
+                        technologies: [item.host.technology],
+                        description: `Builds ${hosts(item)
+                            .map((other) => other.fields.name)
+                            .join(', ')}, the host the result loads in`,
                     },
-                    () => hosts(item).length > 0,
-                ),
-        );
+                },
+                () => hosts(item).length > 0,
+            ),
+        ]);
     const owned = (item: Discovered, build: TargetConfiguration) => {
         const linked = Array.dedupe([...discovered.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)]);
         return {
             project: { name: item.fields.name, ...(linked.length === 0 ? {} : { implicitDependencies: linked.map((other) => other.fields.name) }) },
-            targets: {
-                [`check--${item.host.technology}`]: { executor: 'nx:noop', dependsOn: [`build--${item.host.technology}`], inputs: build.inputs ?? [], metadata: { technologies: [item.host.technology], description: 'Compiles the project as its check' } },
-                check: aggregate(item.host.technology, 'check', build.inputs),
-            },
+            check: { [item.host.technology]: { executor: 'nx:noop', dependsOn: [`build--${item.host.technology}`], inputs: build.inputs ?? [], metadata: { technologies: [item.host.technology], description: 'Compiles the project as its check' } } },
         };
     };
     const node = (item: Discovered): CreateNodesResult => {
@@ -172,9 +180,15 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
                     ...Option.getOrUndefined(Option.map(standalone, ({ project }) => project)),
                     targets: {
                         ...rooted?.targets,
-                        ...Option.match(build, { onNone: () => ({}), onSome: (target) => ({ [`build--${item.host.technology}`]: target, build: aggregate(item.host.technology, 'build', target.inputs) }) }),
-                        ...Option.match(standalone, { onNone: () => ({}), onSome: ({ targets }) => targets }),
-                        ...Option.match(installs(item), { onNone: () => ({}), onSome: (target) => ({ [`install--${item.host.install?.tool ?? item.host.technology}`]: target, install: aggregate(item.host.technology, 'install', target.inputs) }) }),
+                        ...aggregated(
+                            {
+                                build: Option.match(build, { onNone: () => ({}), onSome: (target) => ({ [item.host.technology]: target }) }),
+                                check: Option.match(standalone, { onNone: () => ({}), onSome: ({ check }) => check }),
+                                install: Option.match(installs(item), { onNone: () => ({}), onSome: (target) => ({ [item.host.install?.tool ?? item.host.technology]: target }) }),
+                            },
+                            [item.host.technology],
+                            { executor: cleaner, tool: item.host.technology },
+                        ),
                         ...(item.host.archive === undefined ? {} : { 'nx-release-publish': published(name, item.host, own) }),
                     },
                     tags: [...(item.host.build !== undefined && item.host.build.pack === undefined ? [`host:${item.host.technology}`] : []), ...(Option.isSome(build) && item.host.write !== undefined ? [RELEASE] : [])],
@@ -183,40 +197,28 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
             },
         };
     };
-    const outcomes = Record.fromEntries(read);
-    return yield* Effect.tryPromise({
-        try: () =>
-            createNodesFromFiles(
-                (file) =>
-                    Result.match(outcomes[file] ?? Result.succeed(Option.none()), {
-                        onFailure: (error) => Promise.reject(error),
-                        onSuccess: (found) =>
-                            Promise.resolve(
-                                Option.match(
-                                    Option.filter(found, ({ fields }) => fields.installed !== true),
-                                    { onNone: () => ({}), onSome: node },
-                                ),
-                            ),
-                    }),
-                read.map(([file]) => file),
-                options,
-                context,
+    const created: Readonly<Record<string, Result.Result<CreateNodesResult, Error>>> = Record.map(
+        Record.fromEntries(read),
+        Result.map((found) =>
+            Option.match(
+                Option.filter(found, ({ fields }) => fields.installed !== true),
+                { onNone: () => ({}), onSome: node },
             ),
-        catch: (error) => (error instanceof AggregateCreateNodesError ? error : new AggregateCreateNodesError([[null, new Cause.UnknownError(error)]], [])),
-    });
+        ),
+    );
+    return yield* Effect.promise(() =>
+        createNodesFromFiles(
+            (file) => Result.match(created[file] ?? Result.succeed({}), { onFailure: (error) => Promise.reject(error), onSuccess: (result) => Promise.resolve(result) }),
+            read.map(([file]) => file),
+            options,
+            context,
+        ),
+    );
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const createNodes: CreateNodes<typeof Options.Encoded> = [
-    FILES,
-    (files, options, context) =>
-        inferred(files, options, context).pipe(
-            Effect.mapError((error) => (error instanceof AggregateCreateNodesError ? error : new AggregateCreateNodesError([[null, error]], []))),
-            Effect.provide(layer),
-            Effect.runPromise,
-        ),
-];
+const createNodes: CreateNodes<typeof Options.Encoded> = [FILES, (files, options, context) => inferred(nodes(files, options, context))];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

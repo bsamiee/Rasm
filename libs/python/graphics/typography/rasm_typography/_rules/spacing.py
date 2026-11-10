@@ -32,7 +32,7 @@ class Spacing(measures.Rule, frozen=True, kw_only=True):
     floor: Em = 0.02
     rows: Annotated[int, msgspec.Meta(gt=0)] = 32
 
-    def applied(self, source: Source, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
+    def applied(self, source: Source, /, *, original: Binary, corpus: Corpus, **_: object) -> Outcome[Source]:
         """Sets the word spaces and the glyphs drawn as them to the gap ratio times the inside gap within a band, and kerns non-joining tails to the median gap after standing letters.
 
         Returns:

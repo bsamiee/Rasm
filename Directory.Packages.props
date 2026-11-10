@@ -449,9 +449,17 @@
         <PackageVersion Include="CloudNative.CloudEvents"                                 Version="2.9.0" />                             <!-- Event envelope creation, encoding, and consumption -->
         <PackageVersion Include="CloudNative.CloudEvents.AspNetCore"                      Version="2.9.0" />                             <!-- ASP.NET Core HTTP binding for event envelopes -->
         <PackageVersion Include="CloudNative.CloudEvents.Avro"                            Version="2.9.0" />                             <!-- Avro event format encoding -->
-        <PackageVersion Include="CloudNative.CloudEvents.Protobuf"                        Version="2.9.0" />                             <!-- Protobuf event format encoding -->
+        <PackageVersion Include="CloudNative.CloudEvents.Kafka"                           Version="3.9.0" />                             <!-- Kafka protocol binding for event envelopes -->
+        <PackageVersion Include="CloudNative.CloudEvents.Protobuf"                      Version="2.9.0" />                             <!-- Protobuf event format encoding -->
         <PackageVersion Include="CloudNative.CloudEvents.SystemTextJson"                  Version="2.9.0" />                             <!-- JSON event format encoding -->
-        <PackageVersion Include="NetMQ"                                                   Version="4.0.4.5" />                           <!-- ZeroMQ messaging sockets implemented in managed code -->
+        <PackageVersion Include="Confluent.Kafka"                                         Version="2.16.0" />                            <!-- Apache Kafka producer, consumer, and admin client -->
+        <PackageVersion Include="Confluent.SchemaRegistry"                                Version="2.16.0" />                            <!-- Schema Registry API client for subjects, versions, and compatibility -->
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Avro"                    Version="2.16.0" />                            <!-- Avro serializer and deserializer with schema registry integration -->
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Json"                    Version="2.16.0" />                            <!-- JSON Schema serializer and deserializer with schema registry integration -->
+        <PackageVersion Include="Confluent.SchemaRegistry.Serdes.Protobuf"                Version="2.16.0" />                            <!-- Protobuf serializer and deserializer with schema registry integration -->
+        <PackageVersion Include="MailKit"                                                 Version="4.18.2" />                            <!-- SMTP, IMAP, and POP3 clients over MimeKit messages -->
+        <PackageVersion Include="NetMQ"                                               Version="4.0.4.5" />                           <!-- ZeroMQ messaging sockets implemented in managed code -->
+        <PackageVersion Include="StandardWebhooks.StandardWebhooks"                       Version="1.0.1" />                             <!-- Standard Webhooks signing and signature verification -->
     </ItemGroup>
 
     <ItemGroup Label="Remote Procedure Calls">
@@ -484,9 +492,10 @@
 
     <ItemGroup Label="Data Formats">
         <PackageVersion Include="Apache.Arrow"                                            Version="23.0.0" />                            <!-- Columnar in-memory data format with typed arrays and IPC serialization -->
-        <PackageVersion Include="Apache.Arrow.Adbc"                                       Version="1.0.0" />                             <!-- Database connectivity API returning columnar record batches -->
+        <PackageVersion Include="Apache.Arrow.Adbc"                                       Version="1.0.0" />                             <!-- Database connectivity API returning columnar record batches, with a driver manager loading native and managed drivers by path, TOML manifest, or connection profile -->
         <PackageVersion Include="Apache.Arrow.Adbc.Client"                                Version="1.0.0" />                             <!-- ADO.NET connection and data reader adapter over columnar database drivers -->
-        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.FlightSql"                     Version="0.21.0" />                            <!-- ADBC driver over Flight SQL protocol -->
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.FlightSql"                     Version="0.21.0" />                            <!-- Managed ADBC driver sending SQL as an Arrow Flight command on every architecture, queries alone, with updates and metadata calls unimplemented in its last release -->
+        <PackageVersion Include="Apache.Arrow.Adbc.Drivers.Interop.FlightSql"             Version="0.25.0" />                            <!-- ADBC Flight SQL Go driver binaries for linux-x64, osx-x64, and win-x64 with their loader, arm64 loads the same driver from PyPI `adbc-driver-flightsql` or conda-forge `libadbc-driver-flightsql` through `CAdbcDriverImporter.Load` -->
         <PackageVersion Include="Apache.Arrow.Compression"                                Version="23.0.0" />                            <!-- Compression codecs for IPC record batch buffers -->
         <PackageVersion Include="Apache.Arrow.Flight"                                     Version="23.0.0" />                            <!-- RPC framework streaming record batches over gRPC -->
         <PackageVersion Include="Apache.Arrow.Flight.AspNetCore"                          Version="23.0.0" />                            <!-- Server-side endpoint hosting middleware for record batch streaming -->
@@ -526,16 +535,18 @@
         <PackageVersion Include="ClickHouse.Driver"                                       Version="1.5.0" />                             <!-- Column-oriented database client over compressed binary HTTP protocol -->
         <PackageVersion Include="ClickHouse.EntityFrameworkCore"                          Version="0.3.1" />                             <!-- EF Core database provider for ClickHouse -->
         <PackageVersion Include="DeltaLake.Net"                                           Version="0.33.1" />                            <!-- Lakehouse table reading and writing over Rust native bindings -->
-        <PackageVersion Include="DuckDB.NET.Data.Full"                                    Version="1.5.6.1" />                           <!-- In-process analytical database driver with bundled native library -->
+        <PackageVersion Include="DuckDB.NET.Data.Full"                                    Version="2.0.0-preview.1" />                   <!-- In-process analytical database driver with bundled native library -->
         <PackageVersion Include="EFCore.CheckConstraints"                                 Version="10.0.0" />                            <!-- Enum, validation attribute, and discriminator check constraints generated for entity models -->
         <PackageVersion Include="EFCore.NamingConventions"                                Version="10.0.1" />                            <!-- Snake case naming for entity models -->
         <PackageVersion Include="FlowtideDotNet.Substrait"                                Version="0.16.0-alpha17" />                    <!-- Cross-engine query plan model with SQL conversion and serialization -->
         <PackageVersion Include="Google.Cloud.Kms.V1"                                     Version="3.27.0" />                            <!-- Cloud key management client for encryption keys -->
         <PackageVersion Include="Google.Cloud.Storage.V1"                                 Version="5.0.0" />                             <!-- Cloud object storage client -->
-        <PackageVersion Include="linq2db"                                                 Version="6.5.1" />                             <!-- LINQ to SQL translation with bulk copy, merge, and CTEs across providers -->
+        <PackageVersion Include="HiraokaHyperTools.sqlite-vec"                            Version="0.1.10-alpha.4" />                    <!-- sqlite-vec `vec0` extension binaries from upstream release assets per runtime identifier, loaded by `SqliteConnection.LoadExtension`, upstream package `sqlite-vec` stops at 0.1.7-alpha.2.1, and an arm64 executable built for one runtime identifier sets `EnableUnsupportedPlatformTargetCheck` to false -->
+        <PackageVersion Include="linq2db"                                          Version="6.5.1" />                             <!-- LINQ to SQL translation with bulk copy, merge, and CTEs across providers -->
         <PackageVersion Include="linq2db.EntityFrameworkCore"                             Version="10.7.0" />                            <!-- LINQ to DB query translation and bulk operations inside EF Core -->
-        <PackageVersion Include="Marten"                                                  Version="9.57.0" />                            <!-- PostgreSQL document database and event store library -->
-        <PackageVersion Include="Marten.NodaTime"                                         Version="9.57.0" />                            <!-- Date and time type handling for PostgreSQL document storage -->
+        <PackageVersion Include="Marten"                                                  Version="9.59.0" />                            <!-- PostgreSQL document database and event store library -->
+        <PackageVersion Include="Marten.EntityFrameworkCore"                              Version="9.59.0" />                            <!-- Event projections written into EF Core entities through a DbContext -->
+        <PackageVersion Include="Marten.NodaTime"                                         Version="9.59.0" />                            <!-- Date and time type handling for PostgreSQL document storage -->
         <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="11.0.0-rc.3.26522.148" />             <!-- Managed database driver for SQLite -->
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Design"                    Version="10.0.14" />                           <!-- Design-time migrations and scaffolding -->
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite"                    Version="10.0.14" />                           <!-- SQLite provider -->
@@ -553,11 +564,12 @@
         <PackageVersion Include="Pgvector"                                                Version="0.3.2" />                             <!-- Vector similarity types for PostgreSQL -->
         <PackageVersion Include="Pgvector.EntityFrameworkCore"                            Version="0.3.0" />                             <!-- Vector similarity search mapping for EF Core with PostgreSQL -->
         <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3"                           Version="3.0.5" />                             <!-- Bundled native SQLite build with raw C API bindings -->
+        <PackageVersion Include="SQLitePCLRaw.core"                                       Version="3.0.5" />                             <!-- Raw SQLite C API surface, serialize and deserialize of a database image included -->
         <PackageVersion Include="StackExchange.Redis"                                     Version="4.0.155-alpha" />                     <!-- Multiplexed Redis client with pub-sub and cluster routing -->
         <PackageVersion Include="VaultSharp"                                              Version="2.0.4.1-beta2" />                     <!-- Secrets, transit encryption, PKI, and auth method client for Vault servers -->
-        <PackageVersion Include="Weasel.EntityFrameworkCore"                              Version="9.48.0" />                            <!-- DbContext model mapping into Weasel tables for live delta apply -->
-        <PackageVersion Include="Weasel.Postgresql"                                       Version="9.48.0" />                            <!-- PostgreSQL schema object model with live delta detection and direct apply -->
-        <PackageVersion Include="Weasel.Sqlite"                                           Version="9.48.0" />                            <!-- SQLite schema object model with live delta detection and direct apply -->
+        <PackageVersion Include="Weasel.EntityFrameworkCore"                              Version="9.50.0" />                            <!-- DbContext model mapping into Weasel tables for live delta apply -->
+        <PackageVersion Include="Weasel.Postgresql"                                       Version="9.50.0" />                            <!-- PostgreSQL schema object model with live delta detection and direct apply -->
+        <PackageVersion Include="Weasel.Sqlite"                                           Version="9.50.0" />                            <!-- SQLite schema object model with live delta detection and direct apply -->
     </ItemGroup>
 
     <ItemGroup Label="BIM Interchange">
@@ -611,17 +623,22 @@
     </ItemGroup>
 
     <ItemGroup Label="Observability">
-        <PackageVersion Include="OpenTelemetry"                                           Version="1.21.0-rc.1" />                       <!-- Telemetry SDK implementing traces, metrics, and logs collection -->
-        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"            Version="1.21.0-rc.1" />                       <!-- OTLP exporter sending telemetry over gRPC or HTTP -->
+        <PackageVersion Include="NLog"                                                    Version="6.2.2" />                             <!-- Logging framework with layouts, targets, and routing rules -->
+        <PackageVersion Include="NLog.Extensions.Logging"                                 Version="6.2.2" />                             <!-- Logger provider routing Microsoft logging calls into NLog targets -->
+        <PackageVersion Include="NLog.Targets.ConcurrentFile"                             Version="6.2.2" />                             <!-- File target several processes append to, archived by size and period -->
+        <PackageVersion Include="OpenTelemetry"                                           Version="1.21.0-rc.2" />                      <!-- Telemetry SDK implementing traces, metrics, and logs collection -->
+        <PackageVersion Include="OpenTelemetry.Api"                                       Version="1.21.0-rc.2" />                       <!-- Tracing, metrics, baggage, and context propagation API for instrumented libraries -->
+        <PackageVersion Include="OpenTelemetry.Api.ProviderBuilderExtensions"             Version="1.21.0-rc.2" />                       <!-- Provider builder contracts shared by the SDK and instrumentation libraries -->
+        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"            Version="1.21.0-rc.2" />                      <!-- OTLP exporter sending telemetry over gRPC or HTTP -->
         <PackageVersion Include="OpenTelemetry.Extensions"                                Version="1.20.1-beta.1" />                     <!-- Auxiliary processors, samplers, and enrichment for telemetry pipelines -->
-        <PackageVersion Include="OpenTelemetry.Extensions.Hosting"                        Version="1.21.0-rc.1" />                       <!-- Generic host registration for tracer and meter providers -->
+        <PackageVersion Include="OpenTelemetry.Extensions.Hosting"                        Version="1.21.0-rc.2" />                      <!-- Generic host registration for tracer and meter providers -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore"                Version="1.20.1" />                            <!-- Incoming web request tracing and metrics for server applications -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.AWS"                       Version="1.20.3" />                            <!-- AWS SDK call tracing instrumentation -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore"       Version="1.20.1-beta.1" />                     <!-- EF Core database command tracing instrumentation -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka"            Version="0.5.0-alpha.1" />                     <!-- Kafka producer and consumer tracing instrumentation -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore"      Version="1.20.1-beta.1" />                     <!-- EF Core database command tracing instrumentation -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient"             Version="1.20.1-beta.1" />                     <!-- gRPC client call tracing instrumentation -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.Http"                      Version="1.20.1" />                            <!-- Outgoing HTTP request tracing and metrics -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.Process"                   Version="1.20.1-rc.1" />                       <!-- Process CPU, memory, and thread metrics -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime"                   Version="1.20.1" />                            <!-- GC, JIT, and thread pool runtime metrics -->
         <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis"        Version="1.20.1-beta.1" />                     <!-- Redis command tracing and connection instrumentation -->
         <PackageVersion Include="OpenTelemetry.PersistentStorage.FileSystem"              Version="1.1.3" />                             <!-- File-backed buffering for telemetry export retry -->
         <PackageVersion Include="OpenTelemetry.Resources.Container"                       Version="1.20.1-beta.1" />                     <!-- Resource detector reporting container identity -->
@@ -632,9 +649,12 @@
         <PackageVersion Include="Pyroscope"                                               Version="1.6.0" />                             <!-- Continuous CPU and allocation profiling agent with no native profiler on macOS -->
         <PackageVersion Include="Pyroscope.OpenTelemetry"                                 Version="0.5.1" />                             <!-- Span processor linking traces to continuous profiling data -->
         <PackageVersion Include="Serilog"                                                 Version="4.4.1-dev-02453" />                   <!-- Structured logging framework with sinks and enrichers -->
+        <PackageVersion Include="Serilog.Expressions"                                     Version="5.1.0-dev-02309" />                   <!-- Log event filtering, enrichment, and JSON or text formatting through expression templates -->
         <PackageVersion Include="Serilog.Extensions.Hosting"                              Version="10.0.0" />                            <!-- Generic host and dependency injection logging integration -->
+        <PackageVersion Include="Serilog.Extensions.Logging"                              Version="10.0.0" />                            <!-- Logger provider routing Microsoft logging calls into a Serilog pipeline -->
         <PackageVersion Include="Serilog.Formatting.Compact"                              Version="3.0.0" />                             <!-- Compact JSON event formatting for log output -->
         <PackageVersion Include="Serilog.Settings.Configuration"                          Version="10.0.1" />                            <!-- Logger configuration read from Microsoft configuration sources -->
+        <PackageVersion Include="Serilog.Sinks.Async"                                     Version="2.1.0" />                             <!-- Sink wrapper writing events from a bounded queue on a worker thread -->
         <PackageVersion Include="Serilog.Sinks.Console"                                   Version="6.1.1" />                             <!-- Console log sink with themed, templated output -->
         <PackageVersion Include="Serilog.Sinks.File"                                      Version="8.0.0-dev-02334" />                   <!-- Log sink writing rolling files with size and interval limits -->
         <PackageVersion Include="Serilog.Sinks.OpenTelemetry"                             Version="4.2.1-dev-02324" />                   <!-- Log sink exporting events to OTLP endpoints -->
@@ -666,6 +686,7 @@
         <PackageVersion Include="Microsoft.Extensions.Http.Resilience"                    Version="10.11.0" />                           <!-- Resilience handlers for HTTP clients with retry and circuit breaking -->
         <PackageVersion Include="Microsoft.Extensions.Logging"                            Version="11.0.0-rc.3.26522.148" />             <!-- Logging facade with provider registration and filtering -->
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"               Version="11.0.0-rc.3.26522.148" />             <!-- Logging abstractions with source-generated log methods -->
+        <PackageVersion Include="Microsoft.Extensions.Logging.Configuration"              Version="11.0.0-rc.3.26522.148" />             <!-- Log filter rules bound from configuration and reloaded on change -->
         <PackageVersion Include="Microsoft.Extensions.Logging.Console"                    Version="11.0.0-rc.3.26522.148" />             <!-- Console logger provider with plain, JSON, and systemd formatters -->
         <PackageVersion Include="Microsoft.Extensions.ObjectPool"                         Version="11.0.0-rc.3.26522.148" />             <!-- Object pooling primitives and policies -->
         <PackageVersion Include="Microsoft.Extensions.Options"                            Version="11.0.0-rc.3.26522.148" />             <!-- Options pattern with validation and change monitoring -->
@@ -780,11 +801,18 @@
         <PackageVersion Include="NodaTime.Testing"                                        Version="3.3.7" />                             <!-- Fake clocks and time zone providers for date-time tests -->
         <PackageVersion Include="NSubstitute"                                             Version="6.2.0" />                             <!-- Typed substitutes, call arguments, and received-call inspection -->
         <PackageVersion Include="ReactiveUI.Testing.Reactive"                             Version="26.0.1" />                            <!-- Test scheduler for reactive view model code -->
+        <PackageVersion Include="Testcontainers"                                          Version="4.16.0" />                            <!-- Disposable containers and Compose projects with wait strategies and cleanup on exit -->
+        <PackageVersion Include="Testcontainers.ClickHouse"                               Version="4.16.0" />                            <!-- ClickHouse container with its connection string -->
+        <PackageVersion Include="Testcontainers.Kafka"                                    Version="4.16.0" />                            <!-- Single-node Kafka container in KRaft mode with its bootstrap address -->
+        <PackageVersion Include="Testcontainers.LocalStack"                               Version="4.16.0" />                            <!-- S3 API emulator container, the one S3 module release 4.16.0 holds, images from 2026.03.0 start with a LocalStack auth token alone -->
+        <PackageVersion Include="Testcontainers.PostgreSql"                               Version="4.16.0" />                            <!-- PostgreSQL container with its connection string -->
+        <PackageVersion Include="Testcontainers.Redis"                                    Version="4.16.0" />                            <!-- Redis-protocol container with its connection string, Valkey through `WithImage` since no Valkey module exists -->
+        <PackageVersion Include="Testcontainers.XunitV3"                                Version="4.16.0" />                            <!-- Container lifetime bound to xunit v3 tests and fixtures, container logs written to test output -->
         <PackageVersion Include="Verify.XunitV3"                                          Version="33.3.4" />                            <!-- Snapshot verification writing received files beside reviewed verified files for xunit v3 -->
-        <PackageVersion Include="xunit.analyzers"                                         Version="2.2.0" />                             <!-- Roslyn analyzers for test correctness and style -->
-        <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.2" />                             <!-- Assertions for test support libraries without runner -->
-        <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.2" />                             <!-- Attributes and TestContext for test support libraries without entry point or runner -->
-        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.2" />                             <!-- xUnit framework for Microsoft Testing Platform v2 -->
+        <PackageVersion Include="xunit.analyzers"                                         Version="2.3.0" />                             <!-- Roslyn analyzers for test correctness and style -->
+        <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.3" />                             <!-- Assertions for test support libraries without runner -->
+        <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.3" />                             <!-- Attributes and TestContext for test support libraries without entry point or runner -->
+        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.3" />                             <!-- xUnit framework for Microsoft Testing Platform v2 -->
     </ItemGroup>
 
     <ItemGroup Label="Transitive Pinning">
@@ -820,10 +848,11 @@
         <PackageVersion Include="Json.Net"                                                Version="1.0.33" />                            <!-- JSON serializer and deserializer -->
         <PackageVersion Include="LBT.Newtonsoft.Json"                                     Version="13.0.3.2" />                          <!-- Repackaged Json.NET build -->
         <PackageVersion Include="libplctag.NativeImport"                                  Version="2.0.0-alpha.9" />                     <!-- Native binaries with raw PLC communication bindings -->
+        <PackageVersion Include="librdkafka.redist"                                       Version="2.16.0" />                            <!-- Native client library binaries for Apache Kafka -->
         <PackageVersion Include="Mapsui"                                                  Version="5.2.0-beta.1" />                      <!-- Interactive map rendering and layering for .NET UI frameworks -->
         <PackageVersion Include="Mapsui.Rendering.Skia"                                   Version="5.2.0-beta.1" />                      <!-- Skia-based renderer for map layers and styles -->
         <PackageVersion Include="Mapsui.Tiling"                                           Version="5.2.0-beta.1" />                      <!-- Tile layers and predefined tile sources for maps -->
-        <PackageVersion Include="Marten.Newtonsoft"                                       Version="9.57.0" />                            <!-- Json.NET serializer for document database -->
+        <PackageVersion Include="Marten.Newtonsoft"                                       Version="9.59.0" />                            <!-- Json.NET serializer for document database -->
         <PackageVersion Include="MathNet.Numerics.FSharp"                                 Version="6.0.0-beta2" />                       <!-- F# numerics bindings aligned with MathNet.Numerics for OPTANO.Modeling -->
         <PackageVersion Include="MathNet.Symbolics"                                       Version="0.25.0" />                            <!-- Symbolic algebra over F# expressions, required by OPTANO.Modeling -->
         <PackageVersion Include="MicroCom.Runtime"                                        Version="0.11.7" />                            <!-- Runtime for IDL-generated cross-platform COM interop -->
@@ -852,7 +881,10 @@
         <PackageVersion Include="NetTopologySuite.IO.GeoJSON"                             Version="4.0.0" />                             <!-- GeoJSON reading and writing for geometries and features -->
         <PackageVersion Include="Newtonsoft.Json"                                         Version="14.0.1-beta2" />                      <!-- JSON serialization framework with LINQ to JSON -->
         <PackageVersion Include="Nito.AsyncEx"                                            Version="5.1.2" />                             <!-- Async coordination primitives including locks, events, and context -->
-        <PackageVersion Include="NodaTime.Serialization.JsonNet"                          Version="3.3.0" />                             <!-- Json.NET converters for instants, durations, zones, and calendar dates -->
+        <PackageVersion Include="NJsonSchema"                                             Version="11.6.1" />                            <!-- JSON Schema reading, generation, and validation -->
+        <PackageVersion Include="NJsonSchema.Annotations"                                 Version="11.6.1" />                            <!-- Attributes controlling JSON Schema generation -->
+        <PackageVersion Include="NJsonSchema.NewtonsoftJson"                              Version="11.6.1" />                            <!-- JSON Schema generation driven by Json.NET serialization contracts -->
+        <PackageVersion Include="NodaTime.Serialization.JsonNet"                        Version="3.3.0" />                             <!-- Json.NET converters for instants, durations, zones, and calendar dates -->
         <PackageVersion Include="OneOf"                                                   Version="3.0.271" />                           <!-- Discriminated union types with exhaustive match semantics -->
         <PackageVersion Include="OpenIddict.Abstractions"                                 Version="8.0.0-preview.5.26553.64" />          <!-- OAuth 2.0 and OpenID Connect primitives and abstractions -->
         <PackageVersion Include="Parlot"                                                  Version="2.2.1" />                             <!-- Parser combinators with compiled parsers -->
@@ -913,21 +945,33 @@
         <PackageVersion Update="System.Collections.Immutable"                            Version="[10.0.14]" />                     <!-- Assembly version loaded by the .NET 10 editor runtime -->
     </ItemGroup>
 
+    <ItemGroup Label="Target Framework" Condition="'$(RhinoHost)' != '' or '$(IsPackable)' == 'true'">
+        <PackageVersion Update="Microsoft.Extensions.Configuration"                       Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions"          Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Binder"                Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Configuration.EnvironmentVariables"  Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection"                 Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection.Abstractions"    Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Diagnostics"                         Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Diagnostics.Abstractions"            Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Hosting.Abstractions"                Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Http"                                Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Logging"                             Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Logging.Abstractions"                Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Logging.Configuration"               Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Logging.Console"                     Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.ObjectPool"                          Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Options"                             Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Options.ConfigurationExtensions"     Version="10.0.14" />
+        <PackageVersion Update="Microsoft.Extensions.Primitives"                          Version="10.0.14" />
+        <PackageVersion Update="OpenTelemetry"                                            Version="1.20.1" />
+        <PackageVersion Update="OpenTelemetry.Api"                                        Version="1.20.1" />
+        <PackageVersion Update="OpenTelemetry.Api.ProviderBuilderExtensions"              Version="1.20.1" />
+        <PackageVersion Update="OpenTelemetry.Exporter.OpenTelemetryProtocol"             Version="1.20.1" />
+        <PackageVersion Update="OpenTelemetry.Extensions.Hosting"                         Version="1.20.1" />
+    </ItemGroup>
+
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <PackageVersion Update="Microsoft.Extensions.Configuration"                       Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions"          Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Configuration.Binder"                Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.DependencyInjection"                 Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.DependencyInjection.Abstractions"    Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Diagnostics"                         Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Diagnostics.Abstractions"            Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Http"                                Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Logging"                             Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Logging.Abstractions"                Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Logging.Console"                     Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Options"                             Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Options.ConfigurationExtensions"     Version="10.0.0" />
-        <PackageVersion Update="Microsoft.Extensions.Primitives"                          Version="10.0.0" />
         <PackageVersion Update="Microsoft.Win32.SystemEvents"                             Version="10.0.0" />
         <PackageVersion Update="System.Drawing.Common"                                    Version="10.0.0" />
     </ItemGroup>

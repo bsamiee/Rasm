@@ -46,7 +46,19 @@
         <PackageReference Include="ini-parser-netstandard" />
     </ItemGroup>
 
+    <ItemGroup Label="Observability">
+        <PackageReference Include="OpenTelemetry" />
+        <PackageReference Include="OpenTelemetry.Api.ProviderBuilderExtensions" />
+        <PackageReference Include="OpenTelemetry.Resources.OperatingSystem" />
+        <PackageReference Include="OpenTelemetry.Resources.Process" />
+        <PackageReference Include="OpenTelemetry.Resources.ProcessRuntime" />
+    </ItemGroup>
+
     <ItemGroup Label="Application Hosting">
+        <PackageReference Include="Microsoft.Extensions.Configuration" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+        <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Logging" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     </ItemGroup>
@@ -57,6 +69,8 @@
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../drawing/Rasm.Drafting/Rasm.Drafting.csproj" />
+        <ProjectReference Include="../../runtime/Rasm.Telemetry.Api/Rasm.Telemetry.Api.csproj" />
+        <ProjectReference Include="../../runtime/Rasm.Telemetry/Rasm.Telemetry.csproj" />
     </ItemGroup>
 
     <ItemGroup Label="Package Files">

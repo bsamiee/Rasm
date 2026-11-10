@@ -1,7 +1,8 @@
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
-import { Array, Effect, FileSystem, Formatter, flow, Option, Path, Predicate, Record, Result, Schema, Stream, String, Struct, UndefinedOr } from 'effect';
+import { ancestors } from '@rasm/nx-devkit/inference';
+import { printed, ToolError } from '@rasm/nx-devkit/process';
+import { Array, Effect, FileSystem, flow, Option, Path, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { Toml } from 'effect/encoding';
-import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -50,29 +51,7 @@ const Manifest = Requirements.mapFields(
     }),
 );
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class CargoError extends Schema.TaggedError<CargoError, { readonly brand: unique symbol }>()('CargoError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
-    static readonly of = (subject: string, detail: string) => (cause: unknown) => (Schema.is(CargoError)(cause) ? cause : CargoError.make({ subject, detail, cause }));
-
-    override get message() {
-        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const spawned = Effect.fnUntraced(function* (command: string, args: readonly string[], cwd: string, input?: string) {
-    const handle = yield* ChildProcess.make(command, args, { cwd, extendEnv: true, ...(input === undefined ? {} : { stdin: Stream.encodeText(Stream.succeed(input)) }) });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* CargoError.make({ subject: [command, ...args].join(' '), detail: `exited ${code}: ${stderr.trim()}` });
-}, Effect.scoped);
-
-const ancestors = (path: Path.Path, folder: string): readonly string[] =>
-    Array.unfold(
-        Option.some(folder),
-        Option.map((at: string) => [at, Option.liftPredicate(path.dirname(at), () => at !== '.')] as const),
-    );
 
 const nearest = (path: Path.Path, files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(ancestors(path, folder), (at) => Array.findFirst(names, (name) => files.has(path.join(at, name))).pipe(Option.map((name) => path.join(at, name))));
 
@@ -81,24 +60,24 @@ const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
         Effect.flatMap((fs) => fs.readFileString(file)),
         Effect.flatMap(flow(Toml.parse, Effect.fromResult)),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-        Effect.mapError(CargoError.of(file, 'does not read as the TOML table it declares')),
+        Effect.mapError(ToolError.of(file, 'does not read as the TOML table it declares')),
     );
 
 const workspace = Effect.fnUntraced(
     function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
         const path = yield* Path.Path;
-        const metadata = yield* Effect.flatMap(spawned('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], workspaceRoot), Schema.decodeEffect(Metadata));
+        const metadata = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot }), Schema.decodeEffect(Metadata));
         const root = path.relative(workspaceRoot, metadata.workspace_root) || '.';
         const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
         const denied = nearest(path, files, root, DENY.config);
         const top = path.join(metadata.workspace_root, MANIFEST);
-        const [read, printed, deny, configured] = yield* Effect.all(
+        const [read, lines, deny, configured] = yield* Effect.all(
             [
                 Effect.map(
                     Effect.forEach(Array.dedupe([top, ...metadata.packages.map(({ manifest_path }) => manifest_path)]), (file) => Effect.map(toml(Manifest, file), (parsed) => [file, parsed] as const), { concurrency: 'unbounded' }),
                     Record.fromEntries,
                 ),
-                Effect.map(spawned('rustc', ['--print', 'file-names', '--print', 'host-tuple', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], path.join(workspaceRoot, root), ''), (text) => text.split('\n')),
+                Effect.map(printed('rustc', ['--print', 'file-names', '--print', 'host-tuple', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: path.join(workspaceRoot, root), input: '' }), (text) => text.split('\n')),
                 Effect.transposeOption(Option.map(denied, (file) => Effect.map(toml(Table, path.join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(path, files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
                 Effect.forEach(
                     ancestors(path, root)
@@ -142,11 +121,11 @@ const workspace = Effect.fnUntraced(
             },
             manifests: metadata.packages.map(({ manifest_path }) => path.relative(workspaceRoot, manifest_path)),
             output: Option.liftPredicate(path.relative(workspaceRoot, metadata.target_directory), (at) => !(at.startsWith('..') || path.isAbsolute(at))),
-            host: Array.findLast(printed, String.isNonEmpty),
-            files: (target: typeof Target.Type) => Array.getSomes(target.crate_types.map((type) => Option.map(Array.get(printed, types.indexOf(type)), (file) => file.replace(CRATE, target.name)))),
+            host: Array.findLast(lines, String.isNonEmpty),
+            files: (target: typeof Target.Type) => Array.getSomes(target.crate_types.map((type) => Option.map(Array.get(lines, types.indexOf(type)), (file) => file.replace(CRATE, target.name)))),
         };
     },
-    (effect, _, manifest) => Effect.mapError(effect, CargoError.of(manifest, 'does not resolve as a Cargo workspace')),
+    (effect, _, manifest) => Effect.mapError(effect, ToolError.of(manifest, 'does not resolve as a Cargo workspace')),
 );
 
 type Workspace = Effect.Success<ReturnType<typeof workspace>>;
@@ -154,10 +133,10 @@ type Workspace = Effect.Success<ReturnType<typeof workspace>>;
 const workspaces = (workspaceRoot: string, manifests: readonly string[], files: ReadonlySet<string>) =>
     Effect.reduce(
         manifests,
-        (): readonly (readonly [string, Result.Result<Workspace, CargoError>])[] => [],
+        (): readonly (readonly [string, Result.Result<Workspace, ToolError>])[] => [],
         (done, manifest) => (done.some(([, resolved]) => Result.isSuccess(resolved) && resolved.success.manifests.includes(manifest)) ? Effect.succeed(done) : Effect.map(Effect.result(workspace(workspaceRoot, manifest, files)), (resolved) => [...done, [manifest, resolved] as const])),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, CargoError, CLIPPY_CONF_DIR, CONFIG, DENY, LOCK, MANIFEST, Manifest, Metadata, nearest, spawned, toml, type Workspace, workspaces };
+export { CLIPPY_CONF_DIR, CONFIG, DENY, LOCK, MANIFEST, Manifest, Metadata, nearest, toml, type Workspace, workspaces };

@@ -4,6 +4,7 @@ using QuikGraph.Algorithms.Condensation;
 using QuikGraph.Algorithms.TopologicalSort;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
+using Rasm.Telemetry;
 using Rhino;
 using Rhino.DocObjects;
 
@@ -118,7 +119,7 @@ public static class Graphs {
                 var (rest, next) => next.Match(
                     Some: vertex => state.Readings.ContainsKey(vertex)
                         ? IO.pure(Next.Loop<Reach<TVertex, TRead>, Reach<TVertex, TRead>>(state with { Pending = rest }))
-                        : (read(vertex).Map(Fin.Succ) | @catch(static error => error.IsExpected && !Session.Cancellation(error), static error => IO.pure(Fin.Fail<TRead>(error))))
+                        : (read(vertex).Map(Fin.Succ) | @catch(static error => error.IsExpected && !error.IsCancellation, static error => IO.pure(Fin.Fail<TRead>(error))))
                             .Map(reading => Next.Loop<Reach<TVertex, TRead>, Reach<TVertex, TRead>>(new(
                                 reading.ToSeq().Bind(held => Across(vertex, edges(held))).Fold(rest, static (queue, neighbor) => queue.Enqueue(neighbor)),
                                 state.Order.Add(vertex), state.Readings.Add(vertex, reading)))),

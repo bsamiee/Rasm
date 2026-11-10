@@ -12,7 +12,7 @@ lazy from fontTools.misc.transform import Transform
 
 from rasm_typography._faces.names import Form, GlyphName
 lazy from rasm_records import Fault, Outcome, paired, Reason
-lazy from rasm_typography._faces.glyphs import Anchor, Component, Glyph, Letter, Point, role, Source
+lazy from rasm_typography._faces.glyphs import Anchor, Component, Glyph, Joinings, Letter, Point, role, Source
 lazy from rasm_typography._outlines import paths
 lazy from rasm_typography._shaping.runs import Binary
 
@@ -33,11 +33,11 @@ def _key(code: int, form: Form = Form.ISOL, /) -> str:
     return GlyphName(stem=(code,), form=form).text
 
 
-def made(name: GlyphName, advance: float, /, *, contours: tuple[tuple[Point, ...], ...] = (), components: tuple[Component, ...] = ()) -> Glyph:
+def made(joinings: Joinings, name: GlyphName, advance: float, /, *, contours: tuple[tuple[Point, ...], ...] = (), components: tuple[Component, ...] = ()) -> Glyph:
     """Returns a glyph of a name in the role its name states."""
     return Glyph(
         name=name,
-        role=role(name),
+        role=role(joinings, name),
         advance=advance,
         codes=frozenset(name.codes) if len(name.codes) == 1 and name.form is Form.ISOL and not name.suffixes else frozenset(),
         contours=contours,

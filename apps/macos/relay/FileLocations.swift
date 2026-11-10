@@ -1,3 +1,4 @@
+import CurrentProcess
 import Files
 import Foundation
 import Subprocess
@@ -6,6 +7,10 @@ import Subprocess
 
 nonisolated struct FileLocations: Sendable {
     let home: URL
+    let applicationSupportDirectory: URL = Program.current.directory(
+        .state,
+        default: (Bundle.main.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String).map { name in URL.applicationSupportDirectory.appending(path: name, directoryHint: .isDirectory) },
+    )
 
     init(environment: [Environment.Key: String]) {
         home =
@@ -14,9 +19,6 @@ nonisolated struct FileLocations: Sendable {
             } ?? URL.homeDirectory
     }
 
-    var applicationSupportDirectory: URL {
-        URL.applicationSupportDirectory.appending(path: "Relay", directoryHint: .isDirectory)
-    }
     var accountsFile: URL { applicationSupportDirectory.appending(path: "accounts.json") }
     var claudeSelectionFile: URL {
         applicationSupportDirectory.appending(path: "claude-selection.json")

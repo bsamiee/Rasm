@@ -1,5 +1,4 @@
-import { Engine } from '@rasm/database';
-import { HostingError } from '@rasm/hosting';
+import { Rows } from '@rasm/database';
 import { Template } from '@rasm/hosting/template';
 import { Array, Effect, Function, Match, Schema, SchemaGetter, Struct } from 'effect';
 import { HttpRouter } from 'effect/http';
@@ -8,7 +7,7 @@ import { SqlClient, SqlSchema } from 'effect/sql';
 import { Api, PlacementConflict, PreconditionFailed } from '#/model/api';
 import { AssetId, type ImageAsset } from '#/model/asset';
 import { Portfolio, PortfolioData, type StoredPortfolio } from '#/model/portfolio';
-import { documents, projectedPaths, references } from '#/server/catalog';
+import { documents, projectedPaths, references, unavailable } from '#/server/catalog';
 import { OwnerAccount } from '#/server/owner';
 import { shell } from '#/site/shell.tsx';
 
@@ -46,7 +45,7 @@ const readDocument = Effect.fn('readDocument')(
                 ),
         }),
         Effect.catchTag('NoSuchElementError', Effect.die),
-        Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable),
+        Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
     ),
 );
 const storeDraft = SqlSchema.findOne({
@@ -68,7 +67,7 @@ const storeDraft = SqlSchema.findOne({
             const current = sql`SELECT COALESCE(MAX(revision), 0) AS revision, COALESCE(MAX(body = ${body}), 0) AS stored,
             (SELECT json_group_array(json_object('path', u.fullkey, 'assetId', u.asset_id)) FROM (${unplaced}) u) AS unplaced
             FROM documents WHERE state = 'draft'`;
-            return Effect.map(Engine.atomic([save, ...(publish ? [published] : []), current]), Array.lastNonEmpty);
+            return Effect.map(Rows.atomic([save, ...(publish ? [published] : []), current]), Array.lastNonEmpty);
         }),
 });
 const writeDocument = Effect.fn('writeDocument')(
@@ -81,7 +80,7 @@ const writeDocument = Effect.fn('writeDocument')(
         );
     },
     Effect.catchTag('NoSuchElementError', Effect.die),
-    Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable),
+    Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -100,7 +99,6 @@ const page = HttpRouter.add(
         () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
         Effect.flatMap((bootstrap) => Template.render(shell, bootstrap)),
         Effect.map(OwnerAccount.sessionScoped),
-        Effect.catchTag('HostingError', HostingError.unavailable),
     ),
 );
 

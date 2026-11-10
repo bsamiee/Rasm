@@ -4,9 +4,12 @@ import ArgumentParser
 import AsyncAlgorithms
 import Carbon.HIToolbox
 import CasePaths
+import CurrentProcess
 import OrderedCollections
 import Processes
 import System
+import Telemetry
+import Tracing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,8 +27,8 @@ private func installed(_ names: [String], _ run: Run) async -> [(name: String, i
     .reduce(into: []) { found, entry in found.append(entry) }
 }
 
-private func act(_ action: ElementAction, key: String) async {
-    await Run.execute { run in
+private func act(_ command: (some ParsableCommand).Type, _ action: ElementAction, key: String) async {
+    await Run.execute(command) { run in
         do throws(ApplicationFailure) {
             let (instance, state) = try await action.perform()
             run.show(instance, state)
@@ -73,7 +76,7 @@ struct Find: AsyncParsableCommand {
     var names: [String]
 
     func run() async {
-        await Run.execute(accessibility: false) { run in
+        await Run.execute(Self.self, accessibility: false) { run in
             for (name, installations) in await installed(names, run) { run.emit(name, installations) }
         }
     }
@@ -88,7 +91,7 @@ struct Watch: AsyncParsableCommand {
     @OptionGroup var outline: OutlineOptions
 
     func run() async {
-        await Run.execute(lineLength: outline.lineLength) { run in
+        await Run.execute(Self.self, lineLength: outline.lineLength) { run in
             let applications = await installed(names, run).flatMap(\.installations)
             guard !applications.isEmpty else { return }
             for identifier in OrderedSet(applications.map(\.identifier)) where NSWorkspace.shared.instances(of: { instance in instance.bundleIdentifier == identifier }).isEmpty {
@@ -156,9 +159,11 @@ struct Launch: AsyncParsableCommand {
     }
 
     func run() async {
-        let variables = Dictionary(environment) { _, last in last }
-        let (names, document, arguments, new, wait) = (names, document, arguments, new, wait)
-        await Run.execute(lineLength: outline.lineLength, waiting: wait) { run in
+        let (names, document, arguments, environment, new, wait) = (names, document, arguments, environment, new, wait)
+        await Run.execute(Self.self, lineLength: outline.lineLength, waiting: wait) { run in
+            var context: [String: String] = [:]
+            InstrumentationSystem.instrument.inject(InstrumentationContext.current ?? .topLevel, into: &context, using: EnvironmentCarrier())
+            let variables = context.merging(environment) { _, stated in stated }
             let resolved: [(key: String, outcome: Result<(Installation, [URL]), ApplicationFailure>)] =
                 if names.isEmpty {
                     document.map { file in (file.path(percentEncoded: false), Result { () throws(ApplicationFailure) in (try Installation(opening: file), [file]) }) }
@@ -194,7 +199,7 @@ struct Read: AsyncParsableCommand {
     var window: CGWindowID?
 
     func run() async {
-        await Run.execute { run in
+        await Run.execute(Self.self) { run in
             await running.each(run) { instance in run.show(instance, await instance.reading(window: window), whole: true) }
         }
     }
@@ -216,8 +221,8 @@ struct Capture: AsyncParsableCommand {
     }
 
     func run() async {
-        await Run.execute { run throws(ApplicationFailure) in
-            let directory: URL = .temporaryDirectory.appending(component: program, directoryHint: .isDirectory)
+        await Run.execute(Self.self) { run throws(ApplicationFailure) in
+            let directory = Program.current.directory(.runtime)
             do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) } catch {
                 throw ApplicationFailure(subject: directory.path(percentEncoded: false), reason: .host(error as NSError))
             }
@@ -256,7 +261,7 @@ struct Perform: AsyncParsableCommand {
     @Argument(help: "Accessibility action from element actions")
     var action: String
 
-    func run() async { await act(.perform(element: element.id, action: action), key: element.id.description) }
+    func run() async { await act(Self.self, .perform(element: element.id, action: action), key: element.id.description) }
 }
 
 struct SetValue: AsyncParsableCommand {
@@ -267,7 +272,7 @@ struct SetValue: AsyncParsableCommand {
     @Argument(help: "Text for element \(kAXValueAttribute)")
     var value: String
 
-    func run() async { await act(.set(element: element.id, value: value), key: element.id.description) }
+    func run() async { await act(Self.self, .set(element: element.id, value: value), key: element.id.description) }
 }
 
 struct Key: AsyncParsableCommand {
@@ -281,7 +286,7 @@ struct Key: AsyncParsableCommand {
     @Argument(help: "Virtual key code, \(kVK_Return) Return, \(kVK_Escape) Escape")
     var code: CGKeyCode
 
-    func run() async { await act(.key(process: pid, code: code), key: String(pid)) }
+    func run() async { await act(Self.self, .key(process: pid, code: code), key: String(pid)) }
 }
 
 struct Quit: AsyncParsableCommand {
@@ -293,7 +298,7 @@ struct Quit: AsyncParsableCommand {
     var force: Bool = false
 
     func run() async {
-        await Run.execute { run in
+        await Run.execute(Self.self) { run in
             await running.each(run) { instance in
                 if await run.quit(instance, instance.quit(force: force))?.is(\.exited) != true { run.fail() }
             }

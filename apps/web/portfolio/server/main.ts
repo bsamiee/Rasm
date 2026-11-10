@@ -1,27 +1,30 @@
+import { createServer } from 'node:http';
+import { layerConfig } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { Catalog } from '@rasm/database';
 import { Sqlite } from '@rasm/database/sqlite';
+import { App } from '@rasm/hosting/app';
 import { serveNode } from '@rasm/hosting/node';
-import { s3Storage } from '@rasm/hosting/s3';
-import { Layer, Logger } from 'effect';
-import { FetchHttpClient } from 'effect/http';
-import { Otlp, OtlpSerialization } from 'effect/observability';
+import { Sites } from '@rasm/hosting/openai-sites';
+import { s3Storage } from '@rasm/object-storage/s3';
+import { layerTelemetry } from '@rasm/process';
+import { Config, Layer } from 'effect';
 import hosting from '#/hosting.config';
 import { app } from '#/server/app';
 import { catalog } from '#/server/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-serveNode(hosting, (env) =>
+serveNode(hosting, Sites.identity, (env) =>
     app(
         env.OWNER_EMAIL,
         Layer.mergeAll(
             Catalog.layer(
                 catalog,
-                Sqlite.layer((transforms) => SqliteClient.layer({ filename: env.DB, ...transforms })),
+                Sqlite.layer((names) => SqliteClient.layer({ filename: env.DB, ...names })),
             ),
-            s3Storage(env.BUCKET, { forcePathStyle: true }),
+            s3Storage({ bucket: env.BUCKET, uploadPrefix: App.uploads }, { forcePathStyle: true }),
         ),
     ),
-).pipe(Layer.provide(Otlp.layerFromConfig({ resource: { serviceName: hosting.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])))), Layer.launch, runMain);
+).pipe(Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })), Layer.provide(layerTelemetry({ resource: { serviceName: hosting.name }, target: 'stderr' })), Layer.launch, runMain);

@@ -10,6 +10,9 @@ package struct Envelope<Payload: Sendable, Fault: Sendable>: Sendable {
     var chunk: Bool?
     var result: Payload?
     var error: Fault?
+    package var traceId: String?
+    package var spanId: String?
+    package var sampled: Bool?
 
     package init(id: JSONValue? = nil, method: String? = nil, params: Payload? = nil, chunk: Bool? = nil, result: Payload? = nil, error: Fault? = nil) {
         (self.id, self.method, self.params, self.chunk, self.result, self.error) = (id, method, params, chunk, result, error)

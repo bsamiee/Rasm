@@ -1,11 +1,12 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, Function, flow, Layer, Match, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, type Scope, Stream, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, Function, flow, Layer, Match, Metric, Option, pipe, Record, Ref, Schema, SchemaGetter, type Scope, Stream, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import { FindMyWay, Headers, HttpRouter, HttpServerRequest, HttpServerResponse, HttpTraceContext } from 'effect/http';
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Host, NetAddress } from 'effect/net';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Tagged = Schema.Struct({ _tag: Schema.String });
 const Executions = Schema.fromJsonString(
     Schema.toCodecJson(Schema.Array(Schema.Struct({ tool: Schema.String, arguments: Schema.Json, result: Schema.OptionFromOptionalKey(Schema.Exit(Schema.Union([McpSchema.CallToolResult, Schema.instanceOf(McpSchema.InputRequired, { toCodecJson: () => undefined })]), McpSchema.McpError, Schema.Defect())) }))),
 );
@@ -35,8 +36,8 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
     ) {
         const context = yield* Effect.context<R>();
         const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error>, unknown, P['DecodingServices'], P['EncodingServices']>, Schema.Codec<unknown, unknown, S['DecodingServices'], S['EncodingServices']>] = [
-            Schema.toCodecJson(tool.parametersSchema).pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform((given: P['Type']) => Effect.provideContext(handle(given), context)), encode: SchemaGetter.forbiddenEncoding })),
-            Schema.toCodecJson(tool.successSchema),
+            tool.parametersSchema.pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform((given: P['Type']) => Effect.provideContext(handle(given), context)), encode: SchemaGetter.forbiddenEncoding })),
+            tool.successSchema,
         ];
         const toolkit = Toolkit.make(Tool.make(tool.name, { description: Tool.getDescription(tool), parameters, success, failure: Schema.ErrorInstance() }).annotateMerge(tool.annotations));
         yield* McpServer.registerToolkit(toolkit).pipe(Effect.provide(toolkit.toLayer({ [tool.name]: Function.identity })));
@@ -46,8 +47,7 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
             Effect.gen(function* () {
                 const [{ uri }, server, scope] = yield* Effect.all([Server, McpServer.McpServer, Effect.scope]);
                 const history = yield* executions(uri, retention, server, scope);
-                const templates = FindMyWay.make<string>({ ignoreTrailingSlash: true, ignoreDuplicateSlashes: true, caseSensitive: true });
-                yield* Layer.build(instrumented((target) => templates.find('GET', `/${target}`)?.handler ?? target).layerGlobal);
+                yield* Layer.build(metered.layerGlobal);
                 const ranking =
                     <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>
                     (input: string, context: C) =>
@@ -58,11 +58,7 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
                 return McpServer.McpServer.of({
                     ...server,
                     addTool: addTool(server, history),
-                    addResourceTemplate: (options) =>
-                        Effect.andThen(
-                            Effect.sync(() => templates.on('GET', `/${options.routerPath}`, options.template.uriTemplate)),
-                            server.addResourceTemplate({ ...options, completions: Record.map(options.completions, ranking) }),
-                        ),
+                    addResourceTemplate: (options) => server.addResourceTemplate({ ...options, completions: Record.map(options.completions, ranking) }),
                     addPrompt: (options) => server.addPrompt({ ...options, completions: Record.map(options.completions, ranking) }),
                 });
             }),
@@ -115,7 +111,7 @@ const operationDuration = Metric.mapInput(
 const failureAttributes = Match.type<Exit.Exit<unknown, unknown>>().pipe(
     Match.when({ _tag: 'Success', value: Schema.is(Schema.Struct({ isError: Schema.Literal(true) })) }, () => ({ 'error.type': 'tool_error' })),
     Match.when({ _tag: 'Failure', cause: Cause.hasInterruptsOnly }, () => ({ 'error.type': 'cancelled' })),
-    Match.when({ _tag: 'Failure' }, () => ({ 'error.type': 'error' })),
+    Match.when({ _tag: 'Failure' }, ({ cause }) => ({ 'error.type': Option.match(Schema.decodeUnknownOption(Tagged)(Cause.squash(cause)), { onNone: () => '_OTHER', onSome: (failure) => failure._tag }) })),
     Match.orElse(() => ({})),
 );
 const operations: { readonly [Method in McpServer.MiddlewareMethod]?: (target: string) => Readonly<Record<string, string>> } = {
@@ -123,19 +119,16 @@ const operations: { readonly [Method in McpServer.MiddlewareMethod]?: (target: s
     'resources/read': (target) => ({ 'mcp.resource.uri': target }),
     'prompts/get': (target) => ({ 'gen_ai.prompt.name': target }),
 };
-const instrumented = (subject: (target: string) => string) =>
-    McpServer.middleware((effect, { method, target, requestContext: { requestMetadata } }) =>
-        UndefinedOr.match(operations[method], {
-            onUndefined: () => effect,
-            onDefined: Effect.fn(`${method} ${subject(target)}`, { kind: 'server', parent: pipe(Record.filter({ ...requestMetadata }, Predicate.isString), Headers.fromInput, HttpTraceContext.fromHeaders, Option.getOrUndefined) })(function* (attributing) {
-                const [duration, exit] = yield* Effect.timed(Effect.exit(effect));
-                const attributes = { 'mcp.method.name': method, ...attributing(target), ...failureAttributes(exit) };
-                yield* Effect.annotateCurrentSpan(attributes);
-                yield* Metric.update(Metric.withAttributes(operationDuration, attributes), duration);
-                return yield* exit;
-            }),
+const metered = McpServer.middleware((effect, { method, target }) =>
+    UndefinedOr.match(operations[method], {
+        onUndefined: () => effect,
+        onDefined: Effect.fnUntraced(function* (attributing) {
+            const [duration, exit] = yield* Effect.timed(Effect.exit(effect));
+            yield* Metric.update(Metric.withAttributes(operationDuration, { 'mcp.method.name': method, ...attributing(target), ...failureAttributes(exit) }), duration);
+            return yield* exit;
         }),
-    );
+    }),
+);
 const executions = (uri: Server['Service']['uri'], retention: Duration.Duration, server: McpServer.McpServer['Service'], scope: Scope.Scope) => {
     const entries = Ref.makeUnsafe(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>());
     const name = 'executions';
@@ -147,7 +140,7 @@ const executions = (uri: Server['Service']['uri'], retention: Duration.Duration,
                 const rows = yield* Ref.get(entries);
                 const read = yield* Effect.all(rows);
                 yield* Ref.update(entries, Array.difference(Array.getSomes(Array.zipWith(rows, read, (row, { result }) => Option.as(result, row)))));
-                return { contents: [{ uri: descriptor.uri, mimeType: descriptor.mimeType, text: yield* Effect.orDie(Schema.encodeEffect(Executions)(read)) }] };
+                return yield* Effect.orDie(Schema.encodeEffect(Executions)(read));
             }),
         }).pipe(Effect.provideService(McpServer.McpServer, server)),
     );
@@ -179,7 +172,7 @@ const addTool =
     (options: Parameters<McpServer.McpServer['Service']['addTool']>[0]) => {
         const writes = !Context.get(options.annotations, Tool.Readonly);
         const visible = Context.get(options.annotations, Server.Visible).pipe(
-            Effect.tapCause((cause) => Effect.logError(`${options.tool.name} visibility check failed`, cause)),
+            Effect.tapCause((cause) => Effect.annotateLogs(Effect.logError('Tool visibility check failed', cause), { 'gen_ai.tool.name': options.tool.name })),
             Server.orInternalError,
         );
         const handle = Effect.fnUntraced(function* (payload: Schema.Json) {

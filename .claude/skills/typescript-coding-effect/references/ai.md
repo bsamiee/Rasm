@@ -4,7 +4,7 @@
 
 Tools are schema contracts a `Toolkit` binds to handlers, and one toolkit serves `LanguageModel` and `McpServer` alike:
 - `Tool.make(name, options)` defaults `parameters` to `Tool.EmptyParams` and `success` to `Schema.Void`
-- `Toolkit` decodes arguments, and parameters with a non-JSON encoding (`DateTimeUtc`, `BigDecimal`, `Option`) declare `Schema.toCodecJson(X)`
+- `Toolkit` decodes arguments and encodes results through each schema's JSON codec, a declared `Schema.toCodecJson(X)` restating it
 - `Tool.Readonly`, `Destructive`, `Idempotent`, and `OpenWorld` annotate behavior, unannotated tools advertising themselves destructive and open-world
 - `Tool.getDescription` returns the text clients list, `description` or else a description annotation on `parameters`
 - `Tool.Strict` rejects excess parameter keys and advertises `additionalProperties: false`
@@ -43,9 +43,13 @@ const Server = McpServer.layerHttp({
 - `registrations` build before the transport copies its options, and server `instructions` read every registration made while the layer builds
 - Middleware wraps `tools/call`, `resources/read`, `prompts/get`, `completion/complete`, and `skills/get`, and `MiddlewareMethod` matches keep a default arm
 - Middleware reads `{ method, target, payload, requestContext, headers, sessionId }`, `requestContext.requestMetadata` holding protocol `_meta`
-- String entries of `requestMetadata` through `Headers.fromInput` give `HttpTraceContext.fromHeaders` a remote span parent
-- `target` holds tool name, read URI, prompt name, or `completion/complete` prompt or URI template, a `FindMyWay` router mapping read URIs to templates
-- Handler results reach middleware as opaque `MiddlewareSuccess` values `Schema.is` narrows, and one global middleware spans and meters every method
+- `target` holds tool name, read URI, prompt name, or `completion/complete` prompt or URI template
+- `McpServer` runs each request in a server span named for its method, `tools/call` and `prompts/get` appending tool or prompt name
+- Request spans take `traceparent` of `params._meta` as parent, link their transport span, and keep a read URI in `mcp.resource.uri`
+- Request spans hold `mcp.*`, `jsonrpc.request.id`, `network.transport`, and `gen_ai.*` attributes, `isError` results adding `error.type` `tool_error`
+- `Toolkit.RecordToolArguments` set `true` records tool arguments on request spans as `gen_ai.tool.call.arguments`
+- Handler results reach middleware as opaque `MiddlewareSuccess` values `Schema.is` narrows
+- `McpServer` records no metric, and one global middleware times each handler into a duration histogram inside its request span
 - `m.layer` scopes middleware to registrations it reaches, `m.layerGlobal` to every one through `McpServer`, and `a.combine(b)` runs `b` outside `a`
 - `McpServer.middleware(fn, { global: true })` runs outside local middleware, middleware provided both ways runs once, and none runs for `initialize`
 - `McpServer.visibility` hides registrations per caller and `McpSchema.EnabledWhen` per client profile
@@ -54,6 +58,7 @@ const Server = McpServer.layerHttp({
 - Declared `failure` errors reach the client as `isError` text and other failures as one generic message, defects going to the log and `ErrorReporter`
 - Tool results send `structuredContent` with one JSON text block, and a tool returns a struct
 - `McpServer.resource` templates take typed `McpSchema.param` path segments alone, with no `{?query}` expansion
+- `McpServer.resource` and `registerResource` send string or `Uint8Array` `content` as one entry holding read `uri` and registered `mimeType`
 - `McpServer.resource` and `prompt` send `content` failures as `InternalError`, `server.addResource` and `addResourceTemplate` keep `InvalidParams`
 - Completion handlers return typed values the server encodes and counts
 - `McpSchema.optional(S)` declares a field a client omits or sends as `undefined`, encoding `undefined` as no key

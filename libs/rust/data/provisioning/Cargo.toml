@@ -1,0 +1,57 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-provisioning"
+edition.workspace = true
+description       = "Isolated test stores on shared servers: sessions with leases, live limits, reclaim once no client is connected, recovery from server metadata, templates, and a ready pool, over PostgreSQL, S3 buckets, ClickHouse, and Valkey"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+postgres   = ["dep:sqlx", "dep:serde_path_to_error"]
+bucket     = ["dep:aws-sdk-s3", "dep:aws-sdk-sts", "dep:data-encoding", "dep:http", "dep:serde_path_to_error"]
+clickhouse = ["dep:clickhouse", "dep:serde_path_to_error"]
+cache      = ["dep:redis", "dep:serde_path_to_error"]
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+backon                             = { workspace = true }
+futures                            = { workspace = true }
+tokio                              = { workspace = true }
+tokio-util                         = { workspace = true }
+redis                              = { workspace = true, optional = true }
+thiserror                          = { workspace = true }
+derive_more                        = { workspace = true }
+enum-map                           = { workspace = true }
+itertools                          = { workspace = true }
+data-encoding                      = { workspace = true, optional = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+serde_path_to_error                = { workspace = true, optional = true }
+nutype                             = { workspace = true }
+jiff                               = { workspace = true }
+newtype-uuid                       = { workspace = true }
+newtype-uuid-macros                = { workspace = true }
+uuid                               = { workspace = true }
+aws-sdk-sts                        = { workspace = true, optional = true }
+secrecy                            = { workspace = true }
+http                               = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+aws-sdk-s3                         = { workspace = true, optional = true }
+clickhouse                         = { workspace = true, optional = true }
+sqlx                               = { workspace = true, optional = true, features = ["postgres"] }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

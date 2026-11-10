@@ -1,8 +1,9 @@
 import CasePaths
 import Foundation
+import Logging
 import Processes
 import Results
-import os
+import Telemetry
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -47,10 +48,10 @@ enum AccountOperation: Equatable, Sendable {
         }
     }
 
-    var level: OSLogType {
+    var level: Logger.Level {
         switch self {
             case .refreshing: .debug
-            case .selecting, .signingIn, .signingOut, .removing: .default
+            case .selecting, .signingIn, .signingOut, .removing: .notice
         }
     }
 }
@@ -120,6 +121,10 @@ nonisolated struct Account: Identifiable, Sendable {
     let id: UUID
     let provider: Provider
     var identity: AccountIdentity
+
+    var metadata: Logger.Metadata {
+        ["provider": "\(provider.name, privacy: .public)", "account": "\(id, privacy: .public)", "email": "\(identity.email, privacy: .private)"]
+    }
 }
 
 nonisolated enum SignInTarget: Sendable {

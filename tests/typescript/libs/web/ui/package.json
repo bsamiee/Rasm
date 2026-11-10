@@ -8,6 +8,7 @@
     },
     "devDependencies": {
         "@effect/atom-react": "catalog:",
+        "@playwright/test": "catalog:",
         "@rasm/test-support": "workspace:*",
         "@rasm/ui": "workspace:*",
         "@storybook/addon-docs": "catalog:",

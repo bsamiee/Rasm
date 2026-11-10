@@ -84,6 +84,7 @@
     <UsingTask TaskName="ReadRhinoHost" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
         <ParameterGroup>
             <Resources ParameterType="System.String" Required="true" />
+            <Assets ParameterType="System.String" Required="true" />
             <Packages ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
             <References ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
             <TargetFramework ParameterType="System.String" Output="true" />
@@ -97,24 +98,28 @@
             <Code Type="Fragment" Language="cs">
                 <![CDATA[
                     XElement Json(string path) => XElement.Load(JsonReaderWriterFactory.CreateJsonReader(File.ReadAllBytes(path), XmlDictionaryReaderQuotas.Max));
-                    string runtime = Directory.GetFiles(Resources, "dotnetstart.*.runtimeconfig.json").Single();
-                    TargetFramework = Json(runtime).Element("runtimeOptions").Element("tfm").Value;
-                    ILookup<string, string> declared = Json(runtime.Replace(".runtimeconfig.json", ".deps.json")).Descendants("assemblyVersion").ToLookup(version => Path.GetFileName(version.Parent.Attribute("item")?.Value ?? version.Parent.Name.LocalName), version => version.Value);
-                    string[] api = Directory.GetDirectories(Path.Combine(Resources, "ManagedPlugIns"), "*.rhp").Prepend(Resources).ToArray();
-                    Supplied = (Packages ?? Array.Empty<ITaskItem>())
-                        .Select(package => (Package: package, Folders: new[] { Resources }))
-                        .Concat((References ?? Array.Empty<ITaskItem>()).Select(reference => (Package: reference, Folders: api)))
-                        .SelectMany(held => held.Folders
-                            .Select(folder => Path.Combine(folder, Path.GetFileName(held.Package.ItemSpec)))
-                            .Where(File.Exists)
-                            .Take(1)
-                            .Select(host => {
-                                TaskItem supplied = new TaskItem(held.Package);
-                                supplied.SetMetadata("HostFile", host);
-                                supplied.SetMetadata("Version", AssemblyName.GetAssemblyName(held.Package.ItemSpec).Version.ToString());
-                                supplied.SetMetadata("HostVersion", declared[Path.GetFileName(host)].DefaultIfEmpty(AssemblyName.GetAssemblyName(host).Version.ToString()).First());
-                                return (ITaskItem)supplied;
-                            }))
+                    string Key(XElement element) => element.Attribute("item")?.Value ?? element.Name.LocalName;
+                    (ITaskItem Package, string Host)[] Held(ITaskItem[] items, string[] folders) => (items ?? Array.Empty<ITaskItem>())
+                        .SelectMany(item => folders.Select(folder => Path.Combine(folder, Path.GetFileName(item.ItemSpec))).Where(File.Exists).Take(1).Select(host => (item, host)))
+                        .ToArray();
+                    TargetFramework = Json(Directory.GetFiles(Resources, "dotnetstart.*.runtimeconfig.json").Single()).Element("runtimeOptions").Element("tfm").Value;
+                    (ITaskItem Package, string Host)[] references = Held(References, Directory.GetDirectories(Path.Combine(Resources, "ManagedPlugIns"), "*.rhp").Prepend(Resources).ToArray());
+                    ILookup<string, string> dependencies = Json(Assets).Element("targets").Elements().Elements()
+                        .SelectMany(library => library.Elements("dependencies").Elements().Select(dependency => (Id: Key(library).Split('/')[0], Dependency: Key(dependency))))
+                        .ToLookup(edge => edge.Id, edge => edge.Dependency, StringComparer.OrdinalIgnoreCase);
+                    HashSet<string> exchanged = new HashSet<string>(references.Select(held => held.Package.GetMetadata("NuGetPackageId")), StringComparer.OrdinalIgnoreCase);
+                    for (Stack<string> pending = new Stack<string>(exchanged); pending.Count > 0;)
+                        foreach (string dependency in dependencies[pending.Pop()].Where(exchanged.Add).ToArray())
+                            pending.Push(dependency);
+                    Supplied = references
+                        .Concat(Held(Packages, new[] { Resources }).Where(held => exchanged.Contains(held.Package.GetMetadata("NuGetPackageId"))))
+                        .Select(held => {
+                            TaskItem supplied = new TaskItem(held.Package);
+                            supplied.SetMetadata("HostFile", held.Host);
+                            supplied.SetMetadata("Version", AssemblyName.GetAssemblyName(held.Package.ItemSpec).Version.ToString());
+                            supplied.SetMetadata("HostVersion", AssemblyName.GetAssemblyName(held.Host).Version.ToString());
+                            return (ITaskItem)supplied;
+                        })
                         .ToArray();
                 ]]>
             </Code>
@@ -132,7 +137,7 @@
             <_RhinoReference Include="@(ResolvedCompileFileDefinitions)" />
             <_RhinoReference Remove="@(RuntimeCopyLocalItems)" MatchOnMetadata="NuGetPackageId" />
         </ItemGroup>
-        <ReadRhinoHost Resources="$(RhinoResourcesDir)" Packages="@(RuntimeCopyLocalItems)" References="@(_RhinoReference)">
+        <ReadRhinoHost Resources="$(RhinoResourcesDir)" Assets="$(ProjectAssetsFile)" Packages="@(RuntimeCopyLocalItems)" References="@(_RhinoReference)">
             <Output TaskParameter="TargetFramework" PropertyName="RhinoTargetFramework" />
             <Output TaskParameter="Supplied" ItemName="_RhinoSupplied" />
         </ReadRhinoHost>

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Suite of Rasm.Testing: store service kinds through their catalog drivers, SQLite, a Testcontainers lifecycle, and settlement by test result</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Data Storage">
+        <PackageReference Include="AWSSDK.S3" />
+        <PackageReference Include="ClickHouse.Driver" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="Npgsql" />
+        <PackageReference Include="StackExchange.Redis" />
+    </ItemGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageReference Include="CsCheck" />
+        <PackageReference Include="Testcontainers.Redis" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../Rasm.Testing/Rasm.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Service Definition">
+        <AssemblyMetadata Include="Compose" Value="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', '..', '..', '..', 'infra', 'compose.yaml'))" />
+    </ItemGroup>
+</Project>

@@ -19,7 +19,7 @@ defaults:
         shell: bash
 
 env:
-    OTEL_SDK_DISABLED: "true"
+    UV_LOCKED: "true"
 
 jobs:
     linux:
@@ -34,7 +34,8 @@ jobs:
             - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
-            - run: nx install @rasm/infra
+            - run: playwright install --with-deps --only-shell chromium
+            - run: nx install @rasm/infra -c store
             - id: cache
               continue-on-error: true
               run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health"
@@ -46,6 +47,8 @@ jobs:
                   NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
             - run: nx affected --targets=build --exclude=tag:os:darwin,tag:os:win32,tag:host:blender,tag:host:unreal
               env: *nx-cache
+            - &locks
+              run: git diff --exit-code -- '*Cargo.lock' '*Package.resolved'
 
     macos:
         runs-on: xcode-27
@@ -70,4 +73,5 @@ jobs:
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
                   release-version: wip
-            - run: nx affected --targets=check,test,build --projects=tag:os:darwin
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin'
+            - *locks

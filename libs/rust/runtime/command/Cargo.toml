@@ -1,0 +1,58 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-command"
+edition.workspace = true
+description       = "Process entry every Rasm executable runs: assembled clap command, settings layers, completions, man pages, per-user folders, runtime, signals, and telemetry"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+futures                            = { workspace = true }
+tokio                              = { workspace = true }
+dirs                               = { workspace = true }
+annotate-snippets                  = { workspace = true }
+nonempty-collections               = { workspace = true }
+sysexits                           = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true }
+derive_more                        = { workspace = true }
+enum-map                           = { workspace = true }
+itertools                          = { workspace = true }
+bytesize                           = { workspace = true }
+heck                               = { workspace = true }
+serde                              = { workspace = true }
+serde_path_to_error                = { workspace = true }
+toml                               = { workspace = true }
+jiff                               = { workspace = true }
+camino                             = { workspace = true }
+fs-err                             = { workspace = true, features = ["tokio"] }
+log                                = { workspace = true }
+opentelemetry                      = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+tracing-appender                   = { workspace = true }
+tracing-log                        = { workspace = true }
+tracing-subscriber                 = { workspace = true }
+anstream                           = { workspace = true }
+clap                               = { workspace = true, features = ["string"] }
+clap_complete                      = { workspace = true }
+clap_mangen                        = { workspace = true }
+colorchoice-clap                   = { workspace = true }
+rasm-observability                 = { workspace = true, features = ["clap", "export", "metrics"] }
+
+[target."cfg(unix)".dependencies]
+tokio-stream = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

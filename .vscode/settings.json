@@ -42,18 +42,23 @@
 
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
-        "*.csproj": "packages.lock.json, packages.*.lock.json, xunit.runner.json",
+        "*.csproj": "AnalyzerReleases.*.md, packages.lock.json",
+        "*.py": "${capture}.py.lock",
         ".gitignore": ".gitattributes, .gitmodules",
-        "Cargo.toml": "Cargo.lock, rust-toolchain.toml",
+        "Cargo.toml": "build.rs, Cargo.lock, rust-toolchain.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
+        "clippy.toml": "nextest.toml, rustfmt.toml",
+        "CMakeLists.txt": "*.cmake, CMakePresets.json",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
+        "hk.pkl": ".globalconfig, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, sgconfig.yml",
-        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.web.json, vitest.config.ts",
+        "package.json": "*.config.ts, biome.json, buf.gen.yaml, executors.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
         "Package.swift": "Package.resolved, Xcode.xcconfig",
-        "pyproject.toml": ".python-version, pixi.lock, uv.lock",
-        "README.md": "LICENSE, TODO.md"
+        "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
+        "README.md": "LICENSE, TODO*.md",
+        "swiftlint.yml": "swift-format.json"
     },
 
     // --- [WATCHING]

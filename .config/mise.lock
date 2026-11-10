@@ -1338,6 +1338,53 @@ checksum_source = "mise-versions"
 url = "https://github.com/ast-grep/ast-grep/releases/download/0.51.1/app-x86_64-pc-windows-msvc.zip"
 url_api = "https://api.github.com/repos/ast-grep/ast-grep/releases/assets/701859070"
 
+[[tools.buf]]
+version = "1.75.0"
+backend = "aqua:bufbuild/buf"
+specifiers = ["latest"]
+
+[tools.buf."platforms.linux-arm64"]
+checksum = "sha256:0fe2cf43cff973e27a09219e611d98101cb22b0fee398f10f2be2256dd7f892e"
+url = "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/664187585"
+provenance = "minisign"
+
+[tools.buf."platforms.linux-arm64-musl"]
+checksum = "sha256:0fe2cf43cff973e27a09219e611d98101cb22b0fee398f10f2be2256dd7f892e"
+url = "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/664187585"
+provenance = "minisign"
+
+[tools.buf."platforms.linux-x64"]
+checksum = "sha256:7168a06e29bd5eb8d1530848f242264f7a86b9b8af3b2e811570fbea0c929a30"
+url = "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/664187730"
+provenance = "minisign"
+
+[tools.buf."platforms.linux-x64-musl"]
+checksum = "sha256:7168a06e29bd5eb8d1530848f242264f7a86b9b8af3b2e811570fbea0c929a30"
+url = "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/664187730"
+provenance = "minisign"
+
+[tools.buf."platforms.macos-arm64"]
+checksum = "sha256:5478531c4645c5b80866e87d76d73f0e8bf5a35644b12c92cbdcc408e7c8b9d3"
+url = "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/664187486"
+provenance = "minisign"
+
+[tools.buf."platforms.macos-x64"]
+checksum = "sha256:d04292081e76c19c613d2411b2d0b3619d6d49d54ce6cbcf9e12f72edce0532b"
+url = "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Darwin-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/664187490"
+provenance = "minisign"
+
+[tools.buf."platforms.windows-x64"]
+checksum = "sha256:3d580339622823a2ea48ec1f0a401b8c5686144ef51f88d19ce17af7c54588fc"
+url = "https://github.com/bufbuild/buf/releases/download/v1.75.0/buf-Windows-x86_64.zip"
+url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/664187857"
+provenance = "minisign"
+
 [[tools.carapace]]
 version = "1.8.2"
 backend = "aqua:carapace-sh/carapace-bin"
@@ -1426,50 +1473,51 @@ backend = "cargo:cargo-edit"
 specifiers = ["latest"]
 
 [[tools.cmake]]
-version = "4.4.5"
+version = "4.5.0-rc3"
 backend = "aqua:Kitware/CMake"
 specifiers = ["latest"]
 
 [tools.cmake."platforms.linux-arm64"]
-checksum = "sha256:301d5063ab259577c1b57ce5490b1aab9ea5c56dc4c822f73499553dab94925f"
+checksum = "sha256:22756c50cdf850076a58702dc39903e769d971388cb90c362facc5957b4df957"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-linux-aarch64.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682698880"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709905559"
 
 [tools.cmake."platforms.linux-arm64-musl"]
-checksum = "sha256:301d5063ab259577c1b57ce5490b1aab9ea5c56dc4c822f73499553dab94925f"
+checksum = "sha256:22756c50cdf850076a58702dc39903e769d971388cb90c362facc5957b4df957"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-linux-aarch64.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682698880"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709905559"
 
 [tools.cmake."platforms.linux-x64"]
-checksum = "sha256:ed85135c5a5135b45e50423cb406dea04ca3338da0b8ef3c9ede963559680be0"
+checksum = "sha256:320bf7b1c2e625270d36d8bf19aa7e72d3a0c576846a6cf68743b9e35ec14706"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682699189"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709906071"
 
 [tools.cmake."platforms.linux-x64-musl"]
-checksum = "sha256:ed85135c5a5135b45e50423cb406dea04ca3338da0b8ef3c9ede963559680be0"
+checksum = "sha256:320bf7b1c2e625270d36d8bf19aa7e72d3a0c576846a6cf68743b9e35ec14706"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682699189"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709906071"
 
 [tools.cmake."platforms.macos-arm64"]
-checksum = "sha256:679e77a96b9ef9484cc6c1445255fc4f84206b48a65420efbedf16bdab55fbff"
-url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-macos-universal.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682699600"
+checksum = "sha256:5d242a43b02617fa2a5d11e1ab7f15c5e9f092c89afb24903ee1889e862befac"
+checksum_source = "mise-versions"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-macos-universal.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709906409"
 
 [tools.cmake."platforms.macos-x64"]
-checksum = "sha256:679e77a96b9ef9484cc6c1445255fc4f84206b48a65420efbedf16bdab55fbff"
+checksum = "sha256:5d242a43b02617fa2a5d11e1ab7f15c5e9f092c89afb24903ee1889e862befac"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-macos-universal.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682699600"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-macos-universal.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709906409"
 
 [tools.cmake."platforms.windows-x64"]
-checksum = "sha256:326c826486d46a23cf9d5a1c9ee3a567d427bdd02c4a34071937a2a675cff004"
+checksum = "sha256:94655f78b5195bc61fb4dea54754b4729bd19bffae7aeb498c23c403c8eb25a9"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5-windows-x86_64.zip"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/682701242"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-windows-x86_64.zip"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709908529"
 
 [[tools.colima]]
 version = "0.10.3"
@@ -1487,6 +1535,46 @@ checksum = "sha256:3082737fe8a98afda11cba7d9a20b6e56fe80c6153464beda04bec6307587
 checksum_source = "mise-versions"
 url = "https://github.com/abiosoft/colima/releases/download/v0.10.3/colima-Darwin-x86_64"
 url_api = "https://api.github.com/repos/abiosoft/colima/releases/assets/438456722"
+
+[[tools.crane]]
+version = "0.22.1"
+backend = "aqua:google/go-containerregistry"
+specifiers = ["latest"]
+
+[tools.crane."platforms.linux-arm64"]
+checksum = "sha256:898c0cff975f898a33e8c4580bdafb0e7c02c7faa33374e946762f97c4ab7110"
+checksum_source = "mise-versions"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/543544372"
+
+[tools.crane."platforms.linux-arm64-musl"]
+checksum = "sha256:898c0cff975f898a33e8c4580bdafb0e7c02c7faa33374e946762f97c4ab7110"
+checksum_source = "mise-versions"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/543544372"
+
+[tools.crane."platforms.linux-x64"]
+checksum = "sha256:0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0"
+checksum_source = "mise-versions"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/543544389"
+
+[tools.crane."platforms.linux-x64-musl"]
+checksum = "sha256:0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0"
+checksum_source = "mise-versions"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Linux_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/543544389"
+
+[tools.crane."platforms.macos-arm64"]
+checksum = "sha256:2231fc8df8806d20d680ff1225db44e095a55dd6ac1ae8eced4faf4b278b78fb"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/543544436"
+
+[tools.crane."platforms.macos-x64"]
+checksum = "sha256:6fedd06a648c11335f0e8b9547e4783002c30e9336047fec292942cd518bb799"
+checksum_source = "mise-versions"
+url = "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Darwin_x86_64.tar.gz"
+url_api = "https://api.github.com/repos/google/go-containerregistry/releases/assets/543544434"
 
 [[tools.difftastic]]
 version = "0.72.0"
@@ -1935,7 +2023,7 @@ url = "https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra
 url_api = "https://api.github.com/repos/NationalSecurityAgency/ghidra/releases/assets/665189215"
 
 [[tools."github:apple/pkl-vscode"]]
-version = "0.23.1"
+version = "0.24.0"
 backend = "github:apple/pkl-vscode"
 specifiers = ["latest"]
 
@@ -1943,46 +2031,46 @@ specifiers = ["latest"]
 asset_pattern = "pkl-vscode-*.vsix"
 
 [tools."github:apple/pkl-vscode"."platforms.linux-arm64"]
-checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc993f"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
+url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
+url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
+provenance = "github-attestations"
 
 [tools."github:apple/pkl-vscode"."platforms.linux-arm64-musl"]
-checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc993f"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
+url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
+url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
+provenance = "github-attestations"
 
 [tools."github:apple/pkl-vscode"."platforms.linux-x64"]
-checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc993f"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
+url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
+url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
+provenance = "github-attestations"
 
 [tools."github:apple/pkl-vscode"."platforms.linux-x64-musl"]
-checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc993f"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
+url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
+url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
+provenance = "github-attestations"
 
 [tools."github:apple/pkl-vscode"."platforms.macos-arm64"]
-checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc993f"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
+url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
+url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
+provenance = "github-attestations"
 
 [tools."github:apple/pkl-vscode"."platforms.macos-x64"]
-checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc993f"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
+url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
+url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
+provenance = "github-attestations"
 
 [tools."github:apple/pkl-vscode"."platforms.windows-x64"]
-checksum = "sha256:1f13c46d61dbe0bf618521b679c3d240abfc0aad1738010ecf26d714a1cc993f"
-checksum_source = "mise-versions"
-url = "https://github.com/apple/pkl-vscode/releases/download/0.23.1/pkl-vscode-0.23.1.vsix"
-url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/552343422"
+checksum = "sha256:8c8a061becf1887ec41cc4f5a214106a983b733758e2f393834055a398345e02"
+url = "https://github.com/apple/pkl-vscode/releases/download/0.24.0/pkl-vscode-0.24.0.vsix"
+url_api = "https://api.github.com/repos/apple/pkl-vscode/releases/assets/718631729"
+provenance = "github-attestations"
 
 [[tools."github:docker/buildx"]]
 version = "0.39.0-rc1"
@@ -2083,51 +2171,51 @@ url = "https://github.com/fonttools/fontspector/releases/download/fontspector-v1
 url_api = "https://api.github.com/repos/fonttools/fontspector/releases/assets/625074555"
 
 [[tools."github:hostinger/api-cli"]]
-version = "4.14.0"
+version = "4.18.1"
 backend = "github:hostinger/api-cli"
 specifiers = ["latest"]
 
 [tools."github:hostinger/api-cli"."platforms.linux-arm64"]
-checksum = "sha256:09535ec4790b2ff3e9e51fcdca637df252163744c39a575641a3fc49f3cd0022"
+checksum = "sha256:4242ee963401823682f5f9b5b3e52d01d78447bff62dd8198c0385ba066bb51a"
 checksum_source = "mise-versions"
-url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356366"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.18.1/hostinger-4.18.1-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/730715586"
 
 [tools."github:hostinger/api-cli"."platforms.linux-arm64-musl"]
-checksum = "sha256:09535ec4790b2ff3e9e51fcdca637df252163744c39a575641a3fc49f3cd0022"
+checksum = "sha256:4242ee963401823682f5f9b5b3e52d01d78447bff62dd8198c0385ba066bb51a"
 checksum_source = "mise-versions"
-url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356366"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.18.1/hostinger-4.18.1-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/730715586"
 
 [tools."github:hostinger/api-cli"."platforms.linux-x64"]
-checksum = "sha256:c09cd8cf361f035f2ff1d9dd500331f575f4ddd0e618e8d28088381c8e6a6c9a"
+checksum = "sha256:d63e3aabd295ae1eee41928f4bafb0a8cfa8bf20a09e7df0782d39601c568fde"
 checksum_source = "mise-versions"
-url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-linux-amd64.tar.gz"
-url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356372"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.18.1/hostinger-4.18.1-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/730715518"
 
 [tools."github:hostinger/api-cli"."platforms.linux-x64-musl"]
-checksum = "sha256:c09cd8cf361f035f2ff1d9dd500331f575f4ddd0e618e8d28088381c8e6a6c9a"
+checksum = "sha256:d63e3aabd295ae1eee41928f4bafb0a8cfa8bf20a09e7df0782d39601c568fde"
 checksum_source = "mise-versions"
-url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-linux-amd64.tar.gz"
-url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356372"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.18.1/hostinger-4.18.1-linux-amd64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/730715518"
 
 [tools."github:hostinger/api-cli"."platforms.macos-arm64"]
-checksum = "sha256:2a3e025c59e5944784b2190f764c1394596f92157cf1de2d4c75cde638c774d0"
+checksum = "sha256:89fa78e4ca06d4555740fee62e3fbea885492e2d54e797bb6aafd2f69015d1b4"
 checksum_source = "mise-versions"
-url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356311"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.18.1/hostinger-4.18.1-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/730715591"
 
 [tools."github:hostinger/api-cli"."platforms.macos-x64"]
-checksum = "sha256:934ff29cb54e73cf8e8372e43519ed36cb5a11086f849e17eace71c511e222d7"
+checksum = "sha256:aa53110cac89b1d1e22b6cae0c876fa23f28818bf0623ebc18f479a3189679dc"
 checksum_source = "mise-versions"
-url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-darwin-amd64.tar.gz"
-url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356367"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.18.1/hostinger-4.18.1-darwin-amd64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/730715523"
 
 [tools."github:hostinger/api-cli"."platforms.windows-x64"]
-checksum = "sha256:2ca74bde2e5d33d3759002a34602ed4243e0063268d4ef425e9599024f181aeb"
+checksum = "sha256:8790a0a87a9ec793f62e759c8172e69ab5dc3dde9e343a48aac73f4eff07d843"
 checksum_source = "mise-versions"
-url = "https://github.com/hostinger/api-cli/releases/download/v4.14.0/hostinger-4.14.0-windows-amd64.tar.gz"
-url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/716356309"
+url = "https://github.com/hostinger/api-cli/releases/download/v4.18.1/hostinger-4.18.1-windows-amd64.tar.gz"
+url_api = "https://api.github.com/repos/hostinger/api-cli/releases/assets/730715520"
 
 [[tools."github:linebender/resvg"]]
 version = "0.49.0"
@@ -2232,51 +2320,51 @@ url = "https://github.com/pmd/pmd/releases/download/pmd_releases/7.29.0/pmd-dist
 url_api = "https://api.github.com/repos/pmd/pmd/releases/assets/691607210"
 
 [[tools."github:sbdchd/squawk"]]
-version = "2.71.0"
+version = "2.72.0"
 backend = "github:sbdchd/squawk"
 specifiers = ["latest"]
 
 [tools."github:sbdchd/squawk"."platforms.linux-arm64"]
-checksum = "sha256:cc6b563f205e9d93472232ca21113c736d6e1f45a7ce700170b7e17bcecc9b7f"
+checksum = "sha256:bcb529c1344512de5ce70695d89e7b1ae58738f73c05187a5f56cbf079417cf2"
 checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.71.0/squawk-linux-arm64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/688743733"
+url = "https://github.com/sbdchd/squawk/releases/download/v2.72.0/squawk-linux-arm64"
+url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/722957858"
 
 [tools."github:sbdchd/squawk"."platforms.linux-arm64-musl"]
-checksum = "sha256:3b350a7ad426cd4f000b9b43211b19d8a724392ad715ad454156653aadf77347"
+checksum = "sha256:a6d0eb855ca69fa2a70e518c99b24bd4fd7d2f869a884e139de4730c0ca0be2c"
 checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.71.0/squawk-linux-musl-arm64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/688744548"
+url = "https://github.com/sbdchd/squawk/releases/download/v2.72.0/squawk-linux-musl-arm64"
+url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/722962873"
 
 [tools."github:sbdchd/squawk"."platforms.linux-x64"]
-checksum = "sha256:ab978cb412e5e5eb2f06aaa4c5035a1567f6eba53274d7d1e068f73169b88bbd"
+checksum = "sha256:a61661808119a82515565503111099b070c869f73698f61cb1785de5d0c8b11a"
 checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.71.0/squawk-linux-x64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/688733917"
+url = "https://github.com/sbdchd/squawk/releases/download/v2.72.0/squawk-linux-x64"
+url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/722960069"
 
 [tools."github:sbdchd/squawk"."platforms.linux-x64-musl"]
-checksum = "sha256:cf542e159fb3a94e5fd31d8b5282a31334df8205c6d7993afe286e9133fdff3e"
+checksum = "sha256:b4cda2069a3ca5b75b47f025b569df9e6a762262b9258bc4db3f43381f8544d8"
 checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.71.0/squawk-linux-musl-x64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/688744731"
+url = "https://github.com/sbdchd/squawk/releases/download/v2.72.0/squawk-linux-musl-x64"
+url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/722956776"
 
 [tools."github:sbdchd/squawk"."platforms.macos-arm64"]
-checksum = "sha256:6132cb9779c688303e43746e10268f280b35a3fbcc70b851472021cc882ef5a2"
+checksum = "sha256:f2cced2d962a5642a089a90a0cf826c65786a59a0a2bd3cd96ddadff3583c2b4"
 checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.71.0/squawk-darwin-arm64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/688735765"
+url = "https://github.com/sbdchd/squawk/releases/download/v2.72.0/squawk-darwin-arm64"
+url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/722958770"
 
 [tools."github:sbdchd/squawk"."platforms.macos-x64"]
-checksum = "sha256:e0770d7641dd4bea5a0f11b3efb18829702e52a230724c6b3f725393369c467c"
+checksum = "sha256:ba255f16260663457e66e6888fcecebcfb64e9e35d7ef041e92834f8c9d2d849"
 checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.71.0/squawk-darwin-x64"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/688732398"
+url = "https://github.com/sbdchd/squawk/releases/download/v2.72.0/squawk-darwin-x64"
+url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/722959214"
 
 [tools."github:sbdchd/squawk"."platforms.windows-x64"]
-checksum = "sha256:3299e2f9e41ab5d6274cad64a061488a370a0310a02d17e0dcf3845ad779beec"
+checksum = "sha256:dd36bf596181802b8b44512417e5ae5c133ae6be126d7563117f476ccdd9900a"
 checksum_source = "mise-versions"
-url = "https://github.com/sbdchd/squawk/releases/download/v2.71.0/squawk-windows-x64.exe"
-url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/688738836"
+url = "https://github.com/sbdchd/squawk/releases/download/v2.72.0/squawk-windows-x64.exe"
+url_api = "https://api.github.com/repos/sbdchd/squawk/releases/assets/722962563"
 
 [[tools."github:trailofbits/dylint"]]
 version = "6.3.2"
@@ -3343,50 +3431,50 @@ url = "https://github.com/apple/pkl/releases/download/0.33.0/pkl-windows-amd64.e
 url_api = "https://api.github.com/repos/apple/pkl/releases/assets/714757051"
 
 [[tools.pnpm]]
-version = "12.18.0"
+version = "12.19.0"
 backend = "aqua:pnpm/pnpm"
 specifiers = ["latest"]
 
 [tools.pnpm."platforms.linux-arm64"]
-checksum = "sha256:700bd1aa4028465b80e62b7c5bec8455be60bbafaf53a3262a4ab8e2057712ac"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-linux-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505548"
+checksum = "sha256:c30fc6f9619fe190f491d844f8bb11c6a52dd2d932337d05edf2029a1988ac32"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.19.0/pnpm-linux-arm64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/729563495"
 provenance = "github-attestations"
 
 [tools.pnpm."platforms.linux-arm64-musl"]
-checksum = "sha256:86c80eb744b1ff41ca7400bb1f8ca5fb522b2101da39ac93bd45f3bc652e5cfb"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-linux-arm64-musl.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505545"
+checksum = "sha256:cf6a59cbbd06800575d8274cd5f84eb9de74794ec495630b554bfef341ecd0d8"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.19.0/pnpm-linux-arm64-musl.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/729563502"
 provenance = "github-attestations"
 
 [tools.pnpm."platforms.linux-x64"]
-checksum = "sha256:3726060e236c0db3e7124c0a5af123c840ba0cb76682149b63ea0baf290017c2"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505542"
+checksum = "sha256:bf37edf4e26c3b31c1cac42c769ffabcb9231e9bc728762aeb1ee86bc711684a"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.19.0/pnpm-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/729563509"
 provenance = "github-attestations"
 
 [tools.pnpm."platforms.linux-x64-musl"]
-checksum = "sha256:faaed5856527e4f1e8d5e16edf797c6e643cbe1521e3d15e2d791e8295489fb1"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-linux-x64-musl.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505536"
+checksum = "sha256:b41d7b2d8f47187fdf9b3df170f984ffb02ef14bd27d353ccff704cef0d1af6e"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.19.0/pnpm-linux-x64-musl.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/729563498"
 provenance = "github-attestations"
 
 [tools.pnpm."platforms.macos-arm64"]
-checksum = "sha256:9b647f634d7e8f23162c9d3d1d0e0950d1152402ca0f4c331583ed7c75cd3706"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505537"
+checksum = "sha256:034aa9694d02e9345e56ffa2e6660b5c6ace2f27c99f6ea84db9bf50034315d6"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.19.0/pnpm-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/729563507"
 provenance = "github-attestations"
 
 [tools.pnpm."platforms.macos-x64"]
-checksum = "sha256:34cc90fbaa060c458b587fbdb1f3f9477e97e3fd3f8e9ffb2d43ca45c0c9b005"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-darwin-x64.tar.gz"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505550"
+checksum = "sha256:f73bc7acac50d34243f7902d3e0a2eddc508fedec0c92e044b8ccbc752272b9c"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.19.0/pnpm-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/729563504"
 provenance = "github-attestations"
 
 [tools.pnpm."platforms.windows-x64"]
-checksum = "sha256:dfe2123affd2ed4be280ba7ab4678c0fae130b4936fabefa9b1675b60514ef7c"
-url = "https://github.com/pnpm/pnpm/releases/download/v12.18.0/pnpm-win32-x64.zip"
-url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/711505547"
+checksum = "sha256:1fa21198d4b9dfebabac985b6ab863bd4138d83ad07457d4eb0910cc2b3286c5"
+url = "https://github.com/pnpm/pnpm/releases/download/v12.19.0/pnpm-win32-x64.zip"
+url_api = "https://api.github.com/repos/pnpm/pnpm/releases/assets/729563500"
 provenance = "github-attestations"
 
 [[tools.pulumi]]
@@ -3702,97 +3790,97 @@ url = "https://github.com/realm/SwiftLint/releases/download/0.65.1/portable_swif
 url_api = "https://api.github.com/repos/realm/SwiftLint/releases/assets/524187565"
 
 [[tools.tombi]]
-version = "1.10.0"
+version = "1.11.1"
 backend = "aqua:tombi-toml/tombi"
 specifiers = ["latest"]
 
 [tools.tombi."platforms.linux-arm64"]
-checksum = "sha256:90950a01c67c061a0bc1d8180ef93bf9e741ba8d22a575c3efa0b943d4676516"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.10.0/tombi-cli-1.10.0-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/709140219"
+checksum = "sha256:df98bd2067cc97f12e1c92b9a916ed0a6515cda643b31785887c78612fcd15e0"
+url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.1/tombi-cli-1.11.1-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/725632065"
 provenance = "github-attestations"
 
 [tools.tombi."platforms.linux-arm64-musl"]
-checksum = "sha256:90950a01c67c061a0bc1d8180ef93bf9e741ba8d22a575c3efa0b943d4676516"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.10.0/tombi-cli-1.10.0-aarch64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/709140219"
+checksum = "sha256:df98bd2067cc97f12e1c92b9a916ed0a6515cda643b31785887c78612fcd15e0"
+url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.1/tombi-cli-1.11.1-aarch64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/725632065"
 provenance = "github-attestations"
 
 [tools.tombi."platforms.linux-x64"]
-checksum = "sha256:47c80f210c2abc54f9a4c433b768378a321a0c53fcb907cb2563fe16f277f402"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.10.0/tombi-cli-1.10.0-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/709140355"
+checksum = "sha256:20ad530e4878c8214e40e14e92623fd2ef244254a397a5cab29137f9076c156e"
+url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.1/tombi-cli-1.11.1-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/725632125"
 provenance = "github-attestations"
 
 [tools.tombi."platforms.linux-x64-musl"]
-checksum = "sha256:47c80f210c2abc54f9a4c433b768378a321a0c53fcb907cb2563fe16f277f402"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.10.0/tombi-cli-1.10.0-x86_64-unknown-linux-musl.tar.gz"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/709140355"
+checksum = "sha256:20ad530e4878c8214e40e14e92623fd2ef244254a397a5cab29137f9076c156e"
+url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.1/tombi-cli-1.11.1-x86_64-unknown-linux-musl.tar.gz"
+url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/725632125"
 provenance = "github-attestations"
 
 [tools.tombi."platforms.macos-arm64"]
-checksum = "sha256:b00ca00f24125c1fbb61c8a7940ebd56f78e390878f11cd43235e38d07426832"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.10.0/tombi-cli-1.10.0-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/709140254"
+checksum = "sha256:c14d4dbe7e0f8887a0090a91362ce3e46aa61002f879ff1728e8607f1c573197"
+url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.1/tombi-cli-1.11.1-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/725632070"
 provenance = "github-attestations"
 
 [tools.tombi."platforms.macos-x64"]
-checksum = "sha256:dfa9fe9d214435b41d6d4ccefb9ed878990349a2ee0edcd7e53dd05ef4e84a8c"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.10.0/tombi-cli-1.10.0-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/709140250"
+checksum = "sha256:3130e3cdae621f09c730a19c725b7302463310fd5868362a7241ff9cdf370251"
+url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.1/tombi-cli-1.11.1-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/725632067"
 provenance = "github-attestations"
 
 [tools.tombi."platforms.windows-x64"]
-checksum = "sha256:e92d0f276682fb4ccc30d0edca4760151e4ddb0666b4ed71f0f59ac69aa42418"
-url = "https://github.com/tombi-toml/tombi/releases/download/v1.10.0/tombi-cli-1.10.0-x86_64-pc-windows-msvc.zip"
-url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/709140325"
+checksum = "sha256:a12a12dd8cae4199b67b24480f6523859c94e6af1de1f1ef0df81a3da37e4480"
+url = "https://github.com/tombi-toml/tombi/releases/download/v1.11.1/tombi-cli-1.11.1-x86_64-pc-windows-msvc.zip"
+url_api = "https://api.github.com/repos/tombi-toml/tombi/releases/assets/725632121"
 provenance = "github-attestations"
 
 [[tools.tree-sitter]]
-version = "0.27.1"
+version = "0.27.2"
 backend = "aqua:tree-sitter/tree-sitter"
 specifiers = ["latest"]
 
 [tools.tree-sitter."platforms.linux-arm64"]
-checksum = "sha256:404be5d54a4955571c4067c21d4699660eab3a534cefb0659341b207f7139ec5"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.1/tree-sitter-linux-arm64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/622546797"
+checksum = "sha256:34fcc5c4fa7bdd2058a2a45a03b6eb9a49b03a93b6d52ec750f99b1516d98d33"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-linux-arm64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450855"
 provenance = "github-attestations"
 
 [tools.tree-sitter."platforms.linux-arm64-musl"]
-checksum = "sha256:404be5d54a4955571c4067c21d4699660eab3a534cefb0659341b207f7139ec5"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.1/tree-sitter-linux-arm64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/622546797"
+checksum = "sha256:34fcc5c4fa7bdd2058a2a45a03b6eb9a49b03a93b6d52ec750f99b1516d98d33"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-linux-arm64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450855"
 provenance = "github-attestations"
 
 [tools.tree-sitter."platforms.linux-x64"]
-checksum = "sha256:d01042f94ba3d6827ddc9788e235f75d8366431be42bdf90ade534d960c98b7d"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.1/tree-sitter-linux-x64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/622546800"
+checksum = "sha256:7ed56d152c52437397b9fcaa43cf341f49933cecc1ca291843f0d347c6e2cb3a"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-linux-x64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450853"
 provenance = "github-attestations"
 
 [tools.tree-sitter."platforms.linux-x64-musl"]
-checksum = "sha256:d01042f94ba3d6827ddc9788e235f75d8366431be42bdf90ade534d960c98b7d"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.1/tree-sitter-linux-x64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/622546800"
+checksum = "sha256:7ed56d152c52437397b9fcaa43cf341f49933cecc1ca291843f0d347c6e2cb3a"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-linux-x64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450853"
 provenance = "github-attestations"
 
 [tools.tree-sitter."platforms.macos-arm64"]
-checksum = "sha256:46cb97d9a2c52c94e22d9a76c2f1116156b8b61f98360e2a9cce05fcb197cd4d"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.1/tree-sitter-macos-arm64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/622546827"
+checksum = "sha256:5a08b66e5713b0c69691611250b2191d07139647a3c6e39ba85954284b634d2d"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-macos-arm64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450878"
 provenance = "github-attestations"
 
 [tools.tree-sitter."platforms.macos-x64"]
-checksum = "sha256:b740262cb0f35be64e39b50ad68b020433924a7bcee5ae5c8e40e68d71215647"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.1/tree-sitter-macos-x64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/622546842"
+checksum = "sha256:fefe3a26e93d4ef7a16711c18587801d7d96c3dec3305db112fe4143cd900d91"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-macos-x64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450881"
 provenance = "github-attestations"
 
 [tools.tree-sitter."platforms.windows-x64"]
-checksum = "sha256:e21184878f908f91c753b78a76a0766e61954e06627b46088d70d66233424531"
-url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.1/tree-sitter-windows-x64.gz"
-url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/622546839"
+checksum = "sha256:230779ee4a729e3044d4a8ed57490b776ea1bac0671d12afbd6f5b4d1878f1d0"
+url = "https://github.com/tree-sitter/tree-sitter/releases/download/v0.27.2/tree-sitter-windows-x64.gz"
+url_api = "https://api.github.com/repos/tree-sitter/tree-sitter/releases/assets/720450892"
 provenance = "github-attestations"
 
 [[tools.uv]]
@@ -3843,48 +3931,48 @@ url_api = "https://api.github.com/repos/astral-sh/uv/releases/assets/704009796"
 provenance = "github-attestations"
 
 [[tools.yq]]
-version = "4.54.2"
+version = "4.54.3"
 backend = "aqua:mikefarah/yq"
 specifiers = ["latest"]
 
 [tools.yq."platforms.linux-arm64"]
-checksum = "sha256:bd44211dcd29a5f0eb701d4b7eb5ccd0cfff3bd3966cb4f7f9bd5b13701d997e"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_arm64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419591"
+checksum = "sha256:89f69310b61b68d1245065a1241d1fc843f7a36cd6103ffd77ad987613bd1b67"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_arm64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219924"
 provenance = "cosign"
 
 [tools.yq."platforms.linux-arm64-musl"]
-checksum = "sha256:bd44211dcd29a5f0eb701d4b7eb5ccd0cfff3bd3966cb4f7f9bd5b13701d997e"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_arm64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419591"
+checksum = "sha256:89f69310b61b68d1245065a1241d1fc843f7a36cd6103ffd77ad987613bd1b67"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_arm64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219924"
 provenance = "cosign"
 
 [tools.yq."platforms.linux-x64"]
-checksum = "sha256:44c7759059b4910827a0059a2757b22001e59360cdecdb2ef8dedc4b6c7e9f32"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_amd64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419583"
+checksum = "sha256:129534601871538efe0ba4c5e62a34fb1d5f469bcb975c4fddeb467d82974973"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_amd64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219936"
 provenance = "cosign"
 
 [tools.yq."platforms.linux-x64-musl"]
-checksum = "sha256:44c7759059b4910827a0059a2757b22001e59360cdecdb2ef8dedc4b6c7e9f32"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_linux_amd64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419583"
+checksum = "sha256:129534601871538efe0ba4c5e62a34fb1d5f469bcb975c4fddeb467d82974973"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_linux_amd64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219936"
 provenance = "cosign"
 
 [tools.yq."platforms.macos-arm64"]
-checksum = "sha256:34923a7ca09a32a4257702ced5f7f2e5e83b16968cce3866f5ff830e4ce1cdd4"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_darwin_arm64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419585"
+checksum = "sha256:a2aebb93b5bdcb61bb76f630e42a0ef6a3ee10842a6516cd7b9e4080786ec593"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_darwin_arm64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219940"
 provenance = "cosign"
 
 [tools.yq."platforms.macos-x64"]
-checksum = "sha256:651e61c6a13085d6a88d30c54fa74e894d4bb18461b5e8522d3dd00a327fb3bd"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_darwin_amd64"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419582"
+checksum = "sha256:96d5105ffd693d6845c54fbd825b2d1bbdb8619e0a2ce6af95e5654e841e0984"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_darwin_amd64"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219934"
 provenance = "cosign"
 
 [tools.yq."platforms.windows-x64"]
-checksum = "sha256:d14bfc4c0daf75336e07f534980b0dd560775cbffbedef29d91aa733c9fefb52"
-url = "https://github.com/mikefarah/yq/releases/download/v4.54.2/yq_windows_amd64.exe"
-url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/715419566"
+checksum = "sha256:066ea0a09a282e47588ec1e1867280ff5ede458f7183617a2d99012e4e34f18a"
+url = "https://github.com/mikefarah/yq/releases/download/v4.54.3/yq_windows_amd64.exe"
+url_api = "https://api.github.com/repos/mikefarah/yq/releases/assets/726219881"
 provenance = "cosign"

@@ -1,0 +1,14 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Clean",
+    "description": "Removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and runs the tool's own clean commands when given",
+    "type": "object",
+    "properties": {
+        "targets": { "type": "array", "items": { "type": "string" }, "default": [], "description": "Targets of the project, each declared output of every configuration is removed" },
+        "commands": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "default": [], "description": "The tool's own clean commands, each an argument list" },
+        "previews": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "description": "The tool's own dry-run forms, run in place of commands under a dry run" },
+        "cwd": { "type": "string", "default": ".", "description": "Folder the commands run in, relative to the workspace root" },
+        "dryRun": { "type": "boolean", "default": false, "description": "Prints each path and command and removes nothing, as NX_DRY_RUN=true does" }
+    }
+}

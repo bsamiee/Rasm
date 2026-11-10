@@ -48,7 +48,7 @@ impl<T> IntoResourceContents for Json<T>
 where T: Serialize
 {
     fn into_resource_contents(self, uri: String, mime: Option<String>) -> Result<Vec<ResourceContents>, ErrorData> {
-        serde_json::to_string(&self.0).map_err(|error| internal(&error))?.into_resource_contents(uri, mime.or_else(|| Some(JSON_MIME_TYPE.to_owned())))
+        serde_json::to_string(&self.0).map_err(internal)?.into_resource_contents(uri, mime.or_else(|| Some(JSON_MIME_TYPE.to_owned())))
     }
 }
 
@@ -117,7 +117,7 @@ where A: 'static
         let (executions, watched) = (routers.executions.clone(), routers.executions.clone());
         self.resource(
             resource.with_mime_type(JSON_MIME_TYPE),
-            move |_| ready(serde_json::to_string(&*executions.borrow()).map_err(|error| internal(&error))),
+            move |_| ready(serde_json::to_string(&*executions.borrow()).map_err(internal)),
             move |_| WatchStream::from_changes(watched.subscribe()).map(drop),
         )
     }

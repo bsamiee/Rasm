@@ -1,10 +1,9 @@
 import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
+import { runtime, spawned } from '@rasm/nx-devkit/process';
 import { Array, Effect, Equal, FileSystem, flow, HashSet, Match, Option, Path, Record, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -32,7 +31,7 @@ type Command = typeof Command.Type;
 
 const ran = Effect.fnUntraced(
     function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
-        const handle = yield* ChildProcess.make('cargo', args, { cwd, extendEnv: true, stdin: 'inherit', env });
+        const handle = yield* spawned('cargo', args, { cwd, stdin: 'inherit', env });
         const [lines, diagnosed, code] = yield* Effect.all(
             [
                 Stream.splitLines(Stream.decodeText(handle.stdout)).pipe(
@@ -144,7 +143,7 @@ const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typ
                     onNonEmpty: (ready) => Effect.map(decided(context, inputs, command, ready), (results) => ({ ...finished, ...results })),
                 },
             ),
-    ).pipe(Effect.provide(layer));
+    );
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -156,13 +155,13 @@ const execute = flow(
         const results = yield* scheduled(context, yield* decoded({ [id]: options }), [{ id, target: { project, target } }]);
         return { success: Object.values(results).every(({ success }) => success) };
     }),
-    Effect.runPromise,
+    runtime.runPromise,
 );
 
 const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) =>
     decoded(inputs).pipe(
         Effect.flatMap((decodedInputs) => scheduled(context, decodedInputs, Object.values(taskGraph.tasks))),
-        Effect.runPromise,
+        runtime.runPromise,
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

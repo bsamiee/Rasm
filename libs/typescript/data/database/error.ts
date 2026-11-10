@@ -8,7 +8,7 @@ const refusals = {
     reserved: 'names a SQLite rowid alias',
     projected: 'PostgreSQL refuses virtual column in key or reference',
     tenant: 'tenant scope needs PostgreSQL row security',
-    search: 'search needs PostgreSQL text search or SQLite FTS5 over one Schema.Int key column',
+    search: 'FTS5 search needs one Schema.Int key column as rowid',
     casefold: 'SQLite NOCASE folds ASCII alone, declare isAscii',
     opclass: 'index method has no operator class for column kind',
     generated: 'rebuild drops undeclared generated column',
@@ -16,8 +16,10 @@ const refusals = {
     invalid: 'default or predicate value fails its column schema',
     mergeTree: 'MergeTree options need ClickHouse',
     reference: 'ClickHouse has no foreign key',
-    unique: 'ClickHouse has no unique or partial index',
-    collection: 'ClickHouse collection type holds no Nullable',
+    unique: 'ClickHouse has no unique, partial, or gist index',
+    fulltext: 'ClickHouse has no declared text search',
+    collection: 'ClickHouse collection column takes no Nullable, default, or JSON path projection',
+    layout: 'ClickHouse expires needs an instant column, version an integer or instant column, and a codec a stored column',
 };
 
 // --- [MODELS] --------------------------------------------------------------------------

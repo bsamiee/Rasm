@@ -12,38 +12,45 @@ test    = false
 doctest = false
 bench   = false
 
+[[test]]
+name = "suite"
+path = "suite/main.rs"
+
 [[bin]]
 name = "mcp-fixture"
-path = "fixture.rs"
+path = "fixture/main.rs"
 test = false
-
-[[test]]
-name = "muxer"
-path = "muxer.rs"
-
-[[test]]
-name = "load"
-path = "load.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-futures      = { workspace = true }
-tokio        = { workspace = true, features = ["io-std"] }
-tokio-util   = { workspace = true }
-sysinfo      = { workspace = true }
-serde        = { workspace = true }
-serde_json   = { workspace = true }
-schemars     = { workspace = true }
-jiff         = { workspace = true }
-tempfile     = { workspace = true }
-rmcp         = { workspace = true, features = ["client", "server", "macros", "elicitation", "transport-io", "transport-child-process"] }
-clap         = { workspace = true }
-escargot     = { workspace = true }
-hdrhistogram = { workspace = true }
+tokio                              = { workspace = true, features = ["io-std"] }
+tokio-util                         = { workspace = true }
+futures                            = { workspace = true }
+sysinfo                            = { workspace = true }
+nonempty-collections               = { workspace = true }
+serde                              = { workspace = true }
+serde_json                         = { workspace = true }
+serde_path_to_error                = { workspace = true }
+schemars                           = { workspace = true }
+jiff                               = { workspace = true }
+fs-err                             = { workspace = true, features = ["tokio"] }
+rmcp                               = { workspace = true, features = ["client", "server", "macros", "elicitation", "transport-io", "transport-child-process"] }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+tracing-subscriber                 = { workspace = true }
+clap                               = { workspace = true }
+escargot                           = { workspace = true }
+rasm-command                       = { workspace = true }
 
 [dev-dependencies]
-claims = { workspace = true }
+backon            = { workspace = true }
+bytes             = { workspace = true }
+tokio             = { workspace = true, features = ["test-util"] }
+rasm-mcp          = { workspace = true, features = ["proxy"] }
+claims            = { workspace = true }
+hdrhistogram      = { workspace = true }
+rasm-test-support = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

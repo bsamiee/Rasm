@@ -1,0 +1,40 @@
+{
+    "name": "@rasm/webhooks",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Webhook receiving and sending over Effect HTTP: signature schemes as rows (Standard Webhooks, Svix, Tailscale, Stripe, GitHub), raw-body verification, timestamp tolerance, queued deliveries keyed by delivery id, signed delivery with retry, and an in-memory test transport",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/messaging/webhooks"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./tailscale": "./tailscale.ts",
+        "./testing": "./testing.ts"
+    },
+    "files": [ "dist" ],
+    "devDependencies": {
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js",
+            "./tailscale": "./dist/tailscale.js",
+            "./testing": "./dist/testing.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    }
+}

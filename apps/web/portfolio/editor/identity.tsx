@@ -1,5 +1,5 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Sites } from '@rasm/hosting/sites';
+import { Sites } from '@rasm/hosting/openai-sites';
 import { Field } from '@rasm/ui';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';

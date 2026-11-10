@@ -1,10 +1,10 @@
 import { patch } from '@decimalturn/toml-patch';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema, Stream, String } from 'effect';
 import { Toml, Zip } from 'effect/encoding';
-import { DistributionError, EXTENSION, spawned } from '#/plugins/host-packages';
+import { EXTENSION } from '#/plugins/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,14 +15,14 @@ const Locked = Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory:
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const toml = (text: string, subject: string) => Effect.mapError(Effect.fromResult(Toml.parse(text)), DistributionError.of(subject, 'does not parse as TOML'));
+const toml = (text: string, subject: string) => Effect.mapError(Effect.fromResult(Toml.parse(text)), ToolError.of(subject, 'does not parse as TOML'));
 
 const probed = Effect.fnUntraced(function* (cwd: string) {
     const path = yield* Path.Path;
-    const printed = yield* spawned('blender', ['--python-use-system-env', '--background', '--factory-startup', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(new URL(import.meta.resolve('#blender')))], cwd);
+    const report = yield* printed('blender', ['--python-use-system-env', '--background', '--factory-startup', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(new URL(import.meta.resolve('#blender')))], { cwd });
     return yield* Effect.fromOption(
-        Array.findFirst(printed.split('\n'), (line) => Schema.decodeOption(Interpreter)(line)),
-        () => DistributionError.make({ subject: 'blender', detail: 'printed no interpreter report' }),
+        Array.findFirst(report.split('\n'), (line) => Schema.decodeOption(Interpreter)(line)),
+        () => ToolError.make({ subject: 'blender', detail: 'printed no interpreter report' }),
     );
 });
 
@@ -43,7 +43,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     const member = path.join(context.root, root);
     const interpreter = yield* probed(context.root);
     const declared = yield* Effect.flatMap(toml(text, EXTENSION), Schema.decodeUnknownEffect(Manifest));
-    yield* (declared.platforms ?? [interpreter.platform]).includes(interpreter.platform) ? Effect.void : DistributionError.make({ subject: EXTENSION, detail: `declares no ${interpreter.platform} platform, the one this Blender builds for` });
+    yield* (declared.platforms ?? [interpreter.platform]).includes(interpreter.platform) ? Effect.void : ToolError.make({ subject: EXTENSION, detail: `declares no ${interpreter.platform} platform, the one this Blender builds for` });
     const files = yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(root, '**', '*')]));
     yield* Effect.forEach(
         files.filter((file) => path.basename(file) !== EXTENSION),
@@ -53,17 +53,17 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     yield* fs.makeDirectory(wheels, { recursive: true });
     const requirements = path.join(stage, 'requirements.txt');
     const exported = ['export', '--locked', '--no-default-groups', '--no-emit-project'];
-    yield* spawned('uv', [...exported, '--format', 'requirements.txt', '--no-emit-local', '--no-header', '--output-file', requirements, ...Record.keys(interpreter.distributions).flatMap((name) => ['--no-emit-package', name])], member);
-    yield* spawned('uv', ['tool', 'run', 'pip', 'download', '--requirement', requirements, '--dest', wheels, '--only-binary=:all:', '--no-deps', '--python-version', interpreter.python, '--implementation', 'cp', ...interpreter.tags.flatMap((tag) => ['--platform', tag])], context.root);
+    yield* printed('uv', [...exported, '--format', 'requirements.txt', '--no-emit-local', '--no-header', '--output-file', requirements, ...Record.keys(interpreter.distributions).flatMap((name) => ['--no-emit-package', name])], { cwd: member });
+    yield* printed('uv', ['tool', 'run', 'pip', 'download', '--requirement', requirements, '--dest', wheels, '--only-binary=:all:', '--no-deps', '--python-version', interpreter.python, '--implementation', 'cp', ...interpreter.tags.flatMap((tag) => ['--platform', tag])], { cwd: context.root });
     yield* fs.remove(requirements);
-    const locked = yield* spawned('uv', [...exported, '--format', 'pylock.toml'], member).pipe(
+    const locked = yield* printed('uv', [...exported, '--format', 'pylock.toml'], { cwd: member }).pipe(
         Effect.flatMap((pylock) => toml(pylock, 'uv export --format pylock.toml')),
         Effect.flatMap(Schema.decodeUnknownEffect(Locked)),
     );
     const vendor = yield* fs.makeTempDirectoryScoped();
-    yield* Effect.forEach(Array.getSomes(locked.packages.map(({ directory }) => Option.fromUndefinedOr(directory?.path))), (local) => spawned('uv', ['build', local, '--wheel', '--out-dir', vendor], member), { concurrency: 'unbounded' });
+    yield* Effect.forEach(Array.getSomes(locked.packages.map(({ directory }) => Option.fromUndefinedOr(directory?.path))), (local) => printed('uv', ['build', local, '--wheel', '--out-dir', vendor], { cwd: member }), { concurrency: 'unbounded' });
     const vendored = (yield* fs.readDirectory(vendor)).filter((file) => path.extname(file) === '.whl').map((wheel) => path.join(vendor, wheel));
-    yield* spawned('uv', ['run', '--locked', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#vendored'))), stage, ...vendored], context.root);
+    yield* printed('uv', ['run', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#vendored'))), stage, ...vendored], { cwd: context.root });
     const bundled = new Set(interpreter.modules);
     const listed = (yield* fs.readDirectory(wheels)).toSorted();
     const kept = yield* Effect.filter(
@@ -88,13 +88,13 @@ const built = Effect.fnUntraced(function* (options: unknown, context: ExecutorCo
         (file) => fs.remove(path.join(context.root, folder, file)),
     );
     const source = bundle ? yield* staged(context, root, text) : root;
-    yield* spawned('blender', ['--command', 'extension', 'build', ...(bundle || declared.platforms !== undefined ? ['--split-platforms'] : []), '--source-dir', source, '--output-dir', folder], context.root);
+    yield* printed('blender', ['--command', 'extension', 'build', ...(bundle || declared.platforms !== undefined ? ['--split-platforms'] : []), '--source-dir', source, '--output-dir', folder], { cwd: context.root });
     return { success: true };
 }, Effect.scoped);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) => built(options, context).pipe(Effect.provide(layer), Effect.runPromise);
+const execute = (options: unknown, context: ExecutorContext) => built(options, context).pipe(runtime.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -28,7 +28,6 @@ internal abstract class DarkroomPlugIn : IDefined<PlugInDefinition> {
 
     public static PlugInDefinition Definition { get; } = new() {
         LoadTime = PlugInLoadTime.AtStartup,
-        Logging = [Dispatch.Logging],
         Commands = Dispatch.Commands + Exports.Commands,
         Load = [
             IO.lift(static () => NativeLibrary.SetDllImportResolver(typeof(Denoiser).Assembly, static (name, _, _) =>

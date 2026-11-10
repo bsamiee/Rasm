@@ -25,6 +25,7 @@
         "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",
         "@rasm/mark": "workspace:*",
+        "@rasm/telemetry": "workspace:*",
         "@swc/wasm": "catalog:",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",

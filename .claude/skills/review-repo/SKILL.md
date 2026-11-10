@@ -27,7 +27,7 @@ Arguments name a subject and a depth, a missing depth means `review`:
 Map before judging. A finding drafted before its owner and decision record are known is rewritten or dropped later:
 1. Run `git log -5 --stat` and `git status --short` to see work in progress, then review the live tree, uncommitted edits included
 2. Read README `[OWNERS]` and `[STRUCTURE]` for the owner of each concern
-3. Read the Nx plugin READMEs and `docs/research/nx/` sheets for the subject's toolchains, rows there record decisions and their tool behavior
+3. Read `docs/research/nx/` sheets for the subject's toolchains, rows there record decisions and their tool behavior
 4. Read each skill naming a subject file (`rg -l '<file>' .claude/skills`), skills record decisions (why a secret reaches CI as a file)
 5. Read the project memory folder, each entry is an owner rule a finding obeys
 6. Resolve projects and their targets with `nx show projects` and `nx show project <project> --json`
@@ -144,7 +144,7 @@ Split by concern and owner, never by folder alone. Facts at a boundary (an `nx.j
 Each reader brief states:
 - Slice: files owned, files read only for composition, files excluded
 - Standards: `CLAUDE.md` sections that judge the slice, owner rules from memory, parked areas
-- Records: Nx plugin READMEs, `docs/research/nx/` sheets, and skills covering the slice, read before any finding
+- Records: `docs/research/nx/` sheets and skills covering the slice, read before any finding
 - Capabilities: dependency features to check hand-rolling against, by package and installed version
 - Rules: read-only tree, fixture folder with redirected homes, cleanup, no report file
 - Return: findings in the five-part form, `Unverified:` labels, checked-and-right list, cross-area notes

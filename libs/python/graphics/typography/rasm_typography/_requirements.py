@@ -6,6 +6,7 @@ lazy from collections.abc import Iterable
 lazy from functools import cache, partial, reduce
 lazy from itertools import combinations, groupby, pairwise
 lazy import math
+lazy from pathlib import Path
 lazy from statistics import median
 lazy import unicodedata
 
@@ -19,7 +20,7 @@ lazy from pathops import PathOp, PathOpsError
 from rasm_typography._faces.declaration import Band, Contour, Em, Face, Faces, OrnamentFace, Ratio, Ringed, Segmented, Shadow, Sheared
 lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces import coverage
-lazy from rasm_typography._faces.glyphs import fetched, Joining, Point, Side
+lazy from rasm_typography._faces.glyphs import fetched, Joining, Joinings, Point, Side
 lazy from rasm_typography._faces.importing import subtables
 lazy from rasm_typography._faces.names import GlyphName
 lazy from rasm_typography._outlines import measure, paths
@@ -82,12 +83,13 @@ class MarkClearance(_Requirement, frozen=True, kw_only=True):
 
     gap: Em
 
-    def measured(self, binary: Binary, /, *, corpus: Corpus, **_: object) -> tuple[tuple[str, float | str, float | str], ...]:
+    def measured(self, binary: Binary, /, *, corpus: Corpus, joinings: Joinings, **_: object) -> tuple[tuple[str, float | str, float | str], ...]:
         """Mark and dot gaps over the matrix, letter pairs unwrapped and between two dual-joining letters, and whole words, under each corpus language.
 
         Args:
             binary: Build to shape.
             corpus: Runs and languages to shape.
+            joinings: Unicode joining type and group of each code point.
 
         Returns:
             The lowest gap of each glyph pair under its reach, with the run that showed it.
@@ -115,7 +117,7 @@ class MarkClearance(_Requirement, frozen=True, kw_only=True):
                 and (apart := measure.gap(paths.transformed(piece, shift), near)) < reach
             )
 
-        around = next((chr(code) for code in corpus.letters if Joining.of(code) is Joining.DUAL), None)
+        around = next((chr(code) for code in corpus.letters if Joining.of(joinings, code) is Joining.DUAL), None)
         texts = dict.fromkeys((*corpus.matrix, *corpus.pairs(), *corpus.pairs(around), *corpus.word_runs))
         found = sorted((pair, measured, bound, text) for language in corpus.languages for text in texts for pair, measured, bound in clashes(text, language))
         return tuple((f"{' '.join(pair)} in {text}", measured, bound) for pair, group in groupby(found, key=lambda clash: clash[0]) for _, measured, bound, text in (next(group),))
@@ -416,7 +418,7 @@ def requirements(face: Faces, /) -> tuple[Requirements, ...]:
             return (Covered(), LineMetrics())
 
 
-def verified(binary: Binary, face: Faces, /, *, coverage: coverage.Coverage, original: Binary, corpus: Corpus, approved: Option[Expected]) -> Outcome[tuple[Finding, ...]]:
+def verified(binary: Binary, face: Faces, /, *, coverage: coverage.Coverage, original: Binary, corpus: Corpus, approved: Option[Expected], cache: Path) -> Outcome[tuple[Finding, ...]]:
     """Measures every requirement of a face's build independently and accumulates their findings, an empty tuple passing.
 
     Args:
@@ -426,16 +428,17 @@ def verified(binary: Binary, face: Faces, /, *, coverage: coverage.Coverage, ori
         original: Font the source was imported from.
         corpus: Runs every shaping measure reads.
         approved: Approved shaping of the face, `Nothing` before its first approval.
+        cache: Folder holding the pinned Unicode joining table, downloaded where it lacks a copy.
 
     Returns:
         Ok(findings) in requirement order, `FAILED` for a measure the native boolean refuses, and the faults of holding the pinned Unicode joining table.
     """
-    return fetched().bind(
-        lambda _: catch(
+    return fetched(cache).bind(
+        lambda joinings: catch(
             lambda: tuple(
                 Finding(requirement=str(type(requirement).__struct_config__.tag), subject=subject, measured=measured, bound=bound)
                 for requirement in requirements(face)
-                for subject, measured, bound in requirement.measured(binary, coverage=coverage, original=original, corpus=corpus, approved=approved)
+                for subject, measured, bound in requirement.measured(binary, coverage=coverage, original=original, corpus=corpus, approved=approved, joinings=joinings)
             ),
             exception=PathOpsError,
         )().map_error(partial(Fault.of, Reason.FAILED, face.postscript))

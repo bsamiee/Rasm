@@ -1,8 +1,8 @@
 import type { TargetConfiguration } from '@nx/devkit';
-import { isCI } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, identity, Option, Path, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { printed, ToolError } from '@rasm/nx-devkit/process';
+import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import type { Options } from '#/plugins/project-graph';
-import { AppleError, type Part, type Plugin, published, spawned, target, tokened } from '#/plugins/targets';
+import { type Part, type Plugin, published, target, tokened } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -49,14 +49,14 @@ const invocation = (path: Path.Path, options: Options, built: string) => {
     const workspace = path.extname(built) === '.xcworkspace';
     return {
         lock: path.join(built, workspace ? 'xcshareddata/swiftpm/Package.resolved' : 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved'),
-        flags: [workspace ? '-workspace' : '-project', built, ...(options.trustPackages === true ? ['-skipMacroValidation', '-skipPackagePluginValidation'] : []), ...(Predicate.isTruthy(isCI()) ? ['-disableAutomaticPackageResolution'] : [])],
+        flags: [workspace ? '-workspace' : '-project', built, ...(options.trustPackages === true ? ['-skipMacroValidation', '-skipPackagePluginValidation'] : [])],
     };
 };
 
 const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: Options, container: typeof Container.Type, built: string) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const { flags } = invocation(path, options, built);
-    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(spawned('xcodebuild', ['archive', '-showBuildSettings', '-json', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
+    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(printed('xcodebuild', ['archive', '-showBuildSettings', '-json', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map(({ name }) => name);
     const archived = Array.zip(schemes, yield* Effect.forEach(schemes, (scheme) => read(scheme, [])));
     const others = yield* Effect.forEach(
@@ -77,7 +77,7 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: O
                 .map(({ value, ...located }) => Option.map(value, (held) => ({ ...located, value: held, at: path.resolve(located.root, held) }))),
         ),
 
-        (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: () => AppleError.make({ subject: `target ${setting.owner} ${setting.setting}`, detail: `${setting.value} does not exist` }), onSuccess: (at) => path.relative(real, at) }),
+        (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: () => ToolError.make({ subject: `target ${setting.owner} ${setting.setting}`, detail: `${setting.value} does not exist` }), onSuccess: (at) => path.relative(real, at) }),
     );
     const archives = archived.flatMap(([scheme, listed]) =>
         Array.match(
@@ -97,7 +97,7 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: O
         ),
     );
     const failures = [...missing.map(({ message }) => message), ...archives.filter(({ places }) => places.length > 1).map(({ scheme, places }) => `scheme ${scheme} installs into ${places.join(' and ')}, and one xcodebuild install takes one DSTROOT`)];
-    return failures.length === 0 ? { inputs: Array.dedupe([...container.inputs, ...resolved]), archives } : yield* AppleError.make({ subject: container.path, detail: Array.dedupe(failures).join('\n  ') });
+    return failures.length === 0 ? { inputs: Array.dedupe([...container.inputs, ...resolved]), archives } : yield* ToolError.make({ subject: container.path, detail: Array.dedupe(failures).join('\n  ') });
 });
 
 const released = (path: Path.Path, plugin: Plugin, file: string): Pick<Part, 'release'> =>
@@ -122,9 +122,9 @@ const xcodeParts = (
     const output = (scheme: string) => Option.map(Option.fromUndefinedOr(options.outputPath), (at) => path.join(at, 'xcode', name, scheme));
     const exported = Array.getSomes(archives.map(({ scheme, configuration, notarized }) => Option.map(output(scheme), (folder) => ({ configuration, folder, notarized, entry: { archive: path.join(folder, `${scheme}.xcarchive`), folder, ...(notarized ? { method: DEVELOPER_ID.method } : {}) } }))));
     const packaging = [
-        { name: 'build--ditto', notarized: false, options: {}, description: 'Zips each archived app with ditto for a GitHub release', help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
+        { tool: 'ditto', notarized: false, options: {}, description: 'Zips each archived app with ditto for a GitHub release', help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
         {
-            name: 'build--notarytool',
+            tool: 'notarytool',
             notarized: true,
             options: options.notaryProfile === undefined ? {} : { profile: options.notaryProfile },
             description: 'Exports each Developer ID archive, notarizes it with notarytool, staples the ticket, and zips the app',
@@ -153,7 +153,7 @@ const xcodeParts = (
             ),
         );
     const builds = (configuration: Option.Option<string>): Runs => {
-        const [building, archiving] = Array.partition(
+        const [archiving, building] = Array.partition(
             schemes,
             Result.liftPredicate((scheme: (typeof schemes)[number]) => archives.some((archive) => archive.scheme === scheme.name && Option.contains(configuration, archive.configuration)), identity),
         );
@@ -173,78 +173,99 @@ const xcodeParts = (
         name,
         file,
         technologies: ['xcode'],
+        clean: 'xcodebuild',
         ...released(path, plugin, file),
-        targets: {
-            ...(schemes.length === 0
-                ? {}
-                : {
-                      'build--xcodebuild': target(
-                          plugin,
-                          builds(Option.none()),
-                          { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
-                          { dependsOn: ['^build'], inputs: read, ...modes(builds) },
-                      ),
-                      'check--xcodebuild': { executor: 'nx:noop', dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } },
-                  }),
-            ...Record.fromIterableWith(packaging, ({ name: tool, exports, options: given, description, help }): readonly [string, TargetConfiguration] => [
-                tool,
-                {
-                    executor: `${plugin.name}:zip`,
-                    dependsOn: ['build--xcodebuild'],
-                    inputs: plugin.inputs,
-                    options: { exports: [], ...given },
-                    configurations: Record.map(
-                        Array.groupBy(exports, ({ configuration }) => configuration.toLowerCase()),
-                        (group) => ({ exports: group.map(Struct.get('entry')) }),
-                    ),
-                    outputs: exports.map(({ folder }) => path.join('{workspaceRoot}', folder, '*.zip')),
-                    metadata: { technologies: ['xcode'], description, help },
-                },
-            ]),
-            ...(exported.length === 0
-                ? {}
-                : {
-                      'nx-release-publish': published(
-                          plugin,
-                          'xcode',
-                          exported.map(({ folder }) => folder),
-                          exported.filter(({ notarized }) => notarized).map(({ folder }) => folder),
-                      ),
-                  }),
-            ...(options.outputPath === undefined || schemes.length === 0
-                ? {}
-                : {
-                      'upgrade--xcodebuild': target(
-                          plugin,
-                          [
-                              ['rm', '-rf', path.join(options.outputPath, 'xcode', name, 'packages')],
-                              ['rm', '-f', lock],
-                              ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', path.join(options.outputPath, 'xcode', name, 'packages')],
-                          ],
-                          { technologies: ['xcode'], description: "Resolves the project's remote packages afresh to the newest versions their requirements allow and rewrites Package.resolved", help: { command: 'xcodebuild -help', example: { args: ['-scmProvider', 'system'] } } },
-                          { cache: false, inputs: read },
-                      ),
-                  }),
-            ...(runs.length === 0
-                ? {}
-                : {
-                      test: target(plugin, runs, { technologies: ['xcode'], description: 'Tests each test plan of a shared scheme with xcodebuild', help: { command: 'xcodebuild -help', example: { args: ['-parallel-testing-enabled', 'YES'] } } }, { cache: true, inputs: read, ...modes(() => runs) }),
-                  }),
-            ...(installs.length === 0
-                ? {}
-                : {
-                      'install--xcodebuild': target(
-                          plugin,
-                          installs,
-                          {
-                              technologies: ['xcode'],
-                              description: "Builds each shared scheme whose targets install, under -configuration set to the scheme's archive configuration, and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action",
-                              help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
+        members: {
+            build: {
+                ...(schemes.length === 0
+                    ? {}
+                    : {
+                          xcodebuild: target(
+                              plugin,
+                              builds(Option.none()),
+                              { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
+                              { dependsOn: ['^build'], inputs: read, outputs: tokened(path, lock), ...modes(builds) },
+                          ),
+                      }),
+                ...Record.fromIterableWith(packaging, ({ tool, exports, options: given, description, help }): readonly [string, TargetConfiguration] => [
+                    tool,
+                    {
+                        executor: `${plugin.name}:zip`,
+                        dependsOn: ['build--xcodebuild'],
+                        inputs: plugin.inputs,
+                        options: { exports: [], ...given },
+                        configurations: Record.map(
+                            Array.groupBy(exports, ({ configuration }) => configuration.toLowerCase()),
+                            (group) => ({ exports: group.map(Struct.get('entry')) }),
+                        ),
+                        outputs: exports.map(({ folder }) => path.join('{workspaceRoot}', folder, '*.zip')),
+                        metadata: { technologies: ['xcode'], description, help },
+                    },
+                ]),
+            },
+            clean:
+                schemes.length === 0
+                    ? {}
+                    : {
+                          xcodebuild: {
+                              executor: plugin.cleaner,
+                              options: { commands: schemes.map((scheme) => ['xcodebuild', 'clean', ...flags, '-scheme', scheme.name]), previews: schemes.map((scheme) => ['xcodebuild', 'clean', ...flags, '-scheme', scheme.name, '-dry-run']) },
+                              metadata: { technologies: ['xcode'], description: 'Removes the build products of each shared scheme with xcodebuild clean', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
                           },
-                          { dependsOn: ['^build'], cache: false, options: { runs: installs, applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => path.join(Array.headNonEmpty(places), bundle))) } },
-                      ),
-                  }),
+                      },
+            check: schemes.length === 0 ? {} : { xcodebuild: { executor: 'nx:noop', dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } } },
+            upgrade:
+                options.outputPath === undefined || schemes.length === 0
+                    ? {}
+                    : {
+                          xcodebuild: target(
+                              plugin,
+                              [
+                                  ['rm', '-rf', path.join(options.outputPath, 'xcode', name, 'packages')],
+                                  ['rm', '-f', lock],
+                                  ['xcodebuild', '-resolvePackageDependencies', ...flags, '-clonedSourcePackagesDirPath', path.join(options.outputPath, 'xcode', name, 'packages')],
+                              ],
+                              { technologies: ['xcode'], description: "Resolves the project's remote packages afresh to the newest versions their requirements allow and rewrites Package.resolved", help: { command: 'xcodebuild -help', example: { args: ['-scmProvider', 'system'] } } },
+                              { inputs: read },
+                          ),
+                      },
+            test:
+                runs.length === 0
+                    ? {}
+                    : {
+                          xcodebuild: target(
+                              plugin,
+                              runs,
+                              { technologies: ['xcode'], description: 'Tests each test plan of a shared scheme with xcodebuild', help: { command: 'xcodebuild -help', example: { args: ['-parallel-testing-enabled', 'YES'] } } },
+                              { cache: true, dependsOn: ['build--xcodebuild'], inputs: [...read, { dependentTasksOutputFiles: lock }], ...modes(() => runs) },
+                          ),
+                      },
+            install:
+                installs.length === 0
+                    ? {}
+                    : {
+                          xcodebuild: target(
+                              plugin,
+                              installs,
+                              {
+                                  technologies: ['xcode'],
+                                  description: "Builds each shared scheme whose targets install, under -configuration set to the scheme's archive configuration, and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action",
+                                  help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
+                              },
+                              { dependsOn: ['^build'], options: { applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => path.join(Array.headNonEmpty(places), bundle))) } },
+                          ),
+                      },
         },
+        ...(exported.length === 0
+            ? {}
+            : {
+                  published: published(
+                      plugin,
+                      'xcode',
+                      exported.map(({ folder }) => folder),
+                      exported.filter(({ notarized }) => notarized).map(({ folder }) => folder),
+                  ),
+              }),
     };
 };
 

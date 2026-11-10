@@ -1,6 +1,7 @@
-import { logger, type TargetConfiguration } from '@nx/devkit';
-import { quoteShellArg } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Formatter, identity, Option, Path, Record, Result, Schema, SchemaTransformation, String, Struct } from 'effect';
+import type { TargetConfiguration } from '@nx/devkit';
+import { aggregated, ancestors, line } from '@rasm/nx-devkit/inference';
+import { ToolError } from '@rasm/nx-devkit/process';
+import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import type { Member } from '#/plugins/project-graph';
 
@@ -90,14 +91,6 @@ const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optional
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
-
-const ancestors = (path: Path.Path, root: string) =>
-    Array.unfold(
-        Option.some(root),
-        Option.map((folder: string) => [folder, Option.liftPredicate(path.dirname(folder), () => folder !== '.')] as const),
-    );
-
 const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const present = yield* Effect.filter(
@@ -105,13 +98,11 @@ const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: rea
         (at) => fs.exists(path.join(workspaceRoot, at)),
         { concurrency: 'unbounded' },
     );
-    const read = Effect.fnUntraced(function* (at: string) {
-        const text = yield* fs.readFileString(path.join(workspaceRoot, at));
-        const parsed = path.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text));
-        yield* Result.isFailure(parsed) ? Effect.sync(() => logger.warn(`${at} does not parse (${Formatter.format(parsed.failure)}), so inference reads no setting from it and its tools report it when their targets run`)) : Effect.void;
-        return [at, Result.getOrElse(parsed, Record.empty)] as const;
-    });
-    return new Map(yield* Effect.forEach(present, read, { concurrency: 'unbounded' }));
+    const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(path.join(workspaceRoot, at)), (text) => [at, path.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
+    return {
+        documented: new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const)),
+        unparsed: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => [at, ToolError.of(at, 'does not parse')(cause)] as const)),
+    };
 });
 
 const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, root: string, checker: Checker) => {
@@ -137,34 +128,38 @@ const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, roo
     );
 };
 
-const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Member>, plugin: string, dependencies: string, present: ReadonlyMap<Member['checks'][string], string>, outputPath: string | undefined): Readonly<Record<string, TargetConfiguration>> => {
+const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Member>, plugin: string, cleaner: string, dependencies: string, present: ReadonlyMap<Member['checks'][string], string>, outputPath: string | undefined): Readonly<Record<string, TargetConfiguration>> => {
     const root = member.root === member.workspace;
     const named = Option.fromUndefinedOr(member.name);
     const distributions = Option.map(named, (name) => (outputPath === undefined ? path.join(member.workspace, 'dist', name) : path.join(outputPath, 'uv', name)));
     const built = Option.toArray(distributions).map((folder) => `!${path.join('{workspaceRoot}', folder, '**', '*')}`);
-    const inferred: Readonly<Record<string, TargetConfiguration>> = {
-        ...Record.fromIterableWith(
-            member.nested
-                ? []
-                : Array.getSomes(
-                      Record.collect(CHECKERS, (key, row) =>
-                          Option.gen(function* () {
-                              const checked = yield* Option.fromUndefinedOr(member.checks[key]);
-                              const folder = row.folder(member.workspace, yield* Option.fromUndefinedOr(present.get(checked)));
-                              const host = checked.locked ? member : yield* Option.fromUndefinedOr(roots.get(path.dirname(checked.config)));
-                              const tool = yield* Option.filter(Option.fromUndefinedOr(host.checks[key]), ({ locked }) => locked);
-                              const typed = Record.get(member.checks, 'mypy');
-                              const read = checked.locked ? checked : yield* Option.filter(typed, ({ locked }) => locked && row.mypy !== undefined);
-                              const { cache: stated, config } = Option.getOrElse(typed, () => checked);
-                              const cache = path.join((stated ?? '.mypy_cache').replace('$MYPY_CONFIG_FILE_DIR', path.relative(folder, path.dirname(config)) || '.'), member.root, key);
-                              const interpreter = checked.locked ? [] : [CHECKERS.mypy.version, yield* Option.fromUndefinedOr(checked.version)];
-                              return [key, row, checked, folder, host, tool, read, row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', cache, ...interpreter]] as const;
-                          }),
-                      ),
+    const checkers = Array.groupBy(
+        member.nested
+            ? []
+            : Array.getSomes(
+                  Record.collect(CHECKERS, (key, row) =>
+                      Option.gen(function* () {
+                          const checked = yield* Option.fromUndefinedOr(member.checks[key]);
+                          const folder = row.folder(member.workspace, yield* Option.fromUndefinedOr(present.get(checked)));
+                          const host = checked.locked ? member : yield* Option.fromUndefinedOr(roots.get(path.dirname(checked.config)));
+                          const tool = yield* Option.filter(Option.fromUndefinedOr(host.checks[key]), ({ locked }) => locked);
+                          const typed = Record.get(member.checks, 'mypy');
+                          const read = checked.locked ? checked : yield* Option.filter(typed, ({ locked }) => locked && row.mypy !== undefined);
+                          const { cache: stated, config } = Option.getOrElse(typed, () => checked);
+                          const cache = path.join((stated ?? '.mypy_cache').replace('$MYPY_CONFIG_FILE_DIR', path.relative(folder, path.dirname(config)) || '.'), member.root, key);
+                          const interpreter = checked.locked ? [] : [CHECKERS.mypy.version, yield* Option.fromUndefinedOr(checked.version)];
+                          return [key, row, checked, folder, host, tool, read, row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', cache, ...interpreter]] as const;
+                      }),
                   ),
+              ),
+        ([, row]) => row.verb,
+    );
+    const run = (group: (typeof checkers)['check' | 'test']) =>
+        Record.fromIterableWith(
+            group ?? [],
             ([key, row, checked, folder, host, tool, read, forwarded]) =>
                 [
-                    row.verb === 'check' ? `${row.verb}--${key}` : row.verb,
+                    key,
                     {
                         executor: 'nx:run-commands',
                         options: {
@@ -172,11 +167,10 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
                                 'uv',
                                 'run',
                                 ...row.run,
-                                '--locked',
                                 ...(path.relative(member.workspace, folder).startsWith('..') ? ['--project', path.relative(folder, member.workspace)] : []),
                                 ...Option.match(named, { onNone: () => [], onSome: (name) => ['--package', name] }),
                                 ...(read.group === undefined ? [] : ['--group', read.group]),
-                                ...(checked.locked ? [] : ['uv', 'run', '--quiet', '--locked', '--project', path.relative(folder, host.root) || '.', ...(tool.group === undefined ? [] : ['--group', tool.group])]),
+                                ...(checked.locked ? [] : ['uv', 'run', '--quiet', '--project', path.relative(folder, host.root) || '.', ...(tool.group === undefined ? [] : ['--group', tool.group])]),
                                 ...row.command(path.relative(folder, member.root) || '.', path.relative(folder, checked.config)),
                                 ...(row.version === undefined || checked.version === undefined ? [] : [row.version, checked.version]),
                                 ...forwarded,
@@ -189,70 +183,98 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
                             ...built,
                             ...checked.inputs,
                             ...row.variables.map((env) => ({ env })),
-                            { runtime: 'uv --version' },
                             dependencies,
-                            ...Array.dedupe([member, host]).flatMap(({ workspace, lock }) => [path.join('{workspaceRoot}', workspace, '.python-version'), path.join('{workspaceRoot}', lock)]),
+                            ...Array.dedupe([member, host]).flatMap(({ workspace, lock }): NonNullable<TargetConfiguration['inputs']> => [path.join('{workspaceRoot}', workspace, '.python-version'), path.join('{workspaceRoot}', lock)]),
                             ...Array.match(Array.dedupe([...read.projects, ...tool.projects]), { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] }),
                             { externalDependencies: [] },
                         ],
                         metadata: { technologies: TECHNOLOGIES, description: row.description, help: { command: line(['uv', 'run', ...row.help]), example: { args: [...row.example] } } },
                     } satisfies TargetConfiguration,
                 ] as const,
-        ),
-        ...(root
-            ? {
-                  'check--uv': {
-                      executor: 'nx:run-commands',
-                      options: { command: line(['uv', 'lock', '--check']), cwd: member.workspace },
-                      cache: true,
-                      inputs: [...member.manifests.map((pyproject) => path.join('{workspaceRoot}', pyproject)), '{projectRoot}/uv.lock', '{projectRoot}/uv.toml', '{projectRoot}/.python-version', { externalDependencies: [] }],
-                      metadata: { technologies: TECHNOLOGIES, description: 'Fails when uv.lock no longer matches the workspace manifests', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
-                  },
-                  ...(member.pixi
-                      ? {
-                            'upgrade--pixi': {
-                                executor: 'nx:run-commands',
-                                options: { command: line(['pixi', 'update']), cwd: member.workspace },
-                                outputs: ['{projectRoot}/pixi.lock'],
-                                metadata: { technologies: TECHNOLOGIES, description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
-                            },
-                        }
-                      : {}),
-                  'upgrade--uv': {
-                      executor: 'nx:run-commands',
-                      dependsOn: member.pixi ? ['upgrade--pixi'] : [],
-                      options: { command: line(['uv', 'lock', '--upgrade']), cwd: member.workspace },
-                      outputs: ['{projectRoot}/uv.lock'],
-                      metadata: { technologies: TECHNOLOGIES, description: 'Moves every locked package to its newest allowed release', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
-                  },
-              }
-            : {}),
-        ...Option.match(
-            Option.filter(Option.all({ name: named, folder: distributions }), () => member.packaged),
+        );
+    return {
+        ...aggregated(
             {
-                onNone: () => ({}),
-                onSome: ({ name, folder }) => ({
-                    [BUILD]: {
-                        executor: 'nx:run-commands',
-                        options: { command: line(['uv', 'build', '--package', name, '--no-sources', '--out-dir', path.relative(member.workspace, folder), '--clear']), cwd: member.workspace },
-                        cache: true,
-                        inputs: ['{projectRoot}/**/*', ...built, { externalDependencies: [] }],
-                        outputs: [path.join('{workspaceRoot}', folder)],
-                        metadata: { technologies: TECHNOLOGIES, description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
+                check: {
+                    ...run(checkers.check),
+                    ...(root
+                        ? {
+                              uv: {
+                                  executor: 'nx:run-commands',
+                                  options: { command: line(['uv', 'lock', '--dry-run']), cwd: member.workspace },
+                                  cache: true,
+                                  inputs: [
+                                      ...[...roots.values()].filter(({ workspace }) => workspace === member.workspace).map(({ root: at }) => path.join('{workspaceRoot}', at, 'pyproject.toml')),
+                                      path.join('{workspaceRoot}', member.lock),
+                                      ...['uv.toml', '.python-version'].map((file) => path.join('{projectRoot}', file)),
+                                      { externalDependencies: [] },
+                                  ],
+                                  metadata: { technologies: TECHNOLOGIES, description: 'Resolves the workspace and reports the changes uv.lock lacks without writing it, failing on a stale lock under UV_LOCKED', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
+                              },
+                          }
+                        : {}),
+                },
+                test: run(checkers.test),
+                upgrade: root
+                    ? {
+                          ...(member.pixi
+                              ? {
+                                    pixi: {
+                                        executor: 'nx:run-commands',
+                                        options: { command: line(['pixi', 'update']), cwd: member.workspace },
+                                        outputs: ['{projectRoot}/pixi.lock'],
+                                        metadata: { technologies: TECHNOLOGIES, description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
+                                    },
+                                }
+                              : {}),
+                          uv: {
+                              executor: 'nx:run-commands',
+                              dependsOn: member.pixi ? ['upgrade--pixi'] : [],
+                              options: { command: line(['uv', 'lock', '--upgrade']), cwd: member.workspace },
+                              outputs: ['{projectRoot}/uv.lock'],
+                              metadata: { technologies: TECHNOLOGIES, description: 'Moves every locked package to its newest allowed release', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
+                          },
+                      }
+                    : {},
+                clean: root
+                    ? {
+                          'uv-cache': {
+                              executor: cleaner,
+                              options: { commands: [['uv', 'cache', 'prune']], cwd: member.workspace },
+                              configurations: { all: { commands: [['uv', 'cache', 'clean']] } },
+                              metadata: { technologies: TECHNOLOGIES, description: 'Removes the unused entries of the uv cache, every entry under the all configuration', help: { command: 'uv cache prune --help', example: { args: ['--ci'] } } },
+                          },
+                      }
+                    : {},
+                build: Option.match(
+                    Option.filter(Option.all({ name: named, folder: distributions }), () => member.packaged),
+                    {
+                        onNone: () => ({}),
+                        onSome: ({ name, folder }) => ({
+                            uv: {
+                                executor: 'nx:run-commands',
+                                options: { command: line(['uv', 'build', '--package', name, '--no-sources', '--out-dir', path.relative(member.workspace, folder), '--clear']), cwd: member.workspace },
+                                cache: true,
+                                inputs: ['{projectRoot}/**/*', ...built, { externalDependencies: [] }],
+                                outputs: [path.join('{workspaceRoot}', folder)],
+                                metadata: { technologies: TECHNOLOGIES, description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
+                            },
+                        }),
                     },
-                }),
+                ),
+                install: member.scripted
+                    ? {
+                          uv: {
+                              executor: 'nx:run-commands',
+                              options: { command: line(['uv', 'tool', 'install', '--reinstall', ...(member.python === undefined ? [] : ['--python', member.python]), '.']), cwd: member.root },
+                              metadata: { technologies: TECHNOLOGIES, description: "Builds the member from the checkout and installs its scripts into uv's tool folder, on an interpreter its requires-python accepts", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
+                          },
+                      }
+                    : {},
             },
+            TECHNOLOGIES,
+            { executor: cleaner, tool: 'uv' },
         ),
-        ...(member.scripted
-            ? {
-                  'install--uv': {
-                      executor: 'nx:run-commands',
-                      options: { command: line(['uv', 'tool', 'install', '--reinstall', ...(member.python === undefined ? [] : ['--python', member.python]), '.']), cwd: member.root },
-                      cache: false,
-                      metadata: { technologies: TECHNOLOGIES, description: "Builds the member from the checkout and installs its scripts into uv's tool folder, on an interpreter its requires-python accepts", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
-                  },
-              }
-            : {}),
         ...(member.published
             ? {
                   'nx-release-publish': {
@@ -262,21 +284,6 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
                   },
               }
             : {}),
-    };
-    return {
-        ...inferred,
-        ...Record.map(
-            Array.groupBy(
-                Record.toEntries(inferred).filter(([name]) => name.includes('--')),
-                ([name]) => name.slice(0, name.indexOf('--')),
-            ),
-            (members, verb): TargetConfiguration => ({
-                executor: 'nx:noop',
-                dependsOn: [`${verb}--*`],
-                inputs: ['...', ...Array.dedupe(members.flatMap(([, configuration]) => configuration.inputs ?? []))],
-                metadata: { technologies: TECHNOLOGIES, description: `Runs every ${verb}--* target` },
-            }),
-        ),
     };
 };
 

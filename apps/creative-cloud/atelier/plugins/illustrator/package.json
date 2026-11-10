@@ -6,8 +6,7 @@
     "dependencies": {
         "@rasm/atelier-extendscript": "workspace:*",
         "@rasm/atelier-protocol": "workspace:*",
-        "@rasm/cep": "workspace:*",
-        "effect": "catalog:"
+        "@rasm/cep": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "catalog:",

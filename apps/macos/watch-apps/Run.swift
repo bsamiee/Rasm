@@ -6,62 +6,100 @@ import CasePaths
 import CurrentProcess
 import Encoding
 import Files
+import Logging
 import OrderedCollections
 import Processes
+import ServiceLifecycle
 import Subprocess
 import Synchronization
 import System
+import Telemetry
+import Tracing
+import UnixSignals
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-let logVariable: String = "WATCH_APPS_LOG"
-let logFile: RotatingFile = .init(
-    ProcessInfo.processInfo.environment[logVariable].map { path in URL(filePath: path) }
-        ?? .libraryDirectory.appending(components: "Logs", program, "\(program).log", directoryHint: .notDirectory),
-    limit: 4 << 20,
-    kept: 3,
-)
+let runLimit: (bytes: Int, files: Int) = (1 << 20, 64)
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
+struct Journal: Sendable {
+    static let folder: URL = Program.current.directory(.log).appending(path: Program.current.name, directoryHint: .isDirectory)
+
+    private let file: URL
+    private let start: Data
+    private var descriptor: FileDescriptor
+    private var bytes: Int
+    private var threshold: Int = runLimit.bytes
+    private var latest: OrderedDictionary<String, Data> = [:]
+
+    init(start: Data) throws {
+        file = Self.folder.appending(component: [callerSession, String(getpid())].compactMap(\.self).joined(separator: ".")).appendingPathExtension("jsonl")
+        try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        for old in try Self.files().dropLast(runLimit.files - 1) { _ = try ifPresent { try FileManager.default.removeItem(at: old) } }
+        descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .writeOnly, options: [.append, .create, .truncate], permissions: .ownerReadWrite)
+        try descriptor.writeAll(start)
+        (self.start, bytes) = (start, start.count)
+    }
+
+    static func files() throws -> [URL] {
+        let listed = try ifPresent { try FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]) } ?? []
+        let dated: [(file: URL, modified: Date)] = try listed.map { file in
+            let values = try ifPresent { try file.resourceValues(forKeys: [.contentModificationDateKey]) }
+            return (file, values?.contentModificationDate ?? .distantPast)
+        }
+        return dated.sorted(using: KeyPathComparator(\.modified)).map(\.file)
+    }
+
+    mutating func append(_ record: Data, replacing key: String? = nil) throws {
+        if let key { latest[key] = record }
+        guard bytes + record.count > threshold else {
+            try descriptor.writeAll(record)
+            bytes += record.count
+            return
+        }
+        let compacted = latest.values.reduce(into: start) { content, line in content += line } + (key == nil ? record : Data())
+        try compacted.write(to: file, options: .atomic)
+        try descriptor.close()
+        descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .writeOnly, options: .append)
+        (bytes, threshold) = (compacted.count, max(runLimit.bytes, 2 * compacted.count))
+    }
+}
+
 final class Run: Sendable {
     private let output: FileDescriptor?
-    private let log: RotatingFile?
     private let lineLength: Int?
-    private let held: Mutex<(status: ExitCode, shown: [pid_t: Data])>
+    private let telemetry: ServiceGroup = Program.current.telemetry(scopes: [Run.self])
+    private let services: Task<Void, any Error>
+    private let logger: Logger
+    private let held: Mutex<(status: ExitCode, shown: [pid_t: Data], journal: Journal?)>
     private let closed: (stream: AsyncStream<Int32?>, continuation: AsyncStream<Int32?>.Continuation) = AsyncStream.makeStream()
     private let claims: (stream: AsyncStream<NSRunningApplication?>, continuation: AsyncStream<NSRunningApplication?>.Continuation)?
 
     init(output: FileDescriptor? = .standardOutput, lineLength: Int? = nil, waiting: Bool = false) {
         let opening = Result { () throws(ApplicationFailure) in
-            do {
-                try FileManager.default.createDirectory(at: logFile.url.deletingLastPathComponent(), withIntermediateDirectories: true)
-                try logFile.append(encoder.encodeLine(Record<JSONValue>(argv: CommandLine.arguments)))
-                return logFile
-            } catch {
-                throw ApplicationFailure(subject: logFile.url.path(percentEncoded: false), reason: .host(error as NSError))
+            do { return try Journal(start: encoder.encodeLine(Record<JSONValue>(argv: CommandLine.arguments))) } catch {
+                throw ApplicationFailure(subject: Journal.folder.path(percentEncoded: false), reason: .host(error as NSError))
             }
         }
         self.output = output
         self.lineLength = lineLength
-        log = opening[case: \.success]
-        held = Mutex((waiting ? .failure : .success, [:]))
+        services = Task(name: "Telemetry") { [telemetry] in try await telemetry.run() }
+        logger = Logger(label: String(reflecting: Run.self))
+        held = Mutex((waiting ? .failure : .success, [:], opening[case: \.success]))
         claims = waiting ? AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1)) : nil
-        if case .failure(let failure) = opening { fail(program, failure) }
+        if case .failure(let failure) = opening { fail(Program.current.name, failure) }
     }
 
     private func encoded(_ value: some Encodable) -> Data {
         do { return try encoder.encodeLine(value) } catch { WatchApps.exit(withError: error) }
     }
 
-    private func append(_ record: Record<some Encodable>) {
-        do { try log?.append(encoded(record)) } catch { WatchApps.exit(withError: error) }
-    }
-
-    private func write(_ line: Data, logging whole: some Encodable) {
-        let open = held.withLock { _ in
-            append(Record(line: whole))
+    private func emit(_ line: Data, logging shown: some Encodable, as key: String) {
+        let record = encoded(Record(line: shown))
+        let open = held.withLock { held in
             do {
+                try held.journal?.append(record, replacing: key)
                 try output?.writeAll(line)
                 return true
             } catch Errno.brokenPipe {
@@ -73,10 +111,18 @@ final class Run: Sendable {
         if !open { closed.continuation.yield(nil) }
     }
 
-    func emit(_ key: String, _ value: some Encodable) { write(encoded([key: value]), logging: [key: value]) }
+    func emit(_ key: String, _ value: some Encodable) { emit(encoded([key: value]), logging: [key: value], as: key) }
 
     func fail(_ key: String, _ failure: ApplicationFailure) {
         fail()
+        switch failure.reason {
+            case .event, .system, .host, .unwatched, .unreadable, .noEncoder, .noImage:
+                logger.error("Command failed in host", error: failure, metadata: ["key": "\(key, privacy: .public)"])
+            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noExtension,
+                .noReport,
+                .cancelled, .unmatched, .malformed:
+                logger.warning("Command refused input", error: failure, metadata: ["key": "\(key, privacy: .public)"])
+        }
         emit(key, Event.fail(failure))
     }
 
@@ -86,8 +132,7 @@ final class Run: Sendable {
 
     func show(_ instance: NSRunningApplication, _ state: InstanceState, whole: Bool = false) {
         let (key, pid) = (instance.key, String(instance.processIdentifier))
-        let full: [String: [String: InstanceState]] = [key: [pid: state]]
-        let line: Data
+        let shown: any Encodable
         if case .running(let running) = state, !whole {
             let outline = Outline(
                 active: running.active,
@@ -107,12 +152,13 @@ final class Run: Sendable {
                 windows: running.windows.filter { window in window.presented && !window.asking }.map(\.number),
             )
             let fitted = lineLength.map { limit in outline.fitted(within: limit) { outline in encoded([key: [pid: Event.running(outline)]]).count } } ?? outline
-            line = encoded([key: [pid: Event.running(fitted)]])
+            shown = [key: [pid: Event.running(fitted)]]
         } else {
-            line = encoded(full)
+            shown = [key: [pid: state]]
         }
+        let line = encoded(shown)
         guard held.withLock({ held in held.shown.updateValue(line, forKey: instance.processIdentifier) }) != line else { return }
-        write(line, logging: full)
+        emit(line, logging: shown, as: key)
     }
 
     func show(_ step: Launching, as key: String) {
@@ -183,13 +229,19 @@ final class Run: Sendable {
         if let ended { settle(ended) }
     }
 
-    func finish(signal: Int32? = nil) -> Never {
-        let status = held.withLock { held in held.status }
-        append(Record<JSONValue>(exit: Exit(status: status.rawValue, signal: signal)))
+    func finish(signal: Int32? = nil) async -> Never {
+        let status = held.withLock { held in
+            let ended = encoded(Record<JSONValue>(exit: Exit(status: held.status.rawValue, signal: signal)))
+            do { try held.journal?.append(ended) } catch { WatchApps.exit(withError: error) }
+            return held.status
+        }
+        await telemetry.triggerGracefulShutdown()
+        _ = await services.result
         WatchApps.exit(withError: status)
     }
 
     static func execute(
+        _ command: (some ParsableCommand).Type,
         output: FileDescriptor? = .standardOutput,
         lineLength: Int? = nil,
         accessibility: Bool = true,
@@ -197,14 +249,23 @@ final class Run: Sendable {
         _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void,
     ) async {
         let run = Run(output: output, lineLength: lineLength, waiting: waiting)
-        let endings = merge(processEndings(), run.closed.stream)
+        let operation = "\(Program.current.name) \(command._commandName)"
+        let signals = await UnixSignalsSequence(trapping: .sigterm, .sigint, .sighup).map { signal in Int32?.some(signal.rawValue) }
+        let parent = termination(of: getppid()).compactMap { exit in exit[case: \.success].map { _ in Int32?.none } }
+        let endings = merge(signals, parent, run.closed.stream)
         await withTaskGroup(of: Int32??.self) { group in
             group.addTask {
-                do throws(ApplicationFailure) {
-                    if accessibility { try checkAccessibilityTrust() }
-                    try await work(run)
-                } catch {
-                    run.fail(program, error)
+                var context = InstrumentationContext.topLevel
+                InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())
+                await withSpan(operation, context: context) { span in
+                    do throws(ApplicationFailure) {
+                        if accessibility { try checkAccessibilityTrust() }
+                        try await work(run)
+                    } catch {
+                        span.recordError(error)
+                        span.setStatus(SpanStatus(code: .error))
+                        run.fail(Program.current.name, error)
+                    }
                 }
                 return nil
             }
@@ -212,8 +273,8 @@ final class Run: Sendable {
             switch await group.next() {
                 case .some(.some(let ending)):
                     await run.release()
-                    run.finish(signal: ending)
-                case .some(.none), .none: run.finish()
+                    await run.finish(signal: ending)
+                case .some(.none), .none: await run.finish()
             }
         }
     }

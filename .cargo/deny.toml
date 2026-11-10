@@ -9,10 +9,9 @@ ignore       = [
     { id = "RUSTSEC-2026-0429", reason = "zip 6 under spreadsheet-ods 1.0.4 and zip 8 under fmi 0.8.0, fixed in zip 9" },
     { id = "RUSTSEC-2026-0194", reason = "quick-xml 0.38 under citationberg 0.7.0 of typst-library 0.15.1, fixed in quick-xml 0.41" },
     { id = "RUSTSEC-2026-0195", reason = "quick-xml 0.38 under citationberg 0.7.0 of typst-library 0.15.1, fixed in quick-xml 0.41" },
-    { id = "RUSTSEC-2023-0071", reason = "rsa under pdf_oxide 0.3.78 signatures, no patched rsa release" },
 ]
 
 # --- [SOURCES] --------------------------------------------------------------------------
 
 [sources]
-allow-org = { github = ["georust", "rust-lang"] }
+allow-org = { github = ["georust", "launchbadge", "rust-lang"] }

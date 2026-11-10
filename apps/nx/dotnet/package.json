@@ -24,7 +24,6 @@
         "prepare": "dotnet build analyzer --configuration Release"
     },
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-devkit": "workspace:*",
         "effect": "catalog:",

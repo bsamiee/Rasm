@@ -3,7 +3,6 @@ import { SqlClient, type SqlConnection, type SqlError, Statement } from 'effect/
 import type { Catalog } from '#/catalog';
 import type { Column, Kind, Projection } from '#/column';
 import type { ReconcileError } from '#/error';
-import type { Pg } from '#/pg';
 import type { diff, Identity } from '#/reconcile';
 import type { Relation } from '#/relation';
 
@@ -15,7 +14,7 @@ interface Dialect {
     readonly type: (entry: Column) => string;
     readonly constant: (entry: Column, value: string | number) => string;
     readonly codePoints: (sql: SqlClient.SqlClient, subject: Statement.Fragment) => Statement.Fragment;
-    readonly text: (sql: SqlClient.SqlClient, subject: Statement.Fragment, kind: Kind) => Statement.Fragment;
+    readonly cased: (sql: SqlClient.SqlClient, subject: Statement.Fragment, kind: Kind, casing: 'lower' | 'upper') => Statement.Fragment;
     readonly domain: (sql: SqlClient.SqlClient, subject: Statement.Fragment, kind: Kind) => readonly Statement.Fragment[];
     readonly projection: (sql: SqlClient.SqlClient, entry: Column, projected: Extract<Projection, { readonly _tag: 'Path' }>) => Statement.Fragment;
     readonly generated: (sql: SqlClient.SqlClient, expression: Statement.Fragment) => Statement.Fragment;
@@ -36,12 +35,12 @@ interface Dialect {
             readonly name: string;
             readonly parts: readonly string[];
             readonly extensions: readonly string[];
-            readonly configuration: Option.Option<typeof Pg.Configuration.Type>;
+            readonly configuration: Option.Option<{ readonly name: string; readonly configuration: string; readonly filters: readonly string[] }>;
             readonly text: (modifiers: readonly string[], on: Statement.Fragment) => Statement.Statement<object>;
         }[];
         readonly virtual: Option.Option<{ readonly name: string; readonly create: Statement.Statement<object>; readonly triggers: readonly { readonly name: string; readonly create: Statement.Statement<object> }[]; readonly rebuild: Statement.Statement<object> }>;
     };
-    readonly policy: (sql: SqlClient.SqlClient, owner: string, name: string, type: string, setting: string) => Option.Option<{ readonly name: string; readonly rule: Statement.Fragment; readonly text: (on: Statement.Fragment, role: Statement.Fragment) => Statement.Statement<object> }>;
+    readonly policy: (sql: SqlClient.SqlClient, owner: string, name: string, type: string, setting: string) => Option.Option<{ readonly name: string; readonly parts: readonly string[]; readonly rule: Statement.Fragment; readonly text: (on: Statement.Fragment, role: Statement.Fragment) => Statement.Statement<object> }>;
     readonly comment: (sql: SqlClient.SqlClient, name: string, identity: typeof Identity.Type) => { readonly inline: Statement.Fragment; readonly statements: (relation: Statement.Fragment, column: Option.Option<string>) => readonly Statement.Statement<object>[] };
     readonly refusals: (relation: Relation) => readonly ReconcileError['findings'][number][];
     readonly role: (sql: SqlClient.SqlClient) => Effect.Effect<string, SqlError.SqlError | Schema.SchemaError | Cause.NoSuchElementError | Cause.IllegalArgumentError>;
@@ -98,8 +97,7 @@ class Rows extends Context.Service<Rows, RowDialect>()('@rasm/database/engine/Ro
             element,
             keys,
             reads: (scope: Statement.Fragment, ...extra: readonly (string | Statement.Fragment)[]) => sql.csv([...all.map((entry) => rows.read(sql, entry, scope)), ...extra]),
-            inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) =>
-                sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => Statement.fragment([sql(entry.name)])))}) SELECT ${sql.csv(written.map(element))} FROM ${rows.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
+            inserting: (body: string, conflict: Statement.Fragment, returning: Statement.Fragment) => sql`INSERT INTO ${owner} (${sql.csv(written.map((entry) => Statement.fragment([sql(entry.name)])))}) SELECT ${sql.csv(written.map(element))} FROM ${rows.insertion(sql, body, order)} ${conflict} RETURNING ${returning}`,
             where: (rules: { readonly [field: string]: string | { readonly not: string } | undefined }) =>
                 sql.and(
                     all.flatMap((entry) =>

@@ -8,6 +8,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using LanguageExt.ClassInstances;
+using Rasm.Hosting;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
@@ -291,15 +292,11 @@ internal static class RuiFiles {
 
 internal static class Program {
     public static int Main(string[] args) =>
-        (from request in IO.lift(Fin<(string PlugIn, string Rui, string References)> () => args is [var plugIn, var rui, ['@', .. var references]]
+        ProcessEntry.Run(_ =>
+            from request in IO.lift(Fin<(string PlugIn, string Rui, string References)> () => args is [var plugIn, var rui, ['@', .. var references]]
                 ? (plugIn, rui, references)
                 : Error.New(string.Create(CultureInfo.InvariantCulture, $"Expected <plug-in> <rui> @<references>, received {args.Length}: {string.Join(' ', args)}")))
-         from references in IO.liftAsync(env => File.ReadAllLinesAsync(request.References, env.Token))
-         from written in RuiFiles.Write(request.PlugIn, request.Rui, toSeq(references))
-         select written).RunSafe().Match(
-            Succ: static _ => 0,
-            Fail: static error => {
-                Console.Error.WriteLine(string.Join('\n', error.AsIterable().Map(static leaf => leaf.IsExceptional ? leaf.ToException().ToString() : leaf.Message)));
-                return 1;
-            });
+            from references in IO.liftAsync(env => File.ReadAllLinesAsync(request.References, env.Token))
+            from written in RuiFiles.Write(request.PlugIn, request.Rui, toSeq(references))
+            select 0);
 }

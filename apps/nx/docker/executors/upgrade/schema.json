@@ -1,0 +1,12 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Upgrade",
+    "description": "Moves each SemVer image tag the Compose files state to the newest tag crane ls prints with the same v prefix and image variant, keeping the files' layout",
+    "type": "object",
+    "properties": {
+        "files": { "type": "array", "items": { "type": "string" }, "description": "Compose files, relative to the workspace root" },
+        "dryRun": { "type": "boolean", "description": "Prints each move and writes no file; NX_DRY_RUN sets the default" }
+    },
+    "required": [ "files" ]
+}

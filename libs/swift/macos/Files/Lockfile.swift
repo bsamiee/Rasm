@@ -1,10 +1,9 @@
 import AsyncAlgorithms
 import CasePathsCore
-import CurrentProcess
 public import Foundation
+import Logging
 import Results
 import System
-import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,8 +16,6 @@ public protocol LockFailure: Error {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Lockfile: Sendable {
-    fileprivate static let logger: Logger = .init(for: Self.self)
-
     let url: URL
     let stale: Duration
     let update: Duration
@@ -67,7 +64,7 @@ public struct Lockfile: Sendable {
         let released: Result<Void, Failure> = release(acquired.held)
         guard error.reason.is(\.held), case .success = released, let delay = delays[index].first else { throw Failure.lock(error).releasing(released) }
         let blocked = lockfiles[index].url
-        logger.debug("Waiting up to \(delay, privacy: .public) for held lock \(blocked.path(percentEncoded: false), privacy: .private)")
+        Logger.current.debug("Waiting for held lock", metadata: ["lock": .string(blocked.path(percentEncoded: false)), "delay": .stringConvertible(delay)])
         try await race {
             () async throws(Failure) in
             switch await FileEvent.presence(of: blocked).first(where: { presence in presence[case: \.success] != true }) {
@@ -114,7 +111,7 @@ private struct Held: Equatable, Sendable {
                 case .some(let current) where current.modified >= now - lockfile.stale: throw failure
                 case .some(let stale):
                     try remove(at: lockfile.url)
-                    Lockfile.logger.notice("Removed stale lock \(lockfile.url.path(percentEncoded: false), privacy: .private) unchanged for \(now - stale.modified, privacy: .public)")
+                    Logger.current.info("Removed stale lock", metadata: ["lock": .string(lockfile.url.path(percentEncoded: false)), "unchanged": .stringConvertible(now - stale.modified)])
                 case .none: break
             }
             try create()

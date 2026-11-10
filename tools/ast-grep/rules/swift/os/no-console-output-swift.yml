@@ -63,9 +63,11 @@ utils:
             - matches: standard-stream
             - kind: call_expression
               has: {nthChild: 1, matches: callee, pattern: $OUT, regex: '(^|\.)(print|puts|putchar|printf|vprintf)$'}
+    log-handler:
+        inside: {stopBy: end, kind: function_declaration, has: {field: name, regex: '^log$'}, inside: {stopBy: end, kind: class_declaration, has: {kind: inheritance_specifier, regex: 'LogHandler$'}}}
 rule:
     any:
-        - matches: diagnostic
-        - all: [{matches: result}, {not: {matches: host-entry}}]
+        - all: [{matches: diagnostic}, {not: {matches: log-handler}}]
+        - all: [{matches: result}, {not: {matches: host-entry}}, {not: {matches: log-handler}}]
 message: '`$OUT` writes a diagnostic outside `Logger` or a result outside the program entry'
-note: 'Log diagnostics through `Logger`, and write results to stdout from `main` of the `@main` type, `run` of a `ParsableCommand`, or `main.swift`'
+note: 'Log diagnostics through `Logger`, whose `LogHandler` alone writes them in `log`, and write results to stdout from `main` of the `@main` type, `run` of a `ParsableCommand`, or `main.swift`'

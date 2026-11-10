@@ -2,7 +2,7 @@
     "name": "@rasm/test-support",
     "version": "0.0.0",
     "private": true,
-    "description": "Shared test configuration and fixtures: a Vitest policy plugin, Storybook preview and main settings, and running Compose service lookups",
+    "description": "Vitest, Playwright, and Storybook test policy, store fixtures over the rasm.store gRPC contract, and Compose service lifecycles",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -10,36 +10,72 @@
     },
     "license": "MIT",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
         "./compose": "./compose.ts",
-        "./storybook": "./storybook.ts",
-        "./storybook/node": "./storybook-node.ts",
+        "./playwright": "./playwright.ts",
+        "./store": "./store.ts",
+        "./storybook": "./storybook/preview.ts",
+        "./storybook/preset": "./storybook/preset.ts",
         "./vitest": "./vitest.ts"
     },
-    "files": [ "dist" ],
+    "files": [ "dist", "!dist/suite", "!dist/*.config.*" ],
     "dependencies": {
+        "@axe-core/playwright": "catalog:",
+        "@bufbuild/protobuf": "catalog:",
+        "@connectrpc/connect": "catalog:",
+        "@connectrpc/connect-node": "catalog:",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
-        "@storybook/react-vite": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
-        "@vitest/ui": "catalog:"
+        "@vitest/ui": "catalog:",
+        "testcontainers": "catalog:"
     },
     "devDependencies": {
+        "@aws-sdk/client-s3": "catalog:",
+        "@bufbuild/protoc-gen-es": "catalog:",
+        "@effect/sql-clickhouse": "catalog:",
+        "@effect/sql-pg": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@playwright/test": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "redis": "catalog:",
         "storybook": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     },
     "peerDependencies": {
+        "@aws-sdk/client-s3": "catalog:peers",
+        "@effect/sql-clickhouse": "catalog:peers",
+        "@effect/sql-pg": "catalog:peers",
+        "@playwright/test": "catalog:peers",
         "effect": "catalog:peers",
+        "redis": "catalog:peers",
         "storybook": "catalog:peers",
         "vite": "catalog:peers",
         "vitest": "catalog:peers"
     },
     "peerDependenciesMeta": {
+        "@aws-sdk/client-s3": {
+            "optional": true
+        },
+        "@effect/sql-clickhouse": {
+            "optional": true
+        },
+        "@effect/sql-pg": {
+            "optional": true
+        },
+        "@playwright/test": {
+            "optional": true
+        },
+        "redis": {
+            "optional": true
+        },
         "storybook": {
             "optional": true
         },
@@ -54,9 +90,14 @@
         "access": "public",
         "exports": {
             "./compose": "./dist/compose.js",
-            "./storybook": "./dist/storybook.js",
-            "./storybook/node": "./dist/storybook-node.js",
+            "./playwright": "./dist/playwright.js",
+            "./store": "./dist/store.js",
+            "./storybook": "./dist/storybook/preview.js",
+            "./storybook/preset": "./dist/storybook/preset.js",
             "./vitest": "./dist/vitest.js"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
         }
     }
 }

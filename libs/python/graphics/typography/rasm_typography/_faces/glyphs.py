@@ -13,7 +13,6 @@ lazy from pathlib import Path
 lazy import unicodedata
 
 import msgspec
-import platformdirs
 lazy from expression import Option
 lazy from expression.extra.result import catch
 lazy from fontTools.pens.basePen import AbstractPen
@@ -44,9 +43,9 @@ class Joining(StrEnum):
     TRANSPARENT = "T"
 
     @classmethod
-    def of(cls, code: int, /) -> Joining:
+    def of(cls, joinings: Joinings, code: int, /) -> Joining:
         """Returns the joining type `ArabicShaping.txt` states, transparent for unlisted marks and format controls."""
-        return listed[0] if (listed := joined().get(code)) else cls.TRANSPARENT if unicodedata.category(chr(code)) in {"Mn", "Me", "Cf"} else cls.NONE
+        return listed[0] if (listed := joinings.get(code)) else cls.TRANSPARENT if unicodedata.category(chr(code)) in {"Mn", "Me", "Cf"} else cls.NONE
 
 
 class Side(StrEnum):
@@ -75,10 +74,7 @@ class Category(StrEnum):
     UNASSIGNED = auto()
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_ARABIC_SHAPING = "https://www.unicode.org/Public/18.0.0/ucd/ArabicShaping.txt"
-_ARABIC_SHAPING_FILE = platformdirs.user_cache_path("rasm-typography").joinpath(*urlsplit(_ARABIC_SHAPING).path.split("/"))
+type Joinings = frozendict[int, tuple[Joining, str]]
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -347,14 +343,14 @@ def traced(drawing: Callable[[AbstractPen], object], /) -> tuple[tuple[Point, ..
 # --- [ROLES]
 
 
-def role(name: GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
+def role(joinings: Joinings, name: GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
     """Returns the role a glyph name states through its component count, form, and the Unicode data of its first code point."""
     head = next(iter(name.codes), 0)
-    match len(name.codes), name.form, unicodedata.category(chr(head)), joined().get(head):
+    match len(name.codes), name.form, unicodedata.category(chr(head)), joinings.get(head):
         case count, _, _, _ if count > 1:
             return Ligature(components=components or tuple(GlyphName(stem=(code,)).text for code in name.codes))
         case 1, form, _, _ if form is not Form.ISOL:
-            return Letter(joining=Joining.of(head), form=form)
+            return Letter(joining=Joining.of(joinings, head), form=form)
         case 1, _, "Mn" | "Me", _:
             return Mark(side=Side.of(head))
         case 1, _, "Cf" | "Cc", _:
@@ -372,40 +368,37 @@ def role(name: GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
 # --- [UNICODE]
 
 
-def fetched() -> Outcome[Path]:
-    """Holds the pinned `ArabicShaping.txt` in the user cache, downloading it where the cache lacks a copy matching its checksum.
+def fetched(cache: Path, /) -> Outcome[Joinings]:
+    """Reads the pinned `ArabicShaping.txt` a cache folder holds, downloading it where the folder lacks a copy matching its checksum.
 
     Returns:
-        Ok(path), `FAILED` for a refused download, `OUTSIDE` for downloaded bytes of another checksum, `UNWRITABLE` for the cache.
+        Ok(joining type and group of each listed code point), `FAILED` for a refused download, `OUTSIDE` for downloaded bytes of another checksum, `UNWRITABLE` for the cache.
     """
+    source = "https://www.unicode.org/Public/18.0.0/ucd/ArabicShaping.txt"
+    held = cache.joinpath(*urlsplit(source).path.split("/"))
 
     def verified(data: bytes, /) -> Outcome[bytes]:
         digest, pinned = hashlib.sha256(data).hexdigest(), "8ccde4ebd070500a68e8bcb9d5514522fb0bebe57b9ebad3ff925b8e1e669f83"
-        return Ok(data).filter_with(lambda _: digest == pinned, lambda _: Fault.of(Reason.OUTSIDE, _ARABIC_SHAPING, digest, member=f"SHA-256 {pinned}"))
+        return Ok(data).filter_with(lambda _: digest == pinned, lambda _: Fault.of(Reason.OUTSIDE, source, digest, member=f"SHA-256 {pinned}"))
 
     return (
-        read(_ARABIC_SHAPING_FILE)
+        read(held)
         .bind(verified)
-        .map(lambda _: _ARABIC_SHAPING_FILE)
         .or_else_with(
             lambda _: (
-                catch(lambda: httpx2.get(_ARABIC_SHAPING, follow_redirects=True).raise_for_status().content, exception=httpx2.HTTPError)()
-                .map_error(partial(Fault.of, Reason.FAILED, _ARABIC_SHAPING))
+                catch(lambda: httpx2.get(source, follow_redirects=True).raise_for_status().content, exception=httpx2.HTTPError)()
+                .map_error(partial(Fault.of, Reason.FAILED, source))
                 .bind(verified)
-                .bind(partial(committed, _ARABIC_SHAPING_FILE))
+                .bind(lambda data: committed(held, data).map(lambda _: data))
             )
         )
+        .map(
+            lambda data: frozendict({
+                int(code, 16): (Joining(joining), group)
+                for code, _, joining, group in csv.reader((line for line in data.decode().splitlines() if line.strip() and not line.startswith("#")), delimiter=";", skipinitialspace=True)
+            })
+        )
     )
-
-
-@cache
-def joined() -> frozendict[int, tuple[Joining, str]]:
-    """Joining type and group of each code point `ArabicShaping.txt` lists, read from the copy `fetched` holds."""
-    with _ARABIC_SHAPING_FILE.open(encoding="utf-8", newline="") as lines:
-        return frozendict({
-            int(code, 16): (Joining(joining), group)
-            for code, _, joining, group in csv.reader((line for line in lines if line.strip() and not line.startswith("#")), delimiter=";", skipinitialspace=True)
-        })
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -419,6 +412,7 @@ __all__ = [
     "Glyph",
     "Info",
     "Joining",
+    "Joinings",
     "Letter",
     "Ligature",
     "Mark",
@@ -431,7 +425,6 @@ __all__ = [
     "VerticalMetrics",
     "draw_points",
     "fetched",
-    "joined",
     "recorded",
     "role",
     "traced",

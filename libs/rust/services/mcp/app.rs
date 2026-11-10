@@ -277,7 +277,7 @@ where A: Server
         let limit = self.page.saturating_add(1);
         let listed =
             future::join_all(registered.iter().flat_map(|resources| &resources.lists).map(|list| list(self.app.clone(), after.clone(), limit))).await.into_iter().collect::<Validated<Vec<_>, _>>();
-        let listed = listed.ok().map_err(|errors| serde_json::to_value(&errors).map_or_else(|error| internal(&error), |data| ErrorData { data: Some(data), ..errors.first().clone() }))?;
+        let listed = listed.ok().map_err(|errors| serde_json::to_value(&errors).map_or_else(internal, |data| ErrorData { data: Some(data), ..errors.first().clone() }))?;
         let declared = registered
             .as_deref()
             .into_iter()
