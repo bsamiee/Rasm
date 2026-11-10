@@ -13,6 +13,7 @@ use derive_more::Deref;
 use futures::future::BoxFuture;
 use http::Uri;
 use http::uri::Scheme;
+use jiff::fmt::friendly::SpanParser;
 use object_store::CredentialProvider;
 use object_store::aws::{AmazonS3, AmazonS3Builder, AwsCredential};
 use rasm_store_proto::store_service_client::StoreServiceClient;
@@ -191,7 +192,8 @@ where T: Template
 pub struct Endpoint {
     #[arg(long, env)]
     pub store_port: u16,
-    #[arg(skip)]
+    #[arg(long, env = "STORE_DEADLINE", value_name = "SPAN", default_value = "30s", value_parser = |span: &str| SpanParser::new().parse_unsigned_duration(span))]
+    #[arg(help = "Longest wait for one store call or one pool close, above the 10s the service waits at a live limit")]
     pub deadline: Option<Duration>,
 }
 

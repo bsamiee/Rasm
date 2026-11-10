@@ -38,12 +38,9 @@ No run has proven these:
 - Kafka rows stand in all four catalogs and in the Rust test support, against `decisions.md` [01]
 - Pyroscope waits on an owner decision (`plan/definition.md`)
 
-Test costs found and left:
-- Rhino test host waits the platform's 300 s handshake when its boot script fails, and leaves `RhinoMonitor` running
-- `check--dotnet-format` recompiles each batch Nx forms, 79 s to 177 s over 23 projects
-- `Rasm.Analyzers.Tests` runs 63 `Samples` cases one after another, 37 s
-- `sshd.test.ts` installs OpenSSH from the network into each container it starts
-- Rust store endpoint of `tests/rust/support/store.rs` states no deadline
+Test costs no setting removes:
+- Rhino test host waits out the 300 s handshake of Microsoft Testing Platform when its boot script fails, the platform states no variable for it
+- `check--dotnet-format` recompiles each batch Nx forms from the builds finished so far, 79 s to 177 s over 23 projects
 
 ## [03]-[OUTSIDE]
 

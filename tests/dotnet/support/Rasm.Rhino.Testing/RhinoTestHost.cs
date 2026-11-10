@@ -79,7 +79,7 @@ public sealed class RhinoTestHost(IServiceProvider services) : ITestHostLauncher
 
         public Task WaitForExitAsync(CancellationToken cancellationToken) => rhino.WaitForExitAsync(cancellationToken);
 
-        public void Terminate() => rhino.Kill();
+        public void Terminate() => rhino.Kill(entireProcessTree: true);
 
         public void Dispose() => rhino.Dispose();
     }

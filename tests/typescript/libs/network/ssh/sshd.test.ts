@@ -73,8 +73,13 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd.test/Sshd', {
         ];
         const [network, runtime] = yield* Effect.all([Effect.acquireDisposable(Effect.promise(() => new Network().start())), Effect.promise(() => getContainerRuntimeClient())]);
         const serving = Effect.fnUntraced(function* (alias: string) {
-            const defined = new GenericContainer('alpine:3.23').withNetwork(network).withNetworkAliases(alias).withCopyFilesToContainer(copied).withExposedPorts(served).withLogConsumer(logged(alias));
-            const container = yield* Effect.acquireDisposable(Effect.promise(() => defined.withCommand(['sh', '-c', `apk add --no-cache openssh >/dev/null && { nc -ll -p ${greeting.port} -e echo ${greeting.text} & } && ${listening}`]).start()));
+            const image = yield* Effect.promise(() =>
+                GenericContainer.fromDockerfile(import.meta.dirname)
+                    .withBuildkit()
+                    .build('rasm/test-ssh', { deleteOnExit: false }),
+            );
+            const defined = image.withNetwork(network).withNetworkAliases(alias).withCopyFilesToContainer(copied).withExposedPorts(served).withLogConsumer(logged(alias));
+            const container = yield* Effect.acquireDisposable(Effect.promise(() => defined.withCommand(['sh', '-c', `{ nc -ll -p ${greeting.port} -e echo ${greeting.text} & } && ${listening}`]).start()));
             const engine = runtime.container.getById(container.getId());
             const paused = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
                 Effect.andThen(
