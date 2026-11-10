@@ -104,8 +104,9 @@ Settings draw a struct's own properties in declaration order with the label, too
 
 ```python
 def drawn(layout: bpy.types.UILayout, struct: Struct, /, *, switch: str = "use_{}", index: str = "{}_index", listtype_name: str = UI_UL_list.__name__) -> None:
-    rna: bpy.types.Struct = struct.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    inherited: Elements[bpy.types.Property] = rna.base.properties  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    rna = struct.bl_rna
+    bases = Option.of_optional(try_downcast(bpy.types.Struct, rna)).bind(lambda held: Option.of_optional(held.base)).to_list()
+    inherited = frozenset(prop.identifier for base in bases for prop in base.properties)
     declared = tuple(prop.identifier for prop in rna.properties if prop.identifier not in inherited and not prop.is_hidden)
     companions = frozenset((*map(switch.format, declared), *map(index.format, declared)))
     layout.use_property_split = True
@@ -194,7 +195,7 @@ Layouts start in an operator context their opener sets, and entries run `invoke`
 Menu classes set their own operator context and search:
 - Menus with entries that need `invoke` set `layout.operator_context = 'INVOKE_REGION_WIN'` in `draw`
 - `_bl_ui_utils.layout.operator_context(layout, <context>)` scopes another context to a block of entries and restores the opener's
-- Menus name no space or region, and `bl_options = {'SEARCH_ON_KEY_PRESS'}` opens menu search on a typed key
+- Menus name no space or region, and `SEARCH_ON_KEY_PRESS` in `bl_options` opens menu search on a typed key
 - Header menus draw through `<Menu>.draw_collapsible(context, layout)`, inline or folded by `area.show_menus`
 - `layout.menu_contents(<idname>)` draws a menu's entries inline
 
@@ -260,7 +261,7 @@ class WeightedList(bpy.types.UIList):
         layout.prop(item, "weight", text="")
 
     @override
-    def filter_items(self, context: bpy.types.Context | None, data: Struct | None, property: str) -> tuple[list[int], list[int]]:  # type: ignore[override]
+    def filter_items(self, context: bpy.types.Context | None, data: Struct | None, property: str) -> tuple[list[int], list[int]]:
         items: Elements[bpy.types.PropertyGroup] = getattr(data, property)
         items.foreach_get("hidden", hidden := np.empty(len(items), np.bool_))
         items.foreach_get("weight", weights := np.empty(len(items), np.float32))
@@ -335,7 +336,6 @@ class LightEnergy(bpy.types.GizmoGroup):
     bl_label = "Light Energy"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_options = frozenset({"3D", "PERSISTENT"})  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
     @override
     @classmethod
@@ -348,21 +348,23 @@ class LightEnergy(bpy.types.GizmoGroup):
 
     @override
     def setup(self, context: bpy.types.Context) -> None:
-        preferences: bpy.types.Preferences = context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        ui = preferences.themes[0].user_interface
         arrow = self.gizmos.new("GIZMO_GT_arrow_3d")
-        arrow.color, arrow.color_highlight = ui.gizmo_primary, ui.gizmo_hi
+        for ui in root_in(bpy.types.Preferences, context).map(lambda preferences: preferences.themes[0].user_interface).to_list():
+            arrow.color, arrow.color_highlight = ui.gizmo_primary, ui.gizmo_hi
         arrow.use_draw_value = True
 
     @override
     def refresh(self, context: bpy.types.Context) -> None:
-        light: bpy.types.Object = context.object  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        self.gizmos[0].target_set_prop("offset", light.data, "energy")
+        for light in Option.of_optional(context.object).to_list():
+            self.gizmos[0].target_set_prop("offset", light.data, "energy")
 
     @override
     def draw_prepare(self, context: bpy.types.Context) -> None:
-        light: bpy.types.Object = context.object  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        self.gizmos[0].matrix_basis = light.matrix_world.normalized()
+        for light in Option.of_optional(context.object).to_list():
+            self.gizmos[0].matrix_basis = light.matrix_world.normalized()
+
+
+light_energy = type(LightEnergy.__name__, (LightEnergy,), {"bl_options": {"3D", "PERSISTENT"}})
 ```
 
 Custom gizmos declare `bl_target_properties = ({"id": <name>, "type": <type>, "array_length": <n>},)` and draw their own shape:

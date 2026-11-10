@@ -7,6 +7,7 @@
 - NuGet passes `analyzers/` assets to every project referencing `Rasm.Rhino`, directly or through a library depending on it
 - `buildTransitive/Rasm.Rhino.globalconfig` states the Rhino and Grasshopper values of `Rasm.Analyzers` options (`RASM1203.reporters`, `RASM3003.exempt`, `RASM3101.exempt`, `RASM3102.sentinels`)
 - Rules naming Rasm.Rhino members run where `Rasm.Rhino` is referenced: RASM2003, 2006, 2009, 2010, 2012, 2102–2105, 2203, 2204
+- Shell generator binds `PlugInShell` entry methods by name: tuple elements to host virtuals, later parameters to host members, CS8785 on a miss
 
 ## [02]-[RULES]
 
@@ -30,12 +31,11 @@ Category `RhinoCommon`:
 |  [10]   | <a id="RASM2011"></a>RASM2011 | Floating view docked by assignment, delete the assignment            |
 |  [11]   | <a id="RASM2012"></a>RASM2012 | Owned `DisplayModeDescription` left undisposed                       |
 |  [12]   | <a id="RASM2014"></a>RASM2014 | Host object round-tripped through text, hold the object              |
-|  [13]   | <a id="RASM2015"></a>RASM2015 | RhinoCommon member with a host defect, call the working form         |
-|  [14]   | <a id="RASM2101"></a>RASM2101 | `PersistentSettings` read through a default, call `TryGet<Kind>`     |
-|  [15]   | <a id="RASM2102"></a>RASM2102 | View redraw outside `Commits`, pass a `RedrawPolicy`                 |
-|  [16]   | <a id="RASM2103"></a>RASM2103 | Cast or type test on `GeometryBase` duplicate                        |
-|  [17]   | <a id="RASM2104"></a>RASM2104 | Conduit toggled outside `Conduits`, toggle through `Conduits`        |
-|  [18]   | <a id="RASM2105"></a>RASM2105 | `RenderSettings` written outside `RenderSettingsSources`             |
+|  [13]   | <a id="RASM2101"></a>RASM2101 | `PersistentSettings` read through a default, call `TryGet<Kind>`     |
+|  [14]   | <a id="RASM2102"></a>RASM2102 | View redraw outside `Commits`, pass a `RedrawPolicy`                 |
+|  [15]   | <a id="RASM2103"></a>RASM2103 | Cast or type test on `GeometryBase` duplicate                        |
+|  [16]   | <a id="RASM2104"></a>RASM2104 | Conduit toggled outside `Conduits`, toggle through `Conduits`        |
+|  [17]   | <a id="RASM2105"></a>RASM2105 | `RenderSettings` written outside `RenderSettingsSources`             |
 
 ### [02.2]-[ETO]
 

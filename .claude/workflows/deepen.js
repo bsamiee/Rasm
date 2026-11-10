@@ -120,12 +120,11 @@ const sources = (paths) => [
 ]
 const basis = (paths, target = paths.join(', ')) => {
   const hosted = hosts.filter(([folder, , held]) => held.includes(args.language) && paths.some((path) => path.split('/').includes(folder))).flatMap(([, skills]) => skills)
-  const skills = [...new Set([...row.skills, ...hosted])].map((skill) => `Skill(${skill})`)
-  const families = row.families.length > 0 ? `, each of ${row.families.map((skill) => `Skill(${skill})`).join(', ')} whose description covers your files` : ''
+  const skills = [...new Set([...row.skills, ...hosted])].map((skill) => `Skill(${skill})`).join(', ')
   const evidence = [...(row.companion ? [`companion ${row.companion}`] : []), ...(inputs.length > 0 ? [`evidence ${inputs.join(', ')}`] : []), `catalog ${row.catalog}`, ...sources(paths), `recorded findings in ${WORKFLOWS} and docs/research`]
   return [
     `Target: ${target} in ${REPO}, base commit ${args.base}.`,
-    `Load ${skills.join(', ')}${families}, Skill(clean-prose) and Skill(search-code).`,
+    `Load ${row.families.length > 0 ? `${skills}, each of ${row.families.map((skill) => `Skill(${skill})`).join(', ')} whose description covers your files` : skills}, Skill(clean-prose) and Skill(search-code).`,
     `Inputs: ${evidence.join('; ')}.`,
     ...(hosted.length > 0 ? ['Nothing takes focus from the owner, who is using this machine: no app.activate in a script body, no computer-use, whose access prompt also holds an agent until the owner answers. An app runs through Skill(watch-apps), under `watch-apps watch` in a Monitor with its output unfiltered, so every dialog and alert line reaches you and you answer it, and a proof that needs focus is reported, not taken.'] : []),
   ].join('\n')
@@ -133,7 +132,7 @@ const basis = (paths, target = paths.join(', ')) => {
 const brief = (paths, target) => `${basis(paths, target)}\n${mode.lines.join(' ')}`
 const own = (files) => `Edit only ${files.join(', ')} and files you add beside them, and return each change reaching another file as a finding.`
 const diff = (files) => `Read \`git diff ${args.base} -- ${files.join(' ')}\` with the untracked files \`git status --short -- ${files.join(' ')}\` lists, and the files whole.`
-const apart = exclude.length > 0 ? `, except files under ${exclude.join(', ')}` : ''
+const apart = (stated) => exclude.length > 0 ? `${stated}, except files under ${exclude.join(', ')}` : stated
 const counted = (count, noun) => `${count} ${noun[PLURALS.select(count)]}`
 
 // --- [LOSSES]
@@ -181,8 +180,8 @@ Each finding names the existing files it edits, its current and stronger form, a
 const relations = (root, index) => {
   const others = roots.slice(index + 1)
   return once(`${brief([root])}
-Reader, relations across file groups, over ${root}. Read \`${OUTLINE} --items structure ${root}\` and \`${OUTLINE} --items exports --view signatures ${root}\`${others.length > 0 ? `, \`${OUTLINE} --items exports ${others.join(' ')}\`` : ''}, then the source of each declaration the outlines show alike.
-Name each relation, codec or parameterized function several functions in different files restate, with the existing functions that become its uses, and each declaration two files or two projects state nearly alike, with the owner that states it once${rowed ? `, where the rows of ${PLAN} do not state it` : ''}.
+Reader, relations across file groups, over ${root}. Read \`${OUTLINE} --items structure ${root}\` and ${[`\`${OUTLINE} --items exports --view signatures ${root}\``, ...(others.length > 0 ? [`\`${OUTLINE} --items exports ${others.join(' ')}\``] : [])].join(', ')}, then the source of each declaration the outlines show alike.
+Name each relation, codec or parameterized function several functions in different files restate, with the existing functions that become its uses, and each declaration two files or two projects state nearly alike, ${rowed ? `with the owner that states it once, where the rows of ${PLAN} do not state it` : 'with the owner that states it once'}.
 Each finding names the existing files it edits, its current and stronger form, and ${mode.finding}. Edit nothing. Return (structured) the findings.`,
   { label: `read:relations:${root}`, phase: 'Read', model: 'opus', schema: FOUND })
 }
@@ -190,7 +189,7 @@ const overlaps = (left, right) => left.some((path) => within(path, right)) || ri
 const ordered = (items) => items.map((item, index) => ({ ...item, needs: items.slice(0, index).filter((other) => overlaps(other.files, item.files)).map((other) => other.id) }))
 const distinct = (findings) => [...new Map(findings.map((finding) => [`${union(finding.files).toSorted().join(' ')} ${finding.change}`, finding])).values()]
 const merged = (findings, tag) => ordered([...Map.groupBy(distinct(findings), (finding) => union(finding.files).toSorted().join(' ')).values()].map((found, index) => ({ files: union(found[0].files), findings: found, id: `${tag}:${index + 1}`, tag: `${tag}:${index + 1}`, label: `edit:${tag}:${index + 1}` })))
-const moving = (files) => `Edit ${files.join(', ')}, files you add beside them and the consumers of each API your changes move${apart}, and return each other change reaching another file as a finding.`
+const moving = (files) => `Edit ${files.join(', ')}, files you add beside them and ${apart('the consumers of each API your changes move')}, and return each other change reaching another file as a finding.`
 const cross = (set) => editor(fresh(set.files), set.findings.map((finding) => finding.change), set.label, 'Cross-group',
   'Changes spanning file groups, found before the groups changed: apply each that holds against the current files. ', moving(set.files))
   .then((state) => state.edited.length === 0 ? state : finish('Cross-group', 'Cross-group').reduce((prior, stage) => prior.then((held) => stage(held, set)), Promise.resolve(state)))
@@ -225,9 +224,12 @@ const refused = (packages) => {
 }
 const written = (packages, plan) => pumped(packages.map((pkg) => ({ ...pkg, label: `write:${pkg.id}` })), (pkg, done) => {
   const reads = pkg.needs.filter((need) => done.has(need)).map((need) => `${need}: ${done.get(need).summary}`)
-  return once(`${brief(pkg.files)}
-Writer for package ${pkg.id} (${pkg.title}): write what ${plan} section "${pkg.section}" states, editing only ${pkg.files.join(', ')}.${reads.length > 0 ? `\nPackages it reads, written:\n${listed(reads)}` : ''}
-Return (structured) the files you edited and a summary in at most 15 lines.`, { label: pkg.label, phase: 'Write', schema: { type: 'object', properties: { summary: { type: 'string' }, files: PATHS }, required: ['summary', 'files'] } })
+  return once([
+    brief(pkg.files),
+    `Writer for package ${pkg.id} (${pkg.title}): write what ${plan} section "${pkg.section}" states, editing only ${pkg.files.join(', ')}.`,
+    ...(reads.length > 0 ? [`Packages it reads, written:\n${listed(reads)}`] : []),
+    'Return (structured) the files you edited and a summary in at most 15 lines.',
+  ].join('\n'), { label: pkg.label, phase: 'Write', schema: { type: 'object', properties: { summary: { type: 'string' }, files: PATHS }, required: ['summary', 'files'] } })
 }).then((done) => [...done.values()].flatMap((result) => result.files.map(relative)))
 const landed = (group) => pumped(group.slices, (slice) => editor(fresh(slice.files), slice.rows, slice.label, 'Edit',
   `Read ${['these files', ...group.reads].join(', ')} whole as they stand, then land each row of ${PLAN} below. `))
@@ -259,7 +261,7 @@ Planner. Read ${dir}/brief/code.md, ${dir}/brief/members.md and the row. Write o
 Return the package titles, one per line.`, { label: 'plan', phase: 'Plan' }))
   if (!planned) throw new Error(`no plan for ${target}: a brief reader or the planner was lost, and a plan needs both briefs`)
   const ARCHITECT = `${brief([root], target)}
-Adversarial architect. Read ${plan}${PLAN === null ? `, ${dir}/brief` : ''} and the row whole, and rewrite ${plan} in place: every file, declaration, dependency edge and package stands where the row and the cited sources support it, and the rest leaves the plan. Manifests and check configuration sit in one package every source package needs, lock files in none.
+Adversarial architect. Read ${PLAN === null ? `${plan}, ${dir}/brief` : plan} and the row whole, and rewrite ${plan} in place: every file, declaration, dependency edge and package stands where the row and the cited sources support it, and the rest leaves the plan. Manifests and check configuration sit in one package every source package needs, lock files in none.
 Return (structured) the packages as a dependency graph: id, title, section (its exact heading in the plan), files (every path it edits, consumers included, each file in one package), needs (ids of packages it reads).`
   const drafted = await once(ARCHITECT, { label: 'architect', phase: 'Plan', model: 'opus', schema: GRAPH })
   const defects = drafted ? refused(drafted.packages) : []
@@ -275,13 +277,13 @@ Return (structured) the packages as a dependency graph: id, title, section (its 
 
 phase('Map')
 const maps = (await parallel((rowed ? [] : roots).map((root) => () => once(`Target: ${root} in ${REPO}, base commit ${args.base}.
-List every file under ${root} its language's tools read with its line count, and every outside file importing from it${apart}.
+List every file under ${root} its language's tools read with its line count, and ${apart('every outside file importing from it')}.
 Group files into what one agent reads whole with its consumers and edits at full depth, counting outside files, a family folder with the file of its name, an outside file with the group it imports most that has room, else with other outside files.
 Edit nothing. Return (structured) groups as repository-relative paths.`,
   { label: `map:${root}`, phase: 'Map', schema: MAPPED }).then((result) => result && { ...result, root })))).filter(Boolean)
 const units = rowed ? await once(`Target: ${roots.join(', ')} in ${REPO}, base commit ${args.base}.
 Inputs: ${inputs.join('; ')}.
-Read ${PLAN} whole and take each row whose change lands under ${roots.join(', ')}, a row with its nested lines. Group the rows into units by the package and files they own: a unit's files are every existing file its rows edit, consumers included, or for rows adding files alone the folder they join${apart}, no file in two units, and each unit is what two adversaries read whole with its reads and judge well. A unit's reads are the consumers it leaves unedited and the distilled files its rows link.
+Read ${PLAN} whole and take each row whose change lands under ${roots.join(', ')}, a row with its nested lines. Group the rows into units by the package and files they own: a unit's files are every existing file its rows edit, consumers included, or for rows adding files alone ${apart('the folder they join')}, no file in two units, and each unit is what two adversaries read whole with its reads and judge well. A unit's reads are the consumers it leaves unedited and the distilled files its rows link.
 Slice each unit's rows: rows touching the same files join one slice, and a slice holds no more rows than one editor lands at full depth, so a file more rows touch than one editor lands sits in several slices, listed in the order their rows land. A slice's files are the unit's files its rows edit, or the folder its added files join.
 Edit nothing. Return (structured) the units and their slices as repository-relative paths with each row as its first line number and its text verbatim.`,
   { label: 'map:plan', phase: 'Map', schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { files: PATHS, reads: PATHS, slices: { type: 'array', items: { type: 'object', properties: { files: PATHS, rows: { type: 'array', items: { type: 'object', properties: { line: { type: 'integer' }, text: { type: 'string' } }, required: ['line', 'text'] } } }, required: ['files', 'rows'] } } }, required: ['files', 'reads', 'slices'] } } }, required: ['units'] } }) : null

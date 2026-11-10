@@ -2,7 +2,7 @@ import { Array, Effect, Function, Number, Option, Order, Record, Schema, SchemaG
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
 import { Settings } from '#/settings';
 import type { Face } from '#/shaping/face';
-import { Word } from '#/shaping/word';
+import { Span } from '#/shaping/word';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -32,7 +32,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
 }) {
     static readonly Run = Schema.Struct({
         text: Schema.String.annotate({ description: 'Text in one script and direction, or context around item' }),
-        item: Schema.OptionFromOptionalKey(Word.Span.annotate({ description: 'UTF-16 range shaped, text around it giving context, whole text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
+        item: Schema.OptionFromOptionalKey(Span.annotate({ description: 'UTF-16 range shaped, text around it giving context, whole text when absent' })).pipe(Schema.withConstructorDefault(Effect.succeedNone)),
         features: Schema.Array(FeatureString)
             .annotate({ description: 'HarfBuzz features (tag, -tag, tag=value, tag[start:end] in UTF-16 offsets) after settings features' })
             .pipe(Schema.withDecodingDefaultKey(Effect.succeed([])), Schema.withConstructorDefault(Effect.succeed([]))),
@@ -58,14 +58,14 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         return {
             ...run,
             text: settings.digits(run.text),
-            item: Option.map(run.item, ({ start, end }) => Word.Span.make({ start: offset(start), end: offset(end) })),
+            item: Option.map(run.item, ({ start, end }) => Span.make({ start: offset(start), end: offset(end) })),
             features: run.features.map(({ tag, value, start, end }) => new Feature(tag, value, offset(start), offset(end))),
         };
     };
     static readonly of = ({ font, em }: Pick<Face, 'font' | 'em'>, run: typeof ShapedText.Run.Type, settings = Settings.make({})) => {
         const { text, item, features, language, script, direction, clusterLevel, flags } = ShapedText.converted(run, settings);
         const buffer = new Buffer();
-        const { start, length } = Option.getOrElse(item, () => Word.Span.make({ start: 0, end: text.length }));
+        const { start, length } = Option.getOrElse(item, () => Span.make({ start: 0, end: text.length }));
         buffer.addText(text, start, length);
         buffer.setClusterLevel(ClusterLevel[clusterLevel]);
         buffer.setFlags(Number.sumAll(Array.map(flags, (flag) => BufferFlag[flag])));

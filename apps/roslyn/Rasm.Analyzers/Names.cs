@@ -103,34 +103,6 @@ public sealed class NamespaceOwnerAnalyzer : DiagnosticAnalyzer {
 }
 
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class FolderNameAnalyzer : DiagnosticAnalyzer {
-
-    // --- [RULES]
-
-    private static readonly DiagnosticDescriptor Rule = new(
-        "RASM3008",
-        "File named after its folder, rename for its concept family",
-        "`{0}` takes its folder's name, name the file for its concept family",
-        Categories.CSharp,
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
-        "Name source files for their concept family in place of their parent directory.",
-        Link("RASM3008"));
-
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
-
-    public override void Initialize(AnalysisContext context) {
-        context.EnableConcurrentExecution();
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxTreeAction(static tree => {
-            string path = tree.Tree.FilePath;
-            if (Path.GetFileNameWithoutExtension(path) is { Length: > 0 } name && string.Equals(name, Path.GetFileName(Path.GetDirectoryName(path)), StringComparison.Ordinal))
-                tree.ReportDiagnostic(Diagnostic.Create(Rule, tree.Tree.GetRoot(tree.CancellationToken).GetFirstToken().GetLocation(), Path.GetFileName(path)));
-        });
-    }
-}
-
-[DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class QualifiedNameAnalyzer : DiagnosticAnalyzer {
 
     // --- [RULES]
@@ -155,11 +127,40 @@ public sealed class QualifiedNameAnalyzer : DiagnosticAnalyzer {
         "Import package namespaces and write simple names when no namespace type clashes with project declarations or file simple names.",
         Link("RASM3010"));
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Shadowed, Qualified];
+    private static readonly DiagnosticDescriptor Renamed = new(
+        "RASM3014",
+        "Using alias renames a type or namespace, write its name at each use",
+        "`{0}` renames a {1}, write the {1} at each use",
+        Categories.CSharp,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        "Write types and delegates at each use: where two imported namespaces hold one simple name, import the namespace the file names simply and write the other type through its namespace; a namespace alias keeps the namespace's own name, and a tuple alias stays only where more than one use reads its shape.",
+        Link("RASM3014"));
+
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Shadowed, Qualified, Renamed];
 
     public override void Initialize(AnalysisContext context) {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        context.RegisterSyntaxNodeAction(
+            static node => {
+                if (node.Node is UsingDirectiveSyntax { Alias: not null } directive
+                    && node.SemanticModel.GetDeclaredSymbol(directive, node.CancellationToken) is { Target: var target } alias
+                    && target switch {
+                        INamespaceSymbol space => !string.Equals(alias.Name, space.Name, StringComparison.Ordinal),
+                        INamedTypeSymbol { IsTupleType: true } when directive.GlobalKeyword.IsKind(SyntaxKind.None) => !directive.Parent!.DescendantNodes().OfType<IdentifierNameSyntax>()
+                            .Where(used => string.Equals(used.Identifier.ValueText, alias.Name, StringComparison.Ordinal)
+                                && SymbolEqualityComparer.Default.Equals(node.SemanticModel.GetAliasInfo(used, node.CancellationToken), alias)).Skip(1).Any(),
+                        _ => true,
+                    })
+                    node.ReportDiagnostic(Diagnostic.Create(Renamed, directive.GetLocation(), alias.Name, target switch {
+                        INamespaceSymbol => "namespace",
+                        INamedTypeSymbol { IsTupleType: true } => "tuple",
+                        INamedTypeSymbol { TypeKind: TypeKind.Delegate } => "delegate",
+                        _ => "type",
+                    }));
+            },
+            SyntaxKind.UsingDirective);
         context.RegisterCompilationStartAction(static start => {
             ConcurrentDictionary<SyntaxTree, ILookup<string, SimpleNameSyntax>> unqualified = new();
             ConcurrentDictionary<SyntaxTree, ConcurrentDictionary<INamespaceSymbol, bool>> ambiguous = new();
@@ -190,14 +191,23 @@ public sealed class QualifiedNameAnalyzer : DiagnosticAnalyzer {
                     if (owner is not (INamespaceSymbol or INamedTypeSymbol) || Sourced(owner)) return;
                     ImmutableArray<ISymbol> scopes = [.. model.GetImportScopes(node.Node.SpanStart, token).SelectMany(static scope => scope.Imports).Select(static import => import.NamespaceOrType)];
                     if ((owner is INamedTypeSymbol) != Among(owner, scopes) || model.GetSymbolInfo(right, token).Symbol is not { } target || target is INamespaceSymbol) return;
-                    ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: right.Identifier.ValueText).Where(found => !Same(found, target))];
+                    bool typed = SyntaxFacts.IsInNamespaceOrTypeContext((ExpressionSyntax)node.Node);
+                    ImmutableArray<ISymbol> visible = [.. model.LookupSymbols(node.Node.SpanStart, name: right.Identifier.ValueText).Where(found => !Same(found, target)
+                        && (!typed || found is INamespaceOrTypeSymbol or IAliasSymbol)
+                        && !(found is IFieldSymbol or IPropertySymbol or ILocalSymbol or IParameterSymbol && Same(found switch {
+                            IFieldSymbol field => field.Type,
+                            IPropertySymbol property => property.Type,
+                            ILocalSymbol local => local.Type,
+                            IParameterSymbol parameter => parameter.Type,
+                            _ => null,
+                        }, target)))];
                     ILookup<string, SimpleNameSyntax> used = unqualified.GetOrAdd(
                         node.Node.SyntaxTree,
                         tree => tree.GetRoot(token).DescendantNodes().OfType<SimpleNameSyntax>().Where(Looked).ToLookup(static held => held.Identifier.ValueText, StringComparer.Ordinal));
                     bool Ambiguous(INamedTypeSymbol member) =>
                         used[member.Name].Any(held => held.Arity == member.Arity && model.GetAliasInfo(held, token) is null
                             && model.GetSymbolInfo(held, token).Symbol is INamedTypeSymbol { ContainingType: null } bound && !Same(bound, member));
-                    if (visible.FirstOrDefault(Sourced) is { } shadowing)
+                    if (visible.FirstOrDefault(static found => found is not IAliasSymbol && Sourced(found)) is { } shadowing)
                         node.ReportDiagnostic(Diagnostic.Create(Shadowed, node.Node.GetLocation(), node.Node, shadowing.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat), owner.ToDisplayString()));
                     else if (visible.IsEmpty && owner is INamespaceSymbol space) {
                         ImmutableHashSet<string> sourceNames = [with(StringComparer.Ordinal), .. model.LookupSymbols(node.Node.SpanStart).Where(Sourced).Select(static symbol => symbol.Name)];

@@ -3,23 +3,25 @@ language: csharplang
 severity: error
 ignores: ['apps/roslyn/**']
 utils:
-    limit:
+    type-bound:
+        kind: argument
+        has:
+            any:
+                - {kind: identifier, regex: '^(MinValue|MaxValue)$'}
+                - {has: {stopBy: end, kind: identifier, regex: '^(MinValue|MaxValue)$'}}
+    literal:
         any:
-            - kind: member_access_expression
-              has: {field: name, regex: '^(MinValue|MaxValue)$'}
             - kind: 'integer_literal, real_literal'
-            - kind: prefix_unary_expression
-              has: {kind: 'integer_literal, real_literal'}
+            - {kind: prefix_unary_expression, has: {kind: 'integer_literal, real_literal'}}
     saturation:
         kind: invocation_expression
-        has:
-            field: function
-            kind: member_access_expression
-            any:
-                - has: {field: name, regex: '^Clamp$'}
-                - all:
-                    - has: {field: name, regex: '^(Min|Max)$'}
-                    - inside: {kind: invocation_expression, has: {field: arguments, has: {kind: argument, has: {matches: limit}}}}
+        any:
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Clamp$'}}
+                - has: {field: arguments, has: {kind: argument, not: {any: [{nthChild: 1}, {matches: type-bound}]}}}
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Min|Max)$'}}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {has: {kind: argument, has: {matches: literal}}}]}
 rule:
     kind: invocation_expression
     pattern: $FACTORY
@@ -30,10 +32,6 @@ rule:
             all:
                 - has: {field: name, regex: '^(Validated|Validate|TryCreate)$'}
                 - has: {field: expression, kind: identifier, regex: '^[A-Z]'}
-        - has:
-            field: arguments
-            all:
-                - has: {kind: argument, nthChild: 1, has: {matches: saturation, pattern: $CLAMP}}
-                - not: {has: {kind: argument, nthChild: 2}}
-message: '`$CLAMP` saturates `$FACTORY` argument before validation'
-note: 'Pass the measured value to `<type>.Validated`, saturation belongs to an `IMinMaxValue` type'
+        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: saturation, pattern: $CLAMP}}}
+message: '`$CLAMP` restates bounds `$FACTORY` validates'
+note: 'Saturate into the type''s `MinValue` and `MaxValue`, or pass the measured value to `<type>.Validated`'

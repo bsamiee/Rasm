@@ -6,7 +6,7 @@ from enum import auto, Enum
 from functools import partial
 import inspect
 from types import GenericAlias
-from typing import ClassVar, Final, Generic, overload, TypeVar
+from typing import Annotated, ClassVar, Final, Generic, overload, TypeVar
 
 import bpy
 from expression import Option, Some
@@ -17,38 +17,37 @@ import OpenImageIO
 import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _acquired, Acquisitions, Declaration, Registrable
-from rasm_bpy.data._ids.ownership import _retained, Mark, Ownership, Saved
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, Declaration, Registrable
+from rasm_bpy.data._ids.ownership import Mark, Ownership, retained, Saved
 from rasm_bpy.data._ids.store import IdName
 from rasm_bpy.data._rna.animation import Animation, Driven, Keys
 from rasm_bpy.data._rna.descriptors import Value, written
-from rasm_bpy.data._rna.paths import _rna, Struct
-from rasm_bpy.data._rna.properties import _titled
+from rasm_bpy.data._rna.paths import rna, Struct
+from rasm_bpy.data._rna.properties import titled
 from rasm_bpy.nodes import functions
 from rasm_bpy.nodes._addressing import InterfaceKeys
-from rasm_bpy.nodes._desired import _OUTPUTS, End, INPUTS, item_key, Link, Node
+from rasm_bpy.nodes._desired import End, INPUTS, item_key, Link, Node, OUTPUTS
 from rasm_bpy.nodes._graphs import Expr, group_input
 from rasm_bpy.nodes._interfaces import Interface, InterfacePanel, Socket
-from rasm_bpy.nodes._trees import _endpoints, _links_of, _socket_at
+from rasm_bpy.nodes._trees import endpoints, links_of, socket_at
 from rasm_bpy.nodes.changes import made, NodeGroup, reconciled
 from rasm_bpy.render._compositor import colors
-from rasm_bpy.render._compositor.colors import _converted, _pointwise, COLOR_INPUT, COLOR_RESULT, with_alpha
+from rasm_bpy.render._compositor.colors import COLOR_INPUT, COLOR_RESULT, converted_color, pointwise_color, with_alpha
 from rasm_bpy.render._compositor.coordinates import PixelGrid, uv_mapped
-from rasm_bpy.render._compositor.editing import _Arranger
-from rasm_bpy.render._compositor.entries import _added_entry, _marked
-from rasm_bpy.render._compositor.inputs import _FRAMING, DerivedInputs, entered, FRAME_ASPECT, FRAME_SCALE, GraphInputs, grouped, Holds, PreviewFrame, ResultOverBase
+from rasm_bpy.render._compositor.editing import Arranger
+from rasm_bpy.render._compositor.entries import added_entry, marked
+from rasm_bpy.render._compositor.inputs import DerivedInputs, entered, FRAME_ASPECT, FRAME_SCALE, FRAMING, GraphInputs, grouped, Holds, PreviewFrame, ResultOverBase
 from rasm_bpy.render._compositor.masks import Blend, blended
 from rasm_bpy.render._outputs.framing import FrameSize
-from rasm_bpy.render._view_layers.passes import _required, _used, PassRequest
+from rasm_bpy.render._view_layers.passes import PassRequest, required, used
 from rasm_bpy.settings._attachments import Stored
 from rasm_bpy.ui._layout.rows import RowContent
 from rasm_imaging import Estimate, Precision, Raster
-from rasm_records import accumulated, Case, Error, Fault, Name, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Case, Error, Fault, Name, Nothing, Ok, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Prepared = OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf] | Mapping[Key, Value] | tuple[Raster, Raster]
-type _Graphed = tuple[Expr, Option[Expr]]
 
 
 class Mix(Enum):
@@ -62,7 +61,7 @@ class Mix(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_VIEWER: Final[Key] = "viewer"
+VIEWER: Final[Key] = "viewer"
 _ENTRY: Final[Key] = "entry"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -71,7 +70,7 @@ _ENTRY: Final[Key] = "entry"
 class Named(bpy.types.PropertyGroup):
     """Compositor entry selected by name."""
 
-    name: bpy.props.StringProperty(name="Entry", description="Compositor entry name")  # ty: ignore[invalid-type-form]
+    name: Annotated[str, bpy.props.StringProperty(name="Entry", description="Compositor entry name")]
 
 
 class Stage(msgspec.Struct, frozen=True, kw_only=True):
@@ -183,7 +182,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def title(self) -> str:
         """Record class name in `titled` words naming entries, groups, and commands."""
-        return _titled(self.record)
+        return titled(self.record)
 
     @property
     def description(self) -> str | None:
@@ -193,7 +192,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def framed(self) -> tuple[DerivedInputs, ...]:
         """Camera frame derivation every entry holds, then the effect's own."""
-        return (_FRAMING, *self.derives)
+        return (FRAMING, *self.derives)
 
     @property
     def reads(self) -> tuple[tuple[type[Struct], bpy.types.Property], ...]:
@@ -208,7 +207,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Frame inputs and placement of the owned nodes each group builds."""
-        return (*FrameSize.prerequisites, _Arranger())
+        return (*FrameSize.prerequisites, Arranger())
 
     def seeded(self, scene: bpy.types.Scene) -> Outcome[CompositorRecord]:
         """Returns the record a new entry starts with from the effect's source."""
@@ -226,19 +225,19 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns ownerships, registered rows, and what the editor rows hold."""
-        return (*self.ownerships, *self.registers, *_acquired(self.rows))
+        return (*self.ownerships, *self.registers, *acquired_rows(self.rows))
 
     # --- [ENTRIES]
 
     def entries(self, identity: Identity, scene: bpy.types.Scene) -> tuple[bpy.types.SceneCompositorEffect, ...]:
         """Returns the entries whose groups hold either ownership mark of the effect, in stack order."""
         keys = frozenset(owner.key for owner in self.ownerships)
-        return tuple(entry for entry, mark in _marked(identity, scene) if mark.key in keys)
+        return tuple(entry for entry, mark in marked(identity, scene) if mark.key in keys)
 
     def earliest(self, identity: Identity, scene: bpy.types.Scene) -> Option[bpy.types.SceneCompositorEffect]:
         """Returns the first entry of the effect in stack order."""
         keys = frozenset(owner.key for owner in self.ownerships)
-        return Option.of_optional(next((entry for entry, mark in _marked(identity, scene) if mark.key in keys), None))
+        return Option.of_optional(next((entry for entry, mark in marked(identity, scene) if mark.key in keys), None))
 
     @overload
     def read(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[Entry[CompositorRecord]]: ...
@@ -281,9 +280,9 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         """Creates an entry of the effect at the stack end once its requirements and group succeed, named after the effect unless stated."""
         with ExitStack() as rollback:
             built = self.met(identity, scene, record.record, Nothing).bind(lambda request: self.made(identity, scene, record, PyOpenColorIO.GetCurrentConfig(), preview, request, rasters=rasters))
-            return _retained(
+            return retained(
                 built.bind(
-                    lambda held: _added_entry(rollback, scene, held[0], name=Some(name.default_value(self.title))).bind(
+                    lambda held: added_entry(rollback, scene, held[0], name=Some(name.default_value(self.title))).bind(
                         lambda entry: self.filled(identity, scene, entry, held[0], record).map(lambda _: entry)
                     )
                 ),
@@ -343,12 +342,12 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         self, identity: Identity, scene: bpy.types.Scene, record: CompositorRecord, entry: Option[bpy.types.SceneCompositorEffect], source: Option[bpy.types.Scene] = Nothing
     ) -> Outcome[tuple[str, Option[PassRequest]]]:
         """Runs the scene check, then names the scene's first rendered view layer the group reads and makes its pass request."""
-        layer = Block.of_seq(_used(scene)).try_head().map(lambda held: held.name).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.view_layers), member="used view layer"))
+        layer = Block.of_seq(used(scene)).try_head().map(lambda held: held.name).to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.view_layers), member="used view layer"))
         request = Option.of_optional(record.requested)
         return paired(self.checked(identity, source.default_value(scene), entry), layer).bind(
             lambda pair: (
                 request
-                .map(lambda requested: requested(pair[1]).bind(lambda found: _required(scene, bpy.context, (found,)).map(lambda _: Some(found))))
+                .map(lambda requested: requested(pair[1]).bind(lambda found: required(scene, bpy.context, (found,)).map(lambda _: Some(found))))
                 .default_value(Ok(Nothing))
                 .map(lambda found: (pair[1], found))
             )
@@ -396,19 +395,19 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         kept = (render,) if request.filter(lambda held: bool(held.flags)).is_some() else ()
 
         def converting(key: Key, source: str, target: str, term: Expr) -> Outcome[Expr]:
-            return _converted(key, config, source, target, term) if straight else _pointwise(f"{key}_scope", term, partial(_converted, key, config, source, target))
+            return converted_color(key, config, source, target, term) if straight else pointwise_color(f"{key}_scope", term, partial(converted_color, key, config, source, target))
 
         def leaving(key: Key, term: Expr) -> Outcome[Expr]:
             return space.map(lambda name: converting(key, name, PyOpenColorIO.ROLE_SCENE_LINEAR, term)).default_value(Ok(term))
 
-        def split(graphed: Expr | ResultOverBase) -> Outcome[_Graphed]:
+        def split(graphed: Expr | ResultOverBase) -> Outcome[tuple[Expr, Option[Expr]]]:
             match graphed:
                 case ResultOverBase(result=result, base=base):
                     return paired(leaving("space_out", result), leaving("space_base", base)).map(lambda parts: (parts[0], Some(parts[1])))
                 case _:
                     return leaving("space_out", graphed).map(lambda result: (result, Nothing))
 
-        def operation(source: Expr) -> Outcome[_Graphed]:
+        def operation(source: Expr) -> Outcome[tuple[Expr, Option[Expr]]]:
             shell = GraphInputs(
                 identity=identity,
                 config=config,
@@ -429,13 +428,13 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(split)
             )
 
-        def associated(parts: _Graphed) -> Outcome[_Graphed]:
+        def associated(parts: tuple[Expr, Option[Expr]]) -> Outcome[tuple[Expr, Option[Expr]]]:
             result, base = parts
-            color = _pointwise("color", entering, lambda _: Ok(result))
+            color = pointwise_color("color", entering, lambda _: Ok(result))
             return (
                 color.map(lambda held: (held, Nothing))
                 if base.is_none()
-                else paired(color, _pointwise("color_base", original, lambda _: Ok(base.some))).map(lambda held: (held[0], Option[Expr](some=held[1])))
+                else paired(color, pointwise_color("color_base", original, lambda _: Ok(base.some))).map(lambda held: (held[0], Option[Expr](some=held[1])))
             )
 
         def assembled(result: Expr) -> Outcome[NodeGroup]:
@@ -446,7 +445,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        def finished(parts: _Graphed) -> Outcome[NodeGroup]:
+        def finished(parts: tuple[Expr, Option[Expr]]) -> Outcome[NodeGroup]:
             result, base = parts
             match self.mix:
                 case Mix.REPLACE:
@@ -474,25 +473,25 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
 
         def refreshed(group: NodeGroup, live: bpy.types.NodeTree, keys: Mapping[Key, str]) -> Outcome[tuple[bpy.types.NodeTree, bool]]:
             keyed = {node: mark.key for node in live.nodes for mark in Mark.read(identity, node).to_list()}
-            viewers = tuple(node for node, key in keyed.items() if key == _VIEWER)
+            viewers = tuple(node for node, key in keyed.items() if key == VIEWER)
             semantic = {identifier: key for key, identifier in keys.items()}
             placed = group.graph.placed
 
             def endpoint(node: bpy.types.Node, socket: bpy.types.NodeSocket) -> End:
-                return End(node=keyed[node], socket=semantic.get(socket.identifier, socket.identifier) if keyed[node] in {INPUTS, _OUTPUTS} else socket.identifier)
+                return End(node=keyed[node], socket=semantic.get(socket.identifier, socket.identifier) if keyed[node] in {INPUTS, OUTPUTS} else socket.identifier)
 
             def fed(socket: bpy.types.NodeSocket) -> tuple[Link, ...]:
                 return tuple(
                     Link(source=endpoint(source, outlet), target=endpoint(target, inlet))
-                    for link in _links_of(socket)
-                    for source, outlet, target, inlet in (_endpoints(link),)
+                    for link in links_of(socket)
+                    for source, outlet, target, inlet in (endpoints(link),)
                     if source in keyed and keyed[source] in placed
                 )
 
             graph = msgspec.structs.replace(
                 group.graph,
-                nodes={**group.graph.nodes, **({_VIEWER: Node(kind=bpy.types.CompositorNodeViewer)} if viewers else {})},
-                links=(*group.graph.links, *(link for viewer in viewers for socket in _socket_at(viewer.inputs, "Image").to_option().to_list() for link in fed(socket))),
+                nodes={**group.graph.nodes, **({VIEWER: Node(kind=bpy.types.CompositorNodeViewer)} if viewers else {})},
+                links=(*group.graph.links, *(link for viewer in viewers for socket in socket_at(viewer.inputs, "Image").to_option().to_list() for link in fed(socket))),
             )
             return reconciled(msgspec.structs.replace(group, graph=graph), live, identity).map(lambda changes: (live, any(changes)))
 
@@ -504,8 +503,12 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
             if Mark.read(identity, live).filter(lambda mark: mark.key == own.key and mark.of == owner).is_some():
                 return refreshed(group, live, InterfaceKeys.of(live, identity).sockets)
             with ExitStack() as rollback:
-                copied: bpy.types.NodeTree = live.copy()  # ty: ignore[invalid-assignment]
-                return _retained(own.owned(identity, copied, of=owner, scope=Some(rollback)).bind(lambda copy: refreshed(group, copy, InterfaceKeys.of(copy, identity).sockets)), rollback)
+                return retained(
+                    typed(bpy.types.NodeTree, repr(live), live.copy())
+                    .bind(lambda copied: own.owned(identity, copied, of=owner, scope=Some(rollback)))
+                    .bind(lambda copy: refreshed(group, copy, InterfaceKeys.of(copy, identity).sockets)),
+                    rollback,
+                )
 
         return self.built(identity, scene, record, config, preview, met, camera=rasters.map(lambda held: held[1])).bind(
             lambda group: held.map(partial(adopted, group)).default_with(lambda: made(group, identity, of=owner).map(lambda live: (live, True)))
@@ -525,7 +528,7 @@ class CompositorEffect(msgspec.Struct, frozen=True, kw_only=True):
         def keyed(channel: Animation) -> Outcome[bool]:
             match channel.source:
                 case Driven():
-                    return Error(Fault.of(Reason.OUTSIDE, _rna(channel.path), Driven.__name__, member=Keys.__name__))
+                    return Error(Fault.of(Reason.OUTSIDE, rna(channel.path), Driven.__name__, member=Keys.__name__))
                 case Keys():
                     return channel.apply(scene)
 
@@ -549,4 +552,4 @@ def depth_precise(layer: str) -> Outcome[PassRequest]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CompositorEffect", "CompositorRecord", "Defaults", "Entry", "FromFile", "Mix", "Named", "Prepared", "Seeded", "Stage", "depth_precise", "precise"]
+__all__ = ["VIEWER", "CompositorEffect", "CompositorRecord", "Defaults", "Entry", "FromFile", "Mix", "Named", "Prepared", "Seeded", "Stage", "depth_precise", "precise"]

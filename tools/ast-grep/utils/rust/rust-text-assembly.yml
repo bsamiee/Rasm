@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-text-assembly
+language: rustlang
+arguments: [text, head]
+rule:
+    any:
+        - kind: macro_invocation
+          all:
+            - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln)$'}}}
+            - has: {kind: token_tree, has: {kind: 'string_literal, raw_string_literal', all: [{regex: '(^|[^{])\{[\p{XID_Continue}:}]'}, {matches: text}]}}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\+$'}
+            - has:
+                field: left
+                any:
+                    - matches: head
+                    - kind: call_expression
+                      any:
+                        - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|to_string|into)$'}}, {has: {field: value, matches: head}}]}
+                        - all: [{has: {field: function, regex: '^((::)?(std|alloc)::)?(string::)?String::from$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: head}}}]
+        - kind: compound_assignment_expr
+          all:
+            - has: {field: operator, regex: '^\+=$'}
+            - has: {field: right, matches: head}
+        - kind: call_expression
+          any:
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^push_str$'}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: head}}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(concat|join)$'}}, {has: {field: value, kind: array_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: head}}}]}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: text}}]}

@@ -6,11 +6,6 @@ import CasePathsCore
 import Processes
 import System
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-private let beatAttributes: [String] = [kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute]
-private let modalPanelLayer: Int = .init(CGWindowLevelForKey(.modalPanelWindow))
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Beat: Sendable {
@@ -30,20 +25,8 @@ struct Beat: Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func blocking(_ number: CGWindowID, in beat: Beat, tagged: Bool, flat: Bool) -> InstanceState.Window.Description {
-    switch (beat.described[number], tagged, flat && beat.answered.map { answered in !answered.contains(number) } == true) {
-        case (.some(let element), _, _) where element.asking || !tagged: .element(element)
-        case (_, true, _), (.none, false, true): .blocking
-        case (_, false, _): .undescribed
-    }
-}
-
 extension NSRunningApplication {
     var isDialogHelper: Bool { bundleIdentifier.map(dialogHelpers.contains) == true }
-
-    private func processStatus() throws(ApplicationFailure) -> ProcessStatus {
-        do { return try ProcessStatus(of: processIdentifier, mainThread: true) } catch { throw ApplicationFailure(error, process: processIdentifier) }
-    }
 
     private func rows(_ listed: [InstanceState.Window], in beat: Beat, reading once: Bool, _ description: (CGWindowID) -> InstanceState.Window.Description) -> [InstanceState.Window] {
         let numbers = Set(listed.map(\.number))
@@ -60,25 +43,25 @@ extension NSRunningApplication {
         heartbeat: Bool,
         ticks: AsyncStream<Void>.Continuation?,
     ) throws(ApplicationFailure) -> Beat {
-        var next: Beat = held
+        var next = held
         let application = AXUIElement.application(processIdentifier)
         if let ticks {
             next.observer = next.observer ?? Result { () throws(ApplicationFailure) in try Observer(self, ticks: ticks) }
             try next.observer?.get().register(on: application)
         }
-        let read: [String: CFTypeRef] = try application.values(beatAttributes)
-        let tokens: [Data?] =
+        let read = try application.values([kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute])
+        let tokens =
             (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.checked).map(\.token) + [read[kAXFocusedWindowAttribute].flatMap(AXUIElement.checked)?.token]
         let numbers = Set(listed.map(\.number))
         if !heartbeat || next.tokens != tokens || next.numbers != numbers {
-            let helper: Bool = isDialogHelper
-            let elements: [(window: CGWindowID?, element: Element)] = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in
+            let helper = isDialogHelper
+            let elements = try AXUIElement.candidates(read).map { candidate throws(ApplicationFailure) in
                 try candidate.described(walking: walked, helper: helper, among: listed)
             }
             .compactMap(\.self)
             next.described = Dictionary(elements.compactMap { row in row.window.map { window in (window, row.element) } }) { first, second in first.asking ? first : second }
-            let bars: [String: CFTypeRef] = try application.values(menuBars)
-            let barred: [Element] = try menuBars.enumerated().map { index, bar throws(ApplicationFailure) in
+            let bars = try application.values(menuBars)
+            let barred = try menuBars.enumerated().map { index, bar throws(ApplicationFailure) in
                 try bars[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, among: listed, bar: index)?.element
             }
             .compactMap(\.self)
@@ -99,9 +82,10 @@ extension NSRunningApplication {
     private func silent(after held: Beat, sampling: Bool, process: ProcessStatus, listed: [InstanceState.Window]) throws(ApplicationFailure) -> Beat {
         let time: Duration
         do { time = try mainThreadUserTime(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
-        let tagged = Set(listed.filter { window in window.layer == modalPanelLayer }.map(\.number))
-        let idle: Bool = held.mainThread == time
-        let flat: Bool = isFinishedLaunching && idle
+        let modal = Int(CGWindowLevelForKey(.modalPanelWindow))
+        let tagged = Set(listed.filter { window in window.layer == modal }.map(\.number))
+        let idle = held.mainThread == time
+        let flat = isFinishedLaunching && idle
         let status: InstanceState.Running.Status =
             switch (isFinishedLaunching, held.mainThread == nil, held.status) {
                 case (false, _, _) where idle: .unresponsive(process)
@@ -109,10 +93,16 @@ extension NSRunningApplication {
                 case (true, true, .some(let answered)): answered
                 case (true, _, _): .unresponsive(process)
             }
-        var next: Beat = held
+        var next = held
         next.status = status
         next.mainThread = time
-        return concluded(next, status: status, sampling: sampling, listed: listed) { number in blocking(number, in: held, tagged: tagged.contains(number), flat: flat) }
+        return concluded(next, status: status, sampling: sampling, listed: listed) { number in
+            switch (held.described[number], tagged.contains(number), flat && held.answered.map { answered in !answered.contains(number) } == true) {
+                case (.some(let element), let isTagged, _) where element.asking || !isTagged: .element(element)
+                case (_, true, _), (.none, false, true): .blocking
+                case (_, false, _): .undescribed
+            }
+        }
     }
 
     private func concluded(
@@ -122,7 +112,7 @@ extension NSRunningApplication {
         listed: [InstanceState.Window],
         _ description: (CGWindowID) -> InstanceState.Window.Description,
     ) -> Beat {
-        var next: Beat = beat
+        var next = beat
         if status.is(\.unresponsive), next.baseline == nil, isFinishedLaunching { next.baseline = [] }
         next.usage =
             switch (sampling, status, beat.usage) {
@@ -151,11 +141,12 @@ extension NSRunningApplication {
         ticks: AsyncStream<Void>.Continuation? = nil,
     ) async -> Beat {
         await withTaskExecutorPreference(accessibility) { () -> Beat in
-            let listed: [InstanceState.Window] = InstanceState.Window.owned(by: processIdentifier).filter { window in !window.frame.isEmpty }
-            let held: Beat = last ?? Beat()
-            let sampling: Bool = last == nil
+            let listed = InstanceState.Window.owned(by: processIdentifier).filter { window in !window.frame.isEmpty }
+            let held = last ?? Beat()
+            let sampling = last == nil
             do throws(ApplicationFailure) {
-                let process: ProcessStatus = try processStatus()
+                let process: ProcessStatus
+                do throws(Errno) { process = try ProcessStatus(of: processIdentifier, mainThread: true) } catch { throw ApplicationFailure(error, process: processIdentifier) }
                 guard process != .stopped else {
                     return concluded(held, status: .unresponsive(.stopped), sampling: sampling, listed: listed) { number in
                         held.described[number].map(InstanceState.Window.Description.element) ?? .undescribed
@@ -170,7 +161,7 @@ extension NSRunningApplication {
                     return try silent(after: held, sampling: sampling, process: process, listed: listed)
                 }
             } catch {
-                var failed: Beat = held
+                var failed = held
                 failed.state = .failed(error)
                 return failed
             }

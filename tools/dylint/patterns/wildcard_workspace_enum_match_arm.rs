@@ -1,24 +1,20 @@
-use core::{convert::identity, iter, ops::ControlFlow};
+use core::convert::identity;
+use core::iter;
+use core::ops::ControlFlow;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    expr_or_init, fn_def_id, is_refutable, is_wild,
-    macros::{MacroCall, root_macro_call},
-    paths::PathNS,
-    peel_blocks, peel_hir_expr_refs, peel_hir_pat_refs, recurse_or_patterns,
-    res::MaybeDef as _,
-    sym,
-    visitors::{Descend, for_each_expr_without_closures},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{MacroCall, root_macro_call};
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::visitors::{Descend, for_each_expr_without_closures};
+use clippy_utils::{expr_or_init, fn_def_id, is_refutable, is_wild, peel_blocks, peel_hir_expr_refs, peel_hir_pat_refs, recurse_or_patterns, sym};
 use itertools::{Either, Itertools as _};
 use rustc_ast::LitKind;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
-use rustc_hir::{
-    Arm, BinOpKind, Expr, ExprKind, HirId, LetStmt, MatchSource, Pat, PatExpr, PatExprKind, PatKind, UnOp,
-    def::{CtorOf, DefKind, Res},
-    def_id::DefId,
-    pat_util::EnumerateAndAdjustIterator as _,
-};
+use rustc_hir::def::{CtorOf, DefKind, Res};
+use rustc_hir::def_id::DefId;
+use rustc_hir::pat_util::EnumerateAndAdjustIterator as _;
+use rustc_hir::{Arm, BinOpKind, Expr, ExprKind, HirId, LetStmt, MatchSource, Pat, PatExpr, PatExprKind, PatKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, AdtDef, Ty, TyCtxt, TypeckResults, VariantDef};
 use rustc_span::{Span, Spanned, Symbol};

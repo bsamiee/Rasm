@@ -8,10 +8,25 @@ utils:
             inside:
                 kind: Typename
                 inside: {kind: 'columnDef, alter_table_cmd, CreateDomainStmt, TableFuncElement'}
+    name:
+        any:
+            - kind: type_function_name
+              not: {precedes: {kind: attrs}}
+            - kind: ColLabel
+              inside: {kind: attrs, not: {has: {kind: attrs}}, follows: {kind: type_function_name, regex: '^(?i-u:pg_catalog)$|^"pg_catalog"$'}}
 rule:
     all:
         - any:
-            - {matches: stored, kind: GenericType, regex: '(?i-u)^"?(?:(?:small|big)?serial[248]?|money|timetz|timestamp|bpchar)"?$|^"?timestamp(?:tz)?"?[\t\n\v\f\r ]*\([\t\n\v\f\r ]*0[\t\n\v\f\r ]*\)$'}
+            - matches: stored
+              kind: GenericType
+              any:
+                - has: {stopBy: &modifiers {kind: expr_list}, matches: name, regex: '(?i-u)^"?(?:(?:small|big)?serial[248]?|money|timetz|timestamp|bpchar|char)"?$'}
+                - all:
+                    - has: {stopBy: *modifiers, matches: name, regex: '(?i-u)^"?varchar"?$'}
+                    - has: {kind: expr_list}
+                - all:
+                    - has: {stopBy: *modifiers, matches: name, regex: '(?i-u)^"?timestamptz"?$'}
+                    - has: {kind: expr_list, regex: '^0$'}
             - {matches: stored, kind: CharacterWithLength}
             - {matches: stored, kind: character, regex: '(?i-u)^(?:n(?:ational[\t\n\v\f\r ]+)?)?char(?:acter)?$'}
             - {matches: stored, kind: ConstDatetime, regex: '(?i-u)^timestamp', not: {regex: '(?i-u)(?-u:\b)with[\t\n\v\f\r ]'}}

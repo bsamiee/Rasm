@@ -8,7 +8,7 @@ private struct InfoFlag: Decodable {
     let value: Bool
 
     init(from decoder: any Decoder) throws {
-        let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
+        let container = try decoder.singleValueContainer()
         do { value = try container.decode(Bool.self) } catch DecodingError.typeMismatch {
             do { value = try container.decode(Double.self) != 0 } catch DecodingError.typeMismatch { value = try NSString(string: container.decode(String.self)).boolValue }
         }
@@ -48,10 +48,10 @@ public struct Installation: Encodable, Hashable, Sendable {
         private let prerelease: Substring?
 
         public init(rawValue: String) {
-            let end: String.Index = rawValue.firstIndex { character in !character.isASCII || !(character.isNumber || character == ".") } ?? rawValue.endIndex
-            let suffix: Substring = rawValue[end...].drop { character in character == "-" }
+            let end = rawValue.firstIndex { character in !character.isASCII || !(character.isNumber || character == ".") } ?? rawValue.endIndex
+            let suffix = rawValue[end...].drop { character in character == "-" }
             self.rawValue = rawValue
-            let numbers: [Int] = rawValue[..<end].split(separator: ".").compactMap { component in Int(component) }
+            let numbers = rawValue[..<end].split(separator: ".").compactMap { component in Int(component) }
             release = Array(numbers.reversed().drop { component in component == 0 }.reversed())
             prerelease = suffix.isEmpty ? nil : suffix
         }
@@ -96,7 +96,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let activationPolicy: NSApplication.ActivationPolicy
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(url, forKey: .url)
         try fields.encodeIfPresent(executable, forKey: .executable)
         try fields.encode(identifier, forKey: .identifier)
@@ -122,8 +122,8 @@ extension NSApplication.ActivationPolicy {
 
 extension Installation {
     public init(at url: URL) throws(ApplicationFailure) {
-        let bundle: URL = url.resolvingSymlinksInPath()
-        let path: String = bundle.path(percentEncoded: false)
+        let bundle = url.resolvingSymlinksInPath()
+        let path = bundle.path(percentEncoded: false)
         let (info, values): (BundleInfo?, URLResourceValues)
         do {
             (info, values) = try (
@@ -133,7 +133,7 @@ extension Installation {
         } catch {
             throw ApplicationFailure(subject: path, reason: .host(error as NSError))
         }
-        guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
+        guard let identifier = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         self.init(
             url: bundle,
             executable: Bundle(url: bundle)?.executableURL,
@@ -148,7 +148,7 @@ extension Installation {
     }
 
     public static func newest(of name: String, among installations: [Self]) throws(ApplicationFailure) -> Self {
-        let version: Version? = installations.compactMap(\.version).max()
+        let version = installations.compactMap(\.version).max()
         return try Unmatched.single(
             installations.filter { installation in installation.version == version },
             subject: "newest installation",

@@ -12,35 +12,10 @@ utils:
                     |select\p{Pattern_White_Space}[^"]*(?-u:\b)from\p{Pattern_White_Space}|insert\p{Pattern_White_Space}+(or\p{Pattern_White_Space}+\p{XID_Continue}+\p{Pattern_White_Space}+)?into\p{Pattern_White_Space}|update\p{Pattern_White_Space}+\P{Pattern_White_Space}+\p{Pattern_White_Space}+set\p{Pattern_White_Space}|delete\p{Pattern_White_Space}+from\p{Pattern_White_Space}|with\p{Pattern_White_Space}+(recursive\p{Pattern_White_Space}+)?\P{Pattern_White_Space}+\p{Pattern_White_Space}+as\p{Pattern_White_Space}*\(
                 )
             - regex: '(?-u:\b)(WHERE|AND|OR|SET|VALUES|IN|LIKE|HAVING)(?-u:\b)[^"]*''\{[^{}]*\}'''
-    sql-head:
-        any:
-            - matches: sql-text
-            - kind: call_expression
-              any:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|to_string|into)$'}}, {has: {field: value, matches: sql-text}}]}
-                - all: [{has: {field: function, regex: '^((::)?(std|alloc)::)?(string::)?String::from$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: sql-text}}}]
 rule:
+    kind: 'macro_invocation, binary_expression, compound_assignment_expr, call_expression'
     all:
-        - any:
-            - kind: macro_invocation
-              all:
-                - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln)$'}}}
-                - has: {kind: token_tree, has: {all: [{matches: sql-text}, {regex: '(^|[^{])\{[\p{XID_Continue}:}]'}]}}
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^\+$'}
-                - has: {field: left, matches: sql-head}
-            - kind: compound_assignment_expr
-              all:
-                - has: {field: operator, regex: '^\+=$'}
-                - has: {field: right, matches: sql-text}
-            - kind: call_expression
-              any:
-                - all:
-                    - has: {field: function, kind: field_expression, has: {field: field, regex: '^push_str$'}}
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: sql-text}}
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(concat|join)$'}}, {has: {field: value, kind: array_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: sql-text}}}]}
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: sql-text}}]}
-        - pattern: $SQL
+        - {matches: {rust-text-assembly: {text: {kind: &literal 'string_literal, raw_string_literal', matches: sql-text}, head: {kind: *literal, matches: sql-text}}}}
+        - {pattern: $SQL}
 message: '`$SQL` interpolates values into SQL text'
 note: 'Bind each value through `sqlx::query!` for a fixed statement, `sea_query` for a varying one, `sqlx::QueryBuilder::push_bind` for a value list'

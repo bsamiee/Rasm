@@ -1,37 +1,42 @@
 """Layer stack composition over the effects an extension offers: presets, the operator of every stack command, menus, the editor section with its layer list, the preset popover, the scene look pick tiling the presets, and the layered document of formed color and raw mask coverage with its export."""
 
-from collections.abc import Callable, Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, nullcontext
 from functools import cached_property, partial
+from pathlib import Path
 from types import GenericAlias, MappingProxyType
 from typing import Final
 
 import bpy
-from expression import Option, Some
+from expression import Option, Some, try_downcast
 from expression.collections import Block
+from expression.extra.result import catch
 import msgspec
+import numpy as np
+import numpy.typing as npt
+import OpenImageIO
 import PyOpenColorIO
 
 from rasm_bpy.commands.invocations import Open, Popup
 from rasm_bpy.commands.operators import Answer, BoundBody, Call, Command, Done, Empty, Invoke, Operator, Placement, PopupKind, PopupTarget, Unchanged
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration, Handler, Resource, Subscription
+from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle
+from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.data._rna.paths import id_data, root_in, rooted, Struct
-from rasm_bpy.data._rna.properties import _rebound, _titled, Callbacks, Changed, choices, EnumItem, IconedItem
-from rasm_bpy.nodes._addressing import InterfaceKeys, owned
+from rasm_bpy.data._rna.properties import Callbacks, Changed, choices, EnumItem, IconedItem, rebound, titled
+from rasm_bpy.nodes._addressing import grouped_value, InterfaceKeys, owned
 from rasm_bpy.nodes._desired import item_key
 from rasm_bpy.render._color.spaces import viewed
 from rasm_bpy.render._compositor import stack_commands
-from rasm_bpy.render._compositor.documents import _layered
-from rasm_bpy.render._compositor.editing import _Arranger
-from rasm_bpy.render._compositor.editors import _node_editors
+from rasm_bpy.render._compositor.editing import Arranger
+from rasm_bpy.render._compositor.editors import node_editors
 from rasm_bpy.render._compositor.effects import CompositorEffect, Entry
-from rasm_bpy.render._compositor.inputs import _FRAMING, _interface_input, captured
+from rasm_bpy.render._compositor.inputs import captured, entry_value, FRAMING, interface_input
 from rasm_bpy.render._compositor.layers import (
-    _OWNERSHIP,
-    _TITLE,
-    _VIEW,
+    Adjustment,
+    COMPOSITE_PART,
     Copied,
     Edit,
     EffectAt,
@@ -45,47 +50,52 @@ from rasm_bpy.render._compositor.layers import (
     LayerStack,
     NodeKind,
     OutputChoice,
+    OWNERSHIP,
     PassSourced,
     RecombinedSourced,
+    stack_file,
     StackLayer,
     StackLook,
     StackTarget,
     StoredLayer,
     Switched,
     TermFiltering,
+    TITLE,
+    VIEW,
 )
+from rasm_bpy.render._compositor.masks import MODE, OPACITY, photoshop
 from rasm_bpy.render._compositor.offered import Choice, OfferedEffects
 from rasm_bpy.render._compositor.recipes import Valued
-from rasm_bpy.render._compositor.stack_service import LayerStackService, Selection
+from rasm_bpy.render._compositor.stack_service import LayerStackService, nested_tree, Selection
 from rasm_bpy.render._outputs.exports import Layering
+from rasm_bpy.render._outputs.formats import extension
 from rasm_bpy.render._outputs.framing import FrameSize
 from rasm_bpy.render._view_layers.passes import PassFlags
 from rasm_bpy.settings._attachments import Attachment, Stored
 from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._elements.menus import Dropdown, Menu, Submenus
-from rasm_bpy.ui._elements.panels import _POPOVER, Panel
-from rasm_bpy.ui._layout.lists import _ItemList
+from rasm_bpy.ui._elements.panels import Panel, POPOVER
+from rasm_bpy.ui._layout.lists import ItemList
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _operator_button, _realized, Layout, Opens, OperatorButton, Property, RowContent, RowDraw
+from rasm_bpy.ui._layout.rows import Layout, Opens, operator_button, OperatorButton, Property, realized, RowContent, RowDraw
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.templates import Gallery
 from rasm_bpy.ui._layout.values import Listing
 from rasm_bpy.ui._resources.icons import Icons
-from rasm_imaging import called, Depth, DisplayView, Document, Multilayer
-from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_imaging import called, Coded, Depth, DisplayView, Document, DocumentLayers, Layer, LayerGroup, Multilayer, PixelLayer, unassociated
+from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Operators = Mapping[object, Command]
 type _Listed = Listing[Valued[LayerStack]] | Listing[Valued[StackLayer]] | Listing[Valued[Entry]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ADD_LAYER: Final[Key] = "add_layer"
 _ADD_EFFECT: Final[Key] = "layer_effect_add"
-_SPECIALS: Final[Key] = f"{_OWNERSHIP.key}_specials"
+_SPECIALS: Final[Key] = f"{OWNERSHIP.key}_specials"
 _UNPICKED: Final = "NONE"
-_MEDIA: Final = (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie))  # ty: ignore[unresolved-attribute]
+_MEDIA: Final = (*sorted(bpy.path.extensions_image), *sorted(bpy.path.extensions_movie))  # ty: ignore[missing-attribute]
 _WATCHED: Final = tuple(
     (owner, owner.bl_rna.properties[name])
     for owner, name in ((bpy.types.RenderSettings, "film_transparent"), (bpy.types.ViewLayer, "name"), (bpy.types.ViewLayer, "use"), (bpy.types.Object, "lightgroup"), (bpy.types.World, "lightgroup"))
@@ -114,10 +124,90 @@ _LAYER_SOURCES: Final = (
 def _presets_drawn(stacking: LayerStackService, creating: Command, listings: tuple[tuple[_Listed, RowDraw], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws the preset listing of each held stack, layer, or effect, the New Stack button while no stack exists."""
     if rooted(bpy.types.Scene, context).bind(stacking.head).is_error():
-        stacking.identity.reports.faulted(_operator_button(layout, stacking.identity, Placement(creating), {"text": creating.title}))
+        stacking.identity.reports.faulted(operator_button(layout, stacking.identity, Placement(creating), {"text": creating.title}))
     for listing, draw in listings:
         if listing.current(context).is_ok():
             draw(layout, holder, context)
+
+
+def _layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: DisplayView, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
+    """Layered document of formed color and raw mask coverage of the scene's head stack at a saved frame, formed through the view, nested stacks as groups.
+
+    Returns:
+        `Ok` of the document. `Error` of `absent` for a missing file, layer, or frame number, and `refused` for an unreadable number or opacity.
+    """
+    identity = stacking.identity
+    number = (
+        Block
+        .of_seq(frame.parts.values())
+        .try_head()
+        .bind(lambda part: Option.of_optional(try_downcast(str, part.getattribute("Frame", OpenImageIO.TypeString))))
+        .to_result_with(partial(Fault.of, Reason.ABSENT, str(frame.path), member="Frame"))
+        .bind(lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Refusal.REFUSED, str(frame.path))))
+    )
+
+    def read_tree(tree: bpy.types.NodeTree, record: LayerStack, at: int, valued: Callable[[Key], Outcome[Value]]) -> Outcome[tuple[DocumentLayers, npt.NDArray[np.float32]]]:
+        shown = frozenset(layer.key for layer, _ in record.composited())
+        nodes = owned(tree, identity)
+        path = (
+            Block
+            .of_seq(nodes.values())
+            .choose(lambda node: Option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, node)))
+            .try_head()
+            .bind(lambda node: Option.of_optional(node.format).bind(extension).map(lambda suffix: Path(bpy.path.abspath(node.directory)) / f"{stack_file(tree.session_uid, Some(at))}{suffix}"))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=bpy.types.CompositorNodeOutputFile.__name__))
+        )
+
+        def planes(file: Multilayer) -> Outcome[tuple[DocumentLayers, npt.NDArray[np.float32]]]:
+            layers: dict[str, Layer] = {}
+            for layer in file.layers:
+                layers.setdefault(layer.name, layer)
+
+            def raw(name: str) -> Outcome[npt.NDArray[np.float32]]:
+                found = Option.of_optional(layers.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member=name))
+                return found.bind(lambda layer: file.plane(layer, layer.channels))
+
+            def color(name: str) -> Outcome[tuple[npt.NDArray[Coded], npt.NDArray[Coded]]]:
+                return raw(name).bind(lambda pixels: view.form(config, pixels)).map(unassociated).bind(lambda pixels: paired(depth.coded(pixels[..., :3]), depth.coded(pixels[..., 3])))
+
+            def blend(layer: StackLayer) -> Outcome[tuple[object, float]]:
+                read = partial(item_key, layer.key, StackLayer.blend)
+                return paired(valued(read(MODE.key)), valued(read(OPACITY.key)).bind(partial(typed, float, layer.key)))
+
+            def each(layer: StackLayer) -> Outcome[PixelLayer | LayerGroup]:
+                visible = layer.key in shown
+                if isinstance(layer.source, Adjustment):
+                    return color(layer.composite_part).map(lambda codes: PixelLayer(name=layer.name, color=codes[0], alpha=codes[1], visible=visible))
+                mask = raw(layer.mask_part).bind(lambda pixels: depth.coded(pixels[..., 0])).map(Some) if layer.blend.masks or layer.matte else Ok(Nothing)
+                nested = (
+                    nested_tree(identity, tree, layer)
+                    .filter(lambda _: layer.plain)
+                    .map(
+                        lambda inner: paired(stacking.read(inner), blend(layer)).bind(
+                            lambda parts: read_tree(inner, parts[0], at, partial(grouped_value, identity, inner, nodes[layer.node])).map(
+                                lambda held: LayerGroup(name=layer.name, layers=held[0], mode=photoshop(str(parts[1][0])), opacity=parts[1][1], visible=visible)
+                            )
+                        )
+                    )
+                )
+                return nested.default_with(
+                    lambda: paired(color(layer.key), mask, blend(layer)).map(
+                        lambda parts: PixelLayer(name=layer.name, color=parts[0][0], alpha=parts[0][1], mask=parts[1], mode=photoshop(str(parts[2][0])), opacity=parts[2][1], visible=visible)
+                    )
+                )
+
+            return paired(accumulated(each(layer) for layer in record.layers), raw(COMPOSITE_PART).bind(lambda pixels: view.form(config, pixels)).map(unassociated))
+
+        return path.bind(Multilayer.read).bind(planes)
+
+    def composed(entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, record: LayerStack, at: int) -> Outcome[Document]:
+        density = scene.render.ppm_factor / scene.render.ppm_base
+        space = view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, repr(config), member=f"{view.display}/{view.view}"))
+        return paired(read_tree(tree, record, at, partial(entry_value, identity, entry)), space).bind(
+            lambda parts: depth.coded(parts[0][1]).map(lambda composite: Document(layers=parts[0][0], composite=composite, colorspace=parts[1].getName(), density=density))
+        )
+
+    return stacking.head(scene).bind(lambda held: paired(stacking.read(held[1]), number).bind(lambda parts: composed(held[0], held[1], *parts)))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -142,7 +232,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def _preset[S: msgspec.Struct](self, key: Key, structure: type[S], stock: Mapping[str, Valued[S]] = MappingProxyType({})) -> Preset[Valued[S]]:
         """Presets of one generic structure over the offered records, with its input values."""
-        return Preset(key=key, form=GenericAlias(Valued, (GenericAlias(structure, (self.rows.form,)),)), stock=stock)  # ty: ignore[invalid-type-form]
+        return Preset(key=key, decoder=msgspec.json.Decoder(GenericAlias(Valued, (GenericAlias(structure, (self.rows.form,)),))), stock=stock)
 
     @cached_property
     def accepted(self) -> tuple[CompositorEffect, ...]:
@@ -155,34 +245,34 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return Resource[Callable[[], None]](made=lambda identity: identity.reports.deferred(lambda: self.bound(identity).bind(LayerStackService.refreshed)))
 
     @cached_property
-    def operating(self) -> Resource[Operators]:
-        """Operators of every stack command an extension registers, built once per extension, its stack pickers reading that extension's stacks and layer rows."""
-        return Resource[Operators](made=lambda identity: nullcontext(self.operators(identity)))
+    def operating(self) -> Resource[Mapping[object, Command]]:
+        """Mapping[object, Command] of every stack command an extension registers, built once per extension, its stack pickers reading that extension's stacks and layer rows."""
+        return Resource[Mapping[object, Command]](made=lambda identity: nullcontext(self.operators(identity)))
 
     @cached_property
     def layered(self) -> Attachment[LayerRows]:
         """Layer rows on the stack group owning each layer's name, flags, and order, a row edit queueing the stack refresh."""
-        return Attachment(key=f"{_OWNERSHIP.key}_layers", form=LayerRows, owner=bpy.types.NodeTree, changed=Some(lambda identity: nullcontext(lambda _owner, _context: self.refresh[identity]())))
+        return Attachment(key=f"{OWNERSHIP.key}_layers", form=LayerRows, owner=bpy.types.NodeTree, changed=Some(lambda identity: nullcontext(lambda _owner, _context: self.refresh[identity]())))
 
     @cached_property
     def preset(self) -> Preset[Valued[LayerStack]]:
         """Stack presets with their input values over the stock looks."""
-        return self._preset(_OWNERSHIP.key, LayerStack, self.looks)
+        return self._preset(OWNERSHIP.key, LayerStack, self.looks)
 
     @cached_property
     def layer_preset(self) -> Preset[Valued[StackLayer]]:
         """Presets of one layer with its input values."""
-        return self._preset(f"{_OWNERSHIP.key}_layer", StackLayer)
+        return self._preset(f"{OWNERSHIP.key}_layer", StackLayer)
 
     @cached_property
     def entry_preset(self) -> Preset[Valued[Entry]]:
         """Presets of one effect with its blend and input values."""
-        return self._preset(f"{_OWNERSHIP.key}_entry", Entry)
+        return self._preset(f"{OWNERSHIP.key}_entry", Entry)
 
     @cached_property
     def layering(self) -> Layering:
         """Layered document export of the head stack at a saved frame."""
-        return Layering(key=_OWNERSHIP.key, document=self.document)
+        return Layering(key=OWNERSHIP.key, document=self.document)
 
     # --- [LOOKS]
 
@@ -190,7 +280,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def looking(self) -> Attachment[StackLook]:
         """Scene pick of a stack preset and its strength, its items the presets under their tiles, a pick or strength change writing the preset over the head stack."""
         return Attachment(
-            key=f"{_OWNERSHIP.key}_look",
+            key=f"{OWNERSHIP.key}_look",
             form=StackLook,
             owner=bpy.types.Scene,
             callbacks=Some(lambda identity: nullcontext({"look": Callbacks(items=partial(self.offered, identity))})),
@@ -244,23 +334,23 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns a stack command body with the operator running it over the calling extension's stacking, keyed and described by the body."""
         return body, Operator[T](form=form, run=BoundBody(self.bound, body), invoke=invoke)
 
-    def operators(self, identity: Identity) -> Operators:
+    def operators(self, identity: Identity) -> Mapping[object, Command]:
         """Builds the operator of every stack command once for an extension, its stack pickers listing the extension's stacks and the chosen stack's layer rows, its effect choice the accepted effects."""
 
         def stacks(_owner: Struct, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
-            return choices((tree.name, tree.name, "") for tree, _ in _OWNERSHIP.held(identity))
+            return choices((tree.name, tree.name, "") for tree, _ in OWNERSHIP.held(identity))
 
         def layers(owner: Copied, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
-            rows: list[tuple[str, str, str]] = []
-            for attached in self.layered.bound(identity).to_option().to_list():
-                for tree, _ in _OWNERSHIP.held(identity):
-                    if tree.name == owner.stack:
-                        layers: Iterable[LayerRow] = attached.struct(tree).layers  # ty: ignore[unsound-assignment]
-                        rows.extend((row.key, row.name, "") for row in layers)
-            return choices(rows)
+            return choices(
+                (row.key, row.name, "")
+                for attached in self.layered.bound(identity).to_option().to_list()
+                for tree, _ in OWNERSHIP.held(identity)
+                if tree.name == owner.stack
+                for row in attached.struct(tree).layers
+            )
 
-        switched, copied = _rebound(Switched, stack=Callbacks(items=stacks)), _rebound(Copied, stack=Callbacks(items=stacks), layer=Callbacks[Copied](items=layers))
-        chosen = _rebound(Choice, kind=Callbacks(items=choices((row.kind, row.title, row.description) for row in self.accepted)))
+        switched, copied = rebound(Switched, stack=Callbacks(items=stacks)), rebound(Copied, stack=Callbacks(items=stacks), layer=Callbacks[Copied](items=layers))
+        chosen = rebound(Choice, kind=Callbacks(items=choices((row.kind, row.title, row.description) for row in self.accepted)))
         return MappingProxyType(
             dict((
                 self.command(stack_commands.new_stack, Empty),
@@ -286,7 +376,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [MENUS]
 
-    def menus(self, operators: Operators) -> tuple[Menu, ...]:
+    def menus(self, operators: Mapping[object, Command]) -> tuple[Menu, ...]:
         """Menus adding a layer of each source, appending an accepted effect, one submenu per phase where accepted effects span more than one, and the stack commands beside the layer rows."""
         effects = tuple(
             (self.rows.phase(row).key, OperatorButton(target=Placement(operators[stack_commands.add_effect_to_layer], {"kind": row.kind}), keywords={"text": row.title})) for row in self.accepted
@@ -301,8 +391,8 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def bound(self, identity: Identity) -> Outcome[LayerStackService]:
         """Binds the store of each layer's structure, the layer rows and view attachments, and pass flags of an extension."""
-        stored = Stored.keyed(identity, _OWNERSHIP.key, msgspec.msgpack.Decoder(GenericAlias(dict, (Key, GenericAlias(StoredLayer, (self.rows.form,))))))
-        return paired(self.layered.bound(identity), _VIEW.bound(identity)).map(
+        stored = Stored.keyed(identity, OWNERSHIP.key, msgspec.msgpack.Decoder(GenericAlias(dict, (Key, GenericAlias(StoredLayer, (self.rows.form,))))))
+        return paired(self.layered.bound(identity), VIEW.bound(identity)).map(
             lambda parts: LayerStackService(identity=identity, rows=self.rows, filtering=self.filtering, store=stored, layer_rows=parts[0], view=parts[1], flags=PassFlags.of())
         )
 
@@ -318,14 +408,14 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def section(self, header: tuple[RowContent, ...] = ()) -> Section:
         """Returns the editor section under header rows, presets first."""
-        return Section(key=_OWNERSHIP.key, header=(Opens(target=PopupTarget(self.presets.key, PopupKind.PANEL), keywords={"text": ""}, icon=Some("PRESET")), *header), rows=(self,), opened=True)
+        return Section(key=OWNERSHIP.key, header=(Opens(target=PopupTarget(self.presets.key, PopupKind.PANEL), keywords={"text": ""}, icon=Some("PRESET")), *header), rows=(self,), opened=True)
 
     @cached_property
     def presets(self) -> Section:
         """Section of stack, layer, and effect preset listings, the popover the editor header opens."""
         return Section(
-            key=f"{_OWNERSHIP.key}_presets",
-            description=f"Apply, add, or import {_TITLE.lower()}, layer, and effect presets",
+            key=f"{OWNERSHIP.key}_presets",
+            description=f"Apply, add, or import {TITLE.lower()}, layer, and effect presets",
             rows=(Layout(builder=Some(lambda identity: self.presets_drawn(identity).map(lambda draw: (draw,))), prerequisites=(self,)),),
         )
 
@@ -344,7 +434,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Returns the draw of the layer list, then the selected layer's source, inputs, and node editors, and one panel per layer effect."""
         return self.bound(identity).bind(
-            lambda stacking: paired(self._layer_list(stacking).drawn(identity), _realized((Opens(target=PopupTarget(_ADD_EFFECT, PopupKind.MENU), icon=Some("ADD")),), identity)).map(
+            lambda stacking: paired(self._layer_list(stacking).drawn(identity), realized((Opens(target=PopupTarget(_ADD_EFFECT, PopupKind.MENU), icon=Some("ADD")),), identity)).map(
                 lambda parts: partial(self._editor_drawn, stacking, *parts)
             )
         )
@@ -354,7 +444,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Stack refresh and operators, view attachment, layer rows with the frame size binding stacks read, and the arranger placing owned stack nodes."""
-        return self.refresh, self.operating, _VIEW, self.layered, FrameSize.attachment, _Arranger()
+        return self.refresh, self.operating, VIEW, self.layered, FrameSize.attachment, Arranger()
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the extension's stack operators and menus over them, listings, the preset popover the section header opens, and the handlers and subscriptions queueing the stack refresh."""
@@ -367,9 +457,9 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def rows(stacking: LayerStackService) -> Acquisitions:
             handlers: tuple[Declaration, ...] = (
                 Handler(handlers=bpy.app.handlers.load_post, body=updated_scenes),
-                *(Subscription(owner=owner, setting=prop, body=updated_scenes) for owner, prop in (*_FRAMING.reads, *_WATCHED)),
+                *(Subscription(owner=owner, setting=prop, body=updated_scenes) for owner, prop in (*FRAMING.reads, *_WATCHED)),
             )
-            return (_OWNERSHIP, *operators.values(), *self.menus(operators), *self._preset_listings(stacking), self._layer_list(stacking), Panel(section=self.presets, at=_POPOVER), *handlers)
+            return (OWNERSHIP, *operators.values(), *self.menus(operators), *self._preset_listings(stacking), self._layer_list(stacking), Panel(section=self.presets, at=POPOVER), *handlers)
 
         return self.bound(identity).map(rows)
 
@@ -408,7 +498,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [EDITORS]
 
-    def _layer_list(self, stacking: LayerStackService) -> _ItemList[bpy.types.PropertyGroup, LayerRow]:
+    def _layer_list(self, stacking: LayerStackService) -> ItemList[bpy.types.PropertyGroup, LayerRow]:
         """Layer list top first with visibility, solo, and matte columns and edit side buttons, dragged to reorder."""
 
         def pressing(edit: Edit, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
@@ -417,8 +507,8 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def spaced(layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
             layout.separator(type="SPACE")
 
-        return _ItemList(
-            key=f"{_OWNERSHIP.key}_layers",
+        return ItemList(
+            key=f"{OWNERSHIP.key}_layers",
             collection=Member(
                 root=bpy.types.NodeTree,
                 path=(stacking.layer_rows.name, "layers"),
@@ -442,9 +532,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def _edited(self, layout: bpy.types.UILayout, identity: Identity, edit: Edit, target: StackTarget) -> Outcome[None]:
         """Draws the icon button of one edit over a target."""
-        return _operator_button(
-            layout, identity, Placement(self.operating[identity][stack_commands.edit_layer], {**msgspec.to_builtins(target), "action": edit.name}), {"text": "", "icon": edit.value}
-        )
+        return operator_button(layout, identity, Placement(self.operating[identity][stack_commands.edit_layer], {**msgspec.to_builtins(target), "action": edit.name}), {"text": "", "icon": edit.value})
 
     def _editor_drawn(self, stacking: LayerStackService, listing: RowDraw, adding: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the layer list top first, then the selected layer's source, inputs, and node editors, and one panel per layer effect."""
@@ -458,20 +546,20 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def mask(layout: bpy.types.UILayout, target: LayerAt | EffectAt) -> None:
             masking = operators[stack_commands.add_mask]
-            identity.reports.faulted(_operator_button(layout, identity, Placement(masking, msgspec.to_builtins(target)), {"text": masking.title, "icon": "MOD_MASK"}))
+            identity.reports.faulted(operator_button(layout, identity, Placement(masking, msgspec.to_builtins(target)), {"text": masking.title, "icon": "MOD_MASK"}))
 
         def detail(held: Selection, layer: StackLayer) -> None:
             nodes, sockets, places = owned(held.tree, identity), InterfaceKeys.of(held.tree, identity).sockets, layer.places
 
             def widgets(layout: bpy.types.UILayout, prefix: Key, inner: tuple[Key, ...]) -> None:
                 keys = frozenset(key for key in (*nodes, *sockets) if key.startswith(f"{prefix}_") and not any(key.startswith(f"{nested}_") for nested in inner))
-                _node_editors(layout, (node for key, node in nodes.items() if key in keys))
+                node_editors(layout, (node for key, node in nodes.items() if key in keys))
                 for identifier in (identifier for key, identifier in sockets.items() if key in keys):
-                    identity.reports.faulted(_interface_input(held.entry, identifier).map(lambda owner: layout.prop(owner, "value")))
+                    identity.reports.faulted(interface_input(held.entry, identifier).map(lambda owner: layout.prop(owner, "value")))
 
             def effected(layout: bpy.types.UILayout, at: EffectAt, place: Key, entry: Entry) -> None:
                 header, body = layout.panel(f"{place}_{held.tree.session_uid}", default_closed=False)
-                header.label(text=_titled(type(entry.record)))
+                header.label(text=titled(type(entry.record)))
                 edits_row(header, at)
                 for inner in Option.of_optional(body).to_list():
                     widgets(inner, place, ())
@@ -486,7 +574,7 @@ class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 outputs = layout.row(align=True)
                 for output in (output for output in source.outputs if output.enabled):
                     identity.reports.faulted(
-                        _operator_button(outputs, identity, Placement(operators[stack_commands.select_output], {"layer": at.layer, "output": output.name}), {"text": output.name, "translate": False})
+                        operator_button(outputs, identity, Placement(operators[stack_commands.select_output], {"layer": at.layer, "output": output.name}), {"text": output.name, "translate": False})
                     )
             widgets(layout, layer.key, places)
             buttons = layout.row(align=True)

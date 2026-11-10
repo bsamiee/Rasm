@@ -5,7 +5,7 @@ from enum import auto, Enum
 from functools import partial
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final, get_args, override
+from typing import Annotated, Final, get_args, override
 
 import bpy
 from expression import Result, Some
@@ -61,7 +61,7 @@ _STEP: Final = Socket(key="step", kind=bpy.types.NodeSocketFloat, description="O
 _STRAIGHT: Final = Socket(key="straight", kind=bpy.types.NodeSocketBool, description="Whether the writer rounds straight color")
 _COPY_FORMAT: Final = "png"
 _COPY_DEPTHS: Final[Mapping[str, IntegerDepth]] = MappingProxyType({f"BIT_{depth.bits}": depth for depth in get_args(IntegerDepth.__value__)})
-TILE: Final = Ownership(kind=bpy.types.Image, key="dither_tile", saved=Saved.USED)
+_TILE: Final = Ownership(kind=bpy.types.Image, key="dither_tile", saved=Saved.USED)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ class Dither(CompositorRecord, frozen=True, kw_only=True):
 
         def built(data: str) -> Expr:
             generated = Generated(
-                ownership=TILE,
+                ownership=_TILE,
                 content=content_hash(Dither, providers=(OpenImageIO,)),
                 name="Blue Noise Tile",
                 plane=lambda: ranks(OpenImageIO.ImageBufAlgo.bluenoise_image()).map(Some),
@@ -109,9 +109,15 @@ class Dither(CompositorRecord, frozen=True, kw_only=True):
 class DiffusedCopy(bpy.types.PropertyGroup):
     """PNG copy written beside each float frame a diffusing dither entry renders."""
 
-    depth: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
-        name="Copy Depth", description="Channel depth of diffused PNG copy", items=choices((name, bpy.path.display_name(name.lower()), "") for name in _COPY_DEPTHS), default=f"BIT_{Depth.UINT8.bits}"
-    )
+    depth: Annotated[
+        str,
+        bpy.props.EnumProperty(
+            name="Copy Depth",
+            description="Channel depth of diffused PNG copy",
+            items=choices((name, bpy.path.display_name(name.lower()), "") for name in _COPY_DEPTHS),
+            default=f"BIT_{Depth.UINT8.bits}",
+        ),
+    ]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -156,12 +162,12 @@ def _copied(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outcom
         for entry in dither.entries(identity, scene)
         if entry.enable_for_render
     ).map(lambda found: scene.render.use_compositing and any(found))
-    return diffusing.bind(lambda diffuses: COPY.read(identity, scene).bind(lambda settings: suffix.bind(partial(write, settings))) if diffuses else Ok(None))
+    return diffusing.bind(lambda diffuses: _COPY.read(identity, scene).bind(lambda settings: suffix.bind(partial(write, settings))) if diffuses else Ok(None))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-COPY: Final = Attachment(key="diffusion", form=DiffusedCopy, owner=bpy.types.Scene)
+_COPY: Final = Attachment(key="diffusion", form=DiffusedCopy, owner=bpy.types.Scene)
 dither: Final = CompositorEffect(
     record=Dither,
     interface=Interface(inputs=(_METHOD,)),
@@ -174,10 +180,10 @@ dither: Final = CompositorEffect(
         ),
     ),
     holds=Holds(scene=Snapshot.of(bpy.types.Scene, {("render", "dither_intensity"): 0.0})),
-    registers=(TILE, COPY),
+    registers=(_TILE, _COPY),
 )
 diffuse: Final = Finish(run=_copied, outputs=frozenset({Output.PREVIEW}), formats=frozenset({"OPEN_EXR"}), depths=frozenset({Depth.HALF, Depth.FLOAT}))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COPY", "TILE", "DiffusedCopy", "Dither", "diffuse", "dither"]
+__all__ = ["Dither", "diffuse", "dither"]

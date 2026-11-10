@@ -22,7 +22,7 @@ Code treats each crate as part of the language:
 - Crates export their own capability and the foreign types their signatures take or return, a whole re-exported dependency adding no capability
 - Deep nesting reshapes into a match over the discriminant, a table, or a relation
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
-- Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
+- Checker findings and disagreements resolve by a stronger shape or at the cause's owner, never by a suppression, a lowered level, or a narrower rule
 - Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 - Varying values and methods are parameters, a caller choosing among a result's methods (percentile or BCa) in place of a callee fixing the costlier

@@ -138,8 +138,8 @@ public static class Layouts {
         from written in Viewports.Pages(doc.Views.GetPageViews()).TraverseM(page =>
             from position in IO.pure(positions.Find(page.RuntimeSerialNumber))
             from stored in UserStrings.Write(page.MainViewport, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq(
-                    (Field: TitleField.SegmentNumber, Text: position.Map(static at => at.Ordinal.ToString(CultureInfo.InvariantCulture))),
-                    (Field: TitleField.SegmentCount, Text: position.Map(static at => at.Count.ToString(CultureInfo.InvariantCulture))))
+                    (Field: TitleField.Iso7200.SegmentNumber, Text: position.Map(static at => at.Ordinal.ToString(CultureInfo.InvariantCulture))),
+                    (Field: TitleField.Iso7200.SegmentCount, Text: position.Map(static at => at.Count.ToString(CultureInfo.InvariantCulture))))
                 .Choose(entry => sources.Find(entry.Field).Bind(static source => source.Key).Map(key => (key, entry.Text)))))
             select stored).As()
         select unit;

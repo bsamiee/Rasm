@@ -38,10 +38,6 @@ import { Value } from '#/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Typed {
-    readonly types: Option.Option<readonly string[]>;
-    readonly type: Option.Option<string>;
-}
 type Failure = HostError | Unmatched | Schema.SchemaError;
 type Member<E extends Enumeration> = [Extract<E[keyof E], Enumerator>] extends [never] ? Enumerator : Extract<E[keyof E], Enumerator>;
 type Owned = {
@@ -95,7 +91,8 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
         };
         const domObject = owning('toSpecifier');
         const document = owning('createTOC');
-        const ancestors = (object: unknown, link: 'parent' | 'basedOn' = 'parent'): readonly InDesignDOMObject<unknown>[] => Array.unfold(object, (above: unknown) => (domObject(above) && above.constructorName !== 'Application' ? Option.some([above, Reflect.get(above, link)] as const) : Option.none()));
+        const application = owning('menuActions');
+        const ancestors = (object: unknown, link: 'parent' | 'basedOn' = 'parent'): readonly InDesignDOMObject<unknown>[] => Array.unfold(object, (above: unknown) => (domObject(above) && !application(above) ? Option.some([above, Reflect.get(above, link)] as const) : Option.none()));
         const collection = owning('everyItem');
         const nothing = (value: unknown): boolean => enumerator(value) && indesign.NothingEnum.NOTHING.equals(value);
         const tagged = ({ propertySignatures }: SchemaAST.Objects) =>
@@ -188,7 +185,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
             collection,
             picked: (schema: Schema.Top, value: object, skipped: readonly PropertyKey[] = []): Record.ReadonlyRecord<string, unknown> => Option.getOrElse(Option.liftPredicate(picking(SchemaAST.toEncoded(schema.ast), value, skipped), Value.plainObject), Record.empty),
             named: owning('name'),
-            application: owning('menuActions'),
+            application,
             document,
             page: owning('documentOffset'),
             spread: owning('spreadHidden'),
@@ -366,7 +363,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 return Schema.is(Unmatched)(failed) ? Unmatched.make({ subject: `${failed.subject} or ${later.subject}`, query: failed.query, candidates: [...failed.candidates, ...later.candidates] }) : failed;
             };
         const firstOf = <A, E, R>([head, ...rest]: Array.NonEmptyReadonlyArray<Effect.Effect<A, E, R>>) => rest.reduce<Effect.Effect<A, E | Unmatched, R>>((chosen, next) => Effect.catch(chosen, (failed) => Effect.mapError(next, joined(failed))), head);
-        const typed = (row: Option.Option<Typed>) =>
+        const typed = (row: Option.Option<Pick<typeof ObjectModel.Field.Type, 'type' | 'types'>>) =>
             Effect.fnUntraced(function* (text: string) {
                 const { enumeration, classes, owner } = yield* Model;
                 const types = Option.getOrElse(Option.flatMap(row, Struct.get('types')), Array.empty<string>);
@@ -383,7 +380,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                 return yield* firstOf(Array.isReadonlyArrayNonEmpty(named) ? Array.prependAll(named, enumerated) : Array.append(enumerated, Effect.succeed<unknown>(text)));
             });
         const decode =
-            (row: Option.Option<Typed>, within: Option.Option<string>) =>
+            (row: Parameters<typeof typed>[0], within: Option.Option<string>) =>
             (value: unknown): Effect.Effect<unknown, Failure, Model> =>
                 Match.value(value).pipe(
                     Match.when(Schema.is(Value.Located), ({ specifier }) => Model.resolve(specifier)),
@@ -394,10 +391,10 @@ class Model extends Context.Service<Model>()('@rasm/indesign/uxp/model', {
                         Value.plainObject,
                         Effect.fnUntraced(function* (properties: Record.ReadonlyRecord<string, unknown>) {
                             const { declarations } = yield* Model;
-                            const fields: Record.ReadonlyRecord<string, Typed> = yield* Option.match(within, { onNone: () => Effect.succeed(Record.empty<string, Typed>()), onSome: (kind) => Effect.map(Cache.get(declarations, kind), Struct.get('fields')) });
+                            const fields = yield* Effect.transposeOption(Option.map(within, (kind) => Effect.map(Cache.get(declarations, kind), Struct.get('fields'))));
                             return yield* Effect.all(
                                 Record.map(properties, (each, key) => {
-                                    const field = Record.get(fields, key);
+                                    const field = Option.flatMap(fields, Record.get(key));
                                     return decode(field, Option.flatMap(field, Struct.get('type')))(each);
                                 }),
                             );

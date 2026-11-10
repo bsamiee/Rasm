@@ -1,14 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
-files: ['{apps/blender,libs/python/blender,libs/python/data/records}/**', 'eng/python/rasm_eng/_{probe,session,streams}.py']
+files: ['{apps/blender,libs/python/blender,libs/python/data/records}/**']
 rule:
     matches:
         python-evaluated-subscript:
             value:
                 pattern: $G
                 any:
-                    - matches: {python-builtin-name: {name: {regex: '^(classmethod|memoryview|staticmethod)$'}}}
+                    - matches: {python-builtin-name: {name: {regex: '^(classmethod|memoryview|slice|staticmethod)$'}}}
                     - matches: {python-member-use: {module: {regex: '^(_?(abc|ctypes|sqlite3)|types)$'}, name: {regex: '^(abstractclassmethod|abstractstaticmethod|py_object|Binary|UnionType)$'}}}
-message: '`$G` has no `__class_getitem__` below Python 3.14 and raises `TypeError` when subscripted'
-note: 'Write `<a> | <b>` for `types.UnionType`, else its `collections.abc` protocol or `type <Alias> = <class>[<args>]`'
+message: '`$G` has no `__class_getitem__` on Blender''s Python 3.13 and raises `TypeError` when subscripted'
+note: 'Write `<a> | <b>` for `types.UnionType`, annotate `slice` unsubscripted, or quote the subscripted annotation'

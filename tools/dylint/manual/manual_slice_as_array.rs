@@ -1,19 +1,14 @@
-use clippy_utils::{
-    consts::{ConstEvalCtxt, Constant},
-    diagnostics::span_lint_hir_and_then,
-    eq_expr_value, fn_def_id, get_parent_expr,
-    higher::{Range, RangeTy},
-    res::MaybeDef as _,
-    source::{snippet, snippet_opt},
-    sugg::Sugg,
-    sym,
-};
+use clippy_utils::consts::{ConstEvalCtxt, Constant};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::higher::{Range, RangeTy};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::{snippet, snippet_opt};
+use clippy_utils::sugg::Sugg;
+use clippy_utils::{eq_expr_value, fn_def_id, get_parent_expr, sym};
 use rustc_ast::BinOpKind;
 use rustc_errors::Applicability;
-use rustc_hir::{
-    Expr, ExprKind, PathSegment,
-    def::{DefKind, Res},
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::{Expr, ExprKind, PathSegment};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty;
 use rustc_span::{Ident, Spanned};

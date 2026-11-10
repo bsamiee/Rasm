@@ -7,7 +7,7 @@ import UniformTypeIdentifiers
 
 private func transparent(_ image: CGImage) -> Bool {
     guard
-        let context: CGContext = unsafe CGContext(
+        let context = unsafe CGContext(
             data: nil,
             width: image.width,
             height: image.height,
@@ -42,17 +42,17 @@ extension NSRunningApplication {
         do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false) } catch {
             throw ApplicationFailure(subject: String(processIdentifier), reason: .host(error as NSError))
         }
-        let listed: [CGWindowID: SCWindow] = Dictionary(
+        let listed = Dictionary(
             content.windows.filter { window in window.owningApplication?.processID == processIdentifier }.map { window in (window.windowID, window) }
         ) { first, _ in first }
         var shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = [:]
-        for number: CGWindowID in windows {
+        for number in windows {
             shots[number] = await Result { () async throws(ApplicationFailure) in
-                guard let window: SCWindow = listed[number], !window.frame.isEmpty else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
+                guard let window = listed[number], !window.frame.isEmpty else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
                 let filter = SCContentFilter(desktopIndependentWindow: window)
                 let scale = CGFloat(filter.pointPixelScale)
-                let fitted: CGFloat = longestSide.map { limit in min(1, CGFloat(limit) / (max(filter.contentRect.width, filter.contentRect.height) * scale)) } ?? 1
-                let capture: SCScreenshotConfiguration = configuration()
+                let fitted = longestSide.map { limit in min(1, CGFloat(limit) / (max(filter.contentRect.width, filter.contentRect.height) * scale)) } ?? 1
+                let capture = configuration()
                 capture.width = Int((filter.contentRect.width * scale * fitted).rounded())
                 capture.height = Int((filter.contentRect.height * scale * fitted).rounded())
                 do { return try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: capture) } catch {
@@ -75,11 +75,11 @@ extension NSRunningApplication {
             }
         }
         return try await screenshots(of: windows, longestSide: longestSide).reduce(into: [:]) { files, shot in
-            let (number, output): (CGWindowID, Result<SCScreenshotOutput, ApplicationFailure>) = shot
+            let (number, output) = shot
             if window == nil, case .success(let image) = output, image.sdrImage.map(transparent) == true { return }
             files[number] = output.flatMap { image in
                 Result { () throws(ApplicationFailure) in
-                    let path: URL = directory.appending(component: String(number)).appendingPathExtension(for: .png)
+                    let path = directory.appending(component: String(number)).appendingPathExtension(for: .png)
                     try image.write(to: path)
                     return path
                 }
@@ -90,8 +90,8 @@ extension NSRunningApplication {
 
 extension SCScreenshotOutput {
     public func write(to file: URL) throws(ApplicationFailure) {
-        let path: String = file.path(percentEncoded: false)
-        guard let image: CGImage = sdrImage else { throw ApplicationFailure(subject: path, reason: .noImage) }
+        let path = file.path(percentEncoded: false)
+        guard let image = sdrImage else { throw ApplicationFailure(subject: path, reason: .noImage) }
         guard let type = UTType(filenameExtension: file.pathExtension) else { throw ApplicationFailure(subject: path, reason: .noExtension) }
         let data: CFMutableData = CFDataCreateMutable(nil, 0)
         let unencodable = ApplicationFailure(subject: type.identifier, reason: .noEncoder)

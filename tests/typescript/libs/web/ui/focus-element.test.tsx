@@ -5,7 +5,7 @@ import { render } from 'vitest-browser-react';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _frame = () =>
+const nextFrame = () =>
     Effect.runPromise(
         Effect.callback<number>((resume) => {
             const frame = requestAnimationFrame(flow(Effect.succeed, resume));
@@ -45,6 +45,6 @@ it('leaves focus in place when the target unmounts before the frame', async () =
     await source.click();
     focusElement(id);
     await screen.rerender(<input aria-label="Source" />);
-    await _frame();
+    await nextFrame();
     await expect.element(source).toHaveFocus();
 });

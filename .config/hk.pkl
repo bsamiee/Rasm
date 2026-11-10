@@ -1,6 +1,6 @@
-amends "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v2.11.1/hk@2.11.1#/Builtins.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.12.0/hk@2.12.0#/Builtins.pkl"
 
 // --- [SETTINGS] -------------------------------------------------------------------------
 
@@ -19,6 +19,11 @@ steps {
   }
   ["ast-grep"] {
     glob = "**/*"
+    exclude =
+      read("../tools/dylint/.ignore").text
+        .split("\n")
+        .filter((line) -> line.startsWith("/"))
+        .map((line) -> "tools/dylint\(line)")
     depends = "grammars"
     check = new CommandSpec {
       command = new Command {
@@ -102,6 +107,15 @@ steps {
   ["editorconfig-checker"] = (Builtins.editorconfig_checker) {
     glob = "**/*.{csproj,fsproj,vbproj,props,targets,slnx,pkl,plist,entitlements}"
   }
+  ["file-names"] {
+    glob = "**/*.cs"
+    check = new CommandSpec {
+      command =
+        "for file in {{files}}; do [ \"${file##*/}\" != \"$(basename \"${file%/*}\").cs\" ] || { printf '%s:1:1: error: file named after its folder, name the file for its concept family\\n' \"$file\"; failed=1; }; done; [ -z \"${failed:-}\" ]"
+      effect = "read"
+    }
+    diagnostic_format = "gcc"
+  }
   ["google-java-format"] = (Builtins.google_java_format) {
     check {
       command {
@@ -118,7 +132,6 @@ steps {
     check {
       command { argv = List("jactionlint", "--strict-exit", "--format", "gcc", "{{files}}") }
     }
-    diagnostic_format = "gcc"
   }
   ["javac"] {
     glob = "**/*.java"
@@ -157,51 +170,44 @@ steps {
   ["ruff"] = Builtins.ruff
   ["ruff-format"] = (Builtins.ruff_format) { depends = "ruff" }
   ["rustfmt"] = (Builtins.rustfmt) {
+    local rustfmt =
+      List("rustfmt", "--config-path", ".config/rustfmt.toml", "--config", "skip_children=true")
     batch = true
-    check {
-      command { argv = List("rustfmt", "--check", "--config", "skip_children=true", "{{files}}") }
-    }
+    check { command { argv = rustfmt + List("--check", "{{files}}") } }
     check_list_files {
-      command {
-        argv =
-          List(
-            "rustfmt",
-            "--check",
-            "--files-with-diff",
-            "--config",
-            "skip_children=true",
-            "{{files}}",
-          )
-      }
+      command { argv = rustfmt + List("--check", "--files-with-diff", "{{files}}") }
     }
-    fix { command { argv = List("rustfmt", "--config", "skip_children=true", "{{files}}") } }
+    fix { command { argv = rustfmt + List("{{files}}") } }
   }
+  ["shellcheck"] = Builtins.shellcheck
+  ["shfmt"] = Builtins.shfmt
   ["squawk"] {
     glob = "**/*.pgsql"
     check = new CommandSpec {
-      command = new Command { argv = List("squawk", "--reporter", "gcc", "{{files}}") }
+      command = new Command {
+        argv = List("squawk", "--config", ".config/squawk.toml", "--reporter", "gcc", "{{files}}")
+      }
       effect = "read"
     }
     diagnostic_format = "gcc"
   }
   ["swiftlint"] = (Builtins.swiftlint) {
-    check { command { argv = List("swiftlint", "lint", "--quiet", "{{files}}") } }
-    fix { command { argv = List("swiftlint", "lint", "--fix", "--quiet", "{{files}}") } }
+    local swiftlint = List("swiftlint", "lint", "--quiet", "--config", ".config/swiftlint.yml")
+    check { command { argv = swiftlint + List("{{files}}") } }
+    fix { command { argv = swiftlint + List("--fix", "{{files}}") } }
     diagnostic_format = "gcc-paren"
   }
   ["swift-format"] {
     glob = "**/*.swift"
+    local configured =
+      List("--configuration", ".config/swift-format.json", "--parallel", "{{files}}")
     depends = "swiftlint"
     check = new CommandSpec {
-      command = new Command {
-        argv = List("swift", "format", "lint", "--strict", "--parallel", "{{files}}")
-      }
+      command = new Command { argv = List("swift", "format", "lint", "--strict") + configured }
       effect = "read"
     }
     fix = new CommandSpec {
-      command = new Command {
-        argv = List("swift", "format", "format", "--in-place", "--parallel", "{{files}}")
-      }
+      command = new Command { argv = List("swift", "format", "format", "--in-place") + configured }
       effect = "write"
     }
     diagnostic_format = "gcc"
@@ -223,7 +229,20 @@ steps {
   }
   ["yamllint"] = (Builtins.yamllint) {
     batch = true
-    check { command { argv = List("yamllint", "--strict", "--format", "standard", "{{files}}") } }
+    check {
+      command {
+        argv =
+          List(
+            "yamllint",
+            "--config-file",
+            ".config/yamllint.yaml",
+            "--strict",
+            "--format",
+            "standard",
+            "{{files}}",
+          )
+      }
+    }
     diagnostic_format = "stylish"
   }
 }
@@ -233,17 +252,12 @@ steps {
 hooks {
   ["commit-msg"] {
     steps {
-      ["conventional-commit"] = Builtins.check_conventional_commit
-      ["commit-scope"] {
+      ["conventional-commit"] {
         check = new CommandSpec {
           command =
             #"""
-            scope=$(sed -n '/^#/d;s/^[a-z]\{1,\}(\([^)]*\))!\{0,1\}: .*/\1/p;q' "{{commit_msg_file}}")
-            [ -z "$scope" ] && exit 0
-            projects=$(nx show projects --no-json) || exit
-            printf '%s\n' "$projects" | grep -Fqx -- "$scope" && exit 0
-            echo "Commit scope '$scope' is no Nx project, use one nx show projects lists or drop it" >&2
-            exit 1
+            projects=$(nx show projects --no-json)
+            hk util check-conventional-commit --allowed-scopes="$(printf '%s' "$projects" | tr '\n' ',')" "{{commit_msg_file}}"
             """#
           effect = "read"
         }

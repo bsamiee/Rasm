@@ -1,8 +1,6 @@
 use core::hint::black_box;
-use std::{
-    collections::{BTreeSet, HashSet},
-    rc::Rc,
-};
+use std::collections::{BTreeSet, HashSet};
+use std::rc::Rc;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

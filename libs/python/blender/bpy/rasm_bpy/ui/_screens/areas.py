@@ -1,20 +1,20 @@
 """Editor areas and regions of window screens."""
 
 from collections.abc import Callable, Iterable, Mapping
-from functools import partial, reduce
+from functools import partial
 from itertools import chain
-from types import MappingProxyType
 from typing import Final, Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Option, Result, Some, try_downcast
 import msgspec
+import numpy as np
 
 from rasm_bpy.commands.operators import called, Operation, Setting
 from rasm_bpy.data._rna.conditions import Condition, satisfied
 from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
-from rasm_bpy.data._rna.paths import _struct_at, Native, RnaPath, rooted, Struct
-from rasm_bpy.ui._resources.theme import _overlaps, Metrics
+from rasm_bpy.data._rna.paths import Native, RnaPath, rooted, Struct, struct_at
+from rasm_bpy.ui._resources.theme import Metrics
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
@@ -23,14 +23,11 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Edge = Literal["LEFT", "RIGHT", "TOP", "BOTTOM"]
-type _Step = _Split | _Retype | _EditorState | _Arrangement
-type _Written = tuple[tuple[tuple[Native, Descriptor[bpy.types.Property], Value | Struct], ...], Outcome[None]]
-type _Bounds = tuple[int, int, int, int]
+type _Step = _Split | _Retype | EditorState | Arrangement
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _AXES: Final[tuple[tuple[_Edge, _Edge], ...]] = (("LEFT", "RIGHT"), ("TOP", "BOTTOM"))
-_RENAMED: Final[Mapping["rna_enums.RegionTypeItems", str]] = MappingProxyType({"TOOLS": "toolbar", "ASSET_SHELF_HEADER": "asset_shelf"})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -67,7 +64,7 @@ class Located(msgspec.Struct, frozen=True, kw_only=True):
 
     def within(self, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[Self]:
         """Returns the area located at its first region of a type."""
-        return _region_in(self.area, kind).map(lambda region: msgspec.structs.replace(self, region=Some(region)))
+        return region_in(self.area, kind).map(lambda region: msgspec.structs.replace(self, region=Some(region)))
 
     @property
     def override(self) -> bpy.types.ContextTempOverride:
@@ -107,7 +104,7 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class _EditorState(msgspec.Struct, frozen=True, kw_only=True):
+class EditorState(msgspec.Struct, frozen=True, kw_only=True):
     """RNA values in dependency order under the active space, or under a region of a type."""
 
     region: "Option[rna_enums.RegionTypeItems]" = Nothing
@@ -126,25 +123,21 @@ class _EditorState(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Replaced values, Nothing while the base or an owner is absent.
         """
-        base = self.region.map(lambda kind: _region_in(at.area, kind).to_option()).default_with(lambda: Option.of_optional(at.area.spaces.active))
-
-        def stepped(state: _Written, setting: Descriptor[bpy.types.Property], value: Value | bytes | Struct) -> Result[_Written, _Written]:
-            match base.filter(lambda held: isinstance(held, setting.root)).bind(lambda held: _struct_at(held, setting.owner)).map(lambda held: (held, setting.write(held, value))):
-                case Option(some=(held, Result(tag="ok", ok=prior))):
-                    return Result[_Written, _Written].Ok(((*state[0], *((held, setting, replaced) for replaced in prior.to_list())), Ok(None)))
-                case missed:
-                    return Result[_Written, _Written].Error((state[0], missed.map(lambda pair: pair[1].map(lambda _: None)).default_value(Ok(None))))
+        base = self.region.map(lambda kind: region_in(at.area, kind).to_option()).default_with(lambda: Option.of_optional(at.area.spaces.active))
 
         with at.override:
-            done, stopped = (outcome := reduce(lambda state, pair: state.bind(lambda held: stepped(held, *pair)), self.values, Result[_Written, _Written](ok=((), Ok(None))))).merge()
-            return (
-                Ok(Some(msgspec.structs.replace(self, values=tuple((setting, prior) for _, setting, prior in reversed(done)))))
-                if outcome.is_ok()
-                else accumulated((stopped, *(descriptor.write(held, prior) for held, descriptor, prior in reversed(done)))).map(lambda _: Nothing)
-            )
+            done = list[tuple[Native, Descriptor[bpy.types.Property], Value | Struct]]()
+            for setting, value in self.values:
+                match base.filter(lambda held: isinstance(held, setting.root)).bind(lambda held: struct_at(held, setting.owner)).map(lambda held: (held, setting.write(held, value))):
+                    case Option(some=(held, Result(tag="ok", ok=prior))):
+                        done.extend((held, setting, replaced) for replaced in prior.to_list())
+                    case missed:
+                        stopped = missed.map(lambda pair: pair[1].map(lambda _: None)).default_value(Ok(None))
+                        return accumulated((stopped, *(descriptor.write(held, prior) for held, descriptor, prior in reversed(done)))).map(lambda _: Nothing)
+            return Ok(Some(msgspec.structs.replace(self, values=tuple((setting, prior) for _, setting, prior in reversed(done)))))
 
 
-class _NodeEditing(msgspec.Struct, frozen=True, kw_only=True):
+class NodeEditing(msgspec.Struct, frozen=True, kw_only=True):
     """Node editor cursor, edited tree, and selected active node."""
 
     cursor: tuple[float, float]
@@ -172,17 +165,17 @@ class _Split(msgspec.Struct, frozen=True, kw_only=True):
     side: _Edge
     share: float
     ui_type: str
-    state: _EditorState = _EditorState()
+    state: EditorState = EditorState()
 
 
 class _Retype(msgspec.Struct, frozen=True, kw_only=True):
     """Editor type change, its state applied on the next pass."""
 
     ui_type: str
-    state: _EditorState = _EditorState()
+    state: EditorState = EditorState()
 
 
-class _Arrangement(msgspec.Struct, frozen=True, kw_only=True):
+class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
     """Steps applied to one area one host pass apart, then an optional maximization, holding the writes that revert each."""
 
     at: Located
@@ -203,7 +196,7 @@ class _Arrangement(msgspec.Struct, frozen=True, kw_only=True):
             return Some(msgspec.structs.replace(self, steps=(*following, *self.steps[1:]), undo=(*self.undo, undo)))
 
         match self.steps:
-            case (_EditorState() as state, *_):
+            case (EditorState() as state, *_):
                 return state.applied(at).map(
                     lambda prior: prior.map(lambda held: kept(partial(_reached, window, at.area.as_pointer(), lambda live: held.applied(live).map(lambda _: None)))).default_value(Some(self))
                 )
@@ -226,12 +219,12 @@ class _Arrangement(msgspec.Struct, frozen=True, kw_only=True):
                         lambda area: written(area, ("ui_type",), ui_type).map(
                             lambda _: kept(
                                 partial(_reached, window, area.as_pointer(), lambda live: live.run(bpy.ops.screen.area_close, {})),
-                                *((_Arrangement(at=Located(window=window, area=area), steps=(state,)),) if state.values else ()),
+                                *((Arrangement(at=Located(window=window, area=area), steps=(state,)),) if state.values else ()),
                             )
                         )
                     )
                 )
-            case (_Arrangement() as nested, *rest):
+            case (Arrangement() as nested, *rest):
                 return nested.advanced().bind(
                     lambda moved: moved.map(lambda held: Ok(Some(msgspec.structs.replace(self, steps=(held, *rest))))).default_with(
                         lambda: msgspec.structs.replace(self, steps=tuple(rest), undo=(*self.undo, *nested.undo)).stepped(at)
@@ -265,7 +258,7 @@ def areas(windows: Iterable[bpy.types.Window]) -> tuple[Located, ...]:
     return tuple(Located(window=window, area=area) for window in windows for area in chain(window.screen.areas, window.global_areas))
 
 
-def _region_in(area: bpy.types.Area, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[bpy.types.Region]:
+def region_in(area: bpy.types.Area, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[bpy.types.Region]:
     """Returns the area's first region of a type."""
     return Option.of_optional(next((region for region in area.regions if region.type == kind), None)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(area), member=kind))
 
@@ -276,34 +269,6 @@ def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located],
 
 
 # --- [REGIONS]
-
-
-def _visible_bounds(area: bpy.types.Area, region: bpy.types.Region) -> _Bounds:
-    """Returns the region's `(x, y, width, height)` in its own pixels less the siblings overlapping it."""
-    preferences = Metrics.read().preferences
-
-    def inset(bounds: _Bounds, sibling: bpy.types.Region) -> _Bounds:
-        left, bottom, right, top = bounds
-        x, y = sibling.x, sibling.y
-        xmax, ymax = x + sibling.width - 1, y + sibling.height - 1
-        match sibling.alignment:
-            case _ if not (left <= xmax and right >= x and bottom <= ymax and top >= y):
-                return bounds
-            case "LEFT" | "RIGHT":
-                return (xmax if abs(left - x) < 2 else left), bottom, (x if abs(right - xmax) < 2 else right), top
-            case "TOP" | "BOTTOM":
-                return left, (ymax if abs(bottom - y) < 2 else bottom), right, (y if abs(top - ymax) < 2 else top)
-            case _:
-                return bounds
-
-    siblings = (sibling for sibling in area.regions if sibling != region and _overlaps(preferences, area.type, sibling.type))
-    left, bottom, right, top = reduce(inset, siblings, (region.x, region.y, region.x + region.width - 1, region.y + region.height - 1))
-    return left - region.x, bottom - region.y, right - left + 1, top - bottom + 1
-
-
-def _visibility(space: type[bpy.types.Space], kind: "rna_enums.RegionTypeItems", *, visible: bool) -> Outcome[_EditorState]:
-    """Returns the editor state showing or hiding regions of a type through the space's `show_region_<type>` member, absent fault for a member the space lacks."""
-    return _EditorState.of(space, {(f"show_region_{_RENAMED.get(kind, kind.lower())}",): visible})
 
 
 def flipped(located: Located, side: _Edge) -> Outcome[None]:
@@ -339,31 +304,18 @@ def to_view(located: Located, x: float, y: float) -> Option[tuple[float, float]]
     """Returns editor coordinates of located region pixels, Nothing without a region."""
 
     def viewed(region: bpy.types.Region) -> tuple[float, float]:
-        point: tuple[float, float] = region.view2d.region_to_view(x, y)  # ty: ignore[unsound-assignment]
-        view_x, view_y = point
-        scale = _scale(located.area)
+        view_x, view_y = map(float, np.asarray(region.view2d.region_to_view(x, y)))
+        scale = view_scale(located.area)
         return view_x / scale, view_y / scale
 
     return located.region.map(viewed)
 
 
-def _to_region(located: Located, x: float, y: float) -> Option[tuple[int, int]]:
-    """Returns located region pixels of an editor point, Nothing without a region or outside it."""
-
-    def placed(region: bpy.types.Region) -> Option[tuple[int, int]]:
-        scale = _scale(located.area)
-        point: tuple[int, int] = region.view2d.view_to_region(x * scale, y * scale, clip=False)  # ty: ignore[unsound-assignment]
-        column, row = point
-        return Some(point).filter(lambda _: 0 <= column < region.width and 0 <= row < region.height)
-
-    return located.region.bind(placed)
-
-
-def _scale(area: bpy.types.Area) -> float:
+def view_scale(area: bpy.types.Area) -> float:
     """Returns the editor to View2D scale, the interface scale in a node editor and 1 elsewhere."""
     return Metrics.read().scale if area.type == "NODE_EDITOR" else 1.0
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AreaQuery", "Located", "areas", "flipped", "quadded", "to_view"]
+__all__ = ["AreaQuery", "Arrangement", "EditorState", "Located", "NodeEditing", "areas", "flipped", "quadded", "region_in", "to_view", "view_scale"]

@@ -1,8 +1,6 @@
-use parry3d_f64::{
-    mass_properties::MassProperties,
-    math::Vector,
-    shape::{TriMesh, TriMeshFlags},
-};
+use parry3d_f64::mass_properties::MassProperties;
+use parry3d_f64::math::Vector;
+use parry3d_f64::shape::{TriMesh, TriMeshFlags};
 
 use crate::{MeshError, Operation, Solid};
 

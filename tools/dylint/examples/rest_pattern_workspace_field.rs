@@ -1,4 +1,5 @@
-use core::{hint::black_box, ops::Range};
+use core::hint::black_box;
+use core::ops::Range;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

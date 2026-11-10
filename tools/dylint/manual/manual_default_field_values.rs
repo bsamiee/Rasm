@@ -1,26 +1,19 @@
 use core::ops::ControlFlow;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, fn_def_id_with_node_args, is_default_equivalent, is_default_equivalent_call, peel_blocks,
-    res::MaybeDef as _,
-    source::snippet,
-    sym,
-    visitors::{Descend, for_each_expr_without_closures, is_const_evaluatable},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::snippet;
+use clippy_utils::visitors::{Descend, for_each_expr_without_closures, is_const_evaluatable};
+use clippy_utils::{fn_def_id, fn_def_id_with_node_args, is_default_equivalent, is_default_equivalent_call, peel_blocks, sym};
 use itertools::{Either, Itertools as _};
-use rustc_hir::{
-    Body, Expr, ExprField, ExprKind, FnDecl, HirIdSet, ItemKind, StructTailExpr,
-    def::DefKind,
-    def_id::{DefId, LocalDefId},
-    intravisit::FnKind,
-};
+use rustc_hir::def::DefKind;
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::intravisit::FnKind;
+use rustc_hir::{Body, Expr, ExprField, ExprKind, FnDecl, HirIdSet, ItemKind, StructTailExpr};
 use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{
-    self, TypingEnv,
-    adjustment::{Adjust, PointerCoercion},
-};
+use rustc_middle::ty::adjustment::{Adjust, PointerCoercion};
+use rustc_middle::ty::{self, TypingEnv};
 use rustc_span::Span;
 use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 

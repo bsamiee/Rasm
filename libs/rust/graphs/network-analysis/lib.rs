@@ -1,15 +1,14 @@
 #![feature(cmp_minmax, default_field_values, iterator_try_collect, trait_alias)]
 
-use core::{fmt, hash::Hash};
+use core::fmt;
+use core::hash::Hash;
 
 use itertools::Itertools as _;
 use leiden_rs::LeidenError;
 use nonempty_collections::NEVec;
-use petgraph::{
-    data::{Element, FromElements as _},
-    graph::{Graph, NodeIndex},
-    visit::{EdgeRef as _, GraphBase, GraphProp, IntoEdgeReferences, IntoNodeIdentifiers, NodeIndexable, VisitMap as _, Visitable},
-};
+use petgraph::data::{Element, FromElements as _};
+use petgraph::graph::{Graph, NodeIndex};
+use petgraph::visit::{EdgeRef as _, GraphBase, GraphProp, IntoEdgeReferences, IntoNodeIdentifiers, NodeIndexable, VisitMap as _, Visitable};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------

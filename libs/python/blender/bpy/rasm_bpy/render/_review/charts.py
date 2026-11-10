@@ -1,7 +1,7 @@
 """Reference chart placements, calibration measurements, and patch overlays through the selected OCIO viewing pipeline."""
 
 from enum import StrEnum
-from typing import ClassVar, Self
+from typing import Annotated, ClassVar, Self
 
 import bpy
 from expression import Option, Some
@@ -18,13 +18,13 @@ from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._rna.conditions import Setting
 from rasm_bpy.data._rna.paths import root_in
 from rasm_bpy.data._rna.properties import enum_choices
-from rasm_bpy.render._color.buffers import _projection
+from rasm_bpy.render._color.buffers import editor_view
 from rasm_bpy.render._review.history import RenderHistory
 from rasm_bpy.settings._attachments import Attached, Attachment, Stored
 from rasm_bpy.ui._drawing.canvas import Canvas, DrawType
 from rasm_bpy.ui._drawing.charts import Layer
 from rasm_bpy.ui._drawing.handlers import HandlerRefresh
-from rasm_bpy.ui._images.views import _framed, image_type, overlaid
+from rasm_bpy.ui._images.views import framed, image_type, overlaid
 from rasm_bpy.ui._resources.theme import Metrics
 from rasm_imaging import ChartPlacement, Colors, converted_colors, converted_image, Homography, ImageFile, PanoramaView, PublishedChart, Quad, rgba
 from rasm_records import Error, Fault, Nothing, Ok, Outcome, paired
@@ -32,7 +32,7 @@ from rasm_records import Error, Fault, Nothing, Ok, Outcome, paired
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class _Need(StrEnum):
+class Need(StrEnum):
     """Chart requirement, each value the report template of its fault over the subject lacking it."""
 
     PLACED = "Requires {subject} chart corners bounding a convex quad in view"
@@ -64,9 +64,9 @@ class PlacedChart(msgspec.Struct, frozen=True, kw_only=True):
 class ChartImage(bpy.types.PropertyGroup):
     """Chart over an image: whether it draws, the chart a placement positions, and its patch fill opacity, its placement and samples stored on the group."""
 
-    shown: bpy.props.BoolProperty(name="Show Chart", description="Draw chart and handles over image", default=True)  # ty: ignore[invalid-type-form]
-    chart: bpy.props.EnumProperty(name="Chart", description="Chart a placement positions", items=enum_choices(PublishedChart))  # ty: ignore[invalid-type-form]
-    opacity: bpy.props.FloatProperty(name="Opacity", description="Patch fill opacity", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
+    shown: Annotated[bool, bpy.props.BoolProperty(name="Show Chart", description="Draw chart and handles over image", default=True)]
+    chart: Annotated[str, bpy.props.EnumProperty(name="Chart", description="Chart a placement positions", items=enum_choices(PublishedChart))]
+    opacity: Annotated[float, bpy.props.FloatProperty(name="Opacity", description="Patch fill opacity", subtype="FACTOR", min=0.0, max=1.0, default=0.5)]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -116,7 +116,7 @@ class Charting(msgspec.Struct, frozen=True, kw_only=True):
 
     def record(self, identity: Identity, image: bpy.types.Image) -> Outcome[PlacedChart]:
         """Returns an image's chart, sampled fault naming an image holding none."""
-        return self.charts.bound(identity).bind(lambda chart: self.kept(chart, image)).bind(lambda found: found.to_result_with(lambda: Fault.of(_Need.SAMPLED, image.name)))
+        return self.charts.bound(identity).bind(lambda chart: self.kept(chart, image)).bind(lambda found: found.to_result_with(lambda: Fault.of(Need.SAMPLED, image.name)))
 
     def sampled(self, identity: Identity, _owner: object, image: bpy.types.Image) -> bool:
         """Returns whether an image holds a chart with every patch sampled, the poll of an image pointer choosing sampled charts."""
@@ -192,7 +192,7 @@ class _Patches(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             def colored(shown: tuple[bpy.types.Image, ImageFile], reference: Colors, placement: ChartPlacement) -> Outcome[Option[tuple[Layer, Layer]]]:
-                return _projection(context, shown[0], config).bind(
+                return editor_view(context, shown[0], config).bind(
                     lambda view: paired(view.form(config, rgba(shown[1].pixels), shown[1].colorspace), view.form(config, np.asarray(reference, np.float32))).bind(
                         lambda formed: placement.means(formed[0]).map(lambda measured: measured.map(lambda sample: batched(*sample, formed[1])))
                     )
@@ -214,11 +214,11 @@ class _Patches(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def drawn(state: tuple[Layer, Layer], canvas: Canvas, /) -> None:
         """Draws the shown chart's fills then edges through the frame."""
-        with Canvas.mapped(_framed(canvas.region)):
+        with Canvas.mapped(framed(canvas.region)):
             for layer in state:
                 layer.drawn(canvas)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ChartImage", "Charting", "PlacedChart"]
+__all__ = ["ChartImage", "Charting", "Need", "PlacedChart"]

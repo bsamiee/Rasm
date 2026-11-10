@@ -60,6 +60,10 @@ name       = "needless_reference_field_exported"
 crate-type = ["lib"]
 
 [[example]]
+name       = "reexported_dependency"
+crate-type = ["lib"]
+
+[[example]]
 name       = "single_reader_exported"
 crate-type = ["lib"]
 

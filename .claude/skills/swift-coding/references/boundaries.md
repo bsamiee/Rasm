@@ -89,7 +89,7 @@ extension Configuration {
         let result: ExecutionResult<Value, SequenceOutput, StringOutput<UTF8>>
         do {
             result = try await Subprocess.run(self, input: .none, output: .sequence, error: .string(limit: limit)) { execution in
-                try await execution.standardOutput.strings(separatedBy: .lineBreaks, bufferingPolicy: .maxLineLength(limit)).reduce(into: initial, update)
+                try await execution.standardOutput.strings(bufferingPolicy: .maxLineLength(limit)).reduce(into: initial, update)
             }
         } catch {
             throw OrderError(subject: subject, reason: .failed(error))

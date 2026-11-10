@@ -1,9 +1,11 @@
-use core::{cmp::Ordering, fmt, hint::black_box, num::NonZero, ops::Range};
-use std::{
-    io,
-    process::{ExitStatus, Output},
-    sync::mpsc,
-};
+use core::cmp::Ordering;
+use core::fmt;
+use core::hint::black_box;
+use core::num::NonZero;
+use core::ops::Range;
+use std::io;
+use std::process::{ExitStatus, Output};
+use std::sync::mpsc;
 
 use serde::Serialize;
 

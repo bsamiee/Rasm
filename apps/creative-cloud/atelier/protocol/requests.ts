@@ -97,8 +97,8 @@ const request = <const Tag extends string, Payload extends Schema.Top & { readon
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Requests = RpcGroup.make(request(EXECUTE_SCRIPT, ExecuteScript), request('open', Open), request('render', Render), request('object_model', ObjectModel));
-const Photoshop = { Contract: Requests.middleware(DisplayDialogs).annotate(ExecuteScript.Awaits, true), DisplayDialogs } as const;
+const Photoshop = Requests.middleware(DisplayDialogs).annotate(ExecuteScript.Awaits, true);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Completion, Envelope, ExecuteScript, HostUrl, Open, Photoshop, Render, Requests, request };
+export { Completion, DisplayDialogs, Envelope, ExecuteScript, HostUrl, Open, Photoshop, Render, Requests, request };

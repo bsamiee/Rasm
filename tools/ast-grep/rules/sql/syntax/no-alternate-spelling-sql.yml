@@ -21,15 +21,6 @@ rule:
                 - has: {field: right, kind: null_literal}
             - {kind: binary_expression, has: {field: operator, regex: '^(==|!=)$'}}
             - kind: is_null_expression
-            - kind: function_call
-              all:
-                - has: {field: name, regex: '(?i-u)^["`\[]?group_concat["`\]]?$'}
-                - has:
-                    field: arguments
-                    kind: normal_function_arguments
-                    all:
-                        - not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
-                        - not: {has: {nthChild: {position: 2, ofRule: *named}, not: {kind: order_by_clause}}}
         - pattern: $NODE
 message: '`$NODE` uses an alternate SQL spelling'
 note: 'Use SQL operators and standard function names while preserving literal values, comments, collation, and evaluation'

@@ -2,8 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { interpolate } from '@nx/devkit/internal';
 import { Array, Config, Effect, FileSystem, Match, Option, Path, Schema } from 'effect';
-import { AppleError, spawned } from '#/plugins/targets';
-import { Options, versioned } from '#/version-actions';
+import { AppleError, spawned, VersionActionsOptions, versioned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -49,7 +48,7 @@ const appcast = Effect.fnUntraced(
 const stated = Effect.fnUntraced(function* (context: ExecutorContext, project: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const node = yield* Effect.fromNullishOr(context.projectsConfigurations.projects[project]);
-    const { manifest } = yield* Schema.decodeUnknownEffect(Options)(node.release?.version?.versionActionsOptions);
+    const { manifest } = yield* Schema.decodeUnknownEffect(VersionActionsOptions)(node.release?.version?.versionActionsOptions);
     const at = path.join(node.root, manifest);
     const { version } = yield* Effect.flatMap(fs.readFileString(path.join(context.root, at)), (text) => versioned(context.root, at, text));
     return yield* Effect.mapError(Effect.fromNullishOr(version), () => AppleError.make({ subject: at, detail: 'states no version' }));

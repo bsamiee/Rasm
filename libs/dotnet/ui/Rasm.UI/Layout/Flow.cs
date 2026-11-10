@@ -8,6 +8,7 @@ using Rasm.UI.Styling;
 using Rasm.UI.Typography;
 using SkiaSharp;
 using SuperLinq;
+using Wacton.Unicolour;
 
 namespace Rasm.UI.Layout;
 
@@ -66,7 +67,17 @@ internal static partial class Layouts {
     internal static Option<LayoutNode> Held(LayoutPass pass, Seq<LayoutNode> earlier, Seq<Key> path) => pass.Prior.Find(path) | earlier.Find(member => member.Path == path);
 
     private static LayoutNode Created(LayoutPass pass, Cascade cascade, Seq<Key> path, View node, Option<LayoutNode> prior) {
-        Cascade inner = cascade.Enter(node);
+        Cascade pushed = node.Sheet.Looks.IsEmpty ? cascade : cascade with { Sheet = cascade.Sheet.Combine(node.Sheet) };
+        RoleStyle style = (node.Role | (node.Conditions.IsEmpty ? None : Some(cascade.Enclosing.Role)))
+            .Map(role => pushed.Resolve(role, node.Role.IsNone || node.Painting.Inherits ? node.Conditions.Union(cascade.Enclosing.Conditions) : node.Conditions))
+            .IfNone(cascade.Enclosing);
+        Cascade inner = pushed with {
+            Sheet = node.Role.IsSome && !style.Look.Within.IsEmpty ? pushed.Sheet.Combine(new StyleSheet(style.Look.Within)) : pushed.Sheet,
+            Enclosing = style,
+            Background = node.Role.IsSome && node.Painting.AcceptsBackground
+                ? style.Solid.Bind(value => cascade.Theme.Color(value, style)).Map(color => color.ToUnicolour().Blend(cascade.Background.ToUnicolour(), BlendMode.Normal).ToSKColorF()).IfNone(cascade.Background)
+                : cascade.Background,
+        };
         Seq<LayoutNode> earlier = prior.Map(static held => held.Members + held.Layers).IfNone([]);
         Seq<LayoutNode> members = Members(node).Map(member => path.Add(member.Segment) switch {
             var at => Built(pass, inner, at, member.View, Held(pass, earlier, at)),
@@ -327,9 +338,8 @@ internal static partial class Layouts {
     internal static LayoutNode WithCorners(LayoutNode layout, Option<(Corners Corners, SKRect Frame)> background) {
         Corners corners = layout.View.Role.IsNone ? Corners.Square
             : layout.Style.Shape is Shape.Capsule ? Corners.Round(float.Min(layout.Frame.Width, layout.Frame.Height) / 2f)
-            : layout.Style.Rounded.Match(
-                Some: Corners.Round,
-                None: () => background.Map(outer => outer.Corners.Within(outer.Frame, layout.Frame)).IfNone(() => Corners.Round(layout.Style.Metrics[Metric.Radius]))).Fitted(layout.Frame.Size);
+            : background.Filter(_ => !layout.Style.Look.Metrics.ContainsKey(Metric.Radius)).Map(outer => outer.Corners.Within(outer.Frame, layout.Frame))
+                .IfNone(() => Corners.Round(layout.Style.Metrics[Metric.Radius])).Fitted(layout.Frame.Size);
         Option<(Corners Corners, SKRect Frame)> inner = (layout.HasBackground ? Some<(Corners Corners, SKRect Frame)>((corners, layout.Frame)) : background)
             .Map(held => (held.Corners, Frame: SKRect.Create(held.Frame.Location - layout.Frame.Location, held.Frame.Size)));
         HashMap<LayoutNode, LayoutNode> children = toHashMap(layout.Children.Map(child => (child, WithCorners(child, inner))));

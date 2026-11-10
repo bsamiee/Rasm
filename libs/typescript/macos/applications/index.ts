@@ -52,7 +52,7 @@ const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
     Leaf,
     Schema.StructWithRest(Schema.Struct({ _tag: Schema.optionalKey(Schema.Never) }), [Schema.Record(Schema.String, Nested)]).annotate({ description: 'Plain record by property name or code' }),
 ]);
-const Kind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
+const TermKind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
 const Term = Schema.Struct({ name: Schema.String, code: Schema.String.annotate({ description: 'Code as scripting definition spells it' }) });
 class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('Execute')({
     command: Schema.String.annotate({ description: 'Dictionary command name or code, get and set included' }),
@@ -70,11 +70,9 @@ class Execute extends Schema.Class<Execute, { readonly brand: unique symbol }>('
     });
 }
 class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Terms')(
-    { ...Struct.Record(Kind.literals, Schema.Array(Term)), command: Schema.Array(Term.mapFields(Struct.assign({ parameters: Schema.Array(Term) }))) },
+    { ...Struct.Record(TermKind.literals, Schema.Array(Term)), command: Schema.Array(Term.mapFields(Struct.assign({ parameters: Schema.Array(Term) }))) },
     { description: 'Every declaration by kind, name, and code, commands with their parameters' },
 ) {
-    static readonly Kind = Kind;
-
     static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { direct, values = [], language = 'JSLg' }: { readonly direct: AppleEventValue; readonly values?: readonly AppleEventValue[]; readonly language?: string }) {
         const { name, parameters } = yield* Effect.fromOption(
             Array.findFirst(['DjxM', 'dosc'], (event) => Array.findFirst(command, flow(Struct.get('code'), String.endsWith(event)))),
@@ -177,16 +175,15 @@ const Launch = Schema.Struct({
     new: defaulted(Schema.Boolean, false).annotate({ description: 'Beside running instances' }),
 });
 const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical']) }).annotate({ description: 'Kernel memory pressure level and thermal state' });
-const Identifier = Schema.String.annotate({ description: 'Bundle identifier' });
 const ActivationPolicy = Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process, prohibited for background only' });
 const Launched = Schema.Struct({
     pid: Pid,
-    identifier: Identifier,
+    identifier: Schema.String.annotate({ description: 'Bundle identifier' }),
     created: Schema.Boolean.annotate({ description: 'Launch started the instance, false when it reused a running one' }),
 });
 class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: unique symbol }>('RunningInstance')({
     pid: Pid,
-    identifier: Identifier,
+    identifier: Launched.fields.identifier,
     url: Schema.URL.annotate({ description: 'Bundle' }),
     activationPolicy: ActivationPolicy,
     state: State,
@@ -197,7 +194,7 @@ const Launching = Schema.Union([Schema.Struct({ launched: Launched }), Schema.St
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
     executable: Schema.OptionFromOptionalKey(Schema.URL.annotate({ description: 'Main executable of the bundle' })),
-    identifier: Identifier,
+    identifier: Launched.fields.identifier,
     name: Schema.String,
     version: Schema.OptionFromOptionalKey(Schema.String),
     build: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'CFBundleVersion' })),
@@ -216,4 +213,4 @@ class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleEventValue, Execute, Installation, Launch, Launched, Launching, LongestSide, Perform, Pid, Pressure, RunningInstance, Screenshot, State, Terms, WindowID };
+export { AppleEventValue, Execute, Installation, Launch, Launched, Launching, LongestSide, Perform, Pid, Pressure, RunningInstance, Screenshot, State, TermKind, Terms, WindowID };

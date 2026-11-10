@@ -1,10 +1,8 @@
 """Face construction from an original: rules executed over the imported source, its UFO, the ufo2ft binary with metrics measured on native layout, hinted TrueType bytes, and WOFF2."""
 
-# mypy: disable-error-code="no-untyped-call"
-
 from dataclasses import dataclass
 from datetime import UTC
-lazy from functools import partial
+lazy from functools import partial, reduce
 lazy from io import BytesIO
 
 from fontTools.ttLib import TTFont
@@ -22,13 +20,13 @@ lazy from ufo2ft import compileTTF
 lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TRUETYPE_INSTRUCTIONS_KEY
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 
-from rasm_typography._faces.glyphs import _Category, Source
-lazy from rasm_records import Error, Fault, Ok, Outcome, Reason
+from rasm_typography._faces.glyphs import Category, Source
+lazy from rasm_records import Error, Fault, Faults, Ok, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces
 lazy from rasm_typography._faces.importing import imported
-lazy from rasm_typography._rules.emission import _FeatureWriter
-lazy from rasm_typography._rules.metrics import _measured, Metrics
-lazy from rasm_typography._rules.plans import _executed, planned
+lazy from rasm_typography._rules.emission import FeatureWriter
+lazy from rasm_typography._rules.metrics import Metrics
+lazy from rasm_typography._rules.plans import planned
 lazy from rasm_typography._shaping.corpus import Corpus
 lazy from rasm_typography._shaping.runs import Binary
 
@@ -65,12 +63,19 @@ class Construction:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _font(writer: _FeatureWriter, /) -> ufoLib2.Font:
-    """Returns a source's UFO: glyphs in order, records, vertical metrics, family flags, gasp, the dropout program, and emitted features, fields an ornament face lacks left to ufo2ft fallbacks."""
-    source = writer.source
-    face, info, metrics, languages = source.face, source.info, source.metrics, list(source.scripts)
+def _named(rule: str, faults: Faults, /) -> Faults:
+    """Prefixes each fault's member with the rule that refused."""
+    head, *rest = (msgspec.structs.replace(fault, member=rule if fault.member is None else f"{rule} {fault.member}") for fault in faults)
+    return (head, *rest)
+
+
+def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
+    """Constructs a source's UFO and ufo2ft font, fields an ornament face lacks left to ufo2ft fallbacks, with vertical metrics measured on the font's own layout."""
+    face = source.face
+    writer = FeatureWriter(source=source)
+    info, metrics, languages = source.info, source.metrics, list(source.scripts)
     categories = {glyph.name.text: glyph.category for glyph in source.glyphs}
-    font = ufoLib2.Font(
+    ufo = ufoLib2.Font(
         features=ufoLib2.objects.Features(writer.substitutions),
         info=ufoLib2.objects.Info(
             familyName=face.typographic,
@@ -98,10 +103,10 @@ def _font(writer: _FeatureWriter, /) -> ufoLib2.Font:
             openTypeHeadLowestRecPPEM=metrics.lowest_ppem,
         ),
     )
-    font.info.openTypeOS2WidthClass = face.width if isinstance(face, Face) else None
-    font.info.openTypeGaspRangeRecords = [GaspRangeRecord(rangeMaxPPEM=0xFFFF, rangeGaspBehavior=list(GaspBehavior))]
-    font.lib.update({
-        **({OPENTYPE_CATEGORIES_KEY: categories} if {_Category.MARK, _Category.LIGATURE} & {*categories.values()} else {}),
+    ufo.info.openTypeOS2WidthClass = face.width if isinstance(face, Face) else None
+    ufo.info.openTypeGaspRangeRecords = [GaspRangeRecord(rangeMaxPPEM=0xFFFF, rangeGaspBehavior=list(GaspBehavior))]
+    ufo.lib.update({
+        **({OPENTYPE_CATEGORIES_KEY: categories} if {Category.MARK, Category.LIGATURE} & {*categories.values()} else {}),
         TRUETYPE_INSTRUCTIONS_KEY: {"formatVersion": "1", "controlValueProgram": "PUSHW[ ] 511 SCANCTRL[ ] PUSHB[ ] 4 SCANTYPE[ ]"},
         **({OPENTYPE_META_KEY: {"slng": languages, **({"dlng": sorted(face.genre.script.scripts)} if isinstance(face, Face) else {})}} if languages else {}),
     })
@@ -109,23 +114,16 @@ def _font(writer: _FeatureWriter, /) -> ufoLib2.Font:
         drawn = ufoLib2.objects.Glyph(glyph.name.text, width=glyph.advance, unicodes=sorted(glyph.codes))
         drawn.anchors = [ufoLib2.objects.Anchor(anchor.x, anchor.y, anchor.name) for anchor in glyph.anchors]
         glyph.draw(drawn.getPen())
-        font.addGlyph(drawn)
-    font.glyphOrder = [glyph.name.text for glyph in source.glyphs]
-    return font
-
-
-def _constructed(source: Source, rule: Metrics, corpus: Corpus, /) -> Construction:
-    """Constructs both native font representations with metrics measured on the selected native layout."""
-    writer = _FeatureWriter(source=source)
-    ufo = _font(writer)
+        ufo.addGlyph(drawn)
+    ufo.glyphOrder = [glyph.name.text for glyph in source.glyphs]
     font = compileTTF(ufo, featureWriters=[writer], removeOverlaps=True, overlapsBackend="pathops", reverseDirection=True, useProductionNames=False, ftConfig={COMPRESSION_LEVEL: 9})
-    vertical = _measured(source, rule, corpus=corpus, binary=Binary(data=font))
+    vertical = rule.measured(source, corpus=corpus, binary=Binary(data=font))
     ufo.info.ascender, ufo.info.descender = vertical.ascender, vertical.descender
     ufo.info.openTypeOS2WinAscent, ufo.info.openTypeOS2WinDescent = vertical.win_ascent, vertical.win_descent
     font["hhea"].ascent, font["hhea"].descent = vertical.ascender, vertical.descender
     font["OS/2"].sTypoAscender, font["OS/2"].sTypoDescender = vertical.ascender, vertical.descender
     font["OS/2"].usWinAscent, font["OS/2"].usWinDescent = vertical.win_ascent, vertical.win_descent
-    named = " ".join(word for word in source.face.style.split() if word != "Italic") or "Regular"
+    named = " ".join(word for word in face.style.split() if word != "Italic") or "Regular"
     upright = {"tag": "wght", "name": "Weight", "values": [{"value": font["OS/2"].usWeightClass, "name": named, "flags": ELIDABLE_AXIS_VALUE_NAME * (named == "Regular")}]}
     buildStatTable(font, [upright, *(({"tag": "ital", "name": "Italic", "values": [{"value": 1, "name": "Italic"}]},) if font["post"].italicAngle else ())], macNames=False)
     font["head"].modified = font["head"].created
@@ -134,7 +132,7 @@ def _constructed(source: Source, rule: Metrics, corpus: Corpus, /) -> Constructi
 
 
 def constructed(original: Binary, face: Faces, corpus: Corpus, /) -> Outcome[Construction]:
-    """Imports an original under a face's design record, executes the face's drawing rules, and constructs its UFO and ufo2ft font.
+    """Imports an original under a face's design record, folds the face's drawing rules over it, and constructs its UFO and ufo2ft font with metrics measured on its own layout.
 
     Args:
         original: Font the face is rebuilt from.
@@ -142,15 +140,16 @@ def constructed(original: Binary, face: Faces, corpus: Corpus, /) -> Outcome[Con
         corpus: Runs the rules and metrics measure.
 
     Returns:
-        Ok(construction), the faults of the import and of the first refused rule, and `FAILED` for an outline operation the native boolean refuses.
+        Ok(construction), the faults of the import and of the first refused rule, its name leading each fault's member, and `FAILED` for an outline operation the native boolean refuses.
     """
     plan = planned(face)
     try:
-        return (
-            imported(original.data, face)
-            .bind(lambda source: _executed(source, plan, original=original, corpus=corpus))
-            .map(lambda source: _constructed(source, next(rule for rule in plan if isinstance(rule, Metrics)), corpus))
+        executed: Outcome[Source] = reduce(
+            lambda held, rule: held.bind(lambda source: rule.applied(source, original=original, corpus=corpus).map_error(partial(_named, type(rule).__name__.lower()))),
+            (rule for rule in plan if not isinstance(rule, Metrics)),
+            imported(original.data, face),
         )
+        return executed.map(partial(_built, next(rule for rule in plan if isinstance(rule, Metrics)), corpus))
     except PathOpsError as error:
         return Error(Fault.of(Reason.FAILED, face.postscript, error))
 

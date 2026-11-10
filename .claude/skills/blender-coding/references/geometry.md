@@ -67,8 +67,7 @@ STORED: MappingProxyType[type[bpy.types.Property], type[np.bool | np.int32 | np.
 
 
 def column[T: Struct](items: Elements[T], kind: type[T], member: str, /) -> Buffer:
-    rna: bpy.types.Struct = kind.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    match rna.properties[member]:
+    match kind.bl_rna.properties[member]:
         case bpy.types.BoolProperty(array_dimensions=dims) | bpy.types.IntProperty(array_dimensions=dims) | bpy.types.FloatProperty(array_dimensions=dims) as described:
             buffer: Buffer = np.empty((len(items), *np.trim_zeros(np.asarray(dims))), STORED[type(described)])
         case described:
@@ -105,19 +104,21 @@ type Surface = tuple[Buffer, Buffer, Buffer]
 def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, /) -> Option[Surface]:
     evaluated: bpy.types.Object = source.evaluated_get(depsgraph)
 
-    def read(mesh: bpy.types.Mesh) -> Surface:
-        positions: bpy.types.FloatVectorAttribute = mesh.attributes["position"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        corners: bpy.types.IntAttribute = mesh.attributes[".corner_vert"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        mesh.transform(evaluated.matrix_world)
-        return (
-            column(positions.data, bpy.types.FloatVectorAttributeValue, "vector"),
-            column(corners.data, bpy.types.IntAttributeValue, "value"),
-            column(mesh.polygons, bpy.types.MeshPolygon, "loop_start"),
-        )
+    def read(mesh: bpy.types.Mesh) -> Option[Surface]:
+        match mesh.attributes["position"], mesh.attributes[".corner_vert"]:
+            case bpy.types.FloatVectorAttribute(data=positions), bpy.types.IntAttribute(data=corners):
+                mesh.transform(evaluated.matrix_world)
+                return Some((
+                    column(positions, bpy.types.FloatVectorAttributeValue, "vector"),
+                    column(corners, bpy.types.IntAttributeValue, "value"),
+                    column(mesh.polygons, bpy.types.MeshPolygon, "loop_start"),
+                ))
+            case _:
+                return Nothing
 
     with ExitStack() as scope:
         scope.callback(evaluated.to_mesh_clear)
-        return Option.of_optional(evaluated.to_mesh()).map(read)
+        return Option.of_optional(evaluated.to_mesh()).bind(read)
 ```
 
 `to_mesh()` returns `None` for geometry evaluating to no mesh (an empty curve) and raises `RuntimeError` on a camera, empty, or point cloud.
@@ -130,10 +131,12 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
     mesh.vertices.add(len(positions))
     mesh.loops.add(len(corners))
     mesh.polygons.add(len(starts))
-    placed: bpy.types.FloatVectorAttribute = mesh.attributes["position"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    cornered: bpy.types.IntAttribute = mesh.attributes[".corner_vert"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    placed.data.foreach_set("vector", positions.reshape(-1))
-    cornered.data.foreach_set("value", corners)
+    match mesh.attributes["position"], mesh.attributes[".corner_vert"]:
+        case bpy.types.FloatVectorAttribute(data=placed), bpy.types.IntAttribute(data=cornered):
+            placed.foreach_set("vector", positions.reshape(-1))
+            cornered.foreach_set("value", corners)
+        case held:
+            raise TypeError(held)
     mesh.polygons.foreach_set("loop_start", starts)
     mesh.update()
     return mesh
@@ -155,7 +158,7 @@ Keys replace a channel's keys through one `keyframe_points.add(count)`, `foreach
 
 ```python
 def keyed(action: bpy.types.Action, owner: bpy.types.ID, path: str, points: NDArray[np.float32], interpolation: "rna_enums.BeztripleInterpolationModeItems", /, *, index: int = 0) -> Result[bpy.types.FCurve, RuntimeError]:
-    modes: bpy.types.EnumProperty = bpy.types.Keyframe.bl_rna.properties["interpolation"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    modes = Descriptor.of(bpy.types.Keyframe, ("interpolation",), bpy.types.EnumProperty).prop
 
     def filled(curve: bpy.types.FCurve) -> bpy.types.FCurve:
         curve.keyframe_points.clear()
@@ -182,12 +185,12 @@ Bones build in one Edit Mode scope that returns their names:
 
 ```python
 def chained(layer: bpy.types.ViewLayer, rig: bpy.types.Object, joints: Sequence[Vector], /) -> tuple[str, ...]:
-    armature: bpy.types.Armature = rig.data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    armatures = Option.of_optional(try_downcast(bpy.types.Armature, rig.data)).to_list()
     layer.objects.active = rig
     with ExitStack() as scope:
         bpy.ops.object.mode_set(mode="EDIT")
         scope.callback(bpy.ops.object.mode_set, mode="OBJECT")
-        made = tuple(armature.edit_bones.new(rig.name) for _ in joints[1:])
+        made = tuple(armature.edit_bones.new(rig.name) for armature in armatures for _ in joints[1:])
         for bone, parent, (head, tail) in zip(made, (None, *made[:-1]), pairwise(joints), strict=True):
             bone.head, bone.tail, bone.parent, bone.use_connect = head, tail, parent, parent is not None
         return tuple(bone.name for bone in made)

@@ -1,4 +1,6 @@
-use clippy_utils::{diagnostics::span_lint_and_help, fn_def_id, is_from_proc_macro, peel_blocks, res::MaybeDef as _, sym};
+use clippy_utils::diagnostics::span_lint_and_help;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{fn_def_id, is_from_proc_macro, peel_blocks, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};

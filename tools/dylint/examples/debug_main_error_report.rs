@@ -1,6 +1,7 @@
 #![feature(error_reporter)]
 
-use std::{error::Report, fs, io};
+use std::error::Report;
+use std::{fs, io};
 
 // --- [ERRORS] --------------------------------------------------------------------------
 

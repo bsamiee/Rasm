@@ -7,7 +7,7 @@
     "properties": {
         "package": { "type": "string", "description": "Package folder the plugin infers, passed as --package-path" },
         "product": { "type": "string", "description": "Executable product the plugin infers from swift package describe" },
-        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the release build, which the install then reuses" }
+        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the release build and placed ahead of experimental-install, whose own build then takes the same options" }
     },
     "required": [ "package", "product" ]
 }

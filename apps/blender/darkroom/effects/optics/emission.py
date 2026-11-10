@@ -13,7 +13,7 @@ import PyOpenColorIO
 
 from rasm_bpy.data import Identity, Key, Value
 from rasm_bpy.nodes import decoded, Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, mixed, Ramp, sampled, Scalar, Socket, StockInput, vector, W
-from rasm_bpy.render import chosen, GraphInputs, masks, path_key, Step
+from rasm_bpy.render import chosen, GraphInputs, luminance, path_key, Step
 from rasm_imaging import colorimetry, Stops
 from rasm_records import accumulated, Case, Nothing, Ok, Outcome
 
@@ -27,7 +27,7 @@ type _Temperature = Annotated[float, StockInput(node=bpy.types.ShaderNodeBlackbo
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SPECTRUM: Final[Key] = "spectrum"
+SPECTRUM: Final[Key] = "spectrum"
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ class Emission(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [INTERFACES] -----------------------------------------------------------------------
 
-_KINDS: Final[tuple[type[Spectrum], ...]] = get_args(Spectrum.__value__)  # ty: ignore[unsound-assignment]
+_KINDS: Final = get_args(Spectrum.__value__)
 _COLOR: Final = Socket(key="color", kind=bpy.types.NodeSocketMenu, description="Spectrum coloring each tone", items=MenuItems.of(Spectrum).items)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -79,7 +79,7 @@ def spectra(key: Key, chosen: Spectrum, description: str, toggle: Option[bool] =
 def emission(key: Key, light: Emission, description: str, toggle: Option[bool] = Nothing) -> InterfacePanel:
     """Emission panel at `key`: luminance in stops, then the spectrum panel defaulting to the light's case."""
     own = InterfacePanel.of(key, light, description=description, toggle=toggle)
-    return msgspec.structs.replace(own, panels=InterfacePanel.of(key, Interface(panels=(spectra(_SPECTRUM, light.spectrum, "Color emitted at each tone"),))).panels)
+    return msgspec.structs.replace(own, panels=InterfacePanel.of(key, Interface(panels=(spectra(SPECTRUM, light.spectrum, "Color emitted at each tone"),))).panels)
 
 
 # --- [NODES]
@@ -107,18 +107,18 @@ def emitted(shell: GraphInputs, panel: InterfacePanel, light: Emission, tones: t
     def toned(index: int, tone: Scalar) -> Outcome[tuple[Expr, Expr, Expr]]:
         body = Expr(
             kind=bpy.types.ShaderNodeBlackbody,
-            inputs=(("Temperature", mixed(tone, read(_SPECTRUM, Incandescence, Incandescence.cool), read(_SPECTRUM, Incandescence, Incandescence.hot))),),
+            inputs=(("Temperature", mixed(tone, read(SPECTRUM, Incandescence, Incandescence.cool), read(SPECTRUM, Incandescence, Incandescence.hot))),),
             socket="Color",
             socket_type=bpy.types.NodeSocketColor,
         )
         gradient = Expr(kind=bpy.types.ShaderNodeValToRGB, inputs=(("Fac", tone),), content=Some(ramp), socket="Color", socket_type=bpy.types.NodeSocketColor)
-        named = item_key(panel.key, _SPECTRUM, Gradient, Gradient.ramp) if index == 0 else item_key(panel.key, index, Gradient.ramp)
-        tint = mixed(tone, read(_SPECTRUM, Tint, Tint.start), read(_SPECTRUM, Tint, Tint.end))
-        return masks.luminance(shell.config, body).map(lambda level: (tint, vector("DIVIDE", body, level), gradient.keyed(named)))
+        named = item_key(panel.key, SPECTRUM, Gradient, Gradient.ramp) if index == 0 else item_key(panel.key, index, Gradient.ramp)
+        tint = mixed(tone, read(SPECTRUM, Tint, Tint.start), read(SPECTRUM, Tint, Tint.end))
+        return luminance(shell.config, body).map(lambda level: (tint, vector("DIVIDE", body, level), gradient.keyed(named)))
 
     def lit(cases: tuple[tuple[Expr, Expr, Expr], ...]) -> tuple[Expr, ...]:
         columns = {MenuItem.of(kind): tuple(case[position] for case in cases) for position, kind in enumerate(_KINDS)}
-        return tuple(vector("SCALE", color, brightness) for color in menus(shell.input(panel, _SPECTRUM, _COLOR), columns))
+        return tuple(vector("SCALE", color, brightness) for color in menus(shell.input(panel, SPECTRUM, _COLOR), columns))
 
     return accumulated(starmap(toned, enumerate(tones))).map(lit)
 
@@ -140,11 +140,6 @@ def colored(values: Mapping[Key, Value], current: Spectrum, /, *path: Step) -> O
     return chosen(values, _KINDS, *path, _COLOR).map(lambda kind: current if isinstance(current, kind) else kind()).bind(lambda case: decoded(case, values, item_key(path_key(*path), type(case))))
 
 
-def selected(panel: InterfacePanel, light: Emission, values: Mapping[Key, Value]) -> Outcome[Emission]:
-    """Returns the emission entry input values hold under an emission panel `emission` declared, its intensity and spectrum decoded."""
-    return colored(values, light.spectrum, panel, _SPECTRUM).bind(lambda spectrum: decoded(msgspec.structs.replace(light, spectrum=spectrum), values, panel.key))
-
-
 def spectrum(identity: Identity, request: Spectrum, tones: npt.NDArray[np.float64], config: PyOpenColorIO.Config) -> Outcome[npt.NDArray[np.float64]]:
     """Evaluates scene-linear RGB of linear tints, host ramps, or unit-luminance blackbodies integrated against the observer at each tone."""
     match request:
@@ -159,4 +154,4 @@ def spectrum(identity: Identity, request: Spectrum, tones: npt.NDArray[np.float6
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Emission", "Gradient", "Incandescence", "Spectrum", "Tint", "colored", "emission", "emitted", "selected", "spectra", "spectrum"]
+__all__ = ["SPECTRUM", "Emission", "Gradient", "Incandescence", "Spectrum", "Tint", "colored", "emission", "emitted", "spectra", "spectrum"]

@@ -21,11 +21,11 @@ struct UsageGauge: View {
     let leadsGlyphRow: Bool
 
     var body: some View {
-        let reading: String = window.reading(at: now)
-        let detail: String = window.resetsAt.resetTooltip
-        let hasReset: Bool = window.hasReset(at: now)
-        let isCurrent: Bool = isCurrent && !hasReset
-        let fraction: Double = hasReset ? 0 : window.used.fraction
+        let reading = window.reading(at: now)
+        let detail = window.resetsAt.resetTooltip
+        let hasReset = window.hasReset(at: now)
+        let isCurrent = isCurrent && !hasReset
+        let fraction = hasReset ? 0 : window.used.fraction
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 label(isCurrent: isCurrent)
@@ -54,7 +54,7 @@ struct UsageGauge: View {
 
     @ViewBuilder
     private func label(isCurrent: Bool) -> some View {
-        let text: Text = Text(window.kind.name).foregroundStyle(isCurrent ? .primary : .secondary)
+        let text = Text(window.kind.name).foregroundStyle(isCurrent ? .primary : .secondary)
         if leadsGlyphRow {
             text.alignmentGuide(.glyphRow) { dimensions in dimensions[VerticalAlignment.center] }
         } else {

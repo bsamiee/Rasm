@@ -1,39 +1,30 @@
-use core::{cell::RefCell, cmp::Ordering, iter};
-use std::{collections::VecDeque, rc::Rc};
+use core::cell::RefCell;
+use core::cmp::Ordering;
+use core::iter;
+use std::collections::VecDeque;
+use std::rc::Rc;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, is_lint_allowed, peel_blocks, peel_hir_expr_while, peel_hir_pat_refs,
-    res::{MaybeDef as _, MaybeResPath as _},
-    sym,
-    ty::implements_trait_with_env_from_iter,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::ty::implements_trait_with_env_from_iter;
+use clippy_utils::{fn_def_id, is_lint_allowed, peel_blocks, peel_hir_expr_while, peel_hir_pat_refs, sym};
 use itertools::Itertools as _;
 use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, AttrItem, Attribute};
-use rustc_data_structures::{
-    fx::{FxBuildHasher, FxHashMap, FxHashSet, FxIndexMap, FxIndexSet},
-    sorted_map::SortedIndexMultiMap,
-};
+use rustc_data_structures::fx::{FxBuildHasher, FxHashMap, FxHashSet, FxIndexMap, FxIndexSet};
+use rustc_data_structures::sorted_map::SortedIndexMultiMap;
 use rustc_errors::listify;
-use rustc_hir::{
-    Arm, Expr, ExprKind, ImplItemImplKind, MatchSource, PatExpr, PatExprKind, PatKind,
-    def::{CtorKind, DefKind, Res},
-    def_id::{DefId, LocalDefId, ModId},
-};
+use rustc_hir::def::{CtorKind, DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId, ModId};
+use rustc_hir::{Arm, Expr, ExprKind, ImplItemImplKind, MatchSource, PatExpr, PatExprKind, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{
-    middle::privacy::Level,
-    ty::{
-        self, AdtDef, AssocKind, EarlyBinder, GenericArg, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, Unnormalized,
-        VariantDef,
-    },
+use rustc_middle::middle::privacy::Level;
+use rustc_middle::ty::{
+    self, AdtDef, AssocKind, EarlyBinder, GenericArg, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, Unnormalized, VariantDef,
 };
 use rustc_span::{ExpnKind, MacroKind, Span, Symbol};
-use rustc_trait_selection::{
-    regions::test_region_obligations,
-    traits::{Obligation, ObligationCause, ObligationCtxt},
-};
+use rustc_trait_selection::regions::test_region_obligations;
+use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 
 use super::{Bodies, canonical, declaration, normalized, owner, substitute_types};
 use crate::{accessed_field, associated_trait, constructed, expanded_externally, pattern_fields, signature};

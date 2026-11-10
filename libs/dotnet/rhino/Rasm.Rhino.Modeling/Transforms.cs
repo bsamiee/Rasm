@@ -130,7 +130,7 @@ public static class Transformations {
     extension(Transform xform) {
         public Fin<AffineMap> ToAffine() =>
             RhinoFault.Unless(xform.IsAffine, RhinoReason.Unsupported, xform)
-                .Bind(_ => AffineMap.Validated(new(xform.M00, xform.M01, xform.M02), new(xform.M10, xform.M11, xform.M12), new(xform.M20, xform.M21, xform.M22), new(xform.M03, xform.M13, xform.M23)));
+                .Bind(_ => AffineMap.Validated(new(xform.M00, xform.M10, xform.M20), new(xform.M01, xform.M11, xform.M21), new(xform.M02, xform.M12, xform.M22), new(xform.M03, xform.M13, xform.M23)));
     }
     extension(BoundingBox box) {
         public Fin<Bounds> ToBounds() => Bounds.Validated(box.Min.ToVector3D(), box.Max.ToVector3D());

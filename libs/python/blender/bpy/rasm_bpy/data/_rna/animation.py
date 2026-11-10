@@ -14,10 +14,10 @@ import numpy as np
 from numpy.typing import NDArray
 
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._rna.descriptors import _differing, _DTYPES, Descriptor, Value, written
-from rasm_bpy.data._rna.paths import _rna, _struct_at, id_data, id_path, RnaPath, Struct
+from rasm_bpy.data._rna.descriptors import Descriptor, differing, DTYPES, Value, written
+from rasm_bpy.data._rna.paths import id_data, id_path, rna, RnaPath, Struct, struct_at
 from rasm_bpy.data._rna.snapshots import assigned
-from rasm_records import accumulated, Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -28,7 +28,7 @@ type _Curves = bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_CO: Final[bpy.types.FloatProperty] = bpy.types.Keyframe.bl_rna.properties["co"]  # ty: ignore[invalid-assignment]
+_CO: Final = Descriptor.of(bpy.types.Keyframe, ("co",), bpy.types.FloatProperty).prop
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -86,7 +86,7 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 not isinstance(struct, bpy.types.bpy_prop_collection) and descriptor.prop.is_animatable and bool(descriptor.coordinates) == bool(Descriptor.dimensions(descriptor.prop))
             ):
                 return Ok((struct, descriptor))
-        return Error(Fault.of(Reason.ABSENT, repr(block), member=_rna(self.path)))
+        return Error(Fault.of(Reason.ABSENT, repr(block), member=rna(self.path)))
 
     # --- [CHANNELS]
 
@@ -99,37 +99,37 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Whether a key, driver, mute, or modifier value changed, refused faults of every host call accumulated.
         """
-        refused = partial(Fault.of, Refusal.REFUSED, f"{block!r}.{_rna(self.path)}")
+        refused = partial(Fault.of, Refusal.REFUSED, f"{block!r}.{rna(self.path)}")
 
         def keyed(points: NDArray[np.float32], curve: bpy.types.FCurve) -> Outcome[bool]:
             held = np.empty(len(curve.keyframe_points) * 2, np.float32)
-            curve.keyframe_points.foreach_get("co", held)
+            curve.keyframe_points.foreach_get(_CO.identifier, held)
             if np.array_equal(held.reshape(-1, 2), points):
                 return Ok(value=False)
             curve.keyframe_points.clear()
             curve.keyframe_points.add(len(points))
-            curve.keyframe_points.foreach_set("co", points.ravel())
+            curve.keyframe_points.foreach_set(_CO.identifier, points.ravel())
             curve.update_autoflags(block)
             curve.update()
             return Ok(value=True)
 
         def driven(source: Driven, curve: bpy.types.FCurve) -> Outcome[bool]:
             def variables(driver: bpy.types.Driver) -> Outcome[bool]:
-                if len(driver.variables) == len(source.variables) and not any(map(_differing, driver.variables, source.variables)):
+                if len(driver.variables) == len(source.variables) and not any(map(differing, driver.variables, source.variables)):
                     return Ok(value=False)
                 for held in tuple(driver.variables):
                     driver.variables.remove(held)
                 return accumulated(assigned(driver.variables.new(), row) for row in source.variables).map(lambda _: True)
 
             def drove(driver: bpy.types.Driver) -> Outcome[bool]:
-                changed = bool(_differing(driver, source.values))
+                changed = bool(differing(driver, source.values))
                 return assigned(driver, source.values).bind(lambda _: variables(driver)).map(lambda wrote: wrote or changed)
 
             return Option.of_optional(curve.driver).to_result_with(partial(Fault.of, Reason.ABSENT, repr(curve), member="driver")).bind(drove)
 
         def modified(curve: bpy.types.FCurve) -> Outcome[bool]:
             held = tuple(curve.modifiers)
-            if len(held) == len(self.modifiers) and all(modifier.type == row.kind and not _differing(modifier, row.values) for modifier, row in zip(held, self.modifiers)):
+            if len(held) == len(self.modifiers) and all(modifier.type == row.kind and not differing(modifier, row.values) for modifier, row in zip(held, self.modifiers)):
                 return Ok(value=False)
 
             def added(row: Modifier) -> Outcome[None]:
@@ -154,11 +154,15 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
                 .default_with(
                     lambda: catch(bpy.data.actions.new, exception=RuntimeError)(f"{block.name}Action").map_error(refused).bind(lambda action: written(data, ("action",), action).map(lambda _: action))
                 )
-                .bind(lambda action: catch(action.fcurve_ensure_for_datablock, exception=RuntimeError)(block, _rna(descriptor.member), index=descriptor.index.default_value(-1)).map_error(refused))
+                .bind(lambda action: catch(action.fcurve_ensure_for_datablock, exception=RuntimeError)(block, rna(descriptor.member), index=descriptor.index.default_value(-1)).map_error(refused))
             )
 
         def driver(_data: bpy.types.AnimData, struct: Struct, descriptor: Descriptor) -> Outcome[bpy.types.FCurve]:
-            return catch(struct.driver_add, exception=TypeError)(descriptor.prop.identifier, descriptor.index.default_value(-1)).map_error(refused)  # ty: ignore[invalid-return-type]
+            return (
+                catch(struct.driver_add, exception=TypeError)(descriptor.prop.identifier, descriptor.index.default_value(-1))
+                .map_error(refused)
+                .bind(partial(typed, bpy.types.FCurve, rna(descriptor.path)))
+            )
 
         content: Outcome[Callable[[bpy.types.FCurve], Outcome[bool]]]
         curve_of: Callable[[bpy.types.AnimData, Struct, Descriptor], Outcome[bpy.types.FCurve]]
@@ -183,8 +187,8 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         return self.channel(block).bind(
             lambda found: accumulated(
                 catch(curves.remove, exception=RuntimeError)(curve).map_error(partial(Fault.of, Refusal.REFUSED, repr(curves)))
-                for curves in _struct_at(block, ("animation_data",), bpy.types.AnimData).bind(self.source.curves).to_list()
-                for curve in Option.of_optional(curves.find(_rna(found[1].member), index=found[1].index.default_value(0))).to_list()
+                for curves in struct_at(block, ("animation_data",), bpy.types.AnimData).bind(self.source.curves).to_list()
+                for curve in Option.of_optional(curves.find(rna(found[1].member), index=found[1].index.default_value(0))).to_list()
             ).map(lambda _: None)
         )
 
@@ -205,7 +209,7 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
         One value per frame, absent fault for a path naming no number or enum scalar.
     """
     held = tuple(frames)
-    absent = partial(Fault.of, Reason.ABSENT, repr(owner), member=_rna(path))
+    absent = partial(Fault.of, Reason.ABSENT, repr(owner), member=rna(path))
 
     def projected(prop: bpy.types.Property, values: NDArray[np.float32]) -> Outcome[tuple[float, ...]]:
         match prop:
@@ -218,14 +222,14 @@ def sampled(owner: Struct, path: RnaPath, frames: Iterable[float], proposed: Opt
             case bpy.types.EnumProperty():
                 return Ok(tuple(map(float, values.astype(np.int64))))
             case _:
-                return Error(Fault.of(Reason.OUTSIDE, _rna(path), type(prop).__name__, member=", ".join(kind.__name__ for kind in _DTYPES)))
+                return Error(Fault.of(Reason.OUTSIDE, rna(path), type(prop).__name__, member=", ".join(kind.__name__ for kind in DTYPES)))
 
     def curve(descriptor: Descriptor) -> Option[bpy.types.FCurve]:
         return (
             id_data(bpy.types.ID, owner)
-            .bind(lambda block: _struct_at(block, ("animation_data",), bpy.types.AnimData))
+            .bind(lambda block: struct_at(block, ("animation_data",), bpy.types.AnimData))
             .bind(Keys.curves)
-            .bind(lambda curves: id_path(owner).bind(lambda base: Option.of_optional(curves.find(_rna((*base, *descriptor.member)), index=descriptor.index.default_value(0)))))
+            .bind(lambda curves: id_path(owner).bind(lambda base: Option.of_optional(curves.find(rna((*base, *descriptor.member)), index=descriptor.index.default_value(0)))))
         )
 
     def stored(descriptor: Descriptor) -> Outcome[float]:

@@ -1,4 +1,5 @@
-use core::{hint::black_box, num::ParseIntError};
+use core::hint::black_box;
+use core::num::ParseIntError;
 use std::io;
 
 // --- [ERRORS] --------------------------------------------------------------------------

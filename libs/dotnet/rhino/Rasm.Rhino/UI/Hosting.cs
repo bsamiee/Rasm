@@ -7,6 +7,7 @@ using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
+using Rhino.Input.Custom;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using SuperLinq;
@@ -55,8 +56,23 @@ internal sealed class ViewBody {
 
     private static IO<(BindingGroup Bindings, RowScope Scope)> Nesting(View row, RowScope enclosing) =>
         from bindings in ViewOps.Bindings(row, enclosing)
-        from history in IO.lift(ViewOps.History(row, bindings, enclosing.Document))
-        select (bindings, enclosing.Nested(ViewOps.Settings(row), history, ViewOps.Locks(row, enclosing.Document)));
+        from history in IO.lift(
+            (from store in row.Store
+             from frame in ViewCatalog.Current.Definition.Frames.Choose(static frame => Optional(frame as HistoryFrame)).Head
+             select store.Switch(
+                     (View: row, enclosing.Document, Frame: frame),
+                     applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Frame.Registry),
+                     documentStores: static (state, held) =>
+                         state.Document.ToFin(new RhinoFault(state.View.Identity.Name, RhinoReason.Unsupported)).Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw)))
+                 .Map(reach => new HistoryBinding(row.Identity.GUID, LocalText.Of(row.Caption).Local, bindings, reach, frame.Limits, frame.Clock)))
+            .Traverse(static held => held)
+            .As())
+        select (bindings, enclosing.Nested(
+            ViewCatalog.Settings.Child(EntryKey.TypeOwner(row.Identity.GUID)),
+            history,
+            from doc in enclosing.Document
+            from locks in row.Store.Bind(static store => store.Locks)
+            select locks(doc, row.Identity.GUID)));
 
     private static IO<ViewBody> Built(View row, Seq<Command<Invoke>> actions, RowScope enclosing, BindingGroup bindings, RowScope nested, Option<Func<ViewBody, IO<Unit>>> listening) =>
         from scope in IO.env
@@ -158,22 +174,38 @@ internal sealed class HostedView(Func<IO<(ViewBody Body, Control Frame)>> realiz
             Results.Of(
                 from doc in document
                 from scope in RowScope.Open(Some(doc), mode)
-                from scripted in Showing.RunScript(row, scope, doc)
-                select scripted),
+                from groups in Products.Each(ViewCatalog.Tree(row).Map(held => ViewOps.Bindings(held, scope)))
+                let bindings = new BindingGroup(groups.Bind(static bound => bound.Bindings))
+                let fields = bindings.Keys().Map(static key => (Caption: EntryKey.Name(key.Path), Key: key))
+                let pass =
+                    from shown in scope.Shown(bindings)
+                    from ended in Getters.Choice(doc, new GetterRequest<GetOption, bool>(row.Caption) {
+                        Accept = new() { Nothing = Some(new NothingEntry<bool>(None, IO.pure(value: true))) },
+                        Options =
+                            from field in fields
+                            let text = shown.Entries.Find(field.Key)
+                            select OptionSpecs.Plain(
+                                field.Caption,
+                                text.Bind(static held => Conversions.Present(held)),
+                                hidden: false,
+                                _ => Getters.Text(
+                                    doc,
+                                    new EntryRequest<GetString, string, bool>(field.Caption) { Default = text },
+                                    literal: true,
+                                    entered => scope.Commit(bindings, new ValueSet(HashMap((field.Key, entered.Value)))).Map(value: false))),
+                    })
+                    select ended
+                from ended in pass.RepeatUntil(static ended => ended)
+                select unit),
             Result.Failure);
-
-    // --- [RELEASE]
-
-    internal Unit Release() {
-        _ = Session.Run(IO.lift(Scope.DisposeResources));
-        Scope.Dispose();
-        return unit;
-    }
 }
 
 internal sealed class HostFrame(HostedView hosted) : Panel {
     protected override void Dispose(bool disposing) {
-        if (disposing) _ = hosted.Release();
+        if (disposing) {
+            _ = Session.Run(IO.lift(hosted.Scope.DisposeResources));
+            hosted.Scope.Dispose();
+        }
         base.Dispose(disposing);
     }
 }
@@ -339,25 +371,6 @@ internal static class ViewOps {
             Some: stored => scope.DocumentIO.Bind(stored),
             None: () => IO.pure(new BindingGroup(view.Children.Bind(static child => child.Controls).Choose(static rows => rows.Bound).Map(bound => bound(scope)))));
 
-    public static Option<Preference<HashSet<EntryKey>>> Locks(View view, Option<RhinoDoc> document) =>
-        from doc in document
-        from locks in view.Store.Bind(static store => store.Locks)
-        select locks(doc, view.Identity.GUID);
-
-    public static SettingsNode Settings(View view) => ViewCatalog.Settings.Child(EntryKey.TypeOwner(view.Identity.GUID));
-
-    public static Fin<Option<HistoryBinding>> History(View view, BindingGroup bound, Option<RhinoDoc> document) =>
-        (from store in view.Store
-         from frame in ViewCatalog.Current.Definition.Frames.Choose(static frame => Optional(frame as HistoryFrame)).Head
-         select store.Switch(
-                 (View: view, Document: document, Frame: frame),
-                 applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Frame.Registry),
-                 documentStores: static (state, held) =>
-                     state.Document.ToFin(new RhinoFault(state.View.Identity.Name, RhinoReason.Unsupported)).Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw)))
-             .Map(scope => new HistoryBinding(view.Identity.GUID, LocalText.Of(view.Caption).Local, bound, scope, frame.Limits, frame.Clock)))
-        .Traverse(static held => held)
-        .As();
-
     // --- [REALIZATION]
 
     public static IO<Control> Realize(Seq<Child> children, RowScope scope) =>
@@ -388,15 +401,13 @@ internal static class ViewOps {
 
     // --- [LIFECYCLE]
 
-    public static HostEvent<bool> Loaded(Control control) =>
-        Subscriptions.Merged(
-            Subscriptions.On<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h).Choose(static _ => Some(value: true)),
-            Subscriptions.On<EventArgs>(h => control.UnLoad += h, h => control.UnLoad -= h).Choose(static _ => Some(value: false)));
-
-    public static IO<Unit> WhileLoaded(Control control, IO<Unit> listen) =>
+    public static IO<Unit> Loaded(Control control, IO<Unit> listen) =>
         from scope in IO.env
         from held in IO.lift(static () => Ref(Option<Owned<Unit>>.None))
-        from changes in Loaded(control).Attach(shown => Toggled(held, shown, listen).Scoped(scope))
+        from changes in Subscriptions.Merged(
+                Subscriptions.On<EventArgs>(h => control.LoadComplete += h, h => control.LoadComplete -= h).Choose(static _ => Some(value: true)),
+                Subscriptions.On<EventArgs>(h => control.UnLoad += h, h => control.UnLoad -= h).Choose(static _ => Some(value: false)))
+            .Attach(shown => Toggled(held, shown, listen).Scoped(scope))
         from current in IO.lift(() => control.Loaded).Bind(shown => Toggled(held, shown, listen))
         select unit;
 

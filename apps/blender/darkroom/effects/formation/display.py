@@ -1,4 +1,4 @@
-"""Display formation: the chain entry forming scene-linear color through a display view, the scene views it holds, and the frames it displays, and BT.2390 peak mapping of formed absolute PQ codes into a display's peak and black."""
+"""Display formation: the chain entry forming scene-linear color through a display view, the scene views it holds, and BT.2390 peak mapping of formed absolute PQ codes into a display's peak and black."""
 
 from collections.abc import Callable
 from functools import partial
@@ -13,7 +13,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from rasm_bpy.commands import Answer, Call, Done, Operator, Unchanged
-from rasm_bpy.data import Acquisitions, assigned, Identity, Key, rooted, Snapshot, Subscription, written
+from rasm_bpy.data import Acquisitions, assigned, Identity, Key, rooted, Snapshot, Subscription
 from rasm_bpy.nodes import Expr, Interface, owned, Socket
 from rasm_bpy.render import ColorManagement, CompositorEffect, CompositorRecord, entered, followed, grades, GraphInputs, HdrWindow, Holds, Mix, Named, NO_LOOK, READ, Seeded, viewed
 from rasm_imaging import converted, DisplayView, ImageFile, Samples
@@ -131,15 +131,6 @@ def current_view(identity: Identity, scene: bpy.types.Scene) -> Outcome[DisplayV
     return formed_view(identity, scene).map(lambda found: found.default_with(lambda: viewed(scene)))
 
 
-def encoding(identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> Outcome[tuple[DisplayView, PyOpenColorIO.Processor]]:
-    """Returns the encoding view of the current view's display with its processor."""
-
-    def found(view: DisplayView) -> Outcome[tuple[DisplayView, PyOpenColorIO.Processor]]:
-        return DisplayView.for_encoding(config, view.display).bind(lambda held: held.to_result_with(partial(Fault.of, Reason.ABSENT, view.display, member="encoding view")))
-
-    return current_view(identity, scene).bind(found)
-
-
 def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArray[np.float32], source: str, config: PyOpenColorIO.Config) -> Outcome[ImageFile]:
     """Returns display values of a written frame: a formation entry's frame tagged with its view's colorspace, else formed through the scene view."""
 
@@ -152,23 +143,22 @@ def displayed_frame(identity: Identity, scene: bpy.types.Scene, plane: npt.NDArr
     return formed_view(identity, scene).bind(lambda held: held.map(tagged).default_with(lambda: viewed(scene).image(config, plane, source)))
 
 
-def _reformed(identity: Identity, scene: bpy.types.Scene, change: Callable[[DisplayView], DisplayView], unformed: Callable[[], Outcome[bool]]) -> Outcome[bool]:
+def encoding(identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> Outcome[tuple[DisplayView, PyOpenColorIO.Processor]]:
+    """Returns the encoding view of the current view's display with its processor."""
+
+    def found(view: DisplayView) -> Outcome[tuple[DisplayView, PyOpenColorIO.Processor]]:
+        return DisplayView.for_encoding(config, view.display).bind(lambda held: held.to_result_with(partial(Fault.of, Reason.ABSENT, view.display, member="encoding view")))
+
+    return current_view(identity, scene).bind(found)
+
+
+def reformed(identity: Identity, scene: bpy.types.Scene, change: Callable[[DisplayView], DisplayView], unformed: Callable[[], Outcome[bool]]) -> Outcome[bool]:
     """Writes a changed view into the earliest formation entry, else the scene view settings, answering whether either changed."""
     return (
         formation
         .earliest(identity, scene)
         .map(lambda entry: formation.revised(identity, scene, entry, lambda record: Ok(msgspec.structs.replace(record, display_view=change(record.display_view))), form=Formation))
         .default_with(unformed)
-    )
-
-
-def looked(identity: Identity, scene: bpy.types.Scene, look: str) -> Outcome[bool]:
-    """Writes a look into the earliest formation entry, else into the scene view, answering whether either changed."""
-    return _reformed(
-        identity,
-        scene,
-        lambda view: msgspec.structs.replace(view, looks_override=look, looks_override_enabled=look != NO_LOOK),
-        lambda: written(scene, ("view_settings", "look"), look).map(Option.is_some),
     )
 
 
@@ -189,7 +179,7 @@ def encode_formation(call: Call[Named]) -> Outcome[Answer]:
     """Select encoding-only formation after tone curve."""
 
     def selected(scene: bpy.types.Scene, target: DisplayView) -> Outcome[Answer]:
-        return _reformed(
+        return reformed(
             call.identity, scene, lambda _view: target, lambda: assigned(scene, {("view_settings", "view_transform"): target.view, ("view_settings", "look"): NO_LOOK}).map(lambda _: True)
         ).map(lambda changed: Done() if changed else Unchanged(reason=f"Formation encodes through {target.view}"))
 
@@ -215,4 +205,4 @@ peak_mapping: Final = CompositorEffect(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DisplayFollowing", "Formation", "PeakMapping", "current_view", "displayed_frame", "displays", "encoding", "formation", "formed_view", "looked", "peak_mapping"]
+__all__ = ["Formation", "PeakMapping", "current_view", "displayed_frame", "displays", "encoding", "formation", "formed_view", "peak_mapping", "reformed"]

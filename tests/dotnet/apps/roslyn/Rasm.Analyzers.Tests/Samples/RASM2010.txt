@@ -63,11 +63,11 @@ public abstract class ChainedPage : ObjectPropertiesPage {
 
     public override object {|#2:PageControl|} => First;
 
-    internal object First => Next();
+    internal object {|RASM3015:First|} => Next();
 
-    internal object Next() => Last;
+    internal object {|RASM3015:Next|}() => Last;
 
-    internal object Last => new Panel();
+    internal object {|RASM3015:Last|} => new Panel();
 }
 
 public abstract class RecursivePage : ObjectPropertiesPage {
@@ -77,7 +77,7 @@ public abstract class RecursivePage : ObjectPropertiesPage {
 
     internal object First => Second;
 
-    internal object Second => First;
+    internal object {|RASM3015:Second|} => First;
 }
 
 public abstract class SetterPage : ObjectPropertiesPage {
@@ -87,7 +87,7 @@ public abstract class SetterPage : ObjectPropertiesPage {
 
     public override object? PageControl => Body;
 
-    internal object? Body {
+    internal object? {|RASM3015:Body|} {
         get => body;
         set => body = new Panel();
     }

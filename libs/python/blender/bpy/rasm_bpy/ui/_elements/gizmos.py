@@ -12,19 +12,18 @@ from expression.extra.result import catch
 import mathutils
 import msgspec
 
-from rasm_bpy.commands._modal import _Press, Travel
+from rasm_bpy.commands._modal import Press, Travel
 from rasm_bpy.commands.keymaps import Location, nesting
 from rasm_bpy.commands.operators import filled, Pairs, Placement
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _acquired, _Classes, _Tier, Acquisitions, Declaration
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, Classes, Declaration, Tier
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Condition, satisfied
-from rasm_bpy.data._rna.descriptors import _assign
-from rasm_bpy.data._rna.paths import _rna, Struct
-from rasm_bpy.ui._layout.members import _resolved_at, Member, ResolvedMember
-from rasm_bpy.ui._layout.rows import icon_prerequisites
+from rasm_bpy.data._rna.descriptors import assign
+from rasm_bpy.data._rna.paths import rna, Struct
+from rasm_bpy.ui._layout.members import Member, resolved_at, ResolvedMember
 from rasm_bpy.ui._resources.icons import Icon, Icons
-from rasm_bpy.ui._resources.theme import _color, Shade
+from rasm_bpy.ui._resources.theme import display_color, Metrics, Shade
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
@@ -85,8 +84,12 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the gizmo type class drawing the shape, dragging through `drag` while one is stated."""
         batch = cache(partial(bpy.types.Gizmo.new_custom_shape, self.primitive, self.vertices))
         reports, targets, drags = identity.reports, self.targets, self.drag
+        name = identity.name(bpy.types.Gizmo, self.key)
 
         class Shaped(bpy.types.Gizmo):
+            bl_idname = name
+            bl_target_properties = tuple({"id": target, "type": "FLOAT", "array_length": length} for target, length in targets.items())
+
             @override
             def draw(self, context: bpy.types.Context) -> None:
                 self.draw_custom_shape(batch())
@@ -100,27 +103,23 @@ class Shape(msgspec.Struct, frozen=True, kw_only=True):
 
             @override
             def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> set["rna_enums.OperatorReturnItems"]:
-                self.press = _Press(x=event.mouse_x, y=event.mouse_y, threshold=0)
+                self.press = Press(x=event.mouse_x, y=event.mouse_y, threshold=0)
                 self.initial = tuple((target, self.target_get_value(target)) for target in targets if self.target_is_valid(target))
                 return {"RUNNING_MODAL"}
 
             @override
             def modal(self, context: bpy.types.Context, event: bpy.types.Event, tweak: set[Literal["PRECISE", "SNAP"]] | None) -> set["rna_enums.OperatorReturnItems"]:
-                tweaks: set[Literal["PRECISE", "SNAP"]] = tweak  # ty: ignore[invalid-assignment]
+                tweaks = tweak or frozenset[str]()
                 for drag in drags.to_list():
                     reports.faulted(drag(self, context, self.initial, self.press.travel(event, snapped="SNAP" in tweaks, precise="PRECISE" in tweaks)))
                 return {"RUNNING_MODAL"}
 
             @override
             def exit(self, context: bpy.types.Context, cancel: bool | None) -> None:
-                cancelled: bool = cancel  # ty: ignore[invalid-assignment]
-                for target, value in self.initial if cancelled else ():
+                for target, value in self.initial if cancel is True else ():
                     self.target_set_value(target, value)  # ty: ignore[too-many-positional-arguments]
 
-        base = Dragged if drags.is_some() else Shaped
-        declared = tuple({"id": target, "type": "FLOAT", "array_length": length} for target, length in targets.items())
-        name = identity.name(bpy.types.Gizmo, self.key)
-        return (type(name, (base,), {"bl_idname": name, "bl_target_properties": declared}),)  # ty: ignore[unsupported-dynamic-base]
+        return (Dragged if drags.is_some() else Shaped,)
 
 
 class Gizmo[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=True):
@@ -136,7 +135,7 @@ class Gizmo[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=True):
     bind: Member | TargetHandler[float, S] | TargetHandler[tuple[float, ...], S] | tuple[Placement, ...] = ()
     properties: Mapping[str, object] = MappingProxyType({})
     icon: Option[Icon] = Nothing
-    role: Callable[[bpy.types.ThemeUserInterface], tuple[Shade, Shade]] = lambda ui: ((*_color(ui.gizmo_primary)[:3], 0.5), ui.gizmo_hi)
+    role: Callable[[bpy.types.ThemeUserInterface], tuple[Shade, Shade]] = lambda ui: ((*display_color(ui.gizmo_primary)[:3], 0.5), ui.gizmo_hi)
     prepare: Option[Callable[[bpy.types.Context, bpy.types.Gizmo], Outcome[None]]] = Nothing
 
     def bound(self, identity: Identity) -> Outcome[_Bound[S]]:
@@ -177,27 +176,25 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Icon sets, member attachments, and commands the parts hold."""
-        return tuple(held for part in self.gizmos for held in (*icon_prerequisites(part.icon), *_acquired(part.bind if isinstance(part.bind, tuple) else (part.bind,))))
+        return tuple(held for part in self.gizmos for held in (*Icons.declarations(part.icon), *acquired_rows(part.bind if isinstance(part.bind, tuple) else (part.bind,))))
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns each custom shape, then the group class built when the interface tier opens and its icons resolve."""
-        kinds = tuple(identity.name(bpy.types.Gizmo, part.kind.key) if isinstance(part.kind, Shape) else part.kind for part in self.gizmos)
         bound = accumulated(part.bound(identity) for part in self.gizmos)
         located = self.keymap.map(lambda name: nesting(name).map(lambda found: Some(found[0]))).default_value(Ok(Nothing))
         shapes = tuple(part.kind for part in self.gizmos if isinstance(part.kind, Shape))
-        return paired(bound, located).map(lambda held: (*shapes, (_Tier.INTERFACE, _Classes(build=partial(_grouped, self, identity, identity.name(bpy.types.GizmoGroup, self.key), kinds, *held)))))
+        return paired(bound, located).map(lambda held: (*shapes, (Tier.INTERFACE, Classes(build=partial(_grouped, self, identity, *held)))))
 
     # --- [LINKING]
 
     @contextmanager
     def ensured(self, identity: Identity) -> Generator[Outcome[None]]:
         """Links a group without `PERSISTENT` into every region of its type for the scope, refused for a persistent or unregistered group."""
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
         name = identity.name(bpy.types.GizmoGroup, self.key)
         with ExitStack() as stack:
             yield (
-                catch(manager.gizmo_group_type_ensure, exception=RuntimeError)(name)
-                .map(lambda _: stack.callback(manager.gizmo_group_type_unlink_delayed, name))
+                catch(bpy.types.WindowManager.gizmo_group_type_ensure, exception=RuntimeError)(name)
+                .map(lambda _: stack.callback(bpy.types.WindowManager.gizmo_group_type_unlink_delayed, name))
                 .map(lambda _: None)
                 .map_error(partial(Fault.of, Refusal.REFUSED, name))
             )
@@ -208,17 +205,18 @@ class GizmoGroup[S = bpy.types.Context](msgspec.Struct, frozen=True, kw_only=Tru
 # --- [CLASSES]
 
 
-def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tuple[str, ...], bound: tuple[_Bound[S], ...], keymap: Option[Location]) -> Outcome[tuple[type[bpy.types.GizmoGroup]]]:
+def _grouped[S](group: GizmoGroup[S], identity: Identity, bound: tuple[_Bound[S], ...], keymap: Option[Location]) -> Outcome[tuple[type[bpy.types.GizmoGroup]]]:
     """Builds the group class once every icon resolves, rebinding handlers at each draw since the host caches their values until a rebind."""
-    reports, parts = identity.reports, group.gizmos
+    reports, parts, name = identity.reports, group.gizmos, identity.name(bpy.types.GizmoGroup, group.key)
+    kinds = tuple(identity.name(bpy.types.Gizmo, part.kind.key) if isinstance(part.kind, Shape) else part.kind for part in parts)
     members = tuple(member for binding in bound if isinstance(binding, tuple) and isinstance(member := binding[1], Member | ResolvedMember))
 
     def rebound(gizmo: bpy.types.Gizmo, key: str, member: Member[type[Struct]] | ResolvedMember, context: bpy.types.Context) -> Outcome[None]:
         """Binds the target to the member's current owner, leaving it while the reach finds none."""
-        return _resolved_at(member, context, context).bind(
+        return resolved_at(member, context, context).bind(
             lambda found: found.starmap(
                 lambda setting, at: catch(gizmo.target_set_prop, exception=RuntimeError)(key, *at, index=setting.index.default_value(-1)).map_error(
-                    partial(Fault.of, Refusal.REFUSED, _rna(setting.path))
+                    partial(Fault.of, Refusal.REFUSED, rna(setting.path))
                 )
             ).default_value(Ok(None))
         )
@@ -226,7 +224,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
     def poll(_cls: type[bpy.types.GizmoGroup], context: bpy.types.Context) -> bool:
         if not satisfied(group.condition, context):
             return False
-        found = reports.settled(accumulated(_resolved_at(member, context, context) for member in members))
+        found = reports.settled(accumulated(resolved_at(member, context, context) for member in members))
         return found.map(lambda each: all(present.is_some() for present in each)).default_value(value=False)
 
     def refresh(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
@@ -237,14 +235,13 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
         )
 
     def draw_prepare(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-        preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
-        ui = preferences.themes[0].user_interface
+        ui = Metrics.read().preferences.themes[0].user_interface
         if (state := reports.settled(group.read(context)).default_value(Nothing)).is_none():
             for gizmo in owner.gizmos:
                 gizmo.hide = True
         for snapshot in state.to_list():
             for gizmo, part, binding in zip(owner.gizmos, parts, bound):
-                (red, green, blue, alpha), (lit_red, lit_green, lit_blue, lit_alpha) = map(_color, part.role(ui))
+                (red, green, blue, alpha), (lit_red, lit_green, lit_blue, lit_alpha) = map(display_color, part.role(ui))
                 gizmo.color, gizmo.alpha = (red, green, blue), alpha
                 gizmo.color_highlight, gizmo.alpha_highlight = (lit_red, lit_green, lit_blue), lit_alpha
                 placed = reports.settled(part.place(snapshot)).default_value(Nothing)
@@ -262,7 +259,7 @@ def _grouped[S](group: GizmoGroup[S], identity: Identity, name: str, kinds: tupl
         def setup(owner: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
             made = tuple((owner.gizmos.new(kind), kind, part) for kind, part in zip(kinds, parts))
             written = accumulated(
-                _assign(gizmo, member, value).map_error(partial(Fault.of, Refusal.REFUSED, f"{kind}.{member}"))
+                assign(gizmo, member, value).map_error(partial(Fault.of, Refusal.REFUSED, f"{kind}.{member}"))
                 for (gizmo, kind, part), icon in zip(made, icons)
                 for member, value in (("use_undo", isinstance(part.bind, Member | TargetHandler)), *(("icon_value", value) for value in icon.to_list()), *part.properties.items())
             )

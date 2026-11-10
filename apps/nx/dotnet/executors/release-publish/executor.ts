@@ -1,7 +1,7 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { Config, Console, Effect, flow, Option, Path, Schema } from 'effect';
-import { dotnet, spawned } from '#/plugins/project-graph';
+import { dotnet, spawned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -19,7 +19,6 @@ from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
-from typing_extensions import TypeForm
 
 from rasm_records._faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
 
@@ -53,10 +52,10 @@ _DIGEST_SIZE: Final = 16
 
 
 class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
-    """JSON or TOML file, by its suffix, holding one record of its form."""
+    """JSON or TOML file, by its suffix, holding one record of the type its decoder states, runtime-built types included."""
 
     path: Path
-    form: TypeForm[T]
+    decoder: msgspec.json.Decoder[T]
 
     def read(self) -> Outcome[T]:
         """Decodes and validates the record.
@@ -64,8 +63,9 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(record), `UNREADABLE` fault for a missing or unreadable file, `INVALID` for a refused decode.
         """
-        decode = msgspec.toml.decode if self.path.suffix == ".toml" else msgspec.json.decode
-        return read(self.path).bind(lambda data: catch(lambda: decode(data, type=self.form), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, str(self.path))))
+        held = self.decoder
+        decode = partial(msgspec.toml.decode, type=held.type, strict=held.strict, dec_hook=held.dec_hook) if self.path.suffix == ".toml" else held.decode
+        return read(self.path).bind(lambda data: catch(decode, exception=msgspec.DecodeError)(data).map_error(partial(Fault.of, Reason.INVALID, str(self.path))))
 
     def found(self) -> Outcome[Option[T]]:
         """Decodes and validates the record a present file holds.

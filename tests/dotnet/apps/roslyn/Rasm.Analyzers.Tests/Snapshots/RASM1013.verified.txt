@@ -1,3 +1,5 @@
+RASM3015 `FailureChecks.Predicate` has one reader in the assembly, in `FailureChecks.EvaluatedArguments`, fold `FailureChecks.Predicate` into `FailureChecks.EvaluatedArguments`
+RASM3015 `FailureChecks.Recovery` has one reader in the assembly, in `FailureChecks.EvaluatedArguments`, fold `FailureChecks.Recovery` into `FailureChecks.EvaluatedArguments`
 #0 `Catch` ignores its predicate for an evaluated failure, use `| @catch(...)`
 #1 `Catch` ignores its predicate for an evaluated failure, use `| @catch(...)`
 #2 `Catch` ignores its predicate for an evaluated failure, use `| @catch(...)`

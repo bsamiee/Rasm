@@ -2,6 +2,9 @@
 id: mapperly-mapping-method
 language: csharplang
 utils:
+    mapper-class:
+        kind: class_declaration
+        matches: {csharp-attributed: {name: {regex: '^Mapper(Attribute)?$'}}}
     use-attribute:
         matches: {csharp-qualified-name: {name: {regex: '^Map(?:Property(?:FromSource)?|Value)(?:Attribute)?$'}, qualifier: {regex: '^Abstractions$'}}}
     user-mapping:
@@ -10,7 +13,7 @@ utils:
         all:
             - has: {kind: modifier, regex: '^partial$'}
             - not: {has: {field: body, kind: 'arrow_expression_clause, block'}}
-            - inside: {kind: declaration_list, inside: {matches: mapperly-mapper-class}}
+            - inside: {kind: declaration_list, inside: {matches: mapper-class}}
     use-argument:
         kind: attribute_argument
         has: {field: name, regex: '^Use$'}
@@ -25,8 +28,7 @@ utils:
             - inside:
                 kind: declaration_list
                 inside:
-                    kind: class_declaration
-                    matches: mapperly-mapper-class
+                    matches: mapper-class
                     has:
                         field: body
                         has:

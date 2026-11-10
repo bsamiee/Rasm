@@ -120,11 +120,6 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
 ) {
     static readonly Tag = Tag;
     static readonly Direction = Direction;
-    static readonly Alignment = Alignment;
-    static readonly Leading = Leading;
-    static readonly Kashida = Kashida;
-    static readonly Marks = Marks;
-    static readonly Spacing = Spacing;
     static readonly Partial = Settings.mapFields((fields) =>
         Struct.map(Schema.optionalKey)({
             ...fields,

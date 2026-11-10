@@ -1,8 +1,12 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, res::MaybeDef as _, sym};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::sym;
 use rustc_data_structures::fx::FxIndexMap;
-use rustc_hir::{Expr, ExprKind, Item, ItemKind, Pat, PatKind, StructTailExpr, VariantData, def_id::LocalDefId};
+use rustc_hir::def_id::LocalDefId;
+use rustc_hir::{Expr, ExprKind, Item, ItemKind, Pat, PatKind, StructTailExpr, VariantData};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{Ty, print::with_forced_trimmed_paths};
+use rustc_middle::ty::Ty;
+use rustc_middle::ty::print::with_forced_trimmed_paths;
 
 use crate::{expanded_externally, exported, generated};
 

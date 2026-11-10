@@ -32,8 +32,7 @@ public sealed partial class MaskOperation {
 public sealed class Mask(MaskOperation operation, Action<ReadOnlySpan<Vector4>, Span<float>> key, Option<PixelFrame> matte = default, bool inverted = false) {
     public static Action<ReadOnlySpan<Vector4>, Span<float>> Alpha { get; } = static (row, weights) => {
         MemoryMarshal.Cast<Vector4, float>(row).AsSpan2D(row.Length, 4).GetColumn(3).CopyTo(weights);
-        TensorPrimitives.Max(weights, 0f, weights);
-        TensorPrimitives.Min(weights, 1f, weights);
+        TensorPrimitives.Clamp(weights, 0f, 1f, weights);
     };
 
     public MaskOperation Operation { get; } = operation;

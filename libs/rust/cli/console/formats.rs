@@ -1,8 +1,6 @@
-use core::{
-    fmt::{self, Write as _},
-    iter, mem,
-    ops::ControlFlow,
-};
+use core::fmt::{self, Write as _};
+use core::ops::ControlFlow;
+use core::{iter, mem};
 use std::io::{self, IsTerminal as _, Write as _};
 
 use anstream::{AutoStream, ColorChoice};
@@ -10,23 +8,20 @@ use anstyle::Style;
 use clap::{Args, ValueEnum};
 use comfy_table::{Cell, CellAlignment, ContentArrangement, Table, presets};
 use csv::IntoInnerError;
-use futures::{Stream, StreamExt as _, executor, stream::TakeUntil};
-use minus::{Pager, hooks::Hook};
+use futures::stream::TakeUntil;
+use futures::{Stream, StreamExt as _, executor};
+use minus::Pager;
+use minus::hooks::Hook;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use serde::Serialize;
-use serde_json::{
-    Serializer,
-    ser::{Formatter as _, PrettyFormatter},
-};
+use serde_json::Serializer;
+use serde_json::ser::{Formatter as _, PrettyFormatter};
 use sysexits::ExitCode;
 use tracing_indicatif::{IndicatifWriter, suspend_tracing_indicatif, writer};
 use tracing_subscriber::fmt::writer::EitherWriter;
 
-use crate::{
-    OutputError,
-    cells::{self, Columns, Field, Row},
-    theme,
-};
+use crate::cells::{self, Columns, Field, Row};
+use crate::{OutputError, theme};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

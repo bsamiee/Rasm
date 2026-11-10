@@ -40,6 +40,14 @@ mod geometry {
     }
 }
 
+mod shapes {
+    const SIDES: usize = 4;
+
+    pub(crate) fn perimeter(side: usize) -> usize { side.strict_mul(SIDES) }
+
+    pub(crate) fn area(side: usize) -> usize { side.strict_mul(side).strict_add(1) }
+}
+
 struct Window {
     width: usize,
 }
@@ -255,6 +263,8 @@ fn spanned(left: &Window, right: &Window) -> usize { left.width.abs_diff(right.w
 
 fn compared(width: usize) -> usize { spanned(&Window { width }, &Window { width: 1 }) }
 
+fn outlined(side: usize) -> usize { shapes::perimeter(side).strict_add(shapes::area(side)) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
@@ -268,5 +278,5 @@ async fn main() {
     black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8), compared(5)));
     black_box(&(padded(), gridded(&grid), SEED, STEPS, window.tripled(), window.scale(), grid.scale()));
     black_box(&(Buffer { items: vec![1_u16] }.bytes(), sized(), port(1), kept(), counted("a"), grade(6), wrapped(3), layered(5), paired(4_u8), doubled(5_u8), tripled(7_u8)));
-    black_box((raw_visible("12"), escaped_visible("AB")));
+    black_box((raw_visible("12"), escaped_visible("AB"), outlined(3)));
 }

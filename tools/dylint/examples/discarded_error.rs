@@ -1,15 +1,11 @@
 #![feature(const_result_trait_fn, const_trait_impl, integer_casts, option_get_or_try_insert_with, option_reduce)]
 
-use core::{
-    convert::Infallible,
-    fmt,
-    hint::black_box,
-    num::{ParseIntError, TryFromIntError},
-};
-use std::{
-    process::ExitCode,
-    sync::{Mutex, mpsc},
-};
+use core::convert::Infallible;
+use core::fmt;
+use core::hint::black_box;
+use core::num::{ParseIntError, TryFromIntError};
+use std::process::ExitCode;
+use std::sync::{Mutex, mpsc};
 
 use itertools::Itertools as _;
 use rasm_lints_auxiliary::{DroppedError, OpenError, SingleError};

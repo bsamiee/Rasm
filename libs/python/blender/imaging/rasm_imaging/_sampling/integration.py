@@ -21,7 +21,6 @@ from rasm_records import accumulated, content_hash, Fault, NonNegative, Outcome,
 # --- [TYPES] ----------------------------------------------------------------------------
 
 _T_co = TypeVar("_T_co", covariant=True)
-type _Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -179,7 +178,9 @@ def placement[V: Arithmetic](
     return (column + 0.25 + across * 0.5) * spacing, (row + 0.25 + up * 0.5) * spacing, (1.0 - size * variation) * scale * (diameter * 0.5), exp2(gain * spread * -1.0)
 
 
-def integrated(request: msgspec.Struct, field: _Integrand, bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
+def integrated(
+    request: msgspec.Struct, field: Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]], bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision
+) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
     """Estimates a positive rectangular field integral with replicate standard error."""
     lower, upper = np.asarray(bounds, dtype=np.float64)
     width = upper - lower
@@ -196,7 +197,7 @@ def integrated(request: msgspec.Struct, field: _Integrand, bounds: tuple[tuple[f
     ).map(lambda values: Estimate.of(np.stack(values), precision))
 
 
-def footprint(field: _Integrand, raster: Raster, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
+def footprint(field: Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]], raster: Raster, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:
     """Estimates the mean of `field`, read at `(points, 2)` global positions as `(points, channels)`, over each pixel's square footprint.
 
     Returns:

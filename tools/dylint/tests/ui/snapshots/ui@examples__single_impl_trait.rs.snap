@@ -2,76 +2,91 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/single_impl_trait.rs
 ---
-error: `run` has one reader, `ran`
-   --> tools/dylint/examples/single_impl_trait.rs:189:1
+error: `rank` passes its parameters unchanged to `Shape::shape`
+   --> tools/dylint/examples/single_impl_trait.rs:154:1
     |
-189 | / fn run<H>(handler: &H) -> u32
-190 | | where H: Handler {
+154 | / fn rank<S>(value: &S) -> <S as Shape>::Output
+155 | | where S: Shape {
+    | |______________^
+    |
+note: forwarded here
+   --> tools/dylint/examples/single_impl_trait.rs:156:5
+    |
+156 |     value.shape()
+    |     ^^^^^^^^^^^^^
+    = help: call `Shape::shape` at each call site of `rank` and delete `rank`
+    = note: `#[deny(forwarding_function)]` on by default
+
+error: `run` has one reader, `ran`
+   --> tools/dylint/examples/single_impl_trait.rs:190:1
+    |
+190 | / fn run<H>(handler: &H) -> u32
+191 | | where H: Handler {
     | |________________^
     |
 note: read here
-   --> tools/dylint/examples/single_impl_trait.rs:194:19
+   --> tools/dylint/examples/single_impl_trait.rs:195:19
     |
-194 | fn ran() -> u32 { run(&|key: u32| key.strict_add(1)) }
+195 | fn ran() -> u32 { run(&|key: u32| key.strict_add(1)) }
     |                   ^^^
     = help: move `run` into `ran` as a nested `fn`
     = note: `#[deny(single_reader)]` on by default
 
 error: trait `Store` is implemented only for `Memory`
-   --> tools/dylint/examples/single_impl_trait.rs:6:1
+   --> tools/dylint/examples/single_impl_trait.rs:7:1
     |
-  6 | pub(crate) trait Store: Send + Sync {
+  7 | pub(crate) trait Store: Send + Sync {
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `dyn Store` always holds `Memory`
-   --> tools/dylint/examples/single_impl_trait.rs:127:16
+   --> tools/dylint/examples/single_impl_trait.rs:128:16
     |
-127 |     store: Arc<dyn Send + Store>,
+128 |     store: Arc<dyn Send + Store>,
     |                ^^^^^^^^^^^^^^^^
     = help: replace `Store` with an inherent `impl Memory` block
     = note: `#[deny(single_impl_trait)]` on by default
 
 error: trait `Clock` is implemented only for `Fixed`
-  --> tools/dylint/examples/single_impl_trait.rs:10:1
+  --> tools/dylint/examples/single_impl_trait.rs:11:1
    |
-10 | trait Clock {
+11 | trait Clock {
    | ^^^^^^^^^^^
    |
    = help: replace `Clock` with an inherent `impl Fixed` block
 
 error: trait `Lookup` is implemented only for `Borrowed<'_>`
-   --> tools/dylint/examples/single_impl_trait.rs:38:1
+   --> tools/dylint/examples/single_impl_trait.rs:39:1
     |
- 38 | trait Lookup {
+ 39 | trait Lookup {
     | ^^^^^^^^^^^^
     |
 note: `dyn Lookup` always holds `Borrowed<'_>`
-   --> tools/dylint/examples/single_impl_trait.rs:158:19
+   --> tools/dylint/examples/single_impl_trait.rs:159:19
     |
-158 | fn first(lookup: &dyn Lookup) -> Option<u32> { lookup.lookup(0) }
+159 | fn first(lookup: &dyn Lookup) -> Option<u32> { lookup.lookup(0) }
     |                   ^^^^^^^^^^
     = help: replace `Lookup` with an inherent `impl Borrowed<'_>` block
 
 error: trait `Adjusted` is implemented only for `F`
-  --> tools/dylint/examples/single_impl_trait.rs:46:1
+  --> tools/dylint/examples/single_impl_trait.rs:47:1
    |
-46 | trait Adjusted {
+47 | trait Adjusted {
    | ^^^^^^^^^^^^^^
    |
    = help: replace `Adjusted` with the `Fn(u32) -> u32` bound and retain behavior in generic functions
 
 error: trait `Doubled` is implemented only for `u32`
-  --> tools/dylint/examples/single_impl_trait.rs:56:1
+  --> tools/dylint/examples/single_impl_trait.rs:57:1
    |
-56 | trait Doubled {
+57 | trait Doubled {
    | ^^^^^^^^^^^^^
    |
    = help: replace `Doubled` with functions and constants for `u32`
 
 error: trait `Handler` is implemented only for `F`
-   --> tools/dylint/examples/single_impl_trait.rs:179:1
+   --> tools/dylint/examples/single_impl_trait.rs:180:1
     |
-179 | trait Handler {
+180 | trait Handler {
     | ^^^^^^^^^^^^^
     |
     = help: replace `Handler` with the `Fn(u32) -> u32` bound and retain behavior in generic functions

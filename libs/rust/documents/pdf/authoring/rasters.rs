@@ -1,26 +1,20 @@
-use std::{io::Cursor, sync::Arc};
+use std::io::Cursor;
+use std::sync::Arc;
 
-use fast_image_resize::{
-    PixelType, ResizeOptions, Resizer,
-    images::{self, ImageRef},
-};
+use fast_image_resize::images::{self, ImageRef};
+use fast_image_resize::{PixelType, ResizeOptions, Resizer};
 use image::{ImageFormat, RgbaImage};
-use krilla::{
-    Data,
-    image::{BitsPerComponent, CustomImage, Image, ImageColorspace},
-};
+use krilla::Data;
+use krilla::image::{BitsPerComponent, CustomImage, Image, ImageColorspace};
 use kurbo::Size;
 use nonempty_collections::{NEVec, nev};
-use tiff::{
-    ColorType, TiffError, TiffFormatError, TiffUnsupportedError,
-    decoder::{Decoder, DecodingResult, Limits, ifd::Value},
-    tags::{PlanarConfiguration, ResolutionUnit, Tag},
-};
-use uom::si::{
-    f64::{Length, Ratio},
-    length::{centimeter, inch, point_computer},
-    ratio::ratio,
-};
+use tiff::decoder::ifd::Value;
+use tiff::decoder::{Decoder, DecodingResult, Limits};
+use tiff::tags::{PlanarConfiguration, ResolutionUnit, Tag};
+use tiff::{ColorType, TiffError, TiffFormatError, TiffUnsupportedError};
+use uom::si::f64::{Length, Ratio};
+use uom::si::length::{centimeter, inch, point_computer};
+use uom::si::ratio::ratio;
 use validated::Validated;
 
 use crate::{PdfError, Refusal, Resolution};

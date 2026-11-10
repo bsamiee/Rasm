@@ -2,7 +2,6 @@ using Rasm.UI.Motion;
 using Rasm.UI.Media;
 using Rasm.UI.Typography;
 using SkiaSharp;
-using Wacton.Unicolour;
 
 namespace Rasm.UI.Styling;
 
@@ -30,7 +29,7 @@ internal sealed record RoleStyle {
         Look combined = toSeq(Condition.Items).Filter(shown.Contains).Choose(row.When.Find).Fold(row, static (held, over) => held.Combine(over));
         Look look = conditions.Contains(Condition.ReduceTransparency) ? combined with { Fills = combined.Fills.Map(static fills => fills.Map(static fill => fill.Opaque)) } : combined;
         (Role, Enclosing, Conditions, Shown, Look) = (role, enclosing, conditions, shown, look);
-        float compact = conditions.Contains(Condition.Compact) ? StyleSheet.Compact : 1f;
+        float compact = conditions.Contains(Condition.Compact) ? 0.8f : 1f;
         HashMap<Metric, float> scaled = Defaulted.Union(look.Metrics, Merge: static (_, _, over) => over).Map((metric, value) =>
             metric.Inherited && !look.Metrics.ContainsKey(metric) ? enclosing.Map(held => held.Metrics[metric]).IfNone(value * metric.Scale(theme, compact)) : value * metric.Scale(theme, compact));
         Metrics = look.Shape.Exists(static shape => shape is Shape.Icon) && !look.Metrics.ContainsKey(Metric.Extent) ? scaled.SetItem(Metric.Extent, scaled[Metric.Icon]) : scaled;
@@ -55,8 +54,6 @@ internal sealed record RoleStyle {
     internal bool UnderGlass { get; }
     internal float Overhang { get; }
 
-    internal Option<float> Rounded => Look.Metrics.ContainsKey(Metric.Radius) ? Some(Metrics[Metric.Radius]) : None;
-
     // --- [CHANNELS]
 
     internal Seq<Material> Fills => UnderGlass ? Painted.Filter(static fill => fill is not Material.Glass) : Painted;
@@ -68,8 +65,6 @@ internal sealed record RoleStyle {
     internal Option<ColorValue> Solid => Fills.Choose(static fill => fill.BaseColor).Head;
 
     internal Option<Material.Glass> Glass => Fills.Choose(static fill => fill is Material.Glass glass ? Some(glass) : None).Head;
-
-    internal Option<ColorValue> Tint => toSeq(Fills.SkipWhile(static fill => fill is not Material.Glass)).Tail.Choose(static fill => fill.BaseColor).Head;
 
     internal bool Timed => Fills.Exists(static fill => fill.Timed) || Strokes.Exists(static stroke => stroke.Timed) || Filters.Exists(static filter => filter.Timed);
 
@@ -84,18 +79,4 @@ internal sealed record Cascade(Theme Theme, StyleSheet Sheet, RoleStyle Enclosin
     internal static Cascade Root(Theme theme, StyleSheet sheet, Key root) => new(theme, sheet, new RoleStyle(theme, sheet, root, [], None), theme.Background);
 
     internal RoleStyle Resolve(Key role, HashSet<Condition> conditions) => new(Theme, Sheet, role, conditions, Enclosing);
-
-    internal Cascade Enter(View node) {
-        Cascade pushed = node.Sheet.Looks.IsEmpty ? this : this with { Sheet = Sheet.Combine(node.Sheet) };
-        RoleStyle style = (node.Role | (node.Conditions.IsEmpty ? None : Some(Enclosing.Role)))
-            .Map(role => pushed.Resolve(role, node.Role.IsNone || node.Painting.Inherits ? node.Conditions.Union(Enclosing.Conditions) : node.Conditions))
-            .IfNone(Enclosing);
-        return pushed with {
-            Sheet = node.Role.IsSome && !style.Look.Within.IsEmpty ? pushed.Sheet.Combine(new StyleSheet(style.Look.Within)) : pushed.Sheet,
-            Enclosing = style,
-            Background = node.Role.IsSome && node.Painting.AcceptsBackground
-                ? style.Solid.Bind(value => Theme.Color(value, style)).Map(color => color.ToUnicolour().Blend(Background.ToUnicolour(), BlendMode.Normal).ToSKColorF()).IfNone(Background)
-                : Background,
-        };
-    }
 }

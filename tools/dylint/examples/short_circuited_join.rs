@@ -1,6 +1,7 @@
 #![feature(iterator_try_collect)]
 
-use core::{hint::black_box, pin::pin};
+use core::hint::black_box;
+use core::pin::pin;
 use std::io;
 
 use futures::{StreamExt as _, TryStreamExt as _, future, stream};

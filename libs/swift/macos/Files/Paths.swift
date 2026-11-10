@@ -20,7 +20,7 @@ func ifPresent<Value>(_ file: URL, _ operation: () throws -> Value) throws(FileF
 
 extension URL {
     public func canonical() throws(Errno) -> URL {
-        guard let resolved: UnsafeMutablePointer<CChar> = unsafe realpath(path(percentEncoded: false), nil) else { throw Errno(rawValue: errno) }
+        guard let resolved = unsafe realpath(path(percentEncoded: false), nil) else { throw Errno(rawValue: errno) }
         defer { unsafe free(resolved) }
         return URL(filePath: unsafe String(cString: resolved))
     }

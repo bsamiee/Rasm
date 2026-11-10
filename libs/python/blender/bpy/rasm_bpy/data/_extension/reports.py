@@ -2,6 +2,7 @@
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import AbstractContextManager, contextmanager, ExitStack
+from dataclasses import dataclass, field
 from enum import StrEnum
 import functools
 from itertools import product
@@ -19,6 +20,7 @@ from structlog.processors import add_log_level, ExceptionRenderer, TimeStamper
 from structlog.tracebacks import ExceptionDictTransformer
 from structlog.typing import FilteringBoundLogger
 
+from rasm_bpy.data._rna.paths import root_in
 from rasm_records import Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
@@ -45,25 +47,24 @@ class Refusal(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LOG: Final = "extension.log"
 _RECORD: Final = msgspec.json.Encoder(enc_hook=repr)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _Write(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explicit-any]
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _Write:
     """One deferred write call, equal to another call of the same write and scope with equal arguments, applying nothing once its scope closed."""
 
-    applied: Callable[..., Outcome[Option[str]]]  # type: ignore[explicit-any]
+    applied: functools.partial[Outcome[Option[str]]] = field(compare=False)
     scope: Event
-    args: tuple[object, ...]
-    kwargs: Mapping[str, object]
+    call: tuple[object, tuple[object, ...], Mapping[str, object]]
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs the scoped write, pushing its undo step through the first window of GUI sessions, a timer pass holding no screen."""
-        applied = self.applied(*self.args, **self.kwargs) if self.scope.is_set() else Ok(Nothing)
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
-        for message, window in product(applied.default_value(Nothing).to_list(), () if bpy.app.background else tuple(manager.windows)[:1]):
+        applied = self.applied() if self.scope.is_set() else Ok(Nothing)
+        windows = () if bpy.app.background else tuple(window for manager in root_in(bpy.types.WindowManager, bpy.context).to_list() for window in manager.windows)[:1]
+        for message, window in product(applied.default_value(Nothing).to_list(), windows):
             with bpy.context.temp_override(window=window):
                 bpy.ops.ed.undo_push(message=message)
         return applied.map(lambda _: Nothing)
@@ -91,21 +92,20 @@ class Reports(AbstractContextManager["Reports"]):
 
         def ticked() -> float | None:
             """Advances each waiting request one step outside a locked interface, the timer pass returning 0.0 while requests remain."""
-            manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
-            if manager.is_interface_locked:
+            if any(manager.is_interface_locked for manager in root_in(bpy.types.WindowManager, bpy.context).to_list()):
                 return 0.0
             with self._lock:
                 requests, self._pending[:] = tuple(self._pending), []
                 self._pending[:0] = [later for request in requests for later in request.advanced().map_error(self.logged).default_value(Nothing).to_list()]
                 return 0.0 if self._pending else None
 
-        @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
         def loaded(*_: object) -> None:
             """Drops requests and logged faults of the file a load replaced, the host having removed the queue timer."""
             with self._lock:
                 self._pending.clear()
                 self._logged.clear()
 
+        bpy.app.handlers.persistent(loaded)
         self.ticked, self._loaded = ticked, loaded
 
     # --- [LIFECYCLE]
@@ -114,7 +114,7 @@ class Reports(AbstractContextManager["Reports"]):
     def __enter__(self) -> Self:
         """Appends JSON lines to the extension's log through its own chain, sibling extensions sharing structlog's process configuration, and clears queued requests and logged faults after every file load until scope exit."""
         self.logger = structlog.wrap_logger(
-            structlog.BytesLogger(self._scope.enter_context((self._folder / _LOG).open("ab"))),
+            structlog.BytesLogger(self._scope.enter_context((self._folder / "extension.log").open("ab"))),
             processors=[
                 add_log_level,
                 TimeStamper(fmt="iso", utc=True),
@@ -124,9 +124,8 @@ class Reports(AbstractContextManager["Reports"]):
             wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
             extension=self._extension,
         )
-        loads: list[Callable[..., None]] = bpy.app.handlers.load_post  # type: ignore[explicit-any]
-        loads.append(self._loaded)
-        self._scope.callback(loads.remove, self._loaded)
+        bpy.app.handlers.load_post.append(self._loaded)
+        self._scope.callback(bpy.app.handlers.load_post.remove, self._loaded)
         return self
 
     @override
@@ -196,7 +195,7 @@ class Reports(AbstractContextManager["Reports"]):
         def called(*args: P.args, **kwargs: P.kwargs) -> None:
             """Queues the write while the scope is open."""
             if scope.is_set():
-                self.waiting(_Write(applied=write, scope=scope, args=args, kwargs=MappingProxyType(kwargs)))
+                self.waiting(_Write(applied=functools.partial(write, *args, **kwargs), scope=scope, call=(write, args, MappingProxyType(kwargs))))
 
         with ExitStack() as stack:
             stack.callback(scope.clear)
@@ -219,7 +218,7 @@ def _level(fault: Fault, /) -> "rna_enums.WmReportItems":
             return "ERROR"
 
 
-def _rendered(faults: tuple[Fault, ...], /) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
+def rendered(faults: tuple[Fault, ...], /) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
     """Returns the report type and message of each fault in input order, each reason template translated before its fields fill it."""
     return tuple((_level(fault), fault.filled(bpy.app.translations.pgettext_rpt(fault.reason))) for fault in faults)
 
@@ -227,14 +226,13 @@ def _rendered(faults: tuple[Fault, ...], /) -> tuple[tuple["rna_enums.WmReportIt
 # --- [REDRAW]
 
 
-def _redrawn() -> Outcome[Option[str]]:
+def redrawn() -> Outcome[Option[str]]:
     """Tags every area of every window for redraw, pushing no undo step."""
-    manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
-    for area in (area for window in manager.windows for area in window.screen.areas):
+    for area in (area for manager in root_in(bpy.types.WindowManager, bpy.context).to_list() for window in manager.windows for area in window.screen.areas):
         area.tag_redraw()
     return Ok(Nothing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Pending", "Refusal", "Reports"]
+__all__ = ["Pending", "Refusal", "Reports", "redrawn", "rendered"]

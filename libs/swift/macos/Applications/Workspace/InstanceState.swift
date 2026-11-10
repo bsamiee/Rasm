@@ -9,10 +9,6 @@ import Subprocess
 import Synchronization
 public import System
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-private let reportLimit: Duration = .seconds(60)
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 @CasePathable
@@ -27,7 +23,7 @@ public enum InstanceState: Equatable, Sendable {
             public var settled: Bool { self != .launching }
 
             public func encode(to encoder: any Encoder) throws {
-                var label: any SingleValueEncodingContainer = encoder.singleValueContainer()
+                var label = encoder.singleValueContainer()
                 try label.encode(caseLabel(of: self))
             }
         }
@@ -53,7 +49,7 @@ public enum InstanceState: Equatable, Sendable {
                 switch self {
                     case .element(let element): try element.kind.encode(to: encoder)
                     case .undescribed, .blocking:
-                        var label: any SingleValueEncodingContainer = encoder.singleValueContainer()
+                        var label = encoder.singleValueContainer()
                         try label.encode(caseLabel(of: self))
                 }
             }
@@ -123,9 +119,9 @@ extension InstanceState.Running {
     }
 
     fileprivate func printsSame(as other: Self) -> Bool {
-        let rows: [InstanceState.Window] = other.windows.filter(\.presented)
-        let sameRows: Bool = windows.filter(\.presented).elementsEqual(rows) { (left: InstanceState.Window, right: InstanceState.Window) -> Bool in
-            let sameTitle: Bool = left.description[case: \.element]?.title == right.description[case: \.element]?.title
+        let rows = other.windows.filter(\.presented)
+        let sameRows = windows.filter(\.presented).elementsEqual(rows) { (left: InstanceState.Window, right: InstanceState.Window) -> Bool in
+            let sameTitle = left.description[case: \.element]?.title == right.description[case: \.element]?.title
             return left.number == right.number && left.title == right.title && sameTitle
         }
         return sameRows && printed == other.printed
@@ -147,12 +143,12 @@ extension InstanceState: Encodable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var state: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var state = encoder.container(keyedBy: Key.self)
         switch self {
             case .running(let running): try state.encode(running, forKey: .running)
             case .failed(let failure): try state.encode(failure, forKey: .failed)
             case .exited(let termination, let report):
-                var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .exited)
+                var fields = state.nestedContainer(keyedBy: Key.self, forKey: .exited)
                 switch termination {
                     case .success(let ended):
                         switch ended.status {
@@ -178,7 +174,7 @@ extension InstanceState.Running: Encodable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(active, forKey: .active)
         if !menus.isEmpty { try fields.encode(menus, forKey: .menus) }
         try fields.encode(status, forKey: .status)
@@ -198,7 +194,7 @@ extension InstanceState.Window: Encodable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         if asking { try fields.encode(true, forKey: .asking) }
         try fields.encode(frame, forKey: .frame)
         try fields.encode(layer, forKey: .layer)
@@ -224,7 +220,7 @@ extension NSRunningApplication {
     fileprivate var promptNames: [String] { [localizedName].compactMap(\.self) }
 
     public func state(walking walked: @Sendable (Element) -> Bool = \.asking) async -> InstanceState {
-        let read: InstanceState = await beat(after: nil, walking: walked).state ?? .failed(ApplicationFailure(subject: String(processIdentifier), reason: .cancelled))
+        let read = await beat(after: nil, walking: walked).state ?? .failed(ApplicationFailure(subject: String(processIdentifier), reason: .cancelled))
         guard !isDialogHelper else { return read }
         let prompts: [InstanceState.Window] = await NSWorkspace.shared.instances { instance in instance.isDialogHelper }.async.reduce(into: []) { rows, helper in
             rows += await helper.beat(after: nil, walking: \.asking).state?.prompting(promptNames) ?? []
@@ -236,7 +232,7 @@ extension NSRunningApplication {
         walking walked: @escaping @Sendable (Element) -> Bool = \.asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        let names: [String] = promptNames
+        let names = promptNames
         return lifetime(
             combineLatest(
                 beats(walking: walked, clock: clock),
@@ -264,20 +260,31 @@ extension NSRunningApplication {
                 case (.none, _): nil
                 case (.some(let exit), false): .exited(exit, report: nil)
                 case (.some(.success(let ended)), true) where ended.reports:
-                    .exited(.success(ended), report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: reportLimit, clock: clock))
+                    .exited(.success(ended), report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, clock: clock))
                 case (.some, true): nil
             }
         }
     }
 
-    public func quit(saving: Bool = false, clock: some Clock<Duration> & Sendable = ContinuousClock()) -> some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
-        AsyncStream { output in
-            let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
+    public func quit(
+        saving: Bool = false,
+        force: Bool = false,
+        clock: some Clock<Duration> & Sendable = ContinuousClock(),
+    ) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
+        let states = states(clock: clock)
+        guard !force else {
+            return if forceTerminate() {
+                states.map(Result<InstanceState, ApplicationFailure>.success)
+            } else {
+                [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(processIdentifier), reason: isTerminated ? .noProcess : .refused(nil)))].async
+            }
+        }
+        return AsyncStream { output in
             let following = Task {
                 let (replies, reply) = AsyncStream<Result<InstanceState, ApplicationFailure>>.makeStream()
                 var sending: Task<Void, Never>?
                 defer { sending?.cancel() }
-                for await event: Result<InstanceState, ApplicationFailure> in merge(states.map(Result.success), replies) {
+                for await event in merge(states.map(Result.success), replies) {
                     output.yield(event)
                     switch event {
                         case .success(.exited):
@@ -297,18 +304,8 @@ extension NSRunningApplication {
 
     public func reading(window: CGWindowID? = nil) async -> InstanceState {
         guard let window else { return await state { _ in true } }
-        let id: Element.ID? = await state()[case: \.running]?.windows.first { row in row.number == window }?.description[case: \.element]?.id
+        let id = await state()[case: \.running]?.windows.first { row in row.number == window }?.description[case: \.element]?.id
         return await state { element in element.id == id }
-    }
-
-    public func quitting(force: Bool = false, clock: some Clock<Duration> & Sendable = ContinuousClock()) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
-        guard force else { return quit(clock: clock) }
-        let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
-        return if forceTerminate() {
-            states.map(Result<InstanceState, ApplicationFailure>.success)
-        } else {
-            [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(processIdentifier), reason: isTerminated ? .noProcess : .refused(nil)))].async
-        }
     }
 
     private func requestQuit(saving: Bool, answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
@@ -326,7 +323,7 @@ extension NSRunningApplication {
             _ = try await request.sent(timeout: NSAppleEventTimeOutDefault)
         } catch  where error.status == OSStatus(userCanceledErr) {
             _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) }
-            let read: InstanceState = await state()
+            let read = await state()
             switch read {
                 case .running(let running) where !running.asking.isEmpty || running.status.is(\.unresponsive): reply.yield(.success(read))
                 case .failed: break
@@ -350,11 +347,11 @@ extension NSWorkspace {
 
     public func instances(named name: String) -> [NSRunningApplication] {
         guard !name.hasPrefix("/") else {
-            let path: String = URL(filePath: name, directoryHint: .isDirectory).resolvingSymlinksInPath().path(percentEncoded: false)
+            let path = URL(filePath: name, directoryHint: .isDirectory).resolvingSymlinksInPath().path(percentEncoded: false)
             return instances { instance in instance.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == path }
         }
         let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
-        let exact: [NSRunningApplication] = instances { instance in
+        let exact = instances { instance in
             [instance.bundleIdentifier, instance.localizedName].contains { candidate in candidate?.compare(name, options: options) == .orderedSame }
         }
         return exact.isEmpty ? instances { instance in instance.activationPolicy == .regular && instance.localizedName?.range(of: name, options: options) != nil } : exact
@@ -384,20 +381,20 @@ extension NSWorkspace {
     ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
         let (inserted, insert) = AsyncStream<NSRunningApplication>.makeStream()
         let listed = Mutex<Set<NSRunningApplication>?>(nil)
-        let observation: NSKeyValueObservation = observe(\.runningApplications, options: [.initial]) { workspace, _ in
-            let running: [NSRunningApplication] = workspace.instances(of: matching)
+        let observation = observe(\.runningApplications, options: [.initial]) { workspace, _ in
+            let running = workspace.instances(of: matching)
             listed.withLock { held in held = held ?? Set(running) }
-            for instance: NSRunningApplication in running { insert.yield(instance) }
+            for instance in running { insert.yield(instance) }
         }
-        let initial: Set<NSRunningApplication> = listed.withLock { held in held ?? [] }
+        let initial = listed.withLock { held in held ?? [] }
         let changes = AsyncStream<(instance: NSRunningApplication, state: InstanceState)> { change in
             let following = Task {
                 await withDiscardingTaskGroup { group in
                     var followed: Set<NSRunningApplication> = []
-                    for await instance: NSRunningApplication in inserted where followed.insert(instance).inserted {
-                        let states: some AsyncSequence<InstanceState, Never> & Sendable = instance.lifetime(instance.beats(walking: walked, clock: clock), clock: clock)
+                    for await instance in inserted where followed.insert(instance).inserted {
+                        let states = instance.lifetime(instance.beats(walking: walked, clock: clock), clock: clock)
                         group.addTask {
-                            for await state: InstanceState in states { change.yield((instance, state)) }
+                            for await state in states { change.yield((instance, state)) }
                         }
                     }
                 }
@@ -411,7 +408,7 @@ extension NSWorkspace {
             (initial.isEmpty ? [OrderedDictionary()] : []).async,
             changes.reductions(into: (states: OrderedDictionary<NSRunningApplication, InstanceState>(), waiting: initial)) { held, next in
                 if held.waiting.isEmpty { held.states.removeAll { _, state in state.is(\.exited) } }
-                let awaited: Bool = held.waiting.remove(next.instance) != nil
+                let awaited = held.waiting.remove(next.instance) != nil
                 if !(awaited && next.state.is(\.exited)) { held.states[next.instance] = next.state }
             }
             .drop { held in !held.waiting.isEmpty }

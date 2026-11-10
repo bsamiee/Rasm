@@ -1,27 +1,27 @@
-use core::{cell::LazyCell, iter, ops::ControlFlow};
+use core::cell::LazyCell;
+use core::iter;
+use core::ops::ControlFlow;
 use std::rc::Rc;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, peel_blocks, res::MaybeQPath as _, source::snippet};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::peel_blocks;
+use clippy_utils::res::MaybeQPath as _;
+use clippy_utils::source::snippet;
 use itertools::Itertools as _;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
-use rustc_hir::{
-    HirId, Lifetime, LifetimeKind, QPath,
-    def::{DefKind, Res},
-    def_id::{DefId, LocalDefId},
-    intravisit::{self, Visitor},
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::intravisit::{self, Visitor};
+use rustc_hir::{HirId, Lifetime, LifetimeKind, QPath};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{
-    hir::nested_filter,
-    mir,
-    ty::{self, AssocKind, Binder, Clause, EarlyBinder, TraitRef, TyCtxt},
-};
+use rustc_middle::hir::nested_filter;
+use rustc_middle::mir;
+use rustc_middle::ty::{self, AssocKind, Binder, Clause, EarlyBinder, TraitRef, TyCtxt};
 use rustc_span::{Span, Symbol};
-use rustc_trait_selection::{
-    regions::test_region_obligations,
-    traits::{ObligationCause, ObligationCtxt},
-};
-use rustc_type_ir::{Upcast as _, elaborate::elaborate};
+use rustc_trait_selection::regions::test_region_obligations;
+use rustc_trait_selection::traits::{ObligationCause, ObligationCtxt};
+use rustc_type_ir::Upcast as _;
+use rustc_type_ir::elaborate::elaborate;
 
 use super::{Bodies, canonical, normalized, resolved_item};
 use crate::{expanded_externally, exported};

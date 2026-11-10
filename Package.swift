@@ -30,7 +30,7 @@ let modules: [Target] = [
     .target(name: "Encoding", path: "libs/swift/core/Encoding"),
     .target(name: "Results", path: "libs/swift/core/Results"),
     .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
-    .target(name: "EffectRPC", dependencies: ["Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/core/EffectRPC"),
+    .target(name: "EffectRPC", dependencies: ["Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/core/EffectRPC"),
 
     // --- [MACOS]
 
@@ -81,7 +81,8 @@ let executables: [Target] = [
     .executableTarget(
         name: "watch-apps",
         dependencies: [
-            "ApplicationServer", "Applications", "CurrentProcess", "EffectRPC", "Encoding", "Processes", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            "ApplicationServer", "Applications", "CurrentProcess", "EffectRPC", "Encoding", "Files", "Processes", "Results",
+            .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "OrderedCollections", package: "swift-collections"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],

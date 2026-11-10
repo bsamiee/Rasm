@@ -1,16 +1,71 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
+utils:
+    declared:
+        any: &declared
+            - has: {kind: identifier, pattern: $ALIAS}
+            - has: {kind: generic_type, has: {kind: identifier, nthChild: 1, pattern: $ALIAS}}
+    instantiated-type:
+        kind: generic_type, subscript
+        all:
+            - has: {nthChild: 1, kind: 'identifier, attribute', not: {regex: '^(?:typing\.)?(?:Annotated|Literal)$'}}
+            - not: {has: {stopBy: end, kind: 'splat_type, list_splat, call'}}
+    read:
+        kind: identifier
+        pattern: $ALIAS
+        not: {inside: {stopBy: end, kind: type_alias_statement, has: {field: left, matches: declared}}}
+    holding-read: {any: [{matches: read}, {has: {stopBy: end, matches: read}}]}
+    shared:
+        inside:
+            stopBy: end
+            kind: module
+            has: {stopBy: end, all: [{matches: read}, {any: [{precedes: &later {stopBy: end, matches: holding-read}}, {inside: {stopBy: end, not: {kind: module}, precedes: *later}}]}]}
+    exported:
+        inside:
+            stopBy: end
+            kind: module
+            has:
+                kind: expression_statement
+                has:
+                    kind: assignment
+                    all:
+                        - has: {field: left, kind: identifier, regex: '^__all__$'}
+                        - has: {field: right, has: {kind: string, has: {kind: string_content, pattern: $ALIAS}}}
 rule:
-    kind: aliased_import
-    pattern: $ALIASED
-    all:
-        - has: {field: alias, pattern: $ALIAS}
-        - not: {has: {field: name, has: {kind: identifier, nthChild: {position: 1, reverse: true}, pattern: $ALIAS}}}
-        - not:
-            inside: {kind: import_statement}
-            any:
-                - has: {field: name, regex: '^(?:altair|dask\.array|dask\.dataframe|datetime|holoviews|matplotlib|matplotlib\.pyplot|networkx|numpy|numpy\.typing|pandas|panel|plotly\.express|plotly\.graph_objects|polars|pyarrow|scipy|seaborn|statsmodels\.api|sympy|tensorflow|tkinter|xarray|xml\.etree\.ElementTree)$'}
-                - pattern: {context: 'import geopandas as gpd', selector: aliased_import}
-message: '`$ALIASED` binds `$ALIAS` as another name for an imported module or member'
-note: 'Import the name as declared, or read `<module>.<name>` where another source exports the same name, and delete the alias'
+    kind: aliased_import, assignment, type_alias_statement
+    any:
+        - kind: aliased_import
+          all:
+            - has: {field: alias, pattern: $ALIAS}
+            - has: {field: name, pattern: $TARGET}
+            - not: {has: {field: name, has: {kind: identifier, nthChild: {position: 1, reverse: true}, pattern: $ALIAS}}}
+            - not:
+                inside: {kind: import_statement}
+                any:
+                    - has: {field: name, regex: '^(?:altair|dask\.array|dask\.dataframe|datetime|holoviews|matplotlib|matplotlib\.pyplot|networkx|numpy|numpy\.typing|pandas|panel|plotly\.express|plotly\.graph_objects|polars|pyarrow|scipy|seaborn|statsmodels\.api|sympy|tensorflow|tkinter|xarray|xml\.etree\.ElementTree)$'}
+                    - pattern: {context: 'import geopandas as gpd', selector: aliased_import}
+        - kind: assignment
+          all:
+            - has: {field: right, kind: identifier, pattern: $TARGET}
+            - has: {field: left, kind: identifier, pattern: $ALIAS, not: {regex: '^__'}}
+            - inside: {kind: expression_statement, inside: {kind: module}}
+        - kind: type_alias_statement
+          all:
+            - has: {field: left, any: *declared}
+            - has: {field: right, has: {any: [{kind: 'identifier, attribute'}, {matches: instantiated-type, not: {any: [{matches: shared}, {matches: exported}]}}], pattern: $TARGET}}
+            - not: {has: {field: right, has: {stopBy: end, kind: identifier, pattern: $ALIAS}}}
+            - not: {has: {field: right, has: {stopBy: end, kind: 'subscript, generic_type', has: {nthChild: 1, matches: python-unsubscriptable-class}}}}
+            - not:
+                has:
+                    field: right
+                    has:
+                        stopBy: end
+                        kind: identifier
+                        pattern: $LATER
+                        inside:
+                            kind: type_alias_statement
+                            stopBy: end
+                            precedes: {stopBy: end, any: [{kind: class_definition, has: {field: name, pattern: $LATER}}, {kind: decorated_definition, has: {field: definition, has: {field: name, pattern: $LATER}}}]}
+message: '`$ALIAS` is another name for `$TARGET`'
+note: 'Write `<target>` at each use and delete the alias, an instantiation two readers in its module share or its `__all__` exports keeps its name'

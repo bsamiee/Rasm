@@ -41,7 +41,7 @@ from rasm_bpy.render import (
     value,
     ycc,
 )
-from rasm_imaging import buffers, Elementwise, gaussian, images, Namespace, stream
+from rasm_imaging import buffers, Depth, Elementwise, gaussian, images, located, Namespace, pixels, stream, unassociated
 from rasm_records import accumulated, Count, Faults, Ok, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -129,11 +129,11 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
         coded = Some(self.coded_width).filter(bool).map(partial(buffers.rescaled, spec))
 
         def cycled(image: OpenImageIO.ImageBuf) -> Outcome[OpenImageIO.ImageBuf]:
-            rgb: Outcome[npt.NDArray[np.uint8]] = buffers.pixels(image, buffers.Depth.UINT8)
+            rgb: Outcome[npt.NDArray[np.uint8]] = pixels(image, Depth.UINT8)
             return (
                 Result[npt.NDArray[np.uint8], Faults]
                 .bind(rgb, lambda codes: images.generations(np.ascontiguousarray(codes), quality=self.quality, subsampling=self.subsampling, count=self.generations))
-                .bind(lambda values: buffers.located(values, image))
+                .bind(lambda values: located(values, image))
             )
 
         return (
@@ -342,17 +342,11 @@ class Emulation(CompositorRecord, frozen=True, kw_only=True):
                 return accumulated(capacity(stage.scene, (1, int(size))) for size in (taps, rows)).map(lambda _: None)
 
             def coded(compression: Compression) -> Outcome[OpenImageIO.ImageBuf]:
-                def straight(pixels: npt.NDArray[np.float32]) -> Outcome[OpenImageIO.ImageBuf]:
-                    alpha = pixels[..., 3:]
-                    return (
-                        buffers
-                        .located(pixels[..., :3], source)
-                        .bind(compression.applied)
-                        .bind(buffers.pixels)
-                        .bind(lambda rgb: buffers.located(buffers.associated(np.concatenate((rgb, alpha), axis=-1)), source))
-                    )
+                def straight(plane: npt.NDArray[np.float32]) -> Outcome[OpenImageIO.ImageBuf]:
+                    alpha = plane[..., 3:]
+                    return located(plane[..., :3], source).bind(compression.applied).bind(pixels).bind(lambda rgb: located(buffers.associated(np.concatenate((rgb, alpha), axis=-1)), source))
 
-                return buffers.pixels(source).map(buffers.unassociated).bind(straight)
+                return pixels(source).map(unassociated).bind(straight)
 
             taped = toggled(values, lambda: paired(value(values, int, _LINES), value(values, float, _TAPE, _JITTER_PERIOD)).bind(lambda held: fitted(*held)), _TAPE)
             compressed = toggled(values, lambda: decoded(Compression(), values, _COMPRESSION.key).bind(coded), _COMPRESSION)

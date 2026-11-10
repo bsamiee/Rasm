@@ -29,6 +29,10 @@
         <CentralPackageTransitivePinningEnabled Condition="'$(IsRoslynComponent)' != 'true' and '$(IsPackable)' != 'true'">true</CentralPackageTransitivePinningEnabled>
     </PropertyGroup>
 
+    <PropertyGroup Label="Compiler Report">
+        <ErrorLog>$(IntermediateOutputPath)$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
+    </PropertyGroup>
+
     <PropertyGroup Label="Fetched Files">
         <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'dotnet', 'fetched'))</_FetchedStore>
     </PropertyGroup>

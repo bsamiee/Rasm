@@ -1,15 +1,14 @@
-use core::{cmp, convert, f64::consts::FRAC_1_SQRT_2, iter};
+use core::f64::consts::FRAC_1_SQRT_2;
+use core::{cmp, convert, iter};
 
 use itertools::Itertools as _;
 use kurbo::{Line, Nearest, ParamCurveNearest as _, Point, Rect, Shape as _};
 use nalgebra::{Point3, Unit, Vector3};
-use parry3d_f64::{
-    bounding_volume::{Aabb, BoundingVolume as _},
-    math::Vector,
-    partitioning::{Bvh, BvhBuildStrategy, BvhNode},
-    query::{Ray, RayCast as _},
-    shape::Triangle,
-};
+use parry3d_f64::bounding_volume::{Aabb, BoundingVolume as _};
+use parry3d_f64::math::Vector;
+use parry3d_f64::partitioning::{Bvh, BvhBuildStrategy, BvhNode};
+use parry3d_f64::query::{Ray, RayCast as _};
+use parry3d_f64::shape::Triangle;
 use rasm_drawing::{EdgeKind, Tolerance, Visibility};
 use rasm_proximity::{Assembly, Distance, DistanceError, rays};
 use rayon::iter::{Either, IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};

@@ -31,13 +31,11 @@ public sealed partial class DrawingScale {
 }
 
 public sealed record ScaleSeries {
-    private readonly Func<DrawingScale, Option<string>> notation;
-
-    private ScaleSeries(Seq<DrawingScale> members, Func<DrawingScale, Option<string>> notation) => (Members, this.notation) = (members, notation);
+    private ScaleSeries(Seq<DrawingScale> members, Func<DrawingScale, Option<string>> notation) => (Members, Notation) = (members, notation);
 
     public Seq<DrawingScale> Members { get; }
 
-    public Option<string> Notation(DrawingScale scale) => notation(scale);
+    public Func<DrawingScale, Option<string>> Notation { get; }
 
     public static readonly ScaleSeries Iso5455 = new((from exponent in toSeq(Range(-4, 6)) from mantissa in Seq<BigInteger>(1, 2, 5) select QuantityValue.FromPowerOfTen(mantissa, exponent)).Traverse(DrawingScale.Validated).As().ThrowIfFail(), static scale => Some(scale.ToString()));
     public static readonly ScaleSeries Architectural = Imperial(
@@ -54,9 +52,8 @@ public sealed record ScaleSeries {
         text.Trim() switch { var notation => Members.Find(member => Notation(member).Exists(value => string.Equals(value, notation, StringComparison.OrdinalIgnoreCase))) };
 
     public Option<DrawingScale> Nearest(double ratio, double tolerance) =>
-        Members.Map(member => (Member: member, Error: double.Abs(double.Log(((QuantityValue)member).ToDouble() / ratio))))
-            .Fold(Option<(DrawingScale Member, double Error)>.None, static (best, entry) => best.Filter(held => held.Error <= entry.Error) || Some(entry))
-            .Filter(best => best.Error <= double.Log(1d + tolerance))
+        Some(Members.Map(member => (Member: member, Error: double.Abs(double.Log(((QuantityValue)member).ToDouble() / ratio)))).MinBy(static entry => entry.Error))
+            .Filter(best => best.Error <= double.LogP1(tolerance))
             .Map(static best => best.Member);
 
     private static ScaleSeries Imperial(Seq<DrawingScale> members, Func<DrawingScale, Length> paper, Func<DrawingScale, Length> model) {

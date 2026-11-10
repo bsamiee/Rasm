@@ -15,4 +15,4 @@ rule:
             - has: {field: type, pattern: $TYPE}
             - pattern: $TYPE
 message: '`$TYPE` takes absent parts as `None` arguments'
-note: 'Declare optional parts as `init` members defaulting to `None`, set present ones in the object initializer'
+note: 'Declare optional parts as `init` members or parameters defaulting to `None`, and pass the present parts alone'

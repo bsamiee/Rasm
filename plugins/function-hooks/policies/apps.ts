@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Installation } from '@rasm/applications';
 import { Array, Effect, Option, Predicate, Record, String } from 'effect';
 import { installed, WATCHER } from '#/instances';
-import { type Call, type Fix, has, inserted, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
+import { type Call, ensure, type Fix, has, inserted, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
 import type { Program } from '#/shell/programs';
 import type { Word } from '#/shell/script';
 import { Shell } from '#/shell/site';
@@ -67,7 +67,7 @@ const launched = (named: readonly string[], waits: readonly string[], allowed: r
         const [waited] = site.names.intersection(new Set(waits));
         const foreign = site.names.difference(new Set([...allowed, ...waits]));
         if (url !== undefined) {
-            return refusal(WEB_URL.test(url.text) ? `${program} ${url.raw} opens a browser, use playwright-cli` : `${program} ${url.raw} opens its handler, use ${WATCHER} launch ${target}`);
+            return refusal(WEB_URL.test(url.text) ? `${program} ${url.raw} opens a browser, use playwright cli open ${url.raw}` : `${program} ${url.raw} opens its handler, use ${WATCHER} launch ${target}`);
         }
         if (subjects.length + documents.length === 0) {
             return [];
@@ -249,7 +249,14 @@ const APPS: Policy = {
         killall: { flags: ['-s', '-c=', '-t='], informational: ['-s', '-l'], fixes: [ENDS_MATCHES] },
         pkill: { fixes: [ENDS_MATCHES] },
         kill: { flags: ['-n='], fixes: [fedKill] },
-        Blender: { informational: ['-v', '--log-list-categories'], headless: ['-b', '--background', '-c', '--command'], launching: ['--no-window-focus'] },
+        Blender: {
+            aliases: ['blender'],
+            flags: ['-P, --python=', '--python-expr='],
+            informational: ['-v', '--log-list-categories'],
+            headless: ['-b', '--background', '-c', '--command'],
+            launching: ['--no-window-focus'],
+            fixes: [when(has('--python', '--python-expr'), ensure('--python-use-system-env'))],
+        },
         Rhinoceros: { launching: ['-nosplash'] },
         [WATCHER]: { ends: ['--arguments'], fixes: [switched] },
     },

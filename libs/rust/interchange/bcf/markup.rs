@@ -3,11 +3,9 @@ use itertools::{Either, EitherOrBoth};
 use validated::Validated;
 use xot::Node;
 
-use crate::{
-    BcfError, CommentUuid, DateTime, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, IfcGuid, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
-    visualization::Visualization,
-    xml::{Codec, Keyed, Reader, Writer, codec, document, holds_text, required, resolve, sides, stored},
-};
+use crate::visualization::Visualization;
+use crate::xml::{Codec, Keyed, Reader, Writer, codec, document, holds_text, required, resolve, sides, stored};
+use crate::{BcfError, CommentUuid, DateTime, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, IfcGuid, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

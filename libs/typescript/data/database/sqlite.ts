@@ -1,15 +1,16 @@
 import { Array, Cause, Effect, Equal, Filter, Function, Graph, HashSet, Layer, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type SqlClient, SqlSchema, Statement } from 'effect/sql';
 import type { Catalog } from '#/catalog';
-import { Column } from '#/column';
-import { Engine } from '#/engine';
-import { constant, diff, identifier, literal, referentialActions, render, unsupported } from '#/internal/reconcile';
+import { Column, type Kind } from '#/column';
+import { type Dialect, Engine, Rows } from '#/engine';
+import { constant, diff, identifier, literal, mergeTreeRefusals, referentialActions, rename, render, unsupported } from '#/reconcile';
 import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const words = /\s+/u;
 const lexemes = /'(?:[^']|'')*'|"(?:[^"]|"")*"|`(?:[^`]|``)*`|\[[^\]]*\]|\/\*[\s\S]*?\*\/|--[^\n]*|[(),]|[^\s'"`[(),/-]+|\S/gu;
+const types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies { readonly [K in Kind]: string };
 const keywords: readonly string[] = ['CHECK', 'COLLATE', 'UNIQUE', 'REFERENCES', 'PRIMARY', 'CONSTRAINT', 'FOREIGN'];
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -30,21 +31,20 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
 }) {
     // --- [ROWS]
 
-    static readonly types = { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', decimal: 'TEXT', real: 'REAL', boolean: 'INTEGER', blob: 'BLOB' } as const satisfies Engine['Service']['types'];
-    static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(['$."', field, '"'].join('')))}`;
-    static readonly element: Engine['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`unhex(${text})` : text);
-    static readonly texts: Engine['Service']['texts'] = (sql, body) => sql.join(' ', false)([sql`json_each(${body})`, 'e']);
-    static readonly insertion: Engine['Service']['insertion'] = (sql, body) => sql.join(' ', false)([Sqlite.texts(sql, body), 'WHERE true']);
-    static readonly read: Engine['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`CAST(${scope}${sql(name)} AS TEXT) AS ${sql(name)}` : sql`${scope}${sql(name)}`);
-    static readonly upsert: Engine['Service']['upsert'] = ({ sql, engine, owner, prefix, unqualified, order, ignore, element, keys, reads, inserting, flags }, body, set) => {
+    static readonly member: Rows['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(['$."', field, '"'].join('')))}`;
+    static readonly element: Rows['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`unhex(${text})` : text);
+    static readonly texts: Rows['Service']['texts'] = (sql, body) => sql.join(' ', false)([sql`json_each(${body})`, 'e']);
+    static readonly insertion: Rows['Service']['insertion'] = (sql, body) => sql.join(' ', false)([Sqlite.texts(sql, body), 'WHERE true']);
+    static readonly read: Rows['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`CAST(${scope}${sql(name)} AS TEXT) AS ${sql(name)}` : sql`${scope}${sql(name)}`);
+    static readonly upsert: Rows['Service']['upsert'] = ({ sql, rows, owner, prefix, unqualified, order, ignore, element, keys, reads, inserting, flags }, body, set) => {
         const inserted = (flag: 0 | 1) => sql`${sql.literal(flag.toString())} AS ${sql(flags.inserted)}`;
         const update = sql`UPDATE ${owner} SET (${sql.csv(set.map(({ name }) => Statement.fragment([sql(name)])))}) = (${sql.csv(set.map(element))}) FROM ${Sqlite.texts(sql, body)} WHERE (${keys(prefix)}) = (${order}) AND (${sql.csv(set.map(({ name }) => sql.join('', false)([prefix, Statement.fragment([sql(name)])])))}) IS DISTINCT FROM (${sql.csv(set.map(element))}) RETURNING ${reads(unqualified, inserted(0))}`;
-        return Effect.map(engine.atomic([inserting(body, ignore, reads(unqualified, inserted(1))), ...(Array.isReadonlyArrayNonEmpty(set) ? [update] : [])]), Array.flatten);
+        return Effect.map(rows.atomic([inserting(body, ignore, reads(unqualified, inserted(1))), ...(Array.isReadonlyArrayNonEmpty(set) ? [update] : [])]), Array.flatten);
     };
-    static readonly ensure: Engine['Service']['ensure'] = ({ sql, engine, owner, prefix, unqualified, order, ignore, keys, reads, inserting }, body) =>
-        Effect.map(engine.atomic([inserting(body, ignore, reads(unqualified)), sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE (${keys(unqualified)}) IN (SELECT ${order} FROM ${Sqlite.texts(sql, body)}) ORDER BY ${keys(prefix)}`]), Array.lastNonEmpty);
+    static readonly ensure: Rows['Service']['ensure'] = ({ sql, rows, owner, prefix, unqualified, order, ignore, keys, reads, inserting }, body) =>
+        Effect.map(rows.atomic([inserting(body, ignore, reads(unqualified)), sql`SELECT ${reads(unqualified)} FROM ${owner} WHERE (${keys(unqualified)}) IN (SELECT ${order} FROM ${Sqlite.texts(sql, body)}) ORDER BY ${keys(prefix)}`]), Array.lastNonEmpty);
     static readonly atomic = Engine.transaction;
-    static readonly search: Engine['Service']['search'] = ({ sql, name: table, owner, prefix, keys, reads, flags }, { columns: searched, tokenizer }, text, pattern, marks, count) => {
+    static readonly search: Rows['Service']['search'] = ({ sql, name: table, owner, prefix, keys, reads, flags }, { columns: searched, tokenizer }, text, pattern, marks, count) => {
         const virtual = sql(`${table}_fts`);
         const gram = 3;
         const terms = Tokenizer.$match(tokenizer, { Trigram: () => [text], Words: () => text.trim().split(words) })
@@ -52,7 +52,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             .join(' ');
         const marked = Option.match(marks, {
             onNone: () => sql.literal('NULL'),
-            onSome: ({ open, close }) => sql.join('', false)(['json_object(', sql.csv(searched.flatMap((entry, index) => [literal(entry.field), sql`highlight(${virtual}, ${sql.literal(index.toString())}, ${open}, ${close})`])), ')']),
+            onSome: ({ open, close }) => sql.join('', false)(['json_object(', sql.csv(searched.flatMap((entry, index) => [literal(entry.name), sql`highlight(${virtual}, ${sql.literal(index.toString())}, ${open}, ${close})`])), ')']),
         });
         const [filter, rank] = Tokenizer.$is('Trigram')(tokenizer) && [...text].length < gram ? [sql.or(searched.map(({ name }) => sql`${virtual}.${sql(name)} LIKE ${pattern} ESCAPE '\\'`)), sql.literal('0')] : [sql`${virtual} MATCH ${terms}`, sql`-${virtual}."rank"`];
         return sql`SELECT ${reads(prefix)}, ${rank} AS ${sql(flags.rank)}, ${marked} AS ${sql(flags.highlight)} FROM ${virtual} JOIN ${owner} ON ${owner}."rowid" = ${virtual}."rowid" WHERE ${filter} ORDER BY ${virtual}."rank", ${keys(prefix)} LIMIT ${count}`;
@@ -60,6 +60,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
 
     // --- [DDL]
 
+    static readonly type: Engine['Service']['type'] = ({ kind }) => types[kind];
     static readonly constant: Engine['Service']['constant'] = constant;
     static readonly codePoints: Engine['Service']['codePoints'] = (sql, subject) => sql`length(${subject})`;
     static readonly text: Engine['Service']['text'] = (_, subject) => subject;
@@ -77,7 +78,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
     static readonly projected: Engine['Service']['projected'] = (sql, _, name) => sql`${sql(name)}`;
     static readonly methods: Engine['Service']['methods'] = ['btree'];
     static readonly covering: Engine['Service']['covering'] = (sql, unique, include) => ({ keys: unique ? [] : include.map((name) => sql`${sql(name)}`), clause: [] });
-    static readonly suffix: Engine['Service']['suffix'] = (withoutRowid) => (withoutRowid ? ' STRICT, WITHOUT ROWID' : ' STRICT');
+    static readonly suffix: Engine['Service']['suffix'] = (sql, { withoutRowid }) => sql.literal(withoutRowid ? ' STRICT, WITHOUT ROWID' : ' STRICT');
+    static readonly rename = rename;
     static readonly fulltext: Engine['Service']['fulltext'] = (sql, owner, { columns: searched, tokenizer }) => {
         const name = `${owner}_fts`;
         const [virtual, table, values] = [sql(name), sql(owner), sql.csv(searched.map((entry) => sql`${sql(entry.name)}`))];
@@ -102,7 +104,8 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
 
     // --- [RECONCILIATION]
 
-    static readonly refusals: Engine['Service']['refusals'] = ({ name: owner, key, columns, indexes, search, tenant, withoutRowid }) => {
+    static readonly refusals: Engine['Service']['refusals'] = (relation) => {
+        const { name: owner, key, columns, indexes, search, tenant, withoutRowid } = relation;
         const [all, aliases] = [Object.values(columns), ['rowid', 'oid', '_rowid_']];
         const unkeyed = Option.isSome(search) && (withoutRowid || !all.some(({ name, kind }) => kind === 'integer' && Equal.equals(key, [name])));
         const folded = indexes.flatMap(({ keys }) => keys.filter(Struct.get('casefold')).map(Struct.get('column')));
@@ -111,10 +114,12 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             ...unsupported(owner, 'tenant', all, ({ name }) => Option.exists(tenant, ({ column }) => column.name === name)),
             ...unsupported(owner, 'search', all, ({ name }) => unkeyed && key.includes(name)),
             ...unsupported(owner, 'casefold', all, ({ name, ascii }) => !ascii && folded.includes(name)),
+            ...mergeTreeRefusals(relation),
         ];
     };
-    static readonly role: Engine['Service']['role'] = (sql) => Effect.fail(new Cause.IllegalArgumentError(`${sql.driver} has no role to migrate as`));
-    static readonly open: Engine['Service']['open'] = (sql) => sql`PRAGMA optimize = 0x10002`;
+    static readonly role: Engine['Service']['role'] = (sql) => new Cause.IllegalArgumentError(`${sql.driver} has no role to migrate as`);
+    static readonly open: Engine['Service']['open'] = (sql) => Effect.andThen(sql`PRAGMA synchronous = NORMAL`, sql`PRAGMA optimize = 0x10002`);
+    static readonly execute = Engine.transaction;
     static readonly transactional = true;
     static readonly identities = ({ columns, ...table }: typeof SqliteTable.Type) => {
         const tokens: readonly string[] = table.sql.match(lexemes) ?? [];
@@ -173,7 +178,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
                     ) AS observed`,
         })();
         const rendered = catalog.tables.map((declared) => ({ declared, rendered: render(sql, Sqlite, catalog, declared) }));
-        const resolved = diff(sql, catalog, rendered, live.tables.map(Sqlite.identities));
+        const resolved = diff(sql, Sqlite, catalog, rendered, live.tables.map(Sqlite.identities));
         const populated = yield* resolved.populated;
         return yield* live.#reconcile(sql, catalog, resolved, populated);
     });
@@ -345,7 +350,7 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
 
     // --- [LAYERS]
 
-    static readonly layer = <A, E, R>(client: (transforms: typeof Column.transforms) => Layer.Layer<A | SqlClient.SqlClient, E, R>) => Layer.merge(Layer.succeed(Engine, Sqlite), client(Column.transforms));
+    static readonly layer = <A, E, R>(client: (names: Dialect['names']) => Layer.Layer<A | SqlClient.SqlClient, E, R>, names: Dialect['names'] = Engine.names.snake) => Layer.mergeAll(Layer.succeed(Engine, { ...Sqlite, names }), Layer.succeed(Rows, Sqlite), client(names));
 }
 const Observed = Schema.Struct({ observed: Schema.fromJsonString(Sqlite) });
 

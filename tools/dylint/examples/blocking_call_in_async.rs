@@ -1,14 +1,14 @@
 #![feature(can_vector)]
 
-use core::{hint::black_box, time::Duration};
-use std::{
-    fs::File,
-    io::{self, BufRead as _, BufReader, Read as _},
-    path::{Path, PathBuf},
-    thread,
-};
+use core::hint::black_box;
+use core::time::Duration;
+use std::fs::File;
+use std::io::{self, BufRead as _, BufReader, Read as _};
+use std::path::{Path, PathBuf};
+use std::thread;
 
-use fs_err::{PathExt as _, tokio::read_to_string};
+use fs_err::PathExt as _;
+use fs_err::tokio::read_to_string;
 use tokio::task;
 
 // --- [MACROS] --------------------------------------------------------------------------

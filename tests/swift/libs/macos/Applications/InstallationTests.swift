@@ -20,7 +20,7 @@ struct VersionTests {
     @Test
     func ordersNumericReleasesLexicographically() async {
         await propertyCheck(input: Gen.int(in: 0...30).array(of: 1...4), Gen.int(in: 0...30).array(of: 1...4)) { left, right in
-            let (lower, upper): (Installation.Version, Installation.Version) = (
+            let (lower, upper) = (
                 Installation.Version(rawValue: left.map(String.init).joined(separator: ".")), Installation.Version(rawValue: right.map(String.init).joined(separator: ".")),
             )
             let trimmed: ([Int]) -> [Int] = { parts in Array(parts.reversed().drop { part in part == 0 }.reversed()) }

@@ -1,4 +1,7 @@
-use core::{f64::consts::PI, fmt, hint::black_box, time::Duration};
+use core::f64::consts::PI;
+use core::fmt;
+use core::hint::black_box;
+use core::time::Duration;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

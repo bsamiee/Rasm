@@ -1,7 +1,7 @@
 import process from 'node:process';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Array, Cause, Effect, FileSystem, Match, Option, Path, Record, Schema, String, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Match, Option, Path, pipe, Record, Schema, String, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { Document, type Node, Pair, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 
@@ -60,13 +60,15 @@ const listed = (nodes: readonly unknown[]) => [
 ];
 const entries = (node: unknown): ReadonlyMap<string, Pair> =>
     new Map(
-        Match.value(node)
-            .pipe(
-                Match.when(Match.instanceOf(YAMLSeq), (seq) => Array.getSomes([...seq].filter((item) => item instanceof YAMLMap).map((item) => Option.map(named(item.get('id')), (id) => new Pair(new Scalar(id), item))))),
-                Match.when(Match.instanceOf(YAMLMap), (map) => [...map.pairs()]),
-                Match.orElse(() => []),
-            )
-            .flatMap((pair) => Option.toArray(Option.map(named(pair.key), (key) => [key, pair] as const))),
+        Array.getSomes(
+            Match.value(node)
+                .pipe(
+                    Match.when(Match.instanceOf(YAMLSeq), (seq) => Array.getSomes([...seq].filter((item) => item instanceof YAMLMap).map((item) => Option.map(named(item.get('id')), (id) => new Pair(new Scalar(id), item))))),
+                    Match.when(Match.instanceOf(YAMLMap), (map) => [...map.pairs()]),
+                    Match.orElse(() => []),
+                )
+                .map((pair) => Option.map(named(pair.key), (key) => [key, pair] as const)),
+        ),
     );
 const table = (node: unknown): Table => Record.map(KINDS, (_, kind) => entries(node instanceof YAMLMap ? node.get(kind) : undefined));
 const merged = (base: Table, over: Table): Table => Record.map(KINDS, (_, kind) => new Map([...base[kind], ...over[kind]]));
@@ -167,14 +169,15 @@ const build = Effect.gen(function* () {
         Effect.flatMap((text) => Effect.try({ try: () => Yaml.parse(text), catch: (cause) => new Cause.UnknownError(cause, `${sgconfig} does not parse as YAML`) })),
         Effect.flatMap(Schema.decodeUnknownEffect(Sgconfig)),
     );
-    const language = yield* Effect.fromOption(
-        Array.findFirst(Record.toEntries(customLanguages), ([, row]) => row.outlineRules !== undefined && path.resolve(path.dirname(sgconfig), row.outlineRules) === path.resolve(output)),
-        () => new Cause.IllegalArgumentError(`${sgconfig} names no custom language whose outlineRules is ${output}`),
-    ).pipe(Effect.map(([name]) => name));
+    const [language] = yield* pipe(
+        Record.toEntries(customLanguages),
+        Array.findFirst(([, row]) => row.outlineRules !== undefined && path.resolve(path.dirname(sgconfig), row.outlineRules) === path.resolve(output)),
+        Effect.fromOption(() => new Cause.IllegalArgumentError(`${sgconfig} names no custom language whose outlineRules is ${output}`)),
+    );
     const parsed = parseAllDocuments(yield* fs.readFileString(source));
     const docs = Array.isArray(parsed) ? parsed : [];
     const failures = docs.flatMap(Struct.get('errors')).map(({ message }) => `${source}: ${message}`);
-    yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (messages) => Effect.fail(new Cause.IllegalArgumentError(messages.join('\n'))) });
+    yield* Array.match(failures, { onEmpty: () => Effect.void, onNonEmpty: (messages) => new Cause.IllegalArgumentError(messages.join('\n')) });
     const header = Option.filter(Array.head(docs), ({ value }) => !(value instanceof YAMLMap && value.has('id')));
     const common = shared(Option.getOrUndefined(Option.map(header, unanchored)));
     const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(common, language, source, doc, index + Number(Option.isSome(header))));

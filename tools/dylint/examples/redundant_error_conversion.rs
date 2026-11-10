@@ -1,12 +1,11 @@
 #![feature(try_blocks, try_blocks_heterogeneous)]
 
-use core::{
-    error, fmt,
-    hint::black_box,
-    num::{ParseFloatError, ParseIntError},
-    str::{self, Utf8Error},
-};
-use std::{io, path::Path};
+use core::hint::black_box;
+use core::num::{ParseFloatError, ParseIntError};
+use core::str::{self, Utf8Error};
+use core::{error, fmt};
+use std::io;
+use std::path::Path;
 
 use thiserror::Error;
 
@@ -49,16 +48,9 @@ enum ScaleError {
     #[error("scale is not a number")]
     Parse(#[source] ParseFloatError),
     #[error("scale bytes are not text")]
-    Text {
-        #[source]
-        source: Utf8Error,
-    },
+    Text { source: Utf8Error },
     #[error("scale line {line} is not an integer")]
-    Line {
-        #[source]
-        source: ParseIntError,
-        line: usize,
-    },
+    Line { source: ParseIntError, line: usize },
     #[error("scale {0} is out of range")]
     Range(u16),
     #[error("scale archive is not text")]

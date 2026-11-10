@@ -1,3 +1,4 @@
+RASM3014 `HashSet` renames a type, write the type at each use
 #0 `cell` passes a value out of a callback through a write outside its result
 #1 `cell` passes a value out of a callback through a write outside its result
 #2 `cell` passes a value out of a callback through a write outside its result

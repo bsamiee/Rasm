@@ -1,0 +1,51 @@
+{
+    "name": "@rasm/nx-devkit",
+    "version": "0.0.0",
+    "description": "Parts every @rasm/nx-* plugin shares: a child-process runner bound to the host's exit, the tool error, verb aggregates, plugin identity, and the TypeScript configuration reader",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "apps/nx/devkit"
+    },
+    "license": "MIT",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        "./inference": "./inference.ts",
+        "./process": "./process.ts",
+        "./typescript": "./typescript.ts",
+        "./package.json": "./package.json"
+    },
+    "files": [ "dist" ],
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "@typescript/native": "catalog:",
+        "nx": "catalog:"
+    },
+    "peerDependencies": {
+        "@typescript/native": "catalog:peers",
+        "nx": "catalog:peers"
+    },
+    "peerDependenciesMeta": {
+        "@typescript/native": { "optional": true }
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            "./inference": "./dist/inference.js",
+            "./process": "./dist/process.js",
+            "./typescript": "./dist/typescript.js",
+            "./package.json": "./package.json"
+        },
+        "imports": {
+            "#/*": "./dist/*.js"
+        }
+    }
+}

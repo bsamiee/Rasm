@@ -21,15 +21,12 @@ internal sealed record RenderingState(Guid Session, string Engine, Guid EngineId
 internal sealed record Rendering(Rimage Image, PixelExtent Extent, Instant Saved, Option<RenderingState> State) {
     public static ChainState Ungraded { get; } = new([], ValueSet.Empty);
 
-    public Fin<ChainState> Chain =>
-        Image.Running.Exists(static id => id == typeof(DarkroomEffect).GUID) ? EffectList.State<DarkroomEffect, ChainState>(Image) : Ungraded;
+    public IO<PixelFrame> Frame =>
+        Image.Channel(RenderWindow.StandardChannels.RGBA).Map(pixels => new PixelFrame(System.Drawing.Point.Empty, Extent, Extent, block => pixels.Span.CopyTo(block)));
 
-    public IO<PixelFrame> Frame => Plane(RenderWindow.StandardChannels.RGBA);
-
-    public IO<PixelFrame> Plane(RenderWindow.StandardChannels channel) =>
-        Image.Channel(channel).Map(pixels => new PixelFrame(System.Drawing.Point.Empty, Extent, Extent, block => pixels.Span.CopyTo(block)));
-
-    public IO<ChainState> RestoreChain(RhinoDoc doc) => IO.lift(Chain).Bind(state => state.Restored(doc));
+    public IO<ChainState> RestoreChain(RhinoDoc doc) =>
+        IO.lift(Image.Running.Exists(static id => id == typeof(DarkroomEffect).GUID) ? EffectList.State<DarkroomEffect, ChainState>(Image) : Ungraded)
+            .Bind(state => state.Restored(doc));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------

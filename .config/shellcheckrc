@@ -1,0 +1,6 @@
+# --- [SHELLCHECK] -----------------------------------------------------------------------
+
+enable=all
+disable=SC2013,SC2044,SC2045
+external-sources=true
+shell=bash

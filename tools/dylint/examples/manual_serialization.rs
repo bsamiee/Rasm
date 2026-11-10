@@ -1,6 +1,7 @@
 use core::hint::black_box;
 
-use rmcp::{ErrorData, model::ContentBlock};
+use rmcp::ErrorData;
+use rmcp::model::ContentBlock;
 use serde::Serialize;
 
 // --- [MODELS] --------------------------------------------------------------------------

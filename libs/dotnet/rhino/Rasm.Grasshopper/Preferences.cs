@@ -68,6 +68,8 @@ public static class Preferences {
 
     // --- [STORES]
 
+    private const string Element = "Value";
+
     public static Preference<T> Plugin<T>(GrasshopperIO.Name key, T fallback) where T : notnull =>
         Keyed(static () => Hooks.Session.Values, key, fallback, static set => IO.lift(set) >> Hooks.Saved);
 
@@ -83,23 +85,14 @@ public static class Preferences {
     private static Preference<T> Keyed<T>(Func<KeyedValues> values, GrasshopperIO.Name key, T fallback, Func<Action, IO<Unit>> commit) where T : notnull {
         string name = key.ToString();
         return new(
-            IO.lift(() => Unpacked<T>(values().Get(name, NTuple.Empty)).IfNone(fallback)),
-            value => commit(() => values().Set(name, Packed(value))),
+            IO.lift(() => values().Get(name, NTuple.Empty) switch {
+                var tuple when typeof(T).IsEnum => tuple.Get(Element, StringComparison.Ordinal, out int number) ? (T)Enum.ToObject(typeof(T), number) : fallback,
+                var tuple => tuple.Get(Element, StringComparison.Ordinal, out T stored) ? stored : fallback,
+            }),
+            value => commit(() => values().Set(name, new NTuple((Element, typeof(T).IsEnum ? Garden.IPear(Convert.ToInt32(value, CultureInfo.InvariantCulture)) : Garden.Pear(value))))),
             Some<Func<IO<Unit>, IO<Unit>>>(notify => IO.lift(values).Bind(held => Hooks.On<KeyValueEventArgs>(
                 h => held.ValueChanged += h,
                 h => held.ValueChanged -= h,
                 args => when(string.Equals(args.Key, name, StringComparison.OrdinalIgnoreCase), notify).As()))));
     }
-
-    // --- [CODECS]
-
-    private const string Element = "Value";
-
-    private static NTuple Packed<T>(T value) where T : notnull =>
-        new((Element, typeof(T).IsEnum ? Garden.IPear(Convert.ToInt32(value, CultureInfo.InvariantCulture)) : Garden.Pear(value)));
-
-    private static Option<T> Unpacked<T>(NTuple tuple) where T : notnull =>
-        typeof(T).IsEnum
-            ? tuple.Get(Element, StringComparison.Ordinal, out int number) ? (T)Enum.ToObject(typeof(T), number) : None
-            : tuple.Get(Element, StringComparison.Ordinal, out T stored) ? stored : None;
 }

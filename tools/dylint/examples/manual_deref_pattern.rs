@@ -1,4 +1,5 @@
-use core::{hint::black_box, panic::AssertUnwindSafe};
+use core::hint::black_box;
+use core::panic::AssertUnwindSafe;
 use std::rc::Rc;
 
 // --- [MODELS] --------------------------------------------------------------------------

@@ -34,7 +34,7 @@ struct AccountMenuItems: View {
     let remove: () -> Void
 
     var body: some View {
-        if let index: Int = store.accounts.firstIndex(where: { other in other.account.id == model.account.id }) {
+        if let index = store.accounts.firstIndex(where: { other in other.account.id == model.account.id }) {
             Button("Move Up") { store.moveAccounts(from: [index], to: index - 1) }
                 .disabled(index == store.accounts.startIndex)
             Button("Move Down") { store.moveAccounts(from: [index], to: index + 2) }
@@ -123,7 +123,7 @@ struct MenuBarExtraContent: View {
         dismiss()
         openWindow(id: RelayApp.settingsWindow)
         Task(name: "Activate Relay") {
-            let reopened: Result<NSRunningApplication, any Error> = await Result {
+            let reopened = await Result {
                 try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
             }
             if case .failure(let error) = reopened {
@@ -145,7 +145,7 @@ private struct AccountCard: View {
                 Text(model.account.identity.email)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
-                if let expiry: Date = model.usage.usage?.signInExpiresAt, expiry > now {
+                if let expiry = model.usage.usage?.signInExpiresAt, expiry > now {
                     let tooltip = "Sign-in expires \(expiry.formatted(.detail))"
                     Text(expiry, format: .monthDay)
                         .font(.caption)
@@ -159,7 +159,7 @@ private struct AccountCard: View {
                 providerGlyph
                 VStack(alignment: .leading, spacing: 8) {
                     gauges
-                    if let note: String = model.note(at: now) {
+                    if let note = model.note(at: now) {
                         Text(note)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -190,8 +190,8 @@ private struct AccountCard: View {
 
     @ViewBuilder
     private var gauges: some View {
-        if let usage: AccountUsage = model.usage.usage {
-            let isCurrent: Bool = model.usage.is(\.current)
+        if let usage = model.usage.usage {
+            let isCurrent = model.usage.is(\.current)
             ForEach(usage.windows.enumerated(), id: \.offset) { offset, window in
                 UsageGauge(window: window, isCurrent: isCurrent, now: now, leadsGlyphRow: offset == 0)
             }

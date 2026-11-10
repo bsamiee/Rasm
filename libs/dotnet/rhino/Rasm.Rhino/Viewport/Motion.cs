@@ -30,13 +30,7 @@ internal abstract partial record Phase {
     internal sealed record Stopped : Phase;
 }
 
-internal sealed record MotionState(Seq<ViewportMotion> Viewports, CameraPose To, Duration Start, Duration Clock, Option<Duration> Last, Phase Phase) {
-    public MotionState Ticked(Duration tick) =>
-        this with { Clock = Last.Match(Some: last => Clock + (tick - last), None: () => Clock), Last = tick };
-
-    public MotionState Retargeted(CameraPose goal) =>
-        this with { To = goal, Start = Clock, Viewports = Viewports.Map(static motion => motion with { From = motion.Shown }).Strict() };
-}
+internal sealed record MotionState(Seq<ViewportMotion> Viewports, CameraPose To, Duration Start, Duration Clock, Option<Duration> Last, Phase Phase);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -95,7 +89,9 @@ public sealed class MotionHandle {
         select unit;
 
     public IO<Unit> Retarget(CameraPose goal) =>
-        motion.Transition(state => state.Phase is Phase.Stopped ? state : state.Retargeted(goal))
+        motion.Transition(state => state.Phase is Phase.Stopped
+                ? state
+                : state with { To = goal, Start = state.Clock, Viewports = state.Viewports.Map(static leg => leg with { From = leg.Shown }).Strict() })
             .Bind(static moved => when(moved.Prior.Phase is Phase.Stopped, IO.fail<Unit>(Errors.Cancelled)).As());
 
     public IO<Unit> Stop() => motion.Halt();
@@ -172,7 +168,9 @@ public static class Motions {
         select handle;
 
     private static IO<Reduced<Unit>> Frame(Motion motion, Duration tick) =>
-        (from moved in motion.Transition(held => held.Phase is Phase.Running ? held.Ticked(tick) : held)
+        (from moved in motion.Transition(held => held.Phase is Phase.Running
+             ? held with { Clock = held.Last.Match(Some: last => held.Clock + (tick - last), None: () => held.Clock), Last = tick }
+             : held)
          from reduced in moved.Next.Phase.Switch(
              (Motion: motion, State: moved.Next),
              running: static (state, _) => Show(state.Motion, state.State, state.Motion.Move.Sample(state.State.Clock - state.State.Start)),

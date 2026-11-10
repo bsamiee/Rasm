@@ -1,15 +1,16 @@
 use core::iter;
 
+use diffsol::matrix::MatrixRef;
 use diffsol::{
     AdjointOdeSolverMethod, CheckpointingPath, Context as _, DefaultDenseMatrix, DefaultSolver, DenseMatrix, DiffsolError, OdeEquations, OdeEquationsAdjoint, OdeEquationsImplicit,
     OdeEquationsImplicitAdjoint, OdeEquationsImplicitSens, OdeSolverMethod, OdeSolverProblem, OdeSolverState, OdeSolverStopReason, SensitivitiesOdeSolverMethod, Vector, VectorRef, VectorView as _,
-    matrix::MatrixRef,
 };
 use itertools::Itertools as _;
 use nalgebra::{DMatrix, DMatrixView};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use uom::si::{f64::Time, time::second};
+use uom::si::f64::Time;
+use uom::si::time::second;
 
 use crate::{DynamicsError, Grid, Stop, Trajectory};
 

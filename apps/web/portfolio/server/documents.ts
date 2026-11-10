@@ -1,12 +1,16 @@
 import { Engine } from '@rasm/database';
 import { HostingError } from '@rasm/hosting';
-import { Array, Effect, Function, Match, Schema, SchemaGetter } from 'effect';
+import { Template } from '@rasm/hosting/template';
+import { Array, Effect, Function, Match, Schema, SchemaGetter, Struct } from 'effect';
+import { HttpRouter } from 'effect/http';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';
 import { SqlClient, SqlSchema } from 'effect/sql';
 import { Api, PlacementConflict, PreconditionFailed } from '#/model/api';
 import { AssetId, type ImageAsset } from '#/model/asset';
 import { Portfolio, PortfolioData, type StoredPortfolio } from '#/model/portfolio';
 import { documents, projectedPaths, references } from '#/server/catalog';
+import { OwnerAccount } from '#/server/owner';
+import { shell } from '#/site/shell.tsx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -25,20 +29,21 @@ const Draft = Schema.Struct({ revision: documents.schema.fields.revision, stored
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const empty = Schema.encodeEffect(Schema.fromJsonString(Portfolio))(Portfolio.make({})).pipe(Effect.orDie);
+const empty = Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(Portfolio))(Portfolio.make({})));
 const readDocument = Effect.fn('readDocument')(
     Function.flow(
         SqlSchema.findOne({
             Request: documents.schema.fields.state,
             Result: Stored,
-            execute: Effect.fnUntraced(function* (requested: typeof documents.schema.fields.state.Encoded) {
-                const [sql, body] = yield* Effect.all([SqlClient.SqlClient, empty]);
-                return yield* sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${body})), 'assets', (
+            execute: (requested) =>
+                Effect.flatMap(
+                    Effect.all([SqlClient.SqlClient, empty]),
+                    ([sql, body]) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${body})), 'assets', (
                 SELECT json_group_object(a.id, json_set(json_remove(a.body, ${projectedPaths}), '$.id', a.id)) FROM assets a
                 WHERE a.available AND (s.state = 'draft' OR a.id IN (SELECT asset_id FROM (${references(sql)}) WHERE state = s.state))
             )) AS data
-            FROM (SELECT ${requested} AS state) s LEFT JOIN documents d ON d.state = s.state`;
-            }),
+            FROM (SELECT ${requested} AS state) s LEFT JOIN documents d ON d.state = s.state`,
+                ),
         }),
         Effect.catchTag('NoSuchElementError', Effect.die),
         Effect.catchTag(['SqlError', 'SchemaError'], HostingError.unavailable),
@@ -88,7 +93,17 @@ const documentGroup = HttpApiBuilder.group(Api, 'documents', (handlers) =>
         publish: ({ payload, headers }) => writeDocument(payload, true, headers['if-match']),
     }),
 );
+const page = HttpRouter.add(
+    'GET',
+    '/',
+    Effect.fn('page')(
+        () => Effect.all({ published: Effect.map(readDocument('published'), Struct.get('data')), session: OwnerAccount.session }, { concurrency: 'unbounded' }),
+        Effect.flatMap((bootstrap) => Template.render(shell, bootstrap)),
+        Effect.map(OwnerAccount.sessionScoped),
+        Effect.catchTag('HostingError', HostingError.unavailable),
+    ),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { documentGroup, readDocument };
+export { documentGroup, page };

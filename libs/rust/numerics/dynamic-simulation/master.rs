@@ -1,17 +1,13 @@
-use core::{
-    cell::Cell,
-    iter,
-    ops::ControlFlow,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use core::cell::Cell;
+use core::iter;
+use core::ops::ControlFlow;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use itertools::Itertools as _;
 use nalgebra::DMatrix;
 use nonempty_collections::NEVec;
-use petgraph::{
-    data::{Element, FromElements as _},
-    stable_graph::{NodeIndex, StableDiGraph},
-};
+use petgraph::data::{Element, FromElements as _};
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use rasm_dependency_graph::cycles::{self, Block, Torn};
 use uom::si::f64::Time;
 use validated::Validated;

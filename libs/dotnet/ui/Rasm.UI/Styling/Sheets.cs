@@ -18,9 +18,6 @@ public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
 
     internal const float Control = 24f;
     internal const float Corner = 6f;
-    internal const float Text = 13f;
-    internal const float Compact = 0.8f;
-    internal static readonly Duration Brief = Duration.FromMilliseconds(120);
 
     // --- [COLORS]
 
@@ -41,7 +38,7 @@ public sealed record StyleSheet(HashMap<Key, Look> Looks) : Monoid<StyleSheet> {
     // --- [MOTION]
 
     private static readonly Factor Rest = new(0.001f);
-    private static readonly TimingCurve Eased = new TimingCurve.Eased(Brief, Easing.EaseOut);
+    private static readonly TimingCurve Eased = new TimingCurve.Eased(Duration.FromMilliseconds(120), Easing.EaseOut);
     private static readonly TimingCurve Critical = new TimingCurve.Spring(Duration.FromMilliseconds(500), Factor.Unit, Rest);
     private static readonly TimingCurve Underdamped = new TimingCurve.Spring(Duration.FromMilliseconds(500), new Factor(0.85f), Rest);
 

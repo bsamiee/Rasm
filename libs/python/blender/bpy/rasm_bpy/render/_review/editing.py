@@ -4,7 +4,7 @@ from collections.abc import Callable
 from enum import Enum
 from functools import cached_property, partial, update_wrapper
 import math
-from typing import ClassVar, TYPE_CHECKING
+from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
 from expression import Option, Some
@@ -23,13 +23,13 @@ from rasm_bpy.data._rna.descriptors import written
 from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.properties import annotated, enum_choices
 from rasm_bpy.nodes._content import Generated
-from rasm_bpy.render._review.charts import _Need, ChartImage, Charting, PlacedChart
+from rasm_bpy.render._review.charts import ChartImage, Charting, Need, PlacedChart
 from rasm_bpy.settings._attachments import Attached
 from rasm_bpy.ui._drawing.handlers import HandlerRefresh
 from rasm_bpy.ui._elements.gizmos import Gizmo, GizmoGroup
-from rasm_bpy.ui._images.views import _displayed_aspect, _framed, _HANDLE, FrameRegion
+from rasm_bpy.ui._images.views import displayed_aspect, framed, FrameRegion, HANDLE
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _grouped, Layout, OperatorButton, Property, RowContent
+from rasm_bpy.ui._layout.rows import grouped, Layout, OperatorButton, Property, RowContent
 from rasm_bpy.ui._resources.icons import Icon
 from rasm_imaging import ChartPlacement, Clipped, Finding, ImageFile, PanoramaView, PublishedChart, Quad, Reversed, Skewed, StMap, Wide
 from rasm_records import accumulated, content_hash, Fault, Nothing, Ok, Outcome, paired, Reason
@@ -53,13 +53,13 @@ class Mirror(Enum):
 class ChartFraming(bpy.types.PropertyGroup):
     """Share of the view width a framed chart spans."""
 
-    share: bpy.props.FloatProperty(name="Share", description="View width chart spans", subtype="FACTOR", min=0.01, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
+    share: Annotated[float, bpy.props.FloatProperty(name="Share", description="View width chart spans", subtype="FACTOR", min=0.01, max=1.0, default=0.5)]
 
 
 class Flipping(bpy.types.PropertyGroup):
     """Flip axis."""
 
-    mirror: bpy.props.EnumProperty(name="Mirror", description="Patch order mirror axis", items=enum_choices(Mirror))  # ty: ignore[invalid-type-form]
+    mirror: Annotated[str, bpy.props.EnumProperty(name="Mirror", description="Patch order mirror axis", items=enum_choices(Mirror))]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -101,7 +101,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             lambda each, image, record: record.placement.aligned.bind(
                 lambda aligned: (
                     aligned
-                    .to_result_with(lambda: Fault.of(_Need.PLACED, image.name))
+                    .to_result_with(lambda: Fault.of(Need.PLACED, image.name))
                     .bind(lambda homography: move(each, homography.quad.samples))
                     .map(lambda samples: record.positioned(record.placement.realigned(Quad.of(samples))))
                 )
@@ -120,13 +120,13 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 if image == shown
                 else self.charting
                 .kept(chart, image)
-                .bind(lambda kept: kept.to_result_with(partial(Fault.of, _Need.PLACED, image.name)))
+                .bind(lambda kept: kept.to_result_with(partial(Fault.of, Need.PLACED, image.name)))
                 .map(lambda kept: self.charting.centered(chosen, ratio, kept.placement.panorama))
             )
             return placement.bind(lambda held: self.charting.placed.write(chart.struct(image), PlacedChart(placement=held)))
 
         images = self.charting.shown(call.identity, call.context).to_result_with(partial(Fault.of, Reason.ABSENT, repr(call.context.space_data), member="image"))
-        return paired(images, self.charting.charts.bound(call.identity), _displayed_aspect(call.context)).bind(lambda found: placed(*found)).map(lambda _: Done())
+        return paired(images, self.charting.charts.bound(call.identity), displayed_aspect(call.context)).bind(lambda found: placed(*found)).map(lambda _: Done())
 
     def sample_chart(self, call: Call[Empty]) -> Outcome[Answer]:
         """Measure each patch's mean color, reporting the chart's placement findings."""
@@ -145,8 +145,8 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     return f"Patches {', '.join(names[index] for index in patches)} leave image"
 
         def kept(image: bpy.types.Image, record: PlacedChart, chart: Attached[ChartImage], file: ImageFile) -> Outcome[Answer]:
-            means = record.placement.means(file.pixels).bind(lambda found: found.to_result_with(lambda: Fault.of(_Need.PLACED, image.name)))
-            return paired(means, _displayed_aspect(call.context).bind(record.placement.findings)).bind(
+            means = record.placement.means(file.pixels).bind(lambda found: found.to_result_with(lambda: Fault.of(Need.PLACED, image.name)))
+            return paired(means, displayed_aspect(call.context).bind(record.placement.findings)).bind(
                 lambda found: self.charting.placed.write(chart.struct(image), msgspec.structs.replace(record, samples=found[0][1], colorspace=file.colorspace)).map(
                     lambda _: Done(notes=(("INFO", f"Sampled {image.name}"), *(("WARNING", described(finding, record.placement.chart)) for held in found[1].to_list() for finding in held)))
                 )
@@ -161,7 +161,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def reset_chart(self, call: Call[Empty], _image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
         """Reset chart layout."""
-        return _displayed_aspect(call.context).map(lambda ratio: record.positioned(self.charting.centered(record.placement.chart, ratio, record.placement.panorama)))
+        return displayed_aspect(call.context).map(lambda ratio: record.positioned(self.charting.centered(record.placement.chart, ratio, record.placement.panorama)))
 
     @staticmethod
     def leave_view(call: Call[Empty], image: bpy.types.Image, record: PlacedChart) -> Outcome[PlacedChart]:
@@ -187,7 +187,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Center chart in visible frame."""
 
         def middle(region: bpy.types.Region) -> npt.NDArray[np.float64]:
-            frame = _framed(region)
+            frame = framed(region)
             return np.array(((region.width / 2 - frame.x) / frame.width, (region.height / 2 - frame.y) / frame.height, 1.0), np.float64)
 
         return rooted(bpy.types.Region, call.context).map(lambda region: samples + (middle(region) - samples.mean(axis=0)) * (1.0, 1.0, 0.0))
@@ -228,7 +228,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return self.located(call.identity, call.context).bind(
             lambda found: (
                 (Some(found[1].placement) if found[1].placement.panorama is not None else found[1].placement.framed(call.properties.share))
-                .to_result_with(lambda: Fault.of(_Need.PLACED, found[0].name))
+                .to_result_with(lambda: Fault.of(Need.PLACED, found[0].name))
                 .bind(lambda placement: self.charting.read(call.identity, found[0], config).bind(lambda file: baked(*found, placement, file)))
             )
         )
@@ -304,7 +304,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Places a flip button at the middle of the shown chart's edge between two corners."""
         return self.quad(identity, context).map(
             lambda found: found.bind(
-                lambda quad: Option.of_optional(context.region).map(_framed).map(lambda frame: quad.samples[list(corners), :2].mean(axis=0) * (frame.width, frame.height) + (frame.x, frame.y))
+                lambda quad: Option.of_optional(context.region).map(framed).map(lambda frame: quad.samples[list(corners), :2].mean(axis=0) * (frame.width, frame.height) + (frame.x, frame.y))
             ).map(lambda at: Matrix.Translation((*at, 0.0)))
         )
 
@@ -329,13 +329,13 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     )
                 )
             ),
-            Layout(rows=tuple(OperatorButton(target=command) for command in (self.placing, self.sampling, self.clearing)), container=Some(_grouped)),
+            Layout(rows=tuple(OperatorButton(target=command) for command in (self.placing, self.sampling, self.clearing)), container=Some(grouped)),
             Layout(
                 rows=(
                     *(OperatorButton(target=Placement(self.flipping, {"mirror": mirror.name}), keywords={"text": ""}, icon=Some(icon)) for mirror, icon, _ in self.mirrors),
                     *(OperatorButton(target=command, keywords={"text": ""}) for command in (self.turning, self.centering, self.resetting, self.viewing, self.leaving)),
                 ),
-                container=Some(_grouped),
+                container=Some(grouped),
             ),
         )
 
@@ -355,7 +355,7 @@ class ChartEditing(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 place=partial(self.edge, identity, corners),
                 bind=(Placement(self.flipping, {"mirror": mirror.name}),),
                 icon=Some(icon),
-                properties={"scale_basis": _HANDLE, "draw_options": frozenset({"OUTLINE", "BACKDROP"})},
+                properties={"scale_basis": HANDLE, "draw_options": frozenset({"OUTLINE", "BACKDROP"})},
                 role=lambda ui: (ui.wcol_tool.inner, ui.wcol_tool.inner_sel),
             )
             for mirror, icon, corners in self.mirrors

@@ -10,9 +10,30 @@ import msgspec
 
 from rasm_bpy.data import Descriptor, Identity, Key, Present
 from rasm_bpy.nodes import Expr, EXPRESSIONS, Interface, InterfacePanel, math, MenuItem, MenuItems, mixed, Ramp, Scalar, Socket, StockInput, Stop, switched, textures, vector, xyz
-from rasm_bpy.render import captured, chosen, CompositorEffect, CompositorRecord, coverage, depth_precise, dimensions, entry_input, GraphInputs, masks, motion, PassRequest, rotated, Sighted, valued
+from rasm_bpy.render import (
+    captured,
+    chosen,
+    CLOCK,
+    Clock,
+    clocked,
+    CompositorEffect,
+    CompositorRecord,
+    coverage,
+    depth_precise,
+    dimensions,
+    entry_input,
+    GraphInputs,
+    hashed,
+    masks,
+    PassRequest,
+    rotated,
+    SEED,
+    Sighted,
+    timing,
+    valued,
+)
 from rasm_bpy.scene import camera_type
-from rasm_imaging import Aperture, fringed, tiles
+from rasm_imaging import Aperture, fringed, stream
 from rasm_records import accumulated, Ok, Outcome, paired
 
 from .bases import bases, Basis, Perlin, textured
@@ -143,7 +164,7 @@ class LensFlare(CompositorRecord, frozen=True, kw_only=True):
         """Adds the source-centered flare sections to the stage input under finite-disc visibility."""
         read, frame = shell.input, shell.space
         center = frame.extent * 0.5
-        seed = read(motion.SEED)
+        seed = read(SEED)
 
         def ramped(distance: Expr, length: Scalar) -> tuple[Expr, Expr]:
             remaining = math("MAXIMUM", math("SUBTRACT", length, distance), 0.0) / length
@@ -157,9 +178,9 @@ class LensFlare(CompositorRecord, frozen=True, kw_only=True):
         hidden, shown = (Expr(kind=bpy.types.CompositorNodeLevels, inputs=(("Image", image), ("Channel", "Red")), socket="Mean") for image in (disc * occluded, disc))
         visible = front * (1.0 - hidden / shown)
         direction = xyz(*(math(operation, math("ARCTAN2", offset["Y"], offset["X"])) for operation in ("COSINE", "SINE")))
-        time = motion.clocked(read, _STARBURST.panel(motion.CLOCK.key))
+        time = clocked(read, _STARBURST.panel(CLOCK.key))
         ((streak, _),) = textured(
-            shell, _STARBURST.panel(_STREAKS), self.starburst_basis, vector("SCALE", direction, read(_STARBURST, _STREAK_DENSITY) / tau), time, seed, streams=(tiles.stream(LensFlare.starburst_basis),)
+            shell, _STARBURST.panel(_STREAKS), self.starburst_basis, vector("SCALE", direction, read(_STARBURST, _STREAK_DENSITY) / tau), time, seed, streams=(stream(LensFlare.starburst_basis),)
         )
         star_tone, star_falloff = ramped(rho, read(_STARBURST, _STREAK_LENGTH))
         turned = rotated(offset, read(_ANAMORPHIC, _SQUEEZE_ANGLE), inverted=True)
@@ -176,7 +197,7 @@ class LensFlare(CompositorRecord, frozen=True, kw_only=True):
         first, last, variation = read(_GHOSTS, _FIRST), read(_GHOSTS, _LAST), read(_GHOSTS, _VARIATION)
 
         def imaged(index: int) -> tuple[Expr, Expr]:
-            drawn = motion.hashed(seed, float(tiles.stream(LensFlare.ghosts_emission)), instance=index)
+            drawn = hashed(seed, float(stream(LensFlare.ghosts_emission)), instance=index)
             shrink = 1.0 - variation * drawn["X"]
             slot = math("MULTIPLY_ADD", drawn["Y"] - 0.5, variation, index + 0.5) / self.count
             magnification = mixed(slot, first, last)
@@ -228,7 +249,7 @@ _STARBURST: Final = InterfacePanel.of(
         panels=(
             emission(_LIGHT, _DEFAULTS.starburst_emission, "Light from streak root to tip"),
             bases(_STREAKS, _DEFAULTS.starburst_basis, "Texture forming streaks"),
-            InterfacePanel.of(motion.CLOCK.key, motion.Clock(speed=0.0)),
+            InterfacePanel.of(CLOCK.key, Clock(speed=0.0)),
         ),
     ),
     description="Radial streaks about source",
@@ -287,7 +308,7 @@ def _source_checked(identity: Identity, scene: bpy.types.Scene, entry: Option[bp
 
 light_rays: Final = CompositorEffect(record=LightRays, interface=Interface(inputs=(_THRESHOLD, _SMOOTHNESS, _LENGTH, _JITTER, _COLOR), panels=(_SOURCE,)), check=Some(_source_checked))
 lens_flare: Final = CompositorEffect(
-    record=LensFlare, interface=Interface(inputs=(_RADIUS, motion.SEED), panels=(_SOURCE, _HOTSPOT, _STARBURST, _ANAMORPHIC, _HALO, _GHOSTS)), check=Some(_source_checked), derives=(motion.timing,)
+    record=LensFlare, interface=Interface(inputs=(_RADIUS, SEED), panels=(_SOURCE, _HOTSPOT, _STARBURST, _ANAMORPHIC, _HALO, _GHOSTS)), check=Some(_source_checked), derives=(timing,)
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

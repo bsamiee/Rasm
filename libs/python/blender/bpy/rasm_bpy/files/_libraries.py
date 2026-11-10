@@ -1,10 +1,10 @@
-"""Library loads through the host's keywords, inspected blend files, import records, overrides through the host calls, and library writes."""
+"""Library loads through the host's keywords, inspected blend files, import records, and overrides through the host calls."""
 
 from collections.abc import Callable, Generator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from functools import partial
 from pathlib import Path
-from typing import Literal, Self, TYPE_CHECKING, TypedDict, Unpack
+from typing import Literal, Self, TYPE_CHECKING
 
 import bpy
 from expression import Option, try_downcast
@@ -12,24 +12,13 @@ from expression.extra.result import catch
 import msgspec
 
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.store import _member, _STORES, Handle
-from rasm_bpy.data._rna.descriptors import Descriptor, written
-from rasm_bpy.data._rna.paths import _parsed
-from rasm_records import accumulated, Error, Fault, folder_made, Nothing, Ok, Outcome, Reason
+from rasm_bpy.data._ids.store import collection_name, Handle, STORES
+from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, written
+from rasm_bpy.data._rna.paths import parsed_path
+from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-
-class _Writing(TypedDict, total=False):
-    """`BlendDataLibraries.write` keywords, the host defaulting each one left out."""
-
-    path_remap: Literal["NONE", "RELATIVE", "RELATIVE_ALL", "ABSOLUTE"]
-    fake_user: bool
-    compress: bool
-
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -106,7 +95,7 @@ def _opened(data: bpy.types.BlendData, path: Path, load: Mapping[str, bool]) -> 
     return opened
 
 
-def _sourced[T](
+def sourced[T](
     data: bpy.types.BlendData, path: Path, take: Callable[[object], tuple[T, Mapping[str, Sequence[str]]]], **load: bool
 ) -> Outcome[tuple[T, dict[str, tuple[bpy.types.ID | str | None, ...]]]]:
     """Returns source selection with loaded destination slots, unreadable fault when the library load refuses the file.
@@ -141,29 +130,20 @@ def _sourced[T](
 @contextmanager
 def inspected(path: Path) -> Generator[Outcome[bpy.types.BlendData]]:
     """Yields temporary BlendData of another file until scope exit, libraries and workspaces left unlinked."""
-    stores = frozenset(identifier for kind, identifier in _STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
+    stores = frozenset(identifier for kind, identifier in STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
     with bpy.data.temp_data(filepath="") as data:  # type: ignore[var-annotated]
-        yield _sourced(data, path, lambda source: (None, {name: getattr(source, name) for name in dir(source) if name in stores}), link=True).map(lambda _: data)
+        yield sourced(data, path, lambda source: (None, {name: getattr(source, name) for name in dir(source) if name in stores}), link=True).map(lambda _: data)
 
 
-def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tuple[str, Sequence[str]]]:
-    store = _member(kind)
+def library_listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tuple[str, tuple[str, ...]]]:
+    store = collection_name(kind)
     absent = partial(Fault.of, Reason.ABSENT, str(path), member=store)
     if issubclass(kind, bpy.types.Library):
         return Error(absent())
-    try:
-        names: Sequence[str] = getattr(source, store)  # ty: ignore[unsound-assignment]
-    except AttributeError as error:
-        return Error(absent(error))
-    return Ok((store, names))
+    return catch(getattr, exception=AttributeError)(source, store).map_error(absent).bind(lambda names: converted_value(names, tuple[str, ...], str(path))).map(lambda names: (store, names))
 
 
-def _listed(path: Path, kind: type[bpy.types.ID], **load: bool) -> Outcome[tuple[str, ...]]:
-    """Returns names in blend file store of kind, `assets_only` among the load keywords listing assets alone."""
-    return _sourced(bpy.data, path, lambda source: (_listing(source, kind, path), {}), **load).bind(lambda answer: answer[0].map(lambda listing: tuple(listing[1])))
-
-
-def _blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, ...], **load: bool) -> Outcome[tuple[T, ...]]:
+def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, ...], **load: bool) -> Outcome[tuple[T, ...]]:
     """Links or appends named blocks through the host's load keywords, absent fault per missing name or kind.
 
     Args:
@@ -177,24 +157,17 @@ def _blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str,
     """
 
     def chosen(source: object) -> tuple[Outcome[tuple[str, tuple[str, ...]]], Mapping[str, Sequence[str]]]:
-        found = _listing(source, kind, path).bind(
+        found = library_listing(source, kind, path).bind(
             lambda listing: accumulated(Ok(name).filter_with(listing[1].__contains__, lambda held: Fault.of(Reason.ABSENT, str(path), member=held)) for name in names).map(
                 lambda selected: (listing[0], selected)
             )
         )
         return found, dict(found.to_option().to_list())
 
-    return _sourced(bpy.data, path, chosen, **load).bind(
+    return sourced(bpy.data, path, chosen, **load).bind(
         lambda answer: answer[0].bind(
             lambda picked: accumulated(Option.of_optional(try_downcast(kind, block)).to_result(Fault.of(Reason.ABSENT, str(path), member=name)) for name, block in zip(picked[1], answer[1][picked[0]]))
         )
-    )
-
-
-def _library_written(path: Path, blocks: frozenset[bpy.types.ID], **write: Unpack[_Writing]) -> Outcome[Path]:
-    """Writes blocks to library file through the host's write keywords, returning path."""
-    return folder_made(path.parent).bind(
-        lambda _: catch(bpy.data.libraries.write, exception=OSError)(str(path), set(blocks), **write).map(lambda _: path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
     )
 
 
@@ -250,10 +223,10 @@ def override_resynced(
 def edits(block: bpy.types.ID) -> Outcome[tuple[Descriptor[bpy.types.Property], ...]]:
     """Returns descriptor per property the ID's library override edits, absent fault for an ID holding no override."""
     return _overridden(block, lambda held: tuple(held.properties)).bind(
-        lambda items: accumulated(_parsed(item.rna_path).bind(lambda path: Descriptor.resolve(block, path, bpy.types.Property)) for item in items)
+        lambda items: accumulated(parsed_path(item.rna_path).bind(lambda path: Descriptor.resolve(block, path, bpy.types.Property)) for item in items)
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Imported", "OverrideResync", "edits", "inspected", "override_made", "override_resynced", "reloaded"]
+__all__ = ["Imported", "OverrideResync", "blocks_loaded", "edits", "inspected", "library_listing", "override_made", "override_resynced", "reloaded", "sourced"]

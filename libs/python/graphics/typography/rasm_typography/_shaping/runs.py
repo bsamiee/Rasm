@@ -14,11 +14,11 @@ import msgspec
 lazy from fontTools.misc.transform import Offset
 lazy from fontTools.ttLib import getTableClass, TTFont
 lazy from fontTools.ttLib.ttFont import GlyphOrder
-lazy from uharfbuzz import Buffer, Face, Font, OTLayoutGlyphClass, shape  # ty: ignore[import-not-found]
+lazy from uharfbuzz import Buffer, Face, Font, OTLayoutGlyphClass, shape
 
 lazy from rasm_records import Fault, Ok, Outcome, Reason
-lazy from rasm_typography._faces.glyphs import _Outline, _traced
-lazy from rasm_typography._outlines.paths import _bounds, _Box, _transformed
+lazy from rasm_typography._faces.glyphs import Point, traced
+lazy from rasm_typography._outlines import paths
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -217,40 +217,40 @@ class Binary[T: bytes | TTFont = bytes]:
     # --- [GEOMETRY]
 
     @cached_property
-    def outline(self) -> Callable[[str], _Outline]:
+    def outline(self) -> Callable[[str], tuple[tuple[Point, ...], ...]]:
         """Glyph drawings as quadratic contours, memoized for this binary."""
         font = self._font
 
         @cache
-        def drawn(name: str, /) -> _Outline:
-            return _traced(partial(font.draw_glyph_with_pen, font.glyph_from_string(name)))
+        def drawn(name: str, /) -> tuple[tuple[Point, ...], ...]:
+            return traced(partial(font.draw_glyph_with_pen, font.glyph_from_string(name)))
 
         return drawn
 
     @cached_property
-    def extent(self) -> Callable[[str], _Box | None]:
+    def extent(self) -> Callable[[str], paths.Box | None]:
         """Curve extents of glyph drawings, memoized for this binary."""
         outlines = self.outline
 
         @cache
-        def measured(glyph: str, /) -> _Box | None:
-            return _bounds(outlines(glyph))
+        def measured(glyph: str, /) -> paths.Box | None:
+            return paths.bounds(outlines(glyph))
 
         return measured
 
     @cached_property
-    def placed_extents(self) -> Callable[[str, str | None], tuple[tuple[_Placed, _Box], ...]]:
+    def placed_extents(self) -> Callable[[str, str | None], tuple[tuple[_Placed, paths.Box], ...]]:
         """Shaped glyphs with their curve extents at their positions, memoized for this binary."""
 
         @cache
-        def placed(text: str, language: str | None, /) -> tuple[tuple[_Placed, _Box], ...]:
+        def placed(text: str, language: str | None, /) -> tuple[tuple[_Placed, paths.Box], ...]:
             return tuple((glyph, box.shifted(glyph.x, glyph.y)) for glyph in self.shaped(text, language=language).placed if (box := self.extent(glyph.glyph)))
 
         return placed
 
-    def drawn(self, run: Shaped, /) -> tuple[_Outline, ...]:
+    def drawn(self, run: Shaped, /) -> tuple[tuple[tuple[Point, ...], ...], ...]:
         """Moves each glyph outline of a run to its placed position, in visual order."""
-        return tuple(_transformed(self.outline(placed.glyph), Offset(placed.x, placed.y)) for placed in run.placed)
+        return tuple(paths.transformed(self.outline(placed.glyph), Offset(placed.x, placed.y)) for placed in run.placed)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

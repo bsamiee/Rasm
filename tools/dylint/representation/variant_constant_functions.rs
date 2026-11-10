@@ -1,14 +1,15 @@
 use core::{mem, slice};
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, peel_blocks, res::MaybeQPath as _, visitors::is_const_evaluatable};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::peel_blocks;
+use clippy_utils::res::MaybeQPath as _;
+use clippy_utils::visitors::is_const_evaluatable;
 use rustc_ast::LitKind;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap};
 use rustc_errors::listify;
-use rustc_hir::{
-    BinOpKind, Expr, ExprKind, PatKind,
-    def::{DefKind, Res},
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{BinOpKind, Expr, ExprKind, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, AdtDef};
 

@@ -47,18 +47,10 @@ internal sealed record Decomposition(Vector3 Scale, Quaternion Rotation, Vector3
 
     public Option<Decomposition> Toward(Decomposition to, float progress) =>
         new Decomposition(Vector3.Lerp(Scale, to.Scale, progress), Quaternion.Slerp(Rotation, to.Rotation, progress), Vector3.Lerp(Translation, to.Translation, progress));
-
-    internal static Option<Decomposition> Of(Option<Matrix4x4> transform) =>
-        transform.IfNone(Matrix4x4.Identity) switch {
-            { M14: 0f, M24: 0f, M34: 0f, M44: 1f } affine when Matrix4x4.Decompose(affine, out Vector3 scale, out Quaternion rotation, out Vector3 translation) => new Decomposition(scale, rotation, translation),
-            _ => None,
-        };
 }
 
 internal sealed record ExitTransition(LayoutNode Last, Place Place, Morph<Fraction> Opacity) {
     internal SKPoint At => Last.Frame.Location + Place.Origin;
-
-    internal SKRect Bounds => SKRect.Intersect(Place.Absolute(Last.SubtreeBounds, Place.Origin), Place.Clip);
 }
 
 internal sealed record InteractionState(Seq<Key> Path, Interaction Interaction);
@@ -80,14 +72,15 @@ internal sealed record Animations {
     // --- [CHANNELS]
 
     private static readonly Func<LayoutNode, Option<Tween>> Framed = static layout => Some(Tween.Of(layout));
-    private static readonly Func<LayoutNode, Option<Decomposition>> Turned = static layout => Decomposition.Of(layout.View.Transform);
+    private static readonly Func<LayoutNode, Option<Decomposition>> Turned = static layout => layout.View.Transform.IfNone(Matrix4x4.Identity) switch {
+        { M14: 0f, M24: 0f, M34: 0f, M44: 1f } affine when Matrix4x4.Decompose(affine, out Vector3 scale, out Quaternion rotation, out Vector3 translation) => new Decomposition(scale, rotation, translation),
+        _ => None,
+    };
     private static readonly Func<LayoutNode, Option<PlotPlane>> Plotted = static layout => layout.View.Plotted;
     private static readonly Func<LayoutNode, Option<Figure>> Traced = static layout => layout.View.Traced;
     private static readonly Func<Fraction, Fraction, float> Signed = static (from, to) => (float)to - (float)from;
 
     // --- [DERIVED]
-
-    internal bool Animating => !Fades.IsEmpty || !Morphing.IsEmpty || !Leaving.IsEmpty;
 
     internal Seq<Seq<Key>> Morphing => Transitions.Keys.ToSeq() + Transforms.Keys.ToSeq() + Planes.Keys.ToSeq() + Figures.Keys.ToSeq();
 
@@ -108,7 +101,7 @@ internal sealed record Animations {
             from place in scene.Places.Find(path)
             select SKRect.Intersect(Place.Absolute(Place.Absolute(layout.SubtreeBounds, place.Origin), Shift(scene, path, at)), place.Clip))
         + Transforms.Keys.ToSeq().Choose(path => scene.Places.Find(path).Map(static place => place.Clip))
-        + Leaving.Map(static left => left.Bounds);
+        + Leaving.Map(static left => SKRect.Intersect(Place.Absolute(left.Last.SubtreeBounds, left.Place.Origin), left.Place.Clip));
 
     private SKPoint Shift(Scene scene, Seq<Key> path, Duration now) =>
         path.Inits.Choose(above =>

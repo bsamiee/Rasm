@@ -1,27 +1,21 @@
 #![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, deref_patterns)]
 
-use core::{
-    cmp::{self, Ordering},
-    fmt, iter,
-    num::ParseFloatError,
-};
-use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-    io,
-};
+use core::cmp::{self, Ordering};
+use core::num::ParseFloatError;
+use core::{fmt, iter};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::io;
 
 use dugong::graphlib::GraphError;
 use itertools::{Either, Itertools as _};
 use kurbo::{BezPath, DEFAULT_ACCURACY, Ellipse, Line, ParamCurve as _, PathEl, Point, QuadBez, Rect, Shape as _, Size, Vec2};
 use manatee::Anchor;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEBTreeSet, NonEmptyIterator as _};
-use petgraph::{
-    Directed, Direction, EdgeType,
-    algo::kosaraju_scc,
-    graphmap::DiGraphMap,
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
-    visit::{Dfs, EdgeRef as _, IntoEdgeReferences as _, IntoNodeReferences as _, Reversed, Walker as _},
-};
+use petgraph::algo::kosaraju_scc;
+use petgraph::graphmap::DiGraphMap;
+use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
+use petgraph::visit::{Dfs, EdgeRef as _, IntoEdgeReferences as _, IntoNodeReferences as _, Reversed, Walker as _};
+use petgraph::{Directed, Direction, EdgeType};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -341,17 +335,6 @@ fn outline(shape: Shape, frame: Rect) -> BezPath {
 
 fn crossing(outline: &BezPath, span: Line) -> Option<Point> {
     outline.segments().flat_map(|side| side.intersect_line(span)).map(|hit| hit.line_t).min_by(f64::total_cmp).map(|line_t| span.eval(line_t))
-}
-
-fn clipped(points: &[Point], source: &BezPath, target: &BezPath) -> Vec<Point> {
-    let crossed = |outline: &BezPath, outside: usize, inside: Option<usize>| {
-        points.get(outside).zip(inside.and_then(|inside| points.get(inside))).and_then(|(&outer, &inner)| crossing(outline, Line::new(outer, inner)))
-    };
-    match (points.iter().position(|&point| !source.contains(point)), points.iter().rposition(|&point| !target.contains(point))) {
-        (Some(exit), Some(entry)) if exit <= entry =>
-            iter::chain(crossed(source, exit, exit.checked_sub(1)), points.get(exit..=entry).into_iter().flatten().copied()).chain(crossed(target, entry, entry.checked_add(1))).collect(),
-        (Some(_) | None, Some(_) | None) => points.to_vec(),
-    }
 }
 
 fn path(interpolation: Interpolation, points: &[Point]) -> BezPath {

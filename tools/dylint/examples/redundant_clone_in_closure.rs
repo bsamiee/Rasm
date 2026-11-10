@@ -1,4 +1,6 @@
-use core::{cell::Cell, hint::black_box, num::ParseIntError};
+use core::cell::Cell;
+use core::hint::black_box;
+use core::num::ParseIntError;
 
 use futures::executor::block_on;
 
@@ -29,7 +31,6 @@ impl Clone for ObservedClone<'_> {
 #[error("cannot read a port from {path}")]
 struct ReadError {
     path: String,
-    #[source]
     source: ParseIntError,
 }
 

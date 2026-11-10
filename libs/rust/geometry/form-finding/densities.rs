@@ -1,12 +1,15 @@
 use core::iter;
 
-use faer::{Mat, linalg::solvers::Solve as _, sparse::linalg::solvers::Lu};
+use faer::Mat;
+use faer::linalg::solvers::Solve as _;
+use faer::sparse::linalg::solvers::Lu;
+use faer::sparse::{CreationError, SparseColMat};
 use itertools::Itertools as _;
 use nalgebra::DVectorView;
 use nonempty_collections::NEVec;
 use validated::Validated;
 
-use crate::{Form, FormError, Input, Network, balance, form, laplacian, spans};
+use crate::{Form, FormError, Input, Network, balance, form, grounded, spans};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +23,9 @@ pub(crate) struct Solved {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub(crate) fn solved(network: &Network, densities: DVectorView<'_, f64>) -> Result<Solved, FormError> {
-    let factor = Lu::try_new_with_symbolic(network.lu.clone(), laplacian(network, densities.iter().copied())?.as_ref())?;
+    let weights = grounded(&network.index, &network.edges, densities.iter().copied()).map(|(_, value)| value).collect::<Vec<_>>();
+    let laplacian = SparseColMat::new_from_argsort(network.symbolic.clone(), &network.argsort, &weights).map_err(CreationError::from)?;
+    let factor = Lu::try_new_with_symbolic(network.lu.clone(), laplacian.as_ref())?;
     let (residual, _) = balance(network, network.anchors.as_ref(), densities);
     let free = factor.solve(&residual);
     free.as_ref().is_all_finite().ok_or(FormError::Singular)?;

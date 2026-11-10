@@ -17,8 +17,6 @@ internal sealed record Context(SKMatrix Device, Func<StatePalette, Func<Seq<int>
     internal HashMap<Interaction, float> StateLayers { get; init; }
     internal Option<PlotFrame> Plot { get; init; }
 
-    internal Context CacheKey => this with { Device = Device with { TransX = Device.TransX - MathF.Floor(Device.TransX), TransY = Device.TransY - MathF.Floor(Device.TransY) } };
-
     internal float Scale => Device.MapRadius(1f);
 
     internal Context Translated(SKPoint at) => this with { Device = Device.PreConcat(SKMatrix.CreateTranslation(at.X, at.Y)), Plot = Plot.Map(plot => plot.Translated(new SKPoint(-at.X, -at.Y))) };
@@ -107,11 +105,14 @@ internal static class Painter {
         }
         Context own = context.Translated(at) with { StateLayers = StateLayers(pass, layout, context) };
         float alpha = layout.Alpha(pass.Cache.Space);
-        SKDrawable recorded = pass.Cache.Recordings.GetOrAdd((layout, own.CacheKey, alpha, pass.Live.Filter(held => held != layout.Path && held.StartsWith(layout.Path))), () => {
-            using SKPictureRecorder recorder = new();
-            DrawSelf(recorder.BeginRecording(layout.LocalSubtreeBounds, useRTree: true), pass, layout, own, alpha);
-            return recorder.EndRecordingAsDrawable();
-        });
+        SKDrawable recorded = pass.Cache.Recordings.GetOrAdd(
+            (layout, own with { Device = own.Device with { TransX = own.Device.TransX - MathF.Floor(own.Device.TransX), TransY = own.Device.TransY - MathF.Floor(own.Device.TransY) } }, alpha,
+                pass.Live.Filter(held => held != layout.Path && held.StartsWith(layout.Path))),
+            () => {
+                using SKPictureRecorder recorder = new();
+                DrawSelf(recorder.BeginRecording(layout.LocalSubtreeBounds, useRTree: true), pass, layout, own, alpha);
+                return recorder.EndRecordingAsDrawable();
+            });
         if (layout.Transform.Case is Matrix4x4 turn) canvas.Concat((SKMatrix44)turn);
         canvas.DrawDrawable(recorded, 0f, 0f);
     }

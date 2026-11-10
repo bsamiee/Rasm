@@ -1,4 +1,8 @@
-use core::{fmt::Write as _, future, hint::black_box, num::ParseIntError, pin::pin};
+use core::fmt::Write as _;
+use core::future;
+use core::hint::black_box;
+use core::num::ParseIntError;
+use core::pin::pin;
 
 use tokio::pin as pinned;
 

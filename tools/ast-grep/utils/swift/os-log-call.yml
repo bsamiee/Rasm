@@ -15,7 +15,9 @@ rule:
     any:
         - all:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(trace|debug|info|notice|warning|error|critical|fault)$'}}
-            - matches: logger
+            - any:
+                - matches: logger
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: {position: 1, ofRule: {kind: value_argument}}, not: {has: {field: name, kind: value_argument_label}}, has: {field: value, kind: line_string_literal}}}}
         - all:
             - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(emitEvent|beginInterval|beginAnimationInterval|endInterval|withIntervalSignpost)$'}}
             - matches: signposter

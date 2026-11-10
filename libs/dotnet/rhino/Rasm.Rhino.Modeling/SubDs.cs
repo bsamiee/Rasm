@@ -19,7 +19,7 @@ public static class SubDs {
 
     public static Step<SubD> FillHole(uint boundaryEdge) =>
         new(subd => IO.lift(() =>
-            from held in Held(subd, ComponentIndexType.SubdEdge, [boundaryEdge])
+            from held in Held(subd, [boundaryEdge])
             from boundary in Boundary(Boundaries(subd), boundaryEdge)
             from closed in RhinoFault.Unless(boundary.Closed, RhinoReason.Invalid, boundaryEdge)
             from filled in RhinoFault.Unless(subd.Faces.Add(boundary.Edges) is not null, RhinoReason.Declined, boundaryEdge)
@@ -27,7 +27,7 @@ public static class SubDs {
 
     public static Step<SubD> Bridge(uint edgeA, uint edgeB) =>
         new(subd => IO.lift(() =>
-            from held in Held(subd, ComponentIndexType.SubdEdge, [edgeA, edgeB])
+            from held in Held(subd, [edgeA, edgeB])
             let boundaries = Boundaries(subd)
             from ends in (Boundary(boundaries, edgeA), Boundary(boundaries, edgeB)).Apply(static (first, second) => (First: first, Second: second)).As()
             from apart in RhinoFault.Unless(!ends.First.Edges.Exists(link => link.Id == edgeB), RhinoReason.Repeated, (edgeA, edgeB))
@@ -37,18 +37,15 @@ public static class SubDs {
                 (rail, index) => Quad(subd, rail.A, rail.B).ToFin(new RhinoFault(nameof(SubD.Faces), RhinoReason.Declined, index)))
             select subd), nameof(SubD.Faces));
 
-    private static Fin<Seq<int>> Held(SubD subd, ComponentIndexType kind, Seq<uint> ids) => subd.Within(kind, ids.Map(static id => (int)id));
+    private static Fin<Seq<int>> Held(SubD subd, Seq<uint> edges) => subd.Within(ComponentIndexType.SubdEdge, edges.Map(static edge => (int)edge));
 
     private static Seq<(Seq<SubDEdge> Edges, bool Closed)> Boundaries(SubD subd) =>
         toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(subd, toSeq(subd.Edges).Filter(static edge => edge.FaceCount is 1))).Map(Free).Strict();
 
     private static (Seq<SubDEdge> Edges, bool Closed) Free(SubDEdge[] links) =>
-        Closure(links[0].RelativeFaceLeft is null
-            ? toSeq(links)
-            : toSeq(links).Rev().Map(static edge => (SubDEdge)edge.ReverseComponentDirection()).Strict());
-
-    private static (Seq<SubDEdge> Edges, bool Closed) Closure(Seq<SubDEdge> edges) =>
-        (Edges: edges, Closed: edges.Count > 2 && edges[0].RelativeVertexFrom.Id == edges[^1].RelativeVertexTo.Id);
+        (links[0].RelativeFaceLeft is null ? toSeq(links) : toSeq(links).Rev().Map(static edge => (SubDEdge)edge.ReverseComponentDirection()).Strict()) switch {
+            var edges => (Edges: edges, Closed: edges.Count > 2 && edges[0].RelativeVertexFrom.Id == edges[^1].RelativeVertexTo.Id),
+        };
 
     private static Fin<(Seq<SubDEdge> Edges, bool Closed)> Boundary(Seq<(Seq<SubDEdge> Edges, bool Closed)> boundaries, uint edge) =>
         boundaries.Find(boundary => boundary.Edges.Exists(link => link.Id == edge)).ToFin(new RhinoFault(ComponentIndexType.SubdEdge, RhinoReason.Missing, (int)edge));
@@ -75,10 +72,10 @@ public static class SubDs {
     public static IO<Seq<SubDChain>> Chains(SubD subd, ChainSeed seed) =>
         seed.Switch(
             subd,
-            sorted: static (at, of) => IO.lift(() => Held(at, ComponentIndexType.SubdEdge, of.Edges))
+            sorted: static (at, of) => IO.lift(() => Held(at, of.Edges))
                 .Bind(_ => Products.Each(toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(at, of.Edges.Map(edge => at.Edges.Find(edge))))
                     .Map(links => Products.Of(() => Linked(at, links)).Bind(Read)))),
-            grown: static (at, of) => IO.lift(() => Held(at, ComponentIndexType.SubdEdge, [of.Edge]))
+            grown: static (at, of) => IO.lift(() => Held(at, [of.Edge]))
                 .Bind(_ =>
                     from chain in Products.Of(() => new SubDEdgeChain(at, at.Edges.Find(of.Edge)))
                     from grown in IO.lift(() => chain.AddAllNeighbors(of.Direction, of.Type))

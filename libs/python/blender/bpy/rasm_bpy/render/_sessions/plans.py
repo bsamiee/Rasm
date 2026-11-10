@@ -5,10 +5,9 @@ from contextlib import contextmanager
 import datetime
 from enum import auto, Enum
 from functools import partial
-from itertools import groupby, starmap
 import subprocess
 import threading
-from typing import Final, Self
+from typing import Annotated, Final, Self
 
 import bpy
 from expression import Option, Some
@@ -25,15 +24,14 @@ from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.properties import case_choices, enum_choices
 from rasm_bpy.data._rna.snapshots import Snapshot
 from rasm_bpy.render._outputs.framing import Framed
-from rasm_bpy.render._outputs.paths import OutputPath, Pathed
+from rasm_bpy.render._outputs.paths import OutputPath
 from rasm_bpy.render._sessions.members import Members
-from rasm_bpy.render._sessions.preflight import _audited
 from rasm_bpy.render._sessions.renders import Render
-from rasm_bpy.render._view_layers.passes import _layer_of, _used
+from rasm_bpy.render._view_layers.passes import used
 from rasm_bpy.render._view_layers.routing import PassRouting
 from rasm_bpy.settings._attachments import Attached
 from rasm_bpy.ui._elements.panels import Preference
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, RecordFile, typed
+from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, RecordFile
 from rasm_rendering import (
     cleared,
     Ending,
@@ -84,7 +82,7 @@ _ONLINE: Final = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner
 class Dispatch(bpy.types.PropertyGroup):
     """Dispatch dialog options."""
 
-    scope: bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=enum_choices(RenderScope))  # ty: ignore[invalid-type-form]
+    scope: Annotated[str, bpy.props.EnumProperty(name="Render", description="Scope queue renders", items=enum_choices(RenderScope))]
 
 
 class JobScope(msgspec.Struct, frozen=True, kw_only=True):
@@ -104,7 +102,7 @@ class Plan(msgspec.Struct, frozen=True, kw_only=True):
     scopes: tuple[JobScope, ...]
 
 
-class _Refused(msgspec.Struct, frozen=True, kw_only=True):
+class Refused(msgspec.Struct, frozen=True, kw_only=True):
     """Fault messages `prepare` stopped on."""
 
     messages: tuple[str, ...]
@@ -128,39 +126,41 @@ class Sent(msgspec.Struct, frozen=True, kw_only=True):
 class Queued(bpy.types.PropertyGroup):
     """Key of the last dispatched plan, stored in the file text record, empty before the first dispatch."""
 
-    plan: bpy.props.StringProperty(name="Plan", description="Content key of the dispatched plan")  # ty: ignore[invalid-type-form]
+    plan: Annotated[str, bpy.props.StringProperty(name="Plan", description="Content key of the dispatched plan")]
 
     @property
     def dispatched(self) -> Option[str]:
         """Plan key, `Nothing` before the first dispatch."""
-        plan: str = self.plan  # ty: ignore[unsound-assignment]
-        return Some(plan).filter(bool)
+        return Some(self.plan).filter(bool)
 
 
 class QueuePreferences(bpy.types.PropertyGroup):
     """Queue preferences: target, notices, power hold, heartbeat, and Flamenco scripts folder, read as the records the queue runs on."""
 
-    kind: bpy.props.EnumProperty(name="Target", description="Where queue renders", items=case_choices(Target))  # ty: ignore[invalid-type-form]
-    retries: bpy.props.IntProperty(name="Retries", description="Restarts of crashed render from remaining frames", min=0, default=LocalMachine().retries)  # ty: ignore[invalid-type-form]
-    sampled: bpy.props.BoolProperty(name="Sampled", description="Render first two frames of each ready job before others", default=LocalMachine().sampled)  # ty: ignore[invalid-type-form]
-    manager: bpy.props.StringProperty(name="Manager", description="Flamenco Manager address", default=Flamenco().server.url)  # ty: ignore[invalid-type-form]
-    priority: bpy.props.IntProperty(name="Priority", description="Order among queued jobs", default=Flamenco().priority)  # ty: ignore[invalid-type-form]
-    chunk: bpy.props.IntProperty(name="Chunk", description="Frames each task renders", min=1, default=Flamenco().chunk)  # ty: ignore[invalid-type-form]
-    paused: bpy.props.BoolProperty(name="Paused", description="Jobs wait for start from Manager", default=Flamenco().paused)  # ty: ignore[invalid-type-form]
-    tag: bpy.props.StringProperty(name="Worker Tag", description="Workers taking jobs, every worker when empty")  # ty: ignore[invalid-type-form]
-    executable: bpy.props.StringProperty(name="B-Renderon", description="B-Renderon program, queue file alone when empty", subtype="FILE_PATH")  # ty: ignore[invalid-type-form]
-    blender: bpy.props.StringProperty(name="B-Renderon Blender", description="B-Renderon name of rendering Blender", default=Renderon().blender)  # ty: ignore[invalid-type-form]
-    folder: bpy.props.StringProperty(name="Job Folder", description="Job file folder, extension folder when empty", subtype="DIR_PATH")  # ty: ignore[invalid-type-form]
-    command: bpy.props.StringProperty(name="Command", description="Program taking job file path, job file alone when empty", subtype="FILE_PATH")  # ty: ignore[invalid-type-form]
-    server: bpy.props.StringProperty(name="Notice Server", description="ntfy server", default=Listener().server.url)  # ty: ignore[invalid-type-form]
-    topic: bpy.props.StringProperty(name="Notice Topic", description="Topic devices subscribe to, no notices when empty")  # ty: ignore[invalid-type-form]
-    awake: bpy.props.BoolProperty(name="Keep Awake", description="Prevent sleep while queue renders", default=True)  # ty: ignore[invalid-type-form]
-    shutdown: bpy.props.BoolProperty(name="Shut Down", description="Shut down one minute after queue finishes")  # ty: ignore[invalid-type-form]
-    interval: bpy.props.FloatProperty(  # ty: ignore[invalid-type-form]
-        name="Heartbeat", description="Seconds between progress record touches", subtype="TIME_ABSOLUTE", min=float(np.finfo(np.float32).tiny), max=threading.TIMEOUT_MAX, default=3.0
-    )
-    misses: bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=10)  # ty: ignore[invalid-type-form]
-    scripts_folder: bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")  # ty: ignore[invalid-type-form]
+    kind: Annotated[str, bpy.props.EnumProperty(name="Target", description="Where queue renders", items=case_choices(Target))]
+    retries: Annotated[int, bpy.props.IntProperty(name="Retries", description="Restarts of crashed render from remaining frames", min=0, default=LocalMachine().retries)]
+    sampled: Annotated[bool, bpy.props.BoolProperty(name="Sampled", description="Render first two frames of each ready job before others", default=LocalMachine().sampled)]
+    manager: Annotated[str, bpy.props.StringProperty(name="Manager", description="Flamenco Manager address", default=Flamenco().server.url)]
+    priority: Annotated[int, bpy.props.IntProperty(name="Priority", description="Order among queued jobs", default=Flamenco().priority)]
+    chunk: Annotated[int, bpy.props.IntProperty(name="Chunk", description="Frames each task renders", min=1, default=Flamenco().chunk)]
+    paused: Annotated[bool, bpy.props.BoolProperty(name="Paused", description="Jobs wait for start from Manager", default=Flamenco().paused)]
+    tag: Annotated[str, bpy.props.StringProperty(name="Worker Tag", description="Workers taking jobs, every worker when empty")]
+    executable: Annotated[str, bpy.props.StringProperty(name="B-Renderon", description="B-Renderon program, queue file alone when empty", subtype="FILE_PATH")]
+    blender: Annotated[str, bpy.props.StringProperty(name="B-Renderon Blender", description="B-Renderon name of rendering Blender", default=Renderon().blender)]
+    folder: Annotated[str, bpy.props.StringProperty(name="Job Folder", description="Job file folder, extension folder when empty", subtype="DIR_PATH")]
+    command: Annotated[str, bpy.props.StringProperty(name="Command", description="Program taking job file path, job file alone when empty", subtype="FILE_PATH")]
+    server: Annotated[str, bpy.props.StringProperty(name="Notice Server", description="ntfy server", default=Listener().server.url)]
+    topic: Annotated[str, bpy.props.StringProperty(name="Notice Topic", description="Topic devices subscribe to, no notices when empty")]
+    awake: Annotated[bool, bpy.props.BoolProperty(name="Keep Awake", description="Prevent sleep while queue renders", default=True)]
+    shutdown: Annotated[bool, bpy.props.BoolProperty(name="Shut Down", description="Shut down one minute after queue finishes")]
+    interval: Annotated[
+        float,
+        bpy.props.FloatProperty(
+            name="Heartbeat", description="Seconds between progress record touches", subtype="TIME_ABSOLUTE", min=float(np.finfo(np.float32).tiny), max=threading.TIMEOUT_MAX, default=3.0
+        ),
+    ]
+    misses: Annotated[int, bpy.props.IntProperty(name="Missed Heartbeats", description="Missed heartbeats before run reads as stopped", min=2, default=10)]
+    scripts_folder: Annotated[str, bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")]
 
     @property
     def target(self) -> Target:
@@ -188,8 +188,7 @@ class QueuePreferences(bpy.types.PropertyGroup):
     @property
     def scripts(self) -> Option[str]:
         """Manager job type scripts folder, `Nothing` while empty."""
-        folder: str = self.scripts_folder  # ty: ignore[unsound-assignment]
-        return Some(folder).filter(bool)
+        return Some(self.scripts_folder).filter(bool)
 
 
 class Observed(msgspec.Struct, frozen=True, kw_only=True):
@@ -213,6 +212,12 @@ class LocalRun(msgspec.Struct, frozen=True, kw_only=True):
     progress: Progress
     beat: datetime.datetime
 
+
+# --- [CODECS] ---------------------------------------------------------------------------
+
+PLAN_DECODER: Final = msgspec.json.Decoder(Plan)
+REFUSED_DECODER: Final = msgspec.json.Decoder(Refused)
+SENT_DECODER: Final = msgspec.json.Decoder(Sent)
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -259,7 +264,7 @@ class QueueState:
             bpy.app.timers.unregister(tick)
 
 
-_QUEUES: Final = Resource[QueueState](made=lambda _identity: QueueState.held())
+QUEUES: Final = Resource[QueueState](made=lambda _identity: QueueState.held())
 
 
 class Dispatcher(msgspec.Struct, frozen=True):
@@ -332,8 +337,8 @@ class Dispatcher(msgspec.Struct, frozen=True):
         """Reads sent record and local progress, `Nothing` sent before `prepare` writes it."""
 
         def read(plan: str) -> Outcome[Observed]:
-            found: Outcome[Option[Sent]] = RecordFile(path=self.host.path(plan, RunFile.SENT), form=Sent).found()
-            refused: Outcome[Option[_Refused]] = RecordFile(path=self.host.path(plan, RunFile.REFUSED), form=_Refused).found()
+            found: Outcome[Option[Sent]] = RecordFile(path=self.host.path(plan, RunFile.SENT), decoder=SENT_DECODER).found()
+            refused: Outcome[Option[Refused]] = RecordFile(path=self.host.path(plan, RunFile.REFUSED), decoder=REFUSED_DECODER).found()
             return paired(found, refused).bind(
                 lambda pair: (
                     pair[0]
@@ -401,7 +406,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 # --- [SCENES]
 
 
-def _scene_of(name: str) -> Outcome[bpy.types.Scene]:
+def scene_of(name: str) -> Outcome[bpy.types.Scene]:
     """Returns the scene a planned scope or job names, absent fault once it is gone."""
     return catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.scenes), member=name))
 
@@ -414,25 +419,9 @@ def ranged(scene: bpy.types.Scene) -> Frames:
 # --- [CHECKS]
 
 
-def _cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> Outcome[None]:
-    """Accumulates frames without camera and missing or non-camera bindings."""
-    match scope.camera:
-        case MarkedCamera(camera=camera, markers=markers) as bound:
-            gaps = tuple(next(run) for missing, run in groupby(frames.numbers, key=lambda frame: bound.at(frame).is_none()) if missing)
-            bindings = (*(("scene camera", name) for name in Option.of_optional(camera).to_list()), *((f"marker at frame {marker.frame}", marker.camera) for marker in markers))
-        case FixedCamera(camera=camera):
-            gaps, bindings = (), (("fixed camera", camera),)
-
-    def checked(binding: str, name: str) -> Outcome[bpy.types.Object]:
-        found = catch(lambda: bpy.data.objects[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.objects), member=name))
-        return found.bind(lambda bound: typed(bpy.types.Camera, binding, bound.data).map(lambda _: bound))
-
-    return accumulated((*(Error(Fault.of(Reason.ABSENT, repr(scene), member=str(frame))) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
-
-
-def _templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames: Frames) -> Outcome[None]:
+def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames: Frames) -> Outcome[None]:
     """Accumulates output path faults and missing layer, pass, or frame template fields."""
-    layers = Option.of_optional(scope.layer).map(lambda layer: (layer,)).default_with(lambda: tuple(layer.name for layer in _used(scene)))
+    layers = Option.of_optional(scope.layer).map(lambda layer: (layer,)).default_with(lambda: tuple(layer.name for layer in used(scene)))
     keys = path.name.keys
     varied = (
         *((TextKey.LAYER,) if len(layers) > 1 and TextKey.LAYER not in keys else ()),
@@ -445,20 +434,27 @@ def _templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames
     ).map(lambda _: None)
 
 
-def _checked(pathed: Pathed, scopes: tuple[JobScope, ...], day: datetime.date) -> Outcome[None]:
-    """Audits the file, then every scope's cameras, output path, and named view layer."""
-
-    def audited_scope(scope: JobScope, scene: bpy.types.Scene) -> Outcome[None]:
-        frames = ranged(scene)
-        return paired(
-            _cameras(scene, scope, frames),
-            pathed.path(scene, day).bind(partial(_templated, scope=scope, scene=scene, frames=frames)),
-            Option.of_optional(scope.layer).map(lambda name: _layer_of(scene, name).map(lambda _: None)).default_value(Ok(None)),
-        ).map(lambda _: None)
-
-    return paired(_audited(), accumulated(_scene_of(scope.scene).bind(partial(audited_scope, scope)) for scope in scopes)).map(lambda _: None)
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Dispatch", "Dispatcher", "JobScope", "LocalRun", "Observed", "Plan", "PrepareArguments", "QueuePreferences", "QueueState", "Queued", "RenderScope", "Sent", "ranged"]
+__all__ = [
+    "PLAN_DECODER",
+    "QUEUES",
+    "REFUSED_DECODER",
+    "SENT_DECODER",
+    "Dispatch",
+    "Dispatcher",
+    "JobScope",
+    "LocalRun",
+    "Observed",
+    "Plan",
+    "PrepareArguments",
+    "QueuePreferences",
+    "QueueState",
+    "Queued",
+    "Refused",
+    "RenderScope",
+    "Sent",
+    "ranged",
+    "scene_of",
+    "templated",
+]

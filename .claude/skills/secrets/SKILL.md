@@ -5,12 +5,13 @@ description: "Use when a command, build, or agent reads a secret or credential, 
 
 # [SECRETS]
 
-1Password and Doppler each hold every secret and stay aligned: no value is dropped, moved, deduplicated, or consolidated between them. Parametric Forge exports machine and personal credentials from 1Password `Tokens` into every shell and GUI session. Doppler holds one project per repository and one config per job kind, synced into GitHub Actions; its topology is code in Parametric Forge `services/topology.ts`.
+1Password and Doppler each hold every secret and stay aligned: no value is dropped, moved, deduplicated, or consolidated between them. Parametric Forge exports machine and personal credentials from 1Password `Tokens` into every shell and GUI session. Doppler holds one project per repository, declared in that repository's own IaC: `infra/repository-stack.ts` declares project `rasm`, its configs, and its GitHub Actions syncs.
 
 ## [01]-[DOPPLER_SCOPES]
 
-Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
-- Calls name `--project` and `--config`
+Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, and `.config/mise.toml` `[env]` sets `DOPPLER_PROJECT` to `rasm` and `DOPPLER_CONFIG` to `dev`:
+- Calls inside the repository read config `dev` with no flag, `--config <c>` reads another config
+- Calls outside a repository name `--project` and `--config`, no directory scope exists
 - Scope JSON names project and config `enclave.project` and `enclave.config`
 
 | [INDEX] | [TASK]                   | [COMMAND]                                                                     |
@@ -26,11 +27,15 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
 
 ## [02]-[JOB_VALUES]
 
+- Config `dev` holds values local processes read, `ci` syncs to repository Actions secrets, `release` to GitHub environment `release`
 - CI steps read synced Actions secrets, each named in the step `env`
-- Local `nx deploy` reads the machine environment, with no prefix
+- `nx deploy` reads config `deploy` through the Doppler CLI inside `infra/stacks.ts`, with no prefix
+- Operator's Doppler login authorizes local deploys, `DOPPLER_TOKEN` in GitHub environment `deploy` authorizes CI deploys
 - Values a stack generates stay in Pulumi state, `pulumi stack output <name> --show-secrets` reads them
 - Pulumi reads its backend login from `pulumi login`
-- New job values go in through `doppler secrets set <NAME> --project <repository> --config <job>`, new projects and syncs are Forge rows
+- New job values go in through `doppler secrets set <NAME> --config <job>`, new configs and syncs are rows of `infra/repository-stack.ts`
+- Values shared between configs sit in one, each other config holds reference `${<config>.<NAME>}`
+- References name plain values alone, Doppler refuses one naming a value that holds a reference
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
 
 ## [03]-[OP_SIGNIN]

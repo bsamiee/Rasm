@@ -148,12 +148,6 @@ internal sealed class Indexed(int index, Envelope envelope) : ISpatialData {
 
     public ref readonly Envelope Envelope => ref envelope;
 
-    internal static RBush<Indexed> Tree(Seq<Vector2> points) {
-        RBush<Indexed> tree = new();
-        tree.BulkLoad(points.Map(static (at, index) => new Indexed(index, new Envelope(at.X, at.Y, at.X, at.Y))));
-        return tree;
-    }
-
     internal static Option<int> Nearest(RBush<Indexed> tree, PlotFrame frame, SKPoint local, Option<PhysicalAxis> along, Func<int, float> distance) =>
         frame.Plane.Separable ? Grown(tree, frame, local, along, distance, 1f) : Closest(toSeq(tree.Search()).Map(static held => held.Index), distance);
 

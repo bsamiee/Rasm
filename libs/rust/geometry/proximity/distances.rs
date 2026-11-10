@@ -1,10 +1,8 @@
 use nalgebra::Point3;
 use nonempty_collections::NEVec;
-use parry3d_f64::{
-    math::Vector,
-    query::{PointProjection, PointQuery as _},
-    shape::SubShapeId,
-};
+use parry3d_f64::math::Vector;
+use parry3d_f64::query::{PointProjection, PointQuery as _};
+use parry3d_f64::shape::SubShapeId;
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use validated::Validated;
 

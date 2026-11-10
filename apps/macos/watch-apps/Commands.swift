@@ -27,7 +27,7 @@ private func installed(_ names: [String], _ run: Run) async -> [(name: String, i
 private func act(_ action: ElementAction, key: String) async {
     await Run.execute { run in
         do throws(ApplicationFailure) {
-            let (instance, state): (NSRunningApplication, InstanceState) = try await action.perform()
+            let (instance, state) = try await action.perform()
             run.show(instance, state)
         } catch {
             run.fail(key, error)
@@ -51,13 +51,13 @@ struct Running: ParsableArguments {
     var names: [String]
 
     func each(_ run: Run, _ body: @escaping @Sendable (NSRunningApplication) async throws(ApplicationFailure) -> Void) async {
-        let named: [[NSRunningApplication]] = names.map { name in
+        let named = names.map { name in
             pid_t(name).map { pid in [NSRunningApplication(processIdentifier: pid)].compactMap(\.self) } ?? NSWorkspace.shared.instances(named: name)
         }
-        for (name, found): (String, [NSRunningApplication]) in zip(names, named) where found.isEmpty { run.emit(name, [String: String]()) }
+        for (name, found) in zip(names, named) where found.isEmpty { run.emit(name, [String: String]()) }
         let instances = OrderedSet(named.joined())
         await withDiscardingTaskGroup { group in
-            for instance: NSRunningApplication in instances {
+            for instance in instances {
                 group.addTask {
                     do throws(ApplicationFailure) { try await body(instance) } catch { run.fail(instance.key, error) }
                 }
@@ -74,7 +74,7 @@ struct Find: AsyncParsableCommand {
 
     func run() async {
         await Run.execute(accessibility: false) { run in
-            for (name, installations): (String, [Installation]) in await installed(names, run) { run.emit(name, installations) }
+            for (name, installations) in await installed(names, run) { run.emit(name, installations) }
         }
     }
 }
@@ -89,19 +89,19 @@ struct Watch: AsyncParsableCommand {
 
     func run() async {
         await Run.execute(lineLength: outline.lineLength) { run in
-            let applications: [Installation] = await installed(names, run).flatMap(\.installations)
+            let applications = await installed(names, run).flatMap(\.installations)
             guard !applications.isEmpty else { return }
-            for identifier: String in OrderedSet(applications.map(\.identifier)) where NSWorkspace.shared.instances(of: { instance in instance.bundleIdentifier == identifier }).isEmpty {
+            for identifier in OrderedSet(applications.map(\.identifier)) where NSWorkspace.shared.instances(of: { instance in instance.bundleIdentifier == identifier }).isEmpty {
                 run.emit(identifier, [String: String]())
             }
             let matching: @Sendable (NSRunningApplication) -> Bool = { [applications] instance in applications.contains { installation in installation.runs(instance) } }
             await withDiscardingTaskGroup { group in
                 group.addTask {
                     var calm = true
-                    for await outcome: Result<SystemPressure, Errno> in SystemPressure.changes() {
+                    for await outcome in SystemPressure.changes() {
                         do throws(Errno) {
-                            let pressure: SystemPressure = try outcome.get()
-                            let normal: Bool = pressure.memory.isDisjoint(with: [.warning, .critical]) && pressure.thermal == .nominal
+                            let pressure = try outcome.get()
+                            let normal = pressure.memory.isDisjoint(with: [.warning, .critical]) && pressure.thermal == .nominal
                             if !(calm && normal) { run.emit("system", pressure) }
                             calm = normal
                         } catch {
@@ -137,7 +137,7 @@ struct Launch: AsyncParsableCommand {
         parsing: .upToNextOption,
         help: "NAME=VALUE environment variables of new instance",
         transform: { entry in
-            let parts: [Substring] = entry.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            let parts = entry.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
             guard parts.count == 2 else { throw ValidationError("\(entry) lacks =, pass NAME=VALUE") }
             return (String(parts[0]), String(parts[1]))
         },
@@ -156,8 +156,8 @@ struct Launch: AsyncParsableCommand {
     }
 
     func run() async {
-        let variables: [String: String] = Dictionary(environment) { _, last in last }
-        let (names, document, arguments, new, wait): ([String], [URL], [String], Bool, Bool) = (names, document, arguments, new, wait)
+        let variables = Dictionary(environment) { _, last in last }
+        let (names, document, arguments, new, wait) = (names, document, arguments, new, wait)
         await Run.execute(lineLength: outline.lineLength, waiting: wait) { run in
             let resolved: [(key: String, outcome: Result<(Installation, [URL]), ApplicationFailure>)] =
                 if names.isEmpty {
@@ -166,13 +166,13 @@ struct Launch: AsyncParsableCommand {
                     await installed(names, run).map { name, found in (name, Result { () throws(ApplicationFailure) in (try Installation.newest(of: name, among: found), document) }) }
                 }
             for case (let key, .failure(let failure)) in resolved { run.fail(key, failure) }
-            let applications: OrderedDictionary<Installation, [URL]> = OrderedDictionary(
+            let applications = OrderedDictionary(
                 resolved.compactMap { entry -> (Installation, [URL])? in if case .success(let application) = entry.outcome { application } else { nil } }
             ) { first, next in
                 names.isEmpty ? first + next : first
             }
             await withDiscardingTaskGroup { group in
-                for (installation, documents): (Installation, [URL]) in applications {
+                for (installation, documents) in applications {
                     group.addTask {
                         await run.follow(
                             launching: NSWorkspace.shared.launching(installation, opening: documents, arguments: arguments, environment: variables, newInstance: new, waiting: wait),
@@ -222,11 +222,11 @@ struct Capture: AsyncParsableCommand {
                 throw ApplicationFailure(subject: directory.path(percentEncoded: false), reason: .host(error as NSError))
             }
             await running.each(run) { instance throws(ApplicationFailure) in
-                let shots: [CGWindowID: Result<URL, ApplicationFailure>] = try await instance.capturing(into: directory, window: window, longestSide: longestSide)
+                let shots = try await instance.capturing(into: directory, window: window, longestSide: longestSide)
                 guard !shots.isEmpty else { throw ApplicationFailure(subject: instance.key, reason: .noWindow) }
-                for (number, shot): (CGWindowID, Result<URL, ApplicationFailure>) in shots.sorted(by: { first, second in first.key < second.key }) {
+                for (number, shot) in shots.sorted(by: { first, second in first.key < second.key }) {
                     do throws(ApplicationFailure) {
-                        let file: URL = try shot.get()
+                        let file = try shot.get()
                         run.emit(instance.key, [String(instance.processIdentifier): Event.captured(Screenshot(file: file.path(percentEncoded: false), number: number))])
                     } catch {
                         run.fail(instance.key, error)
@@ -295,7 +295,7 @@ struct Quit: AsyncParsableCommand {
     func run() async {
         await Run.execute { run in
             await running.each(run) { instance in
-                if await run.quit(instance, instance.quitting(force: force))?.is(\.exited) != true { run.fail() }
+                if await run.quit(instance, instance.quit(force: force))?.is(\.exited) != true { run.fail() }
             }
         }
     }

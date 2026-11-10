@@ -11,23 +11,10 @@ namespace Darkroom.Catalog;
 
 internal sealed record VortexField(int Arms, Angle Twist, ShortSideLength Radius, float Tunnel, float Spin) {
     public static VortexField Default { get; } = new(1, Angle.FromRadians(2.8d), ShortSideLength.Create(0.5f), 0.6f, 1f / float.Tau);
-
-    public Func<Vector2, Vector4> Shape(float time) {
-        (float size, float clock, float twist) = (Radius, Spin * time, (float)Twist.Radians);
-        return point => {
-            (float radius, float angle) = (point.Length(), float.Atan2(point.Y, point.X));
-            float turns = ((((angle * Arms) + (twist * (1f - (radius / size)))) / float.Tau) + clock) switch { var whole => whole - float.Floor(whole) };
-            (float sin, float cos) = float.SinCos(turns * float.Tau);
-            float reach = float.Min(radius, size);
-            return new Vector4(reach * cos, reach * sin, reach * Tunnel, 0f);
-        };
-    }
 }
 
 internal sealed record FieldEnvelope(ShortSideLength Width, ShortSideLength Height) {
     public static FieldEnvelope Default { get; } = new(ShortSideLength.Create(1f), ShortSideLength.Create(1f));
-
-    public float Falloff(Vector2 point) => float.Max(1f - float.Hypot(point.X / Width, point.Y / Height), 0f) switch { var edge => 1f - (edge * edge) };
 }
 
 internal sealed record NoiseTexture(
@@ -145,8 +132,18 @@ internal sealed record NoiseTexture(
 
     public static Fin<Option<PixelPass>> Pass(NoiseTexture state, PassContext context) {
         (uint field, float time) = (CoordinateHash.Branch(state.Seed, 0u, 12u), (float)state.Timing.At(context).TotalSeconds);
-        Func<Vector2, Vector4> shape = state.VortexShape.Map(vortex => vortex.Shape(time)).IfNone(static point => new Vector4(point, 0f, 0f));
-        Func<Vector2, float> rim = state.Envelope.Map<Func<Vector2, float>>(static envelope => envelope.Falloff).IfNone(static _ => 0f);
+        Func<Vector2, Vector4> shape = state.VortexShape.Map<Func<Vector2, Vector4>>(vortex => {
+            (float size, float clock, float twist) = (vortex.Radius, vortex.Spin * time, (float)vortex.Twist.Radians);
+            return point => {
+                (float radius, float angle) = (point.Length(), float.Atan2(point.Y, point.X));
+                float turns = ((((angle * vortex.Arms) + (twist * (1f - (radius / size)))) / float.Tau) + clock) switch { var whole => whole - float.Floor(whole) };
+                (float sin, float cos) = float.SinCos(turns * float.Tau);
+                float reach = float.Min(radius, size);
+                return new Vector4(reach * cos, reach * sin, reach * vortex.Tunnel, 0f);
+            };
+        }).IfNone(static point => new Vector4(point, 0f, 0f));
+        Func<Vector2, float> rim = state.Envelope.Map<Func<Vector2, float>>(static envelope => point =>
+            float.Max(1f - float.Hypot(point.X / envelope.Width, point.Y / envelope.Height), 0f) switch { var edge => 1f - (edge * edge) }).IfNone(static _ => 0f);
         Func<Vector4, Vector3> light = state.Incandescence.Map(emission => context.Derivations.Derived((context.Working, Emission: emission), static key => key.Emission.Glow(key.Working)) switch {
             var glow => new Func<Vector4, Vector3>(color => glow.Sample(color.W).AsVector3()),
         }).IfNone(static color => color.AsVector3());

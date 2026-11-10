@@ -24,7 +24,7 @@ struct Serve: AsyncParsableCommand {
                     writing: { line in _ = try await withTaskExecutorPreference(output) { try FileDescriptor.standardOutput.writeAll(line) } },
                     dropped: { failure in Logger(for: Self.self).debug("Dropped \(failure, privacy: .public)") },
                 ) { (request: Request) in
-                    let response: Response = try await withTaskExecutorPreference(calls) {
+                    let response = try await withTaskExecutorPreference(calls) {
                         try await request.perform(admitting: { NSPredicate(value: true) }, refusing: { _ in [] }, definitions: definitions)
                     }
                     return if case .launch = request, case .stream(let steps) = response { .stream(run.recording(steps)) } else { response }

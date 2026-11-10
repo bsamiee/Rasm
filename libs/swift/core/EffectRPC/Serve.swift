@@ -1,6 +1,7 @@
 import AsyncAlgorithms
 import Encoding
 public import Foundation
+import JSONRPC
 import Results
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -17,20 +18,6 @@ public enum Response: Sendable {
     case stream(any AsyncSequence<any Encodable & Sendable, Never> & Sendable)
 }
 
-struct Envelope<Payload: Sendable, Fault: Sendable>: Sendable {
-    var jsonrpc: String = "2.0"
-    var id: JSONValue?
-    var method: String?
-    var params: Payload?
-    var chunk: Bool?
-    var result: Payload?
-    var error: Fault?
-}
-
-extension Envelope: Decodable where Payload: Decodable, Fault: Decodable {}
-
-extension Envelope: Encodable where Payload: Encodable, Fault: Encodable {}
-
 enum Reason: Encodable, Sendable {
     case fail(any Error)
     case die(any Error)
@@ -41,7 +28,7 @@ enum Reason: Encodable, Sendable {
     }
 
     func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         switch self {
             case .fail(let error):
                 try fields.encode("Fail", forKey: .tag)
@@ -129,11 +116,11 @@ actor Calls {
 
     func close(interrupting selected: (_ streaming: Bool) -> Bool) async {
         closed = true
-        let pending: [Task<Void, Never>] = running.map { id, call in
+        let pending = running.map { id, call in
             if selected(call.streaming) { interrupt(id) }
             return call.task
         }
-        for task: Task<Void, Never> in pending { await task.value }
+        for task in pending { await task.value }
     }
 }
 
@@ -173,8 +160,8 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
             case .success(.value(nil)): await send(id, answering: method) { try result(id, JSONValue.null) }
             case .success(.stream(let chunks)):
                 guard await calls.streaming(id) else { break }
-                var acknowledgements: AsyncStream<Void>.Iterator = acks.makeAsyncIterator()
-                for await chunk: any Encodable & Sendable in chunks {
+                var acknowledgements = acks.makeAsyncIterator()
+                for await chunk in chunks {
                     await send(id, answering: method) { try result(id, chunk, chunk: true) }
                     _ = await acknowledgements.next()
                 }
@@ -197,10 +184,10 @@ public func serve<Request: Decodable & Sendable, Failure: Error>(
     do {
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask {
-                for await line: Data in output { try await write(line) }
+                for await line in output { try await write(line) }
             }
             group.addTask {
-                for try await line: Data in lines() {
+                for try await line in lines() {
                     do throws(EffectRPCFailure) { try await receive(line) } catch { dropped(error) }
                 }
                 await calls.close { streaming in streaming || Task.isCancelled }

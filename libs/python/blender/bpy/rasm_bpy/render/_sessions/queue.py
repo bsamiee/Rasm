@@ -4,6 +4,7 @@ from collections.abc import Callable
 import datetime
 from functools import cached_property, partial
 import importlib.resources
+from itertools import groupby
 from pathlib import Path
 import shutil
 from typing import ClassVar, TYPE_CHECKING
@@ -19,22 +20,59 @@ from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, CliCommand, Declaration, Handler, Timer
 from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.snapshots import assigned
-from rasm_bpy.files._sessions import _Pack, _packed, _saved
+from rasm_bpy.files._sessions import OPTIONS, Pack, pack_started, saved
 from rasm_bpy.render._outputs.framing import FrameSize
-from rasm_bpy.render._outputs.results import _RENDER_ORIGINS
-from rasm_bpy.render._sessions.plans import _checked, _QUEUES, _scene_of, Dispatch, Dispatcher, LocalRun, Observed, Plan, PrepareArguments, Queued, QueuePreferences, ranged, Sent
-from rasm_bpy.render._sessions.preflight import Preflight
-from rasm_bpy.render._sessions.renders import _native, Render
-from rasm_bpy.render._sessions.runs import _commanded, _prepared, _supervised
+from rasm_bpy.render._outputs.results import RENDER_ORIGINS
+from rasm_bpy.render._sessions.plans import (
+    Dispatch,
+    Dispatcher,
+    JobScope,
+    LocalRun,
+    Observed,
+    Plan,
+    PLAN_DECODER,
+    PrepareArguments,
+    Queued,
+    QueuePreferences,
+    QUEUES,
+    ranged,
+    scene_of,
+    Sent,
+    templated,
+)
+from rasm_bpy.render._sessions.preflight import file_audit, Preflight
+from rasm_bpy.render._sessions.renders import native, Render
+from rasm_bpy.render._sessions.runs import commanded, prepared, supervised
 from rasm_bpy.render._sessions.sets import RenderSet
+from rasm_bpy.render._view_layers.passes import layer_of
 from rasm_bpy.render._view_layers.routing import RoutingRow
 from rasm_bpy.settings._attachments import TextRecord
 from rasm_bpy.ui._elements.panels import Preference
 from rasm_bpy.ui._layout import rows
-from rasm_bpy.ui._layout.rows import _FUNCTIONS, _Label
+from rasm_bpy.ui._layout.rows import FUNCTIONS, Label
 from rasm_bpy.ui._layout.sections import Section
-from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Ok, Outcome, paired, Reason, RecordFile
-from rasm_rendering import Cancelled, detached, Ending, Flamenco, HostCommands, Liveness, LocalMachine, Manager, Progress, RenderFrames, Run, RunCommand, RunFile, shutdown_cancelled, supervision, Test
+from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Ok, Outcome, paired, Reason, RecordFile, typed
+from rasm_rendering import (
+    Cancelled,
+    detached,
+    Ending,
+    FixedCamera,
+    Flamenco,
+    HostCommands,
+    Liveness,
+    LocalMachine,
+    Manager,
+    MarkedCamera,
+    Progress,
+    PROGRESS_DECODER,
+    RenderFrames,
+    Run,
+    RunCommand,
+    RunFile,
+    shutdown_cancelled,
+    supervision,
+    Test,
+)
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -48,7 +86,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
     # --- [STATE]
 
     sets: RenderSet[C]
-    render: Render = _native
+    render: Render = native
     planning: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
     preparing: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
     record: ClassVar[TextRecord[Queued]] = TextRecord(key="queue", form=Queued)
@@ -62,7 +100,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
         def summary(dispatcher: Dispatcher, context: bpy.types.Context, properties: Dispatch) -> Outcome[tuple[str, ...]]:
             def counted(plan: Plan, preferences: QueuePreferences) -> Outcome[tuple[str, ...]]:
-                return accumulated(_scene_of(scope.scene).map(lambda scene: len(ranged(scene).numbers)) for scope in plan.scopes).map(
+                return accumulated(scene_of(scope.scene).map(lambda scene: len(ranged(scene).numbers)) for scope in plan.scopes).map(
                     lambda counts: (type(preferences.target).__name__, f"{len(plan.scopes)} jobs, {sum(counts)} frames")
                 )
 
@@ -103,20 +141,16 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         """Binds dispatcher to identity stores, render sets, routing, render, planning, and queue preference."""
         host = HostCommands(binary=bpy.app.binary_path, folder=str(identity.folder), commands={command: identity.identifier(command) for command in RunCommand})
         return paired(self.sets.bound(identity), FrameSize().bound(identity), RoutingRow.bound(identity), QueueRun.record.attachment.bound(identity)).map(
-            lambda parts: Dispatcher(identity, _QUEUES[identity], host, *parts, self.render, self.planning, self.preparing.or_else(self.planning), self.preference)
+            lambda parts: Dispatcher(identity, QUEUES[identity], host, *parts, self.render, self.planning, self.preparing.or_else(self.planning), self.preference)
         )
 
     @staticmethod
     def cli(dispatcher: Dispatcher) -> tuple[CliCommand[PrepareArguments], CliCommand[Run], CliCommand[Run | RenderFrames]]:
         """Returns `prepare`, `supervise`, and `render` command rows."""
         return (
-            CliCommand(key=RunCommand.PREPARE, decoder=msgspec.json.Decoder(PrepareArguments), run=lambda arguments, trailing: _prepared(dispatcher, arguments, trailing).map(lambda _: 0)),
-            CliCommand(key=RunCommand.SUPERVISE, decoder=msgspec.json.Decoder(Run), run=lambda arguments, trailing: _supervised(dispatcher, arguments, trailing).map(lambda _: 0)),
-            CliCommand(
-                key=RunCommand.RENDER,
-                decoder=msgspec.json.Decoder[Run | RenderFrames](Run | RenderFrames),
-                run=lambda arguments, trailing: _commanded(dispatcher, arguments, trailing).map(lambda _: 0),
-            ),
+            CliCommand(key=RunCommand.PREPARE, decoder=msgspec.json.Decoder(PrepareArguments), run=partial(prepared, dispatcher)),
+            CliCommand(key=RunCommand.SUPERVISE, decoder=msgspec.json.Decoder(Run), run=partial(supervised, dispatcher)),
+            CliCommand(key=RunCommand.RENDER, decoder=msgspec.json.Decoder[Run | RenderFrames](Run | RenderFrames), run=partial(commanded, dispatcher)),
         )
 
     # --- [SECTIONS]
@@ -142,7 +176,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
         runs = (
             identity.reports
             .settled(self.preference.read(identity))
-            .map(lambda preferences: tuple(row for held in _QUEUES[identity].observed.to_list() for row in work(held, preferences.stale)))
+            .map(lambda preferences: tuple(row for held in QUEUES[identity].observed.to_list() for row in work(held, preferences.stale)))
             .default_value(())
         )
         return tuple({"text": text, "factor": done} for text, done in runs)
@@ -154,7 +188,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
             key=self.key,
             rows=(
                 rows.OperatorButton(target=self.dispatching),
-                rows.Layout(builder=Some(lambda identity: Ok((_Label(text=partial(self.progressed, identity), function=_FUNCTIONS["progress"]),))), prerequisites=(self,)),
+                rows.Layout(builder=Some(lambda identity: Ok((Label(text=partial(self.progressed, identity), function=FUNCTIONS["progress"]),))), prerequisites=(self,)),
                 rows.Layout(rows=tuple(rows.OperatorButton(target=command, keywords={"text": ""}) for command in self.controls), container=Some(rows.aligned)),
             ),
         )
@@ -169,13 +203,13 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Queue store, session state, and render productions with render set, frame size, and routing bindings read."""
-        return (self.record, _QUEUES, _RENDER_ORIGINS, *self.sets.prerequisites, FrameSize.attachment, *RoutingRow.prerequisites)
+        return (self.record, QUEUES, RENDER_ORIGINS, *self.sets.prerequisites, FrameSize.attachment, *RoutingRow.prerequisites)
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Registers commands and native queue observation across file loads."""
         return self.bound(identity).map(
             lambda dispatcher: (
-                _QUEUES,
+                QUEUES,
                 *self.cli(dispatcher),
                 self.dispatching,
                 *self.controls,
@@ -193,22 +227,47 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
 
 def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
-    """Plans jobs, writes their files in a background process, and sends the queue to its target."""
+    """Audits the file, then every scope's cameras, output path, and named view layer, plans jobs, writes their files in a background process, and sends the queue to its target."""
     context, identity, moment = call.context, call.identity, datetime.datetime.now(datetime.UTC)
     day = moment.astimezone().date()
     pathed = dispatcher.routing.pathed
 
+    def audited(scope: JobScope, scene: bpy.types.Scene) -> Outcome[None]:
+        frames = ranged(scene)
+        match scope.camera:
+            case MarkedCamera(camera=camera, markers=markers) as bound:
+                gaps = tuple(next(run) for missing, run in groupby(frames.numbers, key=lambda frame: bound.at(frame).is_none()) if missing)
+                bindings = (*(("scene camera", name) for name in Option.of_optional(camera).to_list()), *((f"marker at frame {marker.frame}", marker.camera) for marker in markers))
+            case FixedCamera(camera=camera):
+                gaps, bindings = (), (("fixed camera", camera),)
+        return paired(
+            accumulated((
+                *(Error(Fault.of(Reason.ABSENT, repr(scene), member=str(frame))) for frame in gaps),
+                *(
+                    Option
+                    .of_optional(bpy.data.objects.get(name))
+                    .to_result_with(partial(Fault.of, Reason.ABSENT, repr(bpy.data.objects), member=name))
+                    .bind(lambda found: typed(bpy.types.Camera, binding, found.data))
+                    for binding, name in bindings
+                ),
+            )),
+            pathed.path(scene, day).bind(partial(templated, scope=scope, scene=scene, frames=frames)),
+            Option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(lambda _: None)).default_value(Ok(None)),
+        ).map(lambda _: None)
+
     def gated(plan: Plan, preferences: QueuePreferences) -> Outcome[None]:
-        return paired(_checked(pathed, plan.scopes, day), Dispatcher.connected() if isinstance(preferences.target, Flamenco) else Ok(None)).map(lambda _: None)
+        return paired(
+            file_audit(), accumulated(scene_of(scope.scene).bind(partial(audited, scope)) for scope in plan.scopes), Dispatcher.connected() if isinstance(preferences.target, Flamenco) else Ok(None)
+        ).map(lambda _: None)
 
     def written(plan: Plan, preferences: QueuePreferences, manager: bpy.types.WindowManager) -> Outcome[Done]:
         stem = content_hash(Plan, plan).hex()
         return (
-            accumulated(_scene_of(scope.scene) for scope in plan.scopes)
+            accumulated(scene_of(scope.scene) for scope in plan.scopes)
             .bind(lambda scenes: accumulated(pathed.took(scene, day) for scene in dict.fromkeys(scenes)))
-            .bind(lambda _: RecordFile(path=dispatcher.host.path(stem, RunFile.PLAN), form=Plan).written(plan))
+            .bind(lambda _: RecordFile(path=dispatcher.host.path(stem, RunFile.PLAN), decoder=PLAN_DECODER).written(plan))
             .bind(lambda _: assigned(dispatcher.queued.struct(manager), {("plan",): stem}))
-            .bind(lambda _: _saved(Path(bpy.data.filepath), bpy.ops.wm.save_mainfile))
+            .bind(lambda _: saved(Path(bpy.data.filepath), bpy.ops.wm.save_mainfile))
             .bind(
                 lambda source: detached(
                     dispatcher.host.argv(RunCommand.PREPARE, PrepareArguments(plan=stem, target=preferences.target), Some(str(source))), dispatcher.host.path(stem, RunFile.PLAN_LOG)
@@ -252,7 +311,7 @@ def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 
     def halted(run: LocalRun, preferences: QueuePreferences) -> Outcome[Done]:
         def ended(_: None) -> Outcome[Done]:
-            persisted = RecordFile(path=dispatcher.host.path(run.queue.stem, RunFile.PROGRESS), form=Progress).revised(lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED))
+            persisted = RecordFile(path=dispatcher.host.path(run.queue.stem, RunFile.PROGRESS), decoder=PROGRESS_DECODER).revised(lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED))
             return paired(persisted, dispatcher.posted(preferences.listener, Cancelled(frames=len(run.progress.marks)))).map(lambda _: Done(notes=(("INFO", f"Stopped {run.queue.stem}"),)))
 
         return supervision.stop(run.progress).bind(ended)
@@ -297,14 +356,14 @@ def cancel_shutdown(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 
 
 def pack(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
-    """Writes a packed file copy under the render output folder."""
+    """Starts packing the saved session file and every dependency under the render output folder, blend paths rewritten to the pack, the reports queue stepping it."""
     moment = datetime.datetime.now(datetime.UTC).astimezone()
 
-    def finished(pack: Outcome[_Pack]) -> Outcome[None]:
+    def finished(pack: Outcome[Pack]) -> Outcome[None]:
         return pack.bind(lambda held: accumulated(Error((found,)) for found in held.skipped).map(lambda _: None))
 
     def started(target: Path) -> Outcome[Done]:
-        return _packed(call.identity, target, project=Path(bpy.data.filepath).parent, finished=finished).map(lambda _: Done(notes=(("INFO", f"Packing into {target}"),)))
+        return pack_started(target, Path(bpy.data.filepath).parent, OPTIONS, finished).bind(call.identity.reports.queued).map(lambda _: Done(notes=(("INFO", f"Packing into {target}"),)))
 
     return (
         rooted(bpy.types.Scene, call.context)

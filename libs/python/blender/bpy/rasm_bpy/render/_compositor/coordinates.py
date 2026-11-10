@@ -12,7 +12,7 @@ import OpenImageIO
 from rasm_bpy.data._extension.identity import Key
 from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.nodes._desired import MenuItem, MenuItems
-from rasm_bpy.nodes._graphs import _projected, _transform, cell, composed, directed, Expr, inverted, math, matrix, menu, Scalar, SocketType, switched, Term, transformed, vector, where, xyz
+from rasm_bpy.nodes._graphs import cell, composed, directed, Expr, inverted, math, matrix, menu, projected, Scalar, switched, Term, transform, transformed, vector, where, xyz
 from rasm_bpy.nodes._interfaces import Socket
 from rasm_bpy.render._compositor.colors import AXES, with_alpha
 from rasm_imaging import Homography
@@ -165,9 +165,9 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
             term[axis] if isinstance(term, Expr) else Expr(kind=bpy.types.ShaderNodeSeparateXYZ, inputs=(("Vector", term),), socket=axis) for term in (scale, skew) for axis in AXES[:2]
         )
         horizontal, vertical = matrix({(1, 2): math("TANGENT", skew_x)}), matrix({(2, 1): math("TANGENT", skew_y)})
-        turn = _transform("Rotation", Expr(kind=bpy.types.FunctionNodeEulerToRotation, inputs=(("Euler", xyz(z=rotation)),), socket="Rotation"))
-        linear = composed(turn, composed(vertical, composed(horizontal, _transform("Scale", xyz(scale_x, scale_y, 1.0)))))
-        return composed(_transform("Translation", vector("SUBTRACT", vector("ADD", vector("MULTIPLY", position, self.extent), pivot_point), directed(pivot_point, linear))), linear)
+        turn = transform("Rotation", Expr(kind=bpy.types.FunctionNodeEulerToRotation, inputs=(("Euler", xyz(z=rotation)),), socket="Rotation"))
+        linear = composed(turn, composed(vertical, composed(horizontal, transform("Scale", xyz(scale_x, scale_y, 1.0)))))
+        return composed(transform("Translation", vector("SUBTRACT", vector("ADD", vector("MULTIPLY", position, self.extent), pivot_point), directed(pivot_point, linear))), linear)
 
     def placed(self, source: Scalar, forward: Expr) -> Expr:
         """Places the displayed rectangle through rotate, scale, rotate, and translate nodes of the matrix's singular value decomposition, keeping deferred bounds.
@@ -179,7 +179,7 @@ class FrameSpace(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Content transformed about its center, transparent when singular.
         """
-        basis = _transform("Scale", xyz(self.scale["X"], self.scale["Y"], 1.0))
+        basis = transform("Scale", xyz(self.scale["X"], self.scale["Y"], 1.0))
         pixel = composed(basis, composed(forward, inverted(basis)))
         planar = matrix({**{(row, column): cell(pixel, row, column) for column in range(1, 3) for row in range(1, 3)}, (3, 3): 0.0})
         decomposed = Expr(kind=bpy.types.FunctionNodeMatrixSVD, inputs=(("Matrix", planar),), socket="S", socket_type=bpy.types.NodeSocketVector)
@@ -240,14 +240,14 @@ def pinned(fraction: Expr, rows: tuple[Expr, Expr, Expr], *, forward: bool) -> E
     mapping = homography if forward else inverted(homography)
     planar = vector("MULTIPLY", fraction, (1.0, 1.0, 0.0))
     front = vector("DOT_PRODUCT", xyz(cell(mapping, 4, 1), cell(mapping, 4, 2), cell(mapping, 4, 4)), vector("ADD", planar, (0.0, 0.0, 1.0))) > 0.0
-    position = where(front, _projected(planar, mapping), (0.0, 0.0, 0.0))
+    position = where(front, projected(planar, mapping), (0.0, 0.0, 0.0))
     return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), fraction["Z"] * front, position)
 
 
 # --- [SAMPLING]
 
 
-def uv_mapped(image: Term, uv: Term, *, interpolation: Term = "Bilinear", extension: tuple[Term, Term] = ("Clip", "Clip"), socket_type: SocketType = bpy.types.NodeSocketColor) -> Expr:
+def uv_mapped(image: Term, uv: Term, *, interpolation: Term = "Bilinear", extension: tuple[Term, Term] = ("Clip", "Clip"), socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketColor) -> Expr:
     """Samples an image at Map UV positions under one interpolation and each axis' extension, Map UV premultiplying the coverage in Z."""
     inputs = (("Image", image), ("UV", uv), ("Interpolation", interpolation), ("Extension X", extension[0]), ("Extension Y", extension[1]))
     return Expr(kind=bpy.types.CompositorNodeMapUV, inputs=inputs, socket="Image", socket_type=socket_type)

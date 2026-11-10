@@ -26,7 +26,7 @@ struct JSONValueDecoder: Decoder, SingleValueDecodingContainer {
         func superDecoder(forKey key: Key) -> any Decoder { JSONValueDecoder(value: fields[key.stringValue] ?? .null, codingPath: codingPath + [key]) }
 
         private func child(_ key: Key) throws(DecodingError) -> JSONValueDecoder {
-            guard let value: JSONValue = fields[key.stringValue] else {
+            guard let value = fields[key.stringValue] else {
                 throw DecodingError.keyNotFound(key, DecodingError.Context(codingPath: codingPath, debugDescription: "No value for key \(key.stringValue)"))
             }
             return JSONValueDecoder(value: value, codingPath: codingPath + [key])
@@ -44,7 +44,7 @@ struct JSONValueDecoder: Decoder, SingleValueDecodingContainer {
         var isAtEnd: Bool { currentIndex == count }
 
         mutating func decodeNil() throws(DecodingError) -> Bool {
-            let null: Bool = try element().decodeNil()
+            let null = try element().decodeNil()
             currentIndex += null ? 1 : 0
             return null
         }
@@ -66,7 +66,7 @@ struct JSONValueDecoder: Decoder, SingleValueDecodingContainer {
         }
 
         private mutating func next<Value>(_ read: (JSONValueDecoder) throws -> Value) throws -> Value {
-            let value: Value = try read(element())
+            let value = try read(element())
             currentIndex += 1
             return value
         }

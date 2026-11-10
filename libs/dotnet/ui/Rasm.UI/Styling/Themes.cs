@@ -153,7 +153,7 @@ public sealed partial class Theme {
 
     internal float Rounding => Seeds.Corner.Map(corner => corner / StyleSheet.Corner * Typed).IfNone(Density);
 
-    private float Typed => float.Max(1f, FontSize / StyleSheet.Text);
+    private float Typed => float.Max(1f, FontSize / 13f);
 
     public static Fin<Theme> Validated(Seeds seeds, TextFace face, float fontSize, HashMap<Token, SKColorF> stated = default, HashSet<Condition> conditions = default, Option<Configuration> configuration = default) =>
         (UIFault.Unless(face.Family.IsSome, UIReason.Missing, face.Family),

@@ -4,8 +4,6 @@ import { interpolate } from '@nx/devkit/internal';
 import { Array, Config, Effect, Match, Option, Path, Schema, UndefinedOr } from 'effect';
 import { built, DistributionError, type Package, type Publish, spawned } from '#/plugins/host-packages';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({

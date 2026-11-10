@@ -7,8 +7,10 @@ using Rasm.Imaging.Quantization;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.Input.Custom;
+using Rhino.Render.PostEffects;
 
 namespace Darkroom.Output;
 
@@ -21,17 +23,6 @@ internal sealed record LutChoice(int Size, float Low, float Span, Gamut Gamut, T
 
     public Fin<LutTable> Bake(Seq<PixelPass.Point> chain, Gamut working) =>
         LutSpace.Of(working, LogCurve.Allocation(Low, Low + Span, float.Exp2(Low))).Bake(Size, chain.Map(static step => step.Row), working, new ColorEncoding(Gamut, Transfer));
-
-    public Seq<OptionSpec<StageStep<LutChoice, LutChoice>>> Options(StageKit<LutChoice, LutChoice> kit) =>
-        [
-            OptionSpecs.Of(OptionType.Integer(2, 256), Size, size => kit.Advance(this with { Size = size })),
-            OptionSpecs.Of(OptionType.Number(-24d, 16d), (double)Low, low => kit.Advance(this with { Low = (float)low })),
-            OptionSpecs.Of(OptionType.Number(1d, 40d), (double)Span, span => kit.Advance(this with { Span = (float)span })),
-            OptionSpecs.Of(OptionType.List(Gamut.Known, static gamut => gamut.Rgb.Name), Gamut, gamut => kit.Advance(this with { Gamut = gamut })),
-            OptionSpecs.Of(OptionType.Text(allowEmptyString: false), Transfer.ToValue(), text =>
-                Transfer.Read(text).Match(Succ: transfer => kit.Advance(this with { Transfer = transfer }), Fail: kit.Retry), caption: nameof(Transfer)),
-            OptionSpecs.Of(OptionType.List(toSeq(LutFormat.Items), static format => format.Key), Format, format => kit.Advance(this with { Format = format })),
-        ];
 }
 
 internal sealed record OutputEdit(OutputBook Book, int Current) {
@@ -98,10 +89,20 @@ internal static class Exports {
         from state in ChainState.Read(doc)
         from integration in DarkroomPlugIn.Integration
         let context = ChainScene.Unframed.Context(extent, [], DarkroomEffect.Derived, None, integration) with { Lights = Some(new SceneLights(None, [], [])) }
-        from colors in IO.lift(state.Baked(context))
+        from colors in IO.lift(state.Passes(context).Map(static chain => chain.Passes
+            .Filter(step => chain.Context.Formed || step.Kind.Stage is PostEffectType.Early)
+            .Choose(static step => step.Pass is PixelPass.Point point ? Some(point) : None)))
         from chosen in Getters.Stages<LutChoice, LutChoice>(LutChoice.Default, (choice, kit) => Getters.Choice(doc, new GetterRequest<GetOption, StageStep<LutChoice, LutChoice>>("LUT") {
             Accept = kit.Accept with { Nothing = Some(new NothingEntry<StageStep<LutChoice, LutChoice>>(None, kit.Done(choice))) },
-            Options = choice.Options(kit),
+            Options = [
+                OptionSpecs.Of(OptionType.Integer(2, 256), choice.Size, size => kit.Advance(choice with { Size = size })),
+                OptionSpecs.Of(OptionType.Number(-24d, 16d), (double)choice.Low, low => kit.Advance(choice with { Low = (float)low })),
+                OptionSpecs.Of(OptionType.Number(1d, 40d), (double)choice.Span, span => kit.Advance(choice with { Span = (float)span })),
+                OptionSpecs.Of(OptionType.List(Gamut.Known, static gamut => gamut.Rgb.Name), choice.Gamut, gamut => kit.Advance(choice with { Gamut = gamut })),
+                OptionSpecs.Of(OptionType.Text(allowEmptyString: false), choice.Transfer.ToValue(), text =>
+                    Transfer.Read(text).Match(Succ: transfer => kit.Advance(choice with { Transfer = transfer }), Fail: kit.Retry), caption: nameof(Transfer)),
+                OptionSpecs.Of(OptionType.List(toSeq(LutFormat.Items), static format => format.Key), choice.Format, format => kit.Advance(choice with { Format = format })),
+            ],
         }))
         from table in Getters.Await(doc, "Bake", None, _ => IO.lift(chosen.Bake(colors, context.Working)))
         from encode in IO.lift(chosen.Format.Encode(table, Session.PlugIn.Name, metadata))
@@ -110,12 +111,12 @@ internal static class Exports {
 
     private static IO<ExportFile> StMap(RhinoDoc doc, PixelExtent extent, FileMetadata metadata) =>
         from state in ChainState.Read(doc)
-        from lens in IO.lift(state.Values.Recalled(Kinds.Lens.Owner, LensProfile.Default))
+        from lens in IO.lift(state.Values.Recalled(EntryKey.TypeOwner(Kinds.Lens.Id), LensProfile.Default))
         from scene in ChainScene.Sourced(doc, extent, None)
         from rendering in IO.lift(scene.Camera.Bind(static camera => camera.Lens is Projection.Rectilinear rectilinear ? Some(rectilinear) : None)
             .ToFin(new DarkroomFault(nameof(Projection.Rectilinear), DarkroomReason.Missing)))
         from map in IO.lift(lens.Map(rendering))
-        let image = new ImageFile.Exr([new ExrLayer(None, map.ToSTMap(extent, extent), TargetFile.Rgba)], OutputDepth.Float32, OutputTarget.Default.Codec, None, Multipart: false)
+        let image = new ImageFile.Exr([new ExrLayer(None, map.ToSTMap(extent, extent), ExrChannels.Standard.Rgba)], OutputDepth.Float32, OutputTarget.Default.Codec, None, Multipart: false)
         select new ExportFile(TargetFile.Exr.Extension, stream => image.Write(metadata, stream));
 
     // --- [BOOK]

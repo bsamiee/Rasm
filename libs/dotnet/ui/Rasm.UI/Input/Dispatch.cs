@@ -321,7 +321,13 @@ internal static class Dispatch {
             let read = layout.Preorder.Choose(held =>
                 from series in held.View.Key
                 from figure in held.View.Traced
-                from datum in figure.Stepped(plot.Plane, was.Find(series), toward)
+                let data = figure.Data
+                let last = data.Count - 1
+                let current = was.Find(series)
+                let at = int.Clamp(toward.Granularity.Distance(1f, int.Max(1, data.Filter(point => plot.Plane.Contains(PhysicalAxis.Horizontal, None, point.Value.X)).Count)).Match(
+                    Some: stride => current.Map(point => point.Index + (toward.Sign * (int)stride)).IfNone(toward.Sign > 0 ? 0 : last),
+                    None: () => toward.Sign > 0 ? last : 0), 0, int.Max(0, last))
+                from datum in data.Find(point => point.Index == at)
                 from spoken in AutomationElement.Joined(held.View.Accessible.Label.ToSeq().Add(plot.Plane.Spoken(datum.Value, mount.Host.Culture)))
                 select (Series: series, Datum: datum, Spoken: spoken))
             where !read.IsEmpty

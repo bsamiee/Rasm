@@ -16,21 +16,21 @@ dev = [
     "scipy-stubs",
     "ty",                     # Type checker of every member
     "types-networkx",
-    "types-opencolorio",      # Stubs for PyOpenColorIO
+    "rasm-opencolorio-stubs", # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-python-preference       = "only-managed"
-environments            = [
+python-preference             = "only-managed"
+environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
-prerelease              = "allow"
-constraint-dependencies = [
+prerelease                    = "allow"
+constraint-dependencies       = [
     "attrs==25.3.0",
     "autopep8==2.3.1",
     "cattrs==25.1.1",
@@ -53,15 +53,17 @@ constraint-dependencies = [
     "urllib3==2.4.0",
     "zstandard==0.25.0",
 ]                                                                # Versions the installed Blender bundles
+build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.workspace]
-members = ["bpy", "imaging", "rendering"]
+members = ["bpy", "imaging", "opencolorio-stubs", "rendering"]
 
 [tool.uv.sources]
-rasm-bpy       = { workspace = true }
-rasm-imaging   = { workspace = true }
-rasm-records   = { workspace = "../../.." }
-rasm-rendering = { workspace = true }
+rasm-bpy               = { workspace = true }
+rasm-imaging           = { workspace = true }
+rasm-opencolorio-stubs = { workspace = true }
+rasm-records           = { workspace = "../../.." }
+rasm-rendering         = { workspace = true }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 

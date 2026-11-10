@@ -1,6 +1,6 @@
 using LanguageExt;
 using LanguageExt.Traits;
-using Narrowing = LanguageExt.OptionExtensions;
+{|RASM3014:using Narrowing = LanguageExt.OptionExtensions;|}
 
 internal static class NarrowedConcrete {
     internal static Fin<int> Held(Fin<int> value) => value.{|#0:As()|};

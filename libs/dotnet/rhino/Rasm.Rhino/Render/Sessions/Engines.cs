@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Drawing;
 using Rasm.Rhino.Render.Content;
 using Rhino;
@@ -41,36 +40,9 @@ public sealed record RenderEngine(
     internal Seq<Guid> SupportedChannels =>
         Channels.Bind(Effects.Channels.Components).Map(RenderWindow.ChannelId).Concat(toSeq(CustomChannels.Keys)).Distinct();
 
-    internal string CustomChannelName(Guid id) => Conversions.Unset(CustomChannels.Find(id).Map(static english => LocalText.Of(english).Local));
-
-    internal Option<Guid> InitialChannelId => InitialChannel.Map(RenderWindow.ChannelId);
-
-    // --- [CONTENT]
-
-    internal IEnumerable<RenderContentSerializer> RenderContentSerializers() => Serializers.Map(static row => (RenderContentSerializer)new DefinedContentSerializer(row));
-
-    internal List<FileType> SupportedOutputTypes(List<FileType> host) => [.. OutputTypes(toSeq(host))];
-
-    // --- [DECALS]
-
-    internal void InitializeDecalProperties(List<NamedValue> properties) => properties.AddRange(DecalDefaults);
-
-    internal bool ShowDecalProperties(List<NamedValue> properties) =>
-        Session.Run(
-            EditDecal.Map(edit => edit(toSeq(properties)).Map(edited => {
-                properties.Clear();
-                properties.AddRange(edited);
-                return true;
-            })).IfNone(IO.pure(value: false)),
-            failed: false);
-
     // --- [MATERIALS]
 
     internal static (bool Pressed, Material Material) Pressed(Option<Func<RhinoDoc, Material, IO<Material>>> button, RhinoDoc doc, Material material) =>
         Session.Run(button.Map(press => press(doc, material).Map(static held => Some(held))).IfNone(IO.pure(Option<Material>.None)), Option<Material>.None)
             .Match(Some: static held => (true, held), None: () => (false, material));
-
-    // --- [CURRENT]
-
-    internal void OnSetCurrent(bool current) => _ = Session.Run(Current.Map(set => set(current)).IfNone(IO.pure(unit)));
 }

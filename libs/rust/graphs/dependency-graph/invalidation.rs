@@ -1,11 +1,10 @@
-use core::{iter, marker::PhantomData};
+use core::iter;
+use core::marker::PhantomData;
 use std::collections::BTreeSet;
 
-use petgraph::{
-    Direction,
-    stable_graph::{NodeIndex, StableDiGraph},
-    visit::{Dfs, NodeIndexable as _, Reversed, VisitMap as _, Visitable, Walker as _},
-};
+use petgraph::Direction;
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use petgraph::visit::{Dfs, NodeIndexable as _, Reversed, VisitMap as _, Visitable, Walker as _};
 
 use crate::{DependencyError, Evaluation, acyclic, at, dense, entries, present};
 

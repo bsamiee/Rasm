@@ -1,4 +1,3 @@
-using System.Drawing;
 using Rasm.Drafting;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
@@ -7,7 +6,6 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
-using Font = Rhino.DocObjects.Font;
 
 namespace Rasm.Rhino.Viewport.Printing;
 
@@ -26,9 +24,9 @@ public abstract partial record RasterSource {
 
     public sealed record Screen(ViewportSet Set, ViewCapture Capture) : RasterSource;
 
-    public sealed record Mode(ViewportSet Set, Guid Id, Option<Size> Pixels, Seq<Action<DisplayPipelineAttributes>> Edits) : RasterSource;
+    public sealed record Mode(ViewportSet Set, Guid Id, Option<System.Drawing.Size> Pixels, Seq<Action<DisplayPipelineAttributes>> Edits) : RasterSource;
 
-    public sealed record Posed(ViewportTarget Viewport, Seq<CameraPose> Poses, Option<Size> Pixels) : RasterSource;
+    public sealed record Posed(ViewportTarget Viewport, Seq<CameraPose> Poses, Option<System.Drawing.Size> Pixels) : RasterSource;
 
     public sealed record Depth(ViewportTarget Viewport, Action<ZBufferCapture> Setup) : RasterSource;
 }
@@ -41,7 +39,7 @@ public abstract partial record PdfSource {
 }
 
 internal sealed record PdfPage(RhinoDoc Document, FilePdf Pdf, int Number, double Dpi, int Height, Option<RhinoObject> Context) {
-    internal PointF Placed((Length X, Length Y) point) => new(Dots(point.X), Height - Dots(point.Y));
+    internal System.Drawing.PointF Placed((Length X, Length Y) point) => new(Dots(point.X), Height - Dots(point.Y));
 
     internal float Dots(Length length) => (float)(length.Inches.ToDouble() * Dpi);
 }
@@ -57,22 +55,22 @@ public sealed record PageMark {
     // --- [MARKS]
 
     public static PageMark Text(
-        Seq<FieldRun> runs, (Length X, Length Y) anchor, Length height, Font font, Color fill, Option<(Color Color, Length Width)> outline, double rotation,
+        Seq<FieldRun> runs, (Length X, Length Y) anchor, Length height, Font font, System.Drawing.Color fill, Option<(System.Drawing.Color Color, Length Width)> outline, double rotation,
         TextHorizontalAlignment horizontal, TextVerticalAlignment vertical) =>
         new(page =>
             from words in FieldFormulas.Format(page.Document, FieldFormulas.Text(runs), obj: page.Context, topParent: page.Context)
             let at = page.Placed(anchor)
-            let edge = outline.IfNone((Color.Empty, Length.Zero))
+            let edge = outline.IfNone((System.Drawing.Color.Empty, Length.Zero))
             from drawn in IO.lift(() => page.Pdf.DrawText(page.Number, words, at.X, at.Y, (float)height.DtpPoints.ToDouble(), font, fill, edge.Color,
                 (float)edge.Width.DtpPoints.ToDouble(), (float)double.RadiansToDegrees(rotation), horizontal, vertical))
             select drawn);
 
-    public static PageMark Line((Length X, Length Y) start, (Length X, Length Y) next, Seq<(Length X, Length Y)> rest, Option<Color> fill, Color stroke, Length width) =>
+    public static PageMark Line((Length X, Length Y) start, (Length X, Length Y) next, Seq<(Length X, Length Y)> rest, Option<System.Drawing.Color> fill, System.Drawing.Color stroke, Length width) =>
         new(page => IO.lift(() => page.Pdf.DrawPolyline(page.Number, [.. from point in start.Cons(next.Cons(rest)) select page.Placed(point)], Conversions.Unset(fill), stroke, page.Dots(width))));
 
-    public static PageMark Image(Bitmap bitmap, (Length X, Length Y) corner, (Length Width, Length Height) extent, double rotation) =>
+    public static PageMark Image(System.Drawing.Bitmap bitmap, (Length X, Length Y) corner, (Length Width, Length Height) extent, double rotation) =>
         new(page => IO.lift(() => {
-            PointF at = page.Placed((corner.X, corner.Y + extent.Height));
+            System.Drawing.PointF at = page.Placed((corner.X, corner.Y + extent.Height));
             page.Pdf.DrawBitmap(page.Number, bitmap, at.X, at.Y, page.Dots(extent.Width), page.Dots(extent.Height), (float)double.RadiansToDegrees(rotation));
         }));
 }
@@ -133,7 +131,7 @@ public static class Outputs {
 
     // --- [SHOTS]
 
-    private static IO<TValue> Shots<TValue>(RhinoDoc doc, Seq<RasterSource> sources, Func<Seq<IO<(Bitmap Bitmap, Option<double> Density)>>, IO<TValue>> body) =>
+    private static IO<TValue> Shots<TValue>(RhinoDoc doc, Seq<RasterSource> sources, Func<Seq<IO<(System.Drawing.Bitmap Bitmap, Option<double> Density)>>, IO<TValue>> body) =>
         sources.TraverseM(source => source.Switch(
                 doc,
                 printed: static (document, printed) => Planned(document, printed.Source).Map(static pages => pages.Map(static page =>
@@ -214,7 +212,7 @@ public static class Outputs {
                 Products.Accepted(() => ViewCapture.SendToPrinter(printer, [.. settings], copies))));
 
     public static IO<Seq<(OutputName Name, OutputPath Path)>> ToRasters(
-        RhinoDoc doc, IterableNE<RasterSource> sources, FileExtension extension, Func<Bitmap, Option<double>, Stream, IO<Unit>> encode, FileOutput output) =>
+        RhinoDoc doc, IterableNE<RasterSource> sources, FileExtension extension, Func<System.Drawing.Bitmap, Option<double>, Stream, IO<Unit>> encode, FileOutput output) =>
         Shots(doc, toSeq(sources), shots => Written(doc, shots, extension, output, (shot, path) =>
             shot.Bind(captured => FilePublication.Write(path, output.Overwrite, stream => encode(captured.Bitmap, captured.Density, stream))).Bracket()));
 

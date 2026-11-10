@@ -1,17 +1,12 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id,
-    macros::{first_node_macro_backtrace, is_panic, macro_backtrace},
-    paths::PathNS,
-    res::MaybeDef as _,
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{first_node_macro_backtrace, is_panic, macro_backtrace};
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{fn_def_id, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{
-    Body, Expr, ExprKind, LetStmt,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{Body, Expr, ExprKind, LetStmt};
 use rustc_lint::{LateContext, LateLintPass, Lint};
 use rustc_middle::ty::TyCtxt;
 use rustc_span::{ExpnId, Span};

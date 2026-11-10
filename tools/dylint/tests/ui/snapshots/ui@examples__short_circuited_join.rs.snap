@@ -3,147 +3,147 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/short_circuited_join.rs
 ---
 error: `collect` over `join_all` keeps only the first error of the completed futures
-  --> tools/dylint/examples/short_circuited_join.rs:47:65
+  --> tools/dylint/examples/short_circuited_join.rs:48:65
    |
-47 | ...sult<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().collect() }
+48 | ...sult<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().collect() }
    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
    = note: `#[deny(short_circuited_join)]` on by default
 
 error: `try_collect` over `join_all` keeps only the first error of the completed futures
-  --> tools/dylint/examples/short_circuited_join.rs:49:64
+  --> tools/dylint/examples/short_circuited_join.rs:50:64
    |
-49 | ...lt<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().try_collect() }
+50 | ...lt<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().try_collect() }
    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
 
 error: `collect` over `buffered` keeps only the first error of the completed futures
-  --> tools/dylint/examples/short_circuited_join.rs:62:77
+  --> tools/dylint/examples/short_circuited_join.rs:63:77
    |
-62 | ...<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect() }
+63 | ...<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect() }
    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
 
 error: `collect` over `join_all` keeps only the first error of the completed futures
-  --> tools/dylint/examples/short_circuited_join.rs:64:105
+  --> tools/dylint/examples/short_circuited_join.rs:65:105
    |
-64 | ...:Error>>) -> Result<Vec<u32>, io::Error> { set.join_all().await.into_iter().collect() }
+65 | ...:Error>>) -> Result<Vec<u32>, io::Error> { set.join_all().await.into_iter().collect() }
    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:66:35
+  --> tools/dylint/examples/short_circuited_join.rs:67:35
    |
-66 | async fn separate_callbacks() -> (Result<u32, u8>, Result<u32, u8>) {
+67 | async fn separate_callbacks() -> (Result<u32, u8>, Result<u32, u8>) {
    |                                   ^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
    = note: `#[deny(untyped_error)]` on by default
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:66:52
+  --> tools/dylint/examples/short_circuited_join.rs:67:52
    |
-66 | async fn separate_callbacks() -> (Result<u32, u8>, Result<u32, u8>) {
+67 | async fn separate_callbacks() -> (Result<u32, u8>, Result<u32, u8>) {
    |                                                    ^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:68:7
+  --> tools/dylint/examples/short_circuited_join.rs:69:7
    |
-68 |     ((|| Ok(left?))(), (|| Ok(right?))())
+69 |     ((|| Ok(left?))(), (|| Ok(right?))())
    |       ^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:68:25
+  --> tools/dylint/examples/short_circuited_join.rs:69:25
    |
-68 |     ((|| Ok(left?))(), (|| Ok(right?))())
+69 |     ((|| Ok(left?))(), (|| Ok(right?))())
    |                         ^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:71:31
+  --> tools/dylint/examples/short_circuited_join.rs:72:31
    |
-71 | async fn repeated_result() -> Result<u32, u8> {
+72 | async fn repeated_result() -> Result<u32, u8> {
    |                               ^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:77:35
+  --> tools/dylint/examples/short_circuited_join.rs:78:35
    |
-77 | async fn exclusive(flag: bool) -> Result<u32, u8> {
+78 | async fn exclusive(flag: bool) -> Result<u32, u8> {
    |                                   ^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:82:56
+  --> tools/dylint/examples/short_circuited_join.rs:83:56
    |
-82 | async fn nested_exclusive(outer: bool, inner: bool) -> Result<u32, u8> {
+83 | async fn nested_exclusive(outer: bool, inner: bool) -> Result<u32, u8> {
    |                                                        ^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:87:39
+  --> tools/dylint/examples/short_circuited_join.rs:88:39
    |
-87 | async fn complementary(flag: bool) -> Result<(), u8> {
+88 | async fn complementary(flag: bool) -> Result<(), u8> {
    |                                       ^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-  --> tools/dylint/examples/short_circuited_join.rs:98:23
+  --> tools/dylint/examples/short_circuited_join.rs:99:23
    |
-98 | async fn grouped() -> Result<u32, u8> {
+99 | async fn grouped() -> Result<u32, u8> {
    |                       ^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-   --> tools/dylint/examples/short_circuited_join.rs:104:33
+   --> tools/dylint/examples/short_circuited_join.rs:105:33
     |
-104 | async fn infinite_buffered() -> Result<Vec<u32>, u8> { stream::repeat_with(|| future::ready(Err::<u32, u8>(1))).buffered(4).try_col...
+105 | async fn infinite_buffered() -> Result<Vec<u32>, u8> { stream::repeat_with(|| future::ready(Err::<u32, u8>(1))).buffered(4).try_col...
     |                                 ^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-   --> tools/dylint/examples/short_circuited_join.rs:104:93
+   --> tools/dylint/examples/short_circuited_join.rs:105:93
     |
-104 | async fn infinite_buffered() -> Result<Vec<u32>, u8> { stream::repeat_with(|| future::ready(Err::<u32, u8>(1))).buffered(4).try_col...
+105 | async fn infinite_buffered() -> Result<Vec<u32>, u8> { stream::repeat_with(|| future::ready(Err::<u32, u8>(1))).buffered(4).try_col...
     |                                                                                             ^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-   --> tools/dylint/examples/short_circuited_join.rs:106:23
+   --> tools/dylint/examples/short_circuited_join.rs:107:23
     |
-106 | async fn cycling() -> Result<Vec<u32>, u8> { future::join_all([future::ready(Err::<u32, u8>(1))]).await.into_iter().cycle().collect...
+107 | async fn cycling() -> Result<Vec<u32>, u8> { future::join_all([future::ready(Err::<u32, u8>(1))]).await.into_iter().cycle().collect...
     |                       ^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-   --> tools/dylint/examples/short_circuited_join.rs:110:38
+   --> tools/dylint/examples/short_circuited_join.rs:111:38
     |
-110 | async fn dependent_continuation() -> Result<u32, u8> {
+111 | async fn dependent_continuation() -> Result<u32, u8> {
     |                                      ^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `u8` is a primitive that names no failure
-   --> tools/dylint/examples/short_circuited_join.rs:118:32
+   --> tools/dylint/examples/short_circuited_join.rs:119:32
     |
-118 | async fn selected_operand() -> Result<bool, u8> {
+119 | async fn selected_operand() -> Result<bool, u8> {
     |                                ^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures

@@ -15,7 +15,10 @@ utils:
     source:
         any:
             - matches: affix
-            - matches: {typescript-constant-value: {value: {matches: affix}}}
+            - kind: identifier
+              pattern: $PATTERN
+              matches: {typescript-constant-value: {value: {matches: affix}}}
+              not: {inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $PATTERN, inside: {kind: arguments, not: {inside: {kind: call_expression, has: {field: function, has: {field: property, regex: '^(match|search)$'}}}}}}}}
     access:
         pattern: $$_ACCESS
         regex: '^\??\.$'

@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 import httpx2
 import msgspec
@@ -20,7 +20,7 @@ import PyOpenColorIO
 
 from rasm_bpy.commands import Answer, Call, Done, Empty, Operator
 from rasm_bpy.data import Identity, Key, Value
-from rasm_bpy.nodes import composed, directed, Expr, functions, Group, grouped, Interface, InterfacePanel, inverted, item_key, math, matrix, mixed, RESULT, Socket, StockInput, vector, where, xyz
+from rasm_bpy.nodes import composed, directed, Expr, functions, grouped, Interface, InterfacePanel, inverted, item_key, math, matrix, mixed, RESULT, Socket, StockInput, vector, where, xyz
 from rasm_bpy.render import (
     AXES,
     captured,
@@ -45,7 +45,7 @@ from rasm_bpy.render import (
     valued,
 )
 from rasm_imaging import ConfigBuild, GRAY, ImageFile, Lattice, Logarithmic, pixels, processor, REC709_SCENE, rendering_basis, Samples
-from rasm_records import accumulated, committed, Fault, Nothing, Ok, Outcome, Reason
+from rasm_records import accumulated, committed, Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ _SCENE_WHITE: Final[InterfacePanel] = InterfacePanel.of(
 )
 _WHITE_STOPS: Final = _SCENE_WHITE.inputs[0]
 _DRAGO_WHITE: Final = float(np.log2(100.0))
-TONY: Final = "TonyMcMapface Base"
+_TONY: Final = "TonyMcMapface Base"
 _TONY_SOURCE: Final = "https://raw.githubusercontent.com/h3r2tic/tony-mc-mapface/0f249d366c9e960aa9828818786a6d5900fd85d9"
 _TONY_FOLDER: Final = Path("tony-mc-mapface")
 _TONY_CONFIG: Final = Path("OCIO/config.ocio")
@@ -278,11 +278,30 @@ class Tony(CompositorRecord, frozen=True, kw_only=True):
     def graph(self, shell: GraphInputs) -> Outcome[Expr]:
         """Samples the upstream colorspace, merged into the scene config and decoded to display-linear, at a table of its grid size over its logarithmic allocation, absent fault before `download_tony_tables` fetched it."""
         folder = shell.identity.folder / _TONY_FOLDER
-        return (
+        match (
             Ok(folder / _TONY_CONFIG)
             .filter_with(Path.is_file, lambda _: Fault.of(Reason.ABSENT, str(folder), member="Tony McMapface tables"))
             .bind(lambda path: ConfigBuild(sources=(path,)).absorbed(shell.config))
-            .bind(lambda config: formed(config).bind(lambda held: latticed(item_key(Tony), "Tony McMapface", config, *held, shell.color)))
+        ):
+            case Result(tag="ok", ok=config):
+                stated = config.getColorSpace(_TONY).getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
+            case Result(error=faults):
+                return Error(faults)
+        stages = tuple(
+            inner for outer in (stated if isinstance(stated, PyOpenColorIO.GroupTransform) else (stated,)) for inner in (outer if isinstance(outer, PyOpenColorIO.GroupTransform) else (outer,))
+        )
+        low, high = next(stage.getVars() for stage in stages if isinstance(stage, PyOpenColorIO.AllocationTransform))
+        encoding = next(stage.getDst() for stage in stages if isinstance(stage, PyOpenColorIO.ColorSpaceTransform))
+        transform = PyOpenColorIO.GroupTransform([PyOpenColorIO.ColorSpaceTransform(src=REC709_SCENE, dst=_TONY), PyOpenColorIO.ColorSpaceTransform(src=encoding, dst=REC709_SCENE)])
+        return processor(config, transform).bind(
+            lambda built: latticed(
+                item_key(Tony),
+                "Tony McMapface",
+                config,
+                transform,
+                Lattice(size=next(stage.getGridSize() for stage in built.createGroupTransform() if isinstance(stage, PyOpenColorIO.Lut3DTransform)), spacing=Logarithmic(low=low, span=high - low)),
+                shell.color,
+            )
         )
 
     @property
@@ -381,22 +400,6 @@ def reinhard_extended(level: Expr, scene_white_stops: Expr | float = 0.0) -> Exp
 # --- [TONY]
 
 
-def formed(config: PyOpenColorIO.Config) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Lattice]]:
-    """Returns the transform from linear Rec.709 through the merged colorspace to display-linear, and the table of its grid size over its logarithmic allocation."""
-    space: PyOpenColorIO.ColorSpace = config.getColorSpace(TONY)
-    stated: PyOpenColorIO.GroupTransform = space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)  # ty: ignore[invalid-assignment]
-    stages = tuple(inner for outer in stated for inner in (outer if isinstance(outer, PyOpenColorIO.GroupTransform) else (outer,)))
-    low, high = next(stage.getVars() for stage in stages if isinstance(stage, PyOpenColorIO.AllocationTransform))
-    encoding = next(stage.getDst() for stage in stages if isinstance(stage, PyOpenColorIO.ColorSpaceTransform))
-    transform = PyOpenColorIO.GroupTransform([PyOpenColorIO.ColorSpaceTransform(src=REC709_SCENE, dst=TONY), PyOpenColorIO.ColorSpaceTransform(src=encoding, dst=REC709_SCENE)])
-    return processor(config, transform).map(
-        lambda built: (
-            transform,
-            Lattice(size=next(stage.getGridSize() for stage in built.createGroupTransform() if isinstance(stage, PyOpenColorIO.Lut3DTransform)), spacing=Logarithmic(low=low, span=high - low)),
-        )
-    )
-
-
 @Operator.of(Empty, options=frozenset())
 def download_tony_tables(call: Call[Empty]) -> Outcome[Answer]:
     """Download Tony McMapface's OCIO tables and licenses at their pinned commit into the extension's user folder."""
@@ -432,19 +435,6 @@ def download_tony_tables(call: Call[Empty]) -> Outcome[Answer]:
 def _white(stops: Value, /, *, toggle: bool) -> InterfacePanel:
     """Scene white panel at a default white in stops, its toggle starting on or off."""
     return msgspec.structs.replace(_SCENE_WHITE, toggle=Some(toggle)).defaulted({_WHITE_STOPS.key: stops})
-
-
-def _cased[**P](group: Group[P]) -> InterfacePanel:
-    """Case panel of a curve group named and described by its body, holding the parameters past the channel level and the scene white panel of a curve reading one."""
-    _, *parameters = group.group.interface.inputs
-    return InterfacePanel.of(
-        group.body.__name__,
-        Interface(
-            inputs=tuple(socket for socket in parameters if socket.key != _WHITE_STOPS.key),
-            panels=tuple(_white(socket.default_value, toggle=False) for socket in parameters if socket.key == _WHITE_STOPS.key),
-        ),
-        description=inspect.getdoc(group.body),
-    )
 
 
 # --- [WHITE]
@@ -508,7 +498,21 @@ def meter_white(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.Sce
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_CASES: Final = tuple((group, _cased(group)) for group in (sigmoid, piecewise_power, logarithmic, reinhard_extended))
+_CASES: Final = tuple(
+    (
+        group,
+        InterfacePanel.of(
+            group.body.__name__,
+            Interface(
+                inputs=tuple(socket for socket in parameters if socket.key != _WHITE_STOPS.key),
+                panels=tuple(_white(socket.default_value, toggle=False) for socket in parameters if socket.key == _WHITE_STOPS.key),
+            ),
+            description=inspect.getdoc(group.body),
+        ),
+    )
+    for group in (sigmoid, piecewise_power, logarithmic, reinhard_extended)
+    for _, *parameters in (group.group.interface.inputs,)
+)
 _WHITENED: Final = MappingProxyType({panel.item.name: panel for _, panel in _CASES if panel.panels})
 _CURVE: Final = Socket(
     key="curve", kind=bpy.types.NodeSocketMenu, description="Curve each rendering channel takes", default_value=_CASES[0][1].item.name, items=tuple(panel.item for _, panel in _CASES)
@@ -527,4 +531,4 @@ tony: Final = CompositorEffect(record=Tony, mix=Mix.STRAIGHT, pointwise=True, re
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TONY", "Hable", "Neutral", "Photoreceptor", "ToneCurve", "Tony", "download_tony_tables", "formed", "hable", "neutral", "photoreceptor", "tone_curve", "tony"]
+__all__ = ["Hable", "Neutral", "Photoreceptor", "ToneCurve", "Tony", "download_tony_tables", "hable", "neutral", "photoreceptor", "tone_curve", "tony"]

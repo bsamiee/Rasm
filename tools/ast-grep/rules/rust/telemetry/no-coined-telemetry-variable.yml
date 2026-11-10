@@ -9,7 +9,6 @@ utils:
                     - follows: {regex: '^=$', follows: {pattern: env}}
                     - inside: {kind: token_tree, regex: '^\(', follows: {pattern: env}}
                 - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
-            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)env::(var|var_os|set_var|remove_var)$'}}}
             - inside: {kind: token_tree, follows: {regex: '^!$', follows: {kind: identifier, regex: '^(option_)?env$'}}}
 rule:
     any:

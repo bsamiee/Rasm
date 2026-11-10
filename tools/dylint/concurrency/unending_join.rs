@@ -1,23 +1,16 @@
 use core::ops::ControlFlow;
 
-use clippy_utils::{
-    desugar_await,
-    diagnostics::span_lint_hir_and_then,
-    expr_or_init, fn_def_id, get_parent_expr,
-    macros::macro_backtrace,
-    paths::PathNS,
-    peel_hir_expr_while,
-    res::{MaybeDef as _, MaybeQPath as _, MaybeResPath as _},
-    sym,
-    visitors::for_each_expr_without_closures,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::macro_backtrace;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeQPath as _, MaybeResPath as _};
+use clippy_utils::visitors::for_each_expr_without_closures;
+use clippy_utils::{desugar_await, expr_or_init, fn_def_id, get_parent_expr, peel_hir_expr_while, sym};
 use itertools::Either;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{
-    Body, BodyId, Expr, ExprKind, HirId, LetStmt, Mutability, Node, Pat, PatKind,
-    def::{DefKind, Res},
-    def_id::DefId,
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Body, BodyId, Expr, ExprKind, HirId, LetStmt, Mutability, Node, Pat, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, TyCtxt, UpvarCapture};
 

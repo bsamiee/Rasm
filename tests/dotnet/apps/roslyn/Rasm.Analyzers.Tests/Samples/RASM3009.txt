@@ -5,9 +5,9 @@ using static LanguageExt.Prelude;
 internal static class Painter {
     internal static int Bitmap(int size) => size;
 
-    internal static {|#0:System.Drawing.Bitmap|} Made(int size) => new(size, size);
+    internal static System.Drawing.Bitmap Made(int size) => new(size, size);
 
-    internal static Unit Run(int unit) => {|#1:Prelude.unit|};
+    internal static Unit Run(int unit) => {|#0:Prelude.unit|};
 
     internal static System.Drawing.Point Origin => default;
 

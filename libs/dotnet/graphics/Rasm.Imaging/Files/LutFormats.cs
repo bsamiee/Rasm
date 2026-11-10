@@ -248,7 +248,7 @@ public sealed partial class LutFormat {
             .Bind(static channels => Some(channels).Filter(static held => !held.ForAll(static channel => channel.Inputs.AsSpan().SequenceEqual(channel.Outputs))).Traverse(Splined).As());
 
     private static Fin<LutTable> Splined(Seq<(float[] Inputs, float[] Outputs)> channels) {
-        LinearSpline[] splines = [.. channels.Map(static held => LinearSpline.InterpolateSorted([.. held.Inputs.Select(static value => (double)value)], [.. held.Outputs.Select(static value => (double)value)]))];
+        LinearSpline[] splines = [.. channels.Map(static held => LinearSpline.InterpolateSorted(System.Array.ConvertAll(held.Inputs, static value => (double)value), System.Array.ConvertAll(held.Outputs, static value => (double)value)))];
         return Sampled(new Vector3(channels[0].Inputs[0], channels[1].Inputs[0], channels[2].Inputs[0]), new Vector3(channels[0].Inputs[^1], channels[1].Inputs[^1], channels[2].Inputs[^1]), row => {
             foreach (ref Vector4 pixel in row)
                 pixel = new Vector4((float)splines[0].Interpolate(pixel.X), (float)splines[1].Interpolate(pixel.Y), (float)splines[2].Interpolate(pixel.Z), pixel.W);

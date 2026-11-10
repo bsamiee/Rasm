@@ -1,18 +1,15 @@
-use core::{
-    alloc,
-    num::{NonZero, TryFromIntError},
-};
+use core::alloc;
+use core::num::{NonZero, TryFromIntError};
 
 use color::{AlphaColor, Srgb, palette};
 use derive_where::derive_where;
-use hayro::{
-    RenderCache, RenderSettings,
-    hayro_interpret::InterpreterSettings,
-    render_into,
-    vello_cpu::{Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit},
-};
+use hayro::hayro_interpret::InterpreterSettings;
+use hayro::vello_cpu::{Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit};
+use hayro::{RenderCache, RenderSettings, render_into};
 use hayro_svg::SvgRenderSettings;
-use image::{FlatSamples, GenericImage as _, ImageError, Pixel, RgbImage, Rgba, RgbaImage, buffer::ConvertBuffer as _, flat::SampleLayout};
+use image::buffer::ConvertBuffer as _;
+use image::flat::SampleLayout;
+use image::{FlatSamples, GenericImage as _, ImageError, Pixel, RgbImage, Rgba, RgbaImage};
 use image_compare::{Algorithm, Similarity};
 use kurbo::Affine;
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};

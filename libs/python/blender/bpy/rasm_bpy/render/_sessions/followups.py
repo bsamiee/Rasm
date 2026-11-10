@@ -5,6 +5,7 @@ import datetime
 from functools import cached_property, partial
 from itertools import starmap
 from pathlib import Path
+from typing import Annotated
 
 import bpy
 from expression import Option, Result, Some, try_downcast
@@ -15,11 +16,11 @@ from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Handler
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import RnaPath
-from rasm_bpy.data._rna.snapshots import Snapshot
+from rasm_bpy.data._rna.snapshots import Snapshot, SNAPSHOT_DECODER
 from rasm_bpy.render._outputs.paths import OutputPath, ScenePaths
 from rasm_bpy.render._outputs.results import COMBINED, Written
-from rasm_bpy.render._sessions.plans import _scene_of, JobScope, Plan
-from rasm_bpy.render._view_layers.passes import _required, _used, PassRequest
+from rasm_bpy.render._sessions.plans import JobScope, Plan, scene_of
+from rasm_bpy.render._view_layers.passes import PassRequest, required, used
 from rasm_bpy.render._view_layers.routing import RoutingRow
 from rasm_bpy.settings._attachments import Attachment
 from rasm_bpy.settings._presets import Preset
@@ -33,21 +34,21 @@ from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reaso
 class FollowUpSettings(bpy.types.PropertyGroup):
     """Scene setting queueing a follow-up job after each render, a follow-up's own settings extending it."""
 
-    enabled: bpy.props.BoolProperty(name="Enabled", description="Queue the follow-up job after each render")  # ty: ignore[invalid-type-form]
+    enabled: Annotated[bool, bpy.props.BoolProperty(name="Enabled", description="Queue the follow-up job after each render")]
 
 
 class WrittenPass(bpy.types.PropertyGroup):
     """Sequence file of one written pass, named after the pass, relative to the output root, with the image output holding the pass."""
 
-    path: bpy.props.StringProperty(name="Path", description="Sequence file of the first frame")  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Output", description="Image output holding the pass")  # ty: ignore[invalid-type-form]
+    path: Annotated[str, bpy.props.StringProperty(name="Path", description="Sequence file of the first frame")]
+    output: Annotated[str, bpy.props.StringProperty(name="Output", description="Image output holding the pass")]
 
 
 class FollowedRender(bpy.types.PropertyGroup):
     """Frame range of the render a follow-up job reads, each follow-up's record holding one written pass member per pass it follows, empty outside the job's file."""
 
-    first: bpy.props.IntProperty(name="First", description="First rendered frame", default=1)  # ty: ignore[invalid-type-form]
-    last: bpy.props.IntProperty(name="Last", description="Last rendered frame", default=1)  # ty: ignore[invalid-type-form]
+    first: Annotated[int, bpy.props.IntProperty(name="First", description="First rendered frame", default=1)]
+    last: Annotated[int, bpy.props.IntProperty(name="Last", description="Last rendered frame", default=1)]
 
     def written(self, name: str, /) -> Outcome[WrittenPass]:
         """Returns the written pass of a pass name, absent fault for a pass the record follows none of or the render wrote none of."""
@@ -92,7 +93,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
     @cached_property
     def section(self) -> Section[G]:
         """Scene setting fields with their value presets."""
-        return Section(key=self.key, store=Some(Store(attachment=self.settings, presets=Some(Preset(key=self.key, form=Snapshot)))))
+        return Section(key=self.key, store=Some(Store(attachment=self.settings, presets=Some(Preset(key=self.key, decoder=SNAPSHOT_DECODER)))))
 
     # --- [PLANNING]
 
@@ -109,7 +110,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
         day = plan.moment.astimezone().date()
 
         def followed(index: int, scope: JobScope) -> Outcome[tuple[JobScope, Option[JobScope]]]:
-            return _scene_of(scope.scene).bind(lambda scene: self.settings.read(identity, scene).bind(lambda held: scoped(scene, index, scope, day) if held.enabled else Ok((scope, Nothing))))
+            return scene_of(scope.scene).bind(lambda scene: self.settings.read(identity, scene).bind(lambda held: scoped(scene, index, scope, day) if held.enabled else Ok((scope, Nothing))))
 
         return accumulated(starmap(followed, enumerate(plan.scopes))).map(
             lambda pairs: msgspec.structs.replace(plan, scopes=(*(base for base, _ in pairs), *(follow for _, held in pairs for follow in held.to_list())))
@@ -125,7 +126,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
 
     def scoped(self, identity: Identity, scene: bpy.types.Scene, index: int, scope: JobScope, day: datetime.date) -> Outcome[tuple[JobScope, Option[JobScope]]]:
         """Routes the scope's passes to its output and returns the scope under the held values with the follow-up scope reading what it writes."""
-        requests = tuple(PassRequest(layer=layer.name, flags=frozenset(self.passes)) for layer in _used(scene)) if self.passes else ()
+        requests = tuple(PassRequest(layer=layer.name, flags=frozenset(self.passes)) for layer in used(scene)) if self.passes else ()
         names = self.names
 
         def located(files: tuple[Written, ...]) -> Outcome[tuple[tuple[str, str, str], ...]]:
@@ -153,7 +154,7 @@ class FollowUp[G: FollowUpSettings](msgspec.Struct, frozen=True, kw_only=True, d
                 bound[0]
                 .path(scene, day)
                 .map(lambda path: path.copied)
-                .bind(lambda copied: _required(scene, bpy.context, requests).bind(lambda _: bound[1].reconciled(scene, bpy.context, Ok(copied))).map(lambda _: copied))
+                .bind(lambda copied: required(scene, bpy.context, requests).bind(lambda _: bound[1].reconciled(scene, bpy.context, Ok(copied))).map(lambda _: copied))
                 .bind(
                     lambda copied: (
                         RoutingRow()

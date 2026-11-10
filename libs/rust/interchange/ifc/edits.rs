@@ -1,21 +1,18 @@
-use core::{hash::Hash, iter};
-use std::{collections::HashSet, sync::Arc};
+use core::hash::Hash;
+use core::iter;
+use std::collections::HashSet;
+use std::sync::Arc;
 
 use indexmap::IndexMap;
 use itertools::Itertools as _;
 use nonempty_collections::NEVec;
-use petgraph::{
-    graphmap::DiGraphMap,
-    visit::{Dfs, Visitable as _, Walker as _},
-};
+use petgraph::graphmap::DiGraphMap;
+use petgraph::visit::{Dfs, Visitable as _, Walker as _};
 use serde_json::value::Serializer;
 use validated::Validated;
 
-use crate::{
-    Composed, DataType, Header, IfcError, Import, Layer, Model, Name, Node, Path, Schema, Value, ValueDescription,
-    composition::{self, Subject},
-    descend, schemas,
-};
+use crate::composition::{self, Subject};
+use crate::{Composed, DataType, Header, IfcError, Import, Layer, Model, Name, Node, Path, Schema, Value, ValueDescription, descend, schemas};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

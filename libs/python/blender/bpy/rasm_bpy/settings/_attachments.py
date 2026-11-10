@@ -8,7 +8,7 @@ import datetime
 from functools import partial
 import inspect
 from types import MappingProxyType
-from typing import ClassVar, Generic, Never, TYPE_CHECKING, TypeVar
+from typing import Annotated, ClassVar, Generic, Never, TYPE_CHECKING, TypeVar
 
 import bpy
 from expression import Option, Result, Some, try_downcast
@@ -18,14 +18,14 @@ from idprop.types import IDPropertyGroup
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _Startup, _Tier, Acquisitions, Handler, Timer
+from rasm_bpy.data._extension.registration import Acquisitions, Handler, Startup, Tier, Timer
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import Ownership, Saved
-from rasm_bpy.data._ids.store import _embedded
-from rasm_bpy.data._rna.descriptors import _custom_read, Descriptor, stored
+from rasm_bpy.data._ids.store import embedded_tree
+from rasm_bpy.data._rna.descriptors import custom_read, Descriptor, stored
 from rasm_bpy.data._rna.paths import Native, RnaPath, rooted, Struct
-from rasm_bpy.data._rna.properties import _declaring, _pointed, annotated, Callbacks, Changed
-from rasm_bpy.data._rna.restoration import _equal, _native, _persisted, BeforeAfter, NativeTree, NativeValue
+from rasm_bpy.data._rna.properties import annotated, Callbacks, Changed, declaring, pointed
+from rasm_bpy.data._rna.restoration import BeforeAfter, equal, native, NativeTree, NativeValue, persisted
 from rasm_bpy.data._rna.snapshots import Applied, Snapshot
 from rasm_records import accumulated, Dated, Error, Fault, History, merge, Nothing, Ok, Outcome, paired, Reason, Retention, transfer, Tree, typed
 
@@ -82,7 +82,7 @@ class Stored[T](msgspec.Struct, frozen=True, kw_only=True):
             return paired(typed(IDPropertyGroup, request, held.get(self.references_key)), typed(bytes, request, held.get(self.data_key))).bind(lambda pair: unpacked(*pair))
 
         return (
-            _custom_read(host, self.name)
+            custom_read(host, self.name)
             .map_error(partial(Fault.of, Refusal.REFUSED, request))
             .bind(lambda held: Option.of_optional(held).map(lambda value: typed(IDPropertyGroup, request, value).bind(found).map(Some)).default_value(Ok(Nothing)))
         )
@@ -144,20 +144,20 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
             return self.stored.read(holder).bind(lambda found: found.map(lambda kept: self.before_after_of(kept).decoded(holder, self.stored.name).map(Some)).default_value(Ok(Nothing)))
 
         def captured() -> Outcome[NativeTree]:
-            return accumulated(_native(owner, Some(tuple(selection))) for owner, selection in selections.items()).map(Tree[NativeValue, RnaPath, RnaPath].joined)
+            return accumulated(native(owner, Some(tuple(selection))) for owner, selection in selections.items()).map(Tree[NativeValue, RnaPath, RnaPath].joined)
 
         def written(current: NativeTree, prior: Option[tuple[NativeTree, NativeTree]]) -> Outcome[tuple[Applied, ...]]:
             before = prior.map(lambda ends: current.merged(ends[0])).default_value(current)
 
             def finished(after: NativeTree) -> Outcome[None]:
-                latest = prior.map(lambda ends: ends[1].merged(merge(merge(current, transfer(current, ends[1], equal=_equal)), transfer(current, after, equal=_equal)))).default_value(after)
-                return paired(_persisted(before), _persisted(latest)).bind(lambda pair: self.stored.write(holder, held(BeforeAfter(before=pair[0], after=pair[1]))))
+                latest = prior.map(lambda ends: ends[1].merged(merge(merge(current, transfer(current, ends[1], equal=equal)), transfer(current, after, equal=equal)))).default_value(after)
+                return paired(persisted(before), persisted(latest)).bind(lambda pair: self.stored.write(holder, held(BeforeAfter(before=pair[0], after=pair[1]))))
 
             def changed(_: None) -> Outcome[tuple[Applied, ...]]:
                 applied = tuple(snapshot.apply(owner) for owner, snapshot in writes)
                 return paired(accumulated(outcome.outcome for outcome in applied), captured().bind(finished)).map(lambda _: applied)
 
-            return _persisted(before).bind(lambda kept: self.stored.write(holder, held(BeforeAfter(before=kept)))).bind(changed)
+            return persisted(before).bind(lambda kept: self.stored.write(holder, held(BeforeAfter(before=kept)))).bind(changed)
 
         return paired(captured(), prior()).bind(lambda pair: written(*pair))
 
@@ -180,10 +180,13 @@ class Recovery[T](msgspec.Struct, frozen=True, kw_only=True):
 class RetentionSettings(bpy.types.PropertyGroup):
     """History capacity and merge interval of extension preferences, read as the retention record."""
 
-    capacity: bpy.props.IntProperty(name="Capacity", description="Entries kept, newest first", min=1, max=100, default=Retention().capacity)  # ty: ignore[invalid-type-form]
-    interval: bpy.props.FloatProperty(  # ty: ignore[invalid-type-form]
-        name="Merge Interval", description="Seconds within which next entry replaces newest", unit="TIME_ABSOLUTE", min=0.0, max=600.0, default=Retention().interval.total_seconds()
-    )
+    capacity: Annotated[int, bpy.props.IntProperty(name="Capacity", description="Entries kept, newest first", min=1, max=100, default=Retention().capacity)]
+    interval: Annotated[
+        float,
+        bpy.props.FloatProperty(
+            name="Merge Interval", description="Seconds within which next entry replaces newest", unit="TIME_ABSOLUTE", min=0.0, max=600.0, default=Retention().interval.total_seconds()
+        ),
+    ]
 
     @property
     def retention(self) -> Retention:
@@ -205,9 +208,12 @@ class Attached(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # ru
     # --- [VALUES]
 
     def struct(self, host: Host) -> _G_co:
-        """Returns attached form group of host."""
-        group: _G_co = getattr(host, self.name)  # ty: ignore[unsound-assignment]
-        return group
+        """Returns attached form group of host, a group of another class raising `TypeError` as a pointer `Attachment.bound` never registered."""
+        match getattr(host, self.name):
+            case self.form() as group:
+                return group
+            case other:
+                raise TypeError(other)
 
     # --- [LOCKS]
 
@@ -290,7 +296,7 @@ class Attached(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # ru
                 return tuple(layer for scene in bpy.data.scenes for layer in scene.view_layers if isinstance(layer, owner))
             case owner:
                 originals = tuple(bpy.data.all_ids)
-                blocks = (*originals, *(tree for block in originals for tree in _embedded(block).to_list()))
+                blocks = (*originals, *(tree for block in originals for tree in embedded_tree(block).to_list()))
                 return (
                     tuple(node for tree in blocks if isinstance(tree, bpy.types.NodeTree) for node in tree.nodes if isinstance(node, owner))
                     if issubclass(owner, bpy.types.Node)
@@ -379,15 +385,15 @@ class Attachment(Generic[_G_co]):  # ruff: ignore[non-pep695-generic-class]
         """Yields form groups, pointer, and seed while form properties hold bound callbacks and the change callback follows each value property's update."""
         with ExitStack() as stack:
             callbacks = self._callbacks.map(lambda build: stack.enter_context(build(identity))).default_value(MappingProxyType({}))
-            groups = stack.enter_context(_declaring(self.form, callbacks, self.changed.map(lambda build: stack.enter_context(build(identity)))))
+            groups = stack.enter_context(declaring(self.form, callbacks, self.changed.map(lambda build: stack.enter_context(build(identity)))))
             overridable: set[rna_enums.PropertyOverrideFlagItems] = {"LIBRARY_OVERRIDABLE"}
             pointing = partial(bpy.props.PointerProperty, type=self.form, override=overridable)
             pointer = Option.of_optional(inspect.getdoc(self.form)).map(lambda doc: pointing(description=doc)).default_with(pointing)
             name = identity.identifier(self.key)
             yield (
                 *groups,
-                (_Tier.ATTACHMENTS, _pointed(self.owner, name, pointer)),
-                *(_Startup(body=lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded)) for seed in self.seed.to_list()),
+                (Tier.ATTACHMENTS, pointed(self.owner, name, pointer)),
+                *(Startup(body=lambda: seed(identity).bind(Attached(name=name, owner=self.owner, form=self.form).seeded)) for seed in self.seed.to_list()),
             )
 
 

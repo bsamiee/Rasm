@@ -1,4 +1,5 @@
-use core::{hint::black_box, mem::ManuallyDrop};
+use core::hint::black_box;
+use core::mem::ManuallyDrop;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -44,7 +44,6 @@ Rasm/
 ├── Directory.Build.props     # .NET build defaults and artifacts output
 ├── Directory.Build.targets   # .NET items and Rhino host targets
 ├── NuGet.config              # NuGet sources
-├── .globalconfig             # .NET analyzer settings for the whole compilation
 ├── Package.swift             # Swift modules, executables, and remote package catalog
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
 ├── Cargo.toml                # Rust workspace and dependency catalog
@@ -53,7 +52,7 @@ Rasm/
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
-├── .github/                  # CI and release workflows, issue forms
+├── .github/                  # CI and release workflows, issue forms, jactionlint settings
 ├── .cargo/                   # Cargo build settings and compiler source link
 ├── .config/                  # Files tools find in .config/ or read through a path setting
 ├── .claude/                  # Claude Code knowledge and settings
@@ -68,13 +67,16 @@ Rasm/
 
 - Each fact sits once in the file its tool reads, and every other use derives it
 - Nx plugins infer every project and target from each ecosystem's own manifests and tool output, with no `project.json`, `targetDefaults`, or `namedInputs`
-- Every project answers `build`, `check`, `fix`, and `test`; `install` puts a local build into its host, `deploy` applies an infrastructure stack, and `upgrade` moves an ecosystem's dependencies
+- Projects answer `build`, `check`, and `test` where their tools have one and `fix` where a fixer reads the project model; `install` puts a local build into its host, `deploy` applies an infrastructure stack, and `upgrade` moves an ecosystem's dependencies
 - Verbs aggregate `<verb>--<tool>` targets, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
 - Checkers report every finding as an error through their own configuration
+- Checker configuration an hk step or a Cargo `[env]` row names by path sits in `.config/`, since tools run through hk and Nx alone, never directly
 - Libraries are published packages: they take paths, names, and policies from their caller and hold no repository convention
 - Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`; a package's `dist` and a folder a tool shares with its editor stay where the tool puts them
 - Shipped apps know themselves through their host API (`Bundle.main`, `process.execPath`) and keep settings in their own preferences, logging to the platform's per-user log folder unless one documented setting moves it
+- Tools made here are packaged tools: cache, log, and runtime folders default to the platform's per-user locations, one documented setting moves each, and each tool bounds its own logs
+- This checkout sets those settings as `.config/mise.toml` `[env]` rows: caches to `.cache/<tool>` and logs to `.artifacts/logs/<tool>.log`, a tool writing one file per run or session holding a folder there
 - Tool behavior comes from its source and docs at the installed version; a plugin never restates what the tool, the host, a package, or Nx already does
 - A tool that keeps its own incremental state (cargo, MSBuild, SwiftPM, Xcode) keeps it: Nx orders, selects, and caches results around it, never restores into a folder the tool fingerprints
 - Plugins tag a project `os:<platform>` when its toolchain or host limits the platforms it builds on and `host:<technology>` when its build runs a host application, so CI selects what each runner can build
@@ -82,11 +84,16 @@ Rasm/
 ## [03]-[TASKS]
 
 - `git submodule update --init --checkout assets` fills `assets/` for font builds, Darkroom builds, and publishing
+- `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - `nx release --skip-publish` versions, tags, and writes GitHub releases; `nx run-many -t build -c release -p tag:release` builds the packages at the new versions; `nx release publish` publishes them, the split `.github/workflows/release.yml` runs, since a `dependsOn` names no configuration
 - `nx upgrade <ecosystem root>` moves an ecosystem's dependencies through its own tool
-- `mise lock --bump` moves tools, `nx migrate` moves Nx
+- `mise bootstrap` registers the pitchfork supervisor as a login agent and starts the container engine, on a Mac after a clone
+- `mise daemons stop docker` stops the container engine and its VM, `mise daemons start docker` starts it and waits until Docker answers
+- `nx install @rasm/infra` starts the local services of `infra/compose.yaml`
+- `nx deploy @rasm/infra` applies the repository and deployed-host stacks, `--stack=<name>` one of them
+- `mise lock --bump` moves tools, `nx migrate` moves Nx, and `pinact run --update` moves each workflow's action pins to the newest release SHA with its version comment
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 
@@ -107,7 +114,7 @@ Products reach a person through separate levels:
 |  [04]   | Package version                | `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row |
 |  [05]   | .NET tool package              | `.config/mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name              |
 |  [06]   | Task graph                     | `nx.json` plugin rows, inference in `apps/nx/<plugin>`                                               |
-|  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
+|  [07]   | Checker configuration          | Tool's own file, in `.config/` where a path names it, `pyproject.toml` `[tool.*]` for Python tools   |
 |  [08]   | File-level check               | `.config/hk.pkl` step                                                                                |
 |  [09]   | Secret                         | Doppler `rasm` project and 1Password, read through the `secrets` skill                               |
 |  [10]   | Resource or repository setting | Typed row of an `infra/` program, applied by `nx deploy`                                             |
@@ -118,8 +125,8 @@ Products reach a person through separate levels:
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [16]   | Python runtime                 | Mise defaults to 3.15, Blender roots pin 3.13                                                        |
 |  [17]   | Native libraries for sdists    | Pixi `default` environment in `pyproject.toml`, exact builds in `pixi.lock`                          |
-|  [18]   | Container runtime              | Mise clients, Colima on macOS                                                                        |
-|  [19]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows                                                  |
+|  [18]   | Container runtime              | Mise clients, Colima on macOS as `[daemons.docker]` in `.config/mise.macos.toml`, started at login   |
+|  [19]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows, `PLAYWRIGHT_CLI_SESSION` per agent session      |
 |  [20]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                  |
 
 - Tool rows stay at `latest`, a `version_regex` over release tags excludes a development build `latest` resolves

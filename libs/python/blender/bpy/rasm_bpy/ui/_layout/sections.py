@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial
 from types import MappingProxyType
-from typing import Final, Generic, Never, TypeVar
+from typing import Final, Generic, Never, Protocol, runtime_checkable, TypeVar
 
 import bpy
 from expression import Option, Some, try_downcast
@@ -12,28 +12,35 @@ import rna_prop_ui
 
 from rasm_bpy.commands.operators import PopupKind, PopupTarget
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _acquired, Acquisitions
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions
 from rasm_bpy.data._rna.conditions import Condition, satisfied
-from rasm_bpy.data._rna.paths import _context_path, _definition, root_in, Struct
+from rasm_bpy.data._rna.paths import context_path, rna_definition, root_in, Struct, struct_at
 from rasm_bpy.data._rna.properties import annotated
 from rasm_bpy.settings._attachments import Attached, Host
-from rasm_bpy.ui._layout.lists import _ItemList
-from rasm_bpy.ui._layout.members import _owner_key, Member, ResolvedMember
-from rasm_bpy.ui._layout.rows import _realized, Container, Opens, OperatorButton, Property, RowContent, RowDraw
+from rasm_bpy.ui._layout.lists import ItemList
+from rasm_bpy.ui._layout.members import Member, owner_key, ResolvedMember
+from rasm_bpy.ui._layout.rows import Opens, OperatorButton, Property, realized, RowContent, RowDraw
 from rasm_bpy.ui._layout.values import Replacement, Store, StoreCommand
 from rasm_records import Nothing, Ok, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Holding = Member | _ItemList[bpy.types.PropertyGroup, Never] | _Items
-type _Holders = Callable[[Struct, bpy.types.Context], tuple[Struct, ...]]
-type _Hosting = Callable[[Struct, bpy.types.Context], Option[Host]]
-type _Stored = tuple[Attached[bpy.types.PropertyGroup], _Hosting, RowDraw, RowDraw]
 _T_co = TypeVar("_T_co", bound=bpy.types.PropertyGroup, covariant=True, default=bpy.types.PropertyGroup)
+
+
+@runtime_checkable
+class Container(Protocol):
+    """Layout declaration holding rows of its own."""
+
+    @property
+    def children(self) -> tuple[RowContent, ...]:
+        """Rows the declaration holds."""
+        ...
+
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DEFAULT_CONTEXT: Final[str] = bpy.app.translations.contexts.default  # ty: ignore[unsound-assignment]
+_DEFAULT_CONTEXT: Final = msgspec.convert(bpy.app.translations.contexts.default, str)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -62,7 +69,7 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
     enable: Option[Member] = Nothing
     store: Option[Store[_T_co]] = Nothing
     condition: Option[Condition] = Nothing
-    holder: Option[Holding] = Nothing
+    holder: Option[Member | ItemList[bpy.types.PropertyGroup, Never] | _Items] = Nothing
     absent: tuple[RowContent, ...] = ()
     opened: bool = False
     split: bool = True
@@ -92,8 +99,8 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
             *self.rows,
             *self.header,
             *self.absent,
-            *(row for store in self.store.to_list() for row in _fields(store.attachment.form, store.attachment.key, store.fields)),
-            *(held for held in self.holder.to_list() if isinstance(held, _ItemList)),
+            *(row for store in self.store.to_list() for row in field_rows(store.attachment.form, store.attachment.key, store.fields)),
+            *(held for held in self.holder.to_list() if isinstance(held, ItemList)),
         )
 
     def acquisitions(self, _identity: Identity, /) -> Acquisitions:
@@ -106,40 +113,40 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
             case _:
                 held = ()
         members = (*held, *self.enable.to_list(), *(member for store in self.store.to_list() for member in store.host.to_list()))
-        return (*(declaration for member in members for declaration in member.prerequisites), *_acquired((*self.store.to_list(), *self.children)))
+        return (*(declaration for member in members for declaration in member.prerequisites), *acquired_rows((*self.store.to_list(), *self.children)))
 
-    def realized(self, identity: Identity) -> "Outcome[_SectionDraws]":
+    def realized(self, identity: Identity) -> "Outcome[SectionDraws]":
         """Realizes the layout panel name, header boolean, store parts, header, body, and absent rows, and the holder reach once."""
 
-        def holding() -> Outcome[_Holders]:
+        def holding() -> Outcome[Callable[[Struct, bpy.types.Context], tuple[Struct, ...]]]:
             match self.holder.to_optional():
                 case None:
                     return Ok(lambda holder, _context: (holder,))
                 case Member() as member:
                     return member.realized(identity).map(lambda bound: partial(_held, bound))
-                case _ItemList() as listed:
+                case ItemList() as listed:
                     return listed.picked(identity)
                 case _Items(collection=collection):
                     return collection.realized(identity, bpy.types.CollectionProperty).map(lambda bound: partial(_held, bound))
 
-        def stored(store: Store[_T_co]) -> Outcome[_Stored]:
+        def stored(store: Store[_T_co]) -> Outcome[tuple[Attached[bpy.types.PropertyGroup], Callable[[Struct, bpy.types.Context], Option[Host]], RowDraw, RowDraw]]:
             owner = store.attachment.owner
             host = store.host.map(lambda member: member.realized(identity).map(Some)).default_value(Ok(Nothing))
             buttons = (
                 Opens(target=PopupTarget(store.panel, PopupKind.PANEL), keywords={"text": ""}, icon=Some("PRESET")),
                 OperatorButton(target=store.commands[StoreCommand.RESET], keywords={"text": ""}),
             )
-            return paired(store.attachment.bound(identity), host, _realized(buttons, identity), _realized(_fields(store.attachment.form, store.attachment.key, store.fields), identity)).map(
+            return paired(store.attachment.bound(identity), host, realized(buttons, identity), realized(field_rows(store.attachment.form, store.attachment.key, store.fields), identity)).map(
                 lambda parts: (parts[0], partial(_host, parts[1], owner), parts[2], parts[3])
             )
 
         enable = self.enable.map(
-            lambda member: paired(member.realized(identity, bpy.types.BoolProperty), _realized((Property(target=member, keywords={"text": ""}),), identity)).map(Some)
+            lambda member: paired(member.realized(identity, bpy.types.BoolProperty), realized((Property(target=member, keywords={"text": ""}),), identity)).map(Some)
         ).default_value(Ok(Nothing))
         store = self.store.map(lambda held: stored(held).map(Some)).default_value(Ok(Nothing))
-        drawn = paired(_realized(self.header, identity), _realized(self.rows, identity), _realized(self.absent, identity))
+        drawn = paired(realized(self.header, identity), realized(self.rows, identity), realized(self.absent, identity))
         return paired(enable, store, drawn, holding()).map(
-            lambda found: _SectionDraws(section=self, name=identity.identifier(self.key), enable=found[0], store=found[1], header=found[2][0], rows=found[2][1], absent=found[2][2], reach=found[3])
+            lambda found: SectionDraws(section=self, name=identity.identifier(self.key), enable=found[0], store=found[1], header=found[2][0], rows=found[2][1], absent=found[2][2], reach=found[3])
         )
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
@@ -147,7 +154,7 @@ class Section(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruf
         return self.realized(identity).map(lambda draws: draws.shown)
 
 
-class _SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
+class SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
     """Realized section that a panel and a layout panel both draw."""
 
     # --- [STATE]
@@ -155,11 +162,11 @@ class _SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
     section: Section[bpy.types.PropertyGroup]
     name: str
     enable: Option[tuple[ResolvedMember, RowDraw]]
-    store: Option[_Stored]
+    store: Option[tuple[Attached[bpy.types.PropertyGroup], Callable[[Struct, bpy.types.Context], Option[Host]], RowDraw, RowDraw]]
     header: RowDraw
     rows: RowDraw
     absent: RowDraw
-    reach: _Holders
+    reach: Callable[[Struct, bpy.types.Context], tuple[Struct, ...]]
 
     @property
     def itemized(self) -> bool:
@@ -222,8 +229,8 @@ class _SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
         section = self.section
         match section.holder.to_optional():
             case _Items(expanded=expanded):
-                panel = expanded.map(lambda flag: layout.panel_prop(holder, flag)).default_with(lambda: layout.panel(f"{self.name}_{_owner_key(holder)}", default_closed=not section.opened))
-                named = Option.of_optional(_definition(holder).name_property).map(lambda prop: (str(getattr(holder, prop.identifier)), False))
+                panel = expanded.map(lambda flag: layout.panel_prop(holder, flag)).default_with(lambda: layout.panel(f"{self.name}_{owner_key(holder)}", default_closed=not section.opened))
+                named = Option.of_optional(rna_definition(holder).name_property).map(lambda prop: (str(getattr(holder, prop.identifier)), False))
                 return (panel, *named.default_value((section.label, True)))
             case _:
                 return layout.panel(self.name, default_closed=not section.opened), section.label, True
@@ -269,15 +276,15 @@ class _SectionDraws(msgspec.Struct, frozen=True, kw_only=True):
 # --- [WALKS]
 
 
-def _sections_in(rows: Iterable[object]) -> tuple[Section, ...]:
+def sections_in(rows: Iterable[object]) -> tuple[Section, ...]:
     """Sections the rows hold, each ahead of the sections its own rows hold, through every container."""
-    return tuple(found for row in rows for found in (*((row,) if isinstance(row, Section) else ()), *_sections_in(row.children if isinstance(row, Container) else ())))
+    return tuple(found for row in rows for found in (*((row,) if isinstance(row, Section) else ()), *sections_in(row.children if isinstance(row, Container) else ())))
 
 
 # --- [FIELDS]
 
 
-def _fields(struct: type[Struct], key: Key, replacements: Mapping[str, Replacement] = MappingProxyType({})) -> tuple[RowContent, ...]:
+def field_rows(struct: type[Struct], key: Key, replacements: Mapping[str, Replacement] = MappingProxyType({})) -> tuple[RowContent, ...]:
     """Rows over the properties a struct class declares, hidden ones left out, and the custom properties block of host data.
 
     Scalars draw as property rows or their replacement, group pointers as a section over the group titled with the name its property registers, the identifier when none is stated,
@@ -300,10 +307,10 @@ def _fields(struct: type[Struct], key: Key, replacements: Mapping[str, Replaceme
             case _ if name in replacements:
                 return (replacements[name](member),)
             case bpy.props.PointerProperty if isinstance(target, type) and issubclass(target, bpy.types.PropertyGroup):
-                return (Section(key=nested, title=Some(title), translation_context=translation, holder=Some(member), rows=_fields(target, nested, replacements)),)
+                return (Section(key=nested, title=Some(title), translation_context=translation, holder=Some(member), rows=field_rows(target, nested, replacements)),)
             case bpy.props.CollectionProperty if isinstance(target, type) and issubclass(target, bpy.types.PropertyGroup):
-                listed = _ItemList(key=nested, collection=member)
-                return (listed, Section(key=f"{nested}_item", title=Some(title), translation_context=translation, holder=Some(listed), rows=_fields(target, f"{nested}_item", replacements)))
+                listed = ItemList(key=nested, collection=member)
+                return (listed, Section(key=f"{nested}_item", title=Some(title), translation_context=translation, holder=Some(listed), rows=field_rows(target, f"{nested}_item", replacements)))
             case _:
                 return (Property(target=member),)
 
@@ -314,7 +321,7 @@ def _fields(struct: type[Struct], key: Key, replacements: Mapping[str, Replaceme
 
 def _customized(struct: type[Struct], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws the holder's custom properties through the host's property block, over the context path that reaches it."""
-    for member in _context_path(holder).to_list():
+    for member in context_path(holder).to_list():
         rna_prop_ui.draw(layout, context, member, struct)
 
 
@@ -323,13 +330,13 @@ def _customized(struct: type[Struct], layout: bpy.types.UILayout, holder: Struct
 
 def _held[P: bpy.types.Property](bound: ResolvedMember[P], holder: Struct, context: bpy.types.Context) -> tuple[Struct, ...]:
     """Struct the bound pointer reaches from the holder, or each item of the bound collection."""
-    for at in bound.at(holder, context).to_list():
-        if isinstance(bound.descriptor.prop, bpy.types.CollectionProperty):
-            items: Iterable[Struct] = getattr(*at)  # ty: ignore[unsound-assignment]
-            return tuple(items)
-        item: Struct | None = getattr(*at)  # ty: ignore[unsound-assignment]
-        return tuple(Option.of_optional(item).to_list())
-    return ()
+    match bound.at(holder, context).bind(lambda at: struct_at(at[0], at[1:])).to_optional():
+        case bpy.types.bpy_prop_collection() as items:
+            return tuple[Struct, ...](items)
+        case None:
+            return ()
+        case item:
+            return (item,)
 
 
 def _host[H: Host](bound: Option[ResolvedMember], owner: type[H], holder: Struct, context: bpy.types.Context) -> Option[H]:
@@ -341,4 +348,4 @@ def _host[H: Host](bound: Option[ResolvedMember], owner: type[H], holder: Struct
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Section"]
+__all__ = ["Container", "Section", "SectionDraws", "field_rows", "sections_in"]

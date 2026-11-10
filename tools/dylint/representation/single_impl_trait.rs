@@ -1,14 +1,15 @@
 use core::{iter, mem};
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, source::snippet, ty::ty_from_hir_ty};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::source::snippet;
+use clippy_utils::ty::ty_from_hir_ty;
 use itertools::Itertools as _;
 use rustc_data_structures::fx::FxIndexMap;
-use rustc_hir::{
-    AmbigArg, Item, ItemKind, Ty, TyKind,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{AmbigArg, Item, ItemKind, Ty, TyKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, AssocKind, AssocTypeData, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, AssocKind, AssocTypeData};
 use rustc_span::Span;
 
 use crate::{expanded_externally, exported};

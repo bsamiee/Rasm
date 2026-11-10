@@ -300,7 +300,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def frame(self) -> tuple[float, npt.NDArray[np.float64]]:
         """Origin and scale from view frame to source coordinates."""
-        return (0.5, np.array(_shares(self.view.aspect))) if self.source.centered else (0.0, np.ones(2))
+        return (0.5, np.array(shares(self.view.aspect))) if self.source.centered else (0.0, np.ones(2))
 
     def to_panorama(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps view positions to source, keeping coverage."""
@@ -345,7 +345,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
 # --- [FRAMES]
 
 
-def _shares(aspect: float) -> tuple[float, float]:
+def shares(aspect: float) -> tuple[float, float]:
     """Returns frame width and height of `aspect` as shares of the greater side."""
     greater = max(aspect, 1.0)
     return aspect / greater, 1.0 / greater
@@ -407,5 +407,6 @@ __all__ = [
     "Stereographic",
     "folded",
     "from_polar",
+    "shares",
     "to_polar",
 ]

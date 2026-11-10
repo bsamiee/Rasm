@@ -1,8 +1,6 @@
 use core::hint::black_box;
-use std::{
-    alloc::System,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::alloc::System;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

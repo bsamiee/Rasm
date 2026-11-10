@@ -5,7 +5,7 @@ import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, glo
 import { major, minor, minSatisfying, validRange } from '@renovatebot/pep440';
 import { Array, Effect, Equivalence, FileSystem, Formatter, flow, Option, Path, Predicate, Record, Schema, SchemaTransformation, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { CHECKERS, CONFIGS, declared, documents, targets } from '#/plugins/targets';
+import { CHECKERS, CONFIGS, declared, documents, PIXI, targets } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -29,9 +29,11 @@ const Declared = Schema.Struct({
         'requires-python': Schema.optionalKey(Schema.String),
         classifiers: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         dynamic: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 });
 const Sourced = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ sources: Schema.Record(Schema.String, Schema.Unknown) }) }) });
+const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
 const Local = Schema.Literals(['editable', 'virtual', 'directory', 'path']);
 const Node = Schema.Struct({
     name: Schema.optionalKey(Schema.String),
@@ -113,13 +115,16 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
         members: members.map((member) => {
             const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], workspaceGroups, Equivalence.Struct({ name: Equivalence.String }));
             const packaged = 'editable' in (resolution[member.id]?.source ?? {});
+            const own = Option.getOrUndefined(floor(member.root));
             return {
                 name: member.name,
                 root: member.root,
                 workspace,
                 packaged,
+                pixi: documented.has(path.join(workspace, PIXI)) || Schema.is(Pixi)(documented.get(path.join(workspace, 'pyproject.toml'))),
+                scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
+                python: Option.getOrUndefined(Option.flatMap(manifest(member.root), (project) => Option.fromUndefinedOr(project['requires-python']))),
                 published: packaged && Option.exists(manifest(member.root), ({ classifiers, dynamic }) => !(dynamic.includes('classifiers') || classifiers.some((classifier) => classifier.startsWith(PRIVATE)))),
-                floor: Option.getOrUndefined(Option.filter(floor(member.root), (own) => !Option.contains(floor(workspace), own))),
                 lock,
                 nested: members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`))),
                 manifests: Array.dedupe([workspace, ...locals])
@@ -132,14 +137,15 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
                         const group = Array.findFirst(groups, ({ id }) => (resolution[id]?.dependencies ?? []).some(provides));
                         const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
                         const grouped = { group: Option.getOrUndefined(group)?.name, projects: Array.dedupe(Array.getSomes(from.map(located)).map(({ name }) => name)).toSorted() };
-                        return Option.map(
-                            Option.filter(declared(path, documented, member.root, key), () =>
-                                closure(member.id)
-                                    .concat(...from.map(closure))
-                                    .some(distributed),
-                            ),
-                            (project) => ({ ...project, ...grouped }),
-                        );
+                        const locked = closure(member.id)
+                            .concat(...from.map(closure))
+                            .some(distributed);
+                        return Option.map(declared(path, documented, member.root, key), (project) => ({
+                            ...project,
+                            ...grouped,
+                            locked,
+                            version: Option.getOrUndefined(floor(locked ? workspace : path.dirname(project.config))) === own ? undefined : own,
+                        }));
                     }),
                 ),
             };
@@ -200,17 +206,18 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: objec
               cache.writeToDisk();
           })
         : Effect.void;
+    const reported = reports.flatMap(({ members }) => members);
     const globbed = yield* Effect.forEach(
-        reports.flatMap(({ members }) => members).flatMap((member) => Object.values(member.checks)),
-        (check) =>
+        reported.flatMap(({ root, checks }) => Object.values(checks).map((check) => [root, check] as const)),
+        ([root, check]) =>
             Effect.map(
                 Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [...check.patterns])),
-                (matched) => [check, Array.isReadonlyArrayNonEmpty(matched)] as const,
+                (matched) => [check, matched.includes(path.join(root, '__init__.py')) ? path.dirname(root) : root, Array.isReadonlyArrayNonEmpty(matched)] as const,
             ),
         { concurrency: 'unbounded' },
     );
     built.set(hashArray([workspaceRoot, hashObject(options)]), reports);
-    return { name, reports, present: new Set(globbed.filter(([, matched]) => matched).map(([check]) => check)) };
+    return { name, reports, roots: new Map(reported.map((member) => [member.root, member])), present: new Map(globbed.filter(([, , matched]) => matched).map(([check, base]) => [check, base])) };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -220,7 +227,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
     flow(
         Effect.fnUntraced(function* (files: readonly string[], options: typeof Options.Encoded | undefined, context: CreateNodesContext) {
             const settings = options ?? {};
-            const [path, { outputPath }, { name, reports, present }] = yield* Effect.all([Path.Path, Schema.decodeEffect(Options)(settings), graph(context.workspaceRoot, settings, files)]).pipe(Effect.mapError((error) => new AggregateCreateNodesError([[null, error]], [])));
+            const [path, { outputPath }, { name, reports, roots, present }] = yield* Effect.all([Path.Path, Schema.decodeEffect(Options)(settings), graph(context.workspaceRoot, settings, files)]).pipe(Effect.mapError((error) => new AggregateCreateNodesError([[null, error]], [])));
             return reports.map(({ lock, members }): CreateNodesResultArray[number] => [
                 lock,
                 {
@@ -229,7 +236,7 @@ const createNodes: CreateNodes<typeof Options.Encoded> = [
                         {
                             ...(member.name === undefined ? {} : { name: member.name }),
                             metadata: { technologies: ['python'] },
-                            targets: { ...targets(path, member, name, 'production' in getNamedInputs(member.root, context) ? '^production' : '^default', present, outputPath) },
+                            targets: { ...targets(path, member, roots, name, 'production' in getNamedInputs(member.root, context) ? '^production' : '^default', present, outputPath) },
                             ...(member.published ? { tags: [RELEASE], release: { version: { versionActions: `${name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } } : {}),
                         },
                     ]),

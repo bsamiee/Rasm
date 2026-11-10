@@ -47,13 +47,14 @@ Preference pages pair each owned addon item with its user item through `find_mat
 
 ```python
 class ItemPreferences(bpy.types.AddonPreferences):
-    bl_idname = __package__  # ty: ignore[invalid-assignment]
+    bl_idname = __name__.rpartition(".")[0]
 
     def draw(self, context: bpy.types.Context) -> None:
-        keyconfigs: bpy.types.KeyConfigurations = context.window_manager.keyconfigs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-        addon: bpy.types.KeyConfig = keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        user: bpy.types.KeyConfig = keyconfigs.user  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        owned = frozenset(getattr(cls, "bl_idname", cls.__name__) for cls in CLASSES)
+        match root_in(bpy.types.WindowManager, context).map(lambda manager: manager.keyconfigs):
+            case Option(tag="some", some=bpy.types.KeyConfigurations(addon=bpy.types.KeyConfig() as addon, user=bpy.types.KeyConfig() as user)):
+                owned = frozenset(getattr(cls, "bl_idname", cls.__name__) for cls in CLASSES)
+            case _:
+                return
         for owner, entry in (
             (user_keymap, user_item)
             for keymap in addon.keymaps
@@ -66,4 +67,4 @@ class ItemPreferences(bpy.types.AddonPreferences):
             rna_keymap_ui.draw_kmi([], user, owner, entry, self.layout, 0)
 ```
 
-`owned` names the registered classes, matching items that call the extension's operators or open its menus and panels through `wm.call_menu`, `wm.call_menu_pie`, and `wm.call_panel`.
+`owned` names the classes `CLASSES` lists, matching items that call the extension's operators or open its menus and panels through `wm.call_menu`, `wm.call_menu_pie`, and `wm.call_panel`. `rasm_bpy.commands.Keymap.drawn` draws the same editors over the items of one `Keymap` row.

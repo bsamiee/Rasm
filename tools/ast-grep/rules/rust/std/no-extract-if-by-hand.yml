@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+rule:
+    kind: let_declaration
+    any:
+        - all:
+            - has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}}, {has: {stopBy: end, kind: call_expression, pattern: $V.iter().filter($P)}}]}
+            - precedes: {kind: expression_statement, has: {kind: call_expression, any: [{pattern: $V.retain($Q)}, {pattern: $V.retain_mut($Q)}]}}
+        - all:
+            - any:
+                - pattern: 'let ($TAKEN, $KEPT): ($TYPE, $_) = $V.drain(..).partition($P);'
+                - pattern: 'let ($TAKEN, $KEPT) = $V.drain(..).partition($P);'
+            - precedes: {kind: expression_statement, has: {kind: assignment_expression, any: [{pattern: '*$V = $KEPT'}, {pattern: '$V = $KEPT'}]}}
+message: '`$V` moves its matching elements out in two passes, a copy or partition then a `retain` or reassignment'
+note: 'Collect `<vec>.extract_if(.., |value| predicate(&*value))`, or `extract_if(<predicate>)` on a `HashMap` or `HashSet`, into the removed collection''s type'

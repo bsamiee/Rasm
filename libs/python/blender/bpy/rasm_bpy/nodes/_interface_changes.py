@@ -1,4 +1,4 @@
-"""Group interface reconciliation: interface change rows that write themselves, and the read of a live interface against a desired one."""
+"""Group interface change rows that write themselves."""
 
 from collections.abc import Mapping
 from functools import partial
@@ -11,18 +11,18 @@ import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._rna.descriptors import _differing, Value, written
-from rasm_bpy.data._rna.paths import _definition, RnaPath
+from rasm_bpy.data._rna.descriptors import Value, written
+from rasm_bpy.data._rna.paths import rna_definition, RnaPath
 from rasm_bpy.data._rna.snapshots import assigned
 from rasm_bpy.nodes._addressing import InterfaceItem, InterfaceKeys, OwnedNodes
-from rasm_bpy.nodes._interfaces import DesiredItem, Interface, InterfacePanel, Socket
-from rasm_bpy.nodes._trees import _base_socket, _interface_of
+from rasm_bpy.nodes._interfaces import DesiredItem, InterfacePanel, Socket
+from rasm_bpy.nodes._trees import base_socket, interface_of
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _Withdrawn(msgspec.Struct, frozen=True, kw_only=True):
+class Withdrawn(msgspec.Struct, frozen=True, kw_only=True):
     """Stored item interface drops or redeclares."""
 
     key: Key
@@ -32,7 +32,7 @@ class _Withdrawn(msgspec.Struct, frozen=True, kw_only=True):
         live = InterfaceKeys.of(keyed.interface.tree, identity)
 
         def withdrawn(held: bpy.types.NodeTreeInterfaceItem) -> None:
-            interface = _interface_of(live.tree)
+            interface = interface_of(live.tree)
             for toggle in live.toggle(held).to_list():
                 interface.remove(toggle)
             interface.remove(held)
@@ -41,7 +41,7 @@ class _Withdrawn(msgspec.Struct, frozen=True, kw_only=True):
         return live.item(self.key, bpy.types.NodeTreeInterfaceItem).map(withdrawn)
 
 
-class _Declared(msgspec.Struct, frozen=True, kw_only=True):
+class Declared(msgspec.Struct, frozen=True, kw_only=True):
     """Interface item to create."""
 
     key: Key
@@ -52,12 +52,12 @@ class _Declared(msgspec.Struct, frozen=True, kw_only=True):
         live = InterfaceKeys.of(keyed.interface.tree, identity)
 
         def created() -> Outcome[InterfaceItem]:
-            interface = _interface_of(live.tree)
+            interface = interface_of(live.tree)
             refused = partial(Fault.of, Refusal.REFUSED, repr(interface))
 
             def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
                 return (
-                    catch(interface.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=_definition(bpy.types.NodeSocketBool).identifier, parent=panel)
+                    catch(interface.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=rna_definition(bpy.types.NodeSocketBool).identifier, parent=panel)
                     .map_error(refused)
                     .bind(lambda socket: accumulated((written(socket, ("is_panel_toggle",), value=True), written(socket, ("default_value",), value))).map(lambda _: None))
                 )
@@ -65,7 +65,7 @@ class _Declared(msgspec.Struct, frozen=True, kw_only=True):
             match self.entry:
                 case (Socket() as socket, side):
                     return catch(interface.new_socket, exception=TypeError)(
-                        socket.title, description=socket.declared.description, in_out=side, socket_type=_definition(socket.base).identifier
+                        socket.title, description=socket.declared.description, in_out=side, socket_type=rna_definition(socket.base).identifier
                     ).map_error(refused)
                 case InterfacePanel(description=description, closed=closed, toggle=toggle) as panel:
                     return (
@@ -77,7 +77,7 @@ class _Declared(msgspec.Struct, frozen=True, kw_only=True):
         return created().map(lambda declared: live.store({**live.stored, self.key: declared.identifier}))
 
 
-class _Placed(msgspec.Struct, frozen=True, kw_only=True):
+class Placed(msgspec.Struct, frozen=True, kw_only=True):
     """Socket type to write and place to move an item to, ahead of node writes reading the sockets they give."""
 
     key: Key
@@ -89,8 +89,8 @@ class _Placed(msgspec.Struct, frozen=True, kw_only=True):
 
         def moved(live: InterfaceKeys, parent: Option[Key], position: int) -> Outcome[None]:
             return paired(live.item(self.key, bpy.types.NodeTreeInterfaceItem), parent.map(lambda key: live.item(key, bpy.types.NodeTreeInterfacePanel).map(Some)).default_value(Ok(Nothing))).bind(
-                lambda pair: catch(_interface_of(live.tree).move_to_parent, exception=TypeError)(pair[0], pair[1].to_optional(), position).map_error(
-                    partial(Fault.of, Refusal.REFUSED, repr(_interface_of(live.tree)))
+                lambda pair: catch(interface_of(live.tree).move_to_parent, exception=TypeError)(pair[0], pair[1].to_optional(), position).map_error(
+                    partial(Fault.of, Refusal.REFUSED, repr(interface_of(live.tree)))
                 )
             )
 
@@ -99,13 +99,13 @@ class _Placed(msgspec.Struct, frozen=True, kw_only=True):
                 InterfaceKeys
                 .of(keyed.interface.tree, identity)
                 .item(self.key, bpy.types.NodeTreeInterfaceItem)
-                .bind(lambda held: written(held, ("socket_type",), _definition(_base_socket(kind)).identifier))
+                .bind(lambda held: written(held, ("socket_type",), rna_definition(base_socket(kind)).identifier))
             )
         )
         return retyped.default_value(Ok(None)).bind(lambda _: self.place.map(lambda place: moved(InterfaceKeys.of(keyed.interface.tree, identity), *place)).default_value(Ok(None)))
 
 
-class _Restated(msgspec.Struct, frozen=True, kw_only=True):
+class Restated(msgspec.Struct, frozen=True, kw_only=True):
     """Item parts to write once sockets hold their values."""
 
     key: Key
@@ -131,79 +131,6 @@ class _Restated(msgspec.Struct, frozen=True, kw_only=True):
         return live.item(self.key, bpy.types.NodeTreeInterfaceItem).bind(rest)
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _interfaced(addressed: InterfaceKeys, interface: Interface, /) -> tuple[tuple[_Withdrawn, ...], tuple[_Declared, ...], tuple[_Placed, ...], tuple[_Restated, ...]]:
-    """Reads live interface against desired one, writing nothing.
-
-    Args:
-        addressed: Stored item keys and live items of the group.
-        interface: Interface group declares.
-
-    Returns:
-        Items to withdraw last first, items to declare, retypes and places deepest first, and differing parts per item.
-    """
-    entries = tuple(interface.walked())
-    inverse = addressed.keys
-    held = addressed.kept(interface)
-    wanted = frozenset(key for key, *_ in entries)
-    fresh = wanted - held.keys()
-    located = {key: (Option.of_optional(item.parent).bind(lambda panel: Option.of_optional(inverse.get(panel.identifier))), item.position) for key, item in held.items()}
-    shifted = frozenset(parent for key, _, parent, position in entries if key in fresh or located.get(key) != (parent, position) or any(frame in fresh for frame in parent.to_list()))
-
-    def changed[T](now: T, wanted: T) -> Option[T]:
-        return Nothing if now == wanted else Some(wanted)
-
-    def kind(key: Key, entry: DesiredItem) -> Option[type[bpy.types.NodeSocket]]:
-        match entry, held.get(key):
-            case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
-                return changed(item.socket_type, _definition(socket.base).identifier).map(lambda _: socket.refined)
-            case _:
-                return Nothing
-
-    def restated(key: Key, entry: DesiredItem) -> Option[_Restated]:
-        match entry, held.get(key):
-            case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
-                row = _Restated(
-                    key=key,
-                    name=changed(item.name, socket.title),
-                    description=changed(item.description, socket.declared.description),
-                    members=kind(key, entry).map(lambda _: socket.members).default_with(lambda: _differing(item, socket.members)),
-                )
-            case InterfacePanel() as panel, bpy.types.NodeTreeInterfacePanel() as item:
-                row = _Restated(
-                    key=key,
-                    name=changed(item.name, panel.title),
-                    description=changed(item.description, panel.description),
-                    closed=changed(item.default_closed, panel.closed),
-                    toggle=panel.toggle.filter(lambda value: all(_differing(toggle, {("default_value",): value}) for toggle in addressed.toggle(item).to_list())),
-                )
-            case (Socket() as socket, _), _:
-                row = _Restated(key=key, members=socket.members)
-            case _:
-                row = _Restated(key=key)
-        return Some(row).filter(lambda differs: differs != _Restated(key=key))
-
-    depths: dict[Key, int] = {}
-    for key, _, parent, _ in entries:
-        depths[key] = parent.map(lambda panel: depths[panel] + 1).default_value(0)
-    placed = sorted(
-        (
-            row
-            for key, entry, parent, position in entries
-            for row in Some(_Placed(key=key, kind=kind(key, entry), place=Some((parent, position)) if parent in shifted else Nothing)).filter(lambda row: row != _Placed(key=row.key)).to_list()
-        ),
-        key=lambda row: -depths[row.key],
-    )
-    return (
-        tuple(_Withdrawn(key=key) for identifier in reversed(tuple(addressed.live)) for key in Option.of_optional(inverse.get(identifier)).to_list() if key not in wanted or key in fresh),
-        tuple(_Declared(key=key, entry=entry) for key, entry, _, _ in entries if key in fresh),
-        tuple(placed),
-        tuple(row for key, entry, _, _ in entries for row in restated(key, entry).to_list()),
-    )
-
-
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["Declared", "Placed", "Restated", "Withdrawn"]

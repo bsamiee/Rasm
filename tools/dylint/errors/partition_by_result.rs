@@ -1,10 +1,13 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then, fn_def_id, is_lang_item_or_ctor, paths::PathNS, peel_blocks, peel_hir_expr_while, peel_hir_pat_refs, res::MaybeResPath as _, ty::get_iterator_item_ty,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeResPath as _;
+use clippy_utils::ty::get_iterator_item_ty;
+use clippy_utils::{fn_def_id, is_lang_item_or_ctor, peel_blocks, peel_hir_expr_while, peel_hir_pat_refs};
 use rustc_ast::LitKind;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_hir::{Arm, Expr, ExprKind, HirId, MatchSource, Pat, PatKind, UnOp, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Arm, Expr, ExprKind, HirId, MatchSource, Pat, PatKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{TyCtxt, TypeckResults};
 

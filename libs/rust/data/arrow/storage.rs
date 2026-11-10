@@ -1,33 +1,30 @@
-use core::{borrow::Borrow, iter, ops::Bound};
-use std::{
-    collections::{BTreeSet, HashSet},
-    sync::Arc,
-};
+use core::borrow::Borrow;
+use core::iter;
+use core::ops::Bound;
+use std::collections::{BTreeSet, HashSet};
+use std::sync::Arc;
 
-use arrow::{
-    array::{AsArray as _, BooleanArray},
-    compute::cast,
-    datatypes::Schema,
-    record_batch::RecordBatch,
-};
+use arrow::array::{AsArray as _, BooleanArray};
+use arrow::compute::cast;
+use arrow::datatypes::Schema;
+use arrow::record_batch::RecordBatch;
 use arrow_schema::extension::Uuid;
-use futures::{Stream, StreamExt as _, TryStream, TryStreamExt as _, future::OptionFuture, stream};
+use futures::future::OptionFuture;
+use futures::{Stream, StreamExt as _, TryStream, TryStreamExt as _, stream};
 use itertools::Itertools as _;
 use newtype_uuid::{TypedUuid, TypedUuidKind};
-use parquet::{
-    arrow::{
-        ArrowSchemaConverter, AsyncArrowWriter, ParquetRecordBatchStreamBuilder, ProjectionMask,
-        arrow_reader::{ArrowPredicate, ArrowPredicateFn, RowFilter, RowSelection, RowSelector, statistics::StatisticsConverter},
-        async_reader::AsyncFileReader,
-        async_writer::AsyncFileWriter,
-        parquet_column,
-    },
-    basic::{LogicalType, SortOrder},
-    bloom_filter::Sbbf,
-    errors::ParquetError,
-    file::{metadata::ParquetMetaData, properties::WriterProperties},
-};
-use serde::{Serialize, de::DeserializeOwned};
+use parquet::arrow::arrow_reader::statistics::StatisticsConverter;
+use parquet::arrow::arrow_reader::{ArrowPredicate, ArrowPredicateFn, RowFilter, RowSelection, RowSelector};
+use parquet::arrow::async_reader::AsyncFileReader;
+use parquet::arrow::async_writer::AsyncFileWriter;
+use parquet::arrow::{ArrowSchemaConverter, AsyncArrowWriter, ParquetRecordBatchStreamBuilder, ProjectionMask, parquet_column};
+use parquet::basic::{LogicalType, SortOrder};
+use parquet::bloom_filter::Sbbf;
+use parquet::errors::ParquetError;
+use parquet::file::metadata::ParquetMetaData;
+use parquet::file::properties::WriterProperties;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_arrow::ArrayBuilder;
 
 use crate::{Record, TablesError, rows};

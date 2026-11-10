@@ -6,12 +6,24 @@
         "BASH_DEFAULT_TIMEOUT_MS": "300000"
     },
     "permissions": {
-        "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli", "mcp__binlog__stop", "mcp__binlog__stop_instance" ]
+        "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli", "mcp__binlog__stop", "mcp__binlog__stop_instance", "mcp__roslyn-codelens__load_solution", "mcp__roslyn-codelens__unload_solution", "mcp__roslyn-codelens__set_active_solution" ]
     },
     "enableAllProjectMcpServers": true,
     "disabledMcpjsonServers": [ "greptile", "arena" ],
     "worktree": {
         "bgIsolation": "none"
+    },
+    "enabledPlugins": {
+        "function-hooks@rasm": true
+    },
+    "extraKnownMarketplaces": {
+        "rasm": {
+            "source": {
+                "source": "directory",
+                "path": "./plugins"
+            },
+            "autoUpdate": true
+        }
     },
     "effortLevel": "high",
     "showClearContextOnPlanAccept": true,

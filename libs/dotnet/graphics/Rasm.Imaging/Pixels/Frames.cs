@@ -59,8 +59,6 @@ public sealed partial class WrapMode {
     internal BorderType Border { get; }
     internal Func<double, int, double, (double Point, double Weight)> Fold { get; }
 
-    internal bool Tiles => Border is BorderType.Wrap or BorderType.Reflect;
-
     internal Option<int> Stored(double index, int origin, int stored, int extent) =>
         Window(origin, stored, extent) switch {
             var (start, size) => Fold(index - start, size, 0.5d) switch {

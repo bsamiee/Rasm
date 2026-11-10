@@ -45,7 +45,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
         let (ends, end) = AsyncStream<Failure>.makeStream()
         let id = UUID()
         end.onTermination = { [weak self] _ in self?.state.withLock { state in state.endings[id] = nil } }
-        let terminal: Failure? = state.withLock { state in
+        let terminal = state.withLock { state in
             if state.terminal == nil { state.endings[id] = end }
             return state.terminal
         }
@@ -64,16 +64,16 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
         let id: JSONValue = .string(UUID().uuidString)
         let (replies, reply) = AsyncStream<Result<Envelope<JSONValue, JSONRPCError>, Failure>>.makeStream()
         try state.withLock { state throws(Failure) in
-            if let terminal: Failure = state.terminal { throw terminal }
+            if let terminal = state.terminal { throw terminal }
             state.calls[id] = reply
         }
         defer { state.withLock { state in state.calls[id] = nil } }
         try await send(Envelope<_, Never>(id: id, method: subject, params: params), subject: subject)
-        let answer: Envelope<JSONValue, JSONRPCError> = try await withTimeout(timeout, expired: failure(JSONRPCFailure(subject: subject, reason: .timedOut(timeout)))) {
+        let answer = try await withTimeout(timeout, expired: failure(JSONRPCFailure(subject: subject, reason: .timedOut(timeout)))) {
             () async throws(Failure) in
             try await (replies.first { _ in true } ?? .failure(failure(JSONRPCFailure(subject: subject, reason: .cancelled(CancellationError()))))).get()
         }
-        if let error: JSONRPCError = answer.error { throw failure(JSONRPCFailure(subject: subject, reason: .refused(error))) }
+        if let error = answer.error { throw failure(JSONRPCFailure(subject: subject, reason: .refused(error))) }
         return try Result { try (answer.result ?? .null).decode(Value.self) }.mapError { error in failure(JSONRPCFailure(subject: subject, reason: .unreadable(error))) }.get()
     }
 
@@ -100,7 +100,7 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
             }
         }
         value.onTermination = { [weak self] _ in self?.state.withLock { state in state.listeners[method]?[id] = nil } }
-        let terminal: Failure? = state.withLock { state in
+        let terminal = state.withLock { state in
             if state.terminal == nil { state.listeners[method, default: [:]][id] = listener }
             return state.terminal
         }
@@ -112,10 +112,10 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
 
     private func read(_ lines: sending some AsyncSequence<Data, any Error>, serving: @escaping @Sendable (_ method: String, _ params: JSONValue?) async throws(JSONRPCError) -> JSONValue) async {
         let decoder = JSONDecoder()
-        let ending: JSONRPCFailure = await withDiscardingTaskGroup { group in
+        let ending = await withDiscardingTaskGroup { group in
             defer { group.cancelAll() }
             do {
-                for try await request: (id: JSONValue, method: String, params: JSONValue?) in lines.map({ line in try decoder.decode(Envelope<JSONValue, JSONRPCError>.self, from: line) }).compactMap(receive) {
+                for try await request in lines.map({ line in try decoder.decode(Envelope<JSONValue, JSONRPCError>.self, from: line) }).compactMap(receive) {
                     group.addTask { await self.answer(request, serving: serving) }
                 }
                 return JSONRPCFailure(subject: "connection", reason: .closed)
@@ -133,11 +133,10 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
             case (.some(let id), .some(let method)): return isFinished ? nil : (id, method, envelope.params)
             case (.some(let id), .none): state.withLock { state in state.calls.removeValue(forKey: id) }?.yield(.success(envelope))
             case (.none, .some(let name)):
-                let listeners: [@Sendable (Result<JSONValue, Failure>) -> Void] =
-                    Method(rawValue: name).map { method in state.withLock { state in Array((state.listeners[method] ?? [:]).values) } } ?? []
-                for listener: @Sendable (Result<JSONValue, Failure>) -> Void in listeners { listener(.success(envelope.params ?? .null)) }
+                let listeners = Method(rawValue: name).map { method in state.withLock { state in Array((state.listeners[method] ?? [:]).values) } } ?? []
+                for listener in listeners { listener(.success(envelope.params ?? .null)) }
             case (.none, .none):
-                if let error: JSONRPCError = envelope.error { finish(failure(JSONRPCFailure(subject: "connection", reason: .refused(error)))) }
+                if let error = envelope.error { finish(failure(JSONRPCFailure(subject: "connection", reason: .refused(error)))) }
         }
         return nil
     }
@@ -155,8 +154,8 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
     }
 
     private func send(_ envelope: Envelope<some Encodable & Sendable, some Encodable & Sendable>, subject: String) async throws(Failure) {
-        if let terminal: Failure = state.withLock({ state in state.terminal }) { throw terminal }
-        let line: Data = try Result { try JSONEncoder().encodeLine(envelope) }.mapError { error in failure(JSONRPCFailure(subject: subject, reason: .unencodable(error))) }.get()
+        if let terminal = state.withLock({ state in state.terminal }) { throw terminal }
+        let line = try Result { try JSONEncoder().encodeLine(envelope) }.mapError { error in failure(JSONRPCFailure(subject: subject, reason: .unencodable(error))) }.get()
         try await Result { try await write(line) }.mapError { error in failure(JSONRPCFailure(subject: subject, transport: error)) }.get()
     }
 
@@ -167,8 +166,8 @@ public final class JSONRPCConnection<Method: RawRepresentable<String> & Hashable
             return state
         }
         guard let taken else { return }
-        for reply: AsyncStream<Result<Envelope<JSONValue, JSONRPCError>, Failure>>.Continuation in taken.calls.values { reply.yield(.failure(ending)) }
-        for listener: @Sendable (Result<JSONValue, Failure>) -> Void in taken.listeners.values.flatMap(\.values) { listener(.failure(ending)) }
-        for end: AsyncStream<Failure>.Continuation in taken.endings.values { end.yield(ending) }
+        for reply in taken.calls.values { reply.yield(.failure(ending)) }
+        for listener in taken.listeners.values.flatMap(\.values) { listener(.failure(ending)) }
+        for end in taken.endings.values { end.yield(ending) }
     }
 }

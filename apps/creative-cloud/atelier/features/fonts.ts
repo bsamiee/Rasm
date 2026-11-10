@@ -4,8 +4,7 @@ import { Settings, type Source } from '@rasm/typography';
 import { Face, Justification, ShapedText } from '@rasm/typography/shaping';
 import { Effect, FileSystem, Option, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
-import { Adobe } from '#/adobe';
-import { AvailableFace } from '#/available-face';
+import { Adobe, AvailableFace } from '#/adobe';
 import type { listening } from '#/libraries';
 import type { routes } from '#/routes';
 
@@ -25,7 +24,7 @@ const FontRequest = Face.Instance.pipe(
         settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 );
-const FontResult = Schema.Union([AvailableFace.mapFields(Struct.assign({ specimen: Specimen })), Inspect.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) }))]);
+const FontResult = Schema.Union([AvailableFace.mapFields(Struct.assign({ specimen: Specimen })), Inspect.View.cases.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) }))]);
 const Faces = Schema.Array(AvailableFace);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

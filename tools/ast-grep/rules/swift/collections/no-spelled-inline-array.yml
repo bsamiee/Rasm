@@ -4,7 +4,8 @@ severity: error
 utils:
     spelled:
         kind: user_type
-        pattern: {context: 'var v: Swift.InlineArray<$_, $_>', selector: user_type}
+        regex: '^(Swift(\.|::))?InlineArray<'
+        has: {kind: type_arguments}
 rule:
     matches: spelled
     pattern: $SPELLED

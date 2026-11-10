@@ -1,25 +1,22 @@
 use core::iter;
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use color::OpaqueColor;
 use image::DynamicImage;
 use kurbo::{Affine, BezPath, Cap, Join, Point, Rect, Shape as _, Size};
 use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NonEmptyIterator as _};
-use pdf_oxide::{
-    PdfDocument,
-    elements::{LineCap, LineJoin, PathContent, PathOperation},
-    geometry, layout,
-    ocr::{OcrEngine, OcrOutput, OcrSpan},
-};
-use rasm_drawing::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width, pages::Layer};
+use pdf_oxide::elements::{LineCap, LineJoin, PathContent, PathOperation};
+use pdf_oxide::ocr::{OcrEngine, OcrOutput, OcrSpan};
+use pdf_oxide::{PdfDocument, geometry, layout};
+use rasm_drawing::pages::Layer;
+use rasm_drawing::{Color, Element, LineworkError, MiterLimit, MiterLimitError, Path, Pen, Region, Tolerance, Visibility, Width};
 use validated::Validated;
 
-use crate::{
-    Document, PdfError, Subject,
-    layers::{self, Group},
-    proofs::{self, Raster},
-};
+use crate::layers::{self, Group};
+use crate::proofs::{self, Raster};
+use crate::{Document, PdfError, Subject};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

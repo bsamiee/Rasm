@@ -3,7 +3,11 @@ language: rustlang
 severity: error
 utils:
     control-exit:
-        any: [{matches: rust-diverging}, {kind: 'try_expression, await_expression'}]
+        any:
+            - matches: rust-diverging
+            - kind: 'try_expression, await_expression'
+            - kind: call_expression
+              has: {field: function, kind: field_expression, has: {field: field, matches: rust-mutating-method}}
     closure-safe:
         not: {any: [{matches: control-exit}, {has: {stopBy: end, matches: control-exit}}]}
     skip-value:

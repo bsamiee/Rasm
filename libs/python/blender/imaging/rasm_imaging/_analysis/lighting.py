@@ -23,8 +23,6 @@ from rasm_records import AtLeastOne, Count, Frozen, NonNegative, Nothing, Outcom
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Band = tuple[float, float]
-
 
 class LightingMood(Enum):
     """Lighting class from mean luminance, contrast, and split."""
@@ -74,14 +72,14 @@ class LightingReading(Frozen, frozen=True, kw_only=True, eq=False):
 class Lighting(msgspec.Struct, frozen=True, kw_only=True):
     """Lighting estimator settings over sorted-luminance bands, spatial cues, palette clusters, backlight ratios, and mood thresholds."""
 
-    key_band: ClassVar[_Band] = (0.85, 1.0)
-    fill_band: ClassVar[_Band] = (0.35, 0.60)
-    ambient_band: ClassVar[_Band] = (0.0, 0.15)
-    shadow_band: ClassVar[_Band] = (0.0, 0.22)
-    highlight_band: ClassVar[_Band] = (0.78, 1.0)
-    weighted_band: ClassVar[_Band] = (0.55, 1.0)
-    range_percentiles: ClassVar[_Band] = (5.0, 95.0)
-    variation_percentiles: ClassVar[_Band] = (10.0, 90.0)
+    key_band: ClassVar[tuple[float, float]] = (0.85, 1.0)
+    fill_band: ClassVar[tuple[float, float]] = (0.35, 0.60)
+    ambient_band: ClassVar[tuple[float, float]] = (0.0, 0.15)
+    shadow_band: ClassVar[tuple[float, float]] = (0.0, 0.22)
+    highlight_band: ClassVar[tuple[float, float]] = (0.78, 1.0)
+    weighted_band: ClassVar[tuple[float, float]] = (0.55, 1.0)
+    range_percentiles: ClassVar[tuple[float, float]] = (5.0, 95.0)
+    variation_percentiles: ClassVar[tuple[float, float]] = (10.0, 90.0)
     shadow_gain: ClassVar[float] = 1.25
     cue_weights: ClassVar[tuple[float, float, float, float]] = (0.42, 0.28, 0.18, 0.12)
     grid: Count = 256
@@ -139,7 +137,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
             coordinates = 2.0 * points - 1.0
             ordered = np.argsort(found, stable=True)
 
-            def band(share: _Band) -> npt.NDArray[np.intp]:
+            def band(share: tuple[float, float]) -> npt.NDArray[np.intp]:
                 start = math.floor(found.size * share[0])
                 return ordered[start : max(math.ceil(found.size * share[1]), start + 1)]
 

@@ -11,6 +11,7 @@ import bpy
 from expression import Option
 import msgspec
 
+from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.nodes._desired import MenuItem, MenuItems
 from rasm_bpy.nodes._graphs import equal, Expr, math, menus, mixed, Scalar, switched, vector, where, xyz
 from rasm_bpy.nodes._interfaces import Interface, Socket
@@ -39,7 +40,7 @@ class Join(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_WAVE_PROFILE: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexWave.bl_rna.properties["wave_profile"]  # ty: ignore[invalid-assignment]
+_WAVE_PROFILE: Final = Descriptor.of(bpy.types.ShaderNodeTexWave, ("wave_profile",), bpy.types.EnumProperty).prop
 _PROFILE: Final = Socket(
     key="profile",
     kind=bpy.types.NodeSocketMenu,
@@ -150,21 +151,8 @@ def cross(point: Expr, length: Expr, thickness: Expr, aspect: Expr, roundness: E
     return Bounded(distance=math("MINIMUM", across.distance, up.distance), width=math("MAXIMUM", across.width, up.width))
 
 
-def _polygonal(point: Expr, vertices: tuple[Expr, *tuple[Expr, ...]], rounding: Scalar) -> Expr:
-    """Rounded boundary distance of an ordered polygon, inside by even-odd edge crossings."""
-    edges = tuple(zip(vertices, (*vertices[1:], vertices[0])))
-
-    def crossing(start: Expr, end: Expr) -> Expr:
-        straddled = abs((start["Y"] > point["Y"]) - (end["Y"] > point["Y"]))
-        return straddled * (point["X"] < math("MULTIPLY_ADD", (point["Y"] - start["Y"]) / (end["Y"] - start["Y"]), end["X"] - start["X"], start["X"]))
-
-    nearest = reduce(lambda held, distance: math("MINIMUM", held, distance), (stroke(point, start, end, 0.0, 0.0).distance for start, end in edges))
-    first, *rest = starmap(crossing, edges)
-    return where(sum(rest, first) % 2.0, -nearest, nearest) - rounding
-
-
 def triangle(point: Expr, a: Expr, b: Expr, c: Expr, roundness: Expr) -> Bounded:
-    """Triangle of three vertices rounded toward its incenter by a share of the incircle radius."""
+    """Triangle of three vertices rounded toward its incenter by a share of the incircle radius, inside by even-odd edge crossings."""
     corners = (a, b, c)
     lengths = tuple(vector("DISTANCE", corners[(index + 1) % 3], corners[(index + 2) % 3]) for index in range(3))
     doubled_area = vector("LENGTH", vector("CROSS_PRODUCT", b - a, c - a))
@@ -173,8 +161,16 @@ def triangle(point: Expr, a: Expr, b: Expr, c: Expr, roundness: Expr) -> Bounded
     center = sum(weighted[1:], weighted[0]) / perimeter
     share = switched(doubled_area > 0.0, 0.0, roundness)
     incircle = doubled_area / perimeter
-    first, second, third = (mixed(share, corner, center) for corner in corners)
-    return Bounded(distance=_polygonal(point, (first, second, third), incircle * roundness), width=incircle * 2.0)
+    vertices = tuple(mixed(share, corner, center) for corner in corners)
+    edges = tuple(zip(vertices, (*vertices[1:], vertices[0])))
+
+    def crossing(start: Expr, end: Expr) -> Expr:
+        straddled = abs((start["Y"] > point["Y"]) - (end["Y"] > point["Y"]))
+        return straddled * (point["X"] < math("MULTIPLY_ADD", (point["Y"] - start["Y"]) / (end["Y"] - start["Y"]), end["X"] - start["X"], start["X"]))
+
+    nearest = reduce(lambda held, distance: math("MINIMUM", held, distance), (stroke(point, start, end, 0.0, 0.0).distance for start, end in edges))
+    first, *rest = starmap(crossing, edges)
+    return Bounded(distance=where(sum(rest, first) % 2.0, -nearest, nearest) - incircle * roundness, width=incircle * 2.0)
 
 
 def polygon(point: Expr, radius: Expr, sides: Scalar, inset: Expr, roundness: Expr) -> Bounded:

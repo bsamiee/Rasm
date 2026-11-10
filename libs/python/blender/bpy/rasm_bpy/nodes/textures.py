@@ -11,9 +11,10 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from rasm_bpy.data._rna.descriptors import Descriptor
+from rasm_bpy.data._rna.descriptors import Descriptor, Value
+from rasm_bpy.data._rna.paths import RnaPath
 from rasm_bpy.nodes._desired import Members
-from rasm_bpy.nodes._graphs import Expr, Scalar, SocketType, Term, xyz
+from rasm_bpy.nodes._graphs import Expr, Scalar, Term, xyz
 from rasm_bpy.nodes._interfaces import Socket, StockInput
 from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
 
@@ -35,7 +36,7 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
     def members(self) -> Members:
         """Values of the fields the node's RNA declares, by member name."""
         rna = self.kind.bl_rna.properties
-        return {field: getattr(self, field) for field in self.__struct_fields__ if field in rna}  # ty: ignore[unsound-return-statement]
+        return dict[str | RnaPath, Value]((field, getattr(self, field)) for field in self.__struct_fields__ if field in rna)
 
     @property
     def inputs(self) -> dict[str, str]:
@@ -48,7 +49,7 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
         """Group sockets of every input field at its value by field name, each declared as the stock node declares its input."""
         return tuple(Socket(key=field, kind=StockInput(node=self.kind, input=identifier), default_value=getattr(self, field)) for field, identifier in self.inputs.items())
 
-    def node(self, *operands: Term, socket: str | int = 0, socket_type: SocketType = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+    def node(self, *operands: Term, socket: str | int = 0, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
         """Builds the node over its coordinate sockets and every field, the reconciler leaving sockets the members disable unlinked.
 
         Args:
@@ -60,10 +61,9 @@ class NodeSettings(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Output expression.
         """
-        read: Callable[[MemberDescriptorType, Term], Term]
         match linked.to_optional():
             case Mapping() as values:
-                read = values.get  # ty: ignore[unsound-assignment]
+                read = values.get
             case None:
                 read = lambda _member, value: value
             case reader:
@@ -213,7 +213,7 @@ def dimensions(texture: Texture, /) -> int:
             return 3
 
 
-def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | int = 0, socket_type: SocketType = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
+def evolving(texture: Texture, point: Expr, time: Scalar, /, *, socket: str | int = 0, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, linked: Option[Linked] = Nothing) -> Expr:
     """Builds a texture node at a point evolving over time by its dimensions: one reading the point's X as W, three taking time as Z, four as W, and two staying still.
 
     Args:

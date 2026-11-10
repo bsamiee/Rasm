@@ -43,14 +43,14 @@ public struct FileEvent: Sendable {
         }
 
         func start(_ file: URL) {
-            var context: FSEventStreamContext = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
-            let flags: Int = kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
+            var context = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
+            let flags = kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
             func unwatched() {
                 continuation.yield(.failure(FileFailure(file: file, reason: .unwatched)))
                 continuation.finish()
             }
             guard
-                let created: FSEventStreamRef = unsafe FSEventStreamCreate(
+                let created = unsafe FSEventStreamCreate(
                     nil,
                     Self.changed,
                     &context,
@@ -74,7 +74,7 @@ public struct FileEvent: Sendable {
         }
 
         func stop() {
-            if let stream: FSEventStreamRef = unsafe stream {
+            if let stream = unsafe stream {
                 unsafe FSEventStreamStop(stream)
                 unsafe Self.invalidate(stream)
             }
@@ -89,8 +89,8 @@ public struct FileEvent: Sendable {
         // --- [CALLBACKS]
 
         private static let changed: FSEventStreamCallback = { _, info, count, eventPaths, eventFlags, _ in
-            guard let info: UnsafeMutableRawPointer = unsafe info else { return }
-            let reported: AnyObject = unsafe Unmanaged<AnyObject>.fromOpaque(eventPaths).takeUnretainedValue()
+            guard let info = unsafe info else { return }
+            let reported = unsafe Unmanaged<AnyObject>.fromOpaque(eventPaths).takeUnretainedValue()
             guard let paths = reported as? [String] else { return }
             unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue().continuation.yield(
                 .success(zip(paths, unsafe UnsafeBufferPointer(start: eventFlags, count: count)).map { path, flags in FileEvent(url: URL(filePath: path), flags: flags) })

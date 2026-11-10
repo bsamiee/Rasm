@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: mapperly-mapper-class
-language: csharplang
-rule:
-    kind: class_declaration
-    matches: {csharp-attributed: {name: {regex: '^Mapper(Attribute)?$'}}}

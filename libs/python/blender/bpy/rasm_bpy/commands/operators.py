@@ -10,29 +10,27 @@ from pathlib import Path
 from types import FunctionType, MappingProxyType, MethodType
 from typing import ClassVar, override, Protocol, Self, TYPE_CHECKING, TypedDict, Unpack
 
-import _bpy_types  # ruff: ignore[import-private-name]
 import bpy
 from expression import Option, Result, Some, try_downcast
-from expression.extra.result import catch
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _acquired, _Tier, Acquisitions, Declaration
-from rasm_bpy.data._extension.reports import _rendered, Refusal
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, Declaration, Tier
+from rasm_bpy.data._extension.reports import Refusal, rendered
 from rasm_bpy.data._rna.conditions import Condition, polled
 from rasm_bpy.data._rna.descriptors import Scalar, Value
-from rasm_bpy.data._rna.paths import _definition, _rna, RnaPath, Struct
-from rasm_bpy.data._rna.properties import _nested, _rebound, annotated, Callbacks
+from rasm_bpy.data._rna.paths import rna, rna_definition, RnaPath, Struct
+from rasm_bpy.data._rna.properties import annotated, Callbacks, nested, rebound
 from rasm_bpy.data._rna.snapshots import Applied, assigned
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
+    import _bpy_types
     from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Returns = set[rna_enums.OperatorReturnItems]
-type Operation = Callable[..., Returns]  # type: ignore[explicit-any]
+type Operation = Callable[[rna_enums.OperatorContextItems, bool], set[rna_enums.OperatorReturnItems]]
 type Setting = Scalar | tuple[Scalar, ...]
 type Pairs = tuple[tuple[str, Setting], ...]
 type Draw[T] = Callable[[bpy.types.UILayout, bpy.types.Context, T, Identity], None]
@@ -51,7 +49,7 @@ class PopupKind(Enum):
     def __init__(self, base: type[Struct], operator: Operation, button: str | None) -> None:
         """Holds the host base, the call operator, and the `UILayout` function the button draws through."""
         self.base, self.operator = base, operator
-        self.button: Option[bpy.types.Function] = Option.of_optional(button).map(_definition(bpy.types.UILayout).functions.__getitem__)
+        self.button: Option[bpy.types.Function] = Option.of_optional(button).map(rna_definition(bpy.types.UILayout).functions.__getitem__)
 
 
 class Invoke[T: bpy.types.PropertyGroup](Protocol):
@@ -106,7 +104,7 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
     @override
     def __eq__(self, other: object) -> bool:
         """Whether other is a command of the same kind under the same key."""
-        return type(other) is type(self) and isinstance(other, Command) and other.key == self.key
+        return type(other) is type(self) and other.key == self.key
 
     @override
     def __hash__(self) -> int:
@@ -158,7 +156,7 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
 class PopupTarget(msgspec.Struct, frozen=True):
     """Registered menu, panel, or asset shelf by class or extension key, opened as its kind, a class an extension or the stock interface declares."""
 
-    target: type[bpy.types.Menu | bpy.types.Panel | bpy.types.AssetShelf | _bpy_types.Menu | _bpy_types.Panel | _bpy_types.AssetShelf] | Key
+    target: "type[bpy.types.Menu | bpy.types.Panel | bpy.types.AssetShelf | _bpy_types.Menu | _bpy_types.Panel | _bpy_types.AssetShelf] | Key"
     kind: PopupKind
 
 
@@ -171,12 +169,12 @@ class Placement(msgspec.Struct, frozen=True):
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Declarations the placed operator registers."""
-        return _acquired((self.operator,))
+        return acquired_rows((self.operator,))
 
     @classmethod
     def context(cls, operator: Operation, path: RnaPath, /, **values: Setting) -> Self:
         """Places a stock `wm.context_*` operator over a context path with its other property values."""
-        return cls(operator, MappingProxyType({"data_path": _rna(path), **values}))
+        return cls(operator, MappingProxyType({"data_path": rna(path), **values}))
 
     def resolved(self, identity: Identity, /) -> tuple[str, Pairs]:
         """Resolves operator idname and property pairs, an opened popup's name leading its call operator's values."""
@@ -288,7 +286,7 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Builds the form's property groups, then the operator class its invoke form derives with that form's release scopes."""
         name, body = identity.name(bpy.types.Operator, self.key), Body(command=self, identity=identity)
-        form = self.callbacks.map(lambda callbacks: _rebound(self.form, **callbacks(identity))).default_value(self.form)
+        form = self.callbacks.map(lambda callbacks: rebound(self.form, **callbacks(identity))).default_value(self.form)
         base: type[bpy.types.Operator] = type(
             name,
             (bpy.types.Operator,),
@@ -303,7 +301,7 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
                 **self.seed.map(lambda _: {"invoke": body.invoking(lambda operator, context, _event: Ok(body.execute(operator, context)))}).default_value({}),
             },
         )
-        return (*_nested(form), *self.invoke.map(lambda invoked: invoked.classed(body, base)).default_value((base,)))
+        return (*nested(form), *self.invoke.map(lambda invoked: invoked.classed(body, base)).default_value((base,)))
 
 
 class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
@@ -322,29 +320,29 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         properties: T = operator.properties  # ty: ignore[invalid-assignment]
         return properties
 
-    def derived(self, base: type[bpy.types.Operator], namespace: Mapping[str, object], /, *mixins: type) -> type[bpy.types.Operator]:
+    def derived(self, base: type[bpy.types.Operator], namespace: Mapping[str, object], /, *mixins: type) -> type:
         """Returns the class an invoke form registers for base after the mixins, restating `bl_property` Blender reads from a class's own namespace."""
-        return type(base.__name__, (*mixins, base), {**self.command.bl_property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})  # ty: ignore[unsound-return-statement]
+        return type(base.__name__, (*mixins, base), {**self.command.bl_property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})
 
     # --- [REPORTS]
 
     @staticmethod
-    def noted(operator: bpy.types.Operator, entries: Iterable[tuple["rna_enums.WmReportItems", str]], outcome: "rna_enums.OperatorReturnItems", /) -> Returns:
+    def noted(operator: bpy.types.Operator, entries: Iterable[tuple["rna_enums.WmReportItems", str]], outcome: "rna_enums.OperatorReturnItems", /) -> set["rna_enums.OperatorReturnItems"]:
         """Reports entries, returning outcome."""
         for severity, text in entries:
             operator.report({severity}, text)
         return {outcome}
 
     @staticmethod
-    def finished(operator: bpy.types.Operator, result: Outcome[Answer], /) -> Returns:
+    def finished(operator: bpy.types.Operator, result: Outcome[Answer], /) -> set["rna_enums.OperatorReturnItems"]:
         """Reports body result as notes and skipped faults with FINISHED, a reason with CANCELLED, or rendered faults with CANCELLED."""
         match result:
             case Result(tag="ok", ok=Done(notes=notes, skipped=skipped)):
-                return Body.noted(operator, (*notes, *(("WARNING", text) for _, text in _rendered(skipped))), "FINISHED")
+                return Body.noted(operator, (*notes, *(("WARNING", text) for _, text in rendered(skipped))), "FINISHED")
             case Result(tag="ok", ok=Unchanged(reason=reason)):
                 return Body.noted(operator, (("INFO", reason),), "CANCELLED")
             case Result(error=faults):
-                return Body.noted(operator, _rendered(faults), "CANCELLED")
+                return Body.noted(operator, rendered(faults), "CANCELLED")
 
     # --- [EXECUTION]
 
@@ -352,20 +350,20 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         """Runs the command over the operator properties and the paths its invoke form chose."""
         return self.command.run(Call(identity=self.identity, context=context, properties=self.properties(operator), paths=paths))
 
-    def chose(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...], /) -> Returns:
+    def chose(self, operator: bpy.types.Operator, context: bpy.types.Context, paths: tuple[Path, ...], /) -> set["rna_enums.OperatorReturnItems"]:
         """Runs the command over the paths a browser chose and reports its result, required fault when no path was chosen."""
         return self.finished(operator, Ok(paths).filter_with(bool, lambda _: Fault.of(Refusal.REQUIRED, f"chosen file for {self.command.title}")).bind(partial(self.performed, operator, context)))
 
     @property
-    def execute(self) -> Callable[[bpy.types.Operator, bpy.types.Context], Returns]:
+    def execute(self) -> Callable[[bpy.types.Operator, bpy.types.Context], set["rna_enums.OperatorReturnItems"]]:
         """Class `execute` running the command and reporting its result."""
 
-        def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> Returns:
+        def execute(operator: bpy.types.Operator, context: bpy.types.Context) -> set["rna_enums.OperatorReturnItems"]:
             return self.finished(operator, self.performed(operator, context))
 
         return execute
 
-    def modal_finished(self, operator: bpy.types.Operator, context: bpy.types.Context, release: Callable[[Option[bpy.types.Context]], Outcome[None]], /) -> Returns:
+    def modal_finished(self, operator: bpy.types.Operator, context: bpy.types.Context, release: Callable[[Option[bpy.types.Context]], Outcome[None]], /) -> set["rna_enums.OperatorReturnItems"]:
         """Runs the command after a modal run, releasing the run kept on Done and rolled back otherwise."""
         match self.performed(operator, context):
             case Result(tag="ok", ok=Done() as done):
@@ -373,7 +371,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
             case Result(tag="ok", ok=Unchanged() as unchanged):
                 return self.finished(operator, release(Some(context)).map(lambda _: unchanged))
             case Result(error=faults):
-                return self.noted(operator, (*_rendered(faults), *release(Some(context)).map(lambda _: ()).default_with(_rendered)), "CANCELLED")
+                return self.noted(operator, (*rendered(faults), *release(Some(context)).map(lambda _: ()).default_with(rendered)), "CANCELLED")
 
     # --- [DRAWING]
 
@@ -382,18 +380,20 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
         """Class `draw` laying out the command's draw over the operator properties."""
 
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
-            layout: bpy.types.UILayout = operator.layout  # ty: ignore[invalid-assignment]
-            for drawn in self.command.draw.to_list():
-                drawn(layout, context, self.properties(operator), self.identity)
+            for layout in Option.of_optional(operator.layout).to_list():
+                for drawn in self.command.draw.to_list():
+                    drawn(layout, context, self.properties(operator), self.identity)
 
         return draw
 
     # --- [INVOCATION]
 
-    def invoking(self, opening: Callable[[bpy.types.Operator, bpy.types.Context, bpy.types.Event], Outcome[Returns]], /) -> Callable[[bpy.types.Operator, bpy.types.Context, bpy.types.Event], Returns]:
+    def invoking[O: bpy.types.Operator](
+        self, opening: Callable[[O, bpy.types.Context, bpy.types.Event], Outcome[set["rna_enums.OperatorReturnItems"]]], /
+    ) -> Callable[[O, bpy.types.Context, bpy.types.Event], set["rna_enums.OperatorReturnItems"]]:
         """Returns invoke writing seed values into unset properties, then opening the form."""
 
-        def invoke(operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> Returns:
+        def invoke(operator: O, context: bpy.types.Context, event: bpy.types.Event) -> set["rna_enums.OperatorReturnItems"]:
             return (
                 self.command.seed
                 .map(
@@ -403,7 +403,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
                 )
                 .default_value(Ok(None))
                 .bind(lambda _: opening(operator, context, event))
-                .default_with(lambda faults: self.noted(operator, _rendered(faults), "CANCELLED"))
+                .default_with(lambda faults: self.noted(operator, rendered(faults), "CANCELLED"))
             )
 
         return invoke
@@ -419,7 +419,7 @@ class Macro(Command, frozen=True, kw_only=True):
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Declarations the macro's steps register."""
-        return _acquired(self.steps)
+        return acquired_rows(self.steps)
 
     @override
     def acquisitions(self, identity: Identity, /) -> Acquisitions:
@@ -431,7 +431,7 @@ class Macro(Command, frozen=True, kw_only=True):
         def defined() -> Generator[Outcome[None]]:
             yield accumulated(filled(placed, kind.define(placed[0]).properties) for step in self.steps for placed in (step.resolved(identity),)).map(lambda _: None)
 
-        return kind, (_Tier.OPERATORS, defined())
+        return kind, (Tier.OPERATORS, defined())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -444,26 +444,14 @@ def idname(identity: Identity, target: Command | Operation | PopupTarget, /) -> 
     match target:
         case PopupTarget(target=str(key), kind=kind):
             return identity.name(kind.base, key)
-        case PopupTarget(target=opened):
-            declared: type[Struct] = opened  # ty: ignore[invalid-assignment]
-            return _definition(declared).identifier
+        case PopupTarget(target=type() as opened) if issubclass(opened, bpy.types.bpy_struct):
+            return rna_definition(opened).identifier
+        case PopupTarget():
+            raise TypeError(target)
         case Command() as command:
             return identity.name(bpy.types.Operator, command.key)
         case _:
             return _dotted(target)
-
-
-def operation(identity: Identity, target: Command | Operation, /) -> Outcome[Operation]:
-    """Resolves the `bpy.ops` callable of a command or stock operator, absent fault for an operator the host does not hold."""
-
-    def found(dotted: str) -> Operation:
-        module, _, name = dotted.partition(".")
-        held: Operation = getattr(getattr(bpy.ops, module), name)
-        rna_type(held)
-        return held
-
-    dotted = idname(identity, target)
-    return catch(found, exception=KeyError)(dotted).map_error(partial(Fault.of, Reason.ABSENT, "bpy.ops", member=dotted))
 
 
 def filled(placed: tuple[str, Pairs], properties: object, /) -> Outcome[None]:
@@ -501,15 +489,9 @@ def called(
     return Ok(answered).filter_with(lambda answer: not answer.isdisjoint(("FINISHED", "RUNNING_MODAL", "INTERFACE")), lambda answer: Fault.of(Reason.FAILED, request, ", ".join(sorted(answer))))
 
 
-def rna_type(operator: Operation, /) -> bpy.types.Struct:
-    """Returns the RNA type definition of a `bpy.ops` operator, which the stubs type as a plain function."""
-    found: bpy.types.Struct = operator.get_rna_type()  # ty: ignore[unresolved-attribute, unsound-assignment]
-    return found
-
-
 def _dotted(operator: Operation, /) -> str:
-    """Returns the `bpy.ops` path of an operator, which the stubs type as a plain function."""
-    identifier: str = operator.idname_py()  # ty: ignore[unresolved-attribute, unsound-assignment]
+    """Returns the `bpy.ops` path of an operator, which the stubs type as its own class over an unbound `idname_py`."""
+    identifier: str = operator.idname_py()  # ty: ignore[missing-attribute, unsound-assignment]
     return identifier
 
 
@@ -555,17 +537,16 @@ def confirmed[S, T: bpy.types.PropertyGroup](
 # --- [BODIES]
 
 
-def _documented(run: Callable[..., object], /) -> tuple[str, str]:  # type: ignore[explicit-any]
+def _documented[**P, R](run: Callable[P, R], /) -> tuple[str, str]:
     """Returns callable metadata through wrappers, partials, and bound bodies."""
-    while True:
-        unwrapped: Callable[..., object] = inspect.unwrap(run)  # type: ignore[explicit-any]
-        match unwrapped:
-            case partial(func=func) | BoundBody(step=func):
-                run = func
-            case FunctionType() | MethodType() as found:
-                return found.__name__, inspect.getdoc(found) or ""
-            case _:
-                return type(unwrapped).__name__, inspect.getdoc(unwrapped) or ""
+    unwrapped: object = inspect.unwrap(run)
+    match unwrapped:
+        case partial(func=func) | BoundBody(step=func):
+            return _documented(func)
+        case FunctionType() | MethodType() as found:
+            return found.__name__, inspect.getdoc(found) or ""
+        case _:
+            return type(unwrapped).__name__, inspect.getdoc(unwrapped) or ""
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -589,7 +570,6 @@ __all__ = [
     "Placement",
     "PopupKind",
     "PopupTarget",
-    "Returns",
     "Setting",
     "Unchanged",
     "answered",
@@ -597,7 +577,5 @@ __all__ = [
     "confirmed",
     "filled",
     "idname",
-    "operation",
-    "rna_type",
     "tallied",
 ]

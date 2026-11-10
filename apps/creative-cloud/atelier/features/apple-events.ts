@@ -1,4 +1,4 @@
-import { Execute, Terms } from '@rasm/applications';
+import { Execute, TermKind, Terms } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import { Content, Resource, Route } from '@rasm/mcp';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
@@ -13,7 +13,7 @@ const CommandResult = Execute.Result.pipe(Schema.fieldsAssign({ artifacts: Schem
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success<ReturnType<typeof routes>>) {
+const appleEvents = Effect.fnUntraced(function* ({ dictionary }: Effect.Success<ReturnType<typeof routes>>) {
     const [automation, { installations }] = yield* Effect.all([Automation, Adobe]);
     yield* Resource.template`dictionary/${Application}`({
         name: 'dictionary',
@@ -22,7 +22,7 @@ const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success
         changes: SubscriptionRef.changes(installations),
         content: (_, given) => Effect.flatMap(dictionary.named(given), automation.terms),
     });
-    yield* Resource.template`dictionary/${Application}/${McpSchema.param('kind', Terms.Kind)}/${McpSchema.param('name', Schema.String)}`({
+    yield* Resource.template`dictionary/${Application}/${McpSchema.param('kind', TermKind)}/${McpSchema.param('name', Schema.String)}`({
         name: 'dictionary_term',
         description: 'Scripting definition XML matching kind and name',
         mimeType: 'application/xml',
@@ -30,7 +30,7 @@ const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success
         changes: SubscriptionRef.changes(installations),
         completion: {
             ...dictionary.completion,
-            kind: () => Effect.succeed([...Terms.Kind.literals]),
+            kind: () => Effect.succeed([...TermKind.literals]),
             name: (_, { application, kind }) =>
                 application === undefined || kind === undefined
                     ? Effect.succeed([])
@@ -41,19 +41,16 @@ const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success
         },
         content: (_, given, selected, term) => Effect.flatMap(dictionary.named(given), ({ url }) => automation.definition({ url, kind: selected, name: term })),
     });
-});
-const command = ({ dictionary }: Effect.Success<ReturnType<typeof routes>>) =>
-    Automation.use((automation) =>
-        Route(dictionary)(
-            Tool.make('command', {
-                description: 'Sends scripting dictionary command, refused while a dialog requires an answer',
-                parameters: Execute,
-                success: CommandResult,
-            }),
-            (given, { pid }) => automation.execute({ ...given, pid }),
-        ),
+    yield* Route(dictionary)(
+        Tool.make('command', {
+            description: 'Sends scripting dictionary command, refused while a dialog requires an answer',
+            parameters: Execute,
+            success: CommandResult,
+        }),
+        (given, { pid }) => automation.execute({ ...given, pid }),
     );
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { command, dictionaries };
+export { appleEvents };

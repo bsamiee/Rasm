@@ -1,4 +1,5 @@
-use core::{hint::black_box, time::Duration};
+use core::hint::black_box;
+use core::time::Duration;
 use std::collections::BTreeMap;
 
 // --- [MODELS] --------------------------------------------------------------------------

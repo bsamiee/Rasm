@@ -126,13 +126,13 @@ public abstract partial record Law {
     }
 
     public sealed record Through : Law {
-        private readonly IInterpolation _spline;
+        private readonly IInterpolation spline;
 
-        private Through(Seq<(double At, double Value)> keys, IInterpolation spline) => (Keys, _spline) = (keys, spline);
+        private Through(Seq<(double At, double Value)> keys, IInterpolation spline) => (Keys, this.spline) = (keys, spline);
 
         public Seq<(double At, double Value)> Keys { get; }
 
-        public override double At(double t) => _spline.Interpolate(t);
+        public override double At(double t) => spline.Interpolate(t);
 
         public static Fin<Through> Validated(Seq<(double At, double Value)> keys) =>
             toSeq(keys.DistinctBy(static key => key.At).OrderBy(static key => key.At)) switch {

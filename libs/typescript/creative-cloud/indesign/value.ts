@@ -3,20 +3,14 @@ import { Specifier } from '#/specifier';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Value = typeof Enumerated.Type | typeof Located.Type | string | number | boolean | null | readonly Value[] | Fields;
-declare namespace Value {
-    type Encoded = typeof Enumerated.Encoded | typeof Located.Encoded | string | number | boolean | null | readonly Encoded[] | { readonly [field: string]: Encoded };
-}
-interface Fields {
-    readonly [field: string]: Value;
-}
+type Value<Leaf = typeof Enumerated.Type | typeof Located.Type> = Leaf | string | number | boolean | null | readonly Value<Leaf>[] | { readonly [field: string]: Value<Leaf> };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Enumerated = Schema.Struct({ type: Schema.String, member: Schema.String });
 const Located = Schema.Struct({ specifier: Specifier.Path });
-const Nested = Schema.suspend((): Schema.Codec<Value, Value.Encoded> => Codec);
-const Codec: Schema.Codec<Value, Value.Encoded> = Schema.Union([Enumerated, Located, Schema.String, Schema.Finite, Schema.Boolean, Schema.Null, Schema.Array(Nested), Schema.Record(Schema.String, Nested)]).annotate({
+const Nested = Schema.suspend((): typeof Codec => Codec);
+const Codec: Schema.Codec<Value, Value<typeof Enumerated.Encoded | typeof Located.Encoded>> = Schema.Union([Enumerated, Located, Schema.String, Schema.Finite, Schema.Boolean, Schema.Null, Schema.Array(Nested), Schema.Record(Schema.String, Nested)]).annotate({
     description: 'Enumerator or object name, {type, member} enumerator, {specifier} object, points or unit string measurement, record of nested preferences',
 });
 

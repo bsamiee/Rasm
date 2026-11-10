@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager, nullcontext
 from functools import partial
 import math
-from typing import ClassVar, Final
+from typing import Annotated, ClassVar, Final
 
 from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
@@ -14,9 +14,10 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
+from rasm_bpy import render
 from rasm_bpy.commands import Answer, Button, Call, Chord, Done, Empty, Operator, Placement
 from rasm_bpy.data import Acquisitions, assigned, Declaration, Descriptor, Handle, Handler, Identity, Job, Resource, root_in, rooted, Setting, Timer
-from rasm_bpy.render import Enabled, entered, fingerprinted, Latest, path_key, PreviewFeed, PreviewScene, queue, Rank, rate, READ, viewed
+from rasm_bpy.render import Enabled, entered, fingerprinted, Latest, path_key, PreviewFeed, PreviewScene, queue, Rank, rate, READ, value, valued, viewed
 from rasm_bpy.scene import camera_frame
 from rasm_bpy.settings import Attachment
 from rasm_bpy.ui import (
@@ -45,7 +46,7 @@ from rasm_imaging import applied, DisplayView, ImageFile, Lattice, Logarithmic, 
 from rasm_records import accumulated, ContentHash, Fault, Nothing, Ok, Outcome, paired, Reason
 
 from ..catalog import chain
-from ..effects.grade.exposure import entry_stops, exposure, gain, STOPS
+from ..effects.grade.exposure import exposure, gain, STOPS
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -65,33 +66,33 @@ _COMPOSITED: Final = Setting(descriptor=_COMPOSITOR, accepted=("ALWAYS",)) | (
 class Follow(bpy.types.PropertyGroup):
     """Viewport response speed, dead band, and agreement between readings."""
 
-    speed: bpy.props.FloatProperty(name="Speed", description="Share of remaining step per update", subtype="FACTOR", min=0.02, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
-    band: bpy.props.FloatProperty(name="Dead Band", description="Stops of gain change ignored", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)  # ty: ignore[invalid-type-form]
-    tolerance: bpy.props.FloatProperty(name="Tolerance", description="Stops between agreeing readings", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)  # ty: ignore[invalid-type-form]
+    speed: Annotated[float, bpy.props.FloatProperty(name="Speed", description="Share of remaining step per update", subtype="FACTOR", min=0.02, max=1.0, default=0.5)]
+    band: Annotated[float, bpy.props.FloatProperty(name="Dead Band", description="Stops of gain change ignored", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)]
+    tolerance: Annotated[float, bpy.props.FloatProperty(name="Tolerance", description="Stops between agreeing readings", min=0.0, max=2.0, soft_max=1.0, step=1, precision=2, default=0.1)]
 
 
 class Metering(bpy.types.PropertyGroup):
     """One scene's meter shared by rendered-frame and viewport exposure."""
 
-    low: bpy.props.FloatProperty(name="Low", description="Percentile trimmed below", subtype="PERCENTAGE", min=0.0, max=100.0)  # ty: ignore[invalid-type-form]
-    high: bpy.props.FloatProperty(name="High", description="Percentile trimmed above", subtype="PERCENTAGE", min=0.0, max=100.0, default=100.0)  # ty: ignore[invalid-type-form]
-    center: bpy.props.FloatProperty(name="Center", description="Weight taken from samples outside the center", subtype="FACTOR", min=0.0, max=1.0)  # ty: ignore[invalid-type-form]
-    use_region: bpy.props.BoolProperty(name="Region", description="Meter the region alone, the whole frame while off")  # ty: ignore[invalid-type-form]
-    region: bpy.props.FloatVectorProperty(  # ty: ignore[invalid-type-form]
-        name="Bounds", description="Metered frame share from bottom left as left, bottom, right, and top", size=4, min=0.0, max=1.0, default=(0.0, 0.0, 1.0, 1.0)
-    )
-    bias: bpy.props.FloatProperty(name="EV Bias", description="Stops added to each reading", min=-3.0, max=3.0, soft_min=-2.0, soft_max=2.0)  # ty: ignore[invalid-type-form]
-    use_follow: bpy.props.BoolProperty(name="Follow Viewport", description="Step the chain gain toward viewport readings")  # ty: ignore[invalid-type-form]
-    follow: bpy.props.PointerProperty(type=Follow, name="Viewport Response")  # ty: ignore[invalid-type-form]
+    low: Annotated[float, bpy.props.FloatProperty(name="Low", description="Percentile trimmed below", subtype="PERCENTAGE", min=0.0, max=100.0)]
+    high: Annotated[float, bpy.props.FloatProperty(name="High", description="Percentile trimmed above", subtype="PERCENTAGE", min=0.0, max=100.0, default=100.0)]
+    center: Annotated[float, bpy.props.FloatProperty(name="Center", description="Weight taken from samples outside the center", subtype="FACTOR", min=0.0, max=1.0)]
+    use_region: Annotated[bool, bpy.props.BoolProperty(name="Region", description="Meter the region alone, the whole frame while off")]
+    region: Annotated[
+        bpy.types.bpy_prop_array,
+        bpy.props.FloatVectorProperty(name="Bounds", description="Metered frame share from bottom left as left, bottom, right, and top", size=4, min=0.0, max=1.0, default=(0.0, 0.0, 1.0, 1.0)),
+    ]
+    bias: Annotated[float, bpy.props.FloatProperty(name="EV Bias", description="Stops added to each reading", min=-3.0, max=3.0, soft_min=-2.0, soft_max=2.0)]
+    use_follow: Annotated[bool, bpy.props.BoolProperty(name="Follow Viewport", description="Step the chain gain toward viewport readings")]
+    follow: Annotated[Follow, bpy.props.PointerProperty(type=Follow, name="Viewport Response")]
 
     @property
     def meter(self) -> Meter:
         """Meter of the trims, center weight, and region, the whole frame while the region is off."""
-        left, bottom, right, top = self.region
-        return Meter(low=self.low, high=self.high, center_weight=self.center, region=Region.bounding(np.array(((left, bottom), (right, top)))) if self.use_region else Region())
+        return Meter(low=self.low, high=self.high, center_weight=self.center, region=Region.bounding(np.asarray(self.region, dtype=np.float64).reshape(2, 2)) if self.use_region else Region())
 
 
-class Following(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class _Following(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Enabled viewport meter with its bias, agreement, and inverse pipeline with Exposure compensation, `Nothing` until the composited lattice is sampled."""
 
     scene: Handle[bpy.types.Scene]
@@ -120,7 +121,7 @@ _READINGS: Final = Resource[dict[Handle[bpy.types.Scene], tuple[object, float]]]
 _SIGNAL: Final = Resource[Signal](made=lambda _identity: nullcontext(Signal()))
 
 
-class Follower:
+class _Follower:
     """Viewport part metering the shown camera frame through the inverse of its formation, stepping toward targets consecutive readings agree on."""
 
     __slots__ = ("identity", "step")
@@ -130,11 +131,11 @@ class Follower:
         """Holds the identity and deferred exposure step."""
         self.identity, self.step = identity, step
 
-    def read(self, _metrics: Metrics) -> Outcome[Option[Following]]:
+    def read(self, _metrics: Metrics) -> Outcome[Option[_Following]]:
         """Returns enabled metering with the inverse pipeline used by this viewport."""
         config, identity = PyOpenColorIO.GetCurrentConfig(), self.identity
 
-        def followed(scene: bpy.types.Scene, metering: Metering) -> Outcome[Option[Following]]:
+        def followed(scene: bpy.types.Scene, metering: Metering) -> Outcome[Option[_Following]]:
             if not metering.use_follow:
                 _READINGS[identity].pop(Handle.of(scene), None)
                 return Ok(Nothing)
@@ -150,7 +151,7 @@ class Follower:
             )
             return paired(inverse, gain(identity, scene, enabled=Enabled.PREVIEW) if composited else Ok(0.0)).map(
                 lambda found: Some(
-                    Following(
+                    _Following(
                         scene=Handle.of(scene),
                         meter=metering.meter,
                         bias=metering.bias,
@@ -163,7 +164,7 @@ class Follower:
 
         return root_in(bpy.types.Scene, bpy.context).map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(partial(followed, scene))).default_value(Ok(Nothing))
 
-    def drawn(self, state: Following, canvas: Canvas) -> None:
+    def drawn(self, state: _Following, canvas: Canvas) -> None:
         """Meters the scene ahead of the chain in the visible camera frame, through the composited formation's inverse with the Exposure gain divided out while the viewport composites and the view's inverse otherwise, and defers targets two readings agree on."""
         reports, previous = self.identity.reports, _READINGS[self.identity]
 
@@ -231,7 +232,16 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 Option
                 .of_optional(next((entry for entry in exposure.entries(identity, scene) if entry.enable_for_preview), None))
-                .map(lambda held: entry_stops(identity, held).bind(lambda stops: entered(identity, held, {path_key(STOPS): stops + step})).map(lambda _: Nothing))
+                .map(
+                    lambda held: (
+                        render
+                        .captured(identity, held)
+                        .map(valued)
+                        .bind(lambda values: value(values, float, STOPS))
+                        .bind(lambda stops: entered(identity, held, {path_key(STOPS): stops + step}))
+                        .map(lambda _: Nothing)
+                    )
+                )
                 .default_value(Ok(Nothing))
                 if abs(target - current) > follow.band
                 else Ok(Nothing)
@@ -278,9 +288,9 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     @staticmethod
-    def followed(identity: Identity, manager: bpy.types.WindowManager) -> Outcome[tuple[Located, ...]]:
-        """Returns rendered viewports following exposure, native query order retained and each scene read once."""
-        located = _VIEWPORTS.located(manager.windows)
+    def followed(identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Located, ...]]:
+        """Returns rendered viewports of the context's windows following exposure, native query order retained and each scene read once."""
+        located = _VIEWPORTS.located(window for manager in root_in(bpy.types.WindowManager, context).to_list() for window in manager.windows)
         scenes = tuple(dict.fromkeys(at.window.scene for at in located))
         return (
             accumulated(AutoExposure.attachment.read(identity, scene).map(lambda settings: settings.use_follow) for scene in scenes)
@@ -292,7 +302,6 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     def jobs(identity: Identity, context: bpy.types.Context) -> Outcome[tuple[queue.Job, ...]]:
         """Returns lattice sampling per followed window scene whose formation inverse is absent."""
         held, config = _INVERSES[identity], PyOpenColorIO.GetCurrentConfig()
-        manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
 
         def queued(request: _Formation) -> tuple[queue.Job, ...]:
             _, token, value = held.wanting(request.scene.uid, request, same=lambda prior, wanted: prior == wanted and all(key.is_some() for key in wanted.content))
@@ -317,21 +326,20 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return AutoExposure.followed(identity, manager).bind(wanted)
+        return AutoExposure.followed(identity, context).bind(wanted)
 
     # --- [REGISTRATION]
 
     @staticmethod
     def ticked(identity: Identity) -> Outcome[Option[float]]:
         """Redraws the viewports of followed window scenes each interval."""
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
 
         def redrawn(located: tuple[Located, ...]) -> Option[float]:
             for at in located:
                 at.area.tag_redraw()
             return Some(0.12)
 
-        return AutoExposure.followed(identity, manager).map(redrawn)
+        return AutoExposure.followed(identity, bpy.context).map(redrawn)
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
@@ -345,7 +353,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         def write(context: bpy.types.Context, quad: Quad) -> Outcome[None]:
-            return rooted(bpy.types.Scene, context).bind(lambda scene: metered(identity, scene, Region.bounding(quad.samples)))
+            return rooted(bpy.types.Scene, context).bind(lambda scene: _metered(identity, scene, Region.bounding(quad.samples)))
 
         def cleared() -> Outcome[None]:
             _READINGS[identity].clear()
@@ -368,9 +376,9 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
                 Timer(body=partial(self.ticked, identity)),
                 *(Handler(handlers=event, body=cleared) for event in (bpy.app.handlers.undo_post, bpy.app.handlers.redo_post)),
                 Handler(handlers=bpy.app.handlers.frame_change_pre, body=framed),
-                Overlay[Following](
+                Overlay[_Following](
                     drawing=Drawing(
-                        area=_VIEWPORTS, part=Follower(identity, step), refreshes=(_SIGNAL[identity], HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,)))
+                        area=_VIEWPORTS, part=_Follower(identity, step), refreshes=(_SIGNAL[identity], HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,)))
                     ),
                     respect_overlays=False,
                 ),
@@ -391,35 +399,34 @@ def meter_exposure(call: Call[Empty]) -> Outcome[Answer]:
     )
 
 
-def metered(identity: Identity, scene: bpy.types.Scene, region: Region) -> Outcome[None]:
+def pick_meter_region(call: Call[Picked], region: Region) -> Outcome[Answer]:
+    """Meter the next frame over the picked square."""
+    return rooted(bpy.types.Scene, call.context).bind(lambda scene: _metered(call.identity, scene, region)).map(lambda _: Done(notes=(("INFO", "Metering picked region"),)))
+
+
+def _metered(identity: Identity, scene: bpy.types.Scene, region: Region) -> Outcome[None]:
     """Writes a region into the scene meter with the region on."""
     return AutoExposure.attachment.read(identity, scene).bind(lambda metering: assigned(metering, {("use_region",): True, ("region",): (region.left, region.bottom, region.right, region.top)}))
 
 
-def pick_meter_region(call: Call[Picked], region: Region) -> Outcome[Answer]:
-    """Meter the next frame over the picked square."""
-    return rooted(bpy.types.Scene, call.context).bind(lambda scene: metered(call.identity, scene, region)).map(lambda _: Done(notes=(("INFO", "Metering picked region"),)))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-auto_exposure: Final = AutoExposure()
-meter_pick: Final = picking("CROSSHAIR", Picked, pick_meter_region)
+_meter_pick: Final = picking("CROSSHAIR", Picked, pick_meter_region)
 rows: Final = (
-    auto_exposure,
-    meter_pick,
+    AutoExposure(),
+    _meter_pick,
     Tools(
         space="IMAGE_EDITOR",
         mode=Some("VIEW"),
-        tools=(Tool(key="meter", operator=meter_pick, icon="ops.generic.select_box", bindings=((Chord(type=Button.SELECT), Placement(meter_pick)),)),),
+        tools=(Tool(key="meter", operator=_meter_pick, icon="ops.generic.select_box", bindings=((Chord(type=Button.SELECT), Placement(_meter_pick)),)),),
         separator=True,
     ),
     Panel(
-        section=Section(key=AutoExposure.attachment.key, rows=(OperatorButton(target=meter_pick), OperatorButton(target=meter_exposure)), store=Some(Store(attachment=AutoExposure.attachment))),
+        section=Section(key=AutoExposure.attachment.key, rows=(OperatorButton(target=_meter_pick), OperatorButton(target=meter_exposure)), store=Some(Store(attachment=AutoExposure.attachment))),
         at=Child(parent=RENDER_PT_color_management),
     ),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AutoExposure", "Follow", "Following", "Metering", "auto_exposure", "meter_exposure", "meter_pick", "metered", "pick_meter_region", "rows"]
+__all__ = ["rows"]

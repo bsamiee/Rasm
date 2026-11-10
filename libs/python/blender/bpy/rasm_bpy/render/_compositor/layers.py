@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterator
 from enum import Enum
 from functools import partial
 import itertools
-from typing import Final, Generic, Self, TypeVar
+from typing import Annotated, Final, Generic, Self, TypeVar
 
 import bpy
 from expression import Option, Some
@@ -23,7 +23,7 @@ from rasm_bpy.render._compositor.effects import CompositorRecord, Entry
 from rasm_bpy.render._compositor.entries import Pinned, StackEnd, Toward
 from rasm_bpy.render._compositor.masks import Blend
 from rasm_bpy.render._compositor.recombination import Recombination, Recombined, TermFilter
-from rasm_bpy.render._view_layers.passes import _used
+from rasm_bpy.render._view_layers.passes import used
 from rasm_bpy.settings._attachments import Attachment
 from rasm_records import accumulated, amended, Case, Fault, focused, Lens, Nothing, Ok, Outcome, Reason
 
@@ -34,6 +34,7 @@ _M_co = TypeVar("_M_co", bound=CompositorRecord, default=CompositorRecord, covar
 type Source = Adjustment | RenderPass | NodeSource | Recombined
 type StackTarget = LayerAt | EffectAt | LayerMaskAt | EffectMaskAt
 type Order = tuple[Option[int], ...]
+type _LayerRows = bpy.types.bpy_prop_collection_idprop[LayerRow]
 
 
 class Edit(Enum):
@@ -72,10 +73,10 @@ AFFINE: Final = Interface(
     )
 )
 _IMAGE: Final = "Image"
-_COMPOSITE_PART: Final = "Composite"
-_OWNERSHIP: Final = Ownership(kind=bpy.types.CompositorNodeTree, key="layer_stack", saved=Saved.ALWAYS, single=False)
-_TITLE: Final = bpy.path.display_name(_OWNERSHIP.key)
-PINNED: Final = Pinned(ownership=_OWNERSHIP, edge=StackEnd.HEAD)
+COMPOSITE_PART: Final = "Composite"
+OWNERSHIP: Final = Ownership(kind=bpy.types.CompositorNodeTree, key="layer_stack", saved=Saved.ALWAYS, single=False)
+TITLE: Final = bpy.path.display_name(OWNERSHIP.key)
+PINNED: Final = Pinned(ownership=OWNERSHIP, edge=StackEnd.HEAD)
 _PADDING: Final = 4
 
 # --- [CHOICES] --------------------------------------------------------------------------
@@ -83,7 +84,7 @@ _PADDING: Final = 4
 
 def _views(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
     """Used view layer items of the context scene."""
-    return choices((layer.name, layer.name, "") for scene in Option.of_optional(context).bind(lambda held: Option.of_optional(held.scene)).to_list() for layer in _used(scene))
+    return choices((layer.name, layer.name, "") for scene in Option.of_optional(context).bind(lambda held: Option.of_optional(held.scene)).to_list() for layer in used(scene))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -150,7 +151,7 @@ class StackLayer(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
     @property
     def node(self) -> Key:
         """Key of the layer's owned source node."""
-        return item_key(self.key, SOURCE)
+        return item_key(self.key, StackLayer.source)
 
     @property
     def places(self) -> tuple[Key, ...]:
@@ -165,7 +166,7 @@ class StackLayer(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
     @property
     def composite_part(self) -> str:
         """Multilayer frame part holding the composite through the layer."""
-        return f"{self.key} {_COMPOSITE_PART}"
+        return f"{self.key} {COMPOSITE_PART}"
 
     @property
     def plain(self) -> bool:
@@ -220,9 +221,9 @@ class LayerStack(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # 
                     .bind(lambda blend: self.masked(target, {Edit.REMOVE: -1, Edit.DUPLICATE: 1}.get(edit, 0)).map(lambda stack: (stack, layer, edit.reordered(index, blend.masks))))
                 )
             case LayerAt(layer=index):
-                lens: Lens = (_LAYERS,)
+                lens: Lens = (LAYERS,)
             case EffectAt(layer=layer, entry=index):
-                lens = (_LAYERS, layer, EFFECTS)
+                lens = (LAYERS, layer, EFFECTS)
 
         def fresh(item: object) -> Outcome[object]:
             match item:
@@ -279,99 +280,97 @@ class TermFiltering(msgspec.Struct, frozen=True, kw_only=True):
 class Switched(bpy.types.PropertyGroup):
     """Owned stack selected by node group name, its items the extension's stacks."""
 
-    stack: bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())  # ty: ignore[invalid-type-form]
+    stack: Annotated[str, bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())]
 
 
 class Copied(bpy.types.PropertyGroup):
     """One layer of another stack, its items the extension's stacks and the chosen stack's layer rows."""
 
-    stack: bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())  # ty: ignore[invalid-type-form]
-    layer: bpy.props.EnumProperty(name="Layer", description="Layer of the chosen stack", items=())  # ty: ignore[invalid-type-form]
+    stack: Annotated[str, bpy.props.EnumProperty(name="Stack", description="Owned layer stack", items=())]
+    layer: Annotated[str, bpy.props.EnumProperty(name="Layer", description="Layer of the chosen stack", items=())]
 
 
 class NodeKind(bpy.types.PropertyGroup):
     """Source node class to create."""
 
-    node: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
-        name="Node Type",
-        description="Compositor node class of the source",
-        items=choices(
-            (struct.identifier, struct.name, struct.description)
-            for kind in (getattr(bpy.types, name) for name in dir(bpy.types))
-            if isinstance(kind, type) and issubclass(kind, bpy.types.CompositorNode) and kind.is_registered_node_type()
-            for struct in (kind.bl_rna,)
+    node: Annotated[
+        str,
+        bpy.props.EnumProperty(
+            name="Node Type",
+            description="Compositor node class of the source",
+            items=choices(
+                (struct.identifier, struct.name, struct.description)
+                for kind in (getattr(bpy.types, name) for name in dir(bpy.types))
+                if isinstance(kind, type) and issubclass(kind, bpy.types.CompositorNode) and kind.is_registered_node_type()
+                for struct in (kind.bl_rna,)
+            ),
         ),
-    )
+    ]
 
 
 class LayerEdit(bpy.types.PropertyGroup):
     """Edit of the layer, effect, or mask a target case names by its indices."""
 
-    action: bpy.props.EnumProperty(name="Edit", items=enum_choices(Edit))  # ty: ignore[invalid-type-form]
-    kind: bpy.props.EnumProperty(name="Target", description="Layer, effect, or mask edited", items=case_choices(StackTarget))  # ty: ignore[invalid-type-form]
-    layer: bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)  # ty: ignore[invalid-type-form]
-    entry: bpy.props.IntProperty(name="Effect", description="Effect index within the layer", min=0)  # ty: ignore[invalid-type-form]
-    mask: bpy.props.IntProperty(name="Mask", description="Mask index within the blend", min=0)  # ty: ignore[invalid-type-form]
+    action: Annotated[str, bpy.props.EnumProperty(name="Edit", items=enum_choices(Edit))]
+    kind: Annotated[str, bpy.props.EnumProperty(name="Target", description="Layer, effect, or mask edited", items=case_choices(StackTarget))]
+    layer: Annotated[int, bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)]
+    entry: Annotated[int, bpy.props.IntProperty(name="Effect", description="Effect index within the layer", min=0)]
+    mask: Annotated[int, bpy.props.IntProperty(name="Mask", description="Mask index within the blend", min=0)]
 
 
 class OutputChoice(bpy.types.PropertyGroup):
     """Enabled source output chosen for one layer."""
 
-    layer: bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Output", description="Source output name")  # ty: ignore[invalid-type-form]
+    layer: Annotated[int, bpy.props.IntProperty(name="Layer", description="Bottom-first layer index", min=0)]
+    output: Annotated[str, bpy.props.StringProperty(name="Output", description="Source output name")]
 
 
 class PassSourced(bpy.types.PropertyGroup):
     """View layer output a render pass layer reads."""
 
-    layer: bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Pass", description="Render Layers output name", default=_IMAGE)  # ty: ignore[invalid-type-form]
+    layer: Annotated[str, bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)]
+    output: Annotated[str, bpy.props.StringProperty(name="Pass", description="Render Layers output name", default=_IMAGE)]
 
 
 class RecombinedSourced(bpy.types.PropertyGroup):
     """View layer and the terms a recombined layer sums."""
 
-    layer: bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)  # ty: ignore[invalid-type-form]
-    recombination: bpy.props.EnumProperty(name="Sum", description="Light passes or light groups summed into beauty", items=case_choices(Recombination))  # ty: ignore[invalid-type-form]
+    layer: Annotated[str, bpy.props.EnumProperty(name="View Layer", description="Source view layer", items=_views)]
+    recombination: Annotated[str, bpy.props.EnumProperty(name="Sum", description="Light passes or light groups summed into beauty", items=case_choices(Recombination))]
 
 
 class LayerRow(bpy.types.PropertyGroup):
     """List row of one layer under the layer's name, its order and flags the stack composites by."""
 
-    key: bpy.props.StringProperty(name="Key", description="Layer key its inputs and nodes sit under", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
-    visible: bpy.props.BoolProperty(name="Visible", description="Composite layer", default=True, options=set())  # ty: ignore[invalid-type-form]
-    solo: bpy.props.BoolProperty(name="Solo", description="Composite soloed layers alone", options=set())  # ty: ignore[invalid-type-form]
-    matte: bpy.props.BoolProperty(name="Matte", description="Track the layer beneath as this layer's matte", options=set())  # ty: ignore[invalid-type-form]
+    key: Annotated[str, bpy.props.StringProperty(name="Key", description="Layer key its inputs and nodes sit under", options={"HIDDEN"})]
+    visible: Annotated[bool, bpy.props.BoolProperty(name="Visible", description="Composite layer", default=True, options=set())]
+    solo: Annotated[bool, bpy.props.BoolProperty(name="Solo", description="Composite soloed layers alone", options=set())]
+    matte: Annotated[bool, bpy.props.BoolProperty(name="Matte", description="Track the layer beneath as this layer's matte", options=set())]
 
 
 class LayerRows(bpy.types.PropertyGroup):
     """Layer rows of one stack, bottom first."""
 
-    layers: bpy.props.CollectionProperty(type=LayerRow, name="Layers", description="Layers bottom first")  # ty: ignore[invalid-type-form]
+    layers: Annotated[_LayerRows, bpy.props.CollectionProperty(type=LayerRow, name="Layers", description="Layers bottom first")]
 
 
 class StackView(bpy.types.PropertyGroup):
     """Screen's active layer index, bottom-first layer order."""
 
-    active: bpy.props.IntProperty(name="Active Layer", description="Bottom-first index of the edited layer", min=0)  # ty: ignore[invalid-type-form]
+    active: Annotated[int, bpy.props.IntProperty(name="Active Layer", description="Bottom-first index of the edited layer", min=0)]
 
 
 class StackLook(bpy.types.PropertyGroup):
     """Stack preset the scene's head stack takes, its effects mixed by Strength, its items the stack presets."""
 
-    look: bpy.props.EnumProperty(name="Stack Look", description="Stack preset the head stack takes", items=())  # ty: ignore[invalid-type-form]
-    strength: bpy.props.IntProperty(name="Strength", description="Share each preset effect mixes over its input, in percent", subtype="PERCENTAGE", min=0, max=200, default=100)  # ty: ignore[invalid-type-form]
+    look: Annotated[str, bpy.props.EnumProperty(name="Stack Look", description="Stack preset the head stack takes", items=())]
+    strength: Annotated[int, bpy.props.IntProperty(name="Strength", description="Share each preset effect mixes over its input, in percent", subtype="PERCENTAGE", min=0, max=200, default=100)]
 
 
 # --- [LENSES] ---------------------------------------------------------------------------
 
-_LAYERS: Final = LayerStack.layers  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-SOURCE: Final = StackLayer.source
+LAYERS: Final = LayerStack.layers  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
 EFFECTS: Final = StackLayer.effects  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
-LAYER_BLEND: Final = StackLayer.blend
-MATTE: Final = StackLayer.matte
-ENTRY_BLEND: Final = Entry.blend
-MASKS: Final = Blend.masks
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -380,31 +379,31 @@ def _blend_lens(target: StackTarget) -> Lens:
     """Lens reaching the blend a target edits, the layer's or its effect's."""
     match target:
         case LayerAt(layer=layer) | LayerMaskAt(layer=layer):
-            return (_LAYERS, layer, LAYER_BLEND)
+            return (LAYERS, layer, StackLayer.blend)
         case EffectAt(layer=layer, entry=entry) | EffectMaskAt(layer=layer, entry=entry):
-            return (_LAYERS, layer, EFFECTS, entry, ENTRY_BLEND)
+            return (LAYERS, layer, EFFECTS, entry, Entry.blend)
 
 
-def _stack_file(uid: int, frame: Option[int] = Nothing) -> str:
+def stack_file(uid: int, frame: Option[int] = Nothing) -> str:
     """Returns the File Output name of a stack group's multilayer frame, `#` padding the host fills with the frame number unless a frame is given."""
-    return f"{_OWNERSHIP.key}_{uid}_{frame.map(lambda number: str(number).zfill(_PADDING)).default_value('#' * _PADDING)}"
+    return f"{OWNERSHIP.key}_{uid}_{frame.map(lambda number: str(number).zfill(_PADDING)).default_value('#' * _PADDING)}"
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_VIEW: Final = Attachment(key=f"{_OWNERSHIP.key}_view", form=StackView, owner=bpy.types.Screen)
+VIEW: Final = Attachment(key=f"{OWNERSHIP.key}_view", form=StackView, owner=bpy.types.Screen)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "AFFINE",
+    "COMPOSITE_PART",
     "EFFECTS",
-    "ENTRY_BLEND",
-    "LAYER_BLEND",
-    "MASKS",
-    "MATTE",
+    "LAYERS",
+    "OWNERSHIP",
     "PINNED",
-    "SOURCE",
+    "TITLE",
+    "VIEW",
     "Adjustment",
     "Copied",
     "Edit",
@@ -431,4 +430,5 @@ __all__ = [
     "StoredLayer",
     "Switched",
     "TermFiltering",
+    "stack_file",
 ]

@@ -15,15 +15,15 @@ import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration, Resource
-from rasm_bpy.data._ids.ownership import _released, Ownership, Saved
+from rasm_bpy.data._ids.ownership import Ownership, released, Saved
 from rasm_bpy.data._rna.paths import rooted
-from rasm_bpy.data._rna.snapshots import Snapshot
+from rasm_bpy.data._rna.snapshots import Snapshot, SNAPSHOT_DECODER
 from rasm_bpy.render._color.spaces import viewed
-from rasm_bpy.render._outputs.results import _combined, _source, CompletedRender, RenderSource, ResultRead
+from rasm_bpy.render._outputs.results import combined, CompletedRender, RenderSource, ResultRead, source_image
 from rasm_bpy.render._previews.queue import Job, PreviewFeed, PreviewQueue, Rank
-from rasm_bpy.render._sessions.renders import _RENDER_HISTORY
+from rasm_bpy.render._sessions.renders import RENDER_HISTORY
 from rasm_bpy.ui._drawing.handlers import Signal
-from rasm_bpy.ui._resources.previews import _PreviewKey, _PREVIEWS
+from rasm_bpy.ui._resources.previews import PreviewKey, PREVIEWS
 from rasm_imaging import DisplayView, fitted, ImageFile, Multilayer
 from rasm_records import accumulated, content_hash, ContentHash, Dated, Fault, files_copied, History, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed, Retention
 
@@ -46,6 +46,10 @@ class Renders(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the stored render a pick names by its key, else the one stored before the newest, else the newest: the frame a compare draws as before."""
         return next((Some(entry.value) for entry in self.history.past if entry.value.hex() == picked), self.history.at(2).or_else_with(lambda: self.history.at(1)).map(lambda entry: entry.value))
 
+
+# --- [CODECS] ---------------------------------------------------------------------------
+
+_RENDERS_DECODER: Final = msgspec.json.Decoder(Renders)
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -72,7 +76,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def record(identity: Identity) -> RecordFile[Renders]:
         """Returns the history file."""
-        return RecordFile(path=RenderHistory.folder(identity) / f"{RenderHistory.key}.json", form=Renders)
+        return RecordFile(path=RenderHistory.folder(identity) / f"{RenderHistory.key}.json", decoder=_RENDERS_DECODER)
 
     @staticmethod
     def frame(identity: Identity, key: ContentHash) -> Path:
@@ -82,7 +86,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def snapshot(identity: Identity, key: ContentHash) -> RecordFile[Snapshot]:
         """Returns a stored render's settings snapshot file."""
-        return RecordFile(path=RenderHistory.folder(identity) / f"{key.hex()}.json", form=Snapshot)
+        return RecordFile(path=RenderHistory.folder(identity) / f"{key.hex()}.json", decoder=SNAPSHOT_DECODER)
 
     @staticmethod
     def completed(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config) -> Outcome[CompletedRender]:
@@ -129,9 +133,9 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
         def loaded(renders: Renders) -> Outcome[ImageFile]:
             match layer, renders.origins.get(key.hex()):
                 case Option(tag="some"), (_, RenderSource() as raw):
-                    return Multilayer.read(RenderHistory.frame(identity, key)).bind(lambda file: _source(file, config, raw, layer=layer, view=view))
+                    return Multilayer.read(RenderHistory.frame(identity, key)).bind(lambda file: source_image(file, config, raw, layer=layer, view=view))
                 case _, origin:
-                    return _combined(str(RenderHistory.frame(identity, key)), config, layer, view=view).map(
+                    return combined(str(RenderHistory.frame(identity, key)), config, layer, view=view).map(
                         lambda file: msgspec.structs.replace(file, colorspace=origin[0]) if origin is not None and layer.is_none() else file
                     )
 
@@ -146,7 +150,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
                 .of_optional(found[0].origins.get(key.hex()))
                 .bind(lambda origin: Option.of_optional(origin[1]))
                 .to_result_with(lambda: Fault.of(Reason.ABSENT, str(RenderHistory.frame(identity, key)), member="recorded raw source"))
-                .bind(lambda raw: _source(found[1], config, raw, view=view))
+                .bind(lambda raw: source_image(found[1], config, raw, view=view))
             )
         )
 
@@ -173,8 +177,8 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
             _COMPLETED[identity].pop(self.frame(identity, key), None)
             return paired(
                 accumulated(map(removed, (self.frame(identity, key), self.snapshot(identity, key).path))),
-                _PREVIEWS[identity].dropped(key.hex()),
-                _released(tuple(self.stored.found(identity, content=Some(key)).to_list())),
+                PREVIEWS[identity].dropped(key.hex()),
+                released(tuple(self.stored.found(identity, content=Some(key)).to_list())),
             ).map(lambda _: None)
 
         return (
@@ -190,7 +194,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
 
     def tiled(self, identity: Identity, key: ContentHash, view: DisplayView, config: PyOpenColorIO.Config) -> Job:
         """Constructs a tile request from a stored frame through the supplied view and configuration."""
-        shown = _PreviewKey.read(content_hash(RenderHistory, key, view, config.getCacheID()))
+        shown = PreviewKey.read(content_hash(RenderHistory, key, view, config.getCacheID()))
         return Job(
             place=(RenderHistory, key),
             key=shown,
@@ -200,14 +204,14 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
                 .output(identity, key, config)
                 .bind(lambda file: view.form(config, file.pixels, file.colorspace))
                 .bind(lambda found: fitted(found, (shown.side, shown.side)))
-                .bind(lambda pixels: _PREVIEWS[identity].written(key.hex(), shown, Some(shown.checkered(pixels))))
+                .bind(lambda pixels: PREVIEWS[identity].written(key.hex(), shown, Some(shown.checkered(pixels))))
                 .map(lambda _: None)
             ),
         )
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns stale tile requests from one history read and one scene view."""
-        previews, config = _PREVIEWS[identity], deepcopy(PyOpenColorIO.GetCurrentConfig())
+        previews, config = PREVIEWS[identity], deepcopy(PyOpenColorIO.GetCurrentConfig())
         return paired(self.held(identity), rooted(bpy.types.Scene, context).map(viewed)).map(
             lambda pair: tuple(job for entry in pair[0].history.past for job in (self.tiled(identity, entry.value, pair[1], config),) if previews.read(entry.value.hex(), job.key).is_none())
         )
@@ -233,7 +237,7 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
                 else Ok(None)
             )
 
-        retention = _RENDER_HISTORY.read(identity).map(lambda held: held.retention)
+        retention = RENDER_HISTORY.read(identity).map(lambda held: held.retention)
         content = completed.file.fingerprint(
             lambda name: (
                 name not in {"Date", "RenderTime", "Memory", "Hostname"} and not (name.startswith("cycles.") and name.rpartition(".")[2] in {"total_time", "render_time", "synchronization_time"})
@@ -247,12 +251,12 @@ class RenderHistory(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Served renders, the change signal, and the preview collection."""
-        return (_SERVED, _COMPLETED, self.signal, _PREVIEWS)
+        return (_SERVED, _COMPLETED, self.signal, PREVIEWS)
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the retention preference, the stored images, the tile feed, and the render read."""
         return (
-            _RENDER_HISTORY,
+            RENDER_HISTORY,
             self.stored,
             PreviewFeed(feed=self.jobs),
             ResultRead(

@@ -7,7 +7,7 @@ import { render } from 'vitest-browser-react';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _sheets = async () => {
+const sheets = async () => {
     const onChange = vi.fn<ComponentProps<typeof ReorderableList<{ readonly id: string; readonly title: string }>>['onChange']>();
     const list = (present: Parameters<typeof onChange>[0]) => (
         <ReorderableList actions={(keys) => <output>{`${keys.size} selected`}</output>} aria-label="Sheets" items={present} moveLabel="Move" onChange={onChange} textValue={({ title }) => title}>
@@ -41,21 +41,21 @@ const _sheets = async () => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it('counts select-all as every present item and disables moving', async () => {
-    const { screen, disabled } = await _sheets();
+    const { screen, disabled } = await sheets();
     await userEvent.tab();
     await userEvent.keyboard('{ControlOrMeta>}a{/ControlOrMeta}');
     await expect.element(screen.getByRole('status')).toHaveTextContent('3 selected');
     await expect.poll(disabled).toEqual([true, true, true]);
 });
 it('reorders by pointer drag onto lower and upper halves of later row', async () => {
-    const { drag, order } = await _sheets();
+    const { drag, order } = await sheets();
     await drag('Plan', 'Detail', 'lower');
     expect(order()).toEqual(['section', 'detail', 'plan']);
     await drag('Section', 'Plan', 'upper');
     expect(order()).toEqual(['detail', 'section', 'plan']);
 });
 it('drags every selected row as one block by pointer', async () => {
-    const { select, drag, order } = await _sheets();
+    const { select, drag, order } = await sheets();
     await select('Plan');
     await select('Section');
     await drag('Plan', 'Detail', 'lower');

@@ -2,14 +2,15 @@
 language: csharplang
 severity: error
 utils:
-    block:
+    header:
         kind: extension_declaration
         all:
-            - not: {has: {kind: type_parameter_list}}
-            - has: {kind: receiver_parameter, pattern: $RECEIVER}
+            - has: {kind: receiver_parameter, all: [{has: {field: type, pattern: $TYPE}}, {has: {nthChild: 1, pattern: $LEAD}}]}
+            - has: {nthChild: 1, any: [{kind: type_parameter_list, pattern: $GENERIC}, {kind: receiver_parameter, has: {field: type, pattern: $GENERIC}}]}
+            - has: {nthChild: {position: 2, reverse: true}, any: [{kind: type_parameter_constraints_clause, pattern: $WHERE}, {kind: receiver_parameter, has: {field: type, pattern: $WHERE}}]}
 rule:
     all:
-        - matches: block
-        - follows: {stopBy: end, kind: extension_declaration, matches: block}
-message: '`extension` block repeats receiver `$RECEIVER` an earlier block of the class declares'
+        - matches: header
+        - follows: {stopBy: end, matches: header}
+message: '`extension` block repeats receiver `$TYPE` an earlier block of the class declares'
 note: 'Move its members into the earlier `extension` block of `<receiver>`, one subsection divider per family'

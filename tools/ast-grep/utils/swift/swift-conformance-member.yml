@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-conformance-member
+language: swiftlang
+rule:
+    inside:
+        kind: 'class_body, enum_class_body'
+        inside:
+            kind: class_declaration
+            has:
+                kind: inheritance_specifier
+                not: {regex: '^(@unchecked[\t-\r ]+)?~?((Swift|Foundation)(\.|::))?(Sendable|Equatable|Hashable|Codable|Encodable|Decodable|Error|BitwiseCopyable|Copyable|Escapable)$'}

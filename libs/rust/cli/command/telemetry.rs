@@ -1,60 +1,48 @@
-use core::{error::Error, iter, mem::DropGuard};
-use std::{
-    backtrace::Backtrace,
-    collections::HashMap,
-    error::Report,
-    ffi::OsStr,
-    io,
-    panic::{self, PanicHookInfo},
-    process::{self, ExitCode, Termination},
-    sync::Arc,
-    thread,
-};
+use core::error::Error;
+use core::iter;
+use core::mem::DropGuard;
+use std::backtrace::Backtrace;
+use std::collections::HashMap;
+use std::error::Report;
+use std::ffi::OsStr;
+use std::panic::{self, PanicHookInfo};
+use std::process::{self, ExitCode, Termination};
+use std::sync::Arc;
+use std::{io, thread};
 
 use camino::Utf8PathBuf;
-use clap::{
-    Arg, Args, Command, Id, ValueEnum,
-    builder::{EnumValueParser, PossibleValue, PossibleValuesParser, TypedValueParser},
-};
+use clap::builder::{EnumValueParser, PossibleValue, PossibleValuesParser, TypedValueParser};
+use clap::{Arg, Args, Command, Id, ValueEnum};
 use enum_map::EnumMap;
 use itertools::Itertools as _;
 use json_subscriber::JsonLayer;
 use log::SetLoggerError;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use opentelemetry::{
-    Context, InstrumentationScope, Key, KeyValue, global,
-    propagation::{TextMapCompositePropagator, TextMapPropagator},
-    trace::TracerProvider as _,
-};
+use opentelemetry::propagation::{TextMapCompositePropagator, TextMapPropagator};
+use opentelemetry::trace::TracerProvider as _;
+use opentelemetry::{Context, InstrumentationScope, Key, KeyValue, global};
 use opentelemetry_appender_tracing::layer::{OpenTelemetryTracingBridge, TracingSpanAttributes};
 use opentelemetry_otlp::{ExporterBuildError, LogExporter, MetricExporter, SpanExporter};
 use opentelemetry_resource_detectors::{ContainerResourceDetector, HostResourceDetector, OsResourceDetector, ProcessResourceDetector, ServiceInstanceIdResourceDetector};
-use opentelemetry_sdk::{
-    Resource,
-    error::OTelSdkError,
-    logs::{LoggerProviderBuilder, SdkLoggerProvider},
-    metrics::{MeterProviderBuilder, SdkMeterProvider},
-    propagation::{BaggagePropagator, TraceContextPropagator},
-    resource::{EnvResourceDetector, ResourceDetector as _, TelemetryResourceDetector},
-    trace::{SdkTracerProvider, TracerProviderBuilder},
+use opentelemetry_sdk::Resource;
+use opentelemetry_sdk::error::OTelSdkError;
+use opentelemetry_sdk::logs::{LoggerProviderBuilder, SdkLoggerProvider};
+use opentelemetry_sdk::metrics::{MeterProviderBuilder, SdkMeterProvider};
+use opentelemetry_sdk::propagation::{BaggagePropagator, TraceContextPropagator};
+use opentelemetry_sdk::resource::{EnvResourceDetector, ResourceDetector as _, TelemetryResourceDetector};
+use opentelemetry_sdk::trace::{SdkTracerProvider, TracerProviderBuilder};
+use opentelemetry_semantic_conventions::SCHEMA_URL;
+use opentelemetry_semantic_conventions::attribute::{
+    CODE_FILE_PATH, CODE_LINE_NUMBER, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, PROCESS_COMMAND_ARGS, SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, THREAD_NAME,
 };
-use opentelemetry_semantic_conventions::{
-    SCHEMA_URL,
-    attribute::{CODE_FILE_PATH, CODE_LINE_NUMBER, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, PROCESS_COMMAND_ARGS, SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, THREAD_NAME},
-};
-use tracing::{
-    Subscriber,
-    subscriber::{self, SetGlobalDefaultError},
-};
+use tracing::Subscriber;
+use tracing::subscriber::{self, SetGlobalDefaultError};
 use tracing_log::LogTracer;
-use tracing_subscriber::{
-    EnvFilter, Registry,
-    filter::{Directive, LevelFilter, ParseError, Targets},
-    fmt::{self, time::SystemTime},
-    layer::{self, Layered, SubscriberExt as _},
-    registry::LookupSpan,
-    reload,
-};
+use tracing_subscriber::filter::{Directive, LevelFilter, ParseError, Targets};
+use tracing_subscriber::fmt::time::SystemTime;
+use tracing_subscriber::layer::{self, Layered, SubscriberExt as _};
+use tracing_subscriber::registry::LookupSpan;
+use tracing_subscriber::{EnvFilter, Registry, fmt, reload};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------

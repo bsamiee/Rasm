@@ -1,7 +1,5 @@
-use core::{
-    hint::black_box,
-    num::{ParseIntError, TryFromIntError},
-};
+use core::hint::black_box;
+use core::num::{ParseIntError, TryFromIntError};
 use std::rc::Rc;
 
 use itertools::Itertools as _;

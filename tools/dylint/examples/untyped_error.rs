@@ -1,27 +1,26 @@
 #![feature(error_reporter, try_blocks)]
 
-use core::{
-    convert::Infallible,
-    error::Error,
-    fmt,
-    hint::black_box,
-    num::{ParseIntError, TryFromIntError},
-};
-use std::{
-    borrow::Cow,
-    error::Report,
-    io,
-    path::{Path, PathBuf},
-    rc::Rc,
-    sync::Arc,
-};
+use core::convert::Infallible;
+use core::error::Error;
+use core::fmt;
+use core::hint::black_box;
+use core::num::{ParseIntError, TryFromIntError};
+use std::borrow::Cow;
+use std::error::Report;
+use std::io;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::Context as _;
-use itertools::{Itertools as _, structs::ExactlyOneError};
+use itertools::Itertools as _;
+use itertools::structs::ExactlyOneError;
 use nonempty_collections::NEVec;
 use nuts_rs::{DiagNutsSettings, Settings as _};
-use rmcp::{ErrorData, model::ErrorCode};
-use tokio::{sync::oneshot, task};
+use rmcp::ErrorData;
+use rmcp::model::ErrorCode;
+use tokio::sync::oneshot;
+use tokio::task;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -124,11 +123,7 @@ enum ConfigError {
     #[error("{detail} in {context}")]
     Detail { detail: Box<str>, context: Cow<'static, str> },
     #[error("key {key} holds no port")]
-    Parse {
-        key: String,
-        #[source]
-        source: ParseIntError,
-    },
+    Parse { key: String, source: ParseIntError },
     #[error("no port named {name}")]
     Unknown { name: String },
     #[error("port {port} is reserved")]
@@ -154,11 +149,7 @@ enum SyncError {
 #[derive(Debug, thiserror::Error)]
 enum LoadError {
     #[error("cannot read {}", path.display())]
-    Read {
-        path: PathBuf,
-        #[source]
-        source: io::Error,
-    },
+    Read { path: PathBuf, source: io::Error },
 }
 
 #[derive(Debug, thiserror::Error)]

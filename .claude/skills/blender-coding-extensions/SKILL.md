@@ -29,65 +29,39 @@ Acquisitions follow Blender dependency order and releases reverse it, an attachm
 |  [02]   | Parent panel    | Panel naming it in `bl_parent_id`                        | `RuntimeError` at registration                |
 |  [03]   | Operator        | Keymap item calling it                                   | Item property writes raising `AttributeError` |
 
-`registered` registers each class after the groups and parent panel it names, and pushes each release onto the caller's stack, a class's release ahead of its `register_class` call. Keymap releases remove the items `keyconfig_init_from_data` added:
+`rasm_bpy.data.Registration` acquires an extension's rows in that order whatever order they hold: groups before the attachments and operators naming them, operators before the keymap items calling them, each panel after its `bl_parent_id` panel. Each release joins one stack, `unregister` closing it in reverse. Rows sit in an extension module, the package `__init__.py` re-exporting `register` and `unregister`, and a class registered outside `Registration` takes the bare `bpy.props` annotation `register_class` reads:
 
 ```python
-type Registrable = type[bpy.types.PropertyGroup | bpy.types.AddonPreferences | bpy.types.Operator | bpy.types.Panel | bpy.types.Menu | bpy.types.UIList | bpy.types.FileHandler]
-type Keyconfig = Sequence[tuple[str, dict[str, str], dict[str, list[tuple[str, dict[str, object], dict[str, object]]]]]]
+class Settings(bpy.types.PropertyGroup):
+    """Amount the item runs by."""
+
+    amount: Annotated[int, bpy.props.IntProperty(name="Amount", min=1, default=1)]
 
 
-def registered(stack: ExitStack, classes: Collection[Registrable], /, *, attached: Iterable[tuple[type[Struct], str, _PropertyDeferred]] = (), keymaps: Keyconfig = ()) -> None:
-    keyconfigs: bpy.types.KeyConfigurations = bpy.context.window_manager.keyconfigs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    addon: bpy.types.KeyConfig = keyconfigs.addon  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    named = {getattr(cls, "bl_idname", cls.__name__): cls for cls in classes}
-    graph = {
-        cls: {
-            *(hint.keywords["type"] for hint in get_type_hints(cls).values() if isinstance(hint, _PropertyDeferred) and "type" in hint.keywords),
-            *(named[parent] for parent in named.keys() & {getattr(cls, "bl_parent_id", "")}),
-        }
-        & set(classes)
-        for cls in classes
-    }
-    stack.callback(keyconfigs.update, keep_properties=True)
-    for cls in graphlib.TopologicalSorter(graph).static_order():
-        stack.callback(lambda cls=cls: "bl_rna" in vars(cls) and bpy.utils.unregister_class(cls))
-        bpy.utils.register_class(cls)
-    for owner, name, prop in attached:
-        setattr(owner, name, prop)
-        stack.callback(delattr, owner, name)
-    before = frozenset(item for keymap in addon.keymaps for item in keymap.keymap_items)
-    keyconfig_init_from_data(addon, keyconfig_data_oskey_from_ctrl_for_macos(keymaps) if sys.platform == "darwin" else keymaps)  # type: ignore[func-returns-value]
-    for keymap in addon.keymaps:
-        for item in frozenset(keymap.keymap_items) - before:
-            stack.callback(keymap.keymap_items.remove, item)
+@Operator.of(Settings, options=frozenset({"UNDO", "INTERNAL"}))
+def run_item(call: Call[Settings]) -> Outcome[Answer]:
+    """Run the item by its amount."""
+    return Ok(Done(notes=(("INFO", f"Ran {call.properties.amount} times"),)))
 
 
-held = ExitStack()
-
-
-def register() -> None:
-    with ExitStack() as stack:
-        registered(
-            stack,
-            CLASSES,
-            attached=((bpy.types.Scene, "item", bpy.props.PointerProperty(type=Settings)),),
-            keymaps=[("Object Mode", {}, {"items": [(Run.bl_idname, {"type": "J", "value": "PRESS", "ctrl": 1}, {"properties": [("amount", 2)]})]})],
-        )
-        bpy.app.handlers.load_post.append(loaded)
-        stack.callback(bpy.app.handlers.load_post.remove, loaded)
-        held.push(stack.pop_all())
-
-
-unregister = held.close
+_REGISTRATION = Registration(
+    __name__.rpartition(".")[0],
+    (
+        Keymap(keymap="Object Mode", bindings=((Chord(type="J", ctrl=1), Placement(run_item, {"amount": 2})),)),
+        Attachment(key="item", form=Settings, owner=bpy.types.Scene),
+        Handler(handlers=bpy.app.handlers.load_post, body=loaded),
+    ),
+)
+register, unregister = _REGISTRATION.register, _REGISTRATION.unregister
 ```
 
-`CLASSES` lists classes in any order. A raise inside the `with` block releases every earlier acquisition, then reaches Blender as raised.
+`Placement` registers `run_item` before the `J` item calling it, and `Attachment` registers `Settings` before pointing `Scene.<id>_item` at it. `loaded` is a `load_post` body returning `Outcome[None]`. A refused row releases every earlier acquisition, and `register` raises one `RuntimeError` listing the faults.
 
 Attachments:
-- `attached` takes any `bpy.props` definition onto a host type, `delattr` releasing it
+- `Attachment(key=<key>, form=<group>, owner=<host type>)` points `<owner>.<id>_<key>` at its form group, `delattr` releasing it
 - Group storage on an ID starts at its first read, saves with files, and outlives a release, reading back once the group attaches again
 - Static RNA members (`render`, `frame_current`) refuse an attachment with `ValueError`, and `name`, RNA functions, and `bl_rna` take a shadowing one
-- Second attachments under one name replace the first with no raise
+- Second native attachments under one name replace the first with no raise, and `Attachment` refuses a held name with a `TAKEN` fault
 
 ## [02]-[CLASSES]
 
@@ -98,7 +72,7 @@ Registered classes take the forms Blender checks at `register_class` and at each
 - Classes under a taken idname replace the earlier class with an `Info` line
 - Callbacks with a positional parameter count other than the host's raise `ValueError` at registration, `*args` counting none (Panel `draw` takes 2)
 - Panels and menus build a new instance per draw, and state between draws goes in a property
-- Classes without `bl_idname` register under their class name, and code reads it from `cls.bl_rna.identifier`
+- Classes without `bl_idname` register under the `__name__` they hold at `register_class`
 - Panels shared across editors register one `type(f"{base.__name__}_{space.lower()}", (base,), {"bl_space_type": space})` per space
 - Shared panel bases hold `draw` and other `bl_*` members
 
@@ -176,7 +150,7 @@ Online Manual lookups call manual map functions returning `(<url prefix>, ((<pat
 Patterns derive from the registered classes, an operator's `bl_idname` and a group's class name each keying one pattern and one anchor:
 
 ```python
-def manual(root: str, classes: Iterable[Registrable], /) -> tuple[str, tuple[tuple[str, str], ...]]:
+def manual(root: str, classes: Iterable[type[Struct]], /) -> tuple[str, tuple[tuple[str, str], ...]]:
     return root, tuple(
         (f"bpy.ops.{cls.bl_idname}", f"#{cls.bl_idname}") if issubclass(cls, bpy.types.Operator) else (f"bpy.types.{cls.__name__.lower()}.*", f"#{cls.__name__.lower()}")
         for cls in classes
@@ -184,7 +158,7 @@ def manual(root: str, classes: Iterable[Registrable], /) -> tuple[str, tuple[tup
     )
 ```
 
-`register_manual_map` and `unregister_manual_map` take one held `partial(manual, "<url>", CLASSES)`, called at each lookup.
+`register_manual_map` and `unregister_manual_map` take one held `partial(manual, "<url>", <classes>)`, called at each lookup. `Registration` registers its own map over the manifest `website`.
 
 ## [07]-[IDENTITY]
 

@@ -16,7 +16,7 @@ public struct ExitDetail: OptionSet, Sendable {
 
 extension ExitDetail: Encodable {
     public func encode(to encoder: any Encoder) throws {
-        var names: any SingleValueEncodingContainer = encoder.singleValueContainer()
+        var names = encoder.singleValueContainer()
         try names.encode([(Self.memory, "memory"), (Self.csError, "codeSigning"), (Self.decryptFail, "decryption")].filter { option, _ in contains(option) }.map(\.1))
     }
 }
@@ -42,10 +42,10 @@ public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Er
     AsyncStream { continuation in
         let registered = Result { () throws(Errno) in
             guard process > 0 else { throw .noSuchProcess }
-            let descriptor: Int32 = kqueue()
+            let descriptor = kqueue()
             guard descriptor >= 0 else { throw Errno(rawValue: errno) }
             let queue = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-            var exit: kevent = unsafe kevent(
+            var exit = unsafe kevent(
                 ident: UInt(process),
                 filter: Int16(EVFILT_PROC),
                 flags: UInt16(EV_ADD | EV_ONESHOT),
@@ -57,9 +57,9 @@ public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Er
             return queue
         }
         @Sendable func drained(_ descriptor: Int32) -> Result<ProcessExit, Errno>? {
-            var exited: kevent = unsafe kevent()
-            var now: timespec = timespec()
-            let read: Int32 = unsafe kevent(descriptor, nil, 0, &exited, 1, &now)
+            var exited = unsafe kevent()
+            var now = timespec()
+            let read = unsafe kevent(descriptor, nil, 0, &exited, 1, &now)
             guard read != 0 else { return nil }
             let data = Int32(truncatingIfNeeded: unsafe exited.data)
             return read < 0 ? .failure(Errno(rawValue: errno)) : .success(ProcessExit(status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
@@ -70,7 +70,7 @@ public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Er
                 continuation.finish()
             case .success(let queue):
                 queue.readabilityHandler = { queue in
-                    guard let outcome: Result<ProcessExit, Errno> = drained(queue.fileDescriptor) else { return }
+                    guard let outcome = drained(queue.fileDescriptor) else { return }
                     continuation.yield(outcome)
                     continuation.finish()
                 }

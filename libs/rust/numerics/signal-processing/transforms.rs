@@ -1,4 +1,7 @@
-use core::{cmp::Ordering, f64::consts::TAU, iter, num::NonZero};
+use core::cmp::Ordering;
+use core::f64::consts::TAU;
+use core::iter;
+use core::num::NonZero;
 
 use nalgebra::convert;
 use ndarray::{Array, Array1, ArrayBase, ArrayViewMut1, Axis, CowArray, Data, Dimension, Zip};
@@ -6,7 +9,9 @@ use ndrustfft::{DctHandler, FftHandler, Normalization, R2cFftHandler, nddct2_inp
 use num_complex::Complex;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use rustfft::{FftDirection, FftPlanner};
-use uom::si::{f64::Frequency, frequency::hertz, ratio::ratio};
+use uom::si::f64::Frequency;
+use uom::si::frequency::hertz;
+use uom::si::ratio::ratio;
 
 use crate::{Band, Rate, Samples, Series, SpectraError, real_bins};
 

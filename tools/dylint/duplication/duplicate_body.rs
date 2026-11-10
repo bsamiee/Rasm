@@ -1,33 +1,25 @@
-use core::{iter, ops::ControlFlow};
+use core::iter;
+use core::ops::ControlFlow;
 use std::rc::Rc;
 
-use clippy_utils::{
-    SpanlessHash,
-    diagnostics::span_lint_hir_and_then,
-    peel_blocks, peel_hir_expr_refs, peel_hir_expr_while,
-    res::MaybeQPath as _,
-    source::snippet,
-    visitors::{for_each_expr, is_const_evaluatable},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeQPath as _;
+use clippy_utils::source::snippet;
+use clippy_utils::visitors::{for_each_expr, is_const_evaluatable};
+use clippy_utils::{SpanlessHash, peel_blocks, peel_hir_expr_refs, peel_hir_expr_while};
 use itertools::Itertools as _;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet};
 use rustc_errors::listify;
-use rustc_hir::{
-    Block, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, HirId, Node,
-    def::{CtorOf, DefKind},
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def::{CtorOf, DefKind};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{Block, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, HirId, Node};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{
-    self, EarlyBinder, GenericArg, GenericArgs, GenericArgsRef, TraitRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults,
-    adjustment::{Adjust, DerefAdjustKind, PointerCoercion},
-    print::{PrintTraitRefExt as _, with_forced_trimmed_paths},
-};
+use rustc_middle::ty::adjustment::{Adjust, DerefAdjustKind, PointerCoercion};
+use rustc_middle::ty::print::{PrintTraitRefExt as _, with_forced_trimmed_paths};
+use rustc_middle::ty::{self, EarlyBinder, GenericArg, GenericArgs, GenericArgsRef, TraitRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults};
 use rustc_span::Symbol;
-use rustc_trait_selection::{
-    regions::test_region_obligations,
-    traits::{Obligation, ObligationCause, ObligationCtxt},
-};
+use rustc_trait_selection::regions::test_region_obligations;
+use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 
 use super::{Bodies, Callable, owner, substitute_types};
 use crate::{constructed, derived_impl, expanded_externally, impl_owner, is_error, item_path, literal_or_const, parameter};

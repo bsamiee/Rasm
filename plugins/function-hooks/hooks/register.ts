@@ -11,8 +11,7 @@ type Row = Instance & { readonly agent?: string };
 const ROW_PREFIX = 'instances:';
 const LAST_SEGMENT = /\/[^/]*$/u;
 const ERROR_LINE = /Error\b/u;
-const SPACES = /\s+/u;
-const REASON_WORDS = 9;
+const NOTE_INTERVAL = 600_000;
 const KINDS = { Bash: 'foreground', Monitor: 'monitor' } as const;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 const APP_SERVERS = [
@@ -168,8 +167,24 @@ const quitSession = async ($: EngineInterface, session: string): Promise<void> =
     await Promise.all((await rowKeysOf($, session)).map((key) => $.store.delete(key)));
 };
 
-const failClosed = <E, A>(_$: unknown, e: E, next: { (e: E): Promise<A>; readonly called: boolean; readonly error: { readonly message?: string; readonly kind: string } }) =>
-    next.called ? next(e) : { deny: `function-hooks failed, ${next.error.message ?? next.error.kind}`.split(SPACES).slice(0, REASON_WORDS).join(' ') };
+// --- [FAILURES]
+
+const TOLD = new Map<string | undefined, number>();
+
+const unjudged = (cause: string) => `function-hooks did not judge this command: ${cause.split('\n', 1).join('')}`;
+
+const failOpen = async <E extends { readonly agentId?: string | undefined }, A extends { readonly deny?: string | undefined; readonly context?: readonly string[] | undefined }>($: EngineInterface, e: E, next: { (e: E): Promise<A>; readonly error: { readonly message?: string; readonly kind: string } }): Promise<A> => {
+    const line = unjudged(next.error.message ?? next.error.kind);
+    const now = await $.clock.now();
+    const due = now - (TOLD.get(e.agentId) ?? Number.NEGATIVE_INFINITY) >= NOTE_INTERVAL;
+    $.ui.log(line, { to: 'debug' });
+    const answer = await next(e);
+    if (!due || answer.deny !== undefined) {
+        return answer;
+    }
+    TOLD.set(e.agentId, now);
+    return { ...answer, context: [...(answer.context ?? []), line] };
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -186,19 +201,25 @@ const register: Register = (on) => {
     on('tool.call', { tool: new RegExp(APP_SERVERS.map(([server]) => server.source).join('|'), 'u') }, ($, e, next) => {
         driven($, sockets, watches, e.tool, e.agentId).catch((cause: unknown) => watchFailed($, cause));
         return next(e);
-    }).catch(failClosed);
+    }).catch(failOpen);
     on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
-    on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, report back and stop' })).catch(failClosed);
+    on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, report back and stop' })).catch(failOpen);
     on('tool.call', { tool: ['mcp__atelier__launch', 'mcp__atelier__open'] }, async ($, e, next) => {
         const answer = await next(e);
         await observed($, sockets, watches, e.agentId, answer.text);
         return answer;
-    }).catch(failClosed);
+    }).catch(failOpen);
     on('tool.call', { tool: ['Bash', 'Monitor'] }, async ($, e, next) => {
         if (e.command === undefined) {
             return next(e);
         }
-        const decision = await posted($, sockets, 'decide', { command: e.command, cwd: await $.session.cwd(), kind: e.tool === 'Bash' && e.run_in_background === true ? 'background' : KINDS[e.tool], ...(e.tool === 'Bash' && e.timeout !== undefined && { timeout: e.timeout }) });
+        const decision = await posted($, sockets, 'decide', {
+            command: e.command,
+            cwd: await $.session.cwd(),
+            kind: e.tool === 'Bash' && e.run_in_background === true ? 'background' : KINDS[e.tool],
+            ...(e.tool === 'Bash' && e.timeout !== undefined && { timeout: e.timeout }),
+            ...(e.agentId !== undefined && { agent: e.agentId }),
+        });
         const observing = async <A extends { readonly text?: string | undefined }>(answer: A, observes: boolean) => {
             if (observes && e.tool === 'Bash') {
                 await observed($, sockets, watches, e.agentId, answer.text);
@@ -217,7 +238,7 @@ const register: Register = (on) => {
             default:
                 return decision satisfies never;
         }
-    }).catch(failClosed);
+    }).catch(failOpen);
     on('turn.complete', async ($, e, next) => {
         const answer = await next(e);
         await quitEnded($, sockets);
@@ -231,4 +252,4 @@ const register: Register = (on) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { register };
+export { NOTE_INTERVAL, register, unjudged };

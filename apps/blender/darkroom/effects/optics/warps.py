@@ -18,6 +18,8 @@ from rasm_bpy.render import (
     BORDERS,
     camera_info,
     captured,
+    CLOCK,
+    Clock,
     CompositorEffect,
     CompositorRecord,
     DerivedInputs,
@@ -36,18 +38,20 @@ from rasm_bpy.render import (
     pinned,
     precise,
     reaimed,
+    SEED,
     seen,
     shorter,
     shutter,
     ShutterPoses,
     Step,
+    timing,
     to_camera_space,
     trailed,
     value,
     valued,
 )
 from rasm_bpy.scene import camera_type
-from rasm_imaging import Equirectangular, folded, from_polar, Homography, Panoramas, Quad, tiles, to_polar
+from rasm_imaging import Equirectangular, folded, from_polar, Homography, Panoramas, Quad, stream, to_polar
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -78,7 +82,7 @@ _NOISE: Final = InterfacePanel.of(
 )
 _SHAKE: Final = InterfacePanel.of(
     "shake",
-    Interface(inputs=(_SHAKE_POSITION, _SHAKE_ROTATION, _SHAKE_SCALE, motion.SEED), panels=(_NOISE, motion.CLOCK)),
+    Interface(inputs=(_SHAKE_POSITION, _SHAKE_ROTATION, _SHAKE_SCALE, SEED), panels=(_NOISE, CLOCK)),
     description="Seeded camera motion over time, continuous within exposure",
     toggle=Some(False),
 )
@@ -132,16 +136,14 @@ class Transform(CompositorRecord, frozen=True, kw_only=True):
         def pose(side: int | None) -> Expr:
             offset: Expr | float = 0.0 if side is None else opening + float(side)
             shaken = functools.partial(value, side, _SHAKE)
-            speed, hold = (shaken(motion.CLOCK.socket(field)) for field in (motion.Clock.speed, motion.Clock.hold))
+            speed, hold = (shaken(CLOCK.socket(field)) for field in (Clock.speed, Clock.hold))
             time = math("MULTIPLY_ADD", offset * length / rate, speed, motion.clock(speed, hold, rate))
 
             def linked(member: MemberDescriptorType) -> Option[Expr]:
                 return Option.of_optional(noises.get(item_key(_NOISE.key, member))).map(shaken)
 
             x, y, angle, stops = (
-                math(
-                    "MULTIPLY_ADD", textures.evolving(_SHAKE_NOISE, xyz(time + origin(shaken(motion.SEED), float(tiles.stream(Transform, _SHAKE.key, axis)))["X"]), 0.0, linked=Some(linked)), 2.0, -1.0
-                )
+                math("MULTIPLY_ADD", textures.evolving(_SHAKE_NOISE, xyz(time + origin(shaken(SEED), float(stream(Transform, _SHAKE.key, axis)))["X"]), 0.0, linked=Some(linked)), 2.0, -1.0)
                 for axis in range(4)
             )
             jitter = frame.placement(
@@ -274,7 +276,7 @@ transform: Final = CompositorEffect(
     interface=_INTERFACE,
     mix=Mix.RESULT,
     check=Some(_checked),
-    derives=(motion.timing, DerivedInputs(of=_pinned_rows, sockets=PIN_ROWS), DerivedInputs(of=_POSES.posed, sockets=_POSES.poses, reads=shutter.reads)),
+    derives=(timing, DerivedInputs(of=_pinned_rows, sockets=PIN_ROWS), DerivedInputs(of=_POSES.posed, sockets=_POSES.poses, reads=shutter.reads)),
     animates=Some(_POSES.keyed),
 )
 projection: Final = CompositorEffect(record=Projection, interface=Interface(inputs=(_MODE,), panels=_MODES.panels), mix=Mix.RESULT)

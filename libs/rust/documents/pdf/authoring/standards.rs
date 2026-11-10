@@ -2,10 +2,8 @@ use core::iter;
 use std::sync::Arc;
 
 use hayro_syntax::object::dict::keys::{DEST_OUTPUT_PROFILE, INFO, METADATA, N, OUTPUT_CONDITION, OUTPUT_CONDITION_IDENTIFIER, OUTPUT_INTENT, OUTPUT_INTENTS, S, TYPE};
-use krilla::{
-    SerializeSettings,
-    configure::{Accessibility, Archival, ConfigurationBuilder, PdfVersion, ValidationError},
-};
+use krilla::SerializeSettings;
+use krilla::configure::{Accessibility, Archival, ConfigurationBuilder, PdfVersion, ValidationError};
 use lopdf::{Dictionary, Object, Stream, dictionary, text_string};
 use moxcms::{ColorProfile, ProfileText};
 use pdf_oxide::compliance::PdfXLevel;

@@ -44,7 +44,7 @@ internal sealed class HostedSection : IDisposable {
 
     internal HostedSection(EtoCollapsibleSection section, Seq<Command<Invoke>> actions, Option<Guid> data, Func<bool> excluded, bool visible, IO<ViewBody> realize) {
         (this.section, this.actions, this.data, this.excluded, this.visible, this.realize) = (section, actions, data, excluded, visible, realize);
-        _ = Session.Run(ViewOps.WhileLoaded(section, Listening).Scoped(scope));
+        _ = Session.Run(ViewOps.Loaded(section, Listening).Scoped(scope));
     }
 
     internal int Height => body.Match(Some: static held => held.Height, None: static () => 0);

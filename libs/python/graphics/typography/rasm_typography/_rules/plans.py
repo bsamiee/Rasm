@@ -1,25 +1,18 @@
-"""Ordered face plans with rules resolved from face values, genre, and script, and the fold applying a plan to a source."""
+"""Ordered face plans with rules resolved from face values, genre, and script."""
 
-lazy from functools import reduce
 lazy import unicodedata
 
-import msgspec
-
-from rasm_typography._rules.anchors import _anchored, Anchors
-from rasm_typography._rules.digits import _figured, Digits
-from rasm_typography._rules.fits import _fitted, Outlines
-from rasm_typography._rules.joins import _joined, Joins
-from rasm_typography._rules.locale import _localized, Locale
-from rasm_typography._rules.marks import _penned, _quranic, _signed, Marks, QuranicMarks, WordSigns
-from rasm_typography._rules.metrics import _recorded, Metrics, Records
-from rasm_typography._rules.ornaments import _encoded, Ornaments
-from rasm_typography._rules.scale import _scaled, Scale
-from rasm_typography._rules.spacing import _spaced, Spacing
-lazy from rasm_records import Faults, Ok, Outcome
+from rasm_typography._rules.anchors import Anchors
+from rasm_typography._rules.digits import Digits
+from rasm_typography._rules.fits import Outlines
+from rasm_typography._rules.joins import Joins
+from rasm_typography._rules.locale import Locale
+from rasm_typography._rules.marks import Marks, QuranicMarks, WordSigns
+from rasm_typography._rules.metrics import Metrics, Records
+from rasm_typography._rules.ornaments import Ornaments
+from rasm_typography._rules.scale import Scale
+from rasm_typography._rules.spacing import Spacing
 lazy from rasm_typography._faces.declaration import Advance, Face, Faces, OrnamentFace, Sheared
-lazy from rasm_typography._faces.glyphs import Source
-lazy from rasm_typography._shaping.corpus import Corpus
-lazy from rasm_typography._shaping.runs import Binary
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -49,51 +42,6 @@ def planned(face: Faces, /) -> tuple[Rules | Metrics, ...]:
             )
         case OrnamentFace(first=first):
             return (Ornaments(first=first), Outlines(sliver=0.001, snap=0.006), Metrics(pitch=None, stack=0.0), Records())
-
-
-def _applied(source: Source, rule: Rules, /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
-    """Applies one rule to a source, measuring the original where the source cannot shape yet."""
-    match rule:
-        case Ornaments():
-            return Ok(_encoded(source, rule))
-        case Locale():
-            return Ok(_localized(source, rule))
-        case Digits():
-            return Ok(_figured(source, rule))
-        case Outlines():
-            return Ok(_fitted(source, rule))
-        case Marks():
-            return _penned(source, rule)
-        case QuranicMarks():
-            return _quranic(source, rule, original=original)
-        case Joins():
-            return _joined(source, rule)
-        case Scale():
-            return _scaled(source, rule, original=original, corpus=corpus)
-        case Anchors():
-            return _anchored(source, rule, original=original, corpus=corpus)
-        case Spacing():
-            return _spaced(source, rule, original=original, corpus=corpus)
-        case WordSigns():
-            return _signed(source, rule, original=original)
-        case Records():
-            return Ok(_recorded(source, rule))
-
-
-def _named(rule: str, faults: Faults, /) -> Faults:
-    """Prefixes each fault's member with the rule that refused."""
-    head, *rest = (msgspec.structs.replace(fault, member=rule if fault.member is None else f"{rule} {fault.member}") for fault in faults)
-    return (head, *rest)
-
-
-def _executed(source: Source, plan: tuple[Rules | Metrics, ...], /, *, original: Binary, corpus: Corpus) -> Outcome[Source]:
-    """Folds drawing rules over a source, leaving native layout metrics to font construction, the first refused rule naming itself on its faults."""
-    initial: Outcome[Source] = Ok(source)
-    return reduce(
-        lambda held, rule: held.bind(lambda current: _applied(current, rule, original=original, corpus=corpus).map_error(lambda faults: _named(type(rule).__name__.lower(), faults))),
-        (rule for rule in plan if not isinstance(rule, Metrics)),
-        initial,
-    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

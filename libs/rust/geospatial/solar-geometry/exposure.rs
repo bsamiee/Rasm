@@ -1,23 +1,24 @@
-use core::{borrow::Borrow, hash::BuildHasher, iter, num::NonZero, ops::Bound};
+use core::borrow::Borrow;
+use core::hash::BuildHasher;
+use core::iter;
+use core::num::NonZero;
+use core::ops::Bound;
 use std::collections::HashMap;
 
 use itertools::{Either, Itertools as _};
 use nalgebra::{Point3, UnitQuaternion, UnitVector3};
 use ndarray::{Array1, Array2, Axis, ShapeBuilder as _};
 use nonempty_collections::nev;
-use rasm_proximity::{
-    Assembly, Distance, ProximityError,
-    rays::{crossings, occluded},
-};
+use rasm_proximity::rays::{crossings, occluded};
+use rasm_proximity::{Assembly, Distance, ProximityError};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
-use uom::si::{
-    f64::{Ratio, Time},
-    ratio::ratio,
-    solid_angle::steradian,
-    time::second,
-};
+use uom::si::f64::{Ratio, Time};
+use uom::si::ratio::ratio;
+use uom::si::solid_angle::steradian;
+use uom::si::time::second;
 
-use crate::{Input, SolarError, dome::patches, finite, refused};
+use crate::dome::patches;
+use crate::{Input, SolarError, finite, refused};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

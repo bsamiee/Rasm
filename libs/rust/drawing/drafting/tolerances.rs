@@ -8,12 +8,9 @@ use nonempty_collections::{NEVec, nev};
 use rasm_drawing::{Anchor, Placement};
 use uom::si::f64::Length;
 
-use crate::{
-    Content, DraftingError, Graphics,
-    notation::{self, Sign},
-    tables,
-    text::{Label, Typesetter},
-};
+use crate::notation::{self, Sign};
+use crate::text::{Label, Typesetter};
+use crate::{Content, DraftingError, Graphics, tables};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

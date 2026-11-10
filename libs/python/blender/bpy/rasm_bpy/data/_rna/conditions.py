@@ -11,7 +11,7 @@ from expression.extra.result import catch
 import msgspec
 
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._rna.descriptors import Descriptor, Value
+from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, Value
 from rasm_bpy.data._rna.paths import root_in, rooted, Struct
 from rasm_bpy.data._rna.properties import case_choices
 from rasm_records import accumulated, Case, Fault, Nothing, Ok, Outcome, Reason
@@ -152,7 +152,7 @@ class Not(Condition, frozen=True, kw_only=True):
 class Count(Condition, frozen=True, kw_only=True):
     """Collection with bounded count of `where` matches."""
 
-    collection: Descriptor[bpy.types.CollectionProperty]
+    collection: Descriptor
     least: int = 1
     most: Option[int] = Nothing
     where: Option[Condition] = Nothing
@@ -347,10 +347,9 @@ def scope_choice(default: type[Scope]) -> bpy.props._PropertyDeferred:
     return bpy.props.EnumProperty(name="Scope", description="Owners the operator reaches", items=SCOPES, default=default.__struct_config__.tag)
 
 
-def chosen(form: ScopeForm) -> Scope:
-    """Returns the scope a form's choice names, a collection's objects by its name."""
-    held: Scope = msgspec.convert({Case.__struct_config__.tag_field: form.scope, "collection": form.collection}, Scope)  # ty: ignore[unsound-assignment]
-    return held
+def chosen(form: ScopeForm) -> Outcome[Scope]:
+    """Returns the scope a form's choice names, a collection's objects by its name, outside fault for a choice naming no scope."""
+    return converted_value({Case.__struct_config__.tag_field: form.scope, "collection": form.collection}, Scope, repr(form))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -2,7 +2,6 @@ using System.Drawing;
 using Darkroom.Chain;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Render.Settings;
-using Rhino;
 using Rhino.DocObjects;
 using Rhino.Render;
 
@@ -11,9 +10,6 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 
 internal sealed record RenderRegion(double Left, double Top, double Right, double Bottom) {
-    public static RenderRegion Of(Rectangle area, Size extent) =>
-        new((double)area.Left / extent.Width, (double)area.Top / extent.Height, (double)area.Right / extent.Width, (double)area.Bottom / extent.Height);
-
     public Rectangle Pixels(PixelExtent frame) =>
         Rectangle.FromLTRB((int)(Left * frame.Width), (int)(Top * frame.Height), (int)(Right * frame.Width), (int)(Bottom * frame.Height));
 }
@@ -26,10 +22,6 @@ internal sealed partial class RegionFrame {
 
     [UseDelegateFromConstructor]
     public partial Option<Rectangle> Framed(SafeFrame frame, Size extent);
-
-    public IO<Option<RenderRegion>> Read(RhinoDoc doc, Size extent) =>
-        RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), scope =>
-            (from frame in use(() => scope.Settings.SafeFrame) select Framed(frame, extent).Map(area => RenderRegion.Of(area, extent))).Bracket());
 }
 
 internal sealed class OverscanFrame {

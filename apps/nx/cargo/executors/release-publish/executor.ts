@@ -10,7 +10,6 @@ import { Metadata, spawned } from '#/plugins/workspace';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LEVEL = 2;
-const MISSING = 404;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -38,7 +37,7 @@ const releases = Effect.fnUntraced(function* (name: string) {
     );
     const url = `https://index.crates.io/${folder}/${lower}`;
     const lines = yield* HttpClientResponse.matchStatus(yield* HttpClient.get(url), {
-        [MISSING]: () => Effect.succeed<readonly string[]>([]),
+        404: () => Effect.succeed<readonly string[]>([]),
         orElse: (response) =>
             HttpClientResponse.filterStatusOk(response).pipe(
                 Effect.flatMap((ok) => ok.text),

@@ -39,7 +39,7 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True):
 ```
 
 `position * 2.0 + Expr(kind=bpy.types.ShaderNodeCombineXYZ, inputs=(None, None, abs(height) + 1))` over `position = Expr(kind=bpy.types.GeometryNodeInputPosition)` and `height = Expr(kind=bpy.types.ShaderNodeSeparateXYZ, inputs=(position,), output=2)` is one graph value:
-- `kind.bl_rna.identifier` names the registered node type
+- `kind.__name__` names the built-in node type
 - `inputs` and `output` count sockets `settings` enables: Math `ABSOLUTE` takes one operand, Vector Math `DOT_PRODUCT` output 0 is `Value`
 - `None` operands keep an input's default (`inputs=(coordinates, None, 4.0)`)
 - Operators bind operations Math and Vector Math both hold, Vector Math lacking `FLOORED_MODULO`, `TRUNC`, and the comparisons
@@ -58,7 +58,11 @@ class Expr(msgspec.Struct, frozen=True, kw_only=True):
 Lowering reuses the node each key marks, creates the rest, links what `tree.links` lacks, and removes marked nodes the graph no longer reaches:
 
 ```python
-def lowered(tree: bpy.types.NodeTree, roots: Mapping[bpy.types.NodeSocket, Expr], /, *, mark: str = Expr.__name__) -> tuple[bpy.types.Node, ...]:
+def lowered(tree: bpy.types.NodeTree, roots: Mapping[bpy.types.NodeSocket, Expr], /, *, mark: str = Expr.__name__) -> Outcome[tuple[bpy.types.Node, ...]]:
+    def stored(socket: bpy.types.NodeSocket, operand: Value) -> Outcome[object]:
+        shape = np.shape(np.array(socket.path_resolve("default_value"), dtype=object))
+        return written(socket, ("default_value",), np.broadcast_to(np.array(operand, dtype=object), shape).tolist())
+
     expressions: dict[int, Expr] = {}
     feeding: dict[int, tuple[int, ...]] = {}
     pending = list(reversed(tuple(roots.values())))
@@ -77,6 +81,7 @@ def lowered(tree: bpy.types.NodeTree, roots: Mapping[bpy.types.NodeSocket, Expr]
     sources: dict[int, bpy.types.NodeSocket] = {}
     reached: dict[str, bpy.types.Node] = {}
     wanted: list[tuple[bpy.types.NodeSocket, bpy.types.NodeSocket]] = []
+    constants: list[tuple[bpy.types.NodeSocket, Value]] = []
 
     for identity in TopologicalSorter(feeding).static_order():
         expr = expressions[identity]
@@ -86,17 +91,16 @@ def lowered(tree: bpy.types.NodeTree, roots: Mapping[bpy.types.NodeSocket, Expr]
         )
         kind = bpy.types.ShaderNodeVectorMath if vector else expr.kind
         parts = tuple((keys[id(operand)], operand.output) if isinstance(operand, Expr) else operand for operand in expr.inputs)
-        key = keys[identity] = blake2b(msgspec.msgpack.encode((kind.bl_rna.identifier, parts, expr.settings), enc_hook=lambda block: (block.path_from_module(),))).hexdigest()
+        key = keys[identity] = blake2b(msgspec.msgpack.encode((kind.__name__, parts, expr.settings), enc_hook=lambda block: (block.path_from_module(),))).hexdigest()
         if key not in reached:
-            node = reached[key] = held.get(key) or tree.nodes.new(kind.bl_rna.identifier)
+            node = reached[key] = held.get(key) or tree.nodes.new(kind.__name__)
             if fresh := key not in held:
                 node[mark] = key
             for member, value in expr.settings if fresh else ():
                 setattr(node, member, value)
             inputs = tuple(zip((socket for socket in node.inputs if socket.enabled), operands, strict=False))
             wanted.extend((operand, socket) for socket, operand in inputs if isinstance(operand, bpy.types.NodeSocket))
-            for socket, operand in ((socket, operand) for socket, operand in inputs if fresh and operand is not None and not isinstance(operand, bpy.types.NodeSocket)):
-                socket.default_value = np.broadcast_to(operand, np.shape(socket.default_value)).tolist()  # type: ignore[attr-defined, arg-type]  # ty: ignore[unresolved-attribute, no-matching-overload]
+            constants.extend((socket, operand) for socket, operand in inputs if fresh and operand is not None and not isinstance(operand, bpy.types.NodeSocket))
         sources[identity] = tuple(socket for socket in reached[key].outputs if socket.enabled)[expr.output]
 
     wanted.extend((sources[id(expr)], target) for target, expr in roots.items())
@@ -106,7 +110,8 @@ def lowered(tree: bpy.types.NodeTree, roots: Mapping[bpy.types.NodeSocket, Expr]
     for node in tuple(tree.nodes):
         if isinstance(key := node.get(mark), str) and reached.get(key) != node:
             tree.nodes.remove(node)
-    return tuple(node for key, node in reached.items() if key not in held)
+    created = tuple(node for key, node in reached.items() if key not in held)
+    return accumulated(starmap(stored, constants)).map(lambda _: created)
 ```
 
 `lowered(tree, {set_position.inputs["Position"]: graph})` returns the nodes it created for a layout to place:
@@ -120,4 +125,4 @@ def lowered(tree: bpy.types.NodeTree, roots: Mapping[bpy.types.NodeSocket, Expr]
 - Edits rekey the edited record and every record downstream, upstream nodes keeping their nodes, links, and positions
 - Removal compares each marked node against the one its key reached, dropping stale nodes and duplicate holders in one pass and leaving unmarked nodes
 - `mark` names the owner, and graphs sharing one tree take a mark each
-- Refused classes raise `RuntimeError` at `nodes.new` and refused settings and constants `TypeError`, uncaught as a defect in the graph
+- Refused classes raise `RuntimeError` at `nodes.new` and refused settings `TypeError` as a defect in the graph, refused constants returning faults

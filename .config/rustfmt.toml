@@ -1,0 +1,36 @@
+# --- [RUSTFMT] --------------------------------------------------------------------------
+
+# --- [EDITION]
+
+edition       = "2024"
+style_edition = "2027"
+
+# --- [LAYOUT]
+
+max_width            = 200
+use_small_heuristics = "Max"
+fn_single_line       = true
+where_single_line    = true
+match_arm_blocks     = false
+
+# --- [IMPORTS]
+
+imports_granularity = "Module"
+group_imports       = "StdExternalCrate"
+
+# --- [ITEMS]
+
+format_macro_matchers    = true
+normalize_comments       = true
+normalize_doc_attributes = true
+use_field_init_shorthand = true
+
+# --- [LITERALS]
+
+hex_literal_case            = "Upper"
+float_literal_trailing_zero = "Always"
+
+# --- [CHECKS]
+
+error_on_line_overflow = true
+error_on_unformatted   = true

@@ -1,18 +1,18 @@
-use core::{iter, num::NonZero, ptr};
+use core::num::NonZero;
+use core::{iter, ptr};
 use std::collections::BTreeSet;
 
 use average::{Covariance, Variance};
 use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector};
 use nonempty_collections::{NEBTreeMap, NonEmptyIterator as _};
-use rand::{Rng, RngExt as _, seq::SliceRandom as _};
+use rand::seq::SliceRandom as _;
+use rand::{Rng, RngExt as _};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
-use crate::{
-    Moment, Sample, Space, StatsError,
-    descriptive::symmetric,
-    sampling::{Window, place, sobol},
-};
+use crate::descriptive::symmetric;
+use crate::sampling::{Window, place, sobol};
+use crate::{Moment, Sample, Space, StatsError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

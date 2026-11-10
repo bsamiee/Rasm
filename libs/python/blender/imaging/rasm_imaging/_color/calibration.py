@@ -323,7 +323,7 @@ def converted_colors(config: PyOpenColorIO.Config, source: str, target: str, val
 
 
 def _colors(values: npt.NDArray[np.float32 | np.float64]) -> Outcome[Colors]:
-    return catch(lambda: msgspec.convert(values.tolist(), Colors), exception=msgspec.ValidationError)().map_error(functools.partial(Fault.of, Reason.INVALID, Colors.__name__))  # ty: ignore[unsound-return-statement]
+    return catch(lambda: msgspec.convert(values.tolist(), tuple[Rgb, ...]), exception=msgspec.ValidationError)().map_error(functools.partial(Fault.of, Reason.INVALID, Colors.__name__))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

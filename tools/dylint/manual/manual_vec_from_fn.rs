@@ -1,12 +1,9 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    higher::{Range, RangeTy},
-    is_integer_literal,
-    res::{MaybeDef as _, MaybeTypeckRes as _},
-    source::snippet,
-    std_or_core, sym,
-    ty::get_iterator_item_ty,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::higher::{Range, RangeTy};
+use clippy_utils::res::{MaybeDef as _, MaybeTypeckRes as _};
+use clippy_utils::source::snippet;
+use clippy_utils::ty::get_iterator_item_ty;
+use clippy_utils::{is_integer_literal, std_or_core, sym};
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, PatKind, PathSegment};
 use rustc_lint::{LateContext, LateLintPass};

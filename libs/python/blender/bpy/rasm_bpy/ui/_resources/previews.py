@@ -17,7 +17,7 @@ import numpy as np
 import numpy.typing as npt
 
 from rasm_bpy.data._extension.registration import Resource
-from rasm_bpy.data._extension.reports import _redrawn, Refusal
+from rasm_bpy.data._extension.reports import redrawn, Refusal
 from rasm_bpy.ui._resources.theme import Checker, Metrics
 from rasm_records import Fault, Nothing, Ok, Outcome
 
@@ -38,7 +38,7 @@ class _Slot(msgspec.Struct, frozen=True, kw_only=True):
     finished: Hashable
 
 
-class _PreviewKey(msgspec.Struct, frozen=True, kw_only=True):
+class PreviewKey(msgspec.Struct, frozen=True, kw_only=True):
     """Key, tile side in pixels, and checker of a drawn tile."""
 
     key: Hashable
@@ -110,9 +110,9 @@ class _Previews:
                     .map(lambda serial: (serial, self.collection[str(serial)]))
                     .default_with(lambda: ((serial := next(self._serials)), self.collection.new(str(serial))))
                 )
-                _filled(preview, np.ascontiguousarray(pixels[::-1]).reshape(-1), (width, height))
+                filled(preview, np.ascontiguousarray(pixels[::-1]).reshape(-1), (width, height))
                 self.held[slot] = _Slot(serial=Some(serial), finished=key)
-                return _redrawn().map(lambda _: Some(preview.icon_id))
+                return redrawn().map(lambda _: Some(preview.icon_id))
             case _:
                 dropped = self.dropped(slot)
                 self.held[slot] = _Slot(serial=Nothing, finished=key)
@@ -122,11 +122,11 @@ class _Previews:
         """Clears slot and its finished request, redrawing when a preview was removed."""
         for serial in Option.of_optional(self.held.pop(slot, None)).bind(lambda held: held.serial).to_list():
             del self.collection[str(serial)]
-            return _redrawn().map(lambda _: None)
+            return redrawn().map(lambda _: None)
         return Ok(None)
 
 
-class _Textures[M]:
+class Textures[M]:
     """Preview textures and their metadata, least recently shown first."""
 
     __slots__ = ("held",)
@@ -174,37 +174,37 @@ class _Textures[M]:
                 del self.held[victim]
             return entry
 
-        return _uploaded(plane).map(published)
+        return uploaded(plane).map(published)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _filled(preview: bpy.types.ImagePreview, pixels: npt.NDArray[np.float32], size: tuple[int, int] | bpy.types.bpy_prop_array) -> None:
+def filled(preview: bpy.types.ImagePreview, pixels: npt.NDArray[np.float32], size: tuple[int, int] | bpy.types.bpy_prop_array) -> None:
     """Writes flat RGBA into a preview's image and icon buffers at one size."""
     preview.image_size = preview.icon_size = size
     preview.image_pixels_float.foreach_set(pixels)
     preview.icon_pixels_float.foreach_set(pixels)
 
 
-def _uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
+def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
     """Uploads top-first RGBA into a half-float RGBA texture with bottom-first rows."""
     pixels = np.ascontiguousarray(plane[::-1])
     return (
         catch(gpu.init, exception=SystemError)()
         .map_error(partial(Fault.of, Refusal.REFUSED, "gpu.init"))
         .bind(
-            lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)((pixels.shape[1], pixels.shape[0]), format=_FORMAT, data=gpu.types.Buffer("FLOAT", pixels.shape, pixels)).map_error(  # ty: ignore[invalid-argument-type]
-                partial(Fault.of, Refusal.REFUSED, "gpu.types.GPUTexture")
-            )
+            lambda _: catch(gpu.types.GPUTexture, exception=RuntimeError)(
+                (pixels.shape[1], pixels.shape[0]), format=_FORMAT, data=gpu.types.Buffer("FLOAT", pixels.shape, memoryview(pixels))
+            ).map_error(partial(Fault.of, Refusal.REFUSED, "gpu.types.GPUTexture"))
         )
     )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_PREVIEWS: Final = Resource[_Previews](made=lambda _identity: _Previews.opened())
+PREVIEWS: Final = Resource[_Previews](made=lambda _identity: _Previews.opened())
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Texture"]
+__all__ = ["PREVIEWS", "PreviewKey", "Texture", "Textures", "filled", "uploaded"]

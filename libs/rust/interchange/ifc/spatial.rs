@@ -1,4 +1,5 @@
-use core::{iter, num::NonZero};
+use core::iter;
+use core::num::NonZero;
 
 use indexmap::IndexMap;
 use itertools::Itertools as _;
@@ -6,17 +7,13 @@ use nonempty_collections::{NESet, NEVec};
 use petgraph::graphmap::DiGraphMap;
 use serde::{Deserialize, Deserializer, Serialize};
 use strum::VariantArray as _;
-use uom::si::{
-    angle::degree,
-    f64::{Angle, Length},
-};
+use uom::si::angle::degree;
+use uom::si::f64::{Angle, Length};
 use url::Url;
 use validated::Validated;
 
-use crate::{
-    Composed, IfcError, Model, Path,
-    schemas::{Attribute, Target, attribute, record},
-};
+use crate::schemas::{Attribute, Target, attribute, record};
+use crate::{Composed, IfcError, Model, Path};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

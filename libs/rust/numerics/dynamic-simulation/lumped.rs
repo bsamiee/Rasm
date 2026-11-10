@@ -1,45 +1,35 @@
-use core::{
-    cell::{RefCell, RefMut},
-    iter,
-};
-use std::{borrow::Cow, collections::HashSet};
+use core::cell::{RefCell, RefMut};
+use core::iter;
+use std::borrow::Cow;
+use std::collections::HashSet;
 
 use diffsol::{
     ConstantOp, ConstantOpSens, ConstantOpSensAdjoint, FaerContext, FaerSparseMat, FaerVec, LinearOp, LinearOpTranspose, Matrix, NonLinearOp, NonLinearOpAdjoint, NonLinearOpJacobian, NonLinearOpSens,
     NonLinearOpSensAdjoint, OdeBuilder, OdeEquations, OdeEquationsAdjoint, OdeEquationsImplicitAdjoint, OdeEquationsImplicitSens, OdeEquationsRef, OdeSolverProblem, Op, UnitCallable, Vector as _,
     VectorCommon as _,
 };
-use faer::{
-    Accum, ColMut, ColRef, Par, Side,
-    linalg::solvers::Solve as _,
-    sparse::{Pair, SparseColMat, SparseColMatRef, SymbolicSparseColMat, Triplet, linalg::matmul::sparse_dense_matmul},
-};
+use faer::linalg::solvers::Solve as _;
+use faer::sparse::linalg::matmul::sparse_dense_matmul;
+use faer::sparse::{CreationError, Pair, SparseColMat, SparseColMatRef, SymbolicSparseColMat, Triplet};
+use faer::{Accum, ColMut, ColRef, Par, Side};
 use itertools::{Either, Itertools as _, izip};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator, nev};
-use petgraph::{
-    algo::kosaraju_scc,
-    graph::{EdgeIndex, NodeIndex, UnGraph},
-    visit::{EdgeRef as _, IntoNodeReferences as _},
-};
-use uom::{
-    ConstZero as _,
-    fmt::DisplayStyle::Abbreviation,
-    si::{
-        f64::{HeatCapacity, Power, TemperatureInterval, ThermalConductance, ThermodynamicTemperature, Time},
-        heat_capacity::joule_per_kelvin,
-        power::{self, watt},
-        temperature_interval,
-        thermal_conductance::watt_per_kelvin,
-        thermodynamic_temperature::{self, kelvin},
-        time::second,
-    },
-};
+use petgraph::algo::kosaraju_scc;
+use petgraph::graph::{EdgeIndex, NodeIndex, UnGraph};
+use petgraph::visit::{EdgeRef as _, IntoNodeReferences as _};
+use uom::ConstZero as _;
+use uom::fmt::DisplayStyle::Abbreviation;
+use uom::si::f64::{HeatCapacity, Power, TemperatureInterval, ThermalConductance, ThermodynamicTemperature, Time};
+use uom::si::heat_capacity::joule_per_kelvin;
+use uom::si::power::{self, watt};
+use uom::si::temperature_interval;
+use uom::si::thermal_conductance::watt_per_kelvin;
+use uom::si::thermodynamic_temperature::{self, kelvin};
+use uom::si::time::second;
 use validated::Validated;
 
-use crate::{
-    BaseUnit, Causality, DynamicsError, Grid, Kind, Port,
-    ode::{self, Method},
-};
+use crate::ode::{self, Method};
+use crate::{BaseUnit, Causality, DynamicsError, Grid, Kind, Port};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -132,6 +122,21 @@ impl Network {
             })
             .filter_map(|(row, column, value)| Some((row?, column?, value)))
     }
+
+    fn sensitivity(&self, scales: &[f64], scratch: &Scratch) -> impl Iterator<Item = (usize, usize, f64)> {
+        iter::zip(self.graph.edge_references(), &scratch.differences)
+            .flat_map(move |(edge, &change)| {
+                [(edge.source(), -change), (edge.target(), change)].into_iter().filter_map(move |(node, value)| {
+                    let row = self.row(node)?;
+                    Some((row, edge.id().index(), value * scales[row]))
+                })
+            })
+            .chain(izip!(0_usize.., self.holding(self.graph.edge_count()..), &scratch.nets, scales).filter_map(|(row, column, net, scale)| Some((row, column?, -net * scale * scale))))
+    }
+
+    fn masses(&self) -> impl Iterator<Item = (usize, usize, f64)> { self.capacities().positions(|capacity| capacity > HeatCapacity::ZERO).map(|row| (row, row, 1.0)) }
+
+    fn readings(&self, sensors: &[NodeIndex]) -> impl Iterator<Item = (usize, usize)> { sensors.iter().enumerate().filter_map(|(sensor, &node)| Some((sensor, self.row(node)?))) }
 }
 
 struct Scratch {
@@ -192,6 +197,18 @@ pub enum Setting {
 
 // --- [EQUATIONS]
 
+struct Sparsity {
+    output: SymbolicSparseColMat<usize>,
+    output_adjoint: SymbolicSparseColMat<usize>,
+    output_sens: SymbolicSparseColMat<usize>,
+    output_sens_adjoint: SymbolicSparseColMat<usize>,
+    rate: SymbolicSparseColMat<usize>,
+    rate_sens: SymbolicSparseColMat<usize>,
+    rate_sens_adjoint: SymbolicSparseColMat<usize>,
+    initial_sens: SymbolicSparseColMat<usize>,
+    mass: SymbolicSparseColMat<usize>,
+}
+
 struct Equations<'network> {
     network: Cow<'network, Network>,
     sensors: Vec<NodeIndex>,
@@ -201,6 +218,7 @@ struct Equations<'network> {
     parameters: Vec<f64>,
     scales: Vec<f64>,
     scratch: RefCell<Scratch>,
+    sparsity: Sparsity,
     context: FaerContext,
 }
 
@@ -219,22 +237,6 @@ impl Equations<'_> {
         scratch.balance(&self.network, self.conductances(), x.inner().col_as_slice(0));
         scratch
     }
-
-    fn sensitivity<'scratch>(&'scratch self, scratch: &'scratch Scratch) -> impl Iterator<Item = (usize, usize, f64)> {
-        let network: &'scratch Network = &self.network;
-        iter::zip(network.graph.edge_references(), &scratch.differences)
-            .flat_map(move |(edge, &change)| {
-                [(edge.source(), -change), (edge.target(), change)].into_iter().filter_map(move |(node, value)| {
-                    let row = network.row(node)?;
-                    Some((row, edge.id().index(), value * self.scales[row]))
-                })
-            })
-            .chain(izip!(0_usize.., network.holding(network.graph.edge_count()..), &scratch.nets, &self.scales).filter_map(|(row, column, net, scale)| Some((row, column?, -net * scale * scale))))
-    }
-
-    fn masses(&self) -> impl Iterator<Item = (usize, usize, f64)> { self.network.capacities().positions(|capacity| capacity > HeatCapacity::ZERO).map(|row| (row, row, 1.0)) }
-
-    fn readings(&self) -> impl Iterator<Item = (usize, usize)> { self.sensors.iter().enumerate().filter_map(|(sensor, &node)| Some((sensor, self.network.row(node)?))) }
 }
 
 impl Op for Equations<'_> {
@@ -300,7 +302,7 @@ impl NonLinearOpJacobian for Equations<'_> {
         });
     }
 
-    fn jacobian_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nout(), self.nstates(), self.readings().map(|(sensor, row)| (sensor, row, 1.0)))) }
+    fn jacobian_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.sparsity.output.clone()) }
 }
 
 impl NonLinearOpSens for Equations<'_> {
@@ -308,20 +310,20 @@ impl NonLinearOpSens for Equations<'_> {
 
     fn sens_inplace(&self, _x: &Self::V, _t: Self::T, _y: &mut Self::M) {}
 
-    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nout(), self.nparams(), iter::empty())) }
+    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.sparsity.output_sens.clone()) }
 }
 
 impl NonLinearOpAdjoint for Equations<'_> {
     fn jac_transpose_mul_inplace(&self, _x: &Self::V, _t: Self::T, directions: &Self::V, y: &mut Self::V) {
         y.for_each_batch_host([directions], |products, [direction], _| {
             products.fill(0.0);
-            self.readings().for_each(|(sensor, row)| products[row] -= direction[sensor]);
+            self.network.readings(&self.sensors).for_each(|(sensor, row)| products[row] -= direction[sensor]);
         });
     }
 
-    fn adjoint_inplace(&self, _x: &Self::V, _t: Self::T, y: &mut Self::M) { assign(y, self.readings().map(|(sensor, row)| (row, sensor, -1.0))); }
+    fn adjoint_inplace(&self, _x: &Self::V, _t: Self::T, y: &mut Self::M) { assign(y, self.network.readings(&self.sensors).map(|(sensor, row)| (row, sensor, -1.0))); }
 
-    fn adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nstates(), self.nout(), self.readings().map(|(sensor, row)| (row, sensor, -1.0)))) }
+    fn adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.sparsity.output_adjoint.clone()) }
 }
 
 impl NonLinearOpSensAdjoint for Equations<'_> {
@@ -329,7 +331,7 @@ impl NonLinearOpSensAdjoint for Equations<'_> {
 
     fn sens_adjoint_inplace(&self, _x: &Self::V, _t: Self::T, _y: &mut Self::M) {}
 
-    fn sens_adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nparams(), self.nout(), iter::empty())) }
+    fn sens_adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.sparsity.output_sens_adjoint.clone()) }
 }
 
 struct Free<'equations>(&'equations Equations<'equations>);
@@ -370,7 +372,7 @@ impl NonLinearOpJacobian for Free<'_> {
         });
     }
 
-    fn jacobian_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nstates(), self.nstates(), self.0.network.stiffness(self.0.conductances()))) }
+    fn jacobian_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.0.sparsity.rate.clone()) }
 
     fn jacobian_inplace(&self, _x: &Self::V, _t: Self::T, y: &mut Self::M) {
         assign(y, self.0.network.stiffness(self.0.conductances()).map(|(row, column, value)| (row, column, -value * self.0.scales[row])));
@@ -391,9 +393,9 @@ impl NonLinearOpSens for Free<'_> {
         });
     }
 
-    fn sens_inplace(&self, x: &Self::V, t: Self::T, y: &mut Self::M) { assign(y, self.0.sensitivity(&self.0.balanced(x, t))); }
+    fn sens_inplace(&self, x: &Self::V, t: Self::T, y: &mut Self::M) { assign(y, self.0.network.sensitivity(&self.0.scales, &self.0.balanced(x, t))); }
 
-    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nstates(), self.nparams(), self.0.sensitivity(&self.0.scratch.borrow()))) }
+    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.0.sparsity.rate_sens.clone()) }
 }
 
 impl NonLinearOpAdjoint for Free<'_> {
@@ -432,9 +434,7 @@ impl NonLinearOpSensAdjoint for Free<'_> {
         });
     }
 
-    fn sens_adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> {
-        Some(pattern(self.nparams(), self.nstates(), self.0.sensitivity(&self.0.scratch.borrow()).map(|(row, column, value)| (column, row, value))))
-    }
+    fn sens_adjoint_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.0.sparsity.rate_sens_adjoint.clone()) }
 }
 
 impl ConstantOp for Free<'_> {
@@ -446,7 +446,7 @@ impl ConstantOpSens for Free<'_> {
 
     fn sens_inplace(&self, _t: Self::T, _y: &mut Self::M) {}
 
-    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nstates(), self.nparams(), iter::empty())) }
+    fn sens_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.0.sparsity.initial_sens.clone()) }
 }
 
 impl ConstantOpSensAdjoint for Free<'_> {
@@ -462,15 +462,15 @@ impl LinearOp for Free<'_> {
         });
     }
 
-    fn matrix_inplace(&self, _t: Self::T, y: &mut Self::M) { assign(y, self.0.masses()); }
+    fn matrix_inplace(&self, _t: Self::T, y: &mut Self::M) { assign(y, self.0.network.masses()); }
 
-    fn sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(pattern(self.nstates(), self.nstates(), self.0.masses())) }
+    fn sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { Some(self.0.sparsity.mass.clone()) }
 }
 
 impl LinearOpTranspose for Free<'_> {
     fn gemv_transpose_inplace(&self, x: &Self::V, time: Self::T, beta: Self::T, y: &mut Self::V) { LinearOp::gemv_inplace(self, x, time, beta, y); }
 
-    fn transpose_inplace(&self, _t: Self::T, y: &mut Self::M) { assign(y, self.0.masses()); }
+    fn transpose_inplace(&self, _t: Self::T, y: &mut Self::M) { assign(y, self.0.network.masses()); }
 
     fn transpose_sparsity(&self) -> Option<<Self::M as Matrix>::Sparsity> { self.sparsity() }
 }
@@ -635,6 +635,9 @@ fn transient<'network>(
     heat: Drive<'network, Power>,
     options: Options<Vec<NodeIndex>>,
 ) -> Result<OdeSolverProblem<Equations<'network>>, DynamicsError> {
+    fn pattern(nrows: usize, ncols: usize, entries: impl IntoIterator<Item = (usize, usize)>) -> Result<SymbolicSparseColMat<usize>, CreationError> {
+        SymbolicSparseColMat::try_new_from_indices(nrows, ncols, &entries.into_iter().map(|(row, column)| Pair::new(row, column)).collect::<Vec<_>>()).map(|(symbolic, _)| symbolic)
+    }
     let Options { rtol, atol, sens_rtol, sens_atol, sensors } = options;
     floating(&network, |node| match node {
         Node::Capacity(capacity) => *capacity > HeatCapacity::ZERO,
@@ -643,7 +646,20 @@ fn transient<'network>(
     let state = network.free(initial).map(ThermodynamicTemperature::get::<kelvin>).collect::<Vec<_>>();
     (!state.is_empty()).ok_or(DynamicsError::State { nodes: network.graph.node_count() })?;
     let parameters = parameters(&network).map(|(_, value)| value).collect::<Vec<_>>();
-    let (scales, scratch) = (scales(&network, &parameters).collect(), RefCell::new(Scratch::new(&network, initial.to_vec())));
+    let (scales, scratch) = (scales(&network, &parameters).collect::<Vec<_>>(), Scratch::new(&network, initial.to_vec()));
+    let (states, outputs, inputs) = (state.len(), sensors.len(), parameters.len());
+    let responses = || network.sensitivity(&scales, &scratch).map(|(row, column, _)| (row, column));
+    let sparsity = Sparsity {
+        output: pattern(outputs, states, network.readings(&sensors))?,
+        output_adjoint: pattern(states, outputs, network.readings(&sensors).map(|(sensor, row)| (row, sensor)))?,
+        output_sens: pattern(outputs, inputs, [])?,
+        output_sens_adjoint: pattern(inputs, outputs, [])?,
+        rate: pattern(states, states, network.stiffness(parameters.iter().copied()).map(|(row, column, _)| (row, column)))?,
+        rate_sens: pattern(states, inputs, responses())?,
+        rate_sens_adjoint: pattern(inputs, states, responses().map(|(row, column)| (column, row)))?,
+        initial_sens: pattern(states, inputs, [])?,
+        mass: pattern(states, states, network.masses().map(|(row, column, _)| (row, column)))?,
+    };
     let interval = |tolerance: TemperatureInterval| [tolerance.get::<temperature_interval::kelvin>()];
     let massful = network.capacities().map(|capacity| capacity > HeatCapacity::ZERO).collect::<Vec<_>>();
     let builder = atol.map(interval).into_iter().fold(rtol.into_iter().fold(OdeBuilder::<FaerSparseMat<f64>>::new(), OdeBuilder::rtol), OdeBuilder::atol);
@@ -654,7 +670,7 @@ fn transient<'network>(
         .t0(start.get::<second>())
         .p(parameters.iter().copied())
         .param_scales(parameters.iter().copied())
-        .build_from_eqn(Equations { network, sensors, temperature, heat, initial: state, parameters, scales, scratch, context: FaerContext::default() })
+        .build_from_eqn(Equations { network, sensors, temperature, heat, initial: state, parameters, scales, scratch: RefCell::new(scratch), sparsity, context: FaerContext::default() })
         .map(|mut problem| {
             problem.atol = FaerVec::from_vec(iter::zip(problem.atol.clone_as_vec(), massful).map(|(tolerance, held)| if held { tolerance } else { f64::INFINITY }).collect(), *problem.context());
             problem
@@ -681,13 +697,6 @@ fn spread(network: &Network, state: &[f64], boundaries: impl IntoIterator<Item =
 
 fn difference(incidence: SparseColMatRef<'_, usize, f64>, temperatures: &[f64], differences: &mut [f64]) {
     sparse_dense_matmul(ColMut::from_slice_mut(differences).as_mat_mut(), Accum::Replace, incidence, ColRef::from_slice(temperatures).as_mat(), 1.0, Par::Seq);
-}
-
-fn pattern(nrows: usize, ncols: usize, entries: impl IntoIterator<Item = (usize, usize, f64)>) -> SymbolicSparseColMat<usize> {
-    #[expect(clippy::expect_used, reason = "Diffsol sparsity getters cannot propagate Faer's native construction failure")]
-    SymbolicSparseColMat::try_new_from_indices(nrows, ncols, &entries.into_iter().map(|(row, column, _)| Pair::new(row, column)).collect::<Vec<_>>())
-        .map(|(symbolic, _)| symbolic)
-        .expect("Faer symbolic sparsity construction failed")
 }
 
 fn assign(matrix: &mut FaerSparseMat<f64>, entries: impl IntoIterator<Item = (usize, usize, f64)>) {

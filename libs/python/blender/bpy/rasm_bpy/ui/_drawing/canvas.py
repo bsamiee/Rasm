@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import Enum
-from functools import cache, partial
+from functools import cache, partial, reduce
 import math
 from typing import Final, Literal, Self
 
@@ -17,11 +17,12 @@ from mathutils import Matrix
 import msgspec
 import numpy as np
 import numpy.typing as npt
+from typing_extensions import TypeForm
 
 from rasm_bpy.data._extension.registration import Resource
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.ui._resources.theme import _CLEAR, Checker, Color, Metrics, Theme
-from rasm_bpy.ui._screens.areas import _region_in, _visible_bounds, Located
+from rasm_bpy.ui._resources.theme import Checker, CLEAR, Color, Metrics, overlaps, Theme
+from rasm_bpy.ui._screens.areas import Located, region_in
 from rasm_records import Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -43,13 +44,12 @@ class Align(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_QUAD: Final = np.array(((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)), np.float32)
-_QUAD.setflags(write=False)
+QUAD: Final = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0))
 _CLIPPED: Final = frozenset({"UNIFORM_COLOR", "FLAT_COLOR", "SMOOTH_COLOR", "POLYLINE_UNIFORM_COLOR"})
 _BLURS: Final = frozenset({3, 5, 6})
-_UNCLIPPED: Final = partial(gpu.state.clip_distances_set, 0)
+UNCLIPPED: Final = partial(gpu.state.clip_distances_set, 0)
 
-_DECODED: Final = """
+DECODED: Final = """
 vec3 targeted(vec3 srgb) {
     vec3 c = max(srgb, vec3(0.0));
     return srgbTarget ? mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c)) : srgb;
@@ -117,17 +117,35 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, area: bpy.types.Area, region: bpy.types.Region, phase: DrawType = "POST_PIXEL", pointer: Option[tuple[int, int]] = Nothing) -> Self:
         """Reads the region's visible extent, in window pixels while a pointer is given, and the clip planes a view phase of a clipping 3D View draws under."""
-        space: bpy.types.Space = area.spaces.active  # ty: ignore[invalid-assignment]
-        x, y, width, height = _visible_bounds(area, region)
-        origin_x, origin_y = pointer.map(lambda _: (region.x, region.y)).default_value((0, 0))
-        match phase, space, region.data:
-            case "PRE_VIEW" | "POST_VIEW", bpy.types.SpaceView3D(shading=bpy.types.View3DShading(type="WIREFRAME" | "SOLID")), bpy.types.RegionView3D(use_clip_planes=True) as view:
+        metrics = Metrics.read()
+
+        def inset(bounds: tuple[int, int, int, int], sibling: bpy.types.Region) -> tuple[int, int, int, int]:
+            left, bottom, right, top = bounds
+            x, y = sibling.x, sibling.y
+            xmax, ymax = x + sibling.width - 1, y + sibling.height - 1
+            match sibling.alignment:
+                case _ if not (left <= xmax and right >= x and bottom <= ymax and top >= y):
+                    return bounds
+                case "LEFT" | "RIGHT":
+                    return (xmax if abs(left - x) < 2 else left), bottom, (x if abs(right - xmax) < 2 else right), top
+                case "TOP" | "BOTTOM":
+                    return left, (ymax if abs(bottom - y) < 2 else bottom), right, (y if abs(top - ymax) < 2 else top)
+                case _:
+                    return bounds
+
+        siblings = (sibling for sibling in area.regions if sibling != region and overlaps(metrics.preferences, area.type, sibling.type))
+        left, bottom, right, top = reduce(inset, siblings, (region.x, region.y, region.x + region.width - 1, region.y + region.height - 1))
+        origin_x, origin_y = pointer.map(lambda _: (0, 0)).default_value((region.x, region.y))
+        match phase, area.spaces.active, region.data:
+            case "PRE_VIEW" | "POST_VIEW", bpy.types.SpaceView3D(shading=bpy.types.View3DShading(type="WIREFRAME" | "SOLID")) as space, bpy.types.RegionView3D(use_clip_planes=True) as view:
                 values = np.concatenate((np.identity(4, np.float32).ravel(), np.asarray(view.clip_planes, np.float32).ravel()))
-                clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", values.shape, values)))  # ty: ignore[invalid-argument-type]
-            case _:
+                clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", values.shape, memoryview(values))))
+            case _, bpy.types.Space() as space, _:
                 clipping = Nothing
-        extent = Rect(x=float(x + origin_x), y=float(y + origin_y), width=float(width), height=float(height))
-        return cls(metrics=Metrics.read(), extent=extent, space=space, region=region, clipping=clipping, pointer=pointer)
+            case _:
+                raise TypeError(area)
+        extent = Rect(x=float(left - origin_x), y=float(bottom - origin_y), width=float(right - left + 1), height=float(top - bottom + 1))
+        return cls(metrics=metrics, extent=extent, space=space, region=region, clipping=clipping, pointer=pointer)
 
     @property
     def theme(self) -> Theme:
@@ -140,31 +158,34 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def drawn(self) -> Generator[Self]:
         """Scopes matrices and alpha blending, establishing enabled scissor and clip count zero on entry and exit."""
         with ExitStack() as stack:
-            stack.callback(_UNCLIPPED)
+            stack.callback(UNCLIPPED)
             stack.callback(gpu.state.scissor_test_set, True)  # ruff: ignore[boolean-positional-value-in-call]
-            _UNCLIPPED()
+            UNCLIPPED()
             gpu.state.scissor_test_set(True)  # ruff: ignore[boolean-positional-value-in-call]
-            stack.enter_context(gpu.matrix.push_pop())  # ty: ignore[invalid-argument-type]
-            stack.enter_context(gpu.matrix.push_pop_projection())  # ty: ignore[invalid-argument-type]
+            gpu.matrix.push()
+            stack.callback(gpu.matrix.pop)
+            gpu.matrix.push_projection()
+            stack.callback(gpu.matrix.pop_projection)
             stack.enter_context(Canvas.blended("ALPHA"))
             yield self
 
     @staticmethod
     def blended(mode: Blend) -> AbstractContextManager[None]:
         """Scopes blend mode, restoring the mode it found."""
-        return _restored(gpu.state.blend_get, gpu.state.blend_set, mode)  # ty: ignore[invalid-argument-type]
+        return _restored(gpu.state.blend_get, gpu.state.blend_set, Blend, mode)
 
     @staticmethod
     def depth_tested(mode: _DepthTest = "LESS_EQUAL") -> AbstractContextManager[None]:
         """Scopes the depth test, by default the test a view drawing hides behind scene geometry with, restoring the test it found."""
-        return _restored(gpu.state.depth_test_get, gpu.state.depth_test_set, mode)  # ty: ignore[invalid-argument-type]
+        return _restored(gpu.state.depth_test_get, gpu.state.depth_test_set, _DepthTest, mode)
 
     @staticmethod
     @contextmanager
     def mapped(rect: Rect) -> Generator[None]:
         """Scopes a model matrix mapping the unit square onto a rectangle."""
         with ExitStack() as stack:
-            stack.enter_context(gpu.matrix.push_pop())  # ty: ignore[invalid-argument-type]
+            gpu.matrix.push()
+            stack.callback(gpu.matrix.pop)
             gpu.matrix.translate((rect.x, rect.y))
             gpu.matrix.scale((rect.width, rect.height))
             yield
@@ -179,7 +200,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         corners = ((rect.x, rect.y), (rect.x + rect.width, rect.y + rect.height))
         match view:
             case Option(tag="some", some=held):
-                (left, bottom), (right, top) = (held.view_to_region(*corner, clip=False) for corner in corners)  # type: ignore[misc]
+                (left, bottom), (right, top) = (np.asarray(held.view_to_region(*corner, clip=False)) for corner in corners)
             case _:
                 (left, bottom), (right, top) = ((round(x), round(y)) for x, y in corners)
         held_x, held_y, held_width, held_height = found = gpu.state.scissor_get()
@@ -205,7 +226,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
                 return shader, setup
             case _:
-                return gpu.shader.from_builtin(name), _UNCLIPPED
+                return gpu.shader.from_builtin(name), UNCLIPPED
 
     def lines(self, width: float, shader: _Polyline = "POLYLINE_UNIFORM_COLOR") -> Program:
         """Prepares a polyline program at device-pixel width."""
@@ -240,11 +261,11 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         """Draws text as given in a font style under the blend mode it found."""
         font, x, y = style.font, *at
         with ExitStack() as stack, _typeset(self.metrics, style):
-            stack.callback(gpu.state.blend_set, gpu.state.blend_get())  # ty: ignore[invalid-argument-type]
+            stack.enter_context(Canvas.blended("ALPHA"))
             reach = blf.dimensions(font, text)[0] * style.align.value
             blf.color(font, *color)
             blf.position(font, x - reach * math.cos(style.rotation), y - reach * math.sin(style.rotation), 0.0)
-            _UNCLIPPED()
+            UNCLIPPED()
             blf.draw(font, text)
 
     # --- [PRIMITIVES]
@@ -255,7 +276,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         values = (rect.x, rect.y, rect.width, rect.height, *fill, *edge, radius, self.metrics.line(1.0), 0.0, 0.0)
         box = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", len(values), values))
         with Canvas.blended("ALPHA_PREMULT"):
-            _draw_batch(quad, _configured((shader, _UNCLIPPED), partial(shader.uniform_block, "box", box)))
+            draw_batch(quad, configured((shader, UNCLIPPED), partial(shader.uniform_block, "box", box)))
 
     @staticmethod
     def picture(source: gpu.types.GPUTexture | bpy.types.Image, rect: Rect, *, blend: Blend, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
@@ -266,7 +287,7 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
             case _:
                 shader, texture = gpu.shader.from_builtin("IMAGE_COLOR"), source
         with Canvas.mapped(rect), Canvas.blended(blend):
-            _draw_batch(_textured(), _configured((shader, _UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_float, "color", color)))
+            draw_batch(_textured(), configured((shader, UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_float, "color", color)))
 
     def checkered(self, rect: Rect, checker: Checker) -> None:
         """Draws the transparency checker as indexed cell quads, clipping edge cells to the rectangle, an empty rectangle holding no cell to draw."""
@@ -281,13 +302,16 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         tints = np.repeat(np.where(odd, np.asarray(checker.primary, np.float32), np.asarray(checker.secondary, np.float32)), 4, axis=0)
         indices = (np.arange(left.size, dtype=np.uint32)[:, None, None] * 4 + np.array(((0, 1, 2), (0, 2, 3)), np.uint32)).reshape(-1, 3)
         program = self.shader("FLAT_COLOR")
-        _draw_batch(batch_for_shader(program[0], "TRIS", {"pos": corners, "color": tints}, indices=indices), program)  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+        batch = batch_for_shader(
+            program[0], "TRIS", {"pos": gpu.types.Buffer("FLOAT", corners.shape, memoryview(corners)), "color": gpu.types.Buffer("FLOAT", tints.shape, memoryview(tints))}, indices=memoryview(indices)
+        )
+        draw_batch(batch, program)
 
 
 # --- [OFFSCREENS]
 
 
-class _Offscreen(msgspec.Struct, frozen=True, kw_only=True):
+class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
     """Owned 2D color and depth attachments at caller device-pixel size and precision."""
 
     width: int
@@ -325,7 +349,7 @@ class _Offscreen(msgspec.Struct, frozen=True, kw_only=True):
             _, _, width, height = buffer.viewport_get()
             pixels = msgspec.structs.replace(canvas, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)), clipping=Nothing, pointer=Nothing)
             with pixels.drawn(), Canvas.depth_tested("NONE"):
-                buffer.clear(color=_CLEAR, depth=1.0)
+                buffer.clear(color=CLEAR, depth=1.0)
                 gpu.matrix.load_identity()
                 gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / width, 2.0 / height, 1.0, 1.0)))
                 draw(pixels)
@@ -339,7 +363,7 @@ class _Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 # --- [DRAWING]
 
 
-def _draw_batch(batch: gpu.types.GPUBatch, program: Program) -> None:
+def draw_batch(batch: gpu.types.GPUBatch, program: Program) -> None:
     """Applies a program's native bindings and draws its batch.
 
     Args:
@@ -351,7 +375,7 @@ def _draw_batch(batch: gpu.types.GPUBatch, program: Program) -> None:
     batch.draw(shader)
 
 
-def _configured(program: Program, *uniforms: Callable[[], None]) -> Program:
+def configured(program: Program, *uniforms: Callable[[], None]) -> Program:
     """Adds native uniform bindings replayed before a program's setup at every draw.
 
     Args:
@@ -359,7 +383,7 @@ def _configured(program: Program, *uniforms: Callable[[], None]) -> Program:
         *uniforms: Native setters with their arguments bound.
 
     Returns:
-        Program retaining those bindings and their resources for each draw.
+        Shader and setup retaining those bindings and their resources for each draw.
     """
     shader, previous = program
 
@@ -372,10 +396,10 @@ def _configured(program: Program, *uniforms: Callable[[], None]) -> Program:
 
 
 @contextmanager
-def _restored[T](read: Callable[[], T], write: Callable[[T], None], value: T) -> Generator[None]:
-    """Scopes one GPU state value, restoring its prior value on every exit."""
+def _restored[T](read: Callable[[], str], write: Callable[[T], None], kind: TypeForm[T], value: T) -> Generator[None]:
+    """Scopes one GPU state value, restoring the prior value it read as the kind the writer takes on every exit."""
     with ExitStack() as stack:
-        stack.callback(write, read())
+        stack.callback(write, msgspec.convert(read(), kind))
         write(value)
         yield
 
@@ -438,7 +462,8 @@ def viewed(
             stack.callback(setattr, overlay, "show_overlays", overlay.show_overlays)
             stack.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
             stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
-            stack.enter_context(buffer.bind())  # ty: ignore[invalid-argument-type]
+            buffer.bind()
+            stack.callback(buffer.unbind)
             overlay.show_overlays = False
             return (
                 catch(buffer.draw_view3d, exception=RuntimeError)(
@@ -458,7 +483,7 @@ def viewed(
     return (
         located.region
         .map(Ok)
-        .default_with(lambda: _region_in(located.area))
+        .default_with(lambda: region_in(located.area))
         .bind(
             lambda region: (
                 catch(camera.matrix_world.normalized().inverted, exception=ValueError)().map_error(partial(Fault.of, Refusal.REFUSED, "mathutils.Matrix.inverted")).bind(partial(painted, region))
@@ -491,7 +516,7 @@ def _rounded() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
     """Builds rounded-frame shader and unit quad."""
     vertex = "void main() { local = pos * box.rect.zw; gl_Position = ModelViewProjectionMatrix * vec4(box.rect.xy + local, 0.0, 1.0); }"
     fragment = (
-        _DECODED
+        DECODED
         + """
 void main() {
     vec2 half_size = 0.5 * box.rect.zw;
@@ -518,16 +543,16 @@ void main() {
     info.vertex_source(vertex)
     info.fragment_source(fragment)
     shader = gpu.shader.create_from_info(info)
-    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": _QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})
 
 
 @cache
 def _textured() -> gpu.types.GPUBatch:
     """Returns UV quad for image shaders."""
-    return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": _QUAD, "texCoord": _QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+    return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})
 
 
-def _programs(*clears: Callable[[], None]) -> Resource[None]:
+def programs(*clears: Callable[[], None]) -> Resource[None]:
     """Holds memoized GPU programs while an extension's registration stands.
 
     Args:
@@ -551,8 +576,27 @@ def _programs(*clears: Callable[[], None]) -> Resource[None]:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_PROGRAMS: Final = _programs(_rounded.cache_clear, _textured.cache_clear)
+PROGRAMS: Final = programs(_rounded.cache_clear, _textured.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Align", "Blend", "Canvas", "DrawType", "FontStyle", "Program", "Rect", "Shadow", "captured", "viewed"]
+__all__ = [
+    "DECODED",
+    "PROGRAMS",
+    "QUAD",
+    "UNCLIPPED",
+    "Align",
+    "Blend",
+    "Canvas",
+    "DrawType",
+    "FontStyle",
+    "Offscreen",
+    "Program",
+    "Rect",
+    "Shadow",
+    "captured",
+    "configured",
+    "draw_batch",
+    "programs",
+    "viewed",
+]

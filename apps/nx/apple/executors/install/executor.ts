@@ -19,7 +19,7 @@ const installed = Effect.fnUntraced(function* (options: unknown, context: Execut
     const runs: readonly (readonly [string, ...string[]])[] = [
         ['swift', 'build', '--package-path', root, '--configuration', 'release', '--product', product, ...args],
         ...(held ? [['swift', 'package', '--package-path', root, 'experimental-uninstall', product] as const] : []),
-        ['swift', 'package', '--package-path', root, 'experimental-install', '--product', product],
+        ['swift', 'package', '--package-path', root, ...args, 'experimental-install', '--product', product],
     ];
     return yield* commands({ runs }, context.root);
 });

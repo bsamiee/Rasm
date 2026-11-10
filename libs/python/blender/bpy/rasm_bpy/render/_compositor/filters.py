@@ -9,7 +9,7 @@ import numpy as np
 import numpy.typing as npt
 
 from rasm_bpy.nodes._content import Generated
-from rasm_bpy.nodes._graphs import Component, Expr, math, rgba, Scalar, SocketType, switched, Term, vector, where, xyz
+from rasm_bpy.nodes._graphs import Component, Expr, math, rgba, Scalar, switched, Term, vector, where, xyz
 from rasm_bpy.render._compositor.coordinates import dimensions, FrameSpace, PixelGrid, uv_mapped
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -100,7 +100,7 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
         tile: Tile image of four channels.
         position: Sampled positions in any planar unit.
         density: Tile texels per position unit.
-        correlation: Per-channel neighbor products of the tile from `imaging.sampling.tiles.correlated`.
+        correlation: Per-channel neighbor products of the tile from `rasm_imaging.correlated`.
 
     Returns:
         Unit-variance samples of every channel.
@@ -130,7 +130,7 @@ def tiled(tile: Expr, position: Expr, density: Scalar, correlation: npt.NDArray[
 # --- [CONVOLUTION]
 
 
-def blurred(image: Term, size: Term, *, socket_type: SocketType = bpy.types.NodeSocketColor) -> Expr:
+def blurred(image: Term, size: Term, *, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketColor) -> Expr:
     """Blurs an image through the exact Gaussian over a pixel size per axis, where the Blur node's default Fast Gaussian approximates it, its result read in `socket_type`."""
     return Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", image), ("Size", size), ("Type", "Gaussian")), socket="Image", socket_type=socket_type)
 

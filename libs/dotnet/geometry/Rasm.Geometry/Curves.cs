@@ -53,11 +53,11 @@ public abstract partial record AnalyticCurve {
 
         public static Fin<Trochoid> Validated(Roll roll, double rollingRadius, double arm) =>
             (GeometryFault.Unless(double.IsFinite(rollingRadius) && rollingRadius > 0d && double.IsFinite(arm) && arm >= 0d, GeometryRule.Range, (rollingRadius, arm)), roll.Switch(
-                line: static line => GeometryFault.Unless(line.Arches >= 1, GeometryRule.Count, line.Arches).Map(_ => Spaced(double.Tau * line.Arches, line.Arches)),
+                line: static line => GeometryFault.Unless(line.Arches >= 1, GeometryRule.Count, line.Arches).Map(_ => toSeq(Generate.LinearSpaced(line.Arches + 1, 0d, double.Tau * line.Arches))),
                 circle: static circle =>
                     (GeometryFault.Unless(circle.Fixed >= 1 && circle.Rolling >= 1, GeometryRule.Count, (circle.Fixed, circle.Rolling)),
                      GeometryFault.Unless(circle.Side == RollSide.Outside || (circle.Fixed != circle.Rolling && circle.Fixed != 2L * circle.Rolling), GeometryRule.Degenerate, (circle.Side, circle.Fixed, circle.Rolling)))
-                        .Apply((_, _) => Euclid.GreatestCommonDivisor(circle.Fixed, circle.Rolling) switch { var gcd => Spaced(double.Tau * circle.Rolling / gcd, (int)(circle.Fixed / gcd)) }).As()))
+                        .Apply((_, _) => Euclid.GreatestCommonDivisor(circle.Fixed, circle.Rolling) switch { var gcd => toSeq(Generate.LinearSpaced((int)(circle.Fixed / gcd) + 1, 0d, double.Tau * circle.Rolling / gcd)) }).As()))
                 .Apply((_, joins) => new Trochoid(roll, rollingRadius, arm, joins)).As();
     }
 
@@ -109,5 +109,4 @@ public abstract partial record AnalyticCurve {
     }
 
     private static Vector3D<double> Planar(Complex point) => new(point.Real, point.Imaginary, 0d);
-    private static Seq<double> Spaced(double end, int pieces) => toSeq(Range(0L, pieces + 1L)).Map(piece => end * piece / pieces);
 }

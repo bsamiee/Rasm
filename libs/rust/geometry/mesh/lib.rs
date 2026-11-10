@@ -1,22 +1,21 @@
 #![feature(default_field_values, float_conversions, trait_alias, vec_into_chunks)]
 
-use core::{borrow::Borrow, cell::LazyCell, iter, num::NonZero};
+use core::borrow::Borrow;
+use core::cell::LazyCell;
+use core::iter;
+use core::num::NonZero;
 
 use bounded_integer::{BoundedU16, BoundedU32};
-use manifold_rust::{
-    cancel::{self, CancelToken},
-    cross_section::CrossSection,
-    linalg::{Mat3x4, Vec3},
-    manifold::Manifold,
-    progress::ProgressReporter,
-    robust::{self, repair, soup},
-    types::{Error, MeshGLP, Polygons, WindingRule},
-};
+use manifold_rust::cancel::{self, CancelToken};
+use manifold_rust::cross_section::CrossSection;
+use manifold_rust::linalg::{Mat3x4, Vec3};
+use manifold_rust::manifold::Manifold;
+use manifold_rust::progress::ProgressReporter;
+use manifold_rust::robust::{self, repair, soup};
+use manifold_rust::types::{Error, MeshGLP, Polygons, WindingRule};
 use nalgebra::{Affine3, Matrix4, Point2, Point3, Scale2};
-use parry3d_f64::{
-    math::Vector,
-    shape::{TriMesh, TriMeshBuilderError, TriMeshFlags},
-};
+use parry3d_f64::math::Vector;
+use parry3d_f64::shape::{TriMesh, TriMeshBuilderError, TriMeshFlags};
 use rayon::iter::{IntoParallelRefMutIterator as _, ParallelIterator as _};
 
 // --- [TYPES] ---------------------------------------------------------------------------

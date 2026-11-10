@@ -1,9 +1,13 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, get_parent_expr, is_default_equivalent, paths::PathNS, sym};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::{fn_def_id, get_parent_expr, is_default_equivalent, sym};
 use rustc_ast::LitKind;
 use rustc_data_structures::fx::FxHashSet;
-use rustc_hir::{BinOpKind, Expr, ExprKind, Mutability, PatExpr, PatExprKind, PatKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{BinOpKind, Expr, ExprKind, Mutability, PatExpr, PatExprKind, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, TyCtxt, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, TyCtxt};
 
 use crate::{expanded_externally, paths};
 
@@ -13,11 +17,17 @@ pub(crate) struct Pass {
     fallbacks: FxHashSet<DefId>,
 }
 
-lint!(Pass; SENTINEL_DEFAULT: "`Option::unwrap_or_default`, `unwrap_or`, and `map_or` calls producing a native `Copy` number, flag, character, or slice default tested immediately");
+lint!(Pass; SENTINEL_DEFAULT: "`Option::unwrap_or_default`, `unwrap_or`, `map_or`, and `map_or_default` calls producing a native `Copy` number, flag, character, or slice default tested immediately");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
-        Self { fallbacks: paths(tcx, PathNS::Value, &["core::option::Option::unwrap_or_default", "core::option::Option::unwrap_or", "core::option::Option::map_or"]) }
+        Self {
+            fallbacks: paths(
+                tcx,
+                PathNS::Value,
+                &["core::option::Option::unwrap_or_default", "core::option::Option::unwrap_or", "core::option::Option::map_or", "core::option::Option::map_or_default"],
+            ),
+        }
     }
 }
 
@@ -31,7 +41,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         if expanded_externally(cx, expr.span)
             || !(held.is_numeric() || held.is_bool() || held.is_char() || matches!(held.kind(), ty::Ref(_, content, Mutability::Not) if content.is_slice()))
             || !fn_def_id(cx, expr).is_some_and(|callee| self.fallbacks.contains(&callee))
-            || !arguments.first().is_none_or(|fallback| is_default_equivalent(cx, fallback))
+            || !arguments.first().filter(|first| typeck.expr_ty_adjusted(first) == held).is_none_or(|fallback| is_default_equivalent(cx, fallback))
         {
             return;
         }

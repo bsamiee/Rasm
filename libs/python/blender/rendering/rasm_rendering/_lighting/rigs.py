@@ -266,8 +266,8 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             operation = built.getDefaultCPUProcessor()
 
             def graded(color: Rgb) -> Outcome[Rgb]:
-                return catch(  # ty: ignore[unsound-return-statement]
-                    lambda: msgspec.convert(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=Rgb), exception=msgspec.ValidationError
+                return catch(
+                    lambda: msgspec.convert(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=tuple[Finite, Finite, Finite]), exception=msgspec.ValidationError
                 )().map_error(partial(Fault.of, Reason.FAILED, repr(color)))
 
             def light_at(light: Light) -> Outcome[PlacedLight]:

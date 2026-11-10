@@ -1,7 +1,11 @@
 #![feature(deref_patterns)]
 
-use core::{fmt, hint::black_box, marker::PhantomData, num::ParseIntError};
-use std::{collections::BTreeSet, io};
+use core::fmt;
+use core::hint::black_box;
+use core::marker::PhantomData;
+use core::num::ParseIntError;
+use std::collections::BTreeSet;
+use std::io;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

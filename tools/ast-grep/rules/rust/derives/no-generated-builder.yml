@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+rule:
+    any:
+        - kind: struct_item
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: body, kind: field_declaration_list}
+            - matches: {rust-attributed: {attribute: {matches: {rust-derive: {trait: {regex: '^(Builder|TypedBuilder)$'}}}, pattern: $DERIVE}}}
+        - kind: function_item
+          all:
+            - has: {field: name, pattern: $NAME}
+            - not: {has: {field: parameters, has: {kind: parameter, nthChild: {position: 3, ofRule: {kind: parameter}}}}}
+            - matches: {rust-attributed: {attribute: {has: {kind: attribute, has: {field: path, regex: '^((::)?bon::)?builder$'}}, pattern: $DERIVE}}}
+labels:
+    NAME: {style: primary, message: 'Built through generated setters'}
+    DERIVE: {style: secondary, message: 'Generates a builder'}
+message: '`$DERIVE` generates a builder for `$NAME` in place of a struct literal or a direct call'
+note: 'Delete the builder, give a record field defaults (`#![feature(default_field_values)]`) and build it as `<Record> { <field>, .. }`, call a function of at most two arguments as `<function>(<a>, <b>)`'

@@ -1,12 +1,48 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
+utils:
+    mutable-owner:
+        any:
+            - matches: {python-builtin-name: {name: {regex: '^(dict|list|set|bytearray)$'}}}
+            - matches: {python-member-use: {module: {regex: '^collections$'}, name: {regex: '^(defaultdict|deque|OrderedDict|Counter|ChainMap)$'}}}
+            - matches: {python-member-use: {module: {regex: '^(typing|collections\.abc)$'}, name: {regex: '^Mutable(Mapping|Sequence|Set)$'}}}
+            - matches: {python-member-use: {module: {regex: '^typing$'}, name: {regex: '^(Dict|List|Set|DefaultDict|Deque|OrderedDict|Counter|ChainMap)$'}}}
+    mutable-type:
+        any:
+            - matches: mutable-owner
+            - kind: generic_type
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: mutable-owner}
+            - kind: subscript
+              has: {field: value, matches: mutable-owner}
+            - kind: parenthesized_expression
+              has: {matches: mutable-type}
+            - kind: binary_operator
+              all:
+                - has: {field: operator, regex: '^\|$'}
+                - has: {matches: mutable-type}
 rule:
-    kind: class_definition
-    all:
-        - has: {field: name, pattern: $NAME}
-        - any:
-            - matches: msgspec-struct-frozen-default
-            - matches: {msgspec-struct-frozen-option: {value: {kind: 'false'}}}
-message: '`$NAME` is a mutable `msgspec.Struct`'
-note: 'Declare `frozen=True` on a record, and hold changing state in a slotted class owning its release'
+    kind: class_definition, assignment
+    any:
+        - kind: class_definition
+          all:
+            - has: {field: name, pattern: $SITE}
+            - any:
+                - matches: msgspec-struct-frozen-default
+                - matches: {msgspec-struct-frozen-option: {value: {kind: 'false'}}}
+        - kind: assignment
+          pattern: $SITE
+          all:
+            - has: {field: type, has: {matches: mutable-type}}
+            - not:
+                all:
+                    - has: {field: type, regex: '^["'']?list\[(collections\.abc\.|typing\.)?Callable\['}
+                    - not: {has: {field: right, pattern: $_RIGHT}}
+            - inside:
+                kind: expression_statement
+                inside:
+                    kind: block
+                    inside:
+                        matches: {msgspec-struct-frozen-option: {value: {kind: 'true'}}}
+message: '`$SITE` leaves a `msgspec.Struct` record mutable'
+note: 'Declare `frozen=True` with `tuple`, `frozenset`, or `Mapping` fields, and hold changing state in a slotted class owning its release'

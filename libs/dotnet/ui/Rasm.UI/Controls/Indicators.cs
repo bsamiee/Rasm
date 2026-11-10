@@ -129,13 +129,6 @@ public sealed partial class Polarity {
     public static readonly Polarity Negative = new(-1);
 
     internal int Sign { get; }
-
-    internal HashSet<Condition> Judged(float change) =>
-        (MathF.Sign(change) * Sign) switch {
-            > 0 => [Condition.Success],
-            < 0 => [Condition.Faulted],
-            _ => [],
-        };
 }
 
 [SmartEnum]
@@ -190,7 +183,11 @@ public sealed record Stat(string Label, float Value, Axis Axis) {
         string shown = prior is 0f ? Axis.Formatted(change, culture) : (change / MathF.Abs(prior)).ToString("P", culture);
         return new View.Text([change > 0f ? culture.NumberFormat.PositiveSign + shown : shown]) {
             Role = Roles.Label,
-            Conditions = Polarity.Map(polarity => polarity.Judged(change)).IfNone([]),
+            Conditions = Polarity.Map(polarity => MathF.Sign(change) * polarity.Sign).IfNone(0) switch {
+                > 0 => [Condition.Success],
+                < 0 => [Condition.Faulted],
+                _ => [],
+            },
         };
     }
 }

@@ -20,40 +20,31 @@ extern crate rustc_span;
 extern crate rustc_trait_selection;
 extern crate rustc_type_ir;
 
-use core::{
-    cell::{LazyCell, RefCell},
-    iter, mem,
-};
-use std::{path::Path, rc::Rc};
+use core::cell::{LazyCell, RefCell};
+use core::{iter, mem};
+use std::path::Path;
+use std::rc::Rc;
 
 use camino::Utf8Path;
-use clippy_utils::{
-    consts::ConstEvalCtxt,
-    fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_in_cfg_test, is_in_test_function,
-    macros::{FormatArgsStorage, macro_backtrace},
-    paths::{PathNS, lookup_path_str},
-    peel_hir_expr_refs,
-    res::{MaybeDef as _, MaybeResPath as _},
-    sym,
-    ty::{implements_trait, is_copy},
-};
+use clippy_utils::consts::ConstEvalCtxt;
+use clippy_utils::macros::{FormatArgsStorage, macro_backtrace};
+use clippy_utils::paths::{PathNS, lookup_path_str};
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::ty::{implements_trait, is_copy};
+use clippy_utils::{fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_in_cfg_test, is_in_test_function, peel_hir_expr_refs, sym};
 use itertools::Either;
 use rustc_abi::FieldIdx;
-use rustc_ast::{Crate, Expr as AstExpr, ExprKind as AstExprKind, FormatArgs};
+use rustc_ast::{Crate, FormatArgs};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_errors::{Applicability, Diag, DiagMessage};
-use rustc_hir::{
-    Body, BodyId, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Mutability, Node, Pat, PatExpr, PatKind, UnOp,
-    def::{CtorKind, DefKind, Res},
-    def_id::{DefId, LocalDefId, LocalDefIdMap},
-    pat_util::EnumerateAndAdjustIterator as _,
-};
+use rustc_hir::def::{CtorKind, DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId, LocalDefIdMap};
+use rustc_hir::pat_util::EnumerateAndAdjustIterator as _;
+use rustc_hir::{Body, BodyId, Expr, ExprKind, HirId, HirIdMap, HirIdSet, Mutability, Node, Pat, PatExpr, PatKind, UnOp};
 use rustc_lint::{EarlyContext, EarlyLintPass, LateContext, LateLintPass, LintId, LintPass, LintVec};
-use rustc_middle::ty::{
-    self, Clause, FieldDef, FnSig, PolyTraitClause, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized, VariantDef,
-    adjustment::{Adjust, AutoBorrow, DerefAdjustKind},
-};
+use rustc_middle::ty::adjustment::{Adjust, AutoBorrow, DerefAdjustKind};
+use rustc_middle::ty::{self, Clause, FieldDef, FnSig, PolyTraitClause, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized, VariantDef};
 use rustc_span::{ExpnKind, FileName, MacroKind, RemapPathScopeComponents, Span, Symbol};
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -465,8 +456,8 @@ impl LintPass for FormatArgsCollector {
 }
 
 impl EarlyLintPass for FormatArgsCollector {
-    fn check_expr(&mut self, _: &EarlyContext<'_>, expr: &AstExpr) {
-        if let AstExprKind::FormatArgs(args) = &expr.kind {
+    fn check_expr(&mut self, _: &EarlyContext<'_>, expr: &rustc_ast::Expr) {
+        if let rustc_ast::ExprKind::FormatArgs(args) = &expr.kind {
             self.format_args.insert(expr.span.with_parent(None), (**args).clone());
         }
     }
@@ -589,8 +580,8 @@ pub extern "Rust" fn register_lints(session: &rustc_session::Session, store: &mu
         expressions::wrapping_arithmetic,
         interior_mutability::interior_mutable_static,
         interior_mutability::needless_cell,
+        items::imports,
         items::modules,
-        items::needless_import_rename,
         macros::formatting(format_args.clone(), reported.clone()),
         macros::matching(format_args.clone()),
         macros::renamed_function_params_in_macro,

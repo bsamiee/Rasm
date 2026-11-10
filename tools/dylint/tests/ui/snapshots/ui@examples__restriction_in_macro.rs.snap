@@ -3,149 +3,163 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/restriction_in_macro.rs
 ---
 error: `std::option::Option::unwrap` in a local macro expansion panics on `None`
-  --> tools/dylint/examples/restriction_in_macro.rs:9:16
+  --> tools/dylint/examples/restriction_in_macro.rs:13:16
    |
- 7 | macro_rules! taken {
- 8 |     ($value:expr) => {
- 9 |         $value.unwrap()
+11 | macro_rules! taken {
+12 |     ($value:expr) => {
+13 |         $value.unwrap()
    |                ^^^^^^^^
 ...
-57 | fn unwrapped(value: Option<u32>) -> u32 { taken!(value) }
+61 | fn unwrapped(value: Option<u32>) -> u32 { taken!(value) }
    |                                           ------------- in this macro invocation
    |
    = help: convert `None` into an error with `ok_or_else` and return it with `?`
    = note: `#[deny(unwrap_used_in_macro)]` on by default
 
 error: `std::result::Result::expect` in a local macro expansion panics on `Err`
-  --> tools/dylint/examples/restriction_in_macro.rs:27:16
+  --> tools/dylint/examples/restriction_in_macro.rs:31:16
    |
-25 | macro_rules! required {
-26 |     ($value:expr) => {
-27 |         $value.expect("value is present")
+29 | macro_rules! required {
+30 |     ($value:expr) => {
+31 |         $value.expect("value is present")
    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-59 | fn expected(value: Result<u32, ParseIntError>) -> u32 { required!(value) }
+63 | fn expected(value: Result<u32, ParseIntError>) -> u32 { required!(value) }
    |                                                         ---------------- in this macro invocation
    |
    = help: return the error with `?`
    = note: `#[deny(expect_used_in_macro)]` on by default
 
 error: `std::option::Option::unwrap` in a local macro expansion panics on `None`
-  --> tools/dylint/examples/restriction_in_macro.rs:15:9
+  --> tools/dylint/examples/restriction_in_macro.rs:19:9
    |
-13 | macro_rules! taken_qualified {
-14 |     ($value:expr) => {
-15 |         Option::unwrap($value)
+17 | macro_rules! taken_qualified {
+18 |     ($value:expr) => {
+19 |         Option::unwrap($value)
    |         ^^^^^^^^^^^^^^^^^^^^^^
 ...
-61 | fn unwrapped_qualified(value: Option<u32>) -> u32 { taken_qualified!(value) }
+65 | fn unwrapped_qualified(value: Option<u32>) -> u32 { taken_qualified!(value) }
    |                                                     ----------------------- in this macro invocation
    |
    = help: convert `None` into an error with `ok_or_else` and return it with `?`
 
 error: `std::result::Result::expect` in a local macro expansion panics on `Err`
-  --> tools/dylint/examples/restriction_in_macro.rs:21:9
+  --> tools/dylint/examples/restriction_in_macro.rs:25:9
    |
-19 | macro_rules! required_qualified {
-20 |     ($value:expr) => {
-21 |         Result::expect($value, "value is present")
+23 | macro_rules! required_qualified {
+24 |     ($value:expr) => {
+25 |         Result::expect($value, "value is present")
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-63 | fn expected_qualified(value: Result<u32, ParseIntError>) -> u32 { required_qualified!(value) }
+67 | fn expected_qualified(value: Result<u32, ParseIntError>) -> u32 { required_qualified!(value) }
    |                                                                   -------------------------- in this macro invocation
    |
    = help: return the error with `?`
 
 error: `panic!` in a local macro expansion panics
-  --> tools/dylint/examples/restriction_in_macro.rs:34:13
+  --> tools/dylint/examples/restriction_in_macro.rs:38:13
    |
-31 | macro_rules! ensured {
+35 | macro_rules! ensured {
 ...
-34 |             panic!("broken")
+38 |             panic!("broken")
    |             ^^^^^^^^^^^^^^^^
 ...
-65 | fn checked(value: u32) { ensured!(value > 1) }
+69 | fn checked(value: u32) { ensured!(value > 1) }
    |                          ------------------- in this macro invocation
    |
    = help: return a typed error for a failure the input causes, or state the invariant in the types
    = note: `#[deny(panic_in_macro)]` on by default
 
 error: `todo!` in a local macro expansion panics
-  --> tools/dylint/examples/restriction_in_macro.rs:41:9
+  --> tools/dylint/examples/restriction_in_macro.rs:45:9
    |
-39 | macro_rules! pending {
-40 |     () => {
-41 |         todo!()
+43 | macro_rules! pending {
+44 |     () => {
+45 |         todo!()
    |         ^^^^^^^
 ...
-67 | fn unfinished() -> u32 { pending!() }
+71 | fn unfinished() -> u32 { pending!() }
    |                          ---------- in this macro invocation
    |
    = help: replace `todo!` with the implementation
 
 error: `println!` in a local macro expansion writes to stdout
-  --> tools/dylint/examples/restriction_in_macro.rs:47:9
+  --> tools/dylint/examples/restriction_in_macro.rs:51:9
    |
-45 | macro_rules! said {
-46 |     ($($argument:tt)*) => {
-47 |         println!($($argument)*)
+49 | macro_rules! said {
+50 |     ($($argument:tt)*) => {
+51 |         println!($($argument)*)
    |         ^^^^^^^^^^^^^^^^^^^^^^^
 ...
-69 | fn printed(value: u32) { said!("{value}") }
+73 | fn printed(value: u32) { said!("{value}") }
    |                          ---------------- in this macro invocation
    |
    = help: emit a `tracing` event in place of `println!`
    = note: `#[deny(print_in_macro)]` on by default
 
-error: `write!` in a local macro expansion formats through `Debug`
-  --> tools/dylint/examples/restriction_in_macro.rs:85:9
+error: `direct` passes its parameters unchanged to `std::option::Option::unwrap`
+  --> tools/dylint/examples/restriction_in_macro.rs:79:1
    |
-83 | macro_rules! written {
-84 |     ($out:expr, $value:expr) => {
-85 |         write!($out, "{:?}", $value)
+79 | fn direct(value: Option<u32>) -> u32 { value.unwrap() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/restriction_in_macro.rs:79:40
+   |
+79 | fn direct(value: Option<u32>) -> u32 { value.unwrap() }
+   |                                        ^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap` at each call site of `direct` and delete `direct`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `write!` in a local macro expansion formats through `Debug`
+  --> tools/dylint/examples/restriction_in_macro.rs:89:9
+   |
+87 | macro_rules! written {
+88 |     ($out:expr, $value:expr) => {
+89 |         write!($out, "{:?}", $value)
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-91 | fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
+95 | fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
    |                                                                 -------------------- in this macro invocation
    |
    = help: format through `Display` with `{}`
    = note: `#[deny(use_debug_in_macro)]` on by default
 
 error: `tokio::pin!` duplicates standard pinning
-  --> tools/dylint/examples/restriction_in_macro.rs:96:5
-   |
-96 |     tokio::pin!(first, second);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: bind pinned values with `core::pin::pin!`
-   = note: `#[deny(tokio_pin)]` on by default
+   --> tools/dylint/examples/restriction_in_macro.rs:100:5
+    |
+100 |     tokio::pin!(first, second);
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: bind pinned values with `core::pin::pin!`
+    = note: `#[deny(tokio_pin)]` on by default
 
 error: `tokio::pin!` duplicates standard pinning
-   --> tools/dylint/examples/restriction_in_macro.rs:102:5
+   --> tools/dylint/examples/restriction_in_macro.rs:106:5
     |
-102 |     pinned!(value);
+106 |     pinned!(value);
     |     ^^^^^^^^^^^^^^
     |
     = help: bind pinned values with `core::pin::pin!`
 
 error: `tokio::pin!` duplicates standard pinning
-   --> tools/dylint/examples/restriction_in_macro.rs:107:5
+   --> tools/dylint/examples/restriction_in_macro.rs:111:5
     |
-107 | /     tokio::pin! {
-108 | |         let outer = async {
-109 | |             let inner = future::ready(4);
-110 | |             pinned!(inner);
+111 | /     tokio::pin! {
+112 | |         let outer = async {
+113 | |             let inner = future::ready(4);
+114 | |             pinned!(inner);
 ...   |
-113 | |         let other = future::ready(5);
-114 | |     }
+117 | |         let other = future::ready(5);
+118 | |     }
     | |_____^
     |
     = help: bind pinned values with `core::pin::pin!`
 
 error: `tokio::pin!` duplicates standard pinning
-   --> tools/dylint/examples/restriction_in_macro.rs:110:13
+   --> tools/dylint/examples/restriction_in_macro.rs:114:13
     |
-110 |             pinned!(inner);
+114 |             pinned!(inner);
     |             ^^^^^^^^^^^^^^
     |
     = help: bind pinned values with `core::pin::pin!`

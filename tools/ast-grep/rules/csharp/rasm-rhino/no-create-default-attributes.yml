@@ -14,4 +14,4 @@ rule:
             - has: {kind: member_binding_expression, has: {field: name, regex: '^CreateDefaultAttributes$'}}
     inside: {kind: invocation_expression, field: function}
 message: '`$DOC.CreateDefaultAttributes` builds default object attributes'
-note: 'Call `TableOps.WithAttributes(<doc>.CreateDefaultAttributes, <attributes>, <body>)` with `None` attributes for a default object'
+note: 'Call `GeometryPair.WithAttributes(<doc>.CreateDefaultAttributes, <attributes>, <body>)` with `None` attributes for a default object'

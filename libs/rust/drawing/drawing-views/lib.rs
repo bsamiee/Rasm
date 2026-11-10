@@ -1,18 +1,18 @@
 #![feature(cmp_minmax, default_field_values)]
 
+use core::cmp::Ordering;
 use core::iter;
 use std::sync::Arc;
 
+use itertools::Itertools as _;
 use kurbo::{Affine, Point, Rect};
 use manifold_rust::cancel::{self, CancelToken};
 use nalgebra::{Isometry3, Matrix3, Matrix4, Orthographic3, Perspective3, Point3, Quaternion, Translation3, UnitQuaternion, Vector2, Vector3, Vector4};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use parry3d_f64::{
-    partitioning::BvhBuildStrategy,
-    shape::{SharedShape, TopologyError, TriMesh},
-};
+use parry3d_f64::partitioning::BvhBuildStrategy;
+use parry3d_f64::shape::{SharedShape, TopologyError, TriMesh, TriMeshFlags};
 use rasm_drawing::{Class, Deflection, EdgeKind, LineworkError, Tolerance};
-use rasm_mesh::{MeshError, Solid, Source};
+use rasm_mesh::{MeshError, Solid, Source, Trim, export, trim};
 use rasm_proximity::{Assembly, ProximityError};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator as _, ParallelIterator as _};
 use spade::InsertionError;
@@ -92,13 +92,32 @@ impl View {
         token: Option<&CancelToken>,
     ) -> Result<Self, NEVec<ViewsError>> {
         let frame = Frame::new(eye, projection).map_err(NEVec::new)?;
-        let bodies = bodies
-            .into_par_iter()
-            .enumerate()
-            .filter(|_| !cancel::is_cancelled(token))
-            .filter_map(|(index, body)| sections::prepared(&frame, index, body, token).transpose())
-            .collect::<Validated<Vec<_>, _>>()
-            .ok()?;
+        let prepared = |index: usize, body: Body| -> Result<Option<Prepared>, ViewsError> {
+            (!cancel::is_cancelled(token)).ok_or(ViewsError::Cancelled)?;
+            let refused = move |source| ViewsError::Mesh { body: index, source };
+            match body {
+                Body::Solid(solid) => trim(&solid, &frame.plane, token)
+                    .map_err(refused)?
+                    .map(|Trim { solid: kept, cap }| {
+                        let (mut mesh, sources) = export(&kept).map_err(refused)?;
+                        mesh.set_flags(TriMeshFlags::HALF_EDGE_TOPOLOGY).map_err(|source| ViewsError::Topology { body: index, source })?;
+                        Ok(Prepared {
+                            body: index,
+                            mesh: Arc::new(mesh),
+                            sources: sources.into_iter().map(|source| cap.is_none_or(|cap| source.original != Some(cap)).then_some(source)).collect(),
+                            surface: false,
+                        })
+                    })
+                    .transpose(),
+                Body::Surface(mut mesh) => {
+                    mesh.set_flags(mesh.flags() | TriMeshFlags::HALF_EDGE_TOPOLOGY | TriMeshFlags::MERGE_DUPLICATE_VERTICES).map_err(|source| ViewsError::Topology { body: index, source })?;
+                    let sources = (0..).take(mesh.num_triangles()).map(|face| Some(Source { original: None, run: 0, face })).collect();
+                    Ok(Some(Prepared { body: index, mesh: Arc::new(mesh), sources, surface: true }))
+                }
+            }
+        };
+        let bodies =
+            bodies.into_par_iter().enumerate().filter(|_| !cancel::is_cancelled(token)).filter_map(|(index, body)| prepared(index, body).transpose()).collect::<Validated<Vec<_>, _>>().ok()?;
         let renumbered = |error: ProximityError| {
             let ProximityError::NonFinite { indices } = error else {
                 return ViewsError::from(error);
@@ -174,10 +193,37 @@ fn ray(frame: &Frame, ndc: Point) -> (Point3<f64>, Vector3<f64>) {
 fn depth(frame: &Frame, point: &Point3<f64>) -> f64 { frame.plane.inverse_transform_point(point).z }
 
 fn outline(frame: &Frame, scene: &Scene, crease: Deflection, tolerance: Tolerance) -> Result<Lines, ViewsError> {
-    let features = scene
-        .bodies
-        .par_iter()
-        .flat_map_iter(|prepared| iter::chain(edges::features(frame, prepared, crease), prepared.surface.then(|| sections::cuts(frame, prepared, tolerance)).into_iter().flatten()));
+    let cuts = |prepared: &Prepared| -> Vec<Feature> {
+        let reach = tolerance.into_inner();
+        let side = |offset: f64| if offset.abs() <= reach { Ordering::Equal } else { offset.total_cmp(&0.0) };
+        prepared
+            .mesh
+            .bvh()
+            .leaves(|node| {
+                let corners = node.aabb().vertices().map(|corner| depth(frame, &Point3::from(corner)));
+                corners.iter().any(|&corner| corner <= reach) && corners.iter().any(|&corner| corner >= -reach)
+            })
+            .filter_map(|face| {
+                let corners = prepared.mesh.triangle(face).vertices().map(|vertex| {
+                    let point = Point3::from(vertex);
+                    (point, depth(frame, &point))
+                });
+                corners
+                    .iter()
+                    .circular_tuple_windows()
+                    .filter_map(|(&(from, before), &(to, after))| match (side(before), side(after)) {
+                        (Ordering::Equal, _) => Some(from),
+                        (Ordering::Less, Ordering::Greater) => Some(from.lerp(&to, before / (before - after))),
+                        (Ordering::Greater, Ordering::Less) => Some(to.lerp(&from, after / (after - before))),
+                        (Ordering::Less | Ordering::Greater, Ordering::Equal) | (Ordering::Less, Ordering::Less) | (Ordering::Greater, Ordering::Greater) => None,
+                    })
+                    .collect_array::<2>()
+                    .filter(|_| corners.iter().any(|&(_, beyond)| side(beyond) == Ordering::Greater))
+                    .map(|ends| Feature { ends, kind: Some(EdgeKind::Cut) })
+            })
+            .collect()
+    };
+    let features = scene.bodies.par_iter().flat_map_iter(|prepared| iter::chain(edges::features(frame, prepared, crease), prepared.surface.then(|| cuts(prepared)).into_iter().flatten()));
     visibility::lines(frame, scene, features.collect(), tolerance)
 }
 

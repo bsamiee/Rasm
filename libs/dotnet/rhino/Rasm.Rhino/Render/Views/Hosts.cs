@@ -119,10 +119,6 @@ public static class ContentViews {
 
     // --- [SECTIONS]
 
-    internal static IO<Unit> RegisterSections() =>
-        Subscriptions.On<AddCustomUISectionsEventArgs>(static h => AddCustomUISections.OnAddCustomUISections += h, static h => AddCustomUISections.OnAddCustomUISections -= h)
-            .Attach(static args => IO.lift(() => ViewCatalog.Current.Listed<View.ContentSection>().Iter(row => args.ExpandableContentUI.AddSection(new DefinedContentSection(row)))));
-
     public static EntryKey FieldKey(RenderContent content, string field) => EntryKey.Named(EntryKey.TypeOwner(content.TypeId), field);
 
     // --- [PANELS]

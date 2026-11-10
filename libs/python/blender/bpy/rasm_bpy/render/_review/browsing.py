@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping
 from contextlib import nullcontext
 from enum import auto, Enum
 from functools import cached_property, partial
-from typing import ClassVar
+from typing import Annotated, ClassVar
 
 import bpy
 from expression import Option, Some
@@ -17,13 +17,13 @@ from rasm_bpy.commands.invocations import Popup
 from rasm_bpy.commands.operators import Answer, answered, Call, called, Done, Empty, Operator
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration
-from rasm_bpy.data._ids.images import _loaded, Tag
+from rasm_bpy.data._ids.images import loaded, Tag
 from rasm_bpy.data._ids.store import IdName
 from rasm_bpy.data._rna.descriptors import Value
-from rasm_bpy.data._rna.paths import _rna, RnaPath, rooted
-from rasm_bpy.data._rna.properties import _offered, annotated, Callbacks, choices, enum_choices, EnumItem, IconedItem
+from rasm_bpy.data._rna.paths import rna, RnaPath, rooted
+from rasm_bpy.data._rna.properties import annotated, Callbacks, choices, enum_choices, EnumItem, IconedItem, offered
 from rasm_bpy.data._rna.snapshots import Snapshot
-from rasm_bpy.render._color.buffers import _projection
+from rasm_bpy.render._color.buffers import editor_view
 from rasm_bpy.render._color.spaces import viewed
 from rasm_bpy.render._outputs.results import CompletedRender
 from rasm_bpy.render._review.history import RenderHistory, Renders
@@ -32,13 +32,13 @@ from rasm_bpy.ui._drawing.handlers import HandlerRefresh, Refresh
 from rasm_bpy.ui._images.compare import CompareView
 from rasm_bpy.ui._images.views import coverage, Masks, overlaid, revealed
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _grouped, _Label, even, Layout, OperatorButton, Property
+from rasm_bpy.ui._layout.rows import even, grouped, Label, Layout, OperatorButton, Property
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.templates import Gallery
 from rasm_bpy.ui._resources.icons import Icon
-from rasm_bpy.ui._resources.previews import _PREVIEWS, _uploaded, Texture
-from rasm_bpy.ui._resources.theme import _color, Color, Metrics
-from rasm_bpy.ui._screens.areas import _EditorState
+from rasm_bpy.ui._resources.previews import PREVIEWS, Texture, uploaded
+from rasm_bpy.ui._resources.theme import Color, display_color, Metrics
+from rasm_bpy.ui._screens.areas import EditorState
 from rasm_imaging import Comparison, converted_image, DisplayView, ImageFile, Metric, rgba, Severity, Threshold
 from rasm_records import ContentHash, Deleted, diff, Edit, Error, Fault, Inserted, Moved, Nothing, Ok, Outcome, paired, Reason, Reparametrized
 
@@ -58,16 +58,16 @@ class Baseline(Enum):
 class Browsing(bpy.types.PropertyGroup):
     """History browser of one window manager: the before frame source, the stored render drawn as before frame by its key and its gallery, and the difference tint."""
 
-    baseline: bpy.props.EnumProperty(name="Before Frame", description="Stored render, or the shown render's view layer ahead of scene effects", items=enum_choices(Baseline))  # ty: ignore[invalid-type-form]
-    picked: bpy.props.StringProperty(name="Stored Render", description="Key of the stored render drawn as before frame", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
-    shown: bpy.props.EnumProperty(name="Before", description="Stored render drawn as before frame", items=())  # ty: ignore[invalid-type-form]
-    difference: bpy.props.BoolProperty(name="Difference", description="Tint pixels by perceived difference from the before frame")  # ty: ignore[invalid-type-form]
+    baseline: Annotated[str, bpy.props.EnumProperty(name="Before Frame", description="Stored render, or the shown render's view layer ahead of scene effects", items=enum_choices(Baseline))]
+    picked: Annotated[str, bpy.props.StringProperty(name="Stored Render", description="Key of the stored render drawn as before frame", options={"HIDDEN"})]
+    shown: Annotated[str, bpy.props.EnumProperty(name="Before", description="Stored render drawn as before frame", items=())]
+    difference: Annotated[bool, bpy.props.BoolProperty(name="Difference", description="Tint pixels by perceived difference from the before frame")]
 
 
 class Noting(bpy.types.PropertyGroup):
     """Note on a stored render."""
 
-    note: bpy.props.StringProperty(name="Note", description="Stored render note")  # ty: ignore[invalid-type-form]
+    note: Annotated[str, bpy.props.StringProperty(name="Note", description="Stored render note")]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -104,8 +104,8 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def listed(self, identity: Identity, _owner: Browsing, _context: bpy.types.Context | None) -> tuple[IconedItem | EnumItem, *tuple[IconedItem | EnumItem, ...]]:
         """Item rows of the stored renders newest first under their preview tiles, each value fixed per stored render key, the `NONE` row while none is stored."""
-        previews = _PREVIEWS[identity]
-        return _offered(
+        previews = PREVIEWS[identity]
+        return offered(
             tuple(
                 (identifier, name, description, previews.get(identifier).map(lambda preview: preview.icon_id).default_value(0), value)
                 for renders in identity.reports.reported(self.history.held)(identity).to_list()
@@ -168,7 +168,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns the projected baseline and the selected OCIO view forming the shown buffer."""
         config = PyOpenColorIO.GetCurrentConfig()
         view = Some(shown[1].header.get_string_attribute("view")).filter(bool)
-        projection = _projection(context, shown[0], config)
+        projection = editor_view(context, shown[0], config)
 
         match baseline:
             case Baseline.STORED_RENDER:
@@ -197,7 +197,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     self
                     .browsed(identity, bpy.context)
                     .bind(lambda browser: self.side(identity, bpy.context, Baseline[browser.baseline], shown))
-                    .bind(lambda side: _uploaded(side[0]).map(lambda texture: (texture, (side[1], side[2]))))
+                    .bind(lambda side: uploaded(side[0]).map(lambda texture: (texture, (side[1], side[2]))))
                     .map(Some)
                 )
             )
@@ -217,7 +217,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def difference(self, identity: Identity, metrics: Metrics) -> Outcome[Option[tuple[Texture[Color], ...]]]:
         """Returns the perceptual difference tint in the theme's error text color while difference shows."""
-        tint = _color(metrics.preferences.themes[0].info.info_error_text)
+        tint = display_color(metrics.preferences.themes[0].info.info_error_text)
         return self.browsed(identity, bpy.context).bind(
             lambda browser: (
                 self.read(identity, bpy.context).bind(
@@ -274,13 +274,13 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def noted[V](edit: Edit[V, RnaPath, RnaPath]) -> str:
             match edit:
                 case Reparametrized(key=key, before=before, after=after):
-                    return f"{_rna(key)} changed {', '.join(sorted(map(_rna, before.keys() | after.keys())))}"
+                    return f"{rna(key)} changed {', '.join(sorted(map(rna, before.keys() | after.keys())))}"
                 case Inserted(key=key):
-                    return f"{_rna(key)} added"
+                    return f"{rna(key)} added"
                 case Deleted(key=key):
-                    return f"{_rna(key)} removed"
+                    return f"{rna(key)} removed"
                 case Moved(key=key):
-                    return f"{_rna(key)} moved"
+                    return f"{rna(key)} moved"
 
         return (
             self
@@ -308,13 +308,13 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 ),
             )
             return self.history.stored.made(
-                call.identity, lambda: _loaded(str(self.history.frame(call.identity, key)), Tag()), filled=lambda image: tag.applied(image).map(lambda _: image), content=Some(key)
+                call.identity, lambda: loaded(str(self.history.frame(call.identity, key)), Tag()), filled=lambda image: tag.applied(image).map(lambda _: image), content=Some(key)
             )
 
         def shown(image: bpy.types.Image) -> Outcome[Answer]:
             return revealed(call.context).bind(
                 lambda located: (
-                    _EditorState
+                    EditorState
                     .of(bpy.types.SpaceImageEditor, {("image",): IdName.of(image)})
                     .bind(lambda state: state.applied(located))
                     .map(lambda _: Done(notes=(("INFO", f"Showing {image.name}"),)))
@@ -401,11 +401,11 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             rows=(
                 Layout(rows=(Property(target=Member(root=self.browsing, path=("baseline",)), keywords={"expand": True}),), container=Some(even)),
                 Gallery(target=Member(root=self.browsing, path=("shown",))),
-                Layout(builder=Some(lambda identity: Ok((_Label(text=partial(self.note, identity)),)))),
+                Layout(builder=Some(lambda identity: Ok((Label(text=partial(self.note, identity)),)))),
                 Property(target=Member(root=self.browsing, path=("difference",))),
-                Layout(rows=tuple(OperatorButton(target=command) for command in (self.restoring, self.diffing, self.opening)), container=Some(_grouped)),
-                Layout(rows=(OperatorButton(target=self.measuring), OperatorButton(target=self.noting)), container=Some(_grouped)),
-                Layout(rows=(OperatorButton(target=self.removing), OperatorButton(target=self.clearing), OperatorButton(target=self.revealing, icon=Some("FILE_FOLDER"))), container=Some(_grouped)),
+                Layout(rows=tuple(OperatorButton(target=command) for command in (self.restoring, self.diffing, self.opening)), container=Some(grouped)),
+                Layout(rows=(OperatorButton(target=self.measuring), OperatorButton(target=self.noting)), container=Some(grouped)),
+                Layout(rows=(OperatorButton(target=self.removing), OperatorButton(target=self.clearing), OperatorButton(target=self.revealing, icon=Some("FILE_FOLDER"))), container=Some(grouped)),
             ),
         )
 

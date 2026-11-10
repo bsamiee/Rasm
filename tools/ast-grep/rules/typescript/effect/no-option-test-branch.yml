@@ -26,5 +26,20 @@ rule:
                 - has: {field: consequence, pattern: $OPTION}
                 - has: {field: alternative, pattern: $OPTION}
                 - has: {stopBy: end, kind: member_expression, pattern: $OPTION.value}
+        - kind: ternary_expression
+          all:
+            - has:
+                field: condition
+                kind: call_expression
+                pattern: $TEST
+                all:
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $OPTION}}
+                    - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^exists$'}}}}
+            - has:
+                stopBy: end
+                kind: call_expression
+                all:
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $OPTION}}
+                    - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^(getOrElse|getOrThrow|getOrThrowWith|getOrNull|getOrUndefined)$'}}}}
 message: '`$TEST` branches on an `Option` outside its fold'
-note: 'Fold with `Option.match(<option>, { onNone, onSome })`, or exit through `Effect.fromOption` or `Option.getOrElse`'
+note: 'Fold with `Option.match(<option>, { onNone, onSome })` holding any test inside `onSome`, or exit through `Effect.fromOption` or `Option.getOrElse`'

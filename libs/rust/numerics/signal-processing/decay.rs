@@ -1,20 +1,17 @@
-use core::{
-    iter,
-    marker::PhantomData,
-    num::NonZero,
-    ops::ControlFlow,
-    range::{Range, RangeInclusive},
-};
+use core::iter;
+use core::marker::PhantomData;
+use core::num::NonZero;
+use core::ops::ControlFlow;
+use core::range::{Range, RangeInclusive};
 
-use faer::{Col, Mat, linalg::solvers::SolveLstsq as _};
+use faer::linalg::solvers::SolveLstsq as _;
+use faer::{Col, Mat};
 use nalgebra::convert;
 use ndarray::{Array1, ArrayView1, Axis, Slice};
-use uom::si::{
-    f64::{Ratio, Time},
-    frequency::hertz,
-    ratio::ratio,
-    time::second,
-};
+use uom::si::f64::{Ratio, Time};
+use uom::si::frequency::hertz;
+use uom::si::ratio::ratio;
+use uom::si::time::second;
 
 use crate::{Lagged, Samples, Series, SpectraError};
 

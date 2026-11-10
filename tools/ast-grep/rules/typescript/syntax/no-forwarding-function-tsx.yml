@@ -9,6 +9,8 @@ utils:
             - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Atom$'}}}}
     receiver-static:
         has: {field: object, regex: '^(Promise|(Int8|Uint8|Uint8Clamped|Int16|Uint16|Int32|Uint32|Float16|Float32|Float64|BigInt64|BigUint64)Array)$', matches: typescript-global-reference}
+    receiver-instance:
+        has: {field: object, kind: identifier, matches: {typescript-constant-value: {value: {kind: 'regex, new_expression'}}}}
     root-declaration:
         any:
             - {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $ROOT}}}
@@ -37,7 +39,7 @@ utils:
                             inside: {kind: program}
                             precedes: {stopBy: end, any: [{matches: root-declaration}, {kind: export_statement, has: {matches: root-declaration}}]}
             - kind: member_expression
-              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}]}
+              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}, {matches: receiver-instance}]}
               has: {field: object, matches: named-callee, regex: '^[A-Z]'}
     inner-callee:
         any:
@@ -59,11 +61,12 @@ utils:
                             inside: {kind: program}
                             precedes: {stopBy: end, any: [{matches: inner-declaration}, {kind: export_statement, has: {matches: inner-declaration}}]}
             - kind: member_expression
-              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}]}
+              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}, {matches: receiver-instance}]}
               has: {field: object, matches: inner-callee, regex: '^[A-Z]'}
     parameter-1: {kind: required_parameter, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {field: pattern, kind: identifier, pattern: $A}}
     parameter-2: {kind: required_parameter, nthChild: {position: 2, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $B}}
     parameter-3: {kind: required_parameter, nthChild: {position: 3, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $C}}
+    parameter-4: {kind: required_parameter, nthChild: {position: 4, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $D}}
     parameters-1:
         any:
             - has: {field: parameter, kind: identifier, pattern: $A}
@@ -72,6 +75,8 @@ utils:
         has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}], not: {has: {nthChild: {position: 3, ofRule: *code}}}}
     parameters-3:
         has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}], not: {has: {nthChild: {position: 4, ofRule: *code}}}}
+    parameters-4:
+        has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}, {has: {matches: parameter-4}}], not: {has: {nthChild: {position: 5, ofRule: *code}}}}
     parameters-rest:
         has: {field: parameters, has: {kind: required_parameter, nthChild: {position: 1, ofRule: *code}, has: {field: pattern, kind: rest_pattern, has: {kind: identifier, pattern: $A}}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
     parameter-read:
@@ -94,6 +99,8 @@ utils:
         all: [{pattern: $BODY}, {pattern: '$F($A, $B)'}, {has: {field: function, matches: named-callee}}]
     forwarded-3:
         all: [{pattern: $BODY}, {pattern: '$F($A, $B, $C)'}, {has: {field: function, matches: named-callee}}]
+    forwarded-4:
+        all: [{pattern: $BODY}, {pattern: '$F($A, $B, $C, $D)'}, {has: {field: function, matches: named-callee}}]
     forwarded-rest:
         all: [{pattern: $BODY}, {pattern: $F(...$A)}, {has: {field: function, matches: named-callee}}]
     indexed-callback:
@@ -122,31 +129,33 @@ utils:
             - matches: indexed-callback
             - not: {matches: parameters-rest}
             - not: {has: {field: body, any: [{matches: forwarded-body}, {kind: statement_block, has: {kind: return_statement, has: {matches: forwarded-body}}}]}}
-    reflect-call:
-        kind: call_expression
-        has: {field: function, kind: member_expression, has: {field: object, regex: '(^|\.)Reflect$', matches: typescript-global-member}}
+    single-statement:
+        kind: statement_block
+        not: {has: {nthChild: {position: 2, ofRule: *code}}}
     result-1:
-        any: [{matches: forwarded-1}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: forwarded-1}}}]
+        any: [{matches: forwarded-1}, {matches: single-statement, has: {kind: return_statement, has: {matches: forwarded-1}}}]
     result-2:
-        any: [{matches: forwarded-2}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: forwarded-2}}}]
+        any: [{matches: forwarded-2}, {matches: single-statement, has: {kind: return_statement, has: {matches: forwarded-2}}}]
     result-3:
-        any: [{matches: forwarded-3}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: forwarded-3}}}]
+        any: [{matches: forwarded-3}, {matches: single-statement, has: {kind: return_statement, has: {matches: forwarded-3}}}]
+    result-4:
+        any: [{matches: forwarded-4}, {matches: single-statement, has: {kind: return_statement, has: {matches: forwarded-4}}}]
     result-rest:
-        any: [{matches: forwarded-rest}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: forwarded-rest}}}]
+        any: [{matches: forwarded-rest}, {matches: single-statement, has: {kind: return_statement, has: {matches: forwarded-rest}}}]
 rule:
-    kind: arrow_function, function_expression, function_declaration
+    kind: arrow_function, function_expression, function_declaration, method_definition
     all:
-        - not: {regex: '^async(?-u:\b)'}
+        - not: {has: {regex: '^async$', not: {kind: 'identifier, property_identifier'}}}
         - not: {has: {field: parameters, has: {kind: optional_parameter}}}
         - not: {has: {field: parameters, has: {kind: required_parameter, has: {field: value, pattern: $_}}}}
         - any:
             - all: [{matches: parameters-1}, {has: {field: body, matches: result-1}}]
             - all: [{matches: parameters-2}, {has: {field: body, matches: result-2}}]
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
+            - all: [{matches: parameters-4}, {has: {field: body, matches: result-4}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
         - not: {matches: host-arguments-dropped}
-        - not: {matches: typescript-proxy-trap, has: {field: body, any: [{matches: reflect-call}, {matches: typescript-single-statement-block, has: {kind: return_statement, has: {matches: reflect-call}}}]}}
 transform:
     HEAD: {replace: {source: $BODY, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: 'Function forwards its parameters unchanged to `$HEAD`'
-note: 'Pass `<callee>` itself, `flow(<inner>, <callee>)` for a nested call, data-last `<Module>.<op>(<args>)`, or `Function.identity`'
+note: 'Pass `<callee>` itself, `flow(<inner>, <callee>)` for a nested call, data-last `<Module>.<op>(<args>)`, or `Function.identity`; delete a `Proxy` trap forwarding to its own `Reflect` member'

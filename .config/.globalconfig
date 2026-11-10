@@ -1,0 +1,138 @@
+# --- [DIAGNOSTIC_SEVERITY] --------------------------------------------------------------
+
+dotnet_analyzer_diagnostic.severity = error
+dotnet_diagnostic.CS1591.severity = none
+dotnet_diagnostic.CS8524.severity = none
+dotnet_diagnostic.CS9236.severity = error
+
+# --- [DOTNET_ANALYZERS] -----------------------------------------------------------------
+
+dotnet_code_quality.CA1003.api_surface = all
+dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true
+dotnet_code_quality.CA2241.additional_string_formatting_methods = M:Rasm.Rhino.LocalText.Of(System.String,System.ReadOnlySpan{System.Object})
+dotnet_diagnostic.CA1000.severity = none
+dotnet_diagnostic.CA1021.severity = error
+dotnet_diagnostic.CA1034.severity = none
+dotnet_diagnostic.CA1045.severity = error
+dotnet_diagnostic.CA1062.severity = none
+dotnet_diagnostic.CA1516.severity = error
+dotnet_diagnostic.CA1715.severity = none
+dotnet_diagnostic.CA1716.severity = none
+dotnet_diagnostic.CA1720.severity = none
+dotnet_diagnostic.CA1724.severity = none
+dotnet_diagnostic.CA2249.severity = none
+
+# --- [IDE_ANALYZERS] --------------------------------------------------------------------
+
+dotnet_diagnostic.IDE0072.severity = none
+dotnet_diagnostic.IDE0079.severity = none
+dotnet_diagnostic.IDE0320.severity = none
+
+# --- [ERRORPRONE_ANALYZERS] -------------------------------------------------------------
+
+dotnet_diagnostic.EPC29.severity = none
+dotnet_diagnostic.EPC38.severity = error
+dotnet_diagnostic.EPC39.severity = error
+dotnet_diagnostic.EPC40.severity = error
+
+# --- [LOGGING_ANALYZERS] ----------------------------------------------------------------
+
+dotnet_diagnostic.SYSLIB1006.severity = error
+dotnet_diagnostic.SYSLIB1027.severity = error
+
+# --- [MAPPERLY_ANALYZERS] ---------------------------------------------------------------
+
+dotnet_diagnostic.RMG009.severity = error
+dotnet_diagnostic.RMG010.severity = error
+dotnet_diagnostic.RMG011.severity = error
+dotnet_diagnostic.RMG015.severity = error
+dotnet_diagnostic.RMG033.severity = error
+dotnet_diagnostic.RMG083.severity = error
+dotnet_diagnostic.RMG088.severity = error
+dotnet_diagnostic.RMG089.severity = error
+dotnet_diagnostic.RMG090.severity = error
+dotnet_diagnostic.RMG096.severity = error
+
+# --- [MEZIANTOU_ANALYZERS] --------------------------------------------------------------
+
+dotnet_diagnostic.MA0008.severity = none
+dotnet_diagnostic.MA0018.severity = none
+dotnet_diagnostic.MA0038.severity = none
+dotnet_diagnostic.MA0041.severity = none
+dotnet_diagnostic.MA0042.severity = none
+dotnet_diagnostic.MA0045.severity = none
+dotnet_diagnostic.MA0048.severity = none
+dotnet_diagnostic.MA0051.severity = none
+dotnet_diagnostic.MA0060.severity = none
+dotnet_diagnostic.MA0104.severity = none
+dotnet_diagnostic.MA0109.severity = none
+dotnet_diagnostic.MA0112.severity = none
+dotnet_diagnostic.MA0127.severity = none
+dotnet_diagnostic.MA0135.severity = none
+dotnet_diagnostic.MA0136.severity = none
+dotnet_diagnostic.MA0137.severity = none
+dotnet_diagnostic.MA0138.severity = none
+dotnet_diagnostic.MA0155.severity = none
+dotnet_diagnostic.MA0156.severity = none
+dotnet_diagnostic.MA0157.severity = none
+dotnet_diagnostic.MA0168.severity = none
+dotnet_diagnostic.MA0174.severity = none
+dotnet_diagnostic.MA0177.severity = none
+dotnet_diagnostic.MA0181.severity = none
+dotnet_diagnostic.MA0187.severity = none
+dotnet_diagnostic.MA0204.severity = none
+dotnet_diagnostic.MA0209.severity = none
+dotnet_diagnostic.MA0211.severity = none
+dotnet_diagnostic.MA0213.severity = none
+dotnet_diagnostic.MA0214.severity = none
+dotnet_diagnostic.MA0215.severity = none
+dotnet_diagnostic.MA0245.severity = none
+MA0053.class_with_virtual_member_should_be_sealed = true
+MA0053.exceptions_should_be_sealed = true
+MA0053.public_class_should_be_sealed = true
+MA0185.treat_opaque_runtime_types_as_culture_sensitive = true
+
+# --- [RASM_ANALYZERS] ------------------------------------------------------------------
+
+RASM3110.types = T:MathNet.Numerics.RootFinding.Bisection|T:MathNet.Numerics.RootFinding.Brent|T:MathNet.Numerics.RootFinding.Broyden|T:MathNet.Numerics.RootFinding.NewtonRaphson|T:MathNet.Numerics.RootFinding.RobustNewtonRaphson|T:MathNet.Numerics.RootFinding.Secant|T:Rhino.PersistentSettings|T:Rhino.Collections.ArchivableDictionary
+
+# --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------
+
+dotnet_diagnostic.RCS1001.severity = none
+dotnet_diagnostic.RCS1002.severity = error
+dotnet_diagnostic.RCS1003.severity = none
+dotnet_diagnostic.RCS1004.severity = error
+dotnet_diagnostic.RCS1014.severity = error
+dotnet_diagnostic.RCS1021.severity = none
+dotnet_diagnostic.RCS1050.severity = error
+dotnet_diagnostic.RCS1052.severity = error
+dotnet_diagnostic.RCS1078.severity = error
+dotnet_diagnostic.RCS1079.severity = error
+dotnet_diagnostic.RCS1081.severity = error
+dotnet_diagnostic.RCS1161.severity = none
+dotnet_diagnostic.RCS1162.severity = error
+dotnet_diagnostic.RCS1174.severity = error
+dotnet_diagnostic.RCS1181.severity = none
+dotnet_diagnostic.RCS1198.severity = error
+dotnet_diagnostic.RCS1208.severity = error
+dotnet_diagnostic.RCS1217.severity = none
+dotnet_diagnostic.RCS1238.severity = none
+dotnet_diagnostic.RCS1241.severity = none
+dotnet_diagnostic.RCS1248.severity = error
+dotnet_diagnostic.RCS1252.severity = error
+dotnet_diagnostic.RCS1253.severity = error
+dotnet_diagnostic.ROS0003.severity = error
+roslynator_array_creation_type_style = implicit_when_type_is_obvious
+roslynator_doc_comment_summary_style = single_line
+roslynator_empty_string_style = literal
+roslynator_enum_flag_value_style = shift_operator
+roslynator_infinite_loop_style = while
+roslynator_null_check_style = pattern_matching
+roslynator_object_creation_parentheses_style = omit
+
+# --- [THREADING_ANALYZERS] --------------------------------------------------------------
+
+dotnet_diagnostic.VSTHRD010.severity = none
+dotnet_diagnostic.VSTHRD103.severity = none
+dotnet_diagnostic.VSTHRD104.severity = none
+dotnet_diagnostic.VSTHRD110.severity = none

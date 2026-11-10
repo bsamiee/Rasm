@@ -31,7 +31,7 @@ const useNavigation = (portfolio: typeof Portfolio.Type, work: RefObject<HTMLEle
     const first = (entry: typeof Entry.Type, composition: typeof CompositionId.Type | undefined) => (entry.compositions.find(({ id }) => id === composition) ?? entry.compositions[0])?.id;
     const selected = (entry: typeof Entry.Type) => first(entry, Option.getOrUndefined(Option.filter(current, (position) => position.entry === entry))?.composition ?? selections[entry.id]);
     const write = (method: 'pushState' | 'replaceState', target: string) => {
-        history.scrollRestoration = Option.isSome(UrlFragment.read(target)) ? 'manual' : 'auto';
+        history.scrollRestoration = target === UrlFragment.top || target === UrlFragment.work ? 'auto' : 'manual';
         if (location.hash !== target) {
             history[method](null, '', target);
         }

@@ -31,8 +31,8 @@ func nodes(_ references: [XCSchema.Reference], group: FilePath?, names: [String]
                 case .variantGroup(let group): (group.name, group.path, group.objectID, !group.buildFiles.isEmpty, group.children.map(XCSchema.Reference.fileReference))
                 case .versionGroup(let group): (group.name, group.path, group.objectID, !group.buildFiles.isEmpty, group.children.map(XCSchema.Reference.fileReference))
             }
-        let location: FilePath? = placed(path, group: group, root: root)
-        let named: [String] = names + [name ?? FilePath(path.path).lastComponent?.string ?? path.path]
+        let location = placed(path, group: group, root: root)
+        let named = names + [name ?? FilePath(path.path).lastComponent?.string ?? path.path]
         return [Node(names: named, id: id, path: location, built: built)] + nodes(children, group: location, names: named, root: root)
     }
 }
@@ -49,19 +49,19 @@ func located(_ reference: XCSchema.GroupTreeAnchoredReference, in tree: [Node]) 
 }
 
 func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [String: Set<String>]) throws(AnalyzerError) -> Container {
-    let root: FilePath = container.removingLastComponent()
-    let tree: [Node] = nodes(decoded.topLevelReferences, group: root, names: [], root: root)
-    let locals: [String] = decoded.packages.compactMap { package in
+    let root = container.removingLastComponent()
+    let tree = nodes(decoded.topLevelReferences, group: root, names: [], root: root)
+    let locals = decoded.packages.compactMap { package in
         if case .local(let local) = package.location { joined(root, local.path).string } else { nil }
     }
-    let targets: [XCSchema.CommonTargetProperties] = decoded.targets.map(\.commonProperties)
+    let targets = decoded.targets.map(\.commonProperties)
     let bases: [(owner: String, file: FilePath?)] =
         decoded.configurations.compactMap(\.file).map { file in ("project", located(file, in: tree)) }
         + targets.flatMap { target in target.specializedConfigurations.compactMap(\.file).map { file in ("target \(target.name)", located(file, in: tree)) } }
-    let remotes: [FilePath] =
+    let remotes =
         targets.flatMap { target in target.dependencies.compactMap { dependency in if case .remoteTarget(let remote, _) = dependency { located(remote.project, in: tree) } else { nil } } }
         + decoded.importedProducts.compactMap { product in located(product.project, in: tree) }
-    let declared: [(scheme: Scheme, references: [Reference])] = try schemes(in: container, identifiers: identifiers)
+    let declared = try schemes(in: container, identifiers: identifiers)
     return try checked(
         Container(
             path: container.string,
@@ -76,7 +76,7 @@ func project(_ container: FilePath, _ decoded: XCSchema.Project, identifiers: [S
 }
 
 func decoded(_ container: FilePath) throws(AnalyzerError) -> XCSchema.Project {
-    let data: Data = try read(container.appending("project.xcproj"))
+    let data = try read(container.appending("project.xcproj"))
     do {
         return try XCSchema.Project(jsonRepresentation: data)
     } catch {
@@ -85,12 +85,12 @@ func decoded(_ container: FilePath) throws(AnalyzerError) -> XCSchema.Project {
 }
 
 func versioned(_ held: XCSchema.Project, to version: String) throws(AnalyzerError) -> XCSchema.Project {
-    let build: Int =
+    let build =
         try held.buildSettings[VersionSetting.project.rawValue].map { (setting: XCSchema.BuildSetting) throws(AnalyzerError) -> Int in
-            guard let number: Int = setting.text.flatMap(Int.init) else { throw AnalyzerError(subject: VersionSetting.project.rawValue, reason: .nonInteger(String(describing: setting))) }
+            guard let number = setting.text.flatMap(Int.init) else { throw AnalyzerError(subject: VersionSetting.project.rawValue, reason: .nonInteger(String(describing: setting))) }
             return number
         } ?? 0
-    var next: XCSchema.Project = held
+    var next = held
     next.buildSettings[VersionSetting.marketing.rawValue] = .string(version)
     next.buildSettings[VersionSetting.project.rawValue] = .string(String(build + 1))
     return next

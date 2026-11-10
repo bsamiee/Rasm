@@ -5,7 +5,7 @@ description: "Use when refactoring, reducing, or rebuilding code or configuratio
 
 # [REFACTOR_CODE]
 
-Refactors read a file whole with its consumers, hosts, and packages, call each behavior and value at its owner in rank (a language feature or standard member, then a package or host member at its installed release, then a declaration in the tree, then code), delete each declaration stating no fact of its own, rebuild each remaining member into one structure, deepen through packages and hosts as hard as they reduce, and end smaller, growth stands for a capability the base lacked alone, in its smallest form, after a smaller form was searched. Code, configuration, build, rule, and checker files take the same passes. Use `<language>-coding` skills for language form, `review-change` for judging and codifying a finished change, `manage-repo` for check owners and entry points.
+Refactors read a file whole with its consumers, hosts, and packages, call each behavior and value at its owner in rank (a language feature or standard member, then a package or host member at its installed release, then a declaration in the tree, then code), delete each declaration stating no fact of its own, rebuild each remaining member into one structure, deepen through packages and hosts as hard as they reduce, and end smaller, growth stands for a capability the base lacked alone, in its smallest form, after a smaller form was searched. Code, configuration, build, rule, and checker files take the same passes. Use `<language>-coding` skills for language form, `review-change` for judging and codifying a finished change, `.claude/workflows/languages.js` for check owners.
 
 Scope names what one pass edits:
 
@@ -81,13 +81,13 @@ Each kind goes on its criterion and takes its replacement:
 | :-----: | :--------------------- | :-------------------------------------------------------------------- | :------------------------------------ |
 |  [01]   | Struct, record, class  | Owner states its fields, or keeping it removes no logic               | Owner's type, tuple at the reader     |
 |  [02]   | Enum, union            | Variants mirror a type's, one is built, or no caller branches on them | Mirrored type, existing variant       |
-|  [03]   | Alias                  | Names a package type, a tuple, or one instantiation                   | Named type at each site               |
+|  [03]   | Alias                  | Renames a type, has one reader in its module, or dodges a clash       | Named or qualified type at each site  |
 |  [04]   | Constant, string row   | Owner states the value, or one site reads it                          | Read from the owner, inline value     |
 |  [05]   | Bool pair, flag        | Selects among cases, or holds a fact the target derives               | One enum, derivation from the target  |
 |  [06]   | Wrapper, adapter       | Forwards a call unchanged, or converts as a package member does       | Direct call, package's conversion     |
 |  [07]   | Helper                 | Born of this pass, one reader, or dodges a name clash                 | Body at the reader, renamed owner     |
 |  [08]   | Parameter              | Every caller passes it alike, or the target derives it                | Folded into the owner, derivation     |
-|  [09]   | Export                 | Exposes an internal member, or grew naming no capability              | Private declaration                   |
+|  [09]   | Export                 | Internal member exposed or no capability named, never lack of readers | Private declaration                   |
 |  [10]   | Re-export              | Forwards a whole crate or a member no public signature exposes        | Own capability, direct reference      |
 |  [11]   | Error variant          | No caller branches on it                                              | Owner's error                         |
 |  [12]   | Guard, fallback, retry | Proves own state, no listed entry point reaches it, or hides a cause  | Construction refusing it, cause fixed |
@@ -110,6 +110,7 @@ Criteria deciding a row:
 - Suppression: each suppression names its reason, one a catalog or manifest row makes false goes and its finding is fixed
 - String: a string deciding behavior goes, each case derived from the value's owner (type, member, host), never an enum renaming it
 - Fragile: logic reading text shape, order, or spelling (a pattern over a message, an index into a split) reads the typed source in its place
+- Injection: values a build tool or host supplies reach code through its typed channel (an import, a generated module), never a declared global
 - Credit: a defect present before the pass and one the pass introduced are both fixed in the pass
 - Triage: mixed work is read against the last clean commit, each change kept for a fact or capability it names or undone in place
 - Logic: a defect a read finds is proven by one discriminating input from repository data on old and new code
@@ -141,6 +142,7 @@ Algebraic forms hold where a relation is real and are never forced:
 - Relation: quantities a caller computes from each other are one derivation solvable for any of them, a member or file per quantity fails
 - Choice: a caller's choice among methods is an enum parameter, a `bool` holds a computed fact
 - Deliberate: an enum, struct, or nesting stays when a caller branches per variant or it names a real relation, a type naming neither goes
+- Catalog: a standard set callers extend is the generated enumeration beside one validated custom case, never a hand list beside a constructor
 
 Every member gets faster through logic, the language skill's hot-path line holds for each, and speed from a lock, a wait, a narrowed class, a serialized stage, or a dropped case is a regression:
 - Pass: name the pass, allocation, parse, or materialization removed (a collect before a filter, a second walk zipping by index)

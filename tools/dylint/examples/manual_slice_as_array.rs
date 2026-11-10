@@ -1,9 +1,7 @@
-use core::{
-    array::TryFromSliceError,
-    cell::Cell,
-    hint::black_box,
-    ops::{Deref, DerefMut},
-};
+use core::array::TryFromSliceError;
+use core::cell::Cell;
+use core::hint::black_box;
+use core::ops::{Deref, DerefMut};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

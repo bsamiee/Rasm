@@ -8,13 +8,13 @@ import { Array, Layer } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Libraries = InDesign.Contract.merge(Photoshop.Contract);
+const Libraries = InDesign.merge(Photoshop);
 
 // --- [TABLES] --------------------------------------------------------------------------
 
 const LIBRARIES = [
-    { identifier: 'com.adobe.InDesign', Contract: InDesign.Contract, target: UxpManifest.target },
-    { identifier: 'com.adobe.Photoshop', Contract: Photoshop.Contract, target: UxpManifest.target },
+    { identifier: 'com.adobe.InDesign', Contract: InDesign, target: UxpManifest.target },
+    { identifier: 'com.adobe.Photoshop', Contract: Photoshop, target: UxpManifest.target },
     { identifier: 'com.adobe.illustrator', Contract: Requests, target: ExtensionManifest.target },
     { identifier: 'com.adobe.AfterEffects', Contract: Requests, target: ExtensionManifest.target },
 ] as const;

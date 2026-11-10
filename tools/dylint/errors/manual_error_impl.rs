@@ -1,28 +1,29 @@
-use core::{cell::LazyCell, ops::ControlFlow};
+use core::cell::LazyCell;
+use core::ops::ControlFlow;
 use std::borrow::Cow;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, is_lang_item_or_ctor, paths::PathNS, peel_blocks, res::MaybeDef as _, sym};
-use rustc_ast::{ItemKind as AstItemKind, MacCall, TyKind, visit::Visitor};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{is_lang_item_or_ctor, peel_blocks, sym};
+use rustc_ast::visit::Visitor;
+use rustc_ast::{MacCall, TyKind};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::Diag;
-use rustc_hir::{
-    ExprKind, Item, ItemKind,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{ExprKind, Item, ItemKind};
 use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{
-    traits::EvaluationResult,
-    ty::{self, Ty, TyCtxt, TypeVisitableExt as _, Upcast as _, print::with_forced_trimmed_paths},
-};
-use rustc_parse::{
-    lexer::StripTokens,
-    new_parser_from_source_str,
-    parser::{AllowConstBlockItems, ForceCollect},
-};
+use rustc_middle::traits::EvaluationResult;
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitableExt as _, Upcast as _};
+use rustc_parse::lexer::StripTokens;
+use rustc_parse::new_parser_from_source_str;
+use rustc_parse::parser::{AllowConstBlockItems, ForceCollect};
 use rustc_span::FileName;
-use rustc_trait_selection::traits::{Obligation, ObligationCause, query::evaluate_obligation::InferCtxtExt as _};
+use rustc_trait_selection::traits::query::evaluate_obligation::InferCtxtExt as _;
+use rustc_trait_selection::traits::{Obligation, ObligationCause};
 use rustc_type_ir::elaborate::elaborate;
 
 use crate::{accessed_field, expanded_externally, parameter, path};
@@ -75,7 +76,7 @@ impl Pass {
                     error.cancel();
                     None
                 })?;
-                let AstItemKind::Struct(_, _, data) = &original.kind else { return None };
+                let rustc_ast::ItemKind::Struct(_, _, data) = &original.kind else { return None };
                 let field_span = cx.tcx.def_span(field);
                 let offset = declaration.contains(field_span).then(|| field_span.lo().0.abs_diff(declaration.lo().0))?;
                 let written = &data.fields().iter().find(|written| written.span.lo().0.abs_diff(start.0) == offset)?.ty;

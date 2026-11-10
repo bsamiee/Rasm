@@ -19,7 +19,7 @@ public static class HostTheme {
     public static IO<Unit> Applied(Option<Control> owner, IO<Unit> apply) =>
         (apply >> Changed.Attach(_ => apply)) switch {
             var themed => owner.Match(
-                Some: control => ViewOps.WhileLoaded(control,
+                Some: control => ViewOps.Loaded(control,
                     from held in themed
                     from window in IO.lift(() => Optional(control.ParentWindow))
                     from scaled in window.Traverse(parent => Subscriptions.On<EventArgs>(h => parent.LogicalPixelSizeChanged += h, h => parent.LogicalPixelSizeChanged -= h).Attach(_ => apply)).As()

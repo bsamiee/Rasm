@@ -39,6 +39,7 @@ interface Surroundings {
     readonly looping: boolean;
     readonly busy: boolean;
     readonly substituted: boolean;
+    readonly captured: boolean;
     readonly origin: 'call' | 'body' | 'file';
 }
 interface Command extends Span, Surroundings {
@@ -216,7 +217,7 @@ const chained = (frame: Frame, ...steps: readonly ((current: Frame) => Walked)[]
 
 const nested = (value: unknown, frame: Frame, place: Place): Walked => {
     if (isNode(value) && (value.Type === 'CmdSubst' || value.Type === 'ProcSubst')) {
-        const [inner, script] = nested(value.Stmts, frame, { ...place, fed: place.fed || value.Op === '>(', pipes: false, stage: Option.none(), substituted: place.substituted || value.Type === 'ProcSubst' });
+        const [inner, script] = nested(value.Stmts, frame, { ...place, fed: place.fed || value.Op === '>(', pipes: false, stage: Option.none(), substituted: place.substituted || value.Type === 'ProcSubst', captured: place.captured || value.Op !== '>(' });
         return [value.TempFile === true || value.ReplyVar === true ? joined(frame, inner) : frame, script];
     }
     if (isNode(value) && value.Cmd !== undefined) {
@@ -336,7 +337,7 @@ const scripted = Effect.fnUntraced(function* (stmts: readonly Node[], text: stri
     return nested(
         stmts,
         { values: new Map([[DIRECTORY, cwd]]), opaque: false, functions: new Set() },
-        { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, ...beginning, source: new TextEncoder().encode(text), read: (name) => environment.get(name) ?? Option.none(), resolve: host.place, home: host.home, dry: false },
+        { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, ...beginning, source: new TextEncoder().encode(text), read: (name) => environment.get(name) ?? Option.none(), resolve: host.place, home: host.home, dry: false },
     )[1];
 });
 

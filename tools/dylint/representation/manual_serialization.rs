@@ -1,8 +1,15 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, expr_or_init, fn_def_id, paths::PathNS, peel_hir_expr_while, res::MaybeDef as _, source::snippet, sym, ty::same_type_modulo_regions};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::snippet;
+use clippy_utils::ty::same_type_modulo_regions;
+use clippy_utils::{expr_or_init, fn_def_id, peel_hir_expr_while, sym};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{Expr, ExprKind, MatchSource, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind, MatchSource};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{TyCtxt, print::with_forced_trimmed_paths};
+use rustc_middle::ty::TyCtxt;
+use rustc_middle::ty::print::with_forced_trimmed_paths;
 
 use crate::{expanded_externally, impl_owner, item_path, paths, result_parts, signature};
 

@@ -1,16 +1,14 @@
-use clippy_utils::{
-    comparisons::{Rel, normalize_comparison},
-    consts::{ConstEvalCtxt, Constant},
-    diagnostics::span_lint_hir_and_then,
-    eager_or_lazy::switch_to_eager_eval,
-    fn_def_id,
-    paths::PathNS,
-    res::MaybeDef as _,
-    source::snippet,
-    sym,
-};
+use clippy_utils::comparisons::{Rel, normalize_comparison};
+use clippy_utils::consts::{ConstEvalCtxt, Constant};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::eager_or_lazy::switch_to_eager_eval;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::snippet;
+use clippy_utils::{fn_def_id, sym};
 use rustc_errors::Applicability;
-use rustc_hir::{Expr, ExprKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, TyCtxt};
 

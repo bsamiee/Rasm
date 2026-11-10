@@ -1,4 +1,6 @@
-use core::{iter, num::NonZero, time::Duration};
+use core::iter;
+use core::num::NonZero;
+use core::time::Duration;
 
 use bounded_integer::BoundedU32;
 use itertools::{Either, Itertools as _};

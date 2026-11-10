@@ -7,9 +7,9 @@ import colour
 from expression import Some
 
 from rasm_bpy.nodes import Expr, Interface, InterfacePanel, math, mixed, Socket, switched, textures, vector, where, xyz
-from rasm_bpy.render import blurred, CompositorEffect, CompositorRecord, depth_precise, FRAME_METERS, GraphInputs, lenses, Mix, motion, precise, turned, with_alpha
+from rasm_bpy.render import blurred, CLOCK, Clock, clocked, CompositorEffect, CompositorRecord, depth_precise, FRAME_METERS, GraphInputs, lenses, Mix, precise, SEED, timing, turned, with_alpha
 from rasm_bpy.scene import cameras
-from rasm_imaging import GRAY, tiles
+from rasm_imaging import GRAY, stream
 from rasm_records import Ok, Outcome
 
 from .bases import bases, Basis, Perlin, textured
@@ -72,13 +72,7 @@ class Atmosphere(CompositorRecord, frozen=True, kw_only=True):
         transmittance = math("EXPONENT", math("MINIMUM", read(_START) - distance, 0.0) / read(_ATTENUATION_LENGTH))
         kept = Expr(kind=bpy.types.CompositorNodeAntiAliasing, inputs=(("Image", where(read(_CUTOFF) * (distance > read(_CUTOFF, _CUTOFF_DISTANCE)), 1.0, transmittance)),), socket="Image")
         ((field, _),) = textured(
-            shell,
-            _NOISE.panel(_NOISE_BASIS.key),
-            self.noise_basis,
-            shell.space.point,
-            motion.clocked(read, _NOISE.panel(motion.CLOCK.key)),
-            read(_NOISE, motion.SEED),
-            streams=(tiles.stream(Atmosphere.noise_basis),),
+            shell, _NOISE.panel(_NOISE_BASIS.key), self.noise_basis, shell.space.point, clocked(read, _NOISE.panel(CLOCK.key)), read(_NOISE, SEED), streams=(stream(Atmosphere.noise_basis),)
         )
         coverage = (1.0 - kept) * (1.0 - switched(read(_NOISE), 0.0, field * read(_NOISE, _VARIATION)))
         alpha = math("MULTIPLY_ADD", source["Alpha"], (1.0 - coverage).keyed("transmitted"), coverage)
@@ -99,7 +93,7 @@ class NoiseField(CompositorRecord, frozen=True, kw_only=True):
     def graph(self, shell: GraphInputs) -> Outcome[Expr]:
         """Emits and extinguishes light over the field's density, coverage as alpha."""
         read, at = shell.input, shell.space
-        clock = motion.clocked(read, motion.CLOCK).keyed("clock")
+        clock = clocked(read, CLOCK).keyed("clock")
         axis = turned(at, read(_CENTER), read(_ANGLE))
         radius = read(_VORTEX, _VORTEX_RADIUS)
         rho = vector("LENGTH", axis) / radius
@@ -112,9 +106,9 @@ class NoiseField(CompositorRecord, frozen=True, kw_only=True):
             self.basis,
             switched(read(_VORTEX), axis, cone) - vector("SCALE", read(_DRIFT), clock),
             clock * read(_EVOLUTION),
-            read(motion.SEED),
+            read(SEED),
             loss=switched(read(_ENVELOPE), 0.0, 1.0 - reach * reach),
-            streams=(tiles.stream(NoiseField.basis),),
+            streams=(stream(NoiseField.basis),),
         )
         coverage = 1.0 - switched(read(_EXTINCTION), 1.0, math("EXPONENT", -(density * read(_EXTINCTION, _DENSITY))))
 
@@ -131,10 +125,7 @@ class NoiseField(CompositorRecord, frozen=True, kw_only=True):
 
 _NOISE_BASIS: Final = bases("basis", Atmosphere().noise_basis, "Procedural opacity field")
 _NOISE: Final = InterfacePanel.of(
-    "noise",
-    Interface(inputs=(_VARIATION, motion.SEED), panels=(_NOISE_BASIS, InterfacePanel.of(motion.CLOCK.key, motion.Clock(speed=0.0)))),
-    description="Seeded opacity reduction",
-    toggle=Some(False),
+    "noise", Interface(inputs=(_VARIATION, SEED), panels=(_NOISE_BASIS, InterfacePanel.of(CLOCK.key, Clock(speed=0.0)))), description="Seeded opacity reduction", toggle=Some(False)
 )
 _BASIS: Final = bases("basis", _FIRE, "Procedural texture")
 _EMISSION: Final = emission("emission", _GLOW, "Light the field adds", Some(True))
@@ -146,13 +137,10 @@ atmosphere: Final = CompositorEffect(
     interface=Interface(inputs=(_ATTENUATION_LENGTH, _START), panels=(_INSCATTERING, _NOISE, _CUTOFF)),
     mix=Mix.RESULT,
     check=Some(lambda _identity, scene, _entry: cameras.camera_type("PERSP", "ORTHO").check(bpy.context, Some(scene))),
-    derives=(motion.timing,),
+    derives=(timing,),
 )
 noise_field: Final = CompositorEffect(
-    record=NoiseField,
-    interface=Interface(inputs=(_DRIFT, _EVOLUTION, _CENTER, _ANGLE, motion.SEED), panels=(_BASIS, _EMISSION, _EXTINCTION, motion.CLOCK, _VORTEX, _ENVELOPE)),
-    mix=Mix.RESULT,
-    derives=(motion.timing,),
+    record=NoiseField, interface=Interface(inputs=(_DRIFT, _EVOLUTION, _CENTER, _ANGLE, SEED), panels=(_BASIS, _EMISSION, _EXTINCTION, CLOCK, _VORTEX, _ENVELOPE)), mix=Mix.RESULT, derives=(timing,)
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

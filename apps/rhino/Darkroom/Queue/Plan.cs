@@ -8,7 +8,6 @@ using Rasm.Rhino.Document;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Render.Settings;
-using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Render;
 using Thinktecture.Collections;
@@ -18,11 +17,7 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 
 internal sealed record FrameSpan(Seq<SequenceNumber> Numbers) {
-    public const double Rate = 24d;
-
     public Option<SequenceNumber> Named(SequenceNumber frame) => Numbers.Count > 1 ? Some(frame) : None;
-
-    public Option<Duration> Time(SequenceNumber frame) => Named(frame).Map(static number => Duration.FromSeconds((int)number / Rate));
 
     public static Fin<FrameSpan> Of(Option<SunWindow> sun) =>
         toSeq(Enumerable.Range(0, sun.Map(static window => window.Frames.Count).IfNone(1))).Traverse(SequenceNumber.Validated).As().Map(static numbers => new FrameSpan(numbers));
@@ -45,27 +40,6 @@ internal sealed record QueuePlacement(RenderSettings.RenderingSources Source) {
 
     public Option<string> View { get; init; }
     public Option<SunWindow> Sun { get; init; }
-
-    // --- [READS]
-
-    public static IO<Seq<QueuePlacement>> Viewed(RhinoDoc doc) =>
-        NamedViews.Table.Entries(doc).Map(static entries => entries.Map(static entry => Active with { Source = RenderSettings.RenderingSources.NamedView, View = entry.Name }));
-
-    public static IO<Seq<QueuePlacement>> Snapped(RhinoDoc doc) =>
-        Snapshots.Table.Entries(doc).Map(static entries => entries.Map(static entry => Active with { Source = RenderSettings.RenderingSources.SnapShot, View = entry.Name }));
-
-    public static IO<Seq<QueuePlacement>> Studied(RhinoDoc doc) =>
-        (from copy in use(() => doc.AnimationProperties)
-         from window in IO.lift(SunWindow.Read(copy).Bind(static found => found.ToFin(new DarkroomFault("document sun study", DarkroomReason.Missing))))
-         select Seq(Active with { Sun = window })).Bracket();
-
-    public static IO<Seq<QueuedEntry>> Entries(RhinoDoc doc, Seq<QueuePlacement> placements, QueueRequest request) =>
-        from extent in SaveSource.Extent(doc)
-        let size = new Size(extent.Width, extent.Height)
-        from region in request.Region.Read(doc, size)
-        select placements.Map(placement => new QueuedEntry(Renders: true, placement.Source, placement.View, size) {
-            Clay = request.Clay, Overscan = request.Overscan, Region = region, Sun = placement.Sun,
-        });
 }
 
 internal sealed record QueueState(Seq<QueuedEntry> Entries) {
@@ -115,8 +89,6 @@ internal sealed record QueueEntry<TPath>(QueuedEntry Queued, RenderSettings Sett
 
     public Fin<OverscanFrame> Rendered => PixelExtent.Validated(Queued.Extent.Width, Queued.Extent.Height).Bind(extent => OverscanFrame.Around(extent, Queued.Overscan));
 
-    public Option<LocalDateTime> Moment(SequenceNumber frame) => Queued.Sun.Bind(window => window.Frames.At((int)frame));
-
     public QueueEntry<TPlaced> Placed<TPlaced>(Seq<QueueOutput<TPlaced>> outputs) => new(Queued, Settings, Folder, Stem, Overwrite, Frames, outputs);
 }
 
@@ -143,14 +115,6 @@ internal sealed record QueuePlan {
     public Seq<QueueEntry<Unit>> Entries { get; }
 
     // --- [PLANS]
-
-    public static IO<QueuePlan> Read(RhinoDoc doc) =>
-        from queue in QueueState.Read(doc)
-        from book in OutputBook.Read(doc)
-        from settings in Products.Acquired(RenderSettingsSources.Snapshot(doc))
-        from saved in IO.lift(() => Conversions.Present(doc.Path))
-        from plan in IO.lift(Of(book, saved, settings, toSeq(queue.Entries).Filter(static entry => entry.Renders)))
-        select plan;
 
     public static Fin<QueuePlan> Of(OutputBook book, Option<string> saved, RenderSettings settings, Seq<QueuedEntry> entries) =>
         from location in (book.Folder.Of(saved), book.Stem.Of(saved), toSeq(book.Targets).Traverse(static target => target.Encodable).As())

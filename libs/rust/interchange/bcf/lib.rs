@@ -1,17 +1,12 @@
 #![feature(deref_patterns)]
 
-use core::{
-    cell::RefCell,
-    convert,
-    fmt::{self, Write as _},
-    iter,
-    num::{ParseFloatError, ParseIntError, TryFromIntError},
-    str::FromStr,
-};
-use std::{
-    collections::HashMap,
-    io::{Read, Seek, Write},
-};
+use core::cell::RefCell;
+use core::fmt::{self, Write as _};
+use core::num::{ParseFloatError, ParseIntError, TryFromIntError};
+use core::str::FromStr;
+use core::{convert, iter};
+use std::collections::HashMap;
+use std::io::{Read, Seek, Write};
 
 use data_encoding::{DecodeError, Encoding, HEXLOWER};
 use enum_map::EnumMap;
@@ -21,11 +16,14 @@ use itertools::Either;
 use jiff::{Timestamp, civil};
 use newtype_uuid_macros::impl_typed_uuid_kinds;
 use nonempty_collections::{NEVec, nev};
-use sha2::{Digest as _, Sha256, digest::Output};
+use sha2::digest::Output;
+use sha2::{Digest as _, Sha256};
 use url::Url;
 use validated::Validated;
 use xot::{Node, Xot};
-use zip::{CompressionMethod, ZIP64_BYTES_THR, ZipArchive, ZipWriter, result::ZipError, write::SimpleFileOptions};
+use zip::result::ZipError;
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, ZIP64_BYTES_THR, ZipArchive, ZipWriter};
 
 use self::xml::{Codec, Keyed, Reader, Simple, Upgrade, Writer, archive_error, codec, document, holds_text, normalized, required, resolve, stored, unique};
 

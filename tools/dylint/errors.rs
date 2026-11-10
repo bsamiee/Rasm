@@ -1,19 +1,17 @@
-use core::{num::IntErrorKind, ops::ControlFlow};
+use core::num::IntErrorKind;
+use core::ops::ControlFlow;
 
-use clippy_utils::{
-    fn_def_id, peel_blocks,
-    res::MaybeDef as _,
-    sym,
-    ty::implements_trait,
-    visitors::{for_each_expr_without_closures, is_local_used},
-};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::ty::implements_trait;
+use clippy_utils::visitors::{for_each_expr_without_closures, is_local_used};
+use clippy_utils::{fn_def_id, peel_blocks, sym};
 use rustc_attr_ir::lang_items::LangItem;
-use rustc_hir::{
-    Expr, ExprKind, PatKind,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{Expr, ExprKind, PatKind};
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, GenericArg, Ty, TypeVisitableExt as _, TypeckResults, fast_reject::DeepRejectCtxt, layout::LayoutOf as _};
+use rustc_middle::ty::fast_reject::DeepRejectCtxt;
+use rustc_middle::ty::layout::LayoutOf as _;
+use rustc_middle::ty::{self, GenericArg, Ty, TypeVisitableExt as _, TypeckResults};
 use rustc_span::Symbol;
 
 use crate::{associated_trait, bounds_of, derived_impl, impl_owner, is_error, is_text, pointee, result_parts, workspace_def};

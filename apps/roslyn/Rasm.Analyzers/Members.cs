@@ -234,6 +234,19 @@ public sealed class PlatformMemberAnalyzer : DiagnosticAnalyzer {
     private static readonly ImmutableArray<(string Id, string Fact, string Remedy)> Defects = [
         ("M:System.Drawing.Bitmap.GetHicon", "leaks a handle no `Icon` releases", "call host overloads taking an assembly and resource name, or `new Icon(Stream)` on `.ico` resources"),
         ("M:SkiaSharp.SKCanvas.Flush", "does nothing on a raster canvas", "present GPU surfaces through `SKSurface.Flush(submit: true)`"),
+        ("M:Rhino.Display.RhinoViewport.FromId(System.Guid)", "returns null for detail viewports and another document's viewport for repeated ids",
+            "match `doc.Objects.FindId(id) is DetailViewObject`, then `doc.Views.Find(id)`"),
+        ("P:Rhino.Display.DisplayPipeline.DpiScale", "reads 1 for a view not on screen", "read `RhinoEtoApp.MainWindowForDocument(view.Document).LogicalPixelSize`"),
+        ("M:Rhino.Display.DisplayBitmap.Update(System.Drawing.Bitmap)", "flips images vertically while its constructor does not", "create `new DisplayBitmap(bitmap)` per change and dispose the old one"),
+        ("M:Rhino.Render.PostEffects.PostEffectCollection.PostEffectDataFromId(System.Guid)", "answers a missing id with data that throws on first use",
+            "find the id among enumerated `PostEffectData` rows"),
+        ("P:AppKit.NSWindow.Animator", "throws `RuntimeException` on an Eto `FloatingForm`", "write Eto `Window.Bounds` from an `Animated` sampled on `FrameLinks.Linked` ticks"),
+        ("M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(System.EventHandler{Foundation.NSNotificationEventArgs})",
+            "registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center",
+            "call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`"),
+        ("M:AppKit.NSWorkspace.Notifications.ObserveDisplayOptionsDidChange(Foundation.NSObject,System.EventHandler{Foundation.NSNotificationEventArgs})",
+            "registers on `NSNotificationCenter.DefaultCenter` while AppKit posts to the workspace center",
+            "call `NSWorkspace.SharedWorkspace.NotificationCenter.AddObserver(NSWorkspace.DisplayOptionsDidChangeNotification, handler)`"),
     ];
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Names, Lanes, Defect];
@@ -249,11 +262,11 @@ public sealed class PlatformMemberAnalyzer : DiagnosticAnalyzer {
                     && (method.Name.EndsWith("All", StringComparison.Ordinal) || method.Name.EndsWith("Any", StringComparison.Ordinal))
                     && method.Parameters.All(parameter => Same(parameter.Type, vector))))];
             ImmutableArray<(ISymbol Member, string Fact, string Remedy)> defects = [.. Defects.SelectMany(row => Declared(start.Compilation, row.Id).Select(member => (member, row.Fact, row.Remedy)))];
-            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference], (operation, _) =>
-                Target(operation) is not IMethodSymbol method || Inside<INameOfOperation>(operation) ? []
-                : Among(method, names) ? [Diagnostic.Create(Names, operation.Syntax.GetLocation(), operation.Syntax)]
-                : Among(method, lanes) ? [Diagnostic.Create(Lanes, operation.Syntax.GetLocation(), operation.Syntax)]
-                : defects.FirstOrDefault(row => Same(row.Member, method)) is { Member: not null } row ? [Diagnostic.Create(Defect, operation.Syntax.GetLocation(), operation.Syntax, row.Fact, row.Remedy)]
+            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.PropertyReference], (operation, _) =>
+                Target(operation) is not { } member || Inside<INameOfOperation>(operation) ? []
+                : Among(member, names) ? [Diagnostic.Create(Names, operation.Syntax.GetLocation(), operation.Syntax)]
+                : Among(member, lanes) ? [Diagnostic.Create(Lanes, operation.Syntax.GetLocation(), operation.Syntax)]
+                : defects.FirstOrDefault(row => Same(row.Member, member)) is { Member: not null } row ? [Diagnostic.Create(Defect, operation.Syntax.GetLocation(), operation.Syntax, row.Fact, row.Remedy)]
                 : []);
         });
     }

@@ -3,26 +3,26 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_drop_guard.rs
 ---
 error: `Drop` for `Guard` calls the closure `F` it holds
- --> tools/dylint/examples/manual_drop_guard.rs:5:1
+ --> tools/dylint/examples/manual_drop_guard.rs:6:1
   |
-5 | struct Guard<F>(Option<F>)
+6 | struct Guard<F>(Option<F>)
   | ^^^^^^^^^^^^^^^
   |
   = help: replace `Guard` with `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where code disarms the guard
   = note: `#[deny(manual_drop_guard)]` on by default
 
 error: `Drop` for `Deferred` calls the closure `F` it holds
-  --> tools/dylint/examples/manual_drop_guard.rs:18:1
+  --> tools/dylint/examples/manual_drop_guard.rs:19:1
    |
-18 | struct Deferred<F>(F)
+19 | struct Deferred<F>(F)
    | ^^^^^^^^^^^^^^^^^^
    |
    = help: replace `Deferred` with `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where code disarms the guard
 
 error: `Drop` for `Manual` calls the closure `F` it holds
-  --> tools/dylint/examples/manual_drop_guard.rs:40:1
+  --> tools/dylint/examples/manual_drop_guard.rs:41:1
    |
-40 | struct Manual<F>(ManuallyDrop<F>)
+41 | struct Manual<F>(ManuallyDrop<F>)
    | ^^^^^^^^^^^^^^^^
    |
    = help: replace `Manual` with `core::mem::DropGuard::new((), |()| ..)` and call `DropGuard::dismiss` where code disarms the guard

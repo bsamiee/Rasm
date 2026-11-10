@@ -40,10 +40,9 @@ class Write[**P](Protocol):
 
 def scheduled[**P](live: threading.Event, ready: Callable[[], bool], interval: float, write: Write[P], /, *args: P.args, **kwargs: P.kwargs) -> None:
     def step() -> float | None:
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         if not live.is_set():
             return None
-        if manager.is_interface_locked or not ready():
+        if any(manager.is_interface_locked for manager in root_in(bpy.types.WindowManager, bpy.context).to_list()) or not ready():
             return interval
         if write(*args, **kwargs):
             bpy.ops.ed.undo_push(message=bpy.path.display_name(write.__name__))
@@ -87,15 +86,17 @@ Frame and `render_*` handlers run on the render job thread beside viewport drawi
 Drivers read sources through variables, `targeted` deriving each target's ID and path from a struct and its member:
 
 ```python
-def driven(owner: Struct, member: str, source: Struct, read: str, /, *, index: int = -1) -> bpy.types.Driver:
-    driver: bpy.types.Driver = owner.driver_add(member, index).driver  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
-    variable = driver.variables.new()
-    targeted(variable.targets[0], source, read)
-    driver.expression = variable.name
-    return driver
+def driven(owner: Struct, member: str, source: Struct, read: str, /, *, index: int = -1) -> Outcome[bpy.types.Driver]:
+    def bound(driver: bpy.types.Driver) -> bpy.types.Driver:
+        variable = driver.variables.new()
+        targeted(variable.targets[0], source, read)
+        driver.expression = variable.name
+        return driver
+
+    return typed(bpy.types.FCurve, member, owner.driver_add(member, index)).bind(lambda fc: typed(bpy.types.Driver, member, fc.driver)).map(bound)
 ```
 
-`index` names an array channel and stays `-1` for a scalar, an array driven at `-1` returning a list of every channel's F-curve:
+`index` names an array channel and stays `-1` for a scalar, an array driven at `-1` returning a list of every channel's F-curve that `typed` refuses:
 - `variables.new()` returns a `SINGLE_PROP` variable named `var` with an `OBJECT` target, and an `id` not matching `id_type` raises `TypeError`
 - `driver_add(path, index)` returns the existing driver F-curve on a second call
 - Python-created driver F-curves hold keys at (0, 0) and (1, 1) that remap the driver value as they move

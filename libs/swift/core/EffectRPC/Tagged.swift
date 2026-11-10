@@ -24,7 +24,7 @@ struct Tagged<Value: Encodable & Sendable>: Encodable, Sendable {
     let value: Value
 
     func encode(to encoder: any Encoder) throws {
-        var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var container = encoder.container(keyedBy: Key.self)
         try container.encode(tag, forKey: .tag)
         try value.encode(to: encoder)
     }
@@ -41,7 +41,7 @@ public struct Outcome<Success: Encodable & Sendable>: Encodable, Sendable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         switch result {
             case .success(let value):
                 try fields.encode("Success", forKey: .tag)

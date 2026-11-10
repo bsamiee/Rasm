@@ -10,7 +10,7 @@ lazy from fontTools import agl
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class _Form(StrEnum):
+class Form(StrEnum):
     """Positional form of a joining letter, each value its OpenType feature tag."""
 
     ISOL = auto()
@@ -21,15 +21,15 @@ class _Form(StrEnum):
     @property
     def right(self) -> bool:
         """Whether the form joins the letter before it."""
-        return self in {_Form.MEDI, _Form.FINA}
+        return self in {Form.MEDI, Form.FINA}
 
     @property
     def left(self) -> bool:
         """Whether the form joins the letter after it."""
-        return self in {_Form.INIT, _Form.MEDI}
+        return self in {Form.INIT, Form.MEDI}
 
     @classmethod
-    def joined(cls, *, right: bool, left: bool) -> _Form:
+    def joined(cls, *, right: bool, left: bool) -> Form:
         """Returns the form joining on the stated sides."""
         return next(form for form in cls if (form.right, form.left) == (right, left))
 
@@ -37,12 +37,12 @@ class _Form(StrEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _GlyphName(msgspec.Struct, frozen=True, kw_only=True, dict=True):
+class GlyphName(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Glyph stem as nonempty code points or an unencoded name, with its joining form and variant suffixes, `LIMIT` the length the `post` table and AGL allow."""
 
     LIMIT: ClassVar[int] = 63
     stem: str | Annotated[tuple[int, ...], msgspec.Meta(min_length=1)]
-    form: _Form = _Form.ISOL
+    form: Form = Form.ISOL
     suffixes: tuple[str, ...] = ()
 
     @override
@@ -63,20 +63,20 @@ class _GlyphName(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             if isinstance(self.stem, str)
             else "_".join(agl.UV2AGL[code] if code < 0x0600 and code in agl.UV2AGL else f"uni{code:04X}" if code <= 0xFFFF else f"u{code:05X}" for code in self.stem)
         )
-        return ".".join((stem, *((self.form.value,) if self.form is not _Form.ISOL else ()), *self.suffixes))
+        return ".".join((stem, *((self.form.value,) if self.form is not Form.ISOL else ()), *self.suffixes))
 
     @classmethod
     def parse(cls, text: str, /) -> Self:
         """Returns the name a rendered text states, its stem a base name where any component decodes to no code point."""
         stem, *suffixes = (text,) if text.startswith(".") else text.split(".")
-        decoded = tuple(agl.toUnicode(part) for part in stem.split("_"))  # type: ignore[no-untyped-call]
+        decoded = tuple(agl.toUnicode(part) for part in stem.split("_"))
         return cls(
             stem=tuple(map(ord, "".join(decoded))) if all(decoded) else stem,
-            form=next((_Form(suffix) for suffix in suffixes if suffix in _Form), _Form.ISOL),
-            suffixes=tuple(suffix for suffix in suffixes if suffix not in _Form),
+            form=next((Form(suffix) for suffix in suffixes if suffix in Form), Form.ISOL),
+            suffixes=tuple(suffix for suffix in suffixes if suffix not in Form),
         )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["Form", "GlyphName"]

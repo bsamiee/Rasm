@@ -1,18 +1,19 @@
-use core::{mem, num::NonZero};
-use std::{io, path::Path};
+use core::mem;
+use core::num::NonZero;
+use std::io;
+use std::path::Path;
 
 use cap_std::fs::Dir;
 use indexmap::IndexMap;
-use jiff::{Zoned, tz::TimeZone};
+use jiff::Zoned;
+use jiff::tz::TimeZone;
 use png::{ColorType, Compression, Encoder, PixelDimensions, SrgbRenderingIntent, Unit};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator as _, ParallelIterator as _};
-use typst::{
-    foundations::{Bytes, Datetime},
-    layout::{Abs, Axes, Sides, Size},
-    model::PagedFormat,
-    syntax::VirtualPath,
-    utils::hash128,
-};
+use typst::foundations::{Bytes, Datetime};
+use typst::layout::{Abs, Axes, Sides, Size};
+use typst::model::PagedFormat;
+use typst::syntax::VirtualPath;
+use typst::utils::hash128;
 use typst_bundle::{Bundle, BundleDocument, BundleFile, BundleOptions, PagedExtras, VirtualFs};
 use typst_html::{HtmlDocument, HtmlOptions};
 use typst_kit::diagnostics::DiagnosticWorld;

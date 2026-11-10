@@ -45,6 +45,7 @@ rule:
                         - has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return)(?-u:\b)'}}
                         - has: {matches: loop-state, stopBy: end, inside: {kind: 'guard_statement, if_statement', stopBy: {kind: statements}}}
                         - not: {has: {pattern: $L, stopBy: end}}
+        - not: {has: {field: collection, kind: call_expression, all: [{has: {nthChild: 1, regex: '^(Observation(\.|::))?Observations$'}}, {has: {stopBy: end, kind: simple_identifier, pattern: $STATE}}]}}
         - not:
             has:
                 kind: statements

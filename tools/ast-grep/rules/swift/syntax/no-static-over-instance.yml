@@ -24,10 +24,9 @@ rule:
             - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {field: name, pattern: $TYPE}}}
             - matches: sole-receiver
             - not:
-                inside:
-                    kind: source_file
-                    stopBy: end
-                    has: {stopBy: end, kind: protocol_function_declaration, matches: type-member, has: {field: name, pattern: $NAME}}
+                all:
+                    - matches: swift-conformance-member
+                    - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: protocol_function_declaration, matches: type-member, has: {field: name, pattern: $NAME}}}
         - kind: protocol_function_declaration
           all:
             - matches: type-member

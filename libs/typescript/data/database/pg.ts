@@ -5,14 +5,15 @@ import { Array, Config, Duration, Effect, Equal, Equivalence, Exit, Filter, Func
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { deparseSync, loadModule, parseSync } from 'pgsql-parser';
 import type { Catalog } from '#/catalog';
-import { Column, type Kind } from '#/column';
-import { Engine } from '#/engine';
-import { constant, diff, type Identity, identifier, literal, methods, type referentialActions, render, unsupported } from '#/internal/reconcile';
+import type { Kind } from '#/column';
+import { type Dialect, Engine, Rows } from '#/engine';
+import { constant, diff, type Identity, identifier, literal, mergeTreeRefusals, methods, type referentialActions, rename, render, unsupported } from '#/reconcile';
 import { Tokenizer } from '#/relation';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const trigram = { extension: 'pg_trgm', classes: { gin: 'gin_trgm_ops', gist: 'gist_trgm_ops' } } as const;
+const types = { text: 'text', uuid: 'uuid', json: 'jsonb', instant: 'timestamptz(3)', integer: 'bigint', decimal: 'numeric', real: 'double precision', boolean: 'boolean', blob: 'bytea' } as const satisfies { readonly [K in Kind]: string };
 const confdeltype = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' } as const satisfies { readonly [A in (typeof referentialActions)[number]]: string };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -25,7 +26,11 @@ const Configurations = Schema.Struct({
     absent: Names,
     configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
 });
-const ExtensionSchema = Schema.Struct({ namespace: Schema.String });
+const trigramNamespace = SqlSchema.findOne({
+    Request: Schema.Void,
+    Result: Schema.Struct({ namespace: Schema.String }),
+    execute: () => SqlClient.SqlClient.use((sql) => sql`SELECT quote_ident(n.nspname) AS namespace FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = ${trigram.extension}`),
+});
 const PgTable = Schema.Struct({
     name: Schema.String,
     identity: Schema.NullOr(Schema.String),
@@ -55,19 +60,18 @@ const PgTable = Schema.Struct({
 class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tables: Schema.Array(PgTable), scratch: Schema.Array(PgTable) }) {
     // --- [ROWS]
 
-    static readonly types = { text: 'text', uuid: 'uuid', json: 'jsonb', instant: 'timestamptz(3)', integer: 'bigint', decimal: 'numeric', real: 'double precision', boolean: 'boolean', blob: 'bytea' } as const satisfies Engine['Service']['types'];
-    static readonly member: Engine['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(field))}`;
-    static readonly element: Engine['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`decode(${text}, 'hex')` : sql`(${text})::${sql.literal(Pg.types[kind])}`);
+    static readonly member: Rows['Service']['member'] = (sql, field) => sql`e.value ->> ${sql.literal(literal(field))}`;
+    static readonly element: Rows['Service']['element'] = (sql, { kind }, text) => (kind === 'blob' ? sql`decode(${text}, 'hex')` : sql`(${text})::${sql.literal(types[kind])}`);
     static readonly rows = (sql: SqlClient.SqlClient, body: string) => sql`jsonb_array_elements(${body}) e(value)`;
-    static readonly texts: Engine['Service']['texts'] = (sql, body) => sql`jsonb_array_elements_text(${body}) WITH ORDINALITY e(value, position)`;
-    static readonly insertion: Engine['Service']['insertion'] = (sql, body, order) => sql`${Pg.rows(sql, body)} ORDER BY ${order}`;
-    static readonly read: Engine['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`${scope}${sql(name)}::text AS ${sql(name)}` : sql`${scope}${sql(name)}`);
-    static readonly upsert: Engine['Service']['upsert'] = ({ sql, owner, unqualified, ignore, keys, reads, inserting, flags }, body, set) => {
+    static readonly texts: Rows['Service']['texts'] = (sql, body) => sql`jsonb_array_elements_text(${body}) WITH ORDINALITY e(value, position)`;
+    static readonly insertion: Rows['Service']['insertion'] = (sql, body, order) => sql`${Pg.rows(sql, body)} ORDER BY ${order}`;
+    static readonly read: Rows['Service']['read'] = (sql, { name, textual }, scope) => (textual ? sql`${scope}${sql(name)}::text AS ${sql(name)}` : sql`${scope}${sql(name)}`);
+    static readonly upsert: Rows['Service']['upsert'] = ({ sql, owner, unqualified, ignore, keys, reads, inserting, flags }, body, set) => {
         const parts = set.map(({ name }) => sql(name));
         const update = sql.join('', false)(['ON CONFLICT (', keys(unqualified), ') DO UPDATE SET ', sql.csv(parts.map((part) => sql`${part} = excluded.${part}`)), ' WHERE (', sql.csv(parts.map((part) => sql`${owner}.${part}`)), ') IS DISTINCT FROM (', sql.csv(parts.map((part) => sql`excluded.${part}`)), ')']);
         return inserting(body, Array.isReadonlyArrayNonEmpty(parts) ? update : ignore, sql.join('', false)(['WITH (OLD AS ', Statement.fragment([sql(flags.previous)]), ') ', reads(unqualified, sql`${sql(flags.previous)} IS NULL AS ${sql(flags.inserted)}`)]));
     };
-    static readonly ensure: Engine['Service']['ensure'] = ({ sql, owner, unqualified, order, ignore, keys, reads, inserting }, body) => {
+    static readonly ensure: Rows['Service']['ensure'] = ({ sql, owner, unqualified, order, ignore, keys, reads, inserting }, body) => {
         const outer = sql.literal('t.');
         return sql`WITH inserted AS (${inserting(body, ignore, sql.literal('*'))}) SELECT ${reads(outer)} FROM (SELECT * FROM inserted UNION ALL SELECT * FROM ${owner} WHERE (${keys(unqualified)}) IN (SELECT ${order} FROM ${Pg.rows(sql, body)})) t ORDER BY ${keys(outer)}`;
     };
@@ -78,27 +82,27 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
         const joined = sql.join(` || ' ' || `, false)(columns.map(({ name }) => sql`coalesce(${sql(name)}, '')`));
         return Tokenizer.$match(tokenizer, { Trigram: () => joined, Words: (words) => sql.join('', false)(['to_tsvector(', literal(Pg.configuration(words)), ', ', joined, ')']) });
     };
-    static readonly #engine = Layer.effect(
-        Engine,
-        SqlClient.SqlClient.use((sql) => {
-            const namespace = SqlSchema.findOne({
-                Request: Schema.Void,
-                Result: ExtensionSchema,
-                execute: () => sql`SELECT quote_ident(n.nspname) AS namespace FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname = ${trigram.extension}`,
-            })(undefined).pipe(Effect.map(Struct.get('namespace')));
-            return Effect.map(
-                Effect.cachedWithTTL(namespace, (exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
-                (extension) => ({ ...Pg, search: Pg.#search(extension) }),
-            );
-        }),
-    );
-    static readonly #search = (extension: Effect.Effect<string, Effect.Error<ReturnType<Engine['Service']['search']>>>): Engine['Service']['search'] =>
-        Effect.fnUntraced(function* (...[context, searchable, text, pattern, marks, count]: Parameters<Engine['Service']['search']>) {
+    static readonly #engine = (names: Dialect['names']) =>
+        Layer.merge(
+            Layer.succeed(Engine, { ...Pg, names }),
+            Layer.effect(
+                Rows,
+                Effect.map(
+                    trigramNamespace(undefined).pipe(
+                        Effect.map(Struct.get('namespace')),
+                        Effect.cachedWithTTL((exit) => (Exit.isSuccess(exit) ? Duration.infinity : Duration.zero)),
+                    ),
+                    (extension) => ({ ...Pg, search: Pg.#search(extension) }),
+                ),
+            ),
+        );
+    static readonly #search = (extension: Effect.Effect<string, Effect.Error<ReturnType<Rows['Service']['search']>>, SqlClient.SqlClient>): Rows['Service']['search'] =>
+        Effect.fnUntraced(function* (...[context, searchable, text, pattern, marks, count]: Parameters<Rows['Service']['search']>) {
             const { sql, owner, prefix, unqualified, keys, reads, flags } = context;
             const [body, rank] = [Pg.document(sql, searchable), sql(flags.rank)];
             const { score, source, filter, mark } = yield* Tokenizer.$match(searchable.tokenizer, {
                 Trigram: () =>
-                    Effect.map(extension, (namespace) => ({
+                    Effect.map(Effect.provideService(extension, SqlClient.SqlClient, sql), (namespace) => ({
                         score: sql`${sql.literal(namespace)}.word_similarity(${text}, ${body})`,
                         source: owner,
                         filter: sql`(${body}) ILIKE ${pattern}`,
@@ -114,12 +118,13 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                     });
                 },
             });
-            const marked = Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`jsonb_build_object(${sql.csv(searchable.columns.flatMap((entry) => [literal(entry.field), mark(entry.name, open, close)]))})` });
+            const marked = Option.match(marks, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`jsonb_build_object(${sql.csv(searchable.columns.flatMap((entry) => [literal(entry.name), mark(entry.name, open, close)]))})` });
             return yield* sql`SELECT ${reads(unqualified)}, ${score} AS ${rank}, ${marked} AS ${sql(flags.highlight)} FROM ${source} WHERE ${filter} ORDER BY ${rank} DESC, ${keys(prefix)} LIMIT ${count}`;
         });
 
     // --- [DDL]
 
+    static readonly type: Engine['Service']['type'] = ({ kind }) => types[kind];
     static readonly constant: Engine['Service']['constant'] = (entry, value) => (entry.kind === 'boolean' ? `${value === 1}` : constant(entry, value));
     static readonly codePoints: Engine['Service']['codePoints'] = (sql, subject) => sql`char_length(${subject})`;
     static readonly text: Engine['Service']['text'] = (sql, subject, kind) => (kind === 'uuid' ? sql`${subject}::text` : subject);
@@ -129,7 +134,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             Match.when('instant', () => [sql`isfinite(${subject})`]),
             Match.orElse(() => []),
         );
-    static readonly projection: Engine['Service']['projection'] = (sql, { kind }, { from, path }) => sql.join('', false)([sql`(${sql(from)} ${sql.literal(kind === 'json' ? '#>' : '#>>')} ARRAY[${sql.literal(path.map(literal).join(', '))}])`, ...(['json', 'text'].includes(kind) ? [] : ['::', Pg.types[kind]])]);
+    static readonly projection: Engine['Service']['projection'] = (sql, { kind }, { from, path }) => sql.join('', false)([sql`(${sql(from)} ${sql.literal(kind === 'json' ? '#>' : '#>>')} ARRAY[${sql.literal(path.map(literal).join(', '))}])`, ...(['json', 'text'].includes(kind) ? [] : ['::', types[kind]])]);
     static readonly generated: Engine['Service']['generated'] = (sql, expression) => sql`GENERATED ALWAYS AS (${expression}) VIRTUAL`;
     static readonly constraint: Engine['Service']['constraint'] = (sql, name, text) => sql`CONSTRAINT ${sql(name)} ${text}`;
     static readonly casefold: Engine['Service']['casefold'] = (sql, name) => sql`casefold(${sql(name)} COLLATE pg_unicode_fast)`;
@@ -144,7 +149,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
     static readonly projected: Engine['Service']['projected'] = (sql, expression) => sql`(${expression})`;
     static readonly methods: Engine['Service']['methods'] = methods;
     static readonly covering: Engine['Service']['covering'] = (sql, _, include) => ({ keys: [], clause: Array.isReadonlyArrayNonEmpty(include) ? [sql.join('', false)(['INCLUDE (', sql.csv(include.map((name) => Statement.fragment([sql(name)]))), ')'])] : [] });
-    static readonly suffix: Engine['Service']['suffix'] = () => '';
+    static readonly suffix: Engine['Service']['suffix'] = (sql) => sql.literal('');
+    static readonly rename = rename;
     static readonly fulltext: Engine['Service']['fulltext'] = (sql, owner, search) => {
         const [name, body] = [identifier([owner, 'search']), Pg.document(sql, search)];
         const words = Option.map(Option.liftPredicate(search.tokenizer, Tokenizer.$is('Words')), ({ configuration, filters }) => ({ name: Pg.configuration({ configuration, filters }), configuration, filters }));
@@ -173,7 +179,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
 
     // --- [RECONCILIATION]
 
-    static readonly refusals: Engine['Service']['refusals'] = ({ name: owner, columns, indexes }) => {
+    static readonly refusals: Engine['Service']['refusals'] = (relation) => {
+        const { name: owner, columns, indexes } = relation;
         const named = new Map(Object.values(columns).map((column) => [column.name, column]));
         const refused = indexes.flatMap(({ keys, method }) =>
             Array.filterMap(keys, ({ column, casefold }) => {
@@ -181,10 +188,11 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                 return entry !== undefined && Option.isNone(Pg.opclass(method, casefold ? 'text' : entry.kind)) ? Result.succeed(entry) : Result.failVoid;
             }),
         );
-        return unsupported(owner, 'opclass', Array.dedupe(refused), Function.constTrue);
+        return [...unsupported(owner, 'opclass', Array.dedupe(refused), Function.constTrue), ...mergeTreeRefusals(relation)];
     };
     static readonly role: Engine['Service']['role'] = (sql) => Effect.map(SqlSchema.findOne({ Request: Schema.Void, Result: Role, execute: () => sql`SELECT current_user AS role` })(undefined), Struct.get('role'));
     static readonly open: Engine['Service']['open'] = () => Effect.void;
+    static readonly execute = Engine.transaction;
     static readonly transactional = true;
     static readonly #indexText = flow(Struct.get<ReturnType<typeof render>['indexes'][number], 'text'>('text'), Function.apply([]));
     static readonly #reference: Node = { ColumnRef: { fields: [{ String: { sval: '$column' } }] } };
@@ -262,7 +270,7 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
                         FROM relations r)
                     SELECT json_build_object('tables', array(SELECT d.relation FROM described d WHERE NOT d.scratch), 'scratch', array(SELECT d.relation FROM described d WHERE d.scratch))::text AS observed`,
         })();
-        const resolved = diff(sql, catalog, rendered, live.tables);
+        const resolved = diff(sql, Pg, catalog, rendered, live.tables);
         const populated = yield* resolved.populated;
         yield* Effect.promise(loadModule);
         return yield* live.#reconcile(sql, catalog, runtime, { resolved, populated, environment, path, settings, preamble, role, policyText });
@@ -317,8 +325,8 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             const { name } = entry.declared;
             const owner = entry.rendered.relation;
             const prior = (parts: readonly string[]) => identifier([entry.live.name, ...parts.map(entry.original)]);
-            const named = [...entry.live.checks, ...entry.live.references].map(({ name: constraint }) => constraint);
-            const relabels = [...Array.getSomes(entry.rendered.definitions.map(({ check }) => check)), ...entry.rendered.links].filter(({ name: target, parts }) => named.includes(prior(parts)) && prior(parts) !== target && !named.includes(target)).map(({ name: target, parts }) => ({ from: prior(parts), to: target }));
+            const named = new Set([...entry.live.checks, ...entry.live.references].map(({ name: constraint }) => constraint));
+            const relabels = [...Array.getSomes(entry.rendered.definitions.map(({ check }) => check)), ...entry.rendered.links].map(({ name: to, parts }) => ({ from: prior(parts), to })).filter(({ from, to }) => named.has(from) && from !== to && !named.has(to));
             const renamed = new Map(relabels.map(({ from, to }) => [from, to]));
             const relabeled = (constraint: string) => renamed.get(constraint) ?? constraint;
             const links = entry.live.references.map((row) => ({ ...row, name: relabeled(row.name), columns: Array.map(row.columns, entry.renamed), target: resolved.referenced(row.target).name }));
@@ -511,18 +519,26 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
 
     // --- [LAYERS]
 
-    static readonly #types = () => {
+    static readonly #client = (names: Dialect['names']) => {
         const { OID, decode, encode } = PgTypes;
-        const types = PgTypes.makeRegistry();
-        const register = (oid: number, read: PgTypes.Codec<unknown>['decode']) => types.register(oid, { decode: read, encode: (value) => encode(value, oid) });
+        const registry = PgTypes.makeRegistry();
+        const register = (oid: number, read: PgTypes.Codec<unknown>['decode']) => registry.register(oid, { decode: read, encode: (value) => encode(value, oid) });
         register(OID.int8, (bytes) => Result.map(decode(bytes, OID.int8, 1), (value) => (Number.isSafeInteger(Number(value)) ? Number(value) : value)));
         register(OID.timestamptz, (bytes) => Result.flatMap(decode(bytes, OID.timestamptz, 1), (value) => Result.mapError(Schema.encodeUnknownResult(Schema.DateFromString)(value), (error) => new PgTypes.CodecError({ message: error.message }))));
         register(OID.jsonb, (bytes) => decode(bytes.subarray(1), OID.text, 1));
         register(OID.bool, (bytes) => Result.map(decode(bytes, OID.bool, 1), Number));
-        return { ...Column.transforms, types };
+        return { ...names, transformJson: false, types: registry };
     };
-    static readonly layer = (config: Omit<PgClient.PgPoolConfig, 'types' | keyof typeof Column.transforms>) => Pg.#engine.pipe(Layer.provideMerge(PgClient.layer({ ...config, ...Pg.#types() })));
-    static readonly layerConfig = (config: Config.Wrap<Omit<PgClient.PgPoolConfig, 'types' | keyof typeof Column.transforms>>) => Pg.#engine.pipe(Layer.provideMerge(PgClient.layerConfig(Config.map(Config.unwrap(config), (settings) => ({ ...settings, ...Pg.#types() })))));
+    static readonly layer = (config: Omit<PgClient.PgPoolConfig, keyof ReturnType<typeof Pg.#client>>, names: Dialect['names'] = Engine.names.snake) => Pg.#engine(names).pipe(Layer.provideMerge(PgClient.layer({ ...config, ...Pg.#client(names) })));
+    static readonly layerConfig = (config: Config.Wrap<Omit<PgClient.PgPoolConfig, keyof ReturnType<typeof Pg.#client>>>, names: Dialect['names'] = Engine.names.snake) =>
+        Pg.#engine(names).pipe(
+            Layer.provideMerge(
+                Config.unwrap(config).pipe(
+                    Config.map((settings) => ({ ...settings, ...Pg.#client(names) })),
+                    PgClient.layerConfig,
+                ),
+            ),
+        );
 }
 const Prelude = Schema.Struct({ required: Names, filters: Names, declared: Schema.fromJsonString(Schema.Array(Pg.Configuration)) });
 const Observed = Schema.Struct({ observed: Schema.fromJsonString(Pg) });

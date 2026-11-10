@@ -2,7 +2,9 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "version": 2,
     "title": "Install",
-    "description": "Installs each host package the project's build wrote for this platform through the host's own installer",
+    "description": "Installs each host package the project's build wrote for this platform, in the configuration each build task ran in, through the host's own installer",
     "type": "object",
-    "properties": {}
+    "properties": {
+        "dryRun": { "type": "boolean", "description": "Reads the packages and prints each install without running the installer" }
+    }
 }

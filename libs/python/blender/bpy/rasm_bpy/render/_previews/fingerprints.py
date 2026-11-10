@@ -16,19 +16,16 @@ import numpy as np
 import numpy.typing as npt
 
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.images import _pixels
+from rasm_bpy.data._ids.images import pixels
 from rasm_bpy.data._ids.store import IdName
-from rasm_bpy.data._rna.descriptors import _DTYPES, Descriptor, Value
-from rasm_bpy.data._rna.paths import _definition, _struct_at, Native, RnaPath, Struct
-from rasm_bpy.data._rna.snapshots import _Capture, Snapshot
-from rasm_bpy.nodes._trees import _endpoints, _upstream
-from rasm_records import accumulated, content_hash, ContentHash, Fault, Nothing, Ok, Outcome, paired, Tree
+from rasm_bpy.data._rna.descriptors import Descriptor, DTYPES, Value
+from rasm_bpy.data._rna.paths import Native, rna_definition, RnaPath, Struct, struct_at
+from rasm_bpy.data._rna.snapshots import Capture, Snapshot
+from rasm_bpy.nodes._trees import endpoints
+from rasm_records import accumulated, content_hash, ContentHash, Fault, Nothing, Ok, Outcome, paired, reached, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Buffer = npt.NDArray[np.bool | np.int32 | np.float32]
 type _Elements[T] = bpy.types.bpy_prop_collection[T]
-type _Parts = tuple[tuple[Struct, ...], tuple[npt.NDArray[np.bool | np.int32 | np.float32 | np.float64], ...], tuple[tuple[str, str | None], ...]]
 type _Subject = bpy.types.ID | bpy.types.Node | bpy.types.SceneCompositorEffect
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -58,9 +55,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         Graph keys capture saved members and referenced node trees and images. Evaluated frame, scene, engine, and color context belong to callers.
     """
     type Key = _Subject | tuple[bpy.types.Mesh, bool]
-    type Reading = Outcome[Option[ContentHash]]
-    type Step = Reading | Key
-    type Prepared = tuple[Reading, tuple[Step, ...]]
+    type Step = Outcome[Option[ContentHash]] | Key
     type Captured[T] = Outcome[tuple[T, tuple[bpy.types.ID, ...], bool]]
     type Content = Value | tuple[IdName | None, ...]
 
@@ -71,9 +66,9 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
             for name, value in held.rows:
                 match value:
                     case IdName():
-                        blocks.update(dict.fromkeys(_struct_at(struct, (*at, *name), bpy.types.ID).to_list()))
+                        blocks.update(dict.fromkeys(struct_at(struct, (*at, *name), bpy.types.ID).to_list()))
                     case tuple() if value and (value[0] is None or isinstance(value[0], IdName)):
-                        blocks.update(dict.fromkeys(block for collection in _struct_at(struct, (*at, *name), bpy.types.bpy_prop_collection).to_list() for block in collection if block is not None))
+                        blocks.update(dict.fromkeys(block for collection in struct_at(struct, (*at, *name), bpy.types.bpy_prop_collection).to_list() for block in collection if block is not None))
                     case str() if value and not paths:
                         paths = any(
                             descriptor.prop.subtype == "FILE_PATH" and not descriptor.prop.is_path_output
@@ -97,15 +92,15 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
             for step in (result.map(lambda _: Nothing), *(block for _, blocks, _ in result.to_option().to_list() for block in blocks if isinstance(block, bpy.types.NodeTree | bpy.types.Image)))
         )
 
-    def buffers[T](values: _Elements[T], members: Iterable[bpy.types.Property]) -> tuple[_Buffer, ...]:
+    def buffers[T](values: _Elements[T], members: Iterable[bpy.types.Property]) -> tuple[npt.NDArray[np.bool | np.int32 | np.float32], ...]:
         count = len(values)
 
-        def fetched(member: bpy.types.Property, dtype: type[np.bool | np.int32 | np.float32]) -> _Buffer:
-            buffer: _Buffer = np.empty(count * math.prod(Descriptor.dimensions(member)), dtype)
+        def fetched(member: bpy.types.Property, dtype: type[np.bool | np.int32 | np.float32]) -> npt.NDArray[np.bool | np.int32 | np.float32]:
+            buffer: npt.NDArray[np.bool | np.int32 | np.float32] = np.empty(count * math.prod(Descriptor.dimensions(member)), dtype)
             values.foreach_get(member.identifier, buffer)
             return buffer
 
-        return tuple(fetched(member, _DTYPES[type(member)]) for member in members if type(member) in _DTYPES)
+        return tuple(fetched(member, DTYPES[type(member)]) for member in members if type(member) in DTYPES)
 
     def image(image: bpy.types.Image) -> Outcome[Option[ContentHash]]:
         transient = image.source in _UNHASHED or image.type in _COMPOSITE or image.is_multiview
@@ -115,16 +110,14 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         members = Descriptor.saved(image, lambda prop: prop != bpy.types.Image.bl_rna.properties["pixels"])
         settings = msgspec.msgpack.encode((image.type, image.is_float))
         packed = tuple(np.frombuffer(file.data, np.uint8) for part in image.packed_files for file in Option.of_optional(part.packed_file).to_list())
-        return paired(_pixels(image), Snapshot.capture(image, Some(members))).map(lambda pair: Some(content_hash(bpy.types.Image, pair[1], settings, arrays=(pair[0], *packed))))
+        return paired(pixels(image), Snapshot.capture(image, Some(members))).map(lambda pair: Some(content_hash(bpy.types.Image, pair[1], settings, arrays=(pair[0], *packed))))
 
-    def graph(owner: bpy.types.NodeTree | bpy.types.Node) -> Prepared:
-        tree: bpy.types.NodeTree = owner if isinstance(owner, bpy.types.NodeTree) else owner.id_data  # ty: ignore[invalid-assignment]
-        nodes = tuple(sorted(tree.nodes, key=lambda item: item.name)) if isinstance(owner, bpy.types.NodeTree) else _upstream(owner)
+    def graph(owner: bpy.types.NodeTree | bpy.types.Node, tree: bpy.types.NodeTree, nodes: tuple[bpy.types.Node, ...]) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
         reached = frozenset(nodes)
         settings = Descriptor.saved(tree, lambda prop: not isinstance(prop, bpy.types.CollectionProperty))
 
         def linked(link: bpy.types.NodeLink) -> Outcome[ContentHash]:
-            source, outlet, target, inlet = _endpoints(link)
+            source, outlet, target, inlet = endpoints(link)
             connection = msgspec.msgpack.encode((source.name, outlet.identifier, target.name, inlet.identifier, link.multi_input_sort_id))
             return Snapshot.capture(link, Some(Descriptor.saved(link, lambda prop: not prop.is_readonly))).map(lambda snapshot: content_hash(bpy.types.NodeLink, connection, snapshot))
 
@@ -135,7 +128,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         )
         return seed, (*ordered(captured), links.map(lambda _: Nothing))
 
-    def elements(block: bpy.types.ID, *, weighted: bool) -> Prepared:
+    def elements(block: bpy.types.ID, *, weighted: bool) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
         shapes = tuple(Option.of_optional(block.shape_keys).to_list()) if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Lattice) else ()
         keys = tuple(key for shape in shapes for key in shape.key_blocks)
         materials = (
@@ -149,7 +142,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
             *(attribute for drawing in drawings for attribute in drawing.attributes),
         )
 
-        def parts(structs: tuple[Struct, ...]) -> _Parts:
+        def parts(structs: tuple[Struct, ...]) -> tuple[tuple[Struct, ...], tuple[npt.NDArray[np.bool | np.int32 | np.float32 | np.float64], ...], tuple[tuple[str, str | None], ...]]:
             match block:
                 case bpy.types.Mesh():
                     weights = (
@@ -204,7 +197,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         data = tuple(
             (getattr(attribute, data.identifier), item.properties)
             for attribute in attributes
-            for data in (_definition(attribute).properties["data"],)
+            for data in (rna_definition(attribute).properties["data"],)
             if isinstance(data, bpy.types.CollectionProperty)
             for item in Option.of_optional(data.fixed_type).to_list()
         )
@@ -227,8 +220,8 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         )
         return seed, ordered(captured)
 
-    def members(block: bpy.types.ID) -> Prepared:
-        native = _Capture[Content](
+    def members(block: bpy.types.ID) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
+        native = Capture[Content](
             block,
             lambda descriptor, struct, _inside, _compound: (
                 Some(tuple(Option.of_optional(block).map(IdName.of).to_optional() for block in getattr(struct, descriptor.prop.identifier)))
@@ -258,7 +251,7 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         )
         return seed, ordered(captured)
 
-    def item(block: bpy.types.Object) -> Prepared:
+    def item(block: bpy.types.Object) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
         earlier = tuple(takewhile(lambda modifier: before_modifier != Some(modifier.name), block.modifiers))
         named = tuple(modifier for modifier in block.modifiers if before_modifier == Some(modifier.name))[:1]
         groups = msgspec.msgpack.encode(tuple(group.name for group in block.vertex_groups))
@@ -279,38 +272,49 @@ def fingerprinted(owner: _Subject | tuple[_Subject, ...], *, weighted: bool = Fa
         )
         return seed, steps
 
-    def effect(entry: bpy.types.SceneCompositorEffect) -> Prepared:
+    def effect(entry: bpy.types.SceneCompositorEffect) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
         enables = msgspec.msgpack.encode((entry.enable_for_render, entry.enable_for_preview))
-        captured = tuple(capture(struct) for struct in _struct_at(entry, ("properties", "inputs")).to_list())
+        captured = tuple(capture(struct) for struct in struct_at(entry, ("properties", "inputs")).to_list())
         seed = accumulated(result.map(lambda parts: parts[0]) for result in captured).map(
             lambda snapshots: Some(content_hash(bpy.types.SceneCompositorEffect, *snapshots, enables)) if cacheable(captured) else Nothing
         )
         return seed, (*ordered(captured), *Option.of_optional(entry.node_group).to_list())
 
-    def prepare(key: Key) -> Prepared:
-        subject, weighted = key if isinstance(key, tuple) else (key, False)
-        match subject:
+    def prepare(key: Key) -> tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]:
+        match key:
+            case (bpy.types.Mesh() as mesh, bool(weighted)):
+                return elements(mesh, weighted=weighted)
             case bpy.types.Image():
-                return image(subject), ()
+                return image(key), ()
             case bpy.types.Object():
-                return item(subject)
+                return item(key)
             case bpy.types.SceneCompositorEffect():
-                return effect(subject)
-            case bpy.types.NodeTree() | bpy.types.Node():
-                return graph(subject)
+                return effect(key)
+            case bpy.types.NodeTree():
+                return graph(key, key, tuple(sorted(key.nodes, key=lambda node: node.name)))
+            case bpy.types.Node(id_data=bpy.types.NodeTree() as tree):
+                feeding: dict[bpy.types.Node, list[bpy.types.Node]] = {}
+                for source, _, target, _ in map(endpoints, tree.links):
+                    feeding.setdefault(target, []).append(source)
+                return graph(key, tree, tuple(sorted(reached((key,), lambda current: feeding.get(current, ())), key=lambda node: node.name)))
             case bpy.types.Mesh() | bpy.types.Curve() | bpy.types.Curves() | bpy.types.PointCloud() | bpy.types.GreasePencil() | bpy.types.Lattice() | bpy.types.MetaBall() | bpy.types.Volume():
-                return elements(subject, weighted=weighted)
+                return elements(key, weighted=False)
+            case bpy.types.ID():
+                return members(key)
             case _:
-                return members(subject)
+                raise TypeError(key)
 
-    roots: tuple[Key, ...] = tuple((subject, weighted) if isinstance(subject, bpy.types.Mesh) else subject for subject in (owner if isinstance(owner, tuple) else (owner,)))  # ty: ignore[unsound-assignment]
-    captured: dict[Key, Prepared] = {}
+    roots: tuple[Key, ...] = tuple(
+        (subject, weighted) if isinstance(subject, bpy.types.Mesh) else subject
+        for subject in ((owner,) if isinstance(owner, bpy.types.ID | bpy.types.Node | bpy.types.SceneCompositorEffect) else owner)
+    )
+    captured: dict[Key, tuple[Outcome[Option[ContentHash]], tuple[Step, ...]]] = {}
     pending = deque(roots)
     while pending:
         if (key := pending.popleft()) not in captured:
             _, steps = captured[key] = prepare(key)
             pending.extend(step for step in steps if not isinstance(step, Result))
-    hashes: dict[Key, Reading] = {}
+    hashes: dict[Key, Outcome[Option[ContentHash]]] = {}
     dependencies = {key: tuple(step for step in steps if not isinstance(step, Result)) for key, (_, steps) in captured.items()}
     for key in TopologicalSorter(dependencies).static_order():
         seed, steps = captured[key]

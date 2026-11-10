@@ -1,5 +1,8 @@
-use core::{f64::consts::PI, iter};
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use core::f64::consts::PI;
+use core::iter;
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use itertools::{Itertools as _, izip};
 use kurbo::{BezPath, PathEl, Point, Shape as _, flatten};
@@ -7,21 +10,20 @@ use linesweeper::{BinaryOp, FillRule};
 use manifold_rust::cancel::{self, CancelToken};
 use nalgebra::{Isometry3, Orthographic3, Point3, Translation3, UnitQuaternion, UnitVector3, Vector3};
 use nonempty_collections::NEVec;
-use parry3d_f64::{bounding_volume::BoundingVolume as _, math::Vector, query::details::line_toi_with_halfspace, shape::Triangle};
-use rasm_drawing::{LineworkError, Region, regions::boolean};
+use parry3d_f64::bounding_volume::BoundingVolume as _;
+use parry3d_f64::math::Vector;
+use parry3d_f64::query::details::line_toi_with_halfspace;
+use parry3d_f64::shape::Triangle;
+use rasm_drawing::regions::boolean;
+use rasm_drawing::{LineworkError, Region};
 use rasm_mesh::Source;
-use rayon::{
-    iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _},
-    join,
-};
+use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use rayon::join;
 use validated::Validated;
 
-use crate::{
-    Frame, Operation, Prepared, Projection, Scene, View, ViewsError, clip,
-    faces::{Face, visible},
-    outline, picture, ray,
-    visibility::Lines,
-};
+use crate::faces::{Face, visible};
+use crate::visibility::Lines;
+use crate::{Frame, Operation, Prepared, Projection, Scene, View, ViewsError, clip, outline, picture, ray};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -10,32 +10,83 @@ utils:
         not: {has: {stopBy: end, kind: 'type_arguments, bracketed_type'}}
     public:
         has: {kind: visibility_modifier, regex: '^pub$'}
+    cfg-attributed:
+        matches: {rust-attributed: {attribute: {matches: rust-cfg-attribute}}}
+    comment:
+        kind: 'line_comment, block_comment'
+    read:
+        kind: type_identifier
+        pattern: $SHAPE
+        not: {inside: {kind: type_item, field: name}}
+    holding-read: {any: [{matches: read}, {has: {stopBy: end, matches: read}}]}
+    shared:
+        inside:
+            stopBy: end
+            kind: source_file
+            any:
+                - has: {kind: mod_item, not: {has: {field: body, kind: declaration_list}}}
+                - has: {stopBy: end, all: [{matches: read}, {any: [{precedes: &later {stopBy: end, matches: holding-read}}, {inside: {stopBy: end, not: {kind: source_file}, precedes: *later}}]}]}
+    plain-parameter:
+        kind: 'type_parameter, lifetime_parameter'
+        not: {any: [{has: {field: bounds, pattern: $_}}, {has: {field: default_type, pattern: $_}}]}
+    passed-parameter:
+        kind: 'type_identifier, lifetime'
+        pattern: $ARGUMENT
+        inside: {kind: type_arguments, inside: {kind: generic_type, inside: {kind: type_item, field: type, has: {field: type_parameters, has: {matches: plain-parameter, has: {field: name, pattern: $ARGUMENT}}}}}}
+    renamed-generic:
+        kind: type_item
+        all:
+            - has: {field: type_parameters, not: {has: {pattern: $_, not: {any: [{matches: plain-parameter}, {matches: comment}]}}}}
+            - has:
+                field: type
+                kind: generic_type
+                all:
+                    - has: {field: type, kind: 'type_identifier, scoped_type_identifier'}
+                    - has: {field: type_arguments, not: {has: {pattern: $_, not: {any: [{matches: passed-parameter}, {matches: comment}]}}}}
+                    - has: {field: type_arguments, not: {has: {kind: 'type_identifier, lifetime', pattern: $REPEATED, precedes: {stopBy: end, pattern: $REPEATED}}}}
+            - not: {has: {field: type_parameters, has: {matches: plain-parameter, all: [{has: {field: name, pattern: $UNUSED}}, {not: {inside: {kind: type_parameters, inside: {kind: type_item, has: {field: type, has: {field: type_arguments, has: {pattern: $UNUSED}}}}}}}]}}}
 rule:
-    kind: type_item
-    all:
-        - not: {has: {field: type_parameters, kind: type_parameters}}
-        - not: {inside: {kind: declaration_list, inside: {kind: 'trait_item, impl_item'}}}
-        - not: {matches: {rust-attributed: {attribute: {matches: rust-cfg-attribute}}}}
-        - any:
-            - pattern: $TUPLE
-              has: {field: type, kind: tuple_type}
-            - pattern: $RENAMED
-              has: {field: type, matches: named-target}
-              not: {matches: public}
-            - pattern: $SAME
-              matches: public
-              all: [{has: {field: name, pattern: $NAME}}, {has: {field: type, matches: named-target, any: [{kind: type_identifier, pattern: $NAME}, {kind: scoped_type_identifier, has: {field: name, pattern: $NAME}}]}}]
-            - pattern: $OTHER
-              matches: public
-              has: {field: type, kind: 'type_identifier, scoped_type_identifier', matches: named-target}
-            - pattern: $PRIMITIVE
-              matches: public
-              has: {field: type, kind: primitive_type}
+    any:
+        - kind: type_item
+          all:
+            - not: {inside: {kind: declaration_list, inside: {kind: 'trait_item, impl_item'}}}
+            - not: {matches: cfg-attributed}
+            - any:
+                - pattern: $GENERIC
+                  matches: renamed-generic
+                - all:
+                    - not: {has: {field: type_parameters, kind: type_parameters}}
+                    - any:
+                        - pattern: $TUPLE
+                          all:
+                            - has: {field: type, kind: tuple_type}
+                            - has: {field: name, pattern: $SHAPE}
+                            - not: {has: {kind: visibility_modifier}}
+                            - not: {matches: shared}
+                        - pattern: $RENAMED
+                          has: {field: type, matches: named-target}
+                          not: {matches: public}
+                        - pattern: $SAME
+                          matches: public
+                          all: [{has: {field: name, pattern: $NAME}}, {has: {field: type, matches: named-target, any: [{kind: type_identifier, pattern: $NAME}, {kind: scoped_type_identifier, has: {field: name, pattern: $NAME}}]}}]
+                        - pattern: $OTHER
+                          matches: public
+                          has: {field: type, kind: 'type_identifier, scoped_type_identifier', matches: named-target}
+                        - pattern: $PRIMITIVE
+                          matches: public
+                          has: {field: type, kind: primitive_type}
+        - kind: use_as_clause
+          pattern: $EXPORT
+          all:
+            - not: {has: {field: alias, regex: '^_$'}}
+            - inside: {kind: use_declaration, stopBy: {kind: use_declaration}, matches: public, not: {matches: cfg-attributed}}
 transform:
+    GENERIC_TEXT: {replace: {source: $GENERIC, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+).*?=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` renames `$2` and passes its parameters through unchanged, delete it and name `$2` at each use'}}
     TUPLE_TEXT: {replace: {source: $TUPLE, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: 'Type alias `$1` renames tuple `$2`'}}
     RENAMED_TEXT: {replace: {source: $RENAMED, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: 'Type alias `$1` renames `$2`'}}
     SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` aliases `$2` under its own name, delete it and name `$2` at each use'}}
     OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(.+?)\p{Pattern_White_Space}*;$', by: '`$1` renames `$2`, delete it and name `$2` at each use'}}
     PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?(?-u:\b)type\p{Pattern_White_Space}+(\p{XID_Continue}+)\p{Pattern_White_Space}*=\p{Pattern_White_Space}*(\p{XID_Continue}+)\p{Pattern_White_Space}*;$', by: '`$1` renames primitive `$2`, delete it and name `$2` at each use'}}
-message: '$TUPLE_TEXT$RENAMED_TEXT$SAME_TEXT$OTHER_TEXT$PRIMITIVE_TEXT'
-note: 'Name the target type at each use, an alias states a second path to its item'
+    EXPORT_TEXT: {replace: {source: $EXPORT, replace: '(?s)^(.+?)\p{Pattern_White_Space}+as\p{Pattern_White_Space}+(\p{XID_Continue}+)$', by: '`pub use` exports `$1` under a second name `$2`'}}
+message: '$GENERIC_TEXT$TUPLE_TEXT$RENAMED_TEXT$SAME_TEXT$OTHER_TEXT$PRIMITIVE_TEXT$EXPORT_TEXT'
+note: 'Name the target at each use, an alias or a renamed export states a second path to its item, a tuple alias with a visibility modifier or two reads in its file stays'

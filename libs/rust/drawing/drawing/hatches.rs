@@ -35,7 +35,16 @@ pub fn expand<'pattern>(region: &Region, pattern: &'pattern Pattern, placement: 
             .collect::<MultiLineString<f64>>();
         let clipped = polygons.clip(&rows, false);
         match &family.dashes {
-            None => crate::path(clipped).into_elements(),
+            None => clipped
+                .into_iter()
+                .flat_map(|line| {
+                    let closed = line.0.len() > 2 && line.is_closed();
+                    let LineString(coords) = line;
+                    let kept = coords.len().strict_sub(usize::from(closed));
+                    let mut points = coords.into_iter().take(kept).map(|coord| Point::from(coord.x_y()));
+                    iter::chain(points.next().map(PathEl::MoveTo), points.map(PathEl::LineTo)).chain(closed.then_some(PathEl::ClosePath))
+                })
+                .collect(),
             Some(dashes) => {
                 let dotted = dashes.contains(&0.0_f64);
                 BezPath::from_path_segments(

@@ -1,12 +1,10 @@
 #![feature(error_generic_member_access)]
 
-use core::{
-    error::{Error, Request, request_value},
-    fmt,
-    hint::black_box,
-    num::ParseIntError,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use core::error::{Error, Request, request_value};
+use core::fmt;
+use core::hint::black_box;
+use core::num::ParseIntError;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 // --- [MACROS] --------------------------------------------------------------------------
 

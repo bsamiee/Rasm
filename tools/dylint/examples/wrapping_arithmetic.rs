@@ -1,4 +1,5 @@
-use core::{hint::black_box, num::Wrapping};
+use core::hint::black_box;
+use core::num::Wrapping;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

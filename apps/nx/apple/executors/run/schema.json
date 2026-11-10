@@ -6,6 +6,7 @@
     "type": "object",
     "properties": {
         "runs": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "description": "Invocations the plugin infers, each a program and its arguments" },
+        "applications": { "type": "array", "items": { "type": "string" }, "description": "Application bundles the invocations install, a running one named in the last line as needing a relaunch" },
         "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every invocation" }
     },
     "required": [ "runs" ]

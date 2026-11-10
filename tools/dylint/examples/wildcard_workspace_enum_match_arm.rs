@@ -1,4 +1,5 @@
-use core::{cmp::Ordering, hint::black_box};
+use core::cmp::Ordering;
+use core::hint::black_box;
 use std::collections::{HashSet, VecDeque};
 
 // --- [MODELS] --------------------------------------------------------------------------

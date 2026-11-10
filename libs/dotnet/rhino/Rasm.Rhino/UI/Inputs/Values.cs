@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using Eto.Drawing;
-using Eto.Forms;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.UI.Numeric;
@@ -14,7 +13,6 @@ using Rhino.DocObjects.Tables;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using UnitsNet;
-using RhinoSlider = Rhino.UI.Controls.Slider;
 
 namespace Rasm.Rhino.UI.Inputs;
 
@@ -26,9 +24,9 @@ public sealed record ChoiceItem<T>(T Value, string Caption) where T : notnull {
     public override string ToString() => LocalText.Of(Caption).Local;
 }
 
-public sealed record ValueRow<TControl, T>(Func<TControl> Make, Func<TControl, RowScope, IO<BindableBinding<TControl, Option<T>>>> Binding, IO<Option<T>> Current, Func<Edit<T>, IO<Unit>> Edited)
+public sealed record ValueRow<TControl, T>(Func<TControl> Make, Func<TControl, RowScope, IO<Eto.Forms.BindableBinding<TControl, Option<T>>>> Binding, IO<Option<T>> Current, Func<Edit<T>, IO<Unit>> Edited)
     : IRow<ValueRow<TControl, T>>
-    where TControl : Control
+    where TControl : Eto.Forms.Control
     where T : notnull {
     public Func<TControl, bool> Previewing { get; init; } = static _ => false;
     public Option<Func<TControl, HostEvent<Unit>>> Committing { get; init; }
@@ -64,8 +62,8 @@ public static class Values {
     // --- [BINDING]
 
     internal static IO<Func<Option<T>, IO<Unit>>> Bound<TControl, T>(
-        TControl control, BindableBinding<TControl, Option<T>> binding, Func<TControl, bool> previewing, Option<HostEvent<Unit>> committing, Option<T> initial, Func<Edit<T>, IO<Unit>> edited)
-        where TControl : Control
+        TControl control, Eto.Forms.BindableBinding<TControl, Option<T>> binding, Func<TControl, bool> previewing, Option<HostEvent<Unit>> committing, Option<T> initial, Func<Edit<T>, IO<Unit>> edited)
+        where TControl : Eto.Forms.Control
         where T : notnull =>
         from state in IO.lift(() => Ref((Shown: initial, Previewed: Option<T>.None)))
         let entered = fun((T value) =>
@@ -77,7 +75,7 @@ public static class Values {
             })
             from sent in when(fresh, edited(new Edit<T>.Changed(applies, value))).As()
             select unit)
-        from dual in use(() => binding.Bind(Binding.Delegate(() => state.Value.Shown, held => Session.Run(held.Traverse(entered).As()))), static dual => dual.Unbind())
+        from dual in use(() => binding.Bind(Eto.Forms.Binding.Delegate(() => state.Value.Shown, held => Session.Run(held.Traverse(entered).As()))), static dual => dual.Unbind())
         from commits in committing.Traverse(signal => signal.Attach(_ =>
             from value in IO.lift(() => dual.Destination.DataValue)
             from before in atomicIO(() => {
@@ -91,7 +89,7 @@ public static class Values {
             select unit)).As()
         select (Func<Option<T>, IO<Unit>>)(value => atomicIO(() => state.Value = (Shown: value, Previewed: Option<T>.None)).Bind(_ => IO.lift(() => dual.Update())));
 
-    internal static BindableBinding<NumericUpDownWithUnitParsing, Option<double>> Numeric(NumericUpDownWithUnitParsing field) =>
+    internal static Eto.Forms.BindableBinding<NumericUpDownWithUnitParsing, Option<double>> Numeric(NumericUpDownWithUnitParsing field) =>
         new(field,
             static held => Some(held.Value),
             static (held, value) => value.Match(
@@ -112,32 +110,32 @@ public static class Values {
 
     // --- [TOGGLES]
 
-    public static ValueRow<CheckBox, bool> Check(Option<bool> value, Func<Edit<bool>, IO<Unit>> edited) =>
-        new(static () => new CheckBox(), static (box, _) => IO.pure(box.CheckedBinding.Convert(static held => Optional(held), static held => held.ToNullable())), IO.pure(value), edited) {
+    public static ValueRow<Eto.Forms.CheckBox, bool> Check(Option<bool> value, Func<Edit<bool>, IO<Unit>> edited) =>
+        new(static () => new Eto.Forms.CheckBox(), static (box, _) => IO.pure(box.CheckedBinding.Convert(static held => Optional(held), static held => held.ToNullable())), IO.pure(value), edited) {
             Shaped = static (box, current, _) => IO.lift(() => { box.ThreeState = current.IsNone; }),
         };
 
     // --- [CHOICES]
 
-    public static ValueRow<DropDown, T> Choice<T>(Option<T> value, Seq<ChoiceItem<T>> items, Func<Edit<T>, IO<Unit>> edited) where T : notnull =>
+    public static ValueRow<Eto.Forms.DropDown, T> Choice<T>(Option<T> value, Seq<ChoiceItem<T>> items, Func<Edit<T>, IO<Unit>> edited) where T : notnull =>
         Listed(value, _ => IO.pure(items), edited);
 
-    public static ValueRow<SegmentedButton, Seq<T>> Flags<T>(Option<Seq<T>> value, Seq<ChoiceItem<T>> items, Func<Edit<Seq<T>>, IO<Unit>> edited) where T : notnull =>
-        new(static () => new SegmentedButton { SelectionMode = SegmentedSelectionMode.Multiple },
-            (strip, _) => IO.pure(new BindableBinding<SegmentedButton, Option<Seq<T>>>(strip,
+    public static ValueRow<Eto.Forms.SegmentedButton, Seq<T>> Flags<T>(Option<Seq<T>> value, Seq<ChoiceItem<T>> items, Func<Edit<Seq<T>>, IO<Unit>> edited) where T : notnull =>
+        new(static () => new Eto.Forms.SegmentedButton { SelectionMode = Eto.Forms.SegmentedSelectionMode.Multiple },
+            (strip, _) => IO.pure(new Eto.Forms.BindableBinding<Eto.Forms.SegmentedButton, Option<Seq<T>>>(strip,
                 held => Some(toSeq(held.Items).Zip(items).Filter(static pair => pair.First.Selected).Map(static pair => pair.Second.Value).Strict()),
                 (held, wanted) => toSeq(held.Items).Zip(items).Iter(pair => pair.First.Selected = wanted.Exists(chosen => chosen.Exists(value => EqualityComparer<T>.Default.Equals(value, pair.Second.Value)))),
                 static (held, handler) => held.SelectedItemsChanged += handler,
                 static (held, handler) => held.SelectedItemsChanged -= handler)),
             IO.pure(value), edited) {
             Attached = strip => items.TraverseM(item =>
-                from segment in use(() => new ButtonSegmentedItem { Text = item.Icon.Map(static _ => "").IfNone(LocalText.Of(item.Caption).Local), ToolTip = LocalText.Of(item.Caption).Local })
+                from segment in use(() => new Eto.Forms.ButtonSegmentedItem { Text = item.Icon.Map(static _ => "").IfNone(LocalText.Of(item.Caption).Local), ToolTip = LocalText.Of(item.Caption).Local })
                 from placed in IO.lift(() => strip.Items.Add(segment))
                 from themed in item.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.PanelButton, strip, frames => segment.Image = frames)).As()
                 select unit).As().Map(unit),
         };
 
-    public static ValueRow<DropDown, Guid> Component<TComponent>(Option<Guid> value, Func<RhinoDoc, IEnumerable<TComponent>> table, Func<Edit<Guid>, IO<Unit>> edited)
+    public static ValueRow<Eto.Forms.DropDown, Guid> Component<TComponent>(Option<Guid> value, Func<RhinoDoc, IEnumerable<TComponent>> table, Func<Edit<Guid>, IO<Unit>> edited)
         where TComponent : ModelComponent =>
         Listed(value, scope => scope.DocumentIO.Map(doc => toSeq(toSeq(table(doc))
             .Filter(static component => !component.IsDeleted && !component.IsSystemComponent)
@@ -146,16 +144,16 @@ public static class Values {
             Changes = [HostTheme.Changed, Tables],
         };
 
-    public static ValueRow<EnumDropDown<T?>, T> Enumerated<T>(Option<T> value, Func<Edit<T>, IO<Unit>> edited) where T : struct, Enum =>
-        new(static () => new EnumDropDown<T?> { GetText = static held => Conversions.Unset(Optional(held).Map(static value => LocalText.Of(value.ToString()).Local)) },
+    public static ValueRow<Eto.Forms.EnumDropDown<T?>, T> Enumerated<T>(Option<T> value, Func<Edit<T>, IO<Unit>> edited) where T : struct, Enum =>
+        new(static () => new Eto.Forms.EnumDropDown<T?> { GetText = static held => Conversions.Unset(Optional(held).Map(static value => LocalText.Of(value.ToString()).Local)) },
             static (drop, _) => IO.pure(drop.SelectedValueBinding.Convert(static held => Optional(held), static held => held.ToNullable())), IO.pure(value), edited);
 
-    private static ValueRow<DropDown, T> Listed<T>(Option<T> value, Func<RowScope, IO<Seq<ChoiceItem<T>>>> items, Func<Edit<T>, IO<Unit>> edited) where T : notnull =>
-        new(static () => new DropDown {
-            ItemTextBinding = Binding.Delegate<(ChoiceItem<T> Item, Icon? Image), string>(static item => item.Item.Caption),
-            ItemImageBinding = Binding.Delegate<(ChoiceItem<T> Item, Icon? Image), Image?>(static item => item.Image),
+    private static ValueRow<Eto.Forms.DropDown, T> Listed<T>(Option<T> value, Func<RowScope, IO<Seq<ChoiceItem<T>>>> items, Func<Edit<T>, IO<Unit>> edited) where T : notnull =>
+        new(static () => new Eto.Forms.DropDown {
+            ItemTextBinding = Eto.Forms.Binding.Delegate<(ChoiceItem<T> Item, Icon? Image), string>(static item => item.Item.Caption),
+            ItemImageBinding = Eto.Forms.Binding.Delegate<(ChoiceItem<T> Item, Icon? Image), Image?>(static item => item.Image),
         },
-            static (drop, _) => IO.pure(new BindableBinding<DropDown, Option<T>>(drop,
+            static (drop, _) => IO.pure(new Eto.Forms.BindableBinding<Eto.Forms.DropDown, Option<T>>(drop,
                 static held => Optional(held.SelectedValue).Map(static item => ((ChoiceItem<T> Item, Icon? Image))item).Map(static item => item.Item.Value),
                 static (held, wanted) => held.SelectedValue = wanted.Bind(chosen => Stocked<T>(held).Find(item => EqualityComparer<T>.Default.Equals(item.Item.Value, chosen))).Map<object>(static item => item).ValueUnsafe(),
                 static (held, handler) => held.SelectedValueChanged += handler,
@@ -170,7 +168,7 @@ public static class Values {
             Changes = [HostTheme.Changed],
         };
 
-    private static Seq<(ChoiceItem<T> Item, Icon? Image)> Stocked<T>(DropDown drop) where T : notnull =>
+    private static Seq<(ChoiceItem<T> Item, Icon? Image)> Stocked<T>(Eto.Forms.DropDown drop) where T : notnull =>
         toSeq((drop.DataStore ?? []).Cast<(ChoiceItem<T> Item, Icon? Image)>());
 
     private static readonly HostEvent<Unit> Tables =
@@ -183,15 +181,15 @@ public static class Values {
 
     // --- [MOMENTS]
 
-    public static ValueRow<DateTimePicker, LocalDateTime> Moment(Option<LocalDateTime> value, DateTimePickerMode part, DateInterval limits, Func<Edit<LocalDateTime>, IO<Unit>> edited) =>
-        new(() => new DateTimePicker { Mode = part, MinDate = limits.Start.AtMidnight().ToDateTimeUnspecified(), MaxDate = limits.End.PlusDays(1).AtMidnight().ToDateTimeUnspecified() },
+    public static ValueRow<Eto.Forms.DateTimePicker, LocalDateTime> Moment(Option<LocalDateTime> value, Eto.Forms.DateTimePickerMode part, DateInterval limits, Func<Edit<LocalDateTime>, IO<Unit>> edited) =>
+        new(() => new Eto.Forms.DateTimePicker { Mode = part, MinDate = limits.Start.AtMidnight().ToDateTimeUnspecified(), MaxDate = limits.End.PlusDays(1).AtMidnight().ToDateTimeUnspecified() },
             static (picker, _) => IO.pure(picker.ValueBinding.Convert(static held => Conversions.Present(held), static held => held.Map(static wall => wall.ToDateTimeUnspecified()).ToNullable())),
             IO.pure(value), edited);
 
     // --- [COLORS]
 
-    public static ValueRow<ColorPicker, Color4f> Swatch(Option<Color4f> value, Func<Edit<Color4f>, IO<Unit>> edited) =>
-        new(static () => new ColorPicker { AllowAlpha = true },
+    public static ValueRow<Eto.Forms.ColorPicker, Color4f> Swatch(Option<Color4f> value, Func<Edit<Color4f>, IO<Unit>> edited) =>
+        new(static () => new Eto.Forms.ColorPicker { AllowAlpha = true },
             static (picker, _) => IO.pure(Colored(picker)),
             IO.pure(value), edited) {
             Previewing = static _ => true,
@@ -199,11 +197,11 @@ public static class Values {
             Menu = static latest => [[Named(latest.Bind(static row => row.Current), edit => latest.Bind(row => row.Edited(edit)))]],
         };
 
-    internal static BindableBinding<ColorPicker, Option<Color4f>> Colored(ColorPicker picker) =>
+    internal static Eto.Forms.BindableBinding<Eto.Forms.ColorPicker, Option<Color4f>> Colored(Eto.Forms.ColorPicker picker) =>
         picker.ValueBinding.Convert(static held => Some(new Color4f(held.R, held.G, held.B, held.A)), held => held.Map(static color => color.ToEto()).IfNone(picker.Value));
 
-    internal static HostEvent<Unit> Closed(ColorPicker picker) =>
-        Subscriptions.Inline<MouseEventArgs>(h => picker.MouseUp += h, h => picker.MouseUp -= h).Choose(static _ => Some(unit));
+    internal static HostEvent<Unit> Closed(Eto.Forms.ColorPicker picker) =>
+        Subscriptions.Inline<Eto.Forms.MouseEventArgs>(h => picker.MouseUp += h, h => picker.MouseUp -= h).Choose(static _ => Some(unit));
 
     public static ValueRow<DisplayAndPrintColorPicker, ColorPair> DisplayAndPrint(
         Option<ColorPair> value, LanguageExt.HashSet<DisplayAndPrintColorSourceMode> offered, Option<ColorPair> resolved, Func<Edit<ColorPair>, IO<Unit>> edited) =>
@@ -217,7 +215,7 @@ public static class Values {
             }),
         };
 
-    private static BindableBinding<DisplayAndPrintColorPicker, Option<ColorPair>> Paired(DisplayAndPrintColorPicker picker) =>
+    private static Eto.Forms.BindableBinding<DisplayAndPrintColorPicker, Option<ColorPair>> Paired(DisplayAndPrintColorPicker picker) =>
         Ref(Option<PropertyChangedEventHandler>.None) switch {
             var adapter => new(picker,
                 static held => Conversions.Present(!held.DisplayVaries && !held.PrintVaries,
@@ -249,13 +247,13 @@ public static class Values {
             Attached = Digits,
         };
 
-    public static ValueRow<RhinoSlider, double> Slider(Option<double> value, double low, double high, Option<int> decimals, Func<Edit<double>, IO<Unit>> edited) =>
-        new(static () => new RhinoSlider(new Panel(), usePercentageSign: false),
-            static (slider, _) => IO.pure(new BindableBinding<RhinoSlider, double?>(slider, Binding.Property(static (RhinoSlider held) => held.Value1))
+    public static ValueRow<Slider, double> Slider(Option<double> value, double low, double high, Option<int> decimals, Func<Edit<double>, IO<Unit>> edited) =>
+        new(static () => new Slider(new Eto.Forms.Panel(), usePercentageSign: false),
+            static (slider, _) => IO.pure(new Eto.Forms.BindableBinding<Slider, double?>(slider, Eto.Forms.Binding.Property(static (Slider held) => held.Value1))
                 .Convert(static held => Optional(held), static held => held.ToNullable())),
             IO.pure(value), edited) {
             Previewing = static _ => true,
-            Committing = Some<Func<RhinoSlider, HostEvent<Unit>>>(static slider =>
+            Committing = Some<Func<Slider, HostEvent<Unit>>>(static slider =>
                 Subscriptions.Inline<PropertyChangedEventHandler, PropertyChangedEventArgs>(h => slider.PropertyChanged += h, h => slider.PropertyChanged -= h, static handler => handler.Invoke)
                     .Choose(static args => Conversions.Present(args.PropertyName is "OnEndChanged", unit))),
             Attached = slider => IO.lift(() => {
@@ -293,15 +291,15 @@ public static class Values {
 
     // --- [TEXT]
 
-    public static ValueRow<TextBox, string> Line(Option<string> value, Func<Edit<string>, IO<Unit>> edited) =>
-        new(static () => new TextBox(), static (box, _) => IO.pure(new BindableBinding<TextBox, Option<string>>(box,
+    public static ValueRow<Eto.Forms.TextBox, string> Line(Option<string> value, Func<Edit<string>, IO<Unit>> edited) =>
+        new(static () => new Eto.Forms.TextBox(), static (box, _) => IO.pure(new Eto.Forms.BindableBinding<Eto.Forms.TextBox, Option<string>>(box,
                 static held => Optional(held.Text),
                 static (held, text) => held.Text = Conversions.Unset(text),
                 static (held, handler) => held.TextChanged += handler,
                 static (held, handler) => held.TextChanged -= handler)),
             IO.pure(value), edited) {
             Previewing = static box => box.HasFocus,
-            Committing = Some<Func<TextBox, HostEvent<Unit>>>(static box => Entries.Committing(box, Keys.Enter)),
+            Committing = Some<Func<Eto.Forms.TextBox, HostEvent<Unit>>>(static box => Entries.Committing(box, Eto.Forms.Keys.Enter)),
             Shaped = static (box, current, _) => IO.lift(() => { box.PlaceholderText = current.IsNone ? LocalText.Of("Varies").Local : ""; }),
         };
 }

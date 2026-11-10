@@ -1,9 +1,9 @@
-"""Valued structures shared by entry recipes and stack presets, each entry's record, input values, and enables captured in stack order, and sparse recipes merged into and applied over a scene's entries."""
+"""Valued structures shared by entry recipes and stack presets, each entry's record, input values, and enables captured in stack order, and sparse recipes merged into a scene's entries."""
 
 from collections.abc import Mapping
 from contextlib import ExitStack
 from types import MappingProxyType
-from typing import Final, Generic, TypeVar
+from typing import Generic, TypeVar
 
 import bpy
 from expression import Option, Some
@@ -12,18 +12,13 @@ import msgspec
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Descriptor
-from rasm_bpy.data._rna.paths import _rna
+from rasm_bpy.data._rna.paths import rna
 from rasm_bpy.data._rna.snapshots import Snapshot
 from rasm_bpy.render._compositor.effects import CompositorEffect, Entry
-from rasm_bpy.render._compositor.entries import _relocated, Enabled
-from rasm_bpy.render._compositor.inputs import _hold, _rebased, _regrouped, _restored, captured, PreviewFrame
+from rasm_bpy.render._compositor.entries import Enabled, relocated
+from rasm_bpy.render._compositor.inputs import captured, hold, rebased, regrouped, restored
 from rasm_bpy.render._compositor.offered import OfferedEffects
-from rasm_records import accumulated, Error, Fault, Name, Nothing, Ok, Outcome, paired
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_NAME_PROPERTY: Final[bpy.types.StringProperty] = bpy.types.SceneCompositorEffect.bl_rna.properties["name"]  # ty: ignore[invalid-assignment]
-_NAME: Final = Descriptor(root=bpy.types.SceneCompositorEffect, prop=_NAME_PROPERTY)
+from rasm_records import accumulated, Error, Fault, Name, Ok, Outcome, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -45,7 +40,7 @@ class Valued(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True):  # ruff
 
     def rebased(self, prefix: Key) -> Option[Snapshot]:
         """Returns the captured values at the item keys under `prefix` in place of their own."""
-        return self.captured.map(lambda values: _rebased(values, self.prefix, prefix))
+        return self.captured.map(lambda values: rebased(values, self.prefix, prefix))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -61,7 +56,7 @@ def recorded(rows: OfferedEffects, identity: Identity, scene: bpy.types.Scene) -
     ).map(dict)
 
 
-def _applied(
+def applied(
     rows: OfferedEffects,
     identity: Identity,
     scene: bpy.types.Scene,
@@ -69,12 +64,11 @@ def _applied(
     *,
     locked: frozenset[Name] = frozenset(),
     fields: Mapping[Name, frozenset[Key]] = MappingProxyType({}),
-    preview: Option[PreviewFrame] = Nothing,
 ) -> Outcome[None]:
     """Applies sparse named records, keeping locked, unlisted, and user entries, the active entry kept active."""
 
     def merged(current: Mapping[Name, Valued[Entry]]) -> Outcome[None]:
-        desired = _projected(current, recipe, locked=locked, fields=fields)
+        desired = projected(current, recipe, locked=locked, fields=fields)
         requested = {name: desired[name] for name in recipe if name not in locked}
         native = {entry.name: entry for entry in scene.compositor_effects}
         retained = frozenset(type(value.structure.record) for value in desired.values())
@@ -87,11 +81,11 @@ def _applied(
                 return (
                     Option
                     .of_optional(native.get(name))
-                    .map(lambda entry: row.write(identity, scene, entry, value.structure, preview=preview).map(lambda _: entry))
-                    .default_with(lambda: row.appended(identity, scene, value.structure, preview=preview, name=Some(name)))
+                    .map(lambda entry: row.write(identity, scene, entry, value.structure).map(lambda _: entry))
+                    .default_with(lambda: row.appended(identity, scene, value.structure, name=Some(name)))
                 ).bind(
                     lambda entry: paired(
-                        value.captured.map(lambda values: _restored(identity, entry, values)).default_value(Ok(value=False)),
+                        value.captured.map(lambda values: restored(identity, entry, values)).default_value(Ok(value=False)),
                         accumulated(enabled.descriptor.write(entry, enabled in value.enables) for enabled in Enabled),
                     ).map(lambda _: (entry, row))
                 )
@@ -103,8 +97,8 @@ def _applied(
                 kept = frozenset(native[name] for name in current) | frozenset(live.values())
                 return (
                     accumulated(rows.release(identity, scene, row) for row in restores)
-                    .bind(lambda _: accumulated(_hold(identity, scene, row.kind, row.holds) for _, row in placed))
-                    .bind(lambda _: accumulated(_relocated(scene, entry, index) for index, entry in enumerate(target) if entry in kept))
+                    .bind(lambda _: accumulated(hold(identity, scene, row.kind, row.holds) for _, row in placed))
+                    .bind(lambda _: accumulated(relocated(scene, entry, index) for index, entry in enumerate(target) if entry in kept))
                     .map(lambda _: None)
                 )
 
@@ -113,9 +107,9 @@ def _applied(
                     scope.callback(setattr, prior, "is_active", True)  # ruff: ignore[boolean-positional-value-in-call]
                 return accumulated(written_entry(name, value, row) for (name, value), row in zip(requested.items(), offered)).bind(arranged)
 
-        restores = accumulated(map(rows.offering, retired))
+        restores, prop = accumulated(map(rows.offering, retired)), Descriptor.of(bpy.types.SceneCompositorEffect, ("name",), bpy.types.StringProperty).prop
         names = accumulated(
-            Descriptor.validated(_NAME.prop, name).bind(
+            Descriptor.validated(prop, name).bind(
                 lambda _: Error(Fault.of(Refusal.TAKEN, name, member=repr(scene.compositor_effects[name]))) if name not in current and name in scene.compositor_effects else Ok(None)
             )
             for name in requested
@@ -127,7 +121,7 @@ def _applied(
     return recorded(rows, identity, scene).bind(merged)
 
 
-def _projected(
+def projected(
     current: Mapping[Name, Valued[Entry]], recipe: Mapping[Name, Valued[Entry]], *, locked: frozenset[Name] = frozenset(), fields: Mapping[Name, frozenset[Key]] = MappingProxyType({})
 ) -> dict[Name, Valued[Entry]]:
     """Merges sparse recipe entries and order into current ones, keeping locked entries whole and, on the others, the input values and enables at their locked keys."""
@@ -137,11 +131,11 @@ def _projected(
             key: owner
             for held, locking in ((value, False), (prior, True))
             for key, owner in held.captured.map(lambda values: values.tree.rows).default_value(())
-            if key and (_rna(key) in keys) == locking
+            if key and (rna(key) in keys) == locking
         }
         return msgspec.structs.replace(
             value,
-            values=value.captured.or_else(prior.captured).map(lambda values: _regrouped(values, owners)).to_optional(),
+            values=value.captured.or_else(prior.captured).map(lambda values: regrouped(values, owners)).to_optional(),
             enables=frozenset(enabled for enabled in Enabled if enabled in (prior.enables if enabled.value in keys else value.enables)),
         )
 
@@ -154,4 +148,4 @@ def _projected(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Valued", "recorded"]
+__all__ = ["Valued", "applied", "projected", "recorded"]

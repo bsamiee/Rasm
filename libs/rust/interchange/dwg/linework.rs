@@ -1,14 +1,19 @@
-use core::{iter, mem, ops::ControlFlow};
-use std::{borrow::Cow, collections::HashSet, sync::Arc, vec::IntoIter};
+use core::ops::ControlFlow;
+use core::{iter, mem};
+use std::borrow::Cow;
+use std::collections::{HashSet, VecDeque};
+use std::sync::Arc;
+use std::vec::IntoIter;
 
-use acadrust::{
-    CadDocument, Color, DxfVersion, Handle, LineWeight, Transparency, Vector2, Vector3,
-    entities::{AttributeEntity, EntityCommon, EntityType, Hatch, HatchPattern, HatchPatternLine, HatchPatternType, Insert, MText, Text, Viewport},
-    objects::{KnownXRecordKind, ObjectType, XRecordValue},
-    plot_style::PlotStyleTable,
-    tables::{Layer, LayerFlags, LineType, LineTypeElement, TextStyle, normalize_name},
-    types::Transform,
+use acadrust::entities::{
+    AttributeEntity, EntityCommon, EntityType, Hatch, HatchPattern, HatchPatternLine, HatchPatternType, HorizontalAlignment, Insert, MText, Text, TextHorizontalAlignment, TextVerticalAlignment,
+    VerticalAlignment, Viewport,
 };
+use acadrust::objects::{KnownXRecordKind, ObjectType, XRecordValue};
+use acadrust::plot_style::PlotStyleTable;
+use acadrust::tables::{Layer, LayerFlags, LineType, LineTypeElement, TextStyle, normalize_name};
+use acadrust::types::Transform;
+use acadrust::{CadDocument, Color, DxfVersion, Handle, LineWeight, Transparency, Vector2, Vector3};
 use color::{OpaqueColor, Rgba8, Srgb};
 use itertools::{Either, Itertools as _};
 use kurbo::{Affine, BezPath, Circle, PathEl, Point, Rect, Shape as _, Vec2};
@@ -16,14 +21,12 @@ use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_drawing::{
-    Alignment, Dash, DashOffset, DashOffsetError, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region, Side,
-    Target, Tolerance, Visibility, Width, WidthError, cleanup, pages,
+    Alignment, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region,
+    Side, Target, Tolerance, Visibility, Width, WidthError, cleanup, pages,
 };
-use uom::si::{
-    f64::{Length, Ratio},
-    length::millimeter,
-    ratio::{percent, ratio},
-};
+use uom::si::f64::{Length, Ratio};
+use uom::si::length::millimeter;
+use uom::si::ratio::{percent, ratio};
 use validated::Validated;
 
 use crate::{CadError, Operation, Refusal, Subject, Unit};
@@ -57,7 +60,7 @@ pub(crate) struct Context<'source> {
 }
 
 struct Expansion {
-    entities: IntoIter<EntityType>,
+    entities: VecDeque<EntityType>,
     name: Option<String>,
 }
 
@@ -132,10 +135,66 @@ pub(crate) fn authored(authoring: &Authoring) -> CadDocument {
 }
 
 pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Context<'_>, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
+    fn dashes(lengths: impl IntoIterator<Item = f64>, scale: f64) -> Result<Option<(Dashes, f64)>, DashesError> {
+        let mut runs = lengths
+            .into_iter()
+            .map(|length| (length >= 0.0, length.abs() * scale))
+            .coalesce(|(left_on, left), (right_on, right)| if left_on == right_on { Ok((left_on, left + right)) } else { Err(((left_on, left), (right_on, right))) })
+            .collect::<Vec<_>>();
+        let phase = match runs.as_mut_slice() {
+            [(head_on, head), .., (tail_on, tail)] if head_on == tail_on => {
+                let phase = *tail;
+                *head += phase;
+                runs.truncate(runs.len().strict_sub(1));
+                phase
+            }
+            _ => 0.0,
+        };
+        let offset = match &runs {
+            [(false, _), rest @ ..] => {
+                let offset = rest.iter().map(|(_, length)| length).sum::<f64>() + phase;
+                runs.rotate_left(1);
+                offset
+            }
+            _ => phase,
+        };
+        match &runs {
+            [] | [(true, _)] => Ok(None),
+            [(true, head), rest @ ..] => Dashes::try_new(NEVec::from((*head, rest.iter().map(|(_, length)| *length).collect()))).map(|dashes| Some((dashes, offset))),
+            [(false, _), ..] => Err(DashesError::PredicateViolated),
+        }
+    }
     struct Frame {
         source: Either<IntoIter<Arc<EntityType>>, (Expansion, Subject)>,
         layers: Validated<Vec<pages::Layer>, CadError> = Validated::Good(Vec::new()),
     }
+    let attributed = |attribute: &AttributeEntity| Text {
+        value: attribute.value.clone(),
+        insertion_point: attribute.insertion_point,
+        alignment_point: Some(attribute.alignment_point),
+        height: attribute.height,
+        rotation: attribute.rotation,
+        width_factor: attribute.width_factor,
+        oblique_angle: attribute.oblique_angle,
+        style: attribute.text_style.clone(),
+        horizontal_alignment: match attribute.horizontal_alignment {
+            HorizontalAlignment::Left => TextHorizontalAlignment::Left,
+            HorizontalAlignment::Center => TextHorizontalAlignment::Center,
+            HorizontalAlignment::Right => TextHorizontalAlignment::Right,
+            HorizontalAlignment::Aligned => TextHorizontalAlignment::Aligned,
+            HorizontalAlignment::Middle => TextHorizontalAlignment::Middle,
+            HorizontalAlignment::Fit => TextHorizontalAlignment::Fit,
+        },
+        vertical_alignment: match attribute.vertical_alignment {
+            VerticalAlignment::Baseline => TextVerticalAlignment::Baseline,
+            VerticalAlignment::Bottom => TextVerticalAlignment::Bottom,
+            VerticalAlignment::Middle => TextVerticalAlignment::Middle,
+            VerticalAlignment::Top => TextVerticalAlignment::Top,
+        },
+        normal: attribute.normal,
+        generation_flags: attribute.text_generation_flags,
+        ..Text::new()
+    };
     let ordered = |document: &CadDocument, block: &str| -> Vec<Arc<EntityType>> {
         let record = document.block_records.get(block);
         let owner = record.map(|record| record.handle);
@@ -231,7 +290,7 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
             let (factor, target) = context.drafting.map_or_else(|| (context.frame.determinant().abs().sqrt(), Target::Model), |paper| (paper, Target::Drafting));
             match stated {
                 Some(entry) if entry.is_complex() => Err(Refusal::Linetype),
-                Some(entry) => curves::dashes(entry.elements.iter().map(|element| element.length), document.header.linetype_scale * common.linetype_scale * factor)
+                Some(entry) => dashes(entry.elements.iter().map(|element| element.length), document.header.linetype_scale * common.linetype_scale * factor)
                     .map_err(|DashesError::PredicateViolated| Refusal::Linetype)?
                     .map(|(dashes, offset)| {
                         DashOffset::try_new(offset)
@@ -275,8 +334,7 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                     Err(NEVec::new(refusing(Refusal::Unsupported)))
                 }
                 parts => {
-                    #[expect(clippy::needless_collect, reason = "frame owns Vec::IntoIter")]
-                    let shown = parts
+                    let entities = parts
                         .into_iter()
                         .filter_map(|part| match part {
                             EntityType::AttributeDefinition(definition) =>
@@ -284,8 +342,8 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
                             shown => Some(shown),
                         })
                         .chain(insert.attributes.iter().cloned().map(EntityType::AttributeEntity))
-                        .collect::<Vec<_>>();
-                    Ok(Expansion { entities: shown.into_iter(), name: Some(block_key) })
+                        .collect();
+                    Ok(Expansion { entities, name: Some(block_key) })
                 }
             }
         };
@@ -329,14 +387,14 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
             EntityType::Text(text) => lettered(Either::Left(text)),
             EntityType::MText(mtext) => lettered(Either::Right(&**mtext)),
             EntityType::AttributeEntity(attribute) if !attribute.is_visible() => Ok(Vec::new()),
-            EntityType::AttributeEntity(attribute) => attribute.embedded_mtext.as_deref().map_or_else(|| lettered(Either::Left(&text::attributed(attribute))), |mtext| lettered(Either::Right(mtext))),
-            EntityType::AttributeDefinition(definition) => lettered(Either::Left(&text::attributed(&AttributeEntity::from_definition(definition, Some(definition.tag.clone()))))),
+            EntityType::AttributeEntity(attribute) => attribute.embedded_mtext.as_deref().map_or_else(|| lettered(Either::Left(&attributed(attribute))), |mtext| lettered(Either::Right(mtext))),
+            EntityType::AttributeDefinition(definition) => lettered(Either::Left(&attributed(&AttributeEntity::from_definition(definition, Some(definition.tag.clone()))))),
             EntityType::Hatch(hatch) if hatch.gradient_color.is_enabled() => Err(NEVec::new(refusing(Refusal::Gradient))),
             EntityType::Hatch(hatch) if hatch.is_solid =>
                 Validated::from(curves::boundary(hatch, frame, tolerance, subject)).map2(penned(), |region, pen| piece(vec![Element::Fill { region, color: pen.color, opacity: pen.opacity }])).ok(),
             EntityType::Hatch(hatch) => {
                 let family = |(index, line): (usize, &HatchPatternLine)| -> Result<Family, CadError> {
-                    let dashed = curves::dashes(line.dash_lengths.iter().copied(), 1.0).map_err(|DashesError::PredicateViolated| misshapen(LineworkError::Scaled(Dash::Array)))?;
+                    let dashed = dashes(line.dash_lengths.iter().copied(), 1.0).map_err(|DashesError::PredicateViolated| misshapen(LineworkError::Scaled(Dash::Array)))?;
                     let delta = (Affine::rotate(-line.angle) * Point::new(line.offset.x, line.offset.y)).to_vec2();
                     let shift = dashed.as_ref().map_or_default(|&(_, offset)| offset);
                     Family::try_new(Descriptor {
@@ -408,7 +466,7 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
             | EntityType::Body(_)
             | EntityType::Surface(_) => match document.explode_entity(entity) {
                 [] => Err(NEVec::new(refusing(Refusal::Unsupported))),
-                parts => return Ok(ControlFlow::Break(Expansion { entities: parts.into_iter(), name: None })),
+                parts => return Ok(ControlFlow::Break(Expansion { entities: parts.into(), name: None })),
             },
             EntityType::Light(_) | EntityType::Viewport(_) | EntityType::Block(_) | EntityType::BlockEnd(_) | EntityType::Seqend(_) => Ok(Vec::new()),
             EntityType::RasterImage(_)
@@ -448,7 +506,7 @@ pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Conte
     loop {
         let next = match &mut frame.source {
             Either::Left(entities) => entities.next().map(Either::Left),
-            Either::Right((expansion, _)) => expansion.entities.next().map(Either::Right),
+            Either::Right((expansion, _)) => expansion.entities.pop_front().map(Either::Right),
         };
         let Some(entity) = next else {
             if let Either::Right((Expansion { entities: _, name: Some(name) }, _)) = frame.source {

@@ -1,0 +1,19 @@
+# --- [SQUAWK] ---------------------------------------------------------------------------
+
+excluded_rules = [
+    "adding-field-with-default",
+    "ban-drop-column",
+    "ban-drop-constraint",
+    "ban-drop-default",
+    "ban-drop-not-null",
+    "ban-drop-table",
+    "changing-column-type",
+    "prefer-identity",
+    "prefer-robust-stmts",
+    "prefer-timestamp-tz",
+    "renaming-column",
+    "renaming-object",
+    "renaming-table",
+    "require-statement-timeout",
+]
+pg_version     = "19.0"

@@ -1,7 +1,5 @@
-use core::{
-    hint::black_box,
-    ops::{Deref, DerefMut},
-};
+use core::hint::black_box;
+use core::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 // --- [MODELS] --------------------------------------------------------------------------

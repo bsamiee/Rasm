@@ -80,7 +80,6 @@ internal sealed class Typeset(Shaping shaping, View.Text text, TextStyle style, 
         internal float Origin => Direction is TextDirection.RTL ? Carets.Span[^1] : Carets.Span[0];
         internal float FontSize => Style.FontSize * Em;
         internal Seq<int> Stops => stops.Value.Filter(stop => stop >= Text.Start && stop <= End);
-        internal float HalfLeading => (((Metrics.Descent - Metrics.Ascent) * (Style.LineHeight - 1f)) + Metrics.Leading) / 2f;
         internal float Caret(int index) => Carets.Span[index - Text.Start] - Origin;
         internal float Advance(int first, int last) => Direction is TextDirection.RTL ? Carets.Span[first - Text.Start] - Carets.Span[last - Text.Start] : Carets.Span[last - Text.Start] - Carets.Span[first - Text.Start];
         internal bool HasBoundary(int point) => point == Text.Start || point == End || Clusters.Span.BinarySearch(point, Order) >= 0;
@@ -134,7 +133,7 @@ internal sealed class Typeset(Shaping shaping, View.Text text, TextStyle style, 
 
         internal static (float Baseline, float Height) Measure(IEnumerable<Run> runs) =>
             runs.Aggregate((Baseline: 0f, Descent: 0f), static (held, run) => {
-                float leading = run.HalfLeading;
+                float leading = (((run.Metrics.Descent - run.Metrics.Ascent) * (run.Style.LineHeight - 1f)) + run.Metrics.Leading) / 2f;
                 return (float.MaxNumber(held.Baseline, -run.Metrics.Ascent + run.Rise + leading), float.MaxNumber(held.Descent, run.Metrics.Descent - run.Rise + leading));
             }) switch { var metrics => (metrics.Baseline, metrics.Baseline + metrics.Descent), };
     }
@@ -534,13 +533,6 @@ internal static class Typesetting {
     }
 
     // --- [DRAWING]
-
-    internal static Option<SKTextBlob> Blob(Typeset.Run run, TextPaintOptions raster) {
-        using SKFont font = new(run.Typeface, run.FontSize) { Edging = raster.Edging, Hinting = raster.Hinting, Subpixel = raster.SubpixelPositioning };
-        using SKTextBlobBuilder builder = new();
-        builder.AddPositionedRun(run.Glyphs.Span, font, run.Positions.Span);
-        return Optional(builder.Build());
-    }
 
     internal static void Paint(SKCanvas canvas, Typeset set, SKPoint origin, TextPaintOptions raster, SKColorF tint, Func<Typeset.Run, Option<SKTextBlob>> blobs) {
         using SKAutoCanvasRestore restore = new(canvas, doSave: true);

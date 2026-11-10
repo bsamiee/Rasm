@@ -1,6 +1,7 @@
 #![feature(gen_blocks, iterator_try_collect)]
 
-use core::{num::NonZero, range::RangeInclusive};
+use core::num::NonZero;
+use core::range::RangeInclusive;
 
 use datasketches::error::Error;
 use nonempty_collections::NEBTreeMap;

@@ -35,13 +35,13 @@ struct AccumulationTests {
     @Test
     func combinesEverySuccess() throws {
         let combined: Result<(Int, String), AggregateError<Refusal>> = combine(Result.success(1), Result.success("a"))
-        let (number, text): (Int, String) = try combined.get()
+        let (number, text) = try combined.get()
         expectNoDifference([String(number), text], ["1", "a"])
     }
 
     @Test
     func combinesEveryFailureInOrder() {
-        let combined: Result<(Int, String, Bool), AggregateError<Refusal>> = combine(
+        let combined = combine(
             Result<Int, Refusal>.failure(Refusal(field: "width")).aggregated { $0 },
             Result<String, AggregateError<Refusal>>.success("kept"),
             Result<Bool, AggregateError<Refusal>>.failure(AggregateError(first: Refusal(field: "height"), remaining: [Refusal(field: "depth")])),
@@ -52,9 +52,9 @@ struct AccumulationTests {
     @Test
     func traversesEveryElement() async {
         await propertyCheck(input: Gen.int(in: -50...50).array(of: 0...20)) { numbers in
-            let traversed: Result<[Int], AggregateError<Refusal>> = traverse(numbers) { number in number < 0 ? .failure(AggregateError(first: Refusal(field: String(number)))) : .success(number * 2) }
-            let refused: [String] = numbers.filter { number in number < 0 }.map(String.init)
-            let doubled: [Int]? = refused.isEmpty ? numbers.map { number in number * 2 } : nil
+            let traversed = traverse(numbers) { number in number < 0 ? .failure(AggregateError(first: Refusal(field: String(number)))) : .success(number * 2) }
+            let refused = numbers.filter { number in number < 0 }.map(String.init)
+            let doubled = refused.isEmpty ? numbers.map { number in number * 2 } : nil
             expectNoDifference(traversed.succeeded, doubled)
             expectNoDifference(traversed.failureFields, refused)
         }
@@ -65,7 +65,7 @@ struct AccumulationTests {
         let empty = AggregateError([Refusal]())
         let errors = AggregateError([Refusal(field: "a"), Refusal(field: "b")])
         let underlying = errors?.errorUserInfo[NSMultipleUnderlyingErrorsKey] as? [Refusal]
-        let description: String? = errors?.errorDescription
+        let description = errors?.errorDescription
         expectNoDifference(empty?.errors, nil)
         expectNoDifference(description, "Refused a\nRefused b")
         expectNoDifference(underlying, [Refusal(field: "a"), Refusal(field: "b")])
@@ -87,7 +87,7 @@ struct AccumulationTests {
 struct RaceTests {
     @Test
     func answersBeforeTheTimeout() async throws {
-        let value: Int = try await withTimeout(.seconds(60), expired: Refusal(field: "timeout")) { () async throws(Refusal) -> Int in 1 }
+        let value = try await withTimeout(.seconds(60), expired: Refusal(field: "timeout")) { () async throws(Refusal) -> Int in 1 }
         expectNoDifference(value, 1)
     }
 
@@ -104,7 +104,7 @@ struct RaceTests {
 
     @Test
     func takesTheFirstOutcome() async throws {
-        let value: Int = try await race(
+        let value = try await race(
             { () async throws(Refusal) -> Int in 1 },
             against: { () async throws(Refusal) -> Int in
                 try? await Task.sleep(for: .seconds(60))

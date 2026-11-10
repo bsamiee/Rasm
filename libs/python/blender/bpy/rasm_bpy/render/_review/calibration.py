@@ -6,7 +6,7 @@ from enum import auto, Enum
 from functools import cached_property, partial
 import math
 from pathlib import Path
-from typing import ClassVar, Final, TYPE_CHECKING
+from typing import Annotated, ClassVar, Final
 
 import bpy
 from expression import Option, Some
@@ -14,7 +14,7 @@ import msgspec
 import PyOpenColorIO
 
 from rasm_bpy.commands.invocations import Save
-from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Operator
+from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Notes, Operator
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration
 from rasm_bpy.data._rna.conditions import AllOf, Setting
@@ -23,21 +23,18 @@ from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.properties import Callbacks, choices, enum_choices
 from rasm_bpy.data._rna.snapshots import Snapshot
 from rasm_bpy.render._color.luts import Baking, extension, FORMATS, output, Writing
-from rasm_bpy.render._compositor.editing import _inserted
-from rasm_bpy.render._review.charts import _Need, PlacedChart
+from rasm_bpy.render._compositor.editing import inserted
+from rasm_bpy.render._review.charts import Need, PlacedChart
 from rasm_bpy.render._review.editing import ChartEditing
-from rasm_bpy.scene._materials import _color_matrix
+from rasm_bpy.scene._materials import color_matrix
 from rasm_bpy.settings._attachments import Attachment
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _grouped, Layout, OperatorButton, Property, RowContent
+from rasm_bpy.ui._layout.rows import grouped, Layout, OperatorButton, Property, RowContent
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
-from rasm_bpy.ui._screens.areas import _NodeEditing
+from rasm_bpy.ui._screens.areas import NodeEditing
 from rasm_imaging import Calibration, Colors, LutOutput
 from rasm_records import Fault, Nothing, Ok, Outcome, paired
-
-if TYPE_CHECKING:
-    from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -60,26 +57,32 @@ _DIRECTIONS: Final = (PyOpenColorIO.TRANSFORM_DIR_FORWARD, PyOpenColorIO.TRANSFO
 class Calibrating(bpy.types.PropertyGroup):
     """Scene's calibration pairing and fit choices, its image pointers choosing images holding sampled charts."""
 
-    source: bpy.props.PointerProperty(type=bpy.types.Image, name="Source", description="Sampled source image")  # ty: ignore[invalid-type-form]
-    target: bpy.props.EnumProperty(name="Target", description="Colors samples map onto", items=enum_choices(Aim))  # ty: ignore[invalid-type-form]
-    space: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
-        name="Space",
-        description="Reference value colorspace",
-        items=lambda _owner, _context: choices(
-            (space.getName(), space.getName(), space.getDescription())
-            for space in PyOpenColorIO.GetCurrentConfig().getColorSpaces(PyOpenColorIO.SEARCH_REFERENCE_SPACE_ALL, PyOpenColorIO.COLORSPACE_ALL)
+    source: Annotated[bpy.types.Image | None, bpy.props.PointerProperty(type=bpy.types.Image, name="Source", description="Sampled source image")]
+    target: Annotated[str, bpy.props.EnumProperty(name="Target", description="Colors samples map onto", items=enum_choices(Aim))]
+    space: Annotated[
+        str,
+        bpy.props.EnumProperty(
+            name="Space",
+            description="Reference value colorspace",
+            items=lambda _owner, _context: choices(
+                (space.getName(), space.getName(), space.getDescription())
+                for space in PyOpenColorIO.GetCurrentConfig().getColorSpaces(PyOpenColorIO.SEARCH_REFERENCE_SPACE_ALL, PyOpenColorIO.COLORSPACE_ALL)
+            ),
+            get_transform=lambda _owner, value, is_set: value if is_set else choices(((PyOpenColorIO.GetCurrentConfig().getCanonicalName(PyOpenColorIO.ROLE_SCENE_LINEAR), "", ""),))[0][4],
         ),
-        get_transform=lambda _owner, value, is_set: value if is_set else choices(((PyOpenColorIO.GetCurrentConfig().getCanonicalName(PyOpenColorIO.ROLE_SCENE_LINEAR), "", ""),))[0][4],
-    )
-    image: bpy.props.PointerProperty(type=bpy.types.Image, name="Image", description="Image source samples map onto")  # ty: ignore[invalid-type-form]
-    direction: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
-        name="Direction",
-        description="Source to target or back",
-        items=choices((PyOpenColorIO.TransformDirectionToString(direction), bpy.path.display_name(PyOpenColorIO.TransformDirectionToString(direction)), "") for direction in _DIRECTIONS),
-    )
-    gain: bpy.props.BoolProperty(name="Keep Gain", description="Fold exposure gain into transform")  # ty: ignore[invalid-type-form]
-    normalized: bpy.props.BoolProperty(name="Normalize", description="Keep source neutral luma, gain held as exposure", default=True)  # ty: ignore[invalid-type-form]
-    clamped: bpy.props.BoolProperty(name="Clamp", description="Clip exported values to [0, 1]")  # ty: ignore[invalid-type-form]
+    ]
+    image: Annotated[bpy.types.Image | None, bpy.props.PointerProperty(type=bpy.types.Image, name="Image", description="Image source samples map onto")]
+    direction: Annotated[
+        str,
+        bpy.props.EnumProperty(
+            name="Direction",
+            description="Source to target or back",
+            items=choices((PyOpenColorIO.TransformDirectionToString(direction), bpy.path.display_name(PyOpenColorIO.TransformDirectionToString(direction)), "") for direction in _DIRECTIONS),
+        ),
+    ]
+    gain: Annotated[bool, bpy.props.BoolProperty(name="Keep Gain", description="Fold exposure gain into transform")]
+    normalized: Annotated[bool, bpy.props.BoolProperty(name="Normalize", description="Keep source neutral luma, gain held as exposure", default=True)]
+    clamped: Annotated[bool, bpy.props.BoolProperty(name="Clamp", description="Clip exported values to [0, 1]")]
 
 
 class Calibrated(msgspec.Struct, frozen=True, kw_only=True):
@@ -119,7 +122,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [FITS]
 
-    def conditioned(self, fit: Calibration) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
+    def conditioned(self, fit: Calibration) -> Notes:
         """Warns of a fit conditioned past the ceiling."""
         return (("WARNING", f"Fitted transform poorly conditioned ({fit.condition:.2e}), check chart alignment"),) if fit.condition > self.ceiling else ()
 
@@ -129,10 +132,10 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         forward = PyOpenColorIO.TransformDirectionFromString(chosen.direction) == PyOpenColorIO.TRANSFORM_DIR_FORWARD
 
         def held(image: bpy.types.Image | None, role: str) -> Outcome[tuple[bpy.types.Image, PlacedChart]]:
-            return Option.of_optional(image).to_result_with(lambda: Fault.of(_Need.CHOSEN, role)).bind(lambda found: self.charts.charting.record(identity, found).map(lambda record: (found, record)))
+            return Option.of_optional(image).to_result_with(lambda: Fault.of(Need.CHOSEN, role)).bind(lambda found: self.charts.charting.record(identity, found).map(lambda record: (found, record)))
 
         def samples(pair: tuple[bpy.types.Image, PlacedChart]) -> Outcome[Colors]:
-            return pair[1].sampled(config).bind(lambda found: found.to_result_with(lambda: Fault.of(_Need.SAMPLED, pair[0].name)))
+            return pair[1].sampled(config).bind(lambda found: found.to_result_with(lambda: Fault.of(Need.SAMPLED, pair[0].name)))
 
         def aimed(source: PlacedChart) -> Outcome[Colors]:
             match target:
@@ -142,7 +145,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     return (
                         held(chosen.image, "target")
                         .filter_with(
-                            lambda pair: pair[1].placement.chart is source.placement.chart, lambda pair: Fault.of(_Need.MATCHED, f"{source.placement.chart.name}, got {pair[1].placement.chart.name}")
+                            lambda pair: pair[1].placement.chart is source.placement.chart, lambda pair: Fault.of(Need.MATCHED, f"{source.placement.chart.name}, got {pair[1].placement.chart.name}")
                         )
                         .bind(samples)
                     )
@@ -156,7 +159,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                     (fit, source[neutral], goal[neutral], linear, aimed_space) if forward else (fit.inverted, goal[neutral], source[neutral], aimed_space, linear)
                 )
                 normalized = calibration.normalized(first, last, config, source_space=source_space, target_space=target_space) if chosen.normalized else Ok(Some(calibration))
-                return normalized.bind(lambda found: found.to_result_with(lambda: Fault.of(_Need.LIT, image.name))).map(
+                return normalized.bind(lambda found: found.to_result_with(lambda: Fault.of(Need.LIT, image.name))).map(
                     lambda kept: kept if chosen.gain else msgspec.structs.replace(kept, color_matrix=tuple(map(tuple, kept.matrix.tolist())), exposure=0.0)
                 )
 
@@ -171,16 +174,16 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [COMMANDS]
 
     def insert_calibration(self, call: Call[Empty]) -> Outcome[Answer]:
-        """Insert calibration matrix after active node."""
+        """Insert calibration matrix after active node, routing each consumer link of its first enabled output through it, every edit rolled back on a fault."""
 
-        def spliced(chosen: _NodeEditing, made: Calibrated) -> Outcome[Answer]:
-            calibration = made.calibration
+        def spliced(chosen: NodeEditing, found: Calibrated) -> Outcome[Answer]:
+            calibration = found.calibration
             rows = dict(zip(("red", "green", "blue"), map(tuple, calibration.matrix.tolist()), strict=True))
-            return _inserted(chosen.tree, chosen.active, chosen.cursor, _color_matrix.group, call.identity, inputs={**rows, "gain": math.exp2(calibration.exposure)}).map(
-                lambda _: Done(notes=(*self.conditioned(made.fit), ("INFO", "Inserted calibration matrix")))
+            return inserted(chosen.tree, chosen.active, chosen.cursor, color_matrix.group, call.identity, inputs={**rows, "gain": math.exp2(calibration.exposure)}).map(
+                lambda _: Done(notes=(*self.conditioned(found.fit), ("INFO", "Inserted calibration matrix")))
             )
 
-        return self.fitting(call).bind(lambda made: _NodeEditing.of(call.context).bind(lambda chosen: spliced(chosen, made)))
+        return self.fitting(call).bind(lambda found: NodeEditing.of(call.context).bind(lambda chosen: spliced(chosen, found)))
 
     def filed[T: Baking | Writing](self, written: LutOutput, call: Call[T]) -> Outcome[Answer]:
         """Writes the chosen direction's calibration to its direction's destination and its inverse to the other through an output, clamped to the unit range when chosen."""
@@ -231,7 +234,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Image editor calibration section: the shown image's chart, the consumer's actions and the file commands, then the scene's calibration fields."""
         return Section(
             key=_KEY,
-            rows=(*self.charts.rows, Layout(rows=(*self.actions, OperatorButton(target=self.baking), OperatorButton(target=self.writing)), container=Some(_grouped))),
+            rows=(*self.charts.rows, Layout(rows=(*self.actions, OperatorButton(target=self.baking), OperatorButton(target=self.writing)), container=Some(grouped))),
             store=Some(Store(attachment=self.calibrations)),
         )
 
@@ -253,7 +256,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns the scene calibration, the matrix group, and the calibration commands."""
-        return (self.calibrations, _color_matrix.group, self.inserting, self.baking, self.writing)
+        return (self.calibrations, color_matrix.group, self.inserting, self.baking, self.writing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

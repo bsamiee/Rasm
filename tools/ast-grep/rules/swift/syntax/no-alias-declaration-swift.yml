@@ -2,30 +2,24 @@
 language: swiftlang
 severity: error
 utils:
-    owner-name:
-        has: {field: name, any: [{kind: type_name, pattern: $OWNER}, {kind: user_type, has: {kind: type_identifier, nthChild: 1, pattern: $OWNER}}]}
+    read:
+        kind: type_identifier
+        pattern: $ALIAS
+        not: {inside: {kind: typealias_declaration, field: name}}
+    holding-read: {any: [{matches: read}, {has: {stopBy: end, matches: read}}]}
+    shared:
+        inside:
+            stopBy: end
+            kind: source_file
+            has: {stopBy: end, all: [{matches: read}, {any: [{precedes: &later {stopBy: end, matches: holding-read}}, {inside: {stopBy: end, not: {kind: source_file}, precedes: *later}}]}]}
+    exported:
+        has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|package|open)$'}}
 rule:
     kind: typealias_declaration
-    has: {field: name, kind: type_identifier, pattern: $ALIAS}
-    any:
-        - inside: {kind: 'source_file, statements'}
-        - inside:
-            kind: 'class_body, enum_class_body'
-            inside:
-                kind: class_declaration
-                all:
-                    - not: {has: {kind: inheritance_specifier}}
-                    - matches: owner-name
-                    - not:
-                        inside:
-                            kind: source_file
-                            stopBy: end
-                            has:
-                                stopBy: end
-                                kind: class_declaration
-                                all:
-                                    - has: {kind: inheritance_specifier}
-                                    - matches: owner-name
-        - inside: {kind: protocol_body, inside: {kind: protocol_declaration, not: {has: {kind: inheritance_specifier}}}}
+    all:
+        - has: {field: name, kind: type_identifier, pattern: $ALIAS}
+        - not: {matches: swift-conformance-member}
+        - not: {inside: {kind: protocol_body, inside: {kind: protocol_declaration, has: {kind: inheritance_specifier}}}}
+        - not: {all: [{has: {kind: 'tuple_type, function_type'}}, {any: [{matches: exported}, {matches: shared}]}]}
 message: '`$ALIAS` is another name for its type'
-note: 'Spell the type at each use or declare a type holding its fields, and delete its alias'
+note: 'Spell the type at each use or declare a type holding its fields, and delete its alias, a tuple or function type alias declared `public` or `package` or read twice in its file stays'

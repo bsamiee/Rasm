@@ -24,12 +24,14 @@ url                         = "http://localhost:7490/"
 default_tools_approval_mode = "approve"
 command                     = "mcp-muxer"
 args                        = ["run", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--env", "DOTNET_ROLL_FORWARD=Major", "--", "roslyn-codelens-mcp"]
+disabled_tools              = ["load_solution", "unload_solution", "set_active_solution"]
 
 [mcp_servers.binlog]
-default_tools_approval_mode = "approve"
-command                     = "mcp-muxer"
-args                        = ["run", "--share", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "binlog-mcp"]
-disabled_tools              = ["stop", "stop_instance"]
+default_tools_approval_mode  = "approve"
+command                      = "mcp-muxer"
+args                         = ["run", "--share", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "binlog-mcp"]
+disabled_tools               = ["stop", "stop_instance"]
+supports_parallel_tool_calls = true
 
 [mcp_servers.nuget]
 default_tools_approval_mode = "approve"
@@ -37,9 +39,10 @@ command                     = "mcp-muxer"
 args                        = ["run", "--share", "user", "--env", "DOTNET_GCConserveMemory=5", "--env", "DOTNET_CLI_TELEMETRY_OPTOUT=1", "--", "nuget-mcp-server"]
 
 [mcp_servers.ast-grep]
-default_tools_approval_mode = "approve"
-command                     = "mcp-muxer"
-args                        = ["run", "--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml"]
+default_tools_approval_mode  = "approve"
+command                      = "mcp-muxer"
+args                         = ["run", "--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml"]
+supports_parallel_tool_calls = true
 
 [mcp_servers.github]
 default_tools_approval_mode = "approve"
@@ -62,8 +65,9 @@ url                         = "https://mcp.context7.com/mcp"
 bearer_token_env_var        = "CONTEXT7_API_KEY"
 
 [mcp_servers.deepwiki]
-default_tools_approval_mode = "approve"
-url                         = "https://mcp.deepwiki.com/mcp"
+default_tools_approval_mode  = "approve"
+url                          = "https://mcp.deepwiki.com/mcp"
+supports_parallel_tool_calls = true
 
 [mcp_servers.greptile]
 url                  = "https://api.greptile.com/mcp"
@@ -142,3 +146,13 @@ command                     = "mcp-muxer"
 args                        = ["run", "--share", "user", "--env", "BLENDER_MCP_DISABLE_TELEMETRY=true", "--env", "MCP_FOR_BLENDER_PORT", "--env", "BLENDERMCP_SKETCHFAB_API_KEY", "--env", "BLENDERMCP_POLYPIZZA_API_KEY", "--", "mcp-for-blender"]
 env_vars                    = ["MCP_FOR_BLENDER_PORT", "BLENDERMCP_SKETCHFAB_API_KEY", "BLENDERMCP_POLYPIZZA_API_KEY"]
 tool_timeout_sec            = 600
+
+# --- [HOOKS] ----------------------------------------------------------------------------
+
+[[hooks.PreToolUse]]
+matcher = "^Bash$"
+
+[[hooks.PreToolUse.hooks]]
+type    = "command"
+command = 'node "$(git rev-parse --show-toplevel)/plugins/function-hooks/codex.ts" || exit 2'
+timeout = 30

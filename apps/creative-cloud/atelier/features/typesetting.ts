@@ -7,8 +7,7 @@ import { Face, Kerning, Symbols, Word } from '@rasm/typography/shaping';
 import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Predicate, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
-import { Adobe } from '#/adobe';
-import { AvailableFace } from '#/available-face';
+import { Adobe, AvailableFace } from '#/adobe';
 import { applicationFont } from '#/features/fonts';
 import type { routes } from '#/routes';
 

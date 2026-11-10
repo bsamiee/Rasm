@@ -1,21 +1,17 @@
 use core::iter;
 use std::collections::{BTreeMap, HashMap};
 
-use dugong::{
-    EdgeLabel, GraphLabel, LabelPos, NodeLabel, RankDir, WorkControl,
-    graphlib::{Graph, GraphOptions},
-};
+use dugong::graphlib::{Graph, GraphOptions};
+use dugong::{EdgeLabel, GraphLabel, LabelPos, NodeLabel, RankDir, WorkControl};
 use itertools::Itertools as _;
-use kurbo::{Point, Rect, Size, Vec2};
-use petgraph::{
-    EdgeType,
-    graph::GraphIndex,
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
-    visit::NodeIndexable as _,
-};
+use kurbo::{BezPath, Line, Point, Rect, Shape as _, Size, Vec2};
+use petgraph::EdgeType;
+use petgraph::graph::GraphIndex;
+use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
+use petgraph::visit::NodeIndexable as _;
 
 use crate::{
-    CurveStyle, Distance, Drawing, Extent, Hierarchy, Interpolation, LayoutError, Node, clipped, drawn, hierarchy, is_cluster, linked, nesting, non_cluster, offsets, outline, path, route, titled,
+    CurveStyle, Distance, Drawing, Extent, Hierarchy, Interpolation, LayoutError, Node, crossing, drawn, hierarchy, is_cluster, linked, nesting, non_cluster, offsets, outline, path, route, titled,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -153,6 +149,16 @@ where
         }
     };
     let spread = offsets(layered.graph().edgesep, &direct);
+    let clipped = |points: &[Point], source: &BezPath, target: &BezPath| {
+        let crossed = |outline: &BezPath, outside: usize, inside: Option<usize>| {
+            points.get(outside).zip(inside.and_then(|inside| points.get(inside))).and_then(|(&outer, &inner)| crossing(outline, Line::new(outer, inner)))
+        };
+        match (points.iter().position(|&point| !source.contains(point)), points.iter().rposition(|&point| !target.contains(point))) {
+            (Some(exit), Some(entry)) if exit <= entry =>
+                iter::chain(crossed(source, exit, exit.checked_sub(1)), points.get(exit..=entry).into_iter().flatten().copied()).chain(crossed(target, entry, entry.checked_add(1))).collect(),
+            (Some(_) | None, Some(_) | None) => points.to_vec(),
+        }
+    };
     let routes = ranked
         .iter()
         .filter_map(|&(index, source, target, Edge { label, minlen: _, weight: _, interpolation })| {

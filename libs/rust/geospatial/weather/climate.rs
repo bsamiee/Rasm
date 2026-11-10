@@ -1,5 +1,10 @@
-use core::{hash::Hash, iter, num::NonZero, ops::Mul, range::RangeInclusive};
-use std::collections::{BTreeMap, HashMap, VecDeque, hash_map::Entry};
+use core::hash::Hash;
+use core::iter;
+use core::num::NonZero;
+use core::ops::Mul;
+use core::range::RangeInclusive;
+use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, HashMap, VecDeque};
 
 use itertools::Itertools as _;
 use jiff::civil;
@@ -8,26 +13,18 @@ use nonempty_collections::{NEVec, NonEmptyIterator as _};
 use rasm_site::Place;
 use rasm_solar_geometry::sector;
 use statrs::statistics::{Data, OrderStatistics as _, Statistics as _};
-use thermalcomfort::{
-    Speed, Temperature,
-    environment::{RunningMeanOutdoorTemperatureOptions, ScaleWindSpeedLogOptions, running_mean_outdoor_temperature, scale_wind_speed_log},
-};
-use uom::si::{
-    self,
-    f64::{Length, Ratio, TemperatureInterval, ThermodynamicTemperature, Time, Velocity},
-    length::meter,
-    ratio::ratio,
-    temperature_interval,
-    time::second,
-    velocity::meter_per_second,
-};
+use thermalcomfort::environment::{RunningMeanOutdoorTemperatureOptions, ScaleWindSpeedLogOptions, running_mean_outdoor_temperature, scale_wind_speed_log};
+use thermalcomfort::{Speed, Temperature};
+use uom::si::f64::{Length, Ratio, TemperatureInterval, ThermodynamicTemperature, Time, Velocity};
+use uom::si::length::meter;
+use uom::si::ratio::ratio;
+use uom::si::time::second;
+use uom::si::velocity::meter_per_second;
+use uom::si::{self, temperature_interval};
 use validated::Validated;
 
-use crate::{
-    Defect, Hour, Hours, Measure, Refusal, WeatherError,
-    epw::{Day, Kind, Period},
-    length, local, measure, positive, quantity, redated, refused, weighted, zone,
-};
+use crate::epw::{Day, Kind, Period};
+use crate::{Defect, Hour, Hours, Measure, Refusal, WeatherError, length, local, measure, positive, quantity, redated, refused, weighted, zone};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,14 +1,13 @@
-use core::{iter, num::NonZero};
+use core::iter;
+use core::num::NonZero;
 
 use nalgebra::convert;
 use ndarray::{Array1, Array2, Axis, Slice, Zip};
 use ndarray_conv::{BorderType, ConvFFTExt as _, ConvMode, Error, PaddingMode, ReverseKernel as _};
 use num_complex::Complex;
 
-use crate::{
-    Lagged, Rate, Samples, Series, SpectraError,
-    transforms::{signal, spectrum},
-};
+use crate::transforms::{signal, spectrum};
+use crate::{Lagged, Rate, Samples, Series, SpectraError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,0 +1,36 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/reexported_dependency.rs
+---
+error: `pub use` exports `futures::future::join`, which no exported signature takes or returns
+ --> tools/dylint/examples/reexported_dependency.rs:3:9
+  |
+3 | pub use futures::future::join;
+  |         ^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: delete the re-export and import `futures::future::join` in each consumer
+  = note: `#[deny(reexported_dependency)]` on by default
+
+error: `pub use` exports `itertools` whole
+ --> tools/dylint/examples/reexported_dependency.rs:4:9
+  |
+4 | pub use itertools;
+  |         ^^^^^^^^^
+  |
+  = help: delete the re-export and import `itertools` in each consumer
+
+error: `pub use` exports `nonempty_collections::nev`, which no exported signature takes or returns
+ --> tools/dylint/examples/reexported_dependency.rs:5:39
+  |
+5 | pub use nonempty_collections::{NEVec, nev};
+  |                                       ^^^
+  |
+  = help: delete the re-export and import `nonempty_collections::nev` in each consumer
+
+error: `pub use` exports `tokio::sync::watch` whole
+ --> tools/dylint/examples/reexported_dependency.rs:7:9
+  |
+7 | pub use tokio::sync::watch::*;
+  |         ^^^^^^^^^^^^^^^^^^
+  |
+  = help: delete the re-export and import `tokio::sync::watch` in each consumer

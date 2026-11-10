@@ -1,8 +1,6 @@
-use core::{
-    cell::{Cell, RefCell},
-    hint::black_box,
-    iter::FusedIterator,
-};
+use core::cell::{Cell, RefCell};
+use core::hint::black_box;
+use core::iter::FusedIterator;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -64,12 +64,6 @@ internal static class LayerStack {
 
     // --- [QUERIES]
 
-    internal static HashSet<Seq<Key>> Inert(LayoutNode root, Seq<LayoutNode> layers) =>
-        toSeq(layers.Rev().SkipWhile(static layer => layer.View is not View.Layer { Modal: true })) switch {
-            var modal when modal.IsEmpty => [],
-            var modal => toHashSet(root.Cons(modal.Tail).Bind(static layout => layout.Preorder).Map(static held => held.Path)),
-        };
-
     internal static Option<Hosted> Popup(LayoutNode layer, SKRect window) =>
         from content in layer.Children.Find(static child => !IsScrim(child))
         let frame = Place.Absolute(content.Frame, layer.Frame.Location)

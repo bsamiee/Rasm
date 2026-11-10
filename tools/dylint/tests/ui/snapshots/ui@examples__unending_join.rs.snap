@@ -3,106 +3,106 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/unending_join.rs
 ---
 error: `for_each` over `WatchStream` can keep `futures::future::join` pending while a sender remains alive
-  --> tools/dylint/examples/unending_join.rs:21:13
+  --> tools/dylint/examples/unending_join.rs:22:13
    |
-21 | /             updates.for_each(|update| {
-22 | |                 black_box(update);
-23 | |                 ready(())
-24 | |             }),
+22 | /             updates.for_each(|update| {
+23 | |                 black_box(update);
+24 | |                 ready(())
+25 | |             }),
    | |______________^
    |
 note: sender held here
-  --> tools/dylint/examples/unending_join.rs:18:40
+  --> tools/dylint/examples/unending_join.rs:19:40
    |
-18 |         let updates = WatchStream::new(self.0.subscribe());
+19 |         let updates = WatchStream::new(self.0.subscribe());
    |                                        ^^^^^^
    = help: pin the futures, combine any remaining futures, and race `for_each` against them through `futures::future::select` in place of `futures::future::join`
    = note: `#[deny(unending_join)]` on by default
 
 error: `count` over `BroadcastStream` can keep `join!` pending while a sender remains alive
-  --> tools/dylint/examples/unending_join.rs:67:35
+  --> tools/dylint/examples/unending_join.rs:68:35
    |
-67 |     let (seen, ()) = tokio::join!(BroadcastStream::new(received).count(), task::yield_now());
+68 |     let (seen, ()) = tokio::join!(BroadcastStream::new(received).count(), task::yield_now());
    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: sender held here
-  --> tools/dylint/examples/unending_join.rs:66:10
+  --> tools/dylint/examples/unending_join.rs:67:10
    |
-66 |     let (sender, received) = broadcast::channel::<u32>(4);
+67 |     let (sender, received) = broadcast::channel::<u32>(4);
    |          ^^^^^^
    = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `join!`
 
 error: `count` over `BroadcastStream` can keep `futures::future::join` pending while a sender remains alive
-  --> tools/dylint/examples/unending_join.rs:81:35
+  --> tools/dylint/examples/unending_join.rs:82:35
    |
-81 |     let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
+82 |     let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: sender held here
-  --> tools/dylint/examples/unending_join.rs:80:10
+  --> tools/dylint/examples/unending_join.rs:81:10
    |
-80 |     let (sender, received) = broadcast::channel::<u32>(4);
+81 |     let (sender, received) = broadcast::channel::<u32>(4);
    |          ^^^^^^
    = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
 
 error: `count` over `BroadcastStream` can keep `futures::future::join` pending while a sender remains alive
-   --> tools/dylint/examples/unending_join.rs:103:37
+   --> tools/dylint/examples/unending_join.rs:104:37
     |
-103 |     let (seen, sent) = future::join(BroadcastStream::new(received).count(), async { sender.send(1) }).await;
+104 |     let (seen, sent) = future::join(BroadcastStream::new(received).count(), async { sender.send(1) }).await;
     |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: sender held here
-   --> tools/dylint/examples/unending_join.rs:102:10
+   --> tools/dylint/examples/unending_join.rs:103:10
     |
-102 |     let (sender, received) = broadcast::channel::<u32>(4);
+103 |     let (sender, received) = broadcast::channel::<u32>(4);
     |          ^^^^^^
     = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
 
 error: `count` over `BroadcastStream` can keep `futures::future::join` pending while a sender remains alive
-   --> tools/dylint/examples/unending_join.rs:118:39
+   --> tools/dylint/examples/unending_join.rs:119:39
     |
-118 |         let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
+119 |         let (seen, ()) = future::join(BroadcastStream::new(received).count(), task::yield_now()).await;
     |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: sender held here
-   --> tools/dylint/examples/unending_join.rs:116:10
+   --> tools/dylint/examples/unending_join.rs:117:10
     |
-116 |     let (sender, received) = broadcast::channel::<u32>(4);
+117 |     let (sender, received) = broadcast::channel::<u32>(4);
     |          ^^^^^^
     = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
 
 error: `count` over `WatchStream` can keep `futures::future::join` pending while a sender remains alive
-   --> tools/dylint/examples/unending_join.rs:188:18
+   --> tools/dylint/examples/unending_join.rs:189:18
     |
-188 |     future::join(WatchStream::new(received).count(), task::yield_now()).await.0
+189 |     future::join(WatchStream::new(received).count(), task::yield_now()).await.0
     |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: sender held here
-   --> tools/dylint/examples/unending_join.rs:187:20
+   --> tools/dylint/examples/unending_join.rs:188:20
     |
-187 |     let received = sender.subscribe();
+188 |     let received = sender.subscribe();
     |                    ^^^^^^
     = help: pin the futures, combine any remaining futures, and race `count` against them through `futures::future::select` in place of `futures::future::join`
 
 error: error `u8` is a primitive that names no failure
-   --> tools/dylint/examples/unending_join.rs:209:96
+   --> tools/dylint/examples/unending_join.rs:210:96
     |
-209 |     let drained = WatchStream::new(sender.subscribe()).map(Ok::<_, u8>).try_for_each(|_| ready(Err::<(), _>(1)));
+210 |     let drained = WatchStream::new(sender.subscribe()).map(Ok::<_, u8>).try_for_each(|_| ready(Err::<(), _>(1)));
     |                                                                                                ^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
     = note: `#[deny(untyped_error)]` on by default
 
 error: `discarded_stream` has one reader, `disconnected_stream`
-   --> tools/dylint/examples/unending_join.rs:219:1
+   --> tools/dylint/examples/unending_join.rs:220:1
     |
-219 | fn discarded_stream(stream: WatchStream<u32>) -> WatchStream<u32> {
+220 | fn discarded_stream(stream: WatchStream<u32>) -> WatchStream<u32> {
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/unending_join.rs:226:19
+   --> tools/dylint/examples/unending_join.rs:227:19
     |
-226 |     let updates = discarded_stream(WatchStream::new(sender.subscribe()));
+227 |     let updates = discarded_stream(WatchStream::new(sender.subscribe()));
     |                   ^^^^^^^^^^^^^^^^
     = help: move `discarded_stream` into `disconnected_stream` as a closure
     = note: `#[deny(single_reader)]` on by default

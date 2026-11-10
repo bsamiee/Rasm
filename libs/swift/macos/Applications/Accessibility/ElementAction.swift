@@ -32,25 +32,25 @@ extension ElementAction {
         if case .perform(_, kAXRaiseAction) = self {
             throw ApplicationFailure(subject: "\(self), raising a window takes focus from the frontmost application", reason: .refused(nil))
         }
-        let (instance, target): (NSRunningApplication, (owner: pid_t, node: AXUIElement?)) = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
-            let target: (owner: pid_t, node: AXUIElement?) = try resolved(in: process)
-            let subject: pid_t = process ?? target.owner
+        let (instance, target) = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
+            let target = try resolved(in: process)
+            let subject = process ?? target.owner
             guard let instance = NSRunningApplication(processIdentifier: subject), !instance.isTerminated else {
                 throw ApplicationFailure(subject: String(subject), reason: .noProcess)
             }
             return (instance, target)
         }
-        let states: some AsyncSequence<InstanceState, Never> & Sendable = instance.states(clock: clock)
-        let acted: CGWindowID? = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
+        let states = instance.states(clock: clock)
+        let acted = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             do throws(ApplicationFailure) { return try run(on: target) } catch  where error.reason.is(\.noProcess) || error.reason == .unanswered(self) { return nil }
         }
         var last: InstanceState?
-        for await next: InstanceState? in merge(states.map(Optional.some), AsyncTimerSequence(interval: messagingTimeout * 2, clock: clock).map { _ in InstanceState?.none }) {
+        for await next in merge(states.map(Optional.some), AsyncTimerSequence(interval: messagingTimeout * 2, clock: clock).map { _ in InstanceState?.none }) {
             if let next, !settled(next, acting: acted) {
                 last = next
                 continue
             }
-            if let state: InstanceState = next ?? last { return (instance, state) }
+            if let state = next ?? last { return (instance, state) }
         }
         throw ApplicationFailure(subject: description, reason: .cancelled)
     }
@@ -74,23 +74,25 @@ extension ElementAction {
                 guard let node = try AXUIElement.element(id.token), let owner = node.process else {
                     throw ApplicationFailure(subject: id.description, reason: .unresolved)
                 }
-                if let process, owner != process, !isDialogHelper(owner) { throw ApplicationFailure(subject: id.description, reason: .foreign(process)) }
+                if let process, owner != process, NSRunningApplication(processIdentifier: owner)?.isDialogHelper != true {
+                    throw ApplicationFailure(subject: id.description, reason: .foreign(process))
+                }
                 return (owner, node)
         }
     }
 
     private func run(on target: (owner: pid_t, node: AXUIElement?)) throws(ApplicationFailure) -> CGWindowID? {
-        guard let node: AXUIElement = target.node else {
+        guard let node = target.node else {
             guard case .key(let process, let code) = self else { return nil }
             let source = CGEventSource(stateID: .privateState)
-            for down: Bool in [true, false] {
+            for down in [true, false] {
                 guard let event = CGEvent(keyboardEventSource: source, virtualKey: code, keyDown: down) else { throw ApplicationFailure(subject: description, reason: .refused(nil)) }
                 event.postToPid(process)
             }
             return nil
         }
-        let read: [String: CFTypeRef] = try node.values([kAXEnabledAttribute, kAXWindowAttribute])
-        let window: CGWindowID? = try read[kAXWindowAttribute].flatMap(AXUIElement.checked).flatMap { window throws(ApplicationFailure) in
+        let read = try node.values([kAXEnabledAttribute, kAXWindowAttribute])
+        let window = try read[kAXWindowAttribute].flatMap(AXUIElement.checked).flatMap { window throws(ApplicationFailure) in
             AXUIElement.window(framed: try window.values(frameAttributes), among: InstanceState.Window.owned(by: target.owner))
         }
         let outcome: AXError =

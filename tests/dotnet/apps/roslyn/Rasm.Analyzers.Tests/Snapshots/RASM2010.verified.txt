@@ -1,6 +1,11 @@
 #0 `RealizingPage.PageControl` reaches `new Panel` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`
 #1 `DirectPage.PageControl` reaches `new Panel` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`
 #2 `ChainedPage.PageControl` reaches `new Panel` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`
+RASM3015 `ChainedPage.First` has one reader in the assembly, in `ChainedPage.PageControl`, fold `ChainedPage.First` into `ChainedPage.PageControl`
+RASM3015 `ChainedPage.Next` has one reader in the assembly, in `ChainedPage.First`, fold `ChainedPage.Next` into `ChainedPage.First`
+RASM3015 `ChainedPage.Last` has one reader in the assembly, in `ChainedPage.Next`, fold `ChainedPage.Last` into `ChainedPage.Next`
+RASM3015 `RecursivePage.Second` has one reader in the assembly, in `RecursivePage.First`, fold `RecursivePage.Second` into `RecursivePage.First`
+RASM3015 `SetterPage.Body` has one reader in the assembly, in `SetterPage.PageControl`, fold `SetterPage.Body` into `SetterPage.PageControl`
 #3 `InvokedLocalPage.PageControl` reaches `new Panel` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`
 #4 `InvokedDelegatePage.PageControl` reaches `new Panel` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`
 #5 `SuppliedDelegatePage.PageControl` reaches `new Panel` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`

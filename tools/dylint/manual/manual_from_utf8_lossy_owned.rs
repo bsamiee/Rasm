@@ -1,27 +1,20 @@
 use core::iter;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id,
-    paths::PathNS,
-    res::{MaybeDef as _, MaybeResPath as _},
-    source::snippet,
-    sym,
-    usage::local_used_after_expr,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::source::snippet;
+use clippy_utils::usage::local_used_after_expr;
+use clippy_utils::{fn_def_id, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_errors::Applicability;
-use rustc_hir::{
-    Body, BorrowKind, Expr, ExprKind, HirId, Mutability, QPath,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{Body, BorrowKind, Expr, ExprKind, HirId, Mutability, QPath};
 use rustc_hir_typeck::expr_use_visitor::{Delegate, ExprUseVisitor, PlaceBase, PlaceWithHirId};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{
-    mir::FakeReadCause,
-    ty::{self, TyCtxt},
-};
+use rustc_middle::mir::FakeReadCause;
+use rustc_middle::ty::{self, TyCtxt};
 
 use super::uses_global_allocator;
 use crate::{associated_trait, expanded_externally, path, suggest};

@@ -24,12 +24,6 @@ public abstract partial record SectionSubject {
     public sealed record Cloud(PointCloud Geometry, bool PointCloudAsPoints) : SectionSubject;
 
     public sealed record Instance(InstanceReferenceGeometry Geometry, RhinoDoc Document, bool IncludeHiddenObjects) : SectionSubject;
-
-    internal (GeometryBase Geometry, bool PointCloudAsPoints, bool IncludeHiddenObjects, RhinoDoc? Document) Arguments =>
-        Switch<(GeometryBase, bool, bool, RhinoDoc?)>(
-            shape: static shape => (shape.Geometry, false, false, null),
-            cloud: static cloud => (cloud.Geometry, cloud.PointCloudAsPoints, false, null),
-            instance: static instance => (instance.Geometry, false, instance.IncludeHiddenObjects, instance.Document));
 }
 
 public sealed record Section(Plane Plane, Seq<Curve> Curves, Seq<Point3d> Points);
@@ -61,15 +55,18 @@ public static class Sections {
         select sections;
 
     private static IO<Section> Sectioned(Tolerances tolerances, SectionSubject source, Plane plane, int index, bool joinCurves, PlaneIntersectionCache cache, CancellationToken token) =>
-        source.Arguments switch {
-            var (geometry, pointCloudAsPoints, includeHiddenObjects, document) =>
-                from cut in IO.lift(() => (
-                    Accepted: Intersection.GeometryPlane(geometry, plane, tolerances.Absolute, joinCurves, pointCloudAsPoints, includeHiddenObjects, document, source.Xform, cache, token, out Curve[] curves, out Point3d[] points),
-                    Curves: curves, Points: points))
-                from kept in Products.Many(() => cut.Curves, required: false)
-                from accepted in IO.lift(RhinoFault.Unless(cut.Accepted, RhinoReason.Declined, plane, index))
-                select new Section(plane, kept, Conversions.Rows(cut.Points)),
-        };
+        source.Switch<(GeometryBase, bool, bool, RhinoDoc?)>(
+            shape: static shape => (shape.Geometry, false, false, null),
+            cloud: static cloud => (cloud.Geometry, cloud.PointCloudAsPoints, false, null),
+            instance: static instance => (instance.Geometry, false, instance.IncludeHiddenObjects, instance.Document)) switch {
+                var (geometry, pointCloudAsPoints, includeHiddenObjects, document) =>
+                    from cut in IO.lift(() => (
+                        Accepted: Intersection.GeometryPlane(geometry, plane, tolerances.Absolute, joinCurves, pointCloudAsPoints, includeHiddenObjects, document, source.Xform, cache, token, out Curve[] curves, out Point3d[] points),
+                        Curves: curves, Points: points))
+                    from kept in Products.Many(() => cut.Curves, required: false)
+                    from accepted in IO.lift(RhinoFault.Unless(cut.Accepted, RhinoReason.Declined, plane, index))
+                    select new Section(plane, kept, Conversions.Rows(cut.Points)),
+            };
 
     // --- [LEVELS]
 

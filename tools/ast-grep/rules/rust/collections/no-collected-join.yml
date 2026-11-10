@@ -4,28 +4,51 @@ severity: error
 utils:
     literal-separator:
         has: {stopBy: end, kind: string_literal, pattern: $S}
+    vec-collect:
+        kind: let_declaration
+        all:
+            - has: {field: pattern, kind: identifier, pattern: $V}
+            - any:
+                - all:
+                    - has: {field: type, kind: generic_type, has: {field: type, regex: '^((std::)?vec::)?Vec$'}}
+                    - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}}
+                - has: {field: value, kind: call_expression, has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}}, {has: {field: type_arguments, regex: '^<\p{Pattern_White_Space}*((std::)?vec::)?Vec(?-u:\b)'}}]}}
+    join-receiver:
+        inside: {kind: field_expression, field: value, has: {field: field, regex: '^join$'}}
 rule:
     kind: call_expression
-    any:
-        - all: [{pattern: '$I.intersperse($S.to_owned()).collect::<String>()'}, {matches: literal-separator}]
-        - all: [{pattern: '$I.intersperse($S.to_string()).collect::<String>()'}, {matches: literal-separator}]
-        - all: [{pattern: '$I.intersperse(String::from($S)).collect::<String>()'}, {matches: literal-separator}]
-        - all: [{pattern: '$I.intersperse(Cow::from($S)).collect::<String>()'}, {matches: literal-separator}]
-        - all: [{pattern: '$I.intersperse(Cow::Borrowed($S)).collect::<String>()'}, {matches: literal-separator}]
-        - pattern: $I.map(ToString::to_string).collect::<Vec<$_>>().join($S)
-        - all: [{pattern: '$I.intersperse($S).collect::<String>()'}, {matches: literal-separator}]
-        - pattern: $I.map(String::from).collect::<Vec<$_>>().join($S)
-        - pattern: $I.map(str::to_owned).collect::<Vec<$_>>().join($S)
-        - pattern: $I.map(str::to_string).collect::<Vec<$_>>().join($S)
-        - pattern: $I.map(ToOwned::to_owned).collect::<Vec<$_>>().join($S)
-        - pattern: $I.map(String::as_str).collect::<Vec<$_>>().join($S)
-        - pattern: '$I.map(|$X| $X.to_string()).collect::<Vec<$_>>().join($S)'
-        - pattern: '$I.map(|$X| $X.to_owned()).collect::<Vec<$_>>().join($S)'
-        - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {has: {stopBy: end, pattern: '$_.map(|$X| $X.as_str())'}}]
-        - pattern: '$J.map(|$_| format!($$$)).collect::<Vec<$_>>().join($T)'
-        - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {matches: literal-separator}]
+    all:
+        - has: {field: function, any: [{kind: field_expression, has: {field: field, regex: '^join$'}}, {kind: generic_function, has: {field: function, kind: field_expression, has: {field: field, regex: '^collect$'}}}]}
+        - pattern: $SITE
+        - any:
+            - all: [{pattern: '$I.intersperse($S.to_owned()).collect::<String>()'}, {matches: literal-separator}]
+            - all: [{pattern: '$I.intersperse($S.to_string()).collect::<String>()'}, {matches: literal-separator}]
+            - all: [{pattern: '$I.intersperse(String::from($S)).collect::<String>()'}, {matches: literal-separator}]
+            - all: [{pattern: '$I.intersperse(Cow::from($S)).collect::<String>()'}, {matches: literal-separator}]
+            - all: [{pattern: '$I.intersperse(Cow::Borrowed($S)).collect::<String>()'}, {matches: literal-separator}]
+            - pattern: $I.map(ToString::to_string).collect::<Vec<$_>>().join($S)
+            - all: [{pattern: '$I.intersperse($S).collect::<String>()'}, {matches: literal-separator}]
+            - pattern: $I.map(String::from).collect::<Vec<$_>>().join($S)
+            - pattern: $I.map(str::to_owned).collect::<Vec<$_>>().join($S)
+            - pattern: $I.map(str::to_string).collect::<Vec<$_>>().join($S)
+            - pattern: $I.map(ToOwned::to_owned).collect::<Vec<$_>>().join($S)
+            - pattern: $I.map(String::as_str).collect::<Vec<$_>>().join($S)
+            - pattern: '$I.map(|$X| $X.to_string()).collect::<Vec<$_>>().join($S)'
+            - pattern: '$I.map(|$X| $X.to_owned()).collect::<Vec<$_>>().join($S)'
+            - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {has: {stopBy: end, pattern: '$_.map(|$X| $X.as_str())'}}]
+            - pattern: '$J.map(|$_| format!($$$)).collect::<Vec<$_>>().join($T)'
+            - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {matches: literal-separator}]
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^join$'}}, {has: {field: value, kind: identifier, pattern: $V}}]}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $S}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+                - inside:
+                    kind: block
+                    stopBy: {kind: 'function_item, closure_expression'}
+                    all:
+                        - has: {matches: vec-collect}
+                        - not: {has: {stopBy: end, kind: identifier, pattern: $V, not: {any: [{inside: {kind: let_declaration, field: pattern}}, {matches: join-receiver}]}}}
 constraints:
     S: {not: {regex: '^""$'}}
     T: {not: {regex: '^""$'}}
-message: '`$I$J` joins items through `intersperse` or an intermediate `Vec`'
-note: 'Call `<iterator>.join(<separator>)`, or `format_with(<separator>, |<item>, sink| ..)` over a `format!` map (`use itertools::Itertools as _;`)'
+message: '`$SITE` joins items through `intersperse` or a `Vec` collected only for the join'
+note: 'Call `<iterator>.join(<separator>)`, or `format_with(<separator>, |<item>, sink| ..)` over a `format!` map (`use itertools::Itertools as _;`), and delete a binding only the join reads'

@@ -2,17 +2,15 @@
 #![cfg_attr(unix, feature(iterator_try_collect))]
 #![cfg_attr(panic = "abort", feature(lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison))]
 
+use core::fmt;
 #[cfg(panic = "abort")]
 use core::mem::DropGuard;
+use core::num::NonZero;
 #[cfg(windows)]
 use core::task::{Context, Poll};
-use core::{fmt, num::NonZero};
-use std::{
-    env,
-    error::Report,
-    io,
-    process::{ExitCode, Termination},
-};
+use std::error::Report;
+use std::io;
+use std::process::{ExitCode, Termination};
 #[cfg(panic = "abort")]
 use std::{
     panic,
@@ -20,11 +18,9 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
-use clap::{
-    ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, ValueEnum, ValueHint,
-    builder::{Resettable, Styles},
-    error::ErrorKind,
-};
+use clap::builder::{Resettable, Styles};
+use clap::error::ErrorKind;
+use clap::{ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, ValueEnum, ValueHint};
 use clap_complete::CompleteEnv;
 use futures::stream;
 use nonempty_collections::NEVec;
@@ -36,14 +32,10 @@ use tokio::signal::windows;
 #[cfg(unix)]
 use tokio_stream::wrappers::SignalStream;
 use toml::de;
-use tracing_appender::{
-    non_blocking::NonBlockingBuilder,
-    rolling::{self, InitError, RollingFileAppender},
-};
-use tracing_subscriber::{
-    filter::LevelFilter,
-    fmt::writer::{MakeWriterExt as _, OptionalWriter},
-};
+use tracing_appender::non_blocking::NonBlockingBuilder;
+use tracing_appender::rolling::{self, InitError, RollingFileAppender};
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::fmt::writer::{MakeWriterExt as _, OptionalWriter};
 
 use self::telemetry::{Defaults, Failure, Handle, Layer, MakeWriter};
 
@@ -64,7 +56,7 @@ enum Rotation {
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, derive_more::Display)]
-pub enum Operation {
+pub enum CommandOperation {
     #[display("start async runtime")]
     Runtime,
     #[display("listen for shutdown signals")]
@@ -139,7 +131,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct Process<A> {
+pub struct Invocation<A> {
     pub args: A,
     pub styles: Styles,
     pub signals: Signals,
@@ -152,7 +144,7 @@ pub struct Process<A> {
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
     #[error("cannot {operation}")]
-    Io { operation: Operation, source: io::Error },
+    Io { operation: CommandOperation, source: io::Error },
     #[error(transparent)]
     File(#[from] io::Error),
     #[error("cannot open log directory {directory}")]
@@ -183,7 +175,7 @@ fn augmented(program: Command, augment: impl FnOnce(Command) -> Command) -> Comm
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub fn run<A, W, L, T, E>(defaults: Defaults, stderr: W, layer: L, runtime: impl FnOnce(&A) -> Builder, work: impl AsyncFnOnce(Process<A>) -> Result<T, NEVec<E>>) -> ExitCode
+pub fn run<A, W, L, T, E>(defaults: Defaults, stderr: W, layer: L, runtime: impl FnOnce(&A) -> Builder, work: impl AsyncFnOnce(Invocation<A>) -> Result<T, NEVec<E>>) -> ExitCode
 where
     A: CommandFactory + FromArgMatches,
     W: MakeWriter,
@@ -193,20 +185,19 @@ where
 {
     let factory = Augmented::<Options, A>::command;
     CompleteEnv::with_factory(factory).complete();
-    let mut command = factory();
-    #[expect(clippy::disallowed_methods, reason = "clap's parse entry reads OS arguments")]
-    let parsed = command.try_get_matches_from_mut(env::args_os()).and_then(|mut matches| Augmented::<Options, A>::from_arg_matches_mut(&mut matches).map_err(|error| error.format(&mut command)));
+    let command = factory();
+    let parsed = Augmented::<Options, A>::try_parse();
     let printed = |error: &clap::Error, status: sysexits::ExitCode| error.print().map_or_else(|source| sysexits::ExitCode::from(source).into(), |()| status.into());
     let exited = |error: &clap::Error| printed(error, if error.use_stderr() { sysexits::ExitCode::Usage } else { sysexits::ExitCode::Ok });
     let reported = |error: CommandError| printed(&clap::Error::raw(ErrorKind::Io, format_args!("{}\n", Report::new(&error))).with_cmd(&command), error.into());
     let written = |directory: Utf8PathBuf| {
         try bikeshed Result<(), CommandError> {
             fs_err::create_dir_all(&directory).map_err(CommandError::File)?;
-            clap_mangen::generate_to(command.clone(), &directory).map_err(|source| CommandError::Io { operation: Operation::Manual(directory), source })?
+            clap_mangen::generate_to(command.clone(), &directory).map_err(|source| CommandError::Io { operation: CommandOperation::Manual(directory), source })?
         }
         .map_or_else(reported, |()| ExitCode::SUCCESS)
     };
-    let failed = |operation: Operation| move |source: io::Error| NEVec::new(E::from(CommandError::Io { operation, source }));
+    let failed = |operation: CommandOperation| move |source: io::Error| NEVec::new(E::from(CommandError::Io { operation, source }));
     let Augmented { options: Options { log_directory, log_rotation, max_log_files, manual: Manual { manual: _ }, color, telemetry }, args } = match parsed {
         Ok(Augmented { options: Options { log_directory: _, log_rotation: _, max_log_files: _, manual: Manual { manual: Some(directory) }, color: _, telemetry: _ }, args: _ }) =>
             return written(directory),
@@ -257,7 +248,7 @@ where
         _ => worker,
     };
     telemetry.run(&command, defaults, (move || OptionalWriter::from(appender.clone())).or_else(stderr), layer, |filter, level| {
-        runtime(&args).enable_all().build().map_err(failed(Operation::Runtime))?.block_on(async {
+        runtime(&args).enable_all().build().map_err(failed(CommandOperation::Runtime))?.block_on(async {
             let signals = (try bikeshed io::Result<Signals> {
                 cfg_select! {
                     unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)).into_iter().try_collect::<Signals>()?,
@@ -275,8 +266,8 @@ where
                     }
                 }
             })
-            .map_err(failed(Operation::Signal))?;
-            work(Process { args, styles, signals, filter, level }).await
+            .map_err(failed(CommandOperation::Signal))?;
+            work(Invocation { args, styles, signals, filter, level }).await
         })
     })
 }

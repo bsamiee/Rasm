@@ -37,12 +37,4 @@ internal sealed record Timers {
                     .Held(held: pointer.Exists(at => scene.Visible(layout.Path).Exists(shown => shown.Contains(at))), now))))),
             Hovers = hovering.Map((path, delay) => Hovers.Find(path).IfNone(() => Countdown.Started(delay, now))),
         };
-
-    internal (Timers Timers, Seq<IO<Unit>> Elapsed, HashSet<Seq<Key>> Opened) Tick(Scene scene, Duration now) {
-        HashMap<Seq<Key>, Countdown> expired = Expiries.Filter(countdown => countdown.Elapsed(now));
-        HashMap<Seq<Key>, Countdown> opened = Hovers.Filter(countdown => countdown.Elapsed(now));
-        return (this with { Expiries = Expiries.AddOrUpdateRange(expired.Map(static _ => Countdown.Expired).AsIterable()), Hovers = Hovers.RemoveRange(opened.Keys) },
-            expired.Keys.ToSeq().Choose(path => scene.Index.Find(path).Bind(static layout => layout.View.Expires)).Map(static expiry => expiry.Elapsed),
-            toHashSet(opened.Keys));
-    }
 }

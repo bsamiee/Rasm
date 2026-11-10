@@ -10,7 +10,7 @@ let encoder: JSONEncoder = {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     encoder.dateEncodingStrategy = .custom { date, target in
-        var value: any SingleValueEncodingContainer = target.singleValueContainer()
+        var value = target.singleValueContainer()
         try value.encode(dateFormat.format(date))
     }
     return encoder
@@ -50,11 +50,11 @@ enum Event: Encodable {
     }
 
     func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         switch self {
             case .fail(let failure): try fields.encode(failure, forKey: .fail)
             case .launched(let created):
-                var launched: KeyedEncodingContainer<Key> = fields.nestedContainer(keyedBy: Key.self, forKey: .launched)
+                var launched = fields.nestedContainer(keyedBy: Key.self, forKey: .launched)
                 try launched.encode(created, forKey: .created)
             case .running(let outline): try fields.encode(outline, forKey: .running)
             case .captured(let screenshot): try fields.encode(screenshot, forKey: .captured)
@@ -84,13 +84,13 @@ struct Outline: Encodable {
     var windows: [CGWindowID]
 
     func fitted<Failure: Error>(within limit: Int, measuring length: (Self) throws(Failure) -> Int) throws(Failure) -> Self {
-        var cut: Self = self
-        var excess: Int = try length(cut) - limit
+        var cut = self
+        var excess = try length(cut) - limit
         while excess > 0 {
             switch (cut.asking.lastIndex { row in !row.text.isEmpty }, cut.asking.lastIndex { row in !row.options.isEmpty }, cut.windows.isEmpty) {
                 case (nil, nil, true): return cut
                 case (let row?, _, _):
-                    let last: String = cut.asking[row].text.removeLast()
+                    let last = cut.asking[row].text.removeLast()
                     cut.asking[row].text += last.count > excess ? [String(last.dropLast(excess))] : []
                 case (nil, let row?, _): cut.asking[row].options.removeLast()
                 case (nil, nil, false): cut.windows.removeLast()

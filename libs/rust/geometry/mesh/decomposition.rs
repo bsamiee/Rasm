@@ -2,17 +2,13 @@ use core::iter;
 use std::sync::OnceLock;
 
 use itertools::Itertools as _;
-use manifold_rust::{
-    impl_mesh::ManifoldImpl,
-    linalg::Vec3,
-    manifold::Manifold,
-    properties::Property,
-    robust::{
-        exact::rational::R3,
-        ray_shoot::{self, WindingIndex},
-        soup,
-    },
-};
+use manifold_rust::impl_mesh::ManifoldImpl;
+use manifold_rust::linalg::Vec3;
+use manifold_rust::manifold::Manifold;
+use manifold_rust::properties::Property;
+use manifold_rust::robust::exact::rational::R3;
+use manifold_rust::robust::ray_shoot::{self, WindingIndex};
+use manifold_rust::robust::soup;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
 use crate::Solid;

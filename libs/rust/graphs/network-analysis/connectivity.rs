@@ -3,12 +3,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use itertools::Itertools as _;
 use ordered_float::OrderedFloat;
-use petgraph::{
-    Undirected,
-    algo::kosaraju_scc,
-    graphmap::UnGraphMap,
-    visit::{EdgeRef as _, IntoNeighborsDirected},
-};
+use petgraph::Undirected;
+use petgraph::algo::kosaraju_scc;
+use petgraph::graphmap::UnGraphMap;
+use petgraph::visit::{EdgeRef as _, IntoNeighborsDirected};
 use rustworkx_core::connectivity::{articulation_points, connected_components, stoer_wagner_min_cut};
 
 use crate::{Network, Weight, compact};

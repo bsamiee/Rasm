@@ -1,8 +1,9 @@
-import { Array, Data, type Duration, Effect, Layer, Option, String, Struct } from 'effect';
+import { Array, Data, type Duration, Effect, Formatter, Layer, Option, Struct } from 'effect';
+import { Digest } from 'effect/crypto';
 import { SqlClient, type Statement } from 'effect/sql';
 import { Engine } from '#/engine';
 import { ReconcileError } from '#/error';
-import { refusals } from '#/internal/reconcile';
+import { refusals } from '#/reconcile';
 import type { Relation } from '#/relation';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -14,7 +15,25 @@ class Catalog extends Data.Class<{
     readonly timeouts: Option.Option<{ readonly lock: Duration.Input; readonly transaction: Duration.Input }>;
 }> {
     static readonly make = ({ tables, retired = [], reader, timeouts }: Pick<Catalog, 'tables'> & Partial<Pick<Catalog, 'retired'>> & { readonly reader?: string; readonly timeouts?: Option.Option.Value<Catalog['timeouts']> }) =>
-        new Catalog({ tables, retired: retired.map(String.camelToSnake), reader: Option.fromUndefinedOr(reader), timeouts: Option.fromUndefinedOr(timeouts) });
+        new Catalog({ tables, retired, reader: Option.fromUndefinedOr(reader), timeouts: Option.fromUndefinedOr(timeouts) });
+    static readonly digest = ({ tables, retired, reader }: Catalog) =>
+        Digest.Digest.use((digest) =>
+            digest.digestHex(
+                Digest.sha256,
+                new TextEncoder().encode(
+                    Formatter.formatJson({
+                        tables: tables.map(({ columns, search, tenant, ...table }) => ({
+                            ...Struct.omit(table, ['schema', 'options', 'queries', 'paths']),
+                            columns: Object.values(columns).map(Struct.omit(['schema'])),
+                            search: Option.map(search, ({ columns: searched, tokenizer }) => ({ columns: searched.map(Struct.get('name')), tokenizer })),
+                            tenant: Option.map(tenant, ({ column, setting }) => ({ column: column.name, setting })),
+                        })),
+                        retired,
+                        reader,
+                    }),
+                ),
+            ),
+        );
     static readonly plan = Effect.fn('Catalog.plan')(
         (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, () => Effect.void),
         Effect.map(({ preamble, statements, concurrent, undeclared }) => {
@@ -23,21 +42,24 @@ class Catalog extends Data.Class<{
         }),
     );
     static readonly reconcile = Effect.fn('Catalog.reconcile')(
-        (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: Engine.atomic })),
+        (catalog: Catalog, runtime: Option.Option<string> = Option.none()) => converge(catalog, runtime, ({ statements }, engine) => Array.match(statements, { onEmpty: () => Effect.void, onNonEmpty: engine.execute })),
         Effect.tap(({ concurrent, session }) => Array.match(concurrent, { onEmpty: () => Effect.void, onNonEmpty: (statements) => concurrently(session, statements) })),
         Effect.map(Struct.get('undeclared')),
     );
-    static readonly layer = <A, E, R, M = never, N = never>(catalog: Catalog, engine: Layer.Layer<A | Engine | SqlClient.SqlClient, E, R>, migrator?: Layer.Layer<SqlClient.SqlClient, M, N>) =>
-        Layer.effectDiscard(start(catalog, Option.fromUndefinedOr(migrator))).pipe(Layer.provideMerge(engine));
+    static readonly layer = <A, E, R, M = never, N = never>(catalog: Catalog, engine: Layer.Layer<A | Engine | SqlClient.SqlClient, E, R>, migrator?: Layer.Layer<SqlClient.SqlClient, M, N>) => Layer.effectDiscard(start(catalog, Option.fromUndefinedOr(migrator))).pipe(Layer.provideMerge(engine));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>) => Effect.Effect<unknown, E, R>) {
+const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>, engine: Engine['Service']) => Effect.Effect<unknown, E, R>) {
     const [client, engine] = yield* Effect.all([SqlClient.SqlClient, Engine]);
-    yield* ReconcileError.raise([...catalog.tables.flatMap(refusals), ...catalog.tables.flatMap(engine.refusals)]);
-    const steps = engine.plan(client.withoutTransforms(), catalog, runtime);
-    const applied = Effect.tap(steps, after);
+    const stored = Option.match(Option.fromUndefinedOr(engine.names.transformQueryNames), {
+        onNone: () => catalog,
+        onSome: (rename) => new Catalog({ ...catalog, tables: Array.map(catalog.tables, (table) => table.named(rename)), retired: catalog.retired.map(rename) }),
+    });
+    yield* ReconcileError.raise([...stored.tables.flatMap(refusals), ...stored.tables.flatMap(engine.refusals)]);
+    const steps = engine.plan(client.withoutTransforms(), stored, runtime);
+    const applied = Effect.tap(steps, (planned) => after(planned, engine));
     const converged = <X>(error: X) =>
         Effect.filterOrFail(
             steps,

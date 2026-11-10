@@ -23,7 +23,11 @@ use_versions_host_track             = false
 _.path                                        = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
 CARGO_LLVM_COV_DENY_WARNINGS                  = "1"
 CF_QUIET                                      = "1"
+CLAUDE_CODE_ENABLE_TELEMETRY                  = "1"
+CLAUDE_CODE_ENHANCED_TELEMETRY_BETA           = "1"
 CLOUDFLARE_DEV_REGISTRY_PATH                  = "{{config_root}}/.cache/cloudflare/registry"
+DOPPLER_CONFIG                                = "dev"
+DOPPLER_PROJECT                               = "rasm"
 DOTNET_NOLOGO                                 = "1"
 DOTNET_ROLL_FORWARD                           = "Major"
 GHIDRA_CLASSPATH                              = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
@@ -39,17 +43,30 @@ NODE_COMPILE_CACHE                            = "{{config_root}}/.cache/node"
 NODE_VERSION                                  = { tools = true, value = "{{ tools.node.version }}" }
 NX_ISOLATE_PLUGINS                            = "false"
 NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
+OTEL_EXPORTER_OTLP_PROTOCOL                   = "http/protobuf"
+OTEL_LOG_TOOL_DETAILS                         = "1"
+OTEL_LOGS_EXPORTER                            = "otlp"
+OTEL_METRICS_EXPORTER                         = "otlp"
+OTEL_TRACES_EXPORTER                          = "otlp"
+PLAYWRIGHT_CLI_SESSION                        = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
 PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS = "true"
 PLAYWRIGHT_MCP_BROWSER                        = "chromium"
 PLAYWRIGHT_MCP_FILE_PATHS                     = "absolute"
-PLAYWRIGHT_MCP_OUTPUT_DIR                     = "{{config_root}}/.artifacts/playwright"
+PLAYWRIGHT_MCP_OUTPUT_DIR                     = "{{config_root}}/.artifacts/playwright/{{ env.PLAYWRIGHT_CLI_SESSION }}"
+PLAYWRIGHT_TRANSFORM_CACHE_DIR                = "{{config_root}}/.cache/playwright/transform"
 PULUMI_HOME                                   = "{{config_root}}/.cache/pulumi"
 RUSTUP_AUTO_INSTALL                           = "0"
 RUSTUP_TOOLCHAIN                              = false
+SHELLCHECK_OPTS                               = "--rcfile={{config_root}}/.config/shellcheckrc"
 TOMBI_CACHE_HOME                              = "{{config_root}}/.cache/tombi"
 TY_UV                                         = "1"
 WATCH_APPS_LOG                                = "{{config_root}}/.artifacts/logs/watch-apps.log"
 WATCH_APPS_SESSION                            = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
+
+# --- [HOOKS] ----------------------------------------------------------------------------
+
+[hooks]
+postinstall = "hk install"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
@@ -62,7 +79,7 @@ carapace                                                                     = "
 cargo-insta                                                                  = "latest"
 "cargo:cargo-edit"                                                           = "latest"
 cmake                                                                        = "latest"
-colima                                                                       = { os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"', version = "latest" }
+colima                                                                       = { os = ["macos"], version = "latest" }
 difftastic                                                                   = "latest"
 docker-compose                                                               = { os = ["macos", "linux"], postinstall = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-compose" "$plugins/docker-compose"', version = "latest" }
 doppler                                                                      = "latest"
@@ -90,6 +107,8 @@ java                                                                         = "
 jq                                                                           = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
 node                                                                         = "latest"
+pinact                                                                       = "latest"
+pitchfork                                                                    = { os = ["macos"], version = "latest" }
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"
 pnpm                                                                         = "latest"
@@ -102,6 +121,7 @@ resvg                                                                        = "
 ripgrep                                                                      = "latest"
 sd                                                                           = "latest"
 shellcheck                                                                   = "latest"
+shfmt                                                                        = "latest"
 swiftlint                                                                    = { os = ["macos"], version = "latest" }
 tombi                                                                        = "latest"
 tree-sitter                                                                  = "latest"

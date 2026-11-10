@@ -14,15 +14,15 @@ public struct SystemPressure: Encodable, Equatable, Sendable {
     public let thermal: ProcessInfo.ThermalState
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-        let memory: String =
+        var fields = encoder.container(keyedBy: CodingKeys.self)
+        let memory =
             switch memory {
                 case .critical: "critical"
                 case .warning: "warning"
                 case _: "normal"
             }
         try fields.encode(memory, forKey: .memory)
-        let thermal: String =
+        let thermal =
             switch thermal {
                 case .nominal: "nominal"
                 case .fair: "fair"
@@ -46,7 +46,7 @@ extension SystemPressure {
 
     public static func changes() -> some AsyncSequence<Result<Self, Errno>, Never> & Sendable {
         let (memory, signal) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let source: any DispatchSourceMemoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: .global())
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: .global())
         source.setEventHandler { signal.yield(()) }
         signal.onTermination = { _ in source.cancel() }
         source.activate()

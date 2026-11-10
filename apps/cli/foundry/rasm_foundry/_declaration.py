@@ -8,7 +8,6 @@ from typing import Annotated
 import msgspec
 
 from rasm_typography import Face, Genres, OrnamentFace
-lazy from rasm_records import Outcome, RecordFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -32,7 +31,7 @@ class _Ornament(OrnamentFace, frozen=True, kw_only=True, forbid_unknown_fields=T
     original: str
 
 
-type _Faces = _Text | _Ornament
+type Faces = _Text | _Ornament
 
 
 # --- [SETS]
@@ -69,7 +68,7 @@ class _OrnamentSet(_Group, frozen=True, kw_only=True):
         return msgspec.convert([row | {"family": self.name} for row in self.faces], type=tuple[_Ornament, ...])
 
 
-class _FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
+class FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
     """Declared font set: families, ornament sets, the shaping corpus, and the folder of approved shaping, both paths relative to the declaration."""
 
     name: _Name
@@ -93,15 +92,15 @@ class _FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=
         return (*self.families, *self.ornaments)
 
     @property
-    def faces(self) -> tuple[_Faces, ...]:
+    def faces(self) -> tuple[Faces, ...]:
         """Every text and ornament face in declaration order."""
         return tuple(*group.members for group in self.groups)
 
 
-class _Declared(msgspec.Struct, frozen=True, kw_only=True):
+class Declared(msgspec.Struct, frozen=True, kw_only=True):
     """Decoded font set with the folder its relative paths resolve against and the folder its builds write to."""
 
-    set: _FontSet
+    set: FontSet
     root: Path
     output: Path
 
@@ -110,40 +109,24 @@ class _Declared(msgspec.Struct, frozen=True, kw_only=True):
         """Shaping corpus file."""
         return self.root / self.set.corpus
 
-    def original(self, face: _Faces, /) -> Path:
+    def original(self, face: Faces, /) -> Path:
         """Returns the original binary a face reads."""
         return self.root / next(group.original for group in self.set.groups if group.name == face.family) / face.original
 
-    def approved(self, face: _Faces, /) -> Path:
+    def approved(self, face: Faces, /) -> Path:
         """Returns the approved shaping of a face."""
         return self.root / self.set.approvals / f"{face.postscript}.json"
 
-    def _output(self, folder: str, suffix: str, face: _Faces, /) -> Path:
-        """Returns a face's output file under a folder, an empty folder name selecting the family folder."""
-        return self.output / (folder or face.family.replace(" ", "")) / f"{face.postscript}{suffix}"
+    def _output(self, folder: str | None, suffix: str, face: Faces, /) -> Path:
+        """Returns a face's output file under a folder, the family's folder where none is named."""
+        return self.output / (face.family.replace(" ", "") if folder is None else folder) / f"{face.postscript}{suffix}"
 
     source = partialmethod(_output, "source", ".ufo")
-    binary = partialmethod(_output, "", ".ttf")
+    binary = partialmethod(_output, None, ".ttf")
     check = partialmethod(_output, "check", ".json")
-    stamp = partialmethod(_output, "", ".json")
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _declared(path: Path, output: Path, /) -> Outcome[_Declared]:
-    """Reads a set declaration, its builds under an output folder.
-
-    Args:
-        path: Set declaration TOML.
-        output: Folder the set's sources, binaries, and check reports write to.
-
-    Returns:
-        Ok(declared), `UNREADABLE` for a failed read and `INVALID` for a refused decode.
-    """
-    return RecordFile(path=path, form=_FontSet).read().map(lambda found: _Declared(set=found, root=path.parent, output=output))
+    stamp = partialmethod(_output, None, ".json")
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["Declared", "Faces", "FontSet"]

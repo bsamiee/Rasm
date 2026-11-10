@@ -1,10 +1,15 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, sym};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::{fn_def_id, sym};
 use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, Attribute, HasAttrs as _};
 use rustc_data_structures::fx::FxHashSet;
-use rustc_hir::{Expr, ExprKind, def::CtorKind, def_id::DefId};
+use rustc_hir::def::CtorKind;
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{TyCtxt, TypeVisitableExt as _, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{TyCtxt, TypeVisitableExt as _};
 use rustc_span::Symbol;
 
 use crate::{expanded_externally, is_text, paths, result_parts};

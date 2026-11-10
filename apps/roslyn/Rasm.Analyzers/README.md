@@ -79,23 +79,24 @@ Category `CSharp`:
 |  [05]   | <a id="RASM3005"></a>RASM3005 | Namespace owned by a referenced assembly, declare under project namespace   |
 |  [06]   | <a id="RASM3006"></a>RASM3006 | Type name clashes with an imported type, rename the declaration             |
 |  [07]   | <a id="RASM3007"></a>RASM3007 | Type test on a type parameter, declare a static virtual member              |
-|  [08]   | <a id="RASM3008"></a>RASM3008 | File named after its folder, rename for its concept family                  |
-|  [09]   | <a id="RASM3009"></a>RASM3009 | Qualified name around a project declaration, rename the declaration         |
-|  [10]   | <a id="RASM3010"></a>RASM3010 | Qualified name with no clash, import and write the simple name              |
-|  [11]   | <a id="RASM3011"></a>RASM3011 | Static instance restated at a construction site, read the instance          |
-|  [12]   | <a id="RASM3012"></a>RASM3012 | Forwarding property, read member at its uses                                |
-|  [13]   | <a id="RASM3013"></a>RASM3013 | Overloads take a value and its factory, keep one overload                   |
-|  [14]   | <a id="RASM3101"></a>RASM3101 | Type name stored as text, store the type                                    |
-|  [15]   | <a id="RASM3102"></a>RASM3102 | Sentinel stands for absence, state absence in the type                      |
-|  [16]   | <a id="RASM3104"></a>RASM3104 | Callback value passed out through a captured write, return it in the result |
-|  [17]   | <a id="RASM3105"></a>RASM3105 | Null-forgiving operator on a nullable result, lift the absence              |
-|  [18]   | <a id="RASM3106"></a>RASM3106 | Ambient clock read, take a `TimeProvider`                                   |
-|  [19]   | <a id="RASM3107"></a>RASM3107 | `TimeProvider.System` outside a composition root, take a `TimeProvider`     |
-|  [20]   | <a id="RASM3108"></a>RASM3108 | Member bound at run time, name the member in code                           |
-|  [21]   | <a id="RASM3109"></a>RASM3109 | No-op placeholder value, declare the optional member with its default       |
-|  [22]   | <a id="RASM3110"></a>RASM3110 | Throwing member with a `Try` sibling, call the `Try` form                   |
-|  [23]   | <a id="RASM3111"></a>RASM3111 | Platform-dependent name set, declare the portable reserved set              |
-|  [24]   | <a id="RASM3112"></a>RASM3112 | `Vector2` or `Vector3` lane comparison, compare through the lane masks      |
-|  [25]   | <a id="RASM3113"></a>RASM3113 | Package member with a known defect, call the working form                   |
+|  [08]   | <a id="RASM3009"></a>RASM3009 | Qualified name around a project declaration, rename the declaration         |
+|  [09]   | <a id="RASM3010"></a>RASM3010 | Qualified name with no clash, import and write the simple name              |
+|  [10]   | <a id="RASM3011"></a>RASM3011 | Static instance restated at a construction site, read the instance          |
+|  [11]   | <a id="RASM3012"></a>RASM3012 | Forwarding property, read member at its uses                                |
+|  [12]   | <a id="RASM3013"></a>RASM3013 | Overloads take a value and its factory, keep one overload                   |
+|  [13]   | <a id="RASM3014"></a>RASM3014 | Using alias renames a type or namespace, write its name at each use         |
+|  [14]   | <a id="RASM3015"></a>RASM3015 | Member with one reader in the assembly, fold it into the reader             |
+|  [15]   | <a id="RASM3101"></a>RASM3101 | Type name stored as text, store the type                                    |
+|  [16]   | <a id="RASM3102"></a>RASM3102 | Sentinel stands for absence, state absence in the type                      |
+|  [17]   | <a id="RASM3104"></a>RASM3104 | Callback value passed out through a captured write, return it in the result |
+|  [18]   | <a id="RASM3105"></a>RASM3105 | Null-forgiving operator on a nullable result, lift the absence              |
+|  [19]   | <a id="RASM3106"></a>RASM3106 | Ambient clock read, take a `TimeProvider`                                   |
+|  [20]   | <a id="RASM3107"></a>RASM3107 | `TimeProvider.System` outside a composition root, take a `TimeProvider`     |
+|  [21]   | <a id="RASM3108"></a>RASM3108 | Member bound at run time, name the member in code                           |
+|  [22]   | <a id="RASM3109"></a>RASM3109 | No-op placeholder value, declare the optional member with its default       |
+|  [23]   | <a id="RASM3110"></a>RASM3110 | Throwing member with a `Try` sibling, call the `Try` form                   |
+|  [24]   | <a id="RASM3111"></a>RASM3111 | Platform-dependent name set, declare the portable reserved set              |
+|  [25]   | <a id="RASM3112"></a>RASM3112 | `Vector2` or `Vector3` lane comparison, compare through the lane masks      |
+|  [26]   | <a id="RASM3113"></a>RASM3113 | Package member with a known defect, call the working form                   |
 
-Retired and never reassigned: RASM1002, RASM1006, RASM1201, RASM2001, RASM2013 (now RASM1106), RASM3103 (now RASM1013), RASM4001, RASM4002. RASM2xxx rules ship in the `Rasm.Rhino` package.
+Retired and never reassigned: RASM1002, RASM1006, RASM1201, RASM2001, RASM2013 (now RASM1106), RASM2015 (now RASM3113), RASM3008 (now the `file-names` hk step), RASM3103 (now RASM1013), RASM4001, RASM4002. RASM2xxx rules ship in the `Rasm.Rhino` package.

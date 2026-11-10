@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Effect, Option, Path, Result, Schema } from 'effect';
 import { commands } from '#/executors/run/executor';
-import { AppleError, spawned } from '#/plugins/targets';
+import { AppleError, SHORT_VERSION, spawned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ const Zip = Schema.Struct({
     profile: Schema.optionalKey(Schema.String),
     args: Schema.optionalKey(Schema.Array(Schema.String)),
 });
-const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schema.String, CFBundleShortVersionString: Schema.String }));
+const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schema.String, [SHORT_VERSION]: Schema.String }));
 const ExportOptions = Schema.fromJsonString(Schema.Struct({ method: Schema.String }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -29,12 +29,12 @@ const executed = Effect.fnUntraced(function* (options: unknown, context: Executo
     yield* Option.isNone(keychain) && notarized.length > 0 ? AppleError.make({ subject: 'notaryProfile', detail: "is unset in nx.json's @rasm/nx-apple row; notarytool needs the keychain profile `notarytool store-credentials` saved" }) : Effect.void;
     const applications = yield* Effect.forEach(exports, ({ archive }) => Effect.flatMap(spawned('plutil', ['-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')], { cwd: context.root }), Schema.decodeEffect(Application)));
     const binaries = yield* Effect.forEach(products, ({ package: root }) => spawned('swift', ['build', '--package-path', root, '--configuration', 'release', '--show-bin-path'], { cwd: context.root }));
-    const versions = yield* Effect.forEach(products, ({ manifest }) => spawned('plutil', ['-extract', 'CFBundleShortVersionString', 'raw', '-o', '-', manifest], { cwd: context.root }));
+    const versions = yield* Effect.forEach(products, ({ manifest }) => spawned('plutil', ['-extract', SHORT_VERSION, 'raw', '-o', '-', manifest], { cwd: context.root }));
     const encoded = yield* Effect.forEach(notarized, ({ method }) => Schema.encodeEffect(ExportOptions)({ method }));
     yield* Effect.forEach(Array.zip(notarized, encoded), ([{ settings }, input]) => spawned('plutil', ['-convert', 'xml1', '-o', settings, '-'], { cwd: context.root, input }));
-    const archived = Array.zip(exports, applications).flatMap(([{ archive, folder, method }, { ApplicationPath, CFBundleShortVersionString }]): readonly (readonly [string, ...string[]])[] => {
+    const archived = Array.zip(exports, applications).flatMap(([{ archive, folder, method }, { ApplicationPath, [SHORT_VERSION]: version }]): readonly (readonly [string, ...string[]])[] => {
         const app = method === undefined ? path.join(archive, 'Products', ApplicationPath) : path.join(folder, path.basename(ApplicationPath));
-        const zip = path.join(folder, `${path.basename(ApplicationPath, path.extname(ApplicationPath))}-${CFBundleShortVersionString}.zip`);
+        const zip = path.join(folder, `${path.basename(ApplicationPath, path.extname(ApplicationPath))}-${version}.zip`);
         const zipped = ['ditto', '-c', '-k', '--keepParent', app, zip] as const;
         return method === undefined
             ? [[...zipped, ...args]]

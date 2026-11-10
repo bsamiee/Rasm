@@ -5,7 +5,7 @@ description: "Use when judging, challenging, or codifying a change to code, cove
 
 # [REVIEW_CHANGE]
 
-Reviews judge each hunk of a change against its file whole, its consumers, package and host source at the pinned release, and every check the language's owners list, rebuild each wrong hunk in place, and leave each settled fact at the skill or checker owning it. Code, configuration, build, rule, and checker files take the same review. Use `refactor-code` for the rework, its removal and structure tables, and its adversary passes, `<language>-coding` skills for language form, `manage-repo` for check owners and entry points, `use-ast-grep` for rule shape and cost, `clean-prose` for guidance text.
+Reviews judge each hunk of a change against its file whole, its consumers, package and host source at the pinned release, and every check the language's owners list, rebuild each wrong hunk in place, and leave each settled fact at the skill or checker owning it. Code, configuration, build, rule, and checker files take the same review. Use `refactor-code` for the rework, its removal and structure tables, and its adversary passes, `<language>-coding` skills for language form, `.claude/workflows/languages.js` for check owners, `use-ast-grep` for rule shape and cost, `clean-prose` for guidance text.
 
 Scope names how the roles of `[04]` run:
 
@@ -69,7 +69,7 @@ Judges fix what they judge: each wrong, naive, and shuffle verdict is applied in
 
 ## [03]-[ROUTING]
 
-Each fact a review settles has one owner, read before a verdict states it and edited by the review changing it, `manage-repo` ranks owners and `.claude/workflows/languages.js` lists them per language with the fact each decides:
+Each fact a review settles has one owner, read before a verdict states it and edited by the review changing it, `.claude/workflows/languages.js` lists them per language with the fact each decides:
 
 | [INDEX] | [FACT]                                               | [OWNER]                                                                           |
 | :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
@@ -78,12 +78,12 @@ Each fact a review settles has one owner, read before a verdict states it and ed
 |  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `apps/roslyn`, `tools/refurb`, a `tsconfig.base.json` row         |
 |  [04]   | Fact a checker computes from a grammar or engine     | That checker's code under `tools/`, consumers rebuilt to its finding              |
 |  [05]   | Fact no checker decides soundly for every instance   | Language skill section whose heading covers it, else the family skill covering it |
-|  [06]   | Placement, target, entry point, or catalog feature   | `manage-repo` and its references, the catalog or manifest row                     |
+|  [06]   | Placement, target, entry point, or catalog feature   | README `[OWNERS]` row, the Nx plugin README, the catalog or manifest row          |
 |  [07]   | Divider, section order, or wording                   | `clean-prose` and `prose.py`                                                      |
 
 Owner criteria:
 - Soundness: the first owner in rank deciding the form for every instance owns it, an owner reporting a subset of another's instances owns nothing
-- Form: `manage-repo` rules decide the shown form, widened category, and shared site, the near rule or util named before a new one is written
+- Form: `use-ast-grep` rules decide the shown form, widened category, and shared site, the near rule or util named before a new one is written
 - Conflict: a lint's help contradicting a skill line or a package refusal narrows the lint by one predicate or changes the line, never a suppression
 - Off rows: a row turning a check off stays while its reason holds, the reason reread each review
 - Outside causes: a machine setting or host build is named with its owner, a workaround inside the tree is a hidden cause

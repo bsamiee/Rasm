@@ -4,6 +4,7 @@ using Rasm.Rhino.Blocks;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Objects;
 using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.Viewport;
 using Rhino;
@@ -76,10 +77,6 @@ internal abstract partial record PreflightFinding {
 
 internal sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFinding> Cautions, Map<int, ulong> Memory) {
 
-    // --- [VERDICT]
-
-    public Fin<Unit> Verdict => Refusals.Traverse(static refusal => Fin.Fail<Unit>(refusal.Error)).As().Map(static _ => unit);
-
     // --- [CHECKS]
 
     public static IO<Preflight> Check(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target) =>
@@ -87,7 +84,14 @@ internal sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFi
         from links in Links.Closure(new LinkedModel.Opened(doc.RuntimeSerialNumber))
         let prompts = doc.LinkedInstanceDefinitionUpdate is LinkedInstanceDefinitionUpdateStyle.Prompt
         from named in NamedTable.Read(doc, [NamedViews.Table, Snapshots.Table])
-        from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => (from held in use(() => scope.Settings.RenderChannels) select QueueEstimate.Components(held)).Bracket())
+        from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope =>
+            (from held in use(() => scope.Settings.RenderChannels)
+             select (held.Mode is RenderChannels.Modes.Custom ? toSeq(held.CustomList) : Seq<Guid>())
+                 .Traverse(static K<Option, RenderWindow.StandardChannels> (id) => RenderWindow.StandardChannelForGuid(id) switch {
+                     RenderWindow.StandardChannels.None => Option<RenderWindow.StandardChannels>.None,
+                     var channel => Some(channel),
+                 }).As()
+                 .Map(static custom => RenderWindow.StandardChannels.RGBA.Cons(custom).Bind(Channels.Components).Distinct().Strict())).Bracket())
         from run in target.RendersHere ? QueueProgress.Observed(context).Map(static observed => Some(observed.State)) : IO.pure(Option<RunState>.None)
         from host in Host.Read
         from disk in Measured(doc, plan, target)
@@ -141,7 +145,10 @@ internal sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFi
                 Succ: static held => held.ToSeq().Bind(static volume => volume.Refusals(None)),
                 Fail: static error => Seq<PreflightFinding>(new PreflightFinding.DestinationUnresolved(error)))
             + links.Broken.Choose(static broken => Stored(broken.Link.Target).Map<PreflightFinding>(file => new PreflightFinding.LinkBroken(broken.Link.Name, file, broken.Error)))
-            + (target.RendersHere ? host.Refusals : Seq<PreflightFinding>())
+            + (target.RendersHere
+                ? (host.Installed ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.RendererMissing(host.Renderer)))
+                    + (host.AutoSaved ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.RenderingsUnsaved()))
+                : Seq<PreflightFinding>())
             + run.Bind(static state => state is RunState.Active active ? Some<PreflightFinding>(new PreflightFinding.QueueActive(active.ProcessId)) : None).ToSeq()
             + (target.Quits ? host.Untitled.Map<PreflightFinding>(static serial => new PreflightFinding.UntitledEdits(serial)) : Seq<PreflightFinding>())
             + (target.Package.IsSome && prompts ? Seq<PreflightFinding>(new PreflightFinding.LinkUpdatePrompts()) : Seq<PreflightFinding>())
@@ -160,10 +167,6 @@ internal sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFi
     private static Option<string> Stored(LinkedModel model) => model.Switch(opened: static _ => Option<string>.None, stored: static stored => Some(stored.Path));
 
     private sealed record Host(Guid Renderer, Guid RhinoRender, bool Installed, bool SafeMode, bool AutoSaved, Seq<uint> Untitled) {
-        public Seq<PreflightFinding> Refusals =>
-            (Installed ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.RendererMissing(Renderer)))
-            + (AutoSaved ? Seq<PreflightFinding>() : Seq<PreflightFinding>(new PreflightFinding.RenderingsUnsaved()));
-
         public static IO<Host> Read =>
             Cycles.PlugInId.Bind(static rhinoRender => IO.lift(() => Utilities.DefaultRenderPlugInId switch {
                 var renderer => new Host(

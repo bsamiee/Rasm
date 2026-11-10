@@ -56,9 +56,8 @@ Created IDs take their saved lifetime from their users and links:
 ```python
 @catch(exception=OSError)
 def loaded(kind: type[bpy.types.ID], path: Path, chosen: Callable[[str], bool], /, *, link: bool = False) -> tuple[bpy.types.ID, ...]:
-    data: bpy.types.Struct = bpy.types.BlendData.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    member = next(prop.identifier for cls in kind.__mro__ for prop in data.properties if isinstance(prop, bpy.types.CollectionProperty) and type(prop.fixed_type) is cls)
-    opened: AbstractContextManager[tuple[object, object]] = bpy.data.libraries.load(str(path), link=link, reuse_local_id=not link)  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
+    member = next(prop.identifier for cls in kind.__mro__ for prop in bpy.types.BlendData.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) and type(prop.fixed_type) is cls)
+    opened: AbstractContextManager[tuple[object, object]] = bpy.data.libraries.load(str(path), link=link, reuse_local_id=not link)  # type: ignore[func-returns-value]  # ty: ignore[invalid-assignment]
     with opened as (source, target):
         setattr(target, member, list(filter(chosen, getattr(source, member))))
     return tuple(getattr(target, member))

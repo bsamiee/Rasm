@@ -1,17 +1,14 @@
 use core::ops::ControlFlow;
 use std::rc::Rc;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    expr_or_init, fn_def_id,
-    macros::{macro_backtrace, root_macro_call},
-    res::MaybeDef as _,
-    source::walk_span_to_context,
-    sugg::Sugg,
-    sym,
-    ty::implements_trait,
-    visitors::for_each_expr_without_closures,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{macro_backtrace, root_macro_call};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::walk_span_to_context;
+use clippy_utils::sugg::Sugg;
+use clippy_utils::ty::implements_trait;
+use clippy_utils::visitors::for_each_expr_without_closures;
+use clippy_utils::{expr_or_init, fn_def_id, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind};

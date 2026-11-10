@@ -29,13 +29,13 @@ public static class DataTransfer {
 
     public static IO<Unit> Drag(Control source, Seq<string> files, Option<Image> image) =>
         from paths in Products.Each(files.Map(static file => IO.lift(() => InputPath.Of(file))))
-        from dragged in (from data in use(static () => new DataObject()) from dropped in Dragged(source, paths, image, data) select dropped).Bracket()
+        from dragged in (from data in use(static () => new DataObject())
+                         from listed in IO.lift(() => { data.Uris = [.. paths.Map(static path => new Uri(path))]; })
+                         from dropped in IO.lift(() => image.Match(
+                             Some: held => source.DoDragDrop(data, DragEffects.Copy, held, new PointF(held.Width / 2f, held.Height / 2f)),
+                             None: () => source.DoDragDrop(data, DragEffects.Copy)))
+                         select dropped).Bracket()
         select dragged;
-
-    private static IO<Unit> Dragged(Control source, Seq<InputPath> paths, Option<Image> image, DataObject data) =>
-        IO.lift(() => { data.Uris = [.. paths.Map(static path => new Uri(path))]; }).Bind(_ => IO.lift(() => image.Match(
-            Some: held => source.DoDragDrop(data, DragEffects.Copy, held, new PointF(held.Width / 2f, held.Height / 2f)),
-            None: () => source.DoDragDrop(data, DragEffects.Copy))));
 
     // --- [DROPS]
 

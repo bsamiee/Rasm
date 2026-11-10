@@ -11,7 +11,6 @@ using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.PixelFormats;
 using TinyEXR;
 using Wacton.Unicolour;
-using Configuration = SixLabors.ImageSharp.Configuration;
 
 namespace Rasm.Imaging.Files;
 
@@ -20,18 +19,18 @@ namespace Rasm.Imaging.Files;
 public abstract partial record ImageFile {
     private static readonly ColorEncoding Untagged = new(Gamut.StandardRgb, Transfer.Gamma.Srgb);
 
-    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(string path, Option<string> layer = default, Option<Configuration> configuration = default) =>
+    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(string path, Option<string> layer = default, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
         (from stream in use(() => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, FileOptions.Asynchronous))
          from read in Read(stream, layer, configuration)
          select read)
             .Bracket()
             | @catch(static error => error.IsExceptional, error => IO.fail<(PixelFrame, Option<ColorEncoding>)>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
 
-    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(Stream stream, Option<string> layer = default, Option<Configuration> configuration = default) =>
+    public static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Read(Stream stream, Option<string> layer = default, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
         stream.CanSeek
-            ? Seeked(stream, stream.Position, layer, configuration.IfNone(Configuration.Default))
+            ? Seeked(stream, stream.Position, layer, configuration)
             : (from buffered in use(Buffered(stream))
-               from read in Seeked(buffered, 0, layer, configuration.IfNone(Configuration.Default))
+               from read in Seeked(buffered, 0, layer, configuration)
                select read).Bracket();
 
     private static IO<MemoryStream> Buffered(Stream stream) =>
@@ -42,7 +41,7 @@ public abstract partial record ImageFile {
             return copy;
         });
 
-    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Seeked(Stream stream, long start, Option<string> layer, Configuration configuration) =>
+    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Seeked(Stream stream, long start, Option<string> layer, Option<SixLabors.ImageSharp.Configuration> configuration) =>
         from exr in IO.lift(() => Claimed(stream, start))
         from read in exr
             ? Loaded(stream, layer)
@@ -62,7 +61,7 @@ public abstract partial record ImageFile {
         from read in IO.lift(Layer(toSeq(image.Parts), layer))
         select read;
 
-    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Decoded(Stream stream, long start, Configuration configuration) =>
+    private static IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Decoded(Stream stream, long start, Option<SixLabors.ImageSharp.Configuration> configuration) =>
         from info in IO.liftAsync(environment => SixLabors.ImageSharp.Image.IdentifyAsync(Decoding(ColorProfileHandling.Preserve, configuration), stream, environment.Token))
         let cicp = Optional(info.Metadata.CicpProfile)
         from encoding in IO.lift(cicp.Match(Some: ColorEncoding.Of, None: static () => Untagged))
@@ -152,6 +151,6 @@ public abstract partial record ImageFile {
                     new Chromaticity(stated.RedX, stated.RedY), new Chromaticity(stated.GreenX, stated.GreenY), new Chromaticity(stated.BlueX, stated.BlueY),
                     new WhitePoint(stated.WhiteX, stated.WhiteY))).As());
 
-    private static DecoderOptions Decoding(ColorProfileHandling handling, Configuration configuration) =>
-        new() { Configuration = configuration, MaxFrames = 1, SegmentIntegrityHandling = SegmentIntegrityHandling.Strict, ColorProfileHandling = handling };
+    private static DecoderOptions Decoding(ColorProfileHandling handling, Option<SixLabors.ImageSharp.Configuration> configuration) =>
+        new() { Configuration = configuration.IfNone(SixLabors.ImageSharp.Configuration.Default), MaxFrames = 1, SegmentIntegrityHandling = SegmentIntegrityHandling.Strict, ColorProfileHandling = handling };
 }

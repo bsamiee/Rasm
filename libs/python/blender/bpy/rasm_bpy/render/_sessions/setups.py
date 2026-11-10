@@ -3,7 +3,7 @@
 from collections.abc import Callable, Mapping
 from functools import cached_property, partial
 from types import GenericAlias, MappingProxyType
-from typing import Final, Generic, Protocol, Self, TypeVar
+from typing import Annotated, Final, Generic, Protocol, Self, TypeVar
 
 import bpy
 from expression import Option, Some
@@ -13,21 +13,22 @@ from typing_extensions import TypeForm
 from rasm_bpy.commands.operators import Answer, Call, Done, Operator, Placement, tallied, Unchanged
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
-from rasm_bpy.data._rna.paths import _parsed, _rna, RnaPath, rooted, Struct
+from rasm_bpy.data._rna.paths import parsed_path, rna, RnaPath, rooted, Struct
 from rasm_bpy.data._rna.snapshots import Snapshot
+from rasm_bpy.nodes._addressing import interface_sockets
 from rasm_bpy.render._compositor.colors import COLOR_INPUT
 from rasm_bpy.render._compositor.effects import CompositorRecord, Entry
 from rasm_bpy.render._compositor.entries import Enabled
-from rasm_bpy.render._compositor.inputs import _keyed
+from rasm_bpy.render._compositor.inputs import keyed
 from rasm_bpy.render._compositor.offered import OfferedEffects
-from rasm_bpy.render._compositor.recipes import _applied, _projected, recorded, Valued
-from rasm_bpy.render._sessions.members import _KEY, Members
-from rasm_bpy.render._view_layers.passes import _layer_of
+from rasm_bpy.render._compositor.recipes import applied, projected, recorded, Valued
+from rasm_bpy.render._sessions.members import KEY, Members
+from rasm_bpy.render._view_layers.passes import layer_of
 from rasm_bpy.settings._attachments import Stored
 from rasm_bpy.settings._presets import Preset
-from rasm_bpy.ui._layout.rows import _operator_button, ConditionalRow, Layout, RowContent, RowDraw
-from rasm_bpy.ui._layout.templates import _PresetGallery
-from rasm_bpy.ui._layout.values import _hosted, Listing
+from rasm_bpy.ui._layout.rows import ConditionalRow, Layout, operator_button, RowContent, RowDraw
+from rasm_bpy.ui._layout.templates import PresetGallery
+from rasm_bpy.ui._layout.values import Listing
 from rasm_records import accumulated, content_hash, Fault, Name, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -41,8 +42,8 @@ class Capture[C: msgspec.Struct](Protocol):
     """What a render set captures from a member scene, writes back as a setup, and draws above its member lists."""
 
     @property
-    def form(self) -> TypeForm[C]:
-        """Record a capture decodes as, a setup preset's form."""
+    def preset(self) -> Preset[C]:
+        """Setup presets of the record a capture decodes as."""
         ...
 
     def captured(self, members: Members, scene: bpy.types.Scene, /) -> Outcome[C]:
@@ -57,7 +58,7 @@ class Capture[C: msgspec.Struct](Protocol):
         """Writes sparse values to a member scene."""
         ...
 
-    def rows(self, members: Members, scope: "_SetupScope[C]", /) -> tuple[RowContent, ...]:
+    def rows(self, members: Members, scope: "SetupScope[C]", /) -> tuple[RowContent, ...]:
         """Rows drawn above the member lists."""
         ...
 
@@ -87,7 +88,7 @@ class EffectSetup(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  #
 class LockRequest(bpy.types.PropertyGroup):
     """Lock key a lock button toggles on the holder it drew, as the text the host button shows."""
 
-    key: bpy.props.StringProperty(name="Key", description="Lock key the button toggles")  # ty: ignore[invalid-type-form]
+    key: Annotated[str, bpy.props.StringProperty(name="Key", description="Lock key the button toggles")]
 
 
 class _Locks[K](msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
@@ -113,7 +114,7 @@ class _Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     key: Key
     form: TypeForm[_Locks[K]]
-    holder: Callable[[Struct], Option[tuple[bpy.types.Scene, str]]]
+    holder: Callable[[object], Option[tuple[bpy.types.Scene, str]]]
     text: Callable[[K], str]
     parsed: Callable[[str], Outcome[K]]
 
@@ -137,18 +138,12 @@ class _Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def lock_toggle(self, call: Call[LockRequest]) -> Outcome[Done]:
         """Toggles a key's lock on the holder its button drew, in the holder scene's lock store."""
-        store = self.stored(call.identity)
-
-        def toggled(owner: Struct, key: K) -> Outcome[Done]:
-            return (
-                self
-                .holder(owner)
-                .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(owner), member=self.owner))
-                .bind(lambda found: _locked(store, scene=found[0]).bind(lambda locks: store.write(found[0], locks.toggled(found[1], key))))
-                .map(lambda _: Done())
-            )
-
-        return paired(_hosted(call.identity.identifier(self.owner), call.context), self.parsed(call.properties.key)).bind(lambda parts: toggled(*parts))
+        store, pointer = self.stored(call.identity), call.identity.identifier(self.owner)
+        return (
+            paired(self.holder(getattr(call.context, pointer, None)).to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=pointer)), self.parsed(call.properties.key))
+            .bind(lambda parts: _locked(store, scene=parts[0][0]).bind(lambda locks: store.write(parts[0][0], locks.toggled(parts[0][1], parts[1]))))
+            .map(lambda _: Done())
+        )
 
     def toggles(self, identity: Identity) -> Toggle[K]:
         """Binds the lock store once into the draw of any key's locked or unlocked toggle on the drawn holder."""
@@ -158,9 +153,7 @@ class _Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             def shown(scene: bpy.types.Scene, held: str) -> None:
                 identity.reports.faulted(
-                    _locked(store, scene=scene).bind(
-                        lambda locks: _operator_button(layout, identity, request, {"text": "", "emboss": False, "icon": "LOCKED" if key in locks.of(held) else "UNLOCKED"})
-                    )
+                    _locked(store, scene=scene).bind(lambda locks: operator_button(layout, identity, request, {"text": "", "emboss": False, "icon": "LOCKED" if key in locks.of(held) else "UNLOCKED"}))
                 )
 
             layout.context_pointer_set(name, holder)
@@ -195,12 +188,14 @@ class EntryLocks(ConditionalRow, frozen=True, kw_only=True):
         """Draws one line per lockable key of the entry, inputs named under their panel."""
 
         def named(item: bpy.types.NodeTreeInterfaceSocket) -> str:
-            parent: bpy.types.NodeTreeInterfacePanel = item.parent  # ty: ignore[invalid-assignment]
-            return f"{parent.name} > {item.name}" if parent.name else item.name
+            match item.parent:
+                case bpy.types.NodeTreeInterfacePanel(name=str(panel)) if panel:
+                    return f"{panel} > {item.name}"
+                case _:
+                    return item.name
 
         def listed(entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, sockets: Mapping[Key, str]) -> None:
-            interface: bpy.types.NodeTreeInterface = group.interface  # ty: ignore[invalid-assignment]
-            live = {item.identifier: item for item in interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"}
+            live = {item.identifier: item for item in interface_sockets(group)}
             lockable = (
                 *((enabled.descriptor.prop.name, enabled.value) for enabled in Enabled),
                 *((named(item), key) for key, identifier in sockets.items() if key != COLOR_INPUT.key for item in Option.of_optional(live.get(identifier)).to_list() if not item.hide_in_modifier),
@@ -213,16 +208,16 @@ class EntryLocks(ConditionalRow, frozen=True, kw_only=True):
                 toggle(key, line, entry, context)
 
         if isinstance(entry := holder, bpy.types.SceneCompositorEffect):
-            identity.reports.faulted(_keyed(identity, entry).map(lambda pair: listed(entry, *pair)))
+            identity.reports.faulted(keyed(identity, entry).map(lambda pair: listed(entry, *pair)))
 
 
 class _Categories(msgspec.Struct, frozen=True, kw_only=True):
     """Category capture: the categories' settings of a scene and its unlocked view layers, setups keeping each locked setting."""
 
     @property
-    def form(self) -> TypeForm[CategorySettings]:
-        """Category settings record of a setup preset."""
-        return CategorySettings
+    def preset(self) -> Preset[CategorySettings]:
+        """Setup presets of category settings records."""
+        return _CATEGORY_PRESET
 
     @staticmethod
     def captured(members: Members, scene: bpy.types.Scene, /) -> Outcome[CategorySettings]:
@@ -249,7 +244,7 @@ class _Categories(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return _SETTING_LOCKS.read(members.identity, scene).bind(held)
+        return SETTING_LOCKS.read(members.identity, scene).bind(held)
 
     @staticmethod
     def applied(_members: Members, scene: bpy.types.Scene, sparse: CategorySettings, /) -> Outcome[None]:
@@ -257,12 +252,12 @@ class _Categories(msgspec.Struct, frozen=True, kw_only=True):
         return (
             sparse.scene
             .apply(scene)
-            .outcome.bind(lambda _: accumulated(_layer_of(scene, name).bind(lambda layer: snapshot.apply(layer).outcome) for name, snapshot in sparse.layers.items()))
+            .outcome.bind(lambda _: accumulated(layer_of(scene, name).bind(lambda layer: snapshot.apply(layer).outcome) for name, snapshot in sparse.layers.items()))
             .map(lambda _: None)
         )
 
     @staticmethod
-    def rows(_members: Members, _scope: "_SetupScope[CategorySettings]", /) -> tuple[RowContent, ...]:
+    def rows(_members: Members, _scope: "SetupScope[CategorySettings]", /) -> tuple[RowContent, ...]:
         """Draws nothing above the member lists."""
         return ()
 
@@ -277,9 +272,9 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     tile: Option[Callable[[Identity, bpy.types.Scene, Key, tuple[Valued[Entry], ...]], Option[int]]] = Nothing
 
     @cached_property
-    def form(self) -> TypeForm[EffectSetup]:
-        """Setup record over the offered effect records."""
-        return GenericAlias(EffectSetup, (self.effects.form,))  # ty: ignore[invalid-type-form, unsound-return-statement]
+    def preset(self) -> Preset[EffectSetup]:
+        """Setup presets of the setup record over the offered effect records."""
+        return Preset(key=KEY, decoder=msgspec.json.Decoder(GenericAlias(EffectSetup, (self.effects.form,))))
 
     def captured(self, members: Members, scene: bpy.types.Scene, /) -> Outcome[EffectSetup]:
         """Captures category settings and owned entries."""
@@ -291,7 +286,7 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return paired(_CATEGORIES.projected(members, scene, recipe.settings, current.settings), ENTRY_LOCKS.read(members.identity, scene)).map(
             lambda parts: (
                 EffectSetup(settings=parts[0][0], effects=recipe.effects),
-                EffectSetup(settings=parts[0][1], effects=_projected(current.effects, recipe.effects, locked=parts[1].whole(WHOLE), fields=parts[1].held)),
+                EffectSetup(settings=parts[0][1], effects=projected(current.effects, recipe.effects, locked=parts[1].whole(WHOLE), fields=parts[1].held)),
             )
         )
 
@@ -299,19 +294,19 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Writes sparse settings and entries, locked entries and fields kept."""
         return paired(
             _CATEGORIES.applied(members, scene, sparse.settings),
-            ENTRY_LOCKS.read(members.identity, scene).bind(lambda locks: _applied(self.effects, members.identity, scene, sparse.effects, locked=locks.whole(WHOLE), fields=locks.held)),
+            ENTRY_LOCKS.read(members.identity, scene).bind(lambda locks: applied(self.effects, members.identity, scene, sparse.effects, locked=locks.whole(WHOLE), fields=locks.held)),
         ).map(lambda _: None)
 
-    def rows(self, _members: Members, scope: "_SetupScope[EffectSetup]", /) -> tuple[RowContent, ...]:
+    def rows(self, _members: Members, scope: "SetupScope[EffectSetup]", /) -> tuple[RowContent, ...]:
         """Draws setup presets as tiles above the member lists while a tile source is given."""
-        return tuple(_PresetGallery(listing=scope.listing, tile=partial(self.tiled, tile)) for tile in self.tile.to_list())
+        return tuple(PresetGallery(listing=scope.listing, tile=partial(self.tiled, tile)) for tile in self.tile.to_list())
 
     def tiled(self, tile: Callable[[Identity, bpy.types.Scene, Key, tuple[Valued[Entry], ...]], Option[int]], identity: Identity, context: bpy.types.Context | None, setup: EffectSetup) -> Option[int]:
         """Returns the icon of the preview-enabled entries a setup projects over the context scene's entries, locks kept."""
 
         def shown(scene: bpy.types.Scene, current: Mapping[Name, Valued[Entry]], locks: _Locks[Key]) -> Option[int]:
-            entries = tuple(held for held in _projected(current, setup.effects, locked=locks.whole(WHOLE), fields=locks.held).values() if Enabled.PREVIEW in held.enables)
-            return tile(identity, scene, f"{_KEY}_{content_hash(EffectSetups, setup).hex()}", entries)
+            entries = tuple(held for held in projected(current, setup.effects, locked=locks.whole(WHOLE), fields=locks.held).values() if Enabled.PREVIEW in held.enables)
+            return tile(identity, scene, f"{KEY}_{content_hash(EffectSetups, setup).hex()}", entries)
 
         return (
             Option
@@ -321,7 +316,7 @@ class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         )
 
 
-class _SetupScope[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
+class SetupScope[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     """Setup recipes of a render set's capture over its unlocked member scenes."""
 
     members: Members
@@ -330,7 +325,7 @@ class _SetupScope[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     @property
     def listing(self) -> Listing[C]:
         """Setup preset actions with matches against the active scene."""
-        return Listing(preset=Preset(key=_KEY, form=self.capture.form), current=self.current, matches=self.matched, applied=self.applied)
+        return Listing(preset=self.capture.preset, current=self.current, matches=self.matched, applied=self.applied)
 
     def current(self, context: bpy.types.Context) -> Outcome[C]:
         """Captures active scene, substituting no source."""
@@ -364,6 +359,10 @@ class _SetupScope[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         return self.members.member_scenes(context).map(self.members.unlocked).bind(lambda scenes: accumulated(map(planned, scenes))).bind(wrote)
 
 
+# --- [CODECS] ---------------------------------------------------------------------------
+
+_CATEGORY_PRESET: Final = Preset(key=KEY, decoder=msgspec.json.Decoder(CategorySettings))
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -372,7 +371,7 @@ def _locked[K](store: Stored[_Locks[K]], *, scene: bpy.types.Scene) -> Outcome[_
     return store.read(scene).map(lambda held: held.default_with(_Locks[K]))
 
 
-def _setting_holder(holder: Struct) -> Option[tuple[bpy.types.Scene, str]]:
+def _setting_holder(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
     """Returns the scene of a drawn scene or view layer, with the layer's name, the empty name for the scene itself."""
     match holder:
         case bpy.types.Scene() as scene:
@@ -383,7 +382,7 @@ def _setting_holder(holder: Struct) -> Option[tuple[bpy.types.Scene, str]]:
             return Nothing
 
 
-def _entry_holder(holder: Struct) -> Option[tuple[bpy.types.Scene, str]]:
+def _entry_holder(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
     """Returns the scene and name of a drawn compositor entry."""
     match holder:
         case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, name=name):
@@ -395,9 +394,9 @@ def _entry_holder(holder: Struct) -> Option[tuple[bpy.types.Scene, str]]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _CATEGORIES: Final = _Categories()
-_SETTING_LOCKS: Final = _Locking[RnaPath](key="render_setup_locks", form=_Locks[RnaPath], holder=_setting_holder, text=_rna, parsed=_parsed)
+SETTING_LOCKS: Final = _Locking[RnaPath](key="render_setup_locks", form=_Locks[RnaPath], holder=_setting_holder, text=rna, parsed=parsed_path)
 ENTRY_LOCKS: Final = _Locking[Key](key="entry_locks", form=_Locks[Key], holder=_entry_holder, text=str, parsed=Ok)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ENTRY_LOCKS", "WHOLE", "Capture", "CategorySettings", "EffectSetup", "EffectSetups", "EntryLocks", "LockRequest", "Toggle"]
+__all__ = ["ENTRY_LOCKS", "SETTING_LOCKS", "WHOLE", "Capture", "CategorySettings", "EffectSetup", "EffectSetups", "EntryLocks", "LockRequest", "SetupScope", "Toggle"]

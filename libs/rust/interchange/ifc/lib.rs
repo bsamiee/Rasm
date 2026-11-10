@@ -1,32 +1,25 @@
 #![feature(default_field_values, deref_patterns, float_conversions, gen_blocks)]
 #![cfg_attr(feature = "geometry", feature(iterator_try_collect, vec_into_chunks))]
 
-use core::{
-    borrow::Borrow,
-    hash::Hash,
-    mem,
-    num::{ParseIntError, TryFromIntError},
-    ptr,
-    str::FromStr,
-};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use core::borrow::Borrow;
+use core::hash::Hash;
+use core::num::{ParseIntError, TryFromIntError};
+use core::str::FromStr;
+use core::{mem, ptr};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use indexmap::IndexMap;
 use itertools::{Either, Itertools as _};
 use jiff::fmt::temporal::Pieces;
 use nonempty_collections::{NEVec, NonEmptyIterator as _, iter};
-use serde::{
-    Deserialize, Deserializer, Serialize, Serializer,
-    de::{
-        IntoDeserializer, Visitor,
-        value::{BorrowedStrDeserializer, MapAccessDeserializer, MapDeserializer, SeqDeserializer},
-    },
-};
-use serde_with::{DefaultOnNull, DeserializeFromStr, DisplayFromStr, SerializeDisplay, base64::Base64, serde_as};
-use uom::si::{self, f64::Length};
+use serde::de::value::{BorrowedStrDeserializer, MapAccessDeserializer, MapDeserializer, SeqDeserializer};
+use serde::de::{IntoDeserializer, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_with::base64::Base64;
+use serde_with::{DefaultOnNull, DeserializeFromStr, DisplayFromStr, SerializeDisplay, serde_as};
+use uom::si;
+use uom::si::f64::Length;
 use url::Url;
 
 // --- [MODELS] --------------------------------------------------------------------------

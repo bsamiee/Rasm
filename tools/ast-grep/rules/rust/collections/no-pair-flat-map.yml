@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: rustlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^flat_map$'}}
+        - any:
+            - any:
+                - pattern: $X.iter().enumerate().flat_map(|($I, $A)| $X.iter().skip($STEP).map(move |$B| $PAIR))
+                - pattern: $X.iter().enumerate().flat_map(move |($I, $A)| $X.iter().skip($STEP).map(move |$B| $PAIR))
+                - pattern: $X.iter().enumerate().flat_map(|($I, $A)| $X.iter().take($I).map(move |$B| $PAIR))
+                - pattern: $X.iter().enumerate().flat_map(move |($I, $A)| $X.iter().take($I).map(move |$B| $PAIR))
+            - all:
+                - any:
+                    - pattern: $X.flat_map(|$A| $Y.map(move |$B| ($A, $B)))
+                    - pattern: $X.flat_map(|$A| $Y.map(|$B| ($A, $B)))
+                    - pattern: $X.flat_map(|$A| $Y.map(move |$B| ($A.clone(), $B)))
+                    - pattern: $X.flat_map(|$A| $Y.map(|$B| ($A.clone(), $B)))
+                    - pattern: $X.flat_map(|$A| repeat($A).zip($Y))
+                    - pattern: $X.flat_map(|$A| iter::repeat($A).zip($Y))
+                    - pattern: $X.flat_map(|$A| std::iter::repeat($A).zip($Y))
+                    - pattern: $X.flat_map(|$A| core::iter::repeat($A).zip($Y))
+                - not:
+                    has:
+                        field: arguments
+                        has:
+                            kind: closure_expression
+                            has:
+                                field: body
+                                any:
+                                    - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^map$'}}, {has: {field: value, has: {stopBy: end, kind: identifier, pattern: $A}}}]}
+                                    - all:
+                                        - has: {field: function, kind: field_expression, has: {field: field, regex: '^zip$'}}
+                                        - has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $A}}
+constraints:
+    STEP:
+        any:
+            - pattern: $I + 1
+            - pattern: 1 + $I
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $I}}, {has: {field: field, regex: '^(strict|checked|saturating|wrapping)_add$'}}]}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, regex: '^1$'}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+            - kind: try_expression
+              has: {kind: call_expression, pattern: $I.checked_add(1)}
+    PAIR: {kind: tuple_expression}
+    Y:
+        any:
+            - regex: '^[\p{XID_Continue}.&*]+(\.(clone|as_slice|as_ref)\(\))?\.(iter|into_iter|keys|values|chars|bytes)\(\)(\.(copied|cloned)\(\))?$'
+            - regex: '^\(\p{Pattern_White_Space}*[\p{XID_Continue}.]+\p{Pattern_White_Space}*\.\.=?\p{Pattern_White_Space}*[\p{XID_Continue}.]+(\(\))?\p{Pattern_White_Space}*\)$'
+message: '`$X` pairs elements through a nested `flat_map`'
+note: 'Call `<slice>.iter().array_combinations::<2>()` for each `[earlier, later]` pair of one slice, or `<outer>.cartesian_product(<inner>)` over a `Clone` outer element type (`use itertools::Itertools as _;`)'

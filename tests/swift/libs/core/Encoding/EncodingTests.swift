@@ -81,14 +81,14 @@ struct JSONValueTests {
 
     @Test
     func keepsUnknownSpellings() throws {
-        let read: [Lenient<Role>] = try JSONDecoder().decode([Lenient<Role>].self, from: Data(#"["AXButton","AXSplitter"]"#.utf8))
+        let read = try JSONDecoder().decode([Lenient<Role>].self, from: Data(#"["AXButton","AXSplitter"]"#.utf8))
         expectNoDifference(read.map(\.rawValue), ["AXButton", "AXSplitter"])
         expectNoDifference(read.map { role in if case .known(.button) = role { true } else { false } }, [true, false])
     }
 
     @Test
     func keepsFieldsBesideKnownKeys() throws {
-        let document: JSONDocument<[String: Int]> = try JSONDecoder().decode(JSONDocument<[String: Int]>.self, from: Data(#"{"a":1,"b":2}"#.utf8))
+        let document = try JSONDecoder().decode(JSONDocument<[String: Int]>.self, from: Data(#"{"a":1,"b":2}"#.utf8))
         expectNoDifference(document.fields, ["a": .number(1), "b": .number(2)])
         expectNoDifference(document.known, ["a": 1, "b": 2])
     }
@@ -99,7 +99,7 @@ struct JSONLinesTests {
     @Test
     func splitsAtNewlines() async {
         var lines: [Data] = []
-        for await line: Data in Data("{}\n\n[1]\n\"tail\"".utf8).async.jsonLines { lines.append(line) }
+        for await line in Data("{}\n\n[1]\n\"tail\"".utf8).async.jsonLines { lines.append(line) }
         expectNoDifference(lines.map { line in String(data: line, encoding: .utf8) }, ["{}", "", "[1]", "\"tail\""])
     }
 

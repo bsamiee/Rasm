@@ -52,6 +52,6 @@ Spatial questions take the member that answers them:
 
 ```python
 def touching(first: Surface, second: Surface, /) -> tuple[tuple[int, int], ...]:
-    left, right = (BVHTree.FromPolygons(positions, np.split(corners, starts[1:].tolist())) for positions, corners, starts in (first, second))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    left, right = (BVHTree.FromPolygons(positions.tolist(), [face.tolist() for face in np.split(corners, starts[1:].tolist())]) for positions, corners, starts in (first, second))
     return tuple(left.overlap(right))
 ```

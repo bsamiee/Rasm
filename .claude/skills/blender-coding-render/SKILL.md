@@ -294,10 +294,10 @@ One scope adds a target node to every material, makes it active, and removes it 
 def baked(context: bpy.types.Context, item: bpy.types.Object, image: bpy.types.Image, /, *, kind: "rna_enums.BakePassTypeItems") -> Outcome[bpy.types.Image]:
     with ExitStack() as scope:
         for tree in {tree for slot in item.material_slots if slot.material is not None and (tree := slot.material.node_tree) is not None}:
-            target: bpy.types.ShaderNodeTexImage = tree.nodes.new(bpy.types.ShaderNodeTexImage.bl_rna.identifier)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            scope.callback(setattr, tree.nodes, "active", tree.nodes.active)
-            scope.callback(tree.nodes.remove, target)
-            target.image, tree.nodes.active = image, target
+            if isinstance(target := tree.nodes.new(bpy.types.ShaderNodeTexImage.bl_idname), bpy.types.ShaderNodeTexImage):
+                scope.callback(setattr, tree.nodes, "active", tree.nodes.active)
+                scope.callback(tree.nodes.remove, target)
+                target.image, tree.nodes.active = image, target
         with context.temp_override(active_object=item, selected_objects=[item]):
             return catch(bpy.ops.object.bake, exception=RuntimeError)(type=kind, target="IMAGE_TEXTURES", save_mode="INTERNAL").map(lambda _: image).map_error(partial(Fault.of, Reason.FAILED, item.name))
 ```

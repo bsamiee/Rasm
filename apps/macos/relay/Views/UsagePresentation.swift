@@ -69,7 +69,7 @@ extension AccountModel {
                     (reading.isBlocked(at: now) ? ["Blocked", reading.weekly?.resetText(at: now)] as [String?] : [])
                         + [usage.is(\.stale) ? "Updated \(reading.observedAt.formatted(.relative(presentation: .named)))" : nil] as [String?]
             }
-        let text: [String] = parts.compactMap(\.self)
+        let text = parts.compactMap(\.self)
         return text.isEmpty ? nil : text.joined(separator: separator)
     }
 }

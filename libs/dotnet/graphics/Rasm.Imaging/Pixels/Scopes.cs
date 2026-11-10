@@ -136,8 +136,7 @@ public abstract partial record Scope {
             using Mat levels = Transformed(rgb, Levels(Luminance), 0, 4);
             Span<float> samples = levels.GetSpan<float>();
             TensorPrimitives.Multiply(samples, rows, samples);
-            TensorPrimitives.Max(samples, 0f, samples);
-            TensorPrimitives.Min(samples, float.BitDecrement(rows), samples);
+            TensorPrimitives.Clamp(samples, 0f, float.BitDecrement(rows), samples);
             CvInvoke.PatchNaNs(levels, -1d);
             using Mat line = new(1, rgb.Cols, DepthType.Cv32F, 1);
             Span<float> across = line.GetSpan<float>();

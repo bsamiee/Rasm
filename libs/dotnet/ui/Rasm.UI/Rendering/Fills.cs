@@ -47,7 +47,7 @@ internal static class Fills {
                     : drawn.Shader((state with { Frame = SKRect.Create(state.Frame.Size) }).Target).Bind(shader => state.Pass.Cache.Rastered(shader, state.Frame, state.Context.Scale)))
                 .Map(shader => Shaded(state, shader, dither: false)),
             hatch: static (state, hatch) => state.Color(hatch.Color).Map(color => {
-                using SKPathEffect lines = hatch.Effect();
+                using SKPathEffect lines = SKPathEffect.Create2DLine(hatch.Width, SKMatrix.CreateScale(hatch.Spacing, hatch.Spacing).PostConcat(SKMatrix.CreateRotationDegrees(hatch.Angle)));
                 return new SKPaint { IsAntialias = true, ColorF = color, PathEffect = lines, Blender = state.Blend.ValueUnsafe() };
             }),
             skin: static (state, _) => Some(new SKPaint { IsAntialias = true, Blender = state.Blend.ValueUnsafe() }));
@@ -130,7 +130,12 @@ internal static class Fills {
     }
 
     private static SKPaint Rimmed(FillContext held, Material.Glass glass) {
-        (SKPoint side, SKPoint end) = glass.Rim(held.Layout.Style.Conditions.Contains(Condition.Dark));
+        (SKPoint side, SKPoint end) = (glass.Clear, held.Layout.Style.Conditions.Contains(Condition.Dark)) switch {
+            (false, false) => (new SKPoint(0.8266f, 1.2402f), new SKPoint(0.8822f, 1.1543f)),
+            (false, true) => (new SKPoint(0.3867f, 0.4890f), new SKPoint(0.5761f, 0.7615f)),
+            (true, false) => (new SKPoint(0.7731f, 1.3750f), new SKPoint(1f, 1f)),
+            (true, true) => (new SKPoint(0.6434f, 1.1787f), new SKPoint(1f, 1f)),
+        };
         using SKShader shader = Edged(Rim.Effect, held, SKMatrix.CreateTranslation(held.Frame.Left, held.Frame.Top));
         using SKRuntimeEffectUniforms curves = new(Lightness.Effect) { ["side"] = side, ["end"] = end };
         using SKBlender blender = Lightness.Effect.ToBlender(curves);

@@ -86,7 +86,7 @@ internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Op
 
     // --- [IDENTITY]
 
-    public override IIcon Icon => DataTypes.Icon(typeof(TValue).Assembly, typeof(TValue).Name) ?? key.Icon;
+    public override IIcon Icon => DataTypes.Icon((typeof(TValue).Assembly, typeof(TValue).Name)).IfNone(() => key.Icon);
 
     public override IEnumerable<string> Constructors => [Name];
 
@@ -330,7 +330,7 @@ public static class DataTypes {
 
     // --- [IDENTITY]
 
-    private static readonly Func<(Assembly Assembly, string Name), Option<IIcon>> Icons = memoUnsafe(static ((Assembly Assembly, string Name) source) =>
+    internal static readonly Func<(Assembly Assembly, string Name), Option<IIcon>> Icon = memoUnsafe(static ((Assembly Assembly, string Name) source) =>
         Art(source.Assembly, source.Name).Map(lit => (IIcon)new MasterIcon(lit, Art(source.Assembly, $"{source.Name}_darkmode").IfNone(lit))));
 
     private static Option<IIcon> Art(Assembly assembly, string name) =>
@@ -342,6 +342,4 @@ public static class DataTypes {
         Uuid.NewNameBased(
             Optional(type.Assembly.GetCustomAttribute<GuidAttribute>()).Bind(static declared => parseGuid(declared.Value)).IfNone(static () => Hooks.Session.Plugin.Id),
             type.ToString());
-
-    internal static IIcon? Icon(Assembly assembly, string name) => Icons((assembly, name)).ValueUnsafe();
 }

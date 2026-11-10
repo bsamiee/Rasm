@@ -1,19 +1,15 @@
 use core::cell::OnceCell;
 
-use clippy_utils::{
-    consts::{Constant, mir_to_const},
-    diagnostics::span_lint_hir_and_then,
-};
+use clippy_utils::consts::{Constant, mir_to_const};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
 use itertools::Itertools as _;
 use rustc_ast::LitKind;
 use rustc_crate_store::ExternCrate;
 use rustc_data_structures::fx::{FxBuildHasher, FxHashMap, FxHashSet};
 use rustc_errors::Applicability;
-use rustc_hir::{
-    Expr, ExprKind, HirId, Pat, PatExpr, PatExprKind, PatKind,
-    def::{DefKind, Res},
-    def_id::DefId,
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind, HirId, Pat, PatExpr, PatExprKind, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_span::{Span, Symbol};
 

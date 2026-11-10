@@ -3,7 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from functools import cached_property, partial, update_wrapper
-from typing import ClassVar, Final, Protocol, TYPE_CHECKING
+from typing import Annotated, ClassVar, Final, Protocol, TYPE_CHECKING
 
 import bpy
 from expression import Option, Some, try_downcast
@@ -12,28 +12,28 @@ from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
 
-from rasm_bpy.commands.operators import Answer, Call, Done, Operator, Placement, Unchanged
-from rasm_bpy.data._extension.identity import Identity, Key
+from rasm_bpy.commands import operators
+from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Resource
-from rasm_bpy.data._ids.ownership import _retained, _tracked, Mark
+from rasm_bpy.data._ids.ownership import Mark, retained, tracked
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.conditions import Condition, Job
 from rasm_bpy.data._rna.descriptors import written
-from rasm_bpy.data._rna.paths import _definition, rooted, Struct
+from rasm_bpy.data._rna.paths import rna_definition, rooted, Struct
 from rasm_bpy.nodes._addressing import OwnedNodes
-from rasm_bpy.nodes._desired import _OUTPUTS, End, INPUTS
-from rasm_bpy.nodes._trees import _created, _endpoints, _linked, _links_of, _socket_at
+from rasm_bpy.nodes._desired import End, INPUTS, OUTPUTS
+from rasm_bpy.nodes._trees import created, endpoints, linked_sockets, links_of, socket_at
 from rasm_bpy.nodes.changes import Removed
-from rasm_bpy.render._color.spaces import _entering
+from rasm_bpy.render._color.spaces import entering_space
 from rasm_bpy.render._compositor.colors import COLOR_INPUT, COLOR_RESULT
-from rasm_bpy.render._compositor.effects import _VIEWER, CompositorEffect, Named
-from rasm_bpy.render._compositor.entries import _EXECUTING
+from rasm_bpy.render._compositor.effects import CompositorEffect, Named, VIEWER
+from rasm_bpy.render._compositor.entries import EXECUTING
 from rasm_bpy.render._compositor.inputs import grouped
 from rasm_bpy.render._compositor.offered import OfferedEffects
-from rasm_bpy.render._outputs.results import _INTERMEDIATES
-from rasm_bpy.render._sessions.staging import _captured_input
-from rasm_bpy.ui._layout.rows import _operator_button, RowDraw
-from rasm_bpy.ui._screens.areas import _EditorState, AreaQuery
+from rasm_bpy.render._outputs.results import INTERMEDIATES
+from rasm_bpy.render._sessions.staging import captured_input
+from rasm_bpy.ui._layout.rows import operator_button, RowDraw
+from rasm_bpy.ui._screens.areas import AreaQuery, EditorState
 from rasm_imaging import called, captured_scene_source, converted_image, ImageFile, Region
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Consume = Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile], Outcome[Option[str]]]
 type _Reads = tuple[dict[Handle[bpy.types.Scene], _PendingRead], Callable[[Handle[bpy.types.Scene], _PendingRead, ImageFile], None]]
 
 
@@ -62,8 +61,8 @@ class _Measure(Protocol):
 class ViewTarget(Named):
     """Entry and group output to inspect."""
 
-    node: bpy.props.StringProperty(name="Node", description="Group node key holding the output", default=INPUTS)  # ty: ignore[invalid-type-form]
-    socket: bpy.props.StringProperty(name="Socket", description="Output socket key", default=COLOR_INPUT.key)  # ty: ignore[invalid-type-form]
+    node: Annotated[str, bpy.props.StringProperty(name="Node", description="Group node key holding the output", default=INPUTS)]
+    socket: Annotated[str, bpy.props.StringProperty(name="Socket", description="Output socket key", default=COLOR_INPUT.key)]
 
 
 class _PendingRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -72,7 +71,7 @@ class _PendingRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     name: str
     encoding: Option[PyOpenColorIO.Processor]
     region: Option[Region]
-    consume: _Consume
+    consume: Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile], Outcome[Option[str]]]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -92,7 +91,14 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
         with identity.reports.deferred(partial(self.delivered, identity)) as deferred:
             yield dict[Handle[bpy.types.Scene], _PendingRead](), deferred
 
-    def entering(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, consume: _Consume, region: Option[Region] = Nothing) -> Outcome[None]:
+    def entering(
+        self,
+        identity: Identity,
+        scene: bpy.types.Scene,
+        entry: bpy.types.SceneCompositorEffect,
+        consume: Callable[[Identity, bpy.types.Scene, bpy.types.SceneCompositorEffect, ImageFile], Outcome[Option[str]]],
+        region: Option[Region] = Nothing,
+    ) -> Outcome[None]:
         """Captures the entry input and its encoding through an isolated native prefix render, then queues delivery."""
 
         def queued(encoding: Option[PyOpenColorIO.Processor], file: ImageFile) -> None:
@@ -101,20 +107,17 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
             pending = held[handle] = _PendingRead(name=entry.name, encoding=encoding, region=region, consume=consume)
             deferred(handle, pending, file)
 
-        def prepared(config: PyOpenColorIO.Config, keyed: OwnedNodes, source: bpy.types.NodeSocket) -> Outcome[None]:
+        def prepared(config: PyOpenColorIO.Config, original: bpy.types.NodeTree, keyed: OwnedNodes, source: bpy.types.NodeSocket) -> Outcome[None]:
             return (
-                _entering(config, entry, source.identifier)
+                entering_space(config, entry, source.identifier)
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="encoding colorspace"))
-                .bind(
-                    lambda space: captured_scene_source(config, space).bind(
-                        lambda encoding: _connected(identity, entry, keyed, source).bind(lambda _: _captured_input(identity, scene, entry, space, source)).map(partial(queued, encoding))
-                    )
-                )
+                .bind(lambda space: captured_scene_source(config, space).map(lambda encoding: (space, encoding)))
+                .bind(lambda found: _connected(identity, entry, keyed, source).bind(lambda _: captured_input(identity, scene, entry, original, found[0])).map(partial(queued, found[1])))
             )
 
         return paired(
             called(PyOpenColorIO.GetCurrentConfig, entry.name),
-            grouped(entry).map(lambda tree: OwnedNodes.of(tree, identity)).bind(lambda keyed: keyed.socket(INPUTS, COLOR_INPUT.key, output=True).map(lambda source: (keyed, source))),
+            grouped(entry).bind(lambda tree: (keyed := OwnedNodes.of(tree, identity)).socket(INPUTS, COLOR_INPUT.key, output=True).map(lambda source: (tree, keyed, source))),
         ).bind(lambda pair: prepared(pair[0], *pair[1]))
 
     def delivered(self, identity: Identity, handle: Handle[bpy.types.Scene], pending: _PendingRead, file: ImageFile) -> Outcome[Option[str]]:
@@ -140,14 +143,14 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
             )
         )
 
-    def measuring(self, measure: _Measure, /, *, icon: Option["rna_enums.IconItems"] = Nothing, condition: Option[Condition] = Nothing) -> Operator[Named]:
+    def measuring(self, measure: _Measure, /, *, icon: Option["rna_enums.IconItems"] = Nothing, condition: Option[Condition] = Nothing) -> operators.Operator[Named]:
         """Builds the command measuring the named entry's entering frame, keyed, described, and undo-titled by the measure, available while no render runs and the condition holds."""
         running = Job(kind="RENDER")
-        return Operator(
+        return operators.Operator(
             form=Named, run=update_wrapper(partial(self.measured, measure), measure), options=frozenset(), icon=icon, condition=Some(condition.map(lambda held: running & held).default_value(running))
         )
 
-    def measured(self, measure: _Measure, call: Call[Named]) -> Outcome[Answer]:
+    def measured(self, measure: _Measure, call: operators.Call[Named]) -> Outcome[operators.Answer]:
         """Views the named entry's input, the completed frame read by the measure."""
         title = bpy.path.display_name(measure.__name__)
 
@@ -164,12 +167,12 @@ class _ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True
                     .bind(lambda entry: self.entering(call.identity, scene, entry, consumed))
                 )
             )
-            .map(lambda _: Done())
+            .map(lambda _: operators.Done())
         )
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Acquires pending deliveries and native prefix isolation resources."""
-        return self.pending, _INTERMEDIATES, _EXECUTING
+        return self.pending, INTERMEDIATES, EXECUTING
 
 
 class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -177,7 +180,7 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     rows: OfferedEffects
     entering: ClassVar[End] = End(node=INPUTS, socket=COLOR_INPUT.key)
-    leaving: ClassVar[End] = End(node=_OUTPUTS, socket=COLOR_RESULT.key)
+    leaving: ClassVar[End] = End(node=OUTPUTS, socket=COLOR_RESULT.key)
     ends: ClassVar[tuple[tuple[str, End], ...]] = (("Input", entering), ("Result", leaving))
 
     def entry(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[tuple[bpy.types.SceneCompositorEffect, Option[CompositorEffect]]]:
@@ -191,43 +194,62 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
         )
 
-    def view_output(self, call: Call[ViewTarget]) -> Outcome[Answer]:
-        """Show effect group output in place of stack result."""
-        query = AreaQuery(space=bpy.types.SpaceNodeEditor, ui_type=Some(_definition(bpy.types.CompositorNodeTree).identifier))
+    def view_output(self, call: operators.Call[ViewTarget]) -> Outcome[operators.Answer]:
+        """Show effect group output in place of stack result, connecting the owned Viewer to the chosen output and activating the entry."""
+        query = AreaQuery(space=bpy.types.SpaceNodeEditor, ui_type=Some(rna_definition(bpy.types.CompositorNodeTree).identifier))
+        chosen = call.properties
+
+        def viewed(entry: bpy.types.SceneCompositorEffect, keyed: OwnedNodes) -> Outcome[None]:
+            entering = (
+                Option
+                .of_optional(keyed.nodes.get(OUTPUTS))
+                .bind(lambda output: Option.of_optional(keyed.sockets[OUTPUTS].get(chosen.socket)).bind(lambda identifier: socket_at(output.inputs, identifier).to_option()))
+                .bind(lambda socket: Block.of_seq(links_of(socket)).try_head().map(lambda link: endpoints(link)[1]))
+                .to_result_with(partial(Fault.of, Reason.ABSENT, repr(keyed.interface.tree.links), member=chosen.socket))
+                if chosen.node == OUTPUTS
+                else keyed.socket(chosen.node, chosen.socket, output=True)
+            )
+            return entering.bind(partial(_connected, call.identity, entry, keyed))
+
         return paired(
-            _EditorState.of(bpy.types.SpaceNodeEditor, {("node_tree_sub_type",): "SCENE", ("show_backdrop",): True}),
-            rooted(bpy.types.Scene, call.context).bind(lambda scene: self.entry(call.identity, scene, call.properties.name)),
+            EditorState.of(bpy.types.SpaceNodeEditor, {("node_tree_sub_type",): "SCENE", ("show_backdrop",): True}),
+            rooted(bpy.types.Scene, call.context).bind(lambda scene: self.entry(call.identity, scene, chosen.name)),
         ).bind(
-            lambda pair: _shown(call.identity, pair[1][0], End(node=call.properties.node, socket=call.properties.socket)).bind(
-                lambda _: rooted(bpy.types.WindowManager, call.context).bind(
-                    lambda manager: (
-                        Block
-                        .of_seq(query.located(manager.windows))
-                        .try_head()
-                        .map(lambda at: pair[0].applied(at).map(lambda _: Done()))
-                        .default_value(Ok(Done(notes=(("INFO", "No compositor Node Editor open"),))))
+            lambda pair: (
+                grouped(pair[1][0])
+                .map(lambda tree: OwnedNodes.of(tree, call.identity))
+                .bind(partial(viewed, pair[1][0]))
+                .bind(
+                    lambda _: rooted(bpy.types.WindowManager, call.context).bind(
+                        lambda manager: (
+                            Block
+                            .of_seq(query.located(manager.windows))
+                            .try_head()
+                            .map(lambda at: pair[0].applied(at).map(lambda _: operators.Done()))
+                            .default_value(Ok(operators.Done(notes=(("INFO", "No compositor Node Editor open"),))))
+                        )
                     )
                 )
             )
         )
 
-    def clear_viewer(self, call: Call[Named]) -> Outcome[Answer]:
+    def clear_viewer(self, call: operators.Call[Named]) -> Outcome[operators.Answer]:
         """Remove effect Viewer to show stack result."""
         return (
             rooted(bpy.types.Scene, call.context)
             .bind(lambda scene: self.entry(call.identity, scene, call.properties.name))
-            .bind(lambda held: _cleared(call.identity, held[0]).map(lambda removed: Done() if removed else Unchanged(reason=f"{held[0].name} has no Viewer")))
+            .bind(lambda held: _cleared(call.identity, held[0]).map(lambda removed: operators.Done() if removed else operators.Unchanged(reason=f"{held[0].name} has no Viewer")))
         )
 
     @cached_property
-    def viewing(self) -> Operator[ViewTarget]:
+    def viewing(self) -> operators.Operator[ViewTarget]:
         """Command showing an entry's group output."""
-        return Operator(form=ViewTarget, run=self.view_output, options=frozenset({"INTERNAL", "UNDO"}))
+        return operators.Operator(form=ViewTarget, run=self.view_output, options=frozenset({"INTERNAL", "UNDO"}))
 
     @cached_property
-    def clearing(self) -> Operator[Named]:
+    def clearing(self) -> operators.Operator[Named]:
         """Command removing an entry's owned Viewer."""
-        return Operator(form=Named, run=self.clear_viewer, options=frozenset({"INTERNAL", "UNDO"}))
+        return operators.Operator(form=Named, run=self.clear_viewer, options=frozenset({"INTERNAL", "UNDO"}))
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns the entering-frame read and the view and clear commands."""
@@ -241,34 +263,11 @@ class Viewers(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Draws the buttons viewing the entry's input and result and clearing its Viewer."""
         for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list():
             line = layout.row(align=True)
-            viewed = (_operator_button(line, identity, Placement(self.viewing, {"name": entry.name, "node": end.node, "socket": end.socket}), {"text": text}) for text, end in self.ends)
-            identity.reports.faulted(accumulated((*viewed, _operator_button(line, identity, Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
+            viewed = (operator_button(line, identity, operators.Placement(self.viewing, {"name": entry.name, "node": end.node, "socket": end.socket}), {"text": text}) for text, end in self.ends)
+            identity.reports.faulted(accumulated((*viewed, operator_button(line, identity, operators.Placement(self.clearing, {"name": entry.name}), {"text": "Clear"}))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End) -> Outcome[None]:
-    """Connects owned Viewer to target end and activates entry."""
-
-    def source(keyed: OwnedNodes, key: Key) -> Outcome[bpy.types.NodeSocket]:
-        return (
-            Option
-            .of_optional(keyed.nodes.get(_OUTPUTS))
-            .bind(lambda output: Option.of_optional(keyed.sockets[_OUTPUTS].get(key)).bind(lambda identifier: _socket_at(output.inputs, identifier).to_option()))
-            .bind(lambda socket: Block.of_seq(_links_of(socket)).try_head().map(lambda link: _endpoints(link)[1]))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(keyed.interface.tree.links), member=key))
-        )
-
-    def viewed(keyed: OwnedNodes) -> Outcome[None]:
-        match target:
-            case End(node=node, socket=str(key)) if node == _OUTPUTS:
-                entering = source(keyed, key)
-            case _:
-                entering = keyed.socket(target.node, target.socket, output=True)
-        return entering.bind(partial(_connected, identity, entry, keyed))
-
-    return grouped(entry).map(lambda tree: OwnedNodes.of(tree, identity)).bind(viewed)
 
 
 def _cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[bool]:
@@ -276,7 +275,7 @@ def _cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outc
 
     def removed(tree: bpy.types.NodeTree) -> Outcome[bool]:
         keyed = OwnedNodes.of(tree, identity)
-        return Option.of_optional(keyed.nodes.get(_VIEWER)).map(lambda viewer: Removed(item=viewer).applied(keyed, identity).map(lambda _: True)).default_value(Ok(value=False))
+        return Option.of_optional(keyed.nodes.get(VIEWER)).map(lambda viewer: Removed(item=viewer).applied(keyed, identity).map(lambda _: True)).default_value(Ok(value=False))
 
     return grouped(entry).bind(removed)
 
@@ -284,19 +283,19 @@ def _cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outc
 def _connected(identity: Identity, entry: bpy.types.SceneCompositorEffect, keyed: OwnedNodes, source: bpy.types.NodeSocket) -> Outcome[None]:
     """Connects and activates the prepared native source, retaining the old Viewer until linking succeeds."""
     tree = keyed.interface.tree
-    viewer = keyed.nodes.get(_VIEWER)
+    viewer = keyed.nodes.get(VIEWER)
     stale = tuple(link for link in tree.links if link.to_node == viewer) if viewer is not None else ()
     with ExitStack() as rollback:
         placed = (
             Ok(viewer)
             if viewer is not None
-            else _tracked(rollback, tree.nodes.remove, _created(tree, bpy.types.CompositorNodeViewer)).bind(lambda node: Mark(key=_VIEWER).write(identity, node).map(lambda _: node))
+            else tracked(rollback, tree.nodes.remove, created(tree, bpy.types.CompositorNodeViewer)).bind(lambda node: Mark(key=VIEWER).write(identity, node).map(lambda _: node))
         )
-        return _retained(
+        return retained(
             placed.bind(
                 lambda viewer: (
-                    _socket_at(viewer.inputs, "Image")
-                    .bind(lambda target: _tracked(rollback, tree.links.remove, _linked(tree, source, target, verify_limits=False)))
+                    socket_at(viewer.inputs, "Image")
+                    .bind(lambda target: tracked(rollback, tree.links.remove, linked_sockets(tree, source, target, verify_limits=False)))
                     .bind(lambda link: accumulated(Removed(item=old).applied(keyed, identity) for old in stale if old != link))
                     .map(lambda _: viewer)
                 )

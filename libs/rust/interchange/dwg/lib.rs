@@ -3,11 +3,9 @@
 
 #[cfg(feature = "drawing")]
 use core::num::TryFromIntError;
-use std::{
-    fmt,
-    io::{self, Read, Seek, Write},
-    sync::Arc,
-};
+use std::fmt;
+use std::io::{self, Read, Seek, Write};
+use std::sync::Arc;
 
 #[cfg(feature = "drawing")]
 use acadrust::Handle;
@@ -16,12 +14,9 @@ use derive_where::derive_where;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 #[cfg(feature = "drawing")]
 use rasm_drawing::LineworkError;
-use uom::si::{
-    f64::Length,
-    length::{
-        angstrom, astronomical_unit, centimeter, decameter, decimeter, foot, gigameter, hectometer, inch, kilometer, light_year, meter, microinch, micron, mil, mile, millimeter, nanometer, parsec,
-        yard,
-    },
+use uom::si::f64::Length;
+use uom::si::length::{
+    angstrom, astronomical_unit, centimeter, decameter, decimeter, foot, gigameter, hectometer, inch, kilometer, light_year, meter, microinch, micron, mil, mile, millimeter, nanometer, parsec, yard,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------

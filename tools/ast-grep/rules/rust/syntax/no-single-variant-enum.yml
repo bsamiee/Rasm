@@ -9,4 +9,4 @@ rule:
         - not: {matches: {rust-attributed: {attribute: {any: [{has: {kind: attribute, has: {field: path, regex: '^(serde|repr)$'}}}, {matches: {rust-derive: {trait: {regex: '^(ValueEnum|EnumString)$'}}}}]}}}}
         - not: {has: {field: body, has: {kind: attribute_item, has: {kind: attribute, has: {field: path, pattern: serde}}}}}
 message: '`$NAME` declares one variant'
-note: 'Declare a struct named for the variant holding its data and its thiserror `#[error(..)]` attribute'
+note: 'Declare a struct named for the variant holding its fields and attributes'

@@ -11,7 +11,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from rasm_imaging import rng, Seed, SEED_BOUND
+from rasm_imaging import Colors, rng, Seed, SEED_BOUND
 from rasm_records import content_hash, Fault, Finite, NonNegative, Outcome, Reason, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -195,7 +195,7 @@ class _Scattered(msgspec.Struct, frozen=True, kw_only=True):
     horizontal: tuple[float, float]
     vertical: tuple[float, float]
 
-    def slots(self, generator: np.random.Generator, colors: tuple[Rgb, ...]) -> tuple[tuple[tuple[float, float], Rgb], ...]:
+    def slots(self, generator: np.random.Generator, colors: Colors) -> tuple[tuple[tuple[float, float], Rgb], ...]:
         """Returns a drawn count of frame positions over the whole frame, each with a drawn color."""
         return tuple(
             (((float(generator.uniform(*self.horizontal)) + 1.0) / 2.0, (float(generator.uniform(*self.vertical)) + 1.0) / 2.0), colors[int(generator.integers(len(colors)))])
@@ -210,7 +210,7 @@ class _Slotted(msgspec.Struct, frozen=True, kw_only=True):
     spreads: tuple[tuple[tuple[int, ...], ...], ...]
     jitter: float
 
-    def slots(self, generator: np.random.Generator, colors: tuple[Rgb, ...]) -> tuple[tuple[tuple[float, float], Rgb], ...]:
+    def slots(self, generator: np.random.Generator, colors: Colors) -> tuple[tuple[tuple[float, float], Rgb], ...]:
         """Returns the jittered positions of one drawn slot group, each with the color at its slot index."""
         spread = self.spreads[int(generator.integers(len(self.spreads)))]
         return tuple(
@@ -223,13 +223,13 @@ class _Slotted(msgspec.Struct, frozen=True, kw_only=True):
 class _Draw(msgspec.Struct, frozen=True, kw_only=True):
     """Ranges one reference distribution draws its fields from."""
 
-    colors: tuple[Rgb, ...]
+    colors: Colors
     placement: _Scattered | _Slotted
     sharpness: tuple[float, float]
     intensity: tuple[float, float]
     level: tuple[float, float]
     gradient: tuple[float, float]
-    tints: tuple[Rgb, ...]
+    tints: Colors
     rim_chance: float
     rim_amount: float
     vignette_chance: float

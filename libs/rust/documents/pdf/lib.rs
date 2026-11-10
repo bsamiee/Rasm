@@ -1,54 +1,42 @@
 #![feature(array_try_map, default_field_values, deref_patterns, error_reporter, float_conversions, gen_blocks, integer_casts, iterator_try_collect)]
 
-use core::{borrow::Borrow, cell::LazyCell, fmt, num::NonZero, str::Utf8Error};
-use std::{
-    collections::{BTreeMap, HashSet},
-    error::Report,
-    sync::Arc,
-};
+use core::borrow::Borrow;
+use core::cell::LazyCell;
+use core::fmt;
+use core::num::NonZero;
+use core::str::Utf8Error;
+use std::collections::{BTreeMap, HashSet};
+use std::error::Report;
+use std::sync::Arc;
 
 use hayro::hayro_interpret::TransformExt as _;
-use hayro_syntax::{
-    DecryptionError, LoadPdfError, Pdf,
-    object::dict::keys::{ID, KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, STD_CF, USER_UNIT},
-    page::Page,
-};
+use hayro_syntax::object::dict::keys::{ID, KIDS, LAST_MODIFIED, PIECE_INFO, PRIVATE, STD_CF, USER_UNIT};
+use hayro_syntax::page::Page;
+use hayro_syntax::{DecryptionError, LoadPdfError, Pdf};
 use jiff::Zoned;
-use krilla::{
-    configure::{Accessibility, Archival, ConfigurationError, Validators},
-    error::KrillaError,
-    geom,
-    icc::ICCProfile,
-    pdf,
-};
+use krilla::configure::{Accessibility, Archival, ConfigurationError, Validators};
+use krilla::error::KrillaError;
+use krilla::icc::ICCProfile;
+use krilla::{geom, pdf};
 use kurbo::{Affine, Rect, Size};
-use lopdf::{
-    Dictionary, EncryptionState, EncryptionVersion, IncrementalDocument, LoadOptions, Object, ObjectId, Permissions, StringFormat, decode_text_string, dictionary,
-    encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter},
-    text_string,
-};
+use lopdf::encryption::crypt_filters::{Aes128CryptFilter, Aes256CryptFilter, CryptFilter};
+use lopdf::{Dictionary, EncryptionState, EncryptionVersion, IncrementalDocument, LoadOptions, Object, ObjectId, Permissions, StringFormat, decode_text_string, dictionary, text_string};
 use moxcms::{CmsError, ColorProfile, DataColorSpace, ProfileClass};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use pdf_oxide::{
-    PdfDocument,
-    compliance::{PdfALevel, PdfUaLevel, PdfXLevel, XComplianceError},
-    editor::{DocumentEditor, EncryptionAlgorithm, EncryptionConfig, SaveOptions},
-    encryption::generate_file_id,
-    ocr::OcrError,
-};
+use pdf_oxide::PdfDocument;
+use pdf_oxide::compliance::{PdfALevel, PdfUaLevel, PdfXLevel, XComplianceError};
+use pdf_oxide::editor::{DocumentEditor, EncryptionAlgorithm, EncryptionConfig, SaveOptions};
+use pdf_oxide::encryption::generate_file_id;
+use pdf_oxide::ocr::OcrError;
 use rand::{CryptoRng, RngExt as _};
 use rasm_drawing::{LineworkError, WidthError};
-use rasn::{
-    error::{DecodeError, EncodeError},
-    types::Enumerated as _,
-};
+use rasn::error::{DecodeError, EncodeError};
+use rasn::types::Enumerated as _;
 use rasn_cms::tsp::PkiStatus;
 use secrecy::{ExposeSecret as _, SecretString};
-use uom::si::{
-    f64::{Length, LinearNumberDensity},
-    length::point_computer,
-    ratio::ratio,
-};
+use uom::si::f64::{Length, LinearNumberDensity};
+use uom::si::length::point_computer;
+use uom::si::ratio::ratio;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -57,11 +45,8 @@ pub type Fields = BTreeMap<Arc<str>, Arc<str>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const PDFAID_NAMESPACE: &str = "http://www.aiim.org/pdfa/ns/id/";
-const PDFUAID_NAMESPACE: &str = "http://www.aiim.org/pdfua/ns/id/";
 const PDFXID_NAMESPACE: &str = "http://www.npes.org/pdfx/ns/id/";
 const GTS_PDFX_VERSION: &str = "GTS_PDFXVersion";
-const PART: &str = "part";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -494,9 +479,13 @@ mod proofs;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-pub use authoring::{Options, Press, Standards, author, scan};
+pub use authoring::standards::{Press, Standards};
+pub use authoring::{Options, author, scan};
 pub use conformance::{Verdict, claims, convert, validate};
-pub use editing::{Authority, Finish, Level, Part, Redaction, assemble, fill, form_fields, overlay, redact, sign, split};
+pub use editing::annotations::{Finish, Redaction, fill, form_fields, redact};
+pub use editing::assembly::{Part, assemble, split};
+pub use editing::overlay::overlay;
+pub use editing::signing::{Authority, Level, sign};
 pub use extraction::{Paths, extract, paths, recognize};
 pub use layers::{Group, groups, set};
 pub use measurement::{Measure, locate, measures};

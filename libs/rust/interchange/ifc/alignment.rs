@@ -1,7 +1,5 @@
-use core::{
-    f64::consts::{PI, TAU},
-    num::NonZero,
-};
+use core::f64::consts::{PI, TAU};
+use core::num::NonZero;
 
 use gauss_quad::GaussLegendre;
 use itertools::Itertools as _;
@@ -10,13 +8,12 @@ use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 #[cfg(feature = "geometry")]
 use parry3d_f64::{math::Vector, shape::Polyline};
 use serde::{Deserialize, Serialize};
-use uom::si::{f64::Length, length::meter};
+use uom::si::f64::Length;
+use uom::si::length::meter;
 use validated::Validated;
 
-use crate::{
-    Composed, Fault, IfcError, Model, Path, PositiveLength,
-    schemas::{Attribute, Station, Target, attribute},
-};
+use crate::schemas::{Attribute, Station, Target, attribute};
+use crate::{Composed, Fault, IfcError, Model, Path, PositiveLength};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

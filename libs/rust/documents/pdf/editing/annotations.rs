@@ -1,12 +1,11 @@
-use core::{borrow::Borrow, num::NonZero};
+use core::borrow::Borrow;
+use core::num::NonZero;
 
 use color::{OpaqueColor, Srgb};
 use kurbo::Rect;
-use pdf_oxide::{
-    editor::{DocumentEditor, FormFieldValue, FormFieldWrapper},
-    redaction::{RedactionOptions, RedactionReport},
-    signatures::count_signatures,
-};
+use pdf_oxide::editor::{DocumentEditor, FormFieldValue, FormFieldWrapper};
+use pdf_oxide::redaction::{RedactionOptions, RedactionReport};
+use pdf_oxide::signatures::count_signatures;
 use validated::Validated;
 
 use super::edited;

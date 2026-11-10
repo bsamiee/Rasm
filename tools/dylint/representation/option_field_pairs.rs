@@ -1,15 +1,17 @@
 use core::mem;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, eq_expr_value, peel_blocks, res::MaybeDef as _, sym, ty::option_arg_ty};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::ty::option_arg_ty;
+use clippy_utils::{eq_expr_value, peel_blocks, sym};
 use itertools::{Either, Itertools as _};
 use rustc_ast::LitKind;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
-use rustc_hir::{
-    Expr, ExprKind, Mutability, Pat,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{Expr, ExprKind, Mutability, Pat};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, AdtDef, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, AdtDef};
 use rustc_span::Spanned;
 
 use crate::{Place, access, constructed, impl_owner, is_error, is_text, pattern_fields, place};

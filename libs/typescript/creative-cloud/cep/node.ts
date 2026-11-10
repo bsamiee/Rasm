@@ -21,8 +21,8 @@ const Mapping = Schema.fromJsonString(
         sourcesContent: Schema.mutable(Schema.Array(Schema.String)).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         names: Schema.mutable(Schema.Array(Schema.String)),
         mappings: Schema.String,
-        file: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
-        sourceRoot: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
+        file: Schema.optionalKey(Schema.String),
+        sourceRoot: Schema.optionalKey(Schema.String),
     }),
 );
 const Entry = Schema.Struct({ originalSource: Schema.String, originalLine: Schema.Int });
@@ -77,7 +77,7 @@ const lower = (code: string, target: JscTarget, syntax: 'typescript' | 'ecmascri
     });
 const traced = (map: string | undefined) =>
     Effect.map(Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)), (mapping) => {
-        const source = new SourceMap(mapping);
+        const source = new SourceMap({ file: '', sourceRoot: '', ...mapping });
         return (line: number) => Option.map(Schema.decodeUnknownOption(Entry)(source.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), ({ originalSource, originalLine }) => ({ file: originalSource, line: originalLine + 1 }));
     });
 

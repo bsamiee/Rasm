@@ -19,23 +19,21 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.evaluation import _evaluated
-from rasm_bpy.data._ids.ownership import _tracked
+from rasm_bpy.data._ids.evaluation import evaluated_depsgraph
+from rasm_bpy.data._ids.ownership import tracked
 from rasm_bpy.data._rna.descriptors import written
-from rasm_bpy.nodes._desired import _OUTPUTS, End, Graph, INPUTS, item_key, Link, Node, RESULT
-from rasm_bpy.nodes._graphs import _widest, Expr, group_input, math, menu, Scalar, SocketType, Term, vector, where, xyz
+from rasm_bpy.nodes._desired import End, Graph, INPUTS, item_key, Link, Node, OUTPUTS, RESULT
+from rasm_bpy.nodes._graphs import Expr, group_input, math, menu, Scalar, Term, vector, where, widest, xyz
 from rasm_bpy.nodes._interfaces import Interface, Socket, StockInput
-from rasm_bpy.nodes._trees import _native, _new_group, GraphTree
+from rasm_bpy.nodes._trees import GraphTree, native, new_group
 from rasm_bpy.nodes.changes import NodeGroup, reconciled
-from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Outcome, paired, Reason
+from rasm_records import accumulated, content_hash, Error, Fault, Nothing, Outcome, paired, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type ColorExpr = Annotated[Expr, bpy.types.NodeSocketColor]
-type VectorExpr = Annotated[Expr, bpy.types.NodeSocketVector]
 _Attribute = bpy.types.FloatAttribute | bpy.types.IntAttribute | bpy.types.BoolAttribute | bpy.types.FloatVectorAttribute | bpy.types.FloatColorAttribute
 
 
@@ -51,14 +49,14 @@ class Body[**P](Protocol):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_STORED: Final[Mapping[SocketType, tuple["rna_enums.AttributeTypeItems", str, int]]] = MappingProxyType({
+_STORED: Final[Mapping[type[bpy.types.NodeSocket], tuple["rna_enums.AttributeTypeItems", str, int]]] = MappingProxyType({
     bpy.types.NodeSocketFloat: ("FLOAT", "value", 1),
     bpy.types.NodeSocketInt: ("INT", "value", 1),
     bpy.types.NodeSocketBool: ("BOOLEAN", "value", 1),
     bpy.types.NodeSocketVector: ("FLOAT_VECTOR", "vector", 3),
     bpy.types.NodeSocketColor: ("FLOAT_COLOR", "color", 4),
 })
-_COLUMNS: Final[Mapping[int, SocketType]] = MappingProxyType({1: bpy.types.NodeSocketFloat, 3: bpy.types.NodeSocketVector, 4: bpy.types.NodeSocketColor})
+_COLUMNS: Final[Mapping[int, type[bpy.types.NodeSocket]]] = MappingProxyType({1: bpy.types.NodeSocketFloat, 3: bpy.types.NodeSocketVector, 4: bpy.types.NodeSocketColor})
 _GEOMETRY: Final = Socket(key="geometry", kind=bpy.types.NodeSocketGeometry)
 _SCRATCH: Final = ".sampled"
 
@@ -180,7 +178,7 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Graph]:
 
     def claimed(expr: Expr) -> Outcome[Graph]:
         literals = {address: term for address, term in expr.inputs if not isinstance(term, Expr | End)}
-        return _native(tree, expr.kind).map(lambda kind: Graph(kind=tree, nodes={keys[expr]: Node(kind=kind, members=expr.members, inputs=literals, content=expr.content)}))
+        return native(tree, expr.kind).map(lambda kind: Graph(kind=tree, nodes={keys[expr]: Node(kind=kind, members=expr.members, inputs=literals, content=expr.content)}))
 
     links = tuple(
         Link(source=End(node=keys[term], socket=term.socket) if isinstance(term, Expr) else term, target=End(node=keys[expr], socket=address))
@@ -220,7 +218,7 @@ def built(key: Key, interface: Interface, outputs: Mapping[Key, Term], kind: typ
         )
         return lowered(kind, *menus, *stocks).bind(lambda selected: Graph.merged(kind, (*entered, body, selected)))
 
-    output = Expr(kind=bpy.types.NodeGroupOutput, inputs=tuple(outputs.items()), members={"is_active_output": True}, key=Some(_OUTPUTS))
+    output = Expr(kind=bpy.types.NodeGroupOutput, inputs=tuple(outputs.items()), members={"is_active_output": True}, key=Some(OUTPUTS))
     return lowered(kind, output).bind(held).map(lambda graph: NodeGroup(key=key, name=name.default_with(lambda: bpy.path.display_name(key)), interface=interface, graph=graph))
 
 
@@ -262,7 +260,7 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
         metadata = {name: inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata for name, annotation in hints.items()}
         signature = inspect.signature(body)
 
-        def annotated(name: str) -> Option[SocketType]:
+        def annotated(name: str) -> Option[type[bpy.types.NodeSocket]]:
             return Option.of_optional(next((held for held in metadata.get(name, ()) if isinstance(held, type) and issubclass(held, bpy.types.NodeSocket)), None))
 
         def parameter(held: inspect.Parameter) -> Socket:
@@ -273,9 +271,9 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
         def assembled(inputs: tuple[Socket, ...]) -> Outcome[NodeGroup]:
             bound = inspect.BoundArguments(signature, {entry.key: group_input(entry.key, entry.refined) for entry in inputs})
             returned = body(*bound.args, **bound.kwargs)
-            outputs: Mapping[Key, Term] = returned if isinstance(returned, Mapping) else {RESULT: returned}  # ty: ignore[unsound-assignment]
+            outputs = returned if isinstance(returned, Mapping) else {RESULT: returned}
             result = annotated("return").filter(lambda _: not isinstance(returned, Mapping))
-            interface = Interface(inputs=inputs, outputs=tuple(Socket(key=item, kind=result.default_value(_widest(term))) for item, term in outputs.items()))
+            interface = Interface(inputs=inputs, outputs=tuple(Socket(key=item, kind=result.default_value(widest(term))) for item, term in outputs.items()))
             return built(owned, interface, outputs, kind, name=Some(bpy.path.display_name(key.default_value(name))))
 
         match assembled(tuple(map(parameter, signature.parameters.values()))):
@@ -290,7 +288,7 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
 # --- [EVALUATION]
 
 
-def column(name: str, socket_type: SocketType = bpy.types.NodeSocketFloat) -> Expr:
+def column(name: str, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat) -> Expr:
     """Reads one named per-point column `sampled` writes, as `socket_type`."""
     return Expr(kind=bpy.types.GeometryNodeInputNamedAttribute, inputs=(("Name", name),), members={"data_type": _STORED[socket_type][0]}, socket="Attribute", socket_type=socket_type)
 
@@ -336,10 +334,14 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
 
         def attributed(name: str, values: npt.NDArray[np.float32]) -> Outcome[None]:
             kind, member, _ = _STORED[_COLUMNS[1 if values.ndim == 1 else values.shape[1]]]
-            attribute: _Attribute = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))  # ty: ignore[invalid-assignment]
-            return catch(attribute.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Refusal.REFUSED, repr(attribute)))
+            found = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))
+            return (
+                catch(found.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Refusal.REFUSED, repr(found)))
+                if isinstance(found, _Attribute)
+                else Error(Fault.of(Refusal.REFUSED, repr(found), found.data_type))
+            )
 
-        def column_read(points: bpy.types.PointCloud, name: str, socket_type: SocketType) -> Outcome[npt.NDArray[np.float32]]:
+        def column_read(points: bpy.types.PointCloud, name: str, socket_type: type[bpy.types.NodeSocket]) -> Outcome[npt.NDArray[np.float32]]:
             _, member, width = _STORED[socket_type]
             values = np.empty(count * width, dtype=np.float32)
 
@@ -357,10 +359,10 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
             )
 
         def geometry_read(tree: bpy.types.NodeTree) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
-            modifier: bpy.types.NodesModifier = holder.modifiers.new("Field", "NODES")  # ty: ignore[invalid-assignment]
             return (
-                written(modifier, ("node_group",), tree)
-                .bind(lambda _: _evaluated(scene.view_layers[0]))
+                typed(bpy.types.NodesModifier, repr(holder.modifiers), holder.modifiers.new("Field", "NODES"))
+                .bind(lambda modifier: written(modifier, ("node_group",), tree))
+                .bind(lambda _: evaluated_depsgraph(scene.view_layers[0]))
                 .bind(lambda depsgraph: catch(holder.evaluated_get(depsgraph).evaluated_geometry, exception=TypeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(holder))))
                 .bind(
                     lambda geometry: (
@@ -378,7 +380,7 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
             .bind(
                 lambda _: paired(
                     built(_SCRATCH, interface, {RESULT: stored}, bpy.types.GeometryNodeTree, name=Some(_SCRATCH)),
-                    _tracked(scratch, bpy.data.node_groups.remove, _new_group(bpy.types.GeometryNodeTree, _SCRATCH)),
+                    tracked(scratch, bpy.data.node_groups.remove, new_group(bpy.types.GeometryNodeTree, _SCRATCH)),
                 )
             )
             .bind(lambda pair: reconciled(*pair, identity).map(lambda _: pair[1]))
@@ -396,4 +398,4 @@ W: Final = column("w")
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EXPRESSIONS", "POSITION", "Body", "ColorExpr", "ExpressionNamespace", "Group", "VectorExpr", "W", "built", "column", "grouped", "lowered", "placed", "sampled"]
+__all__ = ["EXPRESSIONS", "POSITION", "Body", "ExpressionNamespace", "Group", "W", "built", "column", "grouped", "lowered", "placed", "sampled"]

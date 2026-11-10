@@ -18,7 +18,6 @@ internal abstract partial record Gesture {
 
     internal sealed record Press(SKPoint From, Option<SKPoint> Dragged, int Clicks) : Gesture {
         internal SKPoint At => Dragged.IfNone(From);
-        internal SKRect Swept => new SKRect(From.X, From.Y, At.X, At.Y).Standardized;
         internal Seq<PointerSample> Trail { get; init; }
         internal Vector2 Scrolled { get; init; }
         internal bool Ended { get; init; }
@@ -94,7 +93,7 @@ internal sealed record Session<TState>(TState Start, Seq<Receiver<TState>> Recei
     private Track Tracked =>
         new(gesture => Step(Start, gesture).Match(Some: state => Continued(state, Drags(gesture)), None: () => Continued(Last, Dragging)), gesture => Finished(Released(Step(Start, gesture).IfNone(Last))),
             () => Indexed.Filter(held => Opened.Contains(held.Index)).Choose(static held => held.Receiver.Emit(Edit.Cancel<TState>()))) {
-            Cursor = Dragging ? Cursor.Dragged : Cursor,
+            Cursor = Dragging && Cursor == CursorShape.Grab ? CursorShape.Grabbing : Cursor,
             Detent = Detent(Last),
             Preview = Preview(Last),
             Lifted = Dragging ? Lifted(Last) : None,

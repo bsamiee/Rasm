@@ -11,13 +11,6 @@ namespace Rasm.Rhino.Render.Settings;
 
 public sealed record RenderSize(Option<Size> Size, bool Viewport) {
     public bool Preset => !Viewport && Size.IsSome;
-
-    internal Step<RenderSettings> Applied =>
-        new(settings => IO.lift(() => {
-            settings.UseViewportSize = Viewport;
-            _ = Size.Iter(size => settings.ImageSize = size);
-            return settings;
-        }), nameof(RenderSize));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -37,7 +30,10 @@ public static class Framing {
         [new(Some(screenPort), Viewport: true), new(None, Viewport: false), .. toSeq(settings.GetCustomRenderSizes()).Map(static size => new RenderSize(Some(size), Viewport: false))];
 
     public static IO<Unit> Choose(RenderSettingsSource.Section section, RenderSize size) =>
-        from sized in RenderSettingsSources.Edit(section, scope => size.Applied.Run(scope.Settings))
+        from sized in RenderSettingsSources.Edit(section, scope => IO.lift(() => {
+            scope.Settings.UseViewportSize = size.Viewport;
+            _ = size.Size.Iter(pixels => scope.Settings.ImageSize = pixels);
+        }))
         from preset in SectionModels.Write(section.Host, Provider.RhinoSettings, data => IO.lift(() => data.CustomImageSizeIsPreset = size.Preset))
         select unit;
 

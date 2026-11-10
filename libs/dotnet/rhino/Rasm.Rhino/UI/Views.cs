@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using Eto.Forms;
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence;
@@ -164,7 +165,14 @@ public sealed record ViewCatalog(PlugInDefinition Definition, Seq<View> Rows) {
 
     internal static IO<Unit> Load(ViewCatalog catalog) =>
         from published in IO.lift(() => Loaded.Swap(_ => Some(catalog)))
-        from registered in Seq(ViewRegistration.RegisterPanels(), ContentViews.RegisterSections(), Notices.Revealing(), Toolbars.Registered()).TraverseM(static step => step).As()
+        from registered in Seq(
+            ViewRegistration.RegisterPanels(),
+            Subscriptions.On<AddCustomUISectionsEventArgs>(static h => AddCustomUISections.OnAddCustomUISections += h, static h => AddCustomUISections.OnAddCustomUISections -= h)
+                .Attach(static args => IO.lift(() => Current.Listed<View.ContentSection>().Iter(row => args.ExpandableContentUI.AddSection(new DefinedContentSection(row))))),
+            Subscriptions.On<NotificationEventArgs>(static h => Application.Instance.NotificationActivated += h, static h => Application.Instance.NotificationActivated -= h)
+                .Attach(static args => IO.lift(() => Conversions.Present(Guid.TryParse(args.UserData, CultureInfo.InvariantCulture, out Guid id), id).Bind(Current.Find<View.Panel>))
+                    .Bind(static found => found.TraverseM(HostPanels.Open).As()).Map(static _ => unit)),
+            Toolbars.Registered()).TraverseM(static step => step).As()
         select unit;
 
     public Option<TCase> Find<TCase>(Guid id) where TCase : View =>

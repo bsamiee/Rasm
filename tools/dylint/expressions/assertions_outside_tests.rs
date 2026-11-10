@@ -1,13 +1,14 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, is_inside_always_const_context, macros::first_node_macro_backtrace};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::is_inside_always_const_context;
+use clippy_utils::macros::first_node_macro_backtrace;
 use rustc_data_structures::fx::FxHashSet;
-use rustc_hir::{Expr, def_id::DefId};
+use rustc_hir::Expr;
+use rustc_hir::def_id::DefId;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::TyCtxt;
 
-use crate::{
-    expanded_externally, in_test,
-    macros::{assertions, cargo_test_target},
-};
+use crate::macros::{assertions, cargo_test_target};
+use crate::{expanded_externally, in_test};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

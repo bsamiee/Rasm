@@ -3,13 +3,11 @@ use std::collections::BTreeSet;
 
 use itertools::{Either, Itertools as _};
 use nonempty_collections::{NEBTreeSet, NEVec};
-use petgraph::{
-    Direction,
-    acyclic::{Acyclic, AcyclicEdgeError},
-    graph::DiGraph,
-    stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
-    visit::{EdgeRef as _, NodeIndexable as _},
-};
+use petgraph::Direction;
+use petgraph::acyclic::{Acyclic, AcyclicEdgeError};
+use petgraph::graph::DiGraph;
+use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
+use petgraph::visit::{EdgeRef as _, NodeIndexable as _};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

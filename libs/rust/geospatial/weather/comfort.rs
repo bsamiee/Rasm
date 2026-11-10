@@ -4,39 +4,29 @@ use basin::{BrentRoot, BrentRootError};
 use itertools::Either;
 use rasm_solar_geometry::Sun;
 use solar_positioning::SolarPosition;
-use thermalcomfort::{
-    ClothingInsulation, MetabolicRate, PmvPpdResult, Speed, Temperature,
-    clothing::{CloDynamicAshraeOptions, CloDynamicIsoOptions, clo_dynamic_ashrae, clo_dynamic_iso},
-    constants::{R_AIR, STEFAN_BOLTZMANN},
-    environment::{OperativeTemperatureInputs, OperativeTemperatureOptions, operative_temperature},
-    models::{
-        AtOptions, HeatIndexRothfuszOptions, HumidexOptions, PetInputs, PetOptions, SetInputs, SetOptions, WindChillTemperatureOptions,
-        adaptive::{AdaptiveAshraeResult, AdaptiveInputs, AdaptiveOptions, adaptive_ashrae, adaptive_en},
-        at, heat_index_rothfusz, humidex, pet_steady,
-        pmv::{PmvPpdAshraeOptions, PmvPpdInputs, PmvPpdIsoOptions, pmv_ppd_ashrae},
-        set_tmp,
-        solar_gain::{SolarGainInputs, SolarGainOptions, SolarGainPosture, solar_gain},
-        utci::{self, StressCategory, UtciInputs, UtciOptions, UtciResult},
-        wind_chill_temperature,
-    },
-    pmv_ppd_iso,
-    psychrometrics::{PsyTaRhOptions, PsychrometricValues, p_sat, psy_ta_rh},
-    v_relative,
+use thermalcomfort::clothing::{CloDynamicAshraeOptions, CloDynamicIsoOptions, clo_dynamic_ashrae, clo_dynamic_iso};
+use thermalcomfort::constants::{R_AIR, STEFAN_BOLTZMANN};
+use thermalcomfort::environment::{OperativeTemperatureInputs, OperativeTemperatureOptions, operative_temperature};
+use thermalcomfort::models::adaptive::{AdaptiveAshraeResult, AdaptiveInputs, AdaptiveOptions, adaptive_ashrae, adaptive_en};
+use thermalcomfort::models::pmv::{PmvPpdAshraeOptions, PmvPpdInputs, PmvPpdIsoOptions, pmv_ppd_ashrae};
+use thermalcomfort::models::solar_gain::{SolarGainInputs, SolarGainOptions, SolarGainPosture, solar_gain};
+use thermalcomfort::models::utci::{self, StressCategory, UtciInputs, UtciOptions, UtciResult};
+use thermalcomfort::models::{
+    AtOptions, HeatIndexRothfuszOptions, HumidexOptions, PetInputs, PetOptions, SetInputs, SetOptions, WindChillTemperatureOptions, at, heat_index_rothfusz, humidex, pet_steady, set_tmp,
+    wind_chill_temperature,
 };
-use uom::{
-    ConstZero as _,
-    si::{
-        angle::{degree, radian},
-        available_energy::joule_per_kilogram,
-        f64::{Angle, AvailableEnergy, Pressure, Ratio, SpecificVolume, ThermodynamicTemperature, Velocity},
-        heat_flux_density::watt_per_square_meter,
-        pressure::pascal,
-        ratio::ratio,
-        specific_volume::cubic_meter_per_kilogram,
-        thermodynamic_temperature::{degree_celsius, kelvin},
-        velocity::meter_per_second,
-    },
-};
+use thermalcomfort::psychrometrics::{PsyTaRhOptions, PsychrometricValues, p_sat, psy_ta_rh};
+use thermalcomfort::{ClothingInsulation, MetabolicRate, PmvPpdResult, Speed, Temperature, pmv_ppd_iso, v_relative};
+use uom::ConstZero as _;
+use uom::si::angle::{degree, radian};
+use uom::si::available_energy::joule_per_kilogram;
+use uom::si::f64::{Angle, AvailableEnergy, Pressure, Ratio, SpecificVolume, ThermodynamicTemperature, Velocity};
+use uom::si::heat_flux_density::watt_per_square_meter;
+use uom::si::pressure::pascal;
+use uom::si::ratio::ratio;
+use uom::si::specific_volume::cubic_meter_per_kilogram;
+use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
+use uom::si::velocity::meter_per_second;
 
 use crate::{Hour, Hours, Refusal, WeatherError, atmospheric, cos_zenith, humidity, position, positive, quantity, refused, temperature};
 

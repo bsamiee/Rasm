@@ -5,7 +5,7 @@ from contextlib import contextmanager, ExitStack
 from functools import cached_property, partial
 from itertools import starmap
 from types import MappingProxyType
-from typing import ClassVar, TYPE_CHECKING
+from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import bpy
 from expression import Option, Some
@@ -14,28 +14,26 @@ import msgspec
 
 from rasm_bpy.commands.invocations import Popup, Suppressible
 from rasm_bpy.commands.operators import Answer, BoundBody, Call, confirmed, Done, Empty, Operator, PopupKind, PopupTarget, Unchanged
-from rasm_bpy.data._extension.events import _updated
+from rasm_bpy.data._extension.events import updated
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Handler, Registrable
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.descriptors import Descriptor, written
-from rasm_bpy.data._rna.paths import _parsed, rooted
+from rasm_bpy.data._rna.paths import parsed_path, rooted
 from rasm_bpy.data._rna.properties import enum_choices
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
-from rasm_bpy.render._sessions.engines import _samples
+from rasm_bpy.render._sessions.engines import samples
 from rasm_bpy.render._sessions.members import (
-    _added,
-    _KEY,
-    _MemberScope,
-    _OWNERSHIP,
-    _previewed,
-    _propagated,
-    _removed,
-    _shown,
+    added,
     Category,
     Form,
+    KEY,
     Members,
+    MemberScope,
     Membership,
+    OWNERSHIP,
+    propagated,
+    removed,
     render_set_add,
     render_set_adopt,
     render_set_lock,
@@ -45,18 +43,19 @@ from rasm_bpy.render._sessions.members import (
     render_set_unsync,
     SceneMembership,
     Sets,
+    shown,
+    transfers,
 )
-from rasm_bpy.render._sessions.setups import _SETTING_LOCKS, _SetupScope, Capture
-from rasm_bpy.render._view_layers.passes import _used
+from rasm_bpy.render._sessions.setups import Capture, SETTING_LOCKS, SetupScope
+from rasm_bpy.render._view_layers.passes import used
 from rasm_bpy.settings._attachments import Attachment, Recovery, TextRecord
-from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._elements.menus import Dropdown, Menu, PresetMenu
-from rasm_bpy.ui._layout.lists import _ItemList
+from rasm_bpy.ui._layout.lists import ItemList
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import Layout, Opens, OperatorButton, Property, RowContent
 from rasm_bpy.ui._layout.sections import Section
-from rasm_bpy.ui._layout.tables import _SettingsTable
-from rasm_bpy.ui._layout.values import _menu_key, Captured
+from rasm_bpy.ui._layout.tables import SettingsTable
+from rasm_bpy.ui._layout.values import Captured, menu_key
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
 
 if TYPE_CHECKING:
@@ -68,7 +67,7 @@ if TYPE_CHECKING:
 class Converting(bpy.types.PropertyGroup):
     """Target form of render set conversion."""
 
-    form: bpy.props.EnumProperty(name="Render Sets", items=enum_choices(Form), default=Form.COPIES.name)  # ty: ignore[invalid-type-form]
+    form: Annotated[str, bpy.props.EnumProperty(name="Render Sets", items=enum_choices(Form), default=Form.COPIES.name)]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -79,7 +78,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
 
     # --- [STATE]
 
-    key: ClassVar[Key] = _KEY
+    key: ClassVar[Key] = KEY
     record: ClassVar[TextRecord[Sets]] = TextRecord(key="render_set", form=Sets)
     scenes: ClassVar[Attachment[SceneMembership]] = Attachment(key="render_set", form=SceneMembership, owner=bpy.types.Scene)
     layers: ClassVar[Attachment[Membership]] = Attachment(key="render_set", form=Membership, owner=bpy.types.ViewLayer)
@@ -92,7 +91,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         """Resolves stores and each category's settings on its root."""
         selections = accumulated(
             accumulated(
-                (_parsed(setting) if isinstance(setting, str) else Ok(setting)).bind(lambda path: Descriptor.resolve(category.root, path, bpy.types.Property)) for setting in category.settings
+                (parsed_path(setting) if isinstance(setting, str) else Ok(setting)).bind(lambda path: Descriptor.resolve(category.root, path, bpy.types.Property)) for setting in category.settings
             ).map(lambda found: (category, found))
             for category in self.categories
         )
@@ -133,8 +132,11 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         """One sync command per category, keyed by its category and confirmed with its change counts."""
 
         def message(category: Category, members: Members, context: bpy.types.Context, _properties: Empty) -> Outcome[tuple[str, ...]]:
-            return _previewed(members, category, context).map(
-                lambda rows: (f"Writes {sum(len(edit.after) for _, edits in rows for edit in edits)} {category.title} settings across {len(rows)} render sets",)
+            return (
+                MemberScope(members=members, owner_type=category.root, unlocked=True)
+                .owners(context)
+                .bind(lambda targets: transfers(members, category, context, targets))
+                .map(lambda rows: (f"Writes {sum(len(edit.after) for _, _, edits in rows for edit in edits)} {category.title} settings across {sum(bool(edits) for _, _, edits in rows)} render sets",))
             )
 
         return tuple(
@@ -158,11 +160,11 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
 
     def rows(self, members: Members) -> tuple[RowContent, ...]:
         """Capture rows, member lists, and one settings matrix per category with its setting locks."""
-        scope = _SetupScope(members=members, capture=self.capture)
+        scope = SetupScope(members=members, capture=self.capture)
         return (
             *self.capture.rows(members, scope),
             Property(target=Member(root=bpy.types.WindowManager, path=(members.sets.name, "across"))),
-            _ItemList[SceneMembership, bpy.types.Scene](
+            ItemList[SceneMembership, bpy.types.Scene](
                 key="render_set_scenes",
                 collection=Member(root=bpy.types.BlendData, path=("scenes",)),
                 active=Some(Member(root=bpy.types.Window, path=("scene",))),
@@ -170,7 +172,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                 where=Some(lambda context, _ui, item: members.form(context).bind(lambda form: members.copies(context).map(lambda scenes: item in scenes) if form is Form.COPIES else Ok(value=False))),
                 side=tuple(OperatorButton(target=self.commands[step], keywords={"text": ""}) for step in (render_set_add, render_set_remove, render_set_lock)),
             ),
-            _ItemList[Membership, bpy.types.ViewLayer](
+            ItemList[Membership, bpy.types.ViewLayer](
                 key="render_set_layers",
                 collection=Member(root=bpy.types.Scene, path=("view_layers",)),
                 active=Some(Member(root=bpy.types.Window, path=("view_layer",))),
@@ -181,13 +183,13 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
             *(
                 Section(
                     key=category.key,
-                    header=(Opens(target=PopupTarget(_menu_key(category.preset), PopupKind.MENU), keywords={"text": ""}, icon=Some("PRESET")), OperatorButton(target=sync, keywords={"text": ""})),
+                    header=(Opens(target=PopupTarget(menu_key(category.preset), PopupKind.MENU), keywords={"text": ""}, icon=Some("PRESET")), OperatorButton(target=sync, keywords={"text": ""})),
                     rows=(
-                        _SettingsTable(
-                            scope=_MemberScope(members=members, owner_type=category.root, unlocked=False),
+                        SettingsTable(
+                            scope=MemberScope(members=members, owner_type=category.root, unlocked=False),
                             settings=tuple(descriptor.path for descriptor in members.categories[category]),
                             compound=((bpy.types.CurveMapping, lambda layout, owner, key: layout.template_curve_mapping(owner, key)),),
-                            action=Some(lambda identity, setting: _SETTING_LOCKS.drawn(setting.path, identity)),
+                            action=Some(lambda identity, setting: SETTING_LOCKS.drawn(setting.path, identity)),
                         ),
                     ),
                 )
@@ -200,7 +202,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         """Render set section: setup presets in its header, then rows over the members the drawing identity binds, the set registering what they read."""
         return Section(
             key=self.key,
-            header=(Opens(target=PopupTarget(_menu_key(Preset(key=_KEY, form=self.capture.form)), PopupKind.MENU), keywords={"text": ""}, icon=Some("PRESET")),),
+            header=(Opens(target=PopupTarget(menu_key(self.capture.preset), PopupKind.MENU), keywords={"text": ""}, icon=Some("PRESET")),),
             rows=(Layout(builder=Some(lambda identity: self.bound(identity).map(self.rows)), prerequisites=(self,)),),
         )
 
@@ -217,7 +219,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         with ExitStack() as stack:
 
             def joined(members: Members) -> Acquisitions:
-                deferred = stack.enter_context(identity.reports.deferred(partial(_propagated, members)))
+                deferred = stack.enter_context(identity.reports.deferred(partial(propagated, members)))
 
                 def edited(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
                     context = bpy.context
@@ -230,15 +232,15 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
 
                     return rooted(bpy.types.WindowManager, context).map(lambda manager: handed(members.sets.struct(manager)))
 
-                listing = _SetupScope(members=members, capture=self.capture).listing
+                listing = SetupScope(members=members, capture=self.capture).listing
                 return (
-                    _OWNERSHIP,
-                    _SETTING_LOCKS.operator,
+                    OWNERSHIP,
+                    SETTING_LOCKS.operator,
                     *self.commands.values(),
                     *self.syncs,
                     Layout(rows=self.rows(members)),
                     PresetMenu(source=listing),
-                    Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(_updated, (bpy.types.Scene,), edited)),
+                    Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Scene,), edited)),
                     Menu(
                         key=self.key,
                         description="Create, sync, restore, and convert render sets",
@@ -246,7 +248,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                             entries=(
                                 *(OperatorButton(target=placed) for placed in self.listed),
                                 Opens(target=PopupTarget(listing.key, PopupKind.MENU)),
-                                *(Opens(target=PopupTarget(_menu_key(category.preset), PopupKind.MENU)) for category in self.categories),
+                                *(Opens(target=PopupTarget(menu_key(category.preset), PopupKind.MENU)) for category in self.categories),
                             )
                         ),
                     ),
@@ -254,7 +256,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
                         PresetMenu(
                             source=Captured(
                                 preset=category.preset,
-                                scope=_MemberScope(members=members, owner_type=category.root, unlocked=True),
+                                scope=MemberScope(members=members, owner_type=category.root, unlocked=True),
                                 selection=tuple(descriptor.path for descriptor in members.categories[category]),
                             )
                         )
@@ -277,28 +279,25 @@ def render_set_convert(members: Members, call: Call[Converting]) -> Outcome[Answ
     )
 
 
-# --- [CONVERSIONS]
-
-
 def _converted(members: Members, form: Form, context: bpy.types.Context) -> Outcome[Option[tuple[str, ...]]]:
     """Converts render set form, removing created owners on failure, `Nothing` for current form."""
 
     def switched(current: Sets, rollback: ExitStack) -> Outcome[Option[tuple[str, ...]]]:
         def committed(names: tuple[str, ...], old: tuple[bpy.types.Scene, ...] = ()) -> Outcome[tuple[str, ...]]:
             def replaced(scene: bpy.types.Scene) -> Outcome[tuple[str, ...]]:
-                _shown(scene, old)
-                return accumulated(map(_removed, old)).map(lambda _: names)
+                shown(scene, old)
+                return accumulated(map(removed, old)).map(lambda _: names)
 
             return assigned(current, {("form",): form.name}).map(lambda _: rollback.pop_all()).bind(lambda _: members.source(context).bind(replaced) if old else Ok(names))
 
         def layered(scenes: tuple[bpy.types.Scene, ...]) -> Outcome[tuple[str, ...]]:
             source, *copies = scenes
-            planned = tuple((scene, layer, scene.name if len(layers) == 1 else f"{scene.name} {layer.name}") for scene in copies for layers in (_used(scene),) for layer in layers)
+            planned = tuple((scene, layer, scene.name if len(layers) == 1 else f"{scene.name} {layer.name}") for scene in copies for layers in (used(scene),) for layer in layers)
 
             def placed(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, name: str) -> Outcome[tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.ViewLayer]]:
                 def created() -> tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.ViewLayer]:
                     target = source.view_layers.new(name)
-                    rollback.callback(_removed, (source, target))
+                    rollback.callback(removed, (source, target))
                     return scene, layer, target
 
                 return catch(created, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, f"{source!r}.view_layers.new({name!r})"))
@@ -308,7 +307,7 @@ def _converted(members: Members, form: Form, context: bpy.types.Context) -> Outc
                     Snapshot
                     .capture(layer)
                     .bind(lambda snapshot: snapshot.apply(target).outcome)
-                    .bind(lambda _: _samples(scene, layer).map(lambda count: written(target, ("samples",), count).map(lambda _: None)).default_value(Ok(None)))
+                    .bind(lambda _: samples(scene, layer).map(lambda count: written(target, ("samples",), count).map(lambda _: None)).default_value(Ok(None)))
                     .map(lambda _: target.name)
                 )
 
@@ -317,12 +316,12 @@ def _converted(members: Members, form: Form, context: bpy.types.Context) -> Outc
         def copied(source: bpy.types.Scene) -> Outcome[tuple[str, ...]]:
             def each(name: str) -> Outcome[str]:
                 def retained(scene: bpy.types.Scene) -> Outcome[str]:
-                    rollback.callback(_removed, scene)
-                    return accumulated(_removed((scene, layer)) for layer in tuple(scene.view_layers) if layer.name != name).map(lambda _: scene.name)
+                    rollback.callback(removed, scene)
+                    return accumulated(removed((scene, layer)) for layer in tuple(scene.view_layers) if layer.name != name).map(lambda _: scene.name)
 
-                return _added(members, source, name).bind(retained)
+                return added(members, source, name).bind(retained)
 
-            return accumulated(each(layer.name) for layer in _used(source)).bind(committed)
+            return accumulated(each(layer.name) for layer in used(source)).bind(committed)
 
         match Form[current.form], form:
             case Form.COPIES, Form.LAYERS:

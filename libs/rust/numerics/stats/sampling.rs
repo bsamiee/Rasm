@@ -1,8 +1,11 @@
-use core::{iter, num::NonZero, range::RangeInclusive};
+use core::iter;
+use core::num::NonZero;
+use core::range::RangeInclusive;
 
 use itertools::Itertools as _;
 use nalgebra::DMatrix;
-use rand::{Rng, RngExt as _, seq::SliceRandom as _};
+use rand::seq::SliceRandom as _;
+use rand::{Rng, RngExt as _};
 use sobol_burley::NUM_DIMENSION_SETS_4D;
 
 use crate::{Space, StatsError};

@@ -1,6 +1,6 @@
 # [NX_PULUMI]
 
-`@rasm/nx-pulumi` is an Nx 24 plugin for Pulumi Automation API inline programs. A program package states its stacks in TypeScript, and every project depending on it gets `install`, `deploy`, and `nx-release-publish` targets that apply those stacks through `Stack.up`.
+`@rasm/nx-pulumi` is an Nx 24 plugin for Pulumi Automation API inline programs. A program package states its stacks in TypeScript, and every project depending on it gets `install--pulumi` under the `install` aggregate, `deploy`, and `nx-release-publish` targets that apply those stacks through `Stack.up`.
 
 ## [01]-[USE]
 
@@ -25,7 +25,7 @@ export { stacks };
 
 | [INDEX] | [CASE]    | [FIELDS]             | [SENT_BY]                            |
 | :-----: | :-------- | :------------------- | :----------------------------------- |
-|  [01]   | `Install` | `context`            | `install`                            |
+|  [01]   | `Install` | `context`            | `install--pulumi`                    |
 |  [02]   | `Deploy`  | `context`, `stack`   | `deploy`, `stack` from `--stack=<x>` |
 |  [03]   | `Release` | `context`, `version` | `nx-release-publish`                 |
 
@@ -48,9 +48,10 @@ export { stacks };
 
 | [INDEX] | [TARGET]             | [OPERATION]                                               | [DEPENDS_ON]          | [CACHE] |
 | :-----: | :------------------- | :-------------------------------------------------------- | :-------------------- | :-----: |
-|  [01]   | `install`            | `Stack.up` with refresh                                   | `^install`            |   No    |
+|  [01]   | `install--pulumi`    | `Stack.up` with refresh                                   | `^install`            |   No    |
 |  [02]   | `deploy`             | `Stack.up` with refresh, `Stack.destroy` with `--destroy` | None                  |   No    |
 |  [03]   | `nx-release-publish` | `Stack.up` with refresh, `Stack.preview` under a dry run  | `^nx-release-publish` |   No    |
+|  [04]   | `install`            | `nx:noop` over every `install--*` target of the project   | `install--*`          |   No    |
 
 - Stacks run in their own temporary work folder unless their options name a `workDir`, so no `Pulumi.yaml` lands in the tree
 - Named `workDir` folders holding `Pulumi.yaml` and `Pulumi.<stack>.yaml` supply the settings `projectSettings` and `stackSettings` leave out
@@ -72,5 +73,5 @@ export { stacks };
 | :-----: | :--------------------------- | :------------------------------------------------------------ |
 |  [01]   | `plugins/project-graph.ts`   | Package entry: manifest decoder and `createNodes`             |
 |  [02]   | `executors/deploy/`          | `deploy` executor, the stack runner, `StackRequest`, `Stacks` |
-|  [03]   | `executors/install/`         | `install` executor over the runner                            |
+|  [03]   | `executors/install/`         | `install--pulumi` executor over the runner                    |
 |  [04]   | `executors/release-publish/` | `nx-release-publish` executor over the runner                 |

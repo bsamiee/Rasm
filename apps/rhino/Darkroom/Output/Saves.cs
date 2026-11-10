@@ -35,17 +35,17 @@ internal sealed partial class SavedChannel {
         static (_, frame, reader, _) => Seq(reader.Naming.Depth(frame), ExrLayer.Reciprocal("InverseDepth", frame)));
     public static readonly SavedChannel Normals = new(RenderWindow.StandardChannels.NormalXYZ, "Normal", None,
         static (name, frame, reader, camera) => Seq(reader.Naming.Normals(name, frame, camera.Filter(_ => reader.View))));
-    public static readonly SavedChannel Albedo = new(RenderWindow.StandardChannels.AlbedoRGB, "DiffCol", None, static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ["R", "G", "B"])));
+    public static readonly SavedChannel Albedo = new(RenderWindow.StandardChannels.AlbedoRGB, "DiffCol", None, static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ExrChannels.Standard.Rgb)));
     public static readonly SavedChannel MaterialIds = new(RenderWindow.StandardChannels.MaterialIds, "IndexMA",
         Some<Func<RhinoDoc, Seq<IdentitySource>>>(static document => toSeq(document.RenderMaterials).Map(static material => {
             using Material simulated = material.ToMaterial(RenderTexture.TextureGeneration.Skip);
             return new IdentitySource((ushort)(material.RenderHash & IdMask), Conversions.Present(material.Name), Components(new Color4f(simulated.DiffuseColor)));
         }).Strict()),
-        static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ["V"])));
+        static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ExrChannels.Standard.V)));
     public static readonly SavedChannel ObjectIds = new(RenderWindow.StandardChannels.ObjectIds, "IndexOB",
         Some<Func<RhinoDoc, Seq<IdentitySource>>>(static document => toSeq(document.Objects.GetObjectList(ObjectType.AnyObject)).Map(found =>
             new IdentitySource((ushort)(RhinoMath.CRC32(0u, found.Id.ToByteArray()) & IdMask), Conversions.Present(found.Attributes.Name), Components(new Color4f(found.Attributes.DrawColor(document))))).Strict()),
-        static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ["V"])));
+        static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ExrChannels.Standard.V)));
     public static readonly SavedChannel WireframePoints = Wireframe(RenderWindow.StandardChannels.WireframePointsRGBA);
     public static readonly SavedChannel WireframeIsocurves = Wireframe(RenderWindow.StandardChannels.WireframeIsocurvesRGBA);
     public static readonly SavedChannel WireframeCurves = Wireframe(RenderWindow.StandardChannels.WireframeCurvesRGBA);
@@ -59,7 +59,7 @@ internal sealed partial class SavedChannel {
     public partial Seq<ExrLayer> Layers(string name, PixelFrame frame, LayerReader reader, Option<Camera> camera);
 
     private static SavedChannel Wireframe(RenderWindow.StandardChannels channel) =>
-        new(channel, channel.ToString(), None, static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ["R", "G", "B", "A"])));
+        new(channel, channel.ToString(), None, static (name, frame, _, _) => Seq(new ExrLayer(name, frame, ExrChannels.Standard.Rgba)));
 
     private static Vector3 Components(Color4f color) => new(color.R, color.G, color.B);
 

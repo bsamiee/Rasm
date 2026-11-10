@@ -74,14 +74,6 @@ class Link extends Schema.TaggedClass<Link, { readonly brand: unique symbol }>()
     parent: Reference.annotate({ description: 'Placed graphic or story' }),
 }) {}
 const grouped = { parentColorGroup: Schema.OptionFromOptionalKey(Reference) };
-const Swatch = Schema.TaggedUnion({
-    Swatch: grouped,
-    Color: { ...grouped, model: Schema.String, space: Schema.String, colorValue: Schema.Array(Schema.Finite) },
-    Tint: { ...grouped, baseColor: Reference, tintValue: Schema.Finite },
-    Gradient: { ...grouped, type: Schema.String, gradientStops: Schema.Array(Schema.Struct({ stopColor: Reference, location: Schema.Finite, midpoint: Schema.Finite })) },
-    MixedInk: { ...grouped, baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
-    MixedInkGroup: grouped,
-});
 class Page extends Schema.TaggedClass<Page, { readonly brand: unique symbol }>()('Page', {
     documentOffset: Schema.Int,
     side: Schema.String,
@@ -103,13 +95,11 @@ const spread = {
     pages: Schema.Array(Reference.mapFields(Struct.assign(Struct.pick(Page.fields, ['side', 'extent'])))).annotate({ description: 'In order' }),
     pageItems: Collection,
 };
-const Spread = Schema.TaggedUnion({ Spread: { ...spread, allowPageShuffle: Schema.Boolean }, MasterSpread: { ...spread, namePrefix: Schema.String, baseName: Schema.String } });
 const styled = {
     group: Schema.Array(Schema.String).annotate({ description: 'Group names, nearest first' }),
     basedOn: Schema.Array(Reference).annotate({ description: 'Nearest first, root style excluded' }),
     differing: Schema.JsonObject.annotate({ description: 'Attributes differing from base or root style' }),
 };
-const Style = Schema.TaggedUnion({ ParagraphStyle: { ...styled, nextStyle: Reference, ...ParagraphAttributes }, CharacterStyle: styled, ObjectStyle: styled, TableStyle: styled, CellStyle: styled });
 class Story extends Schema.TaggedClass<Story, { readonly brand: unique symbol }>()('Story', {
     length: Schema.Int,
     overflows: Schema.Boolean,
@@ -230,28 +220,26 @@ class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('
     slice: Slice.Every,
 }) {
     static readonly Readings = Schema.Array(ObjectModel.Field.pipe(Schema.fieldsAssign({ value: Schema.Result(Schema.Json, Schema.Defect()) })));
+    static readonly Spread = Schema.TaggedUnion({ Spread: { ...spread, allowPageShuffle: Schema.Boolean }, MasterSpread: { ...spread, namePrefix: Schema.String, baseName: Schema.String } });
+    static readonly Style = Schema.TaggedUnion({ ParagraphStyle: { ...styled, nextStyle: Reference, ...ParagraphAttributes }, CharacterStyle: styled, ObjectStyle: styled, TableStyle: styled, CellStyle: styled });
+    static readonly Swatch = Schema.TaggedUnion({
+        Swatch: grouped,
+        Color: { ...grouped, model: Schema.String, space: Schema.String, colorValue: Schema.Array(Schema.Finite) },
+        Tint: { ...grouped, baseColor: Reference, tintValue: Schema.Finite },
+        Gradient: { ...grouped, type: Schema.String, gradientStops: Schema.Array(Schema.Struct({ stopColor: Reference, location: Schema.Finite, midpoint: Schema.Finite })) },
+        MixedInk: { ...grouped, baseColor: Reference, inkPercentages: Schema.Array(Schema.Finite) },
+        MixedInkGroup: grouped,
+    });
+    static readonly View = Schema.Union([Application, Document, Page, Layer, Link, Story, Text, Font, PreflightProcess]).pipe(Schema.toTaggedUnion('_tag'));
     static readonly Object = Schema.TaggedStruct('Object', Reference.fields).mapFields(
         Struct.assign({
-            view: Schema.OptionFromOptionalKey(Schema.Union([Application, Document, Page, Spread, Layer, Style, Swatch, Link, Story, Text, Font, PreflightProcess])),
+            view: Schema.OptionFromOptionalKey(Schema.Union([Inspect.View, Inspect.Spread, Inspect.Style, Inspect.Swatch])),
             fields: Inspect.Readings,
             collections: Schema.Array(Collection.mapFields(Struct.assign({ name: Schema.String }))),
         }),
     );
     static readonly Items = Schema.TaggedStruct('Items', { specifier: Schema.String, total: Schema.Int, items: Schema.Array(Reference.mapFields(Struct.assign({ fields: Inspect.Readings }))) });
     static readonly Result = Schema.Union([Inspect.Object, Inspect.Items]);
-    static readonly Extent = Extent;
-    static readonly Application = Application;
-    static readonly Document = Document;
-    static readonly Page = Page;
-    static readonly Spread = Spread;
-    static readonly Layer = Layer;
-    static readonly Style = Style;
-    static readonly Swatch = Swatch;
-    static readonly Link = Link;
-    static readonly Story = Story;
-    static readonly Text = Text;
-    static readonly Font = Font;
-    static readonly PreflightProcess = PreflightProcess;
 }
 class Change extends Schema.Class<Change, { readonly brand: unique symbol }>('Change')({ target: Specifier.Path, values: Value.Fields }) {
     static readonly Result = Reference.Written;
@@ -302,16 +290,15 @@ class FontFile extends Schema.Class<FontFile, { readonly brand: unique symbol }>
         source: Schema.OptionFromOptionalKey(Source.mapFields(Struct.omit(['data'])).mapFields(Struct.assign({ file: Schema.String.annotate({ description: 'Installed face file, or subset written to the requested file' }) }))),
     });
 }
-const Action = Schema.Struct({ id: Schema.Int, name: Schema.String, area: Schema.String });
-class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')({ area: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Area in any case' })) }) {
-    static readonly Result = Schema.Array(Action);
-}
 class Invoke extends Schema.Class<Invoke, { readonly brand: unique symbol }>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name' }) }) {
-    static readonly Result = Action;
+    static readonly Result = Schema.Struct({ id: Schema.Int, name: Schema.String, area: Schema.String });
 
     get label(): string {
         return `Invoke ${this.action}`;
     }
+}
+class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')({ area: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Area in any case' })) }) {
+    static readonly Result = Schema.Array(Invoke.Result);
 }
 class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol }>('Preflight')({
     document: Schema.OptionFromOptionalKey(Specifier.Path.annotate({ description: 'Open document, every document with live preflight when absent' })),
@@ -333,7 +320,7 @@ class Adjust extends Schema.Class<Adjust, { readonly brand: unique symbol }>('Ad
         kerning: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em after last base letter, before its marks, negative tightens' })),
         tracking: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em, negative tightens' })),
         baselineShift: Schema.optionalKey(Schema.Finite.annotate({ description: 'Em of each style run point size, up positive' })),
-        marks: Schema.optionalKey(Settings.Marks),
+        marks: Schema.optionalKey(Settings.fields.marks.schema),
     })
         .check(Schema.isMinProperties(1))
         .annotate({ description: 'Added to each style run value' }),
@@ -396,11 +383,8 @@ class ScriptPreferences extends RpcMiddleware.Service<ScriptPreferences>()('@ras
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Typesetting = RpcGroup.make(request('adjust', Adjust), request('kerns', Kerns), request('runs', Runs), request('typeset', Typeset));
-const InDesign = {
-    Contract: Requests.add(request('inspect', Inspect), request('change', Change), request('call', Call), request('find_change', FindChange), request('font', FontFile), request('menu', Menu), request('invoke', Invoke), request('preflight', Preflight)).merge(Typesetting).middleware(ScriptPreferences),
-    ScriptPreferences,
-} as const;
+const InDesign = Requests.add(request('inspect', Inspect), request('change', Change), request('call', Call), request('find_change', FindChange), request('font', FontFile), request('menu', Menu), request('invoke', Invoke), request('preflight', Preflight)).merge(Typesetting).middleware(ScriptPreferences);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Adjust, Call, Change, FindChange, FontFile, InDesign, Inspect, Invoke, Kerns, Menu, Preflight, Runs, Slice, Typeset };
+export { Adjust, Call, Change, FindChange, FontFile, InDesign, Inspect, Invoke, Kerns, Menu, Preflight, Runs, ScriptPreferences, Slice, Typeset };

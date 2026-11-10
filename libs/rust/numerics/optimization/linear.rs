@@ -1,8 +1,9 @@
-use core::{cmp::Ordering, iter, range::RangeInclusive};
+use core::cmp::Ordering;
+use core::iter;
+use core::range::RangeInclusive;
 
-use good_lp::{
-    Constraint, DualValues as _, Expression, ProblemVariables, ResolutionError, Solution as _, SolutionStatus, SolutionWithDual, Solver, SolverModel, Variable, solvers::MipGapError, variable,
-};
+use good_lp::solvers::MipGapError;
+use good_lp::{Constraint, DualValues as _, Expression, ProblemVariables, ResolutionError, Solution as _, SolutionStatus, SolutionWithDual, Solver, SolverModel, Variable, variable};
 use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView};
 use nonempty_collections::NEVec;
@@ -103,8 +104,7 @@ where
     };
     let (terms, constraints) = model(&mut variables, &shares);
     let integer = variables.iter_variables_with_def().any(|(_, definition)| definition.is_integer());
-    #[expect(clippy::needless_collect, reason = "`minimise` consumes the variables before the solution reads the handles")]
-    let added = variables.iter_variables_with_def().skip(shares.len()).map(|(added, _)| added).collect::<Vec<_>>();
+    let added = variables.iter_variables_with_def().skip(shares.len()).map(|(added, _)| added).collect::<Box<[_]>>();
     let objective = weighted(izip!(costs, &permitted, &shares)) + terms;
     let mut problem = configure(variables.minimise(&objective).using(solver)).map_err(|source| NEVec::new(source.into()))?;
     let bounds = shares

@@ -7,12 +7,12 @@ import XcodeProjectFormat
 
 func report(_ containers: [FilePath]) -> Report {
     let formats = Dictionary(grouping: containers) { container in container.extension.flatMap(ContainerFormat.init(rawValue:)) }
-    let projects: [(FilePath, Result<XCSchema.Project, AnalyzerError>)] = formats[.xcodeproj, default: []]
+    let projects = formats[.xcodeproj, default: []]
         .map { container in (container, Result { () throws(AnalyzerError) in try decoded(container) }) }
     let identifiers = Dictionary(
         uniqueKeysWithValues: projects.compactMap { container, result in (try? result.get()).map { held in (container.string, Set(held.targets.map(\.commonProperties.objectID.rawValue))) } }
     )
-    let outcomes: [(FilePath, Result<Container, AnalyzerError>)] =
+    let outcomes =
         projects.map { container, result in (container, Result { () throws(AnalyzerError) in try project(container, result.get(), identifiers: identifiers) }) }
         + formats[.xcworkspace, default: []]
         .map { container in (container, Result { () throws(AnalyzerError) in try workspace(container, identifiers: identifiers) }) }
@@ -25,7 +25,7 @@ func report(_ containers: [FilePath]) -> Report {
 }
 
 func input() throws -> Data {
-    guard let data: Data = try FileHandle.standardInput.readToEnd() else { throw AnalyzerError(subject: "standard input", reason: .empty) }
+    guard let data = try FileHandle.standardInput.readToEnd() else { throw AnalyzerError(subject: "standard input", reason: .empty) }
     return data
 }
 
@@ -64,7 +64,7 @@ struct Version: ParsableCommand {
 
     func run() throws {
         let held = try XCSchema.Project(jsonRepresentation: input())
-        let next: XCSchema.Project = try marketingVersion.map { version throws(AnalyzerError) in try versioned(held, to: version) } ?? held
+        let next = try marketingVersion.map { version throws(AnalyzerError) in try versioned(held, to: version) } ?? held
         guard let project = String(validating: try next.jsonRepresentation(), as: UTF8.self) else { throw CocoaError(.fileWriteInapplicableStringEncoding) }
         FileHandle.standardOutput.write(try encoded(Versioned(version: next.buildSettings[VersionSetting.marketing.rawValue]?.text, project: project)))
     }

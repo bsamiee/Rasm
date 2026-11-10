@@ -1,22 +1,18 @@
 use approx::assert_abs_diff_eq;
 use claims::assert_ok;
-use jiff::{
-    SignedDuration,
-    civil::date,
-    tz::{Offset, TimeZone},
-};
+use jiff::SignedDuration;
+use jiff::civil::date;
+use jiff::tz::{Offset, TimeZone};
 use nalgebra::{UnitQuaternion, Vector3};
 use rasm_site::{Elevation, Place, Position};
 use rasm_solar_geometry::{Refraction, Sun, direction, lapsed, position};
 use rstest::rstest;
 use solar_positioning::RefractionCorrection;
-use uom::si::{
-    angle::degree,
-    f64::{Angle, Length, ThermodynamicTemperature},
-    length::meter,
-    ratio::ratio,
-    thermodynamic_temperature::{degree_celsius, kelvin},
-};
+use uom::si::angle::degree;
+use uom::si::f64::{Angle, Length, ThermodynamicTemperature};
+use uom::si::length::meter;
+use uom::si::ratio::ratio;
+use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

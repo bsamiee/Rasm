@@ -17,23 +17,19 @@ const linked = (): Plugin => ({
     name: 'atelier-link',
     enforce: 'post',
     config: () =>
-        Effect.runPromise(
-            Schema.encodeEffect(Defined)({ endpoint: `${Peer.link.origin}${Peer.link.path}`, redial: Peer.link.redial } satisfies ImportMetaEnv['LINK']).pipe(
-                Effect.map((link) => ({ define: { 'import.meta.env.LINK': link } })),
-                Effect.orDie,
-            ),
+        Schema.encodeEffect(Defined)({ endpoint: `${Peer.link.origin}${Peer.link.path}`, redial: Peer.link.redial } satisfies ImportMetaEnv['LINK']).pipe(
+            Effect.map((link) => ({ define: { 'import.meta.env.LINK': link } })),
+            Effect.runPromise,
         ),
     generateBundle: (_, bundle) => {
         const manifest = bundle[UxpManifest.file];
         return manifest?.type === 'asset'
-            ? Effect.runPromise(
-                  Effect.gen(function* () {
-                      const text = typeof manifest.source === 'string' ? manifest.source : new TextDecoder().decode(manifest.source);
-                      const { network } = (yield* Schema.decodeEffect(Permitted)(text)).requiredPermissions;
-                      const domains = network?.domains ?? [];
-                      yield* domains === 'all' ? Effect.void : Effect.sync(() => Object.assign(manifest, { source: applyEdits(text, modify(text, ['requiredPermissions', 'network', 'domains'], Array.dedupe(Array.append(domains, Peer.link.origin)), { formattingOptions: { insertSpaces: true, tabSize: 4 } })) }));
-                  }),
-              )
+            ? Effect.gen(function* () {
+                  const text = typeof manifest.source === 'string' ? manifest.source : new TextDecoder().decode(manifest.source);
+                  const { network } = (yield* Schema.decodeEffect(Permitted)(text)).requiredPermissions;
+                  const domains = network?.domains ?? [];
+                  yield* domains === 'all' ? Effect.void : Effect.sync(() => Object.assign(manifest, { source: applyEdits(text, modify(text, ['requiredPermissions', 'network', 'domains'], Array.dedupe(Array.append(domains, Peer.link.origin)), { formattingOptions: { insertSpaces: true, tabSize: 4 } })) }));
+              }).pipe(Effect.runPromise)
             : undefined;
     },
 });

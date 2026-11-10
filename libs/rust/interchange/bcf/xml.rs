@@ -1,19 +1,22 @@
-use core::{array, cell::RefCell, hash::Hash, iter};
+use core::cell::RefCell;
+use core::hash::Hash;
+use core::{array, iter};
 
 use indexmap::{IndexMap, IndexSet};
 use itertools::{EitherOrBoth, Itertools as _};
-use jiff::{Timestamp, civil, fmt::temporal::Pieces};
+use jiff::fmt::temporal::Pieces;
+use jiff::{Timestamp, civil};
 use newtype_uuid::{GenericUuid as _, TypedUuid, TypedUuidKind};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
-use sha2::{Digest as _, Sha256, digest::Output};
+use sha2::digest::Output;
+use sha2::{Digest as _, Sha256};
 use typed_path::Utf8UnixPath;
 use uuid::{Builder, Uuid};
 use validated::Validated;
-use xot::{
-    Node, Xot,
-    output::xml::{Declaration, Parameters},
-};
-use zip::{CompressionMethod, result::ZipError};
+use xot::output::xml::{Declaration, Parameters};
+use xot::{Node, Xot};
+use zip::CompressionMethod;
+use zip::result::ZipError;
 
 use crate::{ASPECT_RATIO, BcfError, Constraint, DateTime, Document, DocumentUuid, FILE, GUID, Guid, IS_EXTERNAL, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, PROJECT_INFO, TOPIC, Text};
 

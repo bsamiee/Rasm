@@ -15,7 +15,6 @@ using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp.PixelFormats;
-using Configuration = SixLabors.ImageSharp.Configuration;
 
 namespace Rasm.Imaging.Files;
 
@@ -73,7 +72,7 @@ public abstract partial record ImageFile {
 
         public PixelFrame Composite() => Isolated(Layers);
 
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
             from block in IO.lift(SourceData)
             from written in Scanlines(stream, Composite(), Depth, alpha: true, metadata, [.. Rgb(Depth, Encoding, metadata), (ImageSourceData, [block.Length, block])], SourceField)
             select written;

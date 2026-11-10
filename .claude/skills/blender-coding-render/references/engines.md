@@ -77,32 +77,45 @@ class Engine(bpy.types.RenderEngine):
             self.register_pass(scene, renderlayer, name, len(chanid), chanid, "COLOR" if chanid.startswith("RGB") else "VALUE" if len(chanid) == 1 else "VECTOR")
 
     @override
-    def render(self, depsgraph: bpy.types.Depsgraph) -> None:  # type: ignore[override]  # ty: ignore[invalid-method-override]
-        scene: bpy.types.Scene = depsgraph.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        frame = np.array((self.resolution_x, self.resolution_y), np.float32)
+    def render(self, depsgraph: bpy.types.Depsgraph | None) -> None:
+        match depsgraph:
+            case bpy.types.Depsgraph(scene=bpy.types.Scene() as scene, view_layer=bpy.types.ViewLayer() as layer):
+                frame = np.array((self.resolution_x, self.resolution_y), np.float32)
+            case _:
+                return self.report({"ERROR"}, f"{self.bl_label} received no depsgraph")
         origin = np.floor(np.array((scene.render.border_min_x, scene.render.border_min_y), np.float32) * frame) * scene.render.use_border
         if (result := self.begin_result(0, 0, self.resolution_x, self.resolution_y, layer=layer.name)) is None:
             return self.report({"ERROR"}, f"{layer.name} allocated no render result")
         uv = np.moveaxis(np.indices((result.resolution_y, result.resolution_x), np.float32)[::-1] + (origin + 0.5)[:, None, None], 0, -1) / frame
         for rendered in result.layers[0].passes:
             _, fill = self.passes[rendered.name]
-            rendered.rect.foreach_set(np.ascontiguousarray(fill(uv), np.float32).ravel())  # type: ignore[arg-type]
+            rendered.rect.foreach_set(np.ascontiguousarray(fill(uv), np.float32).ravel())
         self.end_result(result, cancel=self.test_break())
 
     @override
-    def bake(self, depsgraph: bpy.types.Depsgraph, _object: bpy.types.Object, _pass_type: str, _pass_filter: int, width: int, height: int) -> None:  # type: ignore[override]  # ty: ignore[invalid-method-override]
-        layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    def bake(
+        self,
+        depsgraph: bpy.types.Depsgraph | None,
+        object: bpy.types.Object | None,
+        pass_type: str | None,
+        pass_filter: int | None,
+        width: int | None,
+        height: int | None,
+    ) -> None:
+        match depsgraph, width, height:
+            case bpy.types.Depsgraph(view_layer=bpy.types.ViewLayer() as layer), int(), int():
+                primitive = np.empty((width * height, 3), np.float32)
+            case _:
+                return self.report({"ERROR"}, f"{self.bl_label} received no depsgraph or size")
         if (result := self.begin_result(0, 0, width, height, layer=layer.name)) is None:
             return self.report({"ERROR"}, f"{layer.name} allocated no render result")
-        primitive = np.empty((width * height, 3), np.float32)
         result.layers[0].passes["BakePrimitive"].rect.foreach_get(primitive.ravel())
         _, fill = self.passes["Combined"]
-        result.layers[0].passes["Combined"].rect.foreach_set(np.ascontiguousarray(fill(primitive[:, :2]), np.float32).ravel())  # type: ignore[arg-type]
+        result.layers[0].passes["Combined"].rect.foreach_set(np.ascontiguousarray(fill(primitive[:, :2]), np.float32).ravel())
         self.end_result(result)
 ```
 
-Stereo border renders write both eyes of each layer inside the border, `Coverage` reading each pixel center's horizontal frame position, and bakes write each texel's surface UV. Fills receive `(height, width, 2)` arrays in renders and `(texels, 2)` arrays in bakes, each indexing its last axis. `bpy` stubs declare `render` as a `RenderSettings` member and as a method, and the method line suppresses `override`.
+Stereo border renders write both eyes of each layer inside the border, `Coverage` reading each pixel center's horizontal frame position, and bakes write each texel's surface UV. Fills receive `(height, width, 2)` arrays in renders and `(texels, 2)` arrays in bakes, each indexing its last axis. Signatures take the optional parameters the `bpy` stubs declare, and one class pattern narrows them.
 
 ## [04]-[VIEWPORT]
 

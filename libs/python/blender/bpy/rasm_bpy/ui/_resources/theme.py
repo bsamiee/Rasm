@@ -33,7 +33,7 @@ class Spacing(IntEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_CLEAR: Final[Color] = (0.0, 0.0, 0.0, 0.0)
+CLEAR: Final[Color] = (0.0, 0.0, 0.0, 0.0)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -60,9 +60,11 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def read(cls) -> Self:
         """Reads metrics from running preferences, the view scale while no window gives the display scale, which then reads 0."""
-        preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
-        display = preferences.system.ui_scale
-        return cls(scale=display if display > 0.0 else preferences.view.ui_scale, pixel_size=int(preferences.system.pixel_size), preferences=preferences)
+        match bpy.context.preferences:
+            case bpy.types.Preferences(system=system, view=view) as preferences:
+                return cls(scale=system.ui_scale if system.ui_scale > 0.0 else view.ui_scale, pixel_size=int(system.pixel_size), preferences=preferences)
+            case other:
+                raise TypeError(other)
 
     # --- [SIZES]
 
@@ -112,7 +114,7 @@ class Metrics(msgspec.Struct, frozen=True, kw_only=True):
     def checker(self) -> Checker:
         """Reads transparency checker."""
         ui = self.preferences.themes[0].user_interface
-        return Checker(primary=_color(ui.transparent_checker_primary), secondary=_color(ui.transparent_checker_secondary), cell=ui.transparent_checker_size * self.pixel_size)
+        return Checker(primary=display_color(ui.transparent_checker_primary), secondary=display_color(ui.transparent_checker_secondary), cell=ui.transparent_checker_size * self.pixel_size)
 
 
 class Theme(msgspec.Struct, frozen=True, kw_only=True):
@@ -130,9 +132,10 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
     def editor(self) -> bpy.types.ThemeSpaceGeneric | bpy.types.ThemeSpaceGradient:
         """Editor theme space, Project Settings reading Preferences and the 3D View answering a space the theme lacks."""
         theme = self.preferences.themes[0]
-        member = "preferences" if self.space == "PROJECT" else self.space.lower()
-        match getattr(theme, member).space if member in theme.bl_rna.properties else None:
-            case bpy.types.ThemeSpaceGeneric() | bpy.types.ThemeSpaceGradient() as space:
+        match self.space, self.space.lower():
+            case "PROJECT", _:
+                return theme.preferences.space
+            case _, member if member in theme.bl_rna.properties and isinstance(space := getattr(theme, member).space, bpy.types.ThemeSpaceGeneric | bpy.types.ThemeSpaceGradient):
                 return space
             case _:
                 return theme.view_3d.space
@@ -143,48 +146,50 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
         theme = self.preferences.themes[0]
         match self.space, self.region:
             case (_, "UI" | "TOOLS") | ("PROPERTIES" | "PREFERENCES" | "PROJECT", _):
-                return _color(theme.user_interface.panel_text)
+                return display_color(theme.user_interface.panel_text)
             case _, "CHANNELS":
-                return _color(theme.regions.channels.text)
+                return display_color(theme.regions.channels.text)
             case _:
-                return _color(self.editor.text)
+                return display_color(self.editor.text)
 
     @property
     def text_hi(self) -> Color:
         """Highlighted text color."""
-        regions = self.preferences.themes[0].regions
-        return _color(regions.channels.text_selected if self.region == "CHANNELS" else self.editor.text_hi)
+        match self.region:
+            case "CHANNELS":
+                return display_color(self.preferences.themes[0].regions.channels.text_selected)
+            case _:
+                return display_color(self.editor.text_hi)
 
     @property
     def back(self) -> Color:
         """Region background display color, opaque unless the region overlaps."""
         theme, space = self.preferences.themes[0], self.editor
-        stored: Shade
         match self.space, self.region:
             case "SEQUENCE_EDITOR", "PREVIEW":
                 stored = theme.sequence_editor.preview_back
             case _, "WINDOW" | "PREVIEW":
                 stored = space.gradients.high_gradient if isinstance(space, bpy.types.ThemeSpaceGradient) else space.back
             case _, "HEADER" | "FOOTER" | "TOOL_HEADER":
-                stored = space.header  # ty: ignore[unsound-assignment]
+                stored = space.header
             case _, "CHANNELS":
                 stored = theme.regions.channels.back
             case _, "NAVIGATION_BAR":
-                stored = theme.regions.sidebars.tab_back  # ty: ignore[unsound-assignment]
+                stored = theme.regions.sidebars.tab_back
             case _, "ASSET_SHELF":
-                stored = theme.regions.asset_shelf.back  # ty: ignore[unsound-assignment]
+                stored = theme.regions.asset_shelf.back
             case _, "ASSET_SHELF_HEADER":
-                stored = theme.regions.asset_shelf.header_back  # ty: ignore[unsound-assignment]
+                stored = theme.regions.asset_shelf.header_back
             case _:
-                stored = theme.regions.sidebars.back  # ty: ignore[unsound-assignment]
-        red, green, blue, alpha = _color(stored)
-        return (red, green, blue, alpha if _overlaps(self.preferences, self.space, self.region) else 1.0)
+                stored = theme.regions.sidebars.back
+        red, green, blue, alpha = display_color(stored)
+        return (red, green, blue, alpha if overlaps(self.preferences, self.space, self.region) else 1.0)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _overlaps(preferences: bpy.types.Preferences, space: "rna_enums.SpaceTypeItems", region: "rna_enums.RegionTypeItems") -> bool:
+def overlaps(preferences: bpy.types.Preferences, space: "rna_enums.SpaceTypeItems", region: "rna_enums.RegionTypeItems") -> bool:
     """Returns whether a region of the editor draws over its window region under the region overlap preference and the 3D View header alpha."""
     match space, region:
         case _, "HUD":
@@ -192,7 +197,7 @@ def _overlaps(preferences: bpy.types.Preferences, space: "rna_enums.SpaceTypeIte
         case _ if not preferences.system.use_region_overlap:
             return False
         case "VIEW_3D", "HEADER":
-            return _color(preferences.themes[0].view_3d.space.header)[3] < 1.0
+            return display_color(preferences.themes[0].view_3d.space.header)[3] < 1.0
         case "NODE_EDITOR", "TOOLS" | "UI" | "ASSET_SHELF" | "ASSET_SHELF_HEADER":
             return True
         case "VIEW_3D" | "IMAGE_EDITOR", "TOOLS" | "UI" | "TOOL_PROPS" | "FOOTER" | "TOOL_HEADER" | "ASSET_SHELF" | "ASSET_SHELF_HEADER":
@@ -201,12 +206,12 @@ def _overlaps(preferences: bpy.types.Preferences, space: "rna_enums.SpaceTypeIte
             return False
 
 
-def _color(values: Shade) -> Color:
+def display_color(values: Shade) -> Color:
     """Returns RGB or RGBA as display RGBA, alpha 1 when absent."""
-    red, green, blue, *alpha = values  # type: ignore[misc]  # ty: ignore[not-iterable]
+    red, green, blue, *alpha = map(float, np.asarray(values))
     return (red, green, blue, alpha[0] if alpha else 1.0)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Checker", "Color", "Metrics", "Shade", "Spacing", "Theme"]
+__all__ = ["CLEAR", "Checker", "Color", "Metrics", "Shade", "Spacing", "Theme", "display_color", "overlaps"]

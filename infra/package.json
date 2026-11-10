@@ -12,6 +12,8 @@
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
+        "@pulumi/cloudflare": "catalog:",
+        "@pulumi/command": "catalog:",
         "@pulumi/docker": "catalog:",
         "@pulumi/docker-build": "catalog:",
         "@pulumi/github": "catalog:",
@@ -20,6 +22,7 @@
         "@pulumi/pulumi": "catalog:",
         "@pulumi/random": "catalog:",
         "@pulumi/tls": "catalog:",
+        "@pulumiverse/doppler": "catalog:",
         "@rasm/hosting": "workspace:*",
         "effect": "catalog:",
         "vite": "catalog:"

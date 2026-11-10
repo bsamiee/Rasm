@@ -8,7 +8,6 @@ using NetTopologySuite.Geometries;
 using NetTopologySuite.Operation.Buffer;
 using NetTopologySuite.Simplify;
 using Rasm.UI.Motion;
-using Rasm.UI.Input;
 using Rasm.UI.Media;
 using Rasm.UI.Typography;
 using RBush;
@@ -188,15 +187,6 @@ public abstract partial record Figure : IInterpolated<Figure> {
     internal virtual bool Hits(PlotFrame frame, SKPoint local, float reach) => false;
 
     internal virtual Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) => None;
-
-    internal Option<Datum> Stepped(PlotPlane plane, Option<Datum> current, Bearing toward) {
-        Seq<Datum> data = Data;
-        int last = data.Count - 1;
-        int index = toward.Granularity.Distance(1f, int.Max(1, data.Filter(datum => plane.Contains(PhysicalAxis.Horizontal, None, datum.Value.X)).Count)).Match(
-            Some: stride => current.Map(datum => datum.Index + (toward.Sign * (int)stride)).IfNone(toward.Sign > 0 ? 0 : last),
-            None: () => toward.Sign > 0 ? last : 0);
-        return int.Clamp(index, 0, int.Max(0, last)) switch { var at => data.Find(datum => datum.Index == at) };
-    }
 
     internal virtual float Weight(PlotFrame frame, Pen pen) => 1f;
 
@@ -408,7 +398,11 @@ public abstract partial record Figure : IInterpolated<Figure> {
         internal override bool Hits(PlotFrame frame, SKPoint local, float reach) => Nearest(frame, local, None).Exists(datum => SKPoint.Distance(frame.Point(datum.Value), local) <= reach);
 
         internal override Option<Datum> Nearest(PlotFrame frame, SKPoint local, Option<PhysicalAxis> along) =>
-            Indexed.Nearest(Trees.GetValue(this, static points => Indexed.Tree(points.At)), frame, local, along, index => Distance(frame.Point(At[index]), local, along)).Map(index => new Datum(index, At[index]));
+            Indexed.Nearest(Trees.GetValue(this, static points => {
+                RBush<Indexed> tree = new();
+                tree.BulkLoad(points.At.Map(static (at, index) => new Indexed(index, new RBush.Envelope(at.X, at.Y, at.X, at.Y))));
+                return tree;
+            }), frame, local, along, index => Distance(frame.Point(At[index]), local, along)).Map(index => new Datum(index, At[index]));
 
         private Seq<(SKPoint At, Option<float> Size)> Dots(PlotFrame frame) => Marker.IsSome ? [] : frame.Points(At).Map((at, index) => (at, Sizes.Bind(sizes => sizes.At(index))));
     }

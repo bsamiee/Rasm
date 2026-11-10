@@ -14,15 +14,16 @@ from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
+from rasm_bpy.commands.operators import called
 from rasm_bpy.data._ids.store import IdName
-from rasm_bpy.data._rna.paths import _rna, _struct_at
+from rasm_bpy.data._rna.paths import rna, rooted, struct_at
 from rasm_bpy.data._rna.snapshots import Snapshot
-from rasm_bpy.files._sessions import _FarmTransfer, _packed_session, _saved, _session_loaded
+from rasm_bpy.files._sessions import FarmTransfer, OPTIONS, pack_started, Packing, saved
 from rasm_bpy.render._outputs.paths import OutputPath
-from rasm_bpy.render._sessions.engines import _samples
-from rasm_bpy.render._sessions.plans import _Refused, _scene_of, Dispatcher, JobScope, Plan, PrepareArguments, QueuePreferences, ranged, Sent
+from rasm_bpy.render._sessions.engines import samples
+from rasm_bpy.render._sessions.plans import Dispatcher, JobScope, Plan, PLAN_DECODER, PrepareArguments, QueuePreferences, ranged, Refused, REFUSED_DECODER, scene_of, Sent, SENT_DECODER
 from rasm_bpy.render._sessions.renders import RenderCall
-from rasm_bpy.render._view_layers.passes import _layer_of, _soloed, _used, PassFlags
+from rasm_bpy.render._view_layers.passes import layer_of, PassFlags, soloed, used
 from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, RecordFile
 from rasm_rendering import (
     awake,
@@ -37,6 +38,8 @@ from rasm_rendering import (
     Output,
     PackedFile,
     Progress,
+    PROGRESS_DECODER,
+    RENDER_QUEUE_DECODER,
     RenderFrames,
     RenderQueue,
     Run,
@@ -66,71 +69,27 @@ def _job_path(dispatcher: Dispatcher, scene: bpy.types.Scene) -> Outcome[OutputP
 # --- [PREPARATION]
 
 
-def _prepared(dispatcher: Dispatcher, arguments: PrepareArguments, trailing: tuple[str, ...]) -> Outcome[Sent]:
-    """Writes job files of the stored plan, sends the queue to its target, and stores the `Sent` record beside the plan, a `Refused` record on a fault."""
-    source = Path(bpy.data.filepath)
-    transferred = isinstance(arguments.target, Flamenco)
-
-    def sent(jobs: tuple[Job, ...]) -> Outcome[Sent]:
-        queue = RenderQueue(jobs=jobs, blender=bpy.app.version_string, extension=dispatcher.identity.manifest.version)
-        match arguments.target.sent(queue, dispatcher.host):
-            case Result(tag="error", error=faults):
-                return Error(faults)
-            case Result(ok=results):
-                record = Sent(queue=queue, target=arguments.target, issued=tuple(value for result in results for value in result.to_option().to_list()))
-                for result in results:
-                    match result:
-                        case Result(tag="ok", ok=issued):
-                            dispatcher.identity.reports.logger.info("Queue sent", issued=issued)
-                        case Result(error=refused):
-                            dispatcher.identity.reports.logged(refused)
-                return RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.SENT), form=Sent).written(record).map(lambda _: record)
-
-    def planned(plan: Plan) -> Outcome[tuple[Job, ...]]:
-        return accumulated(_job(dispatcher, scope, plan, source, arguments.plan, part, transferred=transferred) for part, scope in enumerate(plan.scopes))
-
-    def refused(faults: Faults) -> Outcome[Sent]:
-        record = _Refused(messages=tuple(fault.message for fault in faults))
-        return RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.REFUSED), form=_Refused).written(record).bind(lambda _: Error(faults))
-
-    return (
-        _no_trailing(RunCommand.PREPARE, trailing).bind(lambda _: RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.PLAN), form=Plan).read()).bind(planned).bind(sent).or_else_with(refused)
-    )
-
-
 def _job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem: str, part: int, *, transferred: bool) -> Outcome[Job]:
-    """Writes scope's job file from the saved source, the scope's values and fixed camera applied first, its traced files placed for farm transfer when `transferred` under the folder holding both source and job file, keeping relative paths."""
+    """Writes a scope's job file from the reopened source, its values and fixed camera applied first and its traced files placed for a farm target under the folder holding source and job file."""
     day = plan.moment.astimezone().date()
 
-    def applied(scene: bpy.types.Scene) -> Outcome[tuple[OutputPath, tuple[int, int]]]:
-        camera = (
-            Snapshot
-            .of(bpy.types.Scene, {("camera",): IdName(name=scope.camera.camera), **{("timeline_markers", index, "camera"): None for index in range(len(scene.timeline_markers))}})
-            .apply(scene)
-            .outcome
-            if isinstance(scope.camera, FixedCamera)
-            else Ok(None)
-        )
-        values = Option.of_optional(scope.values).map(lambda snapshot: snapshot.apply(scene).outcome).default_value(Ok(None))
-        layer = Option.of_optional(scope.layer).map(lambda name: _layer_of(scene, name).map(_soloed)).default_value(Ok(None))
-        return (
-            paired(camera, values, layer)
-            .bind(lambda _: dispatcher.framed.grown(scene))
-            .bind(lambda framed: dispatcher.routing.pathed.path(scene, day).bind(lambda path: dispatcher.routing.placed(scene, path.copied)).map(lambda path: (path, framed[1])))
-        )
-
     def written(scene: bpy.types.Scene, path: OutputPath, pixels: tuple[int, int]) -> Outcome[Job]:
-        layers = _used(scene)
+        layers = used(scene)
         camera = (scope.camera.camera,) if isinstance(scope.camera, FixedCamera) else ()
         name = " ".join(bpy.path.clean_name(held) for held in (scope.scene, *Option.of_optional(scope.layer).to_list(), *camera))
         file = path.base / "snapshots" / stem / f"{part}_{name}.blend"
-        active: bpy.types.ViewLayer = bpy.context.view_layer  # ty: ignore[invalid-assignment]
-        layer = Option.of_optional(scope.layer).default_value(active.name)
-        outputs = accumulated(path.text(layer, output) for output in Output).map(lambda texts: dict(zip(Output, (posixpath.join(path.root, text) for text in texts))))
-        passes = tuple(
-            sorted({_rna(descriptor.path) for held in layers for _, descriptor in PassFlags.of().every for owner in _struct_at(held, descriptor.owner).to_list() if bool(descriptor.read(owner))})
+        outputs = (
+            Option
+            .of_optional(scope.layer)
+            .map(Ok)
+            .default_with(lambda: rooted(bpy.types.ViewLayer, bpy.context).map(lambda active: active.name))
+            .bind(lambda layer: accumulated(path.text(layer, output) for output in Output))
+            .map(lambda texts: dict(zip(Output, (posixpath.join(path.root, text) for text in texts))))
         )
-        counts = tuple(count for held in layers for count in _samples(scene, held).to_list())
+        passes = tuple(
+            sorted({rna(descriptor.path) for held in layers for _, descriptor in PassFlags.of().every for owner in struct_at(held, descriptor.owner).to_list() if bool(descriptor.read(owner))})
+        )
+        counts = tuple(count for held in layers for count in samples(scene, held).to_list())
 
         def placed(saved_file: Path) -> Outcome[tuple[PackedFile, tuple[PackedFile, ...]]]:
             def held(blend: PackedFile, files: tuple[PackedFile, ...], skipped: tuple[Fault, ...]) -> tuple[PackedFile, tuple[PackedFile, ...]]:
@@ -138,8 +97,8 @@ def _job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem
                 return blend, files
 
             if transferred:
-                transfer = _FarmTransfer()
-                return _packed_session(transfer, project=Path(os.path.commonpath((source.parent, saved_file.parent)))).map(lambda pack: held(*transfer.placed, pack.skipped))
+                transfer = FarmTransfer()
+                return pack_started(transfer, Path(os.path.commonpath((source.parent, saved_file.parent))), OPTIONS, Ok).bind(Packing.drained).map(lambda pack: held(*transfer.placed, pack.skipped))
             return (
                 catch(get_hasher(), exception=OSError)(saved_file)
                 .map_error(partial(Fault.of, Reason.UNREADABLE, str(saved_file)))
@@ -165,13 +124,65 @@ def _job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem
                 pack=pack,
             )
 
-        return _saved(file, bpy.ops.wm.save_mainfile, compress=True, relative_remap=True).bind(lambda saved_file: paired(outputs, placed(saved_file))).map(lambda parts: made(*parts))
+        return saved(file, bpy.ops.wm.save_mainfile, compress=True, relative_remap=True).bind(lambda saved_file: paired(outputs, placed(saved_file))).map(lambda parts: made(*parts))
 
     def opened(scene: bpy.types.Scene) -> Outcome[Job]:
         with bpy.context.temp_override(scene=scene):
-            return applied(scene).bind(lambda parts: written(scene, *parts))
+            camera = (
+                Snapshot
+                .of(bpy.types.Scene, {("camera",): IdName(name=scope.camera.camera), **{("timeline_markers", index, "camera"): None for index in range(len(scene.timeline_markers))}})
+                .apply(scene)
+                .outcome
+                if isinstance(scope.camera, FixedCamera)
+                else Ok(None)
+            )
+            values = Option.of_optional(scope.values).map(lambda snapshot: snapshot.apply(scene).outcome).default_value(Ok(None))
+            layer = Option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(soloed)).default_value(Ok(None))
+            return (
+                paired(camera, values, layer)
+                .bind(lambda _: dispatcher.framed.grown(scene))
+                .bind(lambda framed: dispatcher.routing.pathed.path(scene, day).bind(lambda path: dispatcher.routing.placed(scene, path.copied)).map(lambda path: (path, framed[1])))
+                .bind(lambda parts: written(scene, *parts))
+            )
 
-    return _session_loaded(bpy.ops.wm.open_mainfile, filepath=str(source)).bind(lambda _: _scene_of(scope.scene)).bind(opened)
+    return called(bpy.ops.wm.open_mainfile, {"filepath": str(source)}).bind(lambda _: scene_of(scope.scene)).bind(opened)
+
+
+def prepared(dispatcher: Dispatcher, arguments: PrepareArguments, trailing: tuple[str, ...]) -> Outcome[int]:
+    """Writes each scope's job file, sends the queue, and stores the `Sent` record beside the plan, a `Refused` record on a fault."""
+    source = Path(bpy.data.filepath)
+    transferred = isinstance(arguments.target, Flamenco)
+
+    def sent(jobs: tuple[Job, ...]) -> Outcome[Sent]:
+        queue = RenderQueue(jobs=jobs, blender=bpy.app.version_string, extension=dispatcher.identity.manifest.version)
+        match arguments.target.sent(queue, dispatcher.host):
+            case Result(tag="error", error=faults):
+                return Error(faults)
+            case Result(ok=results):
+                record = Sent(queue=queue, target=arguments.target, issued=tuple(value for result in results for value in result.to_option().to_list()))
+                for result in results:
+                    match result:
+                        case Result(tag="ok", ok=issued):
+                            dispatcher.identity.reports.logger.info("Queue sent", issued=issued)
+                        case Result(error=refused):
+                            dispatcher.identity.reports.logged(refused)
+                return RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.SENT), decoder=SENT_DECODER).written(record).map(lambda _: record)
+
+    def planned(plan: Plan) -> Outcome[tuple[Job, ...]]:
+        return accumulated(_job(dispatcher, scope, plan, source, arguments.plan, part, transferred=transferred) for part, scope in enumerate(plan.scopes))
+
+    def refused(faults: Faults) -> Outcome[Sent]:
+        record = Refused(messages=tuple(fault.message for fault in faults))
+        return RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.REFUSED), decoder=REFUSED_DECODER).written(record).bind(lambda _: Error(faults))
+
+    return (
+        _no_trailing(RunCommand.PREPARE, trailing)
+        .bind(lambda _: RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.PLAN), decoder=PLAN_DECODER).read())
+        .bind(planned)
+        .bind(sent)
+        .or_else_with(refused)
+        .map(lambda _: 0)
+    )
 
 
 # --- [RENDERING]
@@ -197,25 +208,12 @@ def _frames[T](
     )
 
 
-def _commanded(dispatcher: Dispatcher, arguments: Run | RenderFrames, trailing: tuple[str, ...]) -> Outcome[object]:
-    """Runs local queue progress or farm worker frame request."""
-    match arguments:
-        case Run():
-            return _no_trailing(RunCommand.RENDER, trailing).bind(lambda _: _rendered(dispatcher, arguments))
-        case RenderFrames(scene=name, frames=numbers):
-            match trailing:
-                case (output_root,):
-                    return _scene_of(name).bind(lambda scene: _frames(dispatcher, scene, numbers, lambda _frame, _elapsed: Ok(None), Some(Path(output_root)))).map(lambda _: None)
-                case _:
-                    return Error(Fault.of(Reason.OUTSIDE, RunCommand.RENDER, repr(trailing), member="<output root>"))
-
-
 def _rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[FrameTime, ...]]:
-    """Renders pending frames of first remaining job, storing each frame mark."""
+    """Renders the pending frames of a local queue's first remaining job, storing each frame mark."""
     identity = dispatcher.identity
 
     def ran(queue: RenderQueue, preferences: QueuePreferences) -> Outcome[tuple[FrameTime, ...]]:
-        records = RecordFile(path=dispatcher.host.path(queue.stem, RunFile.PROGRESS), form=Progress)
+        records = RecordFile(path=dispatcher.host.path(queue.stem, RunFile.PROGRESS), decoder=PROGRESS_DECODER)
         holding = frozenset(part for part, job in enumerate(queue.jobs) if job.frames.numbers)
 
         def finished(progress: Progress, mark: FrameTime) -> Outcome[FrameTime]:
@@ -225,7 +223,7 @@ def _rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[FrameTime, ...]
                 identity.reports.reported(dispatcher.posted)(preferences.listener, Estimated(forecast=forecast)).to_optional()
             job = queue.jobs[mark.job]
             return (
-                _scene_of(job.scene).bind(lambda scene: _job_path(dispatcher, scene).bind(lambda path: path.removed(scene, job.frames.numbers))).map(lambda _: mark)
+                scene_of(job.scene).bind(lambda scene: _job_path(dispatcher, scene).bind(lambda path: path.removed(scene, job.frames.numbers))).map(lambda _: mark)
                 if all(part != mark.job for part, _ in progress.remaining(queue))
                 else Ok(mark)
             )
@@ -237,7 +235,7 @@ def _rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[FrameTime, ...]
             remaining = frozenset(progress.remaining(queue))
             match tuple(step for step in progress.pending if step in remaining):
                 case ((part, _), *_) as steps:
-                    return _scene_of(queue.jobs[part].scene).bind(
+                    return scene_of(queue.jobs[part].scene).bind(
                         lambda scene: _frames(dispatcher, scene, tuple(frame for _, frame in steps), lambda frame, elapsed: appended(FrameTime(job=part, frame=frame, elapsed=elapsed)))
                     )
                 case _:
@@ -245,13 +243,26 @@ def _rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[FrameTime, ...]
 
         return records.read().bind(runs)
 
-    return paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.preference.read(identity)).bind(lambda pair: ran(*pair))
+    return paired(RecordFile(path=Path(run.queue), decoder=RENDER_QUEUE_DECODER).read(), dispatcher.preference.read(identity)).bind(lambda pair: ran(*pair))
+
+
+def commanded(dispatcher: Dispatcher, arguments: Run | RenderFrames, trailing: tuple[str, ...]) -> Outcome[int]:
+    """Runs a local queue's pending frames or a farm worker's frame request under its output root."""
+    match arguments:
+        case Run():
+            return _no_trailing(RunCommand.RENDER, trailing).bind(lambda _: _rendered(dispatcher, arguments)).map(lambda _: 0)
+        case RenderFrames(scene=name, frames=numbers):
+            match trailing:
+                case (output_root,):
+                    return scene_of(name).bind(lambda scene: _frames(dispatcher, scene, numbers, lambda _frame, _elapsed: Ok(None), Some(Path(output_root)))).map(lambda _: 0)
+                case _:
+                    return Error(Fault.of(Reason.OUTSIDE, RunCommand.RENDER, repr(trailing), member="<output root>"))
 
 
 # --- [SUPERVISION]
 
 
-def _supervised(dispatcher: Dispatcher, run: Run, trailing: tuple[str, ...]) -> Outcome[Progress]:
+def supervised(dispatcher: Dispatcher, run: Run, trailing: tuple[str, ...]) -> Outcome[int]:
     """Supervises local render processes, sleep held off while the preferences keep the machine awake, posting notices."""
     identity, host = dispatcher.identity, dispatcher.host
 
@@ -274,11 +285,12 @@ def _supervised(dispatcher: Dispatcher, run: Run, trailing: tuple[str, ...]) -> 
 
     return (
         _no_trailing(RunCommand.SUPERVISE, trailing)
-        .bind(lambda _: paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.preference.read(identity)))
+        .bind(lambda _: paired(RecordFile(path=Path(run.queue), decoder=RENDER_QUEUE_DECODER).read(), dispatcher.preference.read(identity)))
         .bind(lambda pair: ran(*pair))
+        .map(lambda _: 0)
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = []
+__all__ = ["commanded", "prepared", "supervised"]

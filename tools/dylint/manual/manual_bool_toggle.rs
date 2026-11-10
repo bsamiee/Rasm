@@ -1,4 +1,6 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, eq_expr_value, sugg::Sugg};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::eq_expr_value;
+use clippy_utils::sugg::Sugg;
 use rustc_ast::{AssignOpKind, LitKind};
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, UnOp};

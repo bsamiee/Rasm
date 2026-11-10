@@ -1,4 +1,5 @@
-use core::{hint::black_box, num::NonZero};
+use core::hint::black_box;
+use core::num::NonZero;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -3,95 +3,95 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/wrapping_arithmetic.rs
 ---
 error: `u32::wrapping_add` wraps on overflow
- --> tools/dylint/examples/wrapping_arithmetic.rs:5:45
+ --> tools/dylint/examples/wrapping_arithmetic.rs:6:45
   |
-5 | const fn stepped(value: u32) -> u32 { value.wrapping_add(1) }
+6 | const fn stepped(value: u32) -> u32 { value.wrapping_add(1) }
   |                                             ^^^^^^^^^^^^^^^
   |
   = help: call `checked_add` and return its `None` as an error, or `saturating_add` to clamp at the `u32` bounds
   = note: `#[deny(wrapping_arithmetic)]` on by default
 
 error: `i64::overflowing_mul` wraps on overflow
- --> tools/dylint/examples/wrapping_arithmetic.rs:7:53
+ --> tools/dylint/examples/wrapping_arithmetic.rs:8:53
   |
-7 | const fn flagged(value: i64) -> (i64, bool) { value.overflowing_mul(3) }
+8 | const fn flagged(value: i64) -> (i64, bool) { value.overflowing_mul(3) }
   |                                                     ^^^^^^^^^^^^^^^^^^
   |
   = help: call `checked_mul` and return its `None` as an error, or `saturating_mul` to clamp at the `i64` bounds
 
 error: `u32::wrapping_add` wraps on overflow
- --> tools/dylint/examples/wrapping_arithmetic.rs:9:41
-  |
-9 | const fn qualified(value: u32) -> u32 { u32::wrapping_add(value, 1) }
-  |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = help: call `checked_add` and return its `None` as an error, or `saturating_add` to clamp at the `u32` bounds
+  --> tools/dylint/examples/wrapping_arithmetic.rs:10:41
+   |
+10 | const fn qualified(value: u32) -> u32 { u32::wrapping_add(value, 1) }
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: call `checked_add` and return its `None` as an error, or `saturating_add` to clamp at the `u32` bounds
 
 error: `i64::overflowing_mul` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:11:58
+  --> tools/dylint/examples/wrapping_arithmetic.rs:12:58
    |
-11 | const fn qualified_overflow(value: i64) -> (i64, bool) { i64::overflowing_mul(value, 3) }
+12 | const fn qualified_overflow(value: i64) -> (i64, bool) { i64::overflowing_mul(value, 3) }
    |                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: call `checked_mul` and return its `None` as an error, or `saturating_mul` to clamp at the `i64` bounds
 
 error: `+` on `Wrapping<u8>` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:13:41
+  --> tools/dylint/examples/wrapping_arithmetic.rs:14:41
    |
-13 | fn wrapped(value: u8) -> Wrapping<u8> { Wrapping(value) + Wrapping(1) }
+14 | fn wrapped(value: u8) -> Wrapping<u8> { Wrapping(value) + Wrapping(1) }
    |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `u8` in place of `Wrapping<u8>`, call `checked_add` and return its `None` as an error, or `saturating_add` to clamp at the `u8` bounds
 
 error: `+` on `Wrapping<i16>` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:15:79
+  --> tools/dylint/examples/wrapping_arithmetic.rs:16:79
    |
-15 | fn referenced(left: &Wrapping<i16>, right: &Wrapping<i16>) -> Wrapping<i16> { left + right }
+16 | fn referenced(left: &Wrapping<i16>, right: &Wrapping<i16>) -> Wrapping<i16> { left + right }
    |                                                                               ^^^^^^^^^^^^
    |
    = help: hold `i16` in place of `Wrapping<i16>`, call `checked_add` and return its `None` as an error, or `saturating_add` to clamp at the `i16` bounds
 
 error: `-` on `Wrapping<i16>` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:17:66
+  --> tools/dylint/examples/wrapping_arithmetic.rs:18:66
    |
-17 | fn referenced_negative(value: &Wrapping<i16>) -> Wrapping<i16> { -value }
+18 | fn referenced_negative(value: &Wrapping<i16>) -> Wrapping<i16> { -value }
    |                                                                  ^^^^^^
    |
    = help: hold `i16` in place of `Wrapping<i16>`, call `checked_neg` and return its `None` as an error, or `saturating_neg` to clamp at the `i16` bounds
 
 error: `u16::wrapping_sub` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:27:16
+  --> tools/dylint/examples/wrapping_arithmetic.rs:28:16
    |
-25 | macro_rules! bumped {
-26 |     ($value:expr) => {
-27 |         $value.wrapping_sub(1)
+26 | macro_rules! bumped {
+27 |     ($value:expr) => {
+28 |         $value.wrapping_sub(1)
    |                ^^^^^^^^^^^^^^^
 ...
-31 | const fn expanded(value: u16) -> u16 { bumped!(value) }
+32 | const fn expanded(value: u16) -> u16 { bumped!(value) }
    |                                        -------------- in this macro invocation
    |
    = help: call `checked_sub` and return its `None` as an error, or `saturating_sub` to clamp at the `u16` bounds
 
 error: `u32::wrapping_add_signed` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:41:44
+  --> tools/dylint/examples/wrapping_arithmetic.rs:42:44
    |
-41 | const fn signed(value: u32) -> u32 { value.wrapping_add_signed(-1) }
+42 | const fn signed(value: u32) -> u32 { value.wrapping_add_signed(-1) }
    |                                            ^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: call `checked_add_signed` and return its `None` as an error, or `saturating_add_signed` to clamp at the `u32` bounds
 
 error: `+=` on `Wrapping<i8>` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:44:5
+  --> tools/dylint/examples/wrapping_arithmetic.rs:45:5
    |
-44 |     total += Wrapping(1);
+45 |     total += Wrapping(1);
    |     ^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `i8` in place of `Wrapping<i8>`, call `checked_add` and return its `None` as an error, or `saturating_add` to clamp at the `i8` bounds
 
 error: `-` on `Wrapping<i8>` wraps on overflow
-  --> tools/dylint/examples/wrapping_arithmetic.rs:45:5
+  --> tools/dylint/examples/wrapping_arithmetic.rs:46:5
    |
-45 |     -total
+46 |     -total
    |     ^^^^^^
    |
    = help: hold `i8` in place of `Wrapping<i8>`, call `checked_neg` and return its `None` as an error, or `saturating_neg` to clamp at the `i8` bounds

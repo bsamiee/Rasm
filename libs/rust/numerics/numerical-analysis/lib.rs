@@ -1,6 +1,8 @@
 #![feature(const_convert, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns, float_minimum_maximum, integer_casts)]
 
-use core::{borrow::Borrow, fmt, iter, range::RangeInclusive};
+use core::borrow::Borrow;
+use core::range::RangeInclusive;
+use core::{fmt, iter};
 
 use bilby::QuadratureError;
 use csaps::CsapsError;

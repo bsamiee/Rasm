@@ -1,4 +1,3 @@
-using System.Globalization;
 using Rasm.UI.Input;
 using Rasm.UI.Layout;
 using Rasm.UI.Rendering;
@@ -18,8 +17,6 @@ public sealed record AutomationElement(Seq<Key> Id, AccessRole Role, Accessible 
     internal static Seq<AutomationElement> Projected(Scene scene) => Projected(scene, scene.Layout.Cons(scene.Layers), None, Accessible.Empty, Trampoline.Pure).Run();
 
     internal static Seq<AutomationElement> Flattened(Seq<AutomationElement> tree) => tree.Bind(static root => toSeq(SuperEnumerable.TraverseDepthFirst(root, static element => element.Children)));
-
-    internal static HashMap<Seq<Key>, AutomationElement> Indexed(Seq<AutomationElement> elements) => toHashMap(Flattened(elements).Map(static element => (element.Id, element)));
 
     internal static Option<string> Joined(Seq<string> parts) => parts.IsEmpty ? None : Some(string.Join(' ', parts));
 
@@ -106,25 +103,6 @@ public sealed partial class ElementChange {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record AccessibilityNotice {
-    internal static Seq<AccessibilityNotice> Changes(HashMap<Seq<Key>, AutomationElement> was, HashMap<Seq<Key>, AutomationElement> now, CultureInfo culture) {
-        Seq<Change<AutomationElement>> changes = toSeq(toTrackingHashMap(was.AsIterable()).Snapshot().RemoveRange(was.Keys).AddOrUpdateRange(now.AsIterable()).Changes.Values);
-        Seq<EntryMapped<AutomationElement, AutomationElement>> kept = changes.Choose(static change => change is EntryMapped<AutomationElement, AutomationElement> mapped ? Some(mapped) : None);
-        return (from held in kept
-                from change in toSeq(ElementChange.Items)
-                where change.Differs(held.From, held.To)
-                select (AccessibilityNotice)new Changed(held.To.Id, change))
-            .Concat(changes.Exists(static change => change.HasAdded || change.HasRemoved) || kept.Exists(static held => held.From.Frame != held.To.Frame) ? Seq<AccessibilityNotice>(new LayoutChanged()) : [])
-            .Concat(changes.Choose(static change => change switch {
-                EntryAdded<AutomationElement> added => Some(added.Value),
-                EntryMapped<AutomationElement, AutomationElement> mapped when mapped.From.Accessible.Label != mapped.To.Accessible.Label || mapped.From.Accessible.Value != mapped.To.Accessible.Value => Some(mapped.To),
-                _ => Option<AutomationElement>.None,
-            })
-                .Choose(element =>
-                    from interrupts in element.Accessible.Interrupts
-                    from text in element.Accessible.Spoken(culture)
-                    select (AccessibilityNotice)new Announced(text, interrupts)));
-    }
-
     public sealed record Announced(string Text, bool Interrupts) : AccessibilityNotice;
 
     public sealed record Changed(Seq<Key> Element, ElementChange Change) : AccessibilityNotice;

@@ -1,42 +1,31 @@
 use core::ops::ControlFlow;
 use std::borrow::Cow;
 
-use clippy_utils::{
-    ExprUseNode,
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, fn_def_id_with_node_args, get_expr_use_site, get_parent_expr_for_hir,
-    macros::{FormatArgsStorage, find_format_arg_expr, first_node_macro_backtrace, macro_backtrace},
-    paths::PathNS,
-    peel_blocks, peel_hir_expr_while,
-    res::{MaybeDef as _, MaybeResPath as _},
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{FormatArgsStorage, find_format_arg_expr, first_node_macro_backtrace, macro_backtrace};
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::{ExprUseNode, fn_def_id, fn_def_id_with_node_args, get_expr_use_site, get_parent_expr_for_hir, peel_blocks, peel_hir_expr_while, sym};
 use itertools::{FoldWhile, Itertools as _};
 use rustc_ast::{BinOpKind, FormatArgsPiece, UnOp};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{
-    Body, Expr, ExprKind, HirId, HirIdSet, MatchSource, Node, Pat, PatKind,
-    def_id::{DefId, LocalDefId},
-    intravisit::{self, Visitor},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::intravisit::{self, Visitor};
+use rustc_hir::{Body, Expr, ExprKind, HirId, HirIdSet, MatchSource, Node, Pat, PatKind};
 use rustc_hir_typeck::expr_use_visitor::{Delegate, ExprUseVisitor, PlaceBase, PlaceWithHirId};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{
-    hir::nested_filter,
-    mir::FakeReadCause,
-    ty::{self, Ty, TyCtxt, TypeVisitableExt as _},
-};
-use rustc_trait_selection::{
-    regions::test_region_obligations,
-    traits::{Obligation, ObligationCause, ObligationCtxt},
-};
+use rustc_middle::hir::nested_filter;
+use rustc_middle::mir::FakeReadCause;
+use rustc_middle::ty::{self, Ty, TyCtxt, TypeVisitableExt as _};
+use rustc_trait_selection::regions::test_region_obligations;
+use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 
 use super::{text_source, untyped_kind};
+use crate::macros::{assertions, cargo_test_target};
 use crate::{
-    ReportedRenderings, associated_trait, constructed, expanded_externally, fn_item_value, impl_owner, in_test, is_error, is_text,
-    macros::{assertions, cargo_test_target},
-    parameter, path, paths, pointee, record_rendering, resolve, result_parts, signature,
+    ReportedRenderings, associated_trait, constructed, expanded_externally, fn_item_value, impl_owner, in_test, is_error, is_text, parameter, path, paths, pointee, record_rendering, resolve,
+    result_parts, signature,
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------

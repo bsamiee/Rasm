@@ -1,3 +1,0 @@
-namespace Rasm.Grasshopper.Components;
-
-internal static class Placement;

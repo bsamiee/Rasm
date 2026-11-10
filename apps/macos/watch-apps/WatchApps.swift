@@ -19,7 +19,7 @@ struct WatchApps: AsyncParsableCommand {
     static func main() async {
         signal(SIGPIPE, SIG_IGN)
         do {
-            var command: any ParsableCommand = try parseAsRoot()
+            var command = try parseAsRoot()
             if var command = command as? any AsyncParsableCommand { try await command.run() } else { try command.run() }
         } catch  where exitCode(for: error).isSuccess {
             exit(withError: error)

@@ -1,10 +1,12 @@
-use core::{borrow::Borrow, iter};
+use core::borrow::Borrow;
+use core::iter;
 
 use cavalier_contours::shape_algorithms::Shape;
 use itertools::Itertools as _;
 use nalgebra::Point2;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
-use spade::{ConstrainedDelaunayTriangulation, RefinementParameters, RefinementResult, Triangulation as _, handles::FixedVertexHandle};
+use spade::handles::FixedVertexHandle;
+use spade::{ConstrainedDelaunayTriangulation, RefinementParameters, RefinementResult, Triangulation as _};
 use validated::Validated;
 
 use crate::{PlanarError, Region, Tolerance, flattened, position};

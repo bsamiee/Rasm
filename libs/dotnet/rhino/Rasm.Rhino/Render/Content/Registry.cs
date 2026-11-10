@@ -12,14 +12,12 @@ public sealed record SerializerRow(FileExtension FileExtension, RenderContentKin
     public Option<Func<string, RenderContent?>> Read { get; init; }
     public Option<Func<string, RenderContent, Option<CreatePreviewEventArgs>, IO<Unit>>> Write { get; init; }
     public Option<Func<string, RenderContentKind, Option<RhinoDoc>, Seq<Func<RenderContent?>>>> Load { get; init; }
-
-    internal string Extension => ((string)FileExtension).TrimStart(FileExtension.Mark);
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public sealed class DefinedContentSerializer(SerializerRow row)
-    : RenderContentSerializer(row.Extension, row.ContentKind, row.Read.IsSome, row.Write.IsSome) {
+    : RenderContentSerializer(((string)row.FileExtension).TrimStart(Document.Files.FileExtension.Mark), row.ContentKind, row.Read.IsSome, row.Write.IsSome) {
 
     // --- [REGISTRATION]
 

@@ -10,13 +10,13 @@ Code targets Python 3.15 (`lazy` imports, `frozendict`, `TypeForm`, t-strings, c
 [PRINCIPLES]:
 - Facts are stated once where they belong, and everything else derives from that source
 - Packages and hosts are used directly through what they provide, with no layer that restates or wraps them
-- Every type, export, and helper states its own fact, a one-reader helper, forwarder, or alias merges into its owner, entry imports excepted
+- Types, exports, and helpers state their own fact, a private one-reader helper or alias, forwarder, or rename merges into its owner, entry imports excepted
 - Libraries give callers composable parts over a dependency's own types, callers choosing entry point, runtime, transport, and configuration
 - Parts adding dependencies some consumers never call sit behind an extra
 - Layers adding a fact to a dependency (tracing, proxying) attach where its own adapters do, and a forwarder per member marks a misplaced layer
 - Values that vary are parameters, a value every caller passes alike folds into its owner
 - Error cases exist where a caller branches on them, every other failure joins its owner's error
-- Checkers disagreeing on a shape resolve by a stronger shape, never by a suppression, a lowered level, or a narrower rule
+- Checker findings and disagreements resolve by a stronger shape or at the cause's owner, never by a suppression, a lowered level, or a narrower rule
 - Hot paths get faster by fewer passes, allocations, and parses over one input, never by a dropped case, a lock, or a wait
 - Changes leave code smaller and more capable, a move, split, rename, or extracted helper changes nothing
 
@@ -455,7 +455,7 @@ def smoothed(window: Window, values: np.ndarray, /) -> Outcome[np.ndarray]:
 - Each package's `__init__.py` is its entry: a docstring, one import per private module of its public names, and `__all__`
 - Other modules import siblings by private path and re-export nothing, and consumers import entries alone
 - Entries export every capability a consumer outside the package composes, whether a consumer exists or not
-- Internal names, read only inside the package, take `_` and leave every `__all__`
+- Names a sibling module imports are public in their private module's `__all__`, names one file alone reads take `_` and leave every `__all__`
 - Names a host or codec derives from (command key, wire tag) stay public or state the derived value
 - Annotations stay unquoted, runtime readers call `annotationlib.get_annotations`
 - Program modules hold boundary code alone in import-safe top-level code, `to_process` and `to_interpreter` workers re-import them

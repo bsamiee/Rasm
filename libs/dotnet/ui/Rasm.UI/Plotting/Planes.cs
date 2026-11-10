@@ -56,13 +56,6 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
 
     internal virtual Option<Vector2> Rotated(Vector2 value, float radians) => None;
 
-    internal SKPoint Projected(Vector2 fractions) {
-        Span<float> x = [fractions.X];
-        Span<float> y = [fractions.Y];
-        Projected(x, y);
-        return new SKPoint(x[0], y[0]);
-    }
-
     internal virtual void Projected(Span<float> x, Span<float> y) { }
 
     internal virtual Vector2 Unprojected(SKPoint square) => square;
@@ -313,7 +306,12 @@ public sealed record PlotFrame {
 
     internal PlotFrame Translated(SKPoint by) => this with { Matrix = Matrix.PostConcat(SKMatrix.CreateTranslation(by.X, by.Y)) };
 
-    internal SKPoint Projected(Vector2 fractions) => Matrix.MapPoint(Plane.Projected(fractions));
+    internal SKPoint Projected(Vector2 fractions) {
+        Span<float> x = [fractions.X];
+        Span<float> y = [fractions.Y];
+        Plane.Projected(x, y);
+        return Matrix.MapPoint(new SKPoint(x[0], y[0]));
+    }
 
     internal Seq<SKPoint> Projected(Seq<Vector2> fractions) {
         float[] x = [.. fractions.Map(static at => at.X)];

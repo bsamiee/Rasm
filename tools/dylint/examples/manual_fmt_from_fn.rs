@@ -1,4 +1,5 @@
-use core::{fmt, hint::black_box};
+use core::fmt;
+use core::hint::black_box;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

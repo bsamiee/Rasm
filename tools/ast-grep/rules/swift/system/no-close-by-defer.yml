@@ -1,25 +1,18 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: swiftlang
 severity: error
-utils:
-    descriptor-binding:
-        any:
-            - kind: property_declaration
-              all:
-                - has: {kind: pattern, has: {field: bound_identifier, pattern: $DESCRIPTOR}, precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, regex: '^((System|SystemPackage)(\.|::))?FileDescriptor$'}}}
-            - kind: parameter
-              all:
-                - has: {field: name, pattern: $DESCRIPTOR}
-                - has: {kind: user_type, regex: '^((System|SystemPackage)(\.|::))?FileDescriptor$'}
 rule:
     kind: defer_statement
     all:
-        - has: {stopBy: end, kind: navigation_expression, all: [{has: {field: target, kind: simple_identifier, pattern: $DESCRIPTOR}}, {has: {field: suffix, has: {field: suffix, regex: '^close$'}}}]}
+        - has:
+            stopBy: end
+            kind: navigation_expression
+            all:
+                - has: {field: target, kind: simple_identifier, pattern: $DESCRIPTOR, matches: {swift-typed-use: {type: {regex: '^((System|SystemPackage)(\.|::))?FileDescriptor$'}}}}
+                - has: {field: suffix, has: {field: suffix, regex: '^close$'}}
         - inside:
             kind: 'function_declaration, lambda_literal'
             stopBy: {kind: 'function_declaration, lambda_literal'}
-            all:
-                - not: {has: {stopBy: {kind: 'function_declaration, lambda_literal'}, kind: await_expression}}
-                - has: {stopBy: end, matches: descriptor-binding}
+            not: {has: {stopBy: {kind: 'function_declaration, lambda_literal'}, kind: await_expression}}
 message: '`defer` closes `$DESCRIPTOR` around a synchronous body'
 note: 'Run the body inside `<descriptor>.closeAfter { }`'

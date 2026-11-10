@@ -3,769 +3,863 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/untyped_error.rs
 ---
 error: error `Box<dyn Error + Send + Sync>` is an erased `dyn Error` callers cannot match
-  --> tools/dylint/examples/untyped_error.rs:29:17
+  --> tools/dylint/examples/untyped_error.rs:28:17
    |
-29 | type Boxed<T> = Result<T, Box<dyn Error + Send + Sync>>;
+28 | type Boxed<T> = Result<T, Box<dyn Error + Send + Sync>>;
    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
    = note: `#[deny(untyped_error)]` on by default
 
 error: error `String` is text callers cannot match
-  --> tools/dylint/examples/untyped_error.rs:33:23
+  --> tools/dylint/examples/untyped_error.rs:32:23
    |
-33 |     fn read(&self) -> Result<u16, String>;
+32 |     fn read(&self) -> Result<u16, String>;
    |                       ^^^^^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `()` is a unit type that names no failure
-  --> tools/dylint/examples/untyped_error.rs:46:14
+  --> tools/dylint/examples/untyped_error.rs:45:14
    |
-46 |     outcome: Result<u16, ()>,
+45 |     outcome: Result<u16, ()>,
    |              ^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `String` is text callers cannot match
-  --> tools/dylint/examples/untyped_error.rs:53:18
+  --> tools/dylint/examples/untyped_error.rs:52:18
    |
-53 |     type Error = String;
+52 |     type Error = String;
    |                  ^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-  --> tools/dylint/examples/untyped_error.rs:55:85
+  --> tools/dylint/examples/untyped_error.rs:54:85
    |
-55 | ...ror> { value.parse().map(Self).map_err(|_error: ParseIntError| String::from("text is not a port")) }
+54 | ...ror> { value.parse().map(Self).map_err(|_error: ParseIntError| String::from("text is not a port")) }
    |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `ParseIntError` as `#[source]` of the error the closure builds
    = note: `#[deny(discarded_error_source)]` on by default
 
 error: error `String` is text callers cannot match
-  --> tools/dylint/examples/untyped_error.rs:69:18
+  --> tools/dylint/examples/untyped_error.rs:68:18
    |
-69 |     type Error = String;
+68 |     type Error = String;
    |                  ^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `Invalid` holds a collection of errors that can be empty
-   --> tools/dylint/examples/untyped_error.rs:111:5
+   --> tools/dylint/examples/untyped_error.rs:110:5
     |
-111 |     Invalid(Vec<PortError>),
+110 |     Invalid(Vec<PortError>),
     |     ^^^^^^^
     |
     = help: hold the errors as `nonempty_collections::NEVec<PortError>`
 
 error: error `Unreachable` holds an erased `dyn Error` callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:149:5
+   --> tools/dylint/examples/untyped_error.rs:144:5
     |
-149 |     Unreachable(#[source] Box<dyn Error + Send + Sync>),
+144 |     Unreachable(#[source] Box<dyn Error + Send + Sync>),
     |     ^^^^^^^^^^^
     |
     = help: hold the wrapped error's concrete type as `#[source]`
 
 error: error `String` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:200:27
+   --> tools/dylint/examples/untyped_error.rs:191:27
     |
-200 | fn spelled(text: &str) -> Result<u16, String> { if text.is_empty() { Err(String::from("port text is empty")) } else { Digits::try_f...
+191 | fn spelled(text: &str) -> Result<u16, String> { if text.is_empty() { Err(String::from("port text is empty")) } else { Digits::try_f...
     |                           ^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `()` is a unit type that names no failure
-   --> tools/dylint/examples/untyped_error.rs:202:30
+   --> tools/dylint/examples/untyped_error.rs:193:30
     |
-202 | pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) }
+193 | pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) }
     |                              ^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:202:61
+   --> tools/dylint/examples/untyped_error.rs:193:61
     |
-202 | pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) }
+193 | pub fn probed(text: &str) -> Result<u16, ()> { text.parse().map_err(|_error: ParseIntError| ()) }
     |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `&str` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:204:28
+   --> tools/dylint/examples/untyped_error.rs:195:28
     |
-204 | fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
+195 | fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:204:69
+   --> tools/dylint/examples/untyped_error.rs:195:69
     |
-204 | fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
+195 | fn borrowed(text: &str) -> Result<u16, &'static str> { text.parse().map_err(|_error: ParseIntError| "port is not a number") }
     |                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Box<dyn Error + Send + Sync>` is an erased `dyn Error` callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:206:25
+   --> tools/dylint/examples/untyped_error.rs:197:25
     |
-206 | fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.trim().parse()?) }
+197 | fn boxed(text: &str) -> Result<u16, Box<dyn Error + Send + Sync>> { Ok(text.trim().parse()?) }
     |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `String` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:210:35
+   --> tools/dylint/examples/untyped_error.rs:201:35
     |
-210 | fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
+201 | fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
     |                                   ^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:210:64
+   --> tools/dylint/examples/untyped_error.rs:201:64
     |
-210 | fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
+201 | fn generic_default(text: &str) -> Fallible<u16> { text.parse().map_err(|_error: ParseIntError| String::from("port is not a number")) }
     |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `String` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:212:33
+   --> tools/dylint/examples/untyped_error.rs:203:33
     |
-212 | async fn awaited(text: &str) -> Result<u16, String> {
+203 | async fn awaited(text: &str) -> Result<u16, String> {
     |                                 ^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `Code` is a `Display` type that implements no `core::error::Error`
-   --> tools/dylint/examples/untyped_error.rs:217:25
+   --> tools/dylint/examples/untyped_error.rs:208:25
     |
-217 | fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
+208 | fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
     |                         ^^^^^^^^^^^^^^^^^
     |
 note: declared here
-   --> tools/dylint/examples/untyped_error.rs:89:1
+   --> tools/dylint/examples/untyped_error.rs:88:1
     |
- 89 | enum Code {
+ 88 | enum Code {
     | ^^^^^^^^^
     = help: implement `core::error::Error` for `Code`
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:217:58
+   --> tools/dylint/examples/untyped_error.rs:208:58
     |
-217 | fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
+208 | fn coded(text: &str) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| Code::Invalid) }
     |                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Code` is a `Display` type that implements no `core::error::Error`
-   --> tools/dylint/examples/untyped_error.rs:219:39
+   --> tools/dylint/examples/untyped_error.rs:210:39
     |
-219 | fn retried(text: &str, code: Code) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| code) }
+210 | fn retried(text: &str, code: Code) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| code) }
     |                                       ^^^^^^^^^^^^^^^^^
     |
 note: declared here
-   --> tools/dylint/examples/untyped_error.rs:89:1
+   --> tools/dylint/examples/untyped_error.rs:88:1
     |
- 89 | enum Code {
+ 88 | enum Code {
     | ^^^^^^^^^
     = help: implement `core::error::Error` for `Code`
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:219:72
+   --> tools/dylint/examples/untyped_error.rs:210:72
     |
-219 | fn retried(text: &str, code: Code) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| code) }
+210 | fn retried(text: &str, code: Code) -> Result<u16, Code> { text.parse().map_err(|_error: ParseIntError| code) }
     |                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:221:67
+   --> tools/dylint/examples/untyped_error.rs:212:67
     |
-221 | fn relocated(text: &str) -> Result<u16, Relocated> { text.parse().map_err(|_error: ParseIntError| Relocated::Moved) }
+212 | fn relocated(text: &str) -> Result<u16, Relocated> { text.parse().map_err(|_error: ParseIntError| Relocated::Moved) }
     |                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Box<str>` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:223:30
+   --> tools/dylint/examples/untyped_error.rs:214:30
     |
-223 | fn boxed_text(text: &str) -> Result<u16, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a nu...
+214 | fn boxed_text(text: &str) -> Result<u16, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a nu...
     |                              ^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:223:67
+   --> tools/dylint/examples/untyped_error.rs:214:67
     |
-223 | ...6, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a number")) }
+214 | ...6, Box<str>> { text.parse().map_err(|_error: ParseIntError| Box::from("boxed port is not a number")) }
     |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Arc<str>` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:225:31
+   --> tools/dylint/examples/untyped_error.rs:216:31
     |
-225 | fn shared_text(text: &str) -> Result<u16, Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("shared port is not a ...
+216 | fn shared_text(text: &str) -> Result<u16, Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("shared port is not a ...
     |                               ^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:225:68
+   --> tools/dylint/examples/untyped_error.rs:216:68
     |
-225 | ..., Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("shared port is not a number")) }
+216 | ..., Arc<str>> { text.parse().map_err(|_error: ParseIntError| Arc::from("shared port is not a number")) }
     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Rc<str>` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:227:32
+   --> tools/dylint/examples/untyped_error.rs:218:32
     |
-227 | fn counted_text(text: &str) -> Result<u16, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("counted port is not a ...
+218 | fn counted_text(text: &str) -> Result<u16, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("counted port is not a ...
     |                                ^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:227:68
+   --> tools/dylint/examples/untyped_error.rs:218:68
     |
-227 | ...6, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("counted port is not a number")) }
+218 | ...6, Rc<str>> { text.parse().map_err(|_error: ParseIntError| Rc::from("counted port is not a number")) }
     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Cow<'static, str>` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:229:33
+   --> tools/dylint/examples/untyped_error.rs:220:33
     |
-229 | fn borrowed_text(text: &str) -> Result<u16, Cow<'static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port i...
+220 | fn borrowed_text(text: &str) -> Result<u16, Cow<'static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port i...
     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:229:79
+   --> tools/dylint/examples/untyped_error.rs:220:79
     |
-229 | ...static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port is not a number")) }
+220 | ...static, str>> { text.parse().map_err(|_error: ParseIntError| Cow::Borrowed("port is not a number")) }
     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Arc<dyn Error + Send + Sync>` is an erased `dyn Error` callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:231:32
+   --> tools/dylint/examples/untyped_error.rs:222:32
     |
-231 | fn shared_error(text: &str) -> Result<u16, Arc<dyn Error + Send + Sync>> { text.parse().map_err(|error: ParseIntError| -> Arc<dyn E...
+222 | fn shared_error(text: &str) -> Result<u16, Arc<dyn Error + Send + Sync>> { text.parse().map_err(|error: ParseIntError| -> Arc<dyn E...
     |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `Rc<dyn Error>` is an erased `dyn Error` callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:233:33
+   --> tools/dylint/examples/untyped_error.rs:224:33
     |
-233 | fn counted_error(text: &str) -> Result<u16, Rc<dyn Error>> { text.parse().map_err(|error: ParseIntError| -> Rc<dyn Error> { Rc::new...
+224 | fn counted_error(text: &str) -> Result<u16, Rc<dyn Error>> { text.parse().map_err(|error: ParseIntError| -> Rc<dyn Error> { Rc::new...
     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `String` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:235:30
+   --> tools/dylint/examples/untyped_error.rs:226:30
     |
-235 | fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) }
+226 | fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) }
     |                              ^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:235:65
+   --> tools/dylint/examples/untyped_error.rs:226:65
     |
-235 | fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) }
+226 | fn returned(text: String) -> Result<u16, String> { text.parse().map_err(|_error: ParseIntError| text) }
     |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:237:73
+   --> tools/dylint/examples/untyped_error.rs:228:73
     |
-237 | fn routed(text: &str) -> Result<Reply, Reply> { text.parse().map(Reply).map_err(|_error: ParseIntError| Reply(400)) }
+228 | fn routed(text: &str) -> Result<Reply, Reply> { text.parse().map(Reply).map_err(|_error: ParseIntError| Reply(400)) }
     |                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: error `Vec<PortError>` is a collection of errors that can be empty
-   --> tools/dylint/examples/untyped_error.rs:239:31
+   --> tools/dylint/examples/untyped_error.rs:230:31
     |
-239 | fn planned(texts: &[&str]) -> Result<Vec<u16>, Vec<PortError>> {
+230 | fn planned(texts: &[&str]) -> Result<Vec<u16>, Vec<PortError>> {
     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: collect the results into `validated::Validated` and return `Result<_, NEVec<PortError>>` from `.ok()`
 
 error: `ok` turns `PortError` into `None`
-   --> tools/dylint/examples/untyped_error.rs:241:76
+   --> tools/dylint/examples/untyped_error.rs:232:76
     |
-241 |     if failures.is_empty() { Ok(texts.iter().filter_map(|text| typed(text).ok()).collect()) } else { Err(failures) }
+232 |     if failures.is_empty() { Ok(texts.iter().filter_map(|text| typed(text).ok()).collect()) } else { Err(failures) }
     |                                                                            ^^^^
     |
     = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
     = note: `#[deny(discarded_error)]` on by default
 
 error: function signals success with an empty `Vec<PortError>`
-   --> tools/dylint/examples/untyped_error.rs:244:31
+   --> tools/dylint/examples/untyped_error.rs:235:31
     |
-244 | fn audited(texts: &[&str]) -> Vec<PortError> { texts.iter().filter_map(|text| typed(text).err()).collect() }
+235 | fn audited(texts: &[&str]) -> Vec<PortError> { texts.iter().filter_map(|text| typed(text).err()).collect() }
     |                               ^^^^^^^^^^^^^^
     |
     = help: collect the results into `validated::Validated` and return `Result<(), NEVec<PortError>>` from `.ok()`
 
 error: `ok` turns `PortError` into `None`
-   --> tools/dylint/examples/untyped_error.rs:246:100
+   --> tools/dylint/examples/untyped_error.rs:237:100
     |
-246 | fn surveyed(texts: &[&str]) -> Survey { Survey { ports: texts.iter().filter_map(|text| typed(text).ok()).collect(), failures: audit...
+237 | fn surveyed(texts: &[&str]) -> Survey { Survey { ports: texts.iter().filter_map(|text| typed(text).ok()).collect(), failures: audit...
     |                                                                                                    ^^^^
     |
     = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
 
-error: error `String` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:254:77
+error: `header` passes its parameters unchanged to `std::convert::TryInto::try_into`
+   --> tools/dylint/examples/untyped_error.rs:239:1
     |
-254 | fn defaulted(port: Option<u16>) -> Result<u16, PortError> { port.ok_or_else(|| String::from("port is missing")).or_else(|_text| typ...
+239 | fn header(bytes: Vec<u8>) -> Result<[u8; 4], Vec<u8>> { bytes.try_into() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/untyped_error.rs:239:57
+    |
+239 | fn header(bytes: Vec<u8>) -> Result<[u8; 4], Vec<u8>> { bytes.try_into() }
+    |                                                         ^^^^^^^^^^^^^^^^
+    = help: call `std::convert::TryInto::try_into` at each call site of `header` and delete `header`
+    = note: `#[deny(forwarding_function)]` on by default
+
+error: error `String` is text callers cannot match
+   --> tools/dylint/examples/untyped_error.rs:245:77
+    |
+245 | fn defaulted(port: Option<u16>) -> Result<u16, PortError> { port.ok_or_else(|| String::from("port is missing")).or_else(|_text| typ...
     |                                                                             ^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `&str` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:269:40
+   --> tools/dylint/examples/untyped_error.rs:260:40
     |
-269 |     let present = if text.is_empty() { Err("port text is empty") } else { Ok(text) };
+260 |     let present = if text.is_empty() { Err("port text is empty") } else { Ok(text) };
     |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `String` is text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:270:19
+   --> tools/dylint/examples/untyped_error.rs:261:19
     |
-270 |     let spelled = |digits: &str| if digits.is_empty() { Err(String::from("port text is empty")) } else { digits.parse::<u16>().map_...
+261 |     let spelled = |digits: &str| if digits.is_empty() { Err(String::from("port text is empty")) } else { digits.parse::<u16>().map_...
     |                   ^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:270:128
+   --> tools/dylint/examples/untyped_error.rs:261:128
     |
-270 | ...else { digits.parse::<u16>().map_err(|_error: ParseIntError| String::from("port is not a number")) };
+261 | ...else { digits.parse::<u16>().map_err(|_error: ParseIntError| String::from("port is not a number")) };
     |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: `map_or` replaces `&str` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:272:13
+   --> tools/dylint/examples/untyped_error.rs:263:13
     |
-272 |     present.map_or(Ok(0), |digits| spelled(digits).or_else(|_text| typed(digits)))
+263 |     present.map_or(Ok(0), |digits| spelled(digits).or_else(|_text| typed(digits)))
     |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:293:29
+   --> tools/dylint/examples/untyped_error.rs:284:29
     |
-293 | fn reported(path: &Path) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
+284 | fn reported(path: &Path) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
     |                             ^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `Result::ok` turns `Error` into `None`
-   --> tools/dylint/examples/untyped_error.rs:295:154
+   --> tools/dylint/examples/untyped_error.rs:286:154
     |
-295 | ....map(|report| report.downcast::<ParseIntError>()).find_map(Result::ok) }
+286 | ....map(|report| report.downcast::<ParseIntError>()).find_map(Result::ok) }
     |                                                               ^^^^^^^^^^
     |
     = help: return the `Result` with `?`, or convert its error into a caller variant with `map_err`
 
-error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:299:56
+error: `relayed` passes its parameters unchanged to `std::result::Result::is_ok`
+   --> tools/dylint/examples/untyped_error.rs:288:1
     |
-299 | fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
+288 | fn relayed(outcome: &anyhow::Result<String>) -> bool { outcome.is_ok() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/untyped_error.rs:288:56
+    |
+288 | fn relayed(outcome: &anyhow::Result<String>) -> bool { outcome.is_ok() }
+    |                                                        ^^^^^^^^^^^^^^^
+    = help: call `std::result::Result::is_ok` at each call site of `relayed` and delete `relayed`
+
+error: error `anyhow::Error` is a report that erases each failure's type
+   --> tools/dylint/examples/untyped_error.rs:290:56
+    |
+290 | fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
     |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `ErrorData` is built from written text while local `Unserved` converts into it
-   --> tools/dylint/examples/untyped_error.rs:325:31
+   --> tools/dylint/examples/untyped_error.rs:316:31
     |
-325 |     if port == reserved { Err(ErrorData::invalid_params(format!("{name} names a reserved port"), None)) } else { Ok(port) }
+316 |     if port == reserved { Err(ErrorData::invalid_params(format!("{name} names a reserved port"), None)) } else { Ok(port) }
     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: text written here
-   --> tools/dylint/examples/untyped_error.rs:325:57
+   --> tools/dylint/examples/untyped_error.rs:316:57
     |
-325 |     if port == reserved { Err(ErrorData::invalid_params(format!("{name} names a reserved port"), None)) } else { Ok(port) }
+316 |     if port == reserved { Err(ErrorData::invalid_params(format!("{name} names a reserved port"), None)) } else { Ok(port) }
     |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: add a variant holding the subject to `Unserved` and convert it into `ErrorData`
 
 error: `ErrorData` is built from written text while local `Unserved` converts into it
-   --> tools/dylint/examples/untyped_error.rs:329:78
+   --> tools/dylint/examples/untyped_error.rs:320:78
     |
-329 | ...d_then(|port| if port == 0 { Err(ErrorData::internal_error("port zero cannot be served", None)) } else { Ok(port) })
+320 | ...d_then(|port| if port == 0 { Err(ErrorData::internal_error("port zero cannot be served", None)) } else { Ok(port) })
     |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: text written here
-   --> tools/dylint/examples/untyped_error.rs:329:104
+   --> tools/dylint/examples/untyped_error.rs:320:104
     |
-329 | ...ort| if port == 0 { Err(ErrorData::internal_error("port zero cannot be served", None)) } else { Ok(port) })
+320 | ...ort| if port == 0 { Err(ErrorData::internal_error("port zero cannot be served", None)) } else { Ok(port) })
     |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: add a variant holding the subject to `Unserved` and convert it into `ErrorData`
 
 error: error `i32` is a primitive that names no failure
-   --> tools/dylint/examples/untyped_error.rs:342:28
+   --> tools/dylint/examples/untyped_error.rs:333:28
     |
-342 | fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) }
+333 | fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) }
     |                            ^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_err` replaces `ParseIntError` without reading it
-   --> tools/dylint/examples/untyped_error.rs:342:60
+   --> tools/dylint/examples/untyped_error.rs:333:60
     |
-342 | fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) }
+333 | fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) }
     |                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: text of error `std::num::ParseIntError` is stored
-   --> tools/dylint/examples/untyped_error.rs:344:133
+   --> tools/dylint/examples/untyped_error.rs:335:133
     |
-344 | ...p_err(|error: ParseIntError| serde_json::Value::String(error.to_string())) }
+335 | ...p_err(|error: ParseIntError| serde_json::Value::String(error.to_string())) }
     |                                                           ^^^^^^^^^^^^^^^^^
     |
     = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
     = note: `#[deny(stringified_error)]` on by default
 
 error: error `Vec<String>` is a collection of text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:346:28
+   --> tools/dylint/examples/untyped_error.rs:337:28
     |
-346 | fn messages(text: &str) -> Result<u16, Vec<String>> { text.parse().map_err(|error: ParseIntError| vec![error.to_string()]) }
+337 | fn messages(text: &str) -> Result<u16, Vec<String>> { text.parse().map_err(|error: ParseIntError| vec![error.to_string()]) }
     |                            ^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
-error: error `(u16, String)` is a tuple that names no failure
-   --> tools/dylint/examples/untyped_error.rs:348:26
+error: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/untyped_error.rs:337:104
     |
-348 | fn paired(text: &str) -> Result<u16, (u16, String)> { text.parse().map_err(|error: ParseIntError| (1, error.to_string())) }
+337 | fn messages(text: &str) -> Result<u16, Vec<String>> { text.parse().map_err(|error: ParseIntError| vec![error.to_string()]) }
+    |                                                                                                        ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+error: error `(u16, String)` is a tuple that names no failure
+   --> tools/dylint/examples/untyped_error.rs:339:26
+    |
+339 | fn paired(text: &str) -> Result<u16, (u16, String)> { text.parse().map_err(|error: ParseIntError| (1, error.to_string())) }
     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
-error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:356:86
+error: text of error `std::num::ParseIntError` is stored
+   --> tools/dylint/examples/untyped_error.rs:339:103
     |
-356 | fn wrapped(text: &str) -> Result<u16, WrappedError> { Ok(text.parse::<u16>().map_err(anyhow::Error::from)?) }
+339 | fn paired(text: &str) -> Result<u16, (u16, String)> { text.parse().map_err(|error: ParseIntError| (1, error.to_string())) }
+    |                                                                                                       ^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+
+error: error `anyhow::Error` is a report that erases each failure's type
+   --> tools/dylint/examples/untyped_error.rs:347:86
+    |
+347 | fn wrapped(text: &str) -> Result<u16, WrappedError> { Ok(text.parse::<u16>().map_err(anyhow::Error::from)?) }
     |                                                                                      ^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `Err(_) =>` replaces `Error` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:361:9
+   --> tools/dylint/examples/untyped_error.rs:352:9
     |
-361 |         Err(anyhow::Error { .. }) => None,
+352 |         Err(anyhow::Error { .. }) => None,
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
-error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:384:55
+error: `selected` passes its parameters unchanged to `itertools::Itertools::exactly_one`
+   --> tools/dylint/examples/untyped_error.rs:364:1
     |
-384 | fn mixed(settings: &DiagNutsSettings, local: bool) -> anyhow::Result<()> {
+364 | fn selected(values: &mut dyn Iterator<Item = u16>) -> Result<u16, ExactlyOneError<&mut dyn Iterator<Item = u16>>> { values.exactly_...
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/untyped_error.rs:364:117
+    |
+364 | ...16, ExactlyOneError<&mut dyn Iterator<Item = u16>>> { values.exactly_one() }
+    |                                                          ^^^^^^^^^^^^^^^^^^^^
+    = help: call `itertools::Itertools::exactly_one` at each call site of `selected` and delete `selected`
+
+error: `validated` passes its parameters unchanged to `nuts_rs::Settings::validate`
+   --> tools/dylint/examples/untyped_error.rs:366:1
+    |
+366 | fn validated(settings: &DiagNutsSettings) -> anyhow::Result<()> { settings.validate() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/untyped_error.rs:366:67
+    |
+366 | fn validated(settings: &DiagNutsSettings) -> anyhow::Result<()> { settings.validate() }
+    |                                                                   ^^^^^^^^^^^^^^^^^^^
+    = help: call `nuts_rs::Settings::validate` at each call site of `validated` and delete `validated`
+
+error: error `anyhow::Error` is a report that erases each failure's type
+   --> tools/dylint/examples/untyped_error.rs:375:55
+    |
+375 | fn mixed(settings: &DiagNutsSettings, local: bool) -> anyhow::Result<()> {
     |                                                       ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:391:48
+   --> tools/dylint/examples/untyped_error.rs:382:48
     |
-391 | fn chosen_report<E>(outcome: Result<(), E>) -> anyhow::Result<()>
+382 | fn chosen_report<E>(outcome: Result<(), E>) -> anyhow::Result<()>
     |                                                ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:396:81
+   --> tools/dylint/examples/untyped_error.rs:387:81
     |
-396 | fn mixed_propagation<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
+387 | fn mixed_propagation<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
     |                                                                                 ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:416:82
+   --> tools/dylint/examples/untyped_error.rs:407:82
     |
-416 | fn field_report(settings: &DiagNutsSettings, held: (anyhow::Result<()>, u16)) -> anyhow::Result<()> {
+407 | fn field_report(settings: &DiagNutsSettings, held: (anyhow::Result<()>, u16)) -> anyhow::Result<()> {
     |                                                                                  ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:421:79
+   --> tools/dylint/examples/untyped_error.rs:412:79
     |
-421 | fn joined_report(settings: &DiagNutsSettings, outcome: anyhow::Result<()>) -> anyhow::Result<()> { settings.validate().and(outcome) }
+412 | fn joined_report(settings: &DiagNutsSettings, outcome: anyhow::Result<()>) -> anyhow::Result<()> { settings.validate().and(outcome) }
     |                                                                               ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:423:79
+   --> tools/dylint/examples/untyped_error.rs:414:79
     |
-423 | fn argument_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
+414 | fn argument_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
     |                                                                               ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:429:82
+   --> tools/dylint/examples/untyped_error.rs:420:82
     |
-429 | fn tried_local_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
+420 | fn tried_local_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
     |                                                                                  ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `Box<dyn Error + Send + Sync>` is an erased `dyn Error` callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:438:20
+   --> tools/dylint/examples/untyped_error.rs:429:20
     |
-438 | async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+429 | async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/examples/untyped_error.rs:462:19
+   --> tools/dylint/examples/untyped_error.rs:453:19
     |
-462 |         annotated(anyhow::Error::from(fmt::Error)),
+453 |         annotated(anyhow::Error::from(fmt::Error)),
     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `unwrap_or_default` replaces `Code` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:473:21
+   --> tools/dylint/examples/untyped_error.rs:464:21
     |
-473 |         coded(text).unwrap_or_default(),
+464 |         coded(text).unwrap_or_default(),
     |                     ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `Code` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:474:38
+   --> tools/dylint/examples/untyped_error.rs:465:38
     |
-474 |         retried(text, Code::Invalid).unwrap_or_default(),
+465 |         retried(text, Code::Invalid).unwrap_or_default(),
     |                                      ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `Relocated` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:475:25
+   --> tools/dylint/examples/untyped_error.rs:466:25
     |
-475 |         relocated(text).unwrap_or_default(),
+466 |         relocated(text).unwrap_or_default(),
     |                         ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `Box<str>` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:476:26
+   --> tools/dylint/examples/untyped_error.rs:467:26
     |
-476 |         boxed_text(text).unwrap_or_default(),
+467 |         boxed_text(text).unwrap_or_default(),
     |                          ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `Arc<str>` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:477:27
+   --> tools/dylint/examples/untyped_error.rs:468:27
     |
-477 |         shared_text(text).unwrap_or_default(),
+468 |         shared_text(text).unwrap_or_default(),
     |                           ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `Rc<str>` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:478:28
+   --> tools/dylint/examples/untyped_error.rs:469:28
     |
-478 |         counted_text(text).unwrap_or_default(),
+469 |         counted_text(text).unwrap_or_default(),
     |                            ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `Arc<dyn Error + Send + Sync>` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:480:28
+   --> tools/dylint/examples/untyped_error.rs:471:28
     |
-480 |         shared_error(text).unwrap_or_default(),
+471 |         shared_error(text).unwrap_or_default(),
     |                            ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `Rc<dyn Error>` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:481:29
+   --> tools/dylint/examples/untyped_error.rs:472:29
     |
-481 |         counted_error(text).unwrap_or_default(),
+472 |         counted_error(text).unwrap_or_default(),
     |                             ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: error `()` is a unit type that names no failure
-   --> tools/dylint/examples/untyped_error.rs:495:49
+   --> tools/dylint/examples/untyped_error.rs:486:49
     |
-495 |         Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
+486 |         Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
     |                                                 ^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: `map_or` replaces `Vec<PortError>` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:499:27
+   --> tools/dylint/examples/untyped_error.rs:490:27
     |
-499 |         [planned(&[text]).map_or(0, |found| found.len()), audited(&[text]).len(), survey.ports.len(), survey.failures.len()],
+490 |         [planned(&[text]).map_or(0, |found| found.len()), audited(&[text]).len(), survey.ports.len(), survey.failures.len()],
     |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
-error: `unwrap_or_default` replaces `RenderError` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:515:46
+error: `unwrap_or_default` stands an empty `String` in for `None`
+   --> tools/dylint/examples/untyped_error.rs:500:49
     |
-515 |         answered(oneshot::channel().1).await.unwrap_or_default(),
+500 |         text.parse::<u16>().err().map(rendered).unwrap_or_default(),
+    |                                                 ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+    = note: `#[deny(empty_string_default)]` on by default
+
+error: `unwrap_or_default` stands an empty `String` in for `None`
+   --> tools/dylint/examples/untyped_error.rs:501:50
+    |
+501 |         text.parse::<u16>().err().map(explained).unwrap_or_default(),
+    |                                                  ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `unwrap_or_default` replaces `RenderError` with a fallback value
+   --> tools/dylint/examples/untyped_error.rs:506:46
+    |
+506 |         answered(oneshot::channel().1).await.unwrap_or_default(),
     |                                              ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `RenderError` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:516:30
+   --> tools/dylint/examples/untyped_error.rs:507:30
     |
-516 |         infallible(Ok(8080)).unwrap_or_default(),
+507 |         infallible(Ok(8080)).unwrap_or_default(),
     |                              ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `ErrorData` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:517:26
+   --> tools/dylint/examples/untyped_error.rs:508:26
     |
-517 |         served(text, 80).unwrap_or_default(),
+508 |         served(text, 80).unwrap_or_default(),
     |                          ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `ErrorData` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:518:22
+   --> tools/dylint/examples/untyped_error.rs:509:22
     |
-518 |         mapped(text).unwrap_or_default(),
+509 |         mapped(text).unwrap_or_default(),
     |                      ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `ErrorData` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:519:40
+   --> tools/dylint/examples/untyped_error.rs:510:40
     |
-519 |         dispatched(text, "ports/read").unwrap_or_default(),
+510 |         dispatched(text, "ports/read").unwrap_or_default(),
     |                                        ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
 error: `unwrap_or_default` replaces `ErrorData` with a fallback value
-   --> tools/dylint/examples/untyped_error.rs:520:31
+   --> tools/dylint/examples/untyped_error.rs:511:31
     |
-520 |         extracted(Some(text)).unwrap_or_default(),
+511 |         extracted(Some(text)).unwrap_or_default(),
     |                               ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
-error: error variants `Message` and `Received` of `ConfigError` repeat the same fields
-   --> tools/dylint/examples/untyped_error.rs:119:1
+error: `unwrap_or_default` stands an empty `&str` in for `Err`
+   --> tools/dylint/examples/untyped_error.rs:511:31
     |
-119 | enum ConfigError {
+511 |         extracted(Some(text)).unwrap_or_default(),
+    |                               ^^^^^^^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: error variants `Message` and `Received` of `ConfigError` repeat the same fields
+   --> tools/dylint/examples/untyped_error.rs:118:1
+    |
+118 | enum ConfigError {
     | ^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/untyped_error.rs:121:5
+   --> tools/dylint/examples/untyped_error.rs:120:5
     |
-121 |     Message(String),
+120 |     Message(String),
     |     ^^^^^^^
-122 |     #[error("{0}")]
-123 |     Received(String),
+121 |     #[error("{0}")]
+122 |     Received(String),
     |     ^^^^^^^^
     = help: replace `Message` and `Received` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
     = note: `#[deny(duplicate_type)]` on by default
 
 error: error `Message` holds text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:121:5
+   --> tools/dylint/examples/untyped_error.rs:120:5
     |
-121 |     Message(String),
+120 |     Message(String),
     |     ^^^^^^^
     |
 note: text written here
-   --> tools/dylint/examples/untyped_error.rs:278:60
+   --> tools/dylint/examples/untyped_error.rs:269:60
     |
-278 |         "refused" => Err(ConfigError::Message(String::from("configuration refused the port"))),
+269 |         "refused" => Err(ConfigError::Message(String::from("configuration refused the port"))),
     |                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
 error: error `Detail` holds text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:125:5
+   --> tools/dylint/examples/untyped_error.rs:124:5
     |
-125 |     Detail { detail: Box<str>, context: Cow<'static, str> },
+124 |     Detail { detail: Box<str>, context: Cow<'static, str> },
     |     ^^^^^^
     |
 note: text written here
-   --> tools/dylint/examples/untyped_error.rs:279:65
+   --> tools/dylint/examples/untyped_error.rs:270:65
     |
-279 |         "detail" => Err(ConfigError::Detail { detail: Box::from("port detail"), context: Cow::Borrowed("port context") }),
+270 |         "detail" => Err(ConfigError::Detail { detail: Box::from("port detail"), context: Cow::Borrowed("port context") }),
     |                                                                 ^^^^^^^^^^^^^
     = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
 error: error `Reserved` holds text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:135:5
+   --> tools/dylint/examples/untyped_error.rs:130:5
     |
-135 |     Reserved { port: String },
+130 |     Reserved { port: String },
     |     ^^^^^^^^
     |
 note: text written here
-   --> tools/dylint/examples/untyped_error.rs:280:57
+   --> tools/dylint/examples/untyped_error.rs:271:57
     |
-280 |         "reserved" => Err(ConfigError::Reserved { port: 80_u16.to_string() }),
+271 |         "reserved" => Err(ConfigError::Reserved { port: 80_u16.to_string() }),
     |                                                         ^^^^^^^^^^^^^^^^^^
     = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
 error: error `Composed` holds text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:137:5
+   --> tools/dylint/examples/untyped_error.rs:132:5
     |
-137 |     Composed(Box<str>),
+132 |     Composed(Box<str>),
     |     ^^^^^^^^
     |
 note: text written here
-   --> tools/dylint/examples/untyped_error.rs:281:49
+   --> tools/dylint/examples/untyped_error.rs:272:49
     |
-281 |         "composed" => Err(ConfigError::Composed(format!("{text} refused the port").into())),
+272 |         "composed" => Err(ConfigError::Composed(format!("{text} refused the port").into())),
     |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
 error: error `Refusal` holds text callers cannot match
-   --> tools/dylint/examples/untyped_error.rs:144:1
+   --> tools/dylint/examples/untyped_error.rs:139:1
     |
-144 | struct Refusal(Arc<str>);
+139 | struct Refusal(Arc<str>);
     | ^^^^^^^^^^^^^^
     |
 note: text written here
-   --> tools/dylint/examples/untyped_error.rs:287:62
+   --> tools/dylint/examples/untyped_error.rs:278:62
     |
-287 | fn refused() -> Result<u16, Refusal> { Err(Refusal(Arc::from("port refused"))) }
+278 | fn refused() -> Result<u16, Refusal> { Err(Refusal(Arc::from("port refused"))) }
     |                                                              ^^^^^^^^^^^^^^
     = help: move the text into `#[error(..)]` with each interpolated value as a typed field
 
 error: trait `Source` is implemented only for `Port`
-   --> tools/dylint/examples/untyped_error.rs:32:1
+   --> tools/dylint/examples/untyped_error.rs:31:1
     |
- 32 | pub trait Source {
+ 31 | pub trait Source {
     | ^^^^^^^^^^^^^^^^
     |
 note: `dyn Source` always holds `Port`
-   --> tools/dylint/examples/untyped_error.rs:440:18
+   --> tools/dylint/examples/untyped_error.rs:431:18
     |
-440 |     let source: &dyn Source = &Port;
+431 |     let source: &dyn Source = &Port;
     |                  ^^^^^^^^^^
     = help: replace `Source` with an inherent `impl Port` block
     = note: `#[deny(single_impl_trait)]` on by default

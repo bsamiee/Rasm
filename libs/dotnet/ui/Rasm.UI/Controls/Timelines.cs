@@ -14,8 +14,6 @@ public abstract partial record Timing {
     private Timing(Key role) => Role = role;
 
     internal Key Role { get; }
-    internal Seq<float> Handles => Switch<Seq<float>>(clip: static clip => [clip.Span.Mid, clip.Span.From, clip.Span.To], point: static point => [point.At]);
-    internal Option<float> Length => Switch(clip: static clip => Some(clip.Span.Span), point: static _ => None);
 
     internal Timing Moved(int handle, float to) =>
         Switch<(int Handle, float To), Timing>(
@@ -147,7 +145,7 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
             ? Timed.Get(item) switch {
                 var timing => new View.Pin(point.At, Face.Map(face => face(item)).IfNone(static () => new View.Box())) {
                     Role = timing.Role,
-                    Span = timing.Length.Map(static length => new Vector2(length, (float)Fraction.MaxValue)),
+                    Span = timing.Switch(clip: static clip => Some(new Vector2(clip.Span.Span, (float)Fraction.MaxValue)), point: static _ => None),
                     Align = UnitPoint.Center,
                     Conditions = toHashSet(Seq(Some(Condition.Selected).Filter(_ => Selection.Holds(Keyed(item))), Some(Condition.Disabled).Filter(_ => lane.Muted)).Somes()),
                 },
@@ -164,7 +162,8 @@ public sealed record Timeline<TItem>(PlotPlane.Track Plane, Seq<Lane<TItem>> Lan
             });
 
     private Seq<(HandlePoint Point, int Item, int Handle)> Placed(Seq<TItem> items) =>
-        items.Map((item, index) => Timed.Get(item).Handles.Map((along, handle) => (At: new Vector2(along, (float)Fraction.Half), Item: index, Handle: handle))).Flatten()
+        items.Map((item, index) => Timed.Get(item).Switch<Seq<float>>(clip: static clip => [clip.Span.Mid, clip.Span.From, clip.Span.To], point: static point => [point.At])
+                .Map((along, handle) => (At: new Vector2(along, (float)Fraction.Half), Item: index, Handle: handle))).Flatten()
             .Map(static (held, index) => (new HandlePoint(new Key.Ordinal((uint)index), held.At), held.Item, held.Handle));
 
     // --- [READS]

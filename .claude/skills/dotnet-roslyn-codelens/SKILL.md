@@ -7,8 +7,6 @@ description: "Use when reading, diagnosing, or refactoring a file in a .NET solu
 
 Covers the roslyn-codelens MCP server over a loaded solution. Tools resolve every symbol through the compilation, and text search matches characters and misses aliases, partial types, generic instantiations, and metadata symbols.
 
-Tasks open with `mcp__roslyn-codelens__list_solutions` on a server that starts with no solution, and `mcp__roslyn-codelens__load_solution` with the solution's absolute path follows when it lists none.
-
 ## [01]-[TOOL_SELECTION]
 
 Server tools are deferred, one `ToolSearch(query: "select:mcp__roslyn-codelens__<tool>,mcp__roslyn-codelens__<tool>")` loads the schema of each tool a task calls before the first call.
@@ -76,26 +74,23 @@ Before `Read` on a `.cs` file, the wanted view decides:
 |  [45]   | `mcp__roslyn-codelens__inspect_external_assembly`  | "What does this NuGet package expose?" / "Show me the API of X assembly"     |
 |  [46]   | `mcp__roslyn-codelens__peek_il`                    | "Show IL for this method" / "What does this external method do?"             |
 |  [47]   | `mcp__roslyn-codelens__list_solutions`             | "What solutions are loaded?"                                                 |
-|  [48]   | `mcp__roslyn-codelens__load_solution`              | "Load this .sln or .slnx at run time"                                        |
-|  [49]   | `mcp__roslyn-codelens__unload_solution`            | "Free memory for this solution"                                              |
-|  [50]   | `mcp__roslyn-codelens__set_active_solution`        | "Switch to project B"                                                        |
-|  [51]   | `mcp__roslyn-codelens__rebuild_solution`           | "Reload the solution" / "Diagnostics are stale"                              |
-|  [52]   | `mcp__roslyn-codelens__start_background_task`      | "Run a long rebuild without blocking"                                        |
-|  [53]   | `mcp__roslyn-codelens__get_task_status`            | "Check on a queued background task"                                          |
-|  [54]   | `mcp__roslyn-codelens__list_running_tasks`         | "Which background tasks are running?"                                        |
-|  [55]   | `mcp__roslyn-codelens__analyze_data_flow`          | "Which variables are read or written here?"                                  |
-|  [56]   | `mcp__roslyn-codelens__analyze_control_flow`       | "Is this code reachable?"                                                    |
-|  [57]   | `mcp__roslyn-codelens__analyze_change_impact`      | "What breaks if I change this?"                                              |
-|  [58]   | `mcp__roslyn-codelens__get_type_overview`          | "Give me everything about this type in one call"                             |
-|  [59]   | `mcp__roslyn-codelens__analyze_method`             | "Show signature, callers, and outgoing calls"                                |
-|  [60]   | `mcp__roslyn-codelens__get_method_source`          | "Show me this method's body" / "Give me the source of these members"         |
-|  [61]   | `mcp__roslyn-codelens__get_overloads`              | "What overloads does this method have?"                                      |
-|  [62]   | `mcp__roslyn-codelens__get_extension_methods`      | "What can I call on this type?" / "Is there an extension for X?"             |
-|  [63]   | `mcp__roslyn-codelens__get_instantiation_options`  | "How do I construct this?" / "Why can I not `new` this up?"                  |
-|  [64]   | `mcp__roslyn-codelens__get_operators`              | "What operators does this type define?"                                      |
-|  [65]   | `mcp__roslyn-codelens__get_call_graph`             | "Transitive callers or callees, depth-bounded"                               |
-|  [66]   | `mcp__roslyn-codelens__get_file_overview`          | "What types are in this file?"                                               |
-|  [67]   | `mcp__roslyn-codelens__generate_test_skeleton`     | "Scaffold a test class for this type or method"                              |
+|  [48]   | `mcp__roslyn-codelens__rebuild_solution`           | "Reload the solution" / "Diagnostics are stale"                              |
+|  [49]   | `mcp__roslyn-codelens__start_background_task`      | "Run a long rebuild without blocking"                                        |
+|  [50]   | `mcp__roslyn-codelens__get_task_status`            | "Check on a queued background task"                                          |
+|  [51]   | `mcp__roslyn-codelens__list_running_tasks`         | "Which background tasks are running?"                                        |
+|  [52]   | `mcp__roslyn-codelens__analyze_data_flow`          | "Which variables are read or written here?"                                  |
+|  [53]   | `mcp__roslyn-codelens__analyze_control_flow`       | "Is this code reachable?"                                                    |
+|  [54]   | `mcp__roslyn-codelens__analyze_change_impact`      | "What breaks if I change this?"                                              |
+|  [55]   | `mcp__roslyn-codelens__get_type_overview`          | "Give me everything about this type in one call"                             |
+|  [56]   | `mcp__roslyn-codelens__analyze_method`             | "Show signature, callers, and outgoing calls"                                |
+|  [57]   | `mcp__roslyn-codelens__get_method_source`          | "Show me this method's body" / "Give me the source of these members"         |
+|  [58]   | `mcp__roslyn-codelens__get_overloads`              | "What overloads does this method have?"                                      |
+|  [59]   | `mcp__roslyn-codelens__get_extension_methods`      | "What can I call on this type?" / "Is there an extension for X?"             |
+|  [60]   | `mcp__roslyn-codelens__get_instantiation_options`  | "How do I construct this?" / "Why can I not `new` this up?"                  |
+|  [61]   | `mcp__roslyn-codelens__get_operators`              | "What operators does this type define?"                                      |
+|  [62]   | `mcp__roslyn-codelens__get_call_graph`             | "Transitive callers or callees, depth-bounded"                               |
+|  [63]   | `mcp__roslyn-codelens__get_file_overview`          | "What types are in this file?"                                               |
+|  [64]   | `mcp__roslyn-codelens__generate_test_skeleton`     | "Scaffold a test class for this type or method"                              |
 
 ## [03]-[TOOL_REFERENCE]
 
@@ -310,20 +305,12 @@ External types resolve by name in `mcp__roslyn-codelens__go_to_definition`, `mcp
 
 ### [03.9]-[SOLUTION_MANAGEMENT]
 
-Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. Each loaded solution has one workspace the server serves to every client, a load, unload, or rebuild reaches every client. Writing, creating, deleting, or renaming a `.cs`, `.csproj`, `.props`, or `.targets` file recompiles on the next tool call: a `.cs` edit recompiles its project and dependents, any other change reopens the solution.
+Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. Each loaded solution has one workspace the server serves to every client, a rebuild reaches every client. Writing, creating, deleting, or renaming a `.cs`, `.csproj`, `.props`, or `.targets` file recompiles on the next tool call: a `.cs` edit recompiles its project and dependents, any other change reopens the solution.
 
 - `mcp__roslyn-codelens__rebuild_solution` — full reload: reopen the solution, recompile every project, rebuild every index
     - Serves the changes the watcher misses: a moved or renamed directory, a `.slnx` edit, and a restore that changed packages or analyzers
-- `mcp__roslyn-codelens__load_solution` — loads a `.sln` or `.slnx` at run time and makes it active, the current one stays active until the load succeeds
-    - `include` takes case-insensitive globs with `*` and `?` only, `rootProjects` takes exact, case-sensitive names
-    - `include` and `rootProjects` match the project file name without its extension and seed a transitive `ProjectReference` closure
-    - Filters on a loaded solution dispose its workspace and reload the subset for every client until the next reload
-    - Filters that match nothing are an error
-    - For a solution that takes minutes to open, `background: true` returns a `taskId` for `mcp__roslyn-codelens__get_task_status`
 - `mcp__roslyn-codelens__list_solutions` — loaded solutions and the active one, read when an expected symbol is missing
     - `skippedProjects` per entry names each skipped project's `kind` and `reason`
-- `mcp__roslyn-codelens__set_active_solution` — switches the active solution by partial name
-- `mcp__roslyn-codelens__unload_solution` — frees memory, the remaining loaded solution becomes active
 - `mcp__roslyn-codelens__start_background_task` — queues a long tool for `mcp__roslyn-codelens__get_task_status`
     - `mcp__roslyn-codelens__rebuild_solution` is the only allowed tool
 - `mcp__roslyn-codelens__get_task_status` — status, result, or error of one background task

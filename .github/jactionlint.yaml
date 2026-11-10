@@ -1,0 +1,9 @@
+# --- [JACTIONLINT] ----------------------------------------------------------------------
+
+rules:
+    require-shell: error
+    template-injection:
+        pedantic: true
+
+shellcheck:
+    rcfile: .config/shellcheckrc

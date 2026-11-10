@@ -1,8 +1,5 @@
-use core::{
-    cmp,
-    f64::consts::{FRAC_PI_2, TAU},
-    iter,
-};
+use core::f64::consts::{FRAC_PI_2, TAU};
+use core::{cmp, iter};
 use std::sync::Arc;
 
 use itertools::{EitherOrBoth, Itertools as _};
@@ -10,22 +7,14 @@ use kurbo::{Affine, Axis, Circle, Line, ParamCurve, PathEl, Point, Shape, Vec2};
 use linesweeper::BinaryOp;
 use nonempty_collections::NEVec;
 use rasm_drawing::{Anchor, Baseline, Element, FontSize, Placement, Region, Side, Width, regions};
-use uom::{
-    marker,
-    si::{
-        self, Quantity, SI,
-        angle::radian,
-        f64::{Angle, Length},
-    },
-};
+use uom::marker;
+use uom::si::angle::radian;
+use uom::si::f64::{Angle, Length};
+use uom::si::{self, Quantity, SI};
 
-use crate::{
-    DraftingError, Geometry, Graphics, Head, Lettering, Terminator, bounds, directed, fraction, indexed, joined,
-    notation::{self, Sign},
-    oriented, polyline, readable, stroked, symbols, terminated,
-    text::{Frame, Label, Typesetter, labelled},
-    transformed,
-};
+use crate::notation::{self, Sign};
+use crate::text::{Frame, Label, Typesetter, labelled};
+use crate::{DraftingError, Geometry, Graphics, Head, Lettering, Terminator, bounds, directed, fraction, indexed, joined, oriented, polyline, readable, stroked, symbols, terminated, transformed};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

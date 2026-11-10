@@ -1,3 +1,6 @@
+using Rasm.Rhino;
+using Rasm.Rhino.Modeling.Curves;
+
 namespace Arches;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -29,8 +32,11 @@ internal sealed partial class PlainArch {
     public static readonly PlainArch Persian = new(nameof(Persian), "Persian", "Persian arch: four arcs, haunches turning 45° into a pointed crown rising just under half the span",
         new Interval(ArchGeometry.PersianRise, ArchGeometry.PersianRise), static (span, _) => ArchGeometry.Persian(span));
     public static readonly PlainArch Keel = new(nameof(Keel), "Keel", "Keel arch: flared springing and convex arcs meeting in a point", new Interval(ArchGeometry.KeelRise, ArchGeometry.KeelRise), static (span, _) => ArchGeometry.Keel(span));
-    public static readonly PlainArch Parabolic = new(nameof(Parabolic), "Parabolic", "Parabolic arch: parabola at a chosen rise", new Interval(0, double.PositiveInfinity), ArchGeometry.Parabolic);
-    public static readonly PlainArch Elliptical = new(nameof(Elliptical), "Elliptical", "Elliptical arch: half ellipse at a chosen rise", new Interval(0, double.PositiveInfinity), ArchGeometry.Elliptical);
+    public static readonly PlainArch Parabolic = new(nameof(Parabolic), "Parabolic", "Parabolic arch: parabola at a chosen rise", new Interval(0, double.PositiveInfinity),
+        static (span, apex) => Products.Many<Curve>(() => [NurbsCurve.CreateParabolaFromVertex(apex, span.Baseline.From, span.Baseline.To)]));
+    public static readonly PlainArch Elliptical = new(nameof(Elliptical), "Elliptical", "Elliptical arch: half ellipse at a chosen rise", new Interval(0, double.PositiveInfinity),
+        static (span, apex) => new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex))
+            .ToNurbs(new Interval(0d, double.Pi)).Map(static curve => Seq<Curve>(curve)));
 
     public string Caption { get; }
     public string Help { get; }
@@ -59,7 +65,6 @@ internal sealed partial class FoiledArch {
 
 [Union]
 internal abstract partial record ArchChoice {
-    public string Caption => Switch(plain: static choice => choice.Arch.Caption, foiled: static choice => choice.Arch.Caption);
     public string Help => Switch(plain: static choice => choice.Arch.Help, foiled: static choice => choice.Arch.Help);
     public string Option => Switch(plain: static choice => choice.Arch.Key, foiled: static choice => choice.Arch.Key);
 

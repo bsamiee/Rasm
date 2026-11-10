@@ -20,11 +20,9 @@ utils:
     plain-parameter:
         kind: parameter
         not:
-            has:
-                any:
-                    - kind: attribute_list
-                    - kind: modifier
-                      regex: '^(ref|out|scoped)$'
+            any:
+                - has: {any: [{kind: attribute_list}, {kind: modifier, regex: '^(ref|out|scoped|params|this)$'}]}
+                - has: {field: value, pattern: $_}
     type-parameter-name:
         pattern: {context: 'class $TYPE_PARAMETER;', selector: identifier}
         inside:
@@ -44,9 +42,20 @@ utils:
                 any:
                     - matches: type-parameter-name
                     - matches: parameter-name
+                    - matches: member-name
             - kind: 'predefined_type, alias_qualified_name, generic_name, qualified_name'
             - kind: member_access_expression
               has: {field: expression, matches: static-root}
+    member-name:
+        pattern: {context: 'class $MEMBER;', selector: identifier}
+        inside:
+            stopBy: end
+            kind: declaration_list
+            has:
+                kind: 'field_declaration, property_declaration, event_field_declaration'
+                any:
+                    - has: {field: name, pattern: {context: 'class $MEMBER;', selector: identifier}}
+                    - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $MEMBER;', selector: identifier}}}}
     parameter-root:
         kind: identifier
         not: {not: {matches: parameter-name}}
@@ -83,6 +92,16 @@ utils:
                 all:
                     - not: {has: {kind: argument, not: {matches: parameter-argument}}}
                     - not: {has: {kind: argument, has: {pattern: {context: 'class $REPEATED;', selector: identifier}}, follows: {stopBy: end, kind: argument, has: {pattern: {context: 'class $REPEATED;', selector: identifier}}}}}
+                    - not:
+                        has:
+                            kind: argument
+                            all:
+                                - has: {nthChild: {position: 1, reverse: true}, pattern: {context: 'class $LATER;', selector: identifier}}
+                                - follows: {stopBy: {kind: argument}, kind: argument, has: {nthChild: {position: 1, reverse: true}, pattern: {context: 'class $EARLIER;', selector: identifier}}}
+                                - inside:
+                                    stopBy: {kind: *function}
+                                    kind: *function
+                                    has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: {context: 'class $EARLIER;', selector: identifier}}}, {follows: {stopBy: end, kind: parameter, has: {field: name, pattern: {context: 'class $LATER;', selector: identifier}}}}]}}
             - not:
                 all:
                     - has: {field: function, has: {stopBy: end, pattern: {context: 'class $SHARED;', selector: identifier}}}

@@ -4,8 +4,8 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, t
 import { createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, flow, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, sources } from '#/plugins/swift-package';
-import { AppleError, core, type Part, present, spawned, target, tokened } from '#/plugins/targets';
-import { Analyzed, evaluated, Host, invocation, Request, released, xcodeParts } from '#/plugins/xcode-project';
+import { AppleError, core, type Part, spawned, target, tokened } from '#/plugins/targets';
+import { Analyzed, evaluated, invocation, released, xcodeParts } from '#/plugins/xcode-project';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,8 +24,16 @@ const FILES = `**/{${[...READ, '*.xcodeproj/project.pbxproj', '*.xctestplan', '*
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean), outputPath: Schema.optionalKey(Schema.String), notaryProfile: Schema.optionalKey(Schema.String) }).annotate({ description: 'Plugin options from the nx.json row' });
+const Host = Schema.fromJsonString(Schema.Struct({ target: Schema.Struct({ platform: Schema.String }) }));
+const Request = Schema.fromJsonString(Schema.Array(Schema.String));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const present = (command: string, args: readonly string[], cwd: string) =>
+    spawned(command, args, { cwd }).pipe(
+        Effect.asSome,
+        Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeedNone),
+    );
 
 const combined = (left: TargetConfiguration, right: TargetConfiguration): TargetConfiguration => ({
     ...left,
@@ -37,9 +45,10 @@ const combined = (left: TargetConfiguration, right: TargetConfiguration): Target
 const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Options, located: Effect.Success<typeof core>, files: readonly string[]) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const plugin = yield* located.plugin(workspaceRoot);
+    const paths = new Set(files);
     const manifests = files.filter((file) => path.basename(file) === MANIFEST);
     const containers = files.filter((file) => path.basename(file) === 'project.xcproj' || (path.basename(file) === 'contents.xcworkspacedata' && path.extname(path.dirname(path.dirname(file))) !== '.xcodeproj'));
-    const unsupported = files.filter((file) => path.basename(file) === 'project.pbxproj' && !files.includes(path.join(path.dirname(file), 'project.xcproj')));
+    const unsupported = files.filter((file) => path.basename(file) === 'project.pbxproj' && !paths.has(path.join(path.dirname(file), 'project.xcproj')));
     const marker = (container: string) => containers.find((file) => path.dirname(file) === container) ?? container;
     const [printed, xcodebuild, compiled] = yield* Effect.all([present('swift', ['-print-target-info'], workspaceRoot), containers.length === 0 ? Effect.succeedNone : present('xcodebuild', ['-version'], workspaceRoot), containers.length === 0 ? Effect.succeedNone : Effect.option(located.analyzer)]);
     const host = yield* Effect.transposeOption(Option.map(printed, (text) => Effect.map(Schema.decodeEffect(Host)(text), ({ target: { platform } }) => platform)));
@@ -264,4 +273,4 @@ const createDependencies: CreateDependencies<typeof Options.Encoded> = (options,
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createDependencies, createNodes, type Options };
+export { createDependencies, createNodes, Options };

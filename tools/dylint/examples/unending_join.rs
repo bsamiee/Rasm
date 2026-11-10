@@ -1,10 +1,11 @@
-use core::{convert::Infallible, future::ready, hint::black_box, pin::pin};
+use core::convert::Infallible;
+use core::future::ready;
+use core::hint::black_box;
+use core::pin::pin;
 
 use futures::{StreamExt as _, TryStreamExt as _, future, stream};
-use tokio::{
-    sync::{broadcast, watch},
-    task,
-};
+use tokio::sync::{broadcast, watch};
+use tokio::task;
 use tokio_stream::wrappers::{BroadcastStream, WatchStream};
 
 // --- [MODELS] --------------------------------------------------------------------------

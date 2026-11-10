@@ -28,22 +28,44 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
         Link("RASM3001"),
         WellKnownDiagnosticTags.CompilationEnd);
 
+    private static readonly DiagnosticDescriptor Forwarded = new(
+        "RASM3012",
+        "Forwarding property, read member at its uses",
+        "`{0}` forwards `{1}`, read `{1}` at each use",
+        Categories.CSharp,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        "Properties and indexers add behavior or implement a contract instead of returning another owner's accessible member unchanged, counted across every reader in the assembly.",
+        Link("RASM3012"),
+        WellKnownDiagnosticTags.CompilationEnd);
+
+    private static readonly DiagnosticDescriptor Folded = new(
+        "RASM3015",
+        "Member with one reader in the assembly, fold it into the reader",
+        "`{0}` has one reader in the assembly, in `{1}`, fold `{0}` into `{1}`",
+        Categories.CSharp,
+        DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        "Fold each non-private method, computed property, constant, and static read-only field no other assembly can read into its one reader, counted across every file of the compilation, generated code included, when every member and constructor parameter its body reads is accessible from the reader, the folded body stays within three nesting levels, each receiver and argument the read passes is a constant, an unwritten local or parameter, or a pure expression a pure body reads once outside a branch, loop, or lambda, no `[CallerArgumentExpression]` text the body captures changes, and a static read-only field holds a constant or its reader runs once in a static initializer.",
+        Link("RASM3015"),
+        WellKnownDiagnosticTags.CompilationEnd);
+
     private static readonly ImmutableArray<string> Sets = ["System.Collections.Generic.HashSet`1", "System.Collections.Frozen.FrozenSet`1", "System.Collections.Immutable.ImmutableHashSet`1"];
 
     private static readonly Regex Word = new("[A-Z]?[a-z0-9]+|[A-Z]+(?![a-z])", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule, Forwarded, Folded];
 
     public override void Initialize(AnalysisContext context) {
         context.EnableConcurrentExecution();
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
         context.RegisterCompilationStartAction(Start);
     }
 
     private static void Start(CompilationStartAnalysisContext context) {
         WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(context.Compilation);
         SemanticModels models = new(context);
-        ImmutableArray<INamedTypeSymbol> cells = ForwardingPropertyAnalyzer.Cells(context.Compilation);
+        ImmutableArray<INamedTypeSymbol> cells = Cells(context.Compilation);
         ImmutableArray<INamedTypeSymbol> sets = [.. Sets.Select(types.GetOrCreateTypeByMetadataName).OfType<INamedTypeSymbol>()];
         ImmutableArray<IMethodSymbol> contains = [
             .. sets.SelectMany(static set => Members(set, "Contains")),
@@ -136,7 +158,10 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
                 ConditionalExpressionSyntax conditional => conditional.Condition != held,
                 BinaryExpressionSyntax binary => binary.Right == held && binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression or SyntaxKind.CoalesceExpression,
                 ConditionalAccessExpressionSyntax access => access.WhenNotNull == held,
-                SwitchExpressionArmSyntax or AnonymousFunctionExpressionSyntax or QueryExpressionSyntax => true,
+                IfStatementSyntax branch => branch.Condition != held,
+                CommonForEachStatementSyntax each => each.Expression != held,
+                SwitchExpressionArmSyntax or AnonymousFunctionExpressionSyntax or QueryExpressionSyntax or ForStatementSyntax or WhileStatementSyntax or DoStatementSyntax
+                    or SwitchSectionSyntax or CatchClauseSyntax or LocalFunctionStatementSyntax => true,
                 _ => false,
             });
         static SyntaxNode Unwrapped(SyntaxNode node) => node.AncestorsAndSelf().First(static held => held.Parent is not ParenthesizedExpressionSyntax);
@@ -161,28 +186,61 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
             && initializer.Descendants().OfType<IMethodReferenceOperation>().Select(static group => group.Method.OriginalDefinition).Distinct(SymbolEqualityComparer.Default).Skip(1).Any();
         static string Named(ISymbol symbol) =>
             symbol is IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } constructor ? constructor.ContainingType.Name : Member(symbol).Name;
+        static bool Once(IOperation read) =>
+            !Inside<IAnonymousFunctionOperation>(read) && Ancestor<ISymbolInitializerOperation>(read, static _ => true) switch {
+                IFieldInitializerOperation initializer => initializer.InitializedFields.All(static field => field.IsStatic),
+                IPropertyInitializerOperation initializer => initializer.InitializedProperties.All(static property => property.IsStatic),
+                _ => false,
+            };
         static bool Free(SyntaxNode moved, ImmutableHashSet<string> bound, ImmutableHashSet<string> local) =>
             !Referenced(moved).Any(used => !bound.Contains(used.Identifier.ValueText) && local.Contains(used.Identifier.ValueText));
+        Func<ISymbol, bool> hidden = Hidden(context.Compilation);
+        INamedTypeSymbol? captioned = types.GetOrCreateTypeByMetadataName("System.Runtime.CompilerServices.CallerArgumentExpressionAttribute");
+        bool Folding(ISymbol symbol) =>
+            symbol is { IsImplicitlyDeclared: false, IsVirtual: false, IsAbstract: false, IsOverride: false, ContainingType: { IsExtension: false, IsAnonymousType: false, TypeKind: not TypeKind.Enum } owner } && symbol.GetAttributes().IsEmpty
+            && hidden(symbol)
+            && !owner.AllInterfaces.SelectMany(static face => face.GetMembers()).Any(member => Same(owner.FindImplementationForInterfaceMember(member), symbol))
+            && symbol switch {
+                IFieldSymbol field => field.IsConst || field is { IsStatic: true, IsReadOnly: true },
+                IPropertySymbol property => property is { IsIndexer: false, IsPartialDefinition: false, PartialDefinitionPart: null, ExplicitInterfaceImplementations.IsEmpty: true }
+                    && !owner.GetMembers().OfType<IFieldSymbol>().Any(field => Same(field.AssociatedSymbol, property)),
+                IMethodSymbol method => method is { MethodKind: MethodKind.Ordinary, IsAsync: false, IsPartialDefinition: false, PartialDefinitionPart: null, ExplicitInterfaceImplementations.IsEmpty: true }
+                    && method.Parameters.All(static parameter => parameter.RefKind is RefKind.None && parameter.GetAttributes().IsEmpty)
+                    && !Same(method, context.Compilation.GetEntryPoint(context.CancellationToken)),
+                _ => false,
+            };
         ConcurrentDictionary<ISymbol, IOperation> values = new(SymbolEqualityComparer.Default);
         ConcurrentDictionary<ISymbol, (IOperation Read, ISymbol Reader, int Count)> reads = new(SymbolEqualityComparer.Default);
-        ConcurrentDictionary<ISymbol, byte> named = new(SymbolEqualityComparer.Default);
+        ConcurrentDictionary<ISymbol, (IOperation Read, ISymbol Reader, int Count)> assembled = new(SymbolEqualityComparer.Default);
+        ConcurrentDictionary<ISymbol, byte> pinned = new(SymbolEqualityComparer.Default);
+        ConcurrentDictionary<IPropertySymbol, IOperation> forwards = new(SymbolEqualityComparer.Default);
+        ConcurrentBag<(IPropertyReferenceOperation Read, INamedTypeSymbol Reader)> uses = [];
         context.RegisterOperationBlockAction(block => {
             ISymbol owner = Member(block.OwningSymbol);
-            if (block.OperationBlocks is not { Length: 1 } blocks || Expressed(blocks[0]) is not { } value) return;
-            if (block.OwningSymbol is IMethodSymbol { MethodKind: MethodKind.PropertyGet } && owner is IPropertySymbol property && ForwardingPropertyAnalyzer.Forwarding(property, value, cells, block.CancellationToken)) return;
-            if (Candidate(owner) && owner.DeclaringSyntaxReferences is { Length: 1 } declared && Shaped(declared[0].GetSyntax(block.CancellationToken))) values[owner] = value;
+            if (block.IsGeneratedCode || block.OperationBlocks is not { Length: 1 } blocks) return;
+            if (owner.DeclaredAccessibility is not Accessibility.Private && block.OwningSymbol is not IMethodSymbol { MethodKind: MethodKind.PropertySet }) values[owner] = blocks[0];
+            if (Expressed(blocks[0]) is not { } value) return;
+            if (block.OwningSymbol is IMethodSymbol { MethodKind: MethodKind.PropertyGet } && owner is IPropertySymbol property && Forwarding(property, value, cells, block.CancellationToken)) forwards[property] = value;
+            else if (Candidate(owner) && owner.DeclaringSyntaxReferences is { Length: 1 } declared && Shaped(declared[0].GetSyntax(block.CancellationToken))) values[owner] = value;
         });
         context.RegisterOperationAction(
             analysis => {
                 if (analysis.Operation is INameOfOperation name) {
                     SymbolInfo info = analysis.Operation.SemanticModel!.GetSymbolInfo(name.Argument.Syntax, analysis.CancellationToken);
                     foreach (ISymbol symbol in info.Symbol is { } found ? [found] : info.CandidateSymbols)
-                        _ = named.TryAdd(symbol.OriginalDefinition, 0);
+                        _ = pinned.TryAdd(symbol.OriginalDefinition, 0);
                     return;
                 }
-                if (Target(analysis.Operation)?.OriginalDefinition is not { } target || !Candidate(target)) return;
+                if (Target(analysis.Operation) is not { } referenced) return;
+                ISymbol target = (referenced is IMethodSymbol { ReducedFrom: { } reduced } ? reduced : referenced).OriginalDefinition;
+                if (analysis.IsGeneratedCode) {
+                    _ = pinned.TryAdd(Member(target), 0);
+                    return;
+                }
                 ISymbol reader = Member(Enclosing(analysis.ContainingSymbol));
-                _ = reads.AddOrUpdate(target, (analysis.Operation, reader, 1), static (_, held) => (held.Read, held.Reader, held.Count + 1));
+                if (analysis.Operation is IPropertyReferenceOperation read && hidden(read.Property) && analysis.ContainingSymbol.ContainingType is { } containing) uses.Add((read, containing));
+                if (Candidate(target)) _ = reads.AddOrUpdate(target, (analysis.Operation, reader, 1), static (_, held) => (held.Read, held.Reader, held.Count + 1));
+                else if (target.DeclaredAccessibility is not Accessibility.Private && Sourced(target)) _ = assembled.AddOrUpdate(Member(target), (analysis.Operation, reader, 1), static (_, held) => (held.Read, held.Reader, held.Count + 1));
             },
             OperationKind.FieldReference,
             OperationKind.PropertyReference,
@@ -192,25 +250,39 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
         models.Complete((end, available) => {
             ImmutableHashSet<ISymbol> candidates = ImmutableHashSet.CreateRange(SymbolEqualityComparer.Default,
                 values.Keys.Where(member => reads.TryGetValue(member, out (IOperation Read, ISymbol Reader, int Count) read) && read.Count is 1));
-            bool Substituted(IOperation value, int nesting, ImmutableHashSet<string> local, ImmutableArray<IParameterSymbol> parameters, ImmutableArray<IArgumentOperation> arguments) {
+            bool Passed(IOperation value, IOperation? instance, ImmutableArray<IArgumentOperation> arguments) {
                 Reading reading = new(value.SemanticModel!, available, end.CancellationToken);
-                bool Plain(IOperation operand) =>
-                    operand.Syntax is IdentifierNameSyntax && Variable(operand) is { } held and not IParameterSymbol { RefKind: not RefKind.None }
-                    && !References(held, operand, reading).Any(Written);
+                ILookup<ISymbol?, IOperation> used = value.DescendantsAndSelf()
+                    .Where(static held => held is IParameterReferenceOperation or IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance })
+                    .ToLookup(Variable, SymbolEqualityComparer.Default);
+                bool Kept(IOperation passed, ISymbol? parameter) =>
+                    !used[parameter].Any(Written) && (passed.ConstantValue.HasValue
+                        || (passed.Syntax is IdentifierNameSyntax && Variable(passed) is { } held and not IParameterSymbol { RefKind: not RefKind.None } && !References(held, passed, reading).Any(Written))
+                        || (used[parameter].Take(2).ToImmutableArray() is { Length: 1 } uses && !Deferred(uses[0].Syntax, value.Syntax) && Pure(passed) && Pure(value)));
+                return (instance is null or IInstanceReferenceOperation || Kept(instance, parameter: null))
+                    && ((instance is null or IInstanceReferenceOperation && arguments.All(static argument => argument.Value.Syntax is IdentifierNameSyntax name && string.Equals(name.Identifier.ValueText, argument.Parameter?.Name, StringComparison.Ordinal)))
+                        || !(from call in value.DescendantsAndSelf().OfType<IInvocationOperation>()
+                             from supplied in call.Arguments
+                             where supplied.ArgumentKind is ArgumentKind.DefaultValue
+                             from mark in supplied.Parameter?.GetAttributes() ?? []
+                             where Same(mark.AttributeClass, captioned) && mark.ConstructorArguments.Length is 1
+                             from shown in call.Arguments
+                             where string.Equals(shown.Parameter?.Name, mark.ConstructorArguments[0].Value as string, StringComparison.Ordinal)
+                             from held in shown.Value.DescendantsAndSelf()
+                             where held is IInstanceReferenceOperation { IsImplicit: true } or IParameterReferenceOperation { Parameter.ContainingSymbol: IMethodSymbol { MethodKind: not (MethodKind.AnonymousFunction or MethodKind.LocalFunction) } }
+                             select held).Any())
+                    && arguments.All(argument => argument is { ArgumentKind: ArgumentKind.Explicit, Parameter: { } parameter, Value: var passed } && passed is not IConversionOperation { IsImplicit: true } && Kept(passed, parameter));
+            }
+            bool Substituted(IOperation value, int nesting, ImmutableHashSet<string> local, ImmutableArray<IParameterSymbol> parameters, ImmutableArray<IArgumentOperation> arguments) {
                 SyntaxNode body = value.Syntax;
                 ImmutableHashSet<string> names = [with(StringComparer.Ordinal), .. parameters.Select(static parameter => parameter.Name)];
-                IEqualityComparer<IParameterSymbol> comparer = SymbolEqualityComparer.Default;
-                ILookup<IParameterSymbol, IParameterReferenceOperation> used = value.DescendantsAndSelf().OfType<IParameterReferenceOperation>().ToLookup(static read => read.Parameter, comparer);
                 ImmutableHashSet<string> passed = [with(StringComparer.Ordinal), .. arguments.SelectMany(static argument => Referenced(argument.Syntax)).Select(static name => name.Identifier.ValueText)];
-                bool pure = Pure(value);
                 return value is not IConversionOperation { IsImplicit: true } && !Targeted(value) && Free(body, names, local)
                     && body.SyntaxTree.GetLineSpan(body.Span, end.CancellationToken) is var lines && lines.StartLinePosition.Line == lines.EndLinePosition.Line
                     && !value.DescendantsAndSelf().OfType<INameOfOperation>().Any()
                     && !Bound(body).Any(name => names.Contains(name) || local.Contains(name) || passed.Contains(name))
                     && nesting + Depth(body) <= 3
-                    && arguments.All(argument => argument is { ArgumentKind: ArgumentKind.Explicit, Parameter: { } parameter, Value: var passedValue }
-                        && passedValue is not IConversionOperation { IsImplicit: true }
-                        && (Plain(passedValue) || passedValue.ConstantValue.HasValue || (pure && Pure(passedValue) && used[parameter].Take(2).ToImmutableArray() is { Length: 1 } uses && !Deferred(uses[0].Syntax, body))));
+                    && Passed(value, instance: null, arguments);
             }
             bool Inlined(ISymbol member, IOperation value, IOperation read, ISymbol reader) {
                 if (read.Syntax.SyntaxTree != value.Syntax.SyntaxTree || !Same(reader.ContainingType, member.ContainingType) || Inside<IAttributeOperation>(read) || Inside<IParameterInitializerOperation>(read)
@@ -233,26 +305,96 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
             }
             HashSet<ISymbol> processed = [with(SymbolEqualityComparer.Default)];
             HashSet<ISymbol> cyclic = [with(SymbolEqualityComparer.Default)];
-            foreach (ISymbol member in candidates) {
+            ISymbol? Reader(ISymbol member) =>
+                (candidates.Contains(member) ? reads : assembled).TryGetValue(member, out (IOperation Read, ISymbol Reader, int Count) read) && read.Count is 1 ? read.Reader : null;
+            foreach (ISymbol member in candidates.Concat(assembled.Keys)) {
                 end.CancellationToken.ThrowIfCancellationRequested();
                 List<ISymbol> path = [];
                 Dictionary<ISymbol, int> positions = [with(SymbolEqualityComparer.Default)];
-                ISymbol next = member;
-                while (!processed.Contains(next) && reads.TryGetValue(next, out (IOperation Read, ISymbol Reader, int Count) read) && read.Count is 1 && candidates.Contains(read.Reader)) {
+                for (ISymbol? next = member; next is not null && !processed.Contains(next); next = Reader(next)) {
                     if (positions.TryGetValue(next, out int cycle)) {
                         cyclic.UnionWith(path.Skip(cycle));
                         break;
                     }
                     positions.Add(next, path.Count);
                     path.Add(next);
-                    next = read.Reader;
                 }
                 processed.UnionWith(path);
             }
+            HashSet<ISymbol> reported = [with(SymbolEqualityComparer.Default)];
             foreach (KeyValuePair<ISymbol, (IOperation Read, ISymbol Reader, int Count)> pair in reads) {
                 end.CancellationToken.ThrowIfCancellationRequested();
-                if (pair.Value.Count is 1 && !named.ContainsKey(pair.Key) && !cyclic.Contains(pair.Key) && values.TryGetValue(pair.Key, out IOperation? value) && Inlined(pair.Key, value, pair.Value.Read, pair.Value.Reader))
+                if (pair.Value.Count is 1 && !pinned.ContainsKey(pair.Key) && !cyclic.Contains(pair.Key) && values.TryGetValue(pair.Key, out IOperation? value) && Inlined(pair.Key, value, pair.Value.Read, pair.Value.Reader)) {
+                    _ = reported.Add(pair.Key);
                     end.ReportDiagnostic(Diagnostic.Create(Rule, pair.Key.Locations[0], [pair.Value.Read.Syntax.GetLocation()], pair.Key.Name, Named(pair.Value.Reader)));
+                }
+            }
+            bool Public(ISymbol source, INamedTypeSymbol owner) {
+                Stack<ISymbol> remaining = new([source]);
+                while (remaining.Count is not 0) {
+                    end.CancellationToken.ThrowIfCancellationRequested();
+                    ISymbol symbol = remaining.Pop();
+                    if (symbol is ITypeParameterSymbol or IDynamicTypeSymbol || SymbolEqualityComparer.Default.Equals(symbol, owner)) continue;
+                    if (symbol is IArrayTypeSymbol array) {
+                        remaining.Push(array.ElementType);
+                        continue;
+                    }
+                    if (symbol is IErrorTypeSymbol || symbol.DeclaredAccessibility is not Accessibility.Public) return false;
+                    if (symbol.ContainingType is { } containing) remaining.Push(containing);
+                    foreach (ITypeSymbol argument in symbol switch {
+                        INamedTypeSymbol type => type.TypeArguments,
+                        IMethodSymbol method => method.TypeArguments,
+                        _ => [],
+                    }) remaining.Push(argument);
+                    if (symbol is IPropertySymbol property) {
+                        if (property.GetMethod is not { } getter) return false;
+                        remaining.Push(getter);
+                    }
+                }
+                return true;
+            }
+            IEqualityComparer<IPropertySymbol> properties = SymbolEqualityComparer.Default;
+            ILookup<IPropertySymbol, (IPropertyReferenceOperation Read, INamedTypeSymbol Reader)> observed = uses.ToLookup(static held => held.Read.Property.OriginalDefinition, properties);
+            bool Readable(IPropertySymbol property, IOperation value) {
+                ImmutableArray<IMemberReferenceOperation> members = [.. value.DescendantsAndSelf().OfType<IMemberReferenceOperation>()];
+                ImmutableArray<IParameterReferenceOperation> parameters = [.. value.DescendantsAndSelf().OfType<IParameterReferenceOperation>()
+                    .Where(static read => read.Parameter.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor })];
+                return (property.DeclaredAccessibility is not Accessibility.Private && parameters.IsEmpty && members.All(member => Public(member.Member, property.ContainingType)))
+                    || (hidden(property) && !pinned.ContainsKey(property.OriginalDefinition) && observed[property.OriginalDefinition].ToImmutableArray() is { IsEmpty: false } held && held.All(use => {
+                        end.CancellationToken.ThrowIfCancellationRequested();
+                        bool Bound(ISymbol symbol, SyntaxNode syntax) =>
+                            syntax is ExpressionSyntax expression && use.Read.SemanticModel!.GetSpeculativeSymbolInfo(use.Read.Syntax.SpanStart, expression, SpeculativeBindingOption.BindAsExpression) is var binding
+                            && (SymbolEqualityComparer.Default.Equals(binding.Symbol, symbol)
+                                || (symbol is IMethodSymbol && binding.CandidateReason is CandidateReason.MemberGroup && binding.CandidateSymbols.Contains(symbol, SymbolEqualityComparer.Default)));
+                        bool own = SymbolEqualityComparer.Default.Equals(use.Reader, property.ContainingType)
+                            && use.Read.Instance is null or IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance };
+                        return (own ? parameters.All(parameter => Bound(parameter.Parameter, parameter.Syntax)) : parameters.IsEmpty) && members.All(member =>
+                            end.Compilation.IsSymbolAccessibleWithin(member.Member, use.Reader, member.Instance?.Type)
+                            && (member is not IPropertyReferenceOperation getter || (getter.Property.GetMethod is { } method
+                                && end.Compilation.IsSymbolAccessibleWithin(method, use.Reader, getter.Instance?.Type)))
+                            && (!own || member.Instance is not (null or IInstanceReferenceOperation) || Bound(member.Member, member.Syntax)));
+                    }));
+            }
+            foreach (KeyValuePair<IPropertySymbol, IOperation> pair in forwards) {
+                end.CancellationToken.ThrowIfCancellationRequested();
+                if (!Readable(pair.Key, pair.Value)) continue;
+                _ = reported.Add(pair.Key);
+                end.ReportDiagnostic(Diagnostic.Create(Forwarded, pair.Key.Locations[0], pair.Key.Name, pair.Value.Syntax));
+            }
+            foreach (KeyValuePair<ISymbol, (IOperation Read, ISymbol Reader, int Count)> pair in assembled) {
+                end.CancellationToken.ThrowIfCancellationRequested();
+                (ISymbol member, IOperation site, ISymbol reader) = (pair.Key, pair.Value.Read, pair.Value.Reader);
+                (IOperation? instance, ImmutableArray<IArgumentOperation> arguments) = site is IInvocationOperation call ? (call.Instance, call.Arguments) : ((site as IMemberReferenceOperation)?.Instance, []);
+                if (pair.Value.Count is 1 && Folding(member) && !pinned.ContainsKey(member) && !reported.Contains(member) && !cyclic.Contains(member) && reader.ContainingType is { } within
+                    && member.DeclaringSyntaxReferences is { Length: 1 } declared && available.TryGetValue(declared[0].SyntaxTree, out SemanticModel? model)
+                    && declared[0].GetSyntax(end.CancellationToken) is var body && Nesting(site.Syntax) + (site is IMethodReferenceOperation ? 1 : 0) + Depth(body) <= 3
+                    && (member is not IFieldSymbol { IsConst: false } || Once(site)
+                        || (body is VariableDeclaratorSyntax { Initializer.Value: var stated } && model.GetConstantValue(stated, end.CancellationToken).HasValue))
+                    && ((arguments.IsEmpty && instance is null or IInstanceReferenceOperation) || (values.TryGetValue(member, out IOperation? value) && Passed(value, instance, arguments)))
+                    && body.DescendantNodes().All(node => model.GetSymbolInfo(node, end.CancellationToken).Symbol is not { } used
+                        || ((used is not IParameterSymbol { ContainingSymbol: IMethodSymbol { MethodKind: MethodKind.Constructor } } || Same(within, member.ContainingType))
+                            && (used.ContainingSymbol is not INamedTypeSymbol || end.Compilation.IsSymbolAccessibleWithin(used, within)))))
+                    end.ReportDiagnostic(Diagnostic.Create(Folded, member.Locations[0], [site.Syntax.GetLocation()], $"{member.ContainingType.Name}.{member.Name}", $"{within.Name}.{Named(reader)}"));
             }
         });
     }
@@ -281,121 +423,17 @@ public sealed class SingleReaderAnalyzer : DiagnosticAnalyzer {
         return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Where(used => !own.Contains(used.Identifier.ValueText)
             && used.Parent switch { MemberAccessExpressionSyntax access => access.Name != used, MemberBindingExpressionSyntax or NameColonSyntax or NameEqualsSyntax => false, _ => true });
     }
-}
-
-[DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class ForwardingPropertyAnalyzer : DiagnosticAnalyzer {
-
-    // --- [RULES]
-
-    private static readonly DiagnosticDescriptor Rule = new(
-        "RASM3012",
-        "Forwarding property, read member at its uses",
-        "`{0}` forwards `{1}`, read `{1}` at each use",
-        Categories.CSharp,
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true,
-        "Properties and indexers add behavior or implement a contract instead of returning another owner's accessible member unchanged.",
-        Link("RASM3012"),
-        WellKnownDiagnosticTags.CompilationEnd);
-
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
-
-    public override void Initialize(AnalysisContext context) {
-        context.EnableConcurrentExecution();
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start => {
-            ImmutableArray<INamedTypeSymbol> cells = Cells(start.Compilation);
-            ConcurrentDictionary<ISymbol, byte> named = new(SymbolEqualityComparer.Default);
-            ConcurrentDictionary<IPropertySymbol, IOperation> forwards = new(SymbolEqualityComparer.Default);
-            ConcurrentBag<(IPropertyReferenceOperation Read, INamedTypeSymbol Reader)> propertyReads = [];
-            start.RegisterOperationBlockAction(block => {
-                if (block.OwningSymbol is IMethodSymbol { MethodKind: MethodKind.PropertyGet, AssociatedSymbol: IPropertySymbol property }
-                    && block.OperationBlocks is { Length: 1 } blocks && Expressed(blocks[0]) is { } value && Forwarding(property, value, cells, block.CancellationToken))
-                    forwards[property] = value;
-            });
-            start.RegisterOperationAction(
-                analysis => {
-                    if (analysis.Operation is INameOfOperation name) {
-                        SymbolInfo info = analysis.Operation.SemanticModel!.GetSymbolInfo(name.Argument.Syntax, analysis.CancellationToken);
-                        foreach (ISymbol symbol in info.Symbol is { } found ? [found] : info.CandidateSymbols)
-                            _ = named.TryAdd(symbol.OriginalDefinition, 0);
-                    } else if (analysis.Operation is IPropertyReferenceOperation { Property.DeclaredAccessibility: Accessibility.Private } property && analysis.ContainingSymbol.ContainingType is { } containing)
-                        propertyReads.Add((property, containing));
-                },
-                OperationKind.PropertyReference,
-                OperationKind.NameOf);
-            start.RegisterCompilationEndAction(end => {
-                bool Public(ISymbol source, INamedTypeSymbol owner) {
-                    Stack<ISymbol> remaining = new([source]);
-                    while (remaining.Count is not 0) {
-                        end.CancellationToken.ThrowIfCancellationRequested();
-                        ISymbol symbol = remaining.Pop();
-                        if (symbol is ITypeParameterSymbol or IDynamicTypeSymbol || SymbolEqualityComparer.Default.Equals(symbol, owner)) continue;
-                        if (symbol is IArrayTypeSymbol array) {
-                            remaining.Push(array.ElementType);
-                            continue;
-                        }
-                        if (symbol is IErrorTypeSymbol || symbol.DeclaredAccessibility is not Accessibility.Public) return false;
-                        if (symbol.ContainingType is { } containing) remaining.Push(containing);
-                        foreach (ITypeSymbol argument in symbol switch {
-                            INamedTypeSymbol type => type.TypeArguments,
-                            IMethodSymbol method => method.TypeArguments,
-                            _ => [],
-                        }) remaining.Push(argument);
-                        if (symbol is IPropertySymbol property) {
-                            if (property.GetMethod is not { } getter) return false;
-                            remaining.Push(getter);
-                        }
-                    }
-                    return true;
-                }
-                IEqualityComparer<IPropertySymbol> propertyComparer = SymbolEqualityComparer.Default;
-                ILookup<IPropertySymbol, (IPropertyReferenceOperation Read, INamedTypeSymbol Reader)> privateReads = propertyReads
-                    .ToLookup(static held => held.Read.Property.OriginalDefinition, propertyComparer);
-                bool Accessible(IPropertySymbol property, IOperation value) {
-                    ImmutableArray<IMemberReferenceOperation> members = [.. value.DescendantsAndSelf().OfType<IMemberReferenceOperation>()];
-                    ImmutableArray<IParameterReferenceOperation> parameters = [.. value.DescendantsAndSelf().OfType<IParameterReferenceOperation>()
-                        .Where(static read => read.Parameter.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor })];
-                    if (property.DeclaredAccessibility is not Accessibility.Private)
-                        return parameters.IsEmpty && members.All(member => Public(member.Member, property.ContainingType));
-                    if (named.ContainsKey(property.OriginalDefinition)) return false;
-                    IEnumerable<(IPropertyReferenceOperation Read, INamedTypeSymbol Reader)> uses = privateReads[property.OriginalDefinition];
-                    return uses.Any() && uses.All(held => {
-                        end.CancellationToken.ThrowIfCancellationRequested();
-                        if (!SymbolEqualityComparer.Default.Equals(held.Reader, property.ContainingType)
-                            || held.Read.Instance is not (null or IInstanceReferenceOperation { ReferenceKind: InstanceReferenceKind.ContainingTypeInstance })) return false;
-                        bool Bound(ISymbol symbol, SyntaxNode syntax) {
-                            if (syntax is not ExpressionSyntax expression) return false;
-                            SymbolInfo binding = held.Read.SemanticModel!.GetSpeculativeSymbolInfo(held.Read.Syntax.SpanStart, expression, SpeculativeBindingOption.BindAsExpression);
-                            return SymbolEqualityComparer.Default.Equals(binding.Symbol, symbol) || (symbol is IMethodSymbol
-                                && binding.CandidateReason is CandidateReason.MemberGroup && binding.CandidateSymbols.Contains(symbol, SymbolEqualityComparer.Default));
-                        }
-                        return parameters.All(parameter => Bound(parameter.Parameter, parameter.Syntax)) && members.All(member =>
-                            end.Compilation.IsSymbolAccessibleWithin(member.Member, held.Reader, member.Instance?.Type)
-                            && (member is not IPropertyReferenceOperation getter || (getter.Property.GetMethod is { } method
-                                && end.Compilation.IsSymbolAccessibleWithin(method, held.Reader, getter.Instance?.Type)))
-                            && (member.Instance is not (null or IInstanceReferenceOperation) || Bound(member.Member, member.Syntax)));
-                    });
-                }
-                foreach (KeyValuePair<IPropertySymbol, IOperation> pair in forwards) {
-                    end.CancellationToken.ThrowIfCancellationRequested();
-                    if (Accessible(pair.Key, pair.Value)) end.ReportDiagnostic(Diagnostic.Create(Rule, pair.Key.Locations[0], pair.Key.Name, pair.Value.Syntax));
-                }
-            });
-        });
-    }
 
     // --- [FORWARDS]
 
-    internal static ImmutableArray<INamedTypeSymbol> Cells(Compilation compilation) => [
+    private static ImmutableArray<INamedTypeSymbol> Cells(Compilation compilation) => [
         .. Declared(compilation, "T:System.Lazy`1", "T:System.Threading.ThreadLocal`1", "T:System.Threading.AsyncLocal`1", "T:System.Runtime.CompilerServices.StrongBox`1",
             "T:System.Threading.Channels.Channel`1", "T:System.Threading.Channels.Channel`2").OfType<INamedTypeSymbol>(),
         .. WellKnownTypeProvider.GetOrCreate(compilation).GetOrCreateTypeByMetadataName("LanguageExt.Atom`1")?.ContainingNamespace.GetTypeMembers()
             .Where(static type => type.Name is "Atom" or "AtomHashMap" or "AtomSeq" or "AtomQue" or "Ref" or "VersionHashMap") ?? [],
     ];
 
-    internal static bool Forwarding(IPropertySymbol property, IOperation returned, ImmutableArray<INamedTypeSymbol> cells, CancellationToken token) {
+    private static bool Forwarding(IPropertySymbol property, IOperation returned, ImmutableArray<INamedTypeSymbol> cells, CancellationToken token) {
         if (property is { SetMethod: not null } or { IsVirtual: true } or { IsAbstract: true } or { IsOverride: true } or { IsExtern: true }
             or { IsPartialDefinition: true } or { PartialDefinitionPart: not null } or { ReturnsByRef: true } or { ReturnsByRefReadonly: true }
             || !property.GetAttributes().IsEmpty || property.GetMethod is not { } getter || !getter.GetAttributes().IsEmpty || !getter.GetReturnTypeAttributes().IsEmpty

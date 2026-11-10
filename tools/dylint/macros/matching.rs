@@ -1,24 +1,21 @@
-use core::{iter, ops::ControlFlow};
+use core::iter;
+use core::ops::ControlFlow;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    eq_expr_value, fn_def_id, get_parent_expr,
-    macros::{FormatArgsStorage, PanicCall, find_assert_args, matching_root_macro_call, root_macro_call_first_node},
-    res::MaybeDef as _,
-    source::snippet,
-    sym,
-    ty::{has_debug_impl, is_copy},
-    visitors::for_each_expr_without_closures,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{FormatArgsStorage, PanicCall, find_assert_args, matching_root_macro_call, root_macro_call_first_node};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::snippet;
+use clippy_utils::ty::{has_debug_impl, is_copy};
+use clippy_utils::visitors::for_each_expr_without_closures;
+use clippy_utils::{eq_expr_value, fn_def_id, get_parent_expr, sym};
 use itertools::{Either, Itertools as _};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_hir::{Arm, BinOpKind, ByRef, Expr, ExprKind, Pat, PatKind, QPath, UnOp, def::Res};
+use rustc_hir::def::Res;
+use rustc_hir::{Arm, BinOpKind, ByRef, Expr, ExprKind, Pat, PatKind, QPath, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{
-    TyCtxt,
-    adjustment::{Adjust, DerefAdjustKind},
-};
+use rustc_middle::ty::TyCtxt;
+use rustc_middle::ty::adjustment::{Adjust, DerefAdjustKind};
 
 use super::has_temporary_drop;
 use crate::{expanded_externally, impl_owner, in_test};

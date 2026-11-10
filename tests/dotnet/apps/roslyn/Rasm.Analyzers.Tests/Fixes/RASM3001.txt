@@ -151,14 +151,14 @@ internal static class Pointers {
     }
 }
 
-internal static class ScopedNames {
+public static class ScopedNames {
     internal static int Changed() => Take(2) + Other.Count;
 
-    internal static int Take(int count) => count;
+    public static int Take(int count) => count;
 }
 
-internal static class Other {
-    internal const int Count = 1;
+public static class Other {
+    public const int Count = 1;
 }
 
 internal static class NamedArguments {
@@ -245,7 +245,7 @@ internal static class UnderscoreParameter {
     }
 }
 
-internal static class EvaluationOrder {
+public static class EvaluationOrder {
     private static int count;
 
     internal static int Run(int divisor) {
@@ -253,7 +253,7 @@ internal static class EvaluationOrder {
         return readRead;
     }
 
-    internal static int Log() => ++count;
+    public static int Log() => ++count;
 
     private static int ReadRead(int value) => Log() + value;
 }

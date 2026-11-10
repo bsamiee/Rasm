@@ -98,10 +98,4 @@ internal static class MachinePower {
 
     private static IO<Process> Started(string program, Seq<string> arguments) =>
         IO.lift(() => Conversions.Required(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true })));
-
-    internal static IO<Unit> Exited(int processId) =>
-        (from process in Products.Of(() => Process.GetProcessById(processId))
-         from waited in IO.liftAsync(environment => process.WaitForExitAsync(environment.Token).ToUnit())
-         select waited).Bracket()
-            | @catch(static error => error.HasException<ArgumentException>(), static _ => IO.pure(unit));
 }

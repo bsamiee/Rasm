@@ -1,5 +1,6 @@
 import { Launched, Pid } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
+import runtime from '@rasm/atelier-extendscript?inline';
 import { Completion, ExecuteScript, Render } from '@rasm/atelier-protocol';
 import { Peer } from '@rasm/atelier-protocol/peer';
 import { HostError, ObjectModel, Reference } from '@rasm/automation';
@@ -15,16 +16,9 @@ import { Capture } from '#/features/applications';
 import { Libraries, library, type listening } from '#/libraries';
 import type { routes } from '#/routes';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-declare global {
-    const EXTENDSCRIPT_RUNTIME: string;
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LINK_WAIT = Duration.minutes(2);
-const BODY_LINE = Number.decrement;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -41,22 +35,22 @@ const Opened = Reference.mapFields(Struct.assign({ launched: Schema.OptionFromOp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const lowered = Effect.fnUntraced(function* (code: string, target: Parameters<typeof lower>[1], awaits: boolean) {
-    const { code: source, map } = yield* lower(ExecuteScript.expression(code, awaits), target, 'typescript').pipe(Effect.mapError((error) => (HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.map(error.reason.line, BODY_LINE))(error.cause) : error)));
+    const { code: source, map } = yield* lower(ExecuteScript.expression(code, awaits), target, 'typescript').pipe(Effect.mapError((error) => (HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.map(error.reason.line, Number.decrement))(error.cause) : error)));
     const original = yield* traced(map);
     const relined = (error: HostError) =>
         Effect.fail(
             HostError.fields.reason.isAnyOf(['Thrown'])(error.reason)
                 ? HostError.thrown(
                       error.subject,
-                      Option.map(Option.flatMap(error.reason.line, original), ({ line }) => BODY_LINE(line)),
+                      Option.map(Option.flatMap(error.reason.line, original), ({ line }) => Number.decrement(line)),
                   )(error.cause)
                 : error,
         );
     return { source, relined };
 });
 const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listening>, serves: ReturnType<Effect.Success<ReturnType<typeof routes>>['serving']>['serves'], file: URL) {
-    const adobe = yield* Adobe;
-    const [rows, peers] = yield* Effect.all([adobe.opening(file), links.peers]);
+    const [adobe, automation] = yield* Effect.all([Adobe, Automation]);
+    const [rows, peers] = yield* Effect.all([automation.opening(file, {}), links.peers]);
     const candidates = rows.filter(
         flow(
             library,
@@ -100,7 +94,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
         const { reply } = yield* automation.script({
             pid,
             url,
-            direct: `(function (self) { var body = ${source}\n${EXTENDSCRIPT_RUNTIME}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
+            direct: `(function (self) { var body = ${source}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
         return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(Completion.answered(ResultJson, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
     });

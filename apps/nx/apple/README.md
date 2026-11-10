@@ -84,12 +84,12 @@ Each tool builds at its own default location, which every caller reaches with no
 |  [05]   | `check--xcodebuild`  | None                   | None                         | `build--xcodebuild`             |   No    |
 |  [06]   | `build--ditto`       | Shipped executable zip | Shipped executable zip       | Zip of each archived app        |   No    |
 |  [07]   | `build--notarytool`  | None                   | None                         | Export, notarize, staple, zip   |   No    |
-|  [08]   | `build`, `check`     | `build--*`, `check--*` | `build--*`, `check--*`       | `build--*`, `check--*`          |   No    |
-|  [09]   | `install`            | Shipped executable     | Shipped executable           | `xcodebuild install` per scheme |   No    |
+|  [08]   | `build`, `check`, `install` | `<verb>--*`     | `<verb>--*`                  | `<verb>--*`                     |   No    |
+|  [09]   | `install--swift-package`, `install--xcodebuild` | `install--swift-package` on a shipped executable | `install--swift-package` on a shipped executable | `install--xcodebuild`: `xcodebuild install` per scheme |   No    |
 |  [10]   | `nx-release-publish` | Shipped executable     | Shipped executable           | Each archived app               |   No    |
 
 - `check--swift-build` and `check--xcodebuild` run the compile as the type check, since the Swift compiler is the type checker
-- `build` and `check` are `nx:noop` targets over every `build--*` or `check--*` target, so plugins sharing a project add to one aggregate
+- `build`, `check`, and `install` are `nx:noop` targets over every `<verb>--*` target, so plugins sharing a project add to one aggregate
 - Aggregates forward no arguments: Nx passes a command's arguments down every dependency's `dependsOn`, so forwarding would reach each `<verb>--*` tool of every project `^build` reaches; one-run switches go to the tool-named target (`nx run <project>:build--xcodebuild -- -jobs 4`)
 - `build--xcodebuild` depends on `^build`, so producers of its build-phase files (an embedded helper, a bundled script) build first, and no SwiftPM build runs before it
 - Projects with no `<verb>--*` target get no aggregate
@@ -132,19 +132,19 @@ Each tool builds at its own default location, which every caller reaches with no
 | [INDEX] | [PRODUCT]                                               | [RUNS]                                                                                                           | [PLACES]                                       |
 | :-----: | :------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------- | :--------------------------------------------- |
 |  [01]   | SwiftPM executable product                              | `swift build -c release --product`, `swift package experimental-uninstall`, `swift package experimental-install` | SwiftPM's install folder, which SwiftPM prints |
-|  [02]   | Xcode scheme building a target with `SKIP_INSTALL = NO` | `xcodebuild install -scheme <scheme> DSTROOT=<INSTALL_PATH> INSTALL_PATH=/`                                      | `INSTALL_PATH`, `/Applications` for an app     |
+|  [02]   | Xcode scheme building a target with `SKIP_INSTALL = NO` | `xcodebuild install -scheme <scheme> -configuration <archive configuration> DSTROOT=<INSTALL_PATH> INSTALL_PATH=/` | `INSTALL_PATH`, `/Applications` for an app     |
 
-- SwiftPM refuses to install over an installed product and to uninstall an absent one
-- `install` runs `experimental-uninstall` only when SwiftPM's install folder (`$XDG_CONFIG_HOME/swiftpm/bin`, else `~/.swiftpm/bin`) lists the product
-- `install` builds first, so a failing build leaves the installed copy in place
-- `install` sits on the project of a shipped executable product: one whose target folder holds the `Info.plist` its binary embeds (`-sectcreate __TEXT __info_plist`), naming its bundle identifier and version, so the binary reports its own version through `Bundle.main` and a tool built only for another package to run (the core) ships nothing
-- Xcode's `install` action builds the scheme's archive configuration in derived data `ArchiveIntermediates`, signs, writes into `DSTROOT` at `INSTALL_PATH`, and registers the bundle with Launch Services
+- SwiftPM refuses to install over an installed product and to uninstall an absent one (`Install.swift`: `is already installed at`, `No such installed executable`), and its install is a build followed by a plain copy, so no SwiftPM command replaces an installed product: between `experimental-uninstall` and the copy, the time of a build with nothing to compile, `PATH` holds no product
+- `install--swift-package` runs `experimental-uninstall` only when SwiftPM's install folder (`$XDG_CONFIG_HOME/swiftpm/bin`, else `~/.swiftpm/bin`) lists the product
+- `install--swift-package` builds first, so a failing build leaves the installed copy in place
+- `install--swift-package` sits on the project of a shipped executable product: one whose target folder holds the `Info.plist` its binary embeds (`-sectcreate __TEXT __info_plist`), naming its bundle identifier and version, so the binary reports its own version through `Bundle.main` and a tool built only for another package to run (the core) ships nothing
+- `install--xcodebuild` passes `-configuration` with the configuration `xcodebuild archive -showBuildSettings` evaluates for the scheme, and Xcode's `install` action builds it in derived data `ArchiveIntermediates`, signs, writes into `DSTROOT` at `INSTALL_PATH`, and registers the bundle with Launch Services
 - `DSTROOT=/` fails in Xcode 27 with `Cycle inside a single target`, since the build directory it creates at `/` contains the derived data folders, so the run moves the evaluated `INSTALL_PATH` into `DSTROOT`; a scheme whose installing targets state more than one `INSTALL_PATH` fails inference by name
-- `install` depends on `^build`, so producers of build-phase files (an embedded helper, a launch agent plist) build first; it never depends on the project's own `build`, since the install action is that build
+- `install--xcodebuild` depends on `^build`, so producers of build-phase files (an embedded helper, a launch agent plist) build first; it never depends on the project's own `build`, since the install action is that build
 - Installs merge into the existing bundle and remove stale files only when the same derived data produced them, so the first install over a copy another source placed keeps that copy's extra files
-- Running copies keep running on their old image: each written file is a new file, and the next launch, login, or agent restart runs the installed build; a launchd agent the app registered through `SMAppService` runs its new helper when launchd next starts it
-- Every install reruns, since it writes outside the workspace
-- Arguments after `--` reach `xcodebuild install` (`nx install <app> -- -jobs 4`) and SwiftPM's release build (`-- -j 4`), which `experimental-install` then reuses, since it refuses build options after the subcommand; `-c` selects no configuration, since the install action builds the scheme's archive configuration and SwiftPM installs release builds
+- Running copies keep running on their old image: each written file is a new file, and the next launch, login, or agent restart runs the installed build; a launchd agent the app registered through `SMAppService` runs its new helper when launchd next starts it; when `ps` lists a process under an installed bundle's `Contents/MacOS`, the last line names the app (`INSTALL_PATH` and `WRAPPER_NAME` of its targets) and says a relaunch runs the build
+- Every install reruns and declares no inputs or outputs, since it writes outside the workspace
+- Arguments after `--` reach `xcodebuild install` (`nx run <app>:install--xcodebuild -- -jobs 4`) and both SwiftPM steps (`nx run <product>:install--swift-package -- -j 4`): the release build takes them at its end and `experimental-install` ahead of the subcommand, since it refuses build options after it and builds again with the options it is given; `-c` selects no configuration
 
 ## [06]-[RELEASE]
 
@@ -165,7 +165,7 @@ Each tool builds at its own default location, which every caller reaches with no
 - Plugin resolves the core through its `#analyzer` import of the platform package's `./nx-apple-analyzer` export
 - Workspaces with no Xcode project or workspace never run the core
 - Platform package exports the path `swift build --configuration release --show-bin-path` prints, so the tree and the tarball share one path
-- Platform package `prepare` builds the core on `pnpm install`, and pnpm strips `prepare` from the published manifest
+- `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core at that path, on a Mac after a clone or a change under `analyzer/`; no install script builds it, since pnpm runs a workspace project's scripts on every platform
 - Core sits in its own SwiftPM package, so the published plugin carries it without the repository's root package
 
 ## [08]-[LAYOUT]
@@ -175,11 +175,11 @@ Each tool builds at its own default location, which every caller reaches with no
 |  [01]   | `plugins/project-graph.ts`            | Package entry: options, `createNodes`, `createDependencies`, the graph cache        |
 |  [02]   | `plugins/swift-package.ts`            | `describe` decoding, package and module projects, package edges                     |
 |  [03]   | `plugins/xcode-project.ts`            | Core report decoding, build setting evaluation, Xcode projects                      |
-|  [04]   | `plugins/targets.ts`                  | Toolchain inputs, core location, target builder, child process runner, plugin error |
+|  [04]   | `plugins/targets.ts`                  | Core location, target builder, process runner, plugin error, manifest versions      |
 |  [05]   | `executors/run/`                      | `run` executor, its Nx schema, the invocation shape as Effect schema                |
-|  [06]   | `executors/install/`                  | `install` executor replacing a SwiftPM executable product, its Nx schema            |
+|  [06]   | `executors/install/`                  | `install--swift-package` executor replacing a SwiftPM executable product, its Nx schema |
 |  [07]   | `executors/zip/`                      | `zip` executor zipping archives and executable products, notarizing Developer ID apps |
 |  [08]   | `executors/release-publish/`          | `nx-release-publish` executor attaching release zips and publishing Sparkle feeds    |
-|  [09]   | `version-actions.ts`                  | Nx release version actions over the core's `version` subcommand and `plutil`        |
+|  [09]   | `version-actions.ts`                  | Nx release version actions over the manifest versions of `plugins/targets.ts`       |
 |  [10]   | `analyzer/`                           | `@rasm/nx-apple-darwin-arm64`: the core's SwiftPM package and its npm manifest      |
 |  [11]   | `analyzer/Sources/nx-apple-analyzer/` | Swift core over `XcodeProjectFormat`: `analyze` reports, `version` writes versions  |

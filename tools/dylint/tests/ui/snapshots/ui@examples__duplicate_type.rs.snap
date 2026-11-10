@@ -3,433 +3,433 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/duplicate_type.rs
 ---
 error: `unwrap_or_default` replaces `TryFromIntError` with a fallback value
-   --> tools/dylint/examples/duplicate_type.rs:416:52
+   --> tools/dylint/examples/duplicate_type.rs:418:52
     |
-416 |     shim.port.strict_add(u16::try_from(shim.limit).unwrap_or_default())
+418 |     shim.port.strict_add(u16::try_from(shim.limit).unwrap_or_default())
     |                                                    ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
     = note: `#[deny(discarded_error)]` on by default
 
 error: error `u16` is a primitive that names no failure
-   --> tools/dylint/examples/duplicate_type.rs:467:25
+   --> tools/dylint/examples/duplicate_type.rs:469:25
     |
-467 | const fn outcome(value: Result<u8, u16>) -> Outcome<u8, u16> {
+469 | const fn outcome(value: Result<u8, u16>) -> Outcome<u8, u16> {
     |                         ^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
     = note: `#[deny(untyped_error)]` on by default
 
 error: `Endpoint` duplicates `Origin`
-  --> tools/dylint/examples/duplicate_type.rs:19:1
+  --> tools/dylint/examples/duplicate_type.rs:21:1
    |
-19 | struct Endpoint {
+21 | struct Endpoint {
    | ^^^^^^^^^^^^^^^
    |
 note: `Origin` declared here
-  --> tools/dylint/examples/duplicate_type.rs:13:1
+  --> tools/dylint/examples/duplicate_type.rs:15:1
    |
-13 | struct Origin {
+15 | struct Origin {
    | ^^^^^^^^^^^^^
    = help: use `Origin` in place of `Endpoint`
    = note: `#[deny(duplicate_type)]` on by default
 
 error: `Groups` repeats `Users` with `Group` in place of `User`
-  --> tools/dylint/examples/duplicate_type.rs:45:1
+  --> tools/dylint/examples/duplicate_type.rs:47:1
    |
-45 | struct Groups {
+47 | struct Groups {
    | ^^^^^^^^^^^^^
    |
 note: `Users` declared here
-  --> tools/dylint/examples/duplicate_type.rs:39:1
+  --> tools/dylint/examples/duplicate_type.rs:41:1
    |
-39 | struct Users {
+41 | struct Users {
    | ^^^^^^^^^^^^
    = help: use `Users` generic over the differing field types in place of `Groups`
 
 error: `Members` duplicates `Paged<User>`
-  --> tools/dylint/examples/duplicate_type.rs:57:1
+  --> tools/dylint/examples/duplicate_type.rs:59:1
    |
-57 | struct Members {
+59 | struct Members {
    | ^^^^^^^^^^^^^^
    |
 note: `Paged` declared here
-  --> tools/dylint/examples/duplicate_type.rs:51:1
+  --> tools/dylint/examples/duplicate_type.rs:53:1
    |
-51 | struct Paged<T> {
+53 | struct Paged<T> {
    | ^^^^^^^^^^^^^^^
    = help: use `Paged<User>` in place of `Members`
 
 error: every variant of `Event` repeats the same fields
-  --> tools/dylint/examples/duplicate_type.rs:63:1
+  --> tools/dylint/examples/duplicate_type.rs:65:1
    |
-63 | enum Event {
+65 | enum Event {
    | ^^^^^^^^^^
    |
    = help: declare `Event` as a struct of the shared fields and a fieldless enum of its variants
 
 error: variant `Fetch` repeats the fields of `Origin`
-  --> tools/dylint/examples/duplicate_type.rs:70:5
+  --> tools/dylint/examples/duplicate_type.rs:72:5
    |
-70 |     Fetch { host: String, port: u16 },
+72 |     Fetch { host: String, port: u16 },
    |     ^^^^^
    |
    = help: declare `Fetch(Origin)`
 
 error: `Location` repeats `Link` fields `host` and `path`
-   --> tools/dylint/examples/duplicate_type.rs:82:1
+   --> tools/dylint/examples/duplicate_type.rs:84:1
     |
- 82 | struct Location {
+ 84 | struct Location {
     | ^^^^^^^^^^^^^^^
     |
 note: built from `Link` fields here
-   --> tools/dylint/examples/duplicate_type.rs:419:39
+   --> tools/dylint/examples/duplicate_type.rs:421:39
     |
-419 | fn located(link: &Link) -> Location { Location { host: link.host.clone(), path: link.path.clone() } }
+421 | fn located(link: &Link) -> Location { Location { host: link.host.clone(), path: link.path.clone() } }
     |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: hold `Location` in `Link` in place of `host` and `path`
 
 error: `AddressDto` repeats `Address` member by member
-   --> tools/dylint/examples/duplicate_type.rs:106:1
+   --> tools/dylint/examples/duplicate_type.rs:108:1
     |
-106 | struct AddressDto {
+108 | struct AddressDto {
     | ^^^^^^^^^^^^^^^^^
     |
 note: converted from `Address` here
-   --> tools/dylint/examples/duplicate_type.rs:501:15
+   --> tools/dylint/examples/duplicate_type.rs:503:15
     |
-501 |     let dto = AddressDto { port: u16::from(address.port), limit: u32::from(address.limit) };
+503 |     let dto = AddressDto { port: u16::from(address.port), limit: u32::from(address.limit) };
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: use `Address` generic over the differing member types in place of `AddressDto`
 
 error: `AccountRow` repeats `Account` member by member
-   --> tools/dylint/examples/duplicate_type.rs:118:1
+   --> tools/dylint/examples/duplicate_type.rs:120:1
     |
-118 | struct AccountRow {
+120 | struct AccountRow {
     | ^^^^^^^^^^^^^^^^^
     |
 note: converted from `Account` here
-   --> tools/dylint/examples/duplicate_type.rs:382:15
+   --> tools/dylint/examples/duplicate_type.rs:384:15
     |
-382 |     let row = AccountRow { user: account.login.clone(), address: account.email.clone() };
+384 |     let row = AccountRow { user: account.login.clone(), address: account.email.clone() };
     |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: use `Account` in place of `AccountRow`
 
 error: `Reading` repeats `Celsius` member by member
-   --> tools/dylint/examples/duplicate_type.rs:127:1
+   --> tools/dylint/examples/duplicate_type.rs:129:1
     |
-127 | struct Reading(f64);
+129 | struct Reading(f64);
     | ^^^^^^^^^^^^^^
     |
 note: converted from `Celsius` here
-   --> tools/dylint/examples/duplicate_type.rs:386:50
+   --> tools/dylint/examples/duplicate_type.rs:388:50
     |
-386 | const fn reading(celsius: &Celsius) -> Reading { Reading(celsius.0) }
+388 | const fn reading(celsius: &Celsius) -> Reading { Reading(celsius.0) }
     |                                                  ^^^^^^^^^^^^^^^^^^
     = help: use `Celsius` in place of `Reading`
 
 error: `ShapeKind` repeats the variants of `Shape` without their fields
-   --> tools/dylint/examples/duplicate_type.rs:171:1
+   --> tools/dylint/examples/duplicate_type.rs:173:1
     |
-171 | enum ShapeKind {
+173 | enum ShapeKind {
     | ^^^^^^^^^^^^^^
     |
 note: built from a match on `Shape` here
-   --> tools/dylint/examples/duplicate_type.rs:363:9
+   --> tools/dylint/examples/duplicate_type.rs:365:9
     |
-363 | /         match self {
-364 | |             Self::Circle(_) => ShapeKind::Circle,
-365 | |             Self::Square(_) => ShapeKind::Square,
-366 | |         }
+365 | /         match self {
+366 | |             Self::Circle(_) => ShapeKind::Circle,
+367 | |             Self::Square(_) => ShapeKind::Square,
+368 | |         }
     | |_________^
     = help: match `Shape` in place of `ShapeKind`
 
 error: `Signal` repeats `Phase` member by member
-   --> tools/dylint/examples/duplicate_type.rs:196:1
+   --> tools/dylint/examples/duplicate_type.rs:198:1
     |
-196 | enum Signal {
+198 | enum Signal {
     | ^^^^^^^^^^^
     |
 note: converted from `Phase` here
-   --> tools/dylint/examples/duplicate_type.rs:391:5
+   --> tools/dylint/examples/duplicate_type.rs:393:5
     |
-391 | /     match phase {
-392 | |         Phase::Start => Signal::Begin,
-393 | |         Phase::Stop => Signal::End,
-394 | |     }
+393 | /     match phase {
+394 | |         Phase::Start => Signal::Begin,
+395 | |         Phase::Stop => Signal::End,
+396 | |     }
     | |_____^
     = help: use `Phase` in place of `Signal`
 
 error: `Invocation` duplicates `Notice<M, std::option::Option<P>>`
-   --> tools/dylint/examples/duplicate_type.rs:220:1
+   --> tools/dylint/examples/duplicate_type.rs:222:1
     |
-220 | struct Invocation<M, P> {
+222 | struct Invocation<M, P> {
     | ^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `Notice` declared here
-   --> tools/dylint/examples/duplicate_type.rs:214:1
+   --> tools/dylint/examples/duplicate_type.rs:216:1
     |
-214 | struct Notice<M, P> {
+216 | struct Notice<M, P> {
     | ^^^^^^^^^^^^^^^^^^^
     = help: use `Notice<M, std::option::Option<P>>` in place of `Invocation`
 
 error: `Frame` duplicates `Message`
-   --> tools/dylint/examples/duplicate_type.rs:239:1
+   --> tools/dylint/examples/duplicate_type.rs:241:1
     |
-239 | enum Frame {
+241 | enum Frame {
     | ^^^^^^^^^^
     |
 note: `Message` declared here
-   --> tools/dylint/examples/duplicate_type.rs:233:1
+   --> tools/dylint/examples/duplicate_type.rs:235:1
     |
-233 | enum Message {
+235 | enum Message {
     | ^^^^^^^^^^^^
     = help: use `Message` in place of `Frame`
 
 error: `Bounds` duplicates `std::ops::Range<u32>`
-   --> tools/dylint/examples/duplicate_type.rs:259:1
+   --> tools/dylint/examples/duplicate_type.rs:261:1
     |
-259 | struct Bounds {
+261 | struct Bounds {
     | ^^^^^^^^^^^^^
     |
     = help: use `std::ops::Range<u32>` in place of `Bounds`
 
 error: `Captured` duplicates `std::process::Output`
-   --> tools/dylint/examples/duplicate_type.rs:284:1
+   --> tools/dylint/examples/duplicate_type.rs:286:1
     |
-284 | struct Captured {
+286 | struct Captured {
     | ^^^^^^^^^^^^^^^
     |
     = help: use `std::process::Output` in place of `Captured`
 
 error: `Rejected` duplicates `std::sync::mpmc::TrySendError<T>`
-   --> tools/dylint/examples/duplicate_type.rs:291:1
+   --> tools/dylint/examples/duplicate_type.rs:293:1
     |
-291 | enum Rejected<T> {
+293 | enum Rejected<T> {
     | ^^^^^^^^^^^^^^^^
     |
     = help: use `std::sync::mpmc::TrySendError<T>` in place of `Rejected`
 
 error: `Outcome` duplicates `std::result::Result<T, E>`
-   --> tools/dylint/examples/duplicate_type.rs:303:1
+   --> tools/dylint/examples/duplicate_type.rs:305:1
     |
-303 | enum Outcome<T, E> {
+305 | enum Outcome<T, E> {
     | ^^^^^^^^^^^^^^^^^^
     |
     = help: use `std::result::Result<T, E>` in place of `Outcome`
 
 error: error variants `Read` and `Write` of `ManifestError` repeat the same fields
-   --> tools/dylint/examples/duplicate_type.rs:318:1
+   --> tools/dylint/examples/duplicate_type.rs:320:1
     |
-318 | enum ManifestError {
+320 | enum ManifestError {
     | ^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_type.rs:320:5
+   --> tools/dylint/examples/duplicate_type.rs:322:5
     |
-320 |     Read(#[source] io::Error),
+322 |     Read(#[source] io::Error),
     |     ^^^^
-321 |     #[error("cannot write the manifest")]
-322 |     Write(#[source] io::Error),
+323 |     #[error("cannot write the manifest")]
+324 |     Write(#[source] io::Error),
     |     ^^^^^
     = help: replace `Read` and `Write` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
 error: error variants `Runtime` and `Serve` of `ServeError` repeat the same fields
-   --> tools/dylint/examples/duplicate_type.rs:328:1
+   --> tools/dylint/examples/duplicate_type.rs:330:1
     |
-328 | enum ServeError<X> {
+330 | enum ServeError<X> {
     | ^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_type.rs:330:5
+   --> tools/dylint/examples/duplicate_type.rs:332:5
     |
-330 |     Runtime(#[source] io::Error),
+332 |     Runtime(#[source] io::Error),
     |     ^^^^^^^
-331 |     #[error("cannot serve the endpoint")]
-332 |     Serve(#[source] io::Error),
+333 |     #[error("cannot serve the endpoint")]
+334 |     Serve(#[source] io::Error),
     |     ^^^^^
     = help: replace `Runtime` and `Serve` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
 error: error variants `Invalid` and `Truncated` of `SchemaError` repeat the same fields
-   --> tools/dylint/examples/duplicate_type.rs:346:1
+   --> tools/dylint/examples/duplicate_type.rs:348:1
     |
-346 | enum SchemaError {
+348 | enum SchemaError {
     | ^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_type.rs:348:5
+   --> tools/dylint/examples/duplicate_type.rs:350:5
     |
-348 |     Invalid { path: String, line: u32 },
+350 |     Invalid { path: String, line: u32 },
     |     ^^^^^^^
-349 |     #[error("{path} ends at line {line}")]
-350 |     Truncated { path: String, line: u32 },
+351 |     #[error("{path} ends at line {line}")]
+352 |     Truncated { path: String, line: u32 },
     |     ^^^^^^^^^
     = help: replace `Invalid` and `Truncated` with one variant of the shared fields and a fieldless `derive_more::Display` enum for their messages
 
 error: `Shim` duplicates `AddressDto`
-   --> tools/dylint/examples/duplicate_type.rs:411:5
+   --> tools/dylint/examples/duplicate_type.rs:413:5
     |
-411 |     struct Shim {
+413 |     struct Shim {
     |     ^^^^^^^^^^^
     |
 note: `AddressDto` declared here
-   --> tools/dylint/examples/duplicate_type.rs:106:1
+   --> tools/dylint/examples/duplicate_type.rs:108:1
     |
-106 | struct AddressDto {
+108 | struct AddressDto {
     | ^^^^^^^^^^^^^^^^^
     = help: use `AddressDto` in place of `Shim`
 
 error: `NativeOrder` duplicates `std::cmp::Ordering`
-   --> tools/dylint/examples/duplicate_type.rs:612:5
+   --> tools/dylint/examples/duplicate_type.rs:614:5
     |
-612 |     enum NativeOrder {
+614 |     enum NativeOrder {
     |     ^^^^^^^^^^^^^^^^
     |
     = help: use `std::cmp::Ordering` in place of `NativeOrder`
 
 error: `Echo` duplicates `contracts::Packet<N>`
-   --> tools/dylint/examples/duplicate_type.rs:625:5
+   --> tools/dylint/examples/duplicate_type.rs:627:5
     |
-625 |     struct Echo<const N: usize> {
+627 |     struct Echo<const N: usize> {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `Packet` declared here
-   --> tools/dylint/examples/duplicate_type.rs:619:5
+   --> tools/dylint/examples/duplicate_type.rs:621:5
     |
-619 |     struct Packet<const N: usize> {
+621 |     struct Packet<const N: usize> {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: use `contracts::Packet<N>` in place of `Echo`
 
 error: `Numbered` duplicates `contracts::Unnumbered`
-   --> tools/dylint/examples/duplicate_type.rs:631:5
+   --> tools/dylint/examples/duplicate_type.rs:633:5
     |
-631 |     struct Numbered<const N: usize> {
+633 |     struct Numbered<const N: usize> {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `Unnumbered` declared here
-   --> tools/dylint/examples/duplicate_type.rs:637:5
+   --> tools/dylint/examples/duplicate_type.rs:639:5
     |
-637 |     struct Unnumbered {
+639 |     struct Unnumbered {
     |     ^^^^^^^^^^^^^^^^^
     = help: use `contracts::Unnumbered` in place of `Numbered`
 
 error: `Defaulted` duplicates `contracts::Unnumbered`
-   --> tools/dylint/examples/duplicate_type.rs:643:5
+   --> tools/dylint/examples/duplicate_type.rs:645:5
     |
-643 |     struct Defaulted<const N: usize = 4> {
+645 |     struct Defaulted<const N: usize = 4> {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `Unnumbered` declared here
-   --> tools/dylint/examples/duplicate_type.rs:637:5
+   --> tools/dylint/examples/duplicate_type.rs:639:5
     |
-637 |     struct Unnumbered {
+639 |     struct Unnumbered {
     |     ^^^^^^^^^^^^^^^^^
     = help: use `contracts::Unnumbered` in place of `Defaulted`
 
 error: `Strict` duplicates `contracts::Loose<T>`
-   --> tools/dylint/examples/duplicate_type.rs:649:5
+   --> tools/dylint/examples/duplicate_type.rs:651:5
     |
-649 |     struct Strict<T: Clone> {
+651 |     struct Strict<T: Clone> {
     |     ^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `Loose` declared here
-   --> tools/dylint/examples/duplicate_type.rs:655:5
+   --> tools/dylint/examples/duplicate_type.rs:657:5
     |
-655 |     struct Loose<T> {
+657 |     struct Loose<T> {
     |     ^^^^^^^^^^^^^^^
     = help: use `contracts::Loose<T>` in place of `Strict`
 
 error: `Fixed` duplicates `contracts::Borrowed<'static>`
-   --> tools/dylint/examples/duplicate_type.rs:661:5
+   --> tools/dylint/examples/duplicate_type.rs:663:5
     |
-661 |     struct Fixed {
+663 |     struct Fixed {
     |     ^^^^^^^^^^^^
     |
 note: `Borrowed` declared here
-   --> tools/dylint/examples/duplicate_type.rs:667:5
+   --> tools/dylint/examples/duplicate_type.rs:669:5
     |
-667 |     struct Borrowed<'a> {
+669 |     struct Borrowed<'a> {
     |     ^^^^^^^^^^^^^^^^^^^
     = help: use `contracts::Borrowed<'static>` in place of `Fixed`
 
 error: `Joined` duplicates `contracts::Forward<&'a str>`
-   --> tools/dylint/examples/duplicate_type.rs:673:5
+   --> tools/dylint/examples/duplicate_type.rs:675:5
     |
-673 |     struct Joined<'a> {
+675 |     struct Joined<'a> {
     |     ^^^^^^^^^^^^^^^^^
     |
 note: `Forward` declared here
-   --> tools/dylint/examples/duplicate_type.rs:574:5
+   --> tools/dylint/examples/duplicate_type.rs:576:5
     |
-574 |     struct Forward<T> {
+576 |     struct Forward<T> {
     |     ^^^^^^^^^^^^^^^^^
     = help: use `contracts::Forward<&'a str>` in place of `Joined`
 
 error: `Renamed` repeats `Source` member by member
-   --> tools/dylint/examples/duplicate_type.rs:895:5
+   --> tools/dylint/examples/duplicate_type.rs:897:5
     |
-895 |     enum Renamed {
+897 |     enum Renamed {
     |     ^^^^^^^^^^^^
     |
 note: converted from `Source` here
-   --> tools/dylint/examples/duplicate_type.rs:937:9
+   --> tools/dylint/examples/duplicate_type.rs:939:9
     |
-937 | /         match source {
-938 | |             Source::Pair(first, last) => Renamed::Values(first, last),
-939 | |             Source::Empty => Renamed::Finished,
-940 | |         }
+939 | /         match source {
+940 | |             Source::Pair(first, last) => Renamed::Values(first, last),
+941 | |             Source::Empty => Renamed::Finished,
+942 | |         }
     | |_________^
     = help: use `Source` in place of `Renamed`
 
 error: `reordered` has one reader, `values`
-   --> tools/dylint/examples/duplicate_type.rs:922:5
+   --> tools/dylint/examples/duplicate_type.rs:924:5
     |
-922 |     const fn reordered(source: Source) -> Reordered {
+924 |     const fn reordered(source: Source) -> Reordered {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/duplicate_type.rs:953:18
+   --> tools/dylint/examples/duplicate_type.rs:955:18
     |
-953 |                 [reordered(Source::Pair(1, 2)), reordered(Source::Empty)].map(|value| match value {
+955 |                 [reordered(Source::Pair(1, 2)), reordered(Source::Empty)].map(|value| match value {
     |                  ^^^^^^^^^                      ^^^^^^^^^
     = help: move `reordered` into `values` as a nested `fn`
     = note: `#[deny(single_reader)]` on by default
 
 error: `repeated` has one reader, `values`
-   --> tools/dylint/examples/duplicate_type.rs:929:5
+   --> tools/dylint/examples/duplicate_type.rs:931:5
     |
-929 |     const fn repeated(source: Source) -> Repeated {
+931 |     const fn repeated(source: Source) -> Repeated {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/duplicate_type.rs:957:18
+   --> tools/dylint/examples/duplicate_type.rs:959:18
     |
-957 |                 [repeated(Source::Pair(3, 4)), repeated(Source::Empty)].map(|value| match value {
+959 |                 [repeated(Source::Pair(3, 4)), repeated(Source::Empty)].map(|value| match value {
     |                  ^^^^^^^^                      ^^^^^^^^
     = help: move `repeated` into `values` as a nested `fn`
 
 error: `renamed` has one reader, `values`
-   --> tools/dylint/examples/duplicate_type.rs:936:5
+   --> tools/dylint/examples/duplicate_type.rs:938:5
     |
-936 |     const fn renamed(source: Source) -> Renamed {
+938 |     const fn renamed(source: Source) -> Renamed {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/duplicate_type.rs:961:18
+   --> tools/dylint/examples/duplicate_type.rs:963:18
     |
-961 |                 [renamed(Source::Pair(5, 6)), renamed(Source::Empty)].map(|value| match value {
+963 |                 [renamed(Source::Pair(5, 6)), renamed(Source::Empty)].map(|value| match value {
     |                  ^^^^^^^                      ^^^^^^^
     = help: move `renamed` into `values` as a nested `fn`
 
 error: `projected` has one reader, `values`
-   --> tools/dylint/examples/duplicate_type.rs:943:5
+   --> tools/dylint/examples/duplicate_type.rs:945:5
     |
-943 |     const fn projected(source: Source) -> Projected {
+945 |     const fn projected(source: Source) -> Projected {
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/duplicate_type.rs:966:84
+   --> tools/dylint/examples/duplicate_type.rs:968:84
     |
-966 | ...(9_u32..10).mode(), matches!(projected(Source::Pair(11, 12)), Projected::Pair), matches!(projected(Source::Empty), Projected::Em...
+968 | ...(9_u32..10).mode(), matches!(projected(Source::Pair(11, 12)), Projected::Pair), matches!(projected(Source::Empty), Projected::Em...
     |                                 ^^^^^^^^^                                                   ^^^^^^^^^
     = help: move `projected` into `values` as a nested `fn`

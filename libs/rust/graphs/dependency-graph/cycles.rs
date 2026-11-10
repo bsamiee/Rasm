@@ -1,13 +1,12 @@
-use core::{cmp::Reverse, iter};
+use core::cmp::Reverse;
+use core::iter;
 
 use itertools::{Either, Itertools as _};
 use nonempty_collections::{IntoIteratorExt as _, IntoNonEmptyIterator as _, NEVec, NonEmptyIterator};
-use petgraph::{
-    acyclic::AcyclicEdgeError,
-    algo::{astar, condensation, kosaraju_scc},
-    stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
-    visit::{EdgeRef as _, IntoEdgeReferences as _, NodeFiltered, NodeIndexable as _},
-};
+use petgraph::acyclic::AcyclicEdgeError;
+use petgraph::algo::{astar, condensation, kosaraju_scc};
+use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
+use petgraph::visit::{EdgeRef as _, IntoEdgeReferences as _, NodeFiltered, NodeIndexable as _};
 use rustworkx_core::connectivity::johnson_simple_cycles;
 
 use crate::{DependencyError, Edges, Evaluation, acyclic, at, compact, dense, unweighted};

@@ -4,7 +4,7 @@ from collections.abc import Iterable, Mapping
 from enum import auto, Enum
 from functools import partial
 from itertools import chain
-from typing import Final
+from typing import Annotated, Final
 
 import bpy
 from expression import Option, Some
@@ -19,8 +19,8 @@ from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import RnaPath, rooted
 from rasm_bpy.data._rna.properties import enum_choices
 from rasm_bpy.data._rna.restoration import BeforeAfter
-from rasm_bpy.data._rna.snapshots import Applied, assigned, Snapshot
-from rasm_bpy.render._view_layers.passes import _layer_of, _used
+from rasm_bpy.data._rna.snapshots import Applied, assigned, Snapshot, SNAPSHOT_DECODER
+from rasm_bpy.render._view_layers.passes import layer_of, used
 from rasm_bpy.settings._attachments import Attached, Recovery
 from rasm_bpy.settings._presets import Preset
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason, Reparametrized, transfer
@@ -39,8 +39,8 @@ class Form(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_KEY: Final[Key] = "render_sets"
-_OWNERSHIP: Final = Ownership(kind=bpy.types.Scene, key="render_set", saved=Saved.ALWAYS, single=False)
+KEY: Final[Key] = "render_sets"
+OWNERSHIP: Final = Ownership(kind=bpy.types.Scene, key="render_set", saved=Saved.ALWAYS, single=False)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -48,20 +48,20 @@ _OWNERSHIP: Final = Ownership(kind=bpy.types.Scene, key="render_set", saved=Save
 class Sets(bpy.types.PropertyGroup):
     """File render set settings."""
 
-    form: bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=enum_choices(Form), default=Form.LAYERS.name)  # ty: ignore[invalid-type-form]
-    across: bpy.props.BoolProperty(name="Edit Across", description="Copy category edits to unlocked members")  # ty: ignore[invalid-type-form]
+    form: Annotated[str, bpy.props.EnumProperty(name="Render Sets", description="Copied scenes or view layers of one scene", items=enum_choices(Form), default=Form.LAYERS.name)]
+    across: Annotated[bool, bpy.props.BoolProperty(name="Edit Across", description="Copy category edits to unlocked members")]
 
 
 class Membership(bpy.types.PropertyGroup):
     """Sync lock of a member view layer, the host's `use` its render inclusion."""
 
-    locked: bpy.props.BoolProperty(name="Locked")  # ty: ignore[invalid-type-form]
+    locked: Annotated[bool, bpy.props.BoolProperty(name="Locked")]
 
 
 class SceneMembership(Membership):
     """Sync lock and render inclusion of a member scene."""
 
-    rendered: bpy.props.BoolProperty(name="Render", default=True)  # ty: ignore[invalid-type-form]
+    rendered: Annotated[bool, bpy.props.BoolProperty(name="Render", default=True)]
 
 
 class Category(msgspec.Struct, frozen=True, kw_only=True):
@@ -79,7 +79,7 @@ class Category(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def preset(self) -> Preset[Snapshot]:
         """Preset of the category's settings."""
-        return Preset(key=self.key, form=Snapshot)
+        return Preset(key=self.key, decoder=SNAPSHOT_DECODER)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -107,7 +107,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         """Returns marked source of active scene, else active scene."""
 
         def sourced(scene: bpy.types.Scene) -> bpy.types.Scene:
-            match _OWNERSHIP.marked(self.identity, scene).bind(lambda mark: mark.of).to_optional():
+            match OWNERSHIP.marked(self.identity, scene).bind(lambda mark: mark.of).to_optional():
                 case bpy.types.Scene() as source:
                     return source
                 case _:
@@ -117,7 +117,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
 
     def copies(self, context: bpy.types.Context) -> Outcome[tuple[bpy.types.Scene, ...]]:
         """Returns source, then its member scenes in data order."""
-        return self.source(context).map(lambda source: (source, *_OWNERSHIP.serving(self.identity, source)))
+        return self.source(context).map(lambda source: (source, *OWNERSHIP.serving(self.identity, source)))
 
     def member_scenes(self, context: bpy.types.Context) -> Outcome[tuple[bpy.types.Scene, ...]]:
         """Returns member scenes under copy form, else source scene."""
@@ -151,7 +151,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                 case Form.COPIES:
                     return self.copies(context).map(lambda scenes: tuple((scene, Nothing) for scene in scenes if self.scenes.struct(scene).rendered))
                 case Form.LAYERS:
-                    return self.source(context).map(lambda scene: tuple((scene, Some(layer)) for layer in _used(scene)))
+                    return self.source(context).map(lambda scene: tuple((scene, Some(layer)) for layer in used(scene)))
 
         return self.form(context).bind(dispatched)
 
@@ -169,14 +169,14 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                 case root, _ if root is bpy.types.Scene:
                     return Ok(scene)
                 case _, bpy.types.ViewLayer(name=name):
-                    return _layer_of(scene, name)
+                    return layer_of(scene, name)
                 case _, None:
                     return Error(Fault.of(Reason.ABSENT, "bpy.context", member="view_layer"))
 
         return self.source(context).bind(origin).bind(lambda source: Snapshot.capture(source, Some(self.categories[category])))
 
 
-class _MemberScope(msgspec.Struct, frozen=True, kw_only=True):
+class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
     """Owners selected by set form and sync locks."""
 
     members: Members
@@ -208,7 +208,7 @@ class _MemberScope(msgspec.Struct, frozen=True, kw_only=True):
 # --- [MEMBERS]
 
 
-def _shown(source: bpy.types.Scene, replaced: Iterable[bpy.types.Scene]) -> None:
+def shown(source: bpy.types.Scene, replaced: Iterable[bpy.types.Scene]) -> None:
     """Shows source in every window showing a replaced scene."""
     held = frozenset(replaced)
     for window in (window for manager in bpy.data.window_managers for window in manager.windows):
@@ -216,7 +216,7 @@ def _shown(source: bpy.types.Scene, replaced: Iterable[bpy.types.Scene]) -> None
             window.scene = source
 
 
-def _removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> Outcome[None]:
+def removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> Outcome[None]:
     """Removes a member scene, or a view layer from its scene."""
     match owner:
         case bpy.types.Scene() as scene:
@@ -225,42 +225,29 @@ def _removed(owner: bpy.types.Scene | tuple[bpy.types.Scene, bpy.types.ViewLayer
             return catch(scene.view_layers.remove, exception=RuntimeError)(layer).map_error(partial(Fault.of, Refusal.REFUSED, repr(layer)))
 
 
-def _added(members: Members, source: bpy.types.Scene, name: str) -> Outcome[bpy.types.Scene]:
+def added(members: Members, source: bpy.types.Scene, name: str) -> Outcome[bpy.types.Scene]:
     """Copies source as retained member under name, the host suffixing a taken name."""
-
-    def copied() -> Outcome[bpy.types.Scene]:
-        scene: bpy.types.Scene = source.copy()  # ty: ignore[invalid-assignment]
-        return Ok(scene)
-
-    return _OWNERSHIP.made(members.identity, copied, of=Some(source)).bind(lambda scene: assigned(scene, {("name",): name}).map(lambda _: scene))
+    return OWNERSHIP.made(members.identity, lambda: Option.of_optional(source.copy()).to_result_with(partial(Fault.of, Reason.FAILED, f"{source!r}.copy")), of=Some(source)).bind(
+        lambda scene: assigned(scene, {("name",): name}).map(lambda _: scene)
+    )
 
 
 def _dropped(source: bpy.types.Scene, scenes: tuple[bpy.types.Scene, ...]) -> Outcome[Done]:
     """Shows source in place of copied members, then removes them, noting each removal."""
-    _shown(source, scenes)
-    edits = tuple(_removed(scene).map(lambda _: name) for scene in scenes for name in (scene.name,))
+    shown(source, scenes)
+    edits = tuple(removed(scene).map(lambda _: name) for scene in scenes for name in (scene.name,))
     return tallied(edits, tuple(("INFO", f"Removed {name}") for edit in edits for name in edit.to_option().to_list()))
 
 
 # --- [SYNCHRONIZATION]
 
 
-def _transfers(
+def transfers(
     members: Members, category: Category, context: bpy.types.Context, targets: tuple[Owner, ...]
 ) -> Outcome[tuple[tuple[Owner, Snapshot, tuple[Reparametrized[Value, RnaPath, RnaPath], ...]], ...]]:
     """Returns value edits per target from source category."""
     return members.captured(category, context).bind(
         lambda source: accumulated(Snapshot.capture(target, Some(members.categories[category])).map(lambda held: (target, held, transfer(held.tree, source.tree))) for target in targets)
-    )
-
-
-def _previewed(members: Members, category: Category, context: bpy.types.Context) -> Outcome[tuple[tuple[str, tuple[Reparametrized[Value, RnaPath, RnaPath], ...]], ...]]:
-    """Returns value edits per unlocked owner for sync confirmation."""
-    return (
-        _MemberScope(members=members, owner_type=category.root, unlocked=True)
-        .owners(context)
-        .bind(lambda targets: _transfers(members, category, context, targets))
-        .map(lambda rows: tuple((target.name, edits) for target, _, edits in rows if edits))
     )
 
 
@@ -271,7 +258,7 @@ def _written(members: Members, category: Category, context: bpy.types.Context, t
     )
 
 
-def _propagated(members: Members, edited: Owner) -> Outcome[Option[str]]:
+def propagated(members: Members, edited: Owner) -> Outcome[Option[str]]:
     """Copies category edits to other unlocked members in one undo step."""
 
     def wrote(others: tuple[Owner, ...]) -> Outcome[Option[str]]:
@@ -281,7 +268,7 @@ def _propagated(members: Members, edited: Owner) -> Outcome[Option[str]]:
             if isinstance(edited, category.root)
         ).map(lambda outcomes: Some("Edit Across Render Sets") if any(applied.written for group in outcomes for applied in group) else Nothing)
 
-    return _MemberScope(members=members, owner_type=bpy.types.Scene if isinstance(edited, bpy.types.Scene) else bpy.types.ViewLayer, unlocked=True).owners(bpy.context).bind(wrote)
+    return MemberScope(members=members, owner_type=bpy.types.Scene if isinstance(edited, bpy.types.Scene) else bpy.types.ViewLayer, unlocked=True).owners(bpy.context).bind(wrote)
 
 
 # --- [STEPS]
@@ -289,17 +276,17 @@ def _propagated(members: Members, edited: Owner) -> Outcome[Option[str]]:
 
 def render_set_add(members: Members, call: Call[Empty]) -> Outcome[Answer]:
     """Copies the source scene as a new member."""
-    return members.copies(call.context).bind(lambda scenes: _added(members, scenes[0], f"{scenes[0].name} {len(scenes)}")).map(lambda scene: Done(notes=(("INFO", f"Added {scene.name}"),)))
+    return members.copies(call.context).bind(lambda scenes: added(members, scenes[0], f"{scenes[0].name} {len(scenes)}")).map(lambda scene: Done(notes=(("INFO", f"Added {scene.name}"),)))
 
 
 def render_set_adopt(members: Members, call: Call[Empty]) -> Outcome[Answer]:
     """Adds unmarked scenes to the source render sets."""
 
     def joined(source: bpy.types.Scene) -> Outcome[Answer]:
-        sources = frozenset(scene for _, mark in _OWNERSHIP.held(members.identity) for scene in mark.of.to_list())
+        sources = frozenset(scene for _, mark in OWNERSHIP.held(members.identity) for scene in mark.of.to_list())
         if not (unmarked := tuple(scene for scene in bpy.data.scenes if scene != source and scene not in sources and not scene.is_runtime_data and Mark.read(members.identity, scene).is_none())):
             return Ok(Unchanged(reason="No unmarked scene to adopt"))
-        edits = tuple(_OWNERSHIP.owned(members.identity, scene, of=Some(source)) for scene in unmarked)
+        edits = tuple(OWNERSHIP.owned(members.identity, scene, of=Some(source)) for scene in unmarked)
         return tallied(edits, tuple(("INFO", f"Adopted {scene.name}") for edit in edits for scene in edit.to_option().to_list()))
 
     return members.source(call.context).bind(joined)
@@ -322,7 +309,7 @@ def render_set_sync(category: Category, members: Members, call: Call[Empty]) -> 
     context, reason = call.context, f"Unlocked render sets match source {category.title} settings"
 
     def wrote(targets: tuple[Owner, ...]) -> Outcome[Answer]:
-        return _transfers(members, category, context, targets).bind(
+        return transfers(members, category, context, targets).bind(
             lambda rows: (
                 _written(members, category, context, targets).bind(
                     lambda applied: answered(Applied.join(applied), reason, (("INFO", f"Synced {sum(len(each.written) for each in applied)} {category.title} settings"),))
@@ -332,14 +319,14 @@ def render_set_sync(category: Category, members: Members, call: Call[Empty]) -> 
             )
         )
 
-    return _MemberScope(members=members, owner_type=category.root, unlocked=True).owners(context).bind(wrote)
+    return MemberScope(members=members, owner_type=category.root, unlocked=True).owners(context).bind(wrote)
 
 
 def render_set_unsync(members: Members, call: Call[Empty]) -> Outcome[Answer]:
     """Restores the pre-sync settings of unlocked members, keeping records that fail to restore."""
     return (
         accumulated(
-            _MemberScope(members=members, owner_type=root, unlocked=True).owners(call.context).bind(lambda owners: accumulated(map(members.recovery.reverted, owners)))
+            MemberScope(members=members, owner_type=root, unlocked=True).owners(call.context).bind(lambda owners: accumulated(map(members.recovery.reverted, owners)))
             for root in dict.fromkeys(category.root for category in members.categories)
         )
         .map(lambda groups: sum(held for group in groups for held in group))
@@ -352,10 +339,10 @@ def render_set_remove(members: Members, call: Call[Empty]) -> Outcome[Answer]:
 
     def dropped(source: bpy.types.Scene) -> Outcome[Answer]:
         match call.context.scene:
-            case bpy.types.Scene() as scene if scene in _OWNERSHIP.serving(members.identity, source):
+            case bpy.types.Scene() as scene if scene in OWNERSHIP.serving(members.identity, source):
                 return _dropped(source, (scene,))
             case _:
-                return Error(Fault.of(Reason.ABSENT, repr(call.context.scene), member=_OWNERSHIP.key))
+                return Error(Fault.of(Reason.ABSENT, repr(call.context.scene), member=OWNERSHIP.key))
 
     return members.source(call.context).bind(dropped)
 
@@ -381,7 +368,7 @@ def render_set_lock(members: Members, call: Call[Empty]) -> Outcome[Answer]:
 
     def changed(owner: Owner) -> Outcome[Answer]:
         record = members.membership(owner)
-        unlocking = bool(record.locked)
+        unlocking = record.locked
         return (
             (configured(owner) if unlocking else Ok(None))
             .bind(lambda _: assigned(record, {("locked",): not unlocking}))
@@ -401,13 +388,19 @@ def render_set_lock(members: Members, call: Call[Empty]) -> Outcome[Answer]:
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "KEY",
+    "OWNERSHIP",
     "Category",
     "Form",
+    "MemberScope",
     "Members",
     "Membership",
     "Owner",
     "SceneMembership",
     "Sets",
+    "added",
+    "propagated",
+    "removed",
     "render_set_add",
     "render_set_adopt",
     "render_set_lock",
@@ -415,4 +408,6 @@ __all__ = [
     "render_set_restore",
     "render_set_sync",
     "render_set_unsync",
+    "shown",
+    "transfers",
 ]

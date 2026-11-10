@@ -3,8 +3,8 @@ import { matchesGlob } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type CreateNodesResult, createNodesFromFiles, type TargetConfiguration } from '@nx/devkit';
 import { getNamedInputs, globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, Option, Path, pipe, Record, Result, Schema, UndefinedOr } from 'effect';
-import { type Fields, HOSTS, type Host, RELEASE } from '#/plugins/host-packages';
+import { Array, Cause, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, UndefinedOr } from 'effect';
+import { type Fields, HOSTS, type Host } from '#/plugins/host-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -17,6 +17,7 @@ interface Discovered {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const RELEASE = 'release';
 const FILES = `**/{${Array.dedupe(HOSTS.map(({ manifest: file }) => file.split('/').at(-1) ?? file)).join(',')}}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -73,8 +74,8 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
         { concurrency: 'unbounded' },
     );
     const discovered = Array.getSomes(Array.getSuccesses(read.map(([, result]) => result))).filter(({ fields }) => fields.installed !== true);
-    const holds = (other: Discovered, item: Discovered) => (other.fields.folders ?? []).some((folder) => !path.relative(path.join(other.root, folder), item.root).startsWith('..'));
-    const hosts = (item: Discovered) => (item.fields.folders === undefined ? discovered.filter((other) => holds(other, item) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled)) : [item]);
+    const holds = (other: Discovered, item: Discovered) => (other.fields.folders ?? []).some((folder) => !path.relative(path.join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
+    const hosts = Function.memoize((item: Discovered) => (item.fields.folders === undefined ? discovered.filter((other) => holds(other, item)) : [item]));
     const uses = (item: Discovered) => discovered.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
     const described = (item: Discovered) => (item.host.standalone === true ? { descriptor: item.file, hosts: hosts(item).map((other) => other.file), dependencies: uses(item).map((other) => other.file), ...(engines === undefined ? {} : { engines }) } : {});
     const builds = (item: Discovered) =>
@@ -89,7 +90,7 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
                 inputs: [
                     '{projectRoot}/**/*',
                     'production' in getNamedInputs(item.root, context) ? '^production' : '^default',
-                    ...(pack === undefined ? [] : [{ dependentTasksOutputFiles: '**/*' }]),
+                    ...(pack === undefined ? [{ runtime: 'node -p process.platform+process.arch' }] : [{ dependentTasksOutputFiles: '**/*' }]),
                     ...variables.map((env) => ({ env })),
                     ...hosts(item)
                         .filter((other) => other !== item)
@@ -101,9 +102,37 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
                 metadata: { technologies: [item.host.technology], description: `Builds the ${item.host.technology} project its ${item.host.manifest} declares`, help: { command: `${command} --help`, example: { options: { outputPath: 'dist' } } } },
             };
         });
+    const locking = new Map(yield* Effect.forEach(discovered, (item) => Effect.map(item.host.upgrade?.roots(context.workspaceRoot, item.root) ?? Effect.succeed([]), (roots) => [item, roots] as const), { concurrency: 'unbounded' }));
+    const upgrades = (item: Discovered) =>
+        UndefinedOr.match(item.host.upgrade, {
+            onUndefined: () => ({}),
+            onDefined: ({ tool, executor, manifest, before }) =>
+                Record.fromIterableWith(locking.get(item) ?? [], (root) => [
+                    root,
+                    {
+                        targets: {
+                            [`upgrade--${tool}`]: {
+                                executor: `${name}:${executor}`,
+                                options: { manifest },
+                                cache: false,
+                                outputs: ['{projectRoot}/{options.manifest}'],
+                                metadata: { technologies: [item.host.technology], description: `Rewrites the constraint rows of ${manifest} from the distributions the installed ${item.host.technology} bundles` },
+                            },
+                            [before]: { dependsOn: ['...', `upgrade--${tool}`] },
+                            upgrade: aggregate(item.host.technology, 'upgrade', undefined),
+                        } satisfies Record<string, TargetConfiguration>,
+                        tags: [`host:${item.host.technology}`],
+                    },
+                ]),
+        });
     const installs = (item: Discovered): Option.Option<TargetConfiguration> =>
         Option.orElse(
-            Option.map(Option.fromUndefinedOr(item.host.install), ({ command }) => ({ executor: `${name}:install`, dependsOn: ['build'], inputs: own, metadata: { technologies: [item.host.technology], description: `Installs the ${item.host.technology} packages build wrote, through ${command}` } })),
+            Option.map(Option.fromUndefinedOr(item.host.install), ({ command }) => ({
+                executor: `${name}:install`,
+                dependsOn: ['build'],
+                cache: false,
+                metadata: { technologies: [item.host.technology], description: `Installs the ${item.host.technology} packages build wrote in the run's configuration, through ${command}`, help: { command: `${command} --help`, example: { options: { dryRun: true } } } },
+            })),
             () =>
                 Option.liftPredicate(
                     {
@@ -135,14 +164,17 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
             Option.filter(build, () => item.host.standalone === true),
             (target) => owned(item, target),
         );
+        const { [item.root]: rooted, ...others }: Readonly<Record<string, { readonly targets: Readonly<Record<string, TargetConfiguration>>; readonly tags: readonly string[] }>> = upgrades(item);
         return {
             projects: {
+                ...Record.map(others, ({ targets, tags }) => ({ targets, tags: [...tags] })),
                 [item.root]: {
                     ...Option.getOrUndefined(Option.map(standalone, ({ project }) => project)),
                     targets: {
+                        ...rooted?.targets,
                         ...Option.match(build, { onNone: () => ({}), onSome: (target) => ({ [`build--${item.host.technology}`]: target, build: aggregate(item.host.technology, 'build', target.inputs) }) }),
                         ...Option.match(standalone, { onNone: () => ({}), onSome: ({ targets }) => targets }),
-                        ...Record.getSomes({ install: installs(item) }),
+                        ...Option.match(installs(item), { onNone: () => ({}), onSome: (target) => ({ [`install--${item.host.install?.tool ?? item.host.technology}`]: target, install: aggregate(item.host.technology, 'install', target.inputs) }) }),
                         ...(item.host.archive === undefined ? {} : { 'nx-release-publish': published(name, item.host, own) }),
                     },
                     tags: [...(item.host.build !== undefined && item.host.build.pack === undefined ? [`host:${item.host.technology}`] : []), ...(Option.isSome(build) && item.host.write !== undefined ? [RELEASE] : [])],

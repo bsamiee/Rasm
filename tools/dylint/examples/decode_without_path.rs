@@ -1,6 +1,7 @@
 use core::hint::black_box;
 
-use serde::{Deserialize, Deserializer, de::value};
+use serde::de::value;
+use serde::{Deserialize, Deserializer};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -75,11 +75,11 @@ nonisolated enum CodexProtocol {
 
         func usage(identity: AccountIdentity, observedAt: Date) throws(CodexFailure) -> AccountUsage {
             guard accountId == nil || accountId == identity.organizationID else { throw .identityChanged }
-            guard let limits: RateLimitSnapshot = rateLimitsByLimitId?[RateLimitSnapshot.codexLimitID] ?? (rateLimits.isCodex ? rateLimits : nil) else {
+            guard let limits = rateLimitsByLimitId?[RateLimitSnapshot.codexLimitID] ?? (rateLimits.isCodex ? rateLimits : nil) else {
                 throw .invalidResponse(.accountRateLimitsRead)
             }
-            let weekly: [RateLimitWindow] = [limits.primary, limits.secondary].compactMap(\.self).filter { window in (window.windowDurationMins ?? 0) >= 7 * 24 * 60 }
-            let windows: [QuotaWindow] = try traverse(weekly) { window in
+            let weekly = [limits.primary, limits.secondary].compactMap(\.self).filter { window in (window.windowDurationMins ?? 0) >= 7 * 24 * 60 }
+            let windows = try traverse(weekly) { window in
                 UsageAmount.make(percent: window.usedPercent)
                     .aggregated(\.self)
                     .map { amount in
@@ -162,18 +162,18 @@ nonisolated enum CodexAuthFile {
     static func file(in home: URL) -> URL { home.appending(path: "auth.json") }
 
     static func read(in home: URL) throws(CodexFailure) -> (data: Data, identity: AccountIdentity?)? {
-        let url: URL = file(in: home)
-        guard let data: Data = try Result(catching: { try ifPresent { try Data(contentsOf: url) } }).mapError(CodexFailure.storage).get() else { return nil }
-        let document: Document = try Result { try decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
-        if let mode: String = document.authMode, mode != CodexProtocol.authMode { throw .subscriptionRequired }
-        guard let tokens: Document.Tokens = document.tokens, let idToken: String = tokens.idToken else { return (data, nil) }
-        let components: [Substring] = idToken.split(separator: ".")
+        let url = file(in: home)
+        guard let data = try Result(catching: { try ifPresent { try Data(contentsOf: url) } }).mapError(CodexFailure.storage).get() else { return nil }
+        let document = try Result { try decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
+        if let mode = document.authMode, mode != CodexProtocol.authMode { throw .subscriptionRequired }
+        guard let tokens = document.tokens, let idToken = tokens.idToken else { return (data, nil) }
+        let components = idToken.split(separator: ".")
         guard components.count == 3 else { throw .invalidAuthFile(url, nil) }
-        let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
+        let encoded = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
         guard let payload = Data(base64Encoded: encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)) else { throw .invalidAuthFile(url, nil) }
-        let claims: Claims = try Result { try decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
-        let workspace: String? = claims.auth?.chatgptAccountId ?? tokens.accountId
-        let identity: AccountIdentity = try combine(
+        let claims = try Result { try decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
+        let workspace = claims.auth?.chatgptAccountId ?? tokens.accountId
+        let identity = try combine(
             AccountIdentity.make(accountID: claims.auth?.chatgptUserId ?? claims.auth?.userId, organizationID: workspace, email: claims.email, plan: claims.auth?.chatgptPlanType),
             workspace.map(Result.success) ?? .failure(AggregateError(first: IdentityError(field: \AccountIdentity.organizationID))),
         )

@@ -12,8 +12,8 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.ui._drawing.canvas import _draw_batch, Align, Blend, Canvas, FontStyle, Program, Rect
-from rasm_bpy.ui._resources.theme import _CLEAR, Color, Metrics, Spacing
+from rasm_bpy.ui._drawing.canvas import Align, Blend, Canvas, draw_batch, FontStyle, Program, Rect
+from rasm_bpy.ui._resources.theme import CLEAR, Color, Metrics, Spacing
 from rasm_imaging import Bands, Chromaticity, colorimetry, DisplayView, Histogram
 from rasm_records import Nothing, Outcome, paired
 
@@ -63,14 +63,19 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 shader, bind = "FLAT_COLOR", partial(Canvas.shader, name="FLAT_COLOR")
             case _:
                 shader, bind = "POLYLINE_FLAT_COLOR", partial(Canvas.lines, width=width, shader="POLYLINE_FLAT_COLOR")
-        colors = np.ascontiguousarray(np.broadcast_to(np.asarray(color, np.float32), (len(positions), 4)))
-        batch = batch_for_shader(gpu.shader.from_builtin(shader), primitive, {"pos": np.ascontiguousarray(positions, np.float32), "color": colors}, indices=indices.to_optional())  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+        points, colors = np.ascontiguousarray(positions, np.float32), np.ascontiguousarray(np.broadcast_to(np.asarray(color, np.float32), (len(positions), 4)))
+        batch = batch_for_shader(
+            gpu.shader.from_builtin(shader),
+            primitive,
+            {"pos": gpu.types.Buffer("FLOAT", points.shape, memoryview(points)), "color": gpu.types.Buffer("FLOAT", colors.shape, memoryview(colors))},
+            indices=indices.map(memoryview).to_optional(),
+        )
         return cls(batch=batch, bind=bind, blend=blend)
 
     def drawn(self, canvas: Canvas) -> None:
         """Draws the batch under its blend."""
         with Canvas.blended(self.blend):
-            _draw_batch(self.batch, self.bind(canvas))
+            draw_batch(self.batch, self.bind(canvas))
 
 
 class Label(msgspec.Struct, frozen=True, kw_only=True):
@@ -103,7 +108,7 @@ class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         y = extent.y + inset
         pitch = size + metrics.spaced(Spacing.BUTTON_Y)
         with Canvas.mapped(Rect(x=x, y=y, width=1.0, height=1.0)):
-            canvas.frame(Rect(x=0.0, y=0.0, width=self.width + 2.0, height=self.height + 2.0), _GROUND, _CLEAR, _RADIUS)
+            canvas.frame(Rect(x=0.0, y=0.0, width=self.width + 2.0, height=self.height + 2.0), _GROUND, CLEAR, _RADIUS)
             with canvas.clipped(Rect(x=x + 1.0, y=y + 1.0, width=self.width, height=self.height)), Canvas.mapped(Rect(x=1.0, y=1.0, width=self.width, height=self.height)):
                 for layer in self.layers:
                     layer.drawn(canvas)
@@ -111,7 +116,7 @@ class Chart(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 canvas.label(label.text, (1.0 + label.x * self.width + size / 2 * (1 - 2 * label.align.value), 1.0 + label.y * self.height + size / 2), _TEXT, FontStyle(size=size, align=label.align))
             for index, line in enumerate(self.caption, 1):
                 canvas.label(line, (1.0 + size / 2 + (self.width - size) * self.corner.value, 1.0 + self.height - size / 2 - index * pitch), _TEXT, FontStyle(size=size, align=self.corner))
-            canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), _CLEAR, _RIM, _RADIUS)
+            canvas.frame(Rect(x=0.0, y=1.0, width=self.width + 2.0, height=self.height + 1.0), CLEAR, _RIM, _RADIUS)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -169,7 +174,7 @@ def chromaticity(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDAr
     """
     framed = extent.default_with(colorimetry.diagram_extent)
     tenths = np.rint(framed * 10.0).astype(np.intp)
-    width, locus = float(metrics.unit * _UNITS), colorimetry.locus()
+    width, locus = float(metrics.unit * _UNITS), colorimetry.spectral_locus()
     height = width * float(framed[1] / framed[0])
     outward = np.gradient(locus, axis=0)[:, ::-1] * (-1.0, 1.0)
     normal = np.divide(outward, length := np.linalg.norm(outward, axis=1, keepdims=True), out=np.zeros_like(outward), where=length > 0.0)

@@ -1,8 +1,33 @@
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-_.path             = ["{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
-COLIMA_HOME        = "{{ xdg_data_home }}/rasm/colima"
-DOCKER_CONFIG      = "{{ xdg_data_home }}/rasm/docker"
-DOCKER_HOST        = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
-RHINO_TEST_PROFILE = "{{ env.HOME }}/Library/Application Support/Rasm/Rhino Tests"
+_.path                          = ["{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
+COLIMA_HOME                     = "{{ env.HOME }}/.colima"
+DOCKER_HOST                     = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
+PITCHFORK_SUPERVISOR_AUTO_START = "false"
+RHINO_TEST_PROFILE              = "{{ env.HOME }}/Library/Application Support/Rasm/Rhino Tests"
+
+# --- [BOOTSTRAP] ------------------------------------------------------------------------
+
+[bootstrap.hooks.final]
+description = "Start the container engine"
+run         = "mise daemons start"
+
+[bootstrap.macos.launchd.agents.pitchfork]
+args                  = ["exec", "--", "pitchfork", "supervisor", "run", "--boot"]
+keep_alive_on_failure = true
+program               = "{{ mise_bin }}"
+working_directory     = "{{config_root}}"
+
+# --- [DAEMONS] --------------------------------------------------------------------------
+
+[daemons_settings]
+namespace = "rasm"
+
+[daemons.docker]
+boot_start  = true
+init        = 'mkdir -p "$COLIMA_HOME"'
+logs        = { time_retention = "7d" }
+ready_cmd   = { run = ["docker", "version"], timeout = "5m" }
+run         = "exec colima start --foreground --activate --ssh-config=false --mount none --cpus 4 --memory 4"
+stop_signal = { signal = "SIGTERM", timeout = "120s" }

@@ -293,7 +293,7 @@ public sealed partial class LutFormat {
         Attribute(node, name).Match(
                 Some: token => toSeq(OutputDepth.Items).Find(depth => string.Equals(Token(depth), token, StringComparison.Ordinal)).ToFin(Malformed(node)),
                 None: static () => OutputDepth.Float32)
-            .Map(static depth => depth.Scale);
+            .Map(static depth => depth.Levels.Match(Some: static levels => levels.MaxCode, None: 1f));
 
     private static Fin<(int[] Dimensions, T[] Values)> Values<T>(XElement node) where T : struct, INumberBase<T> =>
         (from array in Child(node, ArrayNode)

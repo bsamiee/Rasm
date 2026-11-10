@@ -1,16 +1,13 @@
-import { Array, Cause, Data, Duration, Effect, Number, Option, Predicate, Record, Schema, String, Struct } from 'effect';
+import { Array, Data, Duration, Number, Option, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Verdict = Data.TaggedEnum<{
     Refuse: { readonly reason: string };
-    Edit: { readonly start: number; readonly end: number; readonly text: Option.Option<string>; readonly notice: Option.Option<string>; readonly timeout: Option.Option<number> };
+    Edit: { readonly start: number; readonly end: number; readonly text: Option.Option<string>; readonly subject: Option.Option<string>; readonly timeout: Option.Option<number> };
     Background: { readonly notice: string };
 }>;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const LEADING_WORDS = /^(?:\w+: )?(?<words>(?:\S+ +){0,6}\S+)/u;
+type Edit = Extract<Verdict, { readonly _tag: 'Edit' }>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,6 +16,7 @@ const Request = Schema.Struct({
     cwd: Schema.String,
     kind: Schema.Literals(['foreground', 'background', 'monitor', 'plain']),
     timeout: Schema.optionalKey(Schema.Finite),
+    agent: Schema.optionalKey(Schema.String),
 });
 type Request = typeof Request.Type;
 
@@ -48,17 +46,7 @@ const Verdict = Data.taggedEnum<Verdict>();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const unjudged = (cause: Cause.Cause<unknown>): Effect.Effect<Decision> => {
-    const pretty = Cause.pretty(cause);
-    const words = String.match(LEADING_WORDS)(pretty).pipe(
-        Option.flatMapNullishOr(({ groups }) => groups),
-        Option.flatMap(Record.get('words')),
-        Option.filter(Predicate.isString),
-    );
-    return Effect.succeed(Decision.cases.Deny.make({ reason: `Not judged, ${Option.getOrElse(words, () => pretty)}` }));
-};
-
-const applied = (source: Uint8Array, edits: readonly Extract<Verdict, { readonly _tag: 'Edit' }>[]): string => {
+const applied = (source: Uint8Array, edits: readonly Edit[]): string => {
     const decoder = new TextDecoder();
     const ordered = edits.toSorted((left, right) => left.start - right.start || left.end - right.end);
     const between = (start: number, end?: number): string => decoder.decode(source.subarray(start, end));
@@ -71,12 +59,20 @@ const applied = (source: Uint8Array, edits: readonly Extract<Verdict, { readonly
     ].join('');
 };
 
-const decisionOf = (command: string, verdicts: readonly Verdict[], observes: boolean): Decision => {
-    const [refused] = verdicts.filter(Verdict.$is('Refuse'));
+const editsOf = (verdicts: readonly Verdict[]): readonly Edit[] => {
     const spans = verdicts.filter(Verdict.$is('Edit'));
-    const edits = spans.filter(({ start, end }, at) => !spans.some((wider, other) => wider.start <= start && end <= wider.end && end > wider.start && (wider.end - wider.start > end - start || (end > start && wider.end - wider.start === end - start && other > at))));
+    return spans.filter(({ start, end }, at) => !spans.some((wider, other) => wider.start <= start && end <= wider.end && end > wider.start && (wider.end - wider.start > end - start || (end > start && wider.end - wider.start === end - start && other > at))));
+};
+
+const notesOf = (edits: readonly Edit[]): ReadonlyMap<string, string> => {
+    const noted = Array.getSomes(edits.map(({ subject, text }) => Option.map(subject, (word) => [word, text] as const)));
+    return new Map(noted.map(([word, text]) => [word, Option.match(text, { onNone: () => `${word} removed`, onSome: (replacement) => `${word} became ${replacement}` })]));
+};
+
+const decisionOf = (command: string, verdicts: readonly Verdict[], edits: readonly Edit[], notes: readonly string[], observes: boolean): Decision => {
+    const [refused] = verdicts.filter(Verdict.$is('Refuse'));
     const backgrounds = verdicts.filter(Verdict.$is('Background')).map(({ notice }) => notice);
-    const notices = Array.dedupe([...Array.getSomes(edits.map(({ notice }) => notice)), ...backgrounds]);
+    const notices = Array.dedupe([...notes, ...backgrounds]);
     const timeouts = Array.getSomes(edits.map(({ timeout }) => timeout));
     if (refused !== undefined) {
         return Decision.cases.Deny.make({ reason: refused.reason });
@@ -94,4 +90,4 @@ const decisionOf = (command: string, verdicts: readonly Verdict[], observes: boo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Change, Decision, decisionOf, Instance, type Request, Routes, unjudged, Verdict };
+export { type Change, Decision, decisionOf, editsOf, Instance, notesOf, type Request, Routes, Verdict };

@@ -100,9 +100,6 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     def of(cls, template: str) -> Outcome[Self]:
         """Parses `{word}` and `{count:width}` fields, refusing braces in text, unknown fields, unseparated fields, and one count at two widths."""
 
-        def width(spec: str) -> Option[int]:
-            return catch(lambda: msgspec.json.decode(spec, type=_Width), exception=msgspec.DecodeError)().to_option() if spec.isdigit() else Nothing  # ty: ignore[unsound-return-statement]
-
         def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> Outcome[tuple[_Part, ...]]:
             literal: tuple[_Part, ...] = (Text(text=text),) if text else ()
             match name, spec, conversion:
@@ -114,8 +111,10 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     return Ok((*literal, TextField(key=TextKey(name))))
                 case str(), str(), None if name in NumberKey:
                     return (
-                        width(spec)
-                        .map(lambda held: (*literal, NumberField(key=NumberKey(name), width=held)))
+                        catch(lambda: msgspec.convert({"key": name, "width": msgspec.json.decode(spec, type=int)}, NumberField), exception=msgspec.DecodeError)()
+                        .to_option()
+                        .filter(lambda _: spec.isdigit())
+                        .map(lambda field: (*literal, field))
                         .to_result_with(lambda: Fault.of(Reason.OUTSIDE, template, (name, spec, conversion), member="number fields with one positive ASCII width digit"))
                     )
                 case _:

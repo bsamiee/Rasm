@@ -3,6 +3,7 @@
 from collections import defaultdict
 from collections.abc import Callable, Collection, Generator, Iterable, Iterator, Mapping
 from functools import partial
+from itertools import groupby
 from types import MappingProxyType
 from typing import Final, Protocol, Self, TypeIs
 
@@ -14,14 +15,12 @@ import msgspec
 import numpy as np
 
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._rna.descriptors import _effective, _LEADING, _sequenced, Descriptor, Value
-from rasm_bpy.data._rna.paths import _defined, _definition, _rna, _struct_at, id_path, Native, RnaPath, Struct
+from rasm_bpy.data._rna.descriptors import Descriptor, effective, LEADING, sequenced, Value
+from rasm_bpy.data._rna.paths import defined, id_path, Native, NativeOwner, rna, rna_definition, RnaPath, Struct, struct_at
 from rasm_records import accumulated, Error, Fault, Faults, merge, Nothing, Ok, Outcome, Owner, Reason, transfer, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Enclosing = frozenset[tuple[int, str]]
-type _Read[W] = Callable[[Descriptor, Native, _Enclosing, Option[Tree[W, RnaPath, RnaPath]]], Option[W]]
 type _Walk = Generator[_Walk]
 
 
@@ -79,9 +78,8 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def reported(cls, path: RnaPath, answer: Outcome[Option[Value | Struct]]) -> Self:
         """Classifies one member write as written, unchanged, or refused, each fault naming the member by its full path."""
-        return answer.map(lambda prior: cls(written=(path,)) if prior.is_some() else cls(unchanged=(path,))).default_with(
-            lambda faults: cls.refused(tuple(msgspec.structs.replace(fault, subject=_rna(path)) for fault in faults))  # ty: ignore[invalid-argument-type]
-        )
+        renamed = partial(msgspec.structs.replace, subject=rna(path))
+        return answer.map(lambda prior: cls(written=(path,)) if prior.is_some() else cls(unchanged=(path,))).default_with(lambda faults: cls.refused((renamed(faults[0]), *map(renamed, faults[1:]))))
 
     def then(self, step: Callable[[], Self]) -> Self:
         """Joins the outcome of a step that runs once this one holds."""
@@ -115,7 +113,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             rows[path[:last]].append((path[last:], value))
 
         owners = tuple(sorted(rows, key=len))
-        return cls(struct=_definition(struct).identifier, tree=Tree(roots=owners, rows=tuple((owner, Owner[Value, RnaPath, RnaPath](rows=tuple(rows[owner]))) for owner in owners)))
+        return cls(struct=rna_definition(struct).identifier, tree=Tree(roots=owners, rows=tuple((owner, Owner[Value, RnaPath, RnaPath](rows=tuple(rows[owner]))) for owner in owners)))
 
     @classmethod
     def capture(cls, owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, *, owned: Callable[[str], bool] = lambda _: False, inactive: bool = False) -> Outcome[Self]:
@@ -131,24 +129,24 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
             Snapshot, refused fault for a removed struct.
         """
 
-        def stored(descriptor: Descriptor, struct: Native, _: _Enclosing, _compound: Option[Tree[Value, RnaPath, RnaPath]]) -> Option[Value]:
+        def stored(descriptor: Descriptor, struct: Native, _: frozenset[tuple[int, str]], _compound: Option[Tree[Value, RnaPath, RnaPath]]) -> Option[Value]:
             return Some(descriptor.read(struct)).filter(
                 lambda value: not (isinstance(descriptor.prop, bpy.types.EnumProperty) and not descriptor.prop.is_enum_flag and isinstance(value, str) and not value)
             )
 
         return (
-            catch(_Capture[Value](owner, stored, selection, owned=owned, inactive=inactive).tree, exception=ReferenceError)()
+            catch(Capture[Value](owner, stored, selection, owned=owned, inactive=inactive).tree, exception=ReferenceError)()
             .map_error(partial(Fault.of, Refusal.REFUSED, repr(owner)))
-            .map(lambda tree: cls(struct=_definition(owner).identifier, tree=tree))
+            .map(lambda tree: cls(struct=rna_definition(owner).identifier, tree=tree))
         )
 
     # --- [APPLICATION]
 
     def apply(self, owner: Native) -> Applied:
         """Writes snapshot to owner in host order."""
-        match _definition(owner).identifier:
+        match rna_definition(owner).identifier:
             case self.struct:
-                return _applied(owner, self.tree, lambda _, value: value)
+                return applied_tree(owner, self.tree, lambda _, value: value)
             case identifier:
                 return Applied.refused(Fault.of(Reason.OUTSIDE, repr(owner), self.struct, member=identifier))
 
@@ -171,7 +169,7 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Sparse assignments and the state they leave, outside fault for a snapshot of another struct.
         """
-        identifier = _definition(owner).identifier
+        identifier = rna_definition(owner).identifier
         owners, present = self.tree.owners, current.tree.owners
 
         def within(path: RnaPath, roots: Collection[RnaPath]) -> bool:
@@ -227,9 +225,9 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         return (
             Snapshot
             .parsed(subject, manager.clipboard)
-            .map(lambda clip: (clip, tuple(owner for owner in owners if _definition(owner).identifier == clip.struct)))
+            .map(lambda clip: (clip, tuple(owner for owner in owners if rna_definition(owner).identifier == clip.struct)))
             .filter_with(
-                lambda found: bool(found[1]), lambda found: Fault.of(Reason.OUTSIDE, subject, found[0].struct, member=", ".join(dict.fromkeys(_definition(owner).identifier for owner in owners)))
+                lambda found: bool(found[1]), lambda found: Fault.of(Reason.OUTSIDE, subject, found[0].struct, member=", ".join(dict.fromkeys(rna_definition(owner).identifier for owner in owners)))
             )
             .bind(
                 lambda found: accumulated(
@@ -243,10 +241,14 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
+# --- [CODECS] ---------------------------------------------------------------------------
+
+SNAPSHOT_DECODER: Final = msgspec.json.Decoder(Snapshot)
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class _Capture[W]:
+class Capture[W]:
     """One walk of a source into value tree rows under a value reader, a native walk holding compounds whole and keying top-level rows by ID session."""
 
     # --- [STATE]
@@ -256,12 +258,12 @@ class _Capture[W]:
     def __init__(
         self,
         owner: Native,
-        read: _Read[W],
+        read: Callable[[Descriptor, Native, frozenset[tuple[int, str]], Option[Tree[W, RnaPath, RnaPath]]], Option[W]],
         selection: Option[tuple[Descriptor, ...]] = Nothing,
         *,
         prior: Option[Tree[W, RnaPath, RnaPath]] = Nothing,
         native: bool = False,
-        nested: Option[tuple[Native, Descriptor, _Enclosing]] = Nothing,
+        nested: Option[tuple[Native, Descriptor, frozenset[tuple[int, str]]]] = Nothing,
         owned: Callable[[str], bool] = lambda _: False,
         valued: Option[Callable[[Descriptor], bool]] = Nothing,
         inactive: bool = False,
@@ -282,7 +284,7 @@ class _Capture[W]:
         self.owner, self.read, self.native, self.owned = owner, read, native or nested.is_some(), owned
         self.inactive = inactive
         self.valued = valued.default_with(lambda: partial(Descriptor.valued, native=self.native))
-        walk: tuple[Native, Option[Descriptor], _Enclosing] = nested.map(lambda held: (held[0], Some(held[1]), held[2])).default_value((owner, Nothing, frozenset[tuple[int, str]]()))
+        walk: tuple[Native, Option[Descriptor], frozenset[tuple[int, str]]] = nested.map(lambda held: (held[0], Some(held[1]), held[2])).default_value((owner, Nothing, frozenset[tuple[int, str]]()))
         self.source, self.expanded, self.enclosing = walk
         self.selection = nested.map(lambda held: Some((held[1],))).default_value(selection)
         self.roots = prior.map(lambda tree: tree.roots).default_value(())
@@ -299,7 +301,7 @@ class _Capture[W]:
     @staticmethod
     def address(struct: Native) -> tuple[int, str]:
         """Returns the walk identity of a struct or collection."""
-        return (struct.as_pointer() if isinstance(struct, bpy.types.bpy_struct) else id(struct), _definition(struct).identifier)
+        return (struct.as_pointer() if isinstance(struct, bpy.types.bpy_struct) else id(struct), rna_definition(struct).identifier)
 
     @staticmethod
     def arrayed(prop: bpy.types.Property, names: Collection[RnaPath]) -> TypeIs[bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty]:
@@ -310,41 +312,40 @@ class _Capture[W]:
         """Returns the row key of a struct, a native top-level walk keying by session and path or by pointer."""
         if not (self.native and self.expanded.is_none()):
             return path
-        block, at = _referenced(self.owner, struct, path)
+        block, at = referenced(self.owner, struct, path)
         return (block.session_uid, *at) if isinstance(block, bpy.types.ID) else (self.address(struct)[0],)
 
     # --- [WALKS]
 
-    def _read(self, descriptor: Descriptor, struct: Native, inside: _Enclosing, values: list[W]) -> _Walk:
+    def _read(self, descriptor: Descriptor, struct: Native, inside: frozenset[tuple[int, str]], values: list[W]) -> _Walk:
         """Expands native compounds before reading one member into values."""
         enclosing = self.enclosing | inside
         compound: Option[Tree[W, RnaPath, RnaPath]] = Nothing
         if self.native and descriptor.compound:
             trees: list[Tree[W, RnaPath, RnaPath]] = []
-            yield _Capture(  # ruff: ignore[private-member-access]
+            yield Capture(
                 self.owner, self.read, nested=Some((struct, Descriptor(root=type(struct), prop=descriptor.prop), enclosing)), owned=self.owned, valued=Some(self.valued), inactive=self.inactive
-            )._captured(trees)
+            ).captured(trees)
             compound = Some(trees[0])
         values.extend(self.read(descriptor, struct, enclosing, compound).to_list())
 
-    def _branched(self, struct: Native, key: RnaPath, prop: bpy.types.Property, inside: _Enclosing, keys: list[RnaPath]) -> _Walk:
+    def _branched(self, struct: Native, key: RnaPath, prop: bpy.types.Property, inside: frozenset[tuple[int, str]], keys: list[RnaPath]) -> _Walk:
         """Appends pointer or collection child keys in native order."""
         path = (*key, prop.identifier)
         match prop:
-            case bpy.types.PointerProperty(fixed_type=bpy.types.ID()) | bpy.types.CollectionProperty(fixed_type=bpy.types.ID()):
-                return  # type: ignore[unreachable]
+            case bpy.types.PointerProperty(fixed_type=fixed) | bpy.types.CollectionProperty(fixed_type=fixed) if issubclass(type(fixed), bpy.types.ID):
+                return
             case bpy.types.CollectionProperty() if path in self.owners:
                 keys.extend(self.owners[path].children)
             case bpy.types.PointerProperty(is_readonly=True):
-                yield from (self._walked(child, path, inside, keys) for child in Option.of_optional(getattr(struct, prop.identifier)).filter(lambda held: self.inactive or _effective(held)).to_list())
+                yield from (self._walked(child, path, inside, keys) for child in Option.of_optional(getattr(struct, prop.identifier)).filter(lambda held: self.inactive or effective(held)).to_list())
             case bpy.types.CollectionProperty():
-                collection: bpy.types.bpy_prop_collection[Struct | None] = getattr(struct, prop.identifier)  # ty: ignore[unsound-assignment]
-                items = tuple((index, item) for index, item in enumerate(collection) if item is not None)
-                named: Option[tuple[RnaPath, ...]] = (  # ty: ignore[unsound-assignment]
+                items = tuple((index, item) for index, item in enumerate(getattr(struct, prop.identifier)) if item is not None)
+                named = (
                     Option
                     .of_optional(prop.fixed_type)
                     .bind(lambda fixed: Option.of_optional(fixed.name_property))
-                    .map(lambda held: tuple(((getattr(item, held.identifier),),) for _, item in items))
+                    .map(lambda held: tuple[RnaPath, ...](((getattr(item, held.identifier),),) for _, item in items))
                     .filter(lambda found: self.expanded.is_none() and len(set(found)) == len(found))
                 )
                 steps = named.default_with(lambda: tuple((index,) for index, _ in items))
@@ -352,14 +353,7 @@ class _Capture[W]:
             case _:
                 pass
 
-    def _grouped(self, struct: Native, path: RnaPath, prop: bpy.types.Property, keys: tuple[RnaPath, ...]) -> tuple[RnaPath, ...]:
-        """Returns the row of a struct collection holding keys, or keys themselves for any other member."""
-        if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, bpy.types.ID) and (keys or not getattr(struct, prop.identifier)):
-            self.owners.setdefault(row := (*path, prop.identifier), Owner(children=keys))
-            return (row,)
-        return keys
-
-    def _walked(self, struct: Native, path: RnaPath, above: _Enclosing, keys: list[RnaPath]) -> _Walk:
+    def _walked(self, struct: Native, path: RnaPath, above: frozenset[tuple[int, str]], keys: list[RnaPath]) -> _Walk:
         """Reserves one unseen owner, reads values and descendants, then appends its key."""
         if (identity := self.address(struct)) in self.seen:
             return
@@ -369,7 +363,7 @@ class _Capture[W]:
             *Descriptor.saved(struct, owned=self.owned, inactive=self.inactive),
             *(
                 Descriptor(root=type(struct), prop=prop)
-                for prop in Option.of_optional(_definition(struct).name_property).filter(lambda prop: self.expanded.is_some() and not prop.is_readonly).to_list()
+                for prop in Option.of_optional(rna_definition(struct).name_property).filter(lambda prop: self.expanded.is_some() and not prop.is_readonly).to_list()
             ),
         )
         held = self.owners.setdefault(key, Owner())
@@ -386,7 +380,13 @@ class _Capture[W]:
                 children: list[RnaPath] = []
                 branches.append((descriptor.prop, children))
                 yield self._branched(struct, path, descriptor.prop, inside, children)
-        nested = tuple(at for prop, children in branches for at in self._grouped(struct, path, prop, tuple(children)))
+        nested: list[RnaPath] = []
+        for prop, children in branches:
+            if isinstance(prop, bpy.types.CollectionProperty) and not issubclass(type(prop.fixed_type), bpy.types.ID) and (children or not getattr(struct, prop.identifier)):
+                self.owners.setdefault(row := (*path, prop.identifier), Owner(children=tuple(children)))
+                nested.append(row)
+            else:
+                nested.extend(children)
         merged: dict[RnaPath, W] = {**previous, **values}
         self.owners[key] = Owner(rows=tuple(merged.items()), children=tuple(dict.fromkeys((*held.children, *nested))))
         for descriptor in members:
@@ -396,7 +396,7 @@ class _Capture[W]:
                 )
         keys.append(key)
 
-    def _picked(self, descriptor: Descriptor, above: _Enclosing, keys: list[RnaPath]) -> _Walk:
+    def _picked(self, descriptor: Descriptor, above: frozenset[tuple[int, str]], keys: list[RnaPath]) -> _Walk:
         """Reads selected members, expanding array elements and enclosing native compounds through child walks."""
         match descriptor.owner_of(self.source, inactive=self.inactive):
             case Option(tag="some", some=struct):
@@ -453,7 +453,7 @@ class _Capture[W]:
         self.owners[descriptor.owner] = msgspec.structs.replace(parent, children=tuple(dict.fromkeys((*parent.children, *nested))))
         keys.append(descriptor.owner)
 
-    def _captured(self, trees: list[Tree[W, RnaPath, RnaPath]]) -> _Walk:
+    def captured(self, trees: list[Tree[W, RnaPath, RnaPath]]) -> _Walk:
         """Appends a completed tree after selected or whole-source walks finish."""
         roots = list(self.roots)
         match self.selection:
@@ -467,7 +467,7 @@ class _Capture[W]:
     def tree(self) -> Tree[W, RnaPath, RnaPath]:
         """Returns selected or whole-source values under owner paths, preserving prior roots and rows."""
         trees: list[Tree[W, RnaPath, RnaPath]] = []
-        _walk(self._captured(trees))
+        _walk(self.captured(trees))
         return trees[0]
 
 
@@ -499,21 +499,22 @@ def _walk(steps: _Walk) -> None:
 # --- [CAPTURE]
 
 
-def _referenced(owner: Native, struct: Native, path: RnaPath) -> tuple[Native, RnaPath]:
+def referenced(owner: Native, struct: Native, path: RnaPath) -> NativeOwner:
     """Returns struct as its ID and path, a collection through owner's ID path, else struct itself under an empty path."""
     match struct, owner:
         case bpy.types.bpy_struct(id_data=bpy.types.ID() as block), _:
-            return id_path(struct).map(lambda found: (block, found)).default_value((struct, ()))  # ty: ignore[unsound-return-statement]
+            found = id_path(struct).bind(lambda at: Option[NativeOwner](some=(block, at)))
         case bpy.types.bpy_prop_collection(), bpy.types.bpy_struct(id_data=bpy.types.ID() as block):
-            return id_path(owner).map(lambda found: (block, (*found, *path))).default_value((struct, ()))  # ty: ignore[unsound-return-statement]
+            found = id_path(owner).bind(lambda at: Option[NativeOwner](some=(block, (*at, *path))))
         case _:
-            return (struct, ())
+            found = Nothing
+    return found.default_value((struct, ()))
 
 
 # --- [WRITES]
 
 
-def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Callable[[Descriptor, W], Value | Struct | Tree[W, RnaPath, RnaPath]]) -> Applied:
+def applied_tree[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Callable[[Descriptor, W], Value | Struct | Tree[W, RnaPath, RnaPath]]) -> Applied:
     """Writes stored or native values in host order, every write, resize, and skip reported once.
 
     `LEADING` members go first across every owner, then each root writes its members, resizes its collections, and descends.
@@ -533,18 +534,18 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
         values = {key: held.values for key, held in owners.items()}
         leads = tuple(
             (struct, key, Descriptor(root=type(struct), prop=prop), held[prop.identifier,])
-            for prop in _LEADING
+            for prop in LEADING
             for key, held in values.items()
             if (prop.identifier,) in held
-            for struct in _struct_at(owner, key, bpy.types.bpy_struct).to_list()
-            if _definition(struct).properties.get(prop.identifier) == prop
+            for struct in struct_at(owner, key, bpy.types.bpy_struct).to_list()
+            if prop in rna_definition(struct).properties.values()
         )
         completed = frozenset((key, (descriptor.prop.identifier,)) for _, key, descriptor, _ in leads)
 
         def current(struct: Native) -> Native:
             match struct:
                 case bpy.types.bpy_struct(id_data=bpy.types.ID() as block):
-                    return id_path(struct).bind(lambda path: _struct_at(block, path)).default_value(struct)
+                    return id_path(struct).bind(lambda path: struct_at(block, path)).default_value(struct)
                 case _:
                     return struct
 
@@ -567,7 +568,7 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
         def resized(struct: Native, path: RnaPath, prop: bpy.types.CollectionProperty, fixed: Struct) -> Applied:
             if path not in owners:
                 return Applied()
-            held = _definition(fixed).properties
+            held = rna_definition(fixed).properties
             rows = tuple(
                 {
                     identifier: projected(Descriptor(root=type(fixed), prop=held[identifier]), value)
@@ -577,7 +578,7 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
                 }
                 for at in owners[path].children
             )
-            items: _Elements = getattr(struct, prop.identifier)  # ty: ignore[unsound-assignment]
+            items = getattr(struct, prop.identifier)
             subject = f"{struct!r}.{prop.identifier}"
             match _ADDED.get(type(fixed)), fixed:
                 case None, bpy.types.PropertyGroup() if prop.is_runtime:
@@ -592,8 +593,8 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
             written: list[Applied] = []
             while True:
                 found = tuple((name, value, Descriptor.resolve(struct, name, bpy.types.Property).to_option()) for name, value in names)
-                ordered = _sequenced(
-                    (descriptor.owner, holder, descriptor, value) for _, value, held in found for descriptor in held.to_list() for holder in _struct_at(struct, descriptor.owner).to_list()
+                ordered = sequenced(
+                    (descriptor.owner, holder, descriptor, value) for _, value, held in found for descriptor in held.to_list() for holder in struct_at(struct, descriptor.owner).to_list()
                 )
                 rest = tuple[tuple[RnaPath, W], ...]((name, value) for name, value, held in found if held.is_none())
                 batch: list[Applied] = []
@@ -616,9 +617,9 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
             result = written[0].then(
                 lambda: Applied.join(
                     resized(refined, (*key, prop.identifier), prop, fixed)
-                    for held in _defined(refined).to_list()
+                    for held in defined(refined).to_list()
                     for prop in held.properties
-                    if isinstance(prop, bpy.types.CollectionProperty) and not isinstance(prop.fixed_type, bpy.types.ID)
+                    if isinstance(prop, bpy.types.CollectionProperty) and not issubclass(type(prop.fixed_type), bpy.types.ID)
                     for fixed in Option.of_optional(prop.fixed_type).to_list()
                 )
             )
@@ -629,7 +630,7 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
                 refined.update()
 
         def located(key: RnaPath, answers: list[Applied]) -> _Walk:
-            match _struct_at(owner, key):
+            match struct_at(owner, key):
                 case Option(tag="some", some=struct):
                     yield wrote(struct, key, answers)
                 case _:
@@ -638,9 +639,9 @@ def _applied[W](owner: Native, tree: Tree[W, RnaPath, RnaPath], projected: Calla
         outcomes: list[Applied] = []
         try:
             leading = Applied()
-            for prop in _LEADING:
+            for _, group in groupby(leads, key=lambda lead: lead[2].prop):
                 batch: list[Applied] = []
-                yield from (member(struct, key, descriptor, value, batch) for struct, key, descriptor, value in (lead for lead in leads if lead[2].prop == prop))
+                yield from (member(struct, key, descriptor, value, batch) for struct, key, descriptor, value in group)
                 if not (leading := leading.then(lambda: Applied.join(batch))).outcome.is_ok():
                     break
             outcomes.append(leading)
@@ -667,9 +668,9 @@ def assigned(root: Struct, members: Mapping[RnaPath, Value]) -> Outcome[None]:
         Faults of every refused write and of every path naming no member, accumulated.
     """
     written = Snapshot.of(type(root), members).apply(root)
-    return accumulated((written.outcome, *(Error(Fault.of(Reason.ABSENT, repr(root), member=_rna(path))) for path in written.skipped))).map(lambda _: None)
+    return accumulated((written.outcome, *(Error(Fault.of(Reason.ABSENT, repr(root), member=rna(path))) for path in written.skipped))).map(lambda _: None)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Applied", "Snapshot", "assigned"]
+__all__ = ["SNAPSHOT_DECODER", "Applied", "Capture", "Snapshot", "applied_tree", "assigned", "referenced"]

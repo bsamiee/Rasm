@@ -1,4 +1,6 @@
-use core::{borrow::Borrow, iter, num::NonZero};
+use core::borrow::Borrow;
+use core::iter;
+use core::num::NonZero;
 use std::sync::OnceLock;
 
 use itertools::{Either, Itertools as _};
@@ -6,11 +8,9 @@ use nalgebra::{Isometry3, Matrix3, Matrix6, Point3, Rotation3, SVD, Translation3
 use nonempty_collections::{NESlice, NEVec};
 use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 
-use crate::{
-    Assembly, Distance, ProximityError, Shortfall,
-    distances::{self, Projection},
-    points::{self, Cloud, Neighbor, Neighborhood},
-};
+use crate::distances::{self, Projection};
+use crate::points::{self, Cloud, Neighbor, Neighborhood};
+use crate::{Assembly, Distance, ProximityError, Shortfall};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

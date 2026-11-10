@@ -1,17 +1,18 @@
+import { basename, join, sep } from 'node:path';
 import { env, platform } from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { Effect, Record, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
-import { AppleError } from '#/plugins/targets';
+import { AppleError, spawned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Run = Schema.Struct({ runs: Schema.Array(Schema.NonEmptyArray(Schema.String)), args: Schema.optionalKey(Schema.Array(Schema.String)) });
+const Run = Schema.Struct({ runs: Schema.Array(Schema.NonEmptyArray(Schema.String)), applications: Schema.optionalKey(Schema.Array(Schema.String)), args: Schema.optionalKey(Schema.Array(Schema.String)) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const commands = Effect.fnUntraced(function* ({ runs, args = [] }: typeof Run.Type, root: string) {
+const commands = Effect.fnUntraced(function* ({ runs, applications = [], args = [] }: typeof Run.Type, root: string) {
     const cleared = Record.fromIterableWith([...Object.keys(env).filter((name) => name.startsWith('NX_')), 'LERNA_PACKAGE_NAME'], (name) => [name, undefined]);
     yield* Effect.forEach(
         runs,
@@ -25,6 +26,9 @@ const commands = Effect.fnUntraced(function* ({ runs, args = [] }: typeof Run.Ty
             ),
         { discard: true },
     );
+    const running = applications.length === 0 ? [] : (yield* spawned('ps', ['-Ao', 'comm='], { cwd: root })).split('\n');
+    const stale = applications.filter((application) => running.some((executable) => executable.startsWith(join(application, 'Contents', 'MacOS', sep))));
+    yield* stale.length === 0 ? Effect.void : Effect.logInfo(`${stale.map((application) => basename(application, '.app')).join(', ')} runs the build it launched from, relaunch it to run this one`);
     return { success: true };
 });
 

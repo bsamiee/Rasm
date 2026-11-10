@@ -3,80 +3,120 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/decode_without_path.rs
 ---
 error: `Deserialize::deserialize` decodes `&mut Deserializer<StrRead<'_>>` without tracking the field path
-  --> tools/dylint/examples/decode_without_path.rs:44:61
+  --> tools/dylint/examples/decode_without_path.rs:45:61
    |
-44 | fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+45 | fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) }
    |                                                             ^^^^^^^^^^^^^^^^^
    |
    = help: decode through `serde_path_to_error::deserialize`
    = note: `#[deny(decode_without_path)]` on by default
 
 error: `Deserialize::deserialize` decodes `&mut Deserializer<StrRead<'_>>` without tracking the field path
-  --> tools/dylint/examples/decode_without_path.rs:46:64
+  --> tools/dylint/examples/decode_without_path.rs:47:64
    |
-46 | fn qualified(text: &str) -> Result<Reply, serde_json::Error> { <Reply as Deserialize>::deserialize(&mut serde_json::Deserializer::fr...
+47 | fn qualified(text: &str) -> Result<Reply, serde_json::Error> { <Reply as Deserialize>::deserialize(&mut serde_json::Deserializer::fr...
    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: decode through `serde_path_to_error::deserialize`
 
-error: `Deserialize::deserialize` decodes `Value` without tracking the field path
-  --> tools/dylint/examples/decode_without_path.rs:48:77
+error: `converted` passes its parameters unchanged to `serde::Deserialize::deserialize`
+  --> tools/dylint/examples/decode_without_path.rs:49:1
    |
-48 | fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
+49 | fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/decode_without_path.rs:49:77
+   |
+49 | fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
+   |                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `serde::Deserialize::deserialize` at each call site of `converted` and delete `converted`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `Deserialize::deserialize` decodes `Value` without tracking the field path
+  --> tools/dylint/examples/decode_without_path.rs:49:77
+   |
+49 | fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
    |                                                                             ^^^^^^^^^^^^^^^^^
    |
    = help: decode through `serde_path_to_error::deserialize`
 
-error: `Deserialize::deserialize` decodes `&mut Deserializer<StrRead<'_>>` without tracking the field path
-  --> tools/dylint/examples/decode_without_path.rs:63:69
+error: `text` passes its parameters unchanged to `serde::Deserialize::deserialize`
+  --> tools/dylint/examples/decode_without_path.rs:51:1
    |
-63 | fn keyword_json(text: &str) -> Result<Keyword, serde_json::Error> { Keyword::deserialize(&mut serde_json::Deserializer::from_str(tex...
+51 | fn text(value: &serde_json::Value) -> Result<&str, serde_json::Error> { <&str>::deserialize(value) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/decode_without_path.rs:51:73
+   |
+51 | fn text(value: &serde_json::Value) -> Result<&str, serde_json::Error> { <&str>::deserialize(value) }
+   |                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `serde::Deserialize::deserialize` at each call site of `text` and delete `text`
+
+error: `Deserialize::deserialize` decodes `&mut Deserializer<StrRead<'_>>` without tracking the field path
+  --> tools/dylint/examples/decode_without_path.rs:64:69
+   |
+64 | fn keyword_json(text: &str) -> Result<Keyword, serde_json::Error> { Keyword::deserialize(&mut serde_json::Deserializer::from_str(tex...
    |                                                                     ^^^^^^^^^^^^^^^^^^^^
    |
    = help: decode through `serde_path_to_error::deserialize`
 
 error: `Deserialize::deserialize` decodes `StrDeserializer<'_, Error>` without tracking the field path
-  --> tools/dylint/examples/decode_without_path.rs:65:62
+  --> tools/dylint/examples/decode_without_path.rs:66:62
    |
-65 | fn scalar_record(text: &str) -> Result<Port, value::Error> { Port::deserialize(value::StrDeserializer::new(text)) }
+66 | fn scalar_record(text: &str) -> Result<Port, value::Error> { Port::deserialize(value::StrDeserializer::new(text)) }
    |                                                              ^^^^^^^^^^^^^^^^^
    |
    = help: decode through `serde_path_to_error::deserialize`
 
-error: `Deserialize::deserialize` decodes `StrDeserializer<'_, Error>` without tracking the field path
-  --> tools/dylint/examples/decode_without_path.rs:69:65
+error: `unit` passes its parameters unchanged to `serde::Deserialize::deserialize`
+  --> tools/dylint/examples/decode_without_path.rs:68:1
    |
-69 | fn custom_unit(text: &str) -> Result<Delegated, value::Error> { Delegated::deserialize(value::StrDeserializer::new(text)) }
+68 | fn unit<'de, D: Deserializer<'de>>(deserializer: D) -> Result<(), D::Error> { <()>::deserialize(deserializer) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/decode_without_path.rs:68:79
+   |
+68 | fn unit<'de, D: Deserializer<'de>>(deserializer: D) -> Result<(), D::Error> { <()>::deserialize(deserializer) }
+   |                                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `serde::Deserialize::deserialize` at each call site of `unit` and delete `unit`
+
+error: `Deserialize::deserialize` decodes `StrDeserializer<'_, Error>` without tracking the field path
+  --> tools/dylint/examples/decode_without_path.rs:70:65
+   |
+70 | fn custom_unit(text: &str) -> Result<Delegated, value::Error> { Delegated::deserialize(value::StrDeserializer::new(text)) }
    |                                                                 ^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: decode through `serde_path_to_error::deserialize`
 
 error: `keyword_json` repeats the body of `decoded` with another type in place of `Port`
-  --> tools/dylint/examples/decode_without_path.rs:44:1
+  --> tools/dylint/examples/decode_without_path.rs:45:1
    |
-44 | fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+45 | fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: repeated here
-  --> tools/dylint/examples/decode_without_path.rs:63:1
+  --> tools/dylint/examples/decode_without_path.rs:64:1
    |
-63 | fn keyword_json(text: &str) -> Result<Keyword, serde_json::Error> { Keyword::deserialize(&mut serde_json::Deserializer::from_str(tex...
+64 | fn keyword_json(text: &str) -> Result<Keyword, serde_json::Error> { Keyword::deserialize(&mut serde_json::Deserializer::from_str(tex...
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: replace `decoded` and `keyword_json` with one function generic over `S: Deserialize<'_>`
    = note: `#[deny(parameterizable_body)]` on by default
 
 error: `scalar_record` and `custom_unit` repeat the body of `keyword` with another type in place of `Keyword`
-  --> tools/dylint/examples/decode_without_path.rs:61:1
+  --> tools/dylint/examples/decode_without_path.rs:62:1
    |
-61 | fn keyword(text: &str) -> Result<Keyword, value::Error> { Keyword::deserialize(value::StrDeserializer::new(text)) }
+62 | fn keyword(text: &str) -> Result<Keyword, value::Error> { Keyword::deserialize(value::StrDeserializer::new(text)) }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: repeated here
-  --> tools/dylint/examples/decode_without_path.rs:65:1
+  --> tools/dylint/examples/decode_without_path.rs:66:1
    |
-65 | fn scalar_record(text: &str) -> Result<Port, value::Error> { Port::deserialize(value::StrDeserializer::new(text)) }
+66 | fn scalar_record(text: &str) -> Result<Port, value::Error> { Port::deserialize(value::StrDeserializer::new(text)) }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-69 | fn custom_unit(text: &str) -> Result<Delegated, value::Error> { Delegated::deserialize(value::StrDeserializer::new(text)) }
+70 | fn custom_unit(text: &str) -> Result<Delegated, value::Error> { Delegated::deserialize(value::StrDeserializer::new(text)) }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: replace `keyword`, `scalar_record` and `custom_unit` with one function generic over `S: Deserialize<'_>`

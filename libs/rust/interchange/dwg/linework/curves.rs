@@ -1,15 +1,14 @@
-use core::{array, cmp::max_by, f64::consts::TAU, iter};
+use core::cmp::max_by;
+use core::f64::consts::TAU;
+use core::{array, iter};
 use std::borrow::Cow;
 
-use acadrust::{
-    entities::{BoundaryEdge, BoundaryPath, BoundaryPathFlags, EntityType, Face3D, Hatch, HatchStyleType, LwPolyline, LwVertex, PolylineEdge, Spline, SplineEdge, SplineFlags, VertexFlags},
-    types::{Matrix3, Vector2, Vector3},
-};
+use acadrust::entities::{BoundaryEdge, BoundaryPath, BoundaryPathFlags, EntityType, Face3D, Hatch, HatchStyleType, LwPolyline, LwVertex, PolylineEdge, Spline, SplineEdge, SplineFlags, VertexFlags};
+use acadrust::types::{Matrix3, Vector2, Vector3};
 use itertools::Itertools as _;
 use kurbo::{Affine, BezPath, Cap, Circle, Join, Line, ParamCurve, ParamCurveNearest as _, PathEl, PathSeg, Point, Shape as _, Stroke, StrokeOpts, SvgArc, Vec2, flatten, segments, stroke};
 use linesweeper::FillRule;
-use nonempty_collections::NEVec;
-use rasm_drawing::{Dashes, DashesError, LineworkError, Region, Tolerance};
+use rasm_drawing::{Dashes, LineworkError, Region, Tolerance};
 
 use crate::{CadError, Refusal, Subject};
 
@@ -252,36 +251,6 @@ pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subje
         .collect::<BezPath>();
     kept.apply_affine(plane);
     Region::new(kept, rule, tolerance).map_err(|source| CadError::Geometry { subject: subject.clone(), source })
-}
-
-pub(super) fn dashes(lengths: impl IntoIterator<Item = f64>, scale: f64) -> Result<Option<(Dashes, f64)>, DashesError> {
-    let mut runs = lengths
-        .into_iter()
-        .map(|length| (length >= 0.0, length.abs() * scale))
-        .coalesce(|(left_on, left), (right_on, right)| if left_on == right_on { Ok((left_on, left + right)) } else { Err(((left_on, left), (right_on, right))) })
-        .collect::<Vec<_>>();
-    let phase = match runs.as_mut_slice() {
-        [(head_on, head), .., (tail_on, tail)] if head_on == tail_on => {
-            let phase = *tail;
-            *head += phase;
-            runs.truncate(runs.len().strict_sub(1));
-            phase
-        }
-        _ => 0.0,
-    };
-    let offset = match &runs {
-        [(false, _), rest @ ..] => {
-            let offset = rest.iter().map(|(_, length)| length).sum::<f64>() + phase;
-            runs.rotate_left(1);
-            offset
-        }
-        _ => phase,
-    };
-    match &runs {
-        [] | [(true, _)] => Ok(None),
-        [(true, head), rest @ ..] => Dashes::try_new(NEVec::from((*head, rest.iter().map(|(_, length)| *length).collect()))).map(|dashes| Some((dashes, offset))),
-        [(false, _), ..] => Err(DashesError::PredicateViolated),
-    }
 }
 
 #[must_use]

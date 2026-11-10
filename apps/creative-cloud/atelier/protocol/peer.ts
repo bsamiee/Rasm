@@ -32,13 +32,6 @@ class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')
     extension: Schema.String.annotate({ description: 'UXP plugin or CEP extension identifier' }),
     root: Schema.OptionFromOptionalKey(HostUrl).annotate({ description: 'Directory the host loaded for this plugin' }),
 }) {
-    static readonly Connection = Schema.Struct({
-        adobePlugin: Schema.Literals(['connected', 'disconnected']),
-        connection: Schema.Int,
-        application: Schema.String,
-        extension: Schema.String,
-        root: Schema.optionalKey(Schema.String),
-    });
     static readonly dial =
         <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, application: Effect.Effect<URL, E, R>) =>
         <F, R2>(extension: string, root: Effect.Effect<URL, F, R2>) =>
@@ -88,16 +81,16 @@ class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')
 const accept = Effect.fnUntraced(function* <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol>, links: SubscriptionRef.SubscriptionRef<readonly Linked<Rpcs>[]>, request: HttpServerRequest.HttpServerRequest, connection: number) {
     const [peer, socket, made, ended] = yield* Effect.all([HttpServerRequest.schemaSearchParams(Peer), request.upgrade, Deferred.make<Linked<Rpcs>>(), Latch.make()]);
     const replaced = ({ peer: linked }: Linked<Rpcs>) => linked.extension === peer.extension && Peer.serves(peer.application)(linked);
-    const report = (adobePlugin: typeof Peer.Connection.Type.adobePlugin) => Effect.logInfo(Peer.Connection.make({ adobePlugin, connection, application: peer.application.href, extension: peer.extension, ...Record.getSomes({ root: Option.map(peer.root, Struct.get('href')) }) }));
+    const report = (message: string) => Effect.annotateLogs(Effect.logInfo(message), { connection, application: peer.application.href, extension: peer.extension, ...Record.getSomes({ root: Option.map(peer.root, Struct.get('href')) }) });
     const protocol = yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(
         Effect.provideService(RpcClient.ConnectionHooks, {
             onConnect: Deferred.await(made).pipe(
                 Effect.flatMap((entry) => SubscriptionRef.update(links, flow(Array.filter<Linked<Rpcs>>(Predicate.not(replaced)), Array.prepend(entry)))),
-                Effect.andThen(report('connected')),
+                Effect.andThen(report('Adobe plugin connected')),
             ),
             onDisconnect: Deferred.await(made).pipe(
                 Effect.flatMap((entry) => SubscriptionRef.update(links, Array.difference([entry]))),
-                Effect.andThen(report('disconnected')),
+                Effect.andThen(report('Adobe plugin disconnected')),
                 Effect.andThen(ended.open),
             ),
         }),

@@ -1,16 +1,11 @@
 use core::ops::ControlFlow;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    eq_expr_value, fn_def_id,
-    higher::{ForLoop, Range, RangeTy, While},
-    is_integer_literal, peel_blocks, peel_hir_expr_while,
-    res::MaybeDef as _,
-    std_or_core,
-    sugg::Sugg,
-    sym,
-    visitors::for_each_expr_without_closures,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::higher::{ForLoop, Range, RangeTy, While};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::sugg::Sugg;
+use clippy_utils::visitors::for_each_expr_without_closures;
+use clippy_utils::{eq_expr_value, fn_def_id, is_integer_literal, peel_blocks, peel_hir_expr_while, std_or_core, sym};
 use rustc_ast::BinOpKind;
 use rustc_errors::Applicability;
 use rustc_hir::{Block, Expr, ExprKind, LetStmt, LoopSource, Node, Pat, PatKind, PathSegment, Stmt, StmtKind};

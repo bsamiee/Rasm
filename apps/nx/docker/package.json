@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-docker",
     "version": "0.0.0",
-    "description": "Nx plugin inferring Compose projects, their checks, image builds, and service starts from docker compose's own output",
+    "description": "Nx plugin inferring Compose projects, their checks, image builds, service starts, and image tag upgrades from docker compose's own output",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -11,13 +11,16 @@
     "type": "module",
     "exports": {
         ".": "./plugins/project-graph.ts",
-        "./package.json": "./package.json"
+        "./package.json": "./package.json",
+        "./executors.json": "./executors.json"
     },
-    "files": [ "dist" ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "effect": "catalog:"
+        "@rasm/nx-devkit": "workspace:*",
+        "effect": "catalog:",
+        "yaml": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:"
@@ -26,7 +29,9 @@
         "access": "public",
         "exports": {
             ".": "./dist/plugins/project-graph.js",
-            "./package.json": "./package.json"
+            "./package.json": "./package.json",
+            "./executors.json": "./executors.json"
         }
-    }
+    },
+    "executors": "./executors.json"
 }

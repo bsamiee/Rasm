@@ -1,17 +1,14 @@
-use core::{borrow::Borrow, convert, iter};
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use core::borrow::Borrow;
+use core::{convert, iter};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use hayro_syntax::object::dict::keys::{AS, BASE_STATE, D, NAME, OC, OCG, OCGS, OCPROPERTIES, OFF, ON, ORDER, PRINT, PRINT_STATE, PROPERTIES, TYPE, USAGE, VIEW, VIEW_STATE};
-use indexmap::{IndexMap, map::Entry};
+use indexmap::IndexMap;
+use indexmap::map::Entry;
 use itertools::Either;
-use lopdf::{
-    Dictionary, Object, ObjectId,
-    content::{Content, Operation},
-    decode_text_string, dictionary, text_string,
-};
+use lopdf::content::{Content, Operation};
+use lopdf::{Dictionary, Object, ObjectId, decode_text_string, dictionary, text_string};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use pdf_oxide::compliance::{PdfAPart, PdfUaLevel};
 use rasm_drawing::Visibility;

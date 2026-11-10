@@ -77,9 +77,9 @@ public sealed partial class LineType {
     public static readonly LineType DashedTriplicateDotted = new("14", IterableNE.create(Dash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
     public static readonly LineType DoubleDashedTriplicateDotted = new("15", IterableNE.create(Dash, Gap, Dash, Gap, Dot, Gap, Dot, Gap, Dot, Gap));
 
-    private readonly IterableNE<QuantityValue> _pattern;
+    private readonly IterableNE<QuantityValue> pattern;
 
-    public IterableNE<Length> Pattern(LineWidth width, LineCap cap) => _pattern.Map(multiple => width.Width * cap.Drawn(multiple));
+    public IterableNE<Length> Pattern(LineWidth width, LineCap cap) => pattern.Map(multiple => width.Width * cap.Drawn(multiple));
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

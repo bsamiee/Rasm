@@ -17,6 +17,10 @@ use nalgebra::DMatrix;
 use nonempty_collections::NEVec;
 #[cfg(feature = "ode")]
 use petgraph::graph::{EdgeIndex, NodeIndex};
+use uom::fmt::DisplayStyle::Abbreviation;
+use uom::si::Dimension;
+use uom::si::f64::Time;
+use uom::si::time::second;
 #[cfg(feature = "ode")]
 use uom::si::{
     f64::{HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature},
@@ -25,11 +29,7 @@ use uom::si::{
     thermal_conductance::watt_per_kelvin,
     thermodynamic_temperature::kelvin,
 };
-use uom::{
-    fmt::DisplayStyle::Abbreviation,
-    si::{Dimension, f64::Time, time::second},
-    typenum::Integer as _,
-};
+use uom::typenum::Integer as _;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

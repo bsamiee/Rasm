@@ -95,7 +95,6 @@ public sealed record PointRequest<T>(string Prompt) : GetterRequest<GetPoint, T>
     public bool OnMouseUp { get; init; }
     public Seq<PointHandler> Handlers { get; init; }
     internal bool Released => OnMouseUp || Handlers.Exists(static handler => handler.Released);
-    internal bool FullFrame => Handlers.Exists(static handler => handler.FullFrame);
 }
 
 public sealed record EntryRequest<TGetter, TValue, T>(string Prompt) : GetterRequest<TGetter, T>(Prompt) where TGetter : GetBaseClass {
@@ -259,7 +258,7 @@ public static class Getters {
             getter =>
                 from handlers in request.Handlers.TraverseM(handler => handler.Attach(getter)).As()
                 from result in IO.lift(() => {
-                    getter.FullFrameRedrawDuringGet |= request.FullFrame;
+                    getter.FullFrameRedrawDuringGet |= request.Handlers.Exists(static handler => handler.FullFrame);
                     _ = request.Default.Iter(getter.SetDefaultPoint);
                     return get(getter);
                 })

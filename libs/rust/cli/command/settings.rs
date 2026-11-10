@@ -1,4 +1,6 @@
-use core::{borrow::Borrow, iter, mem, ops::Range};
+use core::borrow::Borrow;
+use core::ops::Range;
+use core::{iter, mem};
 use std::sync::Arc;
 
 use annotate_snippets::{AnnotationKind, Element, Level, Renderer, Snippet};
@@ -10,10 +12,8 @@ use itertools::Itertools as _;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use serde::de::DeserializeOwned;
 use serde_path_to_error::{Path, Segment};
-use toml::{
-    Spanned,
-    de::{DeTable, DeValue, Deserializer},
-};
+use toml::Spanned;
+use toml::de::{DeTable, DeValue, Deserializer};
 use validated::Validated;
 
 use crate::CommandError;

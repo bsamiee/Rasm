@@ -27,7 +27,7 @@ Arguments name a subject and a depth, a missing depth means `review`:
 Map before judging. A finding drafted before its owner and decision record are known is rewritten or dropped later:
 1. Run `git log -5 --stat` and `git status --short` to see work in progress, then review the live tree, uncommitted edits included
 2. Read README `[OWNERS]` and `[STRUCTURE]` for the owner of each concern
-3. Read `manage-repo` and each reference for the subject's toolchains, rows there record decisions and their tool behavior
+3. Read the Nx plugin READMEs and `docs/research/nx/` sheets for the subject's toolchains, rows there record decisions and their tool behavior
 4. Read each skill naming a subject file (`rg -l '<file>' .claude/skills`), skills record decisions (why a secret reaches CI as a file)
 5. Read the project memory folder, each entry is an owner rule a finding obeys
 6. Resolve projects and their targets with `nx show projects` and `nx show project <project> --json`
@@ -98,7 +98,7 @@ Real findings break a repository standard or an owner rule with consequence:
 |  [09]   | Self-check      | Code proving its own code, config, or output                            |
 |  [10]   | Parallel script | Script or one-off flag doing what an owning target or tool option does  |
 |  [11]   | Enumerated      | Name, row, file, or list per subject or mode a declaration derives      |
-|  [12]   | Agent interface | Entry point breaking a `manage-repo` entry point rule                   |
+|  [12]   | Agent interface | Entry point breaking a `CLAUDE.md` command rule                         |
 
 Owner rules decide what never becomes a finding:
 - Package and dependency rows stay, a row with no importer goes in an observed-not-proposed list
@@ -114,7 +114,7 @@ Recorded decisions are challenged openly:
 Fixes pass the same standards as code:
 - Fixes remove files, rows, members, or lines, a fix adding a service, bucket, script, or root file states why no smaller owner exists
 - Fixes move a fact to its owner, a wrapper over a wrapper is a second defect
-- Fixes for an enumerated variant take the tool mechanism `manage-repo` derivation lists, else code in the layer `manage-repo` names
+- Fixes for an enumerated variant take the tool's own mechanism, else code in the layer the README owner row names
 - Fixes follow the tool's cost model: a forced split keeps its runs and derives them, a split a parameter covers becomes one name
 - Fixes touching a secret keep its value out of logs and uploaded artifacts
 
@@ -144,7 +144,7 @@ Split by concern and owner, never by folder alone. Facts at a boundary (an `nx.j
 Each reader brief states:
 - Slice: files owned, files read only for composition, files excluded
 - Standards: `CLAUDE.md` sections that judge the slice, owner rules from memory, parked areas
-- Records: manage-repo references and skills covering the slice, read before any finding
+- Records: Nx plugin READMEs, `docs/research/nx/` sheets, and skills covering the slice, read before any finding
 - Capabilities: dependency features to check hand-rolling against, by package and installed version
 - Rules: read-only tree, fixture folder with redirected homes, cleanup, no report file
 - Return: findings in the five-part form, `Unverified:` labels, checked-and-right list, cross-area notes

@@ -1,4 +1,6 @@
-use core::{cell::Cell, f64::consts::FRAC_1_SQRT_2, iter};
+use core::cell::Cell;
+use core::f64::consts::FRAC_1_SQRT_2;
+use core::iter;
 
 use itertools::Itertools as _;
 use kurbo::{BezPath, Line, ParamCurve as _, ParamCurveNearest as _, PathSeg, Point, Shape as _};
@@ -7,18 +9,15 @@ use nalgebra::{Point3, Unit, UnitVector3};
 use nonempty_collections::NEVec;
 use rasm_drawing::{Region, Tolerance, Visibility};
 use rasm_mesh::Source;
-use rasm_proximity::{
-    Distance, DistanceError,
-    rays::{self, Hit},
-};
+use rasm_proximity::rays::{self, Hit};
+use rasm_proximity::{Distance, DistanceError};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use spade::{CdtEdge, ConstrainedDelaunayTriangulation, HierarchyHintGenerator, Intersection, LineIntersectionIterator, Point2, Triangulation as _, handles::DirectedEdgeHandle, mitigate_underflow};
+use spade::handles::DirectedEdgeHandle;
+use spade::{CdtEdge, ConstrainedDelaunayTriangulation, HierarchyHintGenerator, Intersection, LineIntersectionIterator, Point2, Triangulation as _, mitigate_underflow};
 use validated::Validated;
 
-use crate::{
-    Frame, Operation, Prepared, Scene, View, ViewsError, ray,
-    visibility::{Lines, Piece, window},
-};
+use crate::visibility::{Lines, Piece, window};
+use crate::{Frame, Operation, Prepared, Scene, View, ViewsError, ray};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,24 +1,20 @@
-use core::{
-    cell::UnsafeCell as Cell,
-    cmp::{Reverse as Flipped, *},
-    fmt::{self as format, Error, Write as _},
-    hint::black_box,
-    mem::{drop as discard, take as taken},
-    sync::atomic::{AtomicU32, Ordering as Atomic},
-};
+use core::cell::UnsafeCell as Cell;
+use core::cmp::{Reverse as Flipped, *};
+use core::fmt::{self as format, Error, Write as _};
+use core::hint::black_box;
+use core::mem::{drop as discard, take as taken};
+use core::sync::atomic::{AtomicU32, Ordering as Atomic};
+use std::collections::BTreeMap as Map;
+use std::ffi::{self, OsStr};
+use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt as Native;
 #[cfg(windows)]
 use std::os::windows::ffi::OsStrExt as Native;
-use std::{
-    collections::BTreeMap as Map,
-    ffi::{self, OsStr},
-    io::{Error as IoError, ErrorKind, Result as IoResult},
-    process::ExitCode,
-    sync::Arc as Shared,
-    time::Instant as Clock,
-    vec::Vec as Items,
-};
+use std::process::ExitCode;
+use std::sync::Arc as Shared;
+use std::time::Instant as Clock;
+use std::vec::Vec as Items;
 
 use ::tokio::fs::DirEntry;
 
@@ -64,7 +60,8 @@ fn shadowed() -> bool {
 }
 
 fn dropped() -> bool {
-    use std::{rc::*, sync::Weak as Detached};
+    use std::rc::*;
+    use std::sync::Weak as Detached;
     Detached::<u8>::new().upgrade().is_none() && Weak::<u8>::new().upgrade().is_none()
 }
 
@@ -142,7 +139,8 @@ fn main() -> ExitCode {
 }
 
 mod paired {
-    use std::{fmt::Error as FormatError, io::Error as SystemError};
+    use std::fmt::Error as FormatError;
+    use std::io::Error as SystemError;
 
     pub(crate) fn joined(format: FormatError, io: &SystemError) -> bool { format == FormatError && io.raw_os_error().is_none() }
 }

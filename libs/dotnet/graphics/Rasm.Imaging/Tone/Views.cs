@@ -166,7 +166,7 @@ public sealed record FilmStock(
     private const float Unlifted = 1e-4f;
 
     public static FilmStock Default { get; } = new(
-        4.3f, Vector3.One, new(1.05f, 1.12f, 1.045f), new Vector3(0.5f, 2f, 0.1f) * (float.Pi / 180f), Vector3.One, new(-10f, 22f), new(0.44f, 0.28f), new(0.591f, 0.779f),
+        4.3f, Vector3.One, new(1.05f, 1.12f, 1.045f), Vector3.DegreesToRadians(new(0.5f, 2f, 0.1f)), Vector3.One, new(-10f, 22f), new(0.44f, 0.28f), new(0.591f, 0.779f),
         6f, 5f, Vector3.One, 6f, 27.5f, None, Vector3.One, new(0.3f, 0.5f, 0.2f), 1.02f, new(0.5f, 0.45f));
     public static FilmStock Nostalgia { get; } =
         Default with { PreExposure = 5.563035f, Multiplier = new(1.1f, 1f, 1.2f), LogRange = new(-10f, 23f), NegativeExposure = 5.8f, Backlight = new(0.99f, 1.1f, 1.035989f), PrintDensity = 40f, BlackPoint = -5f, MidtoneSaturation = 1.1f };

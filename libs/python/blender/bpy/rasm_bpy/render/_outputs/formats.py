@@ -14,11 +14,11 @@ import msgspec
 from rasm_bpy.commands.operators import answered
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._rna.descriptors import _differing, Value
-from rasm_bpy.data._rna.paths import RnaPath, rooted, Struct
-from rasm_bpy.data._rna.snapshots import assigned, Snapshot
-from rasm_bpy.nodes._desired import _member_paths, ItemContent
-from rasm_bpy.nodes._trees import _matched_items, _nested, _ordered_items
+from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, differing, Value
+from rasm_bpy.data._rna.paths import rna_definition, RnaPath, rooted, Struct
+from rasm_bpy.data._rna.snapshots import assigned, Snapshot, SNAPSHOT_DECODER
+from rasm_bpy.nodes._desired import ItemContent, member_paths
+from rasm_bpy.nodes._trees import matched_items, nested, ordered_items
 from rasm_bpy.render._color.spaces import DisplaySettings, Settings, ViewSettings
 from rasm_bpy.settings._presets import Preset
 from rasm_bpy.ui._layout.values import Listing
@@ -31,8 +31,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FORMAT: Final[bpy.types.EnumProperty] = bpy.types.ImageFormatSettings.bl_rna.properties["file_format"]  # ty: ignore[invalid-assignment]
-_FILE_FORMATS: Final = frozenset(item.identifier for item in _FORMAT.enum_items)
+FILE_FORMATS: Final = frozenset(item.identifier for item in Descriptor.of(bpy.types.ImageFormatSettings, ("file_format",), bpy.types.EnumProperty).prop.enum_items)
 EXR: Final = frozenset({"OPEN_EXR", "OPEN_EXR_MULTILAYER"})
 _JPEG2000: Final = MappingProxyType({"JP2": ".jp2", "J2K": ".j2c"})
 _EXTENSIONS: Final = MappingProxyType({
@@ -129,7 +128,7 @@ class OutputFormat(Settings, frozen=True, kw_only=True):
 
     def applied(self, settings: bpy.types.ImageFormatSettings) -> Outcome[None]:
         """Writes the set members onto image format settings."""
-        return assigned(settings, _member_paths(self.members()))
+        return assigned(settings, member_paths(self.members()))
 
     @contextmanager
     def held(self, settings: bpy.types.ImageFormatSettings) -> Generator[Outcome[None]]:
@@ -141,7 +140,7 @@ class OutputFormat(Settings, frozen=True, kw_only=True):
             yield Result[Snapshot, Faults].bind(prior, lambda _: self.applied(settings))
 
 
-class _FileItem(Settings, frozen=True, kw_only=True):
+class FileItem(Settings, frozen=True, kw_only=True):
     """`NodeCompositorFileOutputItem` members, `format` overriding the node's when `override_node_format` is set."""
 
     name: str
@@ -152,30 +151,33 @@ class _FileItem(Settings, frozen=True, kw_only=True):
     format: OutputFormat | msgspec.UnsetType = msgspec.UNSET
 
 
-class _FileItems(ItemContent, frozen=True, kw_only=True):
+class FileItems(ItemContent, frozen=True, kw_only=True):
     """Semantic keys bound to native File Output items under their original requests."""
 
     # --- [STATE]
 
-    items: Mapping[Key, _FileItem]
+    items: Mapping[Key, FileItem]
     _key: ClassVar[Key] = "file_items"
 
     # --- [READS]
 
     @staticmethod
-    def _bound(live: bpy.types.CompositorNodeOutputFile, identity: Identity) -> tuple[Mapping[Key, Mapping[str, str]], dict[str, bpy.types.NodeCompositorFileOutputItem]]:
-        bindings: Mapping[Key, Mapping[str, str]] = live.get(identity.identifier(_FileItems._key), {})  # ty: ignore[unsound-assignment]
-        inputs: bpy.types.NodeInputs = live.inputs  # ty: ignore[invalid-assignment]
-        return bindings, {socket.identifier: item for item, socket in zip(live.file_output_items, inputs)}
+    def _bound(live: bpy.types.CompositorNodeOutputFile, identity: Identity) -> tuple[Mapping[str, Mapping[str, str]], dict[str, bpy.types.NodeCompositorFileOutputItem], bpy.types.NodeInputs]:
+        """Returns stored bindings, native items by socket identifier, and node inputs, raising `TypeError` for a record `write` never stored."""
+        match live, converted_value(live.get(identity.identifier(FileItems._key), {}), Mapping[str, Mapping[str, str]], repr(live)):
+            case bpy.types.CompositorNodeOutputFile(inputs=bpy.types.bpy_prop_collection() as inputs), Result(tag="ok", ok=bindings):
+                return bindings, {socket.identifier: item for item, socket in zip(live.file_output_items, inputs)}, inputs
+            case other:
+                raise TypeError(other)
 
     @staticmethod
-    def _members(item: _FileItem) -> Mapping[RnaPath, Value]:
-        return _member_paths({path: value for path, value in item.members().items() if path != ("name",)})
+    def _members(item: FileItem) -> Mapping[RnaPath, Value]:
+        return member_paths({path: value for path, value in item.members().items() if path != ("name",)})
 
     @staticmethod
     def held(live: bpy.types.CompositorNodeOutputFile, identity: Identity) -> Mapping[Key, bpy.types.NodeCompositorFileOutputItem]:
         """Returns bound native items, omitting items removed from the native collection."""
-        bindings, inventory = _FileItems._bound(live, identity)
+        bindings, inventory, _ = FileItems._bound(live, identity)
         return {key: inventory[row["identifier"]] for key, row in bindings.items() if row["identifier"] in inventory}
 
     @override
@@ -183,13 +185,13 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
         """Whether the File Output node holds these items in order with these members."""
 
         def matched(output: bpy.types.CompositorNodeOutputFile) -> bool:
-            bindings, inventory = self._bound(output, identity)
+            bindings, inventory, _ = self._bound(output, identity)
             keys = {row["identifier"]: key for key, row in bindings.items()}
             return (
                 len(inventory) == len(self.items)
                 and tuple(keys[identifier] for identifier in inventory if identifier in keys) == tuple(self.items)
                 and all(
-                    row["request"] == wanted.name and item.name == row["name"] and not _differing(item, self._members(wanted))
+                    row["request"] == wanted.name and item.name == row["name"] and not differing(item, self._members(wanted))
                     for key, wanted in self.items.items()
                     for row in (bindings[key],)
                     for item in (inventory[row["identifier"]],)
@@ -203,7 +205,7 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
         """Returns semantic keys bound to current native socket identifiers."""
         match live:
             case bpy.types.CompositorNodeOutputFile() as output:
-                bindings, inventory = self._bound(output, identity)
+                bindings, inventory, _ = self._bound(output, identity)
                 return {key: row["identifier"] for key, row in bindings.items() if row["identifier"] in inventory}
             case _:
                 return dict[str, str]()
@@ -213,9 +215,8 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
         """Returns surviving native identifiers at their desired enabled positions."""
         match live:
             case bpy.types.CompositorNodeOutputFile() as output:
-                bindings, inventory = self._bound(output, identity)
-                _, matched = _matched_items(inventory, {row["identifier"]: (key, row["request"]) for key, row in bindings.items()}, ((key, wanted.name) for key, wanted in self.items.items()))
-                inputs: bpy.types.NodeInputs = output.inputs  # ty: ignore[invalid-assignment]
+                bindings, inventory, inputs = self._bound(output, identity)
+                _, matched = matched_items(inventory, {row["identifier"]: (key, row["request"]) for key, row in bindings.items()}, ((key, wanted.name) for key, wanted in self.items.items()))
                 outputs: bpy.types.NodeOutputs = output.outputs
                 positions = (*matched, *(socket.identifier for socket in inputs if socket.identifier not in inventory and socket.enabled))
                 return {
@@ -232,12 +233,11 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
         """Keeps native identifiers for unchanged requests and creates changed requests once."""
 
         def written(output: bpy.types.CompositorNodeOutputFile) -> Outcome[None]:
-            bindings, inventory = self._bound(output, identity)
-            removed, matched = _matched_items(inventory, {row["identifier"]: (key, row["request"]) for key, row in bindings.items()}, ((key, wanted.name) for key, wanted in self.items.items()))
+            bindings, inventory, inputs = self._bound(output, identity)
+            removed, matched = matched_items(inventory, {row["identifier"]: (key, row["request"]) for key, row in bindings.items()}, ((key, wanted.name) for key, wanted in self.items.items()))
             names = {identifier: inventory[identifier].name for identifier in matched if identifier is not None}
             kept: dict[Key, dict[str, str]] = {}
             desired: list[str] = []
-            inputs: bpy.types.NodeInputs = output.inputs  # ty: ignore[invalid-assignment]
             answers: list[Outcome[None]] = []
             refused = partial(Fault.of, Refusal.REFUSED, repr(output))
             try:
@@ -252,7 +252,7 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
                     desired.append(identifier)
                     answers.append(assigned(item, {path: value for path, value in self._members(wanted).items() if retained is not None or path != ("socket_type",)}))
                 current = (*(identifier for identifier in inventory if identifier in names), *(identifier for identifier, retained in zip(desired, matched) if retained is None))
-                _ordered_items(current, desired, output.file_output_items.move)
+                ordered_items(current, desired, output.file_output_items.move)
             except (RuntimeError, TypeError, ValueError) as error:
                 return accumulated((*answers, Error(refused(error)))).map(lambda _: None)
             try:
@@ -270,11 +270,11 @@ class _FileItems(ItemContent, frozen=True, kw_only=True):
 def format_member(struct: type[Struct]) -> Option[str]:
     """Returns the member holding the struct's image format, Nothing for a struct holding none."""
     return Option.of_optional(
-        next((prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.ImageFormatSettings)), None)
+        next((prop.identifier for prop in struct.bl_rna.properties if isinstance(prop, bpy.types.PointerProperty) and prop.fixed_type == rna_definition(bpy.types.ImageFormatSettings)), None)
     )
 
 
-def _depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
+def storage_depth(settings: bpy.types.ImageFormatSettings) -> Option[Depth]:
     """Returns storage depth, Nothing for packed 10-bit and 12-bit files."""
     match settings.color_depth:
         case "8":
@@ -297,7 +297,7 @@ def rounds_straight(settings: bpy.types.ImageFormatSettings) -> bool:
     return not settings.has_linear_colorspace and settings.color_mode == "RGBA" and not (settings.file_format == "TIFF" and settings.color_depth == "16")
 
 
-def _extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
+def extension(settings: bpy.types.ImageFormatSettings) -> Option[str]:
     """Returns the still suffix a format writes, `.jp2` or `.j2c` by JPEG2000 codec, which only the scene's `RenderSettings.file_extension` states."""
     return Option.of_optional(_JPEG2000.get(settings.jpeg2k_codec) if settings.file_format == "JPEG2000" else _EXTENSIONS.get(settings.file_format))
 
@@ -306,7 +306,7 @@ def image_formats(scene: bpy.types.Scene) -> tuple[bpy.types.ImageFormatSettings
     """Returns scene, nested File Output, and overriding item formats once per tree."""
     nodes = tuple(
         node
-        for tree in _nested(effect.node_group for effect in scene.compositor_effects if isinstance(effect.node_group, bpy.types.CompositorNodeTree))
+        for tree in nested(effect.node_group for effect in scene.compositor_effects if isinstance(effect.node_group, bpy.types.CompositorNodeTree))
         for node in tree.nodes
         if isinstance(node, bpy.types.CompositorNodeOutputFile)
     )
@@ -330,7 +330,7 @@ def _output(live: bpy.types.Node) -> Outcome[bpy.types.CompositorNodeOutputFile]
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 format_listing: Final = Listing(
-    preset=Preset(key="image_formats", form=Snapshot),
+    preset=Preset(key="image_formats", decoder=SNAPSHOT_DECODER),
     current=_captured,
     matches=lambda context, values: _captured(context).map(lambda held: tuple(not transfer(held.tree, value.tree) for value in values)),
     applied=lambda context, value: rooted(bpy.types.Scene, context).bind(lambda scene: answered(value.apply(scene.render.image_settings), "Output format holds preset")),
@@ -338,4 +338,19 @@ format_listing: Final = Listing(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EXR", "Colorspace", "OutputFormat", "Stereo3dFormat", "code_step", "format_listing", "format_member", "image_formats", "rounds_straight"]
+__all__ = [
+    "EXR",
+    "FILE_FORMATS",
+    "Colorspace",
+    "FileItem",
+    "FileItems",
+    "OutputFormat",
+    "Stereo3dFormat",
+    "code_step",
+    "extension",
+    "format_listing",
+    "format_member",
+    "image_formats",
+    "rounds_straight",
+    "storage_depth",
+]

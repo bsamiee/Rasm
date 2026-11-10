@@ -1,18 +1,15 @@
-use core::{
-    f64::consts::{FRAC_PI_2, PI, TAU},
-    iter,
-    num::NonZero,
-    ops::ControlFlow,
-    range::RangeInclusive,
-};
+use core::f64::consts::{FRAC_PI_2, PI, TAU};
+use core::iter;
+use core::num::NonZero;
+use core::ops::ControlFlow;
+use core::range::RangeInclusive;
 use std::collections::BTreeMap;
 
 use bilby::{GaussHermite, GaussJacobi, GaussLaguerre, GaussLegendre, QuadratureRule};
-use dashu::{
-    base::BitTest as _,
-    float::{Context, FBig, Repr, round::mode::HalfEven},
-    integer::IBig,
-};
+use dashu::base::BitTest as _;
+use dashu::float::round::mode::HalfEven;
+use dashu::float::{Context, FBig, Repr};
+use dashu::integer::IBig;
 use itertools::{Either, Itertools as _};
 use libm::frexp;
 use nalgebra::{DVector, DVectorView, MatrixXx3, Rotation3, UnitVector3, Vector2, Vector3, convert};
@@ -230,7 +227,6 @@ where
         state.next = next;
         Ok(())
     }
-    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite f64 decoding into Dashu integers")]
     let exact = |value: f64| {
         let (mantissa, exponent, sign) = value.integer_decode();
         FBig::from_repr_const(Repr::new(IBig::from(mantissa) * sign, isize::from(exponent)))
@@ -249,7 +245,6 @@ where
                 }
                 Either::Right(affine) => {
                     let along = exact(along);
-                    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite, bounded-exponent Dashu arithmetic")]
                     let coordinates = affine * Vector3::new(FBig::ONE, along.clone(), (FBig::ONE - along) * exact(across));
                     point.zip_apply(&coordinates, |coordinate, exact| *coordinate = exact.to_f64().value());
                 }
@@ -281,12 +276,10 @@ where
                 let (origin, mut edges) = affine.columns_range_pair_mut(0, 1..);
                 edges.column_iter_mut().for_each(|mut edge| edge -= &origin);
                 let (first, second) = (affine.column(1), affine.column(2));
-                #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite, bounded-exponent Dashu arithmetic")]
                 let determinant = first.dot(&first) * second.dot(&second) - first.dot(&second).sqr();
                 let context = Context::<HalfEven>::new(convert(f64::MANTISSA_DIGITS));
                 let area = context.unwrap_fp(context.sqrt(determinant.repr()));
                 let exponent = area.repr().exponent().strict_add(area.repr().significand().bit_len().strict_cast::<isize>());
-                #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite, bounded-exponent Dashu arithmetic")]
                 let area = ((area >> exponent).to_f64().value(), exponent);
                 let coordinates = affine.map(|coordinate| coordinate.to_f64().value());
                 let affine = if coordinates.iter().all(|coordinate| coordinate.is_finite()) { Either::Left(coordinates) } else { Either::Right(affine) };

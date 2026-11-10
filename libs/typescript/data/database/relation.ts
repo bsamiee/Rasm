@@ -1,8 +1,8 @@
-import { Array, Data, Effect, Equal, Filter, Option, Record, Schema, String, Struct } from 'effect';
+import { Array, Data, Duration, Effect, Equal, Filter, Function, Option, Record, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema, Statement } from 'effect/sql';
 import { Column, type FieldName, type Fields, type Where } from '#/column';
-import { Engine } from '#/engine';
-import type { methods, referentialActions } from '#/internal/reconcile';
+import { Rows } from '#/engine';
+import type { methods, referentialActions } from '#/reconcile';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -24,6 +24,7 @@ interface RelationOptions<F extends Fields> {
     readonly search?: { readonly columns: Array.NonEmptyReadonlyArray<FieldName<F>>; readonly tokenizer: Tokenizer };
     readonly withoutRowid?: true;
     readonly tenant?: { readonly column: Present<F>; readonly setting: string };
+    readonly mergeTree?: { readonly expires?: { readonly column: Present<F>; readonly after: Duration.Input }; readonly version?: Present<F>; readonly codecs?: { readonly [K in FieldName<F>]?: Array.NonEmptyReadonlyArray<string> } };
     readonly renamed?: { readonly [K in FieldName<F>]?: string };
     readonly renamedFrom?: string;
     readonly retype?: readonly FieldName<F>[];
@@ -52,16 +53,17 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
         readonly method: Method;
         readonly parts: readonly string[];
     }[];
-    readonly references: readonly { readonly columns: Array.NonEmptyReadonlyArray<string>; readonly table: Relation; readonly onDelete: (typeof referentialActions)[number] }[];
+    readonly references: readonly { readonly columns: Array.NonEmptyReadonlyArray<string>; readonly target: string; readonly key: Array.NonEmptyReadonlyArray<string>; readonly onDelete: (typeof referentialActions)[number] }[];
     readonly search: Option.Option<{ readonly columns: Array.NonEmptyReadonlyArray<Column>; readonly tokenizer: Tokenizer }>;
     readonly withoutRowid: boolean;
     readonly tenant: Option.Option<{ readonly column: Column; readonly setting: string }>;
+    readonly mergeTree: { readonly expires: Option.Option<{ readonly column: string; readonly after: Duration.Duration }>; readonly version: Option.Option<string>; readonly codecs: { readonly [column: string]: Array.NonEmptyReadonlyArray<string> } };
     readonly retired: { readonly columns: readonly string[]; readonly indexes: readonly (readonly string[])[] };
     readonly paths: readonly string[];
     readonly queries: ReturnType<typeof queries<Shape>>;
 }> {
     static readonly make = <const F extends Fields, const O extends RelationOptions<F> = Record<never, never>>(name: string, fields: F, ...[options]: 'id' extends Present<F> ? readonly [options?: O] : readonly [options: O & { readonly key: Array.NonEmptyReadonlyArray<Present<F>> }]): Relation<F, O> => {
-        const [schema, declared] = [Schema.Struct(fields), { name: String.camelToSnake(name), ...definition<F>(fields, options ?? {}) }];
+        const [schema, declared] = [Schema.Struct(fields), { name, ...definition<F>(fields, options ?? {}, Function.identity) }];
         return new Relation<F, O>({ schema, options: Option.fromUndefinedOr(options), ...declared, queries: queries(schema, declared) });
     };
     static readonly insert = <F extends Fields, O extends RelationOptions<F>>(relation: Relation<F, O>, rows: Array.NonEmptyReadonlyArray<Written<F, O>>) => Effect.catchTag(relation.queries.insert(rows), 'NoSuchElementError', Effect.die);
@@ -80,31 +82,34 @@ class Relation<const Shape extends Fields = Fields, const Options extends Relati
         const [sql, encoded] = yield* Effect.all([SqlClient.SqlClient, Schema.encodeEffect(column.schema)(id)]);
         return yield* sql.withTransaction(Effect.andThen(sql`SELECT set_config(${setting}, ${encoded}, true)`, effect));
     });
+    named(rename: (name: string) => string) {
+        return new Relation<Shape, Options>({ ...this, name: rename(this.name), ...definition(this.schema.fields, Option.getOrElse(this.options, () => ({})), rename) });
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [DEFINITIONS]
 
-const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) => {
-    const key = Array.map(options.key ?? Array.make('id'), String.camelToSnake);
-    const retired = (options.retired ?? []).map(String.camelToSnake);
+const definition = <F extends Fields>(fields: F, options: RelationOptions<F>, rename: (name: string) => string) => {
+    const key = Array.map(options.key ?? Array.make('id'), rename);
+    const retired = (options.retired ?? []).map(rename);
     const declared = (options.indexes ?? []).map((index) => {
         const { columns, unique, include, where, method } = { unique: false, include: [], method: 'btree' as const, where: {}, ...index };
         return {
-            keys: Array.map(columns, (entry) => (typeof entry === 'string' ? { column: String.camelToSnake(entry), casefold: false } : { column: String.camelToSnake(entry.casefold), casefold: true })),
+            keys: Array.map(columns, (entry) => (typeof entry === 'string' ? { column: rename(entry), casefold: false } : { column: rename(entry.casefold), casefold: true })),
             unique,
-            include: include.map(String.camelToSnake),
-            where: Column.conditions(where),
+            include: include.map(rename),
+            where: Column.conditions(where, rename),
             method,
         };
     });
-    const linked = (options.references ?? []).map((reference) => ({ onDelete: 'NO ACTION' as const, ...reference, columns: Array.map(reference.columns, String.camelToSnake) }));
+    const linked = (options.references ?? []).map(({ columns: linking, table, onDelete = 'NO ACTION' }) => ({ columns: Array.map(linking, rename), target: rename(table.name), key: Array.map(table.key, rename), onDelete }));
     const orders = [key, ...declared.filter(({ method }) => method === 'btree').map((index) => Array.takeWhile(index.keys, ({ casefold }) => !casefold).map(({ column }) => column))];
     const covering = linked.filter((reference) => !orders.some((order) => Equal.equals(Array.take(order, reference.columns.length), reference.columns)));
-    const columns = Record.map<FieldName<F>, F[FieldName<F>], Column>(fields, (schema, field) => Column.make<F>(field, schema, options, retired));
+    const columns = Record.map<FieldName<F>, F[FieldName<F>], Column>(fields, (schema, field) => Column.make<F>(field, schema, options, retired, rename));
     return {
-        renamedFrom: Option.map(Option.fromUndefinedOr(options.renamedFrom), String.camelToSnake),
+        renamedFrom: Option.map(Option.fromUndefinedOr(options.renamedFrom), rename),
         key,
         columns,
         indexes: [...declared, ...covering.map((reference) => ({ keys: Array.map(reference.columns, (column) => ({ column, casefold: false })), unique: false, include: [], where: [], method: 'btree' as const }))].map((index) => ({
@@ -115,7 +120,12 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) =>
         search: Option.map(Option.fromUndefinedOr(options.search), ({ columns: searched, tokenizer }) => ({ columns: Array.map(searched, (field): Column => columns[field]), tokenizer })),
         withoutRowid: options.withoutRowid === true,
         tenant: Option.map(Option.fromUndefinedOr(options.tenant), ({ column, setting }) => ({ column: columns[column], setting })),
-        retired: { columns: retired, indexes: (options.retiredIndexes ?? []).map((parts) => parts.map(String.camelToSnake)) },
+        mergeTree: {
+            expires: Option.map(Option.fromUndefinedOr(options.mergeTree?.expires), ({ column, after }) => ({ column: rename(column), after: Duration.fromInputUnsafe(after) })),
+            version: Option.map(Option.fromUndefinedOr(options.mergeTree?.version), rename),
+            codecs: Record.fromIterableWith(Object.entries<Array.NonEmptyReadonlyArray<string>>(options.mergeTree?.codecs ?? {}), ([column, codec]) => [rename(column), codec]),
+        },
+        retired: { columns: retired, indexes: (options.retiredIndexes ?? []).map((parts) => parts.map(rename)) },
         paths: Array.getSomes(Object.values<Column>(columns).map(({ projection }) => Option.filter(projection, Column.Projection.$is('Path')))).map(Struct.get('jsonPath')),
     };
 };
@@ -123,9 +133,9 @@ const definition = <F extends Fields>(fields: F, options: RelationOptions<F>) =>
 // --- [QUERIES]
 
 const selecting = (
-    { sql, owner, prefix, unqualified, reads, keys, where: matching }: ReturnType<typeof Engine.fragments>,
+    { sql, owner, prefix, unqualified, reads, keys, where: matching }: ReturnType<typeof Rows.fragments>,
     columns: Relation['columns'],
-    { where, order, limit, per }: { readonly where: Parameters<ReturnType<typeof Engine.fragments>['where']>[0]; readonly order: ReadonlyArray<string | { readonly descending: string }>; readonly limit: Option.Option<number>; readonly per: Option.Option<string> },
+    { where, order, limit, per }: { readonly where: Parameters<ReturnType<typeof Rows.fragments>['where']>[0]; readonly order: ReadonlyArray<string | { readonly descending: string }>; readonly limit: Option.Option<number>; readonly per: Option.Option<string> },
 ) => {
     const ordering = (scope: Statement.Fragment) =>
         sql.csv([
@@ -140,36 +150,36 @@ const selecting = (
     return Option.match(Option.all({ count: limit, by: Option.flatMap(per, (field) => Record.get(columns, field)) }), {
         onNone: () => Option.match(limit, { onNone: () => filtered, onSome: (count) => sql`${filtered} LIMIT ${count}` }),
         onSome: ({ count, by }) =>
-            sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Engine.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Engine.flags.position)} <= ${count} ORDER BY ${sql.csv([sql.join('', false)([outer, Statement.fragment([sql(by.name)])]), ordering(outer)])}`,
+            sql`SELECT ${reads(outer)} FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY ${sql(by.name)} ORDER BY ${ordering(prefix)}) AS ${sql(Rows.flags.position)} FROM ${owner} WHERE ${filter}) t WHERE t.${sql(Rows.flags.position)} <= ${count} ORDER BY ${sql.csv([sql.join('', false)([outer, Statement.fragment([sql(by.name)])]), ordering(outer)])}`,
     });
 };
 const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Relation, 'name' | 'columns' | 'key' | 'search'>) => {
-    const run = <A, E>(statement: (context: ReturnType<typeof Engine.fragments>) => Effect.Effect<A, E, SqlClient.SqlClient>) => Effect.flatMap(Effect.all([SqlClient.SqlClient, Engine]), ([sql, engine]) => statement(Engine.fragments(sql, engine, relation)));
+    const run = <A, E>(statement: (context: ReturnType<typeof Rows.fragments>) => Effect.Effect<A, E, SqlClient.SqlClient>) => Effect.flatMap(Effect.all([SqlClient.SqlClient, Rows]), ([sql, rows]) => statement(Rows.fragments(sql, rows, relation)));
     const all = Object.values<Column>(relation.columns);
     const wire = (entry: Column) => (entry.kind === 'blob' ? Schema.encodeTo(Schema.NullOr(Schema.Uint8ArrayFromHex))(entry.schema) : entry.schema);
     const written = all.filter(({ projection }) => Option.isNone(projection));
-    const keyed = written.filter(({ name }) => relation.key.includes(name)).map(Struct.get('field'));
+    const keyed = written.filter(({ name }) => relation.key.includes(name)).map(Struct.get('name'));
     const list = (entry: Column) => Schema.fromJsonString(Schema.NonEmptyArray(wire(entry)));
-    const Rows = Schema.Array(Schema.Struct(Record.fromIterableWith(written, (entry) => [entry.field, wire(entry)])));
-    const Selection = Schema.Struct(Record.fromIterableWith(all, (entry) => [entry.field, Schema.optionalKey(Schema.Union([list(entry), Schema.Struct({ not: list(entry) })]))]));
+    const Batch = Schema.Array(Schema.Struct(Record.fromIterableWith(written, (entry) => [entry.name, wire(entry)])));
+    const Selection = Schema.Struct(Record.fromIterableWith(all, (entry) => [entry.name, Schema.optionalKey(Schema.Union([list(entry), Schema.Struct({ not: list(entry) })]))]));
     return {
-        insert: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Rows), Result: schema, execute: (body) => run(({ unqualified, reads, inserting }) => inserting(body, unqualified, reads(unqualified))) }),
-        ensure: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Rows), Result: schema, execute: (body) => run((context) => context.engine.ensure(context, body)) }),
+        insert: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Batch), Result: schema, execute: (body) => run(({ unqualified, reads, inserting }) => inserting(body, unqualified, reads(unqualified))) }),
+        ensure: SqlSchema.findNonEmpty({ Request: Schema.fromJsonString(Batch), Result: schema, execute: (body) => run((context) => context.rows.ensure(context, body)) }),
         upsert: SqlSchema.findAll({
             Request: Schema.Struct({
-                rows: Schema.fromJsonString(Rows.check(Schema.makeFilter((rows) => Array.dedupe(rows.map(Struct.pick(keyed))).length === rows.length, { expected: 'rows with distinct keys' }))),
+                rows: Schema.fromJsonString(Batch.check(Schema.makeFilter((rows) => Array.dedupe(rows.map(Struct.pick(keyed))).length === rows.length, { expected: 'rows with distinct keys' }))),
                 kept: Schema.Array(Schema.String),
             }),
             Result: Schema.Struct({ row: schema, inserted: Schema.BooleanFromBit }),
             execute: ({ rows, kept }) =>
                 run((context) =>
-                    context.engine
+                    context.rows
                         .upsert(
                             context,
                             rows,
-                            written.filter(({ name, field }) => !(relation.key.includes(name) || kept.includes(field))),
+                            written.filter(({ name }) => !(relation.key.includes(name) || kept.includes(name))),
                         )
-                        .pipe(Effect.map(Array.map(({ [Engine.flags.inserted]: inserted, ...row }) => ({ row, inserted })))),
+                        .pipe(Effect.map(Array.map(({ [Rows.flags.inserted]: inserted, ...row }) => ({ row, inserted })))),
                 ),
         }),
         select: SqlSchema.findAll({
@@ -182,7 +192,7 @@ const queries = <F extends Fields>(schema: Schema.Struct<F>, relation: Pick<Rela
             SqlSchema.findAll({
                 Request: Search,
                 Result: Schema.Struct({ row: schema, rank: Schema.Finite, highlight: Schema.OptionFromNullOr(Schema.fromJsonString(Schema.Record(Schema.String, Schema.NullOr(Schema.String)))) }),
-                execute: ({ text, pattern, count, marks }) => run((context) => context.engine.search(context, searchable, text, pattern, marks, count)).pipe(Effect.map(Array.map(({ [Engine.flags.rank]: rank, [Engine.flags.highlight]: highlight, ...row }) => ({ row, rank, highlight })))),
+                execute: ({ text, pattern, count, marks }) => run((context) => context.rows.search(context, searchable, text, pattern, marks, count)).pipe(Effect.map(Array.map(({ [Rows.flags.rank]: rank, [Rows.flags.highlight]: highlight, ...row }) => ({ row, rank, highlight })))),
             }),
         ),
     };

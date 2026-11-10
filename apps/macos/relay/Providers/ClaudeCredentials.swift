@@ -28,7 +28,7 @@ nonisolated struct ClaudeOAuthToken: Sendable {
     let accessToken: String
 
     static func make(_ document: JSONDocument<Attributes>) throws(ClaudeFailure) -> Self? {
-        guard let token: String = document.known.accessToken else { throw .invalidCredentials(nil) }
+        guard let token = document.known.accessToken else { throw .invalidCredentials(nil) }
         return token.isEmpty || document.known.refreshToken?.isEmpty == true ? nil : Self(document: document, accessToken: token)
     }
 }
@@ -87,8 +87,8 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     let variables: [Environment.Key: String]
 
     init(home: URL, environment: [Environment.Key: String], username: String) {
-        let defaultDirectory: URL = home.appending(path: ".claude", directoryHint: .isDirectory)
-        let configured: URL? = environment[.claudeConfigDirectory].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) }
+        let defaultDirectory = home.appending(path: ".claude", directoryHint: .isDirectory)
+        let configured = environment[.claudeConfigDirectory].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) }
         configDirectoryPath = (environment[.claudeSecureStorageDirectory] ?? environment[.claudeConfigDirectory]).flatMap { value in
             value.isEmpty ? nil : value.precomposedStringWithCanonicalMapping
         }
@@ -108,7 +108,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [STORE_CONTENT]
 
     func read() async throws(ClaudeFailure) -> ClaudeStoreContent {
-        let token: ClaudeOAuthToken? = try await readItem()?.known.claudeAiOauth.flatMap(ClaudeOAuthToken.make)
+        let token = try await readItem()?.known.claudeAiOauth.flatMap(ClaudeOAuthToken.make)
         return switch (token, try token.flatMap { _ throws(ClaudeFailure) in try readAccount() }) {
             case (.none, _): .signedOut
             case (.some(let token), .none): .unidentified(token)
@@ -133,12 +133,12 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     func writeAccount(_ account: JSONDocument<ClaudeOAuthAccount>) async throws(ClaudeFailure) {
-        let file: URL = existingConfigFile
+        let file = existingConfigFile
         try Result { try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()
         let retry = Backoff(count: 6, base: .milliseconds(200), cap: .seconds(4), jitter: 1)
         try await Lockfile.withLocks([Lockfile(file.appendingPathExtension("lock"), retry: retry)]) { () throws(ClaudeFailure) in
-            let fields: [String: JSONValue] = try Self.read(at: file)?.fields ?? [:]
-            let mode: FilePermissions? = try Result { () throws(Errno) in try ifPresent { () throws(Errno) in try FilePath(file.path(percentEncoded: false)).stat().permissions } }
+            let fields = try Self.read(at: file)?.fields ?? [:]
+            let mode = try Result { () throws(Errno) in try ifPresent { () throws(Errno) in try FilePath(file.path(percentEncoded: false)).stat().permissions } }
                 .mapError(ClaudeFailure.filesystem)
                 .get()
             try Result {
@@ -176,7 +176,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [KEYCHAIN_ITEM]
 
     func readItem() async throws(ClaudeFailure) -> JSONDocument<ClaudeCredentialItem>? {
-        guard let printed: String = try await security(["find-generic-password", "-a", username, "-s", service, "-g"]) else { return nil }
+        guard let printed = try await security(["find-generic-password", "-a", username, "-s", service, "-g"]) else { return nil }
         let password: Data? =
             switch printed.firstMatch(of: #/^password: (?:0x(?<hex>[0-9A-F]*)|"(?<text>.*)")?/#.anchorsMatchLineEndings())?.output {
                 case .some((_, .some(let hex), _)): Data(hexEncoded: hex)
@@ -192,12 +192,12 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         _ oauth: JSONDocument<ClaudeOAuthToken.Attributes>,
         over item: JSONDocument<ClaudeCredentialItem>?,
     ) async throws(ClaudeFailure) {
-        let password: String = try Result { try JSONEncoder().encode(JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth))) }
+        let password = try Result { try JSONEncoder().encode(JSONDocument(fields: item?.fields ?? [:], known: ClaudeCredentialItem(claudeAiOauth: oauth))) }
             .mapError(ClaudeFailure.invalidCredentials)
             .get()
             .hexEncoded()
-        let arguments: [String] = ["add-generic-password", "-U", "-a", username, "-s", service, "-X", password]
-        let line: String = arguments.map { argument in "\"" + argument.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\"" }.joined(separator: " ") + "\n"
+        let arguments = ["add-generic-password", "-U", "-a", username, "-s", service, "-X", password]
+        let line = arguments.map { argument in "\"" + argument.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\"" }.joined(separator: " ") + "\n"
         _ = if line.utf8.count <= 4032 { try await security(["-i"], input: .string(line)) } else { try await security(Arguments(arguments)) }
         do { _ = try ifPresent { try FileManager.default.removeItem(at: directory.appending(path: ".credentials.json")) } } catch { throw .filesystem(error) }
     }
@@ -239,10 +239,10 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     ) async throws(ClaudeFailure) -> Value {
         let refresh = Backoff(count: 5, base: .seconds(1), growth: 1, jitter: 1)
         let storageWrite = Backoff(count: 10, base: .milliseconds(100), cap: .seconds(1))
-        let lockfiles: [[Lockfile]] = try Set(directories).sorted { first, second in first.path(percentEncoded: false) < second.path(percentEncoded: false) }
+        let lockfiles = try Set(directories).sorted { first, second in first.path(percentEncoded: false) < second.path(percentEncoded: false) }
             .map { directory throws(ClaudeFailure) in
                 try Result { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()
-                let canonical: URL = try Result(catching: directory.canonical).mapError(ClaudeFailure.filesystem).get()
+                let canonical = try Result(catching: directory.canonical).mapError(ClaudeFailure.filesystem).get()
                 return [directory.appending(path: ".oauth_refresh.lock"), canonical.appendingPathExtension("lock")].map { url in
                     Lockfile(url, stale: .seconds(60), update: .seconds(5), retry: refresh)
                 }

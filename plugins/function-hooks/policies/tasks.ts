@@ -1,7 +1,8 @@
+import { devNull } from 'node:os';
 import { matchesGlob } from 'node:path';
 import process from 'node:process';
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Option, type Predicate, Record, String } from 'effect';
+import { Array, Cache, Effect, Option, type Predicate, pipe, Record, Result, Schema, String } from 'effect';
 import { all, become, type Call, cut, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, unassign, when, whole } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import { analyzed, Shell, type Site } from '#/shell/site';
@@ -18,9 +19,17 @@ interface Runner {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CACHE_FLAGS = new Set(['--skip-nx-cache', '--disable-nx-cache']);
+const ADDRESSING = new Set(['--projects', '--targets', '--target']);
 const AGGREGATE = 'nx:noop';
 const SEARCH_PATH = 'PYTHONPATH';
 const PUBLISH = /(?:^|[:,])nx-release-publish(?:,|$)/u;
+const SPACES = /\s+/u;
+const STUB_CACHE = 'MYPY_CACHE_DIR';
+const HOOKS: ReadonlySet<string> = new Set(['check', 'fix']);
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Plan = Schema.fromJsonString(Schema.Struct({ steps: Schema.Array(Schema.Struct({ status: Schema.String })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -48,9 +57,13 @@ const verbOf = (targets: Targets, target: string): string =>
 
 // --- [ROUTES]
 
-const keysOf = ({ items }: Site): ReadonlySet<string> => new Set(items.flatMap(({ names, values }) => [...names, ...Array.cartesianWith(names.slice(-1), values, (name, value) => `${name}=${value}`)]));
+const keysOf = ({ items }: Pick<Site, 'items'>): ReadonlySet<string> => new Set(items.flatMap(({ names, values }) => [...names, ...Array.cartesianWith(names.slice(-1), values, (name, value) => `${name}=${value}`)]));
 
 const programOf = ({ program }: Pick<Site, 'program'>, programs: (typeof Shell.Service)['programs']) => programs.get(program) ?? program;
+
+const spellingsOf = (site: Site, programs: (typeof Shell.Service)['programs']): ReadonlySet<string> => new Set([site.program, ...[...programs].filter(([, row]) => row === programOf(site, programs)).map(([name]) => name)]);
+
+const argued = ({ path, operands }: Site): string => [...path, ...operands.map(({ text }) => text)].join(' ');
 
 const placed = (word: Word, cwd: Option.Option<string>, host: Call['host']) =>
     Option.match(
@@ -62,11 +75,14 @@ const placed = (word: Word, cwd: Option.Option<string>, host: Call['host']) =>
     );
 
 const scopeOf = Effect.fnUntraced(function* (site: Site, host: Call['host']) {
-    const own = site.operands.filter((word) => !site.tail.includes(word));
+    const own = Array.difference(site.operands, site.tail);
     const places = yield* Effect.forEach(own, (word) => placed(word, site.command.cwd, host));
-    const words = own.filter((_, at) => !Option.isSome(places[at] ?? Option.none())).map(({ text }) => text);
-    return { places: Array.getSomes(places), words: [...site.path, ...words].join(' ') };
+    const files = own.filter((_, at) => Option.isSome(places[at] ?? Option.none()));
+    return { places: Array.getSomes(places), files, words: [...site.path, ...Array.difference(own, files).map(({ text }) => text)].join(' ') };
 });
+
+const routable = (site: Site, call: Call): boolean =>
+    Option.exists(site.command.cwd, (folder) => call.host.inside(folder, call.host.root)) && site.command.origin === 'call' && site.last && site.tail.length === 0 && site.assigned.length === 0 && !(site.command.fed || site.command.captured || site.informational || site.repeated || feedsJq(site, call));
 
 const ownersOf = Effect.fnUntraced(function* ({ nodes }: ProjectGraph, site: Site, places: readonly string[], folder: string, host: Call['host']) {
     const { createProjectRootMappings, findProjectForPath } = yield* nx;
@@ -85,11 +101,20 @@ const ownersOf = Effect.fnUntraced(function* ({ nodes }: ProjectGraph, site: Sit
 
 const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, site: Site, words: string, host: Call['host']) {
     const { programs } = yield* Shell;
-    const program = programOf(site, programs);
-    const spellings = new Set([site.program, ...[...programs].filter(([, row]) => row === program).map(([name]) => name)]);
-    const helps = Record.toEntries(targetsOf(node)).flatMap(([target, { metadata }]) => Option.toArray(Option.filter(Option.fromNullishOr(metadata?.help?.command), (command) => !spellings.isDisjointFrom(new Set(command.split(' ')))).pipe(Option.map((command) => [target, command] as const))));
+    const spellings = spellingsOf(site, programs);
+    const helps = Array.getSomes(
+        Record.collect(targetsOf(node), (target, { metadata }) =>
+            pipe(
+                Option.fromNullishOr(metadata?.help?.command),
+                Option.filter((command) => !spellings.isDisjointFrom(new Set(command.split(' ')))),
+                Option.map((command) => [target, command] as const),
+            ),
+        ),
+    );
     const ran = yield* Effect.forEach(helps, ([, command]) => Effect.map(bodyOf(command, host), ({ sites }) => sites.at(-1)));
-    const running = Array.zip(helps, ran).flatMap(([[target], helped]) => (helped !== undefined && programOf(helped, programs) === program && [...helped.path, ...helped.operands.map(({ text }) => text)].join(' ') === words ? [target] : []));
+    const running = Array.zip(helps, ran)
+        .filter(([, helped]) => helped !== undefined && programOf(helped, programs) === programOf(site, programs) && argued(helped) === words)
+        .map(([[target]]) => target);
     const modes = Record.toEntries(site.row.routes?.modes ?? {});
     const named = new Set(modes.filter(([flag]) => site.has(flag)).map(([, verb]) => verb));
     const moded = new Set(modes.map(([, verb]) => verb));
@@ -101,19 +126,14 @@ const launcherStart = ({ head, outer }: Site): Word => outer[outer.findLastIndex
 
 const route: Fix = Effect.fnUntraced(function* (site, call) {
     const { host } = call;
-    const { command, informational, last, repeated, row } = site;
+    const { command, row } = site;
     const folder = Option.getOrUndefined(command.cwd);
     const settled = new Set([...(row.routes?.selects ?? []), ...Object.keys(row.routes?.modes ?? {}), ...(row.routes?.ignores ?? [])]);
-    const extra = site.tail.length > 0 || site.assigned.length > 0 || site.items.some(({ names }) => names.length > 0 && !names.every((name) => settled.has(name)));
-    if (folder === undefined || !host.inside(folder, host.root) || command.fed || informational || repeated || command.origin !== 'call' || !last || extra || feedsJq(site, call)) {
-        return [];
-    }
-    const graph = yield* host.graph;
-    if (Option.isNone(graph)) {
+    if (folder === undefined || !routable(site, call) || site.items.some(({ names }) => names.length > 0 && !new Set(names).isSubsetOf(settled))) {
         return [];
     }
     const { places, words } = yield* scopeOf(site, host);
-    const owners = yield* ownersOf(graph.value, site, places, folder, host);
+    const owners = yield* Option.match(yield* host.graph, { onNone: () => Effect.succeed<readonly ProjectGraphProjectNode[]>([]), onSome: (graph) => ownersOf(graph, site, places, folder, host) });
     const runners = yield* Effect.forEach(owners, (node) => runnersOf(node, site, words, host));
     const [first, ...others] = runners.flatMap((runner) => (runner.length === 1 ? runner : []));
     if (first === undefined || others.length + 1 !== owners.length || others.some(({ verb }) => verb !== first.verb)) {
@@ -121,6 +141,34 @@ const route: Fix = Effect.fnUntraced(function* (site, call) {
     }
     const named = others.length === 0 ? `nx ${first.verb} ${quote(first.node.name)}` : `nx run-many -t ${first.verb} -p ${[first, ...others].map(({ node }) => quote(node.name)).join(',')}`;
     return whole(site, named, site.program, launcherStart(site));
+});
+
+const hooked: Fix = Effect.fnUntraced(function* (site, call) {
+    const { host } = call;
+    const { command } = site;
+    const { programs } = yield* Shell;
+    const merged = redirected(site, '>&', '2', '1').length + redirected(site, '&>').length > 0;
+    const heard = merged || !(command.pipes || command.redirects.some(({ op }) => op.startsWith('>')));
+    const { places, files, words } = heard && routable(site, call) ? yield* scopeOf(site, host) : { places: [], files: [], words: '' };
+    const spellings = spellingsOf(site, programs);
+    const runs = (files.length === 0 ? [] : yield* host.steps).filter(({ text }) => !spellings.isDisjointFrom(new Set(text.split(SPACES))));
+    const bodies = yield* Effect.forEach(runs, ({ text }) => bodyOf(text, host));
+    const ran = bodies.map(({ sites }) => sites.find((other) => programOf(other, programs) === programOf(site, programs)));
+    const flags = ({ items }: Site) => keysOf({ items: items.filter(({ names }) => new Set(names).isDisjointFrom(new Set(site.row.routes?.ignores))) });
+    const modes = Array.filterMap(Array.zip(runs, ran), ([run, found]) => (found === undefined ? Result.failVoid : Result.succeed({ ...run, keys: flags(found), words: argued(found) })));
+    const asked = flags(site);
+    const common = (held: typeof modes) => held.slice(1).reduce((shared, { keys }) => shared.intersection(keys), held[0]?.keys ?? new Set<string>());
+    const policy = ({ step, mode }: (typeof modes)[number]) => {
+        const held = modes.filter((other) => other.step === step);
+        return mode === 'fix' ? common(held.length > 1 ? held : []) : common(held.filter((other) => other.words === words));
+    };
+    const [fit, ...more] = modes.filter((mode) => HOOKS.has(mode.mode) && mode.words === words && asked.isSubsetOf(mode.keys) && mode.keys.difference(policy(mode)).isSubsetOf(asked));
+    if (fit === undefined || more.length > 0) {
+        return [];
+    }
+    const plans = yield* Effect.forEach(places, (place) => host.output(['hk', fit.mode, '--step', fit.step, '--plan', '--json', place]), { concurrency: 'unbounded' });
+    const included = Array.getSomes(plans.map((plan) => Schema.decodeOption(Plan)(plan))).filter(({ steps }) => steps.some(({ status }) => status === 'included'));
+    return included.length === places.length ? whole(site, ['hk', fit.mode, '--step', quote(fit.step), spoken(files)].join(' '), site.program, launcherStart(site)) : [];
 });
 
 const customLanguages: Fix = (site) => {
@@ -163,7 +211,8 @@ const askedTargets = (site: Site, graph: ProjectGraph) => {
 const cacheFlags: Fix = Effect.fnUntraced(function* (site, { host }) {
     const asked = Option.match(yield* host.graph, { onNone: () => [], onSome: (graph) => askedTargets(site, graph) });
     const names = [...new Set(asked.map(([, target]) => target))].join(' ');
-    return asked.length > 0 && asked.every(([node, target]) => targetsOf(node)[target]?.cache === true) ? site.items.filter(({ names: flagged }) => !new Set(flagged).isDisjointFrom(CACHE_FLAGS)).flatMap(({ words }) => cut(site, words, `nx ${words[0].text} on ${names}`)) : [];
+    const cached = asked.every(([node, target]) => [target, ...members(targetsOf(node), target)].every((name) => patternsOf(targetsOf(node)[name] ?? {}).length > 0 || targetsOf(node)[name]?.cache === true));
+    return asked.length > 0 && cached ? site.items.filter(({ names: flagged }) => !new Set(flagged).isDisjointFrom(CACHE_FLAGS)).flatMap(({ words }) => cut(site, words, `nx ${words[0].text} on ${names}`)) : [];
 });
 
 const aggregateArgs: Fix = Effect.fnUntraced(function* (site, { host }) {
@@ -175,7 +224,8 @@ const aggregateArgs: Fix = Effect.fnUntraced(function* (site, { host }) {
     const [node, verb] = aggregate;
     const tools = members(targetsOf(node), verb);
     const [tool] = tools;
-    return asked.length === 1 && tool !== undefined && tools.length === 1 ? whole(site, ['nx run', quote([node.name, tool].join(':')), '--', spoken(site.tail)].join(' '), `nx ${verb}`) : refusal(`pass one-run arguments to one of: ${tools.join(',')}`);
+    const kept = site.items.filter(({ names }) => names.length > 0 && new Set(names).isDisjointFrom(ADDRESSING)).map(({ words }) => spoken(words));
+    return asked.length === 1 && tool !== undefined && tools.length === 1 ? whole(site, ['nx run', quote([node.name, tool].join(':')), ...kept, '--', spoken(site.tail)].join(' '), `nx ${verb}`) : refusal(`pass one-run arguments to one of: ${tools.join(',')}`);
 });
 
 const forwardedOptions: Fix = Effect.fnUntraced(function* (site, call) {
@@ -209,6 +259,17 @@ const projectOptions =
     (...fixes: readonly Fix[]): Fix =>
     (site, call) =>
         Option.exists(site.command.cwd, (folder) => call.host.inside(folder, call.host.root)) ? all(...fixes)(site, call) : [];
+
+const strayCache: Fix = (site, { host }) =>
+    Effect.map(
+        Shell.use(({ ignored }) => Cache.get(ignored, Array.getSomes(site.values('--cache-dir').map((value) => host.place(value, site.command.cwd))))),
+        (kept) => (kept ? [] : respell({ drops: ['--cache-dir'] }, { notify: true })(site)),
+    );
+
+const stubCache: Fix = (site) => {
+    const set = [...site.outer, site].some(({ assigned }) => assigned.some(({ text }) => text.startsWith(`${STUB_CACHE}=`))) || site.command.bound.has(STUB_CACHE);
+    return set ? [] : inserted(site, launcherStart(site).start, `${STUB_CACHE}=${devNull} `);
+};
 
 const workingFolder = ({ outer, command }: Site, host: Call['host']): Option.Option<string> =>
     outer
@@ -258,6 +319,8 @@ const outsideScript: Fix = Effect.fnUntraced(function* (site, { host }) {
 
 // --- [TABLES] --------------------------------------------------------------------------
 
+const CONFIGURED = when(holds(/^[^=]+$/u, '--config'), (site) => (site.has('--no-cache') ? [] : inserted(site, (site.operands.at(0) ?? site.head).end, ' --no-cache')));
+
 const BOOT_MODE: Predicate.Predicate<Site> = ({ informational, operands, has: supplied }) => process.platform === 'darwin' && !informational && Option.exists(Array.get(operands, 1), ({ text }) => ['start', 'run'].includes(text)) && supplied('--force');
 
 const TASKS: Policy = {
@@ -269,7 +332,7 @@ const TASKS: Policy = {
             fixes: [
                 when(has(...CACHE_FLAGS), cacheFlags),
                 when((site) => holds(PUBLISH)(site) || holds(PUBLISH, '--targets', '--target')(site), refuse('publishes dependencies for real', 'run nx release')),
-                unassign(/^NX_DAEMON=false$/u, false),
+                unassign(/^NX_DAEMON=false$/u),
                 when((site) => site.tail.length > 0, aggregateArgs),
                 when((site) => site.tail.length > 0 || site.has('--args'), forwardedOptions),
                 (site) => (launcherStart(site) === site.head ? [] : edited(site, { start: launcherStart(site).start, end: site.head.start }, '')),
@@ -293,18 +356,23 @@ const TASKS: Policy = {
         rustfmt: { flags: ['--config-path=', '--config=', '--edition=', '--emit=', '--print-config='] },
         swiftlint: { dump: true },
         ruff: {
-            flags: ['--isolated', '--cache-dir='],
-            fixes: [projectOptions(respell({ drops: ['--isolated', '--cache-dir'] }, { notify: true }), unassign(/^RUFF_CACHE_DIR=/u))],
+            flags: ['--isolated', '--cache-dir=', '--config=', '-n, --no-cache'],
+            routes: { ignores: ['--quiet'] },
+            fixes: [projectOptions(respell({ drops: ['--isolated'] }, { notify: true }), strayCache, unassign(/^RUFF_CACHE_DIR=/u), perSubcommand({ check: [CONFIGURED], format: [CONFIGURED] }))],
         },
+        yamllint: { flags: ['-c, --config-file=', '-f, --format='] },
+        squawk: { flags: ['-c, --config=', '--reporter='] },
         'ast-grep': {
             aliases: ['sg'],
-            flags: ['-U, --update-all', '-i, --interactive', '--custom-languages=', '--filter=', '--globs=', '--color='],
+            flags: ['-U, --update-all', '-i, --interactive', '--custom-languages=', '--filter=', '--globs=', '--color=', '--report-style='],
+            routes: { ignores: ['--report-style'] },
             fixes: [customLanguages],
         },
+        stubgen: { fixes: [projectOptions(stubCache)] },
         mypy: {
             flags: ['--cache-dir=', '--config-file=', '--python-version='],
             routes: { ignores: ['--no-pretty'] },
-            fixes: [projectOptions(respell({ drops: ['--cache-dir'] }, { notify: true }), unassign(/^MYPY_CACHE_DIR=/u))],
+            fixes: [projectOptions(strayCache, unassign(/^MYPY_CACHE_DIR=/u))],
         },
         refurb: { flags: ['--config-file=', '--python-version='], informational: ['--explain'], routes: {} },
         pytest: {
@@ -341,7 +409,7 @@ const TASKS: Policy = {
         },
         pitchfork: { flags: ['-f, --force'], fixes: [perSubcommand({ supervisor: [when(BOOT_MODE, () => refusal('Forced supervisor restart drops boot mode, use launchd'))] })] },
     },
-    every: [route],
+    every: [route, hooked],
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

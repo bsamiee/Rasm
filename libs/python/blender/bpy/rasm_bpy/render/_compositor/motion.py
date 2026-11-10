@@ -18,14 +18,14 @@ from rasm_bpy.nodes._graphs import Expr, math, Scalar, vector, xyz
 from rasm_bpy.nodes._interfaces import InterfacePanel, Socket
 from rasm_bpy.render._compositor.colors import with_alpha
 from rasm_bpy.render._compositor.coordinates import dimensions
-from rasm_bpy.render._compositor.inputs import _addressed, _entry_values, _keyed, DerivedInputs
+from rasm_bpy.render._compositor.inputs import addressed, DerivedInputs, entry_values, keyed
 from rasm_imaging import SEED_BOUND
 from rasm_records import accumulated, Count, Fault, NonNegative, Ok, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FPS: Final[bpy.types.IntProperty] = bpy.types.RenderSettings.bl_rna.properties["fps"]  # ty: ignore[invalid-assignment]
-_FPS_BASE: Final[bpy.types.FloatProperty] = bpy.types.RenderSettings.bl_rna.properties["fps_base"]  # ty: ignore[invalid-assignment]
+_FPS: Final = Descriptor.of(bpy.types.RenderSettings, ("fps",), bpy.types.IntProperty).prop
+_FPS_BASE: Final = Descriptor.of(bpy.types.RenderSettings, ("fps_base",), bpy.types.FloatProperty).prop
 RATE: Final = Socket(key="frame_rate", kind=bpy.types.NodeSocketFloat, description="Scene frames per second", hide_in_modifier=True, default_value=_FPS.default / _FPS_BASE.default)
 SEED: Final = Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting the pattern", min_value=0, max_value=SEED_BOUND)
 LENGTH: Final = Socket(key="length", kind=bpy.types.NodeSocketFloat, description="Shutter length in frames", hide_in_modifier=True)
@@ -89,7 +89,7 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
 
     def posed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[dict[Key, Value]]:
         """Returns the scene shutter with both endpoint poses held at the entry's input values."""
-        return _entry_values(identity, entry, (socket.key for socket in self.sockets), lambda _key, value: Ok(value)).map(
+        return entry_values(identity, entry, (socket.key for socket in self.sockets), lambda _key, value: Ok(value)).map(
             lambda values: {**Shutter.of(scene).values, **{self.key(side, key): value for side in range(2) for key, value in values.items()}}
         )
 
@@ -102,7 +102,7 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
         def baked(parts: tuple[tuple[float, ...], Mapping[Key, str]]) -> Outcome[tuple[Animation, ...]]:
             lengths, identifiers = parts
             moments = tuple(tuple(frame + (opening + side) * length for frame, length in zip(frames, lengths)) for side in range(2))
-            sources = {socket.key: _addressed(entry, identifiers, socket.key) for socket in self.sockets}
+            sources = {socket.key: addressed(entry, identifiers, socket.key) for socket in self.sockets}
 
             def sampled(source: Struct, target: RnaPath, side: int) -> Outcome[tuple[Animation, ...]]:
                 sizes = Descriptor.dimensions(source.bl_rna.properties["value"])
@@ -114,13 +114,13 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
             return accumulated(
                 paired(
                     sources[socket.key],
-                    _addressed(entry, identifiers, self.key(side, socket.key)).bind(lambda target: id_path(target).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member="value"))),
+                    addressed(entry, identifiers, self.key(side, socket.key)).bind(lambda target: id_path(target).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member="value"))),
                 ).bind(lambda held: sampled(*held, side))
                 for socket in self.sockets
                 for side in range(2)
             ).map(lambda channels: tuple(channel for held in channels for channel in held))
 
-        return paired(lengths, _keyed(identity, entry).map(lambda held: held[1])).bind(baked) if self.sockets else lengths.map(lambda _: ())
+        return paired(lengths, keyed(identity, entry).map(lambda held: held[1])).bind(baked) if self.sockets else lengths.map(lambda _: ())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

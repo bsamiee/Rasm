@@ -1,6 +1,10 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, std_or_core, sugg::Sugg};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::sugg::Sugg;
+use clippy_utils::{fn_def_id, std_or_core};
 use rustc_errors::Applicability;
-use rustc_hir::{Expr, ExprKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::TyCtxt;
 

@@ -1,8 +1,6 @@
-use core::{
-    alloc::{Layout, LayoutError},
-    hint::black_box,
-    num::{NonZero, ParseIntError, TryFromIntError},
-};
+use core::alloc::{Layout, LayoutError};
+use core::hint::black_box;
+use core::num::{NonZero, ParseIntError, TryFromIntError};
 
 use clap::ColorChoice;
 use rasm_lints_auxiliary::{DroppedError, OpenError, SingleError};

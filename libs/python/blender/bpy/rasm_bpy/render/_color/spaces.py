@@ -18,11 +18,11 @@ from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions
 from rasm_bpy.data._rna.conditions import Condition, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
-from rasm_bpy.data._rna.paths import RnaPath, Struct
+from rasm_bpy.data._rna.paths import id_data, RnaPath, Struct
 from rasm_bpy.data._rna.snapshots import assigned
-from rasm_bpy.nodes._addressing import _interface_sockets
-from rasm_bpy.nodes._desired import _member_paths, Members
-from rasm_bpy.nodes._trees import _active_output, _feeds, _socket_at
+from rasm_bpy.nodes._addressing import interface_sockets
+from rasm_bpy.nodes._desired import member_paths, Members
+from rasm_bpy.nodes._trees import active_output, feeds, socket_at
 from rasm_imaging import called, ConfigBuild, DisplayView, hdr, pq, WhitePoint
 from rasm_records import accumulated, committed, Fault, files_copied, folder_made, Name, Nothing, Ok, Outcome, paired, Reason
 
@@ -36,7 +36,7 @@ type _Origin = str | DisplayView
 CONFIGURED: Final = Setting(
     descriptor=Descriptor(root=bpy.types.BlendData, owner=("colorspace",), prop=bpy.types.BlendFileColorspace.bl_rna.properties["is_missing_opencolorio_config"]), accepted=(False,)
 )
-EXPOSURE: Final[bpy.types.FloatProperty] = bpy.types.ColorManagedViewSettings.bl_rna.properties["exposure"]  # ty: ignore[invalid-assignment]
+EXPOSURE: Final = Descriptor.of(bpy.types.ColorManagedViewSettings, ("exposure",), bpy.types.FloatProperty).prop
 NO_LOOK: Final[str] = "None"
 _TINT_PER_DUV: Final = 3000.0
 
@@ -48,11 +48,10 @@ class Settings(msgspec.Struct, frozen=True, kw_only=True):
 
     def members(self, owner: RnaPath = ()) -> Members:
         """Set members by path under `owner`, nested records flattened to their member paths."""
-        return {  # ty: ignore[unsound-return-statement]
+        return {
             path: value
             for name, held in msgspec.structs.asdict(self).items()
-            if held is not msgspec.UNSET
-            for path, value in (held.members((*owner, name)).items() if isinstance(held, Settings) else (((*owner, name), held),))
+            for path, value in (held.members((*owner, name)).items() if isinstance(held, Settings) else (((*owner, name), held),) if isinstance(held, bool | int | float | str) else ())
         }
 
 
@@ -129,8 +128,7 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @property
     def merged(self) -> Outcome[tuple[PyOpenColorIO.Config, ConfigBuild]]:
         """Bundled base configuration, independent of a user installation, and the application build with the views' view transforms and the earlier installation's added."""
-        bundled: str = bpy.utils.system_resource("DATAFILES", path="colormanagement")  # ty: ignore[unresolved-attribute, unsound-assignment]
-        base, earlier = (str(Path(folder, "config.ocio")) for folder in (bundled, self.folder))
+        base, earlier = (str(Path(folder, "config.ocio")) for folder in (bpy.utils.system_resource("DATAFILES", path="colormanagement"), self.folder))  # ty: ignore[missing-attribute]
 
         def kept(config: PyOpenColorIO.Config, rows: tuple[PyOpenColorIO.ViewTransform, ...], prior: Option[PyOpenColorIO.Config]) -> Outcome[tuple[PyOpenColorIO.Config, ConfigBuild]]:
             build = msgspec.structs.replace(self.build, view_transforms=(*self.build.view_transforms, *rows))
@@ -240,14 +238,19 @@ def tint_of(white: WhitePoint) -> float:
 
 def viewed(holder: bpy.types.Scene | bpy.types.CompositorNodeConvertToDisplay | bpy.types.ImageFormatSettings) -> DisplayView:
     """Reads an owner's OCIO display, view, look, exposure, and gamma, the host's look `NO_LOOK` as disabled."""
-    view: bpy.types.ColorManagedViewSettings = holder.view_settings  # ty: ignore[invalid-assignment]
-    shown: bpy.types.ColorManagedDisplaySettings = holder.display_settings  # ty: ignore[invalid-assignment]
-    return DisplayView(display=shown.display_device, view=view.view_transform, looks_override=view.look, looks_override_enabled=view.look != NO_LOOK, exposure=view.exposure, gamma=view.gamma)
+    match holder:
+        case bpy.types.bpy_struct(
+            view_settings=bpy.types.ColorManagedViewSettings(view_transform=view, look=look, exposure=exposure, gamma=gamma),
+            display_settings=bpy.types.ColorManagedDisplaySettings(display_device=display),
+        ):
+            return DisplayView(display=display, view=view, looks_override=look, looks_override_enabled=look != NO_LOOK, exposure=exposure, gamma=gamma)
+        case _:
+            raise TypeError(holder)
 
 
 def displayed(scene: bpy.types.Scene, view: DisplayView) -> Outcome[None]:
     """Writes a view to the scene in host order, outputs overriding color management keeping their own."""
-    return assigned(scene, _member_paths(ColorManagement.of(view).members()))
+    return assigned(scene, member_paths(ColorManagement.of(view).members()))
 
 
 def followed(scene: bpy.types.Scene, nodes: Iterable[bpy.types.CompositorNodeConvertToDisplay]) -> Outcome[tuple[tuple[bpy.types.CompositorNodeConvertToDisplay, DisplayView], ...]]:
@@ -261,19 +264,20 @@ def _shown(scene: bpy.types.Scene) -> Option[DisplayView]:
     config = PyOpenColorIO.GetCurrentConfig()
     source: Option[_Origin] = _linear(config)
     return (
-        _flow(config, (entry for entry in scene.compositor_effects if entry.enable_for_preview), source)
+        flow(config, (entry for entry in scene.compositor_effects if entry.enable_for_preview), source)
         .default_value(source)
         .bind(lambda origin: Some(origin) if isinstance(origin, DisplayView) else Some(viewed(scene)).filter(lambda _: not config.getColorSpace(origin).isData()))
     )
 
 
-def _entering(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, identifier: str) -> Option[str]:
+def entering_space(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, identifier: str) -> Option[str]:
     """Returns a native entry input's encoding, Nothing for an unknown source."""
-    scene: bpy.types.Scene = entry.id_data  # ty: ignore[invalid-assignment]
     source: Option[_Origin] = _linear(config)
-    first = Option.of_optional(entry.node_group).map(lambda tree: next((socket.identifier for socket in _interface_sockets(tree)), None)).default_value(None)
+    first = Option.of_optional(entry.node_group).map(lambda tree: next((socket.identifier for socket in interface_sockets(tree)), None)).default_value(None)
     return (
-        _flow(config, (prior for prior in takewhile(lambda prior: prior != entry, scene.compositor_effects) if prior.enable_for_preview), source).default_value(Nothing)
+        id_data(bpy.types.Scene, entry)
+        .bind(lambda scene: flow(config, (prior for prior in takewhile(lambda prior: prior != entry, scene.compositor_effects) if prior.enable_for_preview), source))
+        .default_value(Nothing)
         if identifier == first
         else source
     ).bind(lambda origin: _space(config, origin))
@@ -294,18 +298,15 @@ def _linear(config: PyOpenColorIO.Config) -> Option[str]:
 
 def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.types.NodeSocket, entering: Callable[[str], Option[_Origin]]) -> Option[_Origin]:
     """Resolves agreeing color origins over reachable links and group instances, unknown for cycles or mixed encodings."""
-    type State = tuple[bpy.types.NodeSocket, int | None]
-    type Walk = Generator[State, Option[_Origin], Option[_Origin]]
-
     linear: Option[_Origin] = _linear(config)
     parents: list[tuple[bpy.types.CompositorNodeGroup, bpy.types.NodeTree, int | None]] = []
     instances: dict[tuple[bpy.types.CompositorNodeGroup, int | None], int] = {}
 
     @cache
     def linked(owner: bpy.types.NodeTree) -> Mapping[bpy.types.NodeSocket, tuple[tuple[bpy.types.Node, bpy.types.NodeSocket], ...]]:
-        return _feeds((owner,))
+        return feeds((owner,))
 
-    def agreed(children: Iterable[State]) -> Walk:
+    def agreed(children: Iterable[tuple[bpy.types.NodeSocket, int | None]]) -> Generator[tuple[bpy.types.NodeSocket, int | None], Option[_Origin], Option[_Origin]]:
         held: Option[Option[_Origin]] = Nothing
         for child in children:
             origin = yield child
@@ -314,42 +315,39 @@ def _traced(config: PyOpenColorIO.Config, tree: bpy.types.NodeTree, socket: bpy.
             held = Some(origin)
         return held.default_value(linear)  # ruff: ignore[return-in-generator]
 
-    def walked(state: State) -> Walk:
+    def walked(state: tuple[bpy.types.NodeSocket, int | None]) -> Generator[tuple[bpy.types.NodeSocket, int | None], Option[_Origin], Option[_Origin]]:
         inlet, context = state
         fed = linked(tree if context is None else parents[context][1])
         if not inlet.is_output:
             return (yield from agreed((outlet, context) for _, outlet in fed.get(inlet, ())))
-        node: bpy.types.Node = inlet.node  # ty: ignore[invalid-assignment]
-        match node:
-            case _ if node.mute:
+        match inlet.node:
+            case bpy.types.Node(mute=True) as node:
                 source = next((link.from_socket for link in node.internal_links if link.to_socket == inlet), None)
                 return linear if source is None else (yield (source, context))
             case bpy.types.NodeGroupInput():
                 if context is None:
                     return entering(inlet.identifier)
                 parent, _, enclosing = parents[context]
-                source = _socket_at(parent.inputs, inlet.identifier).to_option().to_optional()
+                source = socket_at(parent.inputs, inlet.identifier).to_option().to_optional()
                 return Nothing if source is None else (yield (source, enclosing))
-            case bpy.types.CompositorNodeConvertToDisplay() as display:
-                inputs: bpy.types.NodeInputs = display.inputs  # ty: ignore[invalid-assignment]
-                invert: bpy.types.NodeSocketBool = inputs["Invert"]  # ty: ignore[invalid-assignment]
-                return Nothing if invert in fed else linear if invert.default_value else Some(viewed(display))
+            case bpy.types.CompositorNodeConvertToDisplay(inputs=bpy.types.bpy_prop_collection() as inputs) as display:
+                return Nothing if (invert := inputs["Invert"]) in fed else linear if invert.default_value else Some(viewed(display))
             case bpy.types.CompositorNodeConvertColorSpace(to_color_space=name):
                 return Option.of_optional(config.getColorSpace(name)).map(lambda found: found.getName())
             case bpy.types.CompositorNodeImage(image=bpy.types.Image(colorspace_settings=bpy.types.ColorManagedInputColorspaceSettings(is_data=True, name=name))):
                 return Some(name)
-            case bpy.types.CompositorNodeGroup(node_tree=bpy.types.NodeTree(is_missing=False) as inner):
+            case bpy.types.CompositorNodeGroup(node_tree=bpy.types.NodeTree(is_missing=False) as inner) as node:
                 if (key := (node, context)) not in instances:
                     instances[key] = len(parents)
                     parents.append((node, inner, context))
-                source = _active_output(inner).bind(lambda output: _socket_at(output.inputs, inlet.identifier)).to_option().to_optional()
+                source = active_output(inner).bind(lambda output: socket_at(output.inputs, inlet.identifier)).to_option().to_optional()
                 return linear if source is None else (yield (source, instances[key]))
             case _:
-                return (yield from agreed((held, context) for held in node.inputs if isinstance(held, bpy.types.NodeSocketColor)))  # ruff: ignore[return-in-generator]
+                return (yield from agreed((held, context) for node in Option.of_optional(inlet.node).to_list() for held in node.inputs if isinstance(held, bpy.types.NodeSocketColor)))  # ruff: ignore[return-in-generator]
 
-    root: State = socket, None
-    pending: list[tuple[State, Walk]] = [(root, walked(root))]
-    active, completed = {root}, dict[State, Option[_Origin]]()
+    root: tuple[bpy.types.NodeSocket, int | None] = socket, None
+    pending: list[tuple[tuple[bpy.types.NodeSocket, int | None], Generator[tuple[bpy.types.NodeSocket, int | None], Option[_Origin], Option[_Origin]]]] = [(root, walked(root))]
+    active, completed = {root}, dict[tuple[bpy.types.NodeSocket, int | None], Option[_Origin]]()
     answer: Option[Option[_Origin]] = Nothing
     while pending:
         try:
@@ -393,26 +391,21 @@ def _exited(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect
         case None | bpy.types.NodeTree(is_missing=True):
             return Some(entering)
         case tree:
-            if not isinstance(socket := next(_interface_sockets(tree, "OUTPUT"), None), bpy.types.NodeTreeInterfaceSocketColor):
+            if not isinstance(socket := next(interface_sockets(tree, "OUTPUT"), None), bpy.types.NodeTreeInterfaceSocketColor):
                 return Nothing
-            first = next((socket.identifier for socket in _interface_sockets(tree)), None)
+            first = next((item.identifier for item in interface_sockets(tree)), None)
             linear: Option[_Origin] = _linear(config)
             return Some(
-                _active_output(tree)
+                active_output(tree)
                 .to_option()
                 .map(lambda output: _traced(config, tree, output.inputs[socket.identifier], lambda identifier: entering if identifier == first else linear))
                 .default_value(linear)
             )
 
 
-def _flow(config: PyOpenColorIO.Config, entries: Iterable[bpy.types.SceneCompositorEffect], entering: Option[_Origin]) -> Option[Option[_Origin]]:
+def flow(config: PyOpenColorIO.Config, entries: Iterable[bpy.types.SceneCompositorEffect], entering: Option[_Origin]) -> Option[Option[_Origin]]:
     """Propagates encoding until native output eligibility stops the effect stack."""
     return reduce(lambda held, entry: held.bind(lambda origin: _exited(config, entry, origin)), entries, Some(entering))
-
-
-def _leaving(config: PyOpenColorIO.Config, entries: Iterable[bpy.types.SceneCompositorEffect], entering: Option[str]) -> Option[str | DisplayView]:
-    """Returns effective stack output encoding or display formation, scene-linear when native execution leaves the result uncomposited."""
-    return _flow(config, entries, entering).default_value(_linear(config))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -430,6 +423,8 @@ __all__ = [
     "Settings",
     "ViewSettings",
     "displayed",
+    "entering_space",
+    "flow",
     "followed",
     "tint_of",
     "traced",

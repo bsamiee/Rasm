@@ -7,7 +7,6 @@ using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rhino.Render.PostEffects;
 using Wacton.Unicolour;
-using Temperature = Wacton.Unicolour.Temperature;
 
 namespace Darkroom.Catalog;
 
@@ -24,13 +23,13 @@ internal static class Kinds {
         },
     };
 
-    public static EffectRow<Temperature> WhiteBalance { get; } = new Unicolour(Configuration.Default, Configuration.Default.Xyz.WhitePoint.Chromaticity).Temperature switch {
-        var neutral => new(neutral, (state, context) => EqualityComparer<Temperature>.Default.Equals(state, neutral) ? None
+    public static EffectRow<Wacton.Unicolour.Temperature> WhiteBalance { get; } = new Unicolour(Configuration.Default, Configuration.Default.Xyz.WhitePoint.Chromaticity).Temperature switch {
+        var neutral => new(neutral, (state, context) => EqualityComparer<Wacton.Unicolour.Temperature>.Default.Equals(state, neutral) ? None
             : Some<PixelPass>(new PixelPass.Point(new LutTable.Affine(context.Working.Adapting(state.WhitePoint)).Apply))) {
             Name = nameof(WhiteBalance), StatePath = ["White"],
             Looks = StandardObserver.Illuminants.Map(static illuminant =>
                 new Unicolour(Configuration.Default, illuminant.GetWhitePoint(Observer.Degree2).Chromaticity).Temperature switch {
-                    var white => (illuminant.Name, (Func<Temperature, Temperature>)(_ => white)),
+                    var white => (illuminant.Name, (Func<Wacton.Unicolour.Temperature, Wacton.Unicolour.Temperature>)(_ => white)),
                 }),
         },
     };

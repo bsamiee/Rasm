@@ -1,12 +1,10 @@
-"""Traversal for the trees Rasm checks walk: an explicit worklist over operation trees, and the template and type-form nodes refurb's traverser has no overload for."""
+"""Traversal for the trees Rasm checks walk: an explicit worklist over operation trees in native preorder, and the template and type-form nodes refurb's traverser has no overload for."""
 
 from typing import override
-lazy from collections.abc import Iterator
 
-from mypy.nodes import Expression, TemplateStrExpr, TypeFormExpr
+from mypy.nodes import DictionaryComprehension, Expression, OpExpr, TemplateStrExpr, TypeFormExpr
 from refurb.visitor import TraverserVisitor
 from refurb.visitor.traverser import accept
-lazy from mypy.nodes import DictionaryComprehension, OpExpr
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -16,9 +14,13 @@ class Traverser(TraverserVisitor):
 
     @override
     def visit_op_expr(self, o: OpExpr) -> None:
-        for expression in _operations(o):
-            if not isinstance(expression, OpExpr):
-                self.accept(expression)
+        pending: list[Expression] = [o]
+        while pending:
+            match pending.pop():
+                case OpExpr(analyzed=analyzed, left=left, right=right):
+                    pending.extend((*(() if analyzed is None else (analyzed,)), right, left))
+                case expression:
+                    self.accept(expression)
 
     @override
     def visit_dictionary_comprehension(self, o: DictionaryComprehension) -> None:
@@ -30,21 +32,6 @@ class Traverser(TraverserVisitor):
         if o.key is not None:
             self.accept(o.key)
         self.accept(o.value)
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _operations(root: OpExpr) -> Iterator[Expression]:
-    """Yields an operation tree in native preorder."""
-    pending: list[Expression] = [root]
-    while pending:
-        expression = pending.pop()
-        yield expression
-        if isinstance(expression, OpExpr):
-            if expression.analyzed is not None:
-                pending.append(expression.analyzed)
-            pending.extend((expression.right, expression.left))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

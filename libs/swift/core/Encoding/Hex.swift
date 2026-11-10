@@ -8,7 +8,7 @@ extension Sequence<UInt8> {
 
 extension RangeReplaceableCollection<UInt8> {
     public init?(hexEncoded text: some StringProtocol) {
-        let nibbles: [Int] = text.compactMap { character in character.isASCII ? character.hexDigitValue : nil }
+        let nibbles = text.compactMap { character in character.isASCII ? character.hexDigitValue : nil }
         guard nibbles.count == text.count, nibbles.count.isMultiple(of: 2) else { return nil }
         self.init(stride(from: 0, to: nibbles.count, by: 2).map { index in UInt8(nibbles[index] << 4 | nibbles[index + 1]) })
     }

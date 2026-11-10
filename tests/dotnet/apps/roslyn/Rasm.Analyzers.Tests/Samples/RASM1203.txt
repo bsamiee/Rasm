@@ -21,13 +21,13 @@ internal static class ReportedTwice {
 
     internal static Unit Forwarded(Sink sink, Error error) => Forward(sink, error).{|#1:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
 
-    internal static Fin<Unit> Forward(Sink sink, Error error) => Relay(sink, error);
+    internal static Fin<Unit> {|RASM3015:Forward|}(Sink sink, Error error) => Relay(sink, error);
 
-    internal static Fin<Unit> Relay(Sink sink, Error error) => sink.Report(error);
+    internal static Fin<Unit> {|RASM3015:Relay|}(Sink sink, Error error) => sink.Report(error);
 
     internal static Unit Delegate(ILogger logger, Error error) => Invoked(logger, error).{|#2:IfFail(fault => HostUtils.ExceptionReport(fault.ToException()))|};
 
-    internal static Fin<Unit> Invoked(ILogger logger, Error error) {
+    internal static Fin<Unit> {|RASM3015:Invoked|}(ILogger logger, Error error) {
         Action report = () => ReportedOnce.Failed(logger, error.Message);
         Action invoke = report;
         invoke();
@@ -66,22 +66,22 @@ internal static class ReportedOnce {
 
     internal static Fin<Unit> First(Error error) => Second(error);
 
-    internal static Fin<Unit> Second(Error error) => First(error);
+    internal static Fin<Unit> {|RASM3015:Second|}(Error error) => First(error);
 
     internal static Unit Enabled(ILogger logger, Error error) => Checked(logger).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
 
-    internal static Fin<Unit> Checked(ILogger logger) => logger.IsEnabled(LogLevel.Error) ? unit : Error.New("disabled");
+    internal static Fin<Unit> {|RASM3015:Checked|}(ILogger logger) => logger.IsEnabled(LogLevel.Error) ? unit : Error.New("disabled");
 
     internal static Unit Deferred(ILogger logger, Error error) => Unused(logger, error).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
 
-    internal static Fin<Unit> Unused(ILogger logger, Error error) {
+    internal static Fin<Unit> {|RASM3015:Unused|}(ILogger logger, Error error) {
         Action callback = () => Failed(logger, error.Message);
         return unit;
     }
 
     internal static Unit Local(ILogger logger, Error error) => Uncalled(logger, error).IfFail(fault => HostUtils.ExceptionReport(fault.ToException()));
 
-    internal static Fin<Unit> Uncalled(ILogger logger, Error error) {
+    internal static Fin<Unit> {|RASM3015:Uncalled|}(ILogger logger, Error error) {
         void {|CS8321:Later|}() => Failed(logger, error.Message);
         return unit;
     }

@@ -3,36 +3,42 @@
     reason = "the MCP and GenAI names moved to the GenAI semantic-conventions repository, which publishes no Rust crate, with values unchanged, and legacy subscription requests name their resource"
 )]
 
-use std::{
-    borrow::Cow,
-    sync::{LazyLock, OnceLock},
-};
+use core::ops::Deref;
+use std::borrow::Cow;
+use std::sync::{LazyLock, OnceLock};
 
-use opentelemetry::{InstrumentationScope, KeyValue, global, metrics::Histogram, trace::Status};
-use opentelemetry_semantic_conventions::{
-    SCHEMA_URL,
-    attribute::{
-        ERROR_TYPE, EXCEPTION_MESSAGE, GEN_AI_OPERATION_NAME, GEN_AI_PROMPT_NAME, GEN_AI_TOOL_NAME, JSONRPC_REQUEST_ID, MCP_METHOD_NAME, MCP_PROTOCOL_VERSION, MCP_RESOURCE_URI,
-        RPC_RESPONSE_STATUS_CODE,
-    },
-    metric::{MCP_SERVER_OPERATION_DURATION, MCP_SERVER_SESSION_DURATION},
+use opentelemetry::metrics::Histogram;
+use opentelemetry::propagation::Extractor;
+use opentelemetry::trace::Status;
+use opentelemetry::{InstrumentationScope, KeyValue, global};
+use opentelemetry_semantic_conventions::SCHEMA_URL;
+use opentelemetry_semantic_conventions::attribute::{
+    ERROR_TYPE, EXCEPTION_MESSAGE, GEN_AI_OPERATION_NAME, GEN_AI_PROMPT_NAME, GEN_AI_TOOL_NAME, JSONRPC_REQUEST_ID, MCP_METHOD_NAME, MCP_PROTOCOL_VERSION, MCP_RESOURCE_URI, RPC_RESPONSE_STATUS_CODE,
 };
-use rmcp::{
-    ErrorData, RoleServer, Service,
-    model::{
-        CallToolRequest, CallToolResult, ClientNotification, ClientRequest, GetPromptRequest, InitializeRequest, ProtocolVersion, ReadResourceRequest, ServerConfig, ServerResult, SubscribeRequest,
-        UnsubscribeRequest,
-    },
-    service::{NotificationContext, RequestContext},
+use opentelemetry_semantic_conventions::metric::{MCP_SERVER_OPERATION_DURATION, MCP_SERVER_SESSION_DURATION};
+use rmcp::model::{
+    CallToolRequest, CallToolResult, ClientNotification, ClientRequest, GetPromptRequest, InitializeRequest, MetaObject, ProtocolVersion, ReadResourceRequest, ServerConfig, ServerResult, SubscribeRequest,
+    UnsubscribeRequest,
 };
+use rmcp::service::{NotificationContext, RequestContext};
+use rmcp::{ErrorData, RoleServer, Service};
+use serde_json::Value;
 use tokio::time::Instant;
-use tracing::{
-    Instrument as _,
-    field::{self, Empty},
-};
+use tracing::Instrument as _;
+use tracing::field::{self, Empty};
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
 
-use crate::Meta;
+// --- [MODELS] --------------------------------------------------------------------------
+
+struct Carrier<M>(M);
+
+impl<M> Extractor for Carrier<M>
+where M: Deref<Target = MetaObject>
+{
+    fn get(&self, key: &str) -> Option<&str> { self.0.get(key).and_then(Value::as_str) }
+
+    fn keys(&self) -> Vec<&str> { self.0.keys().map(String::as_str).collect() }
+}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -79,7 +85,7 @@ where S: Service<RoleServer>
             { ERROR_TYPE } = Empty,
             { RPC_RESPONSE_STATUS_CODE } = Empty,
         );
-        let parent = global::get_text_map_propagator(|propagator| propagator.extract(&Meta(&context.meta.0)));
+        let parent = global::get_text_map_propagator(|propagator| propagator.extract(&Carrier(&context.meta.0)));
         let (Ok(()) | Err(SetParentError::LayerNotFound | SetParentError::SpanDisabled | SetParentError::AlreadyStarted)) = span.set_parent(parent);
         if let (ClientRequest::InitializeRequest(_), Some(version)) = (&request, &version) {
             let (Ok(()) | Err((_, _))) = self.opened.set((Instant::now(), version.clone()));

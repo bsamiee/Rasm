@@ -34,6 +34,8 @@ const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const outermost = (folders: readonly string[]) => Array.dedupe(folders).filter((at, _, all) => !all.some((other) => at.startsWith(`${other}/`)));
 
+const placed = (path: Path.Path, root: string, outputPath: Option.Option<string>, tool: string) => Option.map(outputPath, (at) => path.relative(root, path.join(at, tool, '{projectName}')));
+
 const loaded = <A>(folder: string, specifier: string) => Effect.tryPromise((): Promise<A> => import(pathToFileURL(createRequire(`${folder}/package.json`).resolve(specifier)).href));
 
 const isolated = <A, E, R>(launch: Record.ReadonlyRecord<string, string>, effect: Effect.Effect<A, E, R>) =>
@@ -53,10 +55,10 @@ const isolated = <A, E, R>(launch: Record.ReadonlyRecord<string, string>, effect
             }),
     );
 
-const bundled = Effect.fnUntraced(function* (folder: string, file: string) {
+const bundled = Effect.fnUntraced(function* (folder: string, file: string, outDir: Option.Option<string>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { resolveConfig } = yield* loaded<typeof import('vite')>(folder, 'vite');
-    const config = yield* Effect.tryPromise(() => resolveConfig({ configFile: file, root: folder, logLevel: 'silent' }, 'build', 'production', 'production'));
+    const config = yield* Effect.tryPromise(() => resolveConfig({ configFile: file, root: folder, logLevel: 'silent', build: Record.getSomes({ outDir }) }, 'build', 'production', 'production'));
     const builds = [config.build, ...Object.values(config.environments).map((environment) => environment.build)];
     const buildable = config.build.lib !== false || config.builder?.buildApp !== undefined || builds.some((build) => build.rolldownOptions.input !== undefined) || (yield* fs.exists(path.join(config.root, 'index.html')));
     return {
@@ -92,11 +94,11 @@ const collected = Effect.fnUntraced(function* (folder: string, file: string) {
     );
 }, Effect.scoped);
 
-const read = Effect.fnUntraced(function* (workspaceRoot: string, root: string, markers: Markers) {
+const read = Effect.fnUntraced(function* (workspaceRoot: string, root: string, markers: Markers, outputPath: Option.Option<string>) {
     const path = yield* Path.Path;
     const folder = path.join(workspaceRoot, root);
     const located = (file: string | undefined) => Option.map(Option.fromUndefinedOr(file), (at) => path.join(workspaceRoot, at));
-    const vite = yield* Effect.transposeOption(Option.map(located(markers.vite), (file) => isolated({}, bundled(folder, file))));
+    const vite = yield* Effect.transposeOption(Option.map(located(markers.vite), (file) => isolated({}, bundled(folder, file, placed(path, root, outputPath, 'vite')))));
     const environment = yield* Config.String('NODE_ENV').pipe(Config.withDefault('test'));
     const declared = Option.exists(vite, (config) => config.declared);
     const vitest = Option.orElse(located(markers.vitest), () => Option.filter(located(markers.vite), () => declared));
@@ -146,19 +148,19 @@ const targets = (path: Path.Path, root: string, markers: Markers, entry: Read, c
     });
     const inputs = (runner: string, ...extra: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), ...extra, { externalDependencies: [runner] }];
     const written = (folders: readonly string[]) => folders.map((at) => path.join('{workspaceRoot}', at));
-    const storybook = Option.map(outputPath, (at) => path.join(at, 'storybook', '{projectName}'));
+    const output = (tool: string, flag: string, ...rest: readonly string[]) => Option.match(placed(path, root, outputPath, tool), { onNone: () => [], onSome: (at) => [flag, at, ...rest] });
     const built: Record.ReadonlyRecord<string, TargetConfiguration> = {
         ...Record.fromIterableWith(Option.toArray(Option.fromUndefinedOr(entry.bundles)), (folders): [string, TargetConfiguration] => [
             'build--vite',
-            { ...command(['vite', 'build'], [], 'vite', 'Builds every environment of the Vite config with vite build', ['--mode', 'production']), inputs: inputs('vite'), outputs: written(folders) },
+            { ...command(['vite', 'build'], output('vite', '--outDir', '--emptyOutDir'), 'vite', 'Builds every environment of the Vite config with vite build', ['--mode', 'production']), inputs: inputs('vite'), outputs: written(folders) },
         ]),
         ...(markers.storybook === undefined
             ? {}
             : {
                   'build--storybook': {
-                      ...command(['storybook', 'build'], Option.match(storybook, { onNone: () => [], onSome: (at) => ['--output-dir', path.relative(root, at)] }), 'storybook', 'Builds the static Storybook of the project stories', ['--test']),
+                      ...command(['storybook', 'build'], output('storybook', '--output-dir'), 'storybook', 'Builds the static Storybook of the project stories', ['--test']),
                       inputs: inputs('storybook'),
-                      outputs: [Option.match(storybook, { onNone: () => '{projectRoot}/storybook-static', onSome: (at) => path.join('{workspaceRoot}', at) })],
+                      outputs: [Option.match(placed(path, root, outputPath, 'storybook'), { onNone: () => '{projectRoot}/storybook-static', onSome: (at) => path.join('{workspaceRoot}', root, at) })],
                   },
               }),
         ...(markers.cloudflare === undefined
@@ -175,7 +177,7 @@ const targets = (path: Path.Path, root: string, markers: Markers, entry: Read, c
         ...built,
         ...Record.fromIterableWith(Option.toArray(Option.fromUndefinedOr(entry.suite)), (folders): [string, TargetConfiguration] => [
             'test',
-            { ...command(['vitest', 'run'], [], 'vitest', 'Runs every Vitest project of the suite with vitest run', ['--project', '<name>']), inputs: inputs('vitest', { env: 'CI' }), outputs: written(folders) },
+            { ...command(['vitest', 'run'], [], 'vitest', 'Runs every Vitest project of the suite with vitest run', ['--project', '<name>']), inputs: inputs('vitest', { env: 'CI' }, { runtime: 'node -p process.platform+process.arch' }), outputs: written(folders) },
         ]),
         ...(Record.isEmptyRecord(built) ? {} : { build: { executor: 'nx:noop', dependsOn: ['build--*'], inputs: ['...', ...Array.dedupe(Object.values(built).flatMap((target) => target.inputs ?? []))], metadata: { technologies: ['vite'], description: 'Runs every build--* target' } } }),
         ...(markers.cloudflare === undefined ? {} : { 'check--tsc': { dependsOn: ['...', 'build--cf'], inputs: ['...', { dependentTasksOutputFiles: '**/*.d.ts' }] } }),
@@ -224,7 +226,7 @@ const inferred = Effect.fnUntraced(function* (files: readonly string[], options:
                 },
             }),
         ),
-        () => Effect.forEach(missed, ({ root, markers }) => Effect.result(read(workspaceRoot, root, markers))),
+        () => Effect.forEach(missed, ({ root, markers }) => Effect.result(read(workspaceRoot, root, markers, Option.fromUndefinedOr(decoded.outputPath)))),
         (hooks) => Effect.sync(() => hooks.deregister()),
     );
     const fresh = Array.zipWith(missed, results, (project, result) => ({ ...project, result }));

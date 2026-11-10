@@ -48,15 +48,16 @@ interface Host {
         readonly variables?: readonly string[];
         readonly pack?: (folder: string, names: readonly string[], file: string, timestampAuthority: Option.Option<string>) => Effect.Effect<void, DistributionError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>;
     };
-    readonly install?: { readonly command: string; readonly run: (bundle: Package) => Effect.Effect<void, DistributionError, ChildProcessSpawner.ChildProcessSpawner> };
+    readonly install?: { readonly tool: string; readonly command: string; readonly run: (bundle: Package) => Effect.Effect<Option.Option<string>, DistributionError, ChildProcessSpawner.ChildProcessSpawner> };
     readonly publish?: { readonly command: string; readonly run: (bundle: Package, options: Publish) => Effect.Effect<void, DistributionError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner> };
+    readonly upgrade?: { readonly tool: string; readonly executor: string; readonly manifest: string; readonly before: string; readonly roots: (workspaceRoot: string, root: string) => Effect.Effect<readonly string[], never, FileSystem.FileSystem | Path.Path> };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const RELEASE = 'release';
 const EXTENSION = 'blender_manifest.toml';
 const YAK_EXECUTABLE = 'YakExecutable';
+const LOCK = 'uv.lock';
 const REMOVED = /^(?:Removal Successful.*|.*status = -406)$/mu;
 const INSTALLED = /^Installation Successful.*$/mu;
 const PUBLISHED = /^Successfully published.*$/mu;
@@ -74,6 +75,10 @@ const Extension = Schema.Struct({
     version: Schema.String,
     platforms: Schema.optionalKey(Schema.Array(Schema.String)),
     build: Schema.optionalKey(Schema.Struct({ generated: Schema.optionalKey(Schema.Struct({ platforms: Schema.Array(Schema.String) })) })),
+});
+const Lock = Schema.Struct({
+    manifest: Schema.Struct({ members: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({ members: [] }))),
+    package: Schema.Array(Schema.Struct({ name: Schema.String, source: Schema.Struct({ editable: Schema.optionalKey(Schema.String), virtual: Schema.optionalKey(Schema.String), directory: Schema.optionalKey(Schema.String) }) })),
 });
 const Yak = Schema.Struct({ name: Schema.String, version: Schema.String, authors: Schema.Array(Schema.String), description: Schema.String });
 const Uxp = Schema.fromJsonString(Schema.Struct({ manifestVersion: Schema.Finite, id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.Struct({ app: Schema.String }) }));
@@ -120,7 +125,7 @@ const reported = (command: string, args: readonly string[], signal: RegExp) =>
 
 const upia = (bundle: Package) => {
     const agent = '/Library/Application Support/Adobe/Adobe Desktop Common/RemoteComponents/UPI/UnifiedPluginInstallerAgent/UnifiedPluginInstallerAgent.app/Contents/MacOS/UnifiedPluginInstallerAgent';
-    return Effect.andThen(reported(agent, ['--remove', bundle.name], REMOVED), reported(agent, ['--install', bundle.file], INSTALLED));
+    return Effect.as(Effect.andThen(reported(agent, ['--remove', bundle.name], REMOVED), reported(agent, ['--install', bundle.file], INSTALLED)), Option.none<string>());
 };
 
 const yak = (bundle: Package) =>
@@ -211,6 +216,40 @@ const built = Effect.fnUntraced(function* (context: ExecutorContext, configurati
     };
 });
 
+const ancestors = (path: Path.Path, folder: string): readonly string[] =>
+    Array.unfold(
+        Option.some(folder),
+        Option.map((at: string) => [at, Option.liftPredicate(path.dirname(at), () => at !== '.')] as const),
+    );
+
+const locked = Effect.fnUntraced(function* (workspaceRoot: string, folder: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const text = yield* fs.readFileString(path.join(workspaceRoot, folder, LOCK));
+    const { manifest, package: packages } = yield* Effect.flatMap(Effect.fromResult(Toml.parse(text)), Schema.decodeUnknownEffect(Lock));
+    const placed = packages.map(({ name, source }) => ({ name, at: Option.map(Option.fromUndefinedOr(source.editable ?? source.virtual ?? source.directory), (at) => path.join(folder, at)) }));
+    return { folder, folders: Array.getSomes(placed.map(({ at }) => at)), members: Array.getSomes(placed.filter(({ name }) => manifest.members.includes(name)).map(({ at }) => at)) };
+});
+
+const locking = Effect.fnUntraced(
+    function* (workspaceRoot: string, root: string) {
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const own = yield* locked(workspaceRoot, root);
+        const loaded = new Set(own.folders);
+        const enclosing = yield* Effect.forEach(own.folders, (folder) =>
+            Effect.map(
+                Effect.filter(ancestors(path, folder), (at) => fs.exists(path.join(workspaceRoot, at, LOCK))),
+                Array.head,
+            ),
+        );
+        const others = yield* Effect.forEach(
+            Array.dedupe(Array.getSomes(enclosing)).filter((folder) => folder !== root),
+            (folder) => locked(workspaceRoot, folder),
+        );
+        return [root, ...others.filter(({ folder, members }) => members.every((member) => member === folder || loaded.has(member))).map(({ folder }) => folder)];
+    },
+    Effect.orElseSucceed(() => Array.empty<string>()),
+);
+
 const zipped = Effect.fnUntraced(function* (folder: string, names: readonly string[], file: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     yield* Stream.fromIterable(names).pipe(
@@ -266,7 +305,9 @@ const HOSTS: readonly Host[] = [
             ),
         write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: DistributionError.of(EXTENSION, 'does not parse as TOML'), onSuccess: (document) => patch(text, { ...document, version }) }),
         build: { executor: 'extension-build', command: 'blender --command extension build' },
+        upgrade: { tool: 'blender', executor: 'extension-constraints', manifest: 'pyproject.toml', before: 'upgrade--uv', roots: locking },
         install: {
+            tool: 'blender',
             command: 'blender --command extension install-file',
             run: (bundle) =>
                 Effect.flatMap(spawned('blender', ['--command', 'extension', 'list']), (listing) =>
@@ -289,6 +330,9 @@ const HOSTS: readonly Host[] = [
                         ],
                         new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(bundle.name)}"$`, 'mu'),
                     ),
+                ).pipe(
+                    Effect.andThen(spawned('blender', ['--quiet', '--background', '--factory-startup', '--python-expr', 'import bpy; print(bpy.app.binary_path)'])),
+                    Effect.map((printed) => Option.some(printed.trim())),
                 ),
         },
     },
@@ -305,7 +349,7 @@ const HOSTS: readonly Host[] = [
                     platforms: Array.filter(Option.toArray(Option.map(Schema.decodeUnknownOption(DistributionGroups)(DISTRIBUTION.exec(file)?.groups), ({ platform }) => platform)), (platform) => platform !== 'any'),
                 })),
             ),
-        install: { command: 'yak install', run: (bundle) => Effect.flatMap(yak(bundle), (executable) => reported(executable, ['install', bundle.file], new RegExp(`^Successfully installed ${RegExp.escape(bundle.name)}`, 'mu'))) },
+        install: { tool: 'yak', command: 'yak install', run: (bundle) => Effect.flatMap(yak(bundle), (executable) => Effect.as(reported(executable, ['install', bundle.file], new RegExp(`^Successfully installed ${RegExp.escape(bundle.name)}`, 'mu')), Option.some(executable))) },
         publish: {
             command: 'yak push',
             run: Effect.fnUntraced(
@@ -345,7 +389,7 @@ const HOSTS: readonly Host[] = [
         read: (text) => Effect.succeed(Option.map(Schema.decodeOption(Uxp)(text), ({ name, version }) => ({ name, version, platforms: [] }))),
         write: (text, version) => Effect.as(exact('manifest.json', version), applyEdits(text, modify(text, ['version'], version, {}))),
         build: { executor: 'package', command: 'zip', pack: zipped },
-        install: { command: 'UnifiedPluginInstallerAgent --install', run: upia },
+        install: { tool: 'upia', command: 'UnifiedPluginInstallerAgent --install', run: upia },
     },
     {
         manifest: 'CSXS/manifest.xml',
@@ -364,7 +408,7 @@ const HOSTS: readonly Host[] = [
         write: (text, version) =>
             Effect.andThen(exact('CSXS/manifest.xml', version), Effect.mapBoth(Effect.fromOption(located(text)), { onFailure: DistributionError.of('CSXS/manifest.xml', 'states no ExtensionBundleVersion'), onSuccess: (at) => `${text.slice(0, at.startOffset + 1)}${version}${text.slice(at.endOffset)}` })),
         build: { executor: 'package', command: 'ZXPSignCmd -sign', variables: SIGNING, pack: signed },
-        install: { command: 'UnifiedPluginInstallerAgent --install', run: upia },
+        install: { tool: 'upia', command: 'UnifiedPluginInstallerAgent --install', run: upia },
     },
     {
         manifest: '*.uproject',
@@ -400,4 +444,4 @@ const HOSTS: readonly Host[] = [
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { built, DistributionError, EXTENSION, type Fields, HOSTS, type Host, type Package, type Publish, RELEASE, spawned, UNREAL };
+export { built, DistributionError, EXTENSION, type Fields, HOSTS, type Host, type Package, type Publish, spawned, UNREAL };

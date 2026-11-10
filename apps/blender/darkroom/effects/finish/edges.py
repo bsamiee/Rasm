@@ -36,19 +36,18 @@ class IdSource(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_KUWAHARA: Final = bpy.types.CompositorNodeKuwahara
 _NORMAL: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_normal"])
 _FRAME_WIDTH: Final = MenuItem(name="Frame", description="Line width as a frame share")
 _WORLD_WIDTH: Final = MenuItem(name="World", description="Line width as a surface length, narrowing with camera distance")
 _CENTER: Final = MenuItem(name="Center")
 _INSIDE: Final = MenuItem(name="Inside")
 _OUTSIDE: Final = MenuItem(name="Outside")
-_TYPE: Final = Socket(key="type", kind=StockInput(node=_KUWAHARA, input="Type"))
+_TYPE: Final = Socket(key="type", kind=StockInput(node=bpy.types.CompositorNodeKuwahara, input="Type"))
 _SIZE: Final = Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Filter window radius over greater frame side", min_value=0.0, default_value=1 / 320)
 _UNIFORMITY: Final = Socket(key="uniformity", kind=bpy.types.NodeSocketFloat, description="Stroke direction smoothing radius over greater frame side", min_value=0.0, default_value=1 / 480)
-_SHARPNESS: Final = Socket(key="sharpness", kind=StockInput(node=_KUWAHARA, input="Sharpness"))
-_ECCENTRICITY: Final = Socket(key="eccentricity", kind=StockInput(node=_KUWAHARA, input="Eccentricity"))
-_HIGH_PRECISION: Final = Socket(key="high_precision", kind=StockInput(node=_KUWAHARA, input="High Precision"))
+_SHARPNESS: Final = Socket(key="sharpness", kind=StockInput(node=bpy.types.CompositorNodeKuwahara, input="Sharpness"))
+_ECCENTRICITY: Final = Socket(key="eccentricity", kind=StockInput(node=bpy.types.CompositorNodeKuwahara, input="Eccentricity"))
+_HIGH_PRECISION: Final = Socket(key="high_precision", kind=StockInput(node=bpy.types.CompositorNodeKuwahara, input="High Precision"))
 _ANISOTROPIC: Final = InterfacePanel.of("anisotropic", Interface(inputs=(_UNIFORMITY, _SHARPNESS, _ECCENTRICITY)))
 _CLASSIC: Final = InterfacePanel.of("classic", Interface(inputs=(_HIGH_PRECISION,)))
 _PAINT: Final = InterfacePanel.of("paint", Interface(inputs=(_TYPE, _SIZE), panels=(_ANISOTROPIC, _CLASSIC)), description="Kuwahara smoothing preserving edges before lines", toggle=Some(False))
@@ -111,7 +110,7 @@ class Edges(CompositorRecord, frozen=True, kw_only=True):
             return Expr(kind=bpy.types.CompositorNodeDilateErode, inputs=(("Mask", mask), ("Size", steps), ("Type", "Steps")), socket="Mask")
 
         kuwahara = Expr(
-            kind=_KUWAHARA,
+            kind=bpy.types.CompositorNodeKuwahara,
             inputs=(
                 ("Image", source),
                 ("Type", paint(_TYPE)),

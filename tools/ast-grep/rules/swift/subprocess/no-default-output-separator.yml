@@ -1,20 +1,18 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: swiftlang
 severity: error
+utils:
+    decoding:
+        has: {stopBy: end, kind: navigation_suffix, regex: '^\.decode$'}
 rule:
     kind: call_expression
     pattern: $READ
     all:
         - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^strings$'}}}
-        - has:
-            kind: call_suffix
-            has:
-                kind: value_arguments
-                not:
-                    all:
-                        - has: {kind: value_argument, has: {field: name, regex: '^separatedBy$'}}
-                        - has: {kind: value_argument, has: {field: name, regex: '^bufferingPolicy$'}}
+        - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {kind: value_argument, has: {field: name, regex: '^separatedBy$'}}}}}
+        - any:
+            - inside: {kind: for_statement, stopBy: {kind: 'for_statement, statements, lambda_literal'}, has: {kind: statements, matches: decoding}}
+            - inside: {kind: call_expression, stopBy: {kind: 'statements, lambda_literal'}, has: {kind: call_suffix, has: {kind: lambda_literal, matches: decoding}}}
         - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import[\t-\r ]+Subprocess$'}}
-        - not: {inside: {stopBy: {kind: for_statement}, matches: subprocess-output-discarding-loop}}
-message: '`$READ` splits child output by the default separator and buffering policy'
-note: 'Pass the output protocol''s `separatedBy:` and `bufferingPolicy:`, `.unicodeScalarSequence(["\n"])` and `.unbounded` for newline-delimited output'
+message: '`$READ` splits decoded output at U+2028 and U+2029 besides newlines'
+note: 'Pass `separatedBy: .unicodeScalarSequence(["\n"])` for newline-delimited records'

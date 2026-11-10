@@ -15,7 +15,7 @@ from expression.extra.result import catch
 import msgspec
 
 from rasm_bpy.data._extension.reports import Refusal, Reports
-from rasm_bpy.data._rna.paths import _addon_preferences, Struct
+from rasm_bpy.data._rna.paths import addon_preferences, root_in, Struct
 from rasm_records import Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -103,8 +103,7 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def preferences[T: bpy.types.AddonPreferences](self, kind: type[T], /) -> Option[T]:
         """Reads the extension's add-on preferences as kind (`bpy.types.AddonPreferences` for any), Nothing while disabled or holding another class."""
-        preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
-        return _addon_preferences(preferences, self.package).bind(lambda held: Option.of_optional(try_downcast(kind, held)))
+        return root_in(bpy.types.Preferences, bpy.context).bind(lambda preferences: addon_preferences(preferences, self.package)).bind(lambda held: Option.of_optional(try_downcast(kind, held)))
 
     @classmethod
     def read(cls, package: str, /) -> Outcome[Self]:

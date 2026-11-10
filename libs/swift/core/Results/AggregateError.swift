@@ -12,7 +12,7 @@ public struct AggregateError<Element: Sendable>: Error {
     }
 
     public init?(_ errors: some Collection<Element>) {
-        guard let first: Element = errors.first else { return nil }
+        guard let first = errors.first else { return nil }
         self.init(first: first, remaining: Array(errors.dropFirst()))
     }
 

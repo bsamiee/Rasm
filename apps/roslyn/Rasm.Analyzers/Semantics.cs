@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using Analyzer.Utilities;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -23,6 +25,51 @@ internal static class Categories {
     internal const string Eto = "Eto";
 
     internal const string CSharp = "CSharp";
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+internal sealed class Reading(SemanticModel model, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) {
+    public SemanticModel Model { get; } = model;
+
+    public CancellationToken Token { get; } = token;
+
+    public Dictionary<IOperation, ILookup<ISymbol?, IOperation>> References { get; } = [];
+
+    public Dictionary<IOperation, ILookup<ISymbol?, IOperation>> Ranges { get; } = [];
+
+    public SemanticModel? For(SyntaxTree tree) => tree == Model.SyntaxTree ? Model : models.TryGetValue(tree, out SemanticModel? held) ? held : null;
+}
+
+internal sealed class SemanticModels {
+    private readonly CompilationStartAnalysisContext context;
+    private readonly List<Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>>> completed = [];
+    private readonly ConcurrentDictionary<SemanticModel, Reading> readings = [];
+
+    public SemanticModels(CompilationStartAnalysisContext context) {
+        this.context = context;
+        ConcurrentDictionary<SyntaxTree, SemanticModel> models = [];
+        context.RegisterSemanticModelAction(analysis => models[analysis.SemanticModel.SyntaxTree] = analysis.SemanticModel);
+        context.RegisterCompilationEndAction(end => {
+            ImmutableDictionary<SyntaxTree, SemanticModel> snapshot = models.ToImmutableDictionary();
+            foreach (Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>> action in completed) action(end, snapshot);
+        });
+    }
+
+    public void Complete(Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>> action) => completed.Add(action);
+
+    public void Report<T>(ImmutableArray<OperationKind> kinds, Func<T, ISymbol, Reading, IEnumerable<Diagnostic>> found) where T : IOperation {
+        ConcurrentBag<(T Operation, ISymbol Owner)> operations = [];
+        context.RegisterOperationAction(analysis => operations.Add(((T)analysis.Operation, analysis.ContainingSymbol)), kinds);
+        Complete((end, models) => {
+            Func<SemanticModel, Reading> read = model => new Reading(model, models, end.CancellationToken);
+            foreach ((T operation, ISymbol owner) in operations)
+                foreach (Diagnostic diagnostic in found(operation, owner, readings.GetOrAdd(operation.SemanticModel!, read))) {
+                    end.CancellationToken.ThrowIfCancellationRequested();
+                    end.ReportDiagnostic(diagnostic);
+                }
+        });
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -122,6 +169,12 @@ internal static class Semantics {
     internal static AttributeData? Marked(ISymbol symbol, ImmutableArray<INamedTypeSymbol> attributes) => symbol.GetAttributes().FirstOrDefault(data => Among(data.AttributeClass, attributes));
 
     internal static bool Sourced(ISymbol symbol) => symbol.Locations.Any(static location => location.IsInSource);
+
+    internal static Func<ISymbol, bool> Hidden(Compilation compilation) {
+        bool closed = Marked(compilation.Assembly, WellKnownTypeProvider.GetOrCreate(compilation).GetOrCreateTypeByMetadataName(typeof(InternalsVisibleToAttribute).FullName)) is null;
+        return symbol => Containers(symbol).TakeWhile(static held => held is not INamespaceSymbol).Any(held => held.DeclaredAccessibility is Accessibility.Private
+            || (closed && held.DeclaredAccessibility is Accessibility.Internal or Accessibility.ProtectedAndInternal));
+    }
 
     internal static bool Mentions(ITypeSymbol type, ITypeParameterSymbol held) =>
         SymbolEqualityComparer.Default.Equals(type, held)
@@ -297,49 +350,4 @@ internal static class Semantics {
             ]),
             _ => null,
         };
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-internal sealed class Reading(SemanticModel model, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) {
-    public SemanticModel Model { get; } = model;
-
-    public CancellationToken Token { get; } = token;
-
-    public Dictionary<IOperation, ILookup<ISymbol?, IOperation>> References { get; } = [];
-
-    public Dictionary<IOperation, ILookup<ISymbol?, IOperation>> Ranges { get; } = [];
-
-    public SemanticModel? For(SyntaxTree tree) => tree == Model.SyntaxTree ? Model : models.TryGetValue(tree, out SemanticModel? held) ? held : null;
-}
-
-internal sealed class SemanticModels {
-    private readonly CompilationStartAnalysisContext context;
-    private readonly List<Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>>> completed = [];
-    private readonly ConcurrentDictionary<SemanticModel, Reading> readings = [];
-
-    public SemanticModels(CompilationStartAnalysisContext context) {
-        this.context = context;
-        ConcurrentDictionary<SyntaxTree, SemanticModel> models = [];
-        context.RegisterSemanticModelAction(analysis => models[analysis.SemanticModel.SyntaxTree] = analysis.SemanticModel);
-        context.RegisterCompilationEndAction(end => {
-            ImmutableDictionary<SyntaxTree, SemanticModel> snapshot = models.ToImmutableDictionary();
-            foreach (Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>> action in completed) action(end, snapshot);
-        });
-    }
-
-    public void Complete(Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>> action) => completed.Add(action);
-
-    public void Report<T>(ImmutableArray<OperationKind> kinds, Func<T, ISymbol, Reading, IEnumerable<Diagnostic>> found) where T : IOperation {
-        ConcurrentBag<(T Operation, ISymbol Owner)> operations = [];
-        context.RegisterOperationAction(analysis => operations.Add(((T)analysis.Operation, analysis.ContainingSymbol)), kinds);
-        Complete((end, models) => {
-            Func<SemanticModel, Reading> read = model => new Reading(model, models, end.CancellationToken);
-            foreach ((T operation, ISymbol owner) in operations)
-                foreach (Diagnostic diagnostic in found(operation, owner, readings.GetOrAdd(operation.SemanticModel!, read))) {
-                    end.CancellationToken.ThrowIfCancellationRequested();
-                    end.ReportDiagnostic(diagnostic);
-                }
-        });
-    }
 }

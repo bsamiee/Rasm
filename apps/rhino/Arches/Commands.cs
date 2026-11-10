@@ -29,7 +29,7 @@ internal abstract partial record ArchStage {
             select Span.Apex(height);
 
         public Fin<Point3d> Nearest(Point3d cursor, Tolerances tolerances) =>
-            Span.Height(cursor) switch {
+            ((cursor - Span.Midpoint) * Span.Frame.YAxis) switch {
                 var height => AllowedRatios(tolerances).Map(ratios => Span.Apex(double.CopySign(double.Clamp(double.Abs(height) / Span.Baseline.Length, ratios.T0, ratios.T1), height) * Span.Baseline.Length)),
             };
 

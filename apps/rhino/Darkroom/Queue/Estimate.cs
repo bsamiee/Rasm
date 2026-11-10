@@ -1,9 +1,7 @@
-using System.Globalization;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Objects;
-using Rasm.Rhino.Render.Effects;
 using Rhino.Render;
 
 namespace Darkroom.Queue;
@@ -12,9 +10,6 @@ namespace Darkroom.Queue;
 
 internal sealed record FrameTiming(UInt128 Entry, SequenceNumber Frame, long Started, long Began, long Saved, long Written, long PeakWorkingSet) {
     public Duration Time(TimeProvider clock) => clock.GetElapsedTime(Started, Written).ToDuration();
-
-    public string Stages(TimeProvider clock) =>
-        string.Join(", ", toSeq(FrameStage.Items).Map(stage => string.Create(CultureInfo.InvariantCulture, $"{stage.Key} {stage.Of(this, clock):-H:mm:ss.fff}")));
 }
 
 [SmartEnum<string>]
@@ -54,14 +49,6 @@ internal sealed record QueueEstimate(long Completed, long Total, Option<(Duratio
         times.IsEmpty ? None : Some(times.Fold(Duration.Zero, static (sum, time) => sum + time) / times.Count);
 
     // --- [MEMORY]
-
-    public static Option<Seq<RenderWindow.StandardChannels>> Components(RenderChannels requested) =>
-        (requested.Mode is RenderChannels.Modes.Custom ? toSeq(requested.CustomList) : Seq<Guid>())
-            .Traverse(static id => RenderWindow.StandardChannelForGuid(id) switch {
-                RenderWindow.StandardChannels.None => Option<RenderWindow.StandardChannels>.None,
-                var channel => Some(channel),
-            }).As()
-            .Map(static channels => RenderWindow.StandardChannels.RGBA.Cons(channels).Bind(Channels.Components).Distinct().Strict());
 
     public static ulong Memory(DocumentStatistics statistics, PixelExtent rendered, Seq<RenderWindow.StandardChannels> components) =>
         statistics.MemoryEstimate + ((ulong)rendered.Width * (ulong)rendered.Height * sizeof(float) * (ulong)components.Count);

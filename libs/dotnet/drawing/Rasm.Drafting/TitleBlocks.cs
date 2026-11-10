@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using NodaTime.Text;
 
@@ -58,40 +59,55 @@ public sealed partial class TitleFormat {
     public partial Fin<TitleValue> Parse(RevisionAlphabet alphabet, string text);
 }
 
-public sealed record TitleField {
-    private TitleField(string name, bool mandatory, TitleFormat format) => (Name, Mandatory, Format) = (name, mandatory, format);
-    public string Name { get; }
+[Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+public abstract partial class TitleField {
+    private TitleField(bool mandatory, TitleFormat format) => (Mandatory, Format) = (mandatory, format);
+    public abstract string Name { get; }
     public bool Mandatory { get; }
     public TitleFormat Format { get; }
 
-    public static readonly TitleField LegalOwner = new("Legal owner", mandatory: true, TitleFormat.Text);
-    public static readonly TitleField IdentificationNumber = new("Identification number", mandatory: true, TitleFormat.Text);
-    public static readonly TitleField RevisionIndex = new("Revision index", mandatory: false, TitleFormat.Revision);
-    public static readonly TitleField DateOfIssue = new("Date of issue", mandatory: true, TitleFormat.Date);
-    public static readonly TitleField SegmentNumber = new("Segment number", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField SegmentCount = new("Number of segments", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField LanguageCode = new("Language code", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField Title = new("Title", mandatory: true, TitleFormat.Text);
-    public static readonly TitleField SupplementaryTitle = new("Supplementary title", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField ResponsibleDepartment = new("Responsible department", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField TechnicalReference = new("Technical reference", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField ApprovalPerson = new("Approval person", mandatory: true, TitleFormat.Text);
-    public static readonly TitleField Creator = new("Creator", mandatory: true, TitleFormat.Text);
-    public static readonly TitleField DocumentType = new("Document type", mandatory: true, TitleFormat.Text);
-    public static readonly TitleField Classification = new("Classification", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField DocumentStatus = new("Document status", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField PaperSize = new("Paper size", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField ProjectName = new("Project name", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField Client = new("Client", mandatory: false, TitleFormat.Text);
-    public static readonly TitleField Checker = new("Checker", mandatory: false, TitleFormat.Text);
+    public override bool Equals([NotNullWhen(true)] object? obj) => obj is TitleField other && (Name, Mandatory, Format).Equals((other.Name, other.Mandatory, other.Format));
+    public override int GetHashCode() => (Name, Mandatory, Format).GetHashCode();
 
-    public static readonly Seq<TitleField> Iso7200 = [
-        LegalOwner, IdentificationNumber, RevisionIndex, DateOfIssue, SegmentNumber, SegmentCount, LanguageCode, Title, SupplementaryTitle,
-        ResponsibleDepartment, TechnicalReference, ApprovalPerson, Creator, DocumentType, Classification, DocumentStatus, PaperSize,
-    ];
+    [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+    public sealed partial class Iso7200 : TitleField {
+        public static readonly Iso7200 LegalOwner = new("Legal owner", mandatory: true, TitleFormat.Text);
+        public static readonly Iso7200 IdentificationNumber = new("Identification number", mandatory: true, TitleFormat.Text);
+        public static readonly Iso7200 RevisionIndex = new("Revision index", mandatory: false, TitleFormat.Revision);
+        public static readonly Iso7200 DateOfIssue = new("Date of issue", mandatory: true, TitleFormat.Date);
+        public static readonly Iso7200 SegmentNumber = new("Segment/sheet number", mandatory: true, TitleFormat.Text);
+        public static readonly Iso7200 SegmentCount = new("Number of segments/sheets", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 LanguageCode = new("Language code", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 Title = new("Title", mandatory: true, TitleFormat.Text);
+        public static readonly Iso7200 SupplementaryTitle = new("Supplementary title", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 ResponsibleDepartment = new("Responsible department", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 TechnicalReference = new("Technical reference", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 ApprovalPerson = new("Approval person", mandatory: true, TitleFormat.Text);
+        public static readonly Iso7200 Creator = new("Creator", mandatory: true, TitleFormat.Text);
+        public static readonly Iso7200 DocumentType = new("Document type", mandatory: true, TitleFormat.Text);
+        public static readonly Iso7200 Classification = new("Classification/key words", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 DocumentStatus = new("Document status", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 PageNumber = new("Page number", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 PageCount = new("Number of pages", mandatory: false, TitleFormat.Text);
+        public static readonly Iso7200 PaperSize = new("Paper size", mandatory: false, TitleFormat.Text);
 
-    public static Fin<TitleField> Validated(string name, bool mandatory, TitleFormat format) =>
-        DraftingFault.Unless(!string.IsNullOrWhiteSpace(name), DraftingReason.Blank, name).Map(_ => new TitleField(name.Trim(), mandatory, format));
+        public override string Name => Key;
+    }
+
+    public sealed class Custom : TitleField {
+        private Custom(string name, bool mandatory, TitleFormat format) : base(mandatory, format) => Name = name;
+        public override string Name { get; }
+
+        public static readonly Custom ProjectName = new("Project name", mandatory: false, TitleFormat.Text);
+        public static readonly Custom Client = new("Client", mandatory: false, TitleFormat.Text);
+        public static readonly Custom Checker = new("Checker", mandatory: false, TitleFormat.Text);
+
+        public static Fin<Custom> Validated(string name, bool mandatory, TitleFormat format) =>
+            name.Trim() switch {
+                var trimmed => (DraftingFault.Unless(trimmed.Length > 0, DraftingReason.Blank, name), DraftingFault.Unless(!Iso7200.TryGet(trimmed, out _), DraftingReason.Repeated, name))
+                    .Apply((_, _) => new Custom(trimmed, mandatory, format)).As(),
+            };
+    }
 }
 
 public sealed record TitleBlock {
@@ -102,6 +118,6 @@ public sealed record TitleBlock {
         (fields.Traverse(field => entries.Find(field).Map(static text => text.Trim()).Filter(static text => text.Length > 0).Match(
                 Some: text => field.Format.Parse(alphabet, text).Map(value => Some((Field: field, Value: value))).MapFail(error => new DraftingFault(field.Name, DraftingReason.TitleInvalid, Inner: error)),
                 None: () => DraftingFault.Unless(!field.Mandatory, DraftingReason.TitleMissing, field.Name).Map(static _ => Option<(TitleField Field, TitleValue Value)>.None))).As(),
-         toSeq(entries.Keys).Filter(field => !fields.Exists(known => known == field)).Map(static field => field.Name) switch { var unknown => DraftingFault.Unless(unknown.IsEmpty, DraftingReason.TitleUnknown, unknown) })
+         toSeq(entries.Keys.Except(fields)).Map(static field => field.Name) switch { var unknown => DraftingFault.Unless(unknown.IsEmpty, DraftingReason.TitleUnknown, unknown) })
             .Apply(static (values, _) => new TitleBlock(toHashMap(values.Somes()))).As();
 }

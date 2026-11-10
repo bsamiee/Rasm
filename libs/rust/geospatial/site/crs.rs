@@ -1,26 +1,30 @@
-use core::{borrow::Borrow, ffi::CStr, iter, ptr::NonNull};
-use std::{borrow::Cow, ffi::CString, path::Path};
+use core::borrow::Borrow;
+use core::ffi::CStr;
+use core::iter;
+use core::ptr::NonNull;
+use std::borrow::Cow;
+use std::ffi::CString;
+use std::path::Path;
 
 use geo::BoundingRect;
 use geo_types::{Point, Rect, coord};
 use itertools::Itertools as _;
 use nalgebra::Point3;
-use proj::{Area, Proj, ProjBuilder, ProjCreateError, ProjError, Transform, wkt::WktVersion};
+use proj::wkt::WktVersion;
+use proj::{Area, Proj, ProjBuilder, ProjCreateError, ProjError, Transform};
 use proj_sys::{PJ, PJ_CONTEXT, PJ_COORD, PJ_FACTORS, PROJ_ERR_OTHER};
-use projjson::{
-    common::{Code, CustomUnit, Id, Measure, PredefinedUnit, Unit, UnitType, ValueAndUnit},
-    crs::{self, GeodeticCrs, GeodeticCrsType},
-    cs::{Axis, AxisDirection, CoordinateSystem, CoordinateSystemSubtype},
-    datum::{DatumEnsemble, Ellipsoid, FlattenedEllipsoid, GeodeticDatum, Sphere, TwoAxisEllipsoid},
-};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use serde_json::{Value, value::Serializer};
-use uom::si::{
-    angle::{degree, radian},
-    f64::{Angle, Length, Ratio},
-    length::meter,
-    ratio::ratio,
-};
+use projjson::common::{Code, CustomUnit, Id, Measure, PredefinedUnit, Unit, UnitType, ValueAndUnit};
+use projjson::crs::{self, GeodeticCrs, GeodeticCrsType};
+use projjson::cs::{Axis, AxisDirection, CoordinateSystem, CoordinateSystemSubtype};
+use projjson::datum::{DatumEnsemble, Ellipsoid, FlattenedEllipsoid, GeodeticDatum, Sphere, TwoAxisEllipsoid};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use serde_json::value::Serializer;
+use uom::si::angle::{degree, radian};
+use uom::si::f64::{Angle, Length, Ratio};
+use uom::si::length::meter;
+use uom::si::ratio::ratio;
 
 use crate::{Boundary, Operation, Position, SiteError, half_turn, located};
 
@@ -83,7 +87,6 @@ impl Crs {
         Self(Cow::Owned(format!("EPSG:{code}")))
     }
 
-    #[expect(clippy::type_complexity, reason = "Projection setup returns its coordinate unit and opaque evaluator")]
     pub fn factors(&self) -> Result<(Length, impl Fn(Point3<f64>) -> Result<Factors, SiteError> + use<>), SiteError> {
         let unprojected = || SiteError::Unprojected { crs: self.clone() };
         let linear = |unit: &Unit| match unit {

@@ -1,33 +1,24 @@
-use core::{
-    convert::identity,
-    iter,
-    ops::ControlFlow,
-    sync::atomic::{AtomicBool, Ordering},
-};
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    thread,
-};
+use core::convert::identity;
+use core::iter;
+use core::ops::ControlFlow;
+use core::sync::atomic::{AtomicBool, Ordering};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::thread;
 
-use fmi::{
-    fmi2::{
-        self, Fmi2Error, Fmi2Res,
-        import::Fmi2Import,
-        instance::{CoSimulation as _, Common},
-        schema::{ScalarVariableElement, SimpleTypeElement},
-    },
-    fmi3::{
-        self, CoSimulation as _, Fmi3Error, Fmi3Model as _, GetSet,
-        import::Fmi3Import,
-        schema::{ArrayableVariableTrait, FloatVariableAlias, InitializableVariableTrait as _, TypeDefinition, TypedVariableTrait as _, Variable, VariableAlias},
-    },
-    import::{from_path, peek_descr_path},
-    schema::traits::{DefaultExperiment, FmiModelDescription as _},
-    traits::{FmiImport as _, FmiInstance, FmiStatus},
-};
+use fmi::fmi2::import::Fmi2Import;
+use fmi::fmi2::instance::{CoSimulation as _, Common};
+use fmi::fmi2::schema::{ScalarVariableElement, SimpleTypeElement};
+use fmi::fmi2::{self, Fmi2Error, Fmi2Res};
+use fmi::fmi3::import::Fmi3Import;
+use fmi::fmi3::schema::{ArrayableVariableTrait, FloatVariableAlias, InitializableVariableTrait as _, TypeDefinition, TypedVariableTrait as _, Variable, VariableAlias};
+use fmi::fmi3::{self, CoSimulation as _, Fmi3Error, Fmi3Model as _, GetSet};
+use fmi::import::{from_path, peek_descr_path};
+use fmi::schema::traits::{DefaultExperiment, FmiModelDescription as _};
+use fmi::traits::{FmiImport as _, FmiInstance, FmiStatus};
 use itertools::Itertools as _;
-use uom::si::{f64::Time, time::second};
+use uom::si::f64::Time;
+use uom::si::time::second;
 
 use crate::{BaseUnit, Causality, DynamicsError, Grid, Kind, Operation, Port};
 

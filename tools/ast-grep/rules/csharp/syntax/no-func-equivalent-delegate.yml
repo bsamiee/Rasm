@@ -1,10 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-utils:
-    key-argument:
-        kind: generic_name
-        has: {kind: type_argument_list, has: {pattern: {context: 'class $NAME;', selector: identifier}}, not: {has: {nthChild: 2}}}
 rule:
     kind: delegate_declaration
     all:
@@ -39,17 +35,5 @@ rule:
                         all:
                             - has: {field: type, pattern: $REPEATED}
                             - follows: {stopBy: end, kind: parameter, has: {field: type, pattern: $REPEATED}}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
-                        stopBy: end
-                        kind: invocation_expression
-                        has:
-                            field: function
-                            any:
-                                - matches: key-argument
-                                - kind: member_access_expression
-                                  has: {field: name, matches: key-argument}
 message: Delegate `$NAME` restates a `Func` or `Action` signature
 note: 'Use the matching `Func` or `Action`, a delegate repeating a parameter type stays'

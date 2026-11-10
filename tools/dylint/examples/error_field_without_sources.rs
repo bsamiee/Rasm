@@ -1,6 +1,8 @@
 #![feature(error_reporter)]
 
-use core::{error::Error, hint::black_box, num::ParseIntError};
+use core::error::Error;
+use core::hint::black_box;
+use core::num::ParseIntError;
 use std::error::Report;
 
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;

@@ -1,23 +1,20 @@
-use core::{iter, ops::DerefMut};
-use std::{collections::HashMap, error::Report};
+use core::iter;
+use core::ops::DerefMut;
+use std::collections::HashMap;
+use std::error::Report;
 
 use itertools::Itertools as _;
-use merman::{
-    OperationControl, RenderError, RenderEvidence, RenderOutput, RenderRequest, Renderer, SvgOutput, SvgRequest,
-    svg::export::{NativeFontContext, NativeFontLimits},
-};
+use merman::svg::export::{NativeFontContext, NativeFontLimits};
+use merman::{OperationControl, RenderError, RenderEvidence, RenderOutput, RenderRequest, Renderer, SvgOutput, SvgRequest};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use typst::{
-    diag::Warned,
-    foundations::{Bytes, Output, Repr as _},
-    syntax::{
-        FileId, RootedPath, Source, SyntaxKind, SyntaxNode, VirtualRoot,
-        ast::{Raw, Text},
-    },
-    utils::hash128,
-};
-use typst_kit::{files::FileStore, fonts::FontStore};
+use typst::diag::Warned;
+use typst::foundations::{Bytes, Output, Repr as _};
+use typst::syntax::ast::{Raw, Text};
+use typst::syntax::{FileId, RootedPath, Source, SyntaxKind, SyntaxNode, VirtualRoot};
+use typst::utils::hash128;
+use typst_kit::files::FileStore;
+use typst_kit::fonts::FontStore;
 
 use crate::{Files, Project, TypesetError};
 

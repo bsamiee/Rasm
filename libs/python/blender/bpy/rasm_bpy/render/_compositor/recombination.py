@@ -15,9 +15,9 @@ from rasm_bpy.nodes._graphs import Expr, math, mixed
 from rasm_bpy.nodes._interfaces import Interface, InterfacePanel, Socket
 from rasm_bpy.nodes.changes import NodeGroup
 from rasm_bpy.render._compositor.colors import with_alpha
-from rasm_bpy.render._view_layers.passes import _EMISSION, _ENVIRONMENT, _OCCLUSION, Family, PassFlags, PassRequest
-from rasm_bpy.render._view_layers.sources import _lobed
-from rasm_bpy.scene._lights.groups import _LightGroupEdits
+from rasm_bpy.render._view_layers.passes import EMISSION, ENVIRONMENT, Family, OCCLUSION, PassFlags, PassRequest
+from rasm_bpy.render._view_layers.sources import lobed
+from rasm_bpy.scene._lights.groups import LightGroupEdits
 from rasm_records import accumulated, Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -33,8 +33,8 @@ TERMS: Final[tuple[tuple[Key, LightPass, str], ...]] = (
     ("glossy", Family.GLOSSY, "Glossy light gain"),
     ("transmission", Family.TRANSMISSION, "Transmitted light gain"),
     ("volume", Family.VOLUME, "Volume light gain"),
-    ("emission", _EMISSION, "Gain of emitters seen by camera"),
-    ("environment", _ENVIRONMENT, "Gain of background seen by camera, dropped under transparent film"),
+    ("emission", EMISSION, "Gain of emitters seen by camera"),
+    ("environment", ENVIRONMENT, "Gain of background seen by camera, dropped under transparent film"),
 )
 _GAIN: Final = Socket(key="gain", kind=bpy.types.NodeSocketFloat, min_value=-32.0, max_value=32.0)
 _STRENGTH: Final = Socket(key="strength", kind=bpy.types.NodeSocketFloatFactor, description="Ambient occlusion strength over family light", default_value=1.0)
@@ -94,9 +94,9 @@ class Recombined(Case, frozen=True, kw_only=True):
         match self.recombination:
             case Lobes():
                 passes = frozenset().union(*(slot for _, held, _ in TERMS if isinstance(held, Family) for slot in flags.families[held]))
-                return PassRequest(layer=self.layer, flags=passes | {held for _, held, _ in TERMS if isinstance(held, Descriptor)} | {_OCCLUSION})
+                return PassRequest(layer=self.layer, flags=passes | {held for _, held, _ in TERMS if isinstance(held, Descriptor)} | {OCCLUSION})
             case LightGroups():
-                return PassRequest(layer=self.layer, condition=_LightGroupEdits.cycles)
+                return PassRequest(layer=self.layer, condition=LightGroupEdits.cycles)
 
     def synced(self, names: tuple[str, ...]) -> Self:
         """Holds the given light group names in order."""
@@ -140,7 +140,7 @@ class Recombined(Case, frozen=True, kw_only=True):
 
         match self.recombination:
             case Lobes():
-                kept = tuple((key, held) for key, held, _ in TERMS if not (held is _ENVIRONMENT and scene.render.film_transparent))
+                kept = tuple((key, held) for key, held, _ in TERMS if not (held is ENVIRONMENT and scene.render.film_transparent))
                 families = tuple((key, held) for key, held in kept if isinstance(held, Family))
 
                 def term(key: Key, held: LightPass) -> Option[Outcome[tuple[Key, Expr, Option[Family]]]]:
@@ -148,14 +148,14 @@ class Recombined(Case, frozen=True, kw_only=True):
                         case Descriptor():
                             return Some(socket(held.prop.name).map(lambda placed: (key, placed, Nothing)))
                         case family:
-                            return _lobed(flags.families[family], sockets, lobe).map(lambda placed: Ok((key, placed, Some(family))))
+                            return lobed(flags.families[family], sockets, lobe).map(lambda placed: Ok((key, placed, Some(family))))
 
                 def lobes(terms: Mapping[Key, Expr]) -> Outcome[Expr]:
                     strength = math("MULTIPLY", outer(_OCCLUSION_PANEL), outer(item_key(_OCCLUSION_PANEL, _STRENGTH.key)))
                     light = total(tuple(gained(terms[key], key) for key, _ in families if key in terms), ", ".join(key for key, _ in families))
                     return light.map(lambda lit: sum((gained(terms[key], key) for key, held in kept if not isinstance(held, Family)), mixed(strength, lit, terms[_OCCLUSION_PANEL], blend="MULTIPLY")))
 
-                occluded = socket(_OCCLUSION.prop.name).map(lambda source: (_OCCLUSION_PANEL, source, Nothing))
+                occluded = socket(OCCLUSION.prop.name).map(lambda source: (_OCCLUSION_PANEL, source, Nothing))
                 return accumulated((*(answer for key, held in kept for answer in term(key, held).to_list()), occluded)).bind(lambda terms: finished(terms, lobes))
             case LightGroups(groups=groups):
 

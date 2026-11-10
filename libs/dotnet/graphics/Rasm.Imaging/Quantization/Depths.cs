@@ -47,8 +47,6 @@ public sealed partial class OutputDepth {
 
     public Option<Quantizer> Levels { get; }
 
-    internal float Scale => Levels.Match(Some: static levels => levels.MaxCode, None: 1f);
-
     private readonly Action<ReadOnlySpan<float>, Span<byte>> store;
 
     public long RowBytes(int width, bool alpha) => (((long)width * (alpha ? 4 : 3) * Bits) + 7) / 8;

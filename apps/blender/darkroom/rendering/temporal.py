@@ -3,7 +3,7 @@
 from functools import reduce
 import operator
 from pathlib import Path
-from typing import Final
+from typing import Annotated, Final
 
 import bpy
 from expression import Some
@@ -15,7 +15,7 @@ from rasm_records import Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-VECTOR_PASS: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_vector"])
+_VECTOR_PASS: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_vector"])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -23,17 +23,17 @@ VECTOR_PASS: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLay
 class TemporalDenoise(FollowUpSettings):
     """Scene setting of the job blending motion-warped neighboring frames by color similarity after each render."""
 
-    hue: bpy.props.FloatProperty(name="Hue Threshold", description="Hue distance zeroing neighbor weight", min=0.0, default=0.1)  # ty: ignore[invalid-type-form]
-    saturation: bpy.props.FloatProperty(name="Saturation Threshold", description="Chroma distance zeroing neighbor weight", min=0.0, default=0.05)  # ty: ignore[invalid-type-form]
-    value: bpy.props.FloatProperty(name="Value Threshold", description="Value distance zeroing neighbor weight", min=0.0, default=0.05)  # ty: ignore[invalid-type-form]
-    max_weight: bpy.props.FloatProperty(name="Max Weight", description="Largest share per neighbor frame", min=0.0, max=1 / 3, default=0.3)  # ty: ignore[invalid-type-form]
-    tolerance: bpy.props.FloatProperty(name="Motion Tolerance", description="Allowed reverse-motion error in pixels", min=0.0, default=1.0)  # ty: ignore[invalid-type-form]
+    hue: Annotated[float, bpy.props.FloatProperty(name="Hue Threshold", description="Hue distance zeroing neighbor weight", min=0.0, default=0.1)]
+    saturation: Annotated[float, bpy.props.FloatProperty(name="Saturation Threshold", description="Chroma distance zeroing neighbor weight", min=0.0, default=0.05)]
+    value: Annotated[float, bpy.props.FloatProperty(name="Value Threshold", description="Value distance zeroing neighbor weight", min=0.0, default=0.05)]
+    max_weight: Annotated[float, bpy.props.FloatProperty(name="Max Weight", description="Largest share per neighbor frame", min=0.0, max=1 / 3, default=0.3)]
+    tolerance: Annotated[float, bpy.props.FloatProperty(name="Motion Tolerance", description="Allowed reverse-motion error in pixels", min=0.0, default=1.0)]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def reconstructed(identity: Identity, scene: bpy.types.Scene, render: FollowedRender, settings: TemporalDenoise, base: Path) -> Outcome[None]:
+def _reconstructed(identity: Identity, scene: bpy.types.Scene, render: FollowedRender, settings: TemporalDenoise, base: Path) -> Outcome[None]:
     """Makes the temporal group of a job file's scene over the followed render's color and motion sequences, the stack's pinned head placing it.
 
     Each neighbor warps along its motion pass, keeps the share its reverse motion and HSV distance from the current frame allow, and mixes in by
@@ -87,16 +87,16 @@ def reconstructed(identity: Identity, scene: bpy.types.Scene, render: FollowedRe
             .map(lambda _: None)
         )
 
-    return paired(render.written(COMBINED), render.written(VECTOR_PASS.prop.name)).bind(lambda passes: grouped(*passes))
+    return paired(render.written(COMBINED), render.written(_VECTOR_PASS.prop.name)).bind(lambda passes: grouped(*passes))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 temporal_denoise: Final = FollowUp(
-    key="temporal_denoise", form=TemporalDenoise, built=reconstructed, passes=(VECTOR_PASS,), held=Some(Snapshot.of(bpy.types.Scene, {("render", "use_motion_blur"): False}))
+    key="temporal_denoise", form=TemporalDenoise, built=_reconstructed, passes=(_VECTOR_PASS,), held=Some(Snapshot.of(bpy.types.Scene, {("render", "use_motion_blur"): False}))
 )
 OWNERSHIP: Final = Ownership(kind=bpy.types.CompositorNodeTree, key=temporal_denoise.key, saved=Saved.USED)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["OWNERSHIP", "VECTOR_PASS", "TemporalDenoise", "reconstructed", "temporal_denoise"]
+__all__ = ["OWNERSHIP", "temporal_denoise"]

@@ -14,7 +14,7 @@ import scipy as sp
 
 from rasm_bpy.data import Ownership, Saved, Tag, Value
 from rasm_bpy.nodes import Expr, Generated, Interface, InterfacePanel, mixed, Scalar, Socket, StockInput, switched, vector, xyz
-from rasm_bpy.render import CompositorEffect, CompositorRecord, dimensions, filters, GraphInputs, masks, Prepared, shorter, Stage, uv_mapped
+from rasm_bpy.render import blurred, CompositorEffect, CompositorRecord, dimensions, filters, GraphInputs, masks, Prepared, shorter, Stage, uv_mapped
 from rasm_imaging import Pupil, Raster, Specks
 from rasm_records import content_hash, Ok, Outcome
 
@@ -145,7 +145,7 @@ class Halation(CompositorRecord, frozen=True, kw_only=True):
     def graph(self, shell: GraphInputs) -> Outcome[Expr]:
         """Adds the Gaussian highlight halo under per-channel film response."""
         key = masks.highlight(shell.color, shell.input(_HALO_HIGHLIGHTS, _THRESHOLD), shell.input(_HALO_HIGHLIGHTS, _SMOOTHNESS)).keyed("key")
-        halo = filters.blurred(key, shell.space.pixel_size(shell.input(_RADIUS)))
+        halo = blurred(key, shell.space.pixel_size(shell.input(_RADIUS)))
         return Ok(mixed(1.0, shell.color, vector("MULTIPLY", halo, shell.input(_COLOR)), blend="ADD"))
 
 

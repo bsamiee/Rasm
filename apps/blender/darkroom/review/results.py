@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from contextlib import nullcontext
 from functools import cache, cached_property, lru_cache, partial
-from typing import ClassVar, Final
+from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_image import IMAGE_HT_header, IMAGE_PT_render_slots, IMAGE_PT_view_histogram
 import bpy
@@ -37,7 +37,6 @@ from rasm_bpy.ui import (
     overlaid,
     Panel,
     Property,
-    Refresh,
     RenderView,
     RESULT,
     Section,
@@ -51,23 +50,19 @@ from rasm_records import accumulated, Error, Nothing, Ok, Outcome, paired
 from ..effects.formation.display import current_view
 from ..effects.grade.exposure import gain
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _Plot = Callable[[Metrics, PyOpenColorIO.Config, npt.NDArray[np.float32], DisplayView], Outcome[Chart]]
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Charted(bpy.types.PropertyGroup):
     """Render Result chart switches of one screen: the last render's outlines and the written file's clipping tints."""
 
-    outline: bpy.props.BoolProperty(name="Outline", description="Last render's scene-linear luminance outline", default=True)  # ty: ignore[invalid-type-form]
-    chromaticity: bpy.props.BoolProperty(name="Chromaticity", description="Last render's chromaticity with working and display gamuts")  # ty: ignore[invalid-type-form]
-    low: bpy.props.BoolProperty(name="Low Clip", description="Tint pixels at the written file's lowest code")  # ty: ignore[invalid-type-form]
-    high: bpy.props.BoolProperty(name="High Clip", description="Tint pixels at the written file's highest code")  # ty: ignore[invalid-type-form]
+    outline: Annotated[bool, bpy.props.BoolProperty(name="Outline", description="Last render's scene-linear luminance outline", default=True)]
+    chromaticity: Annotated[bool, bpy.props.BoolProperty(name="Chromaticity", description="Last render's chromaticity with working and display gamuts")]
+    low: Annotated[bool, bpy.props.BoolProperty(name="Low Clip", description="Tint pixels at the written file's lowest code")]
+    high: Annotated[bool, bpy.props.BoolProperty(name="High Clip", description="Tint pixels at the written file's highest code")]
 
 
-class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True):
+class _Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True):
     """Last render's tagged final image, captured encoding and view, and optional written-code clipping."""
 
     source: ImageFile
@@ -76,7 +71,7 @@ class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True):
     codes: Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]]
 
     @cached_property
-    def chart(self) -> Callable[[Metrics, str, _Plot], Outcome[Chart]]:
+    def chart(self) -> Callable[[Metrics, str, Callable[[Metrics, PyOpenColorIO.Config, npt.NDArray[np.float32], DisplayView], Outcome[Chart]]], Outcome[Chart]]:
         """Charts and native batches owned by this frame's lifetime."""
         linear = lru_cache(maxsize=1)(
             lambda _config_id: self.encoding.bind(lambda source: converted_image(PyOpenColorIO.GetCurrentConfig(), PyOpenColorIO.ROLE_SCENE_LINEAR, self.source, source=source))
@@ -95,7 +90,7 @@ class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_FRAMES: Final = Resource[dict[Handle[bpy.types.Scene], Frames]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _frames: {}))
+_FRAMES: Final = Resource[dict[Handle[bpy.types.Scene], _Frames]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _frames: {}))
 _SIGNAL: Final = Resource[Signal](made=lambda _identity: nullcontext(Signal()))
 
 
@@ -122,7 +117,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 completed
                 .read()
-                .map(lambda file: _FRAMES[identity].update({handle: Frames(source=file, encoding=completed.encoding, view=view, codes=completed.codes)}))
+                .map(lambda file: _FRAMES[identity].update({handle: _Frames(source=file, encoding=completed.encoding, view=view, codes=completed.codes)}))
                 .bind(lambda _: _SIGNAL[identity].fired())
                 .map(lambda _: Nothing)
             )
@@ -130,7 +125,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
         return current_view(identity, scene).map(lambda view: partial(kept, view))
 
     @staticmethod
-    def shown(identity: Identity) -> Outcome[Option[tuple[Charted, Frames]]]:
+    def shown(identity: Identity) -> Outcome[Option[tuple[Charted, _Frames]]]:
         """Returns the context screen's switches with the context scene's last render, `Nothing` before its first render."""
         frames = _FRAMES[identity]
         retained(frames, bpy.data.scenes)
@@ -142,7 +137,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [CHARTS]
 
-    def charted(self, identity: Identity, on: Callable[[Charted], bool], chart: _Plot) -> DrawingPart[Chart]:
+    def charted(self, identity: Identity, on: Callable[[Charted], bool], chart: Callable[[Metrics, PyOpenColorIO.Config, npt.NDArray[np.float32], DisplayView], Outcome[Chart]]) -> DrawingPart[Chart]:
         """Reads a chart of the shown last render while its switch is on."""
         return DrawingPart(
             drawn=Chart.drawn,
@@ -188,7 +183,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the render read, both charts, the clipping masks, and their O and U keys."""
-        refreshes: tuple[Refresh, ...] = (_SIGNAL[identity], *((Charted, name) for name in annotated(Charted)))  # ty: ignore[unsound-assignment]
+        refreshes = (_SIGNAL[identity], *((Charted, name) for name in annotated(Charted)))
         return self.switches.bound(identity).map(
             lambda attached: (
                 ResultRead(capture=partial(self.captured, identity), codes=True),
@@ -203,26 +198,17 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def ungraded(identity: Identity, scene: bpy.types.Scene) -> Outcome[DisplayView]:
-    """Returns the view the view layer ahead of the chain forms through: the earliest formation entry's, else the scene's, with the Exposure entries' gain added to its exposure."""
-
-    def gained(view: DisplayView, stops: float) -> DisplayView:
-        return msgspec.structs.replace(view, exposure=view.exposure + stops)
-
-    return paired(current_view(identity, scene), gain(identity, scene)).map(lambda parts: gained(*parts))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-charts: Final = FrameCharts()
-history: Final = HistoryBrowser(icon="SPLIT_VERTICAL", view=ungraded)
+_charts: Final = FrameCharts()
+history: Final = HistoryBrowser(
+    icon="SPLIT_VERTICAL",
+    view=lambda identity, scene: paired(current_view(identity, scene), gain(identity, scene)).map(lambda parts: msgspec.structs.replace(parts[0], exposure=parts[0].exposure + parts[1])),
+)
 rows: Final = (
-    charts,
-    Append(target=IMAGE_PT_view_histogram, rows=(charts.clips,)),
-    Panel(section=charts.section, at=Beside(IMAGE_PT_view_histogram)),
+    _charts,
+    Append(target=IMAGE_PT_view_histogram, rows=(_charts.clips,)),
+    Panel(section=_charts.section, at=Beside(IMAGE_PT_view_histogram)),
     history,
     RenderView(at=Beside(IMAGE_PT_render_slots)),
     Keymap(
@@ -243,4 +229,4 @@ rows: Final = (
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Charted", "FrameCharts", "Frames", "charts", "history", "rows", "ungraded"]
+__all__ = ["history", "rows"]

@@ -6,11 +6,11 @@ from enum import Enum
 from functools import cached_property, partial
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final, Generic, TYPE_CHECKING, TypeVar
+from typing import Annotated, Final, Generic, TYPE_CHECKING, TypeVar
 
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Option, Result, Some, try_downcast
+from expression import Option, Some, try_downcast
 import msgspec
 
 from rasm_bpy.commands import invocations, operators
@@ -20,14 +20,14 @@ from rasm_bpy.data._extension.registration import Acquisitions, Declaration
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._rna.conditions import Scoped
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
-from rasm_bpy.data._rna.paths import _definition, _rna, RnaPath, rooted, Struct
+from rasm_bpy.data._rna.paths import rna, rna_definition, RnaPath, rooted, Struct
 from rasm_bpy.data._rna.properties import annotated
 from rasm_bpy.data._rna.snapshots import Applied, Snapshot
 from rasm_bpy.settings._attachments import Attached, Attachment, Host
-from rasm_bpy.settings._presets import _PRESET_PATH, Preset
+from rasm_bpy.settings._presets import Preset, PRESET_PATH
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _operator_button, _realized, ConditionalRow, Keywords, OperatorButton, RowContent, RowDraw
-from rasm_records import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, removed, Retention
+from rasm_bpy.ui._layout.rows import ConditionalRow, Keywords, operator_button, OperatorButton, realized, RowContent, RowDraw
+from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason, removed, Retention
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import IconItems, OperatorTypeFlagItems
@@ -84,13 +84,13 @@ _NAME: Final = AddPresetBase.__annotations__["name"]
 class _Offset(bpy.types.PropertyGroup):
     """Signed step a restore, forget, or preset step button names."""
 
-    offset: bpy.props.IntProperty(name="Offset", description="Signed step count", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
+    offset: Annotated[int, bpy.props.IntProperty(name="Offset", description="Signed step count", options={"HIDDEN"})]
 
 
 class _Named(bpy.types.PropertyGroup):
     """Preset an apply, delete, export, replace, or rename button names."""
 
-    stem: bpy.props.StringProperty(name="Preset", description="Preset file stem", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
+    stem: Annotated[str, bpy.props.StringProperty(name="Preset", description="Preset file stem", options={"HIDDEN"})]
 
 
 class _Renamed(_Named):
@@ -127,7 +127,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
     @property
     def key(self) -> Key:
         """Listing menu key an `Opens` row opens."""
-        return _menu_key(self.preset)
+        return menu_key(self.preset)
 
     # --- [COMMANDS]
 
@@ -221,7 +221,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         """Realizes the stepping, save, and import buttons beneath the entries read each redraw."""
         commands = self.commands
         footer = (*_steps(commands[StoreCommand.STEP], -1, {"text": ""}), *(OperatorButton(target=commands[command], keywords={"text": ""}) for command in (StoreCommand.SAVE, StoreCommand.IMPORT)))
-        return _realized(footer, identity).map(lambda buttons: partial(self.shown, identity, buttons))
+        return realized(footer, identity).map(lambda buttons: partial(self.shown, identity, buttons))
 
     def shown(self, identity: Identity, footer: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws one apply button per listed preset, checked while the current values match it, beside its file buttons, then the footer buttons."""
@@ -233,11 +233,11 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
             line, chosen, user, name = layout.row(align=True), {"stem": stem}, self.preset.owned(identity, kept), Preset.titled(stem, kept)
             if identity.reports.settled(value).is_some():
                 label: Keywords = {"text": name, "translate": False, "icon": "CHECKMARK" if matched.default_value({}).get(stem, False) else "BLANK1"}
-                identity.reports.faulted(_operator_button(line, identity, Placement(commands[StoreCommand.APPLY], chosen), label))
+                identity.reports.faulted(operator_button(line, identity, Placement(commands[StoreCommand.APPLY], chosen), label))
             else:
                 line.label(text=name, translate=False, icon="ERROR")
             for command in (StoreCommand.REPLACE, StoreCommand.RENAME, StoreCommand.EXPORT, StoreCommand.DELETE) if user else (StoreCommand.EXPORT,):
-                identity.reports.faulted(_operator_button(line, identity, Placement(commands[command], chosen), {"text": "", "icon": command.icon}))
+                identity.reports.faulted(operator_button(line, identity, Placement(commands[command], chosen), {"text": "", "icon": command.icon}))
         layout.separator()
         footer(layout.row(align=True), holder, context)
 
@@ -245,7 +245,7 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
 
     def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the extension preset path and the command operators."""
-        return (_PRESET_PATH, *self.commands.values())
+        return (PRESET_PATH, *self.commands.values())
 
 
 class Captured(msgspec.Struct, frozen=True, kw_only=True):
@@ -258,7 +258,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def key(self) -> Key:
         """Menu key shared with the preset listing."""
-        return _menu_key(self.preset)
+        return menu_key(self.preset)
 
     def listing(self) -> Outcome[Listing[Snapshot]]:
         """Resolves the selected settings once into the listing over the scope's context owner."""
@@ -285,7 +285,7 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
         def finished(outcomes: tuple[Applied, ...]) -> Outcome[operators.Answer]:
             if not outcomes:
                 return Ok(operators.Unchanged(reason=bpy.app.translations.pgettext_rpt("No {} in scope").format(owner)))
-            absent = (Applied(outcome=Error(Fault.of(Reason.ABSENT, owner, member=_rna(path)))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
+            absent = (Applied(outcome=Error(Fault.of(Reason.ABSENT, owner, member=rna(path)))) for path in dict.fromkeys(path for outcome in outcomes for path in outcome.skipped))
             return operators.answered(Applied.join((*outcomes, *absent)), "Settings hold preset")
 
         return self.scope.owners(context).map(lambda owners: tuple(map(stored.apply, owners))).bind(finished)
@@ -325,10 +325,8 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
             lambda attached: self.presets.map(
                 lambda preset: Listing(
                     preset=preset,
-                    current=lambda context: _hosted(attached.name, context).bind(attached.preset),
-                    matches=lambda context, values: _hosted(attached.name, context).bind(
-                        lambda host: accumulated(attached.projected(host, value).map(lambda ends: ends[2] == ends[0]) for value in values)
-                    ),
+                    current=lambda context: _hosted(attached, context).bind(attached.preset),
+                    matches=lambda context, values: _hosted(attached, context).bind(lambda host: accumulated(attached.projected(host, value).map(lambda ends: ends[2] == ends[0]) for value in values)),
                     applied=lambda context, value: self._recorded(identity, context, lambda held, host: held.applied(host, value).map(lambda wrote: Some(operators.Done()).filter(lambda _: wrote))),
                 )
             )
@@ -363,7 +361,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
             group = attached.struct(host)
             held = tuple(
                 prop.identifier
-                for prop in _definition(group).properties
+                for prop in rna_definition(group).properties
                 if prop.identifier not in inherited and not group.is_property_readonly(prop.identifier) and group.is_property_set(prop.identifier)
             )
 
@@ -415,7 +413,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
 
     def _held(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Attached[_T_co], Host]]:
         """Binds the attachment and reads the host the context pointer names."""
-        return self.attachment.bound(identity).bind(lambda attached: _hosted(attached.name, context).map(lambda host: (attached, host)))
+        return self.attachment.bound(identity).bind(lambda attached: _hosted(attached, context).map(lambda host: (attached, host)))
 
     def _kept(self, identity: Identity) -> Outcome[Retention]:
         """History retention the store reads, the default while it states none."""
@@ -435,10 +433,10 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
         """Realizes the preset catalog, member locks, clipboard and history steps, and one restore and forget row per history entry."""
         commands = self.commands
         lines = accumulated(
-            _realized(buttons, identity)
+            realized(buttons, identity)
             for buttons in (tuple(OperatorButton(target=commands[command]) for command in (StoreCommand.COPY, StoreCommand.PASTE)), _steps(commands[StoreCommand.RESTORE], 1))
         )
-        listing = self.listing(identity).bind(lambda found: found.map(lambda held: _realized((held,), identity).map(Some)).default_value(Ok(Nothing)))
+        listing = self.listing(identity).bind(lambda found: found.map(lambda held: realized((held,), identity).map(Some)).default_value(Ok(Nothing)))
         return paired(self.attachment.bound(identity), listing, lines).map(lambda parts: partial(self.shown, identity, *parts))
 
     def shown(
@@ -452,15 +450,15 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
         context: bpy.types.Context,
     ) -> None:
         """Draws the catalog and member locks, the clipboard and history step lines, then one restore and forget line per history entry, times untranslated."""
-        commands, found = self.commands, _hosted(attached.name, context)
+        commands, found = self.commands, _hosted(attached, context)
         for draw in listing.to_list():
             draw(layout, holder, context)
         for host, lock in ((host, lock) for host in found.to_option().to_list() for lock in Option.of_optional(commands.get(StoreCommand.LOCK)).to_list()):
             kept, group, declared = attached.locks(host), attached.struct(host), annotated(attached.form)
             locks = identity.reports.settled(kept).default_value(frozenset())
-            for prop in (prop for prop in _definition(group).properties if prop.identifier in declared):
+            for prop in (prop for prop in rna_definition(group).properties if prop.identifier in declared):
                 keywords: Keywords = {"text": prop.name, "text_ctxt": prop.translation_context, "icon": "LOCKED" if prop.identifier in locks else "UNLOCKED"}
-                identity.reports.faulted(_operator_button(layout, identity, Placement(lock, {"field": prop.identifier}), keywords))
+                identity.reports.faulted(operator_button(layout, identity, Placement(lock, {"field": prop.identifier}), keywords))
         layout.separator()
         for draw in lines:
             draw(layout.row(align=True), holder, context)
@@ -474,10 +472,10 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
             line, chosen = layout.row(align=True), {"offset": offset}
             identity.reports.faulted(
                 paired(
-                    _operator_button(
+                    operator_button(
                         line, identity, Placement(commands[StoreCommand.RESTORE], chosen), {"text": f"{moment.astimezone():%X}", "translate": False, "icon": "BACK" if offset > 0 else "FORWARD"}
                     ),
-                    _operator_button(line, identity, Placement(commands[StoreCommand.FORGET], chosen), {"text": "", "icon": "X"}),
+                    operator_button(line, identity, Placement(commands[StoreCommand.FORGET], chosen), {"text": "", "icon": "X"}),
                 )
             )
 
@@ -493,7 +491,7 @@ class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True
 # --- [NAMES]
 
 
-def _menu_key[T: msgspec.Struct](preset: Preset[T], /) -> Key:
+def menu_key[T: msgspec.Struct](preset: Preset[T], /) -> Key:
     """Key of the menu listing a preset's catalog."""
     return f"{preset.key}_presets"
 
@@ -534,10 +532,9 @@ def _user[T: msgspec.Struct](preset: Preset[T], identity: Identity, stem: str) -
 # --- [HOSTS]
 
 
-def _hosted(name: str, context: bpy.types.Context) -> Outcome[Host]:
-    """Returns the host a layout's context pointer names, absent fault when unset."""
-    host: Host | None = getattr(context, name, None)  # ty: ignore[unsound-assignment]
-    return Result[Host, Faults](ok=host) if host is not None else Error(Fault.of(Reason.ABSENT, "bpy.context", member=name))
+def _hosted(attached: Attached[bpy.types.PropertyGroup], context: bpy.types.Context) -> Outcome[Host]:
+    """Returns the host of the attachment's owner type a layout's context pointer names, absent fault when unset."""
+    return Option.of_optional(try_downcast(attached.owner, getattr(context, attached.name, None))).to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=attached.name))
 
 
 def _concluded[V](change: Option[V]) -> operators.Answer:
@@ -547,4 +544,4 @@ def _concluded[V](change: Option[V]) -> operators.Answer:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Captured", "Listing", "Replacement", "Store", "StoreCommand"]
+__all__ = ["Captured", "Listing", "Replacement", "Store", "StoreCommand", "menu_key"]

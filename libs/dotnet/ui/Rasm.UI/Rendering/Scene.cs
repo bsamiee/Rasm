@@ -46,7 +46,10 @@ internal sealed record Scene {
         Highlighted = Order.Filter(static layout => layout.View.Conditions.Contains(Condition.Highlighted)).Map(static layout => layout.Path);
         Triggered = toSeq(index.Values).Choose(PlacedLayer.Of).Filter(static held => held.Layer.Trigger.IsSome);
         anchors = Triggered.Fold(HashMap<Seq<Key>, Seq<PlacedLayer>>(), static (held, layer) => layer.Anchor.Map(anchor => held.AddOrUpdate(anchor, Some: layers => layers.Add(layer), None: () => [layer])).IfNone(held));
-        Inert = LayerStack.Inert(root, layers);
+        Inert = toSeq(layers.Rev().SkipWhile(static layer => layer.View is not View.Layer { Modal: true })) switch {
+            var modal when modal.IsEmpty => [],
+            var modal => toHashSet(root.Cons(modal.Tail).Bind(static layout => layout.Preorder).Map(static held => held.Path)),
+        };
         Hosted = Order.Fold(Seq<Hosted>(), (hosted, layout) => Places.Find(layout.Path).Map(place => hosted + Hosting(hosted, new PlacedNode(layout, place))).IfNone(hosted))
             + layers.Choose(layer => LayerStack.Popup(layer, SKRect.Create(root.Frame.Size)));
         Backdrops = Elected<Hosted.Backdrop>(Hosted);
@@ -262,7 +265,8 @@ internal sealed record Scene {
             ? [new Hosted.Slot(Optional(held.Layout.View as View.Text)) { Path = held.Layout.Path, Frame = held.Frame, Clip = held.Place.Clip }]
             : (from glass in held.Layout.Style.Glass.Filter(_ => held.Layout.View.Role.IsSome && held.Layout.Corners.Uniform.IsSome)
                where Host.Blending.Native(earlier.Exists(prior => prior is Hosted.Slot && prior.Frame.IntersectsWith(held.Frame)))
-               select (Hosted)new Hosted.Backdrop(held.Layout.Corners, glass.Clear, held.Layout.Style.Tint.Bind(tint => held.Layout.Cascade.Theme.Color(tint, held.Layout.Style))) {
+               select (Hosted)new Hosted.Backdrop(held.Layout.Corners, glass.Clear,
+                   toSeq(held.Layout.Style.Fills.SkipWhile(static fill => fill is not Material.Glass)).Tail.Choose(static fill => fill.BaseColor).Head.Bind(tint => held.Layout.Cascade.Theme.Color(tint, held.Layout.Style))) {
                    Spacing = Index.Find(held.Layout.Path.Init).Map(static parent => parent.Style.Metrics[Metric.Gap]).IfNone(0f),
                    Path = held.Layout.Path, Frame = held.Frame, Clip = held.Place.Clip,
                }).ToSeq();

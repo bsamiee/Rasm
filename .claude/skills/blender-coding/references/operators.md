@@ -36,13 +36,11 @@ Modal gestures capture targets and prior values in `invoke`, update properties f
 
 ```python
 class Shrink(bpy.types.Operator):
-    """Shrink selected objects by cursor position across the region."""
-
     bl_idname = "object.shrink"
     bl_label = "Shrink"
-    bl_options = frozenset({"REGISTER", "UNDO", "BLOCKING"})  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    bl_description = "Shrink selected objects by cursor position across the region"
 
-    factor: bpy.props.FloatProperty(name="Factor", subtype="FACTOR", min=0.0, max=1.0, default=1.0)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    factor: Annotated[float, bpy.props.FloatProperty(name="Factor", subtype="FACTOR", min=0.0, max=1.0, default=1.0)]
 
     @override
     def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> Returns:
@@ -84,6 +82,9 @@ class Shrink(bpy.types.Operator):
         for obj in context.selected_editable_objects:
             obj.delta_scale = mathutils.Vector.Fill(3, self.factor)
         return {"FINISHED"}
+
+
+shrink = type(Shrink.__name__, (Shrink,), {"bl_options": {"REGISTER", "UNDO", "BLOCKING"}})
 ```
 
 Buttons passing `factor` skip the gesture, and Redo after a drag reruns `execute` at the dragged `factor`:

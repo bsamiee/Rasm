@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using BitMiracle.LibTiff.Classic;
@@ -9,13 +10,36 @@ using Rasm.Imaging.Quantization;
 using SixLabors.ImageSharp.Formats;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.Formats.Png.Chunks;
+using SixLabors.ImageSharp.Metadata;
+using SixLabors.ImageSharp.Metadata.Profiles.Exif;
 using SixLabors.ImageSharp.PixelFormats;
 using Wacton.Unicolour;
-using Configuration = SixLabors.ImageSharp.Configuration;
 
 namespace Rasm.Imaging.Files;
 
 // --- [MODELS] --------------------------------------------------------------------------
+
+public sealed record FileMetadata(string Software, DateTimeOffset Created, double Density, Map<string, string> Fields) {
+    internal const string InteropId = "colorInteropID";
+
+    internal string Stamp => Created.ToString("yyyy:MM:dd HH:mm:ss", CultureInfo.InvariantCulture);
+
+    internal void Into(ImageMetadata metadata, Option<ColorEncoding> encoding) {
+        ExifProfile exif = new();
+        exif.SetValue(ExifTag.Software, Software);
+        exif.SetValue(ExifTag.DateTimeOriginal, Stamp);
+        exif.SetValue(ExifTag.OffsetTimeOriginal, Created.ToString("zzz", CultureInfo.InvariantCulture));
+        exif.SetValue(ExifTag.ColorSpace, encoding.Exists(static held => held.Gamut == Gamut.StandardRgb && held.Transfer == Transfer.Gamma.Srgb) ? (ushort)1 : ushort.MaxValue);
+        metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
+        metadata.HorizontalResolution = Density;
+        metadata.VerticalResolution = Density;
+        metadata.ExifProfile = exif;
+        metadata.IccProfile = encoding.Bind(held => held.Icc(Created)).ValueUnsafe();
+        metadata.CicpProfile = encoding.Bind(static held => held.Cicp).ValueUnsafe();
+        metadata.GetFormatMetadata(PngFormat.Instance).TextData = [.. Fields.ToSeq().Map(static field => new PngTextData(field.Key, field.Value, "", ""))];
+    }
+}
 
 [SmartEnum<string>]
 public sealed partial class JpegColor {
@@ -48,12 +72,12 @@ public abstract partial record RasterCodec {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ImageFile {
-    public abstract IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default);
+    public abstract IO<Unit> Write(FileMetadata metadata, Stream stream, Option<SixLabors.ImageSharp.Configuration> configuration = default);
 
     public sealed record Raster(PixelFrame Frame, Option<ColorEncoding> Encoding, bool Alpha, RasterCodec Codec) : ImageFile {
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
             IO.liftAsync(async environment => {
-                using SixLabors.ImageSharp.Image<RgbaVector> image = new(configuration.IfNone(Configuration.Default), Frame.Extent.Width, Frame.Extent.Height);
+                using SixLabors.ImageSharp.Image<RgbaVector> image = new(configuration.IfNone(SixLabors.ImageSharp.Configuration.Default), Frame.Extent.Width, Frame.Extent.Height);
                 metadata.Into(image.Metadata, Encoding);
                 image.ProcessPixelRows(rows => {
                     for (int y = 0; y < rows.Height; y++)
@@ -65,7 +89,7 @@ public abstract partial record ImageFile {
     }
 
     public sealed record Tiff(PixelFrame Frame, OutputDepth Depth, Option<ColorEncoding> Encoding, bool Alpha) : ImageFile {
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
             Scanlines(stream, Frame, Depth, Alpha, metadata, Rgb(Depth, Encoding, metadata), []);
     }
 
@@ -82,7 +106,7 @@ public abstract partial record ImageFile {
         public Option<string> Make { get; init; }
         public Option<string> Model { get; init; }
 
-        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<Configuration> configuration = default) =>
+        public override IO<Unit> Write(FileMetadata metadata, Stream stream, Option<SixLabors.ImageSharp.Configuration> configuration = default) =>
             from accepted in IO.lift(ImagingFault.Unless(
                 Exposure.ForAll(static stops => float.Abs(stops) < int.MaxValue) && FocalLength.ForAll(static focal => (double)focal.Millimeters is >= 0d and < int.MaxValue) && Aperture.ForAll(static stop => stop is >= 0f and < int.MaxValue),
                 ImagingReason.Range, (Exposure, FocalLength, Aperture)))
@@ -146,7 +170,11 @@ public abstract partial record ImageFile {
              (TiffTag.PLANARCONFIG, [PlanarConfig.CONTIG]),
              (TiffTag.ORIENTATION, [Orientation.TOPLEFT]),
              .. alpha ? Seq((TiffTag.EXTRASAMPLES, new object[] { 1, new[] { (short)ExtraSample.UNASSALPHA } })) : [],
-             .. metadata.Tiff(),
+             (TiffTag.SOFTWARE, [metadata.Software]),
+             (TiffTag.DATETIME, [metadata.Stamp]),
+             (TiffTag.XRESOLUTION, [(float)metadata.Density]),
+             (TiffTag.YRESOLUTION, [(float)metadata.Density]),
+             (TiffTag.RESOLUTIONUNIT, [ResUnit.INCH]),
              .. fields,
              ], custom, environment.Token)))
             .Bracket()

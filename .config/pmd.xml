@@ -3,6 +3,7 @@
     <description>Java rules</description>
 
     <rule ref="category/java/bestpractices.xml">
+        <exclude name="MissingOverride" />
         <exclude name="UnusedFormalParameter" />
     </rule>
     <rule ref="category/java/bestpractices.xml/UnusedFormalParameter">
@@ -46,8 +47,14 @@
     <rule ref="category/java/errorprone.xml">
         <exclude name="AvoidAccessibilityAlteration" />
         <exclude name="AvoidCatchingGenericException" />
+        <exclude name="CompareObjectsWithEquals" />
         <exclude name="EmptyCatchBlock" />
+        <exclude name="ImplicitSwitchFallThrough" />
+        <exclude name="MissingSerialVersionUID" />
         <exclude name="NonSerializableClass" />
+        <exclude name="ReturnFromFinallyBlock" />
+        <exclude name="UseEqualsToCompareStrings" />
+        <exclude name="UseLocaleWithCaseConversions" />
     </rule>
     <rule ref="category/java/errorprone.xml/AvoidAccessibilityAlteration">
         <properties>

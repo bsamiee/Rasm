@@ -14,50 +14,47 @@ import msgspec
 from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Unchanged
 from rasm_bpy.data._extension.identity import Key
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.images import _loaded, Tag
-from rasm_bpy.data._ids.ownership import _retained, _tracked, Mark
-from rasm_bpy.data._rna.descriptors import written
-from rasm_bpy.data._rna.paths import _subclass, rooted
+from rasm_bpy.data._ids.images import loaded, Tag
+from rasm_bpy.data._ids.ownership import Mark, retained, tracked
+from rasm_bpy.data._rna.descriptors import converted_value, written
+from rasm_bpy.data._rna.paths import rooted, subclass
 from rasm_bpy.data._rna.snapshots import Snapshot
 from rasm_bpy.nodes._addressing import owned
 from rasm_bpy.nodes._desired import item_key
-from rasm_bpy.nodes._trees import _created, _group_set
+from rasm_bpy.nodes._trees import created, group_set
 from rasm_bpy.render._compositor.effects import Entry
-from rasm_bpy.render._compositor.inputs import _defaulted, _rebased, _restored, captured
+from rasm_bpy.render._compositor.inputs import captured, defaulted, rebased, restored
 from rasm_bpy.render._compositor.layers import (
-    _LAYERS,
-    _OWNERSHIP,
-    _TITLE,
     Adjustment,
     Copied,
     Edit,
     EffectAt,
     EffectMaskAt,
     EFFECTS,
-    ENTRY_BLEND,
-    LAYER_BLEND,
     LayerAt,
     LayerEdit,
     LayerMaskAt,
+    LAYERS,
     LayerStack,
-    MASKS,
     NodeKind,
     NodeSource,
     Order,
     OutputChoice,
+    OWNERSHIP,
     PassSourced,
     RecombinedSourced,
     RenderPass,
-    SOURCE,
     Source,
     StackLayer,
     StackTarget,
     Switched,
+    TITLE,
 )
+from rasm_bpy.render._compositor.masks import Blend
 from rasm_bpy.render._compositor.offered import Choice
 from rasm_bpy.render._compositor.recombination import Recombination, Recombined
-from rasm_bpy.render._compositor.stack_service import _nested_tree, LayerStackService, Selection
-from rasm_records import accumulated, Error, Fault, Ok, Outcome, paired, Reason
+from rasm_bpy.render._compositor.stack_service import LayerStackService, nested_tree, Selection
+from rasm_records import accumulated, Fault, Ok, Outcome, paired, Reason, typed
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -74,9 +71,12 @@ def duplicate_stack(stacking: LayerStackService, call: Call[Empty]) -> Outcome[A
 
     def copied(scene: bpy.types.Scene, held: tuple[bpy.types.SceneCompositorEffect, bpy.types.NodeTree]) -> Outcome[Answer]:
         with ExitStack() as rollback:
-            copy: bpy.types.CompositorNodeTree = held[1].copy()  # ty: ignore[invalid-assignment]
-            return _retained(
-                _OWNERSHIP.owned(stacking.identity, copy, of=Some(scene), scope=Some(rollback)).bind(lambda owned: stacking.switched(scene, owned, call.context)).map(lambda _: Done()), rollback
+            return retained(
+                typed(bpy.types.CompositorNodeTree, repr(held[1]), held[1].copy())
+                .bind(lambda copy: OWNERSHIP.owned(stacking.identity, copy, of=Some(scene), scope=Some(rollback)))
+                .bind(lambda owned: stacking.switched(scene, owned, call.context))
+                .map(lambda _: Done()),
+                rollback,
             )
 
     return rooted(bpy.types.Scene, call.context).bind(lambda scene: stacking.head(scene).bind(partial(copied, scene)))
@@ -101,7 +101,7 @@ def switch_stack(stacking: LayerStackService, call: Call[Switched]) -> Outcome[A
 def edit_nested_stack(stacking: LayerStackService, call: Call[Empty]) -> Outcome[Answer]:
     """Edit selected layer's stack."""
     inner = stacking.selected(call.context).bind(
-        lambda held: held.layer.bind(lambda layer: _nested_tree(stacking.identity, held.tree, layer).to_result_with(partial(Fault.of, Reason.ABSENT, _TITLE, member=layer.node)))
+        lambda held: held.layer.bind(lambda layer: nested_tree(stacking.identity, held.tree, layer).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=layer.node)))
     )
     return paired(rooted(bpy.types.Scene, call.context), inner).bind(lambda parts: stacking.switched(*parts, call.context)).map(lambda _: Done())
 
@@ -160,7 +160,7 @@ def add_recombined_layer(stacking: LayerStackService, call: Call[RecombinedSourc
 
 def add_node_layer(stacking: LayerStackService, call: Call[NodeKind]) -> Outcome[Answer]:
     """Add source node at first enabled output."""
-    return _subclass(bpy.types.Node, call.properties.node).bind(lambda kind: _inserted(stacking, call.context, (partial(_noded, stacking, kind, Ok),))).map(lambda _: Done())
+    return subclass(bpy.types.Node, call.properties.node).bind(lambda kind: _inserted(stacking, call.context, (partial(_noded, stacking, kind, Ok),))).map(lambda _: Done())
 
 
 def add_nested_stack(stacking: LayerStackService, call: Call[Switched]) -> Outcome[Answer]:
@@ -168,14 +168,14 @@ def add_nested_stack(stacking: LayerStackService, call: Call[Switched]) -> Outco
     return (
         stacking
         .named(call.properties.stack)
-        .bind(lambda group: _inserted(stacking, call.context, (partial(_noded, stacking, bpy.types.CompositorNodeGroup, lambda node: _group_set(node, group)),)))
+        .bind(lambda group: _inserted(stacking, call.context, (partial(_noded, stacking, bpy.types.CompositorNodeGroup, lambda node: group_set(node, group)),)))
         .map(lambda _: Done())
     )
 
 
 def add_media(stacking: LayerStackService, call: Call[Empty]) -> Outcome[Answer]:
     """Add image or movie files."""
-    images = accumulated(_loaded(str(path), Tag()) for path in call.paths)
+    images = accumulated(loaded(str(path), Tag()) for path in call.paths)
     return images.bind(
         lambda found: _inserted(stacking, call.context, tuple(partial(_noded, stacking, bpy.types.CompositorNodeImage, partial(written, path=("image",), value=image)) for image in found))
     ).map(lambda _: Done())
@@ -188,7 +188,7 @@ def select_output(stacking: LayerStackService, call: Call[OutputChoice]) -> Outc
     def chosen(held: Selection, layer: StackLayer) -> Outcome[bool]:
         match layer.source:
             case RenderPass() | NodeSource() as source:
-                return stacking.rewritten(call.context, held, object, (_LAYERS, index, SOURCE), lambda _: msgspec.structs.replace(source, output=output), index)
+                return stacking.rewritten(call.context, held, object, (LAYERS, index, StackLayer.source), lambda _: msgspec.structs.replace(source, output=output), index)
             case _:
                 return Ok(value=False)
 
@@ -204,7 +204,7 @@ def _inserted(stacking: LayerStackService, context: bpy.types.Context, layers: t
 
         with ExitStack() as rollback:
             added = accumulated(layer(rollback, held.tree, key) for layer, key in zip(layers, keys))
-            return _retained(
+            return retained(
                 added.bind(
                     lambda made: stacking.replaced(
                         context, held, msgspec.structs.replace(held.record, layers=(*held.record.layers[:at], *made, *held.record.layers[at:])), at + len(made) - 1 if made else held.active
@@ -226,7 +226,7 @@ def _copied(stacking: LayerStackService, source: bpy.types.NodeTree, layer: Stac
     copy = msgspec.structs.replace(layer, key=key)
     return accumulated(
         Snapshot.capture(node).bind(
-            lambda snapshot: _tracked(scope, tree.nodes.remove, _created(tree, type(node))).bind(
+            lambda snapshot: tracked(scope, tree.nodes.remove, created(tree, type(node))).bind(
                 lambda made: snapshot.apply(made).outcome.bind(lambda _: Mark(key=copy.node).write(stacking.identity, made))
             )
         )
@@ -241,8 +241,8 @@ def _noded(stacking: LayerStackService, kind: type[bpy.types.Node], setup: Calla
         output = Block.of_seq(node.outputs).filter(lambda socket: socket.enabled).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, kind.__name__, member="outputs"))
         return output.map(lambda socket: StackLayer(key=key, name=node.bl_label, source=NodeSource(node=node.bl_idname, output=socket.name)))
 
-    return _tracked(scope, tree.nodes.remove, _created(tree, kind)).bind(
-        lambda node: Mark(key=item_key(key, SOURCE)).write(stacking.identity, node).bind(lambda _: setup(node)).bind(lambda _: first(node))
+    return tracked(scope, tree.nodes.remove, created(tree, kind)).bind(
+        lambda node: Mark(key=item_key(key, StackLayer.source)).write(stacking.identity, node).bind(lambda _: setup(node)).bind(lambda _: first(node))
     )
 
 
@@ -269,7 +269,7 @@ def edit_layer(stacking: LayerStackService, call: Call[LayerEdit]) -> Outcome[An
     def reindexed(scene: bpy.types.Scene, held: Selection, target: StackTarget, base: Key, count: int) -> Outcome[bool]:
         def placed(captures: tuple[Snapshot, ...], new: int, old: Option[int]) -> Outcome[bool]:
             at = item_key(base, new + 1)
-            return old.map(lambda prior: _restored(identity, held.entry, _rebased(captures[prior], item_key(base, prior + 1), at))).default_with(lambda: _defaulted(identity, held.entry, at))
+            return old.map(lambda prior: restored(identity, held.entry, rebased(captures[prior], item_key(base, prior + 1), at))).default_with(lambda: defaulted(identity, held.entry, at))
 
         def moved(captures: tuple[Snapshot, ...], done: tuple[bool, Order]) -> Outcome[bool]:
             return accumulated(placed(captures, new, old) for new, old in enumerate(done[1]) if old != Some(new)).map(lambda wrote: done[0] or any(wrote))
@@ -279,7 +279,7 @@ def edit_layer(stacking: LayerStackService, call: Call[LayerEdit]) -> Outcome[An
 
     def duplicated(held: Selection, layer: StackLayer) -> Outcome[bool]:
         def copied(values: Snapshot, after: Selection) -> Outcome[bool]:
-            return after.layer.bind(lambda made: _restored(identity, after.entry, _rebased(values, layer.key, made.key)))
+            return after.layer.bind(lambda made: restored(identity, after.entry, rebased(values, layer.key, made.key)))
 
         return captured(identity, held.entry, layer.key).bind(
             lambda values: _inserted(stacking, context, (partial(_copied, stacking, held.tree, layer),)).bind(
@@ -293,16 +293,16 @@ def edit_layer(stacking: LayerStackService, call: Call[LayerEdit]) -> Outcome[An
             case LayerAt(layer=index) if edit is Edit.DUPLICATE:
                 return within(index).bind(lambda layer: duplicated(held, layer))
             case LayerAt(layer=index) if edit is Edit.RESET:
-                return within(index).bind(lambda layer: structural(scene, held, target).bind(lambda done: _defaulted(identity, held.entry, layer.key).map(lambda wrote: done[0] or wrote)))
+                return within(index).bind(lambda layer: structural(scene, held, target).bind(lambda done: defaulted(identity, held.entry, layer.key).map(lambda wrote: done[0] or wrote)))
             case LayerAt():
                 return structural(scene, held, target).map(lambda done: done[0])
             case EffectAt(layer=index):
                 return within(index).bind(lambda layer: reindexed(scene, held, target, item_key(layer.key, EFFECTS), len(layer.effects)))
             case LayerMaskAt(layer=index):
-                return within(index).bind(lambda layer: reindexed(scene, held, target, item_key(layer.key, LAYER_BLEND, MASKS), layer.blend.masks))
+                return within(index).bind(lambda layer: reindexed(scene, held, target, item_key(layer.key, StackLayer.blend, Blend.masks), layer.blend.masks))
             case EffectMaskAt(layer=index, entry=entry):
-                blend = held.record.blended(target).to_result_with(partial(Fault.of, Reason.ABSENT, _TITLE, member=str(entry)))
-                return paired(within(index), blend).bind(lambda parts: reindexed(scene, held, target, item_key(parts[0].key, EFFECTS, entry + 1, ENTRY_BLEND, MASKS), parts[1].masks))
+                blend = held.record.blended(target).to_result_with(partial(Fault.of, Reason.ABSENT, TITLE, member=str(entry)))
+                return paired(within(index), blend).bind(lambda parts: reindexed(scene, held, target, item_key(parts[0].key, EFFECTS, entry + 1, Entry.blend, Blend.masks), parts[1].masks))
 
     return (
         paired(rooted(bpy.types.Scene, context), stacking.selected(context), _targeted(call.properties))
@@ -322,11 +322,7 @@ def add_effect_to_layer(stacking: LayerStackService, call: Call[Choice]) -> Outc
 
 def _targeted(properties: LayerEdit) -> Outcome[StackTarget]:
     """Decodes the target case an edit's properties name."""
-    try:
-        target: StackTarget = msgspec.convert(properties, StackTarget, from_attributes=True)  # ty: ignore[unsound-assignment]
-    except msgspec.ValidationError as error:
-        return Error(Fault.of(Refusal.REFUSED, repr(properties), error))
-    return Ok(target)
+    return converted_value({"kind": properties.kind, "layer": properties.layer, "entry": properties.entry, "mask": properties.mask}, StackTarget, repr(properties))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

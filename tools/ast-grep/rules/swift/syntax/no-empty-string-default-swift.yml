@@ -35,7 +35,7 @@ rule:
     any:
         - kind: nil_coalescing_expression
           all:
-            - has: {field: value, pattern: $SHAPE}
+            - has: {field: value, pattern: $SHAPE, not: {any: [{kind: try_expression, regex: '^try\?'}, {kind: tuple_expression, has: {kind: try_expression, regex: '^try\?'}}]}}
             - has: {field: if_nil, matches: empty-string}
             - not: {matches: text-fragment}
             - not: {matches: host-unset}

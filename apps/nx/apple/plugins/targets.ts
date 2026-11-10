@@ -1,4 +1,5 @@
 import { findPackageJSON } from 'node:module';
+import { extname } from 'node:path';
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Effect, FileSystem, Formatter, Path, Record, Schema, Stream } from 'effect';
@@ -20,8 +21,15 @@ interface Plugin {
     readonly inputs: NonNullable<TargetConfiguration['inputs']>;
 }
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const SHORT_VERSION = 'CFBundleShortVersionString';
+
 // --- [MODELS] --------------------------------------------------------------------------
 
+const VersionActionsOptions = Schema.Struct({ manifest: Schema.String });
+const Kind = Schema.Literals(['.plist', '.xcproj']);
+const Versioned = Schema.fromJsonString(Schema.Struct({ version: Schema.NullOr(Schema.String), project: Schema.String }));
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String, optionalDependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -47,7 +55,7 @@ const core = Effect.gen(function* () {
             Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.relative(workspaceRoot, located)])),
             (tracked): Plugin => ({
                 name,
-                inputs: [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, ...(tracked.length === 0 ? [{ externalDependencies: packages }] : [{ input: 'default', projects: packages }, { externalDependencies: [] }])],
+                inputs: [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { runtime: 'swift -print-target-info' }, ...(tracked.length === 0 ? [{ externalDependencies: packages }] : [{ input: 'default', projects: packages }, { externalDependencies: [] }])],
             }),
         );
     return { name, version, folder: path.dirname(located), analyzer, plugin };
@@ -63,12 +71,6 @@ const spawned = Effect.fnUntraced(function* (command: string, args: readonly str
     return code === 0 ? stdout : yield* AppleError.make({ subject: [command, ...args].join(' '), detail: `exited ${code}: ${stderr.trim()}` });
 }, Effect.scoped);
 
-const present = (command: string, args: readonly string[], cwd: string) =>
-    spawned(command, args, { cwd }).pipe(
-        Effect.asSome,
-        Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeedNone),
-    );
-
 const tokened = (path: Path.Path, at: string) => (path.isAbsolute(at) || at.startsWith('..') ? [] : [path.join('{workspaceRoot}', at)]);
 
 const published = (plugin: Plugin, technology: string, folders: readonly string[], notarized: readonly string[]): TargetConfiguration => ({
@@ -83,6 +85,25 @@ const published = (plugin: Plugin, technology: string, folders: readonly string[
     },
 });
 
+const EDITORS = {
+    '.plist': {
+        command: Effect.succeed('plutil'),
+        args: (newVersion?: string) => (newVersion === undefined ? ['-extract', SHORT_VERSION, 'raw', '-o', '-', '-'] : ['-replace', SHORT_VERSION, '-string', newVersion, '-o', '-', '-']),
+        read: (printed: string, newVersion?: string) => Effect.succeed({ version: newVersion ?? printed.trim(), project: printed }),
+    },
+    '.xcproj': {
+        command: Effect.flatMap(core, ({ analyzer }) => analyzer),
+        args: (newVersion?: string) => ['version', ...(newVersion === undefined ? [] : ['--marketing-version', newVersion])],
+        read: (printed: string) => Schema.decodeEffect(Versioned)(printed),
+    },
+} as const satisfies Record<typeof Kind.Type, unknown>;
+
+const versioned = Effect.fnUntraced(function* (root: string, at: string, text: string, newVersion?: string) {
+    const editor = EDITORS[yield* Effect.mapError(Schema.decodeUnknownEffect(Kind)(extname(at)), AppleError.of(at, `is no ${Kind.literals.join(' or ')} manifest`))];
+    const printed = yield* spawned(yield* editor.command, [...editor.args(newVersion)], { cwd: root, input: text });
+    return yield* editor.read(printed, newVersion);
+});
+
 const target = (plugin: Plugin, runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetConfiguration['metadata']>, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
     executor: `${plugin.name}:run`,
     options: { runs },
@@ -92,4 +113,4 @@ const target = (plugin: Plugin, runs: (typeof Run.Type)['runs'], metadata: NonNu
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleError, core, type Part, type Plugin, present, published, spawned, target, tokened };
+export { AppleError, core, type Part, type Plugin, published, SHORT_VERSION, spawned, target, tokened, VersionActionsOptions, versioned };

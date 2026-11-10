@@ -1,25 +1,17 @@
-use core::{
-    f64::consts::{LOG2_E, TAU},
-    iter,
-};
+use core::f64::consts::{LOG2_E, TAU};
+use core::iter;
 use std::sync::LazyLock;
 
-use faer::{
-    MatMut, MatRef, Side,
-    linalg::{
-        cholesky::llt::factor::LltError,
-        solvers::{Llt, Solve as _},
-    },
-};
+use faer::linalg::cholesky::llt::factor::LltError;
+use faer::linalg::solvers::{Llt, Solve as _};
+use faer::{MatMut, MatRef, Side};
 use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView, Dyn, MatrixView2xX, Point2, U1, convert};
 use nonempty_collections::NEVec;
 use rasm_stats::Tolerance;
 use rayon::iter::{IndexedParallelIterator as _, ParallelIterator as _};
-use spade::{
-    ConstrainedDelaunayTriangulation, DelaunayTriangulation, FloatTriangulation as _, HasPosition, HierarchyHintGenerator, InsertionError, Triangulation as _,
-    handles::{FixedVertexHandle, VertexHandle},
-};
+use spade::handles::{FixedVertexHandle, VertexHandle};
+use spade::{ConstrainedDelaunayTriangulation, DelaunayTriangulation, FloatTriangulation as _, HasPosition, HierarchyHintGenerator, InsertionError, Triangulation as _};
 use validated::Validated;
 
 use crate::{AnalysisError, Breakdown, Input, Observations, Polynomial, Prediction, design, finite, refused_sites};

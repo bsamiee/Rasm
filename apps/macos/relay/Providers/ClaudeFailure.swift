@@ -6,10 +6,6 @@ import Results
 import Security
 import Subprocess
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-private nonisolated let onHoldNotice: String = "Your account is on hold"
-
 // --- [ERRORS] --------------------------------------------------------------------------
 
 @CasePathable
@@ -34,7 +30,7 @@ nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
         self =
             switch failure.reason {
                 case .subprocess(let error) where error.code == .executableNotFound: .executableMissing
-                case .exit(_, let standardError) where standardError.contains(onHoldNotice):
+                case .exit(_, let standardError) where standardError.contains("Your account is on hold"):
                     standardError.firstMatch(of: URL.ParseStrategy()).map { link in .accountOnHold(appeal: link.output) } ?? Self(process: failure)
                 default: Self(process: failure)
             }

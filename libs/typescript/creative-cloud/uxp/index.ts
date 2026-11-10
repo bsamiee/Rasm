@@ -4,7 +4,6 @@ import { Record, Schema, SemVer, Struct } from 'effect';
 
 const VERSION = { current: 5, addon: 6 } as const;
 const THEMES = { lightest: 'light', light: 'light', medium: 'dark', dark: 'dark', darkest: 'dark' } as const;
-const FILLS = Record.map({ light: { color: '#000000', opacity: 0.8 }, dark: { color: '#FFFFFF', opacity: 0.8 } } as const, (fill, name) => ({ ...fill, theme: Struct.keys(THEMES).filter((theme) => THEMES[theme] === name) }));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -76,9 +75,9 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
     ),
 ) {
     static readonly version = VERSION;
-    static readonly Theme = Schema.Literals(Struct.keys(THEMES));
     static readonly themes = THEMES;
-    static readonly fills = FILLS;
+    static readonly Theme = Schema.Literals(Struct.keys(THEMES));
+    static readonly fills = Record.map(THEMES, (tone) => ({ color: ({ light: '#000000', dark: '#FFFFFF' } as const)[tone], opacity: 0.8 }));
     static readonly json = Schema.fromJsonString(UxpManifest);
     static readonly identity = Schema.fromJsonString(Schema.Struct({ id: Schema.String })).annotate({ description: 'Plugin id, the one manifest field a running plugin reads' });
     static readonly file = 'manifest.json';

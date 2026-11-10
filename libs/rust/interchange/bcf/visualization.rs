@@ -7,18 +7,14 @@ use itertools::{Either, EitherOrBoth};
 use nalgebra::{Isometry3, Point3, Translation3, Unit, UnitQuaternion, Vector3};
 use nonempty_collections::NEVec;
 use strum::VariantArray as _;
-use uom::si::{
-    angle::degree,
-    f64::{Angle, Length},
-    length::meter,
-};
+use uom::si::angle::degree;
+use uom::si::f64::{Angle, Length};
+use uom::si::length::meter;
 use validated::Validated;
 use xot::Node;
 
-use crate::{
-    ASPECT_RATIO, Alphabet, BcfError, Constraint, IfcGuid, Image, ImageFormat, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, REFERENCE, Text,
-    xml::{Codec, Reader, Simple, Writer, codec, named, sides},
-};
+use crate::xml::{Codec, Reader, Simple, Writer, codec, named, sides};
+use crate::{ASPECT_RATIO, Alphabet, BcfError, Constraint, IfcGuid, Image, ImageFormat, ORTHOGONAL_CAMERA, PERSPECTIVE_CAMERA, REFERENCE, Text};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

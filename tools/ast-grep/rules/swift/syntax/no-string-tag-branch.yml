@@ -9,7 +9,7 @@ utils:
         kind: equality_expression
         all:
             - has: {field: op, regex: '^==$'}
-            - has: {field: lhs, pattern: $SUBJECT}
+            - has: {field: lhs, pattern: $SUBJECT, not: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^rawValue$'}}}}
             - has: {field: rhs, matches: swift-plain-string}
 rule:
     any:

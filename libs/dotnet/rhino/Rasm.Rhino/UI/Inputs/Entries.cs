@@ -28,9 +28,19 @@ public sealed record EntryRow(Option<string> Value, EntryForm Form, Func<Edit<st
     public static IO<RowCells> Realize(IO<EntryRow> latest, LocalizeStringPair label, RowScope scope) =>
         from first in latest
         from entry in first.Form.Switch(
-            singleLine: static _ => Entries.Line(),
-            multiLine: static multi => multi.Rich ? Entries.Rich(multi.Visible) : Entries.Area(multi.Visible),
-            secret: static _ => Entries.Secret())
+            singleLine: static _ =>
+                from box in use(static () => new TextBox())
+                select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text),
+            multiLine: static multi => multi.Rich
+                ? from rich in use(static () => new RichTextAreaWithAlternateText { HideAlternateTextWhenValueChanges = true, SelectAllOnGotFocus = false })
+                  from fitted in IO.lift(() => { rich.Height = (int)MathF.Ceiling(rich.RichTextArea.Font.LineHeight * multi.Visible); })
+                  select new Entry(rich, rich.RichTextArea, Application.Instance.CommonModifier | Keys.Enter, () => rich.RichTextArea.Rtf, rtf => rich.RichTextArea.Rtf = rtf)
+                : from area in use(static () => new TextArea { Wrap = true, AcceptsReturn = true, AcceptsTab = false, SpellCheck = false })
+                  from fitted in IO.lift(() => { area.Height = (int)MathF.Ceiling(area.Font.LineHeight * multi.Visible); })
+                  select new Entry(area, area, Application.Instance.CommonModifier | Keys.Enter, () => area.Text, text => area.Text = text),
+            secret: static _ =>
+                from box in use(static () => new PasswordBox())
+                select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text))
         from show in Values.Bound(entry.Field,
             new BindableBinding<TextControl, Option<string>>(entry.Field,
                 _ => Some(entry.Read()),
@@ -53,26 +63,6 @@ internal sealed record Entry(Control Shown, TextControl Field, Keys Commit, Func
 
 internal static class Entries {
 
-    // --- [FORMS]
-
-    internal static IO<Entry> Line() =>
-        from box in use(static () => new TextBox())
-        select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
-
-    internal static IO<Entry> Area(int visible) =>
-        from area in use(static () => new TextArea { Wrap = true, AcceptsReturn = true, AcceptsTab = false, SpellCheck = false })
-        from fitted in IO.lift(() => { area.Height = (int)MathF.Ceiling(area.Font.LineHeight * visible); })
-        select new Entry(area, area, Application.Instance.CommonModifier | Keys.Enter, () => area.Text, text => area.Text = text);
-
-    internal static IO<Entry> Rich(int visible) =>
-        from rich in use(static () => new RichTextAreaWithAlternateText { HideAlternateTextWhenValueChanges = true, SelectAllOnGotFocus = false })
-        from fitted in IO.lift(() => { rich.Height = (int)MathF.Ceiling(rich.RichTextArea.Font.LineHeight * visible); })
-        select new Entry(rich, rich.RichTextArea, Application.Instance.CommonModifier | Keys.Enter, () => rich.RichTextArea.Rtf, rtf => rich.RichTextArea.Rtf = rtf);
-
-    internal static IO<Entry> Secret() =>
-        from box in use(static () => new PasswordBox())
-        select new Entry(box, box, Keys.Enter, () => box.Text, text => box.Text = text);
-
     // --- [COMMITS]
 
     internal static HostEvent<Unit> Committing(TextControl field, Keys commit) =>
@@ -90,7 +80,7 @@ internal static class Entries {
             new Command<Invoke>.Run(new CommandFace("text-browse", "Browse") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.OpenSvg)) },
                 new Invoke.Effect(held =>
                     from current in IO.lift(() => box.Text)
-                    from path in browse.Asked(title, current, types, held) | @catch(Session.Cancellation, static _ => IO.pure(Option<string>.None))
+                    from path in browse.Asked(title, current, types, held) | @catch(Session.Cancellation, IO.pure(Option<string>.None))
                     from committed in path.Match(Some: commit, None: static () => IO.pure(unit))
                     select committed)),
             IconSlot.Small, scope)

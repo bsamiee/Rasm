@@ -131,11 +131,6 @@ public static class Notices {
             banner.Show();
         })).Bracket());
 
-    internal static IO<Unit> Revealing() =>
-        Subscriptions.On<Eto.Forms.NotificationEventArgs>(static h => Eto.Forms.Application.Instance.NotificationActivated += h, static h => Eto.Forms.Application.Instance.NotificationActivated -= h)
-            .Attach(static args => IO.lift(() => Conversions.Present(Guid.TryParse(args.UserData, CultureInfo.InvariantCulture, out Guid id), id).Bind(ViewCatalog.Current.Find<View.Panel>))
-                .Bind(static found => found.TraverseM(HostPanels.Open).As()).Map(static _ => unit));
-
     // --- [TRAY]
 
     public static IO<Unit> Tray(Command<Invoke>.Menu menu, RowScope scope) =>

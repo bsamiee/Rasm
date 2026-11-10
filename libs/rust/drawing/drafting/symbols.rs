@@ -1,4 +1,6 @@
-use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
+use std::borrow::Cow;
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use color::{OpaqueColor, Srgb};
 use fontdb::Family;
@@ -11,26 +13,19 @@ use rasm_drawing::{
     Alignment, Anchor, Baseline, Color, Content, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Element, FontSize, FontSizeError, FontStyle, FontWeight, FontWeightError, FontWidth, Linetype,
     LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen, Placement, Region, Side, Target, Text, Tolerance, ToleranceError, Unit, Width, WidthError, regions, strokes,
 };
-use uom::{
-    ConstZero,
-    si::{
-        angle::radian,
-        f64::{Angle, Length},
-        length::inch,
-    },
-};
+use uom::ConstZero;
+use uom::si::angle::radian;
+use uom::si::f64::{Angle, Length};
+use uom::si::length::inch;
+use usvg::tiny_skia_path::{self, PathSegment};
 use usvg::{
     AlignmentBaseline, BaselineShift, BlendMode, ClipPath, DominantBaseline, FontStretch, Group, ImageHrefResolver, ImageKind, LineCap, LineJoin, Node, Options, Paint, PaintOrder, TextAnchor,
     TextChunk, TextFlow, Transform, Tree, WritingMode,
-    tiny_skia_path::{self, PathSegment},
 };
 use validated::Validated;
 
-use crate::{
-    DraftingError, Feature, Graphics, Lettering, Lookup, Subject, colored, directed, filled, located, oriented,
-    text::{self, Label, Typesetter, labelled},
-    transformed, units, validated, within,
-};
+use crate::text::{self, Label, Typesetter, labelled};
+use crate::{DraftingError, Feature, Graphics, Lettering, Lookup, Subject, colored, directed, filled, located, oriented, transformed, units, validated, within};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

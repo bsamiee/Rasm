@@ -13,17 +13,18 @@ namespace Rasm.Imaging.Grade;
 public sealed partial class PointCurve {
     public Seq<Vector2> Points { get; }
 
-    public Func<float, float> Fit() {
-        (IInterpolation spline, Vector2 first, Vector2 last) = (Interpolated(Points), Points[0], Points[^1]);
-        (float entry, float exit) = ((float)spline.Differentiate(first.X), (float)spline.Differentiate(last.X));
-        return t => t < first.X ? first.Y + (entry * (t - first.X)) : t > last.X ? last.Y + (exit * (t - last.X)) : (float)spline.Interpolate(t);
-    }
-
-    internal Func<float, float> Wrapped(float turn) {
-        Seq<Vector2> turned = toSeq(Points.Map(point => point - (float.Floor(point.X) * new Vector2(1f, turn))).DistinctBy(static point => point.X).OrderBy(static point => point.X));
-        IInterpolation spline = Interpolated([turned[^1] - new Vector2(1f, turn), .. turned, turned[0] + new Vector2(1f, turn)]);
-        return t => float.Floor(t) switch { var whole => (whole * turn) + (float)spline.Interpolate(t - whole) };
-    }
+    public Func<float, float> Fit(Option<float> period = default) =>
+        period.Match<Func<float, float>>(
+            Some: turn => {
+                Seq<Vector2> turned = toSeq(Points.Map(point => point - (float.Floor(point.X) * new Vector2(1f, turn))).DistinctBy(static point => point.X).OrderBy(static point => point.X));
+                IInterpolation spline = Interpolated([turned[^1] - new Vector2(1f, turn), .. turned, turned[0] + new Vector2(1f, turn)]);
+                return t => float.Floor(t) switch { var whole => (whole * turn) + (float)spline.Interpolate(t - whole) };
+            },
+            None: () => {
+                (IInterpolation spline, Vector2 first, Vector2 last) = (Interpolated(Points), Points[0], Points[^1]);
+                (float entry, float exit) = ((float)spline.Differentiate(first.X), (float)spline.Differentiate(last.X));
+                return t => t < first.X ? first.Y + (entry * (t - first.X)) : t > last.X ? last.Y + (exit * (t - last.X)) : (float)spline.Interpolate(t);
+            });
 
     public static Fin<PointCurve> Validated(Seq<Vector2> points) => TryCreate(points, out PointCurve? curve, out ImagingFault? fault) ? curve : fault;
 
@@ -72,7 +73,7 @@ public sealed partial class HueCurveKind {
         PointCurve.Validated((input switch { 0 => toSeq(Range(0, 6)).Map(static sixth => sixth / 6f), 1 => Seq(0f, 0.5f, 1f), _ => Seq(style.Low, (style.Low + style.High) * 0.5f, style.High) })
             .Map(x => new Vector2(x, (slope * x) + level))).ThrowIfFail();
 
-    public Func<float, float> Fit(PointCurve curve) => input is 0 ? curve.Wrapped(slope) : curve.Fit();
+    public Func<float, float> Fit(PointCurve curve) => curve.Fit(input is 0 ? Some(slope) : None);
 }
 
 [ComplexValueObject]

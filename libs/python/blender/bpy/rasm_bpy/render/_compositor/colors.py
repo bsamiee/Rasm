@@ -44,7 +44,7 @@ def space_item(config: PyOpenColorIO.Config, name: str) -> Outcome[str]:
     )
 
 
-def _converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str, entering: Term) -> Outcome[Expr]:
+def converted_color(key: Key, config: PyOpenColorIO.Config, source: str, target: str, entering: Term) -> Outcome[Expr]:
     """Converts straight RGB between colorspaces, scene-linear role resolved live."""
     return paired(space_item(config, source), space_item(config, target)).map(
         lambda pair: Expr(
@@ -57,7 +57,7 @@ def _converted(key: Key, config: PyOpenColorIO.Config, source: str, target: str,
     )
 
 
-def _pointwise(key: Key, entering: Term, operation: Callable[[Expr], Outcome[Expr]]) -> Outcome[Expr]:
+def pointwise_color(key: Key, entering: Term, operation: Callable[[Expr], Outcome[Expr]]) -> Outcome[Expr]:
     """Applies straight-color graph to associated RGB, zero alpha keeping transformed RGB."""
     alpha = Expr(kind=bpy.types.CompositorNodeSeparateColor, inputs=(("Image", entering),), members={"mode": "RGB"}, socket="Alpha")
 
@@ -264,4 +264,21 @@ def from_ycc(level: Expr, blue_difference: Expr, red_difference: Expr, weights: 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["AXES", "COLOR_INPUT", "COLOR_RESULT", "extreme", "from_ycc", "hsy", "logarithmic", "nonnegative", "preserved", "space_item", "spanned", "straight", "with_alpha", "ycc"]
+__all__ = [
+    "AXES",
+    "COLOR_INPUT",
+    "COLOR_RESULT",
+    "converted_color",
+    "extreme",
+    "from_ycc",
+    "hsy",
+    "logarithmic",
+    "nonnegative",
+    "pointwise_color",
+    "preserved",
+    "space_item",
+    "spanned",
+    "straight",
+    "with_alpha",
+    "ycc",
+]

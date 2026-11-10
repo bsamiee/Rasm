@@ -4,11 +4,9 @@ use std::collections::BTreeMap;
 use enum_map::EnumMap;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEBTreeSet, NEVec, NonEmptyIterator as _};
 use num_traits::{CheckedAdd, CheckedSub, Zero};
-use petgraph::{
-    Direction,
-    stable_graph::{EdgeIndex, NodeIndex},
-    visit::{EdgeRef as _, IntoEdgeReferences as _},
-};
+use petgraph::Direction;
+use petgraph::stable_graph::{EdgeIndex, NodeIndex};
+use petgraph::visit::{EdgeRef as _, IntoEdgeReferences as _};
 use validated::Validated;
 
 use crate::{DependencyError, Evaluation, Refusal, at, entries, pass};

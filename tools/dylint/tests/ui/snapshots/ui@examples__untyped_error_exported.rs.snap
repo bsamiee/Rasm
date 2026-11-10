@@ -19,3 +19,12 @@ error: error `String` is text callers cannot match
   |
   = help: return the concrete source error, or add a domain error for context or distinct failures
   = note: `#[deny(untyped_error)]` on by default
+
+error: text of error `std::num::ParseIntError` is returned
+ --> tools/dylint/examples/untyped_error_exported.rs:7:99
+  |
+7 | pub fn described(text: &str) -> Result<u16, String> { text.parse().map_err(|error: ParseIntError| error.to_string()) }
+  |                                                                                                   ^^^^^^^^^^^^^^^^^
+  |
+  = help: hold `std::num::ParseIntError` as `#[source]` of a `thiserror` variant
+  = note: `#[deny(stringified_error)]` on by default

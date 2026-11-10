@@ -1,4 +1,7 @@
-use core::{cmp::Ordering, iter, num::NonZero, range::RangeInclusive};
+use core::cmp::Ordering;
+use core::iter;
+use core::num::NonZero;
+use core::range::RangeInclusive;
 
 use csaps::CubicSmoothingSpline;
 use itertools::{Itertools as _, izip};
@@ -8,10 +11,8 @@ use nonempty_collections::{NESlice, NEVec};
 use rasm_stats::{Bounds, Tolerance};
 use validated::Validated;
 
-use crate::{
-    AnalysisError, Input, Observations, Placement, RootSource, SearchHooks, finite, joined, refused_sites, refused_weights,
-    roots::{minimum, real},
-};
+use crate::roots::{minimum, real};
+use crate::{AnalysisError, Input, Observations, Placement, RootSource, SearchHooks, finite, joined, refused_sites, refused_weights};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -225,8 +226,7 @@ pub fn evaluate(spline: &Spline, sites: DMatrixView<'_, f64>, readings: &[Readin
     let dimensions = spline.axes.len();
     let functional = |breaks: &[f64], width: usize, reading: &Reading, at: f64| -> Vec<(usize, f64)> {
         let pieces = breaks.len().strict_sub(1);
-        #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot infer the nonzero coefficient partition guaranteed by spline construction")]
-        let order = width / pieces;
+        let order = width.strict_div(pieces);
         let raised = |base: f64, exponent: usize| base.powi(convert::<usize, i32>(exponent));
         let local = |power: usize| {
             let piece = breaks[..pieces].partition_point(|&start| start <= at).saturating_sub(1);
@@ -312,8 +312,7 @@ pub fn crossings(spline: &Spline, level: f64, derivative: u8) -> Result<Vec<f64>
         return Err(NEVec::new(AnalysisError::Shape { input: Input::Axes, expected: 1, found: spline.axes.len() }));
     };
     let pieces = axis.breaks.len().strict_sub(1);
-    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot infer the nonzero coefficient partition guaranteed by spline construction")]
-    let order = spline.coefficients.len() / pieces;
+    let order = spline.coefficients.len().strict_div(pieces);
     let times = usize::from(derivative);
     let found = axis.breaks.iter().tuple_windows().enumerate().map(|(piece, (&start, &last))| {
         let shifted = (times..order)

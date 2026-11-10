@@ -3,20 +3,20 @@
 use core::range::Range;
 
 use itertools::Itertools as _;
-use jiff::{SignedDuration, Timestamp, tz::Offset};
+use jiff::tz::Offset;
+use jiff::{SignedDuration, Timestamp};
 use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 #[cfg(feature = "proximity")]
 use rasm_proximity::ProximityError;
 use rasm_site::Place;
-use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions, delta_t, time::JulianDate};
-use uom::si::{
-    angle::{degree, radian},
-    f64::{Angle, Length, Ratio, ThermodynamicTemperature},
-    length::meter,
-    ratio::ratio,
-    thermodynamic_temperature::{degree_celsius, kelvin},
-};
+use solar_positioning::time::JulianDate;
+use solar_positioning::{Location, PreparedPositions, RefractionCorrection, SolarPosition, SolarPositions, delta_t};
+use uom::si::angle::{degree, radian};
+use uom::si::f64::{Angle, Length, Ratio, ThermodynamicTemperature};
+use uom::si::length::meter;
+use uom::si::ratio::ratio;
+use uom::si::thermodynamic_temperature::{degree_celsius, kelvin};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

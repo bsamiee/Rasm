@@ -37,10 +37,10 @@ internal sealed record Levels(float Black, float White) : IPixelStage<Levels> {
 internal sealed record ChannelMixer(Vector3 Red, Vector3 Green, Vector3 Blue) : IPixelStage<ChannelMixer> {
     public static ChannelMixer Default { get; } = new(Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ);
 
-    public LutTable Table => new LutTable.Affine(Gamut.Columns(rgb => new Vector3(Vector3.Dot(Red, rgb), Vector3.Dot(Green, rgb), Vector3.Dot(Blue, rgb))));
-
     public static Fin<Option<PixelPass>> Pass(ChannelMixer state, PassContext context) =>
-        state == Default ? None : Some<PixelPass>(new PixelPass.Point(state.Table.Apply));
+        state == Default
+            ? None
+            : Some<PixelPass>(new PixelPass.Point(new LutTable.Affine(Gamut.Columns(rgb => new Vector3(Vector3.Dot(state.Red, rgb), Vector3.Dot(state.Green, rgb), Vector3.Dot(state.Blue, rgb)))).Apply));
 }
 
 internal sealed record ColorWheels(

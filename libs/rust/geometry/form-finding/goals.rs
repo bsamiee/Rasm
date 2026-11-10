@@ -1,11 +1,10 @@
 use core::iter;
 use std::collections::BTreeMap;
 
-use faer::{
-    Accum, Mat, MatMut, MatRef, get_global_parallelism,
-    linalg::solvers::Solve as _,
-    sparse::{SparseColMat, Triplet, linalg::matmul::sparse_dense_matmul},
-};
+use faer::linalg::solvers::Solve as _;
+use faer::sparse::linalg::matmul::sparse_dense_matmul;
+use faer::sparse::{SparseColMat, Triplet};
+use faer::{Accum, Mat, MatMut, MatRef, get_global_parallelism};
 use nalgebra::{DMatrixView, DVector, Isometry3, Point3, Unit, Vector3};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use rasm_optimization::{Settings, Solution, Target, optimize};
@@ -13,11 +12,8 @@ use rasm_stats::Space;
 use rayon::iter::{Either, ParallelIterator as _};
 use validated::Validated;
 
-use crate::{
-    Form, FormError, Input, Network, balance,
-    densities::{Solved, solved},
-    form, vector,
-};
+use crate::densities::{Solved, solved};
+use crate::{Form, FormError, Input, Network, balance, form, vector};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

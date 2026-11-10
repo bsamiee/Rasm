@@ -3,7 +3,7 @@ import { Array, Context, Duration, Effect, Function, identity, Layer, Record, Sc
 import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import { Execute, Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, Terms, WindowID } from '#/index';
+import { Execute, Installation, Launch, Launching, Perform, Pid, Pressure, RunningInstance, Screenshot, State, TermKind, Terms, WindowID } from '#/index';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const Contract = RpcGroup.make(
     Rpc.make('perform', { payload: { pid: Pid, ...Perform.fields }, success: State.annotate({ description: 'State after the last action' }), error: Failure }),
     Rpc.make('quit', { payload: { pid: Pid, force: Schema.Boolean.pipe(Schema.withConstructorDefault(Effect.succeed(false))) }, success: State.annotate({ description: 'Last state, a dialog or unresponsive instance stays running' }), error: Failure }),
     Rpc.make('terms', { payload: { url: Schema.URL }, success: Terms, error: Failure }),
-    Rpc.make('definition', { payload: { url: Schema.URL, kind: Terms.Kind, name: Schema.String }, success: Schema.String, error: Failure }),
+    Rpc.make('definition', { payload: { url: Schema.URL, kind: TermKind, name: Schema.String }, success: Schema.String, error: Failure }),
     Rpc.make('execute', { payload: { pid: Pid, ...Execute.fields }, success: Execute.Result, error: Failure }),
     Rpc.make('screenshot', { payload: { pid: Pid, ...Screenshot.fields, directory: Schema.URL.annotate({ description: 'Directory receiving <number>.png' }) }, success: Screenshot.Result, error: Failure }),
 );

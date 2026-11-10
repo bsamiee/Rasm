@@ -1,4 +1,4 @@
-import { Array, Data, Equal, Filter, flow, Match, Option, Predicate, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, String, Struct } from 'effect';
+import { Array, Data, Equal, Filter, flow, Match, Option, Predicate, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, Struct } from 'effect';
 import type { RelationOptions } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -14,6 +14,11 @@ type Projection = Data.TaggedEnum<{
     Path: { readonly from: string; readonly path: Array.NonEmptyReadonlyArray<string>; readonly jsonPath: string };
     Where: { readonly where: readonly { readonly column: string; readonly negated: boolean; readonly values: Option.Option<Constants<Fields[string]>> }[] };
 }>;
+type Collection = Data.TaggedEnum<{
+    Array: { readonly element: Kind | Collection };
+    Map: { readonly value: Kind | Collection };
+    Nested: { readonly members: { readonly [name: string]: Kind | Collection } };
+}>;
 type Limit = number | bigint | Date;
 type Range = { readonly [K in 'minimum' | 'maximum' | 'minCodePoints' | 'maxCodePoints']?: Limit | undefined } & { readonly [K in 'exclusiveMinimum' | 'exclusiveMaximum']?: Limit | true | undefined };
 
@@ -25,10 +30,10 @@ const uuidVersion = 7;
 
 const Default = Schema.Union([Schema.String, Schema.Finite]);
 class Column extends Data.Class<{
-    readonly field: string;
     readonly name: string;
     readonly schema: Fields[string];
     readonly kind: Kind;
+    readonly collection: Option.Option<Collection>;
     readonly textual: boolean;
     readonly ascii: boolean;
     readonly refusal: Option.Option<'unbounded' | 'mixed'>;
@@ -45,21 +50,21 @@ class Column extends Data.Class<{
     readonly generation: number;
     readonly retype: boolean;
 }> {
-    static readonly transforms = { transformQueryNames: String.camelToSnake, transformResultNames: String.snakeToCamel, transformJson: false };
     static readonly Projection = Data.taggedEnum<Projection>();
+    static readonly Collection = Data.taggedEnum<Collection>();
     static readonly Bound = Data.taggedEnum<Column['bounds'][number]>();
     static readonly Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 0xff })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
     static readonly Uuid = Schema.String.check(Schema.isUUID(uuidVersion), Schema.isLowercased());
-    static readonly conditions = (where: Where<Fields>) =>
+    static readonly conditions = (where: Where<Fields>, rename: (name: string) => string) =>
         Record.collect(Record.filter(where, Predicate.isNotUndefined), (field, rule) => ({
-            column: String.camelToSnake(field),
+            column: rename(field),
             ...Match.value(rule).pipe(
                 Match.when({ not: null }, () => ({ negated: true, values: Option.none() })),
                 Match.when({ not: Match.defined }, ({ not }) => ({ negated: true, values: Option.some(not) })),
                 Match.orElse((values) => ({ negated: false, values: Option.fromNullOr(values) })),
             ),
         }));
-    static readonly make = <F extends Fields>(field: FieldName<F>, schema: F[FieldName<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[]) => {
+    static readonly make = <F extends Fields>(field: FieldName<F>, schema: F[FieldName<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[], rename: (name: string) => string) => {
         const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] =>
             Match.value(node).pipe(
                 Match.tag('Union', ({ types }) => types.flatMap(flat)),
@@ -116,24 +121,41 @@ class Column extends Data.Class<{
         const integer = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isIntReviver)) || (numeric && literals.every(Number.isInteger));
         const finite = Array.isReadonlyArrayNonEmpty(numbers(SchemaRepresentation.isFiniteReviver));
         const number = Option.exists(Array.head(values), Predicate.isTagged('Number')) || (textual && decoded.some(Predicate.isTagged('Number')));
-        const name = String.camelToSnake(field);
+        const name = rename(field);
+        const instant = { _tag: 'Declaration', representation: { id: Match.is(SchemaRepresentation.DateReviver.id, SchemaRepresentation.DateTimeUtcReviver.id) } } as const;
+        const kind = Match.value({ node: values[0], decoded: decoded[0], boolean, numeric, number, integer, uuid: has(SchemaRepresentation.isUUIDReviver) }).pipe(
+            Match.withReturnType<Kind>(),
+            Match.when({ node: { _tag: 'String', content: { mediaType: 'application/json' } } }, () => 'json'),
+            Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'BigInt' } }, () => 'integer'),
+            Match.when({ node: { _tag: 'String' }, decoded: instant }, () => 'instant'),
+            Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'Declaration', representation: { id: SchemaRepresentation.BigDecimalReviver.id } } }, () => 'decimal'),
+            Match.when({ node: { _tag: 'String' }, uuid: true }, () => 'uuid'),
+            Match.when({ boolean: true }, () => 'boolean'),
+            Match.whenOr({ number: true, integer: true }, { numeric: true, integer: true }, () => 'integer'),
+            Match.whenOr({ number: true }, { numeric: true }, () => 'real'),
+            Match.whenOr({ node: { _tag: 'Declaration' } }, { node: { _tag: 'Arrays' } }, () => 'blob'),
+            Match.orElse(() => 'text'),
+        );
+        const collected = (node: SchemaRepresentation.Representation): Option.Option<Kind | Collection> =>
+            Match.value(node).pipe(
+                Match.withReturnType<Option.Option<Kind | Collection>>(),
+                Match.tag('String', () => Option.some('text')),
+                Match.tag('Boolean', () => Option.some('boolean')),
+                Match.tag('BigInt', () => Option.some('integer')),
+                Match.tag('Number', (leaf) => Option.some(Array.isReadonlyArrayNonEmpty(payloads([leaf])(SchemaRepresentation.isIntReviver)) ? 'integer' : 'real')),
+                Match.when(instant, () => Option.some('instant')),
+                Match.when({ _tag: 'Arrays', elements: [], rest: [{ _tag: 'Objects', indexSignatures: [] }] }, ({ rest: [{ propertySignatures }] }) =>
+                    Option.map(Option.all(Record.fromIterableWith(propertySignatures, (member) => [`${member.name.toString()}`, collected(member.type)])), (members) => Column.Collection.Nested({ members })),
+                ),
+                Match.when({ _tag: 'Arrays', elements: [], rest: [Match.any] }, ({ rest: [item] }) => Option.map(collected(item), (element) => Column.Collection.Array({ element }))),
+                Match.when({ _tag: 'Objects', propertySignatures: [], indexSignatures: [{ parameter: { _tag: 'String' } }] }, ({ indexSignatures: [{ type }] }) => Option.map(collected(type), (value) => Column.Collection.Map({ value }))),
+                Match.orElse(() => Option.none()),
+            );
         return new Column({
-            field,
             name,
             schema,
-            kind: Match.value({ node: values[0], decoded: decoded[0], boolean, numeric, number, integer, uuid: has(SchemaRepresentation.isUUIDReviver) }).pipe(
-                Match.withReturnType<Kind>(),
-                Match.when({ node: { _tag: 'String', content: { mediaType: 'application/json' } } }, () => 'json'),
-                Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'BigInt' } }, () => 'integer'),
-                Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'Declaration', representation: { id: Match.is(SchemaRepresentation.DateReviver.id, SchemaRepresentation.DateTimeUtcReviver.id) } } }, () => 'instant'),
-                Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'Declaration', representation: { id: SchemaRepresentation.BigDecimalReviver.id } } }, () => 'decimal'),
-                Match.when({ node: { _tag: 'String' }, uuid: true }, () => 'uuid'),
-                Match.when({ boolean: true }, () => 'boolean'),
-                Match.whenOr({ number: true, integer: true }, { numeric: true, integer: true }, () => 'integer'),
-                Match.whenOr({ number: true }, { numeric: true }, () => 'real'),
-                Match.whenOr({ node: { _tag: 'Declaration' } }, { node: { _tag: 'Arrays' } }, () => 'blob'),
-                Match.orElse(() => 'text'),
-            ),
+            kind,
+            collection: kind === 'json' && decoded.length === 1 ? Option.filter(Option.flatMap(Array.head(decoded), collected), (element) => typeof element !== 'string') : Option.none(),
             textual,
             ascii: has(SchemaRepresentation.isAsciiReviver),
             refusal: Match.value({ mixed: Array.dedupe(values.flatMap(storage)).length > 1, unbounded: number && !(finite || integer) }).pipe(
@@ -156,11 +178,11 @@ class Column extends Data.Class<{
             projection: Option.map(
                 Option.fromUndefinedOr(projections?.[field]),
                 Match.type<NonNullable<NonNullable<RelationOptions<Fields>['projections']>[string]>>().pipe(
-                    Match.when({ where: Match.defined }, ({ where }) => Column.Projection.Where({ where: Column.conditions(where) })),
-                    Match.orElse(({ from, path }) => Column.Projection.Path({ from: String.camelToSnake(from), path, jsonPath: ['$', ...path.map((part) => JSON.stringify(part))].join('.') })),
+                    Match.when({ where: Match.defined }, ({ where }) => Column.Projection.Where({ where: Column.conditions(where, rename) })),
+                    Match.orElse(({ from, path }) => Column.Projection.Path({ from: rename(from), path, jsonPath: ['$', ...path.map((part) => JSON.stringify(part))].join('.') })),
                 ),
             ),
-            renamedFrom: Option.map(Option.fromUndefinedOr(renamed?.[field]), String.camelToSnake),
+            renamedFrom: Option.map(Option.fromUndefinedOr(renamed?.[field]), rename),
             generation: Array.countBy(retired, Equal.equals(name)),
             retype: Option.exists(Option.fromUndefinedOr(retype), Array.contains(field)),
         });

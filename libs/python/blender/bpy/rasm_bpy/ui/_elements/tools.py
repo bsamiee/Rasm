@@ -16,20 +16,16 @@ from rasm_bpy.commands.invocations import Pick
 from rasm_bpy.commands.keymaps import Bindings, resolved, Row
 from rasm_bpy.commands.operators import Command, idname, Operation, Operator, Placement
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _acquired, _Tier, Acquisitions
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, Tier
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._rna.paths import _definition, Struct
+from rasm_bpy.data._rna.paths import rna_definition, Struct
 from rasm_bpy.ui._drawing.handlers import DrawCallback, Drawing
 from rasm_bpy.ui._elements.gizmos import GizmoGroup
-from rasm_bpy.ui._layout.rows import _realized, RowContent, RowDraw
+from rasm_bpy.ui._layout.rows import realized, RowContent, RowDraw
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _Draws = tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -91,10 +87,10 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
             for row in (
                 *(widget for widget in tool.widget.to_list() if isinstance(widget, GizmoGroup)),
                 *(row for rows, _ in pointed.to_list() for row in rows),
-                *_acquired((tool.operator, *(placement for _, placement in tool.bindings), *tool.settings, *tool.widget_settings, *tool.extra_settings)),
+                *acquired_rows((tool.operator, *(placement for _, placement in tool.bindings), *tool.settings, *tool.widget_settings, *tool.extra_settings)),
             )
         )
-        return (*held, (_Tier.INTERFACE, _registered(self, identity, tuple(pointed.starmap(lambda _rows, callback: callback) for pointed in pointers))))
+        return (*held, (Tier.INTERFACE, _registered(self, identity, tuple(pointed.starmap(lambda _rows, callback: callback) for pointed in pointers))))
 
     def tool_class(self, identity: Identity, tool: Tool[S], pointer: Option[DrawCallback]) -> Outcome[type[bpy.types.WorkSpaceTool]]:
         """Builds the tool class once its names, keymap rows, widget, and settings resolve."""
@@ -103,13 +99,13 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 pending: Option[rna_enums.WindowCursorItems] = Some(picked)
             case _:
                 pending = Nothing
-        widget = tool.widget.map(lambda held: identity.name(bpy.types.GizmoGroup, held.key) if isinstance(held, GizmoGroup) else _definition(held).identifier)
+        widget = tool.widget.map(lambda held: identity.name(bpy.types.GizmoGroup, held.key) if isinstance(held, GizmoGroup) else rna_definition(held).identifier)
 
         def realizing(rows: tuple[RowContent, ...]) -> Outcome[Option[RowDraw]]:
             """Realizes declared rows into one draw, Nothing while none is declared."""
-            return _realized(rows, identity).map(Some) if rows else Ok(Nothing)
+            return realized(rows, identity).map(Some) if rows else Ok(Nothing)
 
-        def built(rows: tuple[Row, ...], draws: _Draws) -> type[bpy.types.WorkSpaceTool]:
+        def built(rows: tuple[Row, ...], draws: tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]]) -> type[bpy.types.WorkSpaceTool]:
             name, operator = identity.name(bpy.types.Operator, tool.key), idname(identity, tool.operator)
             native = {
                 "bl_space_type": self.space,
@@ -126,8 +122,8 @@ class Tools[S = None](msgspec.Struct, frozen=True, kw_only=True):
                 "bl_data_block": tool.data_block.to_optional(),
                 "bl_keymap": rows or None,
                 "bl_operator": operator,
-                "draw_settings": partial(_settings, operator, widget, draws),
-                "draw_cursor": pointer.map(lambda callback: partial(_pointed, callback)).to_optional(),
+                "draw_settings": partial(_settings, operator, draws),
+                "draw_cursor": pointer.map(lambda callback: lambda _context, _tool, xy: callback("POST_PIXEL", Some(xy))).to_optional(),
             }
             return type(name, (bpy.types.WorkSpaceTool,), native)
 
@@ -147,7 +143,7 @@ def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[D
 
         def placed(classes: tuple[type[bpy.types.WorkSpaceTool], ...], result: Outcome[None], order: int) -> Outcome[None]:
             cls, first = classes[order], order == 0
-            after = (set(tools.after) or None) if first else {classes[order - 1].bl_idname}  # ty: ignore[unresolved-attribute]
+            after = (set(tools.after) or None) if first else {classes[order - 1].__name__}
             return result.bind(
                 lambda _: (
                     catch(bpy.utils.register_tool, exception=Exception)(cls, after=after, separator=tools.separator and first, group=tools.group and first)
@@ -164,7 +160,9 @@ def _registered[S](tools: Tools[S], identity: Identity, pointers: tuple[Option[D
 # --- [DRAWING]
 
 
-def _settings(operator: str, group: Option[str], draws: _Draws, context: bpy.types.Context, layout: bpy.types.UILayout, tool: bpy.types.WorkSpaceTool, *, extra: bool = False) -> None:
+def _settings(
+    operator: str, draws: tuple[Option[RowDraw], Option[RowDraw], Option[RowDraw]], context: bpy.types.Context, layout: bpy.types.UILayout, tool: bpy.types.WorkSpaceTool, *, extra: bool = False
+) -> None:
     """Draws the header settings and the extra options popover button, or the extra settings inside that popover."""
 
     def every(layout: bpy.types.UILayout, properties: Struct, _context: bpy.types.Context) -> None:
@@ -178,15 +176,10 @@ def _settings(operator: str, group: Option[str], draws: _Draws, context: bpy.typ
             draw(layout, properties, context)
         return
     settings.default_value(every)(layout, properties, context)
-    for draw, held in ((draw, held) for draw in widgeted.to_list() for held in group.to_list()):
-        draw(layout, tool.gizmo_group_properties(held), context)
+    for draw in widgeted.to_list() if tool.widget else ():
+        draw(layout, tool.gizmo_group_properties(tool.widget), context)
     if extras.is_some():
         layout.popover(TOPBAR_PT_tool_settings_extra.bl_idname, text="...")
-
-
-def _pointed(callback: DrawCallback, _context: bpy.types.Context, _tool: bpy.types.WorkSpaceTool, xy: tuple[int, int]) -> None:
-    """Draws the cursor drawing at the pointer in window pixels."""
-    callback("POST_PIXEL", Some(xy))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

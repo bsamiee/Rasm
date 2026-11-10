@@ -1,9 +1,7 @@
 #![feature(default_field_values)]
 
-use core::{
-    f64::consts::{FRAC_1_SQRT_2, PI, TAU},
-    range::RangeInclusive,
-};
+use core::f64::consts::{FRAC_1_SQRT_2, PI, TAU};
+use core::range::RangeInclusive;
 
 use approx::assert_relative_eq;
 use claims::assert_ok;

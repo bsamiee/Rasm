@@ -1,14 +1,10 @@
 use core::{cmp, iter};
 
-use cavalier_contours::{
-    core::math::{self, Vector2},
-    polyline::{
-        self, FindIntersectsOptions, PlineBasicIntersect, PlineIntersectsCollection, PlineSource as _, PlineVertex, PlineViewData, SplitResult,
-        internal::pline_intersects::{OverlappingSlice, sort_and_join_overlapping_intersects},
-    },
-    shape_algorithms::IndexedPolyline,
-    static_aabb2d_index::Control,
-};
+use cavalier_contours::core::math::{self, Vector2};
+use cavalier_contours::polyline::internal::pline_intersects::{OverlappingSlice, sort_and_join_overlapping_intersects};
+use cavalier_contours::polyline::{self, FindIntersectsOptions, PlineBasicIntersect, PlineIntersectsCollection, PlineSource as _, PlineVertex, PlineViewData, SplitResult};
+use cavalier_contours::shape_algorithms::IndexedPolyline;
+use cavalier_contours::static_aabb2d_index::Control;
 use itertools::{Either, Itertools as _};
 use nalgebra::{Point2, UnitVector2};
 

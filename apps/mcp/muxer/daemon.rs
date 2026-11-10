@@ -1,202 +1,320 @@
-use core::{future::ready, mem::DropGuard, pin::pin, time::Duration};
-use std::{
-    collections::{BTreeMap, HashMap},
-    error::Report,
-    fs::TryLockError,
-    io,
-    path::PathBuf,
-    process::Stdio,
-    sync::{Arc, nonpoison::Mutex},
-    time::SystemTime,
-};
+use core::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use core::time::Duration;
+use std::collections::{BTreeMap, VecDeque};
+use std::io;
+use std::path::{Path, PathBuf};
+use std::process::Stdio;
+use std::sync::Arc;
 
-use camino::Utf8PathBuf;
-use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
-use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::Signals;
-use rasm_mcp::{Host, Proxy, Traced};
-use rmcp::{ServiceExt as _, model::Implementation, transport::TokioChildProcess};
+use backon::ExponentialBuilder;
+use futures::future::{self, Either};
+use futures::{FutureExt as _, StreamExt as _};
+use interprocess::local_socket::tokio::Stream;
+use interprocess::local_socket::traits::tokio::Listener as _;
+use jiff::Timestamp;
+use rasm_ipc::{Instance, IpcError, Opened, Refusal};
+use rasm_mcp::{Catalog, Link, Liveness, Phase, Policy, Proxy, Retention};
+use rmcp::model::{ClientCapabilities, Implementation, InitializeRequestParams, ProtocolVersion};
+use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
 use serde::{Deserialize, Serialize};
-use tokio::{
-    io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader},
-    net::{UnixListener, UnixStream},
-    process::Command,
-    sync::{OnceCell, watch},
-    time,
-};
-use tokio_stream::wrappers::LinesStream;
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+use tokio::io::{AsyncBufReadExt as _, BufReader};
+use tokio::process::{ChildStdin, ChildStdout};
+use tokio::sync::{Mutex, oneshot, watch};
+use tokio::time;
+use tokio_util::sync::CancellationToken;
+use tokio_util::task::TaskTracker;
 use tracing::Instrument as _;
 
-use crate::{MuxerError, Operation, decoded};
+use crate::{Build, Command, Identity, Launch, MuxerError, OPENING, Operation, PROTOCOL, Per, Request, Server, State, Welcome, failed};
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const GRACE: Duration = Duration::from_secs(2);
+const DRAIN: Duration = Duration::from_secs(5);
+const STARTUP: Duration = Duration::from_secs(10);
+const TAIL: usize = 8;
+const QUEUE: usize = 256;
+const BUFFER: usize = 8 << 10;
+const RETENTION: Retention = Retention { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) };
+const LIVENESS: Liveness = Liveness { quiet: Duration::from_mins(2), grace: Duration::from_mins(1) };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub(crate) struct Server {
-    pub(crate) program: Utf8PathBuf,
-    pub(crate) identity: (u64, u64, SystemTime),
-    pub(crate) arguments: Vec<String>,
-    pub(crate) directory: Utf8PathBuf,
-    pub(crate) declared: BTreeMap<String, String>,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Launch {
-    pub(crate) server: Server,
-    pub(crate) environment: BTreeMap<String, String>,
+struct Stored {
+    command: Command,
+    catalog: Catalog,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 #[derive(Debug)]
 struct Upstream {
-    host: Arc<Host<Proxy>>,
-    sessions: watch::Sender<usize>,
+    command: Command,
+    proxy: Proxy,
+    pid: Arc<AtomicU32>,
 }
 
 #[derive(Debug)]
 struct Daemon {
-    idle: Duration,
-    upstreams: Mutex<HashMap<Server, Arc<OnceCell<Upstream>>>>,
-    connections: watch::Sender<usize>,
+    identity: Identity,
+    built: Build,
+    started: Timestamp,
+    upstreams: Mutex<BTreeMap<(Command, Option<u64>), Arc<Upstream>>>,
+    holding: watch::Sender<usize>,
+    joined: AtomicU64,
     tasks: TaskTracker,
-    stopping: CancellationToken,
+    superseded: CancellationToken,
 }
 
 impl Daemon {
-    async fn connected(self: Arc<Self>, stream: UnixStream) -> Result<(), MuxerError> {
-        let failed = |operation| move |source| MuxerError::Io { operation, source };
-        let counted = |count: watch::Sender<usize>| {
-            count.send_modify(|held| *held = held.saturating_add(1));
-            DropGuard::new(count, |count| count.send_modify(|held| *held = held.saturating_sub(1)))
-        };
-        let _connected = counted(self.connections.clone());
-        let (reader, mut writer) = stream.into_split();
-        let mut reader = BufReader::new(reader);
-        let mut line = String::new();
-        reader.read_line(&mut line).await.map_err(failed(Operation::Opening))?;
-        let Launch { server, environment } = decoded(&line)?;
-        let cell = self.upstreams.with_mut(|upstreams| Arc::clone(upstreams.entry(server.clone()).or_default()));
-        let Upstream { host, sessions } = cell.get_or_try_init(|| Arc::clone(&self).linked(server, environment)).await?;
-        let mut answer = serde_json::to_vec(&())?;
-        answer.push(b'\n');
-        writer.write_all(&answer).await.map_err(failed(Operation::Opening))?;
-        let _session = counted(sessions.clone());
-        let running = Box::pin(Traced::new(host.session()).serve_with_ct((reader, writer), self.stopping.child_token()))
-            .await
-            .map_err(|error| MuxerError::Io { operation: Operation::Relay, source: io::Error::other(error) })?;
-        let quit = running.waiting().await.map_err(|error| MuxerError::Io { operation: Operation::Relay, source: io::Error::other(error) })?;
-        tracing::debug!(?quit, "session closed");
-        Ok(())
+    async fn accepted(self: Arc<Self>, stream: Stream) {
+        match rasm_ipc::accept::<_, Build, Request>(stream, PROTOCOL, &self.built, OPENING).await {
+            Ok(Opened { body: Request::Report, reader: _, mut writer }) => {
+                let state = self.state().await;
+                if let Err(error) = rasm_ipc::reply(&mut writer, Ok::<_, Refusal>(Welcome::State(Box::new(state)))).await {
+                    tracing::debug!(%error, "state report not delivered");
+                }
+            }
+            Ok(Opened { body: Request::Serve(launch), reader, mut writer }) => {
+                let upstream = Arc::clone(&self).upstream(*launch).await;
+                let served = async {
+                    rasm_ipc::reply(&mut writer, Ok::<_, Refusal>(Welcome::Serving)).await.map_err(io::Error::other)?;
+                    upstream.proxy.serve(reader, writer).await
+                };
+                if let Err(error) = served.await {
+                    tracing::debug!(%error, "session ended");
+                }
+            }
+            Err(IpcError::Refused(Refusal::Superseded)) => {
+                tracing::info!("a newer build connected, draining");
+                self.superseded.cancel();
+            }
+            Err(error) => tracing::debug!(%error, "session refused"),
+        }
     }
 
-    async fn linked(self: Arc<Self>, server: Server, environment: BTreeMap<String, String>) -> Result<Upstream, MuxerError> {
-        let Server { program, identity: _, arguments, directory, declared } = server.clone();
-        let tasks = self.tasks.clone();
-        let spawn = move || {
-            let mut command = Command::new(&program);
-            command.args(&arguments).current_dir(&directory).env_clear().envs(&environment).envs(&declared);
-            let spawned = TokioChildProcess::builder(rasm_process::owned(command)).stderr(Stdio::piped()).spawn().map(|(transport, stderr)| {
-                let lines = stream::iter(stderr).flat_map(|stderr| LinesStream::new(BufReader::new(stderr).lines()));
-                let logged = lines.map_ok(|line| tracing::debug!(line, "upstream stderr")).try_collect::<()>();
-                drop(tasks.spawn(
-                    logged.unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "upstream stderr closed")).instrument(tracing::debug_span!("upstream", %program)),
-                ));
-                transport
-            });
-            ready(spawned)
+    async fn upstream(self: Arc<Self>, launch: Launch) -> Arc<Upstream> {
+        let Launch { command, per, environment } = launch;
+        let key = (command.clone(), matches!(per, Per::Session).then(|| self.joined.fetch_add(1, Ordering::Relaxed)));
+        let mut upstreams = self.upstreams.lock().await;
+        if let Some(upstream) = upstreams.get(&key) {
+            return Arc::clone(upstream);
+        }
+        let stored = self.identity.folders.cache.join(format!("{:016x}.json", xxhash_rust::xxh3::xxh3_64(&serde_json::to_vec(&command).unwrap_or_default())));
+        let catalog = match fs_err::tokio::read(&stored).await.map(|held| serde_path_to_error::deserialize::<_, Stored>(&mut serde_json::Deserializer::from_slice(&held))) {
+            Ok(Ok(held)) if held.command == command => Some(held.catalog),
+            Ok(Ok(_) | Err(_)) | Err(_) => None,
         };
-        let identity = Implementation::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        let host = Host::new(async |notifier| Proxy::connect(identity, notifier, spawn).await).await?;
-        let sessions = watch::Sender::new(0);
-        let idled = idled(sessions.subscribe(), self.idle);
-        let daemon = Arc::clone(&self);
-        let held = Arc::clone(&host);
-        self.tasks.spawn(self.stopping.clone().run_until_cancelled_owned(async move {
-            idled.await;
-            daemon.upstreams.with_mut(|upstreams| upstreams.remove(&server));
-            held.drain().await;
-            tracing::info!(program = %server.program, "upstream idle, stopped");
-        }));
-        Ok(Upstream { host, sessions })
+        const DECLARED: &str = r#"{"roots":{},"sampling":{},"elicitation":{}}"#;
+        let capabilities = serde_path_to_error::deserialize::<_, ClientCapabilities>(&mut serde_json::Deserializer::from_str(DECLARED)).unwrap_or_default();
+        let policy = Policy {
+            client: InitializeRequestParams::new(capabilities, Implementation::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION")))
+                .with_protocol_version(ProtocolVersion::LATEST_WITH_INITIALIZE),
+            restart: ExponentialBuilder::new().with_min_delay(Duration::from_secs(1)).with_max_delay(Duration::from_mins(5)).without_max_times(),
+            liveness: Some(LIVENESS),
+            retention: self.identity.idle.map_or(RETENTION, |idle| Retention { ratio: 0, floor: idle, ceiling: idle }),
+            line: DEFAULT_MAX_LINE_LENGTH,
+            queue: QUEUE,
+            buffer: BUFFER,
+        };
+        let (pid, span) = (Arc::new(AtomicU32::new(0)), tracing::info_span!(parent: None, "server", program = %command.program.display()));
+        let (proxy, actor) = Proxy::new(policy, catalog, connector(command.clone(), Arc::new(environment), Arc::clone(&pid)));
+        let upstream = Arc::new(Upstream { command, proxy, pid });
+        upstreams.insert(key.clone(), Arc::clone(&upstream));
+        self.holding.send_modify(|holding| *holding = holding.saturating_add(1));
+        drop(self.tasks.spawn(actor.instrument(span.clone())));
+        drop(self.tasks.spawn(Arc::clone(&self).kept(key, Arc::clone(&upstream), stored).instrument(span)));
+        upstream
+    }
+
+    async fn kept(self: Arc<Self>, key: (Command, Option<u64>), upstream: Arc<Upstream>, stored: PathBuf) {
+        let mut status = upstream.proxy.status();
+        let (mut written, mut served) = (status.borrow().catalog.clone(), false);
+        loop {
+            let (phase, sessions, catalog) = {
+                let held = status.borrow_and_update();
+                (held.phase, held.sessions, held.catalog.clone())
+            };
+            served |= sessions > 0;
+            if let Some(catalog) = catalog.filter(|catalog| written.as_ref().is_none_or(|held| !Arc::ptr_eq(held, catalog))) {
+                let record = serde_json::to_vec(&Stored { command: upstream.command.clone(), catalog: Catalog::clone(&catalog) }).map_err(io::Error::other);
+                let saved = async {
+                    fs_err::tokio::create_dir_all(&self.identity.folders.cache).await?;
+                    let staged = stored.with_extension("staged");
+                    fs_err::tokio::write(&staged, record?).await?;
+                    fs_err::tokio::rename(&staged, &stored).await
+                };
+                if let Err(error) = saved.await {
+                    tracing::warn!(%error, "server handshake not stored");
+                }
+                written = Some(catalog);
+            }
+            if sessions == 0 && (key.1.is_some_and(|_| served) || matches!(phase, Phase::Idle | Phase::Down | Phase::Stopped)) {
+                let mut upstreams = self.upstreams.lock().await;
+                if upstream.proxy.status().borrow().sessions == 0 {
+                    upstreams.remove(&key);
+                    break;
+                }
+            }
+            if status.changed().await.is_err() {
+                break;
+            }
+        }
+        upstream.proxy.stop().await;
+        self.holding.send_modify(|holding| *holding = holding.saturating_sub(1));
+    }
+
+    async fn state(&self) -> State {
+        let upstreams = Vec::from_iter(self.upstreams.lock().await.values().cloned());
+        let own = std::process::id();
+        let pids = Vec::from_iter(upstreams.iter().map(|upstream| upstream.pid.load(Ordering::Relaxed)).chain([own]).filter(|pid| *pid != 0).map(Pid::from_u32));
+        let system = System::new().map(|mut system| {
+            system.refresh_processes_specifics(ProcessesToUpdate::Some(&pids), true, ProcessRefreshKind::nothing().with_memory());
+            system
+        });
+        let memory = |pid: u32| system.as_ref().ok().and_then(|system| system.process(Pid::from_u32(pid))).map(sysinfo::Process::memory);
+        let servers = upstreams.iter().map(|upstream| {
+            let pid = Some(upstream.pid.load(Ordering::Relaxed)).filter(|pid| *pid != 0);
+            Server::new(&upstream.command, &upstream.proxy.status().borrow(), upstream.proxy.in_flight(), pid.map(|pid| (pid, memory(pid))))
+        });
+        State { pid: own, build: self.built, started: self.started, memory: memory(own), connections: self.holding.borrow().saturating_sub(upstreams.len()), servers: servers.collect() }
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub(crate) fn logs() -> Result<Utf8PathBuf, MuxerError> {
-    let platform = cfg_select! {
-        target_vendor = "apple" => dirs::home_dir().map(|home| home.join("Library").join("Logs")),
-        _ => dirs::state_dir(),
-    };
-    per_user(platform)
-}
-
-pub(crate) fn socket() -> Result<Utf8PathBuf, MuxerError> { folder().map(|folder| folder.join("daemon.sock")) }
-
-fn folder() -> Result<Utf8PathBuf, MuxerError> { per_user(dirs::runtime_dir().or_else(dirs::cache_dir)).map(|folder| folder.join(env!("CARGO_PKG_VERSION"))) }
-
-fn per_user(base: Option<PathBuf>) -> Result<Utf8PathBuf, MuxerError> {
-    base.and_then(|base| Utf8PathBuf::from_path_buf(base.join(env!("CARGO_PKG_NAME"))).ok()).ok_or(MuxerError::Io { operation: Operation::Locate, source: io::ErrorKind::NotFound.into() })
-}
-
-async fn idled(mut count: watch::Receiver<usize>, idle: Duration) {
-    loop {
-        match count.wait_for(|held| *held == 0).await.map(drop) {
-            Ok(()) => {}
-            Err(watch::error::RecvError { .. }) => break,
+fn connector(command: Command, environment: Arc<Vec<(String, String)>>, pid: Arc<AtomicU32>) -> impl FnMut(CancellationToken) -> future::BoxFuture<'static, io::Result<Link<ChildStdout, ChildStdin, future::BoxFuture<'static, String>>>> + Send {
+    move |stop| {
+        let (command, environment, pid) = (command.clone(), Arc::clone(&environment), Arc::clone(&pid));
+        async move {
+            let mut process = tokio::process::Command::new(&command.program);
+            process
+                .args(&command.arguments)
+                .current_dir(&command.directory)
+                .env_clear()
+                .envs(environment.iter().map(|(name, value)| (name, value)))
+                .envs(&command.environment)
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+            let (attached, pipes) = oneshot::channel();
+            let mut exited = async move {
+                let attach = async |pipes| attached.send(pipes).map_err(|_| io::Error::from(io::ErrorKind::BrokenPipe));
+                rasm_process::run(process, None, GRACE, &stop, attach).await.map_or_else(|error| error.to_string(), |status| status.to_string())
+            }
+            .boxed();
+            let pipes = match future::select(pipes, &mut exited).await {
+                Either::Left((Ok(pipes), _)) => pipes,
+                Either::Left((Err(oneshot::error::RecvError { .. }), _)) => return Err(io::Error::other(exited.await)),
+                Either::Right((exit, _)) => return Err(io::Error::other(exit)),
+            };
+            pid.store(pipes.id.get(), Ordering::Relaxed);
+            let (Some(reader), Some(writer)) = (pipes.stdout, pipes.stdin) else { return Err(io::ErrorKind::BrokenPipe.into()) };
+            let said = async move {
+                let mut tail = VecDeque::with_capacity(TAIL);
+                let mut lines = BufReader::new(pipes.stderr?).lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    tracing::info!(line, "server stderr");
+                    if tail.len() == TAIL {
+                        tail.pop_front();
+                    }
+                    tail.push_back(line);
+                }
+                Some(tail)
+            };
+            let closed = future::join(exited, said).map(move |(exit, tail)| {
+                pid.store(0, Ordering::Relaxed);
+                match tail.filter(|tail| !tail.is_empty()) {
+                    Some(tail) => format!("{exit}; stderr: {}", Vec::from(tail).join(" | ")),
+                    None => exit,
+                }
+            });
+            Ok(Link { reader, writer, closed: closed.boxed() })
         }
-        match time::timeout(idle, count.wait_for(|held| *held > 0)).await.map(|waited| waited.map(drop)) {
-            Ok(Ok(())) => {}
-            Ok(Err(watch::error::RecvError { .. })) | Err(time::error::Elapsed { .. }) => break,
+        .boxed()
+    }
+}
+
+async fn pruned(cache: &Path) {
+    let Ok(mut entries) = fs_err::tokio::read_dir(cache).await else { return };
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        let held = fs_err::tokio::read(&path).await.map(|held| serde_path_to_error::deserialize::<_, Stored>(&mut serde_json::Deserializer::from_slice(&held)));
+        let current = match held {
+            Ok(Ok(Stored { command, catalog: _ })) => fs_err::tokio::metadata(&command.program).await.and_then(|file| crate::build(&file)).is_ok_and(|file| file == command.file),
+            Ok(Err(_)) | Err(_) => false,
+        };
+        if !current && let Err(error) = fs_err::tokio::remove_file(&path).await {
+            tracing::debug!(%error, "stale stored handshake not removed");
         }
     }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub(crate) async fn served(idle: Duration, mut signals: Signals) -> Result<(), MuxerError> {
-    let (folder, socket) = (folder()?, socket()?);
-    let failed = |operation| move |source| MuxerError::Io { operation, source };
-    fs_err::tokio::DirBuilder::new().recursive(true).mode(0o700).create(&folder).await.map_err(failed(Operation::Listen(socket.clone())))?;
-    let lock = fs_err::tokio::File::create(folder.join("daemon.lock")).await.map_err(failed(Operation::Listen(socket.clone())))?.into_std().await;
-    match lock.try_lock() {
-        Ok(()) => {}
-        Err(TryLockError::WouldBlock) => return Ok(()),
-        Err(TryLockError::Error(source)) => return Err(failed(Operation::Listen(socket))(source)),
-    }
-    let listener = match UnixListener::bind(&socket) {
-        Err(error) if error.kind() == io::ErrorKind::AddrInUse => {
-            fs_err::tokio::remove_file(&socket).await.map_err(failed(Operation::Listen(socket.clone())))?;
-            UnixListener::bind(&socket)
-        }
-        bound => bound,
-    }
-    .map_err(failed(Operation::Listen(socket.clone())))?;
-    tokio::io::stdout().write_all(format!("{socket}\n").as_bytes()).await.map_err(failed(Operation::Listen(socket.clone())))?;
-    tracing::info!(%socket, pid = std::process::id(), "listening");
-    let daemon = Arc::new(Daemon { idle, upstreams: Mutex::default(), connections: watch::Sender::new(0), tasks: TaskTracker::new(), stopping: CancellationToken::new() });
-    let mut unused = pin!(idled(daemon.connections.subscribe(), idle));
+pub(crate) async fn serve(identity: Identity, built: Build) -> Result<(), MuxerError> {
+    let wait = || ExponentialBuilder::new().with_min_delay(Duration::from_millis(1)).with_max_delay(Duration::from_millis(100)).without_max_times().with_total_delay(Some(Duration::from_secs(30)));
+    let (lock, socket) = (identity.lock()?, identity.socket()?);
+    let Some(listener) = Instance::acquire(&lock, wait()).await?.listen(socket).await? else { return Ok(()) };
+    let mut signals = signals().map_err(failed(Operation::Signal))?;
+    tracing::info!(pid = std::process::id(), ?built, runtime = %identity.folders.runtime.display(), "listening");
+    pruned(&identity.folders.cache).await;
+    let daemon = Arc::new(Daemon {
+        identity,
+        built,
+        started: Timestamp::now(),
+        upstreams: Mutex::default(),
+        holding: watch::Sender::new(0),
+        joined: AtomicU64::new(0),
+        tasks: TaskTracker::new(),
+        superseded: CancellationToken::new(),
+    });
+    let mut holding = daemon.holding.subscribe();
+    let mut served = false;
     loop {
         tokio::select! {
             biased;
-            _ = signals.next() => break,
-            () = &mut unused => break,
-            accepted = listener.accept() => match accepted.map(|(stream, _)| Arc::clone(&daemon).connected(stream)) {
-                Ok(session) => drop(daemon.tasks.spawn(session.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "session failed")))),
-                Err(error) => tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "accept failed"),
+            _ = signals.next() => break tracing::info!("signalled, draining"),
+            () = daemon.superseded.cancelled() => break,
+            Ok(_) = holding.wait_for(|holding| *holding == 0), if served => break tracing::info!("nothing held, stopping"),
+            () = time::sleep(STARTUP), if !served => break tracing::info!("no session arrived, stopping"),
+            accepted = listener.accept() => match accepted {
+                Ok(stream) => {
+                    served = true;
+                    let (session, counted) = (Arc::clone(&daemon).accepted(stream), daemon.holding.clone());
+                    counted.send_modify(|holding| *holding = holding.saturating_add(1));
+                    drop(daemon.tasks.spawn(session.map(move |()| counted.send_modify(|holding| *holding = holding.saturating_sub(1)))));
+                }
+                Err(error) => tracing::warn!(%error, "session not accepted"),
             },
         }
     }
+    let closing = Instance::acquire(&lock, wait()).await;
     drop(listener);
-    fs_err::tokio::remove_file(&socket).await.map_err(failed(Operation::Listen(socket.clone())))?;
-    daemon.stopping.cancel();
-    let hosts = daemon.upstreams.with_mut(|upstreams| upstreams.drain().filter_map(|(_, cell)| cell.get().map(|upstream| Arc::clone(&upstream.host))).collect::<Vec<_>>());
-    future::join_all(hosts.iter().map(|host| host.drain())).await;
-    drop(hosts);
+    let upstreams = Vec::from_iter(daemon.upstreams.lock().await.values().cloned());
+    let drained = future::join_all(upstreams.iter().map(|upstream| upstream.proxy.drain()));
+    tokio::select! {
+        biased;
+        _ = signals.next() => tracing::info!("signalled again, drain skipped"),
+        _ = time::timeout(DRAIN, drained) => {}
+    }
+    future::join_all(upstreams.iter().map(|upstream| upstream.proxy.stop())).await;
     daemon.tasks.close();
     daemon.tasks.wait().await;
     tracing::info!("stopped");
+    drop(closing);
     Ok(())
+}
+
+fn signals() -> io::Result<futures::stream::SelectAll<futures::stream::BoxStream<'static, ()>>> {
+    cfg_select! {
+        unix => {{
+            use tokio::signal::unix::{SignalKind, signal};
+            use tokio_stream::wrappers::SignalStream;
+            [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].into_iter().map(|kind| signal(kind).map(|signal| SignalStream::new(signal).boxed())).collect()
+        }}
+        _ => Ok(futures::stream::select_all([futures::stream::once(tokio::signal::ctrl_c()).map(drop).boxed()])),
+    }
 }

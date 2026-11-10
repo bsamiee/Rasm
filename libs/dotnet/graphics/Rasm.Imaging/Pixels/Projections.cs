@@ -44,7 +44,7 @@ public sealed partial class FrameQuad {
 
     private static PointF Corner(Vector2 corner) => new(corner.X, corner.Y);
 
-    private static float Turn(Vector2 previous, Vector2 corner, Vector2 next) => ((corner.X - previous.X) * (next.Y - corner.Y)) - ((corner.Y - previous.Y) * (next.X - corner.X));
+    private static float Turn(Vector2 previous, Vector2 corner, Vector2 next) => Vector2.Cross(corner - previous, next - corner);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

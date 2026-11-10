@@ -16,6 +16,7 @@
     },
     "exports": {
         ".": "./index.ts",
+        "./clickhouse": "./clickhouse.ts",
         "./d1": "./d1.ts",
         "./pg": "./pg.ts",
         "./sqlite": "./sqlite.ts"
@@ -27,17 +28,23 @@
         "pgsql-parser": "catalog:"
     },
     "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/sql-clickhouse": "catalog:",
         "@effect/sql-d1": "catalog:",
         "@effect/sql-pg": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {
+        "@effect/sql-clickhouse": "catalog:peers",
         "@effect/sql-d1": "catalog:peers",
         "@effect/sql-pg": "catalog:peers",
         "effect": "catalog:peers"
     },
     "peerDependenciesMeta": {
+        "@effect/sql-clickhouse": {
+            "optional": true
+        },
         "@effect/sql-d1": {
             "optional": true
         },
@@ -49,6 +56,7 @@
         "access": "public",
         "exports": {
             ".": "./dist/index.js",
+            "./clickhouse": "./dist/clickhouse.js",
             "./d1": "./dist/d1.js",
             "./pg": "./dist/pg.js",
             "./sqlite": "./dist/sqlite.js"

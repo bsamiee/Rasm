@@ -95,11 +95,11 @@ phase('Write')
 const chains = new Map()
 const written = (await parallel(folders.toSorted((left, right) => left.split('/').length - right.split('/').length).map((folder) => () => {
   const parents = folders.filter((other) => other !== folder && folder.startsWith(`${other}/`))
-  const reads = parents.length > 0 ? ` Read ${parents.map((parent) => `${REPO}/${parent}/CLAUDE.md`).join(', ')} as they stand, and state no fact they hold.` : ''
+  const reads = parents.length > 0 ? `Read ${parents.map((parent) => `${REPO}/${parent}/CLAUDE.md`).join(', ')} as they stand, and state no fact they hold. Return at most 4 lines.` : 'Return at most 4 lines.'
   const chain = Promise.all(parents.map((parent) => chains.get(parent))).then(() => once(`${BASIS}
-Write ${REPO}/${folder}/CLAUDE.md whole from its outline in ${SELECTION}, and make ${folder}/AGENTS.md a relative symlink to it.${reads} Return at most 4 lines.`, { label: `write:${folder}`, phase: 'Write' }))
+Write ${REPO}/${folder}/CLAUDE.md whole from its outline in ${SELECTION}, and make ${folder}/AGENTS.md a relative symlink to it. ${reads}`, { label: `write:${folder}`, phase: 'Write' }))
     .then((wrote) => wrote && once(`${BASIS}
-Adversary for ${REPO}/${folder}/CLAUDE.md. Read the file whole and the code under ${folder}, and judge every line against the standard and the code: cut each line the standard gives no place, rewrite each the code contradicts, and sharpen each principle in place.${reads} Return at most 4 lines.`, { label: `challenge:${folder}`, phase: 'Write' }))
+Adversary for ${REPO}/${folder}/CLAUDE.md. Read the file whole and the code under ${folder}, and judge every line against the standard and the code: cut each line the standard gives no place, rewrite each the code contradicts, and sharpen each principle in place. ${reads}`, { label: `challenge:${folder}`, phase: 'Write' }))
   chains.set(folder, chain)
   return chain
 }))).filter(Boolean)
@@ -107,5 +107,5 @@ log(`${written.length} of ${counted(folders.length, NOUNS.file)} written and cha
 
 phase('Close')
 const closed = await once(`${BASIS}
-${removed.length > 0 ? `Delete ${removed.join(', ')} with their AGENTS.md links. ` : ''}Delete each dangling AGENTS.md link. Read every folder CLAUDE.md with the root CLAUDE.md and place each fact as the standard places it, editing only folder CLAUDE.md files and their AGENTS.md links. Return at most 6 lines: the final file set with line counts.`, { label: 'close', phase: 'Close' })
+${[...(removed.length > 0 ? [`Delete ${removed.join(', ')} with their AGENTS.md links.`] : []), 'Delete each dangling AGENTS.md link.'].join(' ')} Read every folder CLAUDE.md with the root CLAUDE.md and place each fact as the standard places it, editing only folder CLAUDE.md files and their AGENTS.md links. Return at most 6 lines: the final file set with line counts.`, { label: 'close', phase: 'Close' })
 return { close: closed ?? 'close agent returned nothing', lost }

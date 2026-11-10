@@ -1,9 +1,7 @@
 #![feature(const_default, const_trait_impl, default_field_values)]
 
-use core::{
-    hint::black_box,
-    sync::atomic::{AtomicU8, Ordering},
-};
+use core::hint::black_box;
+use core::sync::atomic::{AtomicU8, Ordering};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

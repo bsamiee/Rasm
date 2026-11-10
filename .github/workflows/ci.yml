@@ -14,6 +14,13 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+defaults:
+    run:
+        shell: bash
+
+env:
+    OTEL_SDK_DISABLED: "true"
+
 jobs:
     linux:
         runs-on: ubuntu-26.04
@@ -28,8 +35,17 @@ jobs:
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
             - run: nx install @rasm/infra
+            - id: cache
+              continue-on-error: true
+              run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health"
+              env:
+                  SERVER: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx affected --targets=check,test --exclude=tag:os:darwin,tag:os:win32
+              env: &nx-cache
+                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outcome == 'success' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
+                  NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
             - run: nx affected --targets=build --exclude=tag:os:darwin,tag:os:win32,tag:host:blender,tag:host:unreal
+              env: *nx-cache
 
     macos:
         runs-on: xcode-27
@@ -46,9 +62,9 @@ jobs:
             - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
-            - run: hk check --all
+            - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
             - id: hosts
-              run: printf 'rhino=%s\n' "$(nx show projects --affected --projects=tag:os:win32 | head -1)" >> "$GITHUB_OUTPUT"
+              run: rhino=$(nx show projects --affected --projects=tag:os:win32 --sep=,) && printf 'rhino=%s\n' "${rhino}" >> "${GITHUB_OUTPUT}"
             - if: steps.hosts.outputs.rhino != ''
               uses: mcneel/setup-rhino3d@b3faf87453962c0742ab2a5e72d3494505f660df # v3.0.0
               with:

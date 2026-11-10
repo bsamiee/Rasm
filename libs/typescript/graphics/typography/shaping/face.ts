@@ -4,6 +4,7 @@ import { Array, Effect, Equal, Function, flow, Match, Number, Option, Order, Pre
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Variation } from 'harfbuzzjs';
 import { TypographyError } from '#/error';
+import type { Source } from '#/index';
 import { Settings } from '#/settings';
 import { Color } from '#/shaping/internal/color';
 import { Layout } from '#/shaping/internal/layout';
@@ -12,7 +13,6 @@ import { Metrics } from '#/shaping/internal/metrics';
 import { Names } from '#/shaping/internal/names';
 import { Profile } from '#/shaping/internal/profile';
 import { Tables } from '#/shaping/internal/tables';
-import type { Source } from '#/source';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

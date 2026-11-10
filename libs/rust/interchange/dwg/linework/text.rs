@@ -1,14 +1,13 @@
-use core::{iter, range::Range};
-use std::{borrow::Cow, collections::BTreeSet, sync::Arc};
+use core::iter;
+use core::range::Range;
+use std::borrow::Cow;
+use std::collections::BTreeSet;
+use std::sync::Arc;
 
-use acadrust::{
-    entities::{
-        AttachmentPoint, AttributeEntity, EntityType, HorizontalAlignment, MText, Text, TextHorizontalAlignment, TextVerticalAlignment, VerticalAlignment,
-        mtext_format::{MTextDocument, MTextFont, MTextParagraph, MTextSpan, SpanProperties, parse_mtext, parse_plain_text},
-    },
-    tables::{Table, TextStyle},
-    types::{Color, Matrix3, Vector3},
-};
+use acadrust::entities::mtext_format::{MTextDocument, MTextFont, MTextParagraph, MTextSpan, SpanProperties, parse_mtext, parse_plain_text};
+use acadrust::entities::{AttachmentPoint, EntityType, MText, Text, TextHorizontalAlignment, TextVerticalAlignment};
+use acadrust::tables::{Table, TextStyle};
+use acadrust::types::{Color, Matrix3, Vector3};
 use itertools::{Either, Itertools as _};
 use kurbo::{Affine, Point, Rect, Shape as _, Vec2};
 use linesweeper::FillRule;
@@ -173,37 +172,6 @@ pub(super) fn lifted(
             .ok()
     };
     entity.either(|text| single(text).map(|text| Lettering { text, background: None }).map_err(NEVec::new), multi)
-}
-
-#[must_use]
-pub(super) fn attributed(attribute: &AttributeEntity) -> Text {
-    Text {
-        value: attribute.value.clone(),
-        insertion_point: attribute.insertion_point,
-        alignment_point: Some(attribute.alignment_point),
-        height: attribute.height,
-        rotation: attribute.rotation,
-        width_factor: attribute.width_factor,
-        oblique_angle: attribute.oblique_angle,
-        style: attribute.text_style.clone(),
-        horizontal_alignment: match attribute.horizontal_alignment {
-            HorizontalAlignment::Left => TextHorizontalAlignment::Left,
-            HorizontalAlignment::Center => TextHorizontalAlignment::Center,
-            HorizontalAlignment::Right => TextHorizontalAlignment::Right,
-            HorizontalAlignment::Aligned => TextHorizontalAlignment::Aligned,
-            HorizontalAlignment::Middle => TextHorizontalAlignment::Middle,
-            HorizontalAlignment::Fit => TextHorizontalAlignment::Fit,
-        },
-        vertical_alignment: match attribute.vertical_alignment {
-            VerticalAlignment::Baseline => TextVerticalAlignment::Baseline,
-            VerticalAlignment::Bottom => TextVerticalAlignment::Bottom,
-            VerticalAlignment::Middle => TextVerticalAlignment::Middle,
-            VerticalAlignment::Top => TextVerticalAlignment::Top,
-        },
-        normal: attribute.normal,
-        generation_flags: attribute.text_generation_flags,
-        ..Text::new()
-    }
 }
 
 #[must_use]

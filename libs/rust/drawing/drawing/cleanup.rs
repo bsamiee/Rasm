@@ -1,12 +1,17 @@
-use core::{cell::Cell, cmp, iter, mem, ops::RangeInclusive};
-use std::{borrow::Cow, collections::BTreeMap};
+use core::cell::Cell;
+use core::ops::RangeInclusive;
+use core::{cmp, iter, mem};
+use std::borrow::Cow;
+use std::collections::BTreeMap;
 
-use geo::{BallTree, BooleanOps as _, Distance as _, Euclidean, InterpolatableLine as _, Intersections, Length as _, LineLocatePoint as _, PointWithData, sweep::Cross};
+use geo::sweep::Cross;
+use geo::{BallTree, BooleanOps as _, Distance as _, Euclidean, InterpolatableLine as _, Intersections, Length as _, LineLocatePoint as _, PointWithData};
 use geo_types::{Coord, Line, LineString, MultiLineString, Point};
 use itertools::{Either, Itertools as _};
 use kurbo::{BezPath, ParamCurve as _, PathEl, PathSeg, Shape as _, Vec2};
 use linesweeper::BinaryOp;
-use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, iter::once, nev};
+use nonempty_collections::iter::once;
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _, walk_tree_prefix};
 use stacksafe::StackSafe;
 use validated::Validated;

@@ -1,12 +1,12 @@
 use core::mem;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, get_parent_expr, res::MaybeDef as _, sym};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{get_parent_expr, sym};
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
-use rustc_hir::{
-    Expr, ExprKind, HirId, ItemKind, Lifetime, LifetimeKind, Mutability, Node, Pat, TyKind,
-    def_id::{DefId, LocalDefId},
-    intravisit::Visitor,
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::intravisit::Visitor;
+use rustc_hir::{Expr, ExprKind, HirId, ItemKind, Lifetime, LifetimeKind, Mutability, Node, Pat, TyKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty;
 use rustc_span::Span;

@@ -4,7 +4,7 @@ import { Settings } from '#/settings';
 import type { Face } from '#/shaping/face';
 import { Profile } from '#/shaping/internal/profile';
 import { ShapedText } from '#/shaping/shaped-text';
-import { Word } from '#/shaping/word';
+import { Span, Word } from '#/shaping/word';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -50,10 +50,10 @@ class Kerning extends Schema.Class<Kerning, { readonly brand: unique symbol }>('
         const profile = (span: string) => profiles.getOrInsertComputed(span, () => Profile.of(ShapedText.of(face, ShapedText.Run.make({ text: span, direction: LONE_PUNCTUATION.test(span) ? Option.some(direction) : Option.none() }), settings), unitsPerEm, outline));
         const spans = Word.of(text).flatMap(({ start, end, joins }) =>
             Array.window([start, ...joins.flatMap((join) => [join.start, join.end]), end], 2)
-                .map(([from, to]) => ({ span: Word.Span.make({ start: from, end: to }), rest: Word.Span.make({ start: from, end }) }))
+                .map(([from, to]) => ({ span: Span.make({ start: from, end: to }), rest: Span.make({ start: from, end }) }))
                 .filter(({ span }, at) => at % 2 === 1 || LONE_PUNCTUATION.test(span.slice(text))),
         );
-        const gap = (before: typeof Word.Span.Type, after: (typeof spans)[number]) => {
+        const gap = (before: Span, after: (typeof spans)[number]) => {
             const letters = { following: Array.take(Word.letters(after.rest.slice(text)), 2), preceding: Array.takeRight(Word.letters(before.slice(text)), 1) };
             const { boundary, correction } = Array.findFirst(this.rows, ({ side, groups }) => letters[side].some(({ group }) => groups.includes(group))).pipe(Option.getOrElse(() => this.fallback));
             const preceding = profile(before.slice(text));

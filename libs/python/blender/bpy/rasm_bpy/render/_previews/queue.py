@@ -6,16 +6,17 @@ from enum import auto, Enum, IntEnum
 from functools import partial
 from operator import eq
 import time
-from typing import ClassVar, Final
+from typing import Annotated, ClassVar, Final
+import uuid
 
 import bpy
 from expression import Option, Result, Some
 import msgspec
 
-from rasm_bpy.data._extension.events import _updated
+from rasm_bpy.data._extension.events import updated
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration, Handler, Resource, Timer
-from rasm_bpy.render._outputs.results import _built, _INTERMEDIATES
+from rasm_bpy.render._outputs.results import built, INTERMEDIATES
 from rasm_bpy.ui._elements.panels import Preference
 from rasm_records import accumulated, ContentHash, Nothing, Ok, Outcome
 
@@ -45,8 +46,10 @@ type Feed = Callable[[Identity, bpy.types.Context], Outcome[tuple[Job, ...]]]
 class Budget(bpy.types.PropertyGroup):
     """Preview renders one queue step starts and the seconds within which it starts more than one."""
 
-    count: bpy.props.IntProperty(name="Renders per Step", description="Previews one queue step renders at most", min=1, soft_max=8, default=2)  # ty: ignore[invalid-type-form]
-    span: bpy.props.FloatProperty(name="Step Time", description="Seconds within which a queue step starts another render", subtype="TIME_ABSOLUTE", min=0.0, soft_max=1.0, default=0.25)  # ty: ignore[invalid-type-form]
+    count: Annotated[int, bpy.props.IntProperty(name="Renders per Step", description="Previews one queue step renders at most", min=1, soft_max=8, default=2)]
+    span: Annotated[
+        float, bpy.props.FloatProperty(name="Step Time", description="Seconds within which a queue step starts another render", subtype="TIME_ABSOLUTE", min=0.0, soft_max=1.0, default=0.25)
+    ]
 
 
 class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -136,8 +139,8 @@ class Demands[K: Hashable]:
 
     def demanded(self, slot: K, content: Option[ContentHash]) -> Hashable:
         """Holds current content's hash or a fresh opaque request key."""
-        self.held[slot] = key = content.default_with(object)
-        return key  # ty: ignore[unsound-return-statement]
+        self.held[slot] = key = content.default_with(uuid.uuid4)
+        return key
 
     def holds(self, slot: K, key: Hashable) -> bool:
         """Whether the slot still requests this content or opaque generation."""
@@ -219,11 +222,11 @@ class Latest[K: Hashable, R, V]:
 
             yield (
                 resource,
-                _INTERMEDIATES,
+                INTERMEDIATES,
                 *(Handler(handlers=handlers, body=lambda: cleared(lambda _request: True)) for handlers in (bpy.app.handlers.load_post, bpy.app.handlers.undo_post, bpy.app.handlers.redo_post)),
                 Handler(
                     handlers=bpy.app.handlers.depsgraph_update_post,
-                    body=partial(_updated, ids, lambda scene, _updates: Ok(None) if _INTERMEDIATES[identity] else cleared(lambda request: stale(request, scene))),
+                    body=partial(updated, ids, lambda scene, _updates: Ok(None) if INTERMEDIATES[identity] else cleared(lambda request: stale(request, scene))),
                 ),
             )
 
@@ -300,7 +303,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
         match context.window_manager:
             case bpy.types.WindowManager(is_interface_locked=False) as manager:
-                shifted = backlog.slot.map(lambda slot: _built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(value=False))
+                shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(value=False))
                 identity.reports.faulted(shifted.bind(lambda held: Ok(None) if held else stepped(manager)))
                 return Ok(Some(self.interval))
             case _:
@@ -323,7 +326,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             BACKLOG[identity].slot = Option.of_optional(image.render_slots.active_index)
             return Nothing
 
-        with identity.reports.deferred(lambda: _built("RENDER_RESULT").map(remembered)) as remember:
+        with identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)) as remember:
             yield (BACKLOG, self.preference, Timer(body=partial(self.ticked, identity)), Handler(handlers=bpy.app.handlers.render_complete, body=lambda: Ok(remember())))
 
 

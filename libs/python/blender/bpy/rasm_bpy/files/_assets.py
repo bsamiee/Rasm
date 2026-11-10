@@ -5,10 +5,10 @@ from contextlib import contextmanager, ExitStack
 from functools import partial
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import Annotated, Final, Protocol, Self, TYPE_CHECKING
+from typing import Annotated, Final, Never, Protocol, Self, TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
-from _bpy_internal.assets.remote_library.blender_asset_library_openapi import AssetLibraryMeta, CatalogV1, Contact  # ruff: ignore[import-private-name]
+from _bpy_internal.assets.remote_library.blender_asset_library_openapi import AssetLibraryMeta, CatalogV1  # ruff: ignore[import-private-name]
 from _bpy_internal.assets.remote_library.listing_asset_catalogs import _parse_catalog, write  # ty: ignore[import-not-found]  # ruff: ignore[import-private-name]
 import bpy
 from expression import Option, Result, Some, try_downcast
@@ -17,12 +17,14 @@ from expression.extra.result import catch
 import msgspec
 
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _Tier, Acquisitions
+from rasm_bpy.data._extension.registration import Acquisitions, Tier
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.ownership import _tracked
+from rasm_bpy.data._ids.ownership import tracked
+from rasm_bpy.data._rna.descriptors import Descriptor
+from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.snapshots import assigned
-from rasm_bpy.files._libraries import _blocks_loaded, _library_written, _listed
-from rasm_records import accumulated, committed, Error, Fault, folder_made, Nothing, Ok, Outcome, Reason
+from rasm_bpy.files._libraries import blocks_loaded, library_listing, sourced
+from rasm_records import accumulated, committed, Error, Fault, folder_made, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -30,11 +32,10 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _CatalogPath = Annotated[str, msgspec.Meta(pattern=r"\A(?!(?:.*/)?\.(?:/|\Z))[^:/\\\s]+(?:[ /][^:/\\\s]+)*\Z")]
-type _ImportMethod = rna_enums.AssetImportMethodItems
 
 
 class _Catalog(Protocol):
-    """Catalog row `_parse_catalog` returns, whose stub lacks its fields."""
+    """_Catalog row `_parse_catalog` returns, whose stub lacks its fields."""
 
     uuid: str
     path: PurePosixPath
@@ -54,7 +55,7 @@ _LOADS: Final[Mapping[str, Mapping[str, bool]]] = MappingProxyType({
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _AssetMark(msgspec.Struct, frozen=True, kw_only=True):
+class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
     """Asset metadata under extension key, an absent text member leaving the host's value in place."""
 
     key: Key
@@ -64,10 +65,10 @@ class _AssetMark(msgspec.Struct, frozen=True, kw_only=True):
     copyright: str | None = None
     license: str | None = None
     tags: frozenset[str] = frozenset()
-    method: Option[_ImportMethod] = Nothing
+    method: Option["rna_enums.AssetImportMethodItems"] = Nothing
 
     def __post_init__(self) -> None:
-        """Refuses a catalog path `CatalogPath` excludes, which direct construction otherwise leaves unchecked."""
+        """Refuses a catalog path `_CatalogPath` excludes, which direct construction leaves unchecked."""
         msgspec.convert(self.catalog, _CatalogPath)
 
     @staticmethod
@@ -81,7 +82,7 @@ class _AssetMark(msgspec.Struct, frozen=True, kw_only=True):
         Args:
             identity: Extension with manifest ID keying mark.
             block: ID to mark.
-            uid: Catalog UUID publication read or created.
+            uid: _Catalog UUID publication read or created.
 
         Returns:
             Marked block, absent fault for an unmarkable block, or faults per refused member write.
@@ -118,7 +119,7 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
     title: str
     folder: Key
-    method: Option[_ImportMethod] = Nothing
+    method: Option["rna_enums.AssetImportMethodItems"] = Nothing
 
     def located(self, identity: Identity) -> Path:
         """Returns library folder under extension user folder."""
@@ -126,7 +127,7 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Returns row acquisition."""
-        return ((_Tier.RESOURCES, self.acquired(identity)),)
+        return ((Tier.RESOURCES, self.acquired(identity)),)
 
     @contextmanager
     def acquired(self, identity: Identity) -> Generator[Outcome[None]]:
@@ -152,12 +153,11 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
                     .default_with(lambda: catch(rows.new, exception=RuntimeError)(name=self.title, directory=str(folder), extension_id=stamp).map_error(partial(Fault.of, Refusal.REFUSED, repr(rows))))
                     .bind(lambda row: Option.of_optional(try_downcast(bpy.types.PreferencesAssetLibrary, row)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rows), member=self.title)))
                 )
-                return _tracked(lifetime, rows.remove, found)
+                return tracked(lifetime, rows.remove, found)
 
-            preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
             yield (
-                folder_made(self.located(identity))
-                .bind(lambda folder: held(folder, preferences.filepaths.asset_libraries).map(lambda row: (folder, row)))
+                paired(folder_made(self.located(identity)), rooted(bpy.types.Preferences, bpy.context))
+                .bind(lambda pair: held(pair[0], pair[1].filepaths.asset_libraries).map(lambda row: (pair[0], row)))
                 .bind(lambda pair: assigned(pair[1], {("name",): self.title, ("path",): str(pair[0]), ("import_method",): self.method.default_value(pair[1].import_method)}))
             )
 
@@ -176,7 +176,15 @@ class _Publishing(msgspec.Struct, frozen=True, kw_only=True):
             with ExitStack() as clearing:
                 for block in self.fresh:
                     clearing.callback(block.asset_clear)
-                return _library_written(self.target, self.blocks, path_remap="RELATIVE_ALL", fake_user=True).map(lambda _: Nothing)
+                return (
+                    folder_made(self.target.parent)
+                    .bind(
+                        lambda _: catch(bpy.data.libraries.write, exception=OSError)(str(self.target), set(self.blocks), path_remap="RELATIVE_ALL", fake_user=True).map_error(
+                            partial(Fault.of, Reason.UNWRITABLE, str(self.target))
+                        )
+                    )
+                    .map(lambda _: Nothing)
+                )
 
         return Ok(Some(self)) if bpy.app.is_job_running("RENDER_PREVIEW") else written()
 
@@ -186,13 +194,15 @@ class _Publishing(msgspec.Struct, frozen=True, kw_only=True):
 # --- [PUBLICATION]
 
 
-def _text_faulted[**P, T](operation: Callable[P, T], /) -> Callable[P, Result[T, OSError | UnicodeError]]:
-    """Returns the file operation with its file and text encoding failures as its error."""
-    return catch(exception=UnicodeError)(catch(operation, exception=OSError))  # ty: ignore[invalid-return-type]
+def _text_called[T](step: Callable[[], T], /) -> Result[T, OSError | UnicodeError]:
+    """Runs one catalog file call, which raises for an unreadable or unwritable file and for text outside UTF-8."""
+    try:
+        return Result[Never, Never].Ok(step())
+    except (OSError, UnicodeError) as error:
+        return Error(error)
 
 
-@_text_faulted
-def _read(catalogs: Path) -> tuple[tuple[_Catalog, ...], frozenset[tuple[str, ...]]]:
+def _catalog_rows(catalogs: Path) -> tuple[tuple[_Catalog, ...], frozenset[tuple[str, ...]]]:
     """Returns the rows the host parser keeps from one catalog file and the UUID and path fields of each line beyond comments, a version or unparsable line whole, an absent file holding neither."""
     try:
         text = catalogs.read_text(encoding="utf-8")
@@ -203,15 +213,7 @@ def _read(catalogs: Path) -> tuple[tuple[_Catalog, ...], frozenset[tuple[str, ..
     return rows, frozenset(tuple(line.split(":", 2)[:2]) for line in lines if line and not line.startswith("#"))
 
 
-def _simple_name(path: str) -> str:
-    """Returns the simple name Blender derives for a catalog path, a name past the host field keeping its tail on a character boundary."""
-    field: bpy.types.StringProperty = bpy.types.AssetMetaData.bl_rna.properties["catalog_simple_name"]  # ty: ignore[invalid-assignment]
-    name, elided = path.replace("/", "-"), "..."
-    encoded = name.encode()
-    return name if len(encoded) < field.length_max - 1 else elided + encoded[len(elided) + 1 - field.length_max :].decode(errors="ignore")
-
-
-def _published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[bpy.types.ID, _AssetMark], ...], *, kept: bool = False) -> Outcome[Path]:
+def published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple[bpy.types.ID, AssetMark], ...], *, kept: bool = False) -> Outcome[Path]:
     """Marks blocks, merges the catalogs they add through the host catalog writer, and writes them into the library once their previews render.
 
     Args:
@@ -226,23 +228,25 @@ def _published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple
     """
     target, catalogs = folder / f"{stem}.blend", folder / "blender_assets.cats.txt"
     fresh = () if kept else tuple(block for block, _ in entries if block.asset_data is None)
+    limit = Descriptor.of(bpy.types.AssetMetaData, ("catalog_simple_name",), bpy.types.StringProperty).prop.length_max
 
     def catalogued(read: tuple[tuple[_Catalog, ...], frozenset[tuple[str, ...]]]) -> Outcome[Mapping[str, str]]:
         rows, declared = read
         held = {row.path.as_posix(): row.uuid for row in reversed(rows)}
         added = {path: str(uuid5(NAMESPACE_URL, f"{identity.manifest.id}/{path}")) for path in sorted({mark.catalog for _, mark in entries} - held.keys())}
+        simple = {path: name if len(encoded := name.encode()) < limit - 1 else f"...{encoded[4 - limit :].decode(errors='ignore')}" for path in added for name in (path.replace("/", "-"),)}
         merged = [
-            *(CatalogV1(path=row.path.as_posix(), uuids=[row.uuid], simple_name=row.simple_name) for row in rows),  # ty: ignore[unknown-argument]
-            *(CatalogV1(path=path, uuids=[uid], simple_name=_simple_name(path)) for path, uid in added.items()),  # ty: ignore[unknown-argument]
+            *(msgspec.convert({"path": row.path.as_posix(), "uuids": [row.uuid], "simple_name": row.simple_name}, CatalogV1) for row in rows),
+            *(msgspec.convert({"path": path, "uuids": [uid], "simple_name": simple[path]}, CatalogV1) for path, uid in added.items()),
         ]
-        meta = AssetLibraryMeta(api_versions={}, name=folder.name, contact=Contact(name=identity.manifest.name))  # ty: ignore[unknown-argument]
+        meta = msgspec.convert({"api_versions": {}, "name": folder.name, "contact": {"name": identity.manifest.name}}, AssetLibraryMeta)
 
         def staged(stage: Path) -> Outcome[object]:
             return (
-                _text_faulted(write)(merged, stage, meta)
-                .bind(lambda _: _read(stage))
+                _text_called(partial(write, merged, stage, meta))
+                .bind(lambda _: _text_called(partial(_catalog_rows, stage)))
                 .map_error(partial(Fault.of, Reason.UNWRITABLE, str(catalogs)))
-                .filter_with(lambda written: declared <= written[1], lambda written: Fault.of(Reason.UNREADABLE, str(catalogs), sorted(map(":".join, declared - written[1]))))
+                .filter_with(lambda found: declared <= found[1], lambda found: Fault.of(Reason.UNREADABLE, str(catalogs), sorted(map(":".join, declared - found[1]))))
             )
 
         return (committed(catalogs, staged) if added else Ok(catalogs)).map(lambda _: held | added)
@@ -254,21 +258,20 @@ def _published(identity: Identity, folder: Path, stem: str, entries: tuple[tuple
             .map(lambda _: target)
         )
 
-    return folder_made(folder).bind(lambda _: _read(catalogs).map_error(partial(Fault.of, Reason.UNREADABLE, str(catalogs)))).bind(catalogued).bind(marked)
+    return folder_made(folder).bind(lambda _: _text_called(partial(_catalog_rows, catalogs)).map_error(partial(Fault.of, Reason.UNREADABLE, str(catalogs)))).bind(catalogued).bind(marked)
 
 
 # --- [IMPORTS]
 
 
-def _loading(method: _ImportMethod, *, relative: bool) -> Mapping[str, bool]:
+def _loading(method: "rna_enums.AssetImportMethodItems", *, relative: bool) -> Mapping[str, bool]:
     """Returns the library load keywords of an asset import method, relative paths applying to links."""
     return {"relative": relative, **_LOADS[method]}
 
 
-def _essential() -> _ImportMethod:
+def _essential() -> Outcome["rna_enums.AssetImportMethodItems"]:
     """Returns Essentials import method for packing preference."""
-    preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
-    return "APPEND_REUSE" if preferences.experimental.no_data_block_packing else "PACK"
+    return rooted(bpy.types.Preferences, bpy.context).map(lambda preferences: "APPEND_REUSE" if preferences.experimental.no_data_block_packing else "PACK")
 
 
 def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T]) -> Outcome[T]:
@@ -285,7 +288,7 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
 
     def keywords(library: bpy.types.AssetLibrary) -> Outcome[Mapping[str, bool]]:
         if library.type in _ESSENTIALS:
-            return Ok(_loading(preferred.default_with(_essential), relative=True))
+            return preferred.map(Ok).default_with(_essential).map(lambda method: _loading(method, relative=True))
         return (
             Option
             .of_optional(library.user_library)
@@ -302,7 +305,7 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
                 .of_optional(asset.owner_asset_library)
                 .to_result_with(lambda: Fault.of(Reason.ABSENT, asset.full_path, member="owner_asset_library"))
                 .bind(keywords)
-                .bind(lambda load: _blocks_loaded(Path(asset.full_library_path), kind, (asset.name,), **load))
+                .bind(lambda load: blocks_loaded(Path(asset.full_library_path), kind, (asset.name,), **load))
                 .map(lambda blocks: blocks[0])
             )
 
@@ -323,23 +326,24 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     Returns:
         Imported block, absent fault for missing name.
     """
-    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # ty: ignore[unresolved-attribute, unsound-assignment]
+    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # ty: ignore[missing-attribute, unsound-assignment]
     root = Path(folder)
-    return (
+    found = (
         _blends(root)
         .map_error(partial(Fault.of, Reason.UNREADABLE, str(root)))
         .bind(
-            lambda paths: accumulated(_listed(path, kind, assets_only=True) for path in paths).bind(
+            lambda paths: accumulated(
+                sourced(bpy.data, path, lambda source: (library_listing(source, kind, path), {}), assets_only=True).bind(lambda answer: answer[0]).map(lambda listing: listing[1]) for path in paths
+            ).bind(
                 lambda listings: (
                     Block.of_seq(zip(paths, listings)).filter(lambda pair: name in pair[1]).map(lambda pair: pair[0]).try_head().to_result_with(lambda: Fault.of(Reason.ABSENT, str(root), member=name))
                 )
             )
         )
-        .bind(lambda path: _blocks_loaded(path, kind, (name,), **_loading(_essential(), relative=True)))
-        .map(lambda blocks: blocks[0])
     )
+    return paired(found, _essential()).bind(lambda pair: blocks_loaded(pair[0], kind, (name,), **_loading(pair[1], relative=True))).map(lambda blocks: blocks[0])
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["UserLibrary", "bundled", "imported"]
+__all__ = ["AssetMark", "UserLibrary", "bundled", "imported", "published"]

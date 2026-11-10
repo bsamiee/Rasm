@@ -7,10 +7,9 @@ import { getIamPolicyDocumentOutput, IamServiceAccount, Provider, S3Bucket } fro
 import { type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
 import { App } from '@rasm/hosting/app';
-import { nodeBundle } from '@rasm/hosting/node-bundle';
 import { Sites } from '@rasm/hosting/sites';
 import { Array, Cause, Config, Effect, Option, Predicate, Record, Redacted, Schema, Struct } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { run } from '#/command';
 import { postgresRoles } from '#/postgres-roles';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -33,8 +32,7 @@ const Composed = Schema.fromJsonString(Schema.Struct({ services: Schema.Record(S
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const docker = function* ({ app, mode, client, server }: Stack) {
-    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    const { services } = yield* Effect.flatMap(spawner.string(ChildProcess.make('docker', [...compose, 'config', '--format', 'json'])), Schema.decodeEffect(Composed));
+    const { services } = yield* Effect.flatMap(run('docker', [...compose, 'config', '--format', 'json']), Schema.decodeEffect(Composed));
     const service = (key: 'storage' | 'authelia' | 'postgres') => Effect.fromNullishOr(services[key]).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`infra/compose.yaml defines no ${key} service`)));
     const [email, storage, authelia] = yield* Effect.all([
         Record.get(app.env, 'OWNER_EMAIL').pipe(Option.filter(App.Binding.$is('text')), Effect.fromOption, Effect.mapBoth({ onFailure: () => new Cause.NoSuchElementError(`app ${app.name} declares no OWNER_EMAIL text`), onSuccess: Struct.get('value') })),
@@ -86,7 +84,7 @@ const docker = function* ({ app, mode, client, server }: Stack) {
             json: () => Effect.succeed({ envs: {}, volumes: [] }),
             sqlite: () => Effect.succeed({ envs: { [variable]: `/data/${variable}/database.sqlite` }, volumes: [volume(App.resource(app, mode, variable), `/data/${variable}`)] }),
             postgres: Effect.fnUntraced(function* () {
-                const [{ image, command = [], environment = {} }] = yield* Effect.all([service('postgres'), spawner.exitCode(ChildProcess.make('docker', [...compose, 'build', 'postgres']))]);
+                const [{ image, command = [], environment = {} }] = yield* Effect.all([service('postgres'), run('docker', [...compose, 'build', 'postgres'])]);
                 const database = App.resource(app, mode, variable);
                 const { result } = password(database);
                 const listen = 5432;
@@ -94,7 +92,7 @@ const docker = function* ({ app, mode, client, server }: Stack) {
                     listen,
                     probe: ['pg_isready', '-h', loopback, '-p', `${listen}`, '-U', 'postgres'],
                     command: [...command],
-                    envs: [interpolate`POSTGRES_PASSWORD=${result}`, ...Record.collect(Record.getSomes(Record.map(Struct.pick(environment, ['POSTGRES_INITDB_ARGS']), Option.fromNullOr)), (key, value) => `${key}=${value}`)],
+                    envs: [interpolate`POSTGRES_PASSWORD=${result}`, ...Record.collect(Record.filter(Struct.pick(environment, ['POSTGRES_INITDB_ARGS']), Predicate.isNotNull), (key, value) => `${key}=${value}`)],
                     volumes: [volume(database, '/var/lib/postgresql')],
                 });
                 return { envs: postgresRoles(database, variable, { ...address, password: result }, endpoint, production), volumes: [] };
@@ -113,10 +111,10 @@ const docker = function* ({ app, mode, client, server }: Stack) {
             buildOnPreview: false,
             tags: [`${name}:latest`],
             context: { location: server, named: { assets: { location: client } } },
-            dockerfile: { inline: pinned.apply((image) => [`FROM ${image}`, 'WORKDIR /app', `COPY --from=assets . ${nodeBundle.assets}`, 'COPY . .', `ENV ${nodeBundle.portVariable}=${port}`, `CMD ["node", "${nodeBundle.entry}.js"]`].join('\n')) },
+            dockerfile: { inline: pinned.apply((image) => [`FROM ${image}`, 'WORKDIR /app', `COPY --from=assets . ${App.bundle.assets}`, 'COPY . .', `ENV ${App.bundle.portVariable}=${port}`, `CMD ["node", "${App.bundle.entry}.js"]`].join('\n')) },
         }).digest,
         {
-            probe: ['node', '--input-type=module', '--eval', `const response = await fetch('http://${loopback}:${port}${nodeBundle.readiness}', { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(2000) }); if (response.status !== 204) throw new Error('HTTP ' + response.status);`],
+            probe: ['node', '--input-type=module', '--eval', `const response = await fetch('http://${loopback}:${port}${App.bundle.readiness}', { method: 'HEAD', redirect: 'manual', signal: AbortSignal.timeout(2000) }); if (response.status !== 204) throw new Error('HTTP ' + response.status);`],
             envs: parts.flatMap(({ envs }) => Record.collect(envs, (variable, value: Input<string>) => interpolate`${variable}=${value}`)),
             volumes: parts.flatMap(({ volumes }) => volumes),
         },
@@ -212,12 +210,11 @@ const hostingStack = Effect.fn('hostingStack')(function* (directory: string, val
             const { createBuilder } = yield* Effect.tryPromise(() => import('vite'));
             const builder = yield* Effect.tryPromise(() => createBuilder({ root: directory, mode: 'production', configLoader: 'native' }));
             yield* Effect.tryPromise(() => builder.buildApp());
-            const [client, server] = yield* Effect.all([Effect.fromOption(Record.get(builder.environments, 'client')), Effect.fromOption(Record.get(builder.environments, nodeBundle.environment))]);
+            const [client, server] = yield* Effect.all([Effect.fromOption(Record.get(builder.environments, 'client')), Effect.fromOption(Record.get(builder.environments, App.bundle.environment))]);
             return { client: join(builder.config.root, client.config.build.outDir), server: join(builder.config.root, server.config.build.outDir) };
         }).pipe(Effect.mapError((cause) => new Cause.UnknownError(cause, `Cannot build ${directory}`))),
     );
     return {
-        projectName: 'rasm-hosting',
         stackName: `${App.resource(app, mode)}.${value}`,
         program: Effect.flatMap(compiled, (built) => hostingValues[value]({ app, mode, ...built })),
     };

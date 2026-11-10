@@ -2,12 +2,23 @@ import type { Launching } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import { HostError } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
-import { Cause, Context, Effect, Fiber, Layer, Match, Result, Schema, Sink, Stream, SubscriptionRef } from 'effect';
+import type { Source } from '@rasm/typography';
+import { Cause, Context, Effect, Fiber, FileSystem, Layer, Match, Option, Path, Result, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
-import { AvailableFace } from '#/available-face';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+class AvailableFace extends Schema.Class<AvailableFace, { readonly brand: unique symbol }>('AvailableFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, displayName: Schema.String, file: Schema.URL }) {
+    static readonly Name = Schema.String.annotate({ description: 'PostScript name, full name, or family for default face, any case' });
+
+    get source() {
+        const { file, postscriptName } = this;
+        return Effect.gen(function* () {
+            const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            return { data: yield* files.readFile(yield* path.fromFileUrl(file)), postscriptName: Option.some(postscriptName) } satisfies typeof Source.Type;
+        });
+    }
+}
 const Helper = RpcGroup.make(Rpc.make('faces', { success: Schema.Array(AvailableFace) }), Rpc.make('face', { payload: { name: AvailableFace.Name }, success: AvailableFace, error: Unmatched }));
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -22,7 +33,6 @@ class Adobe extends Context.Service<Adobe>()('@rasm/atelier/adobe', {
             instances,
             installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult),
             exited: Effect.raceFirst(automation.exited, Effect.andThen(Fiber.joinAll([discovering, tracking]), automation.exited)),
-            opening: (toOpen: URL) => automation.opening(toOpen, {}),
             launched: (launch: Parameters<typeof automation.launch>[0]) =>
                 automation.launch(launch).pipe(
                     Stream.filterMapEffect(
@@ -51,4 +61,4 @@ const watch = Effect.fn('watch')(function* <A, E, R>(subject: string, changes: S
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Adobe };
+export { Adobe, AvailableFace };

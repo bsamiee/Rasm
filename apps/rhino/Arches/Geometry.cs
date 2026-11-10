@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino;
-using Rasm.Rhino.Modeling.Curves;
 
 namespace Arches;
 
@@ -18,8 +17,6 @@ internal sealed record ArchSpan {
         new Plane(baseline.From, baseline.Direction, Vector3d.CrossProduct(normal, baseline.Direction)) switch {
             var frame => ArchFault.Unless(frame.IsValid, ArchReason.Planeless, (baseline, normal)).Map(_ => new ArchSpan(baseline, frame)),
         };
-
-    public double Height(Point3d point) => (point - Midpoint) * Frame.YAxis;
 
     public Point3d Apex(double height) => Midpoint + (Frame.YAxis * height);
 }
@@ -164,13 +161,6 @@ internal static class ArchGeometry {
             new Arc(new Circle(new Plane(span.Baseline.To + (span.Frame.YAxis * quarter), span.Frame.XAxis, -span.Frame.YAxis), quarter), new Interval(double.Pi / 2, double.Pi)),
             new Arc(span.Frame, span.Baseline.PointAt(0.25) + (span.Frame.YAxis * quarter), span.Baseline.Length / 2, double.Pi / 3)));
     }
-
-    internal static IO<Seq<Curve>> Parabolic(ArchSpan span, Point3d apex) =>
-        Products.Many<Curve>(() => [NurbsCurve.CreateParabolaFromVertex(apex, span.Baseline.From, span.Baseline.To)]);
-
-    internal static IO<Seq<Curve>> Elliptical(ArchSpan span, Point3d apex) =>
-        new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex))
-            .ToNurbs(new Interval(0d, double.Pi)).Map(static curve => Seq<Curve>(curve));
 
     private static IO<Seq<Curve>> FourCentered(ArchSpan span, Plane frame, double haunchRadius, Point3d crown) {
         Point3d haunch = span.Baseline.To - (frame.XAxis * haunchRadius);

@@ -1,23 +1,18 @@
-use core::{
-    cell::{OnceCell, RefCell},
-    iter,
-    ops::ControlFlow,
-};
+use core::cell::{OnceCell, RefCell};
+use core::iter;
+use core::ops::ControlFlow;
 use std::rc::Rc;
 
-use clippy_utils::{SpanlessEq, visitors::for_each_expr_without_closures};
+use clippy_utils::SpanlessEq;
+use clippy_utils::visitors::for_each_expr_without_closures;
 use itertools::Itertools as _;
-use rustc_data_structures::{
-    fingerprint::Fingerprint,
-    fx::{FxBuildHasher, FxHashMap},
-    stable_hash::{StableHash as _, StableHasher},
-};
-use rustc_hir::{
-    AnonConst, BodyId, Expr, ExprKind, HirId, ItemId,
-    def::{CtorKind, DefKind, Res},
-    def_id::{DefId, LocalDefId},
-    intravisit::{self, Visitor as _},
-};
+use rustc_data_structures::fingerprint::Fingerprint;
+use rustc_data_structures::fx::{FxBuildHasher, FxHashMap};
+use rustc_data_structures::stable_hash::{StableHash as _, StableHasher};
+use rustc_hir::def::{CtorKind, DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::intravisit::{self, Visitor as _};
+use rustc_hir::{AnonConst, BodyId, Expr, ExprKind, HirId, ItemId};
 use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::LateContext;
 use rustc_middle::ty::{

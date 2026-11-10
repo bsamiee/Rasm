@@ -3,9 +3,9 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/rest_pattern_workspace_field.rs
 ---
 error: `..` covers `Window` fields the pattern leaves unnamed
-  --> tools/dylint/examples/rest_pattern_workspace_field.rs:37:9
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:38:9
    |
-37 |     let Window { start, .. } = window;
+38 |     let Window { start, .. } = window;
    |         ^^^^^^^^^^^^^^^^--^^
    |                         |
    |                         help: name each field `..` covers as `field: _`: `end: _, label: _`
@@ -14,35 +14,35 @@ error: `..` covers `Window` fields the pattern leaves unnamed
 applicability MachineApplicable: name each field `..` covers as `field: _`
 
 error: `..` covers `Drag` fields the pattern leaves unnamed
-  --> tools/dylint/examples/rest_pattern_workspace_field.rs:48:9
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:49:9
    |
-48 |         Gesture::Drag { from, .. } => from,
+49 |         Gesture::Drag { from, .. } => from,
    |         ^^^^^^^^^^^^^^^^^^^^^^--^^
    |                               |
    |                               help: name each field `..` covers as `field: _`: `to: _`
 applicability MachineApplicable: name each field `..` covers as `field: _`
 
 error: `..` covers `Pinch` fields the pattern leaves unnamed
-  --> tools/dylint/examples/rest_pattern_workspace_field.rs:49:9
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:50:9
    |
-49 |         Gesture::Pinch(first, ..) => first,
+50 |         Gesture::Pinch(first, ..) => first,
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: replace `..` with `_`
 
 error: `..` covers `Token` fields the pattern leaves unnamed
-  --> tools/dylint/examples/rest_pattern_workspace_field.rs:63:9
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:64:9
    |
-63 |     let sealed::Token { id, .. } = token;
+64 |     let sealed::Token { id, .. } = token;
    |         ^^^^^^^^^^^^^^^^^^^^-^^^
    |                             |
    |                             help: name each field `..` covers as `field: _`: `scope: _,`
 applicability MachineApplicable: name each field `..` covers as `field: _`
 
 error: `..` covers `Fields` fields the pattern leaves unnamed
-  --> tools/dylint/examples/rest_pattern_workspace_field.rs:97:9
+  --> tools/dylint/examples/rest_pattern_workspace_field.rs:98:9
    |
-97 |     let Fields { kept, .. } = fields;
+98 |     let Fields { kept, .. } = fields;
    |         ^^^^^^^^^^^^^^^--^^
    |                        |
    |                        help: name each field `..` covers as `field: _`: `r#type: _`

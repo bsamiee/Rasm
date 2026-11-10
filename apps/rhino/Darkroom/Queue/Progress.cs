@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Darkroom.Chain;
@@ -56,11 +57,20 @@ internal sealed record QueueProgress(
 
     public static IO<FileStream> Acquire(OutputPath path) => use(() => File.Open($"{(string)path}.lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None));
 
-    public static IO<Option<QueueProgress>> Read(OutputPath path) => FilePublication.Read(path, ProgressRecord.Info, static record => Fin.Succ(record.Progress));
+    public static IO<Option<QueueProgress>> Read(OutputPath path) => FilePublication.Read(path, ProgressRecord.Info, static record => Fin.Succ(new QueueProgress(
+        record.Job, record.ProcessId, record.ProcessStart, record.Retries, record.Delay, record.Ended, toHashMap(record.Entries.Map(static entry =>
+            (entry.Key, new EntryProgress(entry.Last, entry.Times, toHashMap(entry.Versions.Map(static row => (row.Scope, row.Number))))))))));
 
-    public static IO<Unit> Write(OutputPath path, QueueProgress progress) => FilePublication.Write(path, ProgressRecord.Of(progress), ProgressRecord.Info);
-
-    public static IO<Unit> Touch(OutputPath path, TimeProvider clock) => IO.lift(() => File.SetLastWriteTimeUtc(path, clock.GetUtcNow().UtcDateTime));
+    public static IO<Unit> Write(OutputPath path, QueueProgress progress) =>
+        FilePublication.Write(
+            path,
+            new ProgressRecord(progress.Job, progress.ProcessId, progress.ProcessStart, progress.Retries, progress.Delay, progress.Ended,
+                [.. progress.Entries.AsIterable().Map(static row => new ProgressRecord.Entry(
+                    row.Key,
+                    row.Value.Last,
+                    row.Value.Times,
+                    [.. row.Value.Versions.AsIterable().Map(static version => new ProgressRecord.Version(version.Key, version.Value))]))]),
+            ProgressRecord.Info);
 
     public static IO<QueueProgress> Started(Option<string> job, RenderBatch batch, Option<QueueProgress> resumed, QueueSettings settings) =>
         (from self in use(Process.GetCurrentProcess)
@@ -103,17 +113,6 @@ internal sealed record ProgressRecord(Option<string> Job, int ProcessId, Instant
 
     internal sealed record Version(Seq<NamePart> Scope, OutputVersion Number);
 
-    internal QueueProgress Progress =>
-        new(Job, ProcessId, ProcessStart, Retries, Delay, Ended, toHashMap(Entries.Map(static entry =>
-            (entry.Key, new EntryProgress(entry.Last, entry.Times, toHashMap(entry.Versions.Map(static row => (row.Scope, row.Number))))))));
-
-    internal static ProgressRecord Of(QueueProgress progress) =>
-        new(progress.Job, progress.ProcessId, progress.ProcessStart, progress.Retries, progress.Delay, progress.Ended,
-            [.. progress.Entries.AsIterable().Map(static row => new Entry(
-                row.Key,
-                row.Value.Last,
-                row.Value.Times,
-                [.. row.Value.Versions.AsIterable().Map(static version => new Version(version.Key, version.Value))]))]);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -153,7 +152,7 @@ internal static partial class QueueRuns {
         error.Is(Errors.Cancelled) || error.AsIterable().Exists(static cause => cause is RhinoFault fault && fault.Reason == RhinoReason.Exited);
 
     private static IO<ForkIO<Unit>> Heartbeat(QueueContext context, QueueHeartbeat heartbeat) =>
-        use(QueueProgress.Touch(context.Record, context.Clock)
+        use(IO.lift(() => File.SetLastWriteTimeUtc(context.Record, context.Clock.GetUtcNow().UtcDateTime))
             .Catch(static error => IO.lift(() => Session.Failed(error)))
             .As()
             .Repeat(Schedule.spaced(heartbeat.Interval.ToTimeSpan()))
@@ -261,12 +260,12 @@ internal static partial class QueueRuns {
 
     private static IO<Unit> Frame(RunScope scope, QueueEntry<OutputPath> entry, OverscanFrame rendered, SequenceNumber frame) =>
         from started in IO.lift(scope.Context.Clock.GetTimestamp)
-        from lit in entry.Moment(frame).Traverse(moment => RenderSettingsSources.Edit(new RenderSettingsSource.Live(scope.Doc), held =>
+        from lit in entry.Queued.Sun.Bind(window => window.Frames.At((int)frame)).Traverse(moment => RenderSettingsSources.Edit(new RenderSettingsSource.Live(scope.Doc), held =>
             (from sun in use(() => held.Settings.Sun)
              from site in IO.lift(SunSite.Read(sun))
              from set in site.SetDateTime(sun, moment)
              select set).Bracket())).As()
-        from framing in ChainScene.Sourced(scope.Doc, rendered.Padded, entry.Frames.Time(frame))
+        from framing in ChainScene.Sourced(scope.Doc, rendered.Padded, entry.Frames.Named(frame).Map(static number => Duration.FromSeconds((int)number / 24d)))
         from launched in Documents.RunScript(scope.Doc, $"_-{RenderCommand}", echo: false, display: None)
         from heard in scope.Heard.ValueIO
         let lost = new DarkroomFault(frame, DarkroomReason.Unsaved, Expression: "frame")
@@ -297,7 +296,7 @@ internal static partial class QueueRuns {
         from written in QueueProgress.Write(scope.Context.Record, record)
         from now in IO.lift(scope.Context.Clock.GetCurrentInstant)
         from estimate in IO.lift(() => QueueEstimate.Running(scope.Batch, record, now).Description(scope.Context.Clock.ToZonedClock().Zone))
-        let stages = timing.Stages(scope.Context.Clock)
+        let stages = string.Join(", ", toSeq(FrameStage.Items).Map(stage => string.Create(CultureInfo.InvariantCulture, $"{stage.Key} {stage.Of(timing, scope.Context.Clock):-H:mm:ss.fff}")))
         let frame = (int)timing.Frame
         from logged in IO.lift(() => Rendered(Session.Logger, frame, stages, timing.PeakWorkingSet, estimate))
         select unit;

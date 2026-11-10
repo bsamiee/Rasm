@@ -19,9 +19,9 @@ from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._rna.descriptors import Descriptor
 from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.snapshots import Applied, Snapshot
-from rasm_bpy.render._view_layers.passes import _listed, _spread, _used
+from rasm_bpy.render._view_layers.passes import layer_listing, spread, used
 from rasm_bpy.settings._presets import Preset
-from rasm_bpy.ui._layout.rows import _realized, ConditionalRow, OperatorButton, RowDraw
+from rasm_bpy.ui._layout.rows import ConditionalRow, OperatorButton, realized, RowDraw
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Listing
 from rasm_records import accumulated, Error, Fault, Faults, Name, Ok, Outcome, paired, Reason
@@ -67,16 +67,16 @@ class _Freestyle(msgspec.Struct, frozen=True, kw_only=True):
 class _FreestyleRow(ConditionalRow, frozen=True):
     """Row of Freestyle presets and copy button."""
 
-    preset: ClassVar[Preset[_Freestyle]] = Preset(key="freestyle", form=_Freestyle)
+    preset: ClassVar[Preset[_Freestyle]] = Preset(key="freestyle", decoder=msgspec.json.Decoder(_Freestyle))
     ownership: ClassVar[Ownership[bpy.types.FreestyleLineStyle]] = Ownership(kind=bpy.types.FreestyleLineStyle, key="linestyle", saved=Saved.USED, single=False)
 
     def listing(self, identity: Identity) -> Listing[_Freestyle]:
         """Returns Freestyle presets over the context layer, applied to every used layer."""
-        return _listed(self.preset, _captured, operator.eq, partial(_applied, identity))
+        return layer_listing(self.preset, _captured, operator.eq, partial(_applied, identity))
 
     def drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Draws preset listing and copy button."""
-        return _realized((self.listing(identity), OperatorButton(target=freestyle_copy)), identity)
+        return realized((self.listing(identity), OperatorButton(target=freestyle_copy)), identity)
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns preset listing, copy operator, and line style ownership."""
@@ -171,8 +171,8 @@ def freestyle_copy(call: Call[Empty]) -> Outcome[Answer]:
     return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], Faults].bind(
         paired(rooted(bpy.types.Scene, call.context), rooted(bpy.types.ViewLayer, call.context)),
         lambda pair: _captured(pair[1]).bind(
-            lambda value: _spread(
-                value, tuple(layer for layer in _used(pair[0]) if layer != pair[1]), _captured, operator.eq, partial(_applied, call.identity), "Used view layers match Freestyle settings"
+            lambda value: spread(
+                value, tuple(layer for layer in used(pair[0]) if layer != pair[1]), _captured, operator.eq, partial(_applied, call.identity), "Used view layers match Freestyle settings"
             )
         ),
     )

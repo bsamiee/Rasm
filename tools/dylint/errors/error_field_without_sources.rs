@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, source::walk_span_to_context};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::source::walk_span_to_context;
 use rustc_hir::Expr;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::TyCtxt;

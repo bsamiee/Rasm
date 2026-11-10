@@ -8,8 +8,6 @@ rule:
         - not: {has: {kind: 'string_fragment, escape_sequence'}}
         - has: {kind: template_substitution, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {pattern: $VALUE}}
         - not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: *code}}}
-        - any:
-            - inside: {kind: member_expression, field: object}
-            - inside: {kind: template_substitution}
+        - inside: {kind: member_expression, field: object}
 message: '`$TEMPLATE` converts `$VALUE` to a string through a template'
-note: 'Substitute `<value>` itself in the template that reads it, or call the value''s own `toString`'
+note: 'Call the value''s own `toString`'

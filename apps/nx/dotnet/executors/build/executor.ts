@@ -3,7 +3,7 @@ import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { Array, Console, Effect, Equal, FileSystem, flow, Option, Path, Predicate, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { dotnet } from '#/plugins/project-graph';
+import { dotnet } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ const HEX = 16;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Build = Schema.Struct({ project: Schema.String, command: Schema.NonEmptyArray(Schema.String), args: Schema.optionalKey(Schema.Array(Schema.String)) });
-const Results = Schema.fromJsonString(Schema.Struct({ TargetResults: Schema.Struct({ Dispatch: Schema.Struct({ Items: Schema.Array(Schema.Struct({ Identity: Schema.String })) }) }) }));
+const Results = Schema.fromJsonString(Schema.Struct({ Items: Schema.Struct({ Built: Schema.Array(Schema.Struct({ Identity: Schema.String })) }) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -26,12 +26,12 @@ const traversal = (projects: readonly string[]) => {
     return Stream.fromIterable(
         element(
             'Project',
-            { DefaultTargets: 'Dispatch' },
+            {},
             element('Import', { Project: '$(MSBuildToolsPath)/NuGet.targets' }),
             element('ItemGroup', {}, ...projects.flatMap((project) => [element('RestoreGraphProjectInputItems', { Include: escaped(project) }), element('Selected', { Include: '$(MSBuildThisFileFullPath)', AdditionalProperties: `Selected=${escaped(project)}` })])),
             element('PropertyGroup', {}, element('Requested', {}, [{ _tag: 'Text', text: 'Build' }]), element('Requested', { Condition: "'$(_IsPublishing)' == 'true'" }, [{ _tag: 'Text', text: 'Publish' }])),
             element('Target', { Name: 'Publish', DependsOnTargets: 'Dispatch' }),
-            element('Target', { Name: 'Dispatch', Returns: '@(Built)' }, element('MSBuild', { Projects: '@(Selected)', Targets: 'Selected', BuildInParallel: 'true' }, element('Output', { TaskParameter: 'TargetOutputs', ItemName: 'Built' }))),
+            element('Target', { Name: 'Dispatch' }, element('MSBuild', { Projects: '@(Selected)', Targets: 'Selected', BuildInParallel: 'true' }, element('Output', { TaskParameter: 'TargetOutputs', ItemName: 'Built' }))),
             element(
                 'Target',
                 { Name: 'Selected', Returns: '@(Built)' },
@@ -48,8 +48,8 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     const projects = Array.map(group, ([, { project }]) => path.resolve(root, project));
     const file = path.join(yield* fs.makeTempDirectoryScoped(), 'batch.proj');
     yield* fs.writeFileString(file, yield* traversal(projects));
-    const run = yield* dotnet([Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), '-getTargetResult:Dispatch', ...(args ?? [])], root);
-    const succeeded = Option.map(Schema.decodeOption(Results)(run.stdout), ({ TargetResults }) => new Set(TargetResults.Dispatch.Items.map(({ Identity }) => Identity)));
+    const run = yield* dotnet([Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), '-t:Dispatch', '-getItem:Built', ...(args ?? [])], root);
+    const succeeded = Option.map(Schema.decodeOption(Results)(run.stdout), ({ Items }) => new Set(Items.Built.map(({ Identity }) => Identity)));
     const lines = run.stderr.split('\n');
     return Array.map(Array.zip(group, projects), ([[id], project]): readonly [string, TaskResult] => {
         const success = Option.exists(succeeded, (set) => set.has(project));

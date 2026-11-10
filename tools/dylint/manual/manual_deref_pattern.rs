@@ -1,14 +1,13 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    paths::PathNS,
-    res::{MaybeDef as _, MaybeTypeckRes as _},
-    sugg::Sugg,
-    sym,
-    ty::{implements_trait, option_arg_ty},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeTypeckRes as _};
+use clippy_utils::sugg::Sugg;
+use clippy_utils::sym;
+use clippy_utils::ty::{implements_trait, option_arg_ty};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::Applicability;
-use rustc_hir::{BorrowKind, Expr, ExprKind, LetStmt, MatchSource, Mutability, UnOp, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{BorrowKind, Expr, ExprKind, LetStmt, MatchSource, Mutability, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{Ty, TyCtxt};
 

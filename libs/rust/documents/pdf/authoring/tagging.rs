@@ -1,10 +1,8 @@
 use core::{iter, mem};
 use std::sync::Arc;
 
-use krilla::{
-    surface::Surface,
-    tagging::{ContentTag, Identifier, Node, Tag, TagGroup},
-};
+use krilla::surface::Surface;
+use krilla::tagging::{ContentTag, Identifier, Node, Tag, TagGroup};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

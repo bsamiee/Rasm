@@ -23,6 +23,7 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@rasm/nx-devkit": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

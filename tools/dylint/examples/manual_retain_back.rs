@@ -1,4 +1,5 @@
-use core::{cell::Cell, hint::black_box};
+use core::cell::Cell;
+use core::hint::black_box;
 use std::collections::VecDeque;
 
 // --- [TYPES] ---------------------------------------------------------------------------

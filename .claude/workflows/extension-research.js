@@ -57,7 +57,7 @@ const KEY = args?.key
 const PLANNING = args?.mode === 'plan'
 const table = PLANNING ? PLANS : NOTES
 if (![undefined, 'plan'].includes(args?.mode) || !Object.hasOwn(table, KEY)) throw new Error(`args take key (${Object.keys(NOTES).join(', ')}) or mode plan with key (${Object.keys(PLANS).join(', ')}), got ${JSON.stringify(args ?? null)}`)
-const SCRATCH = `${WORKFLOWS}/extension-research/${PLANNING ? 'plan-' : ''}${KEY}`
+const SCRATCH = `${WORKFLOWS}/extension-research/${PLANNING ? `plan-${KEY}` : KEY}`
 const BASE = `${SCRATCH}/base`
 const NOTE_PATHS = Object.keys(NOTES).map((name) => `${DIR}/${name}.md`)
 const BASIS = `Load Skill(clean-prose) first and read ${COMPANION} for extension method, levels and the file owning each fact.`
@@ -90,7 +90,7 @@ const research = async () => {
   const [scope, evidence] = NOTES[KEY]
   const note = `${DIR}/${KEY}.md`
   const packages = `${DIR}/packages.md`
-  const basis = `${BASIS} ${DEPTH}\nNote: ${note}. Scope: ${scope}.${evidence.length > 0 ? ` Evidence: ${evidence.join(', ')}.` : ''} Fetched files go under ${SCRATCH}/sources.`
+  const basis = `${BASIS} ${DEPTH}\n${[`Note: ${note}.`, `Scope: ${scope}.`, ...(evidence.length > 0 ? [`Evidence: ${evidence.join(', ')}.`] : []), `Fetched files go under ${SCRATCH}/sources.`].join(' ')}`
   phase('Research')
   const principles = await once(`${basis}
 Researcher, principles. Copy ${note} and ${packages} into ${BASE} before any edit. Read ${note} whole, the evidence, and the notes owning neighboring scopes (${NOTE_PATHS.filter((path) => path !== note).join(', ')}).
@@ -117,15 +117,19 @@ const plan = async () => {
   const folders = rows.map((row) => `${REPO}/libs/typescript/${row}`)
   const basis = `${BASIS}\nPlan domain: ${KEY}, rows ${rows.join(', ')}.`
   phase('Read')
-  const mapped = await once(`${evidence.length === 0 ? '' : `List every file under ${evidence.join(', ')} with its size in bytes, and every ${HOST}/products/<family>/<product>/rebuilt folder of the same families with no distilled folder for its product.
-Group the files by the product or concern they hold, each group what one reader reads whole at full depth: one product's files together, a product more than one reader holds split by its top-level folders.
-`}Edit nothing. Return (structured) the groups as absolute paths, and as code the folders of ${folders.join(', ')} that exist.`, { label: 'map', phase: 'Read', schema: { type: 'object', properties: { groups: { type: 'array', items: PATHS }, code: PATHS }, required: ['groups', 'code'] } })
+  const mapped = await once([
+    ...(evidence.length === 0 ? [] : [
+      `List every file under ${evidence.join(', ')} with its size in bytes, and every ${HOST}/products/<family>/<product>/rebuilt folder of the same families with no distilled folder for its product.`,
+      'Group the files by the product or concern they hold, each group what one reader reads whole at full depth: one product\'s files together, a product more than one reader holds split by its top-level folders.',
+    ]),
+    `Edit nothing. Return (structured) the groups as absolute paths, and as code the folders of ${folders.join(', ')} that exist.`,
+  ].join('\n'), { label: 'map', phase: 'Read', schema: { type: 'object', properties: { groups: { type: 'array', items: PATHS }, code: PATHS }, required: ['groups', 'code'] } })
   if (!mapped || (evidence.length > 0 && mapped.groups.length === 0)) throw new Error(`map agent grouped no evidence for ${KEY}`)
   const code = mapped.code
   const groups = [...mapped.groups, [...sources, ...code]]
   log(`reader groups for ${KEY}: ${groups.length}`)
   const read = await parallel(groups.map((paths, index) => () => once(`${basis}
-Reader over ${paths.join(', ')}: read them whole${code.length > 0 ? `, and ${code.join(', ')} where the capability may already exist` : ''}.
+Reader over ${paths.join(', ')}: ${code.length > 0 ? `read them whole, and ${code.join(', ')} where the capability may already exist` : 'read them whole'}.
 Write ${found}/${index + 1}.md: one line per capability the files hold or their principles imply beyond any one product, stating the capability, the one relation or parameterized operation behind it and the functions that become its uses, its level, the host mechanism it runs on, the product values a caller passes, its evidence paths, the member of a ${DIR}/packages.md package that states it, read from the package source at its catalog release, or the hand code it needs, what the rows' code holds of it, and the host proof it waits on. Edit nothing else. Return the line count.`, { label: `read:${KEY}:${index + 1}`, phase: 'Read', model: 'opus' })))
   const capability = groups.map((_, index) => `${found}/${index + 1}.md`).filter((_, index) => read[index])
   const unread = groups.filter((_, index) => !read[index]).flat()

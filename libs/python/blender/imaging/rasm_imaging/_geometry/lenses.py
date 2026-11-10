@@ -12,7 +12,7 @@ import numpy.typing as npt
 from scipy.integrate import quad_vec
 
 from rasm_imaging._geometry.arithmetic import Elementwise, Namespace, smoothstep
-from rasm_imaging._geometry.panoramas import _shares, ImagePoint
+from rasm_imaging._geometry.panoramas import ImagePoint, shares
 from rasm_records import Bearing, Positive, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -180,7 +180,7 @@ class Radial[V: Elementwise](msgspec.Struct, frozen=True, kw_only=True):
     def to_rectilinear[B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps lens positions to rectilinear samples, covering the real branch alone."""
         s, t, coverage = point
-        across, up, (width, height) = s - 0.5, t - 0.5, _shares(self.aspect)
+        across, up, (width, height) = s - 0.5, t - 0.5, shares(self.aspect)
         strength = ns.sqrt(ns.abs(self.distortion)) * self.scale * 4.0
         radius = ns.hypot(across * strength * width, up * strength * height)
         pincushion = ns.less(self.distortion, 0.0)
@@ -192,7 +192,7 @@ class Radial[V: Elementwise](msgspec.Struct, frozen=True, kw_only=True):
     def to_lens[B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps rectilinear positions to lens samples on the forward map's inverse branch."""
         s, t, coverage = point
-        across, up, (width, height) = s - 0.5, t - 0.5, _shares(self.aspect)
+        across, up, (width, height) = s - 0.5, t - 0.5, shares(self.aspect)
         strength = ns.sqrt(ns.abs(self.distortion)) * 2.0
         radius = ns.hypot(across * strength * width, up * strength * height)
         barrel = ns.greater_equal(self.distortion, 0.0)

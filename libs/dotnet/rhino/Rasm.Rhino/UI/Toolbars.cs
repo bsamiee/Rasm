@@ -61,9 +61,7 @@ public sealed partial class MacroEntry {
 [SmartEnum]
 public sealed partial class ScriptWord {
     public static readonly ScriptWord Named = new(static value => $"_{value}");
-    public static readonly ScriptWord Quoted = new(static value => $"""
-        "{value}"
-        """);
+    public static readonly ScriptWord Quoted = new(static value => $"\"{value}\"");
 
     [UseDelegateFromConstructor]
     public partial string Written(string value);

@@ -74,31 +74,6 @@ utils:
             - matches: conditional
               not: {matches: consuming-match}
             - matches: nested-block
-    else-branch:
-        kind: if_expression
-        all:
-            - has: {field: condition, not: {kind: let_chain}}
-            - has:
-                field: alternative
-                kind: else_clause
-                has:
-                    kind: block
-                    any:
-                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: rust-non-item-statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
-                        - pattern: $X
-    guard-foldable-arm:
-        kind: match_arm
-        all:
-            - has:
-                field: value
-                any:
-                    - matches: else-branch
-                    - kind: block
-                      all:
-                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
-                        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
-            - precedes: {kind: match_arm, all: [{has: {field: pattern, regex: '^_$'}}, {has: {field: value, pattern: $X}}]}
-            - not: {matches: rust-else-reads-arm-binding}
     nesting-branch:
         any:
             - matches: valued-if
@@ -108,7 +83,7 @@ utils:
                 - has: {field: alternative, has: {kind: block, matches: nested-match-block}}
                 - has: {field: alternative, has: {kind: if_expression, matches: nesting-branch}}
             - kind: match_expression
-              has: {field: body, has: {kind: match_arm, all: [{has: {field: value, matches: nested-value}}, {not: {matches: guard-foldable-arm}}]}}
+              has: {field: body, has: {kind: match_arm, all: [{has: {field: value, matches: nested-value}}, {not: {matches: rust-guard-foldable-arm}}]}}
     body-tail:
         kind: expression_statement
         all:

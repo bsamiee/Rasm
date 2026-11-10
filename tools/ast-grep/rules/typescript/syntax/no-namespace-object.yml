@@ -8,7 +8,7 @@ utils:
             - kind: lexical_declaration
               has: {kind: variable_declarator, all: [{has: {field: name, pattern: $MEMBER}}, {has: {field: value, kind: 'arrow_function, function_expression'}}]}
     forwarded:
-        kind: shorthand_property_identifier
+        kind: 'shorthand_property_identifier, identifier'
         pattern: $MEMBER
         inside: {kind: program, stopBy: end, has: {any: [{matches: module-function}, {kind: export_statement, has: {matches: module-function}}]}}
     function-object:
@@ -16,12 +16,12 @@ utils:
         all:
             - not: {has: {stopBy: end, kind: this}}
             - not: {has: {kind: method_definition, has: {regex: '^(get|set)$', not: {kind: property_identifier}}}}
-            - has: {any: [{kind: method_definition}, {kind: pair, has: {field: value, kind: 'arrow_function, function_expression, call_expression, new_expression'}}, {matches: forwarded}]}
+            - has: {any: [{kind: method_definition}, {kind: pair, has: {field: value, any: [{kind: 'arrow_function, function_expression'}, {kind: identifier, matches: forwarded}]}}, {kind: shorthand_property_identifier, matches: forwarded}]}
             - not: {has: {kind: pair, has: {field: key, kind: 'string, number, computed_property_name'}}}
             - not: {has: {kind: spread_element}}
             - any:
                 - not: {has: {kind: pair, has: {field: value, kind: 'string, template_string, number, true, false, null, undefined, regex, array'}}}
-                - has: {matches: forwarded}
+                - has: {kind: shorthand_property_identifier, matches: forwarded}
 rule:
     kind: variable_declarator
     all:

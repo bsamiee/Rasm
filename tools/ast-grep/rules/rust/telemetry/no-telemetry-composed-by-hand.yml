@@ -18,7 +18,7 @@ utils:
                     - has: {field: value, kind: identifier, pattern: $BUILDER}
                     - inside: {kind: block, stopBy: end, has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $BUILDER}}, {has: {field: value, matches: tracer-builder}}]}}
     qualified-install:
-        regex: '^(::)?(tracing::)?(subscriber|dispatcher)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init(_with_filter)?$|(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$|(^|::)panic::(set_hook|take_hook)$'
+        regex: '^(::)?(tracing::)?(subscriber|dispatcher)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init$|(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$|(^|::)panic::(set_hook|take_hook)$'
     module-alias:
         kind: identifier
         matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?(tracing|opentelemetry|std)::'}}, name: {regex: '^(subscriber|dispatcher|global|panic)$'}}}

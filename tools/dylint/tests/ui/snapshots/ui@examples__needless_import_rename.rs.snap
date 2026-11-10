@@ -2,76 +2,129 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/needless_import_rename.rs
 ---
-error: `map_or` replaces `Error` with a fallback value
-   --> tools/dylint/examples/needless_import_rename.rs:137:42
+error: `shown` passes its parameters unchanged to `std::string::ToString::to_string`
+  --> tools/dylint/examples/needless_import_rename.rs:42:1
+   |
+42 | fn shown(value: &dyn format::Display) -> String { value.to_string() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/needless_import_rename.rs:42:51
+   |
+42 | fn shown(value: &dyn format::Display) -> String { value.to_string() }
+   |                                                   ^^^^^^^^^^^^^^^^^
+   = help: call `std::string::ToString::to_string` at each call site of `shown` and delete `shown`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `parameter_shadow` passes its parameters unchanged to `std::mem::drop`
+  --> tools/dylint/examples/needless_import_rename.rs:72:1
+   |
+72 | fn parameter_shadow(drop: String) { discard(drop); }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/needless_import_rename.rs:72:37
+   |
+72 | fn parameter_shadow(drop: String) { discard(drop); }
+   |                                     ^^^^^^^^^^^^^
+   = help: call `std::mem::drop` at each call site of `parameter_shadow` and delete `parameter_shadow`
+
+error: `nested_shadow::consume` passes its parameters unchanged to `std::mem::drop`
+   --> tools/dylint/examples/needless_import_rename.rs:119:5
     |
-137 |     let rendered = rendered(&Map::new()).map_or(0, |text| text.len());
+119 |     fn consume(value: String) { dismiss(value); }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/needless_import_rename.rs:119:33
+    |
+119 |     fn consume(value: String) { dismiss(value); }
+    |                                 ^^^^^^^^^^^^^^
+    = help: call `std::mem::drop` at each call site of `nested_shadow::consume` and delete `nested_shadow::consume`
+
+error: `nested_local_shadow::consume` passes its parameters unchanged to `std::mem::drop`
+   --> tools/dylint/examples/needless_import_rename.rs:126:5
+    |
+126 |     fn consume(value: String) { release(value); }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/needless_import_rename.rs:126:33
+    |
+126 |     fn consume(value: String) { release(value); }
+    |                                 ^^^^^^^^^^^^^^
+    = help: call `std::mem::drop` at each call site of `nested_local_shadow::consume` and delete `nested_local_shadow::consume`
+
+error: `map_or` replaces `Error` with a fallback value
+   --> tools/dylint/examples/needless_import_rename.rs:134:42
+    |
+134 |     let rendered = rendered(&Map::new()).map_or(0, |text| text.len());
     |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
     = note: `#[deny(discarded_error)]` on by default
 
 error: `UnsafeCell` renamed to `Cell` with no other `UnsafeCell` in scope
- --> tools/dylint/examples/needless_import_rename.rs:2:5
+ --> tools/dylint/examples/needless_import_rename.rs:1:5
   |
-2 |     cell::UnsafeCell as Cell,
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+1 | use core::cell::UnsafeCell as Cell;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = help: remove `as Cell` and name `UnsafeCell` at each use
   = note: `#[deny(needless_import_rename)]` on by default
 
 error: `Reverse` renamed to `Flipped` with no other `Reverse` in scope
- --> tools/dylint/examples/needless_import_rename.rs:3:11
+ --> tools/dylint/examples/needless_import_rename.rs:2:17
   |
-3 |     cmp::{Reverse as Flipped, *},
-  |           ^^^^^^^^^^^^^^^^^^
+2 | use core::cmp::{Reverse as Flipped, *};
+  |                 ^^^^^^^^^^^^^^^^^^
   |
   = help: remove `as Flipped` and name `Reverse` at each use
 
 error: `fmt` renamed to `format` with no other `fmt` in scope
- --> tools/dylint/examples/needless_import_rename.rs:4:11
+ --> tools/dylint/examples/needless_import_rename.rs:3:17
   |
-4 |     fmt::{self as format, Error, Write as _},
-  |           ^^^^^^^^^^^^^^
+3 | use core::fmt::{self as format, Error, Write as _};
+  |                 ^^^^^^^^^^^^^^
   |
   = help: remove `as format` and name `fmt` at each use
 
 error: `take` renamed to `taken` with no other `take` in scope
- --> tools/dylint/examples/needless_import_rename.rs:6:28
+ --> tools/dylint/examples/needless_import_rename.rs:5:34
   |
-6 |     mem::{drop as discard, take as taken},
-  |                            ^^^^^^^^^^^^^
+5 | use core::mem::{drop as discard, take as taken};
+  |                                  ^^^^^^^^^^^^^
   |
   = help: remove `as taken` and name `take` at each use
 
 error: `BTreeMap` renamed to `Map` with no other `BTreeMap` in scope
-  --> tools/dylint/examples/needless_import_rename.rs:14:5
-   |
-14 |     collections::BTreeMap as Map,
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: remove `as Map` and name `BTreeMap` at each use
+ --> tools/dylint/examples/needless_import_rename.rs:7:5
+  |
+7 | use std::collections::BTreeMap as Map;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: remove `as Map` and name `BTreeMap` at each use
 
 error: `Arc` renamed to `Shared` with no other `Arc` in scope
-  --> tools/dylint/examples/needless_import_rename.rs:18:5
+  --> tools/dylint/examples/needless_import_rename.rs:15:5
    |
-18 |     sync::Arc as Shared,
-   |     ^^^^^^^^^^^^^^^^^^^
+15 | use std::sync::Arc as Shared;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: remove `as Shared` and name `Arc` at each use
 
 error: `Duration` renamed to `Span` with no other `Duration` in scope
-  --> tools/dylint/examples/needless_import_rename.rs:55:9
+  --> tools/dylint/examples/needless_import_rename.rs:51:9
    |
-55 |     use core::time::Duration as Span;
+51 |     use core::time::Duration as Span;
    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: remove `as Span` and name `Duration` at each use
 
 error: `take` renamed to `removed` with no other `take` in scope
-   --> tools/dylint/examples/needless_import_rename.rs:113:9
+   --> tools/dylint/examples/needless_import_rename.rs:110:9
     |
-113 |     use core::mem::take as removed;
+110 |     use core::mem::take as removed;
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: remove `as removed` and name `take` at each use

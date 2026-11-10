@@ -4,7 +4,9 @@ extern crate std as host;
 
 use core::hint::black_box;
 
-use host::{collections::VecDeque, path::Path, vec::Vec};
+use host::collections::VecDeque;
+use host::path::Path;
+use host::vec::Vec;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

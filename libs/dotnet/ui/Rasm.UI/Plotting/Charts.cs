@@ -119,9 +119,6 @@ public sealed record ColorAxis(Axis Axis, ColorRamp Ramp) {
 }
 
 public sealed record Brush(PlotPlane Value, Func<Edit<PlotPlane>, IO<Unit>> Edited) {
-    internal View.Plot Overview(PlotPlane rest, Seq<View> content) =>
-        new(rest, content.Add(Drawn(rest))) { Role = Roles.Well, Aspect = rest.Proportion };
-
     internal View Drawn(PlotPlane plane) =>
         new Handles<PlotPlane>(Value, Ends(plane), Edited) { BackgroundCursor = CursorShape.Crosshair }.Drawn(plane, [
             new View.Mark(new Figure.Region { First = Value.Dimension(PhysicalAxis.Horizontal).Map(static axis => axis.Domain), Second = Value.Dimension(PhysicalAxis.Vertical).Map(static axis => axis.Domain) }) {

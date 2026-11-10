@@ -11,7 +11,7 @@ use pdf_oxide::compliance::{
 use validated::Validated;
 use xot::Xot;
 
-use crate::{Document, Family, GTS_PDFX_VERSION, PART, PDFAID_NAMESPACE, PDFUAID_NAMESPACE, PDFXID_NAMESPACE, PdfError, Standard, Subject, engine, entry, structure};
+use crate::{Document, Family, GTS_PDFX_VERSION, PDFXID_NAMESPACE, PdfError, Standard, Subject, engine, entry, structure};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -30,6 +30,9 @@ pub fn claims(document: &Document) -> Result<Vec<Standard>, PdfError> {
 }
 
 pub(crate) fn declared(structure: &lopdf::Document) -> Result<(Vec<Standard>, Vec<PdfError>), PdfError> {
+    const PDFAID_NAMESPACE: &str = "http://www.aiim.org/pdfa/ns/id/";
+    const PDFUAID_NAMESPACE: &str = "http://www.aiim.org/pdfua/ns/id/";
+    const PART: &str = "part";
     let packet = entry(structure, structure.catalog()?, METADATA)?.map(|metadata| metadata.as_stream().and_then(Stream::get_plain_content)).transpose()?;
     let mut xot = Xot::new();
     let root = packet.map(|bytes| str::from_utf8(&bytes).map_err(PdfError::from).and_then(|text| xot.parse(text).map_err(|source| PdfError::Xml(source.into())))).transpose()?;

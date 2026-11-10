@@ -92,10 +92,9 @@ const packageParts = (path: Path.Path, options: Options, plugin: Plugin, local: 
             })),
         );
         return {
-            install: {
+            'install--swift-package': {
                 executor: `${plugin.name}:install`,
                 options: { package: root, product },
-                inputs: plugin.inputs,
                 cache: false,
                 metadata: { technologies: ['swift'], description: `Builds ${product} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
             },

@@ -127,7 +127,7 @@ private struct AccountSettings: View {
                         Label("Active", systemImage: "checkmark")
                             .foregroundStyle(.secondary)
                     } else {
-                        let isSelecting: Bool = model.running?.kind == .selecting
+                        let isSelecting = model.running?.kind == .selecting
                         Button {
                             store.select(model.account.id)
                         } label: {
@@ -195,7 +195,7 @@ private struct SignInSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Label("Sign In to \(provider.name)", image: provider.symbol)
                 .font(.title3.weight(.medium))
-            if let pending: AuthenticationPresentation = store.authentication {
+            if let pending = store.authentication {
                 switch pending.phase {
                     case .refused:
                         Text(pending.phase.description)
@@ -204,8 +204,8 @@ private struct SignInSheet: View {
                             .keyboardShortcut(.defaultAction)
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     case .pending, .completing, .cancelling:
-                        let accepting: Bool = pending.phase.is(\.pending)
-                        let cancelling: Bool = pending.phase.is(\.cancelling)
+                        let accepting = pending.phase.is(\.pending)
+                        let cancelling = pending.phase.is(\.cancelling)
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
                             Text(pending.phase.description)

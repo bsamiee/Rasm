@@ -5,7 +5,7 @@ internal sealed record Factor(float Value) {
 
     public static Factor Create(float value) => new(value);
 
-    public static Factor Increased(float value) => new(value + 1f);
+    public static Factor {|RASM3015:Increased|}(float value) => new(value + 1f);
 }
 
 internal sealed record Grow(Factor Factor) {
@@ -43,7 +43,7 @@ internal sealed record Overloaded {
 
     internal static Overloaded One { get; } = new(1);
 
-    internal static Overloaded Create(int value) => new((object)value);
+    internal static Overloaded {|RASM3015:Create|}(int value) => new((object)value);
 }
 
 internal static class DistinctOverloads {
@@ -136,7 +136,7 @@ internal sealed record InitializedFactor(int Value) {
 
     internal int Ordinal { get; } = Next();
 
-    internal static int Next() => ++count;
+    internal static int {|RASM3015:Next|}() => ++count;
 }
 
 internal readonly struct ReadonlyFactor {
@@ -146,7 +146,7 @@ internal readonly struct ReadonlyFactor {
 
     internal int Value { get; }
 
-    internal static ReadonlyFactor Create(int value) => new(value);
+    internal static ReadonlyFactor {|RASM3015:Create|}(int value) => new(value);
 }
 
 internal record BaseFactor(int Value);

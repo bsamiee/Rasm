@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
-from typing import ClassVar, Final
+from typing import Annotated, ClassVar, Final
 
 import bpy
 from expression import Some
@@ -23,12 +23,12 @@ from rasm_bpy.data._extension.registration import Acquisitions, Resource
 from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._rna.conditions import Count, Job
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
-from rasm_bpy.data._rna.paths import _rna, RnaPath
+from rasm_bpy.data._rna.paths import rna, RnaPath
 from rasm_bpy.data._rna.properties import case_choices, choices
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
-from rasm_bpy.nodes._desired import _member_paths
+from rasm_bpy.nodes._desired import member_paths
 from rasm_bpy.render._outputs.formats import OutputFormat
-from rasm_bpy.render._outputs.results import _intermediate, _INTERMEDIATES
+from rasm_bpy.render._outputs.results import intermediate, INTERMEDIATES
 from rasm_imaging import converted, ImageFile, Lattice, LATTICE_SIZES, LutFormat, LutOutput, read_file, Spacing, Storage
 from rasm_records import accumulated, Error, Fault, Nothing, Outcome, paired, Reason
 
@@ -43,20 +43,20 @@ _LATTICE: Final = OutputFormat(media_type="IMAGE", file_format="OPEN_EXR", color
 class LatticeFields(bpy.types.PropertyGroup):
     """Lattice size and node spacing of bake and view install forms."""
 
-    size: bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=LATTICE_SIZES.start, max=LATTICE_SIZES[-1], default=Lattice().size)  # ty: ignore[invalid-type-form]
-    spacing: bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=case_choices(Spacing), default=type(Lattice().spacing).__name__)  # ty: ignore[invalid-type-form]
+    size: Annotated[int, bpy.props.IntProperty(name="Size", description="Nodes along each axis", min=LATTICE_SIZES.start, max=LATTICE_SIZES[-1], default=Lattice().size)]
+    spacing: Annotated[str, bpy.props.EnumProperty(name="Spacing", description="Encoding before table", items=case_choices(Spacing), default=type(Lattice().spacing).__name__)]
 
 
 class Baking(LatticeFields):
     """Native bake format and its sampled lattice."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.bakeable()))  # ty: ignore[invalid-type-form]
+    format: Annotated[str, bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.bakeable()))]
 
 
 class Writing(bpy.types.PropertyGroup):
     """Exact transform output in a native matrix-capable format."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # ty: ignore[invalid-type-form]
+    format: Annotated[str, bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))]
 
 
 class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -65,11 +65,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     # --- [STATE]
 
     lattices: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="lattice", saved=Saved.NEVER, single=False)
-    modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor[bpy.types.CollectionProperty](
-        root=bpy.types.WorkSpace,
-        owner=("sequencer_scene", "sequence_editor", "active_strip"),
-        prop=bpy.types.Strip.bl_rna.properties["modifiers"],  # ty: ignore[invalid-argument-type]
-    )
+    modifiers: ClassVar[Descriptor] = Descriptor(root=bpy.types.WorkSpace, owner=("sequencer_scene", "sequence_editor", "active_strip"), prop=bpy.types.Strip.bl_rna.properties["modifiers"])
 
     # --- [COMMANDS]
 
@@ -87,7 +83,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         with ExitStack() as scope:
             for scene in made.to_option().to_list():
                 scope.callback(bpy.data.scenes.remove, scene)
-                scope.enter_context(_intermediate(identity, scene))
+                scope.enter_context(intermediate(identity, scene))
             yield made
 
     def sequenced(self, call: Call[Baking], active: bpy.types.Strip, space: str) -> Outcome[Done]:
@@ -106,7 +102,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         ("render", "use_sequencer"): True,
                         ("render", "use_compositing"): False,
                         ("render", "filepath"): str(look),
-                        **_member_paths(_LATTICE.members(("render", "image_settings"))),
+                        **member_paths(_LATTICE.members(("render", "image_settings"))),
                         ("frame_start",): 1,
                         ("frame_end",): 1,
                     }
@@ -147,13 +143,13 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case bpy.types.Strip(id_data=bpy.types.Scene(sequencer_colorspace_settings=bpy.types.ColorManagedSequencerColorspaceSettings(name=space))) as active:
                 return self.sequenced(call, active, space)
             case _:
-                return Error(Fault.of(Reason.ABSENT, repr(self.modifiers.root), member=_rna(self.modifiers.owner)))
+                return Error(Fault.of(Reason.ABSENT, repr(self.modifiers.root), member=rna(self.modifiers.owner)))
 
     # --- [REGISTRATION]
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns lattice ownership, read stamps, and the strip bake command."""
-        return self.lattices, _STAMPS, _INTERMEDIATES, self.strip_baking
+        return self.lattices, _STAMPS, INTERMEDIATES, self.strip_baking
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

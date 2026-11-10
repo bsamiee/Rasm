@@ -1,4 +1,6 @@
-use core::{hint::black_box, marker::PhantomData, ops::Deref};
+use core::hint::black_box;
+use core::marker::PhantomData;
+use core::ops::Deref;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

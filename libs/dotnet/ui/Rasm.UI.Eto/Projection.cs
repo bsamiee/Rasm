@@ -1,4 +1,3 @@
-using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.UI.Input;
@@ -6,7 +5,6 @@ using Rasm.UI.Styling;
 using Rasm.UI.Typography;
 using SkiaSharp;
 using Wacton.Unicolour;
-using Theme = Rasm.UI.Styling.Theme;
 
 namespace Rasm.UI.Eto;
 
@@ -14,20 +12,11 @@ namespace Rasm.UI.Eto;
 
 internal static class Projection {
 
-    // --- [PIXELS]
-
-    internal static SKImageInfo Format() {
-        using Bitmap probe = new(1, 1, PixelFormat.Format32bppRgba);
-        using BitmapData data = probe.Lock();
-        return new SKImageInfo(0, 0, (data.TranslateArgbToData(Colors.Red.ToArgb()) & 0xFF) is 0xFF ? SKColorType.Rgba8888 : SKColorType.Bgra8888,
-            data.PremultipliedAlpha ? SKAlphaType.Premul : SKAlphaType.Unpremul, SKColorSpace.CreateSrgb());
-    }
-
     // --- [THEME]
 
-    internal static Fin<Theme> Themed() {
+    internal static Fin<Styling.Theme> Themed() {
         Font font = SystemFonts.Default();
-        return Theme.Validated(new Seeds(Tone(SystemColors.WindowBackground), Tone(SystemColors.ControlText), Tone(SystemColors.Highlight)),
+        return Styling.Theme.Validated(new Seeds(Tone(SystemColors.WindowBackground), Tone(SystemColors.ControlText), Tone(SystemColors.Highlight)),
             new TextFace { Family = font.FamilyName }, font.Size, Chrome());
     }
 
@@ -65,9 +54,6 @@ internal static class Projection {
 
     internal static Option<InputEvent> Pointed(MouseEventArgs args, EditPhase phase, int clicks, SKPoint origin) =>
         InputEvent.Pointed(Edit.Of(phase, new PointerSample(At(args.Location, origin))), args.Buttons.HasFlag(MouseButtons.Primary), args.Buttons.HasFlag(MouseButtons.Alternate), clicks, Modifiers(args.Modifiers));
-
-    internal static InputEvent Scrolled(MouseEventArgs args, SKPoint origin, float line) =>
-        new InputEvent.Scroll(At(args.Location, origin), Edit.Of(EditPhase.Step, new Vector2(-args.Delta.Width, -args.Delta.Height) * line)) { Modifiers = Modifiers(args.Modifiers) };
 
     internal static Option<InputEvent> Keyed(Option<Mount> mount, KeyEventArgs args) =>
         Modifiers(args.Modifiers) switch {

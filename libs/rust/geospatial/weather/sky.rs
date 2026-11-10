@@ -1,9 +1,7 @@
-use core::{
-    f64::consts::{FRAC_PI_2, PI},
-    hash::Hash,
-    iter,
-    num::NonZero,
-};
+use core::f64::consts::{FRAC_PI_2, PI};
+use core::hash::Hash;
+use core::iter;
+use core::num::NonZero;
 
 use bounded_integer::BoundedU8;
 use itertools::{EitherOrBoth, Itertools as _, izip};
@@ -12,17 +10,15 @@ use nalgebra::{UnitQuaternion, UnitVector3};
 use ndarray::{Array2, Axis, ShapeBuilder as _};
 use rasm_solar_geometry::{Sun, direction, patches};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
-use uom::si::{
-    angle::{degree, radian},
-    f64::{Angle, Ratio, Time},
-    heat_flux_density::watt_per_square_meter,
-    illuminance::lux,
-    length::centimeter,
-    ratio::ratio,
-    solid_angle::steradian,
-    thermodynamic_temperature::degree_celsius,
-    time::second,
-};
+use uom::si::angle::{degree, radian};
+use uom::si::f64::{Angle, Ratio, Time};
+use uom::si::heat_flux_density::watt_per_square_meter;
+use uom::si::illuminance::lux;
+use uom::si::length::centimeter;
+use uom::si::ratio::ratio;
+use uom::si::solid_angle::steradian;
+use uom::si::thermodynamic_temperature::degree_celsius;
+use uom::si::time::second;
 use validated::Validated;
 #[cfg(feature = "proximity")]
 use {

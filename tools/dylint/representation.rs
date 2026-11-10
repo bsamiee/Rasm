@@ -1,4 +1,5 @@
-use clippy_utils::{fn_def_id, res::MaybeDef as _, sym};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{fn_def_id, sym};
 use rustc_hir::{Expr, ExprKind, UnOp};
 use rustc_lint::LateContext;
 use rustc_middle::ty::{AdtDef, Ty};

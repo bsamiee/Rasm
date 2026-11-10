@@ -39,7 +39,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case malformed(String)
 
         public func encode(to encoder: any Encoder) throws {
-            var label: any SingleValueEncodingContainer = encoder.singleValueContainer()
+            var label = encoder.singleValueContainer()
             try label.encode(caseLabel(of: self))
         }
     }
@@ -106,7 +106,7 @@ extension ApplicationFailure: Encodable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(reason, forKey: .reason)
         try fields.encode(subject, forKey: .subject)
         try fields.encodeIfPresent(errorDescription, forKey: .message)
@@ -133,7 +133,7 @@ extension ApplicationFailure: Encodable {
 
 extension ApplicationFailure {
     init(_ error: AXError, subject: String, process: pid_t?, answering action: ElementAction? = nil, otherwise: () -> Self) {
-        let exited: pid_t? = process.flatMap { process in Result { () throws(Errno) in try ProcessStatus(of: process) } == .failure(.noSuchProcess) ? process : nil }
+        let exited = process.flatMap { process in Result { () throws(Errno) in try ProcessStatus(of: process) } == .failure(.noSuchProcess) ? process : nil }
         self =
             switch (error, exited) {
                 case (.apiDisabled, _) where !AXIsProcessTrusted(): Self(subject: ProcessInfo.processInfo.processName, reason: .untrusted)

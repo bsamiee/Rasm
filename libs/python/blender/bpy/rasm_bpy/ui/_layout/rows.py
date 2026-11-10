@@ -2,7 +2,6 @@
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial
-from pathlib import Path
 from types import MappingProxyType
 from typing import Final, override, Protocol, runtime_checkable
 
@@ -13,21 +12,21 @@ import msgspec
 
 from rasm_bpy.commands.operators import Command, filled, idname, Operator, Pairs, Placement, PopupTarget
 from rasm_bpy.data._extension.identity import Identity
-from rasm_bpy.data._extension.registration import _acquired, Acquisitions, Declaration
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, Declaration
 from rasm_bpy.data._rna.conditions import Condition, satisfied
 from rasm_bpy.data._rna.descriptors import Scalar
-from rasm_bpy.data._rna.paths import _definition, Struct
-from rasm_bpy.ui._layout.members import _bound, LocatedMembers, Member
-from rasm_bpy.ui._resources.icons import _ICONS, Icon, Icons
+from rasm_bpy.data._rna.paths import rna_definition, Struct
+from rasm_bpy.ui._layout.members import bound, LocatedMembers, Member
+from rasm_bpy.ui._resources.icons import Icon, Icons
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type RowDraw = Callable[[bpy.types.UILayout, Struct, bpy.types.Context], None]
 type Keywords = Mapping[str, Scalar]
-type ContextMember = Callable[[Struct, bpy.types.Context], Option[Struct | str]]
-type _LayoutOwner = bpy.types.Panel | bpy.types.Menu | bpy.types.Header | bpy.types.AddonPreferences
+type LayoutOwner = bpy.types.Panel | bpy.types.Menu | bpy.types.Header | bpy.types.AddonPreferences
 type RowContent = Row | RowDraw
+type ContextMember = Callable[[Struct, bpy.types.Context], Option[Struct | str]]
 
 
 @runtime_checkable
@@ -39,19 +38,9 @@ class Row(Protocol):
         ...
 
 
-@runtime_checkable
-class Container(Protocol):
-    """Layout declaration holding rows of its own."""
-
-    @property
-    def children(self) -> tuple[RowContent, ...]:
-        """Rows the declaration holds."""
-        ...
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FUNCTIONS: Final = _definition(bpy.types.UILayout).functions
+FUNCTIONS: Final = rna_definition(bpy.types.UILayout).functions
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -92,11 +81,11 @@ class Layout(ConditionalRow, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the declared rows that register what they hold."""
-        return _acquired(self.children)
+        return acquired_rows(self.children)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the rows once into the container draw."""
-        return self.builder.map(lambda build: build(identity)).default_value(Ok(())).bind(lambda rows: _realized((*self.rows, *rows), identity)).map(lambda draw: partial(self.opened, draw))
+        return self.builder.map(lambda build: build(identity)).default_value(Ok(())).bind(lambda rows: realized((*self.rows, *rows), identity)).map(lambda draw: partial(self.opened, draw))
 
     def opened(self, draw: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Opens the container with its context members and draws the rows into it while `visible` holds."""
@@ -115,7 +104,7 @@ class Iconed(ConditionalRow, frozen=True, kw_only=True):
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Icon set a packaged icon reads."""
-        return icon_prerequisites(self.icon)
+        return Icons.declarations(self.icon)
 
 
 class Property(Iconed, frozen=True, kw_only=True):
@@ -127,7 +116,7 @@ class Property(Iconed, frozen=True, kw_only=True):
     """
 
     target: Member
-    function: bpy.types.Function = _FUNCTIONS["prop"]
+    function: bpy.types.Function = FUNCTIONS["prop"]
     search: Option[Member] = Nothing
 
     @property
@@ -138,12 +127,12 @@ class Property(Iconed, frozen=True, kw_only=True):
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Locates and binds the target and search items, the icon and keywords resolved once for every redraw."""
-        function = _FUNCTIONS["prop_search"] if self.search.is_some() and self.function == _FUNCTIONS["prop"] else self.function
         located = accumulated(member.located(identity) for member in (self.target, *self.search.to_list()))
-        return paired(_keyworded(identity, self.keywords, self.icon), located).bind(lambda parts: _bound(identity, parts[1], partial(self.shown, identity, function, parts[0])))
+        return paired(_keyworded(identity, self.keywords, self.icon), located).bind(lambda parts: bound(identity, parts[1], partial(self.shown, identity, parts[0])))
 
-    def shown(self, identity: Identity, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the function at the located owner and search items, or at the located struct, under the scope's label ahead of the stated keywords."""
+        function = FUNCTIONS["prop_search"] if self.search.is_some() and self.function == FUNCTIONS["prop"] else self.function
         (member, _), names = held[0], function.parameters
         index = member.index.map(lambda at: {"index": at}).default_value({})
         options = self.target.labelled(member, context).map(lambda label: {**{key: value for key, value in label.items() if key in names}, **keywords, **index})
@@ -161,7 +150,7 @@ class OperatorButton(Iconed, frozen=True, kw_only=True):
     """
 
     target: Placement | Command
-    function: bpy.types.Function = _FUNCTIONS["operator"]
+    function: bpy.types.Function = FUNCTIONS["operator"]
     published: Mapping[str, ContextMember] = MappingProxyType({})
 
     @property
@@ -171,20 +160,19 @@ class OperatorButton(Iconed, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the extension command."""
-        return _acquired((self.placement,))
+        return acquired_rows((self.placement,))
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the placement, icon, and keywords once into the button draw."""
-        placement, function = self.placement, self.function
-        operator = placement.operator
-        icon = self.icon.or_else(operator.icon if isinstance(operator, Command) else Nothing)
-        return _keyworded(identity, self.keywords, icon).map(lambda keywords: partial(self.shown, identity, function, placement.resolved(identity), keywords))
+        placement = self.placement
+        icon = self.icon.or_else(placement.operator.icon if isinstance(placement.operator, Command) else Nothing)
+        return _keyworded(identity, self.keywords, icon).map(lambda keywords: partial(self.shown, identity, placement.resolved(identity), keywords))
 
-    def shown(self, identity: Identity, function: bpy.types.Function, operator: tuple[str, Pairs], keywords: Keywords, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    def shown(self, identity: Identity, operator: tuple[str, Pairs], keywords: Keywords, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the button in a row holding the context members it publishes."""
         line = layout.row(align=True) if self.published else layout
         _published(self.published, line, holder, context)
-        identity.reports.faulted(_button(line, function, operator, keywords, invoked=_invoked(self.placement.operator)))
+        identity.reports.faulted(_button(line, self.function, operator, keywords, invoked=_invoked(self.placement.operator)))
 
 
 class Opens(Iconed, frozen=True, kw_only=True):
@@ -204,7 +192,7 @@ class Opens(Iconed, frozen=True, kw_only=True):
         getattr(layout, function.identifier)(name, **keywords)
 
 
-class _Label(Iconed, frozen=True, kw_only=True):
+class Label(Iconed, frozen=True, kw_only=True):
     """Fixed text, or texts and keyword sets read each redraw and drawn untranslated, through a label function, `label_multiline` unless stated.
 
     Each live text or keyword set draws one item, `progress`, `link`, and `label_markdown` taking live parameters.
@@ -212,7 +200,7 @@ class _Label(Iconed, frozen=True, kw_only=True):
     """
 
     text: str | Callable[[bpy.types.Context], Iterable[str | Keywords]]
-    function: bpy.types.Function = _FUNCTIONS["label_multiline"]
+    function: bpy.types.Function = FUNCTIONS["label_multiline"]
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Resolves the icon and keywords once, returning the draw reading live text each redraw."""
@@ -220,7 +208,7 @@ class _Label(Iconed, frozen=True, kw_only=True):
 
     def shown(self, keywords: Keywords, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws each text, the stated keywords the drawing function takes kept."""
-        function = _FUNCTIONS["label"] if self.function == _FUNCTIONS["label_multiline"] and layout.direction == "HORIZONTAL" else self.function
+        function = FUNCTIONS["label"] if self.function == FUNCTIONS["label_multiline"] and layout.direction == "HORIZONTAL" else self.function
         chosen = keywords if function == self.function else {name: value for name, value in keywords.items() if name not in self.function.parameters or name in function.parameters}
         parts = ((self.text, {}),) if isinstance(self.text, str) else ((part, {"translate": False}) for part in self.text(context))
         for part, untranslated in parts:
@@ -239,7 +227,7 @@ class Separator(ConditionalRow, frozen=True, kw_only=True):
     @staticmethod
     def shown(keywords: Keywords, layout: bpy.types.UILayout, _holder: Struct, _context: bpy.types.Context) -> None:
         """Draws the separator."""
-        getattr(layout, _FUNCTIONS["separator"].identifier)(**keywords)
+        getattr(layout, FUNCTIONS["separator"].identifier)(**keywords)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -247,13 +235,13 @@ class Separator(ConditionalRow, frozen=True, kw_only=True):
 # --- [DRAWING]
 
 
-def _operator_button(layout: bpy.types.UILayout, identity: Identity, placement: Placement, keywords: Keywords = MappingProxyType({}), /) -> Outcome[None]:
+def operator_button(layout: bpy.types.UILayout, identity: Identity, placement: Placement, keywords: Keywords = MappingProxyType({}), /) -> Outcome[None]:
     """Draws an operator button over a placement built this redraw, `keywords` its `operator` parameters."""
-    operator = _FUNCTIONS["operator"]
+    operator = FUNCTIONS["operator"]
     return _button(layout, operator, placement.resolved(identity), keywords, invoked=_invoked(placement.operator))
 
 
-def _split(layout: bpy.types.UILayout) -> tuple[bpy.types.UILayout, bpy.types.UILayout]:
+def split(layout: bpy.types.UILayout) -> tuple[bpy.types.UILayout, bpy.types.UILayout]:
     """Places label and value cells at the layout's split factor beside the decorator cell it reserves."""
     line = layout.row(align=True)
     halves = line.split(factor=layout.property_split_factor, align=True)
@@ -265,9 +253,9 @@ def _split(layout: bpy.types.UILayout) -> tuple[bpy.types.UILayout, bpy.types.UI
     return names, values
 
 
-def _gridded(text: str, layout: bpy.types.UILayout) -> bpy.types.UILayout:
+def gridded(text: str, layout: bpy.types.UILayout) -> bpy.types.UILayout:
     """Places text in the label cell, returning the value cell, the container of a layout function that draws no label of its own."""
-    names, values = _split(layout)
+    names, values = split(layout)
     names.alignment = "RIGHT"
     names.label(text=text)
     return values
@@ -278,7 +266,7 @@ def aligned(layout: bpy.types.UILayout) -> bpy.types.UILayout:
     return layout.row(align=True)
 
 
-def _grouped(layout: bpy.types.UILayout) -> bpy.types.UILayout:
+def grouped(layout: bpy.types.UILayout) -> bpy.types.UILayout:
     """Opens aligned buttons under a line separator, one group apart from the rows above, in as many columns as the region width fits whole."""
     layout.separator(type="LINE")
     return layout.grid_flow(row_major=True, even_columns=True, align=True)
@@ -323,12 +311,7 @@ def _published(members: Mapping[str, ContextMember], layout: bpy.types.UILayout,
 # --- [REALIZATION]
 
 
-def icon_prerequisites(icon: Option[Icon]) -> tuple[Declaration, ...]:
-    """Icon set a packaged icon reads, none for a stock icon or data-block preview."""
-    return (_ICONS,) if icon.filter(lambda held: isinstance(held, Path)).is_some() else ()
-
-
-def _realized(rows: Iterable[RowContent], identity: Identity) -> Outcome[RowDraw]:
+def realized(rows: Iterable[RowContent], identity: Identity) -> Outcome[RowDraw]:
     """Realizes rows once into one draw over the holder in row order, each `ConditionalRow` under its condition and plain draws passed through."""
 
     def drawn(row: RowContent) -> Outcome[RowDraw]:
@@ -342,12 +325,12 @@ def _realized(rows: Iterable[RowContent], identity: Identity) -> Outcome[RowDraw
     return accumulated(map(drawn, rows)).map(lambda draws: draws[0] if len(draws) == 1 else partial(_joined, draws))
 
 
-def _layout_method(draw: RowDraw) -> Callable[[_LayoutOwner, bpy.types.Context], None]:
+def layout_method(draw: RowDraw) -> Callable[[LayoutOwner, bpy.types.Context], None]:
     """Returns a host draw method drawing over the context as holder in the owner's layout, a function as the host's class check requires."""
 
-    def method(owner: _LayoutOwner, context: bpy.types.Context) -> None:
-        layout: bpy.types.UILayout = owner.layout  # ty: ignore[invalid-assignment]
-        draw(layout, context, context)
+    def method(owner: LayoutOwner, context: bpy.types.Context) -> None:
+        for layout in Option.of_optional(owner.layout).to_list():
+            draw(layout, context, context)
 
     return method
 
@@ -361,12 +344,14 @@ def _joined(draws: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Stru
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "FUNCTIONS",
     "ConditionalRow",
-    "Container",
     "ContextMember",
     "Iconed",
     "Keywords",
+    "Label",
     "Layout",
+    "LayoutOwner",
     "Opens",
     "OperatorButton",
     "Property",
@@ -376,5 +361,10 @@ __all__ = [
     "Separator",
     "aligned",
     "even",
-    "icon_prerequisites",
+    "gridded",
+    "grouped",
+    "layout_method",
+    "operator_button",
+    "realized",
+    "split",
 ]

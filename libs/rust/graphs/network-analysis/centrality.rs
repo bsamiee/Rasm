@@ -1,20 +1,17 @@
-use core::{borrow::Borrow, fmt, iter, num::NonZero};
+use core::borrow::Borrow;
+use core::num::NonZero;
+use core::{fmt, iter};
 use std::collections::{BTreeMap, BTreeSet};
 
-use petgraph::{
-    Direction::{self, Outgoing},
-    EdgeType,
-    graph::Graph,
-    visit::{EdgeRef as _, IntoEdgesDirected},
-};
+use petgraph::Direction::{self, Outgoing};
+use petgraph::EdgeType;
+use petgraph::graph::Graph;
+use petgraph::visit::{EdgeRef as _, IntoEdgesDirected};
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 use rustworkx_core::centrality::{eigenvector_centrality, katz_centrality};
 
-use crate::{
-    Failure, Network, NetworkError, Tolerance, Weight, compact,
-    paths::{Catchment, search},
-    present,
-};
+use crate::paths::{Catchment, search};
+use crate::{Failure, Network, NetworkError, Tolerance, Weight, compact, present};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

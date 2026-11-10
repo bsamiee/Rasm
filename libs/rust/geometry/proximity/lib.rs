@@ -1,20 +1,16 @@
 #![feature(default_field_values, float_conversions, trait_alias, try_blocks_heterogeneous)]
 
-use core::{
-    borrow::Borrow,
-    num::{NonZero, TryFromIntError},
-};
+use core::borrow::Borrow;
+use core::num::{NonZero, TryFromIntError};
 
 use itertools::Itertools as _;
 use kiddo::kd_tree::ConstructionError;
 use nalgebra::{Isometry3, Point3};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
-use parry3d_f64::{
-    bounding_volume::Aabb,
-    math::Pose,
-    partitioning::{Bvh, BvhBuildStrategy, BvhWorkspace},
-    shape::{ShapeType, SharedShape},
-};
+use parry3d_f64::bounding_volume::Aabb;
+use parry3d_f64::math::Pose;
+use parry3d_f64::partitioning::{Bvh, BvhBuildStrategy, BvhWorkspace};
+use parry3d_f64::shape::{ShapeType, SharedShape};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator as _, ParallelIterator as _};
 use validated::Validated;
 

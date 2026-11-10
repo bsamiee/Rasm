@@ -4,7 +4,7 @@ import type { TaskResult } from '@nx/devkit/internal';
 import { Array, Console, Effect, FileSystem, flow, Path, Record, Schema, Stream } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
-import { dotnet } from '#/plugins/project-graph';
+import { dotnet } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

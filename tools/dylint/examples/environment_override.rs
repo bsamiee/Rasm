@@ -1,12 +1,11 @@
-use core::{hint::black_box, time::Duration};
+use core::hint::black_box;
+use core::time::Duration;
 
 use opentelemetry_otlp::{Compression, ExporterBuildError, LogExporter, MetricExporter, Protocol, SpanExporter, WithExportConfig as _};
-use opentelemetry_sdk::{
-    Resource, logs,
-    metrics::{PeriodicReader, Temporality},
-    resource::TelemetryResourceDetector,
-    trace::{self, SdkTracerProvider, ShouldSample, SpanLimits},
-};
+use opentelemetry_sdk::metrics::{PeriodicReader, Temporality};
+use opentelemetry_sdk::resource::TelemetryResourceDetector;
+use opentelemetry_sdk::trace::{self, SdkTracerProvider, ShouldSample, SpanLimits};
+use opentelemetry_sdk::{Resource, logs};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

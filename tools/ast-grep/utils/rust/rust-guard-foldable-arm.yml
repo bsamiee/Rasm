@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-guard-foldable-arm
+language: rustlang
+utils:
+    else-branch:
+        kind: if_expression
+        all:
+            - has: {field: condition, not: {kind: let_chain}}
+            - has:
+                field: alternative
+                kind: else_clause
+                has:
+                    kind: block
+                    any:
+                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {kind: 'expression_statement, let_declaration, empty_statement'}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
+                        - pattern: $X
+    else-reads-arm-binding:
+        has:
+            field: value
+            has:
+                stopBy: end
+                kind: else_clause
+                has:
+                    stopBy: end
+                    kind: identifier
+                    pattern: $NAME
+                    inside:
+                        kind: match_arm
+                        stopBy: end
+                        has: {field: pattern, has: {stopBy: end, kind: 'identifier, shorthand_field_identifier', pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}
+rule:
+    kind: match_arm
+    all:
+        - has:
+            field: value
+            any:
+                - matches: else-branch
+                - kind: block
+                  all:
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+        - precedes: {kind: match_arm, all: [{has: {field: pattern, regex: '^_$'}}, {has: {field: value, pattern: $X}}]}
+        - not: {matches: else-reads-arm-binding}

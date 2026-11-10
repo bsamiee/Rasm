@@ -26,7 +26,9 @@
 - Roots uv cannot read (a manifest that does not parse) log uv's message and keep their project with `check--uv`, which fails with that message
 - Checker configuration files that do not parse hold no table for inference, and each tool reports the error when its target runs
 - Virtual roots (no `[project]`) take the folder name, Nx's own rule for a project no manifest names, and hold the workspace targets
-- Members whose `requires-python` floor differs from their root's run ty, mypy, and refurb with `--python-version <floor>`
+- Members whose `requires-python` floor differs from the floor of the root running a tool run ty, mypy, and refurb with `--python-version <floor>`
+- Members whose lock holds no refurb run it from the root holding `[tool.refurb]` when that root locks it, their lock holds mypy, and the floors differ
+- Member folders holding `__init__.py` run refurb from their parent folder, since refurb names modules from its working folder
 - Members of another root reached through `{ workspace = "<path>" }` sources become edges to that root's project
 - Inference caches by every manifest, lock, checker configuration file, and plugin source file
 - Each graph build globs the files a checker reads (`*.py`, `*.pyi`, pytest's `python_files`), and members holding none get no target for it
@@ -39,28 +41,37 @@
 | :-----: | :------------------- | :--------------------------------------------------------- | :---------------------------------------- | :-----: |
 |  [01]   | `check--ty`          | `ty check <member>`                                        | `ty.toml` or `[tool.ty]` reachable        |   Yes   |
 |  [02]   | `check--mypy`        | `mypy <member>`                                            | `mypy.ini`, `[tool.mypy]`, or `setup.cfg` |   Yes   |
-|  [03]   | `check--refurb`      | `refurb --config-file <file> .` in the member folder       | `[tool.refurb]` reachable                 |   Yes   |
+|  [03]   | `check--refurb`      | `refurb --config-file <file> <member>` above its packages  | `[tool.refurb]` reachable                 |   Yes   |
 |  [04]   | `test`               | `pytest <member>`                                          | Test file and pytest configuration        |   Yes   |
 |  [05]   | `check--uv`          | `uv lock --check`                                          | Workspace root                            |   Yes   |
 |  [06]   | `upgrade--uv`        | `uv lock --upgrade`                                        | Workspace root                            |   No    |
 |  [07]   | `build--uv`          | `uv build --package <member> --no-sources --out-dir <dir>` | Member with a build backend               |   Yes   |
 |  [08]   | `nx-release-publish` | `uv publish <build--uv output>/*`                          | Released member (`[04]-[RELEASE]`)        |   No    |
-|  [09]   | `<verb>`             | `nx:noop` over `<verb>--*`                                 | Any `<verb>--*` target                    |   No    |
+|  [09]   | `install--uv`        | `uv tool install --reinstall --python <requires-python> .` | Built member with `[project.scripts]`     |   No    |
+|  [10]   | `upgrade--pixi`      | `pixi update`, before `upgrade--uv`                        | Root with `[tool.pixi]` or a `pixi.toml`  |   No    |
+|  [11]   | `<verb>`             | `nx:noop` over `<verb>--*`                                 | Any `<verb>--*` target                    |   No    |
 
 - Checkers and `test` run as `uv run --locked --package <member> --group <group>`, the group listing the tool, so its stubs and plugins install too
 - `test` adds `--isolated`, so each run holds the member's locked closure and the group alone, and an undeclared import fails
 - Tools only the member's own dependencies hold run without `--group`
-- Targets exist only where their tool is locked in reach of the member, so a checker a workspace never locks gets none
+- Targets exist only where their tool is locked in reach of the member or of the root running it, so a checker no such root locks gets none
+- Refurb run from another root is `uv run <member's mypy group> uv run --quiet --project <root> refurb … -- --python-version <floor>`
+- Outer `uv run` installs the member's stubs and puts its interpreter on `PATH`, where mypy finds `python<floor>` and reads its packages
 - `--locked` fails a task on a stale lock with uv's own message, and never writes `uv.lock`
 - `ty` receives the member path, since from a member folder it checks the whole workspace
+- `check--mypy` and `check--refurb` pass mypy `--cache-dir <cache_dir>/<member folder>/<tool>`, since mypy documents no sharing of one cache between concurrent runs
+- `<cache_dir>` is the mypy table's `cache_dir` with `$MYPY_CONFIG_FILE_DIR` as its file's folder, `.mypy_cache` when the table states none
 - `TY_UV` reaches ty from the caller's environment (`uv check` sets `1`, adding undeclared-dependency findings), and the plugin hashes it as an `env` input
-- Checker inputs: member sources, configuration files present on the discovery path up to the one the tool reads, the root `.python-version`
+- Checker inputs: member sources, configuration files present on the discovery path up to the one the tool reads, `.python-version` of each root the run reads
 - Dependency members' files join them; `test` reads every member file outside the build folder
-- Root `uv.lock` joins them as a file, since Nx's `affected` reads changes from npm lock files alone
+- `uv.lock` of each root the run reads joins them as a file, since Nx's `affected` reads changes from npm lock files alone
 - Aggregates take the form every plugin declares (`dependsOn: ["<verb>--*"]`), their inputs `'...'` then the union of their members' inputs
 - Arguments after `--` go to a tool-named target, since Nx forwards them to every dependency of an aggregate
 - `nx affected -t <verb>` selects an aggregate on any input of its dependencies, and `'...'` keeps other plugins' inputs for the project
 - `build--uv` outputs `<outputPath>/uv/<member>` alone, emptied first through `--clear`, and `nx-release-publish` uploads the folder `build--uv` declares, so each member publishes its own files
+- Checkers and `test` hash `uv --version`, a `runtime` input naming uv's platform triple, since an Nx hash holds no operating system or architecture; `check--uv` and `build--uv` read no platform
+- `install--uv` runs in the member folder, so uv finds the workspace and installs `{ workspace = true }` dependencies from their folders; a tool environment reads no `uv.lock`, `.python-version`, or `requires-python` on its own, so the run passes the member's `requires-python` as `--python` and resolves the newest releases the requirements and the root `[tool.uv]` settings allow
+- `install--uv` passes `--reinstall`, since uv rebuilds a path dependency only when its `pyproject.toml` changes, and installs a built copy: `-- --editable` after the target installs links to the checkout in its place, and `UV_TOOL_DIR` and `UV_TOOL_BIN_DIR` move the environment and its links
 - `nx-release-publish` runs after `build--uv`, skips a project `nx release` left unversioned, and maps `dryRun` or `NX_DRY_RUN` to `--dry-run`
 - `index` names the `[[tool.uv.index]]` entry passed as `--index`, whose `url` uv checks before upload
 

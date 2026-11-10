@@ -1,19 +1,16 @@
 use core::{fmt, iter, mem};
-use std::{borrow::Cow, io};
+use std::borrow::Cow;
+use std::io;
 
 use itertools::{Itertools as _, Position};
 use kurbo::{Affine, CubicBez, DEFAULT_ACCURACY, ParamCurve as _, ParamCurveArclen as _, PathSeg, Point, Rect, Vec2};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
-use petgraph::{
-    EdgeType,
-    stable_graph::EdgeIndex,
-    visit::{EdgeRef as _, IntoEdgeReferences as _, IntoNodeReferences as _},
-};
+use petgraph::EdgeType;
+use petgraph::stable_graph::EdgeIndex;
+use petgraph::visit::{EdgeRef as _, IntoEdgeReferences as _, IntoNodeReferences as _};
 use petgraph_graphml::GraphMl;
-use uom::si::{
-    f64::Length,
-    length::{inch, point_computer},
-};
+use uom::si::f64::Length;
+use uom::si::length::{inch, point_computer};
 
 use crate::{Drawing, LayoutError, Placed, Routed};
 

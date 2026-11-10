@@ -1,15 +1,12 @@
 """Glyph records with outlines, anchors, and roles, and the face source holding them."""
 
-# mypy: disable-error-code="no-untyped-call"
-
 from datetime import datetime
 from enum import auto, StrEnum
-from functools import cache, cached_property
+from functools import cache, cached_property, partial
 from typing import Annotated, Self
 from urllib.parse import urlsplit
 lazy from collections.abc import Callable, Mapping
 lazy import csv
-lazy from functools import partial
 lazy import hashlib
 lazy from itertools import groupby
 lazy from pathlib import Path
@@ -30,16 +27,13 @@ lazy import httpx2
 
 from rasm_typography._faces.declaration import Faces
 from rasm_typography._faces.layout import Lookups
-from rasm_typography._faces.names import _Form, _GlyphName
+from rasm_typography._faces.names import Form, GlyphName
 lazy from rasm_records import committed, Fault, Ok, Outcome, read, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Contour = tuple[_Point, ...]
-type _Outline = tuple[_Contour, ...]
 
-
-class _Joining(StrEnum):
+class Joining(StrEnum):
     """Joining type, each value its UCD `Joining_Type` code."""
 
     DUAL = "D"
@@ -50,12 +44,12 @@ class _Joining(StrEnum):
     TRANSPARENT = "T"
 
     @classmethod
-    def of(cls, code: int, /) -> _Joining:
+    def of(cls, code: int, /) -> Joining:
         """Returns the joining type `ArabicShaping.txt` states, transparent for unlisted marks and format controls."""
-        return joined[0] if (joined := _joined().get(code)) else cls.TRANSPARENT if unicodedata.category(chr(code)) in {"Mn", "Me", "Cf"} else cls.NONE
+        return listed[0] if (listed := joined().get(code)) else cls.TRANSPARENT if unicodedata.category(chr(code)) in {"Mn", "Me", "Cf"} else cls.NONE
 
 
-class _Side(StrEnum):
+class Side(StrEnum):
     """Side of its base a mark attaches to."""
 
     ABOVE = auto()
@@ -64,15 +58,15 @@ class _Side(StrEnum):
     @property
     def anchor(self) -> str:
         """Base anchor name of the side, its mark anchor prefixed by `_`."""
-        return "top" if self is _Side.ABOVE else "bottom"
+        return "top" if self is Side.ABOVE else "bottom"
 
     @classmethod
-    def of(cls, code: int, /) -> _Side:
+    def of(cls, code: int, /) -> Side:
         """Returns the side a mark's canonical combining class states, below for class 220 and the kasra and kasratan classes."""
         return cls.BELOW if unicodedata.combining(chr(code)) in {220, *map(unicodedata.combining, "ٍِ")} else cls.ABOVE
 
 
-class _Category(StrEnum):
+class Category(StrEnum):
     """OpenType category `public.openTypeCategories` gives a glyph, each value its UFO token."""
 
     BASE = auto()
@@ -84,7 +78,6 @@ class _Category(StrEnum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ARABIC_SHAPING = "https://www.unicode.org/Public/18.0.0/ucd/ArabicShaping.txt"
-_ARABIC_SHAPING_SHA256 = "8ccde4ebd070500a68e8bcb9d5514522fb0bebe57b9ebad3ff925b8e1e669f83"
 _ARABIC_SHAPING_FILE = platformdirs.user_cache_path("rasm-typography").joinpath(*urlsplit(_ARABIC_SHAPING).path.split("/"))
 
 
@@ -93,7 +86,7 @@ _ARABIC_SHAPING_FILE = platformdirs.user_cache_path("rasm-typography").joinpath(
 # --- [GEOMETRY]
 
 
-class _Point(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
+class Point(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
     """Contour point, off-curve points quadratic controls."""
 
     x: float
@@ -101,7 +94,7 @@ class _Point(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
     on: bool = True
 
 
-class _Anchor(msgspec.Struct, frozen=True, kw_only=True):
+class Anchor(msgspec.Struct, frozen=True, kw_only=True):
     """Named attachment point in the form the ufo2ft writers read (`top`, `_top`, `top_1`, `entry`, `caret_1`)."""
 
     name: str
@@ -109,7 +102,7 @@ class _Anchor(msgspec.Struct, frozen=True, kw_only=True):
     y: float
 
 
-class _Component(msgspec.Struct, frozen=True, kw_only=True):
+class Component(msgspec.Struct, frozen=True, kw_only=True):
     """Reference to another glyph under an affine transform."""
 
     name: str
@@ -126,14 +119,14 @@ class _Role(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str
 class Letter(_Role, frozen=True, kw_only=True):
     """Joining letter in one positional form."""
 
-    joining: _Joining
-    form: _Form
+    joining: Joining
+    form: Form
 
 
 class Mark(_Role, frozen=True, kw_only=True):
     """Combining mark on one side of its base."""
 
-    side: _Side
+    side: Side
 
 
 class Ligature(_Role, frozen=True, kw_only=True):
@@ -169,41 +162,41 @@ type _Roles = Letter | Mark | Ligature | Digit | Sign | Ornament | Space | Contr
 # --- [GLYPHS]
 
 
-class _Glyph(msgspec.Struct, frozen=True, kw_only=True):
+class Glyph(msgspec.Struct, frozen=True, kw_only=True):
     """Glyph with its actual cmap code points, role, advance, quadratic contours, components, and anchors."""
 
-    name: _GlyphName
+    name: GlyphName
     role: _Roles
     advance: float
     codes: frozenset[int] = frozenset()
-    contours: _Outline = ()
-    components: tuple[_Component, ...] = ()
-    anchors: tuple[_Anchor, ...] = ()
+    contours: tuple[tuple[Point, ...], ...] = ()
+    components: tuple[Component, ...] = ()
+    anchors: tuple[Anchor, ...] = ()
 
     def draw(self, pen: AbstractPen, /) -> None:
         """Draws contours and component references through the native segment-pen protocol."""
-        _draw_points(PointToSegmentPen(pen), self.contours, closed=True)
+        draw_points(PointToSegmentPen(pen), self.contours, closed=True)
         for component in self.components:
             pen.addComponent(component.name, component.transform)
 
-    def decomposed(self, glyphs: Mapping[str, _Glyph], /) -> Self:
+    def decomposed(self, glyphs: Mapping[str, Glyph], /) -> Self:
         """Resolves component geometry against a glyph set while retaining the glyph's other facts."""
-        return msgspec.structs.replace(self, contours=_traced(lambda pen: self.draw(DecomposingFilterPen(pen, glyphs))), components=()) if self.components else self
+        return msgspec.structs.replace(self, contours=traced(lambda pen: self.draw(DecomposingFilterPen(pen, glyphs))), components=()) if self.components else self
 
     @property
-    def category(self) -> _Category:
+    def category(self) -> Category:
         """OpenType category for `public.openTypeCategories`, spaces and controls left unassigned."""
         match self.role:
             case Mark():
-                return _Category.MARK
+                return Category.MARK
             case Ligature():
-                return _Category.LIGATURE
+                return Category.LIGATURE
             case Space() | Control():
-                return _Category.UNASSIGNED
+                return Category.UNASSIGNED
             case Letter() | Digit() | Sign() | Ornament():
-                return _Category.BASE
+                return Category.BASE
 
-    def anchor(self, name: str, /) -> Option[_Anchor]:
+    def anchor(self, name: str, /) -> Option[Anchor]:
         """Returns the anchor with a name."""
         return Option.of_optional(next((anchor for anchor in self.anchors if anchor.name == name), None))
 
@@ -211,7 +204,7 @@ class _Glyph(msgspec.Struct, frozen=True, kw_only=True):
 # --- [FACES]
 
 
-class _Info(msgspec.Struct, frozen=True, kw_only=True):
+class Info(msgspec.Struct, frozen=True, kw_only=True):
     """Record fields read from the original."""
 
     created: Annotated[datetime, msgspec.Meta(tz=True)]
@@ -221,7 +214,7 @@ class _Info(msgspec.Struct, frozen=True, kw_only=True):
     vendor: str | None
 
 
-class _Metrics(msgspec.Struct, frozen=True, kw_only=True):
+class VerticalMetrics(msgspec.Struct, frozen=True, kw_only=True):
     """Vertical metrics in font units, descenders negative and win descent positive."""
 
     ascender: int
@@ -242,15 +235,15 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     face: Faces
     upm: int
-    glyphs: tuple[_Glyph, ...]
-    info: _Info
-    metrics: _Metrics
+    glyphs: tuple[Glyph, ...]
+    info: Info
+    metrics: VerticalMetrics
     lookups: tuple[Lookups, ...] = ()
 
     # --- [QUERIES]
 
     @cached_property
-    def named(self) -> frozendict[str, _Glyph]:
+    def named(self) -> frozendict[str, Glyph]:
         """Glyphs by key."""
         return frozendict({glyph.name.text: glyph for glyph in self.glyphs})
 
@@ -259,9 +252,9 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Glyph keys by the code point each is mapped at."""
         return frozendict({code: glyph.name.text for glyph in self.glyphs for code in glyph.codes})
 
-    def key(self, code: int, form: _Form | None = None, /) -> str:
+    def key(self, code: int, form: Form | None = None, /) -> str:
         """Actual cmap key, its requested joining form, or the construction name of an unmapped code point."""
-        name = self.named[held].name if (held := self.encoded.get(code)) is not None else _GlyphName(stem=(code,))
+        name = self.named[held].name if (held := self.encoded.get(code)) is not None else GlyphName(stem=(code,))
         return (name if form is None else msgspec.structs.replace(name, form=form)).text
 
     @cached_property
@@ -270,12 +263,12 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return tuple(sorted({held for code in self.encoded if (held := script(chr(code))) not in {"Zyyy", "Zinh", "Zzzz"}}))
 
     @cached_property
-    def drawn(self) -> Callable[[str], _Glyph]:
+    def drawn(self) -> Callable[[str], Glyph]:
         """Glyph geometry including nested transformed components, retaining its role, advance, and anchors."""
         named = self.named
 
         @cache
-        def decomposed(name: str, /) -> _Glyph:
+        def decomposed(name: str, /) -> Glyph:
             return named[name].decomposed(named)
 
         return decomposed
@@ -301,17 +294,17 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         return measured
 
-    def glyph(self, key: str, /) -> Option[_Glyph]:
+    def glyph(self, key: str, /) -> Option[Glyph]:
         """Returns the glyph of a key."""
         return Option.of_optional(self.named.get(key))
 
-    def by_role(self, kind: type[_Roles], /) -> tuple[_Glyph, ...]:
+    def by_role(self, kind: type[_Roles], /) -> tuple[Glyph, ...]:
         """Returns the glyphs of one role case in glyph order."""
         return tuple(glyph for glyph in self.glyphs if isinstance(glyph.role, kind))
 
     # --- [CHANGES]
 
-    def replaced(self, *glyphs: _Glyph) -> Self:
+    def replaced(self, *glyphs: Glyph) -> Self:
         """Returns a copy with each glyph replacing the one of its key, or appended where no glyph holds it."""
         return msgspec.structs.replace(self, glyphs=tuple((self.named | {glyph.name.text: glyph for glyph in glyphs}).values()))
 
@@ -326,7 +319,7 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 # --- [PENS]
 
 
-def _draw_points(points: AbstractPointPen, outline: _Outline, /, *, closed: bool) -> None:
+def draw_points(points: AbstractPointPen, outline: tuple[tuple[Point, ...], ...], /, *, closed: bool) -> None:
     """Draws contour points, each on-curve point typed by its predecessor, an open contour starting with a move."""
     for contour in outline:
         points.beginPath()
@@ -335,16 +328,16 @@ def _draw_points(points: AbstractPointPen, outline: _Outline, /, *, closed: bool
         points.endPath()
 
 
-def recorded(recording: RecordingPointPen, /) -> _Outline:
+def recorded(recording: RecordingPointPen, /) -> tuple[tuple[Point, ...], ...]:
     """Contours a recording point pen holds."""
     return tuple(
-        tuple(_Point(x=float(x), y=float(y), on=kind is not None) for _, ((x, y), kind, *_), _ in group)
+        tuple(Point(x=float(x), y=float(y), on=kind is not None) for _, ((x, y), kind, *_), _ in group)
         for adding, group in groupby(recording.value, key=lambda entry: entry[0] == "addPoint")
         if adding
     )
 
 
-def _traced(drawing: Callable[[AbstractPen], object], /) -> _Outline:
+def traced(drawing: Callable[[AbstractPen], object], /) -> tuple[tuple[Point, ...], ...]:
     """Reads a segment-pen drawing as quadratic contours, cubic segments converted through cu2qu within one unit."""
     recording = RecordingPointPen()
     drawing(Cu2QuPen(SegmentToPointPen(recording), max_err=1.0, all_quadratic=True))
@@ -354,16 +347,16 @@ def _traced(drawing: Callable[[AbstractPen], object], /) -> _Outline:
 # --- [ROLES]
 
 
-def _role(name: _GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
+def role(name: GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
     """Returns the role a glyph name states through its component count, form, and the Unicode data of its first code point."""
     head = next(iter(name.codes), 0)
-    match len(name.codes), name.form, unicodedata.category(chr(head)), _joined().get(head):
+    match len(name.codes), name.form, unicodedata.category(chr(head)), joined().get(head):
         case count, _, _, _ if count > 1:
-            return Ligature(components=components or tuple(_GlyphName(stem=(code,)).text for code in name.codes))
-        case 1, form, _, _ if form is not _Form.ISOL:
-            return Letter(joining=_Joining.of(head), form=form)
+            return Ligature(components=components or tuple(GlyphName(stem=(code,)).text for code in name.codes))
+        case 1, form, _, _ if form is not Form.ISOL:
+            return Letter(joining=Joining.of(head), form=form)
         case 1, _, "Mn" | "Me", _:
-            return Mark(side=_Side.of(head))
+            return Mark(side=Side.of(head))
         case 1, _, "Cf" | "Cc", _:
             return Control()
         case 1, _, "Zs", _:
@@ -371,7 +364,7 @@ def _role(name: _GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
         case 1, _, "Nd", _:
             return Digit(zero=head - unicodedata.decimal(chr(head)))
         case 1, _, "Lo" | "Lm", (joining, _):
-            return Letter(joining=joining, form=_Form.ISOL)
+            return Letter(joining=joining, form=Form.ISOL)
         case _:
             return Sign()
 
@@ -379,7 +372,7 @@ def _role(name: _GlyphName, /, *, components: tuple[str, ...] = ()) -> _Roles:
 # --- [UNICODE]
 
 
-def _fetched() -> Outcome[Path]:
+def fetched() -> Outcome[Path]:
     """Holds the pinned `ArabicShaping.txt` in the user cache, downloading it where the cache lacks a copy matching its checksum.
 
     Returns:
@@ -387,8 +380,8 @@ def _fetched() -> Outcome[Path]:
     """
 
     def verified(data: bytes, /) -> Outcome[bytes]:
-        digest = hashlib.sha256(data).hexdigest()
-        return Ok(data).filter_with(lambda _: digest == _ARABIC_SHAPING_SHA256, lambda _: Fault.of(Reason.OUTSIDE, _ARABIC_SHAPING, digest, member=f"SHA-256 {_ARABIC_SHAPING_SHA256}"))
+        digest, pinned = hashlib.sha256(data).hexdigest(), "8ccde4ebd070500a68e8bcb9d5514522fb0bebe57b9ebad3ff925b8e1e669f83"
+        return Ok(data).filter_with(lambda _: digest == pinned, lambda _: Fault.of(Reason.OUTSIDE, _ARABIC_SHAPING, digest, member=f"SHA-256 {pinned}"))
 
     return (
         read(_ARABIC_SHAPING_FILE)
@@ -406,15 +399,40 @@ def _fetched() -> Outcome[Path]:
 
 
 @cache
-def _joined() -> frozendict[int, tuple[_Joining, str]]:
-    """Joining type and group of each code point `ArabicShaping.txt` lists, read from the copy `_fetched` holds."""
+def joined() -> frozendict[int, tuple[Joining, str]]:
+    """Joining type and group of each code point `ArabicShaping.txt` lists, read from the copy `fetched` holds."""
     with _ARABIC_SHAPING_FILE.open(encoding="utf-8", newline="") as lines:
         return frozendict({
-            int(code, 16): (_Joining(joining), group)
+            int(code, 16): (Joining(joining), group)
             for code, _, joining, group in csv.reader((line for line in lines if line.strip() and not line.startswith("#")), delimiter=";", skipinitialspace=True)
         })
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Control", "Digit", "Letter", "Ligature", "Mark", "Ornament", "Sign", "Source", "Space", "recorded"]
+__all__ = [
+    "Anchor",
+    "Category",
+    "Component",
+    "Control",
+    "Digit",
+    "Glyph",
+    "Info",
+    "Joining",
+    "Letter",
+    "Ligature",
+    "Mark",
+    "Ornament",
+    "Point",
+    "Side",
+    "Sign",
+    "Source",
+    "Space",
+    "VerticalMetrics",
+    "draw_points",
+    "fetched",
+    "joined",
+    "recorded",
+    "role",
+    "traced",
+]

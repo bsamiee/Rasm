@@ -38,7 +38,6 @@ from rasm_records import Ok, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_DISTANCE: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.ShaderNodeTexVoronoi, prop=bpy.types.ShaderNodeTexVoronoi.bl_rna.properties["distance"])  # ty: ignore[invalid-argument-type]
 _CLOCK: Final = InterfacePanel.of(CLOCK.key, Clock(speed=0.0))
 _BLOCK: Final = Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Block side over greater frame side", min_value=1e-6, default_value=0.005)
 _MOSAIC: Final = InterfacePanel.of("mosaic", Interface(inputs=(_BLOCK,)), description="Replaces frame with square blocks")
@@ -119,7 +118,9 @@ _GRADIENT: Final = InterfacePanel(key="gradient", name="Gradient Map", descripti
 class Pixelation(CompositorRecord, frozen=True, kw_only=True):
     """Resamples display values into blocks or cells before palette reduction, cell borders shaped by a Voronoi distance."""
 
-    distance: Annotated[str, _DISTANCE, msgspec.Meta(description="Voronoi distance shaping cell borders")] = _DISTANCE.prop.default
+    distance: Annotated[
+        str, Descriptor(root=bpy.types.ShaderNodeTexVoronoi, prop=bpy.types.ShaderNodeTexVoronoi.bl_rna.properties["distance"]), msgspec.Meta(description="Voronoi distance shaping cell borders")
+    ] = Voronoi().distance
 
     @override
     def graph(self, shell: GraphInputs) -> Outcome[Expr]:

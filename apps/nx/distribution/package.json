@@ -25,6 +25,7 @@
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@rasm/nx-devkit": "workspace:*",
         "@xml-tools/ast": "catalog:",
         "@xml-tools/parser": "catalog:",
         "effect": "catalog:",

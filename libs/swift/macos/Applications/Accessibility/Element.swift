@@ -7,21 +7,10 @@ public import Foundation
 
 private let buttonAttributes: [String] = [kAXCloseButtonAttribute, kAXDefaultButtonAttribute, kAXCancelButtonAttribute]
 private let childAttributes: [String] = [kAXChildrenAttribute, kAXVisibleRowsAttribute, kAXVisibleChildrenAttribute]
-private let outlineAttributes: [String] =
-    [
-        kAXRoleAttribute, kAXSubroleAttribute, kAXModalAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXDocumentAttribute, kAXMainAttribute,
-        kAXFocusedAttribute, kAXMinimizedAttribute, kAXParentAttribute,
-    ] + buttonAttributes + childAttributes + frameAttributes
 private let nodeAttributes: [String] =
     [kAXRoleAttribute, kAXSubroleAttribute, kAXEnabledAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXTitleUIElementAttribute] + childAttributes
-private let valuedRoles: Set<String> = [kAXStaticTextRole, kAXTextFieldRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole]
 private let menuRoles: Set<String> = [kAXMenuRole, kAXMenuBarRole]
 private let boundedRoles: Set<String> = [kAXSheetRole, kAXPopoverRole]
-private let filePanelIdentifiers: Set<String> = ["save-panel", "open-panel"]
-private let alertDescription: String = "alert"
-private let acceptIdentifier: String = "OKButton"
-private let discardIdentifier: String = "DontSaveButton"
-private let cancelIdentifier: String = "CancelButton"
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -49,7 +38,7 @@ public struct FailedRead: Encodable, Hashable, Sendable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(reads, forKey: .reads)
         try fields.encodeIfPresent(role, forKey: .role)
         try fields.encodeIfPresent(label, forKey: .label)
@@ -71,7 +60,7 @@ public struct Element: Encodable, Hashable, Sendable {
         public init(from decoder: any Decoder) throws { token = try decoder.singleValueContainer().decode(Data.self) }
 
         public func encode(to encoder: any Encoder) throws {
-            var container: any SingleValueEncodingContainer = encoder.singleValueContainer()
+            var container = encoder.singleValueContainer()
             try container.encode(token)
         }
 
@@ -122,7 +111,7 @@ public struct Element: Encodable, Hashable, Sendable {
     let helper: Bool
 
     public var kind: Kind {
-        switch (helper, identifier.map(filePanelIdentifiers.contains) == true, role, modal == true, description == alertDescription, subrole) {
+        switch (helper, identifier.map(["save-panel", "open-panel"].contains) == true, role, modal == true, description == "alert", subrole) {
             case (true, _, _, _, _, _): .system
             case (_, true, _, _, _, _): .filePanel
             case (_, _, kAXSheetRole, _, _, _): .sheet
@@ -143,20 +132,20 @@ public struct Element: Encodable, Hashable, Sendable {
     }
 
     public var answers: Answers? {
-        guard let controls: [Control] = detail?.controls else { return nil }
+        guard let controls = detail?.controls else { return nil }
         let attributed: (String) -> Control? = { attribute in controls.first { control in control.attribute == attribute } }
         let identified: (String) -> Control? = { identifier in controls.first { control in control.identifier == identifier } }
         let answers = Answers(
-            accept: attributed(kAXDefaultButtonAttribute) ?? identified(acceptIdentifier),
-            discard: identified(discardIdentifier),
-            cancel: attributed(kAXCancelButtonAttribute) ?? identified(cancelIdentifier) ?? attributed(kAXCloseButtonAttribute),
+            accept: attributed(kAXDefaultButtonAttribute) ?? identified("OKButton"),
+            discard: identified("DontSaveButton"),
+            cancel: attributed(kAXCancelButtonAttribute) ?? identified("CancelButton") ?? attributed(kAXCloseButtonAttribute),
             buttons: controls.filter { control in control.role == kAXButtonRole && control.label != nil },
         )
         return answers.accept == nil && answers.discard == nil && answers.cancel == nil && answers.buttons.isEmpty ? nil : answers
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(id, forKey: .id)
         try fields.encode(role, forKey: .role)
         try fields.encodeIfPresent(subrole, forKey: .subrole)
@@ -183,7 +172,7 @@ private enum Part {
     case unreadable(FailedRead)
 
     init(_ failure: ApplicationFailure) throws(ApplicationFailure) {
-        guard let read: FailedRead = failure.reason[case: \.unreadable] else { throw failure }
+        guard let read = failure.reason[case: \.unreadable] else { throw failure }
         self = .unreadable(read)
     }
 }
@@ -225,14 +214,14 @@ extension AXUIElement {
 
     private func walk(marking marked: [(attribute: String, node: AXUIElement)], menu: (process: pid_t, path: [Int])?) throws(ApplicationFailure) -> (role: String?, parts: [Part]) {
         do throws(ApplicationFailure) {
-            let read: [String: CFTypeRef] = try values(nodeAttributes)
+            let read = try values(nodeAttributes)
             let role = read[kAXRoleAttribute] as? String
             guard role.map(boundedRoles.contains) != true else { return (role, []) }
-            let children: [(role: String?, parts: [Part])] = try Self.children(read).map { child throws(ApplicationFailure) in
+            let children = try Self.children(read).map { child throws(ApplicationFailure) in
                 try child.element.walk(marking: marked, menu: menu.map { menu in (menu.process, menu.path + [child.offset]) })
             }
-            let menus: [Part] = children.filter { child in child.role == kAXMenuRole }.flatMap(\.parts)
-            let own: Part? = try part(
+            let menus = children.filter { child in child.role == kAXMenuRole }.flatMap(\.parts)
+            let own = try part(
                 read,
                 id: menu.map { menu in Self.menuItem(of: menu.process, at: menu.path) } ?? token,
                 attribute: marked.first { mark in mark.node == self }?.attribute,
@@ -250,7 +239,7 @@ extension AXUIElement {
             let value: CFTypeRef? =
                 switch role {
                     case kAXTextAreaRole: try visibleText().map { text in text as CFString }
-                    case _ where valuedRoles.contains(role): try values([kAXValueAttribute])[kAXValueAttribute]
+                    case kAXStaticTextRole, kAXTextFieldRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole: try values([kAXValueAttribute])[kAXValueAttribute]
                     case _: nil
                 }
             guard role != kAXStaticTextRole else {
@@ -258,9 +247,9 @@ extension AXUIElement {
                     text.unicodeScalars.allSatisfy { scalar in scalar.properties.isWhitespace || scalar.properties.generalCategory == .privateUse } ? nil : .text(text)
                 }
             }
-            let actions: [String] = try actionNames()
+            let actions = try actionNames()
             guard value != nil || actions.contains(kAXPressAction) else { return nil }
-            let label: String? = try label(read)
+            let label = try label(read)
             guard role != kAXMenuItemRole || label != nil else { return nil }
             return .control(
                 Control(
@@ -282,14 +271,19 @@ extension AXUIElement {
     }
 
     func described(walking walked: (Element) -> Bool, helper: Bool, among listed: [InstanceState.Window], bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
-        let read: [String: CFTypeRef] = try values(outlineAttributes)
+        let read = try values(
+            [
+                kAXRoleAttribute, kAXSubroleAttribute, kAXModalAttribute, kAXIdentifierAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXDocumentAttribute, kAXMainAttribute,
+                kAXFocusedAttribute, kAXMinimizedAttribute, kAXParentAttribute,
+            ] + buttonAttributes + childAttributes + frameAttributes
+        )
         guard let role = read[kAXRoleAttribute] as? String else { return nil }
         let window = Self.window(framed: read, among: listed)
         guard window != nil || menuRoles.contains(role) else { return nil }
-        let marked: [(attribute: String, node: AXUIElement)] = buttonAttributes.compactMap { attribute in
+        let marked = buttonAttributes.compactMap { attribute in
             read[attribute].flatMap(Self.checked).map { node in (attribute: attribute, node: node) }
         }
-        let (subrole, modal): (String?, Bool?) = (read[kAXSubroleAttribute] as? String, read[kAXModalAttribute] as? Bool)
+        let (subrole, modal) = (read[kAXSubroleAttribute] as? String, read[kAXModalAttribute] as? Bool)
         let (id, actions, edited): (Data, [String], Bool?) = try (token, actionNames(), marked.first { mark in mark.attribute == kAXCloseButtonAttribute }?.node.value(kAXEditedAttribute))
         let title: String? =
             try role == kAXMenuRole
@@ -313,11 +307,11 @@ extension AXUIElement {
             )
         }
         guard walked(element(nil)) else { return (window, element(nil)) }
-        let walk: [Part] = try Self.children(read).map { child throws(ApplicationFailure) in
+        let walk = try Self.children(read).map { child throws(ApplicationFailure) in
             try child.element.walk(marking: marked, menu: bar.flatMap { bar in process.map { process in (process, [bar, child.offset]) } }).parts
         }
         .flatMap(\.self)
-        let parts: [Part] =
+        let parts =
             try walk
             + marked.filter { mark in !walk.contains { part in part.control?.attribute == mark.attribute } }
             .map { mark throws(ApplicationFailure) in try mark.node.walk(marking: marked, menu: nil).parts }.flatMap(\.self)

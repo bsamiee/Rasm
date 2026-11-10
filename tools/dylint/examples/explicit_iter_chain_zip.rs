@@ -1,8 +1,8 @@
-use core::{cell::RefCell, hint::black_box, iter, slice};
-use std::{
-    collections::{BTreeMap, HashMap},
-    hash::{BuildHasher, DefaultHasher},
-};
+use core::cell::RefCell;
+use core::hint::black_box;
+use core::{iter, slice};
+use std::collections::{BTreeMap, HashMap};
+use std::hash::{BuildHasher, DefaultHasher};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

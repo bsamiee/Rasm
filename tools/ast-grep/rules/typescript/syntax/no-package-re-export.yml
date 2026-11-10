@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+rule:
+    kind: export_statement
+    has: {field: source, kind: string, pattern: $SOURCE, not: {regex: '^.#/'}}
+message: 'Export statement forwards members of $SOURCE'
+note: 'Import from the source package in each consumer and delete the re-export, a package re-exports its own `#/` modules alone'

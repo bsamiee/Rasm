@@ -20,10 +20,11 @@ from rasm_records import accumulated, Nothing, Ok, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+_R_co = TypeVar("_R_co", bound=type[Struct] | Attachment[bpy.types.PropertyGroup], covariant=True, default=type[Struct] | Attachment[bpy.types.PropertyGroup])
+
 type At = tuple[Native, str]
 type Reach = Callable[[bpy.types.Context], Option[Struct]]
 type LocatedMembers = tuple[tuple[Descriptor, At], ...]
-_R_co = TypeVar("_R_co", bound=type[Struct] | Attachment[bpy.types.PropertyGroup], covariant=True, default=type[Struct] | Attachment[bpy.types.PropertyGroup])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -103,7 +104,7 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
         """Mixed label keywords of the setting across the scope's owners, none without a scope or while the owners agree, the host labelling the property itself."""
         return (
             self.scope
-            .map(lambda scope: scope.owners(context).bind(partial(_marked, setting)))
+            .map(lambda scope: scope.owners(context).bind(partial(marked, setting)))
             .default_value(Ok(Nothing))
             .map(lambda mixed: mixed.map(lambda text: dict[str, str | bool](text=text, translate=False)).default_value(dict[str, str | bool]()))
         )
@@ -114,17 +115,23 @@ class Member(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff
 # --- [IDENTITY]
 
 
-def _owner_key(struct: Native) -> str:
+def owner_key(struct: Native) -> str:
     """Identifier per native owner: ID `session_uid`, pointer identity for other structs."""
-    if isinstance(struct, bpy.types.bpy_prop_collection):
-        return _owner_key(struct.data)  # ty: ignore[invalid-argument-type]
-    return str(struct.session_uid if isinstance(struct, bpy.types.ID) else struct.as_pointer())
+    match struct:
+        case bpy.types.bpy_prop_collection(data=bpy.types.bpy_struct() as holder):
+            return owner_key(holder)
+        case bpy.types.ID(session_uid=uid):
+            return str(uid)
+        case bpy.types.bpy_struct():
+            return str(struct.as_pointer())
+        case _:
+            raise TypeError(struct)
 
 
 # --- [LABELS]
 
 
-def _marked(setting: Descriptor, owners: tuple[Struct, ...], /) -> Outcome[Option[str]]:
+def marked(setting: Descriptor, owners: tuple[Struct, ...], /) -> Outcome[Option[str]]:
     """Translated name of a setting marked as mixed while owner values differ, nothing while they agree, the host labelling it."""
     prop = setting.prop
     return accumulated(Snapshot.capture(owner, Some((setting,))) for owner in owners).map(
@@ -135,7 +142,7 @@ def _marked(setting: Descriptor, owners: tuple[Struct, ...], /) -> Outcome[Optio
 # --- [BINDING]
 
 
-def _resolved_at(member: Member[type[Struct]] | ResolvedMember, holder: Struct, context: bpy.types.Context, /) -> Outcome[Option[tuple[Descriptor, At]]]:
+def resolved_at(member: Member[type[Struct]] | ResolvedMember, holder: Struct, context: bpy.types.Context, /) -> Outcome[Option[tuple[Descriptor, At]]]:
     """Returns metadata and owner from one reach, nothing for an absent root or owner, or faults from resolving metadata."""
     match member:
         case Member(reach=Option(tag="some", some=reach)):
@@ -145,19 +152,19 @@ def _resolved_at(member: Member[type[Struct]] | ResolvedMember, holder: Struct, 
                 .default_value(Ok(Nothing))
             )
         case Member():
-            return member.resolved().bind(lambda found: _resolved_at(found, holder, context))
+            return member.resolved().bind(lambda found: resolved_at(found, holder, context))
         case ResolvedMember():
             return Ok(member.at(holder, context).map(lambda at: (member.descriptor, at)))
 
 
-def _bound(
+def bound(
     identity: Identity, members: tuple[Member[type[Struct]], ...], place: Callable[[LocatedMembers, bpy.types.UILayout, Struct, bpy.types.Context], None], /
 ) -> Outcome[Callable[[bpy.types.UILayout, Struct, bpy.types.Context], None]]:
     """Resolves fixed members once and reached members each draw, drawing over the located owners while every one is found."""
 
     def drawn(held: tuple[ResolvedMember | Member[type[Struct]], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws over present owners, logging every refusal."""
-        for current in identity.reports.settled(accumulated(_resolved_at(each, holder, context) for each in held)).to_list():
+        for current in identity.reports.settled(accumulated(resolved_at(each, holder, context) for each in held)).to_list():
             located = tuple(member for each in current for member in each.to_list())
             if len(located) == len(held):
                 place(located, layout, holder, context)
@@ -167,4 +174,4 @@ def _bound(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["At", "LocatedMembers", "Member", "Reach", "ResolvedMember"]
+__all__ = ["At", "LocatedMembers", "Member", "Reach", "ResolvedMember", "bound", "marked", "owner_key", "resolved_at"]

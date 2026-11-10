@@ -1,24 +1,19 @@
 use core::iter;
-use std::{
-    collections::{HashMap, hash_map::Entry},
-    sync::Arc,
-};
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::sync::Arc;
 
 use fast_image_resize::Resizer;
-use krilla::{
-    Data,
-    color::{
-        self, cmyk, rgb,
-        separation::{self, SeparationColorant, SeparationSpace},
-    },
-    geom::{self, PathBuilder, Transform},
-    image::Image,
-    num::NormalizedF32,
-    paint::{Fill, FillRule, LineCap, LineJoin, Paint, Stroke, StrokeDash},
-    pdf::PdfDocument,
-    surface::Surface,
-    text::{Font, GlyphId, KrillaGlyph, Tag},
-};
+use krilla::Data;
+use krilla::color::separation::{self, SeparationColorant, SeparationSpace};
+use krilla::color::{self, cmyk, rgb};
+use krilla::geom::{self, PathBuilder, Transform};
+use krilla::image::Image;
+use krilla::num::NormalizedF32;
+use krilla::paint::{Fill, FillRule, LineCap, LineJoin, Paint, Stroke, StrokeDash};
+use krilla::pdf::PdfDocument;
+use krilla::surface::Surface;
+use krilla::text::{Font, GlyphId, KrillaGlyph, Tag};
 use krilla_svg::{SurfaceExt as _, SvgSettings};
 use kurbo::{Affine, Cap, Join, PathEl, Rect, Shape as _, Size};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
@@ -26,11 +21,9 @@ use rasm_drawing::{Color, Content, Element, GlyphRun, Opacity, Pen, Placement, R
 use usvg::Tree;
 use validated::Validated;
 
-use super::{
-    Options,
-    rasters::{self, Raster},
-    tagging::Leaves,
-};
+use super::Options;
+use super::rasters::{self, Raster};
+use super::tagging::Leaves;
 use crate::{Document, PdfError, Refusal};
 
 // --- [MODELS] --------------------------------------------------------------------------

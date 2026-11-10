@@ -30,10 +30,6 @@ internal sealed partial class TargetFile {
 
     // --- [ITEMS]
 
-    private static readonly Seq<string> Rgb = ["R", "G", "B"];
-
-    internal static readonly Seq<string> Rgba = ["R", "G", "B", "A"];
-
     public static readonly TargetFile Png = new("png", FileExtension.Create(".png"), [OutputDepth.UInt8], Encoded(static (_, source, target, _) =>
         source.Formed(target.ColorDepth).Map(formed => (ImageFile)new ImageFile.Raster(formed.Frame, formed.Encoding, target.Alpha, new RasterCodec.Png(Wide: false)))));
     public static readonly TargetFile Tiff = new("tiff", FileExtension.Create(".tif"), [OutputDepth.UInt8, OutputDepth.Float16, OutputDepth.Float32], Encoded(static (_, source, target, _) =>
@@ -41,7 +37,7 @@ internal sealed partial class TargetFile {
     public static readonly TargetFile Exr = new("exr", FileExtension.Create(".exr"), [OutputDepth.Float16, OutputDepth.Float32], Encoded(static (doc, source, target, _) =>
         target.Reader.Match(
                 Some: reader => Passes(doc, source, target, reader),
-                None: () => source.Linear.Map(beauty => Seq(new ExrLayer(None, beauty, target.Alpha ? Rgba : Rgb))))
+                None: () => source.Linear.Map(beauty => Seq(new ExrLayer(None, beauty, target.Alpha ? ExrChannels.Standard.Rgba : ExrChannels.Standard.Rgb))))
             .Map(layers => (ImageFile)new ImageFile.Exr(
                 layers, target.ColorDepth, target.Codec, Some(ChainScene.Working.Gamut), Multipart: target.Reader.IsSome))));
     public static readonly TargetFile Dng = new("dng", FileExtension.Create(".dng"), [OutputDepth.Float32], Encoded(static (_, source, _, metadata) =>
@@ -93,8 +89,8 @@ internal sealed partial class TargetFile {
         select reader.Naming.Beauty(beauty, target.Alpha).Cons(channels.Bind(held =>
             held.Channel.Layers(held.Channel.PartName, held.Frame, reader, source.Scene.Camera)
             + Mattes(held.Channel.Identified(doc, held.Frame), encode) switch {
-                var mattes => mattes.IsEmpty ? Seq<ExrLayer>() : new ExrLayer(held.Channel.Key.ToString(), ImageFile.Matte(held.Frame, toMap(mattes.Map(static matte => (matte.Id, matte.Color)))), Rgba)
-                    .Cons(mattes.Map(matte => new ExrLayer(Named(matte), ImageFile.Matte(held.Frame, Map((matte.Id, matte.Color))), Rgba))),
+                var mattes => mattes.IsEmpty ? Seq<ExrLayer>() : new ExrLayer(held.Channel.Key.ToString(), ImageFile.Matte(held.Frame, toMap(mattes.Map(static matte => (matte.Id, matte.Color)))), ExrChannels.Standard.Rgba)
+                    .Cons(mattes.Map(matte => new ExrLayer(Named(matte), ImageFile.Matte(held.Frame, Map((matte.Id, matte.Color))), ExrChannels.Standard.Rgba))),
             })) + position;
 
     private static IO<ImageFile> Document(RhinoDoc doc, SaveSource source, OutputTarget target) =>

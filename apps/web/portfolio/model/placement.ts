@@ -1,6 +1,5 @@
 import { Array, Effect, identity, Match, Option, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation, String } from 'effect';
 import { Asset, AssetId, Assets, Sheet } from '#/model/asset';
-import { defaulted } from '#/model/defaulted';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -8,6 +7,7 @@ const focus = { minimum: 0, maximum: 100 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const defaulted = <S extends Schema.Top & Schema.WithoutConstructorDefault>(schema: S, value: S['Type'] & S['Encoded']) => schema.pipe(Schema.withDecodingDefaultKey(Effect.succeed(value)), Schema.withConstructorDefault(Effect.succeed(value)));
 const CompositionId = Schema.String.check(Schema.isUUID()).pipe(Schema.brand('CompositionId'));
 const reference = <K extends (typeof Asset.Type)['kind']>(kind: K) => {
     const target = Schema.toType(Asset.cases[kind]);
@@ -73,4 +73,4 @@ const Composition = Schema.Struct({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Alignment, Composition, CompositionId, Placement, Scale };
+export { Alignment, Composition, CompositionId, defaulted, Placement, Scale };

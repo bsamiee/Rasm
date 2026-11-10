@@ -4,7 +4,7 @@ from functools import cache, cached_property, partial
 from math import prod
 import os
 from pathlib import Path
-from typing import ClassVar, override
+from typing import Annotated, ClassVar, override
 
 import bpy
 from expression import Option, Some
@@ -16,13 +16,12 @@ from rasm_bpy.commands.invocations import Popup
 from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Operator, Placement
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions
-from rasm_bpy.data._ids.evaluation import _evaluated
-from rasm_bpy.data._ids.store import _embedded, _resolved
+from rasm_bpy.data._ids.evaluation import evaluated_depsgraph
+from rasm_bpy.data._ids.store import embedded_tree
 from rasm_bpy.data._rna import conditions
 from rasm_bpy.data._rna.descriptors import Descriptor
-from rasm_bpy.data._rna.paths import _definition, rooted, Struct
-from rasm_bpy.files._sessions import _dependencies, _Dependency
-from rasm_bpy.nodes._trees import _nested
+from rasm_bpy.data._rna.paths import rna_definition, rooted, Struct
+from rasm_bpy.nodes._trees import nested
 from rasm_bpy.render._outputs.paths import Pathed
 from rasm_bpy.ui._layout.rows import OperatorButton
 from rasm_bpy.ui._layout.sections import Section
@@ -42,7 +41,7 @@ class _Folder(conditions.Condition, frozen=True, kw_only=True):
     @property
     @override
     def message(self) -> str:
-        return f"writable {_definition(bpy.types.RenderSettings).properties['filepath'].name} folder"
+        return f"writable {rna_definition(bpy.types.RenderSettings).properties['filepath'].name} folder"
 
 
 class _Measure(msgspec.Struct, frozen=True, kw_only=True):
@@ -64,7 +63,7 @@ class _Measure(msgspec.Struct, frozen=True, kw_only=True):
 class Shader(bpy.types.PropertyGroup):
     """Shader node class to list material users of."""
 
-    kind: bpy.props.EnumProperty(name="Shader", description="Shader node class to find", items=lambda _owner, _context: shader_rows(shader_kinds()))  # ty: ignore[invalid-type-form]
+    kind: Annotated[str, bpy.props.EnumProperty(name="Shader", description="Shader node class to find", items=lambda _owner, _context: shader_rows(shader_kinds()))]
 
 
 class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
@@ -75,7 +74,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     condition: ClassVar[conditions.AllOf] = (
         Pathed.unsaved
         & conditions.Count(
-            collection=Descriptor[bpy.types.CollectionProperty](root=bpy.types.Scene, prop=bpy.types.Scene.bl_rna.properties["view_layers"]),  # ty: ignore[invalid-argument-type]
+            collection=Descriptor(root=bpy.types.Scene, prop=bpy.types.Scene.bl_rna.properties["view_layers"]),
             where=Some(conditions.Setting(descriptor=Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use"]))),
         )
         & _Folder()
@@ -98,7 +97,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @staticmethod
     def audit_file(_call: Call[Empty]) -> Outcome[Answer]:
         """Reports missing files, empty material slots, and empty group or image nodes."""
-        return Ok(Done(skipped=_audited().swap().default_value(())))
+        return Ok(Done(skipped=file_audit().swap().default_value(())))
 
     @staticmethod
     def list_users(call: Call[Empty]) -> Outcome[Answer]:
@@ -115,7 +114,16 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .filter(lambda shader: shader.__name__ == kind)
             .try_head()
             .to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.types", member=kind))
-            .map(lambda shader: Done(notes=tuple(("INFO", repr(user)) for user in _shader_users(shader))))
+            .map(
+                lambda shader: Done(
+                    notes=tuple(
+                        ("INFO", repr(material))
+                        for material in bpy.data.materials
+                        for tree in Option.of_optional(material.node_tree).to_list()
+                        if any(isinstance(node, shader) for held in nested((tree,)) for node in held.nodes)
+                    )
+                )
+            )
         )
 
     @staticmethod
@@ -161,22 +169,23 @@ def _active(context: bpy.types.Context) -> Outcome[bpy.types.ID]:
     return catch(lambda: context.id, exception=AttributeError)().map_error(absent).bind(lambda value: Option.of_optional(value).to_result_with(absent))
 
 
-def _audited() -> Outcome[None]:
+def file_audit() -> Outcome[None]:
     """Accumulates missing files, empty material slots, group nodes with no group tree, and image texture nodes with no image."""
 
     def absent(owner: object, key: str) -> Outcome[None]:
         """Returns absent fault naming owner and key."""
         return Error(Fault.of(Reason.ABSENT, repr(owner), member=key))
 
-    def lost(missing: tuple[_Dependency, ...]) -> Outcome[None]:
-        """Resolves missing dependency owners in one pass, one fault per path."""
-        return _resolved(dependency.owner for dependency in missing).bind(
-            lambda owners: accumulated(absent(owner, str(dependency.path)) for dependency, owner in zip(missing, owners)).map(lambda _: None)
-        )
+    lost: list[Outcome[None]] = []
 
-    nodes = tuple(node for tree in (*(tree for block in bpy.data.all_ids for tree in _embedded(block).to_list()), *bpy.data.node_groups) for node in tree.nodes)
+    def visited(owner: bpy.types.ID, path: str, _: bpy.types.BlendDataPathMeta) -> None:
+        if not (absolute := Path(os.path.abspath(bpy.path.abspath(path, library=owner.library)))).exists():
+            lost.append(absent(owner, str(absolute)))
+
+    bpy.data.file_path_foreach(visited, flags={"SKIP_PACKED", "SKIP_WEAK_REFERENCES", "EXPAND_TOKENS", "EXPAND_SEQUENCES"})
+    nodes = tuple(node for tree in (*(tree for block in bpy.data.all_ids for tree in embedded_tree(block).to_list()), *bpy.data.node_groups) for node in tree.nodes)
     return accumulated((
-        lost(tuple(dependency for dependency in _dependencies() if not dependency.present)),
+        *lost,
         *(absent(item, str(index)) for item in bpy.data.objects for index, slot in enumerate(item.material_slots) if slot.material is None),
         *(
             absent(node, "node_tree")
@@ -196,14 +205,7 @@ def shader_kinds() -> tuple[type[bpy.types.ShaderNode], ...]:
 @cache
 def shader_rows(kinds: tuple[type[bpy.types.ShaderNode], ...]) -> tuple[tuple[str, str, str], ...]:
     """Returns enum rows of shader classes, cached so the host's dynamic enum reads keep their strings."""
-    return tuple((kind.__name__, rna.name, rna.description) for kind in kinds for rna in (_definition(kind),))
-
-
-def _shader_users(kind: type[bpy.types.ShaderNode]) -> tuple[bpy.types.Material, ...]:
-    """Returns materials using shader class, groups included."""
-    return tuple(
-        material for material in bpy.data.materials for tree in Option.of_optional(material.node_tree).to_list() if any(isinstance(node, kind) for held in _nested((tree,)) for node in held.nodes)
-    )
+    return tuple((kind.__name__, rna.name, rna.description) for kind in kinds for rna in (rna_definition(kind),))
 
 
 # --- [MEASURES]
@@ -214,7 +216,7 @@ def _measured(view_layer: bpy.types.ViewLayer) -> Outcome[_Measure]:
 
     def counted(depsgraph: bpy.types.Depsgraph) -> _Measure:
         """Counts instance meshes and images of depsgraph."""
-        data = tuple(instance.object.data for instance in depsgraph.object_instances)  # ty: ignore[unresolved-attribute]
+        data = tuple(item.data for instance in depsgraph.object_instances for item in Option.of_optional(instance.object).to_list())
         meshes = tuple(mesh for mesh in data if isinstance(mesh, bpy.types.Mesh))
         images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
         return _Measure(
@@ -226,9 +228,9 @@ def _measured(view_layer: bpy.types.ViewLayer) -> Outcome[_Measure]:
             image_bytes=sum(prod(image.size) * image.channels * (4 if image.is_float else 1) for image in images),
         )
 
-    return _evaluated(view_layer).map(counted)
+    return evaluated_depsgraph(view_layer).map(counted)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Preflight", "Shader", "shader_kinds", "shader_rows"]
+__all__ = ["Preflight", "Shader", "file_audit", "shader_kinds", "shader_rows"]

@@ -81,7 +81,7 @@ def coordinates(tristimulus: npt.NDArray[np.float32 | np.float64]) -> npt.NDArra
     return np.asarray(np.divide(xy, total, out=np.full_like(xy, np.nan, dtype=np.float64), where=total > 0.0), dtype=np.float64)
 
 
-def locus() -> npt.NDArray[np.float64]:
+def spectral_locus() -> npt.NDArray[np.float64]:
     """Returns spectral xy coordinates in wavelength order as an open curve."""
     return coordinates(observer()[:, 1:])
 
@@ -89,7 +89,7 @@ def locus() -> npt.NDArray[np.float64]:
 @cache
 def diagram_extent() -> npt.NDArray[np.float64]:
     """Returns the read-only diagram frame's far xy corner from the origin, the spectral locus maxima rounded up to tenths."""
-    extent: npt.NDArray[np.float64] = np.ceil(locus().max(axis=0) * 10.0) / 10.0
+    extent: npt.NDArray[np.float64] = np.ceil(spectral_locus().max(axis=0) * 10.0) / 10.0
     extent.setflags(write=False)
     return extent
 
@@ -131,4 +131,4 @@ def adaptation(source: npt.NDArray[np.float64], target: npt.NDArray[np.float64])
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["WhitePoint", "adaptation", "blackbody", "chromaticities", "coordinates", "diagram_extent", "locus", "matching", "observer", "rgb", "spectral_samples"]
+__all__ = ["WhitePoint", "adaptation", "blackbody", "chromaticities", "coordinates", "diagram_extent", "matching", "observer", "rgb", "spectral_locus", "spectral_samples"]

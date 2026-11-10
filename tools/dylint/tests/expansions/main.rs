@@ -33,7 +33,9 @@ pub mod interior_mutable_static;
 mod macro_matching;
 
 mod error_assertions {
-    use core::{error::Error, fmt, hint::black_box};
+    use core::error::Error;
+    use core::fmt;
+    use core::hint::black_box;
 
     use anyhow::Context as _;
 

@@ -1,14 +1,12 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    expr_or_init, fn_def_id,
-    macros::{FormatArgsStorage, find_format_arg_expr, root_macro_call_first_node},
-    paths::PathNS,
-    res::MaybeDef as _,
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{FormatArgsStorage, find_format_arg_expr, root_macro_call_first_node};
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{expr_or_init, fn_def_id, sym};
 use rustc_ast::{FormatArgsPiece, FormatOptions, FormatTrait};
 use rustc_data_structures::fx::FxHashSet;
-use rustc_hir::{Expr, ExprKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{Ty, TyCtxt};
 

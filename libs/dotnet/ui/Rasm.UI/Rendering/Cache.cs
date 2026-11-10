@@ -85,7 +85,12 @@ internal sealed class PaintCache : IDisposable {
             Hinting = raster.IsUseDeviceIndependentFonts ? SKFontHinting.None : SKFontHinting.Slight,
             SubpixelPositioning = true,
         };
-        Blobs = run => TextBlobs.GetOrAdd(run, () => Typesetting.Blob(run, Raster));
+        Blobs = run => TextBlobs.GetOrAdd(run, () => {
+            using SKFont font = new(run.Typeface, run.FontSize) { Edging = Raster.Edging, Hinting = Raster.Hinting, Subpixel = Raster.SubpixelPositioning };
+            using SKTextBlobBuilder builder = new();
+            builder.AddPositionedRun(run.Glyphs.Span, font, run.Positions.Span);
+            return Optional(builder.Build());
+        });
         sceneSlots = [Recordings, Leaves, TextOutlines, TextBlobs, Interiors, Contours, Sprites, Meshes, Labels, Mattes, Arts, Decoded];
         frameSlots = [Filters, Brushes, Backdrops, Images, Valued, Dots, Atlases, Fields, Shadows, Casts, Strokes, Fades, Opacities, Tints, Solids];
         Precision = target.BytesPerPixel < 8 ? SKCanvasSaveLayerRecFlags.F16ColorType : SKCanvasSaveLayerRecFlags.None;
@@ -155,7 +160,14 @@ internal sealed class PaintCache : IDisposable {
 
     internal SKPaint Stroke(Stroke stroke, SKColorF color, float width, uint ordinal, float clock, Option<SKBlender> blend) =>
         Strokes.GetOrAdd((stroke, color, width, ordinal, stroke.Timed ? clock : 0f, blend), () => {
-            using SKPathEffect? effect = PathEffect.Composed(stroke.Patterned(ordinal), width, clock).ValueUnsafe();
+            using SKPathEffect? effect = (stroke.Patterns.IsEmpty ? [] : stroke.Patterns[(int)(ordinal % (uint)stroke.Patterns.Count)])
+                .Fold(Option<SKPathEffect>.None, (inner, pattern) => Some(inner.Match(
+                    Some: held => {
+                        using (held)
+                        using (SKPathEffect outer = pattern.Effect(width, clock))
+                            return SKPathEffect.CreateCompose(outer, held);
+                    },
+                    None: () => pattern.Effect(width, clock)))).ValueUnsafe();
             return new SKPaint {
                 IsAntialias = true, ColorF = color, Style = SKPaintStyle.Stroke, StrokeWidth = width, StrokeCap = stroke.Cap, StrokeJoin = stroke.Join, PathEffect = effect, Blender = blend.ValueUnsafe(),
             };
@@ -213,8 +225,17 @@ internal sealed class PaintCache : IDisposable {
         _ = sceneSlots.Add(scene.Outlines).Iter(static slot => slot.Evict());
         Seq<((LayoutNode Layout, GlyphSource Source) Shown, Fin<LoadedMedia> Media)> arts = (
             from layout in drawn
-            from source in Decoding.Sources(layout)
-            let key = Decoding.Keyed(layout, source)
+            from source in (layout.View is View.Glyph glyph ? Seq(glyph.Art) : [])
+                + layout.Style.Fills.Bind(static fill => fill.Arts)
+                + layout.Style.Filters.Bind(static filter => filter.Arts)
+                + layout.View.Traced.ToSeq().Bind(static figure => figure.Art).Map(static marker => marker.Art)
+            let under = layout.Inner.Background
+            let theme = layout.Cascade.Theme
+            let key = source.Animated
+                ? new ArtKey(source, source.Shaded(under), None, [], [])
+                : new ArtKey(source, source.Shaded(under),
+                    source.Tinted ? None : theme.Color(layout.Style.Text, layout.Style).Map(resting => (SKColor)theme.Legible(layout.Style, under, resting, text: false)),
+                    toHashMap(toSeq(source.Classes.AsIterable()).Choose(pair => theme.Color(pair.Value, layout.Style).Map(resolved => (pair.Key, (SKColor)resolved)))), theme.Chrome)
             select (Shown: (layout, source), Media: Arts.GetOrAdd(key, () => media.Load(key)))).Strict();
         Seq<(Seq<Key> Path, Fin<Decoded> Frames)> images = drawn.Choose(layout => layout.View is View.Image { Source: ImageSource.Encoded encoded } image
             ? Some(Decoding.Requested(layout, image, encoded, scale) switch { var key => (layout.Path, Decoded.GetOrAdd(key, () => media.Decode(key))) })

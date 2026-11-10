@@ -10,15 +10,6 @@ public abstract partial record PathEffect {
 
     internal abstract SKPathEffect Effect(float width, float clock);
 
-    internal static Option<SKPathEffect> Composed(Seq<PathEffect> patterns, float width, float clock) =>
-        patterns.Fold(Option<SKPathEffect>.None, (inner, pattern) => Some(inner.Match(
-            Some: held => {
-                using (held)
-                using (SKPathEffect outer = pattern.Effect(width, clock))
-                    return SKPathEffect.CreateCompose(outer, held);
-            },
-            None: () => pattern.Effect(width, clock))));
-
     public sealed record Dash : PathEffect {
         private Dash(Seq<float> rhythm) => Rhythm = rhythm;
 
@@ -67,6 +58,4 @@ public sealed record Stroke(ColorValue Color) {
     public SKStrokeJoin Join { get; init; } = SKStrokeJoin.Round;
 
     internal bool Timed => Patterns.Exists(static cycle => cycle.Exists(static pattern => pattern.Timed));
-
-    internal Seq<PathEffect> Patterned(uint ordinal) => Patterns.IsEmpty ? [] : Patterns[(int)(ordinal % (uint)Patterns.Count)];
 }

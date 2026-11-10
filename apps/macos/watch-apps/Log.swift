@@ -1,6 +1,7 @@
 import Applications
 import ArgumentParser
 import Encoding
+import Files
 import Foundation
 import System
 
@@ -9,7 +10,10 @@ import System
 struct Log: ParsableCommand {
     static let configuration: CommandConfiguration = .init(
         abstract: "Prints the last line per key of each run sharing this \(sessionVariable). A process ID prints every record of that run",
-        discussion: "Runs append records to \(logFile.path(percentEncoded: false)), a path \(logVariable) replaces",
+        discussion: """
+            Runs append records to \(logFile.url.path(percentEncoded: false)), a path \(logVariable) replaces. \
+            A file of \(logFile.limit.formatted(.byteCount(style: .memory))) or more rotates to .1 through .\(logFile.kept) beside it, the oldest replaced
+            """,
     )
 
     @Argument(help: "Process ID of one \(program) run")
@@ -18,14 +22,15 @@ struct Log: ParsableCommand {
     func run() throws {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .custom { decoder in try dateFormat.parse(decoder.singleValueContainer().decode(String.self)) }
-        let (pid, session): (pid_t?, String?) = (pid, ProcessInfo.processInfo.environment[sessionVariable])
+        let (pid, session) = (pid, ProcessInfo.processInfo.environment[sessionVariable])
         let printed = Result { () throws(ApplicationFailure) in
             do {
-                let lines: [Data] = try Data(contentsOf: logFile).split(separator: UInt8(ascii: "\n"))
-                let records: [Record<[String: JSONValue]>] = try lines.map { line in try decoder.decode(Record<[String: JSONValue]>.self, from: line) }
+                let texts = try logFile.files.compactMap { file in try ifPresent { try Data(contentsOf: file) } }
+                let lines = try (texts.isEmpty ? [Data(contentsOf: logFile.url)] : texts).flatMap { text in text.split(separator: UInt8(ascii: "\n")) }
+                let records = try lines.map { line in try decoder.decode(Record<[String: JSONValue]>.self, from: line) }
                 if let pid {
-                    let start: Int = records.lastIndex { record in record.pid == pid && record.argv != nil } ?? records.endIndex
-                    let end: Int = records[start...].firstIndex { record in record.pid == pid && record.exit != nil }.map { end in end + 1 } ?? records.endIndex
+                    let start = records.lastIndex { record in record.pid == pid && record.argv != nil } ?? records.endIndex
+                    let end = records[start...].firstIndex { record in record.pid == pid && record.exit != nil }.map { end in end + 1 } ?? records.endIndex
                     return records.indices[start..<end].filter { index in records[index].pid == pid }.reduce(into: Data()) { text, index in text += lines[index] + [UInt8(ascii: "\n")] }
                 }
                 return try records.reduce(into: (runs: [Record<[String: JSONValue]>](), active: [pid_t: Int]())) { folded, record in
@@ -44,7 +49,7 @@ struct Log: ParsableCommand {
                 .runs
                 .reduce(into: Data()) { text, run in text += try encoder.encodeLine(run) }
             } catch {
-                throw ApplicationFailure(subject: logFile.path(percentEncoded: false), reason: .host(error as NSError))
+                throw ApplicationFailure(subject: logFile.url.path(percentEncoded: false), reason: .host(error as NSError))
             }
         }
         switch printed {

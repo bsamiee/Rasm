@@ -1,39 +1,36 @@
-use core::{borrow::Borrow, iter};
+use core::borrow::Borrow;
+use core::iter;
 use std::sync::Arc;
 
 use fontdb::Database;
-use jiff::{Zoned, tz::TimeZone};
-use krilla::{
-    SerializeSettings,
-    action::LinkAction,
-    annotation::{Annotation, LinkAnnotation, Target},
-    configure::{PdfVersion, ValidationError},
-    destination::XyzDestination,
-    embed::EmbeddedFile,
-    error::KrillaError,
-    geom::{self, Quadrilateral, Transform},
-    metadata::{DateTime, Metadata},
-    outline::Outline,
-    page::PageSettings,
-    tagging::TagTree,
-};
+use jiff::Zoned;
+use jiff::tz::TimeZone;
+use krilla::SerializeSettings;
+use krilla::action::LinkAction;
+use krilla::annotation::{Annotation, LinkAnnotation, Target};
+use krilla::configure::{PdfVersion, ValidationError};
+use krilla::destination::XyzDestination;
+use krilla::embed::EmbeddedFile;
+use krilla::error::KrillaError;
+use krilla::geom::{self, Quadrilateral, Transform};
+use krilla::metadata::{DateTime, Metadata};
+use krilla::outline::Outline;
+use krilla::page::PageSettings;
+use krilla::tagging::TagTree;
 use kurbo::{Point, Size};
 use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
 use pdf_oxide::compliance::{PdfXLevel, validate_pdf_x};
-use rasm_drawing::{
-    Tolerance, Visibility,
-    pages::{self, Destination, Link, Page},
-};
+use rasm_drawing::pages::{self, Destination, Link, Page};
+use rasm_drawing::{Tolerance, Visibility};
 use uom::si::length::point_computer;
 use validated::Validated;
 
-use self::{content::Drawing, tagging::Leaves};
-use crate::{
-    Document, PdfError, Refusal, Resolution, Subject,
-    layers::{self, Group},
-    measurement,
-    navigation::{self, Navigation},
-};
+use self::content::Drawing;
+use self::standards::Standards;
+use self::tagging::Leaves;
+use crate::layers::{self, Group};
+use crate::navigation::{self, Navigation};
+use crate::{Document, PdfError, Refusal, Resolution, Subject, measurement};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -198,9 +195,5 @@ fn dimensioned(paper: Size) -> Result<(PageSettings, geom::Size), PdfError> {
 
 mod content;
 mod rasters;
-mod standards;
+pub(crate) mod standards;
 mod tagging;
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-pub use standards::{Press, Standards};

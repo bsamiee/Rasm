@@ -12,7 +12,7 @@ import posixpath
 import re
 import string
 from types import MappingProxyType
-from typing import ClassVar, Final, Self
+from typing import Annotated, ClassVar, Final, Self
 
 import bpy
 from expression import Option, Result, Some
@@ -21,18 +21,18 @@ import msgspec
 
 from rasm_bpy.commands.invocations import Suppressible
 from rasm_bpy.commands.operators import Answer, Call, called, Done, Empty, Operator, tallied, Unchanged
-from rasm_bpy.data._extension.events import _located, _runtime
+from rasm_bpy.data._extension.events import located, runtime
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Handler, Registrable, Subscription
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.conditions import Condition, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
-from rasm_bpy.data._rna.paths import _definition, rooted
+from rasm_bpy.data._rna.paths import rna_definition, rooted
 from rasm_bpy.data._rna.properties import Changed
-from rasm_bpy.data._rna.snapshots import assigned, Snapshot
-from rasm_bpy.files._sessions import _BlendFile
-from rasm_bpy.render._outputs.formats import _extension
+from rasm_bpy.data._rna.snapshots import assigned, SNAPSHOT_DECODER
+from rasm_bpy.files._sessions import BlendFile
+from rasm_bpy.render._outputs.formats import extension
 from rasm_bpy.scene.cameras import render_views
 from rasm_bpy.settings._attachments import Attached, Attachment, Stored
 from rasm_bpy.settings._presets import Preset
@@ -45,7 +45,7 @@ from rasm_rendering import Field, Fields, NumberField, NumberKey, Output, Output
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NATIVE: Final = MappingProxyType({TextKey.SCENE: "scene_name", TextKey.CAMERA: "camera_name", TextKey.FILE: "blend_name"})
-_FILEPATH: Final[bpy.types.StringProperty] = bpy.types.RenderSettings.bl_rna.properties["filepath"]  # ty: ignore[invalid-assignment]
+_CAPACITY: Final = Descriptor.of(bpy.types.RenderSettings, ("filepath",), bpy.types.StringProperty).prop.length_max
 _EDITED: Final = Setting(
     descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.__name__,)
 ) & Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree",), prop=bpy.types.ID.bl_rna.properties["is_editable"]))
@@ -59,26 +59,26 @@ _FILE_OUTPUT: Final = Setting(
 class Outputs(bpy.types.PropertyGroup):
     """Scene output template, source-file grammar, take, and project-variable root."""
 
-    template: bpy.props.StringProperty(name="Template", description="Written file path under output folder", default="{file}/v{version:3}/{layer}/{pass}/{frame:4}")  # ty: ignore[invalid-type-form]
-    stem: bpy.props.StringProperty(name="File Name Grammar", description="Project, shot, and take grammar of blend file name", default="{project}_{shot}")  # ty: ignore[invalid-type-form]
-    version: bpy.props.IntProperty(name="Version", description="Take when file name holds none", min=1, default=1)  # ty: ignore[invalid-type-form]
-    use_variable: bpy.props.BoolProperty(name="Project Variable", description="Root outputs under a project path variable, preferences output folder when off")  # ty: ignore[invalid-type-form]
-    variable: bpy.props.StringProperty(name="Variable", description="Project path variable", default="renders")  # ty: ignore[invalid-type-form]
+    template: Annotated[str, bpy.props.StringProperty(name="Template", description="Written file path under output folder", default="{file}/v{version:3}/{layer}/{pass}/{frame:4}")]
+    stem: Annotated[str, bpy.props.StringProperty(name="File Name Grammar", description="Project, shot, and take grammar of blend file name", default="{project}_{shot}")]
+    version: Annotated[int, bpy.props.IntProperty(name="Version", description="Take when file name holds none", min=1, default=1)]
+    use_variable: Annotated[bool, bpy.props.BoolProperty(name="Project Variable", description="Root outputs under a project path variable, preferences output folder when off")]
+    variable: Annotated[str, bpy.props.StringProperty(name="Variable", description="Project path variable", default="renders")]
 
 
 class Replace(bpy.types.PropertyGroup):
     """Pattern, replacement text, regex mode, and case sensitivity."""
 
-    find: bpy.props.StringProperty(name="Find", description="Text to find in selected paths, labels, and item names")  # ty: ignore[invalid-type-form]
-    replace: bpy.props.StringProperty(name="Replace", description=r"Replacement, regex groups as \1 or \g<name>")  # ty: ignore[invalid-type-form]
-    regex: bpy.props.BoolProperty(name="Regular Expression", description="Read Find as a Python regular expression")  # ty: ignore[invalid-type-form]
-    case: bpy.props.BoolProperty(name="Match Case", description="Match upper and lower case as written")  # ty: ignore[invalid-type-form]
+    find: Annotated[str, bpy.props.StringProperty(name="Find", description="Text to find in selected paths, labels, and item names")]
+    replace: Annotated[str, bpy.props.StringProperty(name="Replace", description=r"Replacement, regex groups as \1 or \g<name>")]
+    regex: Annotated[bool, bpy.props.BoolProperty(name="Regular Expression", description="Read Find as a Python regular expression")]
+    case: Annotated[bool, bpy.props.BoolProperty(name="Match Case", description="Match upper and lower case as written")]
 
 
 class Bump(bpy.types.PropertyGroup):
     """Version-token offset."""
 
-    offset: bpy.props.IntProperty(name="Offset", description="Versions each token moves by", default=1)  # ty: ignore[invalid-type-form]
+    offset: Annotated[int, bpy.props.IntProperty(name="Offset", description="Versions each token moves by", default=1)]
 
 
 class _Rename(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -122,8 +122,10 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         match part:
             case TextField(key=key):
                 return Option.of_optional(_NATIVE.get(key)).filter(lambda _: key in self.spelled).map(lambda name: f"{{{name}}}")
+            case NumberField(key=NumberKey.FRAME, width=width):
+                return Some("#" * width)
             case NumberField():
-                return _frame(part)
+                return Nothing
 
     @classmethod
     def of(cls, outputs: Outputs, scene: bpy.types.Scene, root: tuple[str, Path], blend: Option[Path], day: datetime.date) -> Outcome[Self]:
@@ -205,15 +207,13 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
     def path(self, scene: bpy.types.Scene, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[OutputPath]:
         """Returns stored render path, else composes scene settings at day for the file being saved or the session file."""
-        blend = saving.or_else_with(lambda: _BlendFile.read().path)
+        blend = saving.or_else_with(lambda: BlendFile.read().path)
 
         def resolved(native: str, folder: str) -> Outcome[tuple[str, Path]]:
             base = Path(bpy.path.abspath(folder, start=blend.map(lambda file: str(file.parent)).to_optional()))
             return Ok((native, base)) if base.is_absolute() else Error(Fault.of(Refusal.REQUIRED, f"saved file or absolute output folder, {folder} resolving against the working directory"))
 
         def root(outputs: Outputs) -> Outcome[tuple[str, Path]]:
-            preferences: bpy.types.Preferences = bpy.context.preferences  # ty: ignore[invalid-assignment]
-            folder = preferences.filepaths.render_output_directory
             return (
                 Option
                 .of_optional(bpy.data.project)
@@ -221,7 +221,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda variable: resolved(f"{{{variable.name}}}", variable.value))
                 .default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.data.project.variables", member=outputs.variable)))
                 if outputs.use_variable
-                else resolved(_escaped(folder), folder)
+                else rooted(bpy.types.Preferences, bpy.context).map(lambda preferences: preferences.filepaths.render_output_directory).bind(lambda folder: resolved(_escaped(folder), folder))
             )
 
         outputs = self.attached.struct(scene)
@@ -247,7 +247,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 
     def refreshed(self, identity: Identity, day: datetime.date, saving: Option[Path] = Nothing) -> Outcome[None]:
         """Recomposes stored scenes at `day` except owned runtime scenes."""
-        return accumulated(self.recomposed(scene, day, saving) for scene in bpy.data.scenes if self.attached.stored(scene) and not _runtime(identity, scene)).map(lambda _: None)
+        return accumulated(self.recomposed(scene, day, saving) for scene in bpy.data.scenes if self.attached.stored(scene) and not runtime(identity, scene)).map(lambda _: None)
 
     def took(self, scene: bpy.types.Scene, day: datetime.date) -> Outcome[int]:
         """Writes next take from one settings snapshot."""
@@ -264,7 +264,7 @@ class Pathed(msgspec.Struct, frozen=True, kw_only=True):
 # --- [PATHS]
 
 
-def _today() -> datetime.date:
+def today() -> datetime.date:
     """Returns the local calendar date an entry point composes output paths at, read once per entry."""
     return datetime.datetime.now(datetime.UTC).astimezone().date()
 
@@ -274,69 +274,14 @@ def _escaped(text: str) -> str:
     return text.replace("{", "{{").replace("}", "}}")
 
 
-def _frame(part: Field) -> Option[str]:
-    """Spells native frame placeholders at the declared field width."""
-    match part:
-        case NumberField(key=NumberKey.FRAME, width=width):
-            return Some("#" * width)
-        case _:
-            return Nothing
-
-
 def _frame_file(render: bpy.types.RenderSettings, frame: int, view: Option[bpy.types.SceneRenderView] = Nothing) -> Outcome[Path]:
     """Returns the native animation file path, with templates, frame, and camera-view suffix resolved."""
     return catch(render.frame_path, exception=RuntimeError)(frame=frame, view=view.map(lambda held: held.name).default_value("")).map(Path).map_error(partial(Fault.of, Refusal.REFUSED, repr(render)))
 
 
-def _file_output_path(
-    scene: bpy.types.Scene,
-    node: bpy.types.CompositorNodeOutputFile,
-    settings: bpy.types.ImageFormatSettings,
-    frame: int,
-    *,
-    animation: Option[bool],
-    item: Option[bpy.types.NodeCompositorFileOutputItem] = Nothing,
-    view: Option[bpy.types.SceneRenderView] = Nothing,
-) -> Outcome[Path]:
-    """Resolves an owned File Output's live strings, actual item name, format and render mode."""
-    separators = "/\\" if os.name == "nt" else "/"
-    base = _path_bytes(f"{node.directory}{'' if node.directory.endswith(tuple(separators)) else os.sep}{node.file_name}{item.map(lambda held: held.name).default_value('')}")
-
-    def chosen(paths: tuple[Path, ...]) -> Outcome[Path]:
-        match tuple(dict.fromkeys(paths)):
-            case (path,):
-                return Ok(path)
-            case candidates:
-                return Error(Fault.of(Refusal.REQUIRED, repr(node), candidates, member="render mode for distinct still and animation paths"))
-
-    return (
-        _extension(settings)
-        .to_result_with(lambda: Fault.of(Reason.OUTSIDE, repr(settings), settings.file_format, member="still image extension"))
-        .bind(
-            lambda suffix: accumulated(
-                _image_path(
-                    scene,
-                    base if animated else _path_frame(base, frame, 0),
-                    suffix,
-                    view,
-                    use_extension=node.use_file_extension,
-                    framed=partial(_path_frame, frame=frame, digits=4) if animated else lambda text: text,
-                ).map(Path)
-                for animated in animation.map(lambda mode: (mode,)).default_with(lambda: (False, True))
-            )
-        )
-        .bind(chosen)
-    )
-
-
-def _scene_still_path(scene: bpy.types.Scene, *, view: Option[bpy.types.SceneRenderView] = Nothing) -> Outcome[Path]:
-    """Resolves a native scene still, adding its individual view after its extension."""
-    return _image_path(scene, scene.render.filepath, scene.render.file_extension, Nothing, use_extension=scene.render.use_file_extension).map(lambda text: Path(_view_path(scene, text, view)))
-
-
 def _path_bytes(text: str, reserve: int = 0) -> str:
     """Copies a native path buffer, retaining filesystem bytes at its RNA capacity."""
-    return text.encode(errors="surrogateescape")[: _FILEPATH.length_max - 1 - reserve].decode(errors="surrogateescape")
+    return text.encode(errors="surrogateescape")[: _CAPACITY - 1 - reserve].decode(errors="surrogateescape")
 
 
 def _path_frame(text: str, frame: int, digits: int) -> str:
@@ -352,15 +297,15 @@ def _path_frame(text: str, frame: int, digits: int) -> str:
 def _path_suffix(text: str, suffix: str) -> str:
     """Inserts a native suffix before an existing extension when its path buffer holds it."""
     stem, previous = ntpath.splitext(text)
-    return f"{stem}{suffix}{previous}" if len(text.encode(errors="surrogateescape")) + len(suffix.encode()) < _FILEPATH.length_max else text
+    return f"{stem}{suffix}{previous}" if len(text.encode(errors="surrogateescape")) + len(suffix.encode()) < _CAPACITY else text
 
 
-def _view_path(scene: bpy.types.Scene, text: str, view: Option[bpy.types.SceneRenderView]) -> str:
+def view_path(scene: bpy.types.Scene, text: str, view: Option[bpy.types.SceneRenderView]) -> str:
     """Adds the requested native view suffix while scene multiview is enabled."""
     return _path_suffix(text, view.map(lambda held: held.file_suffix).default_value("") if scene.render.use_multiview else "")
 
 
-def _image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[bpy.types.SceneRenderView], *, use_extension: bool, framed: Callable[[str], str] = lambda text: text) -> Outcome[str]:
+def image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[bpy.types.SceneRenderView], *, use_extension: bool, framed: Callable[[str], str] = lambda text: text) -> Outcome[str]:
     """Resolves compiler-owned templates, a frame phase, suffixes and extensions.
 
     Blender exposes neither its still resolver nor its filename sanitizer to Python.
@@ -369,7 +314,6 @@ def _image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[
     Returns:
         Native path text, or faults for unknown variables or invalid template syntax.
     """
-    capacity = _FILEPATH.length_max
 
     def filename(value: str) -> str:
         safe = re.sub(r'[\x01-\x1f/\\?*:|"<>]', "_", _path_bytes(value))
@@ -412,13 +356,13 @@ def _image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[
         text = framed(text)
         text = _path_suffix(text, bpy.app.translations.pgettext_data("Untitled")) if text.endswith(tuple("/\\" if os.name == "nt" else "/")) else text
         previous = ntpath.splitext(text)[1]
-        text = _view_path(scene, text, view)
+        text = view_path(scene, text, view)
         accepted = {".jpg", ".jpeg"} if extension == ".jpg" else {".tif", ".tiff"} if extension == ".tif" else {extension}
         if use_extension and previous.lower() not in accepted:
             stem, previous = ntpath.splitext(text)
-            replaced = previous.lower() in bpy.path.extensions_image  # ty: ignore[unresolved-attribute]
+            replaced = previous.lower() in bpy.path.extensions_image  # ty: ignore[missing-attribute]
             target = stem if replaced else text.rstrip(".")
-            text = f"{target}{extension}" if len(target.encode(errors="surrogateescape")) + len(extension.encode()) < capacity else text if replaced else target
+            text = f"{target}{extension}" if len(target.encode(errors="surrogateescape")) + len(extension.encode()) < _CAPACITY else text if replaced else target
         return text
 
     try:
@@ -427,14 +371,55 @@ def _image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[
         return Error(Fault.of(Reason.INVALID, base, error))
 
 
+def file_output_path(
+    scene: bpy.types.Scene,
+    node: bpy.types.CompositorNodeOutputFile,
+    settings: bpy.types.ImageFormatSettings,
+    frame: int,
+    *,
+    animation: Option[bool],
+    item: Option[bpy.types.NodeCompositorFileOutputItem] = Nothing,
+    view: Option[bpy.types.SceneRenderView] = Nothing,
+) -> Outcome[Path]:
+    """Resolves an owned File Output's live strings, actual item name, format and render mode."""
+    separators = "/\\" if os.name == "nt" else "/"
+    base = _path_bytes(f"{node.directory}{'' if node.directory.endswith(tuple(separators)) else os.sep}{node.file_name}{item.map(lambda held: held.name).default_value('')}")
+
+    def chosen(paths: tuple[Path, ...]) -> Outcome[Path]:
+        match tuple(dict.fromkeys(paths)):
+            case (path,):
+                return Ok(path)
+            case candidates:
+                return Error(Fault.of(Refusal.REQUIRED, repr(node), candidates, member="render mode for distinct still and animation paths"))
+
+    return (
+        extension(settings)
+        .to_result_with(lambda: Fault.of(Reason.OUTSIDE, repr(settings), settings.file_format, member="still image extension"))
+        .bind(
+            lambda suffix: accumulated(
+                image_path(
+                    scene,
+                    base if animated else _path_frame(base, frame, 0),
+                    suffix,
+                    view,
+                    use_extension=node.use_file_extension,
+                    framed=partial(_path_frame, frame=frame, digits=4) if animated else lambda text: text,
+                ).map(Path)
+                for animated in animation.map(lambda mode: (mode,)).default_with(lambda: (False, True))
+            )
+        )
+        .bind(chosen)
+    )
+
+
 # --- [RENAMES]
 
 
 def _edits(node: bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame, transform: Callable[[str], Outcome[Option[str]]]) -> Outcome[tuple[_Rename, ...]]:
     """Plans original requests for native node strings and File Output item names."""
-    texts = tuple(prop for prop in _definition(node).properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
+    texts = tuple(prop for prop in rna_definition(node).properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
     items = tuple(
-        (item, prop) for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ()) for prop in Option.of_optional(_definition(item).name_property).to_list()
+        (item, prop) for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ()) for prop in Option.of_optional(rna_definition(item).name_property).to_list()
     )
     return accumulated(
         transform(before).map(lambda changed: tuple(_Rename(node=node, owner=owner, prop=prop, before=before, requested=request) for request in changed.to_list()))
@@ -445,7 +430,7 @@ def _edits(node: bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame, trans
 
 def _planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tuple[_Rename, ...]]:
     """Plans every string edit before writes."""
-    replacement: str = properties.replace  # ty: ignore[unsound-assignment]
+    replacement = properties.replace
 
     def substituted(pattern: re.Pattern[str], text: str) -> Outcome[Option[str]]:
         insert: Callable[[re.Match[str]], str] = (lambda found: found.expand(replacement)) if properties.regex else (lambda _: replacement)
@@ -522,7 +507,7 @@ def output_version(call: Call[Bump]) -> Outcome[Answer]:
 def output_take(call: Call[Empty]) -> Outcome[Answer]:
     """Set scene take past matching written files."""
     return paired(ScenePaths().bound(call.identity), rooted(bpy.types.Scene, call.context)).bind(
-        lambda pair: pair[0].took(pair[1], _today()).map(lambda version: Done(notes=(("INFO", f"Version {version}"),)))
+        lambda pair: pair[0].took(pair[1], today()).map(lambda version: Done(notes=(("INFO", f"Version {version}"),)))
     )
 
 
@@ -547,14 +532,14 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     def changed(identity: Identity) -> Generator[Changed]:
         """Defers update writes to main thread for attachment lifetime."""
         with identity.reports.deferred(
-            lambda handle: handle.resolve().bind(lambda scene: ScenePaths().bound(identity).bind(lambda pathed: pathed.recomposed(scene, _today()))).map(lambda _: Nothing)
+            lambda handle: handle.resolve().bind(lambda scene: ScenePaths().bound(identity).bind(lambda pathed: pathed.recomposed(scene, today()))).map(lambda _: Nothing)
         ) as write:
             yield lambda group, _context: write(Handle.of(group.id_data))
 
     attachment: ClassVar[Attachment[Outputs]] = Attachment(key="outputs", form=Outputs, owner=bpy.types.Scene, changed=Some(changed))
     prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
     section: ClassVar[Section[Outputs]] = Section(
-        key=key, rows=(OperatorButton(target=output_take), OperatorButton(target=output_folder)), store=Some(Store(attachment=attachment, presets=Some(Preset(key=key, form=Snapshot))))
+        key=key, rows=(OperatorButton(target=output_take), OperatorButton(target=output_folder)), store=Some(Store(attachment=attachment, presets=Some(Preset(key=key, decoder=SNAPSHOT_DECODER))))
     )
 
     def bound(self, identity: Identity) -> Outcome[Pathed]:
@@ -572,7 +557,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
         """Returns commands and refresh handlers binding attachment on call."""
 
         def refreshed(saving: Option[Path]) -> Outcome[None]:
-            return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity, _today(), saving))
+            return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity, today(), saving))
 
         current = partial(refreshed, Nothing)
         return (
@@ -581,7 +566,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
             output_take,
             output_folder,
             Handler(handlers=bpy.app.handlers.load_post, body=current),
-            Handler(handlers=bpy.app.handlers.save_pre, body=partial(_located, refreshed)),
+            Handler(handlers=bpy.app.handlers.save_pre, body=partial(located, refreshed)),
             Handler(handlers=bpy.app.handlers.save_post, body=current),
             *(
                 Subscription(owner=owner, setting=owner.bl_rna.properties[key], body=current)
@@ -592,4 +577,20 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Bump", "NodePaths", "OutputPath", "Outputs", "Pathed", "Replace", "ScenePaths", "output_folder", "output_replace", "output_take", "output_version"]
+__all__ = [
+    "Bump",
+    "NodePaths",
+    "OutputPath",
+    "Outputs",
+    "Pathed",
+    "Replace",
+    "ScenePaths",
+    "file_output_path",
+    "image_path",
+    "output_folder",
+    "output_replace",
+    "output_take",
+    "output_version",
+    "today",
+    "view_path",
+]

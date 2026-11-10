@@ -1,17 +1,20 @@
-use core::{iter, num::NonZero, ops::ControlFlow, range::RangeInclusive};
+use core::iter;
+use core::num::NonZero;
+use core::ops::ControlFlow;
+use core::range::RangeInclusive;
 
 use basin::{BoxBounds, Brent, Constrained, ConstraintSet, ConstraintSolveError, CostFunction, PointState, RootError, Toms748Root};
-use faer::{MatRef, linalg::evd::EvdError};
+use faer::MatRef;
+use faer::linalg::evd::EvdError;
 use itertools::Itertools as _;
-use nalgebra::{DMatrix, DVector, DVectorView, Point1, convert, linalg::balancing::balance_parlett_reinsch};
+use nalgebra::linalg::balancing::balance_parlett_reinsch;
+use nalgebra::{DMatrix, DVector, DVectorView, Point1, convert};
 use nonempty_collections::NEVec;
 use num_complex::Complex;
 use num_dual::{Dual, DualDVec64, DualNum, DualStruct, implicit_derivative, jacobian};
 use rasm_stats::{Bounds, Tolerance};
-use rayon::{
-    iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _, once},
-    slice::ParallelSlice as _,
-};
+use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _, once};
+use rayon::slice::ParallelSlice as _;
 use validated::Validated;
 
 use crate::{AnalysisError, Input, RootSource, SearchHooks, TOLERANCE, refused_sites};

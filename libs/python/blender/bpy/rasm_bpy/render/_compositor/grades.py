@@ -29,12 +29,10 @@ from rasm_records import content_hash, Error, Fault, Nothing, Ok, Outcome, Reaso
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-MATRIX_ROWS: Final = tuple(
+MATRIX: Final = tuple(
     Socket(key=key, kind=bpy.types.NodeSocketVector, description=description, hide_in_modifier=True)
-    for key, description in (("red", "First matrix row"), ("green", "Second matrix row"), ("blue", "Third matrix row"))
+    for key, description in (("red", "First matrix row"), ("green", "Second matrix row"), ("blue", "Third matrix row"), ("offset", "Matrix offset"))
 )
-MATRIX_OFFSET: Final = Socket(key="offset", kind=bpy.types.NodeSocketVector, description="Matrix offset", hide_in_modifier=True)
-MATRIX: Final = (*MATRIX_ROWS, MATRIX_OFFSET)
 TILES: Final = Ownership(kind=bpy.types.Image, key="table", saved=Saved.USED)
 _SATURATION_LUMA: Final = tuple(PyOpenColorIO.CDLTransform().getSatLumaCoefs())
 
@@ -62,7 +60,7 @@ def matrix_values(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transfo
         match list(processed.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()) or [PyOpenColorIO.MatrixTransform()]:
             case [PyOpenColorIO.MatrixTransform() as held]:
                 rows = np.asarray(held.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3].tolist()
-                return Ok({**{socket.key: tuple(row) for socket, row in zip(MATRIX_ROWS, rows, strict=True)}, MATRIX_OFFSET.key: tuple(held.getOffset()[:3])})
+                return Ok({socket.key: tuple(row) for socket, row in zip(MATRIX, (*rows, held.getOffset()[:3]), strict=True)})
             case operations:
                 return Error(Fault.of(Reason.OUTSIDE, type(transform).__name__, ", ".join(type(operation).__name__ for operation in operations), member=PyOpenColorIO.MatrixTransform.__name__))
 
@@ -442,23 +440,4 @@ def curved(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, dom
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "MATRIX",
-    "MATRIX_OFFSET",
-    "MATRIX_ROWS",
-    "TILES",
-    "Zone",
-    "cdl",
-    "curved",
-    "eetf",
-    "gamut_compression",
-    "latticed",
-    "matrix_values",
-    "matrixed",
-    "primary",
-    "st2084",
-    "suffixed",
-    "tabled",
-    "tetrahedral",
-    "tone",
-]
+__all__ = ["MATRIX", "TILES", "Zone", "cdl", "curved", "eetf", "gamut_compression", "latticed", "matrix_values", "matrixed", "primary", "st2084", "suffixed", "tabled", "tetrahedral", "tone"]

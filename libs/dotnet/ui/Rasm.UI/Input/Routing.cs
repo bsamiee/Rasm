@@ -1,5 +1,4 @@
 using Rasm.UI.Automation;
-using Rasm.UI.Rendering;
 using Rasm.UI.Styling;
 using SkiaSharp;
 using SuperLinq;
@@ -17,8 +16,6 @@ internal abstract partial record PointerCapture {
 
     internal Seq<IO<Unit>> Cancelled => Switch(part: static part => part.Track.Cancelled(), handle: static _ => []);
 
-    internal bool Live(Scene scene) => Switch(scene, part: static (held, part) => held.EnabledPartAt(part.Owner).IsSome, handle: static (held, handle) => held.Scroller(handle.Owner).IsSome);
-
     internal sealed record Part(Seq<Key> Owner, Seq<Key> Hit, Gesture.Press Press, Track Track) : PointerCapture(Owner, Hit);
 
     internal sealed record Handle(Seq<Key> Owner, SKPoint From, float Start) : PointerCapture(Owner, Owner);
@@ -31,8 +28,6 @@ internal abstract partial record Latch {
     internal Seq<Key> Owner { get; }
 
     internal Seq<IO<Unit>> Cancelled => Switch(part: static part => part.Active.Map(static live => live.Track.Cancelled()).IfNone([]), scroll: static _ => []);
-
-    internal bool Live(Scene scene) => Switch(scene, part: static (held, part) => held.EnabledPartAt(part.Owner).IsSome, scroll: static (held, scroll) => held.Scroller(scroll.Owner).IsSome);
 
     internal sealed record Part(Seq<Key> Owner, Option<(Gesture Gesture, Track Track)> Active) : Latch(Owner);
 

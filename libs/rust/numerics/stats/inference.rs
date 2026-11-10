@@ -1,13 +1,14 @@
-use core::{cmp::Ordering, iter, num::NonZero, range::RangeInclusive};
+use core::cmp::Ordering;
+use core::iter;
+use core::num::NonZero;
+use core::range::RangeInclusive;
 
 use average::{Mean, Skewness, Variance};
 use nonempty_collections::NESlice;
 use rand::{Rng, RngExt as _, SeedableRng};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use statrs::{
-    distribution::{ContinuousCDF as _, Normal, StudentsT},
-    statistics::{Data, OrderStatistics as _},
-};
+use statrs::distribution::{ContinuousCDF as _, Normal, StudentsT};
+use statrs::statistics::{Data, OrderStatistics as _};
 
 use crate::{Sample, StatsError};
 

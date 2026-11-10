@@ -337,7 +337,7 @@ public abstract record Part {
 
         private Func<PlotPlane, Option<PlotPlane>> Navigated(PlotFrame frame, SKPoint center, Bearing toward, float step) =>
             start => toward.Granularity.Distance(step, frame.Pixels(toward.Along)).Match(
-                Some: distance => Panned(frame, start, center + (SKPoint)(toward.Vector * distance), center),
+                Some: distance => Panned(frame, start, center + (SKPoint)(toward.Along.With(Vector2.Zero, toward.Sign) * distance), center),
                 None: () => from bound in Bounds.Bind(bounds => bounds.Dimension(toward.Along))
                             from held in start.Dimension(toward.Along)
                             where Free.Contains(toward.Along)
@@ -389,7 +389,7 @@ public abstract record Part {
                 Role = Roles.Hud,
             };
 
-        internal View.Plot Overview(PlotPlane view, Seq<View> content) => new Brush(view, Edited).Overview(Rest, content);
+        internal View.Plot Overview(PlotPlane view, Seq<View> content) => new(Rest, content.Add(new Brush(view, Edited).Drawn(Rest))) { Role = Roles.Well, Aspect = Rest.Proportion };
 
         private static View.Flex Zoom(Key glyph, Option<Part> part) =>
             new(PhysicalAxis.Horizontal, [new View.Box { Role = glyph }]) {

@@ -1,39 +1,36 @@
 #![feature(array_try_map, default_field_values, float_conversions, once_cell_try, type_changing_struct_update)]
 
-use core::{
-    fmt, iter,
-    marker::PhantomData,
-    num::{NonZero, ParseIntError},
-    range::Range,
-};
+use core::marker::PhantomData;
+use core::num::{NonZero, ParseIntError};
+use core::range::Range;
+use core::{fmt, iter};
 
 use basin::BrentRootError;
 use gauss_quad::GaussLegendre;
 use grib::GribError;
 use itertools::Itertools as _;
-use jiff::{SignedDuration, Span, Timestamp, civil, tz::TimeZone};
+use jiff::tz::TimeZone;
+use jiff::{SignedDuration, Span, Timestamp, civil};
 use nalgebra::Vector2;
 use ndarray_interp::BuilderError;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_site::Place;
 use rasm_solar_geometry::{Refraction, SolarError, Sun, lapsed, sampled};
 use solar_positioning::{PreparedPositions, SolarPosition};
-use thermalcomfort::{Humidity, Temperature, constants::STEFAN_BOLTZMANN, environment::ScaleWindSpeedLogError};
-use uom::{
-    ConstZero as _,
-    si::{
-        self, Quantity, SI,
-        angle::radian,
-        f64::{Angle, HeatFluxDensity, Illuminance, Length, Luminance, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity},
-        heat_flux_density::watt_per_square_meter,
-        length::meter,
-        pressure::pascal,
-        ratio::ratio,
-        thermodynamic_temperature::kelvin,
-        time::second,
-        velocity::meter_per_second,
-    },
-};
+use thermalcomfort::constants::STEFAN_BOLTZMANN;
+use thermalcomfort::environment::ScaleWindSpeedLogError;
+use thermalcomfort::{Humidity, Temperature};
+use uom::ConstZero as _;
+use uom::si::angle::radian;
+use uom::si::f64::{Angle, HeatFluxDensity, Illuminance, Length, Luminance, Pressure, Ratio, ThermodynamicTemperature, Time, Velocity};
+use uom::si::heat_flux_density::watt_per_square_meter;
+use uom::si::length::meter;
+use uom::si::pressure::pascal;
+use uom::si::ratio::ratio;
+use uom::si::thermodynamic_temperature::kelvin;
+use uom::si::time::second;
+use uom::si::velocity::meter_per_second;
+use uom::si::{self, Quantity, SI};
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------

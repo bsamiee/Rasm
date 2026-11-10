@@ -52,8 +52,7 @@ def view_cameras(scene: bpy.types.Scene, cameras: tuple[bpy.types.Object, ...]) 
     views = render_views(scene.render)
     if scene.render.views_format != "MULTIVIEW" or not views:
         return Ok({(camera, view): camera for camera in cameras for view in views})
-    suffix: bpy.types.StringProperty = bpy.types.SceneRenderView.bl_rna.properties["camera_suffix"]  # ty: ignore[invalid-assignment]
-    capacity = suffix.length_max
+    capacity = Descriptor.of(bpy.types.SceneRenderView, ("camera_suffix",), bpy.types.StringProperty).prop.length_max
     suffixes = tuple(view.camera_suffix for view in scene.render.views)
     requests = tuple(
         (camera, view, prefix.map(lambda prefix: (prefix + view.camera_suffix).encode()[: capacity - 1]))
@@ -99,7 +98,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
     """Fits camera and clip planes to at least two finite world points, returning coordinate, native range, or host refusal faults."""
     matrix = item.matrix_world.copy()
     frame = matrix.normalized()
-    clips: tuple[bpy.types.FloatProperty, ...] = tuple(bpy.types.Camera.bl_rna.properties[name] for name in ("clip_start", "clip_end"))  # type: ignore[misc]  # ty: ignore[invalid-assignment]
+    clips = tuple(Descriptor.of(bpy.types.Camera, (name,), bpy.types.FloatProperty).prop for name in ("clip_start", "clip_end"))
 
     def clipped(camera: bpy.types.Camera, points: tuple[Vector, ...], scale: float) -> Outcome[None]:
         try:
@@ -110,7 +109,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
             return Error(Fault.of(Refusal.REFUSED, repr(item), error))
         depths = tuple(-(view @ point).z for point in points)
         span = min(depths), max(depths)
-        ortho: bpy.types.FloatProperty = bpy.types.Camera.bl_rna.properties["ortho_scale"]  # ty: ignore[invalid-assignment]
+        ortho = Descriptor.of(bpy.types.Camera, ("ortho_scale",), bpy.types.FloatProperty).prop
 
         def wrote() -> None:
             camera.clip_start, camera.clip_end = (float(np.nextafter(np.float32(span[0]), np.float32(clips[0].hard_min))), float(np.nextafter(np.float32(span[1]), np.float32(clips[1].hard_max))))
@@ -131,7 +130,7 @@ def framed(item: bpy.types.Object, coordinates: npt.NDArray[np.float32], depsgra
         clearance = float(np.nextafter(np.float32(clips[0].hard_min), np.float32(np.inf)))
         if displacement := max(0.0, clearance - min(-(view @ point).z for point in points)) / float(axis @ backward):
             translated = np.asarray(matrix.translation, np.float64) + backward * displacement
-            matrix.translation = Vector(np.where(axis == 0.0, translated, np.nextafter(translated.astype(np.float32), np.copysign(np.float32(np.inf), axis).astype(np.float32))))  # ty: ignore[invalid-argument-type]
+            matrix.translation = Vector(np.where(axis == 0.0, translated, np.nextafter(translated.astype(np.float32), np.copysign(np.float32(np.inf), axis).astype(np.float32))).tolist())
         return clipped(camera, points, scale)
 
     def fitted(camera: bpy.types.Camera, points: npt.NDArray[np.float32], fit: tuple[Vector, float]) -> Outcome[None]:

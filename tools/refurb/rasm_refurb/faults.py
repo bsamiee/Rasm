@@ -24,7 +24,6 @@ lazy from mypy.nodes import (
     Node,
     OverloadedFuncDef,
     StarExpr,
-    SymbolNode,
     TupleExpr,
     TypeAlias,
     TypeInfo,
@@ -113,20 +112,6 @@ def _faults(returned: Type) -> tuple[TypeInfo, ...]:
     return tuple(found)
 
 
-def _declared(definition: SymbolNode | None, /) -> tuple[tuple[TypeAlias | FuncDef, Type], ...]:
-    match definition:
-        case TypeAlias(target=returned) as alias:
-            return ((alias, returned),)
-        case (FuncDef(type=CallableType(ret_type=returned)) as func) | Decorator(func=FuncDef(type=CallableType(ret_type=returned)) as func):
-            match returned, func.is_coroutine, func.is_async_generator:
-                case Instance(args=[_, _, inner]), True, False:
-                    return ((func, inner),)
-                case _:
-                    return ((func, returned),)
-        case _:
-            return ()
-
-
 def _held(found: Type | None, /) -> tuple[TypeInfo, ...]:
     return tuple(item.type for item in map(get_proper_type, flatten_nested_unions([found]) if found is not None else ()) if isinstance(item, Instance) and any(map(item.type.has_base, _WRAPPED)))
 
@@ -143,34 +128,6 @@ def _element(found: Type | None, /) -> Type | None:
             return _element(fallback)
         case _:
             return None
-
-
-def _consumed(call: CallExpr, /) -> tuple[tuple[Expression, Type | None], ...]:
-    actuals = tuple(AnyType(TypeOfAny.special_form) if (found := _typed(argument)) is None else found for argument in call.args)
-    match get_proper_type(_typed(call.callee)) if any(map(_held, actuals)) else None:
-        case Overloaded(items=items):
-            signatures = items
-        case CallableType() as signature:
-            signatures = [signature]
-        case _:
-            signatures = []
-    selected = next(
-        (
-            formals
-            for signature in signatures
-            for mapped in (map_actuals_to_formals(call.arg_kinds, call.arg_names, signature.arg_kinds, signature.arg_names, actuals.__getitem__),)
-            for formals in (tuple((index, flatten_nested_unions([erase_typevars(formal)])) for indices, formal in zip(mapped, signature.arg_types) for index in indices),)
-            if sorted(index for index, _ in formals) == list(range(len(actuals)))
-            and all(indices or not kind.is_required() for indices, kind in zip(mapped, signature.arg_kinds))
-            and all(any(is_subtype(actuals[index], member) for member in members) for index, members in formals)
-        ),
-        (),
-    )
-    return tuple(
-        (call.args[index], actuals[index])
-        for index, members in selected
-        if all(isinstance(proper := get_proper_type(member), Instance) and _iterating(proper.type) for member in members if is_subtype(actuals[index], member))
-    )
 
 
 def _unpacked(target: Expression, source: Expression | Type | None, /) -> tuple[tuple[Expression, Type | None], ...]:
@@ -192,24 +149,6 @@ def _unpacked(target: Expression, source: Expression | Type | None, /) -> tuple[
             return ()
 
 
-def _iterated(node: Node, /) -> tuple[tuple[Expression, Type | None], ...]:
-    match node:
-        case StarExpr(expr=sequence):
-            return ((sequence, _typed(sequence)),)
-        case ForStmt(index=target, expr=sequence, is_async=False):
-            return ((sequence, found := _typed(sequence)), *_unpacked(target, _element(found)))
-        case GeneratorExpr(indices=targets, sequences=sequences, is_async=asynchronous) | DictionaryComprehension(indices=targets, sequences=sequences, is_async=asynchronous):
-            return tuple(*((sequence, found), *_unpacked(target, _element(found))) for target, sequence, waited in zip(targets, sequences, asynchronous) if not waited for found in (_typed(sequence),))
-        case AssignmentStmt(lvalues=targets, rvalue=value):
-            return tuple(*_unpacked(target, value) for target in targets)
-        case ComparisonExpr(operators=operators, operands=[_, *rights]):
-            return tuple((right, _typed(right)) for operator, right in zip(operators, rights) if operator in {"in", "not in"})
-        case CallExpr(args=arguments, arg_kinds=kinds):
-            return (*((argument, _typed(argument)) for argument, kind in zip(arguments, kinds) if kind is ArgKind.ARG_STAR), *_consumed(node))
-        case _:
-            return ()
-
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -222,23 +161,71 @@ class _Walk(RefurbVisitor, Traverser):
         self.operands: dict[Expression, Type | None] = {}
 
     def record(self, node: Node, _errors: list[Error]) -> None:
-        """Holds the operands one construct iterates."""
-        self.operands.update(_iterated(node))
+        """Holds the operands one construct iterates, a call's being each argument its matched signature takes as an iterable."""
+        match node:
+            case StarExpr(expr=sequence):
+                self.operands[sequence] = _typed(sequence)
+            case ForStmt(index=target, expr=sequence, is_async=False):
+                self.operands.update(((sequence, found := _typed(sequence)), *_unpacked(target, _element(found))))
+            case GeneratorExpr(indices=targets, sequences=sequences, is_async=asynchronous) | DictionaryComprehension(indices=targets, sequences=sequences, is_async=asynchronous):
+                self.operands.update(
+                    (*((sequence, found), *_unpacked(target, _element(found))) for target, sequence, waited in zip(targets, sequences, asynchronous) if not waited for found in (_typed(sequence),))
+                )
+            case AssignmentStmt(lvalues=targets, rvalue=value):
+                self.operands.update(*_unpacked(target, value) for target in targets)
+            case ComparisonExpr(operators=operators, operands=[_, *rights]):
+                self.operands.update((right, _typed(right)) for operator, right in zip(operators, rights) if operator in {"in", "not in"})
+            case CallExpr(args=arguments, arg_kinds=kinds, arg_names=names, callee=callee):
+                actuals = tuple(AnyType(TypeOfAny.special_form) if (found := _typed(argument)) is None else found for argument in arguments)
+                called = get_proper_type(_typed(callee)) if any(map(_held, actuals)) else None
+                selected = next(
+                    (
+                        formals
+                        for signature in (called.items if isinstance(called, Overloaded) else (called,) if isinstance(called, CallableType) else ())
+                        for mapped in (map_actuals_to_formals(kinds, names, signature.arg_kinds, signature.arg_names, actuals.__getitem__),)
+                        for formals in (tuple((index, flatten_nested_unions([erase_typevars(formal)])) for indices, formal in zip(mapped, signature.arg_types) for index in indices),)
+                        if sorted(index for index, _ in formals) == list(range(len(actuals)))
+                        and all(indices or not kind.is_required() for indices, kind in zip(mapped, signature.arg_kinds))
+                        and all(any(is_subtype(actuals[index], member) for member in members) for index, members in formals)
+                    ),
+                    (),
+                )
+                self.operands.update((
+                    *((argument, _typed(argument)) for argument, kind in zip(arguments, kinds) if kind is ArgKind.ARG_STAR),
+                    *(
+                        (arguments[index], actuals[index])
+                        for index, members in selected
+                        if all(isinstance(proper := get_proper_type(member), Instance) and _iterating(proper.type) for member in members if is_subtype(actuals[index], member))
+                    ),
+                ))
+            case _:
+                pass
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def check(node: MypyFile, errors: list[Error]) -> None:
-    """Reports each `Result` declaring a text or exception error type, and each `Option` or `Result` operand iterated directly."""
+    """Reports each `Result` declaring a text or exception error type, and each `Option` or `Result` operand iterated directly.
+
+    A coroutine declares the result its awaitable returns, a type alias the type it names.
+    """
     walk = _Walk()
     walk.accept(node)
+    declared: list[tuple[TypeAlias | FuncDef, Type]] = []
+    for definition in (*((*symbol.node.items, symbol.node.impl) if isinstance(symbol.node, OverloadedFuncDef) else (symbol.node,)) for _, symbol, _ in node.local_definitions()):
+        match definition:
+            case TypeAlias(target=returned) as declaration:
+                declared.append((declaration, returned))
+            case (FuncDef(type=CallableType(ret_type=returned)) as declaration) | Decorator(func=FuncDef(type=CallableType(ret_type=returned)) as declaration):
+                awaited = isinstance(returned, Instance) and len(returned.args) == 3 and declaration.is_coroutine and not declaration.is_async_generator
+                declared.append((declaration, returned.args[2] if awaited else returned))
+            case _:
+                pass
     errors.extend((
         *(
             ErrorMisusedExpressionError.from_node(declaration, f"`{declaration.name}` declares `{untyped.name}` as `Result` error type, declare the package fault type")
-            for _, symbol, _ in node.local_definitions()
-            for definition in ((*symbol.node.items, symbol.node.impl) if isinstance(symbol.node, OverloadedFuncDef) else (symbol.node,))
-            for declaration, returned in _declared(definition)
+            for declaration, returned in declared
             for untyped in _faults(returned)
         ),
         *(

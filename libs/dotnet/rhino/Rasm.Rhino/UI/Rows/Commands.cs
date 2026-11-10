@@ -19,9 +19,6 @@ public sealed record CommandFace(string Name, string Caption) {
     internal Option<IconResource> Drawn => Presented.Exists(static display => display == ButtonFace.Text) ? None : Icon;
 
     internal bool Labeled => Presented.Exists(static display => display != ButtonFace.Icon);
-
-    internal void Applied(Command command, Keys shortcut) =>
-        (command.ID, command.MenuText, command.ToolBarText, command.ToolTip, command.Shortcut) = (Name, Caption, Labeled ? Caption : "", Help.IfNone(Caption), shortcut);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -167,7 +164,9 @@ public static class CommandRows {
         select (command, refresh);
 
     private static IO<Unit> Applied(CommandFace face, Command command, Keys shortcut) =>
-        from faced in IO.lift(() => face.Applied(command, shortcut))
+        from faced in IO.lift(() => {
+            (command.ID, command.MenuText, command.ToolBarText, command.ToolTip, command.Shortcut) = (face.Name, face.Caption, face.Labeled ? face.Caption : "", face.Help.IfNone(face.Caption), shortcut);
+        })
         from themed in face.Drawn.Traverse(icon => Icons.Themed(icon, IconSlot.Small, None, image => command.Image = image)).As()
         select unit;
 

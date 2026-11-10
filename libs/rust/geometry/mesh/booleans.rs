@@ -1,4 +1,8 @@
-use manifold_rust::{cancel::CancelToken, csg_tree::CsgNode, manifold::Manifold, progress::ProgressReporter, types::OpType};
+use manifold_rust::cancel::CancelToken;
+use manifold_rust::csg_tree::CsgNode;
+use manifold_rust::manifold::Manifold;
+use manifold_rust::progress::ProgressReporter;
+use manifold_rust::types::OpType;
 use nalgebra::Affine3;
 
 use crate::{MeshError, Operation, Solid};

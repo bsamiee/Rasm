@@ -1,20 +1,18 @@
 use core::{iter, slice};
 
-use clippy_utils::{
-    consts::{ConstEvalCtxt, Constant},
-    diagnostics::span_lint_and_help,
-    expr_or_init, fn_def_id, get_parent_expr, last_path_segment,
-    paths::PathNS,
-    peel_hir_expr_while,
-    res::{MaybeDef as _, MaybeResPath as _},
-    source::snippet,
-    sym,
-};
+use clippy_utils::consts::{ConstEvalCtxt, Constant};
+use clippy_utils::diagnostics::span_lint_and_help;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::source::snippet;
+use clippy_utils::{expr_or_init, fn_def_id, get_parent_expr, last_path_segment, peel_hir_expr_while, sym};
 use itertools::Itertools as _;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_hir::{Expr, ExprKind, Node, Pat, PatExpr, PatExprKind, PatKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind, Node, Pat, PatExpr, PatExprKind, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{Ty, TyCtxt, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{Ty, TyCtxt};
 
 use super::text_view;
 use crate::{expanded_externally, fn_item_value, item_path, paths, resolve, signature};

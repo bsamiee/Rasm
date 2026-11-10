@@ -2,19 +2,98 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/single_reader.rs
 ---
-error: `digits` has one reader, `parsed`
-   --> tools/dylint/examples/single_reader.rs:108:1
+error: `trimmed` passes its parameters unchanged to `<str>::trim`
+   --> tools/dylint/examples/single_reader.rs:124:1
     |
-108 | fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() }
+124 | fn trimmed(text: &str) -> &str { text.trim() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/single_reader.rs:124:34
+    |
+124 | fn trimmed(text: &str) -> &str { text.trim() }
+    |                                  ^^^^^^^^^^^
+    = help: call `<str>::trim` at each call site of `trimmed` and delete `trimmed`
+    = note: `#[deny(forwarding_function)]` on by default
+
+error: `direct` passes its parameters unchanged to `<str>::len`
+   --> tools/dylint/examples/single_reader.rs:132:1
+    |
+132 | fn direct(text: &str) -> usize { text.len() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/single_reader.rs:132:34
+    |
+132 | fn direct(text: &str) -> usize { text.len() }
+    |                                  ^^^^^^^^^^
+    = help: call `<str>::len` at each call site of `direct` and delete `direct`
+
+error: `built` passes its parameters unchanged to `std::convert::From::from`
+   --> tools/dylint/examples/single_reader.rs:158:1
+    |
+158 | fn built(width: usize) -> Window { Window::from(width) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/single_reader.rs:158:36
+    |
+158 | fn built(width: usize) -> Window { Window::from(width) }
+    |                                    ^^^^^^^^^^^^^^^^^^^
+    = help: call `std::convert::From::from` at each call site of `built` and delete `built`
+
+error: `visible` passes its parameters unchanged to `hidden`
+   --> tools/dylint/examples/single_reader.rs:162:1
+    |
+162 | fn visible(text: &str) -> usize { hidden(text) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/single_reader.rs:162:35
+    |
+162 | fn visible(text: &str) -> usize { hidden(text) }
+    |                                   ^^^^^^^^^^^^
+    = help: call `hidden` at each call site of `visible` and delete `visible`
+
+error: `counted` passes its parameters unchanged to `vowels`
+   --> tools/dylint/examples/single_reader.rs:214:1
+    |
+214 | fn counted(text: &str) -> usize { vowels(text) }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/single_reader.rs:214:35
+    |
+214 | fn counted(text: &str) -> usize { vowels(text) }
+    |                                   ^^^^^^^^^^^^
+    = help: call `vowels` at each call site of `counted` and delete `counted`
+
+error: `SIDES` has one reader, `perimeter`
+  --> tools/dylint/examples/single_reader.rs:44:5
+   |
+44 |     const SIDES: usize = 4;
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+note: read here
+  --> tools/dylint/examples/single_reader.rs:46:69
+   |
+46 |     pub(crate) fn perimeter(side: usize) -> usize { side.strict_mul(SIDES) }
+   |                                                                     ^^^^^
+   = help: move `SIDES` into `perimeter` as a nested item
+   = note: `#[deny(single_reader)]` on by default
+
+error: `digits` has one reader, `parsed`
+   --> tools/dylint/examples/single_reader.rs:116:1
+    |
+116 | fn digits(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count() }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:110:34
+   --> tools/dylint/examples/single_reader.rs:118:34
     |
-110 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
+118 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
     |                                  ^^^^^^
     = help: move `digits` into `parsed` as a closure
-    = note: `#[deny(single_reader)]` on by default
 
 error: `LIMIT` has one reader, `parsed`
    --> tools/dylint/examples/single_reader.rs:8:1
@@ -23,22 +102,22 @@ error: `LIMIT` has one reader, `parsed`
     | ^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:110:51
+   --> tools/dylint/examples/single_reader.rs:118:51
     |
-110 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
+118 | fn parsed(text: &str) -> usize { digits(text).min(LIMIT) }
     |                                                   ^^^^^
     = help: move `LIMIT` into `parsed` as a nested item
 
 error: `countdown` has one reader, `started`
-   --> tools/dylint/examples/single_reader.rs:112:1
+   --> tools/dylint/examples/single_reader.rs:120:1
     |
-112 | fn countdown(steps: usize) -> usize { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } }
+120 | fn countdown(steps: usize) -> usize { if steps == 0 { 0 } else { countdown(steps.strict_sub(1)) } }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:114:37
+   --> tools/dylint/examples/single_reader.rs:122:37
     |
-114 | fn started(steps: usize) -> usize { countdown(steps).strict_add(1) }
+122 | fn started(steps: usize) -> usize { countdown(steps).strict_add(1) }
     |                                     ^^^^^^^^^
     = help: move `countdown` into `started` as a nested `fn`
 
@@ -49,53 +128,53 @@ error: `BANNER` has one reader, `titled`
     | ^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:122:35
+   --> tools/dylint/examples/single_reader.rs:130:35
     |
-122 | fn titled() -> String { format!("{BANNER}:") }
+130 | fn titled() -> String { format!("{BANNER}:") }
     |                                   ^^^^^^
     = help: move `BANNER` into `titled` as a nested item
 
 error: `expanded` has one reader, `measuring`
-   --> tools/dylint/examples/single_reader.rs:126:1
+   --> tools/dylint/examples/single_reader.rs:134:1
     |
-126 | fn expanded(text: &str) -> usize { text.chars().count() }
+134 | fn expanded(text: &str) -> usize { text.chars().count() }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-127 |
-128 | macro_rules! measured {
+135 |
+136 | macro_rules! measured {
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:130:9
+   --> tools/dylint/examples/single_reader.rs:138:9
     |
-130 |         expanded($text)
+138 |         expanded($text)
     |         ^^^^^^^^
 ...
-134 | fn measuring(text: &str) -> usize { measured!(text) }
+142 | fn measuring(text: &str) -> usize { measured!(text) }
     |                                     --------------- in this macro invocation
     = help: move `expanded` into `measuring` as a closure
 
 error: `scaled` has one reader, `widened`
-   --> tools/dylint/examples/single_reader.rs:136:1
+   --> tools/dylint/examples/single_reader.rs:144:1
     |
-136 | fn scaled(width: usize) -> usize { width.strict_add(1) }
+144 | fn scaled(width: usize) -> usize { width.strict_add(1) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:144:18
+   --> tools/dylint/examples/single_reader.rs:152:18
     |
-144 | reader!(widened, scaled);
+152 | reader!(widened, scaled);
     |                  ^^^^^^
     = help: move `scaled` into `widened` as a closure
 
 error: `exported` has one reader, `relayed`
-   --> tools/dylint/examples/single_reader.rs:146:1
+   --> tools/dylint/examples/single_reader.rs:154:1
     |
-146 | pub fn exported(text: &str) -> usize { text.len().strict_add(SHARED) }
+154 | pub fn exported(text: &str) -> usize { text.len().strict_add(SHARED) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:148:35
+   --> tools/dylint/examples/single_reader.rs:156:35
     |
-148 | fn relayed(text: &str) -> usize { exported(text).strict_mul(2) }
+156 | fn relayed(text: &str) -> usize { exported(text).strict_mul(2) }
     |                                   ^^^^^^^^
     = help: move `exported` into `relayed` as a closure
 
@@ -106,35 +185,35 @@ error: `DEPTH` has one reader, `padded`
     | ^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:184:31
+   --> tools/dylint/examples/single_reader.rs:192:31
     |
-184 | fn padded() -> usize { [1_u8; DEPTH + 1].len() }
+192 | fn padded() -> usize { [1_u8; DEPTH + 1].len() }
     |                               ^^^^^
     = help: move `DEPTH` into `padded` as a nested item
 
 error: `framed` has one reader, `gridded`
-   --> tools/dylint/examples/single_reader.rs:252:1
+   --> tools/dylint/examples/single_reader.rs:260:1
     |
-252 | fn framed(grid: &Grid) -> usize { grid.cells.len() }
+260 | fn framed(grid: &Grid) -> usize { grid.cells.len() }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:186:36
+   --> tools/dylint/examples/single_reader.rs:194:36
     |
-186 | fn gridded(grid: &Grid) -> usize { framed(grid).strict_add(WIDTH) }
+194 | fn gridded(grid: &Grid) -> usize { framed(grid).strict_add(WIDTH) }
     |                                    ^^^^^^
     = help: move `framed` into `gridded` as a closure
 
 error: `seed` has one reader, `SEED`
-   --> tools/dylint/examples/single_reader.rs:188:1
+   --> tools/dylint/examples/single_reader.rs:196:1
     |
-188 | const fn seed() -> u8 { 3 }
+196 | const fn seed() -> u8 { 3 }
     | ^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:194:18
+   --> tools/dylint/examples/single_reader.rs:202:18
     |
-194 | const SEED: u8 = seed();
+202 | const SEED: u8 = seed();
     |                  ^^^^
     = help: move `seed` into `SEED` as a nested `fn`
 
@@ -145,125 +224,138 @@ error: `PORTS` has one reader, `port`
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:200:40
+   --> tools/dylint/examples/single_reader.rs:208:40
     |
-200 | fn port(index: usize) -> Option<u16> { PORTS.get(index).copied() }
+208 | fn port(index: usize) -> Option<u16> { PORTS.get(index).copied() }
     |                                        ^^^^^
     = help: move `PORTS` into `port` as a nested item
 
 error: `graded` has one reader, `grade`
-   --> tools/dylint/examples/single_reader.rs:208:1
+   --> tools/dylint/examples/single_reader.rs:216:1
     |
-208 | fn graded(score: u8) -> u8 { if score > 4 { if score > 7 { 2 } else { 1 } } else { 0 } }
+216 | fn graded(score: u8) -> u8 { if score > 4 { if score > 7 { 2 } else { 1 } } else { 0 } }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:212:29
+   --> tools/dylint/examples/single_reader.rs:220:29
     |
-212 | fn grade(score: u8) -> u8 { graded(score).strict_add(ranked(score)) }
+220 | fn grade(score: u8) -> u8 { graded(score).strict_add(ranked(score)) }
     |                             ^^^^^^
     = help: move `graded` into `grade` as a closure
 
 error: `floored` has one reader, `unwrapped`
-   --> tools/dylint/examples/single_reader.rs:214:1
+   --> tools/dylint/examples/single_reader.rs:222:1
     |
-214 | fn floored(width: usize) -> usize { if width.is_power_of_two() { width } else { width.next_power_of_two() } }
+222 | fn floored(width: usize) -> usize { if width.is_power_of_two() { width } else { width.next_power_of_two() } }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:217:43
+   --> tools/dylint/examples/single_reader.rs:225:43
     |
-217 |     fn unwrapped(width: usize) -> usize { floored(width).strict_mul(2) }
+225 |     fn unwrapped(width: usize) -> usize { floored(width).strict_mul(2) }
     |                                           ^^^^^^^
     = help: move `floored` into `unwrapped` as a closure
 
 error: `optional` has one reader, `doubled`
-   --> tools/dylint/examples/single_reader.rs:233:1
+   --> tools/dylint/examples/single_reader.rs:241:1
     |
-233 | fn optional<T>(item: T) -> Option<T> { Some(item) }
+241 | fn optional<T>(item: T) -> Option<T> { Some(item) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:235:51
+   --> tools/dylint/examples/single_reader.rs:243:51
     |
-235 | fn doubled<T: Copy>(item: T) -> [Option<T>; 2] { [optional(item), optional(item)] }
+243 | fn doubled<T: Copy>(item: T) -> [Option<T>; 2] { [optional(item), optional(item)] }
     |                                                   ^^^^^^^^        ^^^^^^^^
     = help: move `optional` into `doubled` as a closure
 
 error: `listed` has one reader, `paired`
-   --> tools/dylint/examples/single_reader.rs:231:1
+   --> tools/dylint/examples/single_reader.rs:239:1
     |
-231 | fn listed<T>(item: T) -> Vec<T> { vec![item] }
+239 | fn listed<T>(item: T) -> Vec<T> { vec![item] }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:239:6
+   --> tools/dylint/examples/single_reader.rs:247:6
     |
-239 |     (listed(item), item)
+247 |     (listed(item), item)
     |      ^^^^^^
     = help: move `listed` into `paired` as a closure
 
 error: `repeated` has one reader, `tripled`
-   --> tools/dylint/examples/single_reader.rs:242:1
+   --> tools/dylint/examples/single_reader.rs:250:1
     |
-242 | fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).map_or_else(Vec::new, |rest| [vec![item], repeated(i...
+250 | fn repeated<T: Copy>(item: T, levels: usize) -> Vec<T> { levels.checked_sub(1).map_or_else(Vec::new, |rest| [vec![item], repeated(i...
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:244:42
+   --> tools/dylint/examples/single_reader.rs:252:42
     |
-244 | fn tripled<T: Copy>(item: T) -> Vec<T> { repeated(item, 3) }
+252 | fn tripled<T: Copy>(item: T) -> Vec<T> { repeated(item, 3) }
     |                                          ^^^^^^^^
     = help: move `repeated` into `tripled` as a nested `fn`
 
 error: `advanced` has one reader, `stepped`
-   --> tools/dylint/examples/single_reader.rs:246:1
+   --> tools/dylint/examples/single_reader.rs:254:1
     |
-246 | fn advanced(cursor: &Cursor) -> usize { cursor.position.strict_add(1) }
+254 | fn advanced(cursor: &Cursor) -> usize { cursor.position.strict_add(1) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:250:46
+   --> tools/dylint/examples/single_reader.rs:258:46
     |
-250 | fn stepped(cursor: &Cursor) -> [usize; 2] { [advanced(cursor), rewound(cursor)] }
+258 | fn stepped(cursor: &Cursor) -> [usize; 2] { [advanced(cursor), rewound(cursor)] }
     |                                              ^^^^^^^^
     = help: move `advanced` into `stepped` as a closure
 
 error: `rewound` has one reader, `stepped`
-   --> tools/dylint/examples/single_reader.rs:248:1
+   --> tools/dylint/examples/single_reader.rs:256:1
     |
-248 | fn rewound(cursor: &Cursor) -> usize { cursor.position.saturating_sub(1) }
+256 | fn rewound(cursor: &Cursor) -> usize { cursor.position.saturating_sub(1) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:250:64
+   --> tools/dylint/examples/single_reader.rs:258:64
     |
-250 | fn stepped(cursor: &Cursor) -> [usize; 2] { [advanced(cursor), rewound(cursor)] }
+258 | fn stepped(cursor: &Cursor) -> [usize; 2] { [advanced(cursor), rewound(cursor)] }
     |                                                                ^^^^^^^
     = help: move `rewound` into `stepped` as a closure
 
 error: `spanned` has one reader, `compared`
-   --> tools/dylint/examples/single_reader.rs:254:1
+   --> tools/dylint/examples/single_reader.rs:262:1
     |
-254 | fn spanned(left: &Window, right: &Window) -> usize { left.width.abs_diff(right.width) }
+262 | fn spanned(left: &Window, right: &Window) -> usize { left.width.abs_diff(right.width) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:256:38
+   --> tools/dylint/examples/single_reader.rs:264:38
     |
-256 | fn compared(width: usize) -> usize { spanned(&Window { width }, &Window { width: 1 }) }
+264 | fn compared(width: usize) -> usize { spanned(&Window { width }, &Window { width: 1 }) }
     |                                      ^^^^^^^
     = help: move `spanned` into `compared` as a closure
 
-error: `halved` has one reader, `narrowed`
-   --> tools/dylint/examples/single_reader.rs:182:1
+error: `area` has one reader, `outlined`
+   --> tools/dylint/examples/single_reader.rs:48:5
     |
-182 | fn halved(width: usize) -> usize { width.strict_div(2) }
+ 48 |     pub(crate) fn area(side: usize) -> usize { side.strict_mul(side).strict_add(1) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: read here
+   --> tools/dylint/examples/single_reader.rs:266:72
+    |
+266 | fn outlined(side: usize) -> usize { shapes::perimeter(side).strict_add(shapes::area(side)) }
+    |                                                                        ^^^^^^^^^^^^
+    = help: move `area` into `outlined` as a closure
+
+error: `halved` has one reader, `narrowed`
+   --> tools/dylint/examples/single_reader.rs:190:1
+    |
+190 | fn halved(width: usize) -> usize { width.strict_div(2) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/single_reader.rs:262:42
+   --> tools/dylint/examples/single_reader.rs:272:42
     |
-262 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
+272 |     fn narrowed(width: usize) -> usize { halved(width).strict_add(1) }
     |                                          ^^^^^^
     = help: move `halved` into `narrowed` as a closure

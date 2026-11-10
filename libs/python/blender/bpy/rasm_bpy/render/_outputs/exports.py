@@ -21,13 +21,13 @@ from rasm_bpy.commands.operators import Call, Done, Operator
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.images import _read
+from rasm_bpy.data._ids.images import read
 from rasm_bpy.data._rna.conditions import Job
-from rasm_bpy.data._rna.descriptors import Value, written
+from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, Value, written
 from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.properties import case_choices, choices
 from rasm_bpy.render._color.spaces import viewed
-from rasm_bpy.render._outputs.results import _built, _RENDER_ORIGINS, _ResultKind, CompletedRender
+from rasm_bpy.render._outputs.results import built, CompletedRender, RENDER_ORIGINS, ResultKind
 from rasm_imaging import basis, captured_scene_source, Compression, converted, converted_image, Depth, DisplayView, Document, fitted, Format, ImageFile, LinearRaw, Multilayer, read_file, Storage
 from rasm_records import Case, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 
@@ -35,7 +35,7 @@ from rasm_records import Case, Error, Fault, Nothing, Ok, Outcome, paired, Reaso
 
 _IDLE: Final = Job(kind="RENDER")
 _DEPTHS: Final = choices((depth.name, depth.name, "") for depth in Depth)
-_SOURCES: Final = choices(item for item in bpy.types.Image.bl_rna.properties["type"].enum_items if item.identifier in get_args(_ResultKind.__value__))  # ty: ignore[unresolved-attribute]
+_SOURCES: Final = choices(item for item in Descriptor.of(bpy.types.Image, ("type",), bpy.types.EnumProperty).prop.enum_items if item.identifier in get_args(ResultKind.__value__))
 _WRITERS: Final = MappingProxyType({row.name: row for row in Format.writable()})
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -44,36 +44,38 @@ _WRITERS: Final = MappingProxyType({row.name: row for row in Format.writable()})
 class CameraView(bpy.types.PropertyGroup):
     """Optional camera-view selection for a saved multilayer render."""
 
-    use_camera_view: bpy.props.BoolProperty(name="Camera View", description="Select one camera view from a multi-view render")  # ty: ignore[invalid-type-form]
-    camera_view: bpy.props.StringProperty(name="View", description="Camera view name in saved render")  # ty: ignore[invalid-type-form]
+    use_camera_view: Annotated[bool, bpy.props.BoolProperty(name="Camera View", description="Select one camera view from a multi-view render")]
+    camera_view: Annotated[str, bpy.props.StringProperty(name="View", description="Camera view name in saved render")]
 
     @property
     def selected_view(self) -> Option[str]:
         """Explicit camera-view request, absent while automatic selection stands."""
-        if not self.use_camera_view:
-            return Nothing
-        name: str = self.camera_view  # ty: ignore[unsound-assignment]
-        return Some(name)
+        return Some(self.camera_view) if self.use_camera_view else Nothing
 
 
 class Still(CameraView):
     """Source, writer, stored depth, display encoding, and formation policy."""
 
-    source: bpy.props.EnumProperty(name="Source", description="Image the still writes", items=_SOURCES)  # ty: ignore[invalid-type-form]
-    format: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
-        name="Format", description="File format the still writes", items=choices((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in _WRITERS.values()), default="png"
-    )
-    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each channel", items=_DEPTHS)  # ty: ignore[invalid-type-form]
-    display: bpy.props.StringProperty(name="Display", description="Display encoding at selected depth", search=lambda _owner, _context, _edit: PyOpenColorIO.GetCurrentConfig().getDisplays())  # ty: ignore[invalid-type-form]
-    save_as_render: bpy.props.BoolProperty(name="Save as Render", description="Apply view, exposure, and gamma to unformed source", default=True)  # ty: ignore[invalid-type-form]
-    use_compression: bpy.props.BoolProperty(name="Use Compression", description="Write the chosen compression, writer default when off")  # ty: ignore[invalid-type-form]
-    compression: bpy.props.EnumProperty(name="Compression", description="Writer compression at its defaults", items=case_choices(Compression))  # ty: ignore[invalid-type-form]
+    source: Annotated[str, bpy.props.EnumProperty(name="Source", description="Image the still writes", items=_SOURCES)]
+    format: Annotated[
+        str,
+        bpy.props.EnumProperty(
+            name="Format", description="File format the still writes", items=choices((row.name, f"{row.name} (.{row.extensions[0]})", "") for row in _WRITERS.values()), default="png"
+        ),
+    ]
+    depth: Annotated[str, bpy.props.EnumProperty(name="Depth", description="Storage of each channel", items=_DEPTHS)]
+    display: Annotated[
+        str, bpy.props.StringProperty(name="Display", description="Display encoding at selected depth", search=lambda _owner, _context, _edit: PyOpenColorIO.GetCurrentConfig().getDisplays())
+    ]
+    save_as_render: Annotated[bool, bpy.props.BoolProperty(name="Save as Render", description="Apply view, exposure, and gamma to unformed source", default=True)]
+    use_compression: Annotated[bool, bpy.props.BoolProperty(name="Use Compression", description="Write the chosen compression, writer default when off")]
+    compression: Annotated[str, bpy.props.EnumProperty(name="Compression", description="Writer compression at its defaults", items=case_choices(Compression))]
 
 
 class Sheet(bpy.types.PropertyGroup):
     """Channel storage selected for a layered TIFF export."""
 
-    depth: bpy.props.EnumProperty(name="Depth", description="Storage of each layer channel", items=_DEPTHS, default=Depth.UINT16.name)  # ty: ignore[invalid-type-form]
+    depth: Annotated[str, bpy.props.EnumProperty(name="Depth", description="Storage of each layer channel", items=_DEPTHS, default=Depth.UINT16.name)]
 
 
 class Layering(msgspec.Struct, frozen=True, kw_only=True):
@@ -149,7 +151,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return {
                 "display": PyOpenColorIO.GetCurrentConfig().getDefaultDisplay(),
                 "depth": (depth if depth in writer.depths else writer.depths[0]).name,
-                "use_compression": _compression(properties).filter(lambda held: held in writer.compressions).is_some(),
+                "use_compression": _compression(properties).map(lambda chosen: chosen.filter(lambda held: held in writer.compressions).is_some()).default_value(value=False),
             }
 
         return Operator.of(Still, condition=Some(_IDLE), invoke=Some(Save[Still](extensions=lambda properties: _WRITERS[properties.format].suffixes)), seed=Some(seeded), options=frozenset())(
@@ -191,7 +193,6 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def export_still(self, call: Call[Still]) -> Outcome[Done]:
         """Write render or Viewer image with chosen encoding."""
         properties, target, config = call.properties, call.paths[0], PyOpenColorIO.GetCurrentConfig()
-        storage = Storage(depth=Depth[properties.depth], compression=_compression(properties))
 
         def encoded(file: ImageFile) -> Outcome[ImageFile]:
             return (
@@ -239,17 +240,21 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         def native(native: bpy.types.Image) -> Outcome[ImageFile]:
             space = config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR if native.use_view_as_render else PyOpenColorIO.ROLE_DATA).getName()
             formation = rooted(bpy.types.Scene, call.context).map(lambda scene: Some(viewed(scene))) if native.use_view_as_render else Ok(Nothing)
-            return paired(_read(native, space), captured_scene_source(config, space), formation).bind(lambda found: image(*found))
+            return paired(read(native, space), captured_scene_source(config, space), formation).bind(lambda found: image(*found))
 
         return (
             (
                 self.selected(call.identity, call.context).bind(rendered)
                 if properties.source == "RENDER_RESULT"
-                else _built("COMPOSITING").bind(native)
+                else built("COMPOSITING").bind(native)
                 if properties.selected_view.is_none()
                 else Error(Fault.of(Reason.OUTSIDE, properties.source, properties.selected_view, member="owned render for camera view selection"))
             )
-            .bind(lambda file: file.written(target, storage, call.identity.manifest.stamp, config))
+            .bind(
+                lambda file: _compression(properties).bind(
+                    lambda compression: file.written(target, Storage(depth=Depth[properties.depth], compression=compression), call.identity.manifest.stamp, config)
+                )
+            )
             .map(lambda _: Done.wrote((target,)))
         )
 
@@ -257,7 +262,7 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns export commands and render production tracking."""
-        return self.linear, self.still, *self.layered, _RENDER_ORIGINS
+        return self.linear, self.still, *self.layered, RENDER_ORIGINS
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -265,12 +270,9 @@ class Export(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 # --- [COMPRESSION]
 
 
-def _compression(properties: Still) -> Option[Compression]:
+def _compression(properties: Still) -> Outcome[Option[Compression]]:
     """Returns the chosen compression case at its defaults, Nothing while the writer default stands."""
-    if not properties.use_compression:
-        return Nothing
-    selected: Compression = msgspec.convert({"kind": properties.compression}, Compression.__value__)  # ty: ignore[unsound-assignment]
-    return Some(selected)
+    return converted_value({"kind": properties.compression}, Compression, properties.compression).map(Some) if properties.use_compression else Ok(Nothing)
 
 
 # --- [PROXIES]

@@ -43,7 +43,7 @@ class Region(msgspec.Struct, frozen=True, kw_only=True):
 
         def span(low: float, high: float, extent: int) -> "slice[int, int, None]":
             start = min(max(math.floor(low * extent - 0.5) + 1, 0), extent)
-            return slice(start, min(max(math.ceil(high * extent - 0.5), start), extent))  # ty: ignore[unsound-return-statement]
+            return np.s_[start : min(max(math.ceil(high * extent - 0.5), start), extent)]
 
         return span(1.0 - self.top, 1.0 - self.bottom, height), span(self.left, self.right, width)
 
@@ -124,7 +124,7 @@ class Homography(Frozen, frozen=True, kw_only=True, eq=False):
         """Returns map of `quad`, absent for a quad that is not strictly convex, `OUTSIDE` fault when its corners allow no projective map."""
         if not quad.convex:
             return Ok(Nothing)
-        match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):  # type: ignore[no-untyped-call]
+        match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):
             case ProjectiveTransform() as found:
                 return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))
             case failed:

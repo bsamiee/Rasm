@@ -11,7 +11,6 @@ using Rhino.Resources;
 using Rhino.Runtime;
 using Rhino.UI;
 using Rhino.UI.Controls;
-using Platform = Eto.Platform;
 using SkinMembers = (
     string ApplicationName,
     System.Drawing.Bitmap? MainRhinoIcon,
@@ -42,19 +41,6 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
 
     [Union]
     private abstract partial record SkinLoad {
-        public SkinLoad Begin(string plugIn) =>
-            Switch<string, SkinLoad>(
-                plugIn,
-                starting: static (_, starting) => starting,
-                loading: static (begun, loading) => loading with { Current = Some(begun) },
-                ready: static (_, ready) => ready);
-
-        public SkinLoad End() =>
-            Switch<SkinLoad>(
-                starting: static starting => starting,
-                loading: static loading => loading with { Ended = loading.Ended + 1 },
-                ready: static ready => ready);
-
         public Option<int> Percent =>
             Switch(
                 starting: static _ => Option<int>.None,
@@ -78,7 +64,7 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
 
     public SkinBody(Skin host, Func<bool> hasBootSplash, Action<int> setBootSplashProgress, Action dismissBootSplash, Func<string, RhinoDoc?> openNewDocument) {
         (this.hasBootSplash, this.setBootSplashProgress, this.dismissBootSplash, this.openNewDocument) = (hasBootSplash, setBootSplashProgress, dismissBootSplash, openNewDocument);
-        Platform.Instance.LoadAssembly(typeof(SkinBody<TDefinition>).Assembly);
+        Eto.Platform.Instance.LoadAssembly(typeof(SkinBody<TDefinition>).Assembly);
         _ = Session.RunSafe(
             Session.Bind(host, typeof(TDefinition), TDefinition.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
                 .Attach(static _ => Session.Close).Scoped()),
@@ -113,10 +99,19 @@ internal sealed partial class SkinBody<TDefinition> where TDefinition : IDefined
     private void OnBeginLoadAtStartPlugIns(int expectedCount) =>
         _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current) >> PlugInRegistry.LoadPlugIns(TDefinition.Definition.PlugIns));
 
-    private void OnBeginLoadPlugIn(string description) => _ = Session.Run(Advanced(current => current.Begin(description)));
+    private void OnBeginLoadPlugIn(string description) =>
+        _ = Session.Run(Advanced(current => current.Switch<string, SkinLoad>(
+            description,
+            starting: static (_, starting) => starting,
+            loading: static (begun, loading) => loading with { Current = Some(begun) },
+            ready: static (_, ready) => ready)));
 
     private void OnEndLoadPlugIn() =>
-        _ = Session.Run(Advanced(static current => current.End()).Bind(next => IO.lift(() => next.Percent.Iter(setBootSplashProgress))));
+        _ = Session.Run(Advanced(static current => current.Switch<SkinLoad>(
+                starting: static starting => starting,
+                loading: static loading => loading with { Ended = loading.Ended + 1 },
+                ready: static ready => ready))
+            .Bind(next => IO.lift(() => next.Percent.Iter(setBootSplashProgress))));
 
     private void OnEndLoadAtStartPlugIns() => _ = Session.Run(Advanced(static _ => new SkinLoad.Ready()).Bind(_ => IO.lift(dismissBootSplash)));
 

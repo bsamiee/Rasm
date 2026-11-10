@@ -3,45 +3,59 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/needless_cell.rs
 ---
 error: `total` uses `Cell` only to access and replace a copyable value
- --> tools/dylint/examples/needless_cell.rs:9:5
+ --> tools/dylint/examples/needless_cell.rs:7:5
   |
-9 |     let total = Cell::new(0);
+7 |     let total = Cell::new(0);
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = help: bind the value with `let mut total`, use reads and assignment, and use `core::mem::replace` or `core::mem::take` for returned old values
   = note: `#[deny(needless_cell)]` on by default
 
 error: `value` uses `Cell` only to access and replace a copyable value
-  --> tools/dylint/examples/needless_cell.rs:51:5
+  --> tools/dylint/examples/needless_cell.rs:49:5
    |
-51 |     let value = Cell::new(start);
+49 |     let value = Cell::new(start);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: bind the value with `let mut value`, use reads and assignment, and use `core::mem::replace` or `core::mem::take` for returned old values
 
-error: `consume_guard` has one reader, `guarded`
-  --> tools/dylint/examples/needless_cell.rs:64:1
+error: `consume_guard` passes its parameters unchanged to `std::string::String::len`
+  --> tools/dylint/examples/needless_cell.rs:62:1
    |
-64 | fn consume_guard(value: Ref<'_, String>) -> usize { value.len() }
+62 | fn consume_guard(value: Ref<'_, String>) -> usize { value.len() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/needless_cell.rs:62:53
+   |
+62 | fn consume_guard(value: Ref<'_, String>) -> usize { value.len() }
+   |                                                     ^^^^^^^^^^^
+   = help: call `std::string::String::len` at each call site of `consume_guard` and delete `consume_guard`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `consume_guard` has one reader, `guarded`
+  --> tools/dylint/examples/needless_cell.rs:62:1
+   |
+62 | fn consume_guard(value: Ref<'_, String>) -> usize { value.len() }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/needless_cell.rs:68:5
+  --> tools/dylint/examples/needless_cell.rs:66:5
    |
-68 |     consume_guard(value.borrow())
+66 |     consume_guard(value.borrow())
    |     ^^^^^^^^^^^^^
    = help: move `consume_guard` into `guarded` as a closure
    = note: `#[deny(single_reader)]` on by default
 
 error: `consume_cells` has one reader, `array_view`
-  --> tools/dylint/examples/needless_cell.rs:79:1
+  --> tools/dylint/examples/needless_cell.rs:77:1
    |
-79 | fn consume_cells(values: &[Cell<u32>; 2]) -> u32 { values.iter().map(Cell::get).sum() }
+77 | fn consume_cells(values: &[Cell<u32>; 2]) -> u32 { values.iter().map(Cell::get).sum() }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/needless_cell.rs:83:5
+  --> tools/dylint/examples/needless_cell.rs:81:5
    |
-83 |     consume_cells(values.as_array_of_cells())
+81 |     consume_cells(values.as_array_of_cells())
    |     ^^^^^^^^^^^^^
    = help: move `consume_cells` into `array_view` as a closure

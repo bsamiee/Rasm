@@ -1,18 +1,19 @@
 use std::rc::Rc;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, get_parent_expr, sym, ty::get_iterator_item_ty};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::ty::get_iterator_item_ty;
+use clippy_utils::{fn_def_id, get_parent_expr, sym};
 use itertools::Itertools as _;
 use rustc_data_structures::fx::FxIndexMap;
-use rustc_hir::{
-    Expr, ExprKind, HirId, Item, ItemKind, Node, Path,
-    def::{CtorKind, CtorOf, DefKind, Res},
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def::{CtorKind, CtorOf, DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{Expr, ExprKind, HirId, Item, ItemKind, Node, Path};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, AdtDef, TyCtxt};
 
 use super::{collects_vec, iterator_method};
-use crate::{derived_impl, duplication::Bodies, expanded_externally, exported};
+use crate::duplication::Bodies;
+use crate::{derived_impl, expanded_externally, exported};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

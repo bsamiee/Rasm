@@ -1,35 +1,33 @@
-use core::{iter, slice};
-use std::{
-    ffi::OsStr,
-    io::{self, ErrorKind},
-    path::{self, Path, PathBuf},
-    sync::Arc,
-};
+use core::iter;
+use std::ffi::OsStr;
+use std::io::{self, ErrorKind};
+use std::path::{self, Path, PathBuf};
+use std::sync::Arc;
 
-use clippy_utils::{
-    diagnostics::{span_lint, span_lint_hir_and_then},
-    is_entrypoint_fn, peel_blocks, peel_hir_expr_refs, tokenize_with_text,
-};
-use itertools::Itertools as _;
+use clippy_utils::diagnostics::{span_lint, span_lint_hir_and_then};
+use clippy_utils::res::MaybeResPath as _;
+use clippy_utils::{desugar_await, get_async_fn_body, is_entrypoint_fn, peel_blocks_with_stmt, peel_hir_expr_refs, tokenize_with_text};
+use itertools::{Either, Itertools as _};
 use rustc_ast::visit;
 use rustc_attr_ir::find_attr;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
-use rustc_errors::{DiagCtxt, FatalError, catch_fatal_errors, emitter::SilentEmitter};
+use rustc_errors::emitter::SilentEmitter;
+use rustc_errors::{DiagCtxt, FatalError, catch_fatal_errors};
 use rustc_expand::module::{DirOwnership, ModError, default_submod_path};
-use rustc_hir::{
-    Block, Expr, ExprKind, HirId, ImplItem, Item, ItemKind, Node, Pat, PatExprKind, PatKind, TraitItem,
-    def::DefKind,
-    def_id::{CRATE_DEF_ID, DefId, LocalDefId},
-    intravisit::{self, Visitor},
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::{CRATE_DEF_ID, DefId, LocalDefId, LocalModId};
+use rustc_hir::intravisit::{self, FnKind, Visitor};
+use rustc_hir::{Block, Body, Expr, ExprKind, FnDecl, HirId, ImplItem, Item, ItemKind, LocalSource, Node, Pat, PatExprKind, PatKind, StmtKind, TraitItem};
 use rustc_lexer::TokenKind;
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{hir::nested_filter, ty::TyCtxt};
-use rustc_parse::{lexer::StripTokens, new_parser_from_source_str, unwrap_or_emit_fatal};
+use rustc_middle::hir::nested_filter;
+use rustc_middle::ty::{GenericArg, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized};
+use rustc_parse::lexer::StripTokens;
+use rustc_parse::{new_parser_from_source_str, unwrap_or_emit_fatal};
 use rustc_session::parse::ParseSess;
 use rustc_span::{BytePos, FileName, Ident, Pos as _, RelativeBytePos, SourceFile, Span, Symbol, kw, sym};
 
-use crate::{expanded_externally, exported, fn_item_value, generated, parameter};
+use crate::{accessed_field, awaited_output, constructed, expanded_externally, exported, fn_item_value, generated, in_test, item_path, parameter, pattern_fields, signature};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -37,11 +35,13 @@ use crate::{expanded_externally, exported, fn_item_value, generated, parameter};
 pub(crate) struct Pass {
     sites: FxIndexMap<LocalDefId, Vec<(LocalDefId, Span)>>,
     pinned: FxHashSet<LocalDefId>,
+    forwards: FxHashSet<HirId>,
 }
 
 lint!(default Pass;
     ORPHAN_MODULE: "source files and `mod.rs` folders in a module's folder that no module declares",
-    SINGLE_READER: "crate-private free functions, constants, and statics with one reader in their module, other than the entry point"
+    SINGLE_READER: "crate-private free items with one reader, outside macro output, reading no item hidden from that reader, and with no signature type their module declares",
+    FORWARDING_FUNCTION: "functions and inherent methods whose body calls another function with each parameter once, in any order, and returns its result unchanged"
 );
 
 impl Pass {
@@ -95,17 +95,8 @@ impl Pass {
             };
             let listed =
                 matches!(tcx.def_kind(owner), DefKind::Const | DefKind::AssocConst | DefKind::Static { .. }) && matches!(tcx.hir_node(node), Node::Expr(read) if fn_item_value(cx, read).is_some());
-            let forwarded = tcx.hir_maybe_body_owned_by(owner).filter(|_| matches!(tcx.def_kind(owner), DefKind::Fn | DefKind::AssocFn)).is_some_and(|body| {
-                let passed = |arguments: &[Expr<'_>]| arguments.iter().all(|argument| parameter(body, peel_hir_expr_refs(argument).0).is_some());
-                match peel_blocks(body.value) {
-                    value if value.span.from_expansion() => false,
-                    Expr { kind: ExprKind::Call(callee, arguments), .. } => callee.hir_id == node && passed(arguments),
-                    Expr { kind: ExprKind::MethodCall(_, receiver, arguments, _), hir_id, .. } => *hir_id == node && passed(slice::from_ref(receiver)) && passed(arguments),
-                    _ => false,
-                }
-            });
             match reader {
-                Some(reader) if !expanded_externally(cx, span) && !generated(cx, node) && !listed && !forwarded =>
+                Some(reader) if !expanded_externally(cx, span) && !generated(cx, node) && !listed && !self.forwards.contains(&node) =>
                     self.sites.entry(target).or_default().push((tcx.typeck_root_def_id_local(reader), span)),
                 _ => {
                     self.pinned.insert(target);
@@ -116,6 +107,96 @@ impl Pass {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn movable(cx: &LateContext<'_>, target: LocalDefId, module: LocalModId) -> bool {
+    struct Reach<'tcx> {
+        tcx: TyCtxt<'tcx>,
+        typeck: &'tcx TypeckResults<'tcx>,
+        module: DefId,
+        hidden: bool,
+    }
+    impl Reach<'_> {
+        fn read(&mut self, item: DefId) {
+            self.hidden = self.hidden
+                || item.as_local().is_some_and(|local| {
+                    !matches!(
+                        self.tcx.def_kind(local),
+                        DefKind::TyParam | DefKind::ConstParam | DefKind::LifetimeParam | DefKind::OpaqueTy | DefKind::AnonConst | DefKind::Closure | DefKind::Impl { .. }
+                    ) && !self.tcx.visibility(local).is_accessible_from(self.module, self.tcx)
+                });
+        }
+    }
+    impl<'tcx> Visitor<'tcx> for Reach<'tcx> {
+        type NestedFilter = nested_filter::OnlyBodies;
+
+        fn maybe_tcx(&mut self) -> TyCtxt<'tcx> { self.tcx }
+
+        fn visit_path(&mut self, path: &rustc_hir::Path<'tcx>, _: HirId) {
+            path.segments.iter().map(|segment| segment.res).chain([path.res]).filter_map(|res| res.opt_def_id()).for_each(|item| self.read(item));
+            intravisit::walk_path(self, path);
+        }
+
+        fn visit_expr(&mut self, ex: &'tcx Expr<'tcx>) {
+            let typeck = self.typeck;
+            match ex.kind {
+                ExprKind::MethodCall(..) => typeck.type_dependent_def_id(ex.hir_id).into_iter().for_each(|item| self.read(item)),
+                ExprKind::Field(..) => accessed_field(typeck, ex).into_iter().for_each(|item| self.read(item)),
+                _ => constructed(typeck, ex).into_iter().flat_map(|(_, fields)| fields).for_each(|(field, _)| self.read(field.did)),
+            }
+            intravisit::walk_expr(self, ex);
+        }
+
+        fn visit_pat(&mut self, p: &'tcx Pat<'tcx>) {
+            pattern_fields(self.typeck, p).for_each(|(field, _)| self.read(field));
+            intravisit::walk_pat(self, p);
+        }
+    }
+    let tcx = cx.tcx;
+    let home = tcx.parent_module_from_def_id(target);
+    let held = match tcx.def_kind(target) {
+        DefKind::Fn => Either::Left(signature(tcx, target.to_def_id()).inputs_and_output.iter()),
+        _ => Either::Right(iter::once(tcx.type_of(target).instantiate_identity().skip_normalization())),
+    };
+    let operation =
+        held.flat_map(Ty::walk).filter_map(GenericArg::as_type).any(|ty| ty.ty_adt_def().and_then(|adt| adt.did().as_local()).is_some_and(|adt| tcx.parent_module_from_def_id(adt) == home));
+    let mut reach = Reach { tcx, typeck: tcx.typeck(target), module: module.to_def_id(), hidden: false };
+    !operation && {
+        reach.visit_item(tcx.hir_expect_item(target));
+        !reach.hidden
+    }
+}
+
+fn forwarded_call<'tcx>(cx: &LateContext<'tcx>, owner: LocalDefId, body: &'tcx Body<'tcx>) -> Option<(&'tcx Expr<'tcx>, DefId)> {
+    let tcx = cx.tcx;
+    let typeck = cx.typeck_results();
+    let asynchronous = tcx.asyncness(owner).is_async();
+    let result = peel_blocks_with_stmt(if asynchronous { get_async_fn_body(tcx, body)? } else { body.value });
+    let call = if asynchronous { desugar_await(result)? } else { result };
+    let moved = match body.value.kind {
+        ExprKind::Closure(closure) if asynchronous && let ExprKind::Block(block, _) = tcx.hir_body(closure.body).value.kind => block.stmts,
+        _ => &[],
+    };
+    let position = |argument: &Expr<'_>| {
+        let argument = peel_hir_expr_refs(argument).0;
+        parameter(body, argument).or_else(|| {
+            let local = argument.res_local_id()?;
+            moved.iter().find_map(|stmt| match stmt.kind {
+                StmtKind::Let(binding) if matches!(binding.source, LocalSource::AsyncFn) && binding.pat.hir_id == local => parameter(body, binding.init?),
+                _ => None,
+            })
+        })
+    };
+    let (callee, arguments) = match call.kind {
+        _ if call.span.from_expansion() => None,
+        ExprKind::Call(&Expr { kind: ExprKind::Path(qpath), hir_id, .. }, arguments) if let Res::Def(DefKind::Fn | DefKind::AssocFn, callee) = typeck.qpath_res(&qpath, hir_id) =>
+            Some((callee, Either::Left(arguments.iter()))),
+        ExprKind::MethodCall(_, receiver, arguments, _) => Some((typeck.type_dependent_def_id(call.hir_id)?, Either::Right(iter::once(receiver).chain(arguments)))),
+        _ => None,
+    }?;
+    let unchanged = |held| tcx.normalize_erasing_regions(TypingEnv::post_analysis(tcx, owner), Unnormalized::new(tcx.erase_and_anonymize_regions(held)));
+    (callee != owner.to_def_id() && arguments.map(position).sorted().eq((0..body.params.len()).map(Some)) && unchanged(typeck.expr_ty(result)) == unchanged(awaited_output(tcx, owner.to_def_id())))
+        .then_some((call, callee))
+}
 
 fn module_paths(psess: &ParseSess, name: FileName, file: &Path, relative: Option<Ident>, source: &str) -> Option<Vec<(PathBuf, bool)>> {
     fn explicit_paths(directory: &Path, paths: &mut Vec<PathBuf>, attribute: &rustc_ast::MetaItem) {
@@ -184,6 +265,27 @@ fn module_paths(psess: &ParseSess, name: FileName, file: &Path, relative: Option
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
+    fn check_fn(&mut self, cx: &LateContext<'tcx>, kind: FnKind<'tcx>, _: &'tcx FnDecl<'tcx>, body: &'tcx Body<'tcx>, span: Span, function: LocalDefId) {
+        let Some((call, callee)) = (!matches!(kind, FnKind::Closure)).then(|| forwarded_call(cx, function, body)).flatten() else { return };
+        self.forwards.insert(if let ExprKind::Call(path, _) = call.kind { path.hir_id } else { call.hir_id });
+        let tcx = cx.tcx;
+        let node = tcx.local_def_id_to_hir_id(function);
+        if !span.from_expansion()
+            && tcx.trait_impl_of_assoc(function.to_def_id()).is_none()
+            && tcx.trait_of_assoc(function.to_def_id()).is_none()
+            && !is_entrypoint_fn(cx, function.to_def_id())
+            && !tcx.codegen_fn_attrs(function).contains_extern_indicator()
+            && !generated(cx, node)
+            && !in_test(tcx, node)
+        {
+            let (name, target) = (item_path(cx, function.to_def_id()), item_path(cx, callee));
+            span_lint_hir_and_then(cx, FORWARDING_FUNCTION, node, tcx.def_span(function), format!("`{name}` passes its parameters unchanged to `{target}`"), |diag| {
+                diag.span_note(call.span, "forwarded here");
+                diag.help(format!("call `{target}` at each call site of `{name}` and delete `{name}`"));
+            });
+        }
+    }
+
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let target = match expr.kind {
             ExprKind::Path(qpath) => cx.qpath_res(&qpath, expr.hir_id).opt_def_id(),
@@ -208,7 +310,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             tcx: TyCtxt<'tcx>,
             seen: FxHashSet<BytePos>,
             modules: FxHashMap<BytePos, bool>,
-            outermost: Option<LocalDefId>,
+            owners: Vec<(LocalDefId, usize)>,
             depth: usize,
             enclosing: FxHashMap<LocalDefId, usize>,
             deepest: FxHashMap<LocalDefId, usize>,
@@ -217,10 +319,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             fn owned<F>(&mut self, owner: LocalDefId, walk: F)
             where F: FnOnce(&mut Self) {
                 self.enclosing.insert(owner, self.depth);
-                let outer = self.outermost;
-                self.outermost = if self.depth == 0 { Some(owner) } else { outer };
+                self.owners.push((owner, self.depth));
                 walk(self);
-                self.outermost = outer;
+                self.owners.pop();
             }
         }
         impl<'tcx> Visitor<'tcx> for Walk<'tcx> {
@@ -231,14 +332,21 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             fn visit_ident(&mut self, ident: Ident) { self.seen.insert(ident.span.lo()); }
 
             fn visit_item(&mut self, i: &'tcx Item<'tcx>) {
-                if let ItemKind::Mod(_, module) = i.kind
+                let outer = self.depth;
+                let filed = if let ItemKind::Mod(_, module) = i.kind
                     && !module.spans.inner_span.is_dummy()
                     && let file = self.tcx.sess.source_map().lookup_source_file(module.spans.inner_span.lo())
                     && !file.contains(i.span.lo())
                 {
                     self.modules.insert(file.start_pos, find_attr!(self.tcx, i.hir_id(), Path(..)));
-                }
+                    true
+                } else {
+                    false
+                };
+                let braced = matches!(i.kind, ItemKind::Impl(_) | ItemKind::Trait { .. } | ItemKind::Mod(..)) && !i.span.from_expansion();
+                self.depth = if filed { 0 } else { outer.strict_add(usize::from(braced)) };
                 self.owned(i.owner_id.def_id, |walk| intravisit::walk_item(walk, i));
+                self.depth = outer;
             }
 
             fn visit_impl_item(&mut self, ii: &'tcx ImplItem<'tcx>) { self.owned(ii.owner_id.def_id, |walk| intravisit::walk_impl_item(walk, ii)); }
@@ -248,15 +356,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             fn visit_block(&mut self, b: &'tcx Block<'tcx>) {
                 let braced = usize::from(!b.span.from_expansion());
                 self.depth = self.depth.strict_add(braced);
-                if let Some(outermost) = self.outermost {
-                    self.deepest.entry(outermost).and_modify(|deepest| *deepest = (*deepest).max(self.depth)).or_insert(self.depth);
+                for &(owner, start) in &self.owners {
+                    let relative = self.depth.strict_sub(start);
+                    self.deepest.entry(owner).and_modify(|deepest| *deepest = (*deepest).max(relative)).or_insert(relative);
                 }
                 intravisit::walk_block(self, b);
                 self.depth = self.depth.strict_sub(braced);
             }
         }
         let tcx = cx.tcx;
-        let mut walk = Walk { tcx, seen: FxHashSet::default(), modules: FxHashMap::default(), outermost: None, depth: 0, enclosing: FxHashMap::default(), deepest: FxHashMap::default() };
+        let mut walk = Walk { tcx, seen: FxHashSet::default(), modules: FxHashMap::default(), owners: Vec::new(), depth: 0, enclosing: FxHashMap::default(), deepest: FxHashMap::default() };
         tcx.hir_walk_toplevel_module(&mut walk);
         let map = tcx.sess.source_map();
         let root = map.lookup_source_file(tcx.def_span(CRATE_DEF_ID).lo());
@@ -321,14 +430,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             if let Ok(caller) = outside().map(|&(caller, _)| caller).all_equal_value()
                 && !is_entrypoint_fn(cx, caller.to_def_id())
                 && !self.pinned.contains(&target)
-                && !expanded_externally(cx, tcx.def_span(target))
+                && !tcx.def_span(target).from_expansion()
                 && !exported(cx, target)
-                && tcx.parent_module_from_def_id(caller) == tcx.parent_module_from_def_id(target)
                 && !is_entrypoint_fn(cx, target.to_def_id())
                 && !find_attr!(tcx, target, Used { .. })
                 && let name = tcx.item_name(target)
                 && !unseen.contains(&name)
                 && walk.enclosing.get(&caller).is_some_and(|&enclosing| walk.deepest.get(&target).copied().unwrap_or_default().strict_add(enclosing) <= LEVELS)
+                && let module = tcx.parent_module_from_def_id(caller)
+                && (module == tcx.parent_module_from_def_id(target) || movable(cx, target, module))
             {
                 let caller_name = tcx.item_name(caller);
                 let generic = |item: LocalDefId| tcx.generics_of(item).requires_monomorphization(tcx);

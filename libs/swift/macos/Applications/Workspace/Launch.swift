@@ -17,12 +17,12 @@ public struct RunningInstance: Encodable, Sendable {
     public let state: InstanceState
 
     public init?(_ instance: NSRunningApplication, state: InstanceState) {
-        guard let url: URL = instance.bundleURL, let identifier: String = instance.bundleIdentifier else { return nil }
+        guard let url = instance.bundleURL, let identifier = instance.bundleIdentifier else { return nil }
         (self.instance, self.identifier, self.url, self.state) = (instance, identifier, url, state)
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         try fields.encode(instance.processIdentifier, forKey: .pid)
         try fields.encode(identifier, forKey: .identifier)
         try fields.encode(url, forKey: .url)
@@ -48,7 +48,7 @@ public enum Launching: Encodable, Sendable {
     case failed(ApplicationFailure)
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: Key.self)
         switch self {
             case .launched(let launched): try fields.encode(launched, forKey: .launched)
             case .state(let state): try fields.encode(state, forKey: .state)
@@ -62,9 +62,9 @@ public enum Launching: Encodable, Sendable {
 
 extension Installation {
     public init(opening document: URL) throws(ApplicationFailure) {
-        let path: String = document.path(percentEncoded: false)
+        let path = document.path(percentEncoded: false)
         do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: path, reason: .host(error as NSError)) }
-        guard let handler: URL = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: path, reason: .noHandler) }
+        guard let handler = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: path, reason: .noHandler) }
         try self.init(at: handler)
     }
 }
@@ -77,15 +77,15 @@ extension NSWorkspace {
         environment: [String: String] = [:],
         newInstance: Bool = false,
     ) async throws(ApplicationFailure) -> (instance: NSRunningApplication, created: Bool) {
-        let url: URL = installation.url
-        let running: [NSRunningApplication] = runningApplications.filter(installation.runs)
-        let creating: Bool = newInstance || running.isEmpty
-        if let reused: NSRunningApplication = running.first, !creating, documents.isEmpty { return (reused, false) }
-        let executable: String? = installation.executable?.path(percentEncoded: false)
+        let url = installation.url
+        let running = runningApplications.filter(installation.runs)
+        let creating = newInstance || running.isEmpty
+        if let reused = running.first, !creating, documents.isEmpty { return (reused, false) }
+        let executable = installation.executable?.path(percentEncoded: false)
         let listing: (String) throws(ApplicationFailure) -> Set<pid_t> = { executable throws(ApplicationFailure) in
             do throws(Errno) { return try processes(executing: executable) } catch { throw ApplicationFailure(subject: executable, reason: .system(error)) }
         }
-        let before: Set<pid_t> = try executable.map(listing) ?? []
+        let before = try executable.map(listing) ?? []
         let configuration = OpenConfiguration()
         configuration.activates = false
         configuration.addsToRecentItems = false
@@ -111,9 +111,9 @@ extension NSWorkspace {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error as NSError))
         }
         guard opened.processIdentifier == -1, let executable else { return (opened, !running.contains(opened)) }
-        let after: Set<pid_t> = try listing(executable)
-        let started: pid_t? = after.subtracting(before).first
-        guard let instance: NSRunningApplication = (started ?? after.first).flatMap(NSRunningApplication.init(processIdentifier:)) else {
+        let after = try listing(executable)
+        let started = after.subtracting(before).first
+        guard let instance = (started ?? after.first).flatMap(NSRunningApplication.init(processIdentifier:)) else {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .noProcess)
         }
         return (instance, started != nil)
@@ -130,7 +130,7 @@ extension NSWorkspace {
     ) -> some AsyncSequence<Launching, Never> & Sendable {
         AsyncStream { output in
             let prompting = Task {
-                for await held: OrderedDictionary<NSRunningApplication, InstanceState> in Self.shared.systemPrompts(naming: [installation.name], clock: clock) {
+                for await held in Self.shared.systemPrompts(naming: [installation.name], clock: clock) {
                     output.yield(.prompts(held.compactMap { instance, state in RunningInstance(instance, state: state) }))
                 }
             }
@@ -140,7 +140,7 @@ extension NSWorkspace {
                     output.finish()
                 }
                 do throws(ApplicationFailure) {
-                    let (instance, created): (NSRunningApplication, Bool) = try await Self.shared.launch(
+                    let (instance, created) = try await Self.shared.launch(
                         installation,
                         opening: documents,
                         arguments: arguments,
@@ -149,7 +149,7 @@ extension NSWorkspace {
                     )
                     prompting.cancel()
                     output.yield(.launched(Launched(pid: instance.processIdentifier, identifier: installation.identifier, created: created)))
-                    for await state: InstanceState in instance.states(clock: clock) {
+                    for await state in instance.states(clock: clock) {
                         if let running = RunningInstance(instance, state: state) { output.yield(.state(running)) }
                         switch state {
                             case .running(let running) where !waiting && (!created || running.status.settled || !running.asking.isEmpty): return

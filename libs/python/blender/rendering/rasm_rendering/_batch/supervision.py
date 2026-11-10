@@ -2,7 +2,7 @@
 
 import base64
 from collections.abc import Callable, Mapping
-import ctypes
+from contextlib import ExitStack
 from datetime import timedelta
 from enum import auto, StrEnum
 from functools import partial
@@ -21,14 +21,10 @@ from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 from tenacity import retry_if_result, Retrying, stop_after_attempt
+from wakepy import keep
 
 from rasm_records import accumulated, Case, Error, Fault, Faults, folder_made, Nothing, Ok, Outcome, paired, Reason, RecordFile, removed
-from rasm_rendering._batch.queue import Ending, Job, observed, Progress, RenderQueue
-
-if sys.platform == "win32":
-    from ctypes import get_last_error, WinDLL, WinError, wintypes  # ty: ignore[possibly-missing-import]
-else:
-    from os import killpg  # ty: ignore[possibly-missing-import]
+from rasm_rendering._batch.queue import Ending, Job, observed, Progress, PROGRESS_DECODER, RENDER_QUEUE_DECODER, RenderQueue
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -107,7 +103,7 @@ class LocalMachine(Case, frozen=True, kw_only=True):
         """Writes queue file, then starts detached supervisor over the file, returning log path."""
         log = host.path(queue.stem, RunFile.LOG)
         return (
-            RecordFile(path=host.path(queue.stem, RunFile.QUEUE), form=RenderQueue)
+            RecordFile(path=host.path(queue.stem, RunFile.QUEUE), decoder=RENDER_QUEUE_DECODER)
             .written(queue)
             .bind(lambda path: detached(host.argv(RunCommand.SUPERVISE, Run(queue=str(path), target=self)), log))
             .map(lambda _: (Ok(str(log)),))
@@ -178,7 +174,7 @@ def detached(argv: tuple[str, ...], log: Path) -> Outcome[subprocess.Popen[bytes
 
 def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, interval: timedelta, /) -> Outcome[Progress]:
     """Renders remaining frames one job group per process, touching the progress record every `interval` and restarting crashed renders."""
-    records = RecordFile(path=host.path(queue.stem, RunFile.PROGRESS), form=Progress)
+    records = RecordFile(path=host.path(queue.stem, RunFile.PROGRESS), decoder=PROGRESS_DECODER)
     run = Run(queue=str(host.path(queue.stem, RunFile.QUEUE)), target=target)
     schedule = target.schedule(queue)
     restarted = Retrying(
@@ -235,7 +231,7 @@ def stop(progress: Progress) -> Outcome[None]:
     """Stops supervisor and its renders."""
     if sys.platform == "win32":
         return ran(("taskkill", "/T", "/F", "/PID", str(progress.process)))
-    return catch(killpg, exception=OSError)(progress.process, signal.SIGTERM).map_error(partial(Fault.of, Reason.FAILED, f"{killpg.__name__}({progress.process})"))
+    return catch(os.kill, exception=OSError)(-progress.process, signal.SIGTERM).map_error(partial(Fault.of, Reason.FAILED, f"{os.kill.__name__}(-{progress.process})"))
 
 
 def cleared(queue: RenderQueue, host: HostCommands) -> Outcome[None]:
@@ -247,38 +243,13 @@ def cleared(queue: RenderQueue, host: HostCommands) -> Outcome[None]:
 
 
 def awake[T](operation: Callable[[], Outcome[T]], /) -> Outcome[T]:
-    """Runs operation with sleep inhibited."""
-    if sys.platform == "win32":
-        continuous, system = 0x80000000, 0x00000001
-
-        def inhibited(library: ctypes.CDLL) -> Outcome[T]:
-            state = library.SetThreadExecutionState
-            state.argtypes = (wintypes.DWORD,)
-            state.restype = wintypes.DWORD
-
-            def changed(flags: int) -> Outcome[int]:
-                return Ok(state(flags)).filter_with(bool, lambda _: Fault.of(Reason.FAILED, f"{state.__name__}({flags})", WinError(get_last_error())))  # ty: ignore[unsound-return-statement]
-
-            return changed(continuous | system).bind(lambda previous: paired(operation(), changed(previous)).map(lambda pair: pair[0]))
-
-        return catch(WinDLL, exception=OSError)("kernel32", use_last_error=True).map_error(partial(Fault.of, Reason.FAILED, f"{WinDLL.__name__}(kernel32)")).bind(inhibited)
-
-    pid = str(os.getpid())
-    argv = (
-        ("caffeinate", "-i", "-w", pid)
-        if sys.platform == "darwin"
-        else ("systemd-inhibit", "--what=idle:sleep", "--mode=block", f"--who={Path(sys.executable).name}", "--why=Render queue", "tail", f"--pid={pid}", "-f", "/dev/null")
-    )
-
-    def released(holder: subprocess.Popen[bytes]) -> Outcome[None]:
-        unheld = partial(Fault.of, Reason.FAILED, shlex.join(argv))
-        return (
-            paired(catch(holder.terminate, exception=OSError)().map_error(unheld), catch(holder.wait, exception=OSError)().map_error(unheld))
-            .filter_with(lambda pair: pair[1] in {0, -signal.SIGTERM}, lambda pair: Fault.of(Reason.FAILED, shlex.join(argv), f"exit code {pair[1]}"))
-            .map(lambda _: None)
-        )
-
-    return spawned(argv, subprocess.DEVNULL).bind(lambda holder: paired(operation(), released(holder)).map(lambda pair: pair[0]))
+    """Runs operation while wakepy's `keep.running` mode holds off system sleep, the display free to sleep, a mode failing to activate running nothing."""
+    with ExitStack() as stack:
+        mode = stack.enter_context(keep.running(on_fail="pass"))
+        unheld = partial(Fault.of, Reason.FAILED, str(mode.result.method or mode.result.mode_name))
+        answer = operation() if mode.active else Error(unheld(mode.result.get_failure_text(style="inline")))
+        release = stack.pop_all().close
+    return paired(answer, catch(release, exception=RuntimeError)().map_error(unheld)).map(lambda pair: pair[0])
 
 
 def shutdown() -> Outcome[None]:

@@ -1,12 +1,10 @@
 use nalgebra::{Point3, Vector3};
 use nonempty_collections::NEVec;
-use parry3d_f64::{
-    bounding_volume::{Aabb, BoundingVolume as _},
-    math::Pose,
-    partitioning::BvhNode,
-    query::{self, Contact, PointQuery as _, ShapeDistance, Unsupported},
-    shape::{SharedShape, SubShapeId},
-};
+use parry3d_f64::bounding_volume::{Aabb, BoundingVolume as _};
+use parry3d_f64::math::Pose;
+use parry3d_f64::partitioning::BvhNode;
+use parry3d_f64::query::{self, Contact, PointQuery as _, ShapeDistance, Unsupported};
+use parry3d_f64::shape::{SharedShape, SubShapeId};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
 use validated::Validated;
 

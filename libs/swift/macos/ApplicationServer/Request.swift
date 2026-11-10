@@ -32,7 +32,7 @@ public enum Request: Decodable, Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func selecting(_ identifiers: [String]?, _ prefix: String?, within admitting: NSPredicate) -> NSPredicate {
-    let selected: [NSPredicate] =
+    let selected =
         (identifiers ?? []).map { identifier in NSPredicate(format: "%K == %@", identifierKey, identifier) }
         + [prefix].compactMap(\.self).map { prefix in NSPredicate(format: "%K BEGINSWITH %@", identifierKey, prefix) }
     return selected.isEmpty ? admitting : NSCompoundPredicate(andPredicateWithSubpredicates: [admitting, NSCompoundPredicate(orPredicateWithSubpredicates: selected)])
@@ -44,7 +44,7 @@ private func admitted(_ identifier: String?, by admitting: NSPredicate) -> Bool 
 
 private func installation(at url: URL, admitting: () -> NSPredicate) throws(ApplicationFailure) -> Installation {
     let installation = try Installation(at: url)
-    let admission: NSPredicate = admitting()
+    let admission = admitting()
     guard admitted(installation.identifier, by: admission) else {
         throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: installation.identifier, candidates: [])))
     }
@@ -55,7 +55,7 @@ private func running(_ pid: pid_t, admitting: () -> NSPredicate) throws(Applicat
     guard let instance = NSRunningApplication(processIdentifier: pid), !instance.isTerminated else {
         throw ApplicationFailure(subject: String(pid), reason: .noProcess)
     }
-    let admission: NSPredicate = admitting()
+    let admission = admitting()
     guard admitted(instance.bundleIdentifier, by: admission) else {
         throw ApplicationFailure(subject: String(pid), reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: instance.bundleIdentifier, candidates: [])))
     }
@@ -87,33 +87,28 @@ extension Request {
                         .map(\.self)
                 )
             case .perform(let pid, let actions):
-                let instance: NSRunningApplication = try running(pid, admitting: admitting)
+                let instance = try running(pid, admitting: admitting)
                 var next: InstanceState?
-                for action: ElementAction in actions { next = try await action.perform(in: pid).state }
-                let settled: InstanceState = if let next { next } else { await instance.state() }
+                for action in actions { next = try await action.perform(in: pid).state }
+                let settled = if let next { next } else { await instance.state() }
                 return .value(settled)
             case .quit(let pid, let force):
                 var last: InstanceState?
-                for await outcome: Result<InstanceState, ApplicationFailure> in try running(pid, admitting: admitting).quitting(force: force) { last = try outcome.get() }
+                for await outcome in try running(pid, admitting: admitting).quit(force: force) { last = try outcome.get() }
                 return .value(last)
             case .terms(let url):
                 return try await .value(definitions.dictionary(of: installation(at: url, admitting: admitting)))
             case .definition(let url, let kind, let name):
                 return try await .value(definitions.dictionary(of: installation(at: url, admitting: admitting)).text(of: kind, named: name))
             case .execute(let pid, let command, let arguments, let artifacts):
-                let instance: NSRunningApplication = try running(pid, admitting: admitting)
-                guard let url: URL = instance.bundleURL else { throw ApplicationFailure(subject: String(pid), reason: .noPath) }
-                let scripted: Installation = try installation(at: url, admitting: admitting)
-                let dictionary: ScriptingDictionary = try await definitions.dictionary(of: scripted)
-                let event: NSAppleEventDescriptor = try dictionary.event(
-                    dictionary.command(command, taking: Set(arguments.keys)),
-                    arguments: arguments,
-                    target: NSAppleEventDescriptor(processIdentifier: pid),
-                    refusing: refusing(scripted),
-                )
-                return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
+                let instance = try running(pid, admitting: admitting)
+                guard let url = instance.bundleURL else { throw ApplicationFailure(subject: String(pid), reason: .noPath) }
+                let scripted = try installation(at: url, admitting: admitting)
+                let reply = try await definitions.dictionary(of: scripted)
+                    .reply(to: command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: pid), refusing: refusing(scripted))
+                return .value(Executed(reply: reply, reading: artifacts))
             case .screenshot(let pid, let window, let longestSide, let directory):
-                let shots: [CGWindowID: Result<URL, ApplicationFailure>] = try await running(pid, admitting: admitting).capturing(into: directory, window: window, longestSide: longestSide)
+                let shots = try await running(pid, admitting: admitting).capturing(into: directory, window: window, longestSide: longestSide)
                 return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
         }
     }

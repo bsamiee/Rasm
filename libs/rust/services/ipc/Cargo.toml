@@ -1,0 +1,33 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-ipc"
+edition.workspace = true
+description       = "Per-user single-instance service over a local socket: instance lock, listen, connect or start, and a typed opening exchange with protocol and build identity"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+backon              = { workspace = true }
+tokio               = { workspace = true }
+interprocess        = { workspace = true }
+thiserror           = { workspace = true }
+derive_more         = { workspace = true }
+serde               = { workspace = true }
+serde_json          = { workspace = true }
+serde_path_to_error = { workspace = true }
+dirs                = { workspace = true }
+fs-err              = { workspace = true, features = ["tokio"] }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

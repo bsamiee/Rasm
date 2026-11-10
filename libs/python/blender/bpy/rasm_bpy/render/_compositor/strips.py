@@ -4,7 +4,7 @@ from contextlib import ExitStack
 from enum import Enum
 from functools import cached_property, partial
 from pathlib import Path
-from typing import ClassVar, Final
+from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_sequencer import SEQUENCER_MT_modifier_add
 import bpy
@@ -18,17 +18,17 @@ from rasm_bpy.commands.operators import Answer, Call, Done, Operator, Placement,
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.ownership import _retained
+from rasm_bpy.data._ids.ownership import retained
 from rasm_bpy.data._rna.conditions import AllOf, Present, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
-from rasm_bpy.data._rna.paths import _rna, _struct_at, id_data, RnaPath, rooted, Struct
+from rasm_bpy.data._rna.paths import id_data, rna, RnaPath, rooted, Struct, struct_at
 from rasm_bpy.data._rna.properties import Callbacks, choices, EnumItem
-from rasm_bpy.files._assets import _AssetMark, _published
+from rasm_bpy.files._assets import AssetMark, published
 from rasm_bpy.nodes.changes import made
 from rasm_bpy.render._compositor.effects import CompositorEffect, CompositorRecord, Entry
 from rasm_bpy.render._compositor.offered import Choice, OfferedEffects
 from rasm_bpy.ui._elements.menus import Append, Dropdown, Menu
-from rasm_bpy.ui._layout.rows import _operator_button, Layout, Opens
+from rasm_bpy.ui._layout.rows import Layout, Opens, operator_button
 from rasm_imaging import called
 from rasm_records import accumulated, Error, Fault, Faults, Ok, Outcome, paired, Reason
 
@@ -45,7 +45,6 @@ class StripHolder(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ACTIVE: Final[RnaPath] = ("workspace", "sequencer_scene", "sequence_editor", "active_strip")
-_ACTIVE_PROPERTY: Final[bpy.types.PointerProperty] = bpy.types.SequenceEditor.bl_rna.properties[_ACTIVE[-1]]  # ty: ignore[invalid-assignment]
 _STRIP: Final[Key] = "strip"
 _COMPOSITOR: Final = "COMPOSITOR"
 
@@ -70,14 +69,14 @@ def _libraries(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumI
 class StripChoice(Choice):
     """Effect placement on active sequencer strip."""
 
-    placement: bpy.props.EnumProperty(name="Placement", items=choices((holder.name, bpy.path.display_name(holder.name.lower()), holder.value) for holder in StripHolder))  # ty: ignore[invalid-type-form]
+    placement: Annotated[str, bpy.props.EnumProperty(name="Placement", items=choices((holder.name, bpy.path.display_name(holder.name.lower()), holder.value) for holder in StripHolder))]
 
 
 class Saving(bpy.types.PropertyGroup):
     """User asset library and catalog for active effect group."""
 
-    library: bpy.props.EnumProperty(name="Library", items=_libraries)  # ty: ignore[invalid-type-form]
-    catalog: bpy.props.StringProperty(name="Catalog", default="Effects")  # ty: ignore[invalid-type-form]
+    library: Annotated[str, bpy.props.EnumProperty(name="Library", items=_libraries)]
+    catalog: Annotated[str, bpy.props.StringProperty(name="Catalog", default="Effects")]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -86,7 +85,7 @@ class Saving(bpy.types.PropertyGroup):
 class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Strip placement command for the standalone effects of a set of rows, the menu listing them that the stock strip modifier add menu opens, and the command saving the active effect group as an asset."""
 
-    active: ClassVar[Descriptor[bpy.types.PointerProperty]] = Descriptor(root=bpy.types.Context, owner=_ACTIVE[:-1], prop=_ACTIVE_PROPERTY)
+    active: ClassVar[Descriptor[bpy.types.PointerProperty]] = Descriptor.of(bpy.types.Context, _ACTIVE, bpy.types.PointerProperty)
     placeable: ClassVar[AllOf] = Present(descriptor=active) & ~Setting(
         descriptor=Descriptor(root=bpy.types.Context, owner=_ACTIVE, prop=bpy.types.Strip.bl_rna.properties["type"]), accepted=("SOUND",)
     )
@@ -102,7 +101,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return (
             Option
             .of_optional(context)
-            .bind(lambda context: _struct_at(context, Strips.active.owner, bpy.types.SequenceEditor))
+            .bind(lambda context: struct_at(context, Strips.active.owner, bpy.types.SequenceEditor))
             .bind(partial(id_data, bpy.types.Scene))
             .bind(identity.reports.reported(self.rows.standalone))
             .map(lambda rows: choices((row.kind, row.title, row.description) for row in rows))
@@ -122,12 +121,12 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def menu_drawn(self, identity: Identity, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the scene's standalone effects after their seed and pass requirements resolve."""
         rows = (
-            _struct_at(context, Strips.active.owner, bpy.types.SequenceEditor)
+            struct_at(context, Strips.active.owner, bpy.types.SequenceEditor)
             .bind(partial(id_data, bpy.types.Scene))
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.workspace), member=_rna(_ACTIVE[1:])))
+            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.workspace), member=rna(_ACTIVE[1:])))
             .bind(self.rows.standalone)
         )
-        identity.reports.faulted(rows.bind(lambda found: accumulated(_operator_button(layout, identity, Placement(self.placing, {"kind": row.kind}), {"text": row.title}) for row in found)))
+        identity.reports.faulted(rows.bind(lambda found: accumulated(operator_button(layout, identity, Placement(self.placing, {"kind": row.kind}), {"text": row.title}) for row in found)))
 
     def add_strip_effect(self, call: Call[StripChoice]) -> Outcome[Answer]:
         """Run chosen effect on active strip as a modifier or a strip over it."""
@@ -135,7 +134,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case bpy.types.SequenceEditor(active_strip=bpy.types.Strip() as strip, id_data=bpy.types.Scene() as scene) as editor:
                 target: Outcome[tuple[bpy.types.Scene, bpy.types.SequenceEditor, bpy.types.Strip]] = Ok((scene, editor, strip))
             case _:
-                target = Error(Fault.of(Reason.ABSENT, repr(call.context.workspace), member=_rna(_ACTIVE[1:])))
+                target = Error(Fault.of(Reason.ABSENT, repr(call.context.workspace), member=rna(_ACTIVE[1:])))
         offered = self.rows.offering(call.properties.kind)
 
         def built(scene: bpy.types.Scene, editor: bpy.types.SequenceEditor, strip: bpy.types.Strip, effect: CompositorEffect, record: CompositorRecord) -> Outcome[Answer]:
@@ -162,7 +161,7 @@ class Strips(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                         )
                     )
                 )
-                return _retained(placed, rollback).map(lambda _: Done(notes=(("INFO", f"Added {effect.title} to {strip.name}"),)))
+                return retained(placed, rollback).map(lambda _: Done(notes=(("INFO", f"Added {effect.title} to {strip.name}"),)))
 
         return paired(target, offered).bind(lambda pair: pair[1].seeded(pair[0][0]).bind(lambda record: built(*pair[0], pair[1], record)))
 
@@ -201,15 +200,15 @@ def save_effect(call: Call[Saving]) -> Outcome[Answer]:
         )
     )
 
-    def stored(mark: _AssetMark, group: bpy.types.NodeTree, folder: Path) -> Outcome[Answer]:
+    def stored(mark: AssetMark, group: bpy.types.NodeTree, folder: Path) -> Outcome[Answer]:
         return (
             written(group, ("allow_usage_in_scene_compositor_effect",), value=True)
-            .bind(lambda _: _published(call.identity, folder, bpy.path.clean_name(group.name), ((group, mark),), kept=True))
+            .bind(lambda _: published(call.identity, folder, bpy.path.clean_name(group.name), ((group, mark),), kept=True))
             .map(lambda path: Done(notes=(("INFO", f"Saved {group.name} to {path}"),)))
         )
 
     return (
-        catch(lambda: _AssetMark(key=save_effect.key, catalog=chosen.catalog), exception=msgspec.ValidationError)()
+        catch(lambda: AssetMark(key=save_effect.key, catalog=chosen.catalog), exception=msgspec.ValidationError)()
         .map_error(partial(Fault.of, Reason.INVALID, chosen.catalog))
         .bind(lambda mark: paired(group, folder).bind(lambda pair: stored(mark, *pair)))
     )

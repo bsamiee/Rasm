@@ -50,8 +50,8 @@ struct JSONRPCConnectionTests {
     @Test
     func answersRequestsById() async throws {
         let total = try await Peer.connected { connection, peer in
-            async let total: Int = connection.request(.sum, params: [2, 3], returning: Int.self)
-            let request: [String: JSONValue] = try await peer.sent()
+            async let total = connection.request(.sum, params: [2, 3], returning: Int.self)
+            let request = try await peer.sent()
             expectNoDifference(request["method"], .string("sum"))
             expectNoDifference(request["params"], .array([.number(2), .number(3)]))
             try peer.reply(["id": try #require(request["id"]), "result": .number(5)])
@@ -64,7 +64,7 @@ struct JSONRPCConnectionTests {
     func surfacesRefusals() async throws {
         let answer = try await Peer.connected { connection, peer in
             async let answer = Result { () async throws(JSONRPCFailure) in try await connection.request(.sum) }
-            let request: [String: JSONValue] = try await peer.sent()
+            let request = try await peer.sent()
             try peer.reply(["id": try #require(request["id"]), "error": .object(["code": .number(-32_602), "message": .string("Invalid params")])])
             return await answer
         }
@@ -110,7 +110,7 @@ struct JSONRPCConnectionTests {
     @Test
     func deliversNotifications() async throws {
         let progress = try await Peer.connected { connection, peer in
-            var values: AsyncStream<Result<[String: Int], JSONRPCFailure>>.Iterator = connection.subscribe(.progress, to: [String: Int].self).makeAsyncIterator()
+            var values = connection.subscribe(.progress, to: [String: Int].self).makeAsyncIterator()
             try peer.reply(["method": .string("progress"), "params": .object(["done": .number(4)])])
             return await values.next(isolation: nil)
         }

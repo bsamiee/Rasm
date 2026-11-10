@@ -1,28 +1,19 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, fn_has_unsatisfiable_clauses, get_parent_expr,
-    mir::{PossibleBorrowerMap, visit_local_usage},
-    res::MaybeDef as _,
-    source::snippet,
-    sym,
-    visitors::local_used_once,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::mir::{PossibleBorrowerMap, visit_local_usage};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::snippet;
+use clippy_utils::visitors::local_used_once;
+use clippy_utils::{fn_def_id, fn_has_unsatisfiable_clauses, get_parent_expr, sym};
 use itertools::Itertools as _;
 use rustc_attr_ir::LangItem;
 use rustc_data_structures::fx::FxHashMap;
 use rustc_errors::Applicability;
-use rustc_hir::{
-    Body, CaptureBy, ClosureKind, ConstContext, Constness, CoroutineDesugaring, CoroutineKind, CoroutineSource, Expr, ExprKind, Node,
-    def_id::{LocalDefId, LocalDefIdMap},
-};
+use rustc_hir::def_id::{LocalDefId, LocalDefIdMap};
+use rustc_hir::{Body, CaptureBy, ClosureKind, ConstContext, Constness, CoroutineDesugaring, CoroutineKind, CoroutineSource, Expr, ExprKind, Node};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::{
-    mir::{
-        self, AggregateKind, Location, Operand, Rvalue,
-        visit::{PlaceContext, Visitor as _},
-    },
-    ty::{self, BorrowKind, ClosureKind as Called, TyCtxt, UpvarCapture},
-};
+use rustc_middle::mir::visit::{PlaceContext, Visitor as _};
+use rustc_middle::mir::{self, AggregateKind, Location, Operand, Rvalue};
+use rustc_middle::ty::{self, BorrowKind, TyCtxt, UpvarCapture};
 
 use crate::{associated_trait, bounds_of, expanded_externally, parameter_of, suggest};
 
@@ -101,7 +92,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         fn consumed_once(cx: &LateContext<'_>, closure: &Expr<'_>) -> bool {
             get_parent_expr(cx, closure).and_then(|call| parameter_of(cx, call, closure)).is_some_and(|(callee, parameter)| {
-                matches!(parameter.kind(), ty::Param(_)) && bounds_of(cx.tcx, callee, parameter).filter_map(|bound| cx.tcx.fn_trait_kind_from_def_id(bound.def_id())).eq([Called::FnOnce])
+                matches!(parameter.kind(), ty::Param(_)) && bounds_of(cx.tcx, callee, parameter).filter_map(|bound| cx.tcx.fn_trait_kind_from_def_id(bound.def_id())).eq([ty::ClosureKind::FnOnce])
             })
         }
 

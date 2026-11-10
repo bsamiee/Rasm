@@ -9,23 +9,18 @@ from expression import Option, Some
 from expression.collections import Block
 
 from rasm_bpy.data._extension.identity import Identity
-from rasm_bpy.data._extension.registration import _acquired, Acquisitions
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions
 from rasm_bpy.data._rna.conditions import Scoped
 from rasm_bpy.data._rna.descriptors import Descriptor
-from rasm_bpy.data._rna.paths import _definition, Native, RnaPath, Struct
-from rasm_bpy.ui._layout.members import _marked
-from rasm_bpy.ui._layout.rows import _realized, _split, ConditionalRow, RowContent, RowDraw
+from rasm_bpy.data._rna.paths import Native, rna_definition, RnaPath, Struct
+from rasm_bpy.ui._layout.members import marked
+from rasm_bpy.ui._layout.rows import ConditionalRow, realized, RowContent, RowDraw, split
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _Editor = Callable[[bpy.types.UILayout, Native, str], None]
-type _Branch[L: Struct, C: Struct] = tuple[int, L, tuple[Option[C], ...]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _SettingsTable(ConditionalRow, frozen=True, kw_only=True):
+class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
     """Setting rows across the owners of an edit scope, each compound pointer drawn through its host editor under the cell action, each field beside it.
 
     Rows a cell action draws register through their owner.
@@ -33,7 +28,7 @@ class _SettingsTable(ConditionalRow, frozen=True, kw_only=True):
 
     scope: Scoped
     settings: tuple[RnaPath, ...]
-    compound: tuple[tuple[type[Struct], _Editor], ...] = ()
+    compound: tuple[tuple[type[Struct], Callable[[bpy.types.UILayout, Native, str], None]], ...] = ()
     action: Option[Callable[[Identity, Descriptor], Outcome[RowDraw]]] = Nothing
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
@@ -46,7 +41,7 @@ class _SettingsTable(ConditionalRow, frozen=True, kw_only=True):
             editor = Block.of_seq(self.compound).filter(lambda pair: isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, pair[0])).try_head()
             return action.map(lambda extra: (setting, editor.map(lambda pair: partial(_edited, setting, pair[1], extra)).default_with(lambda: partial(_beside, setting, extra))))
 
-        named = Option.of_optional(_definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
+        named = Option.of_optional(rna_definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
         settings = accumulated(Descriptor.resolve(owner_type, path, bpy.types.Property) for path in self.settings).map(lambda found: tuple(leaf for each in found for leaf in each.leaves(kinds)))
         return paired(named, settings.bind(lambda found: accumulated(map(celled, found)))).map(lambda parts: partial(self.shown, identity, *parts))
 
@@ -59,7 +54,7 @@ class _SettingsTable(ConditionalRow, frozen=True, kw_only=True):
             for setting, drawing in held:
                 names, cells = _grid(layout, len(owners))
                 names.alignment = "RIGHT"
-                mixed = identity.reports.settled(_marked(setting, owners)).default_value(Nothing)
+                mixed = identity.reports.settled(marked(setting, owners)).default_value(Nothing)
                 names.label(text=mixed.default_value(setting.prop.name), text_ctxt=setting.prop.translation_context, translate=mixed.is_none())
                 for owner in owners:
                     drawing(cells.column(), owner, context)
@@ -85,10 +80,10 @@ class Tree(ConditionalRow, frozen=True, kw_only=True):
                 line.label(text=node[-1], icon="FILE_BLANK" if node in files else "FILE_FOLDER", translate=False)
 
 
-class _TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True):
+class TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True):
     """Tree rows indented by depth under the column owners' names, each label struct's name and marks in the label cell, one cell drawn per column owner the row holds."""
 
-    tree: Callable[[bpy.types.Context], tuple[tuple[str, ...], tuple[_Branch[L, C], ...]]]
+    tree: Callable[[bpy.types.Context], tuple[tuple[str, ...], tuple[tuple[int, L, tuple[Option[C], ...]], ...]]]
     cell: Callable[[bpy.types.UILayout, str, C, L], Outcome[None]]
     marks: tuple[RowContent, ...] = ()
 
@@ -99,11 +94,11 @@ class _TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True
 
     def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the mark rows."""
-        return _acquired(self.marks)
+        return acquired_rows(self.marks)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the marks once into the tree draw."""
-        return _realized(self.marks, identity).map(lambda marks: partial(self.shown, identity, marks))
+        return realized(self.marks, identity).map(lambda marks: partial(self.shown, identity, marks))
 
     def shown(self, identity: Identity, marks: RowDraw, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws column owner names, then each branch with its cells."""
@@ -115,7 +110,7 @@ class _TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True
             names, row = _grid(layout, len(owners))
             for _ in range(depth):
                 names.label(text="", icon="BLANK1")
-            for named in Option.of_optional(_definition(label).name_property).to_list():
+            for named in Option.of_optional(rna_definition(label).name_property).to_list():
                 names.label(text=getattr(label, named.identifier), translate=False)
             marks(names, label, context)
             for owner, found in zip(owners, cells):
@@ -129,11 +124,11 @@ class _TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True
 
 def _grid(layout: bpy.types.UILayout, columns: int) -> tuple[bpy.types.UILayout, bpy.types.UILayout]:
     """Places the label cell beside an even grid of one value column per owner."""
-    names, values = _split(layout)
+    names, values = split(layout)
     return names, values.grid_flow(row_major=True, columns=columns, even_columns=True, align=True)
 
 
-def _edited(setting: Descriptor, place: _Editor, action: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+def _edited(setting: Descriptor, place: Callable[[bpy.types.UILayout, Native, str], None], action: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws a compound setting through its editor at each located owner, its action row first."""
     for owner in setting.owner_of(context, Some(holder)).to_list():
         for draw in action:
@@ -152,4 +147,4 @@ def _beside(setting: Descriptor, action: tuple[RowDraw, ...], layout: bpy.types.
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Tree"]
+__all__ = ["SettingsTable", "Tree", "TreeTable"]

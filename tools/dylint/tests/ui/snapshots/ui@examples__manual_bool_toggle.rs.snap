@@ -3,39 +3,39 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_bool_toggle.rs
 ---
 error: assignment negates `*flag` by hand
-  --> tools/dylint/examples/manual_bool_toggle.rs:42:31
+  --> tools/dylint/examples/manual_bool_toggle.rs:40:31
    |
-42 | fn flipped(flag: &mut bool) { *flag = !*flag; }
+40 | fn flipped(flag: &mut bool) { *flag = !*flag; }
    |                               ^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut *flag)`
    |
    = note: `#[deny(manual_bool_toggle)]` on by default
 applicability MachineApplicable: call `bool::toggle`
 
 error: assignment negates `*flag` by hand
-  --> tools/dylint/examples/manual_bool_toggle.rs:44:29
+  --> tools/dylint/examples/manual_bool_toggle.rs:42:29
    |
-44 | fn xored(flag: &mut bool) { *flag ^= true; }
+42 | fn xored(flag: &mut bool) { *flag ^= true; }
    |                             ^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut *flag)`
 applicability MachineApplicable: call `bool::toggle`
 
 error: assignment negates `**flag` by hand
-  --> tools/dylint/examples/manual_bool_toggle.rs:58:34
+  --> tools/dylint/examples/manual_bool_toggle.rs:56:34
    |
-58 | fn boxed(flag: &mut Box<bool>) { **flag = !**flag; }
+56 | fn boxed(flag: &mut Box<bool>) { **flag = !**flag; }
    |                                  ^^^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut **flag)`
 applicability MachineApplicable: call `bool::toggle`
 
 error: assignment negates `*flag` by hand
-  --> tools/dylint/examples/manual_bool_toggle.rs:63:5
+  --> tools/dylint/examples/manual_bool_toggle.rs:61:5
    |
-63 |     *flag = !*flag;
+61 |     *flag = !*flag;
    |     ^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut *flag)`
 applicability MachineApplicable: call `bool::toggle`
 
 error: trait `Toggle` is implemented only for `&mut bool`
- --> tools/dylint/examples/manual_bool_toggle.rs:9:1
+ --> tools/dylint/examples/manual_bool_toggle.rs:7:1
   |
-9 | trait Toggle {
+7 | trait Toggle {
   | ^^^^^^^^^^^^
   |
   = help: replace `Toggle` with functions and constants for `&mut bool`

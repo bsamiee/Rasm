@@ -1,4 +1,6 @@
-use core::{f64::consts::FRAC_PI_2, iter, num::NonZero};
+use core::f64::consts::FRAC_PI_2;
+use core::iter;
+use core::num::NonZero;
 use std::sync::Arc;
 
 use color::{AlphaColor, Srgb};
@@ -9,14 +11,10 @@ use linesweeper::FillRule;
 use nonempty_collections::NEVec;
 use rasm_drawing::{Anchor, Baseline, Color, Element, Linetype, Opacity, Pattern, Pen, Placement, Region, Target};
 
-use crate::{
-    DraftingError, Geometry, Graphics, bounds, colored, edges, filled, graduated, indexed, joined,
-    notation::{self, Decimal, Sign},
-    stroked,
-    symbols::{self, Definition, Instance},
-    text::{Label, Typesetter, labelled},
-    transformed,
-};
+use crate::notation::{self, Decimal, Sign};
+use crate::symbols::{self, Definition, Instance};
+use crate::text::{Label, Typesetter, labelled};
+use crate::{DraftingError, Geometry, Graphics, bounds, colored, edges, filled, graduated, indexed, joined, stroked, transformed};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

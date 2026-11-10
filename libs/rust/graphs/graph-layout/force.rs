@@ -1,20 +1,18 @@
-use core::{cell::OnceCell, iter, num::NonZero};
+use core::cell::OnceCell;
+use core::iter;
+use core::num::NonZero;
 use std::collections::HashMap;
 
 use itertools::{Either, Itertools as _};
 use kurbo::{Axis, Point, Rect, Size};
-use manatee::{
-    Anchor, BoundsExtras, FcoseRandomPolicy, FcoseRandomSource, LayoutRect, WorkControl,
-    algo::fcose::{
-        IndexedAlignmentConstraint, IndexedCompound, IndexedEdge, IndexedFcoseOptions, IndexedGraph, IndexedLayoutResult, IndexedNode, IndexedRelativePlacementConstraint,
-        layout_indexed_with_random_policy_and_work_control,
-    },
+use manatee::algo::fcose::{
+    IndexedAlignmentConstraint, IndexedCompound, IndexedEdge, IndexedFcoseOptions, IndexedGraph, IndexedLayoutResult, IndexedNode, IndexedRelativePlacementConstraint,
+    layout_indexed_with_random_policy_and_work_control,
 };
+use manatee::{Anchor, BoundsExtras, FcoseRandomPolicy, FcoseRandomSource, LayoutRect, WorkControl};
 use nonempty_collections::{NEBTreeMap, NonEmptyIterator as _};
-use petgraph::{
-    EdgeType,
-    stable_graph::{EdgeIndex, NodeIndex, StableGraph},
-};
+use petgraph::EdgeType;
+use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableGraph};
 
 use crate::{CurveStyle, Distance, Drawing, Extent, Hierarchy, Interpolation, LayoutError, Node, ancestors, drawn, hierarchy, is_cluster, linked, nesting, non_cluster, offsets, route, titled};
 

@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
-files: ["libs/rust/**/lib.rs", "tools/**/lib.rs", "tools/**/main.rs"]
+files: ["**/lib.rs", "**/main.rs"]
 rule:
     kind: visibility_modifier
     regex: '^pub\(crate\)$'

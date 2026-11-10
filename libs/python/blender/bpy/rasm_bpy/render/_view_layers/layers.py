@@ -5,12 +5,11 @@ import colorsys
 from contextlib import ExitStack
 from enum import auto, Enum
 from functools import partial, reduce
-import itertools
 from types import MappingProxyType
-from typing import Final
+from typing import Annotated, Final
 
 import bpy
-from expression import Option, Result, Some
+from expression import Option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import mathutils
@@ -25,16 +24,16 @@ from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
 from rasm_bpy.data._rna.paths import rooted
 from rasm_bpy.data._rna.properties import choices, enum_choices
 from rasm_bpy.data._rna.snapshots import Applied, Snapshot
-from rasm_bpy.render._view_layers.passes import _layer_of, _soloed, _used
-from rasm_bpy.scene._collections import _LayerPath, _walked
-from rasm_bpy.scene._materials import _material, Clay, Utility
-from rasm_bpy.settings._attachments import Attached, Attachment
-from rasm_bpy.ui._layout.lists import _ItemList
+from rasm_bpy.render._view_layers.passes import layer_of, soloed, used
+from rasm_bpy.scene._collections import walked
+from rasm_bpy.scene._materials import Clay, material, Utility
+from rasm_bpy.settings._attachments import Attachment
+from rasm_bpy.ui._layout.lists import ItemList
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _FUNCTIONS, _operator_button, Layout, OperatorButton, Property, RowContent
+from rasm_bpy.ui._layout.rows import FUNCTIONS, Layout, operator_button, OperatorButton, Property, RowContent
 from rasm_bpy.ui._layout.sections import Section
-from rasm_bpy.ui._layout.tables import _Branch, _SettingsTable, _TreeTable
-from rasm_records import accumulated, Fault, Faults, Ok, Outcome, paired, Reason
+from rasm_bpy.ui._layout.tables import SettingsTable, TreeTable
+from rasm_records import accumulated, Fault, Ok, Outcome, paired, Reason
 from rasm_rendering import Fields, NumberKey, OutputName, TextKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -108,54 +107,57 @@ _FLAGS: Final = choices((member.prop.identifier, member.prop.name, member.prop.d
 class CollectionState(bpy.types.PropertyGroup):
     """Restriction value of a collection in one view layer."""
 
-    layer: bpy.props.StringProperty(name="View Layer", description="View layer the edit writes")  # ty: ignore[invalid-type-form]
-    collection: bpy.props.IntProperty(name="Collection", description="Session identifier of the collection the edit writes")  # ty: ignore[invalid-type-form]
-    flag: bpy.props.EnumProperty(name="Restriction", description="Restriction the edit writes", items=_FLAGS)  # ty: ignore[invalid-type-form]
-    value: bpy.props.BoolProperty(name="Value", description="Restriction value written")  # ty: ignore[invalid-type-form]
-    extent: bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=enum_choices(_Extent))  # ty: ignore[invalid-type-form]
+    layer: Annotated[str, bpy.props.StringProperty(name="View Layer", description="View layer the edit writes")]
+    collection: Annotated[int, bpy.props.IntProperty(name="Collection", description="Session identifier of the collection the edit writes")]
+    flag: Annotated[str, bpy.props.EnumProperty(name="Restriction", description="Restriction the edit writes", items=_FLAGS)]
+    value: Annotated[bool, bpy.props.BoolProperty(name="Value", description="Restriction value written")]
+    extent: Annotated[str, bpy.props.EnumProperty(name="Extent", description="Collections the edit reaches", items=enum_choices(_Extent))]
 
 
 class LayerTag(bpy.types.PropertyGroup):
     """Purpose and tag of a view layer."""
 
-    role: bpy.props.EnumProperty(name="Role", description="Beauty layers form image, data layers hold data passes and mattes", items=enum_choices(Role))  # ty: ignore[invalid-type-form]
-    color: bpy.props.FloatVectorProperty(  # ty: ignore[invalid-type-form]
-        name="Tag", description="Layer color in lists and on its nodes", subtype="COLOR", min=0.0, max=1.0, default=mathutils.Color((_VALUE,) * 3).from_srgb_to_scene_linear()[:]
-    )
+    role: Annotated[str, bpy.props.EnumProperty(name="Role", description="Beauty layers form image, data layers hold data passes and mattes", items=enum_choices(Role))]
+    color: Annotated[
+        mathutils.Color,
+        bpy.props.FloatVectorProperty(
+            name="Tag", description="Layer color in lists and on its nodes", subtype="COLOR", min=0.0, max=1.0, default=mathutils.Color((_VALUE,) * 3).from_srgb_to_scene_linear()[:]
+        ),
+    ]
 
 
 class Renaming(bpy.types.PropertyGroup):
     """Rename of every layer by its list position."""
 
-    template: bpy.props.StringProperty(name="Names", description="Layer name grammar holding {order:<width>} and {layer}", default="{order:2}_{layer}")  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=enum_choices(_RenameScope))  # ty: ignore[invalid-type-form]
+    template: Annotated[str, bpy.props.StringProperty(name="Names", description="Layer name grammar holding {order:<width>} and {layer}", default="{order:2}_{layer}")]
+    scope: Annotated[str, bpy.props.EnumProperty(name="Scenes", description="Scenes rename reaches", items=enum_choices(_RenameScope))]
 
 
 class Tinting(bpy.types.PropertyGroup):
     """Tag colors written from a palette."""
 
-    palette: bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=enum_choices(_Palette))  # ty: ignore[invalid-type-form]
-    saturation: bpy.props.FloatProperty(name="Saturation", description="Saturation of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_SATURATION)  # ty: ignore[invalid-type-form]
-    value: bpy.props.FloatProperty(name="Value", description="Brightness of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_VALUE)  # ty: ignore[invalid-type-form]
+    palette: Annotated[str, bpy.props.EnumProperty(name="Palette", description="Palette tags take in list order", items=enum_choices(_Palette))]
+    saturation: Annotated[float, bpy.props.FloatProperty(name="Saturation", description="Saturation of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_SATURATION)]
+    value: Annotated[float, bpy.props.FloatProperty(name="Value", description="Brightness of every spectrum hue", subtype="FACTOR", min=0.0, max=1.0, default=_VALUE)]
 
 
 class Splitting(bpy.types.PropertyGroup):
     """Split of top-level collections into layers."""
 
-    others: bpy.props.EnumProperty(name="Others", description="Restriction other top-level collections take in a new layer", items=_FLAGS, default="indirect_only")  # ty: ignore[invalid-type-form]
+    others: Annotated[str, bpy.props.EnumProperty(name="Others", description="Restriction other top-level collections take in a new layer", items=_FLAGS, default="indirect_only")]
 
 
 class Overriding(bpy.types.PropertyGroup):
     """Setup material override toggled on the active layer."""
 
-    setup: bpy.props.EnumProperty(name="Setup", description="Owned surface setup the override applies", items=enum_choices(_Setup))  # ty: ignore[invalid-type-form]
+    setup: Annotated[str, bpy.props.EnumProperty(name="Setup", description="Owned surface setup the override applies", items=enum_choices(_Setup))]
 
 
 class Clipboard(bpy.types.PropertyGroup):
     """Settings copied off the active layer and the layers a paste reaches."""
 
-    part: bpy.props.EnumProperty(name="Part", description="View layer settings or collection states the copy takes", items=enum_choices(_Part))  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Layers", description="View layers the paste writes", items=enum_choices(_PasteScope))  # ty: ignore[invalid-type-form]
+    part: Annotated[str, bpy.props.EnumProperty(name="Part", description="View layer settings or collection states the copy takes", items=enum_choices(_Part))]
+    scope: Annotated[str, bpy.props.EnumProperty(name="Layers", description="View layers the paste writes", items=enum_choices(_PasteScope))]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -172,32 +174,32 @@ def _applied(scene: bpy.types.Scene, *, layer: str, collection: int, flag: Descr
             case _Extent.ONE:
                 writes = ((target, value),)
             case _Extent.CHILDREN:
-                writes = tuple((node, value) for node, _ in _walked(target))
+                writes = tuple((node, value) for node, _ in walked(target))
             case _Extent.ISOLATE:
-                kept = frozenset(node for node, _ in _walked(target)) | frozenset(ancestors)
-                writes = tuple((node, value == (node in kept)) for node, parents in _walked(held.layer_collection) if parents)
+                kept = frozenset(node for node, _ in walked(target)) | frozenset(ancestors)
+                writes = tuple((node, value == (node in kept)) for node, parents in walked(held.layer_collection) if parents)
         return accumulated(flag.write(node, state) for node, state in writes if node != held.layer_collection).map(lambda prior: sum(each.is_some() for each in prior))
 
     def located(held: bpy.types.ViewLayer) -> Outcome[int]:
-        target: Outcome[_LayerPath] = (
+        return (
             Block
-            .of_seq((node, ancestors) for node, ancestors in _walked(held.layer_collection) if node.collection.session_uid == collection)
+            .of_seq((node, ancestors) for node, ancestors in walked(held.layer_collection) if node.collection.session_uid == collection)
             .try_head()
             .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held.layer_collection), member=str(collection)))
+            .bind(lambda path: written(held, *path))
         )
-        return Result[_LayerPath, Faults].bind(target, lambda path: written(held, *path))
 
-    return _layer_of(scene, layer).bind(located)
+    return layer_of(scene, layer).bind(located)
 
 
-def _grid(context: bpy.types.Context) -> tuple[tuple[str, ...], tuple[_Branch[bpy.types.Collection, bpy.types.LayerCollection], ...]]:
+def _grid(context: bpy.types.Context) -> tuple[tuple[str, ...], tuple[tuple[int, bpy.types.Collection, tuple[Option[bpy.types.LayerCollection], ...]], ...]]:
     """Returns the context scene's layer names and collection branches, one cell per view layer in scene order."""
     layers: tuple[bpy.types.ViewLayer, ...] = Option.of_optional(context.scene).map(lambda scene: tuple(scene.view_layers)).default_value(())
-    cells = tuple({node.collection.session_uid: node for node, _ in reversed(tuple(_walked(layer.layer_collection)))} for layer in layers)
+    cells = tuple({node.collection.session_uid: node for node, _ in reversed(tuple(walked(layer.layer_collection)))} for layer in layers)
     return tuple(layer.name for layer in layers), tuple(
         (len(ancestors) - 1, node.collection, tuple(Option.of_optional(held.get(node.collection.session_uid)) for held in cells))
         for root in layers[:1]
-        for node, ancestors in _walked(root.layer_collection)
+        for node, ancestors in walked(root.layer_collection)
         if ancestors
     )
 
@@ -212,7 +214,7 @@ def _moved(context: bpy.types.Context, current: int, row: int) -> Outcome[None]:
     )
 
 
-def _colors(count: int, palette: _Palette = _Palette.SPECTRUM, *, saturation: float = _SATURATION, value: float = _VALUE) -> tuple[tuple[float, float, float], ...]:
+def colors(count: int, palette: _Palette = _Palette.SPECTRUM, *, saturation: float = _SATURATION, value: float = _VALUE) -> tuple[tuple[float, float, float], ...]:
     """Returns scene-linear palette colors in list order, a published palette cycled and the spectrum spacing hues evenly on the color wheel."""
     encoded = (
         tuple(colorsys.hsv_to_rgb(index / count, saturation, value) for index in range(count))
@@ -220,75 +222,6 @@ def _colors(count: int, palette: _Palette = _Palette.SPECTRUM, *, saturation: fl
         else tuple(map(tuple, np.resize(np.frombuffer(bytes.fromhex(palette.value), np.uint8).reshape(-1, 3), (count, 3)) / 255))
     )
     return tuple((red, green, blue) for red, green, blue in (mathutils.Color(rgb).from_srgb_to_scene_linear()[:] for rgb in encoded))
-
-
-def _tinted(scene: bpy.types.Scene, attached: Attached[LayerTag], chosen: tuple[tuple[float, float, float], ...]) -> Outcome[Answer]:
-    """Writes the chosen tags onto layers in list order where they differ."""
-    return accumulated(written(attached.struct(layer), ("color",), color) for layer, color in zip(scene.view_layers, chosen)).map(
-        lambda priors: Done() if any(prior.is_some() for prior in priors) else Unchanged(reason=f"View layers of {scene.name} hold palette tags")
-    )
-
-
-def _renamed(scene: bpy.types.Scene, grammar: OutputName) -> Outcome[int]:
-    """Names layers from frozen positions and base names, freeing occupied targets before assignment and breaking cycles with one temporary name."""
-    layers = tuple(scene.view_layers)
-
-    def named(index: int, layer: bpy.types.ViewLayer) -> Outcome[str]:
-        base = grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.texts.get(TextKey.LAYER))).default_value(layer.name)
-        return grammar.compose(Fields(texts={TextKey.LAYER: base}, numbers={NumberKey.ORDER: index + 1}))
-
-    def written_all(names: tuple[str, ...]) -> Outcome[int]:
-        occupied = {layer.name: index for index, layer in enumerate(layers)}
-        graph: nx.DiGraph[int, dict[str, object], dict[str, object]] = nx.DiGraph()
-        graph.add_nodes_from(range(len(layers)))
-        graph.add_edges_from((holder, index) for index, name in enumerate(names) for holder in (occupied.get(name),) if holder is not None and holder != index)
-        groups = tuple(nx.strongly_connected_components(graph))
-
-        def group(indices: set[int]) -> Outcome[int]:
-            first = min(indices)
-            order = tuple(nx.dfs_preorder_nodes(graph.subgraph(indices), first))
-            return reduce(
-                lambda done, index: done.bind(lambda count: written(layers[index], ("name",), names[index]).map(lambda prior: count + prior.is_some())),
-                (*order[1:], first),
-                written(layers[first], ("name",), "." if layers[first].name.startswith("_") else "_").map(lambda _: 0) if len(order) > 1 else Ok(0),
-            )
-
-        return reduce(lambda done, index: done.bind(lambda count: group(groups[index]).map(lambda added: count + added)), nx.topological_sort(nx.condensation(graph, groups)), Ok(0))
-
-    return accumulated(itertools.starmap(named, enumerate(layers))).bind(written_all)
-
-
-def _split(scene: bpy.types.Scene, flag: Descriptor[bpy.types.BoolProperty]) -> Outcome[tuple[str, ...]]:
-    """Adds one layer per top-level collection no layer isolates, the others under flag, removing every added layer on fault."""
-    isolated = frozenset(
-        only.collection for layer in scene.view_layers for active in (tuple(child for child in layer.layer_collection.children if flag.read(child) is False),) if len(active) == 1 for only in active
-    )
-    lone = tuple(collection for collection in scene.collection.children if collection not in isolated)
-    with ExitStack() as rollback:
-
-        def made(collection: bpy.types.Collection) -> Outcome[str]:
-            layer = scene.view_layers.new(collection.name)
-            rollback.callback(scene.view_layers.remove, layer)
-            return _applied(scene, layer=layer.name, collection=collection.session_uid, flag=flag, value=False, extent=_Extent.ISOLATE).map(lambda _: layer.name)
-
-        if (added := accumulated(map(made, lone))).is_ok():
-            rollback.pop_all()
-        return added
-
-
-def _overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, identity: Identity) -> Outcome[None]:
-    """Toggles layer material override to owned setup material, the data setup writing layer role with it."""
-
-    def toggled(held: bpy.types.Material) -> Outcome[None]:
-        on = layer.material_override != held
-        layer.material_override = held if on else None
-        match setup:
-            case Utility():
-                return _LAYER_TAG.read(identity, layer).bind(lambda group: written(group, ("role",), (Role.DATA if on else Role.BEAUTY).name)).map(lambda _: None)
-            case Clay():
-                return Ok(None)
-
-    return _material(setup, identity).bind(toggled)
 
 
 # --- [COMMANDS]
@@ -333,7 +266,7 @@ def view_layer_paste(call: Call[Clipboard]) -> Outcome[Answer]:
             case _PasteScope.ACTIVE:
                 return (active,)
             case _PasteScope.USED:
-                return _used(scene)
+                return used(scene)
             case _PasteScope.ALL:
                 return tuple(scene.view_layers)
 
@@ -347,7 +280,37 @@ def view_layer_paste(call: Call[Clipboard]) -> Outcome[Answer]:
 @Operator.of(Empty)
 def view_layer_solo(call: Call[Empty]) -> Outcome[Answer]:
     """Render active view layer alone."""
-    return rooted(bpy.types.ViewLayer, call.context).map(lambda layer: Done() if _soloed(layer) else Unchanged(reason=f"{layer.name} renders alone"))
+    return rooted(bpy.types.ViewLayer, call.context).map(lambda layer: Done() if soloed(layer) else Unchanged(reason=f"{layer.name} renders alone"))
+
+
+def _renamed(grammar: OutputName, scene: bpy.types.Scene) -> Outcome[int]:
+    """Renames scene layers to composed names, freeing occupied targets before assignment and breaking cycles with one temporary name."""
+    layers = tuple(scene.view_layers)
+    occupied = {layer.name: index for index, layer in enumerate(layers)}
+
+    def stepped(names: tuple[str, ...]) -> Outcome[int]:
+        graph: nx.DiGraph[int, dict[str, object], dict[str, object]] = nx.DiGraph()
+        graph.add_nodes_from(range(len(layers)))
+        graph.add_edges_from((holder, index) for index, name in enumerate(names) if (holder := occupied.get(name, index)) != index)
+        groups = tuple(nx.strongly_connected_components(graph))
+        steps = (
+            step
+            for group in nx.topological_sort(nx.condensation(graph, groups))
+            for first in (min(groups[group]),)
+            for order in (tuple(nx.dfs_preorder_nodes(graph.subgraph(groups[group]), first)),)
+            for step in (*(((first, "." if layers[first].name.startswith("_") else "_", False),) if len(order) > 1 else ()), *((index, names[index], True) for index in (*order[1:], first)))
+        )
+        return reduce(lambda done, step: done.bind(lambda count: written(layers[step[0]], ("name",), step[1]).map(lambda prior: count + (step[2] and prior.is_some()))), steps, Ok(0))
+
+    return accumulated(
+        grammar.compose(
+            Fields(
+                texts={TextKey.LAYER: grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.texts.get(TextKey.LAYER))).default_value(layer.name)},
+                numbers={NumberKey.ORDER: index + 1},
+            )
+        )
+        for index, layer in enumerate(layers)
+    ).bind(stepped)
 
 
 @Operator.of(Renaming)
@@ -359,9 +322,10 @@ def view_layer_rename(call: Call[Renaming]) -> Outcome[Answer]:
             scenes = rooted(bpy.types.Scene, call.context).map(lambda scene: (scene,))
         case _RenameScope.FILE:
             scenes = rooted(bpy.types.BlendData, call.context).map(lambda data: tuple(data.scenes))
+
     return (
         paired(OutputName.of(call.properties.template), scenes)
-        .bind(lambda pair: accumulated(_renamed(scene, pair[0]) for scene in pair[1]))
+        .bind(lambda pair: accumulated(_renamed(pair[0], scene) for scene in pair[1]))
         .map(sum)
         .map(lambda count: Done(notes=(("INFO", f"Renamed {count} view layers"),)) if count else Unchanged(reason="View layers hold their composed names"))
     )
@@ -371,19 +335,54 @@ def view_layer_rename(call: Call[Renaming]) -> Outcome[Answer]:
 def view_layer_tint(call: Call[Tinting]) -> Outcome[Answer]:
     """Set view layer tags from palette in list order."""
     held = call.properties
-    return paired(rooted(bpy.types.Scene, call.context), _LAYER_TAG.bound(call.identity)).bind(
-        lambda pair: _tinted(pair[0], pair[1], _colors(len(pair[0].view_layers), _Palette[held.palette], saturation=held.saturation, value=held.value))
+    return paired(rooted(bpy.types.Scene, call.context), LAYER_TAG.bound(call.identity)).bind(
+        lambda pair: accumulated(
+            written(pair[1].struct(layer), ("color",), color)
+            for layer, color in zip(pair[0].view_layers, colors(len(pair[0].view_layers), _Palette[held.palette], saturation=held.saturation, value=held.value))
+        ).map(lambda priors: Done() if any(prior.is_some() for prior in priors) else Unchanged(reason=f"View layers of {pair[0].name} hold palette tags"))
     )
 
 
 @Operator.of(Splitting)
 def view_layer_split(call: Call[Splitting]) -> Outcome[Answer]:
-    """Add a view layer per top-level collection no layer isolates."""
-    return (
-        rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: _split(scene, _RESTRICTIONS[call.properties.others]))
-        .map(lambda added: Done(notes=tuple(("INFO", f"Added {name}") for name in added)) if added else Unchanged(reason="Each top-level collection has a layer isolating it"))
-    )
+    """Add a view layer per top-level collection no layer isolates, the others under the chosen flag, removing every added layer on fault."""
+    flag = _RESTRICTIONS[call.properties.others]
+
+    def split(scene: bpy.types.Scene) -> Outcome[Answer]:
+        isolated = frozenset(
+            only.collection
+            for layer in scene.view_layers
+            for active in (tuple(child for child in layer.layer_collection.children if flag.read(child) is False),)
+            if len(active) == 1
+            for only in active
+        )
+        with ExitStack() as rollback:
+
+            def made(collection: bpy.types.Collection) -> Outcome[str]:
+                layer = scene.view_layers.new(collection.name)
+                rollback.callback(scene.view_layers.remove, layer)
+                return _applied(scene, layer=layer.name, collection=collection.session_uid, flag=flag, value=False, extent=_Extent.ISOLATE).map(lambda _: layer.name)
+
+            if (added := accumulated(map(made, tuple(collection for collection in scene.collection.children if collection not in isolated)))).is_ok():
+                rollback.pop_all()
+        return added.map(lambda names: Done(notes=tuple(("INFO", f"Added {name}") for name in names)) if names else Unchanged(reason="Each top-level collection has a layer isolating it"))
+
+    return rooted(bpy.types.Scene, call.context).bind(split)
+
+
+def _overridden(layer: bpy.types.ViewLayer, setup: Clay | Utility, identity: Identity) -> Outcome[None]:
+    """Toggles layer material override to owned setup material, the data setup writing layer role with it."""
+
+    def toggled(held: bpy.types.Material) -> Outcome[None]:
+        on = layer.material_override != held
+        layer.material_override = held if on else None
+        match setup:
+            case Utility():
+                return LAYER_TAG.read(identity, layer).bind(lambda group: written(group, ("role",), (Role.DATA if on else Role.BEAUTY).name)).map(lambda _: None)
+            case Clay():
+                return Ok(None)
+
+    return material(setup, identity).bind(toggled)
 
 
 @Operator.of(Overriding)
@@ -401,7 +400,7 @@ def _restrictions(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
     def toggled(line: bpy.types.UILayout, layer: str, cell: bpy.types.LayerCollection, collection: bpy.types.Collection) -> Outcome[None]:
         line.active = cell.is_visible
         return accumulated(
-            _operator_button(
+            operator_button(
                 line,
                 identity,
                 Placement(collection_state, {"layer": layer, "collection": collection.session_uid, "flag": member.prop.identifier, "value": not on}),
@@ -411,33 +410,33 @@ def _restrictions(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
             for on in (bool(member.read(cell)),)
         ).map(lambda _: None)
 
-    return Ok((_TreeTable(tree=_grid, cell=toggled, marks=(Property(target=Member(root=bpy.types.Collection, path=("hide_render",)), keywords={"text": "", "icon_only": True}),)),))
+    return Ok((TreeTable(tree=_grid, cell=toggled, marks=(Property(target=Member(root=bpy.types.Collection, path=("hide_render",)), keywords={"text": "", "icon_only": True}),)),))
 
 
-_LAYER_TAG: Final = Attachment(key="layer", form=LayerTag, owner=bpy.types.ViewLayer)
+LAYER_TAG: Final = Attachment(key="layer", form=LayerTag, owner=bpy.types.ViewLayer)
 LAYERS: Final = Section(
     key="layers",
     title=Some("View Layers"),
     rows=(
         Layout(
             rows=(
-                _ItemList(
+                ItemList(
                     key="layers",
                     collection=Member(root=bpy.types.Scene, path=("view_layers",)),
                     active=Some(Member(root=bpy.types.Window, path=("view_layer",))),
-                    attachment=Some(_LAYER_TAG),
+                    attachment=Some(LAYER_TAG),
                     cells=(Property(target=Member(root=bpy.types.ViewLayer, path=("use",)), keywords={"text": ""}),),
                     move=Some(_moved),
                 ),
             ),
-            prerequisites=(_LAYER_TAG,),
+            prerequisites=(LAYER_TAG,),
         ),
         lambda layout, _holder, _context: layout.separator(type="LINE"),
         Layout(
             rows=(
                 *(OperatorButton(target=command) for command in (view_layer_solo, view_layer_rename, view_layer_tint, view_layer_split)),
                 *(
-                    OperatorButton(target=command, function=_FUNCTIONS["operator_enum"], keywords={"property": member})
+                    OperatorButton(target=command, function=FUNCTIONS["operator_enum"], keywords={"property": member})
                     for command, member in ((view_layer_override, "setup"), (view_layer_copy, "part"), (view_layer_paste, "scope"))
                 ),
             ),
@@ -448,7 +447,7 @@ LAYERS: Final = Section(
 OVERRIDES: Final = Section(
     key="layer_overrides",
     rows=(
-        _SettingsTable(
+        SettingsTable(
             scope=ViewLayers(),
             settings=(
                 ("use",),
@@ -463,7 +462,7 @@ OVERRIDES: Final = Section(
                 ("cycles", "use_denoising"),
             ),
         ),
-        _SettingsTable(scope=Scenes(), settings=(("cycles", "samples"),)),
+        SettingsTable(scope=Scenes(), settings=(("cycles", "samples"),)),
     ),
 )
 COLLECTIONS: Final = Section(key="collection_states", title=Some("Collections"), rows=(Layout(builder=Some(_restrictions), prerequisites=(collection_state,)),))
@@ -473,6 +472,7 @@ COLLECTIONS: Final = Section(key="collection_states", title=Some("Collections"),
 __all__ = [
     "COLLECTIONS",
     "LAYERS",
+    "LAYER_TAG",
     "OVERRIDES",
     "Clipboard",
     "CollectionState",
@@ -483,6 +483,7 @@ __all__ = [
     "Splitting",
     "Tinting",
     "collection_state",
+    "colors",
     "view_layer_copy",
     "view_layer_override",
     "view_layer_paste",

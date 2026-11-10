@@ -1,7 +1,11 @@
+RASM3015 `Factor.Increased` has one reader in the assembly, in `Sizes.Increased`, fold `Factor.Increased` into `Sizes.Increased`
 #0 `new Grow(Factor.Create(1f))` restates `Grow.Fill`, read `Grow.Fill`
 #1 `Factor.Create(1f)` restates `Factor.Unit`, read `Factor.Unit`
 #2 `Factor.Create(1f)` restates `Factor.Unit`, read `Factor.Unit`
 #4 `new Factor(1)` restates `Factor.Unit`, read `Factor.Unit`
 #3 `new Dimensions(Height: 2, Width: 1)` restates `Dimensions.Unit`, read `Dimensions.Unit`
+RASM3015 `Overloaded.Create` has one reader in the assembly, in `DistinctOverloads.Created`, fold `Overloaded.Create` into `DistinctOverloads.Created`
+RASM3015 `InitializedFactor.Next` has one reader in the assembly, in `InitializedFactor.Ordinal`, fold `InitializedFactor.Next` into `InitializedFactor.Ordinal`
+RASM3015 `ReadonlyFactor.Create` has one reader in the assembly, in `ConstructionEffects.Factory`, fold `ReadonlyFactor.Create` into `ConstructionEffects.Factory`
 #5 `new(1)` restates `ReadonlyFactor.Unit`, read `ReadonlyFactor.Unit`
 #6 `ReadonlyFactor.Create(1)` restates `ReadonlyFactor.Unit`, read `ReadonlyFactor.Unit`

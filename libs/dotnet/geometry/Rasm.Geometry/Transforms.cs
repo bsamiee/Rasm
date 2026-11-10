@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using MathNet.Numerics.LinearAlgebra;
 
 namespace Rasm.Geometry;
@@ -14,10 +13,9 @@ public sealed record AffineMap {
 
     public AffineMap Inverse() => Of(Linear.Inverse(), new Vector3D<double>(0d, 0d, 0d)) switch { var inverse => new AffineMap(inverse.X, inverse.Y, inverse.Z, -inverse.Apply(Translation)) };
 
-    private Matrix<double> Linear => Matrix<double>.Build.DenseOfRowArrays([X.X, X.Y, X.Z], [Y.X, Y.Y, Y.Z], [Z.X, Z.Y, Z.Z]);
+    private Matrix<double> Linear => Matrix<double>.Build.DenseOfColumnArrays([X.X, X.Y, X.Z], [Y.X, Y.Y, Y.Z], [Z.X, Z.Y, Z.Z]);
 
-    [SuppressMessage("Performance", "MA0168:Use readonly struct for in or ref readonly parameter", Justification = "HyperJet declares readonly Dot with an in parameter of mutable Vector3D<T>, preserving row arithmetic.")]
-    public Vector3D<double> Apply(Vector3D<double> point) => new(X.Dot(point) + Translation.X, Y.Dot(point) + Translation.Y, Z.Dot(point) + Translation.Z);
+    public Vector3D<double> Apply(Vector3D<double> point) => (X * point.X) + (Y * point.Y) + (Z * point.Z) + Translation;
 
     public Fin<AffineMap> Then(AffineMap next) => Of(next.Linear * Linear, next.Apply(Translation)) switch { var composed => Validated(composed.X, composed.Y, composed.Z, composed.Translation) };
 
@@ -32,7 +30,7 @@ public sealed record AffineMap {
         };
 
     private static AffineMap Of(Matrix<double> linear, Vector3D<double> translation) =>
-        new(new(linear[0, 0], linear[0, 1], linear[0, 2]), new(linear[1, 0], linear[1, 1], linear[1, 2]), new(linear[2, 0], linear[2, 1], linear[2, 2]), translation);
+        new(new(linear[0, 0], linear[1, 0], linear[2, 0]), new(linear[0, 1], linear[1, 1], linear[2, 1]), new(linear[0, 2], linear[1, 2], linear[2, 2]), translation);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

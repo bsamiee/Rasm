@@ -19,42 +19,40 @@ Evaluate built-in nodes (Noise, Voronoi, Map Range, Color Ramp, Math) for their 
 ```python
 def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Callable[[bpy.types.NodeTree], bpy.types.NodeSocket], /) -> Option[Buffer]:
     def copied(stored: bpy.types.Attribute) -> Option[Buffer]:
-        rna: bpy.types.Struct = stored.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        values: Elements[bpy.types.Struct] = stored.data  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        match rna.properties["data"]:
-            case bpy.types.CollectionProperty(fixed_type=bpy.types.bpy_struct() as item):
+        match stored.bl_rna.properties["data"], stored.path_resolve("data"):
+            case bpy.types.CollectionProperty(fixed_type=bpy.types.bpy_struct() as item), bpy.types.bpy_prop_collection() as values:
                 return Some(column(values, type(item), next(prop.identifier for prop in item.properties if not prop.is_readonly)))
             case _:
                 return Nothing
 
     name = f".{sampled.__name__}"
     cloud = bpy.data.pointclouds.new(name)
-    tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, bpy.types.GeometryNodeTree.bl_rna.identifier)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
     holder = bpy.data.objects.new(name, cloud)
     with ExitStack() as scratch:
-        scratch.callback(bpy.data.batch_remove, ids=(holder, cloud, tree))
-        cloud.resize(len(points))
-        cloud.points.foreach_set("co", points.reshape(-1))
-        interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        for side in ("INPUT", "OUTPUT"):
-            interface.new_socket(name, in_out=side, socket_type=bpy.types.NodeSocketGeometry.bl_rna.identifier)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        source, sink = (tree.nodes.new(kind.bl_rna.identifier) for kind in (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput))
-        tree.links.new(source.outputs[0], sink.inputs[0])
-        match tree.links.new(field(tree), sink.inputs[-1], handle_dynamic_sockets=True):
-            case bpy.types.NodeLink(to_socket=bpy.types.NodeSocket(identifier=identifier)):
-                output: bpy.types.NodeTreeInterfaceSocket = interface.items_tree[identifier]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                output.default_attribute_name = name
+        scratch.callback(bpy.data.batch_remove, ids=(holder, cloud))
+        match bpy.data.node_groups.new(name, "GeometryNodeTree"), holder.modifiers.new(name, "NODES"), context.scene:
+            case bpy.types.NodeTree(interface=bpy.types.NodeTreeInterface() as interface) as tree, bpy.types.NodesModifier() as modifier, bpy.types.Scene() as scene:
+                scratch.callback(bpy.data.node_groups.remove, tree)
             case _:
                 return Nothing
-        modifier: bpy.types.NodesModifier = holder.modifiers.new(name, "NODES")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        cloud.resize(len(points))
+        cloud.points.foreach_set("co", points.reshape(-1))
+        kinds = accumulated(written(interface.new_socket(name, in_out=side), ("socket_type",), "NodeSocketGeometry") for side in ("INPUT", "OUTPUT"))
+        source, sink = (tree.nodes.new(kind.__name__) for kind in (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput))
+        tree.links.new(source.outputs[0], sink.inputs[0])
+        match kinds, tree.links.new(field(tree), sink.inputs[-1], handle_dynamic_sockets=True):
+            case Result(tag="ok"), bpy.types.NodeLink(to_socket=bpy.types.NodeSocket(identifier=identifier)):
+                named = written(interface.items_tree[identifier], ("default_attribute_name",), name)
+            case _:
+                return Nothing
         modifier.node_group = tree
-        scene: bpy.types.Scene = context.scene  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         scene.collection.objects.link(holder)
         geometry = holder.evaluated_get(context.evaluated_depsgraph_get()).evaluated_geometry()
-        return Option.of_optional(geometry.pointcloud).bind(lambda evaluated: Option.of_optional(evaluated.attributes.get(name))).bind(copied)
+        evaluated = named.to_option().bind(lambda _: Option.of_optional(geometry.pointcloud))
+        return evaluated.bind(lambda held: Option.of_optional(held.attributes.get(name))).bind(copied)
 ```
 
-`sampled(context, points, lambda tree: tree.nodes.new(bpy.types.ShaderNodeTexNoise.bl_rna.identifier).outputs["Fac"])` returns each point's noise factor, and a Noise to Map Range to Color Ramp `field` returns ramp colors in one pass:
+`sampled(context, points, lambda tree: tree.nodes.new(bpy.types.ShaderNodeTexNoise.__name__).outputs["Fac"])` returns each point's noise factor, and a Noise to Map Range to Color Ramp `field` returns ramp colors in one pass:
 - Values keep source type layout: `(n,)` `float32`, `int32`, or `bool`, `(n, 3)` vectors, `(n, 4)` linear colors and quaternions, `(n, 4, 4)` matrices
 - Single values (a Value node) return repeated once per point
 - Sources whose type no attribute stores (String, Bundle) return `Nothing`

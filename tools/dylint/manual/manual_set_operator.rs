@@ -1,10 +1,7 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id,
-    res::MaybeDef as _,
-    sugg::{Sugg, make_binop},
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::sugg::{Sugg, make_binop};
+use clippy_utils::{fn_def_id, sym};
 use itertools::Itertools as _;
 use rustc_ast::BinOpKind;
 use rustc_errors::Applicability;

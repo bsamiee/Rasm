@@ -26,7 +26,7 @@ class Format extends Data.Class<{ readonly locales?: Intl.LocalesArgument; reado
     readonly #count = new Intl.NumberFormat(this.locales);
     readonly #numeral = new Intl.NumberFormat(this.locales, { useGrouping: false });
     readonly #bytes = Array.map(byteUnits, ([unit, symbol]) => ({ symbol, format: new Intl.NumberFormat(this.locales, { style: 'unit', unit, unitDisplay: 'narrow', maximumSignificantDigits: this.byteDigits }) }));
-    readonly #date = new Intl.DateTimeFormat(this.locales);
+    readonly date = DateTime.formatIntl(new Intl.DateTimeFormat(this.locales));
     readonly #relative = new Intl.RelativeTimeFormat(this.locales);
     readonly #duration = new Intl.DurationFormat(this.locales);
     quantity(count: number, forms: { readonly [Category in Intl.LDMLPluralRule]?: (count: string) => string } & { readonly other: (count: string) => string }, type: Intl.PluralRuleType = 'cardinal') {
@@ -42,9 +42,6 @@ class Format extends Data.Class<{ readonly locales?: Intl.LocalesArgument; reado
     }
     list(values: Iterable<string>, type: Intl.ListFormatType = 'conjunction') {
         return this.#lists[type].format(values);
-    }
-    date(value: DateTime.DateTime) {
-        return DateTime.formatIntl(value, this.#date);
     }
     relative(offset: Duration.Duration) {
         const [unit, amount] = Array.findFirst(relativeUnits, ([, to]) => Math.abs(to(offset)) >= 1).pipe(Option.getOrElse(() => Array.lastNonEmpty<(typeof relativeUnits)[number]>(relativeUnits)));

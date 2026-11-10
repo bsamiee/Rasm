@@ -4,6 +4,9 @@ severity: error
 rule:
     matches: bash-string-expansion
     pattern: $EXPANSION
-    inside: {kind: 'command, array, for_statement', stopBy: {not: {kind: concatenation}}}
+    not: {has: {field: operator, regex: '^:?\+$'}}
+    any:
+        - inside: &word {kind: 'command, array, for_statement', stopBy: {not: {kind: concatenation}}}
+        - inside: {kind: expansion, stopBy: {not: {kind: concatenation}}, has: {field: operator, regex: '^:?\+$'}, inside: *word}
 message: 'Unquoted `$EXPANSION` splits words and expands globs'
-note: Quote the expansion
+note: 'Quote the expansion, or read items into an array with `mapfile -t` or `read -ra` and expand `"${<items>[@]}"`'

@@ -27,10 +27,9 @@ class Update(msgspec.Struct, frozen=True, kw_only=True):
     changes: Change
 
     @classmethod
-    def of(cls, item: bpy.types.DepsgraphUpdate) -> Self:
-        """Copies native update during handler call."""
-        block: bpy.types.ID = item.id  # ty: ignore[invalid-assignment]
-        return cls(handle=Handle.of(block), changes=Change.of(item))
+    def of(cls, item: bpy.types.DepsgraphUpdate) -> Option[Self]:
+        """Copies native update during handler call, Nothing for an update naming no ID."""
+        return Option.of_optional(item.id).map(lambda block: cls(handle=Handle.of(block), changes=Change.of(item)))
 
 
 class _Instancing(msgspec.Struct, frozen=True, kw_only=True):
@@ -68,11 +67,8 @@ class _Hit(msgspec.Struct, frozen=True, kw_only=True):
 def instances(depsgraph: bpy.types.Depsgraph) -> tuple[_Instance, ...]:
     """Copies object instances in iterator order, sources and instancers as their originals."""
 
-    def copied(item: bpy.types.DepsgraphObjectInstance) -> _Instance:
-        source: bpy.types.Object = item.object.original  # ty: ignore[unresolved-attribute, invalid-assignment]
-
-        def instancing(parent: bpy.types.Object) -> _Instancing:
-            instancer: bpy.types.Object = parent.original  # ty: ignore[invalid-assignment]
+    def copied(item: bpy.types.DepsgraphObjectInstance) -> Option[_Instance]:
+        def instancing(instancer: bpy.types.Object) -> _Instancing:
             return _Instancing(
                 instancer=instancer,
                 persistent_id=tuple(np.asarray(item.persistent_id).tolist()),
@@ -82,18 +78,25 @@ def instances(depsgraph: bpy.types.Depsgraph) -> tuple[_Instance, ...]:
                 particle_system=Option.of_optional(item.particle_system).map(lambda system: system.name),
             )
 
-        return _Instance(
-            source=source,
-            matrix=tuple(row[:] for row in item.matrix_world[:]),
-            show_self=item.show_self,
-            show_particles=item.show_particles,
-            instancing=Option.of_optional(item.parent).map(instancing),
+        return (
+            Option
+            .of_optional(item.object)
+            .bind(lambda evaluated: Option.of_optional(evaluated.original))
+            .map(
+                lambda source: _Instance(
+                    source=source,
+                    matrix=tuple(row[:] for row in item.matrix_world[:]),
+                    show_self=item.show_self,
+                    show_particles=item.show_particles,
+                    instancing=Option.of_optional(item.parent).bind(lambda parent: Option.of_optional(parent.original)).map(instancing),
+                )
+            )
         )
 
-    return tuple(map(copied, depsgraph.object_instances))
+    return tuple(instance for item in depsgraph.object_instances for instance in copied(item).to_list())
 
 
-def _evaluated(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
+def evaluated_depsgraph(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
     """Returns the layer's ensured, updated dependency graph, refused fault while evaluation runs."""
     with bpy.context.temp_override(scene=view_layer.id_data, view_layer=view_layer):
         return catch(bpy.context.evaluated_depsgraph_get, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(view_layer)))
@@ -135,4 +138,4 @@ def hit(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, origin: Vector
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Update", "hit", "instances", "meshed"]
+__all__ = ["Update", "evaluated_depsgraph", "hit", "instances", "meshed"]

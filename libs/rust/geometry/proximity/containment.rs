@@ -1,12 +1,11 @@
 use itertools::Itertools as _;
 use nalgebra::Point3;
-use parry3d_f64::{math::Vector, query::PointQuery as _};
+use parry3d_f64::math::Vector;
+use parry3d_f64::query::PointQuery as _;
 use rayon::iter::{IntoParallelRefIterator as _, ParallelIterator as _};
 
-use crate::{
-    Assembly, Distance, ProximityError,
-    distances::{self, Projection},
-};
+use crate::distances::{self, Projection};
+use crate::{Assembly, Distance, ProximityError};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

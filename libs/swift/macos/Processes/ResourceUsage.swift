@@ -13,7 +13,7 @@ public struct ResourceUsage: Encodable, Equatable, Sendable {
     public let threads: Int
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
+        var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(cpu / .seconds(1), forKey: .cpu)
         try fields.encode(footprint, forKey: .footprint)
         try fields.encode(threads, forKey: .threads)
@@ -24,12 +24,12 @@ public struct ResourceUsage: Encodable, Equatable, Sendable {
 
 extension ResourceUsage {
     public init(of process: pid_t) throws(Errno) {
-        var usage: rusage_info_v6 = rusage_info_v6()
-        let read: Int32 = withUnsafeMutablePointer(to: &usage) { usage in
+        var usage = rusage_info_v6()
+        let read = withUnsafeMutablePointer(to: &usage) { usage in
             unsafe usage.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) { buffer in unsafe proc_pid_rusage(process, RUSAGE_INFO_V6, buffer) }
         }
         guard read == 0 else { throw Errno(rawValue: errno) }
-        var timebase: mach_timebase_info_data_t = mach_timebase_info_data_t()
+        var timebase = mach_timebase_info_data_t()
         _ = unsafe mach_timebase_info(&timebase)
         self.init(
             cpu: .nanoseconds((usage.ri_user_time + usage.ri_system_time) * UInt64(timebase.numer) / UInt64(timebase.denom)),

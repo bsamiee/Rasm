@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: swiftlang
+severity: error
+rule:
+    kind: import_declaration
+    all:
+        - has: {kind: modifiers, has: {kind: attribute, regex: '^@_exported$'}}
+        - has: {kind: identifier, pattern: $MODULE}
+message: '`@_exported` re-exports `$MODULE` to every importer of its module'
+note: 'Import the module in each file naming its types, and delete `@_exported`'

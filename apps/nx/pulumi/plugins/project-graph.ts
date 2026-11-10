@@ -23,7 +23,7 @@ const nodes = Effect.fnUntraced(function* (workspaceRoot: string, files: readonl
     return manifests.flatMap((manifest) => {
         const own = Option.toArray(Option.filter(Option.fromUndefinedOr(manifest.name), (named) => programs.has(named)));
         const hosting = manifest.declared.filter((dependency) => programs.has(dependency)).toSorted();
-        const verbs: Record<string, readonly [string, readonly string[]]> = { deploy: ['deploy', []], ...(hosting.length > 0 ? { install: ['install', ['^install']], 'nx-release-publish': ['release-publish', ['^nx-release-publish']] } : {}) };
+        const verbs: Record<string, readonly [string, readonly string[]]> = { deploy: ['deploy', []], ...(hosting.length > 0 ? { 'install--pulumi': ['install', ['^install']], 'nx-release-publish': ['release-publish', ['^nx-release-publish']] } : {}) };
         return Array.match([...own, ...hosting], {
             onEmpty: () => [],
             onNonEmpty: (selected) => [
@@ -32,7 +32,16 @@ const nodes = Effect.fnUntraced(function* (workspaceRoot: string, files: readonl
                     {
                         projects: {
                             [path.dirname(manifest.file)]: {
-                                targets: Record.map(verbs, ([executor, dependsOn]): TargetConfiguration => ({ executor: `${plugin.name}:${executor}`, options: { programs: selected }, cache: false, dependsOn: [...dependsOn], metadata: { technologies: ['pulumi'], ...executors[executor] } })),
+                                targets: {
+                                    ...Record.map(verbs, ([executor, dependsOn]): TargetConfiguration => ({ executor: `${plugin.name}:${executor}`, options: { programs: selected }, cache: false, dependsOn: [...dependsOn], metadata: { technologies: ['pulumi'], ...executors[executor] } })),
+                                    ...Record.map(
+                                        Array.groupBy(
+                                            Record.keys(verbs).filter((name) => name.includes('--')),
+                                            (name) => name.slice(0, name.indexOf('--')),
+                                        ),
+                                        (_, verb): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [`${verb}--*`], inputs: ['...'], metadata: { technologies: ['pulumi'], description: `Runs every ${verb}--* target` } }),
+                                    ),
+                                },
                                 ...(hosting.length > 0 ? { tags: ['release'] } : {}),
                             },
                         },

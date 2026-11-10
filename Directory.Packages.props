@@ -6,7 +6,7 @@
 
     <ItemGroup Label="Analyzers">
         <GlobalPackageReference Include="ErrorProne.NET.CoreAnalyzers"                    Version="0.9.0-beta.4" />                      <!-- Roslyn analyzers for correctness and performance defects -->
-        <GlobalPackageReference Include="Meziantou.Analyzer"                              Version="3.0.321" />                           <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
+        <GlobalPackageReference Include="Meziantou.Analyzer"                              Version="3.0.322" />                           <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
         <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers"      Version="18.12.1" />                           <!-- Roslyn analyzers flagging async deadlocks and threading hazards -->
         <GlobalPackageReference Include="Roslynator.Analyzers"                            Version="5.0.1" />                             <!-- C# code quality analyzers, refactorings, and code fixes -->
     </ItemGroup>
@@ -347,7 +347,7 @@
         <PackageVersion Include="TextureCompressor"                                       Version="0.1.0" />                             <!-- Managed BCn, ETC, ASTC, and PVRTC texture codecs -->
         <PackageVersion Include="TextureCompressor.FileFormats.Hdr"                       Version="0.1.0" />                             <!-- Radiance RGBE HDR image decoding and encoding -->
         <PackageVersion Include="TextureCompressor.FileFormats.Ktx"                       Version="0.1.0" />                             <!-- KTX and KTX2 texture container reading and writing -->
-        <PackageVersion Include="TinyEXR.NET"                                             Version="1.2.0" />                             <!-- Managed OpenEXR reading and writing with 3D LUT, color matrix, and transfer function processing -->
+        <PackageVersion Include="TinyEXR.NET"                                             Version="1.3.0" />                             <!-- Managed OpenEXR reading and writing with 3D LUT, color matrix, and transfer function processing -->
     </ItemGroup>
 
     <ItemGroup Label="GPU Computing">

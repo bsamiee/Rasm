@@ -1,24 +1,28 @@
 #![feature(cmp_minmax, const_convert, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values)]
 
-use core::{cell::LazyCell, cmp, iter, num::NonZero, ops::ControlFlow, range::RangeInclusive};
+use core::cell::LazyCell;
+use core::num::NonZero;
+use core::ops::ControlFlow;
+use core::range::RangeInclusive;
+use core::{cmp, iter};
 
 use basin::{
     ArctanLoss, BoxBounds, CauchyLoss, ConstraintDescription, ConstraintSet, ConstraintSolveError, Constraints, Executor, HuberLoss, Jacobian, LossFunction, OptimizationResult, Residual,
     RobustLeastSquares, SoftL1Loss, SquaredLoss, State as _, TerminationReport, TrustRegionReflective,
 };
-use faer::{MatRef, linalg::svd::SvdError};
+use faer::MatRef;
+use faer::linalg::svd::SvdError;
 use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView, convert};
 use nonempty_collections::NEVec;
 use num_dual::{Dual2DVec64, DualDVec64, DualNum, gradient, hessian, jacobian};
-use rasm_numerical_analysis::{AnalysisError, Input, Observations, Placement, Polynomial, Prediction, RootSource, SearchHooks, design, roots::minimum};
+use rasm_numerical_analysis::roots::minimum;
+use rasm_numerical_analysis::{AnalysisError, Input, Observations, Placement, Polynomial, Prediction, RootSource, SearchHooks, design};
 use rasm_stats::{Bounds, Confidence, Space, Tolerance};
 use rayon::iter::{Either, IndexedParallelIterator as _, ParallelIterator as _};
 use serde::{Deserialize, Serialize};
-use statrs::{
-    distribution::{ContinuousCDF as _, Normal, StudentsT, StudentsTError},
-    function::factorial::binomial,
-};
+use statrs::distribution::{ContinuousCDF as _, Normal, StudentsT, StudentsTError};
+use statrs::function::factorial::binomial;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------

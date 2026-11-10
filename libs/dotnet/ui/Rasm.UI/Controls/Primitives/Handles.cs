@@ -72,7 +72,7 @@ public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TV
 public sealed partial class Marquee {
     public static readonly Marquee Box = new(
         static (frame, press) => press.Enclosed(frame).Map(static region => (Figure)region),
-        static (press, frames) => Inside(frames, frame => frame.IntersectsWith(press.Swept)));
+        static (press, frames) => Inside(frames, frame => frame.IntersectsWith(new SKRect(press.From.X, press.From.Y, press.At.X, press.At.Y).Standardized)));
 
     public static readonly Marquee Lasso = new(
         static (frame, press) => press.Trail.Choose(sample => frame.At(sample.At)) switch {

@@ -1,16 +1,14 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, is_default_equivalent, is_default_equivalent_call,
-    macros::{FormatArgsStorage, find_format_arg_expr, is_format_macro, root_macro_call_first_node},
-    paths::PathNS,
-    peel_blocks,
-    res::MaybeDef as _,
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{FormatArgsStorage, find_format_arg_expr, is_format_macro, root_macro_call_first_node};
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{fn_def_id, is_default_equivalent, is_default_equivalent_call, peel_blocks, sym};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{Expr, ExprKind, HirIdSet, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind, HirIdSet};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Ty, TyCtxt, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, Ty, TyCtxt};
 
 use crate::{expanded_externally, is_text, paths, pointee, resolve};
 

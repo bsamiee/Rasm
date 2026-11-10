@@ -1,10 +1,9 @@
-use core::{
-    f64::consts::{FRAC_PI_3, FRAC_PI_6},
-    iter,
-    range::Range,
-    slice,
-};
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use core::f64::consts::{FRAC_PI_3, FRAC_PI_6};
+use core::range::Range;
+use core::{iter, slice};
+use std::borrow::Cow;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use fontdb::{Database, Source};
 use fontique::{Attributes, Collection, CollectionOptions, FallbackKey, QueryFamily, SourceCache, Synthesis};
@@ -17,7 +16,8 @@ use parlance::{FontFamily, FontFamilyName, FontVariation, GenericFamily, Script,
 use parley::{Alignment, AlignmentOptions, Cluster, FontContext, FontFeatures, Layout, LayoutContext, LineHeight, PositionedLayoutItem, StyleProperty};
 use rasm_drawing::{Anchor, Baseline, Color, Element, FontSize, FontSizeError, Glyph, GlyphRun, Opacity, Placement, Region, Span, Target, Text, Tolerance, Width};
 use skrifa::{DrawMemory, Font, GlyphId, PathSink, ScaleError, ScalerFont};
-use uom::{ConstZero, si::f64::Angle};
+use uom::ConstZero;
+use uom::si::f64::Angle;
 use validated::Validated;
 
 use crate::{Defect, DraftingError, Graphics, Lettering, Lookup, Style, fraction, indexed, located, oriented, polyline, readable, stroked, validated};

@@ -77,7 +77,7 @@ public sealed record ListRow<TItem, TKey>(IterableNE<ListColumn<TItem>> Columns,
             from current in latest
             from filled in Lists.Fill(grid, list, keep, current)
             from opened in current.Branches.Traverse(branches => Lists.Expand(grid, list, current, branches.Expanded)).As()
-            from reselected in Lists.Reselected(grid, list)
+            from reselected in list.ValueIO.Bind(state => unless(ReferenceEquals(grid.DataStore, state.Store), IO.lift(fun(() => { grid.DataStore = state.Store; }))).As())
             from scrolled in IO.lift(() => current.Current.Iter(key => Lists.Indices(current, list.Value.Nodes.Bind(static node => node.Shown), [key]).Head.Iter(grid.ScrollToRow)))
             select unit
         from selection in Values.Bound(grid, new BindableBinding<TreeGridView, Option<HashSet<TKey>>>(grid,
@@ -139,9 +139,6 @@ internal static class Lists {
 
     internal static HashSet<TKey> Open<TItem, TKey>(ListRow<TItem, TKey> row, Seq<RowItem<TItem>> nodes) where TItem : notnull where TKey : notnull =>
         toHashSet(nodes.Bind(static node => node.Preorder).Filter(static node => node.Expanded).Map(node => row.Key(node.Row)));
-
-    internal static IO<Unit> Reselected<TItem>(TreeGridView grid, Atom<ListState<TItem>> list) where TItem : notnull =>
-        list.ValueIO.Bind(state => unless(ReferenceEquals(grid.DataStore, state.Store), IO.lift(fun(() => { grid.DataStore = state.Store; }))).As());
 
     // --- [FILLS]
 

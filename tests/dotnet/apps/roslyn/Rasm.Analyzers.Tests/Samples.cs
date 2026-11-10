@@ -303,8 +303,8 @@ public sealed class Samples {
     }.RunAsync(TestContext.Current.CancellationToken);
 
     private const string ReferencedCode = """
-        using Stage = Models.Stage;
-        using Dither = Models.Dither;
+        {|RASM3014:using Stage = Models.Stage;|}
+        {|RASM3014:using Dither = Models.Dither;|}
 
         namespace Consumer;
 

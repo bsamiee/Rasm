@@ -70,14 +70,14 @@ actor CodexClient: ProviderClient {
     }
 
     private func identity(at home: URL) throws(CodexFailure) -> AccountIdentity {
-        guard let identity: AccountIdentity = try CodexAuthFile.read(in: home)?.identity else { throw .signInRequired }
+        guard let identity = try CodexAuthFile.read(in: home)?.identity else { throw .signInRequired }
         return identity
     }
 
     // --- [SWITCHES]
 
     func preconditions() async throws(CodexFailure) {
-        let response: CodexProtocol.EffectiveConfig = try await connection(for: liveHome).request(
+        let response = try await connection(for: liveHome).request(
             .configRead,
             params: CodexProtocol.ConfigReadParams(includeLayers: false),
             returning: CodexProtocol.EffectiveConfig.self,
@@ -100,7 +100,7 @@ actor CodexClient: ProviderClient {
             .mapError(CodexFailure.storage)
             .get()
         }
-        let incoming: URL = paths.codexHome(account.id)
+        let incoming = paths.codexHome(account.id)
         return await Result { () async throws(CodexFailure) in
             guard NSRunningApplication.runningApplications(withBundleIdentifier: Self.desktop).allSatisfy(\.isTerminated) else { throw .desktopRunning }
             try await preconditions()
@@ -136,10 +136,10 @@ actor CodexClient: ProviderClient {
                 case .account(let account, let isSelected): (home(for: account, isSelected: isSelected), account.identity)
             }
         return await Result { () async throws(CodexFailure) in
-            let connection: JSONRPCConnection<CodexProtocol.Method, CodexFailure> = try await connection(for: home)
+            let connection = try await connection(for: home)
             try await withTimeout(.seconds(300), expired: .timedOut(.seconds(300))) { () async throws(CodexFailure) in
-                let completions: AsyncStream<Result<CodexProtocol.LoginCompleted, CodexFailure>> = connection.subscribe(.accountLoginCompleted, to: CodexProtocol.LoginCompleted.self)
-                let started: CodexProtocol.LoginStarted = try await connection.request(
+                let completions = connection.subscribe(.accountLoginCompleted, to: CodexProtocol.LoginCompleted.self)
+                let started = try await connection.request(
                     .accountLoginStart,
                     params: CodexProtocol.LoginStartParams(),
                     returning: CodexProtocol.LoginStarted.self,
@@ -147,16 +147,16 @@ actor CodexClient: ProviderClient {
                 guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
                 guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
                 self.logger.info("Opened OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
-                let completion: Result<CodexProtocol.LoginCompleted, CodexFailure>? = await completions.first { received in
+                let completion = await completions.first { received in
                     switch received {
                         case .success(let completed): completed.loginId == started.loginId
                         case .failure: true
                     }
                 }
-                guard let completed: CodexProtocol.LoginCompleted = try completion?.get() else { throw .cancelled(CancellationError()) }
+                guard let completed = try completion?.get() else { throw .cancelled(CancellationError()) }
                 guard completed.success else { throw .signInRefused(reason: completed.error) }
             }
-            let identity: AccountIdentity = try identity(at: home)
+            let identity = try identity(at: home)
             guard expected.map(identity.isSameAccount(as:)) ?? true else {
                 try await logOut(home: home)
                 throw .identityChanged
@@ -171,7 +171,7 @@ actor CodexClient: ProviderClient {
     }
 
     func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError> {
-        let home: URL = paths.codexHome(id)
+        let home = paths.codexHome(id)
         await stopServer(home)
         return Result { () throws(CodexFailure) in try remove(home) }.mapError(ProviderError.init(failure:))
     }
@@ -184,9 +184,9 @@ actor CodexClient: ProviderClient {
     // --- [USAGE]
 
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
-        let home: URL = home(for: account, isSelected: isSelected)
+        let home = home(for: account, isSelected: isSelected)
         return await Result { () async throws(CodexFailure) in
-            let identity: AccountIdentity = try identity(at: home)
+            let identity = try identity(at: home)
             guard identity.isSameAccount(as: account.identity) else { throw .identityChanged }
             return try await connection(for: home)
                 .request(
@@ -202,12 +202,12 @@ actor CodexClient: ProviderClient {
     // --- [SERVERS]
 
     func shutdown() async {
-        for home: URL in Array(servers.keys) { await stopServer(home) }
+        for home in Array(servers.keys) { await stopServer(home) }
     }
 
     private func connection(for home: URL) async throws(CodexFailure) -> JSONRPCConnection<CodexProtocol.Method, CodexFailure> {
-        let identity: AccountIdentity? = try CodexAuthFile.read(in: home)?.identity
-        if let server: CodexServer = servers[home], server.identity == identity, !server.connection.isFinished {
+        let identity = try CodexAuthFile.read(in: home)?.identity
+        if let server = servers[home], server.identity == identity, !server.connection.isFinished {
             return server.connection
         }
         await stopServer(home)
@@ -218,10 +218,10 @@ actor CodexClient: ProviderClient {
             case .failure(let error) where error.code != .executableNotFound: throw .process(ProcessFailure(subject: "codex", error))
             case .failure:
                 guard
-                    let package: URL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.desktop).flatMap(Bundle.init(url:))?
+                    let package = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.desktop).flatMap(Bundle.init(url:))?
                         .url(forResource: "codex-cli", withExtension: nil)
                 else { throw .executableMissing }
-                let manifest: CodexPackage = try Result { try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json"))) }
+                let manifest = try Result { try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json"))) }
                     .mapError(CodexFailure.storage)
                     .get()
                 executable = FilePath(package.appending(path: manifest.entrypoint).path(percentEncoded: false))
@@ -235,9 +235,9 @@ actor CodexClient: ProviderClient {
             platformOptions: .session(),
         )
         let ready = AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>.makeStream()
-        let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") { [logger] in
+        let task = Task(name: "codex app-server \(home.lastPathComponent)") { [logger] in
             do {
-                let status: TerminationStatus = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                let status = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
                     logger.info(
                         "Started codex app-server \(executable.string, privacy: .public) as PID \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
                     )
@@ -287,7 +287,7 @@ actor CodexClient: ProviderClient {
     }
 
     private func stopServer(_ home: URL) async {
-        guard let server: CodexServer = servers.removeValue(forKey: home) else { return }
+        guard let server = servers.removeValue(forKey: home) else { return }
         logger.info("Stopping codex app-server for \(home.path(percentEncoded: false), privacy: .private)")
         server.task.cancel()
         await server.task.value

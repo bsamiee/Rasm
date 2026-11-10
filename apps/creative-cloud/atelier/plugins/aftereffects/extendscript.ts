@@ -53,8 +53,12 @@ export default handleEnvelope({
         const held = composition.resolutionFactor;
         composition.resolutionFactor = [factor, factor];
         try {
-            // biome-ignore lint/nursery/noUnsafeTypeAssertion: types-for-adobe declares void, the host returns a DeferredCall that waits for the PNG write
-            (composition.saveFrameToPng(composition.time, fileFromUrl(payload.file)) as unknown as { readonly wait: () => void }).wait();
+            const deferred: unknown = composition.saveFrameToPng(composition.time, fileFromUrl(payload.file));
+            const wait = readProperty(deferred, 'wait');
+            if (typeof wait !== 'function') {
+                throw new Error(`saveFrameToPng returned ${typeof deferred} without wait, the PNG write of ${payload.file} is unconfirmed`);
+            }
+            wait.call(deferred);
         } finally {
             composition.resolutionFactor = held;
         }

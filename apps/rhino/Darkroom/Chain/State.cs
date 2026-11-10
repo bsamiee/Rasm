@@ -27,8 +27,6 @@ internal sealed record EffectKind(
     Seq<(string Name, Func<ValueSet, Fin<ValueSet>> Look)> Looks,
     Func<ValueSet, float, PassContext, Fin<(Option<PixelPass> Pass, PassContext Context)>> Step,
     Func<ValueSet, Fin<Seq<GuideChannel>>> Channels) {
-    public string Owner => EntryKey.TypeOwner(Id);
-
     public static EffectKind Of<TState>(Guid id, PostEffectType stage, EffectRow<TState> row) =>
         EntryKey.TypeOwner(id) switch {
             var owner => new(
@@ -53,12 +51,10 @@ internal sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
 
     internal static ChainState Default => Declared.Value.Default;
 
-    internal static Fin<EffectKind> Kind(Guid id) => Cataloged(id).Map(static held => held.Kind);
-
     // --- [CHAINS]
 
     private Fin<Seq<(EffectKind Kind, float Mix)>> Running =>
-        Entries.Filter(static entry => entry.On).Traverse(static entry => Kind(entry.Kind).Map(kind => (Kind: kind, entry.Mix))).As()
+        Entries.Filter(static entry => entry.On).Traverse(static entry => Cataloged(entry.Kind).Map(held => (held.Kind, entry.Mix))).As()
             .Map(static runs => toSeq(runs.OrderBy(static run => run.Kind.Stage)));
 
     internal Fin<Seq<GuideChannel>> Needs =>
@@ -68,11 +64,6 @@ internal sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
         Running.Bind(runs => runs.FoldM((Passes: Seq<(EffectKind Kind, PixelPass Pass)>(), Context: context), (held, run) =>
             run.Kind.Step(Values, run.Mix, held.Context).Map(staged =>
                 (Passes: held.Passes + staged.Pass.Map(pass => (run.Kind, Pass: pass)).ToSeq(), staged.Context))).As());
-
-    internal Fin<Seq<PixelPass.Point>> Baked(PassContext context) =>
-        Passes(context).Map(static chain => chain.Passes
-            .Filter(step => chain.Context.Formed || step.Kind.Stage is PostEffectType.Early)
-            .Choose(static step => step.Pass is PixelPass.Point point ? Some(point) : None));
 
     private static Fin<(EffectKind Kind, int Index)> Cataloged(Guid kind) =>
         Declared.Value.Kinds.Find(kind).ToFin(new DarkroomFault(kind, DarkroomReason.Unlisted));

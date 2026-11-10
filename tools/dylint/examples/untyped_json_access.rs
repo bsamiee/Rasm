@@ -1,4 +1,5 @@
-use core::{hint::black_box, ops::Index};
+use core::hint::black_box;
+use core::ops::Index;
 
 use serde::Deserialize;
 use serde_json::{Deserializer, Map, Value, json};

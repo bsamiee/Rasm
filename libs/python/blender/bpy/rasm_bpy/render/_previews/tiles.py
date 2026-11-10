@@ -14,7 +14,7 @@ import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from rasm_bpy.data._extension.events import _updated
+from rasm_bpy.data._extension.events import updated
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Handler, Resource
 from rasm_bpy.data._ids.store import Handle, retained
@@ -24,19 +24,19 @@ from rasm_bpy.nodes._desired import Graph, item_key
 from rasm_bpy.render._color.spaces import viewed
 from rasm_bpy.render._compositor.effects import CompositorEffect, CompositorRecord, Entry
 from rasm_bpy.render._compositor.entries import Enabled
-from rasm_bpy.render._compositor.inputs import _restored
+from rasm_bpy.render._compositor.inputs import restored
 from rasm_bpy.render._compositor.layers import Adjustment, EFFECTS, LayerStack
 from rasm_bpy.render._compositor.motion import rate
 from rasm_bpy.render._compositor.offered import OfferedEffects
 from rasm_bpy.render._compositor.recipes import Valued
-from rasm_bpy.render._compositor.stack_service import _stacked_by
+from rasm_bpy.render._compositor.stack_service import stacked_by
 from rasm_bpy.render._outputs.framing import FrameSize
-from rasm_bpy.render._outputs.results import _INTERMEDIATES, CompletedRender, Consume, ResultRead
+from rasm_bpy.render._outputs.results import CompletedRender, Consume, INTERMEDIATES, ResultRead
 from rasm_bpy.render._previews.fingerprints import fingerprinted
 from rasm_bpy.render._previews.queue import Demands, Job, PreviewFeed, Rank
 from rasm_bpy.render._previews.scenes import PreviewLighting, PreviewScene, PreviewStack, Restoring, RoutedEntry, Staging
 from rasm_bpy.ui._layout.rows import ConditionalRow, RowDraw
-from rasm_bpy.ui._resources.previews import _PreviewKey, _PREVIEWS
+from rasm_bpy.ui._resources.previews import PreviewKey, PREVIEWS
 from rasm_bpy.ui._resources.theme import Metrics
 from rasm_imaging import converted_image, DisplayView, ImageFile, Raster
 from rasm_records import accumulated, content_hash, ContentHash, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
@@ -44,10 +44,13 @@ from rasm_records import accumulated, content_hash, ContentHash, Error, Fault, F
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Tiled = Valued[Entry] | Valued[LayerStack] | str | tuple[Valued[Entry], ...]
-type _Slot = tuple[Handle[bpy.types.Scene], str]
-type _Context = tuple[Snapshot, DisplayView, float, float, ContentHash | None]
-type _Plan = tuple[tuple[RoutedEntry, ...], tuple[tuple[CompositorEffect, Valued[Entry]], ...]]
-type _Requested = tuple[_Slot, int, _Plan, _Context, Option[_Proxy]]
+type _Requested = tuple[
+    tuple[Handle[bpy.types.Scene], str],
+    int,
+    tuple[tuple[RoutedEntry, ...], tuple[tuple[CompositorEffect, Valued[Entry]], ...]],
+    tuple[Snapshot, DisplayView, float, float, ContentHash | None],
+    Option[_Proxy],
+]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -121,10 +124,12 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
         held = RoutedEntry.of(scene, Enabled.PREVIEW)
         return tuple(item for item in held if self.closes(identity, item)) if self.isolated else held
 
-    def _planned(self, identity: Identity, scene: bpy.types.Scene, record: Tiled, routed: tuple[RoutedEntry, ...]) -> Outcome[_Plan]:
+    def _planned(
+        self, identity: Identity, scene: bpy.types.Scene, record: Tiled, routed: tuple[RoutedEntry, ...]
+    ) -> Outcome[tuple[tuple[RoutedEntry, ...], tuple[tuple[CompositorEffect, Valued[Entry]], ...]]]:
         """Builds a tiled record's preview stack: an effect replacing its own or a rival's entry, adjustment effects the layer stacks, a recipe every entry, an entry output keeping entries through it, a seeded closing entry where none stands."""
 
-        def offered(entries: tuple[Valued[Entry], ...], kept: tuple[RoutedEntry, ...]) -> Outcome[_Plan]:
+        def offered(entries: tuple[Valued[Entry], ...], kept: tuple[RoutedEntry, ...]) -> Outcome[tuple[tuple[RoutedEntry, ...], tuple[tuple[CompositorEffect, Valued[Entry]], ...]]]:
             def opened(closing: CompositorEffect) -> Outcome[tuple[Valued[Entry], ...]]:
                 closed = any(self.closes(identity, item) for item in kept) or any(type(entry.structure.record) is closing.record for entry in entries)
                 return Ok(()) if closed else closing.seeded(scene).map(lambda seed: (Valued(structure=Entry(record=seed)),))
@@ -156,7 +161,7 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
                             if isinstance(layer.source, Adjustment)
                             for index, entry in enumerate(layer.effects, 1)
                         )
-                        return offered(layered, tuple(item for item in routed if _stacked_by(identity, item.entry.node_group).is_none()))
+                        return offered(layered, tuple(item for item in routed if stacked_by(identity, item.entry.node_group).is_none()))
                     case Entry(record=effect):
                         replaced = next((item for item in routed if rival(effect, item)), None)
                         kept = tuple(item for item in routed if item is not replaced)
@@ -169,7 +174,16 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
             lambda pair: self._rendered(identity, pair[0], side, scene, self.states[identity][Handle.of(scene)].proxy, lighting, pair[1][0])
         )
 
-    def _rendered(self, identity: Identity, plan: _Plan, side: int, scene: bpy.types.Scene, proxy: Option[_Proxy], lighting: PreviewLighting, world: Graph) -> Outcome[npt.NDArray[np.float32]]:
+    def _rendered(
+        self,
+        identity: Identity,
+        plan: tuple[tuple[RoutedEntry, ...], tuple[tuple[CompositorEffect, Valued[Entry]], ...]],
+        side: int,
+        scene: bpy.types.Scene,
+        proxy: Option[_Proxy],
+        lighting: PreviewLighting,
+        world: Graph,
+    ) -> Outcome[npt.NDArray[np.float32]]:
         def staged(plane: Option[tuple[_Proxy, ImageFile]]) -> Outcome[npt.NDArray[np.float32]]:
             staging = Staging(
                 source=scene,
@@ -198,11 +212,11 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
         """Records the slot's tile at its side in pixels, Blender's preview render size by default, and returns the slot's published icon."""
         source = Handle.of(scene)
         self.states[identity][source].requests[slot] = (record, side.default_with(lambda: bpy.app.render_preview_size))
-        return _PREVIEWS[identity].get((self.states, (source, slot))).map(lambda preview: preview.icon_id)
+        return PREVIEWS[identity].get((self.states, (source, slot))).map(lambda preview: preview.icon_id)
 
     def jobs(self, identity: Identity, _context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Returns a job per requested slot holding no current icon, stack parts read once per step for a slot holding no demand."""
-        sources, previews = self.states[identity], _PREVIEWS[identity]
+        sources, previews = self.states[identity], PREVIEWS[identity]
         live = retained(sources, bpy.data.scenes)
         erased: list[Outcome[None]] = []
         for slot in tuple(previews.held):
@@ -215,7 +229,7 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
         lighting = PreviewLighting()
 
         @cache
-        def context(source: Handle[bpy.types.Scene]) -> Outcome[tuple[bpy.types.Scene, _Context]]:
+        def context(source: Handle[bpy.types.Scene]) -> Outcome[tuple[bpy.types.Scene, tuple[Snapshot, DisplayView, float, float, ContentHash | None]]]:
             """Reads each live source and its immutable rendering inputs once per feed."""
             scene = live[source]
             return self.preview.engine(scene).map(
@@ -227,8 +241,15 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
             """Reads a live source's candidate routes once per feed."""
             return self.routed(identity, live[source])
 
-        def job(slot: _Slot, side: int, plan: _Plan, proxy: Option[_Proxy], demand: Hashable, world: Graph) -> tuple[Job, ...]:
-            shown = _PreviewKey.read(demand, side)
+        def job(
+            slot: tuple[Handle[bpy.types.Scene], str],
+            side: int,
+            plan: tuple[tuple[RoutedEntry, ...], tuple[tuple[CompositorEffect, Valued[Entry]], ...]],
+            proxy: Option[_Proxy],
+            demand: Hashable,
+            world: Graph,
+        ) -> tuple[Job, ...]:
+            shown = PreviewKey.read(demand, side)
 
             def published(plane: npt.NDArray[np.float32]) -> Outcome[Option[int]]:
                 return (
@@ -313,20 +334,20 @@ class EffectTiles(msgspec.Struct, frozen=True, kw_only=True, dict=True, eq=False
             return completed.source().map(Some).or_else_with(unrendered).bind(lambda found: found.map(downscaled).default_value(Ok(Nothing)))
 
         def invalidated(scene: bpy.types.Scene, *_: object) -> Outcome[None]:
-            if scene.session_uid not in _INTERMEDIATES[identity]:
+            if scene.session_uid not in INTERMEDIATES[identity]:
                 for state in Option.of_optional(self.states[identity].get(Handle.of(scene))).to_list():
                     state.forgotten()
             return Ok(None)
 
         return (
             self.states,
-            _PREVIEWS,
-            _INTERMEDIATES,
+            PREVIEWS,
+            INTERMEDIATES,
             FrameSize.attachment,
             self.preview,
             PreviewFeed(feed=self.jobs),
             ResultRead(capture=captured),
-            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(_updated, (bpy.types.ID,), invalidated)),
+            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.ID,), invalidated)),
             Handler(handlers=bpy.app.handlers.frame_change_post, body=invalidated),
         )
 
@@ -366,7 +387,7 @@ def _placed(
 
     def valued(row: CompositorEffect, entry: Valued[Entry]) -> Outcome[bpy.types.SceneCompositorEffect]:
         return rows.placed(identity, target, row, entry.structure, rasters=rasters).bind(
-            lambda held: entry.rebased("").map(lambda values: _restored(identity, held, values).map(lambda _: held)).default_value(Ok(held))
+            lambda held: entry.rebased("").map(lambda values: restored(identity, held, values).map(lambda _: held)).default_value(Ok(held))
         )
 
     return accumulated(itertools.starmap(valued, offered)).map(lambda held: partial(_removed, rows, identity, target, tuple(entry.name for entry in held)))

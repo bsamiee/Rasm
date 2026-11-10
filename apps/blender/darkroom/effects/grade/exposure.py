@@ -13,7 +13,6 @@ from rasm_bpy.nodes import Expr, Interface, InterfacePanel, math, mixed, Noise, 
 from rasm_bpy.render import (
     bilateral,
     BLEND,
-    captured,
     CLOCK,
     Clock,
     clocked,
@@ -26,14 +25,12 @@ from rasm_bpy.render import (
     GraphInputs,
     luminance,
     Mix,
-    motion,
     OPACITY,
     origin,
     precise,
     READ,
     SEED,
-    value,
-    valued,
+    timing,
 )
 from rasm_imaging import GRAY, ImageFile, Samples, stream
 from rasm_records import accumulated, Fault, Ok, Outcome, paired, Reason
@@ -150,11 +147,6 @@ def gain(identity: Identity, scene: bpy.types.Scene, *, enabled: Enabled = Enabl
     return _products(identity, exposure.entries(identity, scene), (scene.frame_current_final,), enabled=enabled).map(lambda product: float(np.log2(product[0])))
 
 
-def entry_stops(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[float]:
-    """Returns an Exposure entry's own stops input."""
-    return captured(identity, entry).map(valued).bind(lambda values: value(values, float, STOPS))
-
-
 # --- [LEVELS]
 
 
@@ -182,10 +174,10 @@ def exposed(color: Term, stops: Term) -> Expr:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 exposure: Final = CompositorEffect(record=Exposure, interface=Interface(inputs=(STOPS,)), pointwise=True)
-flicker: Final = CompositorEffect(record=Flicker, interface=Interface(inputs=(SEED, _AMPLITUDE, _RATE), panels=(_CLOCK,)), pointwise=True, derives=(motion.timing,))
+flicker: Final = CompositorEffect(record=Flicker, interface=Interface(inputs=(SEED, _AMPLITUDE, _RATE), panels=(_CLOCK,)), pointwise=True, derives=(timing,))
 levels: Final = CompositorEffect(record=Levels, interface=Interface(inputs=(_BLACK, _WHITE)), pointwise=True, registers=(READ.measuring(auto_levels, icon=Some("SEQ_HISTOGRAM")),))
 local_exposure: Final = CompositorEffect(record=LocalExposure, mix=Mix.STRAIGHT, interface=Interface(inputs=(_HIGHLIGHTS, _SHADOWS, _CLARITY, _SMOOTHING, _REACH)))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LATER", "STOPS", "Exposure", "Flicker", "Levels", "LocalExposure", "entry_stops", "exposed", "exposure", "flicker", "gain", "later", "levels", "local_exposure"]
+__all__ = ["LATER", "STOPS", "Exposure", "Flicker", "Levels", "LocalExposure", "exposed", "exposure", "flicker", "gain", "later", "levels", "local_exposure"]

@@ -3,7 +3,7 @@ import { joinPathFragments, type Tree, workspaceRoot } from '@nx/devkit';
 import { Array, Effect, identity, Option, Result, Schema, SemVer, String } from 'effect';
 import { VersionActions } from 'nx/release';
 import { isValid, sortReversed } from 'verkit';
-import { analyzer, DotnetError, spawned } from '#/plugins/project-graph';
+import { analyzer, DotnetError, spawned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

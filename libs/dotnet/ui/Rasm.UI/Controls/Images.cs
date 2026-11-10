@@ -19,8 +19,6 @@ public sealed partial class ImageRegion {
 
     public SKRect Bounds { get; }
 
-    internal Vector2 At(Vector2 anchor) => Vector2.Lerp(new Vector2(Bounds.Left, Bounds.Top), new Vector2(Bounds.Right, Bounds.Bottom), anchor);
-
     internal Option<ImageRegion> Moved(Vector2 anchor, Vector2 to, Option<float> aspect) {
         Vector2 at = Vector2.Clamp(to, Vector2.Zero, Vector2.One);
         SKRect moved = anchor == new Vector2(0.5f)
@@ -52,7 +50,7 @@ public abstract partial record ImageTool {
 
         internal override View Drawn(PlotPlane view, Vector2 extent) =>
             new Handles<ImageRegion>(Value, Points<ImageRegion>.Fixed(HandlePositions.Map(anchor => Lens<ImageRegion, Vector2>.New(
-                    held => held.At(anchor) * extent,
+                    held => Vector2.Lerp(new Vector2(held.Bounds.Left, held.Bounds.Top), new Vector2(held.Bounds.Right, held.Bounds.Bottom), anchor) * extent,
                     to => held => held.Moved(anchor, to / extent, Aspect.Map(wide => wide * extent.Y / extent.X)).IfNone(held)))) with { Placed = static (_, _, _) => None, },
                 Edited).Drawn(view, Figure.Region.Spanning(Value.Bounds.Left * extent.X, Value.Bounds.Right * extent.X, Value.Bounds.Top * extent.Y, Value.Bounds.Bottom * extent.Y)
                     .Map(static region => (View)new View.Mark(region) { Role = Roles.Ring }).ToSeq());

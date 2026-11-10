@@ -138,7 +138,7 @@ internal abstract partial record ToneMapping {
         public static AgXFalseColor Default { get; } = new(None);
 
         public override Fin<PixelPass> Formed(PassContext context, Display display) =>
-            Pointed(context, display, ViewTransform.FalseColor(FormationTables.AgXLog, Look.ToSeq().Bind(static look => look.Steps), AgXBase.Rec2020.Table, FormationTables.FalseColorKey));
+            Pointed(context, display, ViewTransform.FalseColor(FormationTables.AgXLog, Look.ToSeq().Bind(static look => look.Steps), AgXBase.Rec2020.Table, FormationTables.Curve("AgX_False_Color.spi1d")));
     }
 
     public sealed record AcesOutput : ToneMapping {
@@ -151,7 +151,7 @@ internal abstract partial record ToneMapping {
         public static FilmicView Default { get; } = new(FilmicLook.MediumContrast);
 
         public override Fin<PixelPass> Formed(PassContext context, Display display) =>
-            Pointed(context, display, ViewTransform.Filmic(FormationTables.FilmicDesaturation, Look.Curve));
+            Pointed(context, display, ViewTransform.Filmic(FormationTables.Lattice("filmic_desat_33.cube"), Look.Curve));
     }
 
     public sealed record FilmPrint(FilmStock Stock) : ToneMapping {
@@ -165,7 +165,7 @@ internal abstract partial record ToneMapping {
         public static TonyMcMapface Default { get; } = new();
 
         public override Fin<PixelPass> Formed(PassContext context, Display display) =>
-            Pointed(context, display, ViewTransform.Lattice(LutSpace.Rational(Gamut.StandardRgb), FormationTables.TonyMcMapface, new ColorEncoding(Gamut.StandardRgb, new Transfer.Linear())));
+            Pointed(context, display, ViewTransform.Lattice(LutSpace.Rational(Gamut.StandardRgb), FormationTables.Table(("tony_mc_mapface.dds", LutFormat.DirectDrawSurface)), new ColorEncoding(Gamut.StandardRgb, new Transfer.Linear())));
     }
 
     public sealed record Sigmoid(float Contrast, float Skew, float Black, CurveControls Controls) : ToneMapping {
@@ -259,9 +259,6 @@ internal static class FormationTables {
         }).ThrowIfFail());
 
     public static LutSpace AgXLog { get; } = LutSpace.AgX(Lattice("luminance_compensation_bt2020.cube"));
-    public static Lut3D FilmicDesaturation => Lattice("filmic_desat_33.cube");
-    public static Lut1D FalseColorKey => Curve("AgX_False_Color.spi1d");
-    public static LutTable TonyMcMapface => Table(("tony_mc_mapface.dds", LutFormat.DirectDrawSurface));
 
     public static Func<string, Lut1D> Curve { get; } = memoUnsafe(static (string resource) =>
         Embedded(resource).Bind(static stream => {

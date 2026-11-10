@@ -13,10 +13,9 @@ import bpy
 from expression import Option
 from expression.extra.result import catch
 import msgspec
-from typing_extensions import TypeForm
 
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _scoped, Resource
+from rasm_bpy.data._extension.registration import Resource, scoped
 from rasm_bpy.data._rna.properties import choices, EnumItem, IconedItem
 from rasm_records import Fault, no_clobber_move, Nothing, Ok, Outcome, Reason, RecordFile
 
@@ -33,7 +32,7 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     # --- [STATE]
 
     key: Key
-    form: TypeForm[T]
+    decoder: msgspec.json.Decoder[T]
     stock: Mapping[str, T] = MappingProxyType({})
     validated: Option[Callable[[T], Outcome[T]]] = Nothing
 
@@ -92,17 +91,15 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     def read(self, source: T | Path) -> Outcome[T]:
         """Decodes and validates a file, passing a stock record through."""
-        return (
-            RecordFile(path=source, form=self.form).read().bind(lambda value: self.validated.map(lambda validate: validate(value)).default_value(Ok(value))) if isinstance(source, Path) else Ok(source)
-        )
+        return RecordFile(path=source, decoder=self.decoder).read().bind(lambda held: self.validated.map(lambda check: check(held)).default_value(Ok(held))) if isinstance(source, Path) else Ok(source)
 
     def written(self, target: Path, value: T) -> Outcome[Path]:
         """Writes JSON at target through one atomic commit."""
-        return RecordFile(path=target, form=self.form).written(value)
+        return RecordFile(path=target, decoder=self.decoder).written(value)
 
     def saved(self, identity: Identity, name: str, value: T) -> Outcome[Path]:
         """Creates user preset file under a valid preset name, refusing a name a user file holds, a stock file of that stem staying overridable."""
-        return _named(name).bind(lambda stem: RecordFile(path=self.folder(identity) / f"{stem}.json", form=self.form).written(value, place=no_clobber_move))
+        return _named(name).bind(lambda stem: RecordFile(path=self.folder(identity) / f"{stem}.json", decoder=self.decoder).written(value, place=no_clobber_move))
 
     @staticmethod
     def renamed(source: Path, name: str) -> Outcome[Path]:
@@ -136,13 +133,13 @@ def _named(name: str) -> Outcome[str]:
 def _registered(identity: Identity) -> AbstractContextManager[Outcome[None]]:
     """Holds the extension package folder as a host preset path, its `presets/<extension id>/<key>` folders holding stock files."""
     folder = str(importlib.resources.files(identity.package))
-    return _scoped(folder, partial(bpy.utils.register_preset_path, folder), lambda _: bpy.utils.unregister_preset_path(folder))
+    return scoped(folder, partial(bpy.utils.register_preset_path, folder), lambda _: bpy.utils.unregister_preset_path(folder))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_PRESET_PATH: Final = Resource[Outcome[None]](made=_registered)
+PRESET_PATH: Final = Resource[Outcome[None]](made=_registered)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Preset"]
+__all__ = ["PRESET_PATH", "Preset"]

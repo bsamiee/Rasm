@@ -1,6 +1,9 @@
-use core::{cmp, iter, num::NonZero, ops::ControlFlow};
+use core::num::NonZero;
+use core::ops::ControlFlow;
+use core::{cmp, iter};
 
-use faer::{ColRef, Mat, sparse::SparseColMatRef};
+use faer::sparse::SparseColMatRef;
+use faer::{ColRef, Mat};
 use nalgebra::DVector;
 use nonempty_collections::NEVec;
 use rasm_stats::Tolerance;

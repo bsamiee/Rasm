@@ -12,9 +12,9 @@ from rasm_bpy.data._rna import conditions
 from rasm_bpy.data._rna.animation import Animation, Driven, Keys, Modifier, sampled
 from rasm_bpy.data._rna.conditions import Job, Present, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, Scalar, stored, Value, written
-from rasm_bpy.data._rna.paths import id_data, id_path, Native, RnaPath, root_in, rooted, Struct
+from rasm_bpy.data._rna.paths import id_data, id_path, Native, NativeOwner, RnaPath, root_in, rooted, Struct
 from rasm_bpy.data._rna.properties import annotated, Callbacks, case_choices, Changed, choices, enum_choices, EnumItem, EnumRow, IconedItem
-from rasm_bpy.data._rna.restoration import BeforeAfter, NativeOwner, NativeTree, NativeValue
+from rasm_bpy.data._rna.restoration import BeforeAfter, NativeTree, NativeValue
 from rasm_bpy.data._rna.snapshots import Applied, assigned, Snapshot
 
 # --- [EXPORTS] --------------------------------------------------------------------------

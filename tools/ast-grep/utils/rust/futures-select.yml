@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: futures-select
-language: rustlang
-rule:
-    kind: 'identifier, scoped_identifier'
-    any:
-        - regex: '^((::)?futures(_util)?::)?future::select$'
-        - matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?futures(_util)?::future::(select(?-u:\b)|\{[^}]*(?-u:\b)select(?-u:\b))'}}, name: {regex: '^select$'}}}

@@ -1,9 +1,11 @@
 #![feature(cmp_minmax, iterator_try_collect)]
 
-use core::{iter, num::TryFromIntError};
+use core::iter;
+use core::num::TryFromIntError;
 
 use calamine::{CellErrorType, Data, DataType as _, Range};
-use ironcalc::{base::expressions::token::Error, error::XlsxError};
+use ironcalc::base::expressions::token::Error;
+use ironcalc::error::XlsxError;
 use jiff::{SignedDuration, civil};
 
 // --- [MODELS] --------------------------------------------------------------------------

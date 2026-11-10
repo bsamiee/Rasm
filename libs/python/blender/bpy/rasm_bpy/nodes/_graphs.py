@@ -11,7 +11,7 @@ import msgspec
 from rasm_bpy.data._extension.identity import Key
 from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.nodes._desired import Content, End, INPUTS, Membered, MenuItem, MenuItems
-from rasm_bpy.nodes._trees import _base_socket, _DATA_TYPES
+from rasm_bpy.nodes._trees import base_socket, DATA_TYPES
 from rasm_records import Nothing
 
 if TYPE_CHECKING:
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 type Term = Expr | End | Value
 type Scalar = Expr | End | float
 type Component = Literal["X", "Y", "Z", "Red", "Green", "Blue", "Alpha"]
-type SocketType = type[bpy.types.NodeSocket]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -44,7 +43,7 @@ class Expr(Membered, frozen=True, kw_only=True, eq=False):
     inputs: tuple[tuple[str | int, Term], ...] = ()
     content: Option[Content] = Nothing
     socket: str | int = "Value"
-    socket_type: SocketType = bpy.types.NodeSocketFloat
+    socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat
     key: Option[Key] = Nothing
     kept: tuple["Expr", ...] = ()
 
@@ -52,7 +51,7 @@ class Expr(Membered, frozen=True, kw_only=True, eq=False):
     def __post_init__(self) -> None:
         """Holds members under their paths and the socket type as its base socket class."""
         super().__post_init__()
-        msgspec.structs.force_setattr(self, "socket_type", _base_socket(self.socket_type))
+        msgspec.structs.force_setattr(self, "socket_type", base_socket(self.socket_type))
 
     def __add__(self, other: Term, /) -> "Expr":
         """Builds the sum node."""
@@ -139,7 +138,7 @@ class Expr(Membered, frozen=True, kw_only=True, eq=False):
             case "Red" | "Green" | "Blue" | "Alpha":
                 return Expr(kind=bpy.types.ShaderNodeSeparateColor, inputs=((0, self),), members={"mode": "RGB"}, socket=component)
 
-    def at(self, socket: str | int, socket_type: SocketType = bpy.types.NodeSocketFloat, /) -> "Expr":
+    def at(self, socket: str | int, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, /) -> "Expr":
         """Reads another output of the same node, a Menu Switch item's boolean by its position after Output, as a 0 or 1 value by default."""
         return msgspec.structs.replace(self, socket=socket, socket_type=socket_type)
 
@@ -181,16 +180,16 @@ def vector(operation: "rna_enums.NodeVecMathItems", /, *operands: Term) -> Expr:
 
 def mixed(factor: Scalar, a: Term, b: Term, /, *, blend: "rna_enums.RampBlendItems" = "MIX") -> Expr:
     """Builds Mix node of the operands' shape, `a` at factor 0 and `b` at factor 1, blended by `ShaderNodeMix.blend_type` identifier."""
-    return _mixed(_widest(a, b), factor, a, b, blend=blend)
+    return typed_mix(widest(a, b), factor, a, b, blend=blend)
 
 
 def switched(gate: Scalar, off: Term, on: Term, /) -> Expr:
     """Builds lazy Switch node of the branches' shape over a single-value gate, `off` for false and `on` for true."""
-    shape = _widest(off, on)
-    return Expr(kind=bpy.types.GeometryNodeSwitch, inputs=(("Switch", gate), ("False", off), ("True", on)), members={"input_type": _DATA_TYPES[shape]}, socket="Output", socket_type=shape)
+    shape = widest(off, on)
+    return Expr(kind=bpy.types.GeometryNodeSwitch, inputs=(("Switch", gate), ("False", off), ("True", on)), members={"input_type": DATA_TYPES[shape]}, socket="Output", socket_type=shape)
 
 
-def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, socket_type: Option[SocketType] = Nothing) -> Expr:
+def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, socket_type: Option[type[bpy.types.NodeSocket]] = Nothing) -> Expr:
     """Builds Menu Switch over items in case order, each case operand at the socket of its declaring item, with Boolean outputs following `Output` in case order.
 
     Args:
@@ -201,12 +200,12 @@ def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, socket
     Returns:
         `Output` socket expression of the cases' widest shape.
     """
-    kind = socket_type.default_with(lambda: _widest(*cases.values()))
+    kind = socket_type.default_with(lambda: widest(*cases.values()))
     chosen, selected = (None, selector) if isinstance(selector, MenuItem) else (selector, None)
     return Expr(
         kind=bpy.types.GeometryNodeMenuSwitch,
         inputs=(*(() if chosen is None else (("Menu", chosen),)), *enumerate(cases.values(), 1)),
-        members={"data_type": _DATA_TYPES[kind]},
+        members={"data_type": DATA_TYPES[kind]},
         content=Some(MenuItems(items=tuple(cases), selected=selected)),
         socket="Output",
         socket_type=kind,
@@ -227,7 +226,7 @@ def menus(selector: Term | MenuItem, cases: Mapping[MenuItem, tuple[Term, ...]],
     switch = menu(selector, dict(zip(cases, head, strict=True)))
 
     def chosen(column: tuple[Term, ...]) -> Expr:
-        initial = menu(None, {}, socket_type=Some(_widest(*column)))
+        initial = menu(None, {}, socket_type=Some(widest(*column)))
         return reduce(lambda held, case: switched(switch.at(case[0]), held, case[1]), enumerate(column, 1), initial)
 
     return (switch, *map(chosen, rest))
@@ -244,7 +243,7 @@ def where(gate: Term, on: Term, off: Term) -> Expr:
     Returns:
         `Value`, `Vector`, or `Image` expression by the branches' shape, `off / (1 - gate) + on / gate` under safe division.
     """
-    shape = _widest(on, off)
+    shape = widest(on, off)
     inverse = math("SUBTRACT", 1.0, gate)
     match shape:
         case bpy.types.NodeSocketVector:
@@ -266,7 +265,7 @@ def equal(a: Scalar, b: Scalar, /) -> Expr:
     )
 
 
-def group_input(key: Key, socket_type: SocketType = bpy.types.NodeSocketFloat) -> Expr:
+def group_input(key: Key, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat) -> Expr:
     """Reads one Group Input output of the group being built, by interface item key."""
     return Expr(kind=bpy.types.NodeGroupInput, socket=key, socket_type=socket_type, key=Some(INPUTS))
 
@@ -282,10 +281,10 @@ def rgba(red: Scalar, green: Scalar, blue: Scalar, alpha: Scalar = 1.0) -> Expr:
     return Expr(kind=bpy.types.ShaderNodeCombineColor, inputs=(("Red", red), ("Green", green), ("Blue", blue), *opacity), members={"mode": "RGB"}, socket=0, socket_type=bpy.types.NodeSocketColor)
 
 
-def _widest(*terms: Term) -> SocketType:
+def widest(*terms: Term) -> type[bpy.types.NodeSocket]:
     """Returns the first socket class holding more than a scalar among terms, else the first scalar class other than float, a literal reading as the class that holds it."""
 
-    def of(term: Term) -> SocketType:
+    def of(term: Term) -> type[bpy.types.NodeSocket]:
         match term:
             case Expr(socket_type=shape):
                 return shape
@@ -305,7 +304,7 @@ def _widest(*terms: Term) -> SocketType:
 
 
 def _combined(operation: str, a: Term, b: Term) -> Expr:
-    shape = _widest(a, b)
+    shape = widest(a, b)
     match shape:
         case bpy.types.NodeSocketVector if operation in _BROADCAST:
             return Expr(
@@ -320,17 +319,17 @@ def _combined(operation: str, a: Term, b: Term) -> Expr:
         case bpy.types.NodeSocketColor if operation in {"POWER", "FLOORED_MODULO"}:
             raise TypeError(f"Mix nodes hold no {operation} blend")
         case bpy.types.NodeSocketColor if operation in _BROADCAST:
-            return _mixed(shape, 1.0, _broadcast(a, shape), _broadcast(b, shape), blend=operation)
+            return typed_mix(shape, 1.0, _broadcast(a, shape), _broadcast(b, shape), blend=operation)
         case _:
             return Expr(kind=bpy.types.ShaderNodeMath, inputs=((0, a), (1, b)), members={"operation": operation, "use_clamp": False})
 
 
-def _mixed(socket_type: SocketType, factor: Term, a: Term, b: Term, *, blend: str) -> Expr:
+def typed_mix(socket_type: type[bpy.types.NodeSocket], factor: Term, a: Term, b: Term, *, blend: str) -> Expr:
     shape = bpy.types.NodeSocketFloat if socket_type in _SCALARS else socket_type
-    return Expr(kind=bpy.types.ShaderNodeMix, inputs=tuple(enumerate((factor, a, b))), members={"data_type": _DATA_TYPES[shape], "blend_type": blend}, socket=0, socket_type=shape)
+    return Expr(kind=bpy.types.ShaderNodeMix, inputs=tuple(enumerate((factor, a, b))), members={"data_type": DATA_TYPES[shape], "blend_type": blend}, socket=0, socket_type=shape)
 
 
-def _broadcast(term: Term, socket_type: SocketType) -> Term:
+def _broadcast(term: Term, socket_type: type[bpy.types.NodeSocket]) -> Term:
     match term, socket_type:
         case (int() | float()) as value, bpy.types.NodeSocketVector if not isinstance(value, bool):
             return (value, value, value)
@@ -365,7 +364,7 @@ def inverted(source: Expr, /) -> Expr:
     return Expr(kind=bpy.types.FunctionNodeInvertMatrix, inputs=(("Matrix", source),), socket="Matrix", socket_type=bpy.types.NodeSocketMatrix)
 
 
-def _transform(component: Literal["Translation", "Rotation", "Scale"], value: Expr, /) -> Expr:
+def transform(component: Literal["Translation", "Rotation", "Scale"], value: Expr, /) -> Expr:
     """Transform matrix of one component."""
     return Expr(kind=bpy.types.FunctionNodeCombineTransform, inputs=((component, value),), socket="Transform", socket_type=bpy.types.NodeSocketMatrix)
 
@@ -380,7 +379,7 @@ def directed(direction: Term, source: Expr, /) -> Expr:
     return Expr(kind=bpy.types.FunctionNodeTransformDirection, inputs=(("Direction", direction), ("Transform", source)), socket="Direction", socket_type=bpy.types.NodeSocketVector)
 
 
-def _projected(point: Term, source: Expr, /) -> Expr:
+def projected(point: Term, source: Expr, /) -> Expr:
     """Point projected through a matrix term with perspective division."""
     return Expr(kind=bpy.types.FunctionNodeProjectPoint, inputs=(("Vector", point), ("Transform", source)), socket="Vector", socket_type=bpy.types.NodeSocketVector)
 
@@ -391,7 +390,6 @@ __all__ = [
     "Component",
     "Expr",
     "Scalar",
-    "SocketType",
     "Term",
     "cell",
     "composed",
@@ -404,10 +402,14 @@ __all__ = [
     "menu",
     "menus",
     "mixed",
+    "projected",
     "rgba",
     "switched",
+    "transform",
     "transformed",
+    "typed_mix",
     "vector",
     "where",
+    "widest",
     "xyz",
 ]

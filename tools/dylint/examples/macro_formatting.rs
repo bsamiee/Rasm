@@ -1,4 +1,5 @@
-use core::{fmt, hint::black_box, write as put};
+use core::hint::black_box;
+use core::{fmt, write as put};
 use std::format as render;
 
 // --- [MODELS] --------------------------------------------------------------------------

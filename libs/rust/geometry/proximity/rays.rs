@@ -3,12 +3,10 @@ use core::ops::{Bound, RangeBounds};
 use itertools::Itertools as _;
 use nalgebra::{Isometry3, Point3, Unit, Vector3};
 use nonempty_collections::NEVec;
-use parry3d_f64::{
-    bounding_volume::BoundingVolume as _,
-    math::{Pose, Vector},
-    query::{self, Ray, RayCast as _, RayIntersection, ShapeCastHit, ShapeCastOptions, ShapeCastStatus, Unsupported},
-    shape::{FeatureId, SharedShape, SubShapeId},
-};
+use parry3d_f64::bounding_volume::BoundingVolume as _;
+use parry3d_f64::math::{Pose, Vector};
+use parry3d_f64::query::{self, Ray, RayCast as _, RayIntersection, ShapeCastHit, ShapeCastOptions, ShapeCastStatus, Unsupported};
+use parry3d_f64::shape::{FeatureId, SharedShape, SubShapeId};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator as _};
 use validated::Validated;
 

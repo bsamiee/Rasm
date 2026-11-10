@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.UI.Automation;
@@ -22,9 +23,8 @@ public sealed class SceneView : Drawable {
             Size pixels = Size.Ceiling(logical * scale);
             Bitmap target = held.Filter(bitmap => bitmap.Size == pixels).IfNone(() => Allocated(pixels));
             using (BitmapData data = target.Lock()) {
-                _ = data.Flipped
-                    ? toSeq(Range(0, pixels.Height)).ForAll(row => surface.ReadPixels(format.WithSize(pixels.Width, 1), data.Data + ((pixels.Height - 1 - row) * data.ScanWidth), data.ScanWidth, 0, row))
-                    : surface.ReadPixels(format.WithSize(pixels.Width, pixels.Height), data.Data, data.ScanWidth, 0, 0);
+                (int reads, int rows, int last) = data.Flipped ? (pixels.Height, 1, pixels.Height - 1) : (1, pixels.Height, 0);
+                _ = Range(0, reads).ForAll(row => surface.ReadPixels(format.WithSize(pixels.Width, rows), data.Data + ((last - row) * data.ScanWidth), data.ScanWidth, 0, row));
             }
             graphics.ImageInterpolation = ImageInterpolation.None;
             graphics.DrawImage(target, new RectangleF(PointF.Empty, logical));
@@ -62,7 +62,7 @@ public sealed class SceneView : Drawable {
     private readonly SceneHost host;
     private readonly StyleSheet sheet;
     private readonly Action<Error> faulted;
-    private readonly SKImageInfo format = Projection.Format();
+    private readonly SKImageInfo format;
     private readonly Backing backing;
     private readonly PixelLayout layout = new();
     private readonly UITimer frames;
@@ -72,6 +72,10 @@ public sealed class SceneView : Drawable {
 
     public SceneView(StyleSheet sheet, TimeProvider clock, Duration frame, Action<Error> faulted, Seq<SKTypeface> embedded = default) {
         (this.sheet, this.faulted) = (sheet, faulted);
+        using (Bitmap probe = new(1, 1, PixelFormat.Format32bppRgba))
+        using (BitmapData data = probe.Lock())
+            format = new SKImageInfo(0, 0, (data.TranslateArgbToData(Colors.Red.ToArgb()) & 0xFF) is 0xFF ? SKColorType.Rgba8888 : SKColorType.Bgra8888,
+                data.PremultipliedAlpha ? SKAlphaType.Premul : SKAlphaType.Unpremul, SKColorSpace.CreateSrgb());
         backing = new Backing(format);
         host = new SceneHost(new SceneBackend(format, static info => SKSurface.Create(info) is { } made ? made : new UIFault(info, UIReason.Refused), Invalidated, Linked) { Applied = Applied }, clock, embedded);
         controls = new PlacedControls<Placed>(Added, Moved, Removed);
@@ -171,7 +175,7 @@ public sealed class SceneView : Drawable {
         box.LostFocus += (_, _) => Edited(path, EditPhase.Commit, box.Text);
         box.KeyDown += (_, args) => {
             args.Handled = args.Key is Keys.Enter;
-            _ = args.Handled ? Edited(path, EditPhase.Commit, box.Text) : unit;
+            if (args.Handled) _ = Edited(path, EditPhase.Commit, box.Text);
         };
         return box;
     }
@@ -229,7 +233,7 @@ public sealed class SceneView : Drawable {
 
     protected override void OnSizeChanged(EventArgs e) {
         base.OnSizeChanged(e);
-        _ = Loaded ? Run(Rehosted) : unit;
+        if (Loaded) _ = Run(Rehosted);
     }
 
     protected override void OnThemeChanged(EventArgs e) {
@@ -249,7 +253,7 @@ public sealed class SceneView : Drawable {
 
     protected override void OnMouseDown(MouseEventArgs e) {
         e.Handled = Projection.Pointed(e, EditPhase.Begin, 1, SKPoint.Empty).Exists(Received);
-        _ = e.Handled && e.Buttons.HasFlag(MouseButtons.Primary) && CaptureMouse();
+        if (e.Handled && e.Buttons.HasFlag(MouseButtons.Primary)) _ = CaptureMouse();
         base.OnMouseDown(e);
     }
 
@@ -275,7 +279,7 @@ public sealed class SceneView : Drawable {
     }
 
     protected override void OnMouseWheel(MouseEventArgs e) {
-        e.Handled = Received(Projection.Scrolled(e, SKPoint.Empty, SystemFonts.Default().LineHeight));
+        e.Handled = Received(new InputEvent.Scroll(Projection.At(e.Location, SKPoint.Empty), Edit.Of(EditPhase.Step, new Vector2(-e.Delta.Width, -e.Delta.Height) * SystemFonts.Default().LineHeight)) { Modifiers = Projection.Modifiers(e.Modifiers) });
         base.OnMouseWheel(e);
     }
 

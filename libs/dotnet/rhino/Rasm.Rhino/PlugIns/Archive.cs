@@ -47,28 +47,3 @@ public record ArchiveFrame<T>(
     private IO<Option<ArchivableDictionary>> Newer(RhinoDoc doc) =>
         IO.lift(() => Optional(doc.RuntimeData.TryGetValue<ArchivableDictionary>(this)));
 }
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-internal static class DocumentArchive {
-
-    // --- [CALLBACKS]
-
-    public static IO<bool> ShouldWrite(Seq<DocumentFrame> frames, FileWriteOptions options) =>
-        IO.lift(() => Optional(options.RhinoDoc).Filter(_ => !options.WriteGeometryOnly && options.WriteUserData && !options.WriteSelectedObjectsOnly))
-            .Bind(saved => saved.Match(
-                Some: doc => Products.Each(frames.Map(frame => frame.Filled(doc, options))).Map(static filled => filled.Exists(static held => held)),
-                None: static () => IO.pure(value: false)));
-
-    public static IO<Unit> Write(Seq<DocumentFrame> frames, RhinoDoc doc, BinaryArchiveWriter writer, FileWriteOptions options) =>
-        frames.TraverseM(frame => frame.Write(doc, writer, options)).As().Map(unit);
-
-    public static IO<Unit> Read(Seq<DocumentFrame> frames, RhinoDoc doc, BinaryArchiveReader reader, FileReadOptions options) =>
-        IO.lift(() => options.OpenMode || options.NewMode)
-            .Bind(opened => when(opened, frames.TraverseM(frame => frame.Read(doc, reader)).As().Map(unit)).As());
-
-    // --- [SAVES]
-
-    public static IO<Unit> Rewrites =>
-        Subscriptions.On<DocumentSaveEventArgs>(static h => RhinoDoc.BeginSaveDocument += h, static h => RhinoDoc.BeginSaveDocument -= h).Documents().Attach(static args => Optional(args.Document).Traverse(ArchivableDictionaries.Rewrite).As().Map(unit));
-}

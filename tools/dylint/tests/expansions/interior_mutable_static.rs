@@ -1,7 +1,5 @@
-use core::{
-    cell::Cell,
-    sync::atomic::{AtomicU32, Ordering},
-};
+use core::cell::Cell;
+use core::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, OnceLock};
 
 use clap::Parser;

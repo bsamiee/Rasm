@@ -1,8 +1,6 @@
-use core::{
-    any::Any,
-    fmt::{self, Display},
-    hint::black_box,
-};
+use core::any::Any;
+use core::fmt::{self, Display};
+use core::hint::black_box;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

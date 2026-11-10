@@ -8,11 +8,11 @@
 { "plugins": ["@rasm/nx-typescript", { "plugin": "@rasm/nx-vite", "options": { "outputPath": ".artifacts" } }] }
 ```
 
-| [INDEX] | [OPTION]     | [UNSET]                                | [SET]                                                                       |
-| :-----: | :----------- | :------------------------------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `outputPath` | Storybook in `<root>/storybook-static` | Storybook in `<outputPath>/storybook/<project name>` through `--output-dir` |
+| [INDEX] | [OPTION]     | [UNSET]                                                                     | [SET]                                                                                                                                                    |
+| :-----: | :----------- | :-------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `outputPath` | Vite in the config's `build.outDir`, Storybook in `<root>/storybook-static` | Vite in `<outputPath>/vite/<project name>` through `--outDir --emptyOutDir`, Storybook in `<outputPath>/storybook/<project name>` through `--output-dir` |
 
-- `outputPath` exists because Storybook takes its output folder from `--output-dir` alone; every Vite and Vitest folder comes from the resolved config
+- `outputPath` states the build folder once for every project, so no config or library names it; each environment's folder and every Vitest folder come from the config resolved with that `build.outDir`
 - List it after `@rasm/nx-typescript`, so its `check--tsc` addition for Cloudflare projects merges onto the compiler's target
 - Built on the official `@nx/vite`, `@nx/vitest`, and `@nx/storybook` 24.0.5 logic without their targets outside the verb set: `@nx/vite` always adds `build-deps`, `watch-deps`, `dev`, the deprecated `serve`, `preview`, and `serve-static` (an `@nx/web` executor), `@nx/vitest` adds `test` to any config holding a `test` field whether or not a test file exists, and `@nx/storybook` peers Storybook below 11 and adds `storybook`, `static-storybook`, and `test-storybook`
 

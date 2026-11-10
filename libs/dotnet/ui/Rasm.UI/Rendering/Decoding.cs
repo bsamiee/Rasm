@@ -121,22 +121,6 @@ internal sealed class Decoding {
 
     // --- [KEYS]
 
-    internal static ArtKey Keyed(LayoutNode layout, GlyphSource source) {
-        SKColorF under = layout.Inner.Background;
-        Theme theme = layout.Cascade.Theme;
-        return source.Animated
-            ? new ArtKey(source, source.Shaded(under), None, [], [])
-            : new ArtKey(source, source.Shaded(under),
-                source.Tinted ? None : theme.Color(layout.Style.Text, layout.Style).Map(resting => (SKColor)theme.Legible(layout.Style, under, resting, text: false)),
-                toHashMap(toSeq(source.Classes.AsIterable()).Choose(pair => theme.Color(pair.Value, layout.Style).Map(resolved => (pair.Key, (SKColor)resolved)))), theme.Chrome);
-    }
-
-    internal static Seq<GlyphSource> Sources(LayoutNode layout) =>
-        (layout.View is View.Glyph glyph ? Seq(glyph.Art) : [])
-        + layout.Style.Fills.Bind(static fill => fill.Arts)
-        + layout.Style.Filters.Bind(static filter => filter.Arts)
-        + layout.View.Traced.ToSeq().Bind(static figure => figure.Art).Map(static marker => marker.Art);
-
     internal static (ImageSource.Encoded Source, SKSizeI Pixels) Requested(LayoutNode layout, View.Image image, ImageSource.Encoded encoded, float scale) =>
         (encoded, Capture.Pixels(image.Fit.Fitted(layout.ContentBox, new SKSize(encoded.Info.Width, encoded.Info.Height)).Size, scale));
 

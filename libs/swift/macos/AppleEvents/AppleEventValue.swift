@@ -80,9 +80,9 @@ extension AppleEventValue: Codable {
 
     public init(from decoder: any Decoder) throws {
         func tagged(_ object: [String: JSONValue]) throws -> Self {
-            let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
+            let fields = try decoder.container(keyedBy: Key.self)
             func code() throws -> DescType {
-                let code: String = try fields.decode(String.self, forKey: .type)
+                let code = try fields.decode(String.self, forKey: .type)
                 guard let type = DescType(sdef: code) else { throw DecodingError.dataCorruptedError(forKey: .type, in: fields, debugDescription: "\(code) is no four-character code") }
                 return type
             }
@@ -116,13 +116,13 @@ extension AppleEventValue: Codable {
 
     public func encode(to encoder: any Encoder) throws {
         func tagged(_ tag: Tag, _ fill: (inout KeyedEncodingContainer<Key>) throws -> Void) throws {
-            var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+            var fields = encoder.container(keyedBy: Key.self)
             try fields.encode(tag, forKey: .tag)
             try fill(&fields)
         }
         switch self {
             case .null:
-                var value: any SingleValueEncodingContainer = encoder.singleValueContainer()
+                var value = encoder.singleValueContainer()
                 try value.encodeNil()
             case .bool(let value): try value.encode(to: encoder)
             case .number(let value): try value.encode(to: encoder)
@@ -164,12 +164,12 @@ extension AppleEventValue {
             Double(exactly: descriptor.data.bytes.load(fromByteOffset: 0, as: Value.self)).map(Self.number) ?? opaque()
         }
         func specifier() -> Self? {
-            guard let want: NSAppleEventDescriptor = descriptor.forKeyword(AEKeyword(keyAEDesiredClass)),
+            guard let want = descriptor.forKeyword(AEKeyword(keyAEDesiredClass)),
                 let form = descriptor.forKeyword(AEKeyword(keyAEKeyForm)).flatMap({ form in KeyForm.allCases.first { candidate in candidate.code == form.enumCodeValue } }),
                 let seld = descriptor.forKeyword(AEKeyword(keyAEKeyData)),
                 let from = descriptor.forKeyword(AEKeyword(keyAEContainer))
             else { return nil }
-            let container: FourCharCode = from.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication)
+            let container = from.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication)
             return .specifier(
                 want: ScriptingDictionary.term(want.typeCodeValue, in: [dictionary.types, dictionary.properties]).name,
                 form: form,
@@ -178,8 +178,8 @@ extension AppleEventValue {
             )
         }
         func record() -> Self {
-            let scope: [ScriptingDictionary.Scope] = dictionary.scope(descriptor.forKeyword(AEKeyword(pClass))?.typeCodeValue ?? descriptor.descriptorType)
-            let fields: [(String, Self)] = (1..<descriptor.numberOfItems + 1).compactMap { index in
+            let scope = dictionary.scope(descriptor.forKeyword(AEKeyword(pClass))?.typeCodeValue ?? descriptor.descriptorType)
+            let fields = (1..<descriptor.numberOfItems + 1).compactMap { index in
                 descriptor.atIndex(index).map { value in (ScriptingDictionary.term(descriptor.keywordForDescriptor(at: index), in: scope).name, Self(value, in: dictionary)) }
             }
             return .record(type: descriptor.descriptorType, fields: Dictionary(fields) { first, _ in first })
@@ -238,11 +238,11 @@ extension AppleEventValue {
             case .list(let items):
                 return try traverse(items) { item in encoded(item, as: types) }.get().reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: list.numberOfItems + 1) }
             case .record(let type, let fields):
-                let named: Self? = fields.sorted { left, right in left.key < right.key }.first { key, _ in
+                let named = fields.sorted { left, right in left.key < right.key }.first { key, _ in
                     ScriptingDictionary.resolve(key, in: [dictionary.properties])[case: \.success]?.code == FourCharCode(pClass)
                 }?.value
-                let record: NSAppleEventDescriptor = try dictionary.record(fields, in: dictionary.scope(named.flatMap(dictionary.classCode(of:)) ?? type), into: .record())
-                guard let typed: NSAppleEventDescriptor = record.coerce(toDescriptorType: type) else { throw unencodable(type) }
+                let record = try dictionary.record(fields, in: dictionary.scope(named.flatMap(dictionary.classCode(of:)) ?? type), into: .record())
+                guard let typed = record.coerce(toDescriptorType: type) else { throw unencodable(type) }
                 return typed
             case .type(let name):
                 return try NSAppleEventDescriptor(typeCode: ScriptingDictionary.resolve(name, in: [dictionary.types, dictionary.properties]).get().code)
@@ -273,9 +273,9 @@ extension AppleEventValue {
                         default:
                             encoded(seld, as: ["integer"])
                     }
-                let (desired, data, container): (ScriptingDictionary.Term, NSAppleEventDescriptor, NSAppleEventDescriptor) =
+                let (desired, data, container) =
                     try combine(ScriptingDictionary.resolve(want, in: [dictionary.types, dictionary.properties]), key, encoded(from)).get()
-                guard var containerDesc: AEDesc = unsafe container.aeDesc?.pointee, var keyDesc: AEDesc = unsafe data.aeDesc?.pointee,
+                guard var containerDesc = unsafe container.aeDesc?.pointee, var keyDesc = unsafe data.aeDesc?.pointee,
                     let specifier = unsafe NSAppleEventDescriptor(made: { made in unsafe CreateObjSpecifier(desired.code, &containerDesc, form.code, &keyDesc, false, made) })
                 else { throw unencodable(DescType(typeObjectSpecifier)) }
                 return specifier
@@ -288,7 +288,7 @@ extension AppleEventValue {
 
 extension NSAppleEventDescriptor {
     convenience init?(made create: (UnsafeMutablePointer<AEDesc>) -> OSErr) {
-        var made: AEDesc = unsafe AEDesc()
+        var made = unsafe AEDesc()
         guard unsafe create(&made) == noErr else { return nil }
         unsafe self.init(aeDescNoCopy: &made)
     }

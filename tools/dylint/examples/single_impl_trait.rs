@@ -1,5 +1,6 @@
 use core::hint::black_box;
-use std::{collections::BTreeMap, sync::Arc};
+use std::collections::BTreeMap;
+use std::sync::Arc;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

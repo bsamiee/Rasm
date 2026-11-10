@@ -1,8 +1,6 @@
 use core::hint::black_box;
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::io;
+use std::path::{Path, PathBuf};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

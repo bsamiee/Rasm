@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 import datetime
+from functools import reduce
 import math
 import re
 import sys
@@ -28,7 +29,6 @@ type Rgb = tuple[Finite, Finite, Finite]
 type Count = Annotated[int, msgspec.Meta(ge=1)]
 type Name = Annotated[str, msgspec.Meta(min_length=1)]
 type Lens = tuple[object, ...]
-type _Parent = tuple[msgspec.Struct, MemberDescriptorType] | tuple[tuple[object, ...], int]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -116,12 +116,12 @@ def words(name: str, /) -> tuple[str, ...]:
 # --- [LENSES]
 
 
-def _stepped(value: object, step: object) -> Option[tuple[object, _Parent]]:
+def _stepped(value: object, step: object) -> Option[tuple[object, Callable[[object], object]]]:
     match step, value:
-        case MemberDescriptorType() as field, msgspec.Struct() if isinstance(value, field.__objclass__):
-            return Some((field.__get__(value), (value, field)))
-        case int(index), tuple() if 0 <= index < len(value):
-            return Some((value[index], (value, index)))
+        case MemberDescriptorType() as field, msgspec.Struct() as owner if isinstance(owner, field.__objclass__):
+            return Some((field.__get__(owner), lambda new: msgspec.structs.replace(owner, **{field.__name__: new})))
+        case int(index), tuple(items) if 0 <= index < len(items):
+            return Some((items[index], lambda new: (*items[:index], new, *items[index + 1 :])))
         case _:
             return Nothing
 
@@ -139,32 +139,17 @@ def focused[V](kind: type[V], value: object, lens: Lens) -> Option[V]:
 
 def amended[T: msgspec.Struct, V](kind: type[V], record: T, lens: Lens, change: Callable[[V], object]) -> Option[T]:
     """Returns record with the `kind` value a lens reaches replaced by its change, every enclosing struct and tuple rebuilt, `Nothing` where a step or the value's class misses."""
-    match lens:
-        case ():
-            record_type = type(record)
-            return Some(changed) if isinstance(record, kind) and isinstance(changed := change(record), record_type) else Nothing
-        case (MemberDescriptorType() as root, *rest) if isinstance(record, root.__objclass__):
-            value: object = root.__get__(record)
-        case _:
-            return Nothing
-    parents: list[_Parent] = []
-    for step in rest:
+    value: object = record
+    rebuilds: list[Callable[[object], object]] = []
+    for step in lens:
         match _stepped(value, step):
             case Option(tag="none"):
                 return Nothing
-            case Option(some=(reached, edge)):
+            case Option(some=(reached, rebuild)):
                 value = reached
-                parents.append(edge)
-    if not isinstance(value, kind):
-        return Nothing
-    value = change(value)
-    for edge in reversed(parents):
-        match edge:
-            case (msgspec.Struct() as owner, MemberDescriptorType() as field):  # type: ignore[unreachable]
-                value = msgspec.structs.replace(owner, **{field.__name__: value})
-            case (tuple(items), int(index)):  # type: ignore[unreachable]
-                value = (*items[:index], value, *items[index + 1 :])
-    return Some(msgspec.structs.replace(record, **{root.__name__: value}))
+                rebuilds.append(rebuild)
+    record_type = type(record)
+    return Some(rebuilt) if isinstance(value, kind) and isinstance(rebuilt := reduce(lambda inner, rebuild: rebuild(inner), reversed(rebuilds), change(value)), record_type) else Nothing
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

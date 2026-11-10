@@ -13,16 +13,10 @@
         "./package.json": "./package.json"
     },
     "files": [ ".build/out/Products/Release/nx-apple-analyzer" ],
-    "scripts": {
-        "prepare": "swift build --configuration release --product nx-apple-analyzer"
-    },
     "os": [ "darwin" ],
     "cpu": [ "arm64" ],
     "publishConfig": {
         "access": "public",
         "executableFiles": [ "./.build/out/Products/Release/nx-apple-analyzer" ]
-    },
-    "nx": {
-        "includedScripts": []
     }
 }

@@ -1,17 +1,18 @@
-use std::{collections::HashSet, io};
+use std::collections::HashSet;
+use std::io;
 
 use hayro_syntax::object::dict::keys::{ACRO_FORM, ANNOTS, F, FIELDS, FT, P, RECT, ROOT, SIG_FLAGS, SUBTYPE, T, TYPE, V};
-use lopdf::{IncrementalDocument, Object, ObjectId, decode_text_string, dictionary, text_string, xref::XrefType};
-use pdf_oxide::{
-    crypto::{self, HashAlgorithm},
-    signatures::{DigestAlgorithm, PadesLevel, RevocationMaterial, SignOptions, SignatureSubFilter, SigningCredentials, sign_pdf_bytes_pades},
-};
-use rasn::{der, types::Oid};
-use rasn_cms::{
-    AlgorithmIdentifier, SignedData,
-    tsp::{MessageImprint, PkiStatus, TST_INFO, TimeStampReq, TimeStampResp, TstInfo},
-};
-use reqwest::{Url, blocking::Client, header::CONTENT_TYPE};
+use lopdf::xref::XrefType;
+use lopdf::{IncrementalDocument, Object, ObjectId, decode_text_string, dictionary, text_string};
+use pdf_oxide::crypto::{self, HashAlgorithm};
+use pdf_oxide::signatures::{DigestAlgorithm, PadesLevel, RevocationMaterial, SignOptions, SignatureSubFilter, SigningCredentials, sign_pdf_bytes_pades};
+use rasn::der;
+use rasn::types::Oid;
+use rasn_cms::tsp::{MessageImprint, PkiStatus, TST_INFO, TimeStampReq, TimeStampResp, TstInfo};
+use rasn_cms::{AlgorithmIdentifier, SignedData};
+use reqwest::Url;
+use reqwest::blocking::Client;
+use reqwest::header::CONTENT_TYPE;
 
 use crate::{Document, PdfError, entry, resolved};
 

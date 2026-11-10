@@ -159,7 +159,7 @@ public sealed class DataFreeSmartEnumAnalyzer : DiagnosticAnalyzer {
         Categories.Thinktecture,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "`[SmartEnum]` items hold a key or data, and code reads `[SmartEnum<string>]` member-name keys (key, `Get`, `TryGet`, `Validate`, `Parse`).",
+        "`[SmartEnum]` items hold a key or data, and code in the assembly reads member-name keys (key, `Get`, `TryGet`, `Validate`, `Parse`) of a `[SmartEnum<string>]` no other assembly can read.",
         Link("RASM1105"),
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -217,8 +217,9 @@ public sealed class DataFreeSmartEnumAnalyzer : DiagnosticAnalyzer {
                 OperationKind.PropertyReference,
                 OperationKind.FieldReference);
             start.RegisterCompilationEndAction(end => {
+                Func<ISymbol, bool> hidden = Hidden(end.Compilation);
                 foreach (KeyValuePair<INamedTypeSymbol, (bool Plain, bool Items)> pair in free.Where(static pair => pair.Value is (true, true)))
-                    if (Form(pair.Key) is (var keyedForm, _) && (!keyedForm || !read.ContainsKey(pair.Key)))
+                    if (Form(pair.Key) is (var keyedForm, _) && (!keyedForm || (!read.ContainsKey(pair.Key) && hidden(pair.Key))))
                         end.ReportDiagnostic(Diagnostic.Create(Rule, pair.Key.Locations[0], pair.Key.Name, keyedForm ? "keys items by unread member names" : "holds data-free items"));
             });
         });
@@ -237,7 +238,7 @@ public sealed class HostPickingUnionAnalyzer : DiagnosticAnalyzer {
         Categories.Thinktecture,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "`[Union]` types with every `Switch` or `Map` lambda one lifted or direct host call or construction over case data.",
+        "`[Union]` types no other assembly can read, with every `Switch` or `Map` lambda one lifted or direct host call or construction over case data.",
         Link("RASM1106"),
         WellKnownDiagnosticTags.CompilationEnd);
 
@@ -290,7 +291,8 @@ public sealed class HostPickingUnionAnalyzer : DiagnosticAnalyzer {
                 },
                 OperationKind.Invocation);
             start.RegisterCompilationEndAction(end => {
-                foreach (KeyValuePair<INamedTypeSymbol, bool> pair in picked.Where(static pair => pair.Value))
+                Func<ISymbol, bool> hidden = Hidden(end.Compilation);
+                foreach (KeyValuePair<INamedTypeSymbol, bool> pair in picked.Where(pair => pair.Value && hidden(pair.Key)))
                     end.ReportDiagnostic(Diagnostic.Create(Rule, pair.Key.Locations[0], pair.Key.Name));
             });
         });

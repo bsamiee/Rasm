@@ -2,157 +2,171 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/discarded_error_source.rs
 ---
-error: `map_err` replaces `ParseIntError` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:33:60
+error: `parse` passes its parameters unchanged to `<str>::parse`
+  --> tools/dylint/examples/discarded_error_source.rs:29:1
    |
-33 | fn named(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_error| Failure::Missing) }
+29 | fn parse(text: &str) -> Result<u16, ParseIntError> { text.parse() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/discarded_error_source.rs:29:54
+   |
+29 | fn parse(text: &str) -> Result<u16, ParseIntError> { text.parse() }
+   |                                                      ^^^^^^^^^^^^
+   = help: call `<str>::parse` at each call site of `parse` and delete `parse`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `map_err` replaces `ParseIntError` without reading it
+  --> tools/dylint/examples/discarded_error_source.rs:31:60
+   |
+31 | fn named(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_error| Failure::Missing) }
    |                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `ParseIntError` as `#[source]` of the error the closure builds
    = note: `#[deny(discarded_error_source)]` on by default
 
 error: `map_err` replaces `ParseIntError` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:35:62
+  --> tools/dylint/examples/discarded_error_source.rs:33:62
    |
-35 | fn ignored(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_| Failure::Missing) }
+33 | fn ignored(text: &str) -> Result<u16, Failure> { parse(text).map_err(|_| Failure::Missing) }
    |                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: `or_else` replaces `ParseIntError` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:37:62
+  --> tools/dylint/examples/discarded_error_source.rs:35:62
    |
-37 | fn retried(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Err(Failure::Missing)) }
+35 | fn retried(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Err(Failure::Missing)) }
    |                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: `or_else` replaces `ParseIntError` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:39:68
+  --> tools/dylint/examples/discarded_error_source.rs:37:68
    |
-39 | fn retried_named(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_ignored| Err(Failure::Missing)) }
+37 | fn retried_named(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_ignored| Err(Failure::Missing)) }
    |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `ParseIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `Error` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:41:104
+  --> tools/dylint/examples/discarded_error_source.rs:39:104
    |
-41 | ...e::<u16>().map_err(anyhow::Error::from).map_err(|anyhow::Error { .. }| Failure::Missing) }
+39 | ...e::<u16>().map_err(anyhow::Error::from).map_err(|anyhow::Error { .. }| Failure::Missing) }
    |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `Error` as `#[source]` of the error the closure builds
 
 error: error `anyhow::Error` is a report that erases each failure's type
-  --> tools/dylint/examples/discarded_error_source.rs:41:83
+  --> tools/dylint/examples/discarded_error_source.rs:39:83
    |
-41 | fn destructured(text: &str) -> Result<u16, Failure> { text.parse::<u16>().map_err(anyhow::Error::from).map_err(|anyhow::Error { .. }...
+39 | fn destructured(text: &str) -> Result<u16, Failure> { text.parse::<u16>().map_err(anyhow::Error::from).map_err(|anyhow::Error { .. }...
    |                                                                                   ^^^^^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
    = note: `#[deny(untyped_error)]` on by default
 
 error: `map_err` replaces `String` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:49:76
+  --> tools/dylint/examples/discarded_error_source.rs:47:76
    |
-49 | fn text_dropped(name: &str) -> Result<ColorChoice, Failure> { name.parse().map_err(|_: String| Failure::Missing) }
+47 | fn text_dropped(name: &str) -> Result<ColorChoice, Failure> { name.parse().map_err(|_: String| Failure::Missing) }
    |                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold the text or the subject it names as a field the message prints
 
 error: `or_else` turns `ParseIntError` into success
-  --> tools/dylint/examples/discarded_error_source.rs:55:64
+  --> tools/dylint/examples/discarded_error_source.rs:53:64
    |
-55 | fn recovered(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Ok(0)) }
+53 | fn recovered(text: &str) -> Result<u16, Failure> { parse(text).or_else(|_| Ok(0)) }
    |                                                                ^^^^^^^^^^^^^^^^^^
    |
    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
    = note: `#[deny(discarded_error)]` on by default
 
 error: `map_err` replaces `TryFromIntError` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:81:10
+  --> tools/dylint/examples/discarded_error_source.rs:79:10
    |
-81 |         .map_err(|_| Failure::Missing)
+79 |         .map_err(|_| Failure::Missing)
    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `TryFromIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `TryFromIntError` without reading it
-  --> tools/dylint/examples/discarded_error_source.rs:92:10
+  --> tools/dylint/examples/discarded_error_source.rs:90:10
    |
-92 |         .map_err(|_| Failure::Missing)
+90 |         .map_err(|_| Failure::Missing)
    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: hold `TryFromIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `TryFromIntError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:105:10
+   --> tools/dylint/examples/discarded_error_source.rs:103:10
     |
-105 |         .map_err(|_| Failure::Missing)
+103 |         .map_err(|_| Failure::Missing)
     |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `TryFromIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `TryFromIntError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:108:73
+   --> tools/dylint/examples/discarded_error_source.rs:106:73
     |
-108 | fn two_sided(value: i32) -> Result<u16, Failure> { u16::try_from(value).map_err(|_| Failure::Missing) }
+106 | fn two_sided(value: i32) -> Result<u16, Failure> { u16::try_from(value).map_err(|_| Failure::Missing) }
     |                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `TryFromIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `TryFromIntError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:110:93
+   --> tools/dylint/examples/discarded_error_source.rs:108:93
     |
-110 | fn nonzero(value: NonZero<i32>) -> Result<NonZero<u16>, Failure> { NonZero::try_from(value).map_err(|_| Failure::Missing) }
+108 | fn nonzero(value: NonZero<i32>) -> Result<NonZero<u16>, Failure> { NonZero::try_from(value).map_err(|_| Failure::Missing) }
     |                                                                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `TryFromIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `TryFromIntError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:112:97
+   --> tools/dylint/examples/discarded_error_source.rs:110:97
     |
-112 | fn opaque(read: impl FnOnce() -> Result<u16, TryFromIntError>) -> Result<u16, Failure> { read().map_err(|_| Failure::Missing) }
+110 | fn opaque(read: impl FnOnce() -> Result<u16, TryFromIntError>) -> Result<u16, Failure> { read().map_err(|_| Failure::Missing) }
     |                                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `TryFromIntError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `Reserved` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:114:75
+   --> tools/dylint/examples/discarded_error_source.rs:112:75
     |
-114 | fn reserved(value: Result<u16, Reserved>) -> Result<u16, Failure> { value.map_err(|_| Failure::Missing) }
+112 | fn reserved(value: Result<u16, Reserved>) -> Result<u16, Failure> { value.map_err(|_| Failure::Missing) }
     |                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `Reserved` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `LayoutError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:118:112
+   --> tools/dylint/examples/discarded_error_source.rs:116:112
     |
-118 | ...> { Layout::from_size_align(size, align).map_err(|LayoutError { .. }| Failure::Missing) }
+116 | ...> { Layout::from_size_align(size, align).map_err(|LayoutError { .. }| Failure::Missing) }
     |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `LayoutError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `LayoutError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:120:106
+   --> tools/dylint/examples/discarded_error_source.rs:118:106
     |
-120 | ...or>) -> Result<Layout, Failure> { read().map_err(|LayoutError { .. }| Failure::Missing) }
+118 | ...or>) -> Result<Layout, Failure> { read().map_err(|LayoutError { .. }| Failure::Missing) }
     |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `LayoutError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `OpenError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:126:35
+   --> tools/dylint/examples/discarded_error_source.rs:124:35
     |
-126 |         Err(OpenError::default()).map_err(|_| Failure::Missing),
+124 |         Err(OpenError::default()).map_err(|_| Failure::Missing),
     |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `OpenError` as `#[source]` of the error the closure builds
 
 error: `map_err` replaces `DroppedError` without reading it
-   --> tools/dylint/examples/discarded_error_source.rs:127:27
+   --> tools/dylint/examples/discarded_error_source.rs:125:27
     |
-127 |         Err(DroppedError).map_err(|_| Failure::Missing),
+125 |         Err(DroppedError).map_err(|_| Failure::Missing),
     |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: hold `DroppedError` as `#[source]` of the error the closure builds

@@ -3,121 +3,121 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_default_field_values.rs
 ---
 error: `static SEQUENCE` holds interior mutable `Atomic<u8>`
-  --> tools/dylint/examples/manual_default_field_values.rs:17:8
+  --> tools/dylint/examples/manual_default_field_values.rs:15:8
    |
-17 | static SEQUENCE: AtomicU8 = AtomicU8::new(0);
+15 | static SEQUENCE: AtomicU8 = AtomicU8::new(0);
    |        ^^^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
    = note: `#[deny(interior_mutable_static)]` on by default
 
 error: `Default` for `Retry` builds each field from a constant
-  --> tools/dylint/examples/manual_default_field_values.rs:40:28
+  --> tools/dylint/examples/manual_default_field_values.rs:38:28
    |
-40 |     fn default() -> Self { Self { attempts: 3, label: String::new() } }
+38 |     fn default() -> Self { Self { attempts: 3, label: String::new() } }
    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: declare `attempts: u8 = 3` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
    = note: `#[deny(manual_default_field_values)]` on by default
 
 error: `Default` for `Config` builds each field from its type's default through `new`
-  --> tools/dylint/examples/manual_default_field_values.rs:65:28
+  --> tools/dylint/examples/manual_default_field_values.rs:63:28
    |
-65 |     fn default() -> Self { Self::new() }
+63 |     fn default() -> Self { Self::new() }
    |                            ^^^^^^^^^^^
    |
 note: fields built here
-  --> tools/dylint/examples/manual_default_field_values.rs:61:24
+  --> tools/dylint/examples/manual_default_field_values.rs:59:24
    |
-61 |     fn new() -> Self { Self { depth: 0, name: String::default(), enabled: false, label: "", parent: None } }
+59 |     fn new() -> Self { Self { depth: 0, name: String::default(), enabled: false, label: "", parent: None } }
    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: derive `Default` and delete the impl
 
 error: `Default` for `Limits` builds each field from a constant through `new`
-  --> tools/dylint/examples/manual_default_field_values.rs:82:28
+  --> tools/dylint/examples/manual_default_field_values.rs:80:28
    |
-82 |     fn default() -> Self { Self::new() }
+80 |     fn default() -> Self { Self::new() }
    |                            ^^^^^^^^^^^
    |
 note: fields built here
-  --> tools/dylint/examples/manual_default_field_values.rs:78:24
+  --> tools/dylint/examples/manual_default_field_values.rs:76:24
    |
-78 |     fn new() -> Self { Self { depth: 4, name: String::new(), enabled: false, label: "network", parent: None } }
+76 |     fn new() -> Self { Self { depth: 4, name: String::new(), enabled: false, label: "network", parent: None } }
    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: declare `depth: u8 = 4`, `label: &'static str = "network"` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
 
 error: `Default` for `Attributed` builds each field from a constant
-  --> tools/dylint/examples/manual_default_field_values.rs:92:28
+  --> tools/dylint/examples/manual_default_field_values.rs:90:28
    |
-92 |     fn default() -> Self { Self { attempts: 3 } }
+90 |     fn default() -> Self { Self { attempts: 3 } }
    |                            ^^^^^^^^^^^^^^^^^^^^
    |
    = help: declare `attempts: u8 = 3` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
 
 error: `Default` for `Custom` builds each field from a constant through `fresh`
-   --> tools/dylint/examples/manual_default_field_values.rs:192:28
+   --> tools/dylint/examples/manual_default_field_values.rs:190:28
     |
-192 |     fn default() -> Self { Self::fresh() }
+190 |     fn default() -> Self { Self::fresh() }
     |                            ^^^^^^^^^^^^^
     |
 note: fields built here
-   --> tools/dylint/examples/manual_default_field_values.rs:188:26
+   --> tools/dylint/examples/manual_default_field_values.rs:186:26
     |
-188 |     fn fresh() -> Self { Self { number: Number::new() } }
+186 |     fn fresh() -> Self { Self { number: Number::new() } }
     |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: declare `number: Number = Number::new()` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
 
 error: `Default` for `Nested` builds each field from a constant
-   --> tools/dylint/examples/manual_default_field_values.rs:212:28
+   --> tools/dylint/examples/manual_default_field_values.rs:210:28
     |
-212 |     fn default() -> Self { Self { values: (Number::new(), 0) } }
+210 |     fn default() -> Self { Self { values: (Number::new(), 0) } }
     |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: declare `values: (Number, u8) = (Number::new(), 0)` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
 
 error: `Default` for `Constant` builds each field from a constant
-   --> tools/dylint/examples/manual_default_field_values.rs:378:28
+   --> tools/dylint/examples/manual_default_field_values.rs:376:28
     |
-378 |     fn default() -> Self { Self { attempts: 3 } }
+376 |     fn default() -> Self { Self { attempts: 3 } }
     |                            ^^^^^^^^^^^^^^^^^^^^
     |
     = help: declare `attempts: u8 = 3` under `#![feature(default_field_values)]`, add `#[derive_const(Default)]` under `#![feature(derive_const)]`, and delete the impl
 
 error: `Default` for `Tuple` builds each field from a constant
-   --> tools/dylint/examples/manual_default_field_values.rs:385:28
+   --> tools/dylint/examples/manual_default_field_values.rs:383:28
     |
-385 |     fn default() -> Self { Self { 0: 3 } }
+383 |     fn default() -> Self { Self { 0: 3 } }
     |                            ^^^^^^^^^^^^^
     |
     = help: declare `u8 = 3` under `#![feature(default_field_values)]`, derive `Default`, and delete the impl
 
 error: `PRIVATE_LIMIT` has one reader, `default`
-   --> tools/dylint/examples/manual_default_field_values.rs:399:5
+   --> tools/dylint/examples/manual_default_field_values.rs:397:5
     |
-399 |     const PRIVATE_LIMIT: u8 = 6;
+397 |     const PRIVATE_LIMIT: u8 = 6;
     |     ^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/manual_default_field_values.rs:404:49
+   --> tools/dylint/examples/manual_default_field_values.rs:402:49
     |
-404 |         fn default() -> Self { Self { attempts: PRIVATE_LIMIT } }
+402 |         fn default() -> Self { Self { attempts: PRIVATE_LIMIT } }
     |                                                 ^^^^^^^^^^^^^
     = help: move `PRIVATE_LIMIT` into `default` as a nested item
     = note: `#[deny(single_reader)]` on by default
 
 error: trait `New` is implemented only for `Vec<u8, System>`
-  --> tools/dylint/examples/manual_default_field_values.rs:10:1
-   |
-10 | trait New {
-   | ^^^^^^^^^
-   |
-   = help: replace `New` with functions and constants for `Vec<u8, System>`
-   = note: `#[deny(single_impl_trait)]` on by default
+ --> tools/dylint/examples/manual_default_field_values.rs:8:1
+  |
+8 | trait New {
+  | ^^^^^^^^^
+  |
+  = help: replace `New` with functions and constants for `Vec<u8, System>`
+  = note: `#[deny(single_impl_trait)]` on by default
 
 error: trait `converted::From` is implemented only for `String`
-   --> tools/dylint/examples/manual_default_field_values.rs:415:5
+   --> tools/dylint/examples/manual_default_field_values.rs:413:5
     |
-415 |     trait From {
+413 |     trait From {
     |     ^^^^^^^^^^
     |
     = help: replace `converted::From` with functions and constants for `String`

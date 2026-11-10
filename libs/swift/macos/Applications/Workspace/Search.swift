@@ -41,22 +41,22 @@ extension Installation {
                     )
                 }
             )
-            guard let listed: [Self] = await listings(matching, in: directories).first(where: { @Sendable _ in true })?.installations else {
+            guard let listed = await listings(matching, in: directories).first(where: { @Sendable _ in true })?.installations else {
                 throw ApplicationFailure(subject: "Spotlight query for \(name)", reason: .cancelled)
             }
             return listed
         }
         if name.hasPrefix("/") { return [try Self(at: URL(filePath: name, directoryHint: .isDirectory))] }
-        if let pid: pid_t = pid_t(name) {
-            guard let bundle: URL = NSRunningApplication(processIdentifier: pid)?.bundleURL else { throw ApplicationFailure(subject: name, reason: .noProcess) }
+        if let pid = pid_t(name) {
+            guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleURL else { throw ApplicationFailure(subject: name, reason: .noProcess) }
             return [try Self(at: bundle)]
         }
-        let registered: [Self] = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).compactMap { url in
+        let registered = NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).compactMap { url in
             Result { () throws(ApplicationFailure) in try Self(at: url) }[case: \.success]
         }
         guard registered.isEmpty else { return registered }
-        let exact: [Self] = try await listing(.equalTo)
-        let found: [Self] = try await exact.isEmpty ? listing(.contains) : exact
+        let exact = try await listing(.equalTo)
+        let found = try await exact.isEmpty ? listing(.contains) : exact
         guard found.isEmpty else { return found }
         throw ApplicationFailure(subject: name, reason: .unmatched(Unmatched(subject: "installed application", query: name, candidates: [])))
     }
@@ -64,7 +64,7 @@ extension Installation {
     private static func metadataForm(of predicate: NSPredicate) -> NSPredicate? {
         guard predicate != NSPredicate(value: true) else { return nil }
         guard let compound = predicate as? NSCompoundPredicate, compound.compoundPredicateType != .not else { return predicate }
-        let clauses: [NSPredicate] = compound.subpredicates.compactMap { $0 as? NSPredicate }.compactMap(metadataForm(of:))
+        let clauses = compound.subpredicates.compactMap { $0 as? NSPredicate }.compactMap(metadataForm(of:))
         return if compound.compoundPredicateType == .or, clauses.count < compound.subpredicates.count {
             nil
         } else if clauses.count > 1 {
@@ -96,7 +96,7 @@ extension Installation {
                 }
                 for await _ in changes {
                     query.disableUpdates()
-                    let paths: [String?] = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
+                    let paths = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
                     query.enableUpdates()
                     continuation.yield(await Self.listed(paths))
                 }
@@ -108,7 +108,7 @@ extension Installation {
 
     @concurrent
     static func listed(_ paths: [String?]) async -> (installations: [Self], failures: [ApplicationFailure]) {
-        let reads: [Result<Self, ApplicationFailure>] = paths.enumerated().map { index, path in
+        let reads = paths.enumerated().map { index, path in
             path.map { path in Result { () throws(ApplicationFailure) in try Self(at: URL(filePath: path, directoryHint: .isDirectory)) } }
                 ?? .failure(ApplicationFailure(subject: "Spotlight result \(index)", reason: .noPath))
         }

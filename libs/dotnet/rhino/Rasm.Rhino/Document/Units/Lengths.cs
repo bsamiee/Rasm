@@ -84,6 +84,10 @@ public static class Quantities {
             ? Scaled(QuantityValue.FromPowerOfTen(1, -precision), spaceUnit)
             : Length.FromInches(QuantityValue.FromTerms(1, 1L << precision));
 
+    public static int Precision(bool fractional, Length resolution, LengthUnit spaceUnit) =>
+        LanguageExt.List.unfold(0, digits =>
+            Resolution(fractional ? DistanceDisplayMode.Fractional : DistanceDisplayMode.Decimal, digits, spaceUnit) > resolution ? Some((digits, digits + 1)) : None).Count();
+
     private static Length Scaled(QuantityValue value, LengthUnit spaceUnit) =>
         Length.FromMeters(value * LengthUnit.Scale(spaceUnit, LengthUnit.Meters));
 }

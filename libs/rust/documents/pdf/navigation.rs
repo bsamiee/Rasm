@@ -1,17 +1,14 @@
-use core::{fmt, iter, num::NonZero};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::{Arc, LazyLock},
-};
+use core::num::NonZero;
+use core::{fmt, iter};
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::{Arc, LazyLock};
 
 use hayro_syntax::object::dict::keys::{COUNT, D, DEST, DESTS, FIRST, LAST, NAMES, NEXT, NUMS, OUTLINES, P, PAGE_LABELS, PARENT, PREV, S, ST, TITLE, TYPE};
 use itertools::Itertools as _;
 use lopdf::{Dictionary, Object, ObjectId, dictionary, text_string};
 use nonempty_collections::{IntoNonEmptyIterator as _, NonEmptyIterator as _};
-use pdf_oxide::{
-    Destination, OutlineItem,
-    extractors::{PageLabelExtractor, PageLabelRange, PageLabelStyle},
-};
+use pdf_oxide::extractors::{PageLabelExtractor, PageLabelRange, PageLabelStyle};
+use pdf_oxide::{Destination, OutlineItem};
 use validated::Validated;
 
 use crate::{Document, PdfError, Refusal, Subject, engine};

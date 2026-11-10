@@ -1,31 +1,24 @@
 #![feature(array_try_map, const_convert, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, float_conversions, iterator_try_collect)]
 
-use core::{
-    array,
-    borrow::Borrow,
-    iter,
-    num::{NonZero, TryFromIntError},
-    ops::ControlFlow,
-    range::RangeInclusive,
-};
+use core::borrow::Borrow;
+use core::num::{NonZero, TryFromIntError};
+use core::ops::ControlFlow;
+use core::range::RangeInclusive;
+use core::{array, iter};
 
 use derive_where::derive_where;
-use fidget::{
-    context::Tree,
-    eval::{BulkEvaluator, TracingEvaluator},
-    jit::{JitFloatSliceEval, JitGradSliceEval, JitIntervalEval, JitShape},
-    render::{CancelToken, ThreadPool},
-    shape::{EzShape as _, ShapeBulkEval, ShapeBulkEvalError, ShapeTape, ShapeTracingEval, ShapeTracingEvalError, ShapeVars, Transformable},
-    types::{Grad, Interval},
-    var::Var,
-};
+use fidget::context::Tree;
+use fidget::eval::{BulkEvaluator, TracingEvaluator};
+use fidget::jit::{JitFloatSliceEval, JitGradSliceEval, JitIntervalEval, JitShape};
+use fidget::render::{CancelToken, ThreadPool};
+use fidget::shape::{EzShape as _, ShapeBulkEval, ShapeBulkEvalError, ShapeTape, ShapeTracingEval, ShapeTracingEvalError, ShapeVars, Transformable};
+use fidget::types::{Grad, Interval};
+use fidget::var::Var;
 use itertools::{Itertools as _, iproduct, izip};
 use nalgebra::{Isometry3, Point3, Unit, Vector3, Vector4};
 use parry3d_f64::shape::TriMeshBuilderError;
-use rayon::{
-    iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _},
-    slice::ParallelSlice as _,
-};
+use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
+use rayon::slice::ParallelSlice as _;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -292,18 +285,6 @@ fn subdivide<A>(cancel: Option<&CancelToken>, depth: u8, cell: Cell, state: A, v
         (flow, None) | (flow @ ControlFlow::Break(_), Some(_)) => Ok(flow.into_value()),
         (ControlFlow::Continue(state), Some(next)) => children(cell).try_fold(state, |visited, child| subdivide(cancel, next, child, visited, visit)),
     }
-}
-
-fn singular(shape: &Shape, vars: &ShapeVars<f32>, cancel: Option<&CancelToken>, center: Point3<f64>, depth: u8, cube: Cell) -> Result<(), ImplicitError> {
-    let mut evaluator = ShapeTracingEval::default();
-    subdivide(cancel, depth, cube, (), &mut |(), cell, leaf| {
-        let enclosure = interval(&mut evaluator, shape, vars, cell)?;
-        match (Classification::from(enclosure), enclosure.lower().is_finite() && enclosure.upper().is_finite(), leaf) {
-            (Classification::Inside | Classification::Outside, _, _) | (Classification::Straddling, true, _) => Ok(ControlFlow::Break(())),
-            (Classification::Straddling, false, false) => Ok(ControlFlow::Continue(())),
-            (Classification::Straddling, false, true) => Err(ImplicitError::Singular { cell: span(center, cell) }),
-        }
-    })
 }
 
 fn depth(extent: f32, size: f64) -> Result<u8, ImplicitError> {

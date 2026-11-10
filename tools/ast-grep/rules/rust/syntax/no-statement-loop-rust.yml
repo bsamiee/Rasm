@@ -2,25 +2,6 @@
 language: rustlang
 severity: error
 utils:
-    state-write:
-        any:
-            - kind: call_expression
-              all:
-                - has:
-                    field: function
-                    kind: field_expression
-                    all:
-                        - has: {field: value, kind: identifier, pattern: $STATE}
-                        - has: {field: field, matches: rust-growing-method}
-                - not: {all: [{has: {field: function, has: {field: field, regex: '^(push|push_mut|push_back|push_back_mut|push_front|push_front_mut|push_str|extend|extend_from_slice|append)$'}}}, {has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
-            - kind: 'compound_assignment_expr, assignment_expression'
-              has: {field: left, kind: identifier, pattern: $STATE}
-    valued-return:
-        kind: return_expression
-        has: {pattern: $FOUND, not: {kind: call_expression, all: [{has: {field: function, regex: '^Some$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ELEMENT}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}}]}}
-    valued-break:
-        kind: break_expression
-        has: {pattern: $FOUND, not: {kind: label}}
     pushing-fold:
         kind: call_expression
         all:
@@ -64,26 +45,9 @@ utils:
                     - pattern: '$STATE.entry($$$_KEY).$_SLOT($$$_VALUE).$_WRITE($$$_ITEM)'
 rule:
     all:
-        - any:
-            - matches: rust-statement-loop
-              any:
-                - kind: for_expression
-                  has: {field: pattern, any: [{kind: identifier, pattern: $ELEMENT}, {kind: reference_pattern, has: {kind: identifier, pattern: $ELEMENT}}, {pattern: $ELEMENT}]}
-                - not: {kind: for_expression}
-              has:
-                field: body
-                has:
-                    stopBy: {kind: 'loop_expression, while_expression, for_expression, closure_expression'}
-                    any:
-                        - matches: state-write
-                        - matches: valued-return
-                        - matches: valued-break
-            - matches: pushing-fold
-        - pattern: $LOOP
+        - {any: [{matches: rust-statement-loop}, {matches: pushing-fold}]}
+        - {pattern: $LOOP}
 transform:
     HEAD: {replace: {source: $LOOP, replace: '(?s)\p{Pattern_White_Space}*\{?\p{Pattern_White_Space}*\n.*$', by: ''}}
-labels:
-    STATE: {style: secondary, message: 'Written each pass'}
-    FOUND: {style: secondary, message: 'Returned from inside the loop'}
 message: '`$HEAD` computes its result statement by statement'
 note: 'Use iterator adapters and collect independent failures into `validated::Validated`; reserve `fold` for steps that read accumulated state'

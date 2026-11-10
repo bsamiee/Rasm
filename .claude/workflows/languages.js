@@ -39,8 +39,8 @@ return {
       pathspec: ["'*.ts'", "'*.tsx'", "'*.mts'", "'*.cts'", "'*.js'", "'*.jsx'", "'*.mjs'", "'*.cjs'", "'*.jxa'", "'*.jsxinc'", "'*package.json'", "'*tsconfig*.json'", "'biome.json'", "'pnpm-workspace.yaml'"],
       unit: 'folder holding the nearest package.json',
       owners: [
-        { name: 'tsc', paths: ['tsconfig.base.json'], decides: 'a `compilerOptions` row or an @effect/language-service diagnostic', skills: ['manage-repo'] },
-        { name: 'biome', paths: ['biome.json'], decides: 'a Biome rule or option row', skills: ['manage-repo'] },
+        { name: 'tsc', paths: ['tsconfig.base.json'], decides: 'a `compilerOptions` row or an @effect/language-service diagnostic', skills: [] },
+        { name: 'biome', paths: ['biome.json'], decides: 'a Biome rule or option row', skills: [] },
       ],
     }),
     python: owned({
@@ -56,10 +56,10 @@ return {
       pathspec: ["'*.py'", "'*.py3'", "'*.pyi'", "'*.bzl'", "'*.bazel'", "'*pyproject.toml'"],
       unit: 'folder holding the nearest pyproject.toml a uv root lists (`uv workspace list --paths`)',
       owners: [
-        { name: 'ruff', paths: ['pyproject.toml'], decides: 'a Ruff rule or option row of a [tool.ruff*] table in the root or a member pyproject.toml', skills: ['manage-repo'] },
-        { name: 'ty', paths: ['pyproject.toml'], decides: 'a ty rule row of a [tool.ty*] table in the root or a member pyproject.toml', skills: ['manage-repo'] },
-        { name: 'mypy', paths: ['pyproject.toml'], decides: 'a mypy option or error code row of a [tool.mypy] table', skills: ['manage-repo'] },
-        { name: 'refurb', paths: ['tools/refurb'], decides: 'a form that needs types mypy resolves, as a check module or a [tool.refurb] row', skills: ['manage-repo', 'python-coding'] },
+        { name: 'ruff', paths: ['pyproject.toml'], decides: 'a Ruff rule or option row of a [tool.ruff*] table in the root or a member pyproject.toml', skills: [] },
+        { name: 'ty', paths: ['pyproject.toml'], decides: 'a ty rule row of a [tool.ty*] table in the root or a member pyproject.toml', skills: [] },
+        { name: 'mypy', paths: ['pyproject.toml'], decides: 'a mypy option or error code row of a [tool.mypy] table', skills: [] },
+        { name: 'refurb', paths: ['tools/refurb'], decides: 'a form that needs types mypy resolves, as a check module or a [tool.refurb] row', skills: ['python-coding'] },
       ],
       blender: {
         roots: ['libs/python/blender', 'apps/blender'],
@@ -80,8 +80,8 @@ return {
       pathspec: ["'*.rs'", "'*Cargo.toml'", "'.config/clippy.toml'", "'.config/rustfmt.toml'", "'rust-toolchain.toml'"],
       unit: 'folder holding the nearest Cargo.toml',
       owners: [
-        { name: 'clippy', paths: ['Cargo.toml', '.config/clippy.toml'], decides: 'a rustc or Clippy lint row of `[workspace.lints.*]` or a clippy.toml option', skills: ['manage-repo'] },
-        { name: 'dylint', paths: ['tools/dylint'], decides: 'a form that needs types and resolved paths rustc holds, as a lint', skills: ['manage-repo', 'rust-coding'] },
+        { name: 'clippy', paths: ['Cargo.toml', '.config/clippy.toml'], decides: 'a rustc or Clippy lint row of `[workspace.lints.*]` or a clippy.toml option', skills: [] },
+        { name: 'dylint', paths: ['tools/dylint'], decides: 'a form that needs types and resolved paths rustc holds, as a lint', skills: ['rust-coding'] },
       ],
     }),
     swift: owned({
@@ -90,15 +90,15 @@ return {
       families: [],
       companion: null,
       catalog: 'Package.swift',
-      sources: '.cache/swiftpm/build/checkouts',
+      sources: '.build/checkouts',
       release: 'Package.swift `swift-tools-version` and `platforms`, and each package at the release Package.resolved pins',
       outlines: ['swift', 'sql'],
       metadata: [],
-      pathspec: ["'*.swift'", "'Package.swift'", "'.swift-format'", "'.config/swiftlint.yml'", "'Xcode.xcconfig'"],
+      pathspec: ["'*.swift'", "'Package.swift'", "'.config/swift-format.json'", "'.config/swiftlint.yml'", "'Xcode.xcconfig'"],
       unit: 'Package.swift target folder holding the file',
       owners: [
-        { name: 'swift-format', paths: ['.swift-format'], decides: 'a swift-format rule row', skills: ['manage-repo'] },
-        { name: 'swiftlint', paths: ['.config/swiftlint.yml'], decides: 'a SwiftLint rule or option row', skills: ['manage-repo'] },
+        { name: 'swift-format', paths: ['.config/swift-format.json'], decides: 'a swift-format rule row', skills: [] },
+        { name: 'swiftlint', paths: ['.config/swiftlint.yml'], decides: 'a SwiftLint rule or option row', skills: [] },
       ],
     }),
     dotnet: owned({
@@ -114,8 +114,8 @@ return {
       pathspec: ["'*.cs'", "'*.csproj'", "'*.props'", "'*.targets'", "'*.slnx'", "'NuGet.config'", "'.editorconfig'", "'global.json'", "'apps/roslyn/*'"],
       unit: 'folder holding the nearest .csproj',
       owners: [
-        { name: 'analyzers', paths: ['.editorconfig', '.globalconfig'], decides: 'an analyzer severity or option row', skills: ['manage-repo'] },
-        { name: 'Rasm.Analyzers', paths: ['apps/roslyn/Rasm.Analyzers', 'apps/roslyn/Rasm.Analyzers.CodeFixes', 'apps/roslyn/Rasm.Rhino.Analyzers'], decides: 'a form that needs symbols Roslyn binds, as an analyzer with its code fix', skills: ['manage-repo', 'dotnet-coding', 'dotnet-roslyn-codelens'] },
+        { name: 'analyzers', paths: ['.editorconfig', '.config/.globalconfig'], decides: 'an analyzer severity or option row', skills: [] },
+        { name: 'Rasm.Analyzers', paths: ['apps/roslyn/Rasm.Analyzers', 'apps/roslyn/Rasm.Analyzers.CodeFixes', 'apps/roslyn/Rasm.Rhino.Analyzers'], decides: 'a form that needs symbols Roslyn binds, as an analyzer with its code fix', skills: ['dotnet-coding', 'dotnet-roslyn-codelens'] },
       ],
     }),
   },

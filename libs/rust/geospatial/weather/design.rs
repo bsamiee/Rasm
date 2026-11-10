@@ -7,25 +7,18 @@ use nalgebra::Vector2;
 use rasm_site::Place;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use statrs::{
-    consts::EULER_MASCHERONI,
-    statistics::{Data, OrderStatistics as _, Statistics as _},
-};
-use uom::si::{
-    available_energy::joule_per_kilogram,
-    f64::{Angle, AvailableEnergy, Frequency, Ratio, TemperatureInterval, ThermodynamicTemperature, Time, Velocity},
-    ratio::ratio,
-    temperature_interval,
-    thermodynamic_temperature::kelvin,
-    velocity::meter_per_second,
-};
+use statrs::consts::EULER_MASCHERONI;
+use statrs::statistics::{Data, OrderStatistics as _, Statistics as _};
+use uom::si::available_energy::joule_per_kilogram;
+use uom::si::f64::{Angle, AvailableEnergy, Frequency, Ratio, TemperatureInterval, ThermodynamicTemperature, Time, Velocity};
+use uom::si::ratio::ratio;
+use uom::si::temperature_interval;
+use uom::si::thermodynamic_temperature::kelvin;
+use uom::si::velocity::meter_per_second;
 
-use crate::{
-    Hour, Hours, WeatherError, bearing,
-    comfort::{Psychrometrics, psychrometrics},
-    epw::{Direction, Elapsed, Enthalpy, Interval, MoistureRatio, Shielding, Speed, Stated, Temperature},
-    heading, local, weighted,
-};
+use crate::comfort::{Psychrometrics, psychrometrics};
+use crate::epw::{Direction, Elapsed, Enthalpy, Interval, MoistureRatio, Shielding, Speed, Stated, Temperature};
+use crate::{Hour, Hours, WeatherError, bearing, heading, local, weighted};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

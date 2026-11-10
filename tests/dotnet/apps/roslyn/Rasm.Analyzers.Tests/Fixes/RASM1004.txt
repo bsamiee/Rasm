@@ -3,6 +3,14 @@ using LanguageExt;
 using LanguageExt.Common;
 using LanguageExt.Traits;
 
+internal static class CustomConversions {
+    internal static Fin<int> Preserve(Fin<int> value) => ToFin(ToValidation(value));
+
+    internal static Validation<Error, int> ToValidation(Fin<int> value) => value.Map(static held => held + 1).ToValidation();
+
+    internal static Fin<int> ToFin(Validation<Error, int> value) => value.ToFin().Map(static held => held * 2);
+}
+
 internal static class ValidationRoundTrip {
     internal static Fin<int> Positive(int value) => value > 0 ? value : Error.New("negative");
     internal static Fin<int> Sum(int left, int right) =>
@@ -33,14 +41,6 @@ internal static class ValidationKept {
     internal static Fin<int> Positive(int value) => value > 0 ? value : Error.New("negative");
     internal static Validation<Error, int> Kept(int left, int right) => (Positive(left).ToValidation(), Positive(right).ToValidation()).Apply(static (first, second) => first + second).As();
     internal static Fin<int> Mixed(Validation<Error, int> held, int right) => (held, Positive(right).ToValidation()).Apply(static (first, second) => first + second).As().ToFin();
-}
-
-internal static class CustomConversions {
-    internal static Fin<int> Preserve(Fin<int> value) => ToFin(ToValidation(value));
-
-    internal static Validation<Error, int> ToValidation(Fin<int> value) => value.Map(static held => held + 1).ToValidation();
-
-    internal static Fin<int> ToFin(Validation<Error, int> value) => value.ToFin().Map(static held => held * 2);
 }
 
 internal static class CustomComposition {

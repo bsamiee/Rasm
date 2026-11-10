@@ -4,9 +4,9 @@ severity: error
 utils:
     schema-class:
         kind: member_expression
-        has: {field: property, regex: '^(Class|Error|TaggedClass|TaggedError)$'}
+        has: {field: property, regex: '^(Class|Error|TaggedError)$'}
         any:
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Class|Error|TaggedClass|TaggedError)$'}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Class|Error|TaggedError)$'}}}
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Model$'}, member: {regex: '^Class$'}}}
     identifier: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: string, has: {kind: string_fragment, pattern: $ID}}
 rule:
@@ -34,7 +34,7 @@ rule:
                                 kind: call_expression
                                 all:
                                     - has: {field: arguments, not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
-                                    - has: {field: function, regex: '\.Tagged(Class|Error)$', matches: schema-class}
+                                    - has: {field: function, regex: '\.TaggedError$', matches: schema-class}
         - not: {has: {field: name, pattern: $ID}}
 message: '`$NAME` renames schema identifier `$ID`'
 note: 'Name the class after its schema identifier'

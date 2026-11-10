@@ -6,10 +6,10 @@ from functools import partial
 from itertools import starmap
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final, Literal, TYPE_CHECKING
+from typing import Literal, TYPE_CHECKING
 
 import bpy
-from bpy_extras.io_utils import path_reference, path_reference_mode, poll_file_object_drop  # ty: ignore[import-not-found]
+from bpy_extras.io_utils import path_reference, poll_file_object_drop
 from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
@@ -18,23 +18,19 @@ from rasm_bpy.commands.operators import called, Operation, Operator, Setting
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.ownership import _retained, _tracked
+from rasm_bpy.data._ids.ownership import retained, tracked
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
-from rasm_bpy.data._rna.paths import _definition, _subclass
+from rasm_bpy.data._rna.paths import rna_definition, subclass
 from rasm_bpy.data._rna.snapshots import assigned
 from rasm_records import accumulated, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_EXPORTER_NAME: Final[bpy.types.StringProperty] = bpy.types.CollectionExport.bl_rna.properties["name"]  # ty: ignore[invalid-assignment]
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
+class Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
     """File handler registered with its import and export operators, its label derived from its key unless stated."""
 
     key: Key
@@ -64,9 +60,9 @@ class _Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgsp
 
 
 class References(msgspec.Struct, frozen=True, kw_only=True):
-    """Export path mode and destination subfolder for copied files, the destination itself without one."""
+    """Export path mode, the host's default without one, and destination subfolder for copied files, the destination itself without one."""
 
-    mode: Literal["AUTO", "ABSOLUTE", "RELATIVE", "MATCH", "STRIP", "COPY"] = path_reference_mode.keywords["default"]
+    mode: Literal["AUTO", "ABSOLUTE", "RELATIVE", "MATCH", "STRIP", "COPY"] | None = None
     subfolder: str | None = None
 
     def path(self, filepath: str, destination: Path, library: Option[bpy.types.Library] = Nothing) -> Outcome[str]:
@@ -76,15 +72,15 @@ class References(msgspec.Struct, frozen=True, kw_only=True):
             filepath,
             bpy.path.abspath("//"),
             str(destination),
-            mode=self.mode,
             copy_set=copies,
             library=library.to_optional(),
+            **Option.of_optional(self.mode).map(lambda mode: {"mode": mode}).default_value({}),
             **Option.of_optional(self.subfolder).map(lambda folder: {"copy_subdir": folder}).default_value({}),
         )
         return files_copied((Path(source), Path(target)) for source, target in copies).map(lambda _: reference)
 
 
-class _Exporter(msgspec.Struct, frozen=True, kw_only=True):
+class Exporter(msgspec.Struct, frozen=True, kw_only=True):
     """Collection exporter over a file handler `bl_idname`, a stock one or an `Interchange` row's `FileHandler` name."""
 
     handler: str
@@ -95,7 +91,7 @@ class _Exporter(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.types.Context) -> bool:
+def dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.types.Context) -> bool:
     """Returns whether a drop targets an editor of the spaces, bound through `partial` as an `Interchange` drop poll."""
     return Option.of_optional(context.area).filter(lambda area: area.type in spaces).is_some()
 
@@ -103,15 +99,14 @@ def _dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.type
 def length(scene: bpy.types.Scene, source: str) -> Outcome[float]:
     """Parses length text in the scene's unit system into scene units, a unitless number read in the scene's length unit."""
     units = scene.unit_settings
-    category: str = bpy.utils.units.categories.LENGTH  # ty: ignore[unsound-assignment]
     return (
-        catch(bpy.utils.units.to_value, exception=ValueError)(units.system, category, source, str_ref_unit=f"1 {units.length_unit}")
+        catch(bpy.utils.units.to_value, exception=ValueError)(units.system, bpy.utils.units.categories.LENGTH, source, str_ref_unit=f"1 {units.length_unit}")
         .map(lambda meters: meters / units.scale_length)
         .map_error(partial(Fault.of, Reason.UNREADABLE, source))
     )
 
 
-def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, _Exporter]) -> Outcome[None]:
+def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporter]) -> Outcome[None]:
     """Reconciles collection exporters by name, removing exporters it created when any write refuses.
 
     Args:
@@ -132,9 +127,9 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, _Export
                 item = held.new(type=handler, name=name)  # ty: ignore[invalid-argument-type]
             except (ReferenceError, RuntimeError, TypeError) as error:
                 return Error(Fault.of(Refusal.REFUSED, request, error))
-            return _tracked(cleanup, held.remove, Ok(item))
+            return tracked(cleanup, held.remove, Ok(item))
 
-        def placed(name: str, exporter: _Exporter) -> Outcome[None]:
+        def placed(name: str, exporter: Exporter) -> Outcome[None]:
             def filled(item: bpy.types.CollectionExport) -> Outcome[None]:
                 return paired(
                     assigned(item, {("filepath",): exporter.path}),
@@ -150,13 +145,18 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, _Export
                 return made(name, exporter.handler)
 
             def current(item: bpy.types.CollectionExport) -> bool:
-                wanted = _subclass(bpy.types.FileHandler, exporter.handler).to_option().map(lambda handler: handler.bl_export_operator)
-                return Option.of_optional(item.export_properties).map(lambda properties: _definition(properties).identifier.replace("_OT_", ".").lower()) == wanted
+                wanted = subclass(bpy.types.FileHandler, exporter.handler).to_option().map(lambda handler: handler.bl_export_operator)
+                return Option.of_optional(item.export_properties).map(lambda properties: rna_definition(properties).identifier.replace("_OT_", ".").lower()) == wanted
 
-            return Descriptor.validated(_EXPORTER_NAME, name).bind(lambda _: Option.of_optional(existing.get(name)).filter(current).map(Ok).default_with(replaced).bind(filled))
+            return (
+                Descriptor
+                .resolve(bpy.types.CollectionExport, ("name",), bpy.types.StringProperty)
+                .bind(lambda field: Descriptor.validated(field.prop, name))
+                .bind(lambda _: Option.of_optional(existing.get(name)).filter(current).map(Ok).default_with(replaced).bind(filled))
+            )
 
         def completed(_: tuple[None, ...]) -> Outcome[None]:
-            return _retained(
+            return retained(
                 accumulated(catch(held.remove, exception=RuntimeError)(item).map_error(partial(Fault.of, Refusal.REFUSED, request)) for name, item in existing.items() if name not in exporters),
                 cleanup,
             ).map(lambda _: None)
@@ -210,4 +210,4 @@ def configured(collection: bpy.types.Collection, *, scene: bpy.types.Scene, view
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["References", "configured", "exported", "length", "reconciled"]
+__all__ = ["Exporter", "Interchange", "References", "configured", "dropped_in", "exported", "length", "reconciled"]

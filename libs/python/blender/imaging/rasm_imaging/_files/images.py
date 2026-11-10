@@ -51,8 +51,6 @@ class Blocks(StrEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-interop: Final[Callable[[PyOpenColorIO.ColorSpace], str]] = PyOpenColorIO.ColorSpace.getInteropID  # ty: ignore[unresolved-attribute, unsound-assignment]
-_interchange: Final[Callable[[PyOpenColorIO.ColorSpace, str], str]] = PyOpenColorIO.ColorSpace.getInterchangeAttribute  # ty: ignore[unresolved-attribute, unsound-assignment]
 UNTAGGED: Final = ("default_byte", "default_float")
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -216,8 +214,8 @@ class Format(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def compressions(self) -> tuple[Compression, ...]:
         """Compressions the writer accepts: each plain codec, and every other case at its defaults."""
-        cases = (*(Plain(codec=codec) for codec in Codec), *(kind() for kind in get_args(Compression.__value__) if kind is not Plain))
-        return tuple(form for form in cases if self.name in form.writers)  # ty: ignore[unsound-return-statement]
+        cases = msgspec.convert((*(Plain(codec=codec) for codec in Codec), *(kind() for kind in get_args(Compression.__value__) if kind is not Plain)), tuple[Compression, ...])
+        return tuple(form for form in cases if self.name in form.writers)
 
     def stored(self, depth: Depth) -> Outcome[Depth]:
         """Accepts a depth the writer stores unchanged."""
@@ -261,7 +259,7 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             Path, `OUTSIDE` fault for a path no writer takes or a depth its writer changes, `UNREADABLE` fault for profile IO, `FAILED` fault for coding, or `UNWRITABLE` fault.
         """
         (height, width, channels), coded = self.pixels.shape, storage.depth in {Depth.UINT8, Depth.UINT16}
-        identifier = Option.of_optional(config.getColorSpace(self.colorspace)).map(interop).filter(bool)
+        identifier = Option.of_optional(config.getColorSpace(self.colorspace)).map(PyOpenColorIO.ColorSpace.getInteropID).filter(bool)
         bt709_transfer = 1
 
         def subimages(icc: Option[bytes], output: OpenImageIO.ImageOutput) -> tuple[Subimage, ...]:
@@ -277,7 +275,7 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 *(
                     ("CICP", OpenImageIO.TypeDesc("int[4]"), (code[0], code[1], 0, 1))
                     for code in identifier
-                    .bind(lambda name: Option.of_optional(OpenImageIO.ColorConfig("ocio://default").get_cicp(name)))  # type: ignore[no-untyped-call]
+                    .bind(lambda name: Option.of_optional(OpenImageIO.ColorConfig("ocio://default").get_cicp(name)))
                     .filter(lambda code: tagged and code[1] != bt709_transfer)
                     .to_list()
                 ),
@@ -289,8 +287,6 @@ class ImageFile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [GEOMETRY]
 
 
 def aspect(width: int, height: int, header: OpenImageIO.ImageSpec) -> float:
@@ -367,7 +363,7 @@ def read_codes(path: pathlib.Path) -> Outcome[Option[npt.NDArray[np.uint8 | np.u
         spec = image.spec()
         formats = spec.get_channelformats()
         match formats:
-            case (kind, *_) if kind.basetype in {OpenImageIO.UINT8, OpenImageIO.UINT16} and OpenImageIO.TypeDesc.all_types_equal(formats):  # ty: ignore[invalid-argument-type]
+            case (kind, *_) if kind.basetype in {OpenImageIO.UINT8, OpenImageIO.UINT16} and OpenImageIO.TypeDesc.all_types_equal(list(formats)):
                 codes: npt.NDArray[np.uint8 | np.uint16] | None = image.read_image(0, 0, 0, spec.nchannels, kind)
                 return Option.of_optional(codes).to_result_with(lambda: Fault.of(Reason.UNREADABLE, str(path), image.geterror())).map(Some)
             case _:
@@ -473,7 +469,7 @@ def profile(config: PyOpenColorIO.Config, colorspace: str) -> Outcome[Option[byt
             .map(Some)
         )
 
-    return Option.of_optional(config.getColorSpace(colorspace)).map(lambda space: _interchange(space, "icc_profile_name")).filter(bool).map(loaded).default_value(Ok(Nothing))
+    return Option.of_optional(config.getColorSpace(colorspace)).map(lambda space: space.getInterchangeAttribute("icc_profile_name")).filter(bool).map(loaded).default_value(Ok(Nothing))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -495,7 +491,6 @@ __all__ = [
     "aspect",
     "emitted",
     "generations",
-    "interop",
     "opened",
     "profile",
     "read_codes",

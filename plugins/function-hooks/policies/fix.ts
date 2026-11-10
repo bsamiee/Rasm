@@ -75,9 +75,8 @@ const redirected = ({ command }: Site, op: string, descriptor?: string, target?:
 const refusal = (reason: string): Verdicts => [Verdict.Refuse({ reason: NINE_WORDS.exec(reason)?.[0] ?? reason })];
 
 const changed = (site: Site, { start, end }: Span, text: Option.Option<string>, before?: string, timeout?: number): Verdicts => {
-    const outcome = Option.match(text, { onNone: () => 'removed', onSome: (replacement) => `became ${replacement}` });
     if (site.command.origin === 'call') {
-        return [Verdict.Edit({ start, end, text, notice: Option.map(Option.fromNullishOr(before), (word) => `${word} ${outcome}`), timeout: Option.fromNullishOr(timeout) })];
+        return [Verdict.Edit({ start, end, text, subject: Option.fromNullishOr(before), timeout: Option.fromNullishOr(timeout) })];
     }
     return before === undefined ? [] : refusal(`Nested ${before}, run ${Option.getOrElse(text, () => 'without it')}`);
 };
@@ -88,7 +87,7 @@ const erased = (site: Site, span: Span, before?: string, timeout?: number) => ch
 
 const inserted = (site: Site, at: number, text: string): Verdicts => edited(site, { start: at, end: at }, text);
 
-const silent = (verdicts: Verdicts): Verdicts => verdicts.map((verdict) => (Verdict.$is('Edit')(verdict) ? { ...verdict, notice: Option.none() } : verdict));
+const silent = (verdicts: Verdicts): Verdicts => verdicts.map((verdict) => (Verdict.$is('Edit')(verdict) ? { ...verdict, subject: Option.none() } : verdict));
 
 const whole = (site: Site, text: string, before?: string, { start }: Span = site.head): Verdicts => {
     const { end } = Array.lastNonEmpty(site.words);
@@ -104,15 +103,13 @@ const cut = (site: Site, parts: Array.NonEmptyReadonlyArray<Span>, before?: stri
 
 const dropped = (site: Site, before: string): Verdicts => edited(site, site.command, ':', before);
 
-const unwrap =
-    (timeout?: number): Fix =>
-    (site) =>
-        Option.match(Array.head(site.rest), { onNone: () => [], onSome: ({ start }) => erased(site, { start: site.head.start, end: start }, spoken(site.words), timeout) });
-
 const unassign =
-    (pattern: RegExp, notify = true): Fix =>
+    (pattern: RegExp): Fix =>
     (site) =>
-        Array.window([...site.assigned, site.head], 2).flatMap(([word, next]) => (pattern.test(word.text) ? erased(site, { start: word.start, end: next.start }, notify ? word.text.slice(0, word.text.indexOf('=')) : undefined) : []));
+        [...site.outer, site]
+            .flatMap(({ assigned, head }) => Array.window([...assigned, head], 2))
+            .filter(([word]) => pattern.test(word.text))
+            .flatMap(([word, next]) => erased(site, { start: word.start, end: next.start }, word.text.slice(0, word.text.indexOf('='))));
 
 // --- [FIXES]
 
@@ -224,7 +221,6 @@ export {
     subject,
     unassign,
     unresolved,
-    unwrap,
     type Verdicts,
     when,
     whole,

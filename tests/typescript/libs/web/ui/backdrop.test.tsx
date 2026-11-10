@@ -9,20 +9,20 @@ import { render } from 'vitest-browser-react';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _registered = async (tree: ReactNode) => {
+const registered = async (tree: ReactNode) => {
     const registry = AtomRegistry.make();
     const scoped = (node: ReactNode) => <RegistryContext.Provider value={registry}>{node}</RegistryContext.Provider>;
     const screen = await render(scoped(tree));
     return { screen, rerender: (node: ReactNode) => screen.rerender(scoped(node)), open: () => registry.get(Backdrop.open) };
 };
-const _controlled = (label: string, isOpen: boolean) => (
+const controlled = (label: string, isOpen: boolean) => (
     <Backdrop isOpen={isOpen}>
         <Modal>
             <Dialog aria-label={label} />
         </Modal>
     </Backdrop>
 );
-const _triggered = (label: string, content?: ReactNode) => (
+const triggered = (label: string, content?: ReactNode) => (
     <DialogTrigger>
         <Button>{`Open ${label}`}</Button>
         <Backdrop isDismissable={true}>
@@ -38,11 +38,11 @@ const _triggered = (label: string, content?: ReactNode) => (
 it('counts each controlled dialog independently as its open state changes', async () => {
     const dialogs = (first: boolean) => (
         <>
-            {_controlled('First', first)}
-            {_controlled('Second', true)}
+            {controlled('First', first)}
+            {controlled('Second', true)}
         </>
     );
-    const { rerender, open } = await _registered(dialogs(true));
+    const { rerender, open } = await registered(dialogs(true));
     await expect.poll(open).toBe(2);
     await rerender(dialogs(false));
     await expect.poll(open).toBe(1);
@@ -50,7 +50,7 @@ it('counts each controlled dialog independently as its open state changes', asyn
     await expect.poll(open).toBe(2);
 });
 it('counts trigger-opened dialog until Escape dismisses it', async () => {
-    const { screen, open } = await _registered(_triggered('Editor'));
+    const { screen, open } = await registered(triggered('Editor'));
     expect(open()).toBe(0);
     await screen.getByRole('button', { name: 'Open Editor' }).click();
     await expect.element(screen.getByRole('dialog', { name: 'Editor' })).toBeInTheDocument();
@@ -60,7 +60,7 @@ it('counts trigger-opened dialog until Escape dismisses it', async () => {
     await expect.poll(open).toBe(0);
 });
 it('counts nested dialog opened from inside another and releases it on dismissal', async () => {
-    const { screen, open } = await _registered(_triggered('Editor', _triggered('Confirm')));
+    const { screen, open } = await registered(triggered('Editor', triggered('Confirm')));
     await screen.getByRole('button', { name: 'Open Editor' }).click();
     await screen.getByRole('button', { name: 'Open Confirm' }).click();
     await expect.element(screen.getByRole('dialog', { name: 'Confirm' })).toBeInTheDocument();
@@ -70,7 +70,7 @@ it('counts nested dialog opened from inside another and releases it on dismissal
     await expect.poll(open).toBe(1);
 });
 it('counts once under strict mode effect replay and releases every count on unmount', async () => {
-    const { screen, open } = await _registered(<StrictMode>{_controlled('Strict', true)}</StrictMode>);
+    const { screen, open } = await registered(<StrictMode>{controlled('Strict', true)}</StrictMode>);
     await expect.poll(open).toBe(1);
     await screen.unmount();
     expect(open()).toBe(0);

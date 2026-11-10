@@ -45,24 +45,11 @@ utils:
                     - has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}
             - nthChild: {position: 1, ofRule: {kind: argument}}
             - matches: csharp-positional-argument
-    code-cast:
-        kind: cast_expression
-        all:
-            - has: {field: type, regex: '^int$'}
-            - has: {field: value, kind: member_access_expression, has: {field: expression, pattern: {context: 'class $CODE;', selector: identifier}}}
-            - inside: {any: [{matches: code-argument}, {matches: numbered-code}]}
 rule:
+    kind: argument
+    pattern: {context: 'f($CODE);', selector: argument}
     any:
-        - kind: argument
-          all:
-            - inside: {kind: argument_list, inside: {any: [{matches: coded-owner}, {matches: error-new}]}}
-            - pattern: {context: 'f($CODE);', selector: argument}
-            - any:
-                - matches: code-argument
-                - matches: numbered-code
-        - kind: enum_declaration
-          all:
-            - has: {field: name, pattern: {context: 'class $CODE;', selector: identifier}}
-            - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: code-cast}}
+        - matches: code-argument
+        - matches: numbered-code
 message: '`$CODE` supplies a custom error code'
 note: 'Pass code `0` and branch on the package error `Reason`, `Error.New(<message>)` where no consumer branches, `ErrorCodes` for LanguageExt failures'

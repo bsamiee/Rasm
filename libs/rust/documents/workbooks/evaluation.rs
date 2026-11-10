@@ -1,17 +1,15 @@
 use core::iter;
 use std::io::{self, Cursor, Write as _};
 
-use ironcalc::{
-    base::{
-        Model,
-        expressions::token::Error,
-        types::{Cell, FormulaValue, SpillValue},
-    },
-    import,
-};
+use ironcalc::base::Model;
+use ironcalc::base::expressions::token::Error;
+use ironcalc::base::types::{Cell, FormulaValue, SpillValue};
+use ironcalc::import;
 use roxmltree::Document;
 use umya_spreadsheet::{CellErrorType, CellRawValue, Workbook, writer};
-use zip::{ZipArchive, ZipWriter, result::ZipError, write::SimpleFileOptions};
+use zip::result::ZipError;
+use zip::write::SimpleFileOptions;
+use zip::{ZipArchive, ZipWriter};
 
 use crate::{Uncached, WorkbooksError};
 

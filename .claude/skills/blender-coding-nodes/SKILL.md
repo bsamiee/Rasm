@@ -19,13 +19,13 @@ Holders decide how code reaches a tree:
 | :-----: | :--------------------------------------- | :-------------------------------------------------------------------------------------------- |
 |  [01]   | `Material`, `World`, `Light`             | Embedded `node_tree` with built-in nodes, `use_nodes` ignoring writes                         |
 |  [02]   | `Texture`, `FreestyleLineStyle`          | `node_tree` at `None` until `use_nodes = True` builds default nodes                           |
-|  [03]   | `bpy.data.node_groups`                   | `new(name, <tree class>.bl_rna.identifier)` with empty nodes and interface                    |
+|  [03]   | `bpy.data.node_groups`                   | `new(name, <tree class>.__name__)` with empty nodes and interface                             |
 |  [04]   | Group node, `NODES` modifier             | `node_tree`, `node_group`                                                                     |
 |  [05]   | Compositor effect, strip, strip modifier | `node_group` of `SceneCompositorEffect`, `CompositorStrip`, `SequencerCompositorModifierData` |
 |  [06]   | Node editor                              | `space.node_tree` root, `space.edit_tree` entered group                                       |
 
 Tree kinds decide node classes and socket types:
-- Tree, node, and socket idnames read `<class>.bl_rna.identifier`: built-in classes hold `bl_idname` `None`, Python classes a `__name__` other than the idname
+- Built-in tree, node, and socket classes name their idname in `__name__` and hold no `bl_idname`, Python classes state it in `bl_idname` apart from `__name__`
 - `nodes.new(bl_idname)` raises `RuntimeError` for a class the tree refuses or the build lacks
 - `interface.new_socket` raises `TypeError` listing socket types the tree kind takes
 - Geometry, shader, and compositor trees take Bundles, Menu Switch, and Index Switch, geometry trees all zones, shader trees Repeat and Closure zones
@@ -258,8 +258,11 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
 
 
 def interfaced(tree: bpy.types.NodeTree, sockets: Iterable[Socket], /) -> None:
-    interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    live = tuple(item for item in interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket))
+    match tree.interface:
+        case bpy.types.NodeTreeInterface() as interface:
+            live = tuple(item for item in interface.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket))
+        case _:
+            raise TypeError(tree)
     held = dict(reversed([((item.name, item.in_out), item.identifier) for item in live]))
     wanted = {(socket.name, socket.in_out): socket for socket in sockets}
     for item in live:
@@ -267,7 +270,7 @@ def interfaced(tree: bpy.types.NodeTree, sockets: Iterable[Socket], /) -> None:
             interface.remove(item)
     for key, socket in wanted.items():
         identifier = held.get(key) or interface.new_socket(socket.name, in_out=socket.in_out).identifier
-        for member, value in msgspec.to_builtins(socket, enc_hook=lambda kind: kind.bl_rna.identifier).items():
+        for member, value in msgspec.to_builtins(socket, enc_hook=lambda kind: kind.__name__).items():
             if msgspec.to_builtins(getattr(current := interface.items_tree[identifier], member), enc_hook=list) != (np.asarray(value, np.float32).tolist() if isinstance(value, float | tuple) else value):
                 setattr(current, member, value)
 ```
@@ -313,15 +316,21 @@ Node clipboard operators copy whole nodes between trees through a node editor, a
 
 ```python
 def pasted(context: bpy.types.Context, area: bpy.types.Area, nodes: tuple[bpy.types.Node, *tuple[bpy.types.Node, ...]], target: bpy.types.NodeTree, /) -> Outcome[frozenset[bpy.types.Node]]:
-    source: bpy.types.NodeTree = nodes[0].id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    before = frozenset(target.nodes)
+    match id_data(bpy.types.NodeTree, nodes[0]):
+        case Option(tag="some", some=source):
+            before = frozenset(target.nodes)
+        case _:
+            return Error(Fault.of(Reason.ABSENT, repr(nodes[0]), member=bpy.types.NodeTree.__name__))
     with ExitStack() as scope:
         scope.callback(setattr, area, "ui_type", area.ui_type)
         area.ui_type = source.bl_idname
-        space: bpy.types.SpaceNodeEditor = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        match area.spaces.active:
+            case bpy.types.SpaceNodeEditor() as space:
+                space.node_tree = source
+            case held:
+                return Error(Fault.of(Reason.OUTSIDE, f"{area!r}.spaces.active", type(held).__name__, member=bpy.types.SpaceNodeEditor.__name__))
         for node in source.nodes:
             node.select = node in nodes
-        space.node_tree = source
         with context.temp_override(area=area):
             copied = catch(bpy.ops.node.clipboard_copy, exception=RuntimeError)()
         area.ui_type, space.node_tree = target.bl_idname, target

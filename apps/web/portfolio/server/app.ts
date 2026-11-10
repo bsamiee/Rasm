@@ -4,9 +4,8 @@ import { HttpRouter } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
 import { Api } from '#/model/api';
 import { assetGroup } from '#/server/assets';
-import { documentGroup } from '#/server/documents';
+import { documentGroup, page } from '#/server/documents';
 import { OwnerAccount } from '#/server/owner';
-import { page } from '#/server/page';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

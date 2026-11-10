@@ -1,25 +1,21 @@
-use core::{cell::LazyCell, iter, mem, ops::ControlFlow};
+use core::cell::LazyCell;
+use core::ops::ControlFlow;
+use core::{iter, mem};
 
-use clippy_utils::{
-    consts::{ConstEvalCtxt, Constant},
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_parent_expr,
-    macros::root_macro_call,
-    paths::PathNS,
-    peel_blocks, peel_hir_expr_while,
-    res::MaybeResPath as _,
-    sym,
-    visitors::for_each_expr,
-};
+use clippy_utils::consts::{ConstEvalCtxt, Constant};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::root_macro_call;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeResPath as _;
+use clippy_utils::visitors::for_each_expr;
+use clippy_utils::{fn_def_id, get_parent_expr, peel_blocks, peel_hir_expr_while, sym};
 use itertools::Itertools as _;
 use rustc_ast::LitKind;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashSet, FxIndexMap, FxIndexSet};
-use rustc_hir::{
-    BinOpKind, Expr, ExprKind, LetStmt, MatchSource, Node, Pat, PatKind, UnOp,
-    def::{DefKind, Res},
-    def_id::DefId,
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{BinOpKind, Expr, ExprKind, LetStmt, MatchSource, Node, Pat, PatKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, AdtDef, Ty, TyCtxt};
 use rustc_span::{Span, Symbol};
@@ -132,7 +128,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
 
         fn bound<'tcx>(cx: &LateContext<'tcx>, key: &'tcx Expr<'tcx>) -> Option<Vec<Symbol>> {
-            let binding = peel_hir_expr_while(key, |inner| if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None }).res_local_id()?;
+            let binding =
+                peel_hir_expr_while(key, |inner| if let ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None }).res_local_id()?;
             let Node::Param(parameter) = cx.tcx.parent_hir_node(binding) else { return None };
             let Node::Expr(closure @ Expr { kind: ExprKind::Closure(_), .. }) = cx.tcx.parent_hir_node(parameter.hir_id) else { return None };
             let Node::Expr(Expr { kind: ExprKind::MethodCall(_, receiver, arguments, _), .. }) = cx.tcx.parent_hir_node(closure.hir_id) else { return None };

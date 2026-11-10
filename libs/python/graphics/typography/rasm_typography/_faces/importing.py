@@ -2,7 +2,7 @@
 
 from typing import Literal
 lazy from collections import ChainMap, Counter, defaultdict, deque
-lazy from collections.abc import Callable, Sequence
+lazy from collections.abc import Iterator
 lazy from datetime import datetime, UTC
 lazy from functools import cache, partial
 lazy from io import BytesIO
@@ -16,14 +16,14 @@ lazy from fontTools.otlLib.builder import LOOKUP_FLAG_USE_MARK_FILTERING_SET
 lazy from fontTools.pens.filterPen import DecomposingFilterPen
 lazy from fontTools.ttLib import TTFont, TTLibError
 lazy from fontTools.ttLib.tables.otBase import BaseTable
-lazy from fontTools.ttLib.tables.otTables import Coverage, ExtensionPos, ExtensionSubst, LigatureSubst, SingleSubst  # ty: ignore[import-not-found]
+lazy from fontTools.ttLib.tables.otTables import Coverage, LigatureSubst, SingleSubst
 lazy from fontTools.unicodedata import script_extension
 
 lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace
-lazy from rasm_typography._faces.glyphs import _Anchor, _fetched, _Glyph, _Info, _Metrics, _Outline, _role, _Side, _traced, Ornament, Source
+lazy from rasm_typography._faces.glyphs import Anchor, fetched, Glyph, Info, Ornament, Point, role, Side, Source, traced, VerticalMetrics
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
-lazy from rasm_typography._faces.names import _Form, _GlyphName
+lazy from rasm_typography._faces.names import Form, GlyphName
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -58,108 +58,30 @@ def _lookups(font: TTFont, tag: Literal["GSUB", "GPOS"], /) -> tuple[tuple[int, 
     )
 
 
-def _subtables(lookup: BaseTable, /) -> tuple[BaseTable, ...]:
+def subtables(lookup: BaseTable, /) -> Iterator[BaseTable]:
     """Unwraps native extension subtables without changing their priority."""
-    return tuple(held for subtable in lookup.SubTable for held in (subtable.ExtSubTable if isinstance(subtable, ExtensionPos | ExtensionSubst) else subtable,) if isinstance(held, BaseTable))
-
-
-# --- [NAMES]
-
-
-def _named(
-    order: Sequence[str],
-    coded: tuple[tuple[int, str, list[str]], ...],
-    singles: dict[int, dict[str, str]],
-    features: dict[int, frozendict[str, frozendict[tuple[str, str], bool]]],
-    ligatures: tuple[tuple[tuple[str, ...], str], ...],
-    glyph_id: Callable[[str], int],
-    /,
-) -> dict[str, _GlyphName]:
-    """Names each glyph by its first semantic claim: primary script and digit system first, then native code order, presentation forms and layout."""
-    outgoing: defaultdict[str, list[tuple[str, int, str]]] = defaultdict(list)
-    for index, mapping in singles.items():
-        for feature in features[index]:
-            for source, target in mapping.items():
-                outgoing[source].append((feature, index, target))
-    joined: defaultdict[str, list[tuple[tuple[str, ...], str]]] = defaultdict(list)
-    for parts, target in ligatures:
-        for part in dict.fromkeys(parts):
-            joined[part].append((parts, target))
-    named: dict[str, _GlyphName] = {}
-    taken: set[str] = set()
-    claims = deque(
-        chain(
-            ((".notdef", _GlyphName(stem=".notdef")),),
-            ((glyph, _GlyphName(stem=(code,))) for code, glyph, parts in coded if not parts[0:1] or not parts[0].startswith("<")),
-            ((glyph, _GlyphName(stem=(int(parts[1], 16), *(int(part, 16) for part in parts[2:])), form=_Form(parts[0][1:5]))) for _, glyph, parts in coded if parts[:1] and parts[0][1:5] in _Form),
-            ((glyph, _GlyphName(stem=(code,))) for code, glyph, _ in coded),
-        )
-    )
-    while claims:
-        glyph, name = claims.popleft()
-        if glyph in named:
-            continue
-        name = _GlyphName(stem=name.stem, form=name.form, suffixes=(*name.suffixes, f"gid{glyph_id(glyph)}")) if name.text in taken else name
-        if len(name.text) > _GlyphName.LIMIT:
-            continue
-        named[glyph] = name
-        taken.add(name.text)
-        claims.extend(
-            (target, _GlyphName(stem=name.stem, form=_Form(feature), suffixes=name.suffixes))
-            if feature in _Form and feature != _Form.ISOL and len(name.codes) == 1
-            else (target, _GlyphName(stem=name.stem, form=name.form, suffixes=(*name.suffixes, f"alt{index}")))
-            for feature, index, target in outgoing[glyph]
-        )
-        claims.extend(
-            (target, _GlyphName(stem=tuple(*named[part].codes for part in parts), form=_Form.joined(right=named[parts[0]].form.right, left=named[parts[-1]].form.left)))
-            for parts, target in joined[glyph]
-            if all(part in named and named[part].codes for part in parts)
-        )
-    return {glyph: named[glyph] for glyph in order if glyph in named}
-
-
-# --- [ANCHORS]
-
-
-def _anchors(font: TTFont, named: dict[str, _GlyphName], /) -> dict[str, dict[str, tuple[float, float]]]:
-    """Returns anchors by glyph from GPOS mark attachment, each mark class voted to the side most of its marks' code points take."""
-    found: dict[str, dict[str, tuple[float, float]]] = {}
-    for sub in tuple(*_subtables(lookup) for _, _, lookup in _lookups(font, "GPOS")):
-        match sub:
-            case BaseTable(MarkCoverage=Coverage(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), BaseCoverage=Coverage(glyphs=bases), BaseArray=BaseTable(BaseRecord=rows)):
-                attached = tuple((glyph, "", row.BaseAnchor) for glyph, row in zip(bases, rows))
-            case BaseTable(MarkCoverage=Coverage(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), LigatureCoverage=Coverage(glyphs=bases), LigatureArray=BaseTable(LigatureAttach=rows)):
-                attached = tuple((glyph, f"_{index}", component.LigatureAnchor) for glyph, row in zip(bases, rows) for index, component in enumerate(row.ComponentRecord, 1))
-            case BaseTable(Mark1Coverage=Coverage(glyphs=marks), Mark1Array=BaseTable(MarkRecord=records), Mark2Coverage=Coverage(glyphs=bases), Mark2Array=BaseTable(Mark2Record=rows)):
-                attached = tuple((glyph, "", row.Mark2Anchor) for glyph, row in zip(bases, rows))
-            case _:
-                continue
-        votes = Counter((record.Class, _Side.of(code)) for glyph, record in zip(marks, records) if glyph in named for code in named[glyph].codes[:1])
-        sides = {klass: _Side.BELOW if votes[klass, _Side.BELOW] > votes[klass, _Side.ABOVE] else _Side.ABOVE for klass in {record.Class for record in records}}
-        placed = (
-            *((glyph, f"_{sides[record.Class].anchor}", record.MarkAnchor) for glyph, record in zip(marks, records)),
-            *((glyph, f"{sides[klass].anchor}{suffix}", point) for glyph, suffix, points in attached for klass, point in enumerate(points) if point and klass in sides),
-        )
-        for glyph, name, point in placed:
-            found.setdefault(glyph, {}).setdefault(name, (point.XCoordinate, point.YCoordinate))
-    return found
+    for entry in lookup.iterSubTables():
+        match entry.value:
+            case BaseTable(ExtSubTable=BaseTable() as held) | held:
+                yield held
 
 
 # --- [SOURCES]
 
 
-def _source(font: TTFont, face: Faces, /) -> Source:
-    """Builds the source of an opened binary: text faces named and anchored from cmap and layout, ornament faces kept under their original names."""
+def _source(original: bytes, face: Faces, /) -> Source:
+    """Builds the source of a binary: ornament faces under their original names, text glyphs named by their first claim (primary script and digits, code order, presentation forms, layout) and anchored from GPOS mark attachment, each mark class on the side most of its marks take."""
+    font = TTFont(BytesIO(original), lazy=True, recalcBBoxes=False, recalcTimestamp=False)
     cmap, advances, order = font.getBestCmap() or {}, font["hmtx"].metrics, font.getGlyphOrder()
     glyphs = font.getGlyphSet()
 
     @cache
-    def outline(name: str, /) -> _Outline:
-        return _traced(lambda pen: glyphs[name].draw(DecomposingFilterPen(pen, glyphs)))
+    def outline(name: str, /) -> tuple[tuple[Point, ...], ...]:
+        return traced(lambda pen: glyphs[name].draw(DecomposingFilterPen(pen, glyphs)))
 
     native = _lookups(font, "GSUB") if isinstance(face, Face) else ()
     features = {index: features for index, features, _ in native}
-    grouped = {index: _subtables(lookup) for index, _, lookup in native}
+    grouped = {index: tuple(subtables(lookup)) for index, _, lookup in native}
     singles = {key: dict(ChainMap(*(sub.mapping for sub in group if isinstance(sub, SingleSubst)))) for key, group in grouped.items() if any(isinstance(sub, SingleSubst) for sub in group)}
     ligatures = {
         key: tuple(((first, *entry.Component), entry.LigGlyph) for sub in group if isinstance(sub, LigatureSubst) for first, rows in sub.ligatures.items() for entry in rows)
@@ -174,17 +96,73 @@ def _source(font: TTFont, face: Faces, /) -> Source:
             def priority(code: int, /) -> tuple[bool, int, int]:
                 character = chr(code)
                 digit = genre.script.digits.index(zero) if (zero := code - unicodedata.decimal(character, 0)) in genre.script.digits else 0
-                return (not (genre.script.scripts & script_extension(character)), digit, code)  # type: ignore[no-untyped-call]
+                return (not (genre.script.scripts & script_extension(character)), digit, code)
 
             coded = tuple(sorted(((code, glyph, unicodedata.decomposition(chr(code)).split()) for code, glyph in kept.items()), key=lambda row: priority(row[0])))
-            named, art = _named(order, coded, singles, features, rules, font.getGlyphID), False
+            outgoing: defaultdict[str, list[tuple[str, int, str]]] = defaultdict(list)
+            for source, row in ((source, (feature, index, target)) for index, mapping in singles.items() for feature in features[index] for source, target in mapping.items()):
+                outgoing[source].append(row)
+            joined: defaultdict[str, list[tuple[tuple[str, ...], str]]] = defaultdict(list)
+            for part, found in ((part, ligature) for ligature in rules for part in dict.fromkeys(ligature[0])):
+                joined[part].append(found)
+            claimed: dict[str, GlyphName] = {}
+            taken: set[str] = set()
+            claims = deque(
+                chain(
+                    ((".notdef", GlyphName(stem=".notdef")),),
+                    ((glyph, GlyphName(stem=(code,))) for code, glyph, parts in coded if not parts[0:1] or not parts[0].startswith("<")),
+                    (
+                        (glyph, GlyphName(stem=(int(parts[1], 16), *(int(part, 16) for part in parts[2:])), form=Form(parts[0][1:5])))
+                        for _, glyph, parts in coded
+                        if parts[:1] and parts[0][1:5] in Form
+                    ),
+                    ((glyph, GlyphName(stem=(code,))) for code, glyph, _ in coded),
+                )
+            )
+            while claims:
+                glyph, claim = claims.popleft()
+                name = GlyphName(stem=claim.stem, form=claim.form, suffixes=(*claim.suffixes, f"gid{font.getGlyphID(glyph)}")) if claim.text in taken else claim
+                if glyph in claimed or len(name.text) > GlyphName.LIMIT:
+                    continue
+                claimed[glyph] = name
+                taken.add(name.text)
+                claims.extend(
+                    (target, GlyphName(stem=name.stem, form=Form(feature), suffixes=name.suffixes))
+                    if feature in Form and feature != Form.ISOL and len(name.codes) == 1
+                    else (target, GlyphName(stem=name.stem, form=name.form, suffixes=(*name.suffixes, f"alt{index}")))
+                    for feature, index, target in outgoing[glyph]
+                )
+                claims.extend(
+                    (target, GlyphName(stem=tuple(*claimed[part].codes for part in parts), form=Form.joined(right=claimed[parts[0]].form.right, left=claimed[parts[-1]].form.left)))
+                    for parts, target in joined[glyph]
+                    if all(part in claimed and claimed[part].codes for part in parts)
+                )
+            named, art = {glyph: claimed[glyph] for glyph in order if glyph in claimed}, False
         case OrnamentFace():
             kept, spaces = cmap, {glyph: code for code, glyph in sorted(cmap.items(), reverse=True) if unicodedata.category(chr(code)) == "Zs"}
-            named, art = ({glyph: _GlyphName(stem=(spaces[glyph],)) if glyph in spaces else _GlyphName(stem=glyph) for glyph in order if glyph == ".notdef" or glyph in spaces or outline(glyph)}, True)
+            named, art = ({glyph: GlyphName(stem=(spaces[glyph],)) if glyph in spaces else GlyphName(stem=glyph) for glyph in order if glyph == ".notdef" or glyph in spaces or outline(glyph)}, True)
     encodings: defaultdict[str, list[int]] = defaultdict(list)
     for code, glyph in kept.items():
         encodings[glyph].append(code)
-    anchors = {} if art else _anchors(font, named)
+    anchors: dict[str, dict[str, tuple[float, float]]] = {}
+    for sub in () if art else tuple(*subtables(lookup) for _, _, lookup in _lookups(font, "GPOS")):
+        match sub:
+            case BaseTable(MarkCoverage=Coverage(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), BaseCoverage=Coverage(glyphs=bases), BaseArray=BaseTable(BaseRecord=rows)):
+                attached = tuple((base, "", row.BaseAnchor) for base, row in zip(bases, rows))
+            case BaseTable(MarkCoverage=Coverage(glyphs=marks), MarkArray=BaseTable(MarkRecord=records), LigatureCoverage=Coverage(glyphs=bases), LigatureArray=BaseTable(LigatureAttach=rows)):
+                attached = tuple((base, f"_{index}", component.LigatureAnchor) for base, row in zip(bases, rows) for index, component in enumerate(row.ComponentRecord, 1))
+            case BaseTable(Mark1Coverage=Coverage(glyphs=marks), Mark1Array=BaseTable(MarkRecord=records), Mark2Coverage=Coverage(glyphs=bases), Mark2Array=BaseTable(Mark2Record=rows)):
+                attached = tuple((base, "", row.Mark2Anchor) for base, row in zip(bases, rows))
+            case _:
+                continue
+        votes = Counter((record.Class, Side.of(code)) for mark, record in zip(marks, records) if mark in named for code in named[mark].codes[:1])
+        sides = {klass: Side.BELOW if votes[klass, Side.BELOW] > votes[klass, Side.ABOVE] else Side.ABOVE for klass in {record.Class for record in records}}
+        placed = (
+            *((mark, f"_{sides[record.Class].anchor}", record.MarkAnchor) for mark, record in zip(marks, records)),
+            *((base, f"{sides[klass].anchor}{suffix}", point) for base, suffix, points in attached for klass, point in enumerate(points) if point and klass in sides),
+        )
+        for owner, label, point in placed:
+            anchors.setdefault(owner, {}).setdefault(label, (point.XCoordinate, point.YCoordinate))
     renamed = {source: tuple(named[part].text for part in parts) for parts, source in rules if source in named and all(part in named for part in parts)}
     os2 = font["OS/2"]
     hhea = font["hhea"]
@@ -228,33 +206,33 @@ def _source(font: TTFont, face: Faces, /) -> Source:
     )
     return Source(
         face=face,
-        upm=head.unitsPerEm,  # ty: ignore[unresolved-attribute]
+        upm=head.unitsPerEm,  # ty: ignore[missing-attribute]
         glyphs=tuple(
-            _Glyph(
+            Glyph(
                 name=name,
-                role=Ornament() if art and isinstance(name.stem, str) and name.stem != ".notdef" else _role(name, components=renamed.get(glyph, ())),
+                role=Ornament() if art and isinstance(name.stem, str) and name.stem != ".notdef" else role(name, components=renamed.get(glyph, ())),
                 advance=advances[glyph][0],
                 codes=frozenset(encodings[glyph]),
                 contours=outline(glyph),
-                anchors=tuple(_Anchor(name=anchor, x=x, y=y) for anchor, (x, y) in sorted(anchors.get(glyph, {}).items())),
+                anchors=tuple(Anchor(name=anchor, x=x, y=y) for anchor, (x, y) in sorted(anchors.get(glyph, {}).items())),
             )
             for glyph, name in named.items()
         ),
-        info=_Info(
-            created=datetime.fromtimestamp(head.created + epoch_diff, UTC),  # ty: ignore[unresolved-attribute]
-            version=divmod(round(head.fontRevision * 1000), 1000),  # ty: ignore[unresolved-attribute]
+        info=Info(
+            created=datetime.fromtimestamp(head.created + epoch_diff, UTC),  # ty: ignore[missing-attribute]
+            version=divmod(round(head.fontRevision * 1000), 1000),  # ty: ignore[missing-attribute]
             copyright=Option.of_optional(font["name"].getDebugName(0)).map(str.strip).filter(bool).to_optional(),
             designer=Option.of_optional(font["name"].getDebugName(9)).map(str.strip).filter(bool).to_optional(),
-            vendor=Some(os2.achVendID.strip()).filter(bool).to_optional(),  # ty: ignore[unresolved-attribute]
+            vendor=Some(os2.achVendID.strip()).filter(bool).to_optional(),  # ty: ignore[missing-attribute]
         ),
-        metrics=_Metrics(
+        metrics=VerticalMetrics(
             ascender=hhea.ascent,
             descender=hhea.descent,
-            win_ascent=os2.usWinAscent,  # ty: ignore[unresolved-attribute]
-            win_descent=os2.usWinDescent,  # ty: ignore[unresolved-attribute]
-            caret_offset=hhea.caretOffset,  # ty: ignore[unresolved-attribute]
-            italic_angle=post.italicAngle,  # ty: ignore[unresolved-attribute]
-            lowest_ppem=head.lowestRecPPEM,  # ty: ignore[unresolved-attribute]
+            win_ascent=os2.usWinAscent,  # ty: ignore[missing-attribute]
+            win_descent=os2.usWinDescent,  # ty: ignore[missing-attribute]
+            caret_offset=hhea.caretOffset,  # ty: ignore[missing-attribute]
+            italic_angle=post.italicAngle,  # ty: ignore[missing-attribute]
+            lowest_ppem=head.lowestRecPPEM,  # ty: ignore[missing-attribute]
         ),
         lookups=tuple(sorted(lookups, key=lambda lookup: lookup.order)),
     )
@@ -270,13 +248,9 @@ def imported(original: bytes, face: Faces, /) -> Outcome[Source]:
     Returns:
         Ok(source), `UNREADABLE` for bytes fontTools refuses, and the faults of holding the pinned Unicode joining table.
     """
-    return _fetched().bind(
-        lambda _: catch(lambda: _source(TTFont(BytesIO(original), lazy=True, recalcBBoxes=False, recalcTimestamp=False), face), exception=TTLibError)().map_error(
-            partial(Fault.of, Reason.UNREADABLE, face.postscript)
-        )
-    )
+    return fetched().bind(lambda _: catch(_source, exception=TTLibError)(original, face).map_error(partial(Fault.of, Reason.UNREADABLE, face.postscript)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["imported"]
+__all__ = ["imported", "subtables"]

@@ -14,7 +14,6 @@ RASM2010 | RhinoCommon | Error | PageControlAnalyzer
 RASM2011 | RhinoCommon | Error | PropertyWriteAnalyzer
 RASM2012 | RhinoCommon | Error | OwnedDisplayModeAnalyzer
 RASM2014 | RhinoCommon | Error | TextRoundTripAnalyzer
-RASM2015 | RhinoCommon | Error | HostDefectAnalyzer
 RASM2101 | RhinoCommon | Error | DefaultedSettingAnalyzer
 RASM2102 | RhinoCommon | Error | RedrawOwnerAnalyzer
 RASM2103 | RhinoCommon | Error | NarrowedDuplicateAnalyzer

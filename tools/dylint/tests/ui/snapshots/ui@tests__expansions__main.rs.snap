@@ -21,265 +21,298 @@ error: `iter` converts `left` into an iterator only to call `zip`
 applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
 
 error: `static HITS` holds interior mutable `Atomic<u32>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:27:8
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:25:8
    |
-27 | static HITS: AtomicU32 = AtomicU32::new(0);
+25 | static HITS: AtomicU32 = AtomicU32::new(0);
    |        ^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
    = note: `#[deny(interior_mutable_static)]` on by default
 
 error: `static ROOT` holds interior mutable `OnceLock<String>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:29:8
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:27:8
    |
-29 | static ROOT: OnceLock<String> = OnceLock::new();
+27 | static ROOT: OnceLock<String> = OnceLock::new();
    |        ^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 error: `static ORIGIN` holds interior mutable `OnceLock<String>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:31:12
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:29:12
    |
-31 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
+29 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
    |            ^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 error: `static COUNTER` holds interior mutable `Atomic<u32>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:35:8
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:33:8
    |
-35 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
+33 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
    |        ^^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 error: `static SHARED` holds interior mutable `Mutex<Vec<u8>>` in `Arc<Mutex<Vec<u8>>>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:37:8
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:35:8
    |
-37 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+35 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
    |        ^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 error: `static VISITS` holds interior mutable `Cell<u32>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:44:12
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:42:12
    |
-44 |     static VISITS: Cell<u32> = const { Cell::new(0) };
+42 |     static VISITS: Cell<u32> = const { Cell::new(0) };
    |            ^^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 error: `static CALLS` holds interior mutable `Atomic<u32>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:48:10
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:46:10
    |
-48 | counter!(CALLS);
+46 | counter!(CALLS);
    |          ^^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 error: `static SEEN` holds interior mutable `Atomic<u32>`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:54:12
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:52:12
    |
-54 |     static SEEN: AtomicU32 = AtomicU32::new(0);
+52 |     static SEEN: AtomicU32 = AtomicU32::new(0);
    |            ^^^^
    |
    = help: build the value in `main` and pass it to each operation that reads or writes it
 
 error: `unwrap_or_default` replaces `PoisonError<MutexGuard<'_, Vec<u8>>>` with a fallback value
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:62:50
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:60:50
    |
-62 |     SHARED.lock().map(|mut bytes| bytes.push(1)).unwrap_or_default();
+60 |     SHARED.lock().map(|mut bytes| bytes.push(1)).unwrap_or_default();
    |                                                  ^^^^^^^^^^^^^^^^^^^
    |
    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
    = note: `#[deny(discarded_error)]` on by default
 
 error: assertion tests a pattern through a boolean
-  --> tools/dylint/tests/expansions/macro_matching.rs:96:5
+  --> tools/dylint/tests/expansions/macro_matching.rs:98:5
    |
-96 |     assert!(value.is_some(), "received value");
+98 |     assert!(value.is_some(), "received value");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: assert `core::option::Option::Some(_)` through `core::assert_matches!`, retaining custom messages
    = note: `#[deny(assert_matches)]` on by default
 
 error: assertion tests a pattern through a boolean
-  --> tools/dylint/tests/expansions/macro_matching.rs:97:5
+  --> tools/dylint/tests/expansions/macro_matching.rs:99:5
    |
-97 |     debug_assert!(value.is_none());
+99 |     debug_assert!(value.is_none());
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: assert `core::option::Option::None` through `core::debug_assert_matches!`, retaining custom messages
 
 error: assertion tests a pattern through a boolean
-  --> tools/dylint/tests/expansions/macro_matching.rs:98:5
-   |
-98 |     assert!(matches!(value, Some(_)));
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: assert `Some(_)` through `core::assert_matches!`, retaining custom messages
-
-error: assertion tests a pattern through a boolean
-  --> tools/dylint/tests/expansions/macro_matching.rs:99:5
-   |
-99 |     assert!(matches!(value, Some(_) if black_box(true)), "guard");
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: assert `Some(_) if black_box(true)` through `core::assert_matches!`, retaining custom messages
-
-error: assertion tests a pattern through a boolean
-   --> tools/dylint/tests/expansions/macro_matching.rs:113:5
+   --> tools/dylint/tests/expansions/macro_matching.rs:100:5
     |
-113 |     assert!(matches!(traced.state, State::Ready(1)));
+100 |     assert!(matches!(value, Some(_)));
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: assert `Some(_)` through `core::assert_matches!`, retaining custom messages
+
+error: assertion tests a pattern through a boolean
+   --> tools/dylint/tests/expansions/macro_matching.rs:101:5
+    |
+101 |     assert!(matches!(value, Some(_) if black_box(true)), "guard");
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: assert `Some(_) if black_box(true)` through `core::assert_matches!`, retaining custom messages
+
+error: assertion tests a pattern through a boolean
+   --> tools/dylint/tests/expansions/macro_matching.rs:115:5
+    |
+115 |     assert!(matches!(traced.state, State::Ready(1)));
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: assert `State::Ready(1)` through `core::assert_matches!`, retaining custom messages
 
 error: assertion tests a pattern through a boolean
-   --> tools/dylint/tests/expansions/macro_matching.rs:122:5
+   --> tools/dylint/tests/expansions/macro_matching.rs:124:5
     |
-122 |     require!(fits!(value, Some(_)));
+124 |     require!(fits!(value, Some(_)));
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: assert `Some(_)` through `core::assert_matches!`, retaining custom messages
 
 error: assertion tests a pattern through a boolean
-   --> tools/dylint/tests/expansions/macro_matching.rs:123:5
+   --> tools/dylint/tests/expansions/macro_matching.rs:125:5
     |
-123 |     require!(fits!(value, Some(count) if count > 1));
+125 |     require!(fits!(value, Some(count) if count > 1));
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: assert `Some(count) if count > 1` through `core::assert_matches!`, retaining custom messages
 
 error: assertion tests a pattern through a boolean
-   --> tools/dylint/tests/expansions/macro_matching.rs:169:5
+   --> tools/dylint/tests/expansions/macro_matching.rs:171:5
     |
-169 |     assert!(present.is_some());
+171 |     assert!(present.is_some());
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: assert `core::option::Option::Some(_)` through `core::assert_matches!`, retaining custom messages
 
 error: assertion tests a pattern through a boolean
-   --> tools/dylint/tests/expansions/macro_matching.rs:170:5
+   --> tools/dylint/tests/expansions/macro_matching.rs:172:5
     |
-170 |     assert!(absent.is_none());
+172 |     assert!(absent.is_none());
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: assert `core::option::Option::None` through `core::assert_matches!`, retaining custom messages
 
 error: error `Box<dyn Error>` is an erased `dyn Error` callers cannot match
-  --> tools/dylint/tests/expansions/main.rs:49:26
+  --> tools/dylint/tests/expansions/main.rs:51:26
    |
-49 |     fn boxed_helper() -> Result<(), Box<dyn Error>> { Ok(()) }
+51 |     fn boxed_helper() -> Result<(), Box<dyn Error>> { Ok(()) }
    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
    = note: `#[deny(untyped_error)]` on by default
 
 error: error `anyhow::Error` is a report that erases each failure's type
-  --> tools/dylint/tests/expansions/main.rs:51:27
+  --> tools/dylint/tests/expansions/main.rs:53:27
    |
-51 |     fn report_helper() -> anyhow::Result<()> { Ok(()) }
+53 |     fn report_helper() -> anyhow::Result<()> { Ok(()) }
    |                           ^^^^^^^^^^^^^^^^^^
    |
    = help: return the concrete source error, or add a domain error for context or distinct failures
 
-error: text of error `std::fmt::Error` is compared
-  --> tools/dylint/tests/expansions/main.rs:83:12
+error: text of error `std::fmt::Error` is stored
+  --> tools/dylint/tests/expansions/main.rs:65:20
    |
-83 |         if error.to_string().contains("argument") {
-   |            ^^^^^^^^^^^^^^^^^
+65 |         assert_eq!(error.to_string(), "an error occurred when formatting an argument");
+   |                    ^^^^^^^^^^^^^^^^^
    |
-   = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+   = help: hold `std::fmt::Error` as `#[source]` of a `thiserror` variant
    = note: `#[deny(stringified_error)]` on by default
 
 error: text of error `std::fmt::Error` is compared
-  --> tools/dylint/tests/expansions/main.rs:86:25
+  --> tools/dylint/tests/expansions/main.rs:85:12
    |
-86 |         black_box(match error.to_string().contains("formatting") {
+85 |         if error.to_string().contains("argument") {
+   |            ^^^^^^^^^^^^^^^^^
+   |
+   = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
+
+error: text of error `std::fmt::Error` is compared
+  --> tools/dylint/tests/expansions/main.rs:88:25
+   |
+88 |         black_box(match error.to_string().contains("formatting") {
    |                         ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-  --> tools/dylint/tests/expansions/main.rs:90:20
+  --> tools/dylint/tests/expansions/main.rs:92:20
    |
-90 |         assert!(if error.to_string().contains("argument") { true } else { false });
+92 |         assert!(if error.to_string().contains("argument") { true } else { false });
    |                    ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-  --> tools/dylint/tests/expansions/main.rs:91:23
+  --> tools/dylint/tests/expansions/main.rs:93:23
    |
-91 |         let message = error.to_string();
+93 |         let message = error.to_string();
    |                       ^^^^^^^^^^^^^^^^^
    |
    = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-   --> tools/dylint/tests/expansions/main.rs:106:17
+   --> tools/dylint/tests/expansions/main.rs:108:17
     |
-106 |         assert!(error.to_string().contains("formatting"));
+108 |         assert!(error.to_string().contains("formatting"));
     |                 ^^^^^^^^^^^^^^^^^
     |
     = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: text of `error_assertions::Mode` is compared
-   --> tools/dylint/tests/expansions/main.rs:135:20
+   --> tools/dylint/tests/expansions/main.rs:137:20
     |
-135 |                 if mode.to_string().contains("Ready") {
+137 |                 if mode.to_string().contains("Ready") {
     |                    ^^^^^^^^^^^^^^^^
     |
     = help: compare or match `error_assertions::Mode` in place of its text
 
 error: text of error `std::fmt::Error` is compared
-   --> tools/dylint/tests/expansions/main.rs:139:27
+   --> tools/dylint/tests/expansions/main.rs:141:27
     |
-139 |                 black_box(format!("{error:?}").contains("Error"));
+141 |                 black_box(format!("{error:?}").contains("Error"));
     |                           ^^^^^^^^^^^^^^^^^^^^
     |
     = help: match the error's variant, `kind()`, or `downcast_ref` in place of its text
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/tests/expansions/main.rs:160:38
+   --> tools/dylint/tests/expansions/main.rs:162:38
     |
-160 |         fn nested_report_helper() -> anyhow::Result<()> { Ok(()) }
+162 |         fn nested_report_helper() -> anyhow::Result<()> { Ok(()) }
     |                                      ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `String` is text callers cannot match
-   --> tools/dylint/tests/expansions/main.rs:165:31
+   --> tools/dylint/tests/expansions/main.rs:167:31
     |
-165 |     fn string_test_error() -> Result<(), String> { Ok(()) }
+167 |     fn string_test_error() -> Result<(), String> { Ok(()) }
     |                               ^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/tests/expansions/main.rs:169:19
+   --> tools/dylint/tests/expansions/main.rs:171:19
     |
-169 |         black_box(anyhow::Error::from(fmt::Error));
+171 |         black_box(anyhow::Error::from(fmt::Error));
     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/tests/expansions/main.rs:176:19
+   --> tools/dylint/tests/expansions/main.rs:178:19
     |
-176 |         black_box(anyhow::Error::from(fmt::Error));
+178 |         black_box(anyhow::Error::from(fmt::Error));
     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
 
 error: error `anyhow::Error` is a report that erases each failure's type
-   --> tools/dylint/tests/expansions/main.rs:182:9
+   --> tools/dylint/tests/expansions/main.rs:184:9
     |
-182 |         Err::<(), _>(fmt::Error).context("rendering")?;
+184 |         Err::<(), _>(fmt::Error).context("rendering")?;
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
     = help: return the concrete source error, or add a domain error for context or distinct failures
+
+error: `assert` renamed to `require` with no other `assert` in scope
+   --> tools/dylint/tests/expansions/macro_matching.rs:121:16
+    |
+121 |     use core::{assert as require, matches as fits};
+    |                ^^^^^^^^^^^^^^^^^
+    |
+    = help: remove `as require` and name `assert` at each use
+    = note: `#[deny(needless_import_rename)]` on by default
+
+error: `matches` renamed to `fits` with no other `matches` in scope
+   --> tools/dylint/tests/expansions/macro_matching.rs:121:35
+    |
+121 |     use core::{assert as require, matches as fits};
+    |                                   ^^^^^^^^^^^^^^^
+    |
+    = help: remove `as fits` and name `matches` at each use
+
+error: `assert` renamed to `require` with no other `assert` in scope
+  --> tools/dylint/tests/expansions/main.rs:70:13
+   |
+70 |         use core::assert as require;
+   |             ^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: remove `as require` and name `assert` at each use
 
 error: `POSITIVE` has one reader, `main`
   --> tools/dylint/tests/expansions/assertions_outside_tests.rs:7:1
@@ -428,172 +461,129 @@ note: read here
     = help: move `helper` into `asserted` as a closure
 
 error: `HITS` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:27:1
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:25:1
    |
-27 | static HITS: AtomicU32 = AtomicU32::new(0);
+25 | static HITS: AtomicU32 = AtomicU32::new(0);
    | ^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:56:5
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:54:5
    |
-56 |     HITS.fetch_add(1, Ordering::Relaxed);
+54 |     HITS.fetch_add(1, Ordering::Relaxed);
    |     ^^^^
-57 |     CALLS.fetch_add(DEPTH.with(|depth| *depth), Ordering::Relaxed);
-58 |     VISITS.set(HITS.load(Ordering::Relaxed));
+55 |     CALLS.fetch_add(DEPTH.with(|depth| *depth), Ordering::Relaxed);
+56 |     VISITS.set(HITS.load(Ordering::Relaxed));
    |                ^^^^
 ...
-64 |         HITS.fetch_add(*limit, Ordering::Relaxed);
+62 |         HITS.fetch_add(*limit, Ordering::Relaxed);
    |         ^^^^
-65 |     }
-66 |     HITS.fetch_add(Options::parse_from(["fixture"]).port, Ordering::Relaxed);
+63 |     }
+64 |     HITS.fetch_add(Options::parse_from(["fixture"]).port, Ordering::Relaxed);
    |     ^^^^
    = help: move `HITS` into `main` as a nested item
 
-error: `CALLS` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:13:9
+error: `ROOT` has one reader, `main`
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:27:1
    |
-11 | macro_rules! counter {
-12 |     ($name:ident) => {
-13 |         static $name: AtomicU32 = AtomicU32::new(0);
-   |         ^^^^^^^^^^^^^^^^^^^^^^^
-...
-48 | counter!(CALLS);
-   | --------------- in this macro invocation
+27 | static ROOT: OnceLock<String> = OnceLock::new();
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
   --> tools/dylint/tests/expansions/interior_mutable_static.rs:57:5
    |
-57 |     CALLS.fetch_add(DEPTH.with(|depth| *depth), Ordering::Relaxed);
-   |     ^^^^^
-   = help: move `CALLS` into `main` as a nested item
-
-error: `ROOT` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:29:1
-   |
-29 | static ROOT: OnceLock<String> = OnceLock::new();
-   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:59:5
-   |
-59 |     ROOT.get_or_init(|| GREETING.to_owned());
+57 |     ROOT.get_or_init(|| GREETING.to_owned());
    |     ^^^^
    = help: move `ROOT` into `main` as a nested item
 
 error: `GREETING` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:39:1
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:37:1
    |
-39 | static GREETING: &str = "hello";
+37 | static GREETING: &str = "hello";
    | ^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:59:25
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:57:25
    |
-59 |     ROOT.get_or_init(|| GREETING.to_owned());
+57 |     ROOT.get_or_init(|| GREETING.to_owned());
    |                         ^^^^^^^^
-60 |     ORIGIN.get_or_init(|| GREETING.to_owned());
+58 |     ORIGIN.get_or_init(|| GREETING.to_owned());
    |                           ^^^^^^^^
    = help: move `GREETING` into `main` as a nested item
 
 error: `ORIGIN` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:31:1
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:29:1
    |
-31 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
+29 | pub static ORIGIN: OnceLock<String> = OnceLock::new();
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:60:5
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:58:5
    |
-60 |     ORIGIN.get_or_init(|| GREETING.to_owned());
+58 |     ORIGIN.get_or_init(|| GREETING.to_owned());
    |     ^^^^^^
    = help: move `ORIGIN` into `main` as a nested item
 
 error: `COUNTER` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:35:1
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:33:1
    |
-35 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
+33 | static COUNTER: LazyLock<AtomicU32> = LazyLock::new(|| AtomicU32::new(1));
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:61:5
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:59:5
    |
-61 |     COUNTER.fetch_add(1, Ordering::Relaxed);
+59 |     COUNTER.fetch_add(1, Ordering::Relaxed);
    |     ^^^^^^^
    = help: move `COUNTER` into `main` as a nested item
 
 error: `SHARED` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:37:1
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:35:1
    |
-37 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
+35 | static SHARED: LazyLock<Arc<Mutex<Vec<u8>>>> = LazyLock::new(|| Arc::new(Mutex::new(Vec::new())));
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:62:5
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:60:5
    |
-62 |     SHARED.lock().map(|mut bytes| bytes.push(1)).unwrap_or_default();
+60 |     SHARED.lock().map(|mut bytes| bytes.push(1)).unwrap_or_default();
    |     ^^^^^^
    = help: move `SHARED` into `main` as a nested item
 
 error: `TABLE` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:33:1
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:31:1
    |
-33 | static TABLE: LazyLock<Vec<u32>> = LazyLock::new(|| (1..4).collect());
+31 | static TABLE: LazyLock<Vec<u32>> = LazyLock::new(|| (1..4).collect());
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:63:18
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:61:18
    |
-63 |     for limit in TABLE.iter().chain(&LIMITS) {
+61 |     for limit in TABLE.iter().chain(&LIMITS) {
    |                  ^^^^^
    = help: move `TABLE` into `main` as a nested item
 
 error: `LIMITS` has one reader, `main`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:41:1
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:39:1
    |
-41 | static LIMITS: [u32; 2] = [1, 2];
+39 | static LIMITS: [u32; 2] = [1, 2];
    | ^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:63:38
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:61:38
    |
-63 |     for limit in TABLE.iter().chain(&LIMITS) {
+61 |     for limit in TABLE.iter().chain(&LIMITS) {
    |                                      ^^^^^^
    = help: move `LIMITS` into `main` as a nested item
 
 error: `TEST_VALUE` has one reader, `counted`
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:73:5
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:71:5
    |
-73 |     static TEST_VALUE: AtomicU32 = AtomicU32::new(0);
+71 |     static TEST_VALUE: AtomicU32 = AtomicU32::new(0);
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/tests/expansions/interior_mutable_static.rs:78:9
+  --> tools/dylint/tests/expansions/interior_mutable_static.rs:76:9
    |
-78 |         TEST_VALUE.fetch_add(1, Ordering::Relaxed);
+76 |         TEST_VALUE.fetch_add(1, Ordering::Relaxed);
    |         ^^^^^^^^^^
    = help: move `TEST_VALUE` into `counted` as a nested item
-
-error: `assert` renamed to `require` with no other `assert` in scope
-   --> tools/dylint/tests/expansions/macro_matching.rs:119:16
-    |
-119 |     use core::{assert as require, matches as fits};
-    |                ^^^^^^^^^^^^^^^^^
-    |
-    = help: remove `as require` and name `assert` at each use
-    = note: `#[deny(needless_import_rename)]` on by default
-
-error: `matches` renamed to `fits` with no other `matches` in scope
-   --> tools/dylint/tests/expansions/macro_matching.rs:119:35
-    |
-119 |     use core::{assert as require, matches as fits};
-    |                                   ^^^^^^^^^^^^^^^
-    |
-    = help: remove `as fits` and name `matches` at each use
-
-error: `assert` renamed to `require` with no other `assert` in scope
-  --> tools/dylint/tests/expansions/main.rs:68:13
-   |
-68 |         use core::assert as require;
-   |             ^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = help: remove `as require` and name `assert` at each use

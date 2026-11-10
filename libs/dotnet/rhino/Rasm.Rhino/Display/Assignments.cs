@@ -84,7 +84,9 @@ public static class DisplayModeRules {
 
     public static IO<Seq<Guid>> Reconcile(RhinoDoc doc, Seq<DisplayModeRule> rules, Seq<RhinoObject> objects, RedrawPolicy redraw) =>
         Commits.WithinRedraw(doc, redraw,
-            from slots in Products.Each(rules.Map(rule => Slot(doc, rule.Viewport).Map(slot => (Slot: slot, Rule: rule))))
+            from slots in Products.Each(rules.Map(rule => rule.Viewport
+                .Match(Some: target => Viewports.With(doc, target, static row => IO.pure(row.Viewport.Id)), None: static () => IO.pure(Guid.Empty))
+                .Map(slot => (Slot: slot, Rule: rule))))
             from planned in Products.Each(objects.Map(found => Planned(found, slots)))
             from written in Products.Each(planned.Somes().Map(row => new ObjectTarget.Ids(Seq(row.Id)).Objects(doc).Bind(found => AttributeEdits.Modify(
                 doc, found, _ => [Rows.Write<ObjectAttributes>(staged => Written(staged, row.Writes, row.Mark)).Write], quiet: true))))
@@ -165,9 +167,6 @@ public static class DisplayModeRules {
             None: () => slot == Guid.Empty
                 ? IO.lift(() => AllViewportsRemoved(staged, Guid.NewGuid()))
                 : IO.lift(() => staged.RemoveDisplayModeOverride(slot)));
-
-    internal static IO<Guid> Slot(RhinoDoc doc, Option<ViewportTarget> viewport) =>
-        viewport.Match(Some: target => Viewports.With(doc, target, static row => IO.pure(row.Viewport.Id)), None: static () => IO.pure(Guid.Empty));
 
     internal static Fin<Unit> Assignable(DisplayModeDescription mode) => RhinoFault.Unless(mode.AllowObjectAssignment, RhinoReason.Unsupported, mode.EnglishName);
 }

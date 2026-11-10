@@ -1,6 +1,9 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, res::MaybeDef as _, sym};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::sym;
 use rustc_attr_ir::lang_items::LangItem;
-use rustc_hir::{Expr, ExprKind, HirId, ImplItem, ImplItemKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind, HirId, ImplItem, ImplItemKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty;
 

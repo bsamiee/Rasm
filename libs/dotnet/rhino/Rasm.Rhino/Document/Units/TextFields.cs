@@ -28,26 +28,28 @@ public abstract partial record TitleSource {
     public sealed record SheetFact(Func<Sheet, string> Read) : TitleSource;
 
     public static HashMap<TitleField, TitleSource> Iso7200 { get; } = HashMap<TitleField, TitleSource>(
-        (TitleField.LegalOwner, new DocumentText("legal-owner")),
-        (TitleField.IdentificationNumber, new PageName()),
-        (TitleField.RevisionIndex, new LayoutText("revision-index")),
-        (TitleField.DateOfIssue, new LayoutText("date-of-issue")),
-        (TitleField.SegmentNumber, new LayoutText("segment-number")),
-        (TitleField.SegmentCount, new LayoutText("segment-count")),
-        (TitleField.LanguageCode, new DocumentText("language-code")),
-        (TitleField.Title, new LayoutText("title")),
-        (TitleField.SupplementaryTitle, new LayoutText("supplementary-title")),
-        (TitleField.ResponsibleDepartment, new DocumentText("responsible-department")),
-        (TitleField.TechnicalReference, new DocumentText("technical-reference")),
-        (TitleField.ApprovalPerson, new LayoutText("approval-person")),
-        (TitleField.Creator, new LayoutText("creator")),
-        (TitleField.DocumentType, new DocumentText("document-type")),
-        (TitleField.Classification, new DocumentText("classification")),
-        (TitleField.DocumentStatus, new LayoutText("document-status")),
-        (TitleField.PaperSize, new SheetFact(static sheet => sheet.Size.Name)),
-        (TitleField.ProjectName, new DocumentText("project-name")),
-        (TitleField.Client, new DocumentText("client")),
-        (TitleField.Checker, new LayoutText("checker")));
+        (TitleField.Iso7200.LegalOwner, new DocumentText("legal-owner")),
+        (TitleField.Iso7200.IdentificationNumber, new PageName()),
+        (TitleField.Iso7200.RevisionIndex, new LayoutText("revision-index")),
+        (TitleField.Iso7200.DateOfIssue, new LayoutText("date-of-issue")),
+        (TitleField.Iso7200.SegmentNumber, new LayoutText("segment-number")),
+        (TitleField.Iso7200.SegmentCount, new LayoutText("segment-count")),
+        (TitleField.Iso7200.LanguageCode, new DocumentText("language-code")),
+        (TitleField.Iso7200.Title, new LayoutText("title")),
+        (TitleField.Iso7200.SupplementaryTitle, new LayoutText("supplementary-title")),
+        (TitleField.Iso7200.ResponsibleDepartment, new DocumentText("responsible-department")),
+        (TitleField.Iso7200.TechnicalReference, new DocumentText("technical-reference")),
+        (TitleField.Iso7200.ApprovalPerson, new LayoutText("approval-person")),
+        (TitleField.Iso7200.Creator, new LayoutText("creator")),
+        (TitleField.Iso7200.DocumentType, new DocumentText("document-type")),
+        (TitleField.Iso7200.Classification, new DocumentText("classification")),
+        (TitleField.Iso7200.DocumentStatus, new LayoutText("document-status")),
+        (TitleField.Iso7200.PageNumber, new LayoutText("page-number")),
+        (TitleField.Iso7200.PageCount, new LayoutText("page-count")),
+        (TitleField.Iso7200.PaperSize, new SheetFact(static sheet => sheet.Size.Name)),
+        (TitleField.Custom.ProjectName, new DocumentText("project-name")),
+        (TitleField.Custom.Client, new DocumentText("client")),
+        (TitleField.Custom.Checker, new LayoutText("checker")));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

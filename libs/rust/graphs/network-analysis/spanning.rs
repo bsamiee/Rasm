@@ -1,13 +1,11 @@
 use core::borrow::Borrow;
 use std::collections::BTreeSet;
 
-use petgraph::{
-    Undirected,
-    algo::min_spanning_tree,
-    data::Element,
-    graph::NodeIndex,
-    visit::{EdgeRef as _, GraphProp},
-};
+use petgraph::Undirected;
+use petgraph::algo::min_spanning_tree;
+use petgraph::data::Element;
+use petgraph::graph::NodeIndex;
+use petgraph::visit::{EdgeRef as _, GraphProp};
 use rustworkx_core::steiner_tree::{SteinerTreeResult, steiner_tree};
 use validated::Validated;
 

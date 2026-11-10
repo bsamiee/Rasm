@@ -1,16 +1,17 @@
 #![feature(adt_const_params, cmp_minmax)]
 
-use core::{borrow::Borrow, cell::LazyCell, convert, fmt, iter, marker::ConstParamTy};
+use core::borrow::Borrow;
+use core::cell::LazyCell;
+use core::marker::ConstParamTy;
+use core::{convert, fmt, iter};
 
-use cavalier_contours::{
-    core::math::Vector2,
-    polyline::{
-        self, BooleanOp, BooleanResult, PlineBasicIntersect, PlineBooleanOptions, PlineContainsOptions, PlineContainsResult, PlineCreation as _, PlineIntersect, PlineOrientation,
-        PlineOverlappingIntersect, PlineSelfIntersectOptions, PlineSource as _, PlineSourceMut as _, PlineVertex, SelfIntersectsInclude,
-    },
-    shape_algorithms::{IndexedPolyline, Shape},
-    static_aabb2d_index::Control,
+use cavalier_contours::core::math::Vector2;
+use cavalier_contours::polyline::{
+    self, BooleanOp, BooleanResult, PlineBasicIntersect, PlineBooleanOptions, PlineContainsOptions, PlineContainsResult, PlineCreation as _, PlineIntersect, PlineOrientation,
+    PlineOverlappingIntersect, PlineSelfIntersectOptions, PlineSource as _, PlineSourceMut as _, PlineVertex, SelfIntersectsInclude,
 };
+use cavalier_contours::shape_algorithms::{IndexedPolyline, Shape};
+use cavalier_contours::static_aabb2d_index::Control;
 use geo_types::{LineString, MultiPolygon, Polygon};
 use itertools::{Either, Itertools as _};
 use nalgebra::{Point2, Reflection2, Similarity2};

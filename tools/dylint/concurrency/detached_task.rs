@@ -1,18 +1,15 @@
 use core::{iter, mem};
 
-use clippy_utils::{
-    diagnostics::span_lint_hir,
-    expr_or_init, fn_def_id, is_expr_temporary_value,
-    paths::PathNS,
-    res::{MaybeDef as _, MaybeResPath as _},
-};
+use clippy_utils::diagnostics::span_lint_hir;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::{expr_or_init, fn_def_id, is_expr_temporary_value};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
-use rustc_hir::{Expr, ExprKind, HirId, LetStmt, PatKind, Stmt, StmtKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind, HirId, LetStmt, PatKind, Stmt, StmtKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{
-    TyCtxt,
-    adjustment::{Adjust, Adjustment},
-};
+use rustc_middle::ty::TyCtxt;
+use rustc_middle::ty::adjustment::{Adjust, Adjustment};
 use rustc_span::{Span, sym};
 
 use crate::{expanded_externally, impl_owner, paths, resolve, signature};

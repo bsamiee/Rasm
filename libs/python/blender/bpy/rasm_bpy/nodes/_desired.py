@@ -15,10 +15,10 @@ import msgspec.structs
 
 from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._rna.descriptors import _differing, Value, written
+from rasm_bpy.data._rna.descriptors import differing, Value, written
 from rasm_bpy.data._rna.paths import RnaPath
-from rasm_bpy.data._rna.properties import _titled
-from rasm_bpy.nodes._trees import _matched_items, _ordered_items, GraphTree
+from rasm_bpy.data._rna.properties import titled
+from rasm_bpy.nodes._trees import GraphTree, matched_items, ordered_items
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason, words
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -29,7 +29,7 @@ type Choice = Enum | type[msgspec.Struct]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 INPUTS: Final[Key] = "inputs"
-_OUTPUTS: Final[Key] = "outputs"
+OUTPUTS: Final[Key] = "outputs"
 RESULT: Final[Key] = "result"
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -95,7 +95,7 @@ class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
             case Enum(name=name):
                 return cls(name=bpy.path.display_name(name.lower()))
             case _:
-                return cls(name=_titled(choice), description=Option.of_optional(choice.__doc__).map(inspect.cleandoc).default_value(""))
+                return cls(name=titled(choice), description=Option.of_optional(choice.__doc__).map(inspect.cleandoc).default_value(""))
 
     @staticmethod
     def member[C: Choice](choices: Iterable[C], name: str, /) -> Option[C]:
@@ -112,10 +112,12 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
 
     @staticmethod
     def _bound(live: bpy.types.GeometryNodeMenuSwitch, identity: Identity) -> tuple[Mapping[str, Mapping[str, str]], dict[str, bpy.types.NodeEnumItem], bpy.types.NodeInputs, bpy.types.NodeOutputs]:
-        bindings: Mapping[str, Mapping[str, str]] = live.get(identity.identifier(MenuItems._key), {})  # ty: ignore[unsound-assignment]
-        inputs: bpy.types.NodeInputs = live.inputs  # ty: ignore[invalid-assignment]
-        outputs: bpy.types.NodeOutputs = live.outputs  # ty: ignore[invalid-assignment]
-        return bindings, {socket.identifier: item for item, socket in zip(live.enum_items, islice(outputs, 1, None))}, inputs, outputs
+        bindings = msgspec.convert(live.get(identity.identifier(MenuItems._key), {}), dict[str, dict[str, str]])
+        match live:
+            case bpy.types.GeometryNodeMenuSwitch(inputs=bpy.types.bpy_prop_collection() as inputs, outputs=bpy.types.bpy_prop_collection() as outputs):
+                return bindings, {socket.identifier: item for item, socket in zip(live.enum_items, islice(outputs, 1, None))}, inputs, outputs
+            case _:
+                raise TypeError(live)
 
     @classmethod
     def of(cls, source: bpy.types.EnumProperty | Iterable[Choice] | TypeAliasType, /) -> Self:
@@ -137,7 +139,7 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
                 len(inventory) == len(self.items)
                 and tuple(bindings[identifier]["request"] for identifier in inventory if identifier in bindings) == tuple(item.name for item in self.items)
                 and all(native.name == bindings[identifier]["name"] and native.description == wanted.description for (identifier, native), wanted in zip(inventory.items(), self.items))
-                and (selection is None or not _differing(inputs["Menu"], {("default_value",): selection}))
+                and (selection is None or not differing(inputs["Menu"], {("default_value",): selection}))
             )
 
         return _switch(live).map(matched)
@@ -150,7 +152,7 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
             case Result(error=errors):
                 return Error(errors)
         bindings, inventory, inputs, outputs = self._bound(switch, identity)
-        removed, matched = _matched_items(inventory, {identifier: row["request"] for identifier, row in bindings.items()}, (item.name for item in self.items))
+        removed, matched = matched_items(inventory, {identifier: row["request"] for identifier, row in bindings.items()}, (item.name for item in self.items))
         names = {identifier: item.name for identifier, item in inventory.items()}
         selected = next((index for index, item in enumerate(self.items) if item == self.selected), None)
         selection = None if self.selected is None else self.selected.name
@@ -171,8 +173,8 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
                 desired.append(identifier)
                 answers.append(written(item, ("description",), wanted.description))
             current = (*(identifier for identifier in inventory if identifier in kept), *(identifier for identifier, retained in zip(desired, matched) if retained is None))
-            _ordered_items(current, desired, switch.enum_items.move)
-            if selection is None and all(_differing(inputs["Menu"], {("default_value",): item.name}) for item in switch.enum_items):
+            ordered_items(current, desired, switch.enum_items.move)
+            if selection is None and all(differing(inputs["Menu"], {("default_value",): item.name}) for item in switch.enum_items):
                 selection = next((item.name for item in switch.enum_items), None)
             if selection is not None:
                 answers.append(written(inputs["Menu"], ("default_value",), selection))
@@ -207,7 +209,7 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
                 bindings, inventory, inputs, outputs = self._bound(switch, identity)
             case _:
                 return {False: dict[int, str](), True: dict[int, str]()}
-        _, matched = _matched_items(inventory, {identifier: row["request"] for identifier, row in bindings.items()}, (item.name for item in self.items))
+        _, matched = matched_items(inventory, {identifier: row["request"] for identifier, row in bindings.items()}, (item.name for item in self.items))
         return {
             output: {
                 index: identifier
@@ -246,12 +248,12 @@ class Membered(msgspec.Struct, frozen=True, kw_only=True):
 
     def __post_init__(self) -> None:
         """Holds members under their paths."""
-        msgspec.structs.force_setattr(self, "members", _member_paths(self.members))
+        msgspec.structs.force_setattr(self, "members", member_paths(self.members))
 
     @property
     def paths(self) -> Mapping[RnaPath, Value]:
         """Members by RNA path."""
-        return _member_paths(self.members)
+        return member_paths(self.members)
 
 
 class Node(Membered, frozen=True, kw_only=True):
@@ -328,7 +330,7 @@ class Graph(Membered, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _member_paths(members: Members) -> Mapping[RnaPath, Value]:
+def member_paths(members: Members) -> Mapping[RnaPath, Value]:
     """Returns members by RNA path, an identifier as its one-step path."""
     return MappingProxyType({(key,) if isinstance(key, str) else key: value for key, value in members.items()})
 
@@ -355,4 +357,4 @@ def _switch(live: bpy.types.Node) -> Outcome[bpy.types.GeometryNodeMenuSwitch]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["INPUTS", "RESULT", "Choice", "Content", "End", "FrameNode", "Graph", "ItemContent", "Link", "Membered", "Members", "MenuItem", "MenuItems", "Node", "item_key"]
+__all__ = ["INPUTS", "OUTPUTS", "RESULT", "Choice", "Content", "End", "FrameNode", "Graph", "ItemContent", "Link", "Membered", "Members", "MenuItem", "MenuItems", "Node", "item_key", "member_paths"]

@@ -1,6 +1,8 @@
 #![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, float_conversions, map_try_insert)]
 
-use core::{borrow::Borrow, f64::consts::FRAC_1_SQRT_2, iter};
+use core::borrow::Borrow;
+use core::f64::consts::FRAC_1_SQRT_2;
+use core::iter;
 use std::sync::Arc;
 
 use color::{AlphaColor, Srgb};
@@ -14,15 +16,11 @@ use rasm_drawing::{
     regions, transform,
 };
 use skrifa::ScaleError;
-use uom::{
-    fmt::DisplayStyle::Abbreviation,
-    si::{
-        angle::radian,
-        f64::{Angle, Length, LinearNumberDensity},
-        linear_number_density::per_millimeter,
-        ratio::ratio,
-    },
-};
+use uom::fmt::DisplayStyle::Abbreviation;
+use uom::si::angle::radian;
+use uom::si::f64::{Angle, Length, LinearNumberDensity};
+use uom::si::linear_number_density::per_millimeter;
+use uom::si::ratio::ratio;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------

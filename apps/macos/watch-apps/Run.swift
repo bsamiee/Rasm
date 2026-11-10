@@ -5,6 +5,7 @@ import AsyncAlgorithms
 import CasePaths
 import CurrentProcess
 import Encoding
+import Files
 import OrderedCollections
 import Processes
 import Subprocess
@@ -14,15 +15,18 @@ import System
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let logVariable: String = "WATCH_APPS_LOG"
-let logFile: URL =
+let logFile: RotatingFile = .init(
     ProcessInfo.processInfo.environment[logVariable].map { path in URL(filePath: path) }
-    ?? .libraryDirectory.appending(components: "Logs", program, "\(program).log", directoryHint: .notDirectory)
+        ?? .libraryDirectory.appending(components: "Logs", program, "\(program).log", directoryHint: .notDirectory),
+    limit: 4 << 20,
+    kept: 3,
+)
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 final class Run: Sendable {
     private let output: FileDescriptor?
-    private let log: FileDescriptor?
+    private let log: RotatingFile?
     private let lineLength: Int?
     private let held: Mutex<(status: ExitCode, shown: [pid_t: Data])>
     private let closed: (stream: AsyncStream<Int32?>, continuation: AsyncStream<Int32?>.Continuation) = AsyncStream.makeStream()
@@ -31,10 +35,11 @@ final class Run: Sendable {
     init(output: FileDescriptor? = .standardOutput, lineLength: Int? = nil, waiting: Bool = false) {
         let opening = Result { () throws(ApplicationFailure) in
             do {
-                try FileManager.default.createDirectory(at: logFile.deletingLastPathComponent(), withIntermediateDirectories: true)
-                return try FileDescriptor.open(FilePath(logFile.path(percentEncoded: false)), .writeOnly, options: [.append, .create], permissions: [.ownerReadWrite, .groupRead, .otherRead])
+                try FileManager.default.createDirectory(at: logFile.url.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try logFile.append(encoder.encodeLine(Record<JSONValue>(argv: CommandLine.arguments)))
+                return logFile
             } catch {
-                throw ApplicationFailure(subject: logFile.path(percentEncoded: false), reason: .host(error as NSError))
+                throw ApplicationFailure(subject: logFile.url.path(percentEncoded: false), reason: .host(error as NSError))
             }
         }
         self.output = output
@@ -42,7 +47,6 @@ final class Run: Sendable {
         log = opening[case: \.success]
         held = Mutex((waiting ? .failure : .success, [:]))
         claims = waiting ? AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1)) : nil
-        append(Record<JSONValue>(argv: CommandLine.arguments))
         if case .failure(let failure) = opening { fail(program, failure) }
     }
 
@@ -51,11 +55,11 @@ final class Run: Sendable {
     }
 
     private func append(_ record: Record<some Encodable>) {
-        do { try log?.writeAll(encoded(record)) } catch { WatchApps.exit(withError: error) }
+        do { try log?.append(encoded(record)) } catch { WatchApps.exit(withError: error) }
     }
 
     private func write(_ line: Data, logging whole: some Encodable) {
-        let open: Bool = held.withLock { _ in
+        let open = held.withLock { _ in
             append(Record(line: whole))
             do {
                 try output?.writeAll(line)
@@ -81,14 +85,14 @@ final class Run: Sendable {
     func set(_ status: ExitCode) { held.withLock { held in held.status = status } }
 
     func show(_ instance: NSRunningApplication, _ state: InstanceState, whole: Bool = false) {
-        let (key, pid): (String, String) = (instance.key, String(instance.processIdentifier))
+        let (key, pid) = (instance.key, String(instance.processIdentifier))
         let full: [String: [String: InstanceState]] = [key: [pid: state]]
         let line: Data
         if case .running(let running) = state, !whole {
             let outline = Outline(
                 active: running.active,
                 asking: running.asking.map { window in
-                    let element: Element? = window.description[case: \.element]
+                    let element = window.description[case: \.element]
                     return Outline.Row(
                         kind: window.description,
                         number: window.number,
@@ -102,7 +106,7 @@ final class Run: Sendable {
                 status: running.status,
                 windows: running.windows.filter { window in window.presented && !window.asking }.map(\.number),
             )
-            let fitted: Outline = lineLength.map { limit in outline.fitted(within: limit) { outline in encoded([key: [pid: Event.running(outline)]]).count } } ?? outline
+            let fitted = lineLength.map { limit in outline.fitted(within: limit) { outline in encoded([key: [pid: Event.running(outline)]]).count } } ?? outline
             line = encoded([key: [pid: Event.running(fitted)]])
         } else {
             line = encoded(full)
@@ -122,14 +126,14 @@ final class Run: Sendable {
 
     func follow(_ feed: some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable) async {
         _ = await feed.reduce(OrderedDictionary<NSRunningApplication, InstanceState>()) { last, next in
-            for (instance, state): (NSRunningApplication, InstanceState) in next { show(instance, state) }
-            for (instance, state): (NSRunningApplication, InstanceState) in last where next[instance] == nil && !state.is(\.exited) { emit(instance.key, [String: String]()) }
+            for (instance, state) in next { show(instance, state) }
+            for (instance, state) in last where next[instance] == nil && !state.is(\.exited) { emit(instance.key, [String: String]()) }
             return next
         }
     }
 
     func follow(launching steps: some AsyncSequence<Launching, Never> & Sendable, as key: String) async {
-        for await step: Launching in steps {
+        for await step in steps {
             show(step, as: key)
             switch step {
                 case .launched(let launched): claims?.continuation.yield(launched.created ? NSRunningApplication(processIdentifier: launched.pid) : nil)
@@ -174,13 +178,13 @@ final class Run: Sendable {
 
     func release() async {
         guard case .some(.some(let instance)) = await claims?.stream.first(where: { _ in true }) else { return }
-        let saved: InstanceState? = await quit(instance, instance.quit(saving: true))
-        let ended: InstanceState? = saved?.is(\.exited) == true ? saved : await quit(instance, instance.quitting(force: true))
+        let saved = await quit(instance, instance.quit(saving: true))
+        let ended = saved?.is(\.exited) == true ? saved : await quit(instance, instance.quit(force: true))
         if let ended { settle(ended) }
     }
 
     func finish(signal: Int32? = nil) -> Never {
-        let status: ExitCode = held.withLock { held in held.status }
+        let status = held.withLock { held in held.status }
         append(Record<JSONValue>(exit: Exit(status: status.rawValue, signal: signal)))
         WatchApps.exit(withError: status)
     }
@@ -193,7 +197,7 @@ final class Run: Sendable {
         _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void,
     ) async {
         let run = Run(output: output, lineLength: lineLength, waiting: waiting)
-        let endings: AsyncMerge2Sequence<AsyncStream<Int32?>, AsyncStream<Int32?>> = merge(processEndings(), run.closed.stream)
+        let endings = merge(processEndings(), run.closed.stream)
         await withTaskGroup(of: Int32??.self) { group in
             group.addTask {
                 do throws(ApplicationFailure) {

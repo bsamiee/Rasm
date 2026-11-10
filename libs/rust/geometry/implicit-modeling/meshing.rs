@@ -1,14 +1,12 @@
-use fidget::{
-    mesh::{Mesh, Octree, Settings},
-    shape::{BoundShape, ShapeBulkEvalError},
-};
-use nalgebra::{Matrix4, Vector3};
-use parry3d_f64::{
-    math::Vector,
-    shape::{TriMesh, TriMeshBuilderError},
-};
+use core::ops::ControlFlow;
 
-use crate::{Domain, Evaluation, ImplicitError, Shape, bind, centered, depth, evaluate, singular, world};
+use fidget::mesh::{Mesh, Octree, Settings};
+use fidget::shape::{BoundShape, ShapeBulkEvalError, ShapeTracingEval};
+use nalgebra::{Matrix4, Vector3};
+use parry3d_f64::math::Vector;
+use parry3d_f64::shape::{TriMesh, TriMeshBuilderError};
+
+use crate::{Classification, Domain, Evaluation, ImplicitError, Shape, bind, centered, depth, evaluate, interval, span, subdivide, world};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -36,7 +34,15 @@ pub fn mesh(shape: &Shape, evaluation: &Evaluation<'_>, size: f64, boundary: Bou
         Boundary::Capped => (Some(domain.half), Vector3::repeat(extent)),
     };
     let vars = bind(shape, evaluation, domain.center, half);
-    singular(shape, &vars, evaluation.cancel.as_ref(), domain.center, depth, centered(octree))?;
+    let mut evaluator = ShapeTracingEval::default();
+    subdivide(evaluation.cancel.as_ref(), depth, centered(octree), (), &mut |(), cell, leaf| {
+        let enclosure = interval(&mut evaluator, shape, &vars, cell)?;
+        match (Classification::from(enclosure), enclosure.lower().is_finite() && enclosure.upper().is_finite(), leaf) {
+            (Classification::Inside | Classification::Outside, _, _) | (Classification::Straddling, true, _) => Ok(ControlFlow::Break(())),
+            (Classification::Straddling, false, false) => Ok(ControlFlow::Continue(())),
+            (Classification::Straddling, false, true) => Err(ImplicitError::Singular { cell: span(domain.center, cell) }),
+        }
+    })?;
     let settings = Settings { depth, world_to_model: Matrix4::new_nonuniform_scaling(&octree), threads: evaluation.threads, cancel: evaluation.cancel.clone().unwrap_or_default() };
     let Mesh { triangles, vertices } = Octree::build(&BoundShape::new(shape.jit.clone(), &vars).map_err(ShapeBulkEvalError::from)?, &settings).ok_or(ImplicitError::Cancelled)?.walk_dual();
     let indices = triangles

@@ -69,7 +69,7 @@ const tested = (path: Path.Path, root: string, chain: readonly string[], folders
     executor: 'nx:run-commands',
     options: { command: 'playwright test', cwd: root },
     cache: true,
-    inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { env: 'CI' }, { externalDependencies: ['@playwright/test'] }],
+    inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { env: 'CI' }, { runtime: 'node -p process.platform+process.arch' }, { externalDependencies: ['@playwright/test'] }],
     outputs: Array.dedupe(folders)
         .filter((at, _, all) => !all.some((other) => at.startsWith(`${other}/`)))
         .map((at) => path.join('{workspaceRoot}', at)),

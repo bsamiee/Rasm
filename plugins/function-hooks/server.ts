@@ -4,6 +4,7 @@ import { layer, layerHttpServices } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { Array, Cause, Console, Effect, FileSystem, Function, Layer, Option, Path, Predicate, Ref, Schedule, type Schema } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { KeyValueStore } from 'effect/persistence';
 import { Routes } from '#/decision';
 import { Host } from '#/host';
 import { observed, quit, watched } from '#/instances';
@@ -15,8 +16,16 @@ const SOURCES = ['.', 'shell', 'policies'];
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const answering = <I, O, R>(route: keyof Routes, [input, output]: readonly [Schema.Codec<I>, Schema.Codec<O>], respond: (value: I) => Effect.Effect<O, never, R>) =>
-    HttpRouter.add('POST', `/${route}`, HttpServerRequest.schemaBodyJson(input).pipe(Effect.flatMap(respond), Effect.flatMap(HttpServerResponse.schemaJson(output))));
+const answering = <I, O, E, R>(route: keyof Routes, [input, output]: readonly [Schema.Codec<I>, Schema.Codec<O>], respond: (value: I) => Effect.Effect<O, E, R>) =>
+    HttpRouter.add(
+        'POST',
+        `/${route}`,
+        HttpServerRequest.schemaBodyJson(input).pipe(
+            Effect.flatMap(respond),
+            Effect.flatMap(HttpServerResponse.schemaJson(output)),
+            Effect.catchCause((cause) => Effect.succeed(HttpServerResponse.text(Cause.pretty(cause), { status: 500 }))),
+        ),
+    );
 
 const Router = Layer.mergeAll(answering('decide', Routes.decide, decide), answering('observe', Routes.observe, observed), answering('quit', Routes.quit, quit), answering('watched', Routes.watched, watched));
 
@@ -56,4 +65,4 @@ const untilStale = Effect.gen(function* () {
     yield* Effect.repeat(stale, { schedule: Schedule.spaced('2 seconds'), until: Predicate.isTruthy });
 });
 
-Effect.raceAllFirst([Layer.launch(Server), untilStale]).pipe(Effect.provide(Layer.provideMerge(live, layerHttpServices)), Effect.tapCause(Function.flow(Cause.pretty, Console.error)), runMain({ disableErrorReporting: true }));
+Effect.raceAllFirst([Layer.launch(Server), untilStale]).pipe(Effect.provide(Layer.provideMerge(live, Layer.merge(layerHttpServices, KeyValueStore.layerMemory))), Effect.tapCause(Function.flow(Cause.pretty, Console.error)), runMain({ disableErrorReporting: true }));

@@ -5,12 +5,19 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { Automation } from '@rasm/applications/node';
 import { Peer } from '@rasm/atelier-protocol/peer';
 import { serve } from '@rasm/mcp/node';
-import { Duration, Effect, Equal, FileSystem, Layer, Option, Path, Schema, Stream } from 'effect';
+import { Array, Duration, Effect, Equal, FileSystem, identity, Layer, Option, Path, Result, Schema, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { parse } from 'plist';
 import { Adobe } from '#/adobe';
+import { appleEvents } from '#/features/apple-events';
+import { applications, control } from '#/features/applications';
+import { faces, font } from '#/features/fonts';
+import { plugins } from '#/features/plugins';
+import { typesetting } from '#/features/typesetting';
+import { listening } from '#/libraries';
 import manifest from '#/package.json' with { type: 'json' };
-import { registerAdobeTools } from '#/register-adobe-tools';
+import { routes } from '#/routes';
+import { status } from '#/status';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -18,6 +25,26 @@ const Bundle = Schema.Struct({ CFBundleExecutable: Schema.String, CFBundleShortV
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+const tools = Effect.gen(function* () {
+    const [adobe, links, dependencies] = yield* Effect.all([Adobe, listening, status]);
+    yield* adobe.exited.pipe(
+        Effect.exit,
+        Effect.flatMap((exit) => Effect.logError('Atelier host ended', exit)),
+        Effect.andThen(Effect.sync(() => process.exit(1))),
+        Effect.forkScoped,
+    );
+    yield* Effect.all([applications, faces], { discard: true });
+    const round = Effect.flatMap(routes(dependencies, links), (routed) => Effect.all([control(routed, dependencies), appleEvents(routed), font(routed), typesetting(routed), plugins(routed, links)], { discard: true }));
+    const discovered = SubscriptionRef.changes(adobe.installations).pipe(
+        Stream.tap(Result.match({ onSuccess: () => Effect.void, onFailure: (error) => Effect.logError('Adobe application discovery failed, tools keep the last installations', error) })),
+        Stream.filterMap(identity),
+        Stream.map(Array.map((row) => [row.name, row.url.href] as const)),
+        Stream.changes,
+    );
+    const [first, rest] = yield* Stream.peel(discovered, Sink.head());
+    const generation = yield* ScopedRef.fromAcquire(Effect.forEach(first, () => round, { discard: true }));
+    yield* Effect.forkScoped(Stream.runForEach(Stream.merge(rest, Stream.drop(links.changes, 1)), () => ScopedRef.set(generation, round)));
+});
 Effect.gen(function* () {
     const [path, files] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const contents = path.join(path.dirname(process.execPath), '..');
@@ -48,7 +75,7 @@ Effect.gen(function* () {
                     'A blocking window is a new window on a blocked main thread, perform answers it with a key action, its leaving alone proves the answer, else a person answers it',
                 ],
             },
-            Layer.effectDiscard(registerAdobeTools).pipe(Layer.provide(Layer.provideMerge(Adobe.layer, Automation.layer(ChildProcess.make(path.join(contents, 'MacOS', CFBundleExecutable), { stderr: 'inherit' })))), Layer.provide(layerDigest)),
+            Layer.effectDiscard(tools).pipe(Layer.provide(Layer.provideMerge(Adobe.layer, Automation.layer(ChildProcess.make(path.join(contents, 'MacOS', CFBundleExecutable), { stderr: 'inherit' })))), Layer.provide(layerDigest)),
         ),
         replaced,
     );

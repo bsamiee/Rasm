@@ -16,10 +16,10 @@ import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.images import _filled, _loaded, Tag
-from rasm_bpy.data._ids.ownership import _kept, Mark, Ownership
-from rasm_bpy.data._rna.descriptors import _differing, Value, written
-from rasm_bpy.data._rna.paths import _definition, _struct_at, RnaPath
+from rasm_bpy.data._ids.images import filled, loaded, Tag
+from rasm_bpy.data._ids.ownership import kept_block, Mark, Ownership
+from rasm_bpy.data._rna.descriptors import differing, Value, written
+from rasm_bpy.data._rna.paths import rna_definition, RnaPath, struct_at
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
 from rasm_bpy.nodes._desired import Content
 from rasm_imaging import called
@@ -156,7 +156,7 @@ class CurvePoints(Edited, frozen=True, kw_only=True):
                 case _:
                     return Error(Fault.of(Reason.ABSENT, repr(mapping), member="curves"))
 
-        return _struct_at(live, ("mapping",), bpy.types.CurveMapping).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="mapping")).bind(held)
+        return struct_at(live, ("mapping",), bpy.types.CurveMapping).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(live), member="mapping")).bind(held)
 
     @property
     def tree(self) -> Tree[Value, RnaPath, RnaPath]:
@@ -178,12 +178,12 @@ class CurvePoints(Edited, frozen=True, kw_only=True):
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
         def refreshed(_: object) -> Outcome[None]:
-            for curves in _struct_at(live, ("mapping",), bpy.types.CurveMapping).to_list():
+            for curves in struct_at(live, ("mapping",), bpy.types.CurveMapping).to_list():
                 curves.reset_view()
                 curves.update()
             return self.stamped(live, identity)
 
-        return Snapshot(struct=_definition(live).identifier, tree=self.tree).apply(live).outcome.bind(refreshed)
+        return Snapshot(struct=rna_definition(live).identifier, tree=self.tree).apply(live).outcome.bind(refreshed)
 
 
 # --- [IMAGES]
@@ -214,19 +214,19 @@ class Loaded(Content, frozen=True, kw_only=True):
         def shown(image: bpy.types.Image) -> Outcome[bool]:
             return self.tag.members().map(
                 lambda members: (
-                    Path(os.path.normpath(bpy.path.abspath(image.filepath, library=image.library))) == Path(os.path.normpath(bpy.path.abspath(str(self.path)))) and not _differing(image, members)
+                    Path(os.path.normpath(bpy.path.abspath(image.filepath, library=image.library))) == Path(os.path.normpath(bpy.path.abspath(str(self.path)))) and not differing(image, members)
                 )
             )
 
         return paired(
-            self.frames.map(lambda want: _framed(live).map(lambda user: not _differing(user, want.members))).default_value(Ok(value=True)),
-            _struct_at(live, ("image",), bpy.types.Image).map(shown).default_value(Ok(value=False)),
+            self.frames.map(lambda want: _framed(live).map(lambda user: not differing(user, want.members))).default_value(Ok(value=True)),
+            struct_at(live, ("image",), bpy.types.Image).map(shown).default_value(Ok(value=False)),
         ).map(all)
 
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
         return (
-            _loaded(str(self.path), self.tag)
+            loaded(str(self.path), self.tag)
             .bind(lambda image: written(live, ("image",), image))
             .bind(lambda _: self.frames.map(lambda want: _framed(live).bind(lambda user: assigned(user, want.members))).default_value(Ok(None)))
         )
@@ -263,7 +263,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
         return self._context().map(
             lambda context: (
-                _struct_at(live, ("image",), bpy.types.Image)
+                struct_at(live, ("image",), bpy.types.Image)
                 .map(lambda image: Mark.read(identity, image) == Some(Mark(key=self.ownership.key, content=Some(context[1]))))
                 .default_with(lambda: Mark.read(identity, live).map(lambda mark: mark.content == Some(context[1])).default_value(value=False))
             )
@@ -288,13 +288,13 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
 
         def built(values: npt.NDArray[np.float32]) -> Outcome[bpy.types.Image]:
             height, width, channels = values.shape
-            return _kept(
+            return kept_block(
                 catch(bpy.data.images.new, exception=RuntimeError)(self.name, width, height, alpha=channels == 4, float_buffer=True).map_error(partial(Fault.of, Refusal.REFUSED, self.name)),
                 lambda image: (
                     self.tag
                     .members(Some(config))
                     .bind(partial(assigned, image))
-                    .bind(lambda _: _filled(image, values))
+                    .bind(lambda _: filled(image, values))
                     .bind(lambda _: catch(image.pack, exception=RuntimeError)().map_error(partial(Fault.of, Refusal.REFUSED, repr(image))))
                     .map(lambda _: image)
                 ),
@@ -316,7 +316,7 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
 
 def _ramp(holder: bpy.types.Node | bpy.types.Texture) -> Outcome[bpy.types.ColorRamp]:
     """Holder's `color_ramp`, else `absent` fault naming it."""
-    return _struct_at(holder, ("color_ramp",), bpy.types.ColorRamp).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(holder), member="color_ramp"))
+    return struct_at(holder, ("color_ramp",), bpy.types.ColorRamp).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(holder), member="color_ramp"))
 
 
 def _stamped(identity: Identity, live: bpy.types.Node, content: Option[ContentHash]) -> Outcome[None]:

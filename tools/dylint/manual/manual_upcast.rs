@@ -1,18 +1,15 @@
 use core::iter;
 
-use clippy_utils::{diagnostics::span_lint_and_help, peel_blocks, sym};
+use clippy_utils::diagnostics::span_lint_and_help;
+use clippy_utils::{peel_blocks, sym};
 use itertools::Itertools as _;
 use rustc_data_structures::fx::FxBuildHasher;
-use rustc_hir::{
-    TraitItem, TraitItemKind,
-    def_id::{DefId, LocalDefId},
-};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{TraitItem, TraitItemKind};
 use rustc_infer::infer::TyCtxtInferExt as _;
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{
-    self, Clause, ExistentialPredicateStableCmpExt as _, Interner as _, Ty, TypingEnv, Unnormalized,
-    adjustment::{Adjust, PointerCoercion},
-};
+use rustc_middle::ty::adjustment::{Adjust, PointerCoercion};
+use rustc_middle::ty::{self, Clause, ExistentialPredicateStableCmpExt as _, Interner as _, Ty, TypingEnv, Unnormalized};
 use rustc_trait_selection::traits::{Obligation, ObligationCause, ObligationCtxt};
 use rustc_type_ir::elaborate::{elaborate, supertraits};
 

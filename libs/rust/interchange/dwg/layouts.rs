@@ -1,32 +1,26 @@
 use core::num::NonZero;
-use std::{
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
-use acadrust::{
-    CadDocument, Handle, Vector3,
-    entities::{Entity as _, EntityType, Viewport, ViewportStatusFlags},
-    objects::{Layout, ObjectType, PlotPaperUnits},
-    sheet_set::{CUSTOM_SHEET_PROP, LayoutReference, SheetSetDatabase, custom_properties, set_custom_property},
-    tables::normalize_name,
-};
+use acadrust::entities::{Entity as _, EntityType, Viewport, ViewportStatusFlags};
+use acadrust::objects::{Layout, ObjectType, PlotPaperUnits};
+use acadrust::sheet_set::{CUSTOM_SHEET_PROP, LayoutReference, SheetSetDatabase, custom_properties, set_custom_property};
+use acadrust::tables::normalize_name;
+use acadrust::{CadDocument, Handle, Vector3};
 use itertools::Itertools as _;
 use kurbo::{Affine, Point, Rect, Shape as _, Size, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use rasm_drawing::{
-    Placement, Region,
-    pages::{self, Page},
-};
+use rasm_drawing::pages::{self, Page};
+use rasm_drawing::{Placement, Region};
 use strum::VariantArray as _;
-use uom::si::{f64::Length, length::millimeter, ratio::ratio};
+use uom::si::f64::Length;
+use uom::si::length::millimeter;
+use uom::si::ratio::ratio;
 use validated::Validated;
 
-use crate::{
-    CadError, Operation, Refusal, Subject, Unit,
-    linework::{self, Authoring, Context, Projection, curves},
-};
+use crate::linework::{self, Authoring, Context, Projection, curves};
+use crate::{CadError, Operation, Refusal, Subject, Unit};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

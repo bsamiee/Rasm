@@ -1,14 +1,12 @@
 #![feature(cmp_minmax, control_flow_into_value, try_blocks_heterogeneous)]
 
-use core::{iter, num::NonZero};
+use core::iter;
+use core::num::NonZero;
 
-use faer::{
-    ColRef, Mat, MatRef, RowRef,
-    sparse::{
-        Argsort, CreationError, Pair, SparseColMat, SymbolicSparseColMat, Triplet,
-        linalg::{LuError, solvers::SymbolicLu},
-    },
-};
+use faer::sparse::linalg::LuError;
+use faer::sparse::linalg::solvers::SymbolicLu;
+use faer::sparse::{Argsort, CreationError, Pair, SparseColMat, SymbolicSparseColMat, Triplet};
+use faer::{ColRef, Mat, MatRef, RowRef};
 use itertools::Itertools as _;
 use nalgebra::{DVector, DVectorView, Point3, Vector3};
 use nonempty_collections::NEVec;
@@ -170,11 +168,6 @@ where I: IntoIterator<Item = f64> {
         .into_iter()
         .flatten()
     })
-}
-
-fn laplacian(network: &Network, magnitudes: impl IntoIterator<Item = f64>) -> Result<SparseColMat<usize, f64>, CreationError> {
-    SparseColMat::new_from_argsort(network.symbolic.clone(), &network.argsort, &grounded(&network.index, &network.edges, magnitudes).map(|(_, value)| value).collect::<Vec<_>>())
-        .map_err(CreationError::from)
 }
 
 // --- [EQUILIBRIUM]

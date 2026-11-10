@@ -147,7 +147,7 @@ class Histogram(Frozen, frozen=True, kw_only=True, eq=False):
     def mask(cls, values: npt.NDArray[np.float32] | npt.NDArray[np.float64], first: int, last: int) -> npt.NDArray[np.bool]:
         """Selects non-NaN values in inclusive bin interval."""
         bins = np.searchsorted(cls.edges(), values, side="right")
-        return (bins >= first) & (bins <= last) & ~np.isnan(values)  # type: ignore[no-any-return]
+        return (bins >= first) & (bins <= last) & ~np.isnan(values).astype(np.bool, copy=False)
 
 
 class _Vectorscope(Frozen, frozen=True, kw_only=True, eq=False):

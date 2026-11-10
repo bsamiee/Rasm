@@ -3,7 +3,8 @@
 use core::fmt;
 use std::path::PathBuf;
 
-use geo::{BoundingRect as _, GeodesicArea as _, LinesIter as _, Validation as _, validation::InvalidMultiPolygon};
+use geo::validation::InvalidMultiPolygon;
+use geo::{BoundingRect as _, GeodesicArea as _, LinesIter as _, Validation as _};
 use geo_types::{Line, MultiPolygon, Point, Rect};
 use geographiclib_rs::{Geodesic, InverseGeodesic as _};
 use jiff::tz::{self, TimeZone};
@@ -11,12 +12,10 @@ use nalgebra::Point3;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator, nev};
 use proj::{ProjCreateError, ProjError};
 use serde::{Deserialize, Serialize};
-use uom::si::{
-    angle::degree,
-    area::square_meter,
-    f64::{Angle, Area, Length},
-    length::meter,
-};
+use uom::si::angle::degree;
+use uom::si::area::square_meter;
+use uom::si::f64::{Angle, Area, Length};
+use uom::si::length::meter;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------

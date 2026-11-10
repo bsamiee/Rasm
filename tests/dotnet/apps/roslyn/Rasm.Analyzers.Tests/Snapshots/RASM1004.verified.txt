@@ -1,3 +1,4 @@
+RASM3015 `CustomConversions.ToValidation` has one reader in the assembly, in `CustomConversions.Preserve`, fold `CustomConversions.ToValidation` into `CustomConversions.Preserve`
 #0 `Apply` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
 #1 `Traverse` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`
 #2 `Apply` round-trips `Fin` through `Validation`, delete each `ToValidation()` and the closing `ToFin()`

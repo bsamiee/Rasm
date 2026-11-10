@@ -4,7 +4,7 @@ import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, t
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, isCI, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Option, Path, Record, Result, Schema } from 'effect';
 import { aggregated, crateTargets, released, TECHNOLOGIES, unresolved, workspaceTargets } from '#/plugins/targets';
-import { DENY, MANIFEST, Manifest, toml, workspaces } from '#/plugins/workspace';
+import { CONFIG, DENY, MANIFEST, Manifest, toml, workspaces } from '#/plugins/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ interface Graph {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = `**/{${[MANIFEST, 'rust-toolchain.toml', 'rust-toolchain', '.cargo/config.toml', '.cargo/config', 'clippy.toml', '.clippy.toml', '.config/nextest.toml', ...Object.values(DENY).flat()].join(',')}}`;
+const FILES = `**/{${[MANIFEST, 'rust-toolchain.toml', 'rust-toolchain', ...CONFIG, 'clippy.toml', '.clippy.toml', '.config/nextest.toml', ...Object.values(DENY).flat()].join(',')}}`;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

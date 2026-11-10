@@ -96,7 +96,7 @@ public abstract partial record CoordinateMap {
     }
 
     private (double Point, double Weight) Folded(double coordinate, WrapMode wrap, int size) =>
-        wrap.Fold(Sampling.Snapped(wrap.Tiles ? wrap.Fold(coordinate, size, 0d).Point : coordinate), size, 0d);
+        wrap.Fold(Sampling.Snapped(wrap.Border is BorderType.Wrap or BorderType.Reflect ? wrap.Fold(coordinate, size, 0d).Point : coordinate), size, 0d);
 
     private void Traced(int x, int y, PixelExtent output, PixelExtent source, Span<Vector2> points, Span<float> coverage) {
         for (int column = 0; column < points.Length; column++) points[column] = new Vector2(x + column + 0.5f, y + 0.5f);

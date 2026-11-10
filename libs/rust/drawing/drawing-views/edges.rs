@@ -1,19 +1,19 @@
-use core::{cmp::Reverse, iter};
+use core::cmp::Reverse;
+use core::iter;
 
 use enum_map::EnumMap;
 use itertools::Itertools as _;
 use kurbo::{Line, PathEl, PathSeg, Point};
 use nalgebra::{Point3, Vector3, Vector4, distance_squared};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use parry3d_f64::{math::Vector, shape::TopoHalfEdge};
+use parry3d_f64::math::Vector;
+use parry3d_f64::shape::TopoHalfEdge;
 use rasm_drawing::{Class, Deflection, Edge, EdgeKind, Element, Linetype, Path, Pen, Tolerance, cleanup};
 use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 use validated::Validated;
 
-use crate::{
-    Feature, Frame, Operation, Prepared, View, ViewsError,
-    visibility::{Lines, Piece},
-};
+use crate::visibility::{Lines, Piece};
+use crate::{Feature, Frame, Operation, Prepared, View, ViewsError};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

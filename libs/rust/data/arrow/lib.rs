@@ -1,29 +1,29 @@
 #![feature(array_try_map, default_field_values, error_reporter, option_get_or_try_insert_with, try_blocks_heterogeneous)]
 
-use core::{iter, time::Duration};
-use std::{error::Report, fmt, sync::Arc};
+use core::iter;
+use core::time::Duration;
+use std::error::Report;
+use std::fmt;
+use std::sync::Arc;
 
-use arrow::{
-    array::{Array as _, ArrayRef, AsArray as _, MapArray, StructArray, make_array, new_null_array},
-    compute::{CastOptions, cast_with_options},
-    datatypes::{DataType, Field, FieldRef, Fields, Schema, SchemaRef, TimeUnit},
-    error::ArrowError,
-    record_batch::RecordBatch,
-};
+use arrow::array::{Array as _, ArrayRef, AsArray as _, MapArray, StructArray, make_array, new_null_array};
+use arrow::compute::{CastOptions, cast_with_options};
+use arrow::datatypes::{DataType, Field, FieldRef, Fields, Schema, SchemaRef, TimeUnit};
+use arrow::error::ArrowError;
+use arrow::record_batch::RecordBatch;
 use arrow_schema::extension::{ExtensionType, Uuid};
 use itertools::Itertools as _;
 use jiff::Timestamp;
 use newtype_uuid::{TypedUuid, TypedUuidKind};
 use nonempty_collections::NEVec;
 use parquet::errors::ParquetError;
-use serde::{Deserializer, Serializer, de::DeserializeOwned};
+use serde::de::DeserializeOwned;
+use serde::{Deserializer, Serializer};
 use serde_with::{Bytes, DeserializeAs, SerializeAs};
-use uom::{
-    Conversion,
-    num::Num,
-    si::{self, Dimension, Quantity, Unit as _},
-    typenum::Integer,
-};
+use uom::Conversion;
+use uom::num::Num;
+use uom::si::{self, Dimension, Quantity, Unit as _};
+use uom::typenum::Integer;
 use uuid::ClockSequence;
 use validated::Validated;
 

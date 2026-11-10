@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { globSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
-import { Array, Effect, Record, Schema } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { Array, Cause, Effect, Record, Schema, Stream } from 'effect';
+import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { build, type PlistValue, parse } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
 
@@ -15,7 +15,6 @@ const Settings = Schema.fromJsonString(Schema.NonEmptyArray(Schema.Struct({ buil
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const dictionary = (value: PlistValue) => (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date) && !(value instanceof Uint8Array) ? value : {});
 const helper = Effect.fnUntraced(function* (
     entry: string,
     service: string,
@@ -69,7 +68,12 @@ const helper = Effect.fnUntraced(function* (
     const name = basename(dirname(entry));
     const context = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
     const signing = yield* Effect.cached(
-        ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.string(ChildProcess.make('xcodebuild', ['-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target], { stdin: 'ignore', stderr: 'inherit' }))).pipe(
+        Effect.gen(function* () {
+            const handle = yield* ChildProcess.make('xcodebuild', ['-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target], { stdin: 'ignore' });
+            const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+            return code === 0 ? stdout : yield* new Cause.UnknownError(stderr, `xcodebuild -showBuildSettings for ${xcode.target} in ${xcode.project} exited ${code}: ${stderr.trim()}`);
+        }).pipe(
+            Effect.scoped,
             Effect.flatMap(Schema.decodeEffect(Settings)),
             Effect.map(([{ buildSettings }]) => ({ ...buildSettings, label: `${buildSettings.PRODUCT_BUNDLE_IDENTIFIER}.${service}` })),
         ),
@@ -89,11 +93,14 @@ const helper = Effect.fnUntraced(function* (
             );
             const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets });
             return signing.pipe(
-                Effect.map(({ CODE_SIGN_ENTITLEMENTS, DEVELOPMENT_TEAM, PROJECT_DIR, label }): readonly Rolldown.EmittedAsset[] => [
-                    { type: 'asset', fileName: 'sea.json', source: sea },
-                    { type: 'asset', fileName: 'sea.entitlements', source: build({ ...dictionary(parse(readFileSync(resolve(PROJECT_DIR, CODE_SIGN_ENTITLEMENTS), 'utf8'))), 'com.apple.security.cs.allow-jit': true }) },
-                    { type: 'asset', fileName: join('LaunchAgents', `${label}.plist`), source: build({ ProcessType: 'Interactive', ...agent, Label: label, BundleProgram: `Contents/Helpers/${name}`, SpawnConstraint: { 'signing-identifier': label, 'team-identifier': DEVELOPMENT_TEAM } }) },
-                ]),
+                Effect.map(({ CODE_SIGN_ENTITLEMENTS, DEVELOPMENT_TEAM, PROJECT_DIR, label }): readonly Rolldown.EmittedAsset[] => {
+                    const entitlements = parse(readFileSync(resolve(PROJECT_DIR, CODE_SIGN_ENTITLEMENTS), 'utf8'));
+                    return [
+                        { type: 'asset', fileName: 'sea.json', source: sea },
+                        { type: 'asset', fileName: 'sea.entitlements', source: build({ ...(typeof entitlements === 'object' && !Array.isArray(entitlements) && !(entitlements instanceof Date) && !(entitlements instanceof Uint8Array) ? entitlements : {}), 'com.apple.security.cs.allow-jit': true }) },
+                        { type: 'asset', fileName: join('LaunchAgents', `${label}.plist`), source: build({ ProcessType: 'Interactive', ...agent, Label: label, BundleProgram: `Contents/Helpers/${name}`, SpawnConstraint: { 'signing-identifier': label, 'team-identifier': DEVELOPMENT_TEAM } }) },
+                    ];
+                }),
                 Effect.flatMap(Effect.forEach((file: Rolldown.EmittedAsset) => Effect.sync(() => this.emitFile(file)))),
                 Effect.asVoid,
                 Effect.runPromiseWith(context),

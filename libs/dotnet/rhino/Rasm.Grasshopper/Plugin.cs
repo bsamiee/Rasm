@@ -21,7 +21,7 @@ public sealed record GrasshopperPlugin {
 
     // --- [HOSTS]
 
-    public static IIcon Icon(Plugin plugin) => DataTypes.Icon(plugin.Assembly, "icon") ?? StandardIcons.LetterDisc(plugin.Name);
+    public static IIcon Icon(Plugin plugin) => DataTypes.Icon((plugin.Assembly, "icon")).IfNone(() => StandardIcons.LetterDisc(plugin.Name));
 
     public void Load(Plugin plugin) =>
         (from bound in Hooks.Bind(Loggers, plugin)

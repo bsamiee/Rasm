@@ -104,13 +104,13 @@ actor AccountStorage {
         }
 
         func savedAccount() -> Result<SavedAccount, AggregateError<AccountStorageError>> {
-            let identity: Result<AccountIdentity, AggregateError<AccountStorageError>> = AccountIdentity.make(
+            let identity = AccountIdentity.make(
                 accountID: accountID,
                 organizationID: organizationID,
                 email: email,
                 plan: plan,
             ).mapError { failure in failure.map { error in AccountStorageError.invalidAccount(id: id, error: error) } }
-            let snapshot: Result<AccountUsage?, AggregateError<AccountStorageError>> =
+            let snapshot =
                 usage?.accountUsage(id: id).map(Optional.some) ?? .success(nil)
             return combine(identity, snapshot).map { identity, snapshot in
                 SavedAccount(

@@ -14,7 +14,7 @@ class Digits extends Schema.Class<Digits, { readonly brand: unique symbol }>('Di
         Record.fromIterableWith((system) => [system, Array.makeBy(DECIMAL_DIGITS, new Intl.NumberFormat(undefined, { numberingSystem: system }).format)]),
         Record.filterMap((table, system) => Schema.decodeResult(Digits)({ system, table })),
     );
-    static readonly #values = Record.fromEntries(Record.values(Digits.#bySystem).flatMap(({ table }) => table.map((digit, value) => [digit, value] as const)));
+    static readonly #values = Record.fromEntries(Object.values(Digits.#bySystem).flatMap(({ table }) => table.map((digit, value) => [digit, value] as const)));
     static readonly #replace = (text: string, written: (value: number) => string) => text.replace(DECIMAL, (digit) => Option.match(Record.get(Digits.#values, digit), { onNone: () => digit, onSome: written }));
     static readonly of = (system: string): Option.Option<Digits> => Record.get(Digits.#bySystem, system);
     static readonly System = Schema.Literals(Record.keys(Digits.#bySystem))

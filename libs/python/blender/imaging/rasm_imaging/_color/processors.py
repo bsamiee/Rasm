@@ -1,7 +1,7 @@
-"""Display formation, colorspace transforms and readings, RGB geometry, and the typed OCIO grading members the stubs lack."""
+"""Display formation, colorspace transforms and readings, and RGB geometry."""
 
 from collections.abc import Callable
-from typing import Annotated, Final, Protocol, Self
+from typing import Annotated, Final, Self
 
 from expression import identity, Option, Some
 from expression.collections import Block
@@ -12,29 +12,10 @@ import PyOpenColorIO
 from scipy.linalg import block_diag
 
 from rasm_imaging._files.buffers import applied
-from rasm_imaging._files.images import ImageFile, interop
+from rasm_imaging._files.images import ImageFile
 from rasm_records import accumulated, Error, Fault, Name, NonNegative, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-
-class HueCurve(Protocol):
-    """`GradingHueCurve`, OCIO's seven hue, saturation, and luma curves and its hue effect, a class the stubs lack."""
-
-    hue_hue: PyOpenColorIO.GradingBSplineCurve
-    hue_sat: PyOpenColorIO.GradingBSplineCurve
-    hue_lum: PyOpenColorIO.GradingBSplineCurve
-    lum_sat: PyOpenColorIO.GradingBSplineCurve
-    sat_sat: PyOpenColorIO.GradingBSplineCurve
-    lum_lum: PyOpenColorIO.GradingBSplineCurve
-    sat_lum: PyOpenColorIO.GradingBSplineCurve
-    hue_fx: PyOpenColorIO.GradingBSplineCurve
-
-    def validate(self) -> None:
-        """Raises `PyOpenColorIO.Exception` for curves OCIO refuses."""
-
-    def setDrawCurveOnly(self, *, drawcurveonly: bool) -> None:  # ruff: ignore[invalid-function-name]
-        """Sets the native draw-curve-only mode."""
 
 
 type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp), le=float(np.finfo(np.float32).maxexp))]
@@ -43,11 +24,6 @@ type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp
 
 GRAY: Final = 0.18
 REC709_SCENE: Final = "lin_rec709_scene"
-HUE_CURVE: Final[Callable[..., HueCurve]] = PyOpenColorIO.GradingHueCurve  # type: ignore[explicit-any]  # ty: ignore[unresolved-attribute]
-HUE_CURVE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[explicit-any]  # ty: ignore[unresolved-attribute]
-GET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # ty: ignore[unresolved-attribute, unsound-assignment]
-SET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # ty: ignore[unresolved-attribute, unsound-assignment]
-RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # ty: ignore[unresolved-attribute, unsound-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -294,21 +270,15 @@ def hdr(space: PyOpenColorIO.ColorSpace) -> bool:
 
 def pq(space: PyOpenColorIO.ColorSpace) -> bool:
     """Whether a display colorspace's interop ID names absolute PQ luminance."""
-    return interop(space).rpartition(":")[2].startswith("pq_")
+    return space.getInteropID().rpartition(":")[2].startswith("pq_")
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "GET_SPLINE_TYPE",
     "GRAY",
-    "HUE_CURVE",
-    "HUE_CURVE_TRANSFORM",
     "REC709_SCENE",
-    "RGB_TO_HSY",
-    "SET_SPLINE_TYPE",
     "DisplayView",
-    "HueCurve",
     "Stops",
     "basis",
     "bracketed",

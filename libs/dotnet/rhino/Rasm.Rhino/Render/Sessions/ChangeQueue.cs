@@ -4,13 +4,13 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
-using Queue = Rhino.Render.ChangeQueue;
+using ChangeQueue = Rhino.Render.ChangeQueue;
 
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChanges, bool OriginalObjects, Option<Queue.ChangeQueue.BakingFunctions> Bake) {
+public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChanges, bool OriginalObjects, Option<ChangeQueue.ChangeQueue.BakingFunctions> Bake) {
     public static QueuePolicy Viewport { get; } = new(RespectDisplayAttributes: true, NotifyChanges: true, OriginalObjects: false, Bake: None);
     public static QueuePolicy Capture { get; } = Viewport with { NotifyChanges = false };
     public static QueuePolicy Render { get; } = Capture with { RespectDisplayAttributes = false };
@@ -18,7 +18,7 @@ public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChang
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public sealed class DefinedChangeFeed : Queue.ChangeQueue {
+public sealed class DefinedChangeFeed : ChangeQueue.ChangeQueue {
 
     // --- [STATE]
 
@@ -55,7 +55,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
 
     private IO<Unit> Drain =>
         from flushed in IO.lift(Flush)
-        from published in atomicIO(() => feed.Swap(static held => held.Map(static current => current.Publish())))
+        from published in atomicIO(() => feed.Swap(static held => held.Map(static current => new SceneFeed(SceneBatch.Empty, [], current.Pending.Combine(current.Collecting), current.Published + current.Held))))
         from woken in Signal
         select unit;
 
@@ -72,11 +72,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
                 IO.lift(() => base.Dispose(isDisposing)).Cons(prior.ToSeq().Bind(static current => current.Held + current.Published).Map(static scope => IO.lift(scope.Dispose))))
             select unit);
 
-    private sealed record SceneFeed(SceneBatch Collecting, Seq<EnvIO> Held, SceneBatch Pending, Seq<EnvIO> Published) {
-        public SceneFeed Collected(SceneBatch change, EnvIO scope) => this with { Collecting = Collecting.Combine(change), Held = Held.Add(scope) };
-
-        public SceneFeed Publish() => new(SceneBatch.Empty, [], Pending.Combine(Collecting), Published + Held);
-    }
+    private sealed record SceneFeed(SceneBatch Collecting, Seq<EnvIO> Held, SceneBatch Pending, Seq<EnvIO> Published);
 
     // --- [CHANGES]
 
@@ -86,7 +82,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
     protected override void ApplyLinearWorkflowChanges(LinearWorkflow lw) =>
         Collect(use(() => new LinearWorkflow(lw)).Map(static workflow => new SceneBatch { Workflow = Some(workflow) }));
 
-    protected override void ApplyDynamicObjectTransforms(List<Queue.DynamicObjectTransform> dynamicObjectTransforms) =>
+    protected override void ApplyDynamicObjectTransforms(List<ChangeQueue.DynamicObjectTransform> dynamicObjectTransforms) =>
         Collect(IO.lift(() => new SceneBatch { Transforms = new(toSeq(dynamicObjectTransforms).Map(static moved => (moved.MeshInstanceId, moved.Transform)), tryAdd: false) }));
 
     protected override void ApplyDynamicLightChanges(List<Light> dynamicLightChanges) =>
@@ -100,16 +96,16 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
                 .Map(usage => (usage, Conversions.Present(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.ForRendering)))), tryAdd: false),
         }));
 
-    protected override void ApplySkylightChanges(Queue.Skylight skylight) =>
+    protected override void ApplySkylightChanges(ChangeQueue.Skylight skylight) =>
         Collect(IO.lift(() => new SceneBatch { Skylight = Some(new SceneSkylight(skylight.Enabled, skylight.UsesCustomEnvironment, skylight.ShadowIntensity)) }));
 
     protected override void ApplySunChanges(Light sun) =>
         Collect(Products.Copied(sun).Map(static copy => new SceneBatch { Sun = Some(copy) }));
 
-    protected override void ApplyLightChanges(List<Queue.Light> lightChanges) =>
+    protected override void ApplyLightChanges(List<ChangeQueue.Light> lightChanges) =>
         Collect(
             from view in Products.Maybe(GetQueueView)
-            from rows in toSeq(lightChanges).TraverseM(light => light.ChangeType is Queue.Light.Event.Deleted
+            from rows in toSeq(lightChanges).TraverseM(light => light.ChangeType is ChangeQueue.Light.Event.Deleted
                 ? IO.pure((light.Id, Option<SceneLight>.None))
                 : from data in Products.Of(() => light.Data)
                   from converted in IO.lift(() => view.Filter(_ => data.CoordinateSystem is CoordinateSystem.Camera).Iter(held => ConvertCameraBasedLightToWorld(this, light, held)))
@@ -117,10 +113,10 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
                   select (light.Id, Some(new SceneLight(copy, Conversions.Present(light.MaterialId))))).As()
             select new SceneBatch { Lights = new(rows, tryAdd: false) });
 
-    protected override void ApplyMaterialChanges(List<Queue.Material> mats) =>
+    protected override void ApplyMaterialChanges(List<ChangeQueue.Material> mats) =>
         Collect(IO.lift(() => new SceneBatch { Materials = new(toSeq(mats).Map(static material => (material.MeshInstanceId, material.Id)), tryAdd: false) }));
 
-    protected override void ApplyMeshChanges(Guid[] deleted, List<Queue.Mesh> added) =>
+    protected override void ApplyMeshChanges(Guid[] deleted, List<ChangeQueue.Mesh> added) =>
         Collect(toSeq(added).TraverseM(static source =>
                 from meshes in toSeq(source.GetMeshes()).TraverseM(static lent => Products.Copied(lent)).As()
                 from mappings in toSeq(source.Mappings).TraverseM(static channel => Products.Of(() => channel.Mapping).Map(mapping => new SceneMapping(channel.Channel, channel.Local, mapping))).As()
@@ -131,7 +127,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
                 Meshes = new(toSeq(deleted).Map(static id => (id, Option<SceneMesh>.None)).Concat(meshes.Map(static mesh => (mesh.Id, Some(mesh.Mesh)))), tryAdd: false),
             }));
 
-    protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<Queue.MeshInstance> addedOrChanged) =>
+    protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<ChangeQueue.MeshInstance> addedOrChanged) =>
         Collect(toSeq(addedOrChanged).TraverseM(static instance =>
                 from attributes in Products.Maybe(() => instance.ObjectAttributes)
                 from ancestry in toSeq(instance.Ancestry).TraverseM(static record =>
@@ -144,17 +140,17 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
                 }))).As()
             .Map(instances => new SceneBatch { Instances = new(toSeq(deleted).Map(static id => (id, Option<SceneInstance>.None)).Concat(instances), tryAdd: false) }));
 
-    protected override void ApplyGroundPlaneChanges(Queue.GroundPlane gp) =>
+    protected override void ApplyGroundPlaneChanges(ChangeQueue.GroundPlane gp) =>
         Collect(IO.lift(() => new SceneBatch {
             Ground = Some(new SceneGround(gp.Enabled, gp.Altitude, gp.IsShadowOnly, gp.ShowUnderside, Conversions.Present(gp.MaterialId), gp.TextureScale, gp.TextureOffset, gp.TextureRotation)),
         }));
 
-    protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<Queue.ClippingPlane> addedOrModified) =>
+    protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<ChangeQueue.ClippingPlane> addedOrModified) =>
         Collect(Clipped(addedOrModified).Map(clips => new SceneBatch {
             ClippingPlanes = new(toSeq(deleted).Map(static id => (id, Option<SceneClip>.None)).Concat(clips), tryAdd: false),
         }));
 
-    protected override void ApplyDynamicClippingPlaneChanges(List<Queue.ClippingPlane> changed) =>
+    protected override void ApplyDynamicClippingPlaneChanges(List<ChangeQueue.ClippingPlane> changed) =>
         Collect(Clipped(changed).Map(static clips => new SceneBatch { ClippingPlanes = new(clips, tryAdd: false) }));
 
     protected override void ApplyDisplayPipelineAttributesChanges(DisplayPipelineAttributes displayPipelineAttributes) =>
@@ -162,7 +158,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
 
     // --- [COPIES]
 
-    private static IO<Seq<(Guid, Option<SceneClip>)>> Clipped(List<Queue.ClippingPlane> planes) =>
+    private static IO<Seq<(Guid, Option<SceneClip>)>> Clipped(List<ChangeQueue.ClippingPlane> planes) =>
         toSeq(planes).TraverseM(static plane => Products.Maybe(() => plane.Attributes?.Duplicate())
             .Map(attributes => (plane.Id, Some(new SceneClip(plane.IsEnabled, plane.Plane, toSeq(plane.ViewIds), attributes))))).As();
 
@@ -186,7 +182,7 @@ public sealed class DefinedChangeFeed : Queue.ChangeQueue {
         _ = Session.Run(
             Products.Transfer(static () => EnvIO.New(token: CancellationToken.None), scope =>
                 from batch in change.Scoped(scope)
-                from collected in atomicIO(() => feed.Swap(held => held.Map(state => state.Collected(batch, scope))))
+                from collected in atomicIO(() => feed.Swap(held => from state in held select state with { Collecting = state.Collecting.Combine(batch), Held = state.Held.Add(scope) }))
                 from closed in when(collected.IsNone, IO.lift(scope.Dispose)).As()
                 select unit),
             member: member);

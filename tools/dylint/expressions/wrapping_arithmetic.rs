@@ -1,8 +1,12 @@
-use clippy_utils::{binop_traits, diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, res::MaybeDef as _, sym};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{binop_traits, fn_def_id, sym};
 use rustc_attr_ir::LangItem;
 use rustc_hir::{Expr, ExprKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, print::with_forced_trimmed_paths};
+use rustc_middle::ty;
+use rustc_middle::ty::print::with_forced_trimmed_paths;
 use rustc_span::Symbol;
 
 use crate::{expanded_externally, impl_owner, path};

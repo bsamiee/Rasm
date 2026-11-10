@@ -1,23 +1,15 @@
 use core::cmp;
 
 use calamine::{Data, Range};
-use ironcalc::base::{
-    expressions::{
-        lexer::{Lexer, LexerMode},
-        token::TokenType,
-    },
-    language::get_default_language,
-    locale::get_default_locale,
-};
+use ironcalc::base::expressions::lexer::{Lexer, LexerMode};
+use ironcalc::base::expressions::token::TokenType;
+use ironcalc::base::language::get_default_language;
+use ironcalc::base::locale::get_default_locale;
 use jiff::{SignedDuration, civil};
 use rust_xlsxwriter::IntoExcelDateTime as _;
-use umya_spreadsheet::{
-    DefinedName, Workbook,
-    helper::{
-        address::{is_address, join_address},
-        coordinate::coordinate_from_index_with_lock,
-    },
-};
+use umya_spreadsheet::helper::address::{is_address, join_address};
+use umya_spreadsheet::helper::coordinate::coordinate_from_index_with_lock;
+use umya_spreadsheet::{DefinedName, Workbook};
 
 use crate::{Refusal, Value, WorkbooksError};
 

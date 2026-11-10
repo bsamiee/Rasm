@@ -18,6 +18,7 @@ rustflags  = ["-Zunstable-options", "--jobs-frontend=8"]
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
+CLIPPY_CONF_DIR  = { value = ".config", relative = true }
 DYLINT_RUSTFLAGS = "-Zflatten-format-args=no"
 
 # --- [RESOLVER] -------------------------------------------------------------------------

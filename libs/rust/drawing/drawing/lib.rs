@@ -1,6 +1,8 @@
 #![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, gen_blocks, impl_trait_in_assoc_type)]
 
-use core::{f64::consts::PI, iter, range::Range};
+use core::f64::consts::PI;
+use core::iter;
+use core::range::Range;
 use std::sync::Arc;
 
 use color::{OpaqueColor, Srgb};
@@ -8,10 +10,8 @@ use geo_types::{Coord, LineString, MultiPolygon, Polygon};
 use itertools::Itertools as _;
 use kurbo::{Affine, BezPath, Cap, Join, ParamCurveDeriv as _, PathEl, PathSeg, Point, Rect, Shape, Vec2, flatten};
 use linebender_resource_handle::FontData;
-use linesweeper::{
-    Error, FillRule,
-    topology::{Contour, ContourIdx, Topology},
-};
+use linesweeper::topology::{Contour, ContourIdx, Topology};
+use linesweeper::{Error, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFeature, FontVariation};
 use stacksafe::StackSafe;
@@ -271,8 +271,7 @@ impl Shape for Region {
                 let bounds = path.bounding_box();
                 path.segments()
                     .all(|segment| match segment {
-                        #[expect(clippy::float_cmp, reason = "Shape::as_rect requires exact axis alignment with native signed-zero equality")]
-                        PathSeg::Line(kurbo::Line { p0, p1 }) => (p0.x == p1.x && [bounds.x0, bounds.x1].contains(&p0.x)) || (p0.y == p1.y && [bounds.y0, bounds.y1].contains(&p0.y)),
+                        PathSeg::Line(kurbo::Line { p0, p1 }) => [[bounds.x0; 2], [bounds.x1; 2]].contains(&[p0.x, p1.x]) || [[bounds.y0; 2], [bounds.y1; 2]].contains(&[p0.y, p1.y]),
                         PathSeg::Quad(_) | PathSeg::Cubic(_) => false,
                     })
                     .then_some(bounds)
@@ -536,19 +535,6 @@ fn polygons(region: &Region, tolerance: Tolerance) -> MultiPolygon<f64> {
         Contour { path: _, parent: _, outer: _ } => holes,
     });
     region.0.iter().zip(holes).filter_map(|(contour, holes)| contour.outer.then(|| Polygon::new(ring(&contour.path), holes))).collect()
-}
-
-fn path(lines: impl IntoIterator<Item = LineString<f64>>) -> BezPath {
-    lines
-        .into_iter()
-        .flat_map(|line| {
-            let closed = line.0.len() > 2 && line.is_closed();
-            let LineString(coords) = line;
-            let kept = coords.len().strict_sub(usize::from(closed));
-            let mut points = coords.into_iter().take(kept).map(|coord| Point::from(coord.x_y()));
-            iter::chain(points.next().map(PathEl::MoveTo), points.map(PathEl::LineTo)).chain(closed.then_some(PathEl::ClosePath))
-        })
-        .collect()
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

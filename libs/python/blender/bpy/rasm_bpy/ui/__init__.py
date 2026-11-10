@@ -11,25 +11,8 @@ from rasm_bpy.ui._elements.tools import Tool, Tools
 from rasm_bpy.ui._images.compare import Compare, CompareView, Mode, Showing
 from rasm_bpy.ui._images.views import coverage, FrameRegion, image_type, Masks, overlaid, Picked, picking, RenderView, RESULT, revealed
 from rasm_bpy.ui._layout.members import At, LocatedMembers, Member, Reach, ResolvedMember
-from rasm_bpy.ui._layout.rows import (
-    aligned,
-    ConditionalRow,
-    Container,
-    ContextMember,
-    even,
-    icon_prerequisites,
-    Iconed,
-    Keywords,
-    Layout,
-    Opens,
-    OperatorButton,
-    Property,
-    Row,
-    RowContent,
-    RowDraw,
-    Separator,
-)
-from rasm_bpy.ui._layout.sections import Section
+from rasm_bpy.ui._layout.rows import aligned, ConditionalRow, ContextMember, even, Iconed, Keywords, Layout, Opens, OperatorButton, Property, Row, RowContent, RowDraw, Separator
+from rasm_bpy.ui._layout.sections import Container, Section
 from rasm_bpy.ui._layout.tables import Tree
 from rasm_bpy.ui._layout.templates import Gallery, ImageFormat, Picture, Preview, Shortcut
 from rasm_bpy.ui._layout.values import Captured, Listing, Replacement, Store, StoreCommand
@@ -157,7 +140,6 @@ __all__ = [
     "even",
     "flipped",
     "histogram",
-    "icon_prerequisites",
     "image_type",
     "installed",
     "overlaid",

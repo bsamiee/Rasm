@@ -60,7 +60,7 @@ public struct AppleEventFailure: CustomNSError, LocalizedError {
 
 extension AppleEventFailure: Equatable {
     public static func == (left: Self, right: Self) -> Bool {
-        let same: Bool =
+        let same =
             switch left.reason {
                 case .requiresRunning: right.reason.is(\.requiresRunning)
                 case .osa(let status): right.reason[case: \.osa] == Optional(status)

@@ -3,63 +3,63 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_deref_pattern.rs
 ---
 error: `as_str` derefs `owned` for its patterns
-  --> tools/dylint/examples/manual_deref_pattern.rs:15:11
+  --> tools/dylint/examples/manual_deref_pattern.rs:16:11
    |
-15 |     match owned.as_str() {
+16 |     match owned.as_str() {
    |           ^^^^^^^^^^^^^^ help: match `&owned` under `#![feature(deref_patterns)]`: `&owned`
    |
    = note: `#[deny(manual_deref_pattern)]` on by default
 applicability MaybeIncorrect: match `&owned` under `#![feature(deref_patterns)]`
 
 error: `as_slice` derefs `owned` for its patterns
-  --> tools/dylint/examples/manual_deref_pattern.rs:24:30
+  --> tools/dylint/examples/manual_deref_pattern.rs:25:30
    |
-24 |     if let [first, second] = owned.as_slice() { first.strict_add(*second) } else { 0 }
+25 |     if let [first, second] = owned.as_slice() { first.strict_add(*second) } else { 0 }
    |                              ^^^^^^^^^^^^^^^^ help: match `&owned` under `#![feature(deref_patterns)]`: `&owned`
 applicability MaybeIncorrect: match `&owned` under `#![feature(deref_patterns)]`
 
 error: `as_slice` derefs `owned` for its patterns
-  --> tools/dylint/examples/manual_deref_pattern.rs:29:23
+  --> tools/dylint/examples/manual_deref_pattern.rs:30:23
    |
-29 |     let [first, ..] = owned.as_slice() else { return 0 };
+30 |     let [first, ..] = owned.as_slice() else { return 0 };
    |                       ^^^^^^^^^^^^^^^^ help: match `&owned` under `#![feature(deref_patterns)]`: `&owned`
 applicability MaybeIncorrect: match `&owned` under `#![feature(deref_patterns)]`
 
 error: `as_deref` derefs `profile.name` for its patterns
-  --> tools/dylint/examples/manual_deref_pattern.rs:34:11
+  --> tools/dylint/examples/manual_deref_pattern.rs:35:11
    |
-34 |     match profile.name.as_deref() {
+35 |     match profile.name.as_deref() {
    |           ^^^^^^^^^^^^^^^^^^^^^^^ help: match `&profile.name` under `#![feature(deref_patterns)]`: `&profile.name`
 applicability MaybeIncorrect: match `&profile.name` under `#![feature(deref_patterns)]`
 
 error: `&*` derefs `value` for its patterns
-  --> tools/dylint/examples/manual_deref_pattern.rs:42:11
+  --> tools/dylint/examples/manual_deref_pattern.rs:43:11
    |
-42 |     match &**value {
+43 |     match &**value {
    |           ^^^^^^^^ help: match `value` under `#![feature(deref_patterns)]`: `value`
 applicability MaybeIncorrect: match `value` under `#![feature(deref_patterns)]`
 
 error: `&*` derefs `held` for its patterns
-  --> tools/dylint/examples/manual_deref_pattern.rs:51:11
+  --> tools/dylint/examples/manual_deref_pattern.rs:52:11
    |
-51 |     match &*held {
+52 |     match &*held {
    |           ^^^^^^ help: match `&held` under `#![feature(deref_patterns)]`: `&held`
 applicability MaybeIncorrect: match `&held` under `#![feature(deref_patterns)]`
 
 error: `owned` holds one of `"a"`, `"b"` as text
-  --> tools/dylint/examples/manual_deref_pattern.rs:14:9
+  --> tools/dylint/examples/manual_deref_pattern.rs:15:9
    |
-14 |     let owned = name.to_owned();
+15 |     let owned = name.to_owned();
    |         ^^^^^
    |
 note: branched on here
-  --> tools/dylint/examples/manual_deref_pattern.rs:15:5
+  --> tools/dylint/examples/manual_deref_pattern.rs:16:5
    |
-15 | /     match owned.as_str() {
-16 | |         "a" => 1,
-17 | |         "b" => 2,
-18 | |         _ => 0,
-19 | |     }
+16 | /     match owned.as_str() {
+17 | |         "a" => 1,
+18 | |         "b" => 2,
+19 | |         _ => 0,
+20 | |     }
    | |_____^
    = help: declare `owned` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
    = note: `#[deny(stringly_typed_value)]` on by default

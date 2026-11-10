@@ -46,7 +46,9 @@ internal sealed partial class ShapeOperation {
 internal sealed record ShapePrimitive(ShapeKind Kind, FieldPlacement Placement, ShortSideLength Width, ShortSideLength Height, float Roundness, float Exponent, int Sides, float Inset, float Apex, ShapeFit Fit) {
     public static ShapePrimitive Default { get; } = new(ShapeKind.Ellipse, FieldPlacement.Default, ShortSideLength.Create(0.5f), ShortSideLength.Create(0.5f), 0f, 2f, 5, 0f, 0f, ShapeFit.ShortSide);
 
-    public DistanceField Field(PixelExtent extent) => Placement.Placed(Kind.Field(this, new Vector2(Width, Height) * Fit.Scale(extent)), extent);
+    public DistanceField Field(PixelExtent extent) =>
+        Kind.Field(this, new Vector2(Width, Height) * Fit.Scale(extent))
+            .Placed((extent.Point(Placement.Center) - extent.Point(FieldPlacement.Default.Center)) * new Vector2(1f, -1f) / extent.ShortSide, Placement.Rotation);
 }
 
 internal sealed record ShapeStyle(Unicolour Outline, bool Inverted) {

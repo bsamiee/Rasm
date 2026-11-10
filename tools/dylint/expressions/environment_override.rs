@@ -1,11 +1,10 @@
-use clippy_utils::{
-    consts::{Constant, mir_to_const},
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id,
-    paths::PathNS,
-};
+use clippy_utils::consts::{Constant, mir_to_const};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::fn_def_id;
+use clippy_utils::paths::PathNS;
 use rustc_data_structures::fx::FxHashMap;
-use rustc_hir::{Expr, ExprKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::TyCtxt;
 

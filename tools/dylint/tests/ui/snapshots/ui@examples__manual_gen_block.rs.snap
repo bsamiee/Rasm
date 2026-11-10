@@ -3,58 +3,58 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_gen_block.rs
 ---
 error: assignment negates `self.ready` by hand
-  --> tools/dylint/examples/manual_gen_block.rs:99:9
+  --> tools/dylint/examples/manual_gen_block.rs:97:9
    |
-99 |         self.ready = !self.ready;
+97 |         self.ready = !self.ready;
    |         ^^^^^^^^^^^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut self.ready)`
    |
    = note: `#[deny(manual_bool_toggle)]` on by default
 applicability MachineApplicable: call `bool::toggle`
 
 error: assignment negates `self.ready` by hand
-   --> tools/dylint/examples/manual_gen_block.rs:108:9
+   --> tools/dylint/examples/manual_gen_block.rs:106:9
     |
-108 |         self.ready = !self.ready;
+106 |         self.ready = !self.ready;
     |         ^^^^^^^^^^^^^^^^^^^^^^^^ help: call `bool::toggle`: `<bool>::toggle(&mut self.ready)`
 applicability MachineApplicable: call `bool::toggle`
 
 error: `Iterator` impls for `Countdown` and `Repeated` have the same `next` body
-  --> tools/dylint/examples/manual_gen_block.rs:59:5
+  --> tools/dylint/examples/manual_gen_block.rs:57:5
    |
-59 |     fn next(&mut self) -> Option<u8> {
+57 |     fn next(&mut self) -> Option<u8> {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: repeated here
-  --> tools/dylint/examples/manual_gen_block.rs:89:5
+  --> tools/dylint/examples/manual_gen_block.rs:87:5
    |
-89 |     fn next(&mut self) -> Option<u8> {
+87 |     fn next(&mut self) -> Option<u8> {
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: generate the `Iterator` impls from one `macro_rules!` over the implementing type
    = note: `#[deny(duplicate_body)]` on by default
 
 error: `Countdown` is built at one site and implements only `Iterator`
-   --> tools/dylint/examples/manual_gen_block.rs:9:8
+   --> tools/dylint/examples/manual_gen_block.rs:7:8
     |
-  9 | struct Countdown {
+  7 | struct Countdown {
     |        ^^^^^^^^^
     |
 note: built here
-   --> tools/dylint/examples/manual_gen_block.rs:153:23
+   --> tools/dylint/examples/manual_gen_block.rs:151:23
     |
-153 |     let counted: u8 = Countdown { left: 3 }.sum();
+151 |     let counted: u8 = Countdown { left: 3 }.sum();
     |                       ^^^^^^^^^^^^^^^^^^^^^
     = help: replace `Countdown` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`
     = note: `#[deny(manual_gen_block)]` on by default
 
 error: `Restart` is built at one site and implements only `Iterator`
-   --> tools/dylint/examples/manual_gen_block.rs:18:8
+   --> tools/dylint/examples/manual_gen_block.rs:16:8
     |
- 18 | struct Restart {
+ 16 | struct Restart {
     |        ^^^^^^^
     |
 note: built here
-   --> tools/dylint/examples/manual_gen_block.rs:155:39
+   --> tools/dylint/examples/manual_gen_block.rs:153:39
     |
-155 |     let restarted: u8 = Iterator::sum(Restart { left: 4 });
+153 |     let restarted: u8 = Iterator::sum(Restart { left: 4 });
     |                                       ^^^^^^^^^^^^^^^^^^^
     = help: replace `Restart` with a `gen move { .. }` block at its construction site under `#![feature(gen_blocks)]`

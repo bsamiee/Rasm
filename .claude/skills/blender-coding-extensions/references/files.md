@@ -40,40 +40,42 @@ One import operator serves drops, the file browser, scripts, and collection impo
 class Import(bpy.types.Operator, ImportHelper):
     bl_idname = "item.import_item"
     bl_label = "Import Item"
-    bl_options = frozenset({"REGISTER", "UNDO"})  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
-    filter_glob: bpy.props.StringProperty(default="*.item;*.itm", options={"HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    directory: bpy.props.StringProperty(subtype="DIR_PATH", options={"SKIP_SAVE", "HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={"SKIP_SAVE", "HIDDEN"})  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    filepath: str
+    filter_glob: Annotated[str, bpy.props.StringProperty(default="*.item;*.itm", options={"HIDDEN"})]
+    directory: Annotated[str, bpy.props.StringProperty(subtype="DIR_PATH", options={"SKIP_SAVE", "HIDDEN"})]
+    files: Annotated[Elements[bpy.types.OperatorFileListElement], bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={"SKIP_SAVE", "HIDDEN"})]
 
     @override
-    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> set[str]:  # type: ignore[override]  # ty: ignore[invalid-method-override]
+    def invoke(self, context: bpy.types.Context, event: bpy.types.Event) -> set[str]:  # ty: ignore[incompatible-method-override]
         return self.invoke_popup(context)
 
     @override
     def execute(self, context: bpy.types.Context) -> Returns:
-        data: bpy.types.BlendData = context.blend_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        paths = tuple(Path(self.directory, file.name) for file in self.files) or (Path(self.filepath),)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        created = tuple(data.objects.new(path.stem, None) for path in paths)
+        paths = tuple(Path(self.directory, file.name) for file in self.files) or (Path(self.filepath),)
+        created = tuple(data.objects.new(path.stem, None) for data in root_in(bpy.types.BlendData, context).to_list() for path in paths)
         if context.scene and (collection := context.collection):
             for obj in created:
                 collection.objects.link(obj)
         return {"FINISHED"}
 
 
+importer = type(Import.__name__, (Import,), {"bl_options": {"REGISTER", "UNDO"}})
+
+
 class Handler(bpy.types.FileHandler):
     bl_idname = "ITEM_FH_item"
     bl_label = "Item"
     bl_import_operator = Import.bl_idname
-    bl_file_extensions = Import.__annotations__["filter_glob"].keywords["default"].replace("*", "")
+    bl_file_extensions = msgspec.convert(annotated(Import)["filter_glob"].keywords["default"], str).replace("*", "")
 
     @override
     @classmethod
     def poll_drop(cls, context: bpy.types.Context | None) -> bool:
-        return poll_file_object_drop(context)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        return Option.of_optional(context).map(poll_file_object_drop).default_value(False)
 ```
 
-`ImportHelper.invoke_popup` confirms a set `filepath`, else opens the file browser. `bpy_extras.io_utils.poll_file_object_drop` accepts drops on the 3D Viewport and on the Outliner in View Layer mode.
+`filepath: str` types the member `ImportHelper` declares, and `ImportHelper.invoke_popup` confirms a set `filepath`, else opens the file browser. `bpy_extras.io_utils.poll_file_object_drop` accepts drops on the 3D Viewport and on the Outliner in View Layer mode.
 
 ## [04]-[COLLECTION_IO]
 

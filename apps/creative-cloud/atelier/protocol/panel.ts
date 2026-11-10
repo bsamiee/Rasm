@@ -20,7 +20,7 @@ const served = (cep: Cep) =>
         return yield* Effect.callback<string>((resume) => cep.evalScript(`${ExtensionManifest.global}(${literal})`, flow(Effect.succeed, resume))).pipe(
             Effect.filterOrFail(
                 (reply) => reply !== 'EvalScript error.',
-                () => HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.script} ${ExtensionManifest.global}` }),
+                () => HostError.make({ reason: { _tag: 'Unavailable' }, subject: `${payload.label}: ${ExtensionManifest.global}` }),
             ),
             Effect.flatMap(Schema.decodeEffect(Reply)),
             Effect.flatMap(Completion.answered(Schema.toCodecJson(rpc.successSchema), payload.label)),

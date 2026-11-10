@@ -3,192 +3,280 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/duplicate_body.rs
 ---
 error: `unwrap_or_default` replaces `ParseIntError` with a fallback value
-   --> tools/dylint/examples/duplicate_body.rs:208:59
+   --> tools/dylint/examples/duplicate_body.rs:206:59
     |
-208 |     pub(super) fn parse(text: &str) -> u32 { text.parse().unwrap_or_default() }
+206 |     pub(super) fn parse(text: &str) -> u32 { text.parse().unwrap_or_default() }
     |                                                           ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
     = note: `#[deny(discarded_error)]` on by default
 
-error: `unwrap_or_default` replaces `ParseIntError` with a fallback value
-   --> tools/dylint/examples/duplicate_body.rs:214:76
+error: `decimal::read` passes its parameters unchanged to `decimal::parse`
+   --> tools/dylint/examples/duplicate_body.rs:208:5
     |
-214 |     pub(super) fn parse(text: &str) -> u32 { u32::from_str_radix(text, 16).unwrap_or_default() }
+208 |     pub(super) fn read(text: &str) -> u32 { parse(text) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/duplicate_body.rs:208:45
+    |
+208 |     pub(super) fn read(text: &str) -> u32 { parse(text) }
+    |                                             ^^^^^^^^^^^
+    = help: call `decimal::parse` at each call site of `decimal::read` and delete `decimal::read`
+    = note: `#[deny(forwarding_function)]` on by default
+
+error: `unwrap_or_default` replaces `ParseIntError` with a fallback value
+   --> tools/dylint/examples/duplicate_body.rs:212:76
+    |
+212 |     pub(super) fn parse(text: &str) -> u32 { u32::from_str_radix(text, 16).unwrap_or_default() }
     |                                                                            ^^^^^^^^^^^^^^^^^^^
     |
     = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
-error: `into_display` returns `self` as `dyn Display`, which trait upcasting converts from `dyn BoxedView`
-   --> tools/dylint/examples/duplicate_body.rs:486:45
+error: `hexadecimal::read` passes its parameters unchanged to `hexadecimal::parse`
+   --> tools/dylint/examples/duplicate_body.rs:214:5
     |
-486 |         fn into_display(self: Box<Self>) -> Box<dyn Display>;
+214 |     pub(super) fn read(text: &str) -> u32 { parse(text) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/duplicate_body.rs:214:45
+    |
+214 |     pub(super) fn read(text: &str) -> u32 { parse(text) }
+    |                                             ^^^^^^^^^^^
+    = help: call `hexadecimal::parse` at each call site of `hexadecimal::read` and delete `hexadecimal::read`
+
+error: `shown` passes its parameters unchanged to `std::string::ToString::to_string`
+   --> tools/dylint/examples/duplicate_body.rs:223:1
+    |
+223 | fn shown<T: Display>(value: &T) -> String { value.to_string() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/duplicate_body.rs:223:45
+    |
+223 | fn shown<T: Display>(value: &T) -> String { value.to_string() }
+    |                                             ^^^^^^^^^^^^^^^^^
+    = help: call `std::string::ToString::to_string` at each call site of `shown` and delete `shown`
+
+error: `rendered` passes its parameters unchanged to `std::string::ToString::to_string`
+   --> tools/dylint/examples/duplicate_body.rs:225:1
+    |
+225 | fn rendered<T: Display + Debug>(value: &T) -> String { value.to_string() }
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/duplicate_body.rs:225:56
+    |
+225 | fn rendered<T: Display + Debug>(value: &T) -> String { value.to_string() }
+    |                                                        ^^^^^^^^^^^^^^^^^
+    = help: call `std::string::ToString::to_string` at each call site of `rendered` and delete `rendered`
+
+error: `unwrap_or` stands an empty `&str` in for `None`
+   --> tools/dylint/examples/duplicate_body.rs:239:56
+    |
+239 | fn shown_or_empty(value: Option<&str>) -> &str { value.unwrap_or("") }
+    |                                                        ^^^^^^^^^^^^^
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+    = note: `#[deny(empty_string_default)]` on by default
+
+error: `trait_methods::first::value` passes its parameters unchanged to `trait_methods::First::value`
+   --> tools/dylint/examples/duplicate_body.rs:350:9
+    |
+350 |         pub(crate) fn value(value: &u8) -> u32 { value.value() }
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/duplicate_body.rs:350:50
+    |
+350 |         pub(crate) fn value(value: &u8) -> u32 { value.value() }
+    |                                                  ^^^^^^^^^^^^^
+    = help: call `trait_methods::First::value` at each call site of `trait_methods::first::value` and delete `trait_methods::first::value`
+
+error: `trait_methods::last::value` passes its parameters unchanged to `trait_methods::Last::value`
+   --> tools/dylint/examples/duplicate_body.rs:356:9
+    |
+356 |         pub(crate) fn value(value: &u8) -> u32 { value.value() }
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/duplicate_body.rs:356:50
+    |
+356 |         pub(crate) fn value(value: &u8) -> u32 { value.value() }
+    |                                                  ^^^^^^^^^^^^^
+    = help: call `trait_methods::Last::value` at each call site of `trait_methods::last::value` and delete `trait_methods::last::value`
+
+error: `into_display` returns `self` as `dyn Display`, which trait upcasting converts from `dyn BoxedView`
+   --> tools/dylint/examples/duplicate_body.rs:485:45
+    |
+485 |         fn into_display(self: Box<Self>) -> Box<dyn Display>;
     |                                             ^^^^^^^^^^^^^^^^
     |
     = help: delete the method and coerce `dyn BoxedView` to `dyn Display` at each call site
     = note: `#[deny(manual_upcast)]` on by default
 
 error: `Route::url_path` repeats the body and signature of `Route::path`
-   --> tools/dylint/examples/duplicate_body.rs:118:5
+   --> tools/dylint/examples/duplicate_body.rs:116:5
     |
-118 |     fn url_path(&self) -> String { self.segments.join("/") }
+116 |     fn url_path(&self) -> String { self.segments.join("/") }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `Route::path` declared here
-   --> tools/dylint/examples/duplicate_body.rs:116:5
+   --> tools/dylint/examples/duplicate_body.rs:114:5
     |
-116 |     fn path(&self) -> String { self.segments.join("/") }
+114 |     fn path(&self) -> String { self.segments.join("/") }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^
     = help: delete `Route::url_path` and call `Route::path` at each call site
     = note: `#[deny(duplicate_body)]` on by default
 
 error: `Display` impls for `Square` and `Circle` have the same `fmt` body
-   --> tools/dylint/examples/duplicate_body.rs:134:5
+   --> tools/dylint/examples/duplicate_body.rs:132:5
     |
-134 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
+132 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_body.rs:138:5
+   --> tools/dylint/examples/duplicate_body.rs:136:5
     |
-138 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
+136 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("shape") }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: generate the `Display` impls from one `macro_rules!` over the implementing type
 
 error: `Display` impls for `Labeled<u8>` and `Labeled<u16>` have the same `fmt` body
-   --> tools/dylint/examples/duplicate_body.rs:168:5
+   --> tools/dylint/examples/duplicate_body.rs:166:5
     |
-168 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
+166 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_body.rs:172:5
+   --> tools/dylint/examples/duplicate_body.rs:170:5
     |
-172 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
+170 |     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(self.name) }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: replace the impls with one `Display` impl generic over `Labeled` type arguments
 
 error: `Extend` impls for `Square` and `Circle` have the same `extend` body
-   --> tools/dylint/examples/duplicate_body.rs:142:5
+   --> tools/dylint/examples/duplicate_body.rs:140:5
     |
-142 | /     fn extend<I>(&mut self, items: I)
-143 | |     where I: IntoIterator<Item = C> {
+140 | /     fn extend<I>(&mut self, items: I)
+141 | |     where I: IntoIterator<Item = C> {
     | |___________________________________^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_body.rs:149:5
+   --> tools/dylint/examples/duplicate_body.rs:147:5
     |
-149 | /     fn extend<I>(&mut self, items: I)
-150 | |     where I: IntoIterator<Item = C> {
+147 | /     fn extend<I>(&mut self, items: I)
+148 | |     where I: IntoIterator<Item = C> {
     | |___________________________________^
     = help: generate the `Extend` impls from one `macro_rules!` over the implementing type
 
 error: `sum` repeats the body and signature of `total`
-   --> tools/dylint/examples/duplicate_body.rs:223:1
+   --> tools/dylint/examples/duplicate_body.rs:221:1
     |
-223 | fn sum(numbers: &[u32]) -> u32 { numbers.iter().sum() }
+221 | fn sum(numbers: &[u32]) -> u32 { numbers.iter().sum() }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `total` declared here
-   --> tools/dylint/examples/duplicate_body.rs:221:1
+   --> tools/dylint/examples/duplicate_body.rs:219:1
     |
-221 | fn total(values: &[u32]) -> u32 { values.iter().sum() }
+219 | fn total(values: &[u32]) -> u32 { values.iter().sum() }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: delete `sum` and call `total` at each call site
 
 error: `second` repeats the body and signature of `first`
-   --> tools/dylint/examples/duplicate_body.rs:231:1
+   --> tools/dylint/examples/duplicate_body.rs:229:1
     |
-231 | async fn second(value: u32) -> u32 { value.strict_add(1) }
+229 | async fn second(value: u32) -> u32 { value.strict_add(1) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `first` declared here
-   --> tools/dylint/examples/duplicate_body.rs:229:1
+   --> tools/dylint/examples/duplicate_body.rs:227:1
     |
-229 | async fn first(value: u32) -> u32 { value.strict_add(1) }
+227 | async fn first(value: u32) -> u32 { value.strict_add(1) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: delete `second` and call `first` at each call site
 
 error: `contracts::renamed` repeats the body and signature of `contracts::borrowed`
-   --> tools/dylint/examples/duplicate_body.rs:377:5
+   --> tools/dylint/examples/duplicate_body.rs:375:5
     |
-377 |     pub(super) fn renamed<'other>(value: &'other str) -> &'other str { value }
+375 |     pub(super) fn renamed<'other>(value: &'other str) -> &'other str { value }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `contracts::borrowed` declared here
-   --> tools/dylint/examples/duplicate_body.rs:375:5
+   --> tools/dylint/examples/duplicate_body.rs:373:5
     |
-375 |     pub(super) fn borrowed<'a>(value: &'a str) -> &'a str { value }
+373 |     pub(super) fn borrowed<'a>(value: &'a str) -> &'a str { value }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: delete `contracts::renamed` and call `contracts::borrowed` at each call site
 
 error: `contracts::renamed_outlives` repeats the body and signature of `contracts::outlives`
-   --> tools/dylint/examples/duplicate_body.rs:385:5
+   --> tools/dylint/examples/duplicate_body.rs:383:5
     |
-385 |     pub(super) fn renamed_outlives<'a: 'b, 'b>(first: &'a str, second: &'b str) -> (&'a str, &'b str) { (first, second) }
+383 |     pub(super) fn renamed_outlives<'a: 'b, 'b>(first: &'a str, second: &'b str) -> (&'a str, &'b str) { (first, second) }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `contracts::outlives` declared here
-   --> tools/dylint/examples/duplicate_body.rs:383:5
+   --> tools/dylint/examples/duplicate_body.rs:381:5
     |
-383 |     pub(super) fn outlives<'long: 'short, 'short>(first: &'long str, second: &'short str) -> (&'long str, &'short str) { (first, se...
+381 |     pub(super) fn outlives<'long: 'short, 'short>(first: &'long str, second: &'short str) -> (&'long str, &'short str) { (first, se...
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: delete `contracts::renamed_outlives` and call `contracts::outlives` at each call site
 
 error: `parameter_drops::values::renamed` repeats the body and signature of `parameter_drops::values::declared`
-   --> tools/dylint/examples/duplicate_body.rs:401:9
+   --> tools/dylint/examples/duplicate_body.rs:400:9
     |
-401 |         fn renamed<T>(Fields { first: _head, last: _tail }: Fields<T>, visit: impl FnOnce()) { visit() }
+400 |         fn renamed<T>(Fields { first: _head, last: _tail }: Fields<T>, visit: impl FnOnce()) { visit() }
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `parameter_drops::values::declared` declared here
-   --> tools/dylint/examples/duplicate_body.rs:397:9
+   --> tools/dylint/examples/duplicate_body.rs:396:9
     |
-397 |         fn declared<T>(Fields { first: _first, last: _last }: Fields<T>, visit: impl FnOnce()) { visit() }
+396 |         fn declared<T>(Fields { first: _first, last: _last }: Fields<T>, visit: impl FnOnce()) { visit() }
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: delete `parameter_drops::values::renamed` and call `parameter_drops::values::declared` at each call site
 
 error: `stateful_binary::repeated_calls` repeats the body and signature of `stateful_binary::ordered_calls`
-   --> tools/dylint/examples/duplicate_body.rs:429:5
+   --> tools/dylint/examples/duplicate_body.rs:428:5
     |
-429 |     pub(super) fn repeated_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
+428 |     pub(super) fn repeated_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: `stateful_binary::ordered_calls` declared here
-   --> tools/dylint/examples/duplicate_body.rs:425:5
+   --> tools/dylint/examples/duplicate_body.rs:424:5
     |
-425 |     pub(super) fn ordered_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
+424 |     pub(super) fn ordered_calls(state: &Cell<u8>, left: u8, right: u8) -> (u8, u8) { (state.replace(left), state.replace(right)) }
     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: delete `stateful_binary::repeated_calls` and call `stateful_binary::ordered_calls` at each call site
 
 error: every `Counted` impl has the same `count` body
-   --> tools/dylint/examples/duplicate_body.rs:458:9
+   --> tools/dylint/examples/duplicate_body.rs:457:9
     |
-458 |         fn count(values: &[u8]) -> usize;
+457 |         fn count(values: &[u8]) -> usize;
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_body.rs:498:9
+   --> tools/dylint/examples/duplicate_body.rs:497:9
     |
-498 |         fn count(values: &[u8]) -> usize { values.len() }
+497 |         fn count(values: &[u8]) -> usize { values.len() }
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-502 |         fn count(values: &[u8]) -> usize { values.len() }
+501 |         fn count(values: &[u8]) -> usize { values.len() }
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: move the body into `Counted::count` as its default and delete `count` from each impl
 
 error: every `Described` impl has the same `width` body
-   --> tools/dylint/examples/duplicate_body.rs:462:9
+   --> tools/dylint/examples/duplicate_body.rs:461:9
     |
-462 |         fn width(value: &T) -> usize;
+461 |         fn width(value: &T) -> usize;
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/duplicate_body.rs:506:9
+   --> tools/dylint/examples/duplicate_body.rs:505:9
     |
-506 |         fn width(value: &T) -> usize { value.to_string().len() }
+505 |         fn width(value: &T) -> usize { value.to_string().len() }
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-510 |         fn width(value: &T) -> usize { value.to_string().len() }
+509 |         fn width(value: &T) -> usize { value.to_string().len() }
     |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: move the body into `Described::width` as its default and delete `width` from each impl

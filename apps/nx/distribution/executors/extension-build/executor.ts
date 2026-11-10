@@ -2,7 +2,7 @@ import { patch } from '@decimalturn/toml-patch';
 import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, Option, Path, Schema, Stream, String } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, Record, Schema, Stream, String } from 'effect';
 import { Toml, Zip } from 'effect/encoding';
 import { DistributionError, EXTENSION, spawned } from '#/plugins/host-packages';
 
@@ -10,12 +10,21 @@ import { DistributionError, EXTENSION, spawned } from '#/plugins/host-packages';
 
 const Build = Schema.Struct({ outputPath: Schema.String });
 const Manifest = Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) });
-const Interpreter = Schema.fromJsonString(Schema.Struct({ python: Schema.String, platform: Schema.String, tags: Schema.Array(Schema.String), distributions: Schema.Array(Schema.String), modules: Schema.Array(Schema.String) }));
+const Interpreter = Schema.fromJsonString(Schema.Struct({ python: Schema.String, platform: Schema.String, tags: Schema.Array(Schema.String), distributions: Schema.Record(Schema.String, Schema.String), undeclared: Schema.Record(Schema.String, Schema.String), modules: Schema.Array(Schema.String) }));
 const Locked = Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory: Schema.optionalKey(Schema.Struct({ path: Schema.String })) })) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const toml = (text: string, subject: string) => Effect.mapError(Effect.fromResult(Toml.parse(text)), DistributionError.of(subject, 'does not parse as TOML'));
+
+const probed = Effect.fnUntraced(function* (cwd: string) {
+    const path = yield* Path.Path;
+    const printed = yield* spawned('blender', ['--python-use-system-env', '--background', '--factory-startup', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(new URL(import.meta.resolve('#blender')))], cwd);
+    return yield* Effect.fromOption(
+        Array.findFirst(printed.split('\n'), (line) => Schema.decodeOption(Interpreter)(line)),
+        () => DistributionError.make({ subject: 'blender', detail: 'printed no interpreter report' }),
+    );
+});
 
 const shipped = Effect.fnUntraced(function* (wheel: string, bundled: ReadonlySet<string>) {
     const fs = yield* FileSystem.FileSystem;
@@ -32,11 +41,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     const stage = yield* fs.makeTempDirectoryScoped();
     const wheels = path.join(stage, 'wheels');
     const member = path.join(context.root, root);
-    const printed = yield* spawned('blender', ['--background', '--factory-startup', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(new URL(import.meta.resolve('#blender')))], context.root);
-    const interpreter = yield* Effect.fromOption(
-        Array.findFirst(printed.split('\n'), (line) => Schema.decodeOption(Interpreter)(line)),
-        () => DistributionError.make({ subject: 'blender', detail: 'printed no interpreter report' }),
-    );
+    const interpreter = yield* probed(context.root);
     const declared = yield* Effect.flatMap(toml(text, EXTENSION), Schema.decodeUnknownEffect(Manifest));
     yield* (declared.platforms ?? [interpreter.platform]).includes(interpreter.platform) ? Effect.void : DistributionError.make({ subject: EXTENSION, detail: `declares no ${interpreter.platform} platform, the one this Blender builds for` });
     const files = yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(root, '**', '*')]));
@@ -48,7 +53,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     yield* fs.makeDirectory(wheels, { recursive: true });
     const requirements = path.join(stage, 'requirements.txt');
     const exported = ['export', '--locked', '--no-default-groups', '--no-emit-project'];
-    yield* spawned('uv', [...exported, '--format', 'requirements.txt', '--no-emit-local', '--no-header', '--output-file', requirements, ...interpreter.distributions.flatMap((name) => ['--no-emit-package', name])], member);
+    yield* spawned('uv', [...exported, '--format', 'requirements.txt', '--no-emit-local', '--no-header', '--output-file', requirements, ...Record.keys(interpreter.distributions).flatMap((name) => ['--no-emit-package', name])], member);
     yield* spawned('uv', ['tool', 'run', 'pip', 'download', '--requirement', requirements, '--dest', wheels, '--only-binary=:all:', '--no-deps', '--python-version', interpreter.python, '--implementation', 'cp', ...interpreter.tags.flatMap((tag) => ['--platform', tag])], context.root);
     yield* fs.remove(requirements);
     const locked = yield* spawned('uv', [...exported, '--format', 'pylock.toml'], member).pipe(
@@ -93,4 +98,4 @@ const execute = (options: unknown, context: ExecutorContext) => built(options, c
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute };
+export { execute, probed, toml };

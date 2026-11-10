@@ -35,14 +35,13 @@ const Evaluated = Schema.fromJsonString(
                 SRCROOT: Schema.String,
                 SKIP_INSTALL: Schema.Literals(['NO', 'YES']).transform([false, true]),
                 INSTALL_PATH: Schema.String,
+                WRAPPER_NAME: Schema.OptionFromOptionalKey(Schema.String),
                 INFOPLIST_FILE: Schema.optionalKey(Schema.String),
                 CODE_SIGN_ENTITLEMENTS: Schema.optionalKey(Schema.String),
             }),
         }),
     ),
 );
-const Host = Schema.fromJsonString(Schema.Struct({ target: Schema.Struct({ platform: Schema.String }) }));
-const Request = Schema.fromJsonString(Schema.Array(Schema.String));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -90,6 +89,7 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: O
                         scheme,
                         configuration: Array.headNonEmpty(installed).CONFIGURATION,
                         places: Array.dedupe(Array.map(installed, Struct.get('INSTALL_PATH'))),
+                        bundles: Array.getSomes(Array.map(installed, Struct.get('WRAPPER_NAME'))),
                         notarized: installed.every((signing) => signing.ENABLE_HARDENED_RUNTIME === true && signing.CODE_SIGN_IDENTITY?.startsWith(DEVELOPER_ID.identity) === true),
                     },
                 ],
@@ -162,7 +162,7 @@ const xcodeParts = (
             ...Array.flatMap(building, (scheme) => (scheme.packages ? destinations(scheme.containers).map((platform) => ['-destination', `generic/platform=${platform}`]) : [[]]).map((destination) => invoke('build', scheme.name, destination))),
         ];
     };
-    const installs = archives.map(({ scheme, places }) => invoke('install', scheme, [`DSTROOT=${Array.headNonEmpty(places)}`, 'INSTALL_PATH=/']));
+    const installs = archives.map(({ scheme, configuration, places }) => invoke('install', scheme, ['-configuration', configuration, `DSTROOT=${Array.headNonEmpty(places)}`, 'INSTALL_PATH=/']));
     const launches = Array.dedupe(Array.getSomes(schemes.map(({ launch }) => Option.fromUndefinedOr(launch))));
     const modes = (planned: (configuration: Option.Option<string>) => Runs): Partial<TargetConfiguration> => ({
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
@@ -233,11 +233,15 @@ const xcodeParts = (
             ...(installs.length === 0
                 ? {}
                 : {
-                      install: target(
+                      'install--xcodebuild': target(
                           plugin,
                           installs,
-                          { technologies: ['xcode'], description: "Builds each shared scheme whose targets install in its archive configuration and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action", help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } } },
-                          { dependsOn: ['^build'], inputs: plugin.inputs, cache: false },
+                          {
+                              technologies: ['xcode'],
+                              description: "Builds each shared scheme whose targets install, under -configuration set to the scheme's archive configuration, and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action",
+                              help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
+                          },
+                          { dependsOn: ['^build'], cache: false, options: { runs: installs, applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => path.join(Array.headNonEmpty(places), bundle))) } },
                       ),
                   }),
         },
@@ -246,4 +250,4 @@ const xcodeParts = (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Analyzed, evaluated, Host, invocation, Request, released, xcodeParts };
+export { Analyzed, evaluated, invocation, released, xcodeParts };

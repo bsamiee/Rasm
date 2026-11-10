@@ -5,7 +5,6 @@ import Foundation
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let labelAttributes: [String] = [kAXTitleAttribute, kAXDescriptionAttribute]
-private let absentAttribute: Set<AXError> = [.noValue, .attributeUnsupported, .invalidUIElement]
 private let menuMark: Data = .init("menu".utf8)
 let menuBars: [String] = [kAXMenuBarAttribute, kAXExtrasMenuBarAttribute]
 let frameAttributes: [String] = [kAXPositionAttribute, kAXSizeAttribute]
@@ -41,8 +40,8 @@ extension JSONValue {
 extension AXValue {
     static func unpacked<Value: BitwiseCopyable>(_ slot: CFTypeRef?, _ type: AXValueType, _ empty: Value) -> Value? {
         guard let slot: CFTypeRef, CFGetTypeID(slot) == AXValueGetTypeID() else { return nil }
-        let value: AXValue = unsafe unsafeDowncast(slot, to: AXValue.self)
-        var unpacked: Value = empty
+        let value = unsafe unsafeDowncast(slot, to: AXValue.self)
+        var unpacked = empty
         return unsafe AXValueGetType(value) == type && AXValueGetValue(value, type, &unpacked) ? unpacked : nil
     }
 }
@@ -62,11 +61,11 @@ extension AXUIElement {
         guard id.starts(with: menuMark), id.count > menuMark.count + 4, (id.count - menuMark.count).isMultiple(of: 4) else {
             return unsafe remoteElement(id as CFData)?.takeRetainedValue().timed
         }
-        let words: [Int] = stride(from: id.startIndex + menuMark.count, to: id.endIndex, by: 4).map { start in id[start..<(start + 4)].reduce(0) { word, byte in word << 8 | Int(byte) } }
+        let words = stride(from: id.startIndex + menuMark.count, to: id.endIndex, by: 4).map { start in id[start..<(start + 4)].reduce(0) { word, byte in word << 8 | Int(byte) } }
         guard menuBars.indices.contains(words[1]) else { return nil }
-        let bar: String = menuBars[words[1]]
-        var node: AXUIElement? = try application(pid_t(truncatingIfNeeded: words[0])).values([bar])[bar].flatMap(checked)
-        for index: Int in words.dropFirst(2) {
+        let bar = menuBars[words[1]]
+        var node = try application(pid_t(truncatingIfNeeded: words[0])).values([bar])[bar].flatMap(checked)
+        for index in words.dropFirst(2) {
             node = try node.flatMap { parent throws(ApplicationFailure) in try parent.elements(kAXChildrenAttribute).dropFirst(index).first }
         }
         return node
@@ -92,12 +91,12 @@ extension AXUIElement {
 
     private func copied(_ attributes: [String]) -> (answer: AXError, slots: [(attribute: String, slot: CFTypeRef)]) {
         var values: CFArray?
-        let answer: AXError = unsafe AXUIElementCopyMultipleAttributeValues(self, attributes as CFArray, [], &values)
+        let answer = unsafe AXUIElementCopyMultipleAttributeValues(self, attributes as CFArray, [], &values)
         return (answer, Array(zip(attributes, values as? [CFTypeRef] ?? [])))
     }
 
     func failure(_ error: AXError, reading reads: [String]) -> ApplicationFailure {
-        let subject: String = token.base64EncodedString()
+        let subject = token.base64EncodedString()
         return ApplicationFailure(error, subject: subject, process: process) {
             let read = Dictionary(uniqueKeysWithValues: copied([kAXRoleAttribute] + labelAttributes).slots)
             return ApplicationFailure(subject: subject, reason: .unreadable(FailedRead(reads: reads, role: read[kAXRoleAttribute] as? String, label: ownLabel(read), error: error)))
@@ -105,10 +104,10 @@ extension AXUIElement {
     }
 
     func values(_ attributes: [String]) throws(ApplicationFailure) -> [String: CFTypeRef] {
-        let (answer, slots): (AXError, [(attribute: String, slot: CFTypeRef)]) = copied(attributes)
-        let refused: (attribute: String, error: AXError)? = slots.lazy.compactMap { attribute, slot in
+        let (answer, slots) = copied(attributes)
+        let refused = slots.lazy.compactMap { attribute, slot in
             AXValue.unpacked(slot, .axError, AXError.success).flatMap { error in
-                absentAttribute.contains(error) ? nil : (attribute: attribute, error: error)
+                [.noValue, .attributeUnsupported, .invalidUIElement].contains(error) ? nil : (attribute: attribute, error: error)
             }
         }
         .first
@@ -132,8 +131,8 @@ extension AXUIElement {
         guard let origin = AXValue.unpacked(read[kAXPositionAttribute], .cgPoint, CGPoint.zero),
             let size = AXValue.unpacked(read[kAXSizeAttribute], .cgSize, CGSize.zero)
         else { return nil }
-        let framed: [InstanceState.Window] = listed.filter { row in row.frame == CGRect(origin: origin, size: size) }
-        let shown: [InstanceState.Window] = framed.filter(\.onScreen)
+        let framed = listed.filter { row in row.frame == CGRect(origin: origin, size: size) }
+        let shown = framed.filter(\.onScreen)
         return switch (framed.count, shown.count) {
             case (1, _): framed.first?.number
             case (_, 1): shown.first?.number
@@ -151,7 +150,7 @@ extension AXUIElement {
     }
 
     func visibleText() throws(ApplicationFailure) -> String? {
-        guard let range: CFTypeRef = try values([kAXVisibleCharacterRangeAttribute])[kAXVisibleCharacterRangeAttribute] else { return nil }
+        guard let range = try values([kAXVisibleCharacterRangeAttribute])[kAXVisibleCharacterRangeAttribute] else { return nil }
         var text: CFTypeRef?
         return switch unsafe AXUIElementCopyParameterizedAttributeValue(self, kAXStringForRangeParameterizedAttribute as CFString, range, &text) {
             case .success: text as? String

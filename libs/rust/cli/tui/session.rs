@@ -1,37 +1,38 @@
-use core::{mem, num::NonZero, ops::ControlFlow};
-use std::{
-    collections::VecDeque,
-    error::Report,
-    io::{self, Write},
-    sync::{Arc, nonpoison::Mutex},
-};
+use core::num::NonZero;
+use core::ops::ControlFlow;
+use core::{iter, mem};
+use std::collections::VecDeque;
+use std::error::Report;
+use std::io::{self, Write};
+use std::sync::Arc;
+use std::sync::nonpoison::Mutex;
 
 use clap::builder::Styles;
+use crossterm::cursor::Show;
+use crossterm::event::{DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, KeyEvent};
 #[cfg(unix)]
 use crossterm::event::{KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-use crossterm::{
-    cursor::Show,
-    event::{DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste, EnableFocusChange, EnableMouseCapture, Event, KeyEvent},
-    execute, queue,
-    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::terminal::{self, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::{execute, queue};
 use futures::future::Either;
+use itertools::Itertools as _;
 use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_command::telemetry::Handle;
 use ratatui::DefaultTerminal;
+use ratatui::layout::{Constraint, Layout};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{Block, Cell, Row, Table};
+use ratatui_core::style::Style;
 #[cfg(unix)]
 use rustix::process::{Signal, kill_current_process_group};
 use tracing_log::AsTrace as _;
 use tracing_subscriber::filter::Directive;
-use tui_logger::{LevelFilter, TuiWidgetEvent, TuiWidgetState};
+use tui_logger::{LevelFilter, TuiLoggerWidget, TuiWidgetEvent, TuiWidgetState};
 use validated::Validated;
 
-use crate::{
-    Effects, Input, Mode, Operation, Program, ScreenError,
-    keymap::{self, Action, Pane},
-    view,
-};
+use crate::keymap::{self, Action, Pane};
+use crate::{Effects, Input, Mode, Operation, Program, ScreenError};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -99,7 +100,7 @@ pub(crate) fn entered(modes: &[Mode], held: &Held) -> io::Result<()> {
     out.flush()
 }
 
-pub(crate) fn released(modes: &[Mode], held: &Held) -> Result<(), NEVec<io::Error>> {
+fn released(modes: &[Mode], held: &Held) -> Result<(), NEVec<io::Error>> {
     let mut out = io::stdout().lock();
     let mut stderr = io::stderr().lock();
     let mut lines = held.lines.lock();
@@ -200,6 +201,69 @@ where
         }
     })?;
     tui_logger::move_events();
-    let shown = folded.terminal.draw(|frame| view::drawn(frame, &mut folded.program, folded.pane, &folded.logs, styles)).map(|_frame| ()).map_err(NEVec::new);
+    let shown = folded
+        .terminal
+        .draw(|frame| {
+            let (program, pane, logs) = (&mut folded.program, folded.pane, &folded.logs);
+            let rows = keymap::resolved(program.keys())
+                .map(|row| {
+                    let active = keymap::active(&row.action, pane);
+                    (row, active)
+                })
+                .filter(|(_, active)| *active || pane == Some(Pane::Keys))
+                .unique_by(|(row, active)| (KeyEvent::from(&**row), *active))
+                .map(|(row, active)| (if row.modifiers.is_empty() { row.code.to_string() } else { format!("{}+{}", row.modifiers, row.code) }, row.action.to_string(), active))
+                .collect::<Vec<_>>();
+            let toned = |active: bool, style: &anstyle::Style| if active { *style } else { *styles.get_placeholder() };
+            let bordered = |shown: Pane| Block::bordered().title(Line::styled(shown.to_string(), *styles.get_header()));
+            let gap = Span::raw("  ");
+            let width = usize::from(frame.area().width);
+            let footer = rows
+                .iter()
+                .filter(|(_, _, active)| *active)
+                .map(|(key, action, _)| Line::from_iter([Span::styled(key.as_str(), *styles.get_literal()), Span::raw(" "), Span::styled(action.as_str(), *styles.get_context())]))
+                .map(|line| (line.width(), line))
+                .coalesce(|(occupied, mut line), (next, hint)| {
+                    let joined = occupied.saturating_add(gap.width()).saturating_add(next);
+                    if joined <= width {
+                        line.extend(iter::once(gap.clone()).chain(hint));
+                        Ok((joined, line))
+                    } else {
+                        Err(((occupied, line), (next, hint)))
+                    }
+                })
+                .map(|(_, line)| line)
+                .collect::<Text<'_>>();
+            let [body, lower, bottom] =
+                Layout::vertical([Constraint::Fill(2), pane.map_or(Constraint::Length(0), |_shown| Constraint::Fill(1)), Constraint::Length(footer.height().saturating_cast())]).areas(frame.area());
+            program.view(frame, body, styles);
+            match pane {
+                Some(shown @ Pane::Logs) => frame.render_widget(
+                    TuiLoggerWidget::default()
+                        .block(bordered(shown))
+                        .style_error(Style::from(*styles.get_error()))
+                        .style_warn(Style::from(*styles.get_invalid()))
+                        .style_info(Style::from(*styles.get_valid()))
+                        .style_debug(Style::from(*styles.get_context()))
+                        .style_trace(Style::from(*styles.get_placeholder()))
+                        .state(logs),
+                    lower,
+                ),
+                Some(shown @ Pane::Keys) => frame.render_widget(
+                    Table::new(
+                        rows.iter().map(|(key, action, active)| {
+                            Row::new([Cell::from(key.as_str()).style(toned(*active, styles.get_literal())), Cell::from(action.as_str()).style(toned(*active, styles.get_context()))])
+                        }),
+                        [Constraint::Fill(1), Constraint::Fill(3)],
+                    )
+                    .block(bordered(shown)),
+                    lower,
+                ),
+                None => {}
+            }
+            frame.render_widget(footer, bottom);
+        })
+        .map(|_frame| ())
+        .map_err(NEVec::new);
     ended(folded, Operation::Draw, shown)
 }

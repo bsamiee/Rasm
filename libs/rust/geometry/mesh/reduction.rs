@@ -4,11 +4,9 @@ use itertools::Either;
 use manifold_rust::cancel::CancelToken;
 use meshopt::{SimplifyOptions, SimplifyVertex, VertexDataAdapter};
 use nalgebra::Point3;
-use parry3d_f64::{
-    bounding_volume::Aabb,
-    math::Vector,
-    shape::{TriMesh, TriMeshBuilderError},
-};
+use parry3d_f64::bounding_volume::Aabb;
+use parry3d_f64::math::Vector;
+use parry3d_f64::shape::{TriMesh, TriMeshBuilderError};
 
 use crate::{MeshError, Operation, Solid, Tolerance};
 

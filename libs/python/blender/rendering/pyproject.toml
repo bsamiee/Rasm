@@ -30,6 +30,10 @@ dependencies = [
 
     "httpx2",            # HTTP for batch render targets and notices
     "tenacity",          # Batch target retries over configured domain retry policies
+
+    # --- [POWER]
+
+    "wakepy",            # System sleep held off while a local queue renders
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------

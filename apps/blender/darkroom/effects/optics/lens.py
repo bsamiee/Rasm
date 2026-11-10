@@ -9,7 +9,7 @@ import sys
 from typing import Annotated, Final, override
 
 import bpy
-from expression import Option, Some
+from expression import Option, Some, try_downcast
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -47,7 +47,7 @@ from rasm_bpy.render import (
     with_alpha,
 )
 from rasm_imaging import Aperture, ImageFile, Radial, Raster, StMap, Storage
-from rasm_records import Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Error, Fault, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -209,9 +209,8 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
     """Set f-stop and iris from scene camera."""
     iris = partial(item_key, lenses.IRIS.key)
 
-    def copied(camera: tuple[str, bpy.types.Camera], entry: bpy.types.SceneCompositorEffect) -> Outcome[Answer]:
-        name, source = camera
-        dof: bpy.types.CameraDOFSettings = source.dof  # ty: ignore[invalid-assignment]
+    def copied(camera: tuple[str, bpy.types.CameraDOFSettings], entry: bpy.types.SceneCompositorEffect) -> Outcome[Answer]:
+        name, dof = camera
         stop, blades = dof.aperture_fstop, dof.aperture_blades
         common: dict[Key, Value] = {_FOCUS.key: _DEPTH_OF_FIELD.title, path_key(_DEPTH_OF_FIELD, _F_STOP): stop, iris(Aperture.rotation): dof.aperture_rotation}
         outline: dict[Key, Value] = {iris(Aperture.roundness): 1.0} if blades == 0 else {iris(Aperture.blades): blades, iris(Aperture.roundness): 0.0}
@@ -219,7 +218,9 @@ def match_camera_iris(call: Call[Named]) -> Outcome[Answer]:
         return written.map(lambda changed: Done(notes=(("INFO", f"Copied f-stop and iris from {name}"),)) if changed else Unchanged(reason=f"{entry.name} matches {name} f-stop and iris"))
 
     def matched(scene: bpy.types.Scene) -> Outcome[Answer]:
-        camera: Option[tuple[str, bpy.types.Camera]] = Option.of_optional(scene.camera).bind(lambda held: Some((held.name, held.data)) if isinstance(held.data, bpy.types.Camera) else Nothing)
+        camera = Option.of_optional(scene.camera).bind(
+            lambda held: Option.of_optional(try_downcast(bpy.types.Camera, held.data)).bind(lambda data: Option.of_optional(data.dof)).map(lambda dof: (held.name, dof))
+        )
         return paired(camera.to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene), member="camera")), defocus.named(call.identity, scene, call.properties.name)).bind(
             lambda found: copied(*found)
         )
@@ -279,4 +280,4 @@ vignette: Final = CompositorEffect(record=Vignette, interface=Interface(inputs=(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Aberration", "Defocus", "Distortion", "Vignette", "aberration", "defocus", "distortion", "export_st_map", "match_camera_iris", "vignette"]
+__all__ = ["Aberration", "Defocus", "Distortion", "Vignette", "aberration", "defocus", "distortion", "vignette"]

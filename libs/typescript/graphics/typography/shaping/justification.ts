@@ -4,7 +4,7 @@ import { type JoiningGroup, Script } from 'icu';
 import { Settings } from '#/settings';
 import { Face } from '#/shaping/face';
 import { ShapedText } from '#/shaping/shaped-text';
-import { Word } from '#/shaping/word';
+import { Span, Word } from '#/shaping/word';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -25,6 +25,7 @@ interface Amounts {
 }
 interface Measured extends Styled {
     readonly shaped: ShapedText;
+    readonly base: ReturnType<typeof bases>;
     readonly scales: ReadonlyMap<number, number>;
     readonly kashida: number;
     readonly alternates: number;
@@ -41,7 +42,7 @@ interface Mechanism {
 const JUSTIFICATION_ALTERNATES = 'jalt';
 const WORD_SPACE = /^[\u{20}\u{A0}]$/u;
 const SPACE_SEPARATOR = /^\p{Zs}$/u;
-const SPACINGS = Struct.keys(Settings.Spacing.fields);
+const SPACINGS = Struct.keys(Settings.fields.spacing.schema.fields);
 const MECHANISMS = [...SPACINGS, 'alternates', 'kashida'] as const;
 const BY_RANK = Order.Struct({ rank: Order.Number, cluster: Order.flip(Order.Number) });
 
@@ -124,7 +125,7 @@ const scriptAt = (letters: ReturnType<typeof Word.letters>, cluster: number) =>
         Option.map(({ script }) => script.value),
         Option.getOrElse(() => Script.Common.value),
     );
-const bases = ({ face, shaped }: Measured) => {
+const bases = (face: Face, shaped: ShapedText) => {
     const wordSpace = 0x20;
     const { text } = shaped;
     const letters = Word.letters(text);
@@ -144,34 +145,28 @@ const bases = ({ face, shaped }: Measured) => {
         glyph: Number.sumAll(shaped.glyphs.filter((glyph) => isLetter(text, glyph)).map(Struct.get('xAdvance'))),
     };
 };
-const widths = (measured: Measured) => {
-    const base = bases(measured);
-    const {
-        settings: { spacing },
-        amounts,
-    } = measured;
-    return {
-        base,
-        words: Record.map(base.words, (total, script) => total * spacing.word.desired + Option.getOrElse(Record.get(amounts.words, script), () => 0)),
-        letter: base.slots.size * base.space * spacing.letter.desired + amounts.letter,
-        glyph: base.glyph * spacing.glyph.desired + amounts.glyph,
-    };
-};
+const widths = ({ base, settings: { spacing }, amounts }: Measured) => ({
+    words: Record.map(base.words, (total, script) => total * spacing.word.desired + Option.getOrElse(Record.get(amounts.words, script), () => 0)),
+    letter: base.slots.size * base.space * spacing.letter.desired + amounts.letter,
+    glyph: base.glyph * spacing.glyph.desired + amounts.glyph,
+});
 const lineWidth = (line: Line) =>
     Number.sumAll(
         line.map((measured) => {
-            const { base, words, letter, glyph } = widths(measured);
-            return measured.shaped.advance + summed(words) - summed(base.words) + letter + glyph - base.glyph;
+            const { words, letter, glyph } = widths(measured);
+            return measured.shaped.advance + summed(words) - summed(measured.base.words) + letter + glyph - measured.base.glyph;
         }),
     );
 const remeasured = (measured: Measured, run: Run, scales = measured.scales, font: Font = measured.face.font): Measured => {
     const { text, glyphs, missing } = ShapedText.of({ font, em: measured.face.em }, run, measured.settings);
-    return { ...measured, run, scales, shaped: ShapedText.make({ text, glyphs: glyphs.map((glyph) => UndefinedOr.match(scales.get(glyph.cluster), { onUndefined: () => glyph, onDefined: (scale) => ({ ...rescaled(glyph, scale), xAdvance: glyph.xAdvance * scale }) })), missing }) };
+    const shaped = ShapedText.make({ text, glyphs: glyphs.map((glyph) => UndefinedOr.match(scales.get(glyph.cluster), { onUndefined: () => glyph, onDefined: (scale) => ({ ...rescaled(glyph, scale), xAdvance: glyph.xAdvance * scale }) })), missing });
+    return { ...measured, run, scales, shaped, base: bases(measured.face, shaped) };
 };
 const prepared = (styled: Styled): Measured => {
     const { face, run, settings } = styled;
     const plain = ShapedText.converted({ ...run, features: Option.isSome(alternate(settings)) ? [new Feature(JUSTIFICATION_ALTERNATES, 0), ...run.features] : run.features, flags: Array.union(run.flags, ['PRODUCE_SAFE_TO_INSERT_TATWEEL' as const]) }, settings);
-    const measured: Measured = { ...styled, run: plain, shaped: ShapedText.of(face, plain, settings), scales: new Map(), kashida: 0, alternates: 0, amounts: { words: {}, letter: 0, glyph: 0 } };
+    const shaped = ShapedText.of(face, plain, settings);
+    const measured: Measured = { ...styled, run: plain, shaped, base: bases(face, shaped), scales: new Map(), kashida: 0, alternates: 0, amounts: { words: {}, letter: 0, glyph: 0 } };
     return Option.match(elongationOf(settings), {
         onNone: () => measured,
         onSome: (elongation) => tatweeled(measured, elongation, eligible(measured, false, 'text').map(Struct.get('cluster')), Option.none()),
@@ -180,7 +175,7 @@ const prepared = (styled: Styled): Measured => {
 
 // --- [KASHIDA]
 
-const elongationOf = (settings: Settings) => Option.liftPredicate(settings.kashida, Settings.Kashida.isAnyOf(['Tatweel', 'Stretched']));
+const elongationOf = (settings: Settings) => Option.liftPredicate(settings.kashida, Settings.fields.kashida.schema.isAnyOf(['Tatweel', 'Stretched']));
 const candidates = (text: string, join: Word['joins'][number], rows: readonly Place[]) => {
     const within = (groups: Place['before']) => (group: JoiningGroup) => Option.match(groups, { onNone: Function.constTrue, onSome: ({ groups: listed, except }) => listed.includes(group.value) !== except });
     const follows = (next: Place['next'], letter: Option.Option<JoiningGroup>) => Option.match(next, { onNone: Function.constTrue, onSome: Match.valueTags({ End: () => Option.isNone(letter), Letter: ({ groups }) => Option.exists(letter, within(groups)) }) });
@@ -238,7 +233,7 @@ const inserted = (measured: Measured, chosen: readonly number[], tatweels: numbe
     const text = chosen.reduceRight((inserting, cluster) => `${inserting.slice(0, cluster)}${String.fromCodePoint(Face.TATWEEL).repeat(tatweels)}${inserting.slice(cluster)}`, measured.shaped.text);
     const scales = [...Array.fromIterable(measured.scales).map(([cluster, ratio]) => [shifted(cluster, Number.isLessThanOrEqualTo), ratio] as const), ...chosen.flatMap((cluster) => Array.makeBy(tatweels, (index) => [shifted(cluster, Number.isLessThan) + index, scale] as const))];
     const features = run.features.map(({ tag, value, start, end }) => new Feature(tag, value, shifted(start, Number.isLessThanOrEqualTo), Math.min(shifted(end, Number.isLessThan), Feature.GLOBAL_END)));
-    const elongated = remeasured(measured, { ...run, text, item: Option.map(run.item, ({ start, end }) => Word.Span.make({ start: shifted(start, Number.isLessThanOrEqualTo), end: shifted(end, Number.isLessThan) })), features }, new Map(scales));
+    const elongated = remeasured(measured, { ...run, text, item: Option.map(run.item, ({ start, end }) => Span.make({ start: shifted(start, Number.isLessThanOrEqualTo), end: shifted(end, Number.isLessThan) })), features }, new Map(scales));
     return { ...elongated, kashida: measured.kashida + elongated.shaped.advance - measured.shaped.advance };
 };
 const featured = (measured: Measured, feature: Feature, limit: number) => {
@@ -301,8 +296,10 @@ const alternates = (measured: Measured, index: number, rank: number): readonly M
         },
     );
 const spacings = (measured: Measured, index: number, rank: number, stretching: boolean): readonly Mechanism[] => {
-    const base = bases(measured);
-    const { spacing, justification: ranked } = measured.settings;
+    const {
+        base,
+        settings: { spacing, justification: ranked },
+    } = measured;
     const sign = stretching ? 1 : -1;
     const continuous = (at: number, { min, desired, max }: Settings['spacing']['word'], width: number, update: (amounts: Amounts, amount: number) => Amounts): readonly Mechanism[] =>
         at === rank ? [{ capacity: width * (stretching ? max - desired : desired - min), continuous: true, take: (line, amount) => replaced(line, index, (current) => ({ ...current, amounts: update(current.amounts, sign * amount) })) }] : [];
@@ -332,7 +329,7 @@ const distribute = (line: Line, rank: number, width: number): Line => {
         Result.liftPredicate((mechanism: Mechanism) => mechanism.continuous, Function.identity),
     );
     const placed = discrete.reduce((current, mechanism) => mechanism.take(current, (target * mechanism.capacity) / total), line);
-    const rest = Math.max(0, target - Math.abs(lineWidth(placed) - lineWidth(line)));
+    const rest = Math.max(0, target - Math.abs(lineWidth(placed) + slack - width));
     const shared = Number.sumAll(continuous.map(Struct.get('capacity')));
     return continuous.reduce((current, mechanism) => mechanism.take(current, Math.min(mechanism.capacity, (rest * mechanism.capacity) / shared)), placed);
 };
@@ -340,8 +337,11 @@ const distribute = (line: Line, rank: number, width: number): Line => {
 // --- [FINISHING]
 
 const finish = (measured: Measured) => {
-    const { spacing } = measured.settings;
-    const { base: original, words: spaces, letter: letterWidth, glyph: glyphWidth } = widths(measured);
+    const {
+        base: original,
+        settings: { spacing },
+    } = measured;
+    const { words: spaces, letter: letterWidth, glyph: glyphWidth } = widths(measured);
     const widening = Option.getOrElse(Number.divide(glyphWidth, original.glyph), () => spacing.glyph.desired);
     const set = Option.match(
         Option.filter(
@@ -350,7 +350,7 @@ const finish = (measured: Measured) => {
         ),
         { onNone: () => measured, onSome: ({ value }) => remeasured(measured, measured.run, measured.scales, measured.face.instance({ wdth: value * widening })) },
     );
-    const base = bases(set);
+    const { base } = set;
     const scale = Option.getOrElse(Number.divide(glyphWidth, base.glyph), () => 1);
     const wordRatio = (script: string) => Option.getOrElse(Option.flatMap(Record.get(spaces, script), Number.divide(Option.getOrElse(Record.get(base.words, script), () => 0))), () => spacing.word.desired);
     const slot = Option.getOrElse(Number.divide(letterWidth, base.slots.size), () => 0);

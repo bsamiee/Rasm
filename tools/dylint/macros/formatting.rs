@@ -1,15 +1,13 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_parent_expr,
-    macros::{FormatArgsStorage, find_format_arg_expr, first_node_in_macro, matching_root_macro_call, root_macro_call_first_node},
-    res::{MaybeDef as _, MaybeResPath as _},
-    sugg::Sugg,
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::{FormatArgsStorage, find_format_arg_expr, first_node_in_macro, matching_root_macro_call, root_macro_call_first_node};
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::sugg::Sugg;
+use clippy_utils::{fn_def_id, get_parent_expr, sym};
 use rustc_ast::{FormatArgsPiece, FormatOptions, FormatTrait};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
-use rustc_hir::{Body, Expr, ExprKind, HirId, Node, PatKind, UnOp, def_id::LocalDefIdMap};
+use rustc_hir::def_id::LocalDefIdMap;
+use rustc_hir::{Body, Expr, ExprKind, HirId, Node, PatKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{AdtDef, TyCtxt};
 use rustc_span::Span;

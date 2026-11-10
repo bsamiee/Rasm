@@ -7,7 +7,7 @@ from typing import Annotated, Final
 
 from bl_ui.properties_compositor import SCENE_PT_compositor_effects
 import bpy
-from expression import Option, Some, try_downcast
+from expression import Option, Result, Some, try_downcast
 from expression.collections import Block
 import msgspec
 import msgspec.inspect
@@ -20,27 +20,25 @@ from rasm_bpy.data._extension.identity import Identity, Key
 from rasm_bpy.data._extension.registration import Acquisitions, Declaration
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.data._rna.paths import root_in, rooted, Struct
-from rasm_bpy.data._rna.properties import _rebound, Callbacks, choices, EnumItem
+from rasm_bpy.data._rna.properties import Callbacks, choices, EnumItem, rebound
 from rasm_bpy.nodes._addressing import owned
 from rasm_bpy.nodes._desired import Content, item_key, MenuItem
-from rasm_bpy.nodes._interfaces import Interface, InterfacePanel, Socket
+from rasm_bpy.nodes._interfaces import Interface, InterfacePanel
 from rasm_bpy.render._compositor.effects import CompositorEffect, CompositorRecord, Named
-from rasm_bpy.render._compositor.entries import _composites
+from rasm_bpy.render._compositor.entries import composites
 from rasm_bpy.render._compositor.inputs import entry_input
 from rasm_bpy.render._compositor.offered import OfferedEffects
 from rasm_bpy.render._compositor.viewers import Viewers
 from rasm_bpy.settings._attachments import Attachment
 from rasm_bpy.ui._elements.panels import Beside, Panel
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _FUNCTIONS, _gridded, _Label, _operator_button, _realized, even, Keywords, Layout, RowContent, RowDraw
-from rasm_bpy.ui._layout.sections import _fields, Section
-from rasm_bpy.ui._layout.templates import _wheel
+from rasm_bpy.ui._layout.rows import even, FUNCTIONS, gridded, Keywords, Label, Layout, operator_button, Property, realized, RowContent, RowDraw
+from rasm_bpy.ui._layout.sections import field_rows, Section
 from rasm_records import accumulated, amended, Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type FilePath = Annotated[str, msgspec.Meta(min_length=1)]
-type _Choices = Mapping[str, tuple[str, object]]
 type _Edited = tuple[Key, tuple[str, ...], Operator[FieldEdit], Keywords, Mapping[str, float | str]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -66,12 +64,12 @@ class _Field(msgspec.Struct, frozen=True, kw_only=True):
 class FieldEdit(Named):
     """Record field of a named entry and the value a pick, a number, a text, or a file writes it to."""
 
-    kind: bpy.props.StringProperty(name="Effect", description="Record key of the entry's effect", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
-    field: bpy.props.StringProperty(name="Field", description="Item key of the record field the edit writes, as the effect's interface keys it", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
-    choices: bpy.props.StringProperty(name="Choices", description="Choice labels for the field picker", default="{}", options={"HIDDEN"})  # ty: ignore[invalid-type-form]
-    choice: bpy.props.EnumProperty(name="Value", description="Value the field takes", items=())  # ty: ignore[invalid-type-form]
-    number: bpy.props.FloatProperty(name="Value", description="Number the field takes")  # ty: ignore[invalid-type-form]
-    text: bpy.props.StringProperty(name="Value", description="Text the field takes")  # ty: ignore[invalid-type-form]
+    kind: Annotated[str, bpy.props.StringProperty(name="Effect", description="Record key of the entry's effect", options={"HIDDEN"})]
+    field: Annotated[str, bpy.props.StringProperty(name="Field", description="Item key of the record field the edit writes, as the effect's interface keys it", options={"HIDDEN"})]
+    choices: Annotated[str, bpy.props.StringProperty(name="Choices", description="Choice labels for the field picker", default="{}", options={"HIDDEN"})]
+    choice: Annotated[str, bpy.props.EnumProperty(name="Value", description="Value the field takes", items=())]
+    number: Annotated[float, bpy.props.FloatProperty(name="Value", description="Number the field takes")]
+    text: Annotated[str, bpy.props.StringProperty(name="Value", description="Text the field takes")]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -92,7 +90,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def form(self) -> type[FieldEdit]:
         """Field edit form, its choices the values the named field's type offers."""
-        return _rebound(FieldEdit, choice=Callbacks[FieldEdit](items=self.offered))
+        return rebound(FieldEdit, choice=Callbacks[FieldEdit](items=self.offered))
 
     @cached_property
     def choosing(self) -> Operator[FieldEdit]:
@@ -181,11 +179,21 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         )
 
     def revised(self, call: Call[FieldEdit], read: Callable[[_Field], Outcome[object]]) -> Outcome[Answer]:
-        """Reads the edited value against the current field and rebuilds its immutable ancestors."""
+        """Reads the edited value against the current field, decodes it, and rebuilds its immutable ancestors."""
         chosen = call.properties
 
         def changed(record: CompositorRecord) -> Outcome[CompositorRecord]:
-            return self.located(chosen, record).bind(lambda field: read(field).bind(lambda value: _replaced(field, value, record)))
+            match self.located(chosen, record).bind(lambda field: read(field).map(lambda value: (field, value))):
+                case Result(tag="ok", ok=(field, value)):
+                    subject = ".".join((type(record).__name__, *field.names))
+                    try:
+                        decoded = msgspec.convert(value, field.annotation)
+                        rebuilt = amended(object, record, field.lens, lambda _: decoded)
+                    except (TypeError, ValueError) as error:
+                        return Error(Fault.of(Reason.INVALID, subject, error))
+                    return rebuilt.to_result_with(partial(Fault.of, Reason.ABSENT, subject))
+                case Result(error=faults):
+                    return Error(faults)
 
         return rooted(bpy.types.Scene, call.context).bind(
             lambda scene: self.rows.found(call.identity, scene, chosen.name).bind(
@@ -201,17 +209,38 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Realizes each offered effect's body once: its grading wheels, record field buttons, registered scene settings, and own rows."""
 
         def settings[G: bpy.types.PropertyGroup](attachment: Attachment[G]) -> Outcome[RowDraw]:
-            return attachment.bound(identity).bind(lambda attached: _realized(_fields(attached.form, attachment.key), identity).map(lambda draw: partial(_scened, attached.struct, draw)))
+            return attachment.bound(identity).bind(lambda attached: realized(field_rows(attached.form, attachment.key), identity).map(lambda draw: partial(_scened, attached.struct, draw)))
 
         def body(row: CompositorEffect) -> Outcome[tuple[Key, RowDraw]]:
             scened = accumulated(settings(held) for held in row.registers if isinstance(held, Attachment) and held.owner is bpy.types.Scene)
-            return scened.bind(
-                lambda drawn: _realized((_wheels(row.interface, partial(_reached, identity)), partial(self.fielded, identity, row), *drawn, *row.rows), identity).map(lambda draw: (row.kind, draw))
+            wheels = Layout(
+                rows=tuple(
+                    Layout(
+                        rows=(
+                            Label(text=panel.title, function=FUNCTIONS["label"]),
+                            Layout(
+                                rows=(
+                                    Layout(container=Some(partial(gridded, "")), rows=(Property(target=color, function=FUNCTIONS["template_color_picker"], keywords=_PICKER),)),
+                                    Property(target=color),
+                                    Property(target=slider, keywords={"slider": True}),
+                                )
+                            ),
+                        ),
+                        container=Some(lambda layout: layout.column()),
+                    )
+                    for _, panel, _, _ in row.interface.walked()
+                    if isinstance(panel, InterfacePanel) and not panel.panels and len(panel.inputs) == 2
+                    for hue, luma in (panel.inputs,)
+                    if hue.stock.is_none() and luma.stock.is_none() and hue.base is bpy.types.NodeSocketColor and luma.base is bpy.types.NodeSocketFloat
+                    for color, slider in ((Member[type[Struct]](root=bpy.types.bpy_struct, path=("value",), reach=Some(partial(_reached, identity, socket.key))) for socket in (hue, luma)),)
+                ),
+                container=Some(even),
             )
+            return scened.bind(lambda drawn: realized((wheels, partial(self.fielded, identity, row), *drawn, *row.rows), identity).map(lambda draw: (row.kind, draw)))
 
         return accumulated(map(body, self.rows.rows)).map(lambda found: partial(self.shown, identity, dict(found)))
 
-    def editing(self, annotation: object, choices: Option[_Choices], /) -> Option[Operator[FieldEdit]]:
+    def editing(self, annotation: object, choices: Option[Mapping[str, tuple[str, object]]], /) -> Option[Operator[FieldEdit]]:
         """Command editing a field of the type: a flag toggle, a pick over choices, a number, a file, required or optional, or text, `Nothing` for a type none edits."""
         return (
             Some(self.toggling)
@@ -232,7 +261,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """
         declared = frozenset(key for key, item, _, _ in interface.walked() if isinstance(item, tuple))
 
-        def shown(names: tuple[str, ...], current: object, command: Operator[FieldEdit], choices: Option[_Choices]) -> Keywords:
+        def shown(names: tuple[str, ...], current: object, command: Operator[FieldEdit], choices: Option[Mapping[str, tuple[str, object]]]) -> Keywords:
             match current:
                 case bool() if command is self.toggling:
                     return {"text": bpy.path.display_name(names[-1]), "icon": "CHECKBOX_HLT" if current else "CHECKBOX_DEHLT", "emboss": False}
@@ -279,10 +308,10 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         for (entry, (key, names, command, keywords, seeded)), prior in zip(edits, ((), *(edit[1] for _, edit in edits)), strict=False):
             if names[:-1] and names[:-1] != prior[:-1]:
                 layout.label(text=" ".join(map(bpy.path.display_name, names[:-1])))
-            values = _gridded("" if command is self.toggling else bpy.path.display_name(names[-1]), layout)
+            values = gridded("" if command is self.toggling else bpy.path.display_name(names[-1]), layout)
             values.alignment = "LEFT" if command is self.toggling else "EXPAND"
             placement = Placement(command, {"name": entry.name, "kind": row.kind, "field": key, **seeded})
-            identity.reports.faulted(_operator_button(values, identity, placement, {**keywords, "translate": False}))
+            identity.reports.faulted(operator_button(values, identity, placement, {**keywords, "translate": False}))
 
     @cached_property
     def headed(self) -> Mapping[Key, tuple[tuple[Command, Keywords], ...]]:
@@ -299,7 +328,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Draws the owned entry's header commands."""
         held = tuple((entry, row) for entry in Option.of_optional(try_downcast(bpy.types.SceneCompositorEffect, holder)).to_list() for row in self.rows.row(identity, entry).to_list())
         for entry, row in held:
-            identity.reports.faulted(accumulated(_operator_button(layout, identity, Placement(command, {"name": entry.name}), keywords) for command, keywords in self.headed[row.kind]))
+            identity.reports.faulted(accumulated(operator_button(layout, identity, Placement(command, {"name": entry.name}), keywords) for command, keywords in self.headed[row.kind]))
 
     def shown(self, identity: Identity, parts: Mapping[Key, RowDraw], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the owned entry's body and its curve and ramp editors, logging the conditions an unowned pinned entry misses."""
@@ -308,7 +337,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 row = self.rows.row(identity, entry)
                 for offered in row.to_list():
                     parts[offered.kind](layout, entry, context)
-                    _node_editors(layout, owned(group, identity).values())
+                    node_editors(layout, owned(group, identity).values())
                 identity.reports.faulted(accumulated(pinned.checked(context, entry) for pinned in self.rows.pinned if row.is_none() and pinned.ownership.marked(identity, group).is_some()))
             case _:
                 pass
@@ -323,7 +352,7 @@ class EntryEditor(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         return Section(
             key=_EDITOR,
             holder=Some(Member(root=bpy.types.Scene, path=("compositor_effects", "active"))),
-            condition=Some(_composites),
+            condition=Some(composites),
             rows=(*self.leading, body, self.viewers, *self.trailing),
             header=(*self.header, header),
             opened=True,
@@ -385,7 +414,7 @@ def _form(annotation: object, /) -> msgspec.inspect.Type:
             return info
 
 
-def _choices(annotation: object, /) -> Option[_Choices]:
+def _choices(annotation: object, /) -> Option[Mapping[str, tuple[str, object]]]:
     """Values a field type offers by item identifier with their labels: the colorspaces Blender reads, the items of a host enum its `Annotated` metadata holds, an enum's members, a flag's two states, a literal's values, or the default record of each case of a union."""
     metadata = inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
     hosted = next((held.prop for held in metadata if isinstance(held, Descriptor) and isinstance(held.prop, bpy.types.EnumProperty)), None)
@@ -418,21 +447,10 @@ def _numeric(annotation: object, /) -> Option[Callable[[float], Value]]:
             return Nothing
 
 
-def _replaced[T: msgspec.Struct](field: _Field, value: object, record: T, /) -> Outcome[T]:
-    """Decodes the edited value and rebuilds its immutable ancestors."""
-    subject = ".".join((type(record).__name__, *field.names))
-    try:
-        decoded = msgspec.convert(value, field.annotation)
-        rebuilt = amended(object, record, field.lens, lambda _: decoded)
-    except (TypeError, ValueError) as error:
-        return Error(Fault.of(Reason.INVALID, subject, error))
-    return rebuilt.to_result_with(partial(Fault.of, Reason.ABSENT, subject))
-
-
 # --- [DRAWING]
 
 
-def _node_editors(layout: bpy.types.UILayout, nodes: Iterable[bpy.types.Node], /) -> None:
+def node_editors(layout: bpy.types.UILayout, nodes: Iterable[bpy.types.Node], /) -> None:
     """Draws the curve and ramp editors of nodes holding a curve mapping or color ramp, each under its label through the node's own input template."""
     for node in nodes:
         if any(isinstance(prop, bpy.types.PointerProperty) and isinstance(prop.fixed_type, bpy.types.CurveMapping | bpy.types.ColorRamp) for prop in node.bl_rna.properties):
@@ -440,23 +458,6 @@ def _node_editors(layout: bpy.types.UILayout, nodes: Iterable[bpy.types.Node], /
             column.use_property_split = False
             column.label(text=node.label or node.bl_label)
             column.template_node_inputs(node)
-
-
-def _wheels(interface: Interface, reach: Callable[[Key, bpy.types.Context], Option[Struct]], /) -> Layout:
-    """Grading wheel of each interface panel holding exactly one stated color socket then one stated float socket, under the panel's title in even columns, over the inputs `reach` finds by socket key, since a stock input declares its class only through a data-block registration cannot create."""
-
-    def member(socket: Socket) -> Member:
-        return Member(root=bpy.types.bpy_struct, path=("value",), reach=Some(partial(reach, socket.key)))
-
-    def graded(panel: InterfacePanel) -> Option[Layout]:
-        match panel.inputs:
-            case (hue, luma) if not panel.panels and hue.stock.is_none() and luma.stock.is_none() and hue.base is bpy.types.NodeSocketColor and luma.base is bpy.types.NodeSocketFloat:
-                return Some(Layout(rows=(_Label(text=panel.title, function=_FUNCTIONS["label"]), _wheel(member(hue), Some(member(luma)), _PICKER)), container=Some(lambda layout: layout.column())))
-            case _:
-                return Nothing
-
-    panels = tuple(item for _, item, _, _ in interface.walked() if isinstance(item, InterfacePanel))
-    return Layout(rows=tuple(found for panel in panels for found in graded(panel).to_list()), container=Some(even))
 
 
 def _reached(identity: Identity, key: Key, context: bpy.types.Context) -> Option[Struct]:
@@ -472,4 +473,4 @@ def _scened(struct: Callable[[bpy.types.Scene], Struct], draw: RowDraw, layout: 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EntryEditor", "FieldEdit", "FilePath"]
+__all__ = ["EntryEditor", "FieldEdit", "FilePath", "node_editors"]

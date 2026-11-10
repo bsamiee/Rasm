@@ -23,8 +23,10 @@ utils:
 rule:
     any:
         - kind: navigation_expression
+          has: {field: suffix, has: {field: suffix, regex: '^(localizedDescription|localizedFailureReason|localizedRecoverySuggestion|errorDescription|failureReason|recoverySuggestion|helpAnchor)$'}}
+        - kind: navigation_expression
           all:
-            - has: {field: suffix, has: {field: suffix, regex: '^(description|debugDescription|localizedDescription|localizedFailureReason|localizedRecoverySuggestion|errorDescription|failureReason|recoverySuggestion|helpAnchor)$'}}
+            - has: {field: suffix, has: {field: suffix, regex: '^(description|debugDescription)$'}}
             - has: {field: target, pattern: $ERROR}
         - kind: call_expression
           all:

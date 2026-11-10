@@ -1,12 +1,11 @@
-use core::{cmp::Ordering, iter};
+use core::cmp::Ordering;
+use core::iter;
 
 use itertools::Itertools as _;
 use nalgebra::DMatrixView;
 use ordered_float::OrderedFloat;
-use rayon::{
-    iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _},
-    slice::ParallelSliceMut as _,
-};
+use rayon::iter::{IndexedParallelIterator as _, IntoParallelIterator as _, ParallelIterator as _};
+use rayon::slice::ParallelSliceMut as _;
 
 use crate::{Input, OptimizeError};
 
@@ -43,9 +42,8 @@ pub fn rank(objectives: DMatrixView<'_, f64>, constraints: Option<DMatrixView<'_
                 let scale = if (high - low).is_finite() { 1.0 } else { 0.5 };
                 (scale, low.mul_add(-scale, high * scale))
             });
-            #[expect(clippy::float_cmp, reason = "Identical infinite or signed-zero objectives require exactly zero crowding gaps")]
             let gaps = iter::once(f64::INFINITY)
-                .chain(sorted.array_windows().map(|&[(_, before), _, (_, after)]| span.filter(|_| after != before).map_or_default(|(scale, span)| before.mul_add(-scale, after * scale) / span)))
+                .chain(sorted.array_windows().map(|&[(_, before), _, (_, after)]| span.filter(|_| before < after).map_or_default(|(scale, span)| before.mul_add(-scale, after * scale) / span)))
                 .chain(iter::once(f64::INFINITY))
                 .take(sorted.len());
             iter::zip(&sorted, gaps).for_each(|(&(slot, _), gap)| crowding[slot] += gap);

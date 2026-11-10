@@ -1,10 +1,9 @@
 #![feature(deref_patterns)]
 
-use core::{hint::black_box, ops::Deref};
-use std::{
-    collections::BTreeMap,
-    io::{self, BufRead},
-};
+use core::hint::black_box;
+use core::ops::Deref;
+use std::collections::BTreeMap;
+use std::io::{self, BufRead};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

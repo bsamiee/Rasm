@@ -38,8 +38,6 @@
                     "globalTimers": "error",
                     "globalTimersInEffect": "error",
                     "instanceOfSchema": "error",
-                    "processEnv": "error",
-                    "processEnvInEffect": "error",
                     "schemaSync": "error",
                     "deterministicKeys": "error",
                     "effectDoNotation": "error",
@@ -53,7 +51,7 @@
                     "schemaUnionOfLiterals": "error",
                     "serviceNotAsClass": "error",
                     "strictBooleanExpressions": "error",
-                    "unnecessaryArrowBlock": "error"
+                    "unnecessaryFailYieldableError": "error"
                 },
                 "overrides": [ { "include": [ "**/*.test.tsx", "**/.storybook/*.stories.tsx", "plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
             }

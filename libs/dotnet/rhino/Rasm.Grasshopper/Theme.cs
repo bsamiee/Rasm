@@ -40,9 +40,6 @@ public sealed record GrasshopperTheme(string Name) {
 
     // --- [INSTALLATION]
 
-    private const string StyleExtension = ".ghstyle";
-    private const string PaletteExtension = ".ghdic";
-
     public IO<Unit> Install =>
         from installed in unless(Settings.SandBox,
             from plugin in IO.lift(static () => Hooks.Session.Plugin)
@@ -52,11 +49,11 @@ public sealed record GrasshopperTheme(string Name) {
                 definition.Description = plugin.Info;
             })
             from skin in Refreshed(SkinServer.PathOf(Name), Encoding.UTF8.GetBytes(definition.ToText()), File.ReadAllBytes, IO.lift(() => SkinServer.Save(Name, definition)))
-            from styled in Preview.Map(static preview => preview(Defaults.GrasshopperDefault)).Traverse(guises => Path.Combine(Folders.DisplayStylesFolder, Name + StyleExtension) switch {
+            from styled in Preview.Map(static preview => preview(Defaults.GrasshopperDefault)).Traverse(guises => Path.Combine(Folders.DisplayStylesFolder, Name + ".ghstyle") switch {
                 var style => Refreshed(style, GrasshopperIO.IO.WriteStorableToByteArray(guises, "Value"), File.ReadAllBytes, IO.lift(() => GrasshopperIO.IO.WriteStorableToFile(guises, style))),
             }).As()
             let listed = fun(static (string[] lines) => Encoding.UTF8.GetBytes(string.Join('\n', lines.Where(static line => !line.StartsWith('#')))))
-            let swatches = Path.Combine(Folders.ResourceFolder(ResourceFolder.Colours), Name + PaletteExtension)
+            let swatches = Path.Combine(Folders.ResourceFolder(ResourceFolder.Colours), Name + ".ghdic")
             let palette = new NamedPalette(toSeq(definition.BoundProperties)
                 .Filter(id => SkinProperties.KindOf(id) is PropertyType.Colour && !definition[id].IsInherited)
                 .Map(id => new NamedColour($"{SkinProperties.Mode(id)} {SkinPropertyText.Title(id)}", definition.Resolve(id).ToEto(), source: Name)) + Swatches)

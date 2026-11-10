@@ -10,7 +10,7 @@ package let appleEvents: DispatchQueue = .init(label: "AppleEvents", attributes:
 extension NSAppleEventDescriptor {
     public func send(timeout: TimeInterval = NSAppleEventTimeOutNone) throws(AppleEventFailure) -> NSAppleEventDescriptor {
         let undelivered: Set<OSStatus> = [OSStatus(procNotFound), OSStatus(errAETargetAddressNotPermitted), OSStatus(errAEEventNotPermitted), OSStatus(errAEEventWouldRequireUserConsent)]
-        let subject: String = (UInt64(eventClass) << 32 | UInt64(eventID)).sdef
+        let subject = (UInt64(eventClass) << 32 | UInt64(eventID)).sdef
         let reply: NSAppleEventDescriptor
         do {
             reply = try sendEvent(options: [.waitForReply, .neverInteract], timeout: timeout)

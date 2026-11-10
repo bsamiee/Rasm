@@ -1,53 +1,50 @@
 #![feature(error_iter, error_reporter, float_conversions, gen_blocks, iterator_try_collect, try_blocks_heterogeneous)]
 
-use core::{any::Any, error::Error, fmt, iter, num::NonZero, ops::Deref};
-use std::{
-    collections::{HashMap, HashSet},
-    error::Report,
-    io::{self, Read},
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use core::any::Any;
+use core::error::Error;
+use core::num::NonZero;
+use core::ops::Deref;
+use core::{fmt, iter};
+use std::collections::{HashMap, HashSet};
+use std::error::Report;
+use std::io::{self, Read};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use cap_std::{ambient_authority, fs::Dir};
-use jiff::{SignedDuration, Zoned, tz::Offset};
-use merman::{RenderError, svg::export::NativeFontError};
+use cap_std::ambient_authority;
+use cap_std::fs::Dir;
+use jiff::tz::Offset;
+use jiff::{SignedDuration, Zoned};
+use merman::RenderError;
+use merman::svg::export::NativeFontError;
 use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, OTEL_STATUS_CODE, URL_FULL};
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator as _};
-use reqwest::{
-    Method, StatusCode,
-    blocking::{Client, Response},
-};
+use reqwest::blocking::{Client, Response};
+use reqwest::{Method, StatusCode};
 use rmp_serde::{decode, encode};
-use serde::{Serialize, de::DeserializeOwned};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 use skrifa::raw::{FileRef, ReadError};
-use tracing::{
-    Span,
-    field::{self, Empty},
-};
-use typst::{
-    Features, Library, LibraryExt as _, World, WorldExt as _,
-    comemo::Track as _,
-    diag::{At as _, FileError, FileResult, PackageError, Severity, SourceDiagnostic, Warned},
-    ecow::{EcoString, EcoVec, eco_format},
-    engine::Sink,
-    foundations::{Bytes, Context, Datetime, Dict, Duration, LocatableSelector, Output, Scope, Selector, Value},
-    introspection::{self, EmptyIntrospector, MetadataElem},
-    routines::SpanMode,
-    syntax::{
-        self, DiagSpan, FileId, RootedPath, Source, Spanned, SyntaxMode, VirtualPath, VirtualRoot,
-        package::{PackageManifest, PackageSpec},
-    },
-    text::{Font, FontBook, FontInfo},
-    utils::LazyHash,
-};
-use typst_kit::{
-    diagnostics::{DiagnosticFormat, DiagnosticWorld, emit, termcolor::NoColor},
-    downloader::Downloader,
-    files::{FileLoader, FileStore, FsRoot},
-    fonts::FontStore,
-    packages::SystemPackages,
-};
+use tracing::Span;
+use tracing::field::{self, Empty};
+use typst::comemo::Track as _;
+use typst::diag::{At as _, FileError, FileResult, PackageError, Severity, SourceDiagnostic, Warned};
+use typst::ecow::{EcoString, EcoVec, eco_format};
+use typst::engine::Sink;
+use typst::foundations::{Bytes, Context, Datetime, Dict, Duration, LocatableSelector, Output, Scope, Selector, Value};
+use typst::introspection::{self, EmptyIntrospector, MetadataElem};
+use typst::routines::SpanMode;
+use typst::syntax::package::{PackageManifest, PackageSpec};
+use typst::syntax::{self, DiagSpan, FileId, RootedPath, Source, Spanned, SyntaxMode, VirtualPath, VirtualRoot};
+use typst::text::{Font, FontBook, FontInfo};
+use typst::utils::LazyHash;
+use typst::{Features, Library, LibraryExt as _, World, WorldExt as _};
+use typst_kit::diagnostics::termcolor::NoColor;
+use typst_kit::diagnostics::{DiagnosticFormat, DiagnosticWorld, emit};
+use typst_kit::downloader::Downloader;
+use typst_kit::files::{FileLoader, FileStore, FsRoot};
+use typst_kit::fonts::FontStore;
+use typst_kit::packages::SystemPackages;
 use validated::Validated;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

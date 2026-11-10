@@ -40,22 +40,7 @@ lazy from rasm_typography._faces.importing import imported
 lazy from rasm_typography._faces.layout import Contextual, Lifts, Ligatures, Lookups, Pairs, Positions, Single, Tag
 lazy from rasm_typography._outlines.measure import perimeter
 lazy from rasm_typography._outlines.nib import extruded, monoline, swept
-lazy from rasm_typography._rules.anchors import Anchors
-lazy from rasm_typography._rules.digits import Digits
-lazy from rasm_typography._rules.fits import Outlines
-lazy from rasm_typography._rules.joins import Joins
-lazy from rasm_typography._rules.locale import Locale
-lazy from rasm_typography._rules.marks import Marks, QuranicMarks, WordSigns
-lazy from rasm_typography._rules.measures import bounded_glyph, Rule
-lazy from rasm_typography._rules.metrics import Metrics, Records
-lazy from rasm_typography._rules.ornaments import Ornaments
-lazy from rasm_typography._rules.plans import planned, Rules
-lazy from rasm_typography._rules.scale import Scale
-lazy from rasm_typography._rules.spacing import Spacing
-lazy from rasm_typography._shaping.corpus import Corpus
-lazy from rasm_typography._shaping.expectations import Expected
-lazy from rasm_typography._shaping.runs import Binary, Shaped
-lazy from rasm_typography._verification.requirements import (
+lazy from rasm_typography._requirements import (
     Covered,
     Distinct,
     Expectations,
@@ -72,6 +57,21 @@ lazy from rasm_typography._verification.requirements import (
     Seam,
     verified,
 )
+lazy from rasm_typography._rules.anchors import Anchors
+lazy from rasm_typography._rules.digits import Digits
+lazy from rasm_typography._rules.fits import Outlines
+lazy from rasm_typography._rules.joins import Joins
+lazy from rasm_typography._rules.locale import Locale
+lazy from rasm_typography._rules.marks import Marks, QuranicMarks, WordSigns
+lazy from rasm_typography._rules.measures import bounded_glyph, Rule
+lazy from rasm_typography._rules.metrics import Metrics, Records
+lazy from rasm_typography._rules.ornaments import Ornaments
+lazy from rasm_typography._rules.plans import planned, Rules
+lazy from rasm_typography._rules.scale import Scale
+lazy from rasm_typography._rules.spacing import Spacing
+lazy from rasm_typography._shaping.corpus import Corpus
+lazy from rasm_typography._shaping.expectations import Expected
+lazy from rasm_typography._shaping.runs import Binary, Shaped
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

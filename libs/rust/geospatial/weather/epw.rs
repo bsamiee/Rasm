@@ -1,55 +1,43 @@
-use core::{
-    fmt, iter,
-    marker::PhantomData,
-    num::NonZero,
-    range::{Range, RangeInclusive},
-    str::FromStr,
-};
+use core::marker::PhantomData;
+use core::num::NonZero;
+use core::range::{Range, RangeInclusive};
+use core::str::FromStr;
+use core::{fmt, iter};
 use std::io;
 
 use csv::{QuoteStyle, ReaderBuilder, StringRecord, WriterBuilder};
 use itertools::{Either, Itertools as _};
-use jiff::{
-    SignedDuration, civil,
-    fmt::strtime::{self, BrokenDownTime},
-    tz::{Offset, TimeZone},
-};
+use jiff::fmt::strtime::{self, BrokenDownTime};
+use jiff::tz::{Offset, TimeZone};
+use jiff::{SignedDuration, civil};
 use rasm_site::{Elevation, Place, Position};
-use serde::{
-    Deserialize, Deserializer, Serialize, Serializer,
-    de::{DeserializeOwned, IgnoredAny, value},
-    ser::Error as _,
-};
+use serde::de::{DeserializeOwned, IgnoredAny, value};
+use serde::ser::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{DeserializeAs, DeserializeFromStr, SerializeAs, serde_as};
-use uom::si::{
-    angle::degree,
-    available_energy::kilojoule_per_kilogram,
-    f64::{
-        Angle, AvailableEnergy, Frequency, HeatFluxDensity, Illuminance, Length, Luminance, MassDensity, Pressure, Ratio, SpecificHeatCapacity, TemperatureInterval, ThermalConductivity,
-        ThermodynamicTemperature, Time, Velocity,
-    },
-    frequency::cycle_per_hour,
-    heat_flux_density::watt_per_square_meter,
-    illuminance::lux,
-    length::{centimeter, kilometer, meter, millimeter},
-    luminance::candela_per_square_meter,
-    mass_density::kilogram_per_cubic_meter,
-    pressure::pascal,
-    ratio::{part_per_thousand, percent, ratio},
-    specific_heat_capacity::joule_per_kilogram_kelvin,
-    temperature_interval,
-    thermal_conductivity::watt_per_meter_kelvin,
-    thermodynamic_temperature::degree_celsius,
-    time,
-    velocity::meter_per_second,
+use uom::si::angle::degree;
+use uom::si::available_energy::kilojoule_per_kilogram;
+use uom::si::f64::{
+    Angle, AvailableEnergy, Frequency, HeatFluxDensity, Illuminance, Length, Luminance, MassDensity, Pressure, Ratio, SpecificHeatCapacity, TemperatureInterval, ThermalConductivity,
+    ThermodynamicTemperature, Time, Velocity,
 };
+use uom::si::frequency::cycle_per_hour;
+use uom::si::heat_flux_density::watt_per_square_meter;
+use uom::si::illuminance::lux;
+use uom::si::length::{centimeter, kilometer, meter, millimeter};
+use uom::si::luminance::candela_per_square_meter;
+use uom::si::mass_density::kilogram_per_cubic_meter;
+use uom::si::pressure::pascal;
+use uom::si::ratio::{part_per_thousand, percent, ratio};
+use uom::si::specific_heat_capacity::joule_per_kilogram_kelvin;
+use uom::si::thermal_conductivity::watt_per_meter_kelvin;
+use uom::si::thermodynamic_temperature::degree_celsius;
+use uom::si::velocity::meter_per_second;
+use uom::si::{temperature_interval, time};
 use validated::Validated;
 
-use crate::{
-    Ceiling, Defect, Hour, Hours, Malformed, Record, Refusal, WeatherError, aligned,
-    design::{self, Design},
-    length, refused, runs,
-};
+use crate::design::{self, Design};
+use crate::{Ceiling, Defect, Hour, Hours, Malformed, Record, Refusal, WeatherError, aligned, length, refused, runs};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -272,7 +260,7 @@ struct Row {
     precipitation_period: Option<Time>,
 }
 
-pub(crate) struct Coded<C, const DECIMALS: usize>(PhantomData<C>);
+struct Coded<C, const DECIMALS: usize>(PhantomData<C>);
 
 pub(crate) struct Stated<C, const DECIMALS: usize>(PhantomData<C>);
 

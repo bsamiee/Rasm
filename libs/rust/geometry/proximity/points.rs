@@ -1,6 +1,9 @@
-use core::{iter, num::NonZero};
+use core::iter;
+use core::num::NonZero;
 
-use kiddo::{Eytzinger, QueryResultItem, SquaredEuclidean, kd_tree::KdTree, leaf_strategies::VecOfArenas};
+use kiddo::kd_tree::KdTree;
+use kiddo::leaf_strategies::VecOfArenas;
+use kiddo::{Eytzinger, QueryResultItem, SquaredEuclidean};
 use nalgebra::{Matrix3, Point3, SymmetricEigen, Unit, Vector3};
 use nonempty_collections::NESlice;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};

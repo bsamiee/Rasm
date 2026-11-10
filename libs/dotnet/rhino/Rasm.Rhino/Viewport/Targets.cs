@@ -145,9 +145,6 @@ public static class Viewports {
                     .Documents(static args => args.DocumentSerialNumber).In(serial).Choose(static args => Optional(args.PageView).Map(static page => page.MainViewport.Id))),
         };
 
-    internal static HostEvent<Unit> Changed(RhinoDoc doc, ViewportTarget target) =>
-        Changed(doc).Choose(id => Conversions.Present(Identified(doc, target) == Some(id), unit));
-
     public static HostEvent<RhinoView> Framed(RhinoDoc doc) =>
         Subscriptions.On<ViewEventArgs>(static h => RhinoView.Modified += h, static h => RhinoView.Modified -= h)
             .Documents(static args => args.View.Document).In(doc.RuntimeSerialNumber)
@@ -160,7 +157,7 @@ public static class Viewports {
         Preferences.Of(
             With(doc, target, row => read(row.Viewport)),
             value => Edit(doc, new ViewportSet.One(target), port => write(port, value), new RedrawPolicy.AllViews(Deferred: true)).Map(unit),
-            Some(Changed(doc, target)));
+            Some(Changed(doc).Choose(id => Conversions.Present(Identified(doc, target) == Some(id), unit))));
 
     // --- [SCREENS]
 

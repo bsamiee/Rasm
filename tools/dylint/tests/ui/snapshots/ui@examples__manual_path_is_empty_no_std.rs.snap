@@ -3,57 +3,57 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_path_is_empty_no_std.rs
 ---
 error: `recent` drops front elements by hand to keep its last `1`
-  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:12:5
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:14:5
    |
-12 | /     while recent.len() > 1 {
-13 | |         recent.pop_front();
-14 | |     }
+14 | /     while recent.len() > 1 {
+15 | |         recent.pop_front();
+16 | |     }
    | |_____^
    |
    = help: call `VecDeque::retain_back`
    = note: `#[deny(manual_retain_back)]` on by default
 
 error: `(0..count).map(..).collect()` builds a `Vec` from each index
-  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:17:41
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:19:41
    |
-17 | fn values(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(2)).collect() }
+19 | fn values(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(2)).collect() }
    |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: call `Vec::from_fn`
    = note: `#[deny(manual_vec_from_fn)]` on by default
 
 error: path emptiness is tested through `OsStr`
-  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:24:16
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:26:16
    |
-24 |     black_box((Path::new("").as_os_str().is_empty(), recent, values(2)));
+26 |     black_box((Path::new("").as_os_str().is_empty(), recent, values(2)));
    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: call `Path::is_empty`
    = note: `#[deny(manual_path_is_empty)]` on by default
 
 error: `trim` has one reader, `main`
-  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:11:1
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:13:1
    |
-11 | fn trim(recent: &mut VecDeque<u8>) {
+13 | fn trim(recent: &mut VecDeque<u8>) {
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:23:5
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:25:5
    |
-23 |     trim(&mut recent);
+25 |     trim(&mut recent);
    |     ^^^^
    = help: move `trim` into `main` as a closure
    = note: `#[deny(single_reader)]` on by default
 
 error: `values` has one reader, `main`
-  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:17:1
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:19:1
    |
-17 | fn values(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(2)).collect() }
+19 | fn values(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(2)).collect() }
    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: read here
-  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:24:62
+  --> tools/dylint/examples/manual_path_is_empty_no_std.rs:26:62
    |
-24 |     black_box((Path::new("").as_os_str().is_empty(), recent, values(2)));
+26 |     black_box((Path::new("").as_os_str().is_empty(), recent, values(2)));
    |                                                              ^^^^^^
    = help: move `values` into `main` as a closure

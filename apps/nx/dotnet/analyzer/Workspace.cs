@@ -14,7 +14,7 @@ internal sealed record Package(string Id, string Version, string Hash, bool Dire
 
 internal sealed record Tracking(string Shipped, string Unshipped);
 
-internal sealed record Mode(string Configuration, string? Runtime, ImmutableArray<string> Outputs, ImmutableArray<string> Published);
+internal sealed record Mode(string Configuration, string? Runtime, ImmutableArray<string> Outputs, ImmutableArray<string> Published, ImmutableArray<string> Reports);
 
 internal sealed record Node(
     string File,
@@ -47,10 +47,6 @@ internal static class Workspace {
         .Fold(ImmutableDictionary.Create<string, string>(StringComparer.OrdinalIgnoreCase), static (held, name) => held.SetItem(name, "false"));
 
     private static readonly FrozenSet<string> Projects = FrozenSet.Create(StringComparer.OrdinalIgnoreCase, ".csproj", ".fsproj", ".vbproj");
-    private static readonly Seq<string> Linked = Seq("Compile", "AdditionalFiles", "EmbeddedResource", "Content", "GlobalAnalyzerConfigFiles");
-    private static readonly Seq<string> Nearest = Seq("global.json", "Directory.Build.rsp");
-    private static readonly Seq<string> Cascading = Seq("nuget.config", ".editorconfig", ".globalconfig");
-    private static readonly (string Shipped, string Unshipped) ReleaseTracking = ("AnalyzerReleases.Shipped.md", "AnalyzerReleases.Unshipped.md");
 
     public static Report Analyze(string root, Seq<string> files) {
         EvaluationContext context = EvaluationContext.Create(EvaluationContext.SharingPolicy.Shared);
@@ -103,13 +99,14 @@ internal static class Workspace {
                     mode.Configuration,
                     mode.Runtime.ValueUnsafe(),
                     [.. mode.Instances.Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath"))).Map(Placed).Append(Restore(mode.Instances)).Distinct().Order(StringComparer.Ordinal)],
-                    [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable") && Flag(instance, "Optimize")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
+                    [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
+                    [.. mode.Instances.Choose(static instance => toSeq(instance.GetPropertyValue("ErrorLog").Split([';', ','], StringSplitOptions.RemoveEmptyEntries)).Head).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
                 [.. instances
                     .Bind(static instance => toSeq(instance.GetItems("ProjectReference")))
                     .Choose(reference => Optional(Path.GetDirectoryName(reference.GetMetadataValue("FullPath"))).Map(referenced => new Reference(Relative(root, referenced), Relative(root, reference.GetMetadataValue("DefiningProjectFullPath")))))
                     .Distinct()],
                 [.. imports
-                    .Append(from instance in instances from type in Linked from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("FullPath"))
+                    .Append(from instance in instances from type in Seq("Compile", "AdditionalFiles", "EmbeddedResource", "Content", "GlobalAnalyzerConfigFiles") from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("FullPath"))
                     .Filter(input => File.Exists(input) && !Under(input, folder) && !bases.Exists(at => Under(input, at)))
                     .Map(input => Relative(root, input))
                     .Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal))
@@ -150,13 +147,13 @@ internal static class Workspace {
     private static Tracking? Tracked(string root, Seq<ProjectInstance> instances) {
         Seq<string> additional = instances.Bind(static instance => toSeq(instance.GetItems("AdditionalFiles"))).Map(static item => item.GetMetadataValue("FullPath")).Distinct();
         Option<string> Named(string name) => additional.Find(file => Path.GetFileName(file).Equals(name, StringComparison.OrdinalIgnoreCase)).Map(file => Relative(root, file));
-        return (from shipped in Named(ReleaseTracking.Shipped) from unshipped in Named(ReleaseTracking.Unshipped) select new Tracking(shipped, unshipped)).ValueUnsafe();
+        return (from shipped in Named("AnalyzerReleases.Shipped.md") from unshipped in Named("AnalyzerReleases.Unshipped.md") select new Tracking(shipped, unshipped)).ValueUnsafe();
     }
 
     private static Seq<string> Walk(string root, string folder) {
         Seq<string> entries = Ancestors(root, folder).Bind(static at => toSeq(Directory.EnumerateFiles(at)));
         Seq<string> Named(string name) => entries.Filter(entry => Path.GetFileName(entry).Equals(name, StringComparison.OrdinalIgnoreCase));
-        return Nearest.Choose(name => Named(name).Head).Append(Cascading.Bind(Named)).Map(found => Relative(root, found));
+        return Seq("global.json", "Directory.Build.rsp").Choose(name => Named(name).Head).Append(Seq("nuget.config", ".editorconfig", ".globalconfig").Bind(Named)).Map(found => Relative(root, found));
     }
 
     private static Seq<string> Ancestors(string root, string folder) =>

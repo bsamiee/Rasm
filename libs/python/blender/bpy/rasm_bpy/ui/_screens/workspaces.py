@@ -13,12 +13,12 @@ import msgspec
 
 from rasm_bpy.commands.operators import called, Operation
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _Startup, Acquisitions
+from rasm_bpy.data._extension.registration import Acquisitions, Startup
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.ownership import _kept, Ownership, Saved
+from rasm_bpy.data._ids.ownership import kept_block, Ownership, Saved
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import written
-from rasm_bpy.files._libraries import _blocks_loaded
+from rasm_bpy.files._libraries import blocks_loaded
 from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
@@ -71,7 +71,7 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Declares ownership and add-on filters applied after registration and every file load."""
-        return (self.ownership, *(_Startup(body=partial(self.filtered, identity)) for _ in self.owners.to_list()))
+        return (self.ownership, *(Startup(body=partial(self.filtered, identity)) for _ in self.owners.to_list()))
 
     # --- [FILTERING]
 
@@ -114,13 +114,13 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
             def copied(workspace: bpy.types.WorkSpace) -> Outcome[bpy.types.WorkSpace]:
                 """Holds removal of the copy's screens, removing the copy itself on a naming or declared-member refusal."""
                 screens.callback(bpy.data.batch_remove, ids=tuple(workspace.screens))
-                return _kept(Ok(workspace), declared)
+                return kept_block(Ok(workspace), declared)
 
             def built() -> Outcome[bpy.types.WorkSpace]:
                 """Appends the source workspace from the library, or copies it from the open file, with no layout switch."""
                 return (
                     self.library
-                    .map(lambda path: _blocks_loaded(path, bpy.types.WorkSpace, (self.source,)).map(lambda blocks: Block.of_seq(blocks).try_head()))
+                    .map(lambda path: blocks_loaded(path, bpy.types.WorkSpace, (self.source,)).map(lambda blocks: Block.of_seq(blocks).try_head()))
                     .default_with(lambda: Ok(Option.of_optional(bpy.data.workspaces.get(self.source)).bind(lambda source: Option.of_optional(source.copy()))))
                     .bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(bpy.data.workspaces), member=self.source)))
                     .bind(copied)

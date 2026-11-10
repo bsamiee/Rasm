@@ -39,19 +39,19 @@ internal sealed class Lifetimes {
         Conversions = [.. Members(prelude, "Optional"), .. Members(types.GetOrCreateTypeByMetadataName("LanguageExt.Option`1"), "ToFin")];
     }
 
-    public IMethodSymbol Dispose { get; }
-
     public ImmutableArray<IMethodSymbol> Acquires { get; }
-
-    public ImmutableArray<IMethodSymbol> Releases { get; }
 
     public ImmutableArray<IMethodSymbol> Transfers { get; }
 
     public ImmutableArray<IMethodSymbol> Retains { get; }
 
-    public ImmutableArray<IMethodSymbol> Lifts { get; }
+    private IMethodSymbol Dispose { get; }
 
-    public ImmutableArray<IMethodSymbol> Conversions { get; }
+    private ImmutableArray<IMethodSymbol> Releases { get; }
+
+    private ImmutableArray<IMethodSymbol> Lifts { get; }
+
+    private ImmutableArray<IMethodSymbol> Conversions { get; }
 
     public static Lifetimes? Of(Compilation compilation) =>
         compilation.GetSpecialType(SpecialType.System_IDisposable).GetMembers(WellKnownMemberNames.DisposeMethodName).OfType<IMethodSymbol>().FirstOrDefault() is { } dispose
@@ -60,8 +60,6 @@ internal sealed class Lifetimes {
 
     public bool Plain(IMethodSymbol method) =>
         method.TypeParameters.Length > 0 && method.TypeParameters[0].ConstraintTypes.Any(constraint => Same(constraint, Dispose.ContainingType));
-
-    public bool Disposes(IMethodSymbol method) => Implements(method, Dispose);
 
     public bool Retaining(IInvocationOperation call, IParameterSymbol parameter) =>
         Among(call.TargetMethod, Retains) || (call.TargetMethod.MethodKind is MethodKind.DelegateInvoke && Same(parameter.Type, Dispose.ContainingType));
@@ -85,8 +83,8 @@ internal sealed class Lifetimes {
             ISymbol? range = !current.IsImplicit && Clause(current.Syntax) is { } clause ? reading.For(clause.SyntaxTree)?.GetDeclaredSymbol(clause, reading.Token) : null;
             IOperation? consumer = range is null ? Consumer(current) : null;
             string? release = consumer switch {
-                IInvocationOperation call when path.IsEmpty && Disposes(call.TargetMethod) => call.TargetMethod.Name,
-                IMethodReferenceOperation reference when path.IsEmpty && Disposes(reference.Method) => reference.Method.Name,
+                IInvocationOperation call when path.IsEmpty && Implements(call.TargetMethod, Dispose) => call.TargetMethod.Name,
+                IMethodReferenceOperation reference when path.IsEmpty && Implements(reference.Method, Dispose) => reference.Method.Name,
                 IArgumentOperation { Parent: IInvocationOperation call, Parameter: { } parameter } when path.IsEmpty
                     && ((Among(call.TargetMethod, Acquires) && parameter.Ordinal is 0) || Among(call.TargetMethod, Releases) || Retaining(call, parameter)) => Label(call),
                 IUsingOperation or IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Parent.Parent: IVariableDeclarationGroupOperation { Parent: IUsingDeclarationOperation or IUsingOperation } } } when path.IsEmpty => "using",

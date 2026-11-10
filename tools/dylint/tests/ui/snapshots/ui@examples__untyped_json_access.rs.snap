@@ -2,105 +2,180 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/untyped_json_access.rs
 ---
-error: `Value::get` reads `"name"` from an untyped JSON document
-  --> tools/dylint/examples/untyped_json_access.rs:49:17
+error: `unwrap_or_default` stands an empty `&str` in for `None`
+  --> tools/dylint/examples/untyped_json_access.rs:25:82
    |
-49 |     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
+25 |     fn index(&self, key: &str) -> &str { self.0.get(key).and_then(Value::as_str).unwrap_or_default() }
+   |                                                                                  ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+   = note: `#[deny(empty_string_default)]` on by default
+
+error: `Value::get` reads `"name"` from an untyped JSON document
+  --> tools/dylint/examples/untyped_json_access.rs:50:17
+   |
+50 |     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
    |                 ^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
    = note: `#[deny(untyped_json_access)]` on by default
 
 error: `Value::as_str` reads an untyped JSON document by variant
-  --> tools/dylint/examples/untyped_json_access.rs:49:38
+  --> tools/dylint/examples/untyped_json_access.rs:50:38
    |
-49 |     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
+50 |     Ok(document.get("name").and_then(Value::as_str).map(str::to_owned))
    |                                      ^^^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: `Value::as_u64` reads an untyped JSON document by variant
-  --> tools/dylint/examples/untyped_json_access.rs:54:34
+  --> tools/dylint/examples/untyped_json_access.rs:55:34
    |
-54 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
+55 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
    |                                  ^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: indexing reads `["size"]["bytes"]` from an untyped JSON document
-  --> tools/dylint/examples/untyped_json_access.rs:54:8
+  --> tools/dylint/examples/untyped_json_access.rs:55:8
    |
-54 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
+55 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
    |        ^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: `Map::get` reads `"name"` from an untyped JSON document
-  --> tools/dylint/examples/untyped_json_access.rs:62:72
+  --> tools/dylint/examples/untyped_json_access.rs:63:72
    |
-62 | fn object_name(object: &Map<String, Value>) -> Option<&Value> { object.get("name") }
+63 | fn object_name(object: &Map<String, Value>) -> Option<&Value> { object.get("name") }
    |                                                                        ^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: `Map::get` reads `"name"` from an untyped JSON document
-  --> tools/dylint/examples/untyped_json_access.rs:64:67
+  --> tools/dylint/examples/untyped_json_access.rs:65:67
    |
-64 | fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) }
+65 | fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) }
    |                                                                   ^^^^^^^^^^^^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: `Value::pointer` reads `"/items/0"` from an untyped JSON document
-  --> tools/dylint/examples/untyped_json_access.rs:68:57
+  --> tools/dylint/examples/untyped_json_access.rs:69:57
    |
-68 | fn first(document: &Value) -> Option<&Value> { document.pointer("/items/0") }
+69 | fn first(document: &Value) -> Option<&Value> { document.pointer("/items/0") }
    |                                                         ^^^^^^^^^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: `Value::String` pattern reads an untyped JSON document by variant
-  --> tools/dylint/examples/untyped_json_access.rs:70:55
+  --> tools/dylint/examples/untyped_json_access.rs:71:55
    |
-70 | fn textual(document: &Value) -> Option<&str> { if let Value::String(text) = document { Some(text) } else { None } }
+71 | fn textual(document: &Value) -> Option<&str> { if let Value::String(text) = document { Some(text) } else { None } }
    |                                                       ^^^^^^^^^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
-error: `Value::as_str` reads an untyped JSON document by variant
-  --> tools/dylint/examples/untyped_json_access.rs:76:124
+error: `member` passes its parameters unchanged to `serde_json::Map::get`
+  --> tools/dylint/examples/untyped_json_access.rs:75:1
    |
-76 | ...str) -> Option<&'document str> { object.get(key).and_then(Value::as_str) }
+75 | fn member<'document>(object: &'document Map<String, Value>, key: &str) -> Option<&'document Value> { object.get(key) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/untyped_json_access.rs:75:102
+   |
+75 | fn member<'document>(object: &'document Map<String, Value>, key: &str) -> Option<&'document Value> { object.get(key) }
+   |                                                                                                      ^^^^^^^^^^^^^^^
+   = help: call `serde_json::Map::get` at each call site of `member` and delete `member`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `Value::as_str` reads an untyped JSON document by variant
+  --> tools/dylint/examples/untyped_json_access.rs:77:124
+   |
+77 | ...str) -> Option<&'document str> { object.get(key).and_then(Value::as_str) }
    |                                                              ^^^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: `Value::as_str` reads an untyped JSON document by variant
-  --> tools/dylint/examples/untyped_json_access.rs:78:164
+  --> tools/dylint/examples/untyped_json_access.rs:79:164
    |
-78 | ...iter().copied().filter_map(|key| object.get(key).and_then(Value::as_str)).collect() }
+79 | ...iter().copied().filter_map(|key| object.get(key).and_then(Value::as_str)).collect() }
    |                                                              ^^^^^^^^^^^^^
    |
    = help: decode the document into a struct deriving `serde::Deserialize`
+
+error: `nested` passes its parameters unchanged to `serde_json::Value::get`
+  --> tools/dylint/examples/untyped_json_access.rs:81:1
+   |
+81 | fn nested<'document>(document: &'document Value, key: &str) -> Option<&'document Value> { document.get(key) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/untyped_json_access.rs:81:91
+   |
+81 | fn nested<'document>(document: &'document Value, key: &str) -> Option<&'document Value> { document.get(key) }
+   |                                                                                           ^^^^^^^^^^^^^^^^^
+   = help: call `serde_json::Value::get` at each call site of `nested` and delete `nested`
+
+error: `taken` passes its parameters unchanged to `serde_json::Value::take`
+  --> tools/dylint/examples/untyped_json_access.rs:83:1
+   |
+83 | fn taken(document: &mut Value) -> Value { document.take() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/untyped_json_access.rs:83:43
+   |
+83 | fn taken(document: &mut Value) -> Value { document.take() }
+   |                                           ^^^^^^^^^^^^^^^
+   = help: call `serde_json::Value::take` at each call site of `taken` and delete `taken`
+
+error: `head` passes its parameters unchanged to `<[T]>::first`
+  --> tools/dylint/examples/untyped_json_access.rs:89:1
+   |
+89 | fn head(documents: &[Value]) -> Option<&Value> { documents.first() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/untyped_json_access.rs:89:50
+   |
+89 | fn head(documents: &[Value]) -> Option<&Value> { documents.first() }
+   |                                                  ^^^^^^^^^^^^^^^^^
+   = help: call `<[T]>::first` at each call site of `head` and delete `head`
+
+error: `rendered` passes its parameters unchanged to `serde_json::to_string`
+  --> tools/dylint/examples/untyped_json_access.rs:99:1
+   |
+99 | fn rendered(counts: &[u32]) -> Result<String, serde_json::Error> { serde_json::to_string(counts) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/untyped_json_access.rs:99:68
+   |
+99 | fn rendered(counts: &[u32]) -> Result<String, serde_json::Error> { serde_json::to_string(counts) }
+   |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `serde_json::to_string` at each call site of `rendered` and delete `rendered`
 
 error: `Value::get` reads `"name"` from an untyped JSON document
-   --> tools/dylint/examples/untyped_json_access.rs:102:14
+   --> tools/dylint/examples/untyped_json_access.rs:103:14
     |
-102 |     document.get(key)
+103 |     document.get(key)
     |              ^^^^^^^^
     |
     = help: decode the document into a struct deriving `serde::Deserialize`
 
 error: `transformed` has one reader, `indirect_key`
-   --> tools/dylint/examples/untyped_json_access.rs:137:1
+   --> tools/dylint/examples/untyped_json_access.rs:138:1
     |
-137 | fn transformed(key: &str) -> String { format!("prefix-{key}") }
+138 | fn transformed(key: &str) -> String { format!("prefix-{key}") }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: read here
-   --> tools/dylint/examples/untyped_json_access.rs:139:68
+   --> tools/dylint/examples/untyped_json_access.rs:140:68
     |
-139 | fn indirect_key(document: &Value) -> Option<&Value> { document.get(transformed("name")) }
+140 | fn indirect_key(document: &Value) -> Option<&Value> { document.get(transformed("name")) }
     |                                                                    ^^^^^^^^^^^
     = help: move `transformed` into `indirect_key` as a closure
     = note: `#[deny(single_reader)]` on by default

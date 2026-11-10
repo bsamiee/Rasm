@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-files: ['libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/rhino/Rasm.Rhino.Modeling/**', 'libs/dotnet/rhino/Rasm.Grasshopper/**']
 utils:
     function-name:
         matches: {csharp-simple-name: {name: {pattern: {context: 'class $NAME;', selector: identifier}}}}
@@ -105,4 +104,4 @@ rule:
                         - has: {stopBy: end, matches: recursion}
         - not: {has: {field: body, has: {stopBy: {kind: *function}, matches: membership-test}}}
 message: '`$NAME` recurses into every successor of `$NODE` with no visited test'
-note: 'Load the nodes into a QuikGraph `AdjacencyGraph` and walk it with `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm`'
+note: 'Load the nodes into a graph once and walk it with a traversal that marks visited nodes, QuikGraph `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm` where the project references QuikGraph'

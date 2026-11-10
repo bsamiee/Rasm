@@ -21,6 +21,7 @@
         <LangVersion>preview</LangVersion>
         <Nullable>enable</Nullable>
         <WarningsAsErrors>$(WarningsAsErrors);nullable</WarningsAsErrors>
+        <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
@@ -32,6 +33,10 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     </PropertyGroup>
+
+    <ItemGroup Label="Analyzer Configuration">
+        <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory).config/.globalconfig" />
+    </ItemGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RepoTargetFramework)-windows</TargetFramework>

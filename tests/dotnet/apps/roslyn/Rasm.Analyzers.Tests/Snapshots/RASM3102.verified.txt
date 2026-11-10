@@ -1,3 +1,4 @@
+RASM3014 `Id` renames a type, write the type at each use
 RASM3012 `MissingNumber` forwards `RhinoMath.UnsetValue`, read `RhinoMath.UnsetValue` at each use
 #0 `Id.Empty` stands for absence in `Entry`, state absence through `Option`, a nullable, or a case holding only the facts its path supplies
 #1 `default` stands for absence in `Entry`, state absence through `Option`, a nullable, or a case holding only the facts its path supplies

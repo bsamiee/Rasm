@@ -2,7 +2,25 @@
 
 from rasm_rendering._batch import supervision
 from rasm_rendering._batch.notices import Cancelled, Completed, Estimated, Failed, Listener, Notice, published, Started, Test
-from rasm_rendering._batch.queue import Ending, FixedCamera, Forecast, Frames, FrameTime, Job, JobCamera, Liveness, MarkedCamera, Marker, observed, PackedFile, Progress, RenderFrames, RenderQueue
+from rasm_rendering._batch.queue import (
+    Ending,
+    FixedCamera,
+    Forecast,
+    Frames,
+    FrameTime,
+    Job,
+    JobCamera,
+    Liveness,
+    MarkedCamera,
+    Marker,
+    observed,
+    PackedFile,
+    Progress,
+    PROGRESS_DECODER,
+    RENDER_QUEUE_DECODER,
+    RenderFrames,
+    RenderQueue,
+)
 from rasm_rendering._batch.supervision import argued, argument, awake, cleared, detached, HostCommands, LocalMachine, Run, RunCommand, RunFile, shutdown, shutdown_cancelled, supervise
 from rasm_rendering._batch.targets import Endpoint, Flamenco, JobFile, Manager, Renderon, Target
 from rasm_rendering._lighting.references import Blinds, Dapple, Gel, Highlight, ReferenceDistribution, ReferenceImage, REFERENCES, Rim
@@ -13,7 +31,9 @@ from rasm_rendering._outputs import Field, Fields, NumberField, NumberKey, Outpu
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "PROGRESS_DECODER",
     "REFERENCES",
+    "RENDER_QUEUE_DECODER",
     "RIGS",
     "AmbientLight",
     "Arranged",

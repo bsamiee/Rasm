@@ -17,19 +17,14 @@ from rasm_imaging._color.processors import (
     converted,
     converted_image,
     DisplayView,
-    GET_SPLINE_TYPE,
     GRAY,
     hdr,
-    HUE_CURVE,
-    HUE_CURVE_TRANSFORM,
     lin_to_log,
     luma,
     pq,
     processor,
     REC709_SCENE,
     rendering_basis,
-    RGB_TO_HSY,
-    SET_SPLINE_TYPE,
     Stops,
 )
 from rasm_imaging._files import buffers, images
@@ -66,15 +61,10 @@ from rasm_imaging._sampling.tiles import Pupil, ranks, rng, Seed, SEED_BOUND, Sp
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "GET_SPLINE_TYPE",
     "GRAY",
-    "HUE_CURVE",
-    "HUE_CURVE_TRANSFORM",
     "LATTICE_SIZES",
     "REC709_SCENE",
-    "RGB_TO_HSY",
     "SEED_BOUND",
-    "SET_SPLINE_TYPE",
     "Aperture",
     "Arithmetic",
     "Bands",

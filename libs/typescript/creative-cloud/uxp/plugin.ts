@@ -188,7 +188,7 @@ const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
 const themed = (root: HTMLElement) =>
     Stream.runForEach(Plugin.theme, (theme) =>
         Effect.sync(() => {
-            Object.assign(root.style, { color: fillColor(UxpManifest.fills[UxpManifest.themes[theme]]) });
+            Object.assign(root.style, { color: fillColor(UxpManifest.fills[theme]) });
         }),
     );
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | Plugin, E>, body: Panel<F>) {

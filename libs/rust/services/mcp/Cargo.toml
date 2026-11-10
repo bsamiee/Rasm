@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-mcp"
 edition.workspace = true
-description       = "MCP server layers at rmcp's service level over any transport: traced requests, one endpoint shared by many sessions, an upstream proxy, and a routed app framework with elicitation"
+description       = "MCP service parts over rmcp: one service shared by many connections, a stdio proxy forwarding message envelopes to one upstream server, request tracing, and a routed server framework with elicitation"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -16,12 +16,14 @@ bench   = false
 # --- [FEATURES] -------------------------------------------------------------------------
 
 [features]
-proxy = ["dep:arc-swap", "rmcp/client"]
-app   = ["dep:arc-swap", "dep:nonempty-collections", "dep:validated", "dep:derive-where", "dep:bytes", "dep:data-encoding", "dep:serde_path_to_error", "dep:serde_urlencoded", "dep:jsonschema", "dep:uuid", "dep:form_urlencoded", "dep:matchit", "dep:percent-encoding", "dep:url", "rmcp/elicitation"]
+proxy     = ["dep:backon", "dep:bytes", "dep:memchr", "dep:serde_path_to_error", "serde_json/raw_value"]
+telemetry = ["dep:opentelemetry", "dep:opentelemetry-semantic-conventions", "dep:tracing-opentelemetry"]
+app       = ["dep:arc-swap", "dep:nonempty-collections", "dep:validated", "dep:derive-where", "dep:bytes", "dep:data-encoding", "dep:serde_path_to_error", "dep:serde_urlencoded", "dep:jsonschema", "dep:uuid", "dep:form_urlencoded", "dep:matchit", "dep:percent-encoding", "dep:url", "rmcp/elicitation"]
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
+backon                             = { workspace = true, optional = true }
 futures                            = { workspace = true }
 tokio                              = { workspace = true }
 tokio-stream                       = { workspace = true }
@@ -34,6 +36,7 @@ derive-where                       = { workspace = true, optional = true }
 derive_more                        = { workspace = true }
 itertools                          = { workspace = true }
 bytes                              = { workspace = true, optional = true }
+memchr                             = { workspace = true, optional = true }
 data-encoding                      = { workspace = true, optional = true }
 serde                              = { workspace = true }
 serde_json                         = { workspace = true }
@@ -46,10 +49,10 @@ matchit                            = { workspace = true, optional = true }
 percent-encoding                   = { workspace = true, optional = true }
 url                                = { workspace = true, optional = true }
 rmcp                               = { workspace = true, default-features = false, features = ["server"] }
-opentelemetry                      = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
+opentelemetry                      = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true, optional = true }
 tracing                            = { workspace = true }
-tracing-opentelemetry              = { workspace = true }
+tracing-opentelemetry              = { workspace = true, optional = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

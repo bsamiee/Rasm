@@ -1,11 +1,10 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    res::{MaybeDef as _, MaybeQPath as _},
-    ty::is_copy,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::{MaybeDef as _, MaybeQPath as _};
+use clippy_utils::ty::is_copy;
 use rustc_hir::{Expr, ExprKind, Mutability};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, VariantDef, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, VariantDef};
 
 use super::fieldless_local_enum;
 use crate::{expanded_externally, generated};

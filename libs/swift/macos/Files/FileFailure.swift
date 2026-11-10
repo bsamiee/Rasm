@@ -39,7 +39,7 @@ public struct FileFailure: CustomNSError, LocalizedError {
 
 extension FileFailure: Equatable {
     public static func == (left: Self, right: Self) -> Bool {
-        let same: Bool =
+        let same =
             switch left.reason {
                 case .unwatched: right.reason.is(\.unwatched)
                 case .held: right.reason.is(\.held)

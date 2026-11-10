@@ -1,7 +1,8 @@
 use core::mem;
 use std::borrow::Cow;
 
-use indexmap::{IndexMap, map::RawEntryApiV1 as _};
+use indexmap::IndexMap;
+use indexmap::map::RawEntryApiV1 as _;
 use itertools::Itertools as _;
 use serde::Serialize;
 use serde_content::{Data, Enum, Number, Serializer, Struct, Value};

@@ -3,38 +3,52 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_path_is_empty.rs
 ---
 error: path emptiness is tested through `OsStr`
-  --> tools/dylint/examples/manual_path_is_empty.rs:25:33
+  --> tools/dylint/examples/manual_path_is_empty.rs:27:33
    |
-25 | fn blank(path: &Path) -> bool { path.as_os_str().is_empty() }
+27 | fn blank(path: &Path) -> bool { path.as_os_str().is_empty() }
    |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
    |
    = note: `#[deny(manual_path_is_empty)]` on by default
 applicability MachineApplicable: call `Path::is_empty`
 
 error: path emptiness is tested through `OsStr`
-  --> tools/dylint/examples/manual_path_is_empty.rs:27:42
+  --> tools/dylint/examples/manual_path_is_empty.rs:29:42
    |
-27 | fn blank_owned(path: &PathBuf) -> bool { path.as_os_str().is_empty() }
+29 | fn blank_owned(path: &PathBuf) -> bool { path.as_os_str().is_empty() }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
 applicability MachineApplicable: call `Path::is_empty`
 
 error: path emptiness is tested through `OsStr`
-  --> tools/dylint/examples/manual_path_is_empty.rs:29:47
+  --> tools/dylint/examples/manual_path_is_empty.rs:31:47
    |
-29 | fn joined(root: &Path, child: &str) -> bool { root.join(child).as_os_str().is_empty() }
+31 | fn joined(root: &Path, child: &str) -> bool { root.join(child).as_os_str().is_empty() }
    |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(&root.join(child))`
 applicability MachineApplicable: call `Path::is_empty`
 
-error: path emptiness is tested through `OsStr`
-  --> tools/dylint/examples/manual_path_is_empty.rs:35:37
+error: `direct` passes its parameters unchanged to `std::path::Path::is_empty`
+  --> tools/dylint/examples/manual_path_is_empty.rs:35:1
    |
-35 | fn qualified(path: &Path) -> bool { std::ffi::OsStr::is_empty(Path::as_os_str(path)) }
+35 | fn direct(path: &Path) -> bool { path.is_empty() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/manual_path_is_empty.rs:35:34
+   |
+35 | fn direct(path: &Path) -> bool { path.is_empty() }
+   |                                  ^^^^^^^^^^^^^^^
+   = help: call `std::path::Path::is_empty` at each call site of `direct` and delete `direct`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: path emptiness is tested through `OsStr`
+  --> tools/dylint/examples/manual_path_is_empty.rs:37:37
+   |
+37 | fn qualified(path: &Path) -> bool { std::ffi::OsStr::is_empty(Path::as_os_str(path)) }
    |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
 applicability MachineApplicable: call `Path::is_empty`
 
 error: path emptiness is tested through `OsStr`
-  --> tools/dylint/examples/manual_path_is_empty.rs:37:42
+  --> tools/dylint/examples/manual_path_is_empty.rs:39:42
    |
-37 | fn projected(path: &Projected) -> bool { path.as_os_str().is_empty() }
+39 | fn projected(path: &Projected) -> bool { path.as_os_str().is_empty() }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `Path::is_empty`: `<::std::path::Path>::is_empty(path)`
 applicability MachineApplicable: call `Path::is_empty`

@@ -27,7 +27,7 @@ const preprocessUploads = Effect.fn('preprocessUploads')(function* <M extends Me
         file?.data instanceof Blob && file.progress.uploadStarted === null
             ? Effect.sync(() => uploader.emit('preprocess-progress', file, { mode: 'indeterminate', message })).pipe(
                   Effect.andThen(prepare(file, file.data)),
-                  Effect.catchDefect((defect) => Effect.fail(new Cause.UnknownError(defect))),
+                  Effect.catchDefect((defect) => new Cause.UnknownError(defect)),
                   Effect.matchEffect({
                       onSuccess: (meta) => Effect.sync(() => uploader.setFileMeta(file.id, { ...file.meta, ...meta })),
                       onFailure: (error) => Effect.sync(() => uploader.emit('upload-error', file, error)),

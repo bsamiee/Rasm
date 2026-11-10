@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
@@ -8,10 +9,14 @@ using NodaTime.Text;
 using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Render.Settings;
+using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Commands;
 using Rhino.Input.Custom;
 using Rhino.PlugIns;
+using Rhino.Render;
 
 namespace Darkroom.Queue;
 
@@ -29,7 +34,6 @@ internal sealed partial class PackageUse {
 internal abstract partial record QueueTarget {
     private static readonly NamePart JobsPart = NamePart.Create("jobs");
 
-    public string Name => Switch(local: static _ => nameof(Local), packaged: static held => held.Use.Key, flamenco: static _ => nameof(Flamenco));
     public bool RendersHere => this is Local || Quits;
     public bool Quits => this is Packaged { Use.Quits: true };
     public Option<(OutputFolder Folder, Stem Stem)> Package => Switch(
@@ -94,10 +98,21 @@ internal static partial class Dispatch {
             Getters.Choice(doc, new GetterRequest<GetOption, StageStep<QueueRequest, IO<Unit>>>(Queued.EnglishName) {
                 Accept = kit.Accept with { Nothing = Some(new NothingEntry<StageStep<QueueRequest, IO<Unit>>>(None, kit.Done(IO.pure(unit)))) },
                 Options = [
-                    Added("ActiveView", static _ => IO.pure(Seq(QueuePlacement.Active)), doc, request, kit),
-                    Added("NamedViews", QueuePlacement.Viewed, doc, request, kit),
-                    Added("Snapshots", QueuePlacement.Snapped, doc, request, kit),
-                    Added("SunStudy", QueuePlacement.Studied, doc, request, kit),
+                    Added("ActiveView", IO.pure(Seq(QueuePlacement.Active)), doc, request, kit),
+                    Added(
+                        "NamedViews",
+                        NamedViews.Table.Entries(doc).Map(static entries => entries.Map(static entry => QueuePlacement.Active with { Source = RenderSettings.RenderingSources.NamedView, View = entry.Name })),
+                        doc, request, kit),
+                    Added(
+                        "Snapshots",
+                        Snapshots.Table.Entries(doc).Map(static entries => entries.Map(static entry => QueuePlacement.Active with { Source = RenderSettings.RenderingSources.SnapShot, View = entry.Name })),
+                        doc, request, kit),
+                    Added(
+                        "SunStudy",
+                        (from copy in use(() => doc.AnimationProperties)
+                         from window in IO.lift(SunWindow.Read(copy).Bind(static found => found.ToFin(new DarkroomFault("document sun study", DarkroomReason.Missing))))
+                         select Seq(QueuePlacement.Active with { Sun = window })).Bracket(),
+                        doc, request, kit),
                     OptionSpecs.Of(OptionType.Toggle(LabelPair.OffOn), request.Clay.IsSome, clay => kit.Advance(request with { Clay = clay ? Some(Albedo) : None }), caption: "Clay"),
                     OptionSpecs.Of(OptionType.Number(0d, 1d), request.Overscan, overscan => kit.Advance(request with { Overscan = overscan })),
                     OptionSpecs.Of(OptionType.List(toSeq(RegionFrame.Items), static frame => frame.Key), request.Region, region => kit.Advance(request with { Region = region })),
@@ -107,18 +122,27 @@ internal static partial class Dispatch {
                         QueueState.Read(doc).Bind(state => state.Entries.At(index - 1).ToFin(new DarkroomFault("render queue entry", DarkroomReason.Missing, index)).Match(
                             Succ: entry => new QueueEdit.Toggle(index - 1, !entry.Renders).Committed(doc).Bind(Shown) >> kit.Advance(request),
                             Fail: kit.Retry)), caption: "Toggle"),
-                    OptionSpecs.Of(OptionType.List(targets, static target => target.Name), targets[0], target => kit.Done(Send(doc, target, request.Resume)), caption: "Send"),
+                    OptionSpecs.Of(
+                        OptionType.List(targets, static target => target.Switch(local: static _ => nameof(QueueTarget.Local), packaged: static held => held.Use.Key, flamenco: static _ => nameof(QueueTarget.Flamenco))),
+                        targets[0], target => kit.Done(Send(doc, target, request.Resume)), caption: "Send"),
                 ],
             }))
         from sent in send
         select unit;
 
     private static OptionSpec<StageStep<QueueRequest, IO<Unit>>> Added(
-        string caption, Func<RhinoDoc, IO<Seq<QueuePlacement>>> placed, RhinoDoc doc, QueueRequest request, StageKit<QueueRequest, IO<Unit>> kit) =>
+        string caption, IO<Seq<QueuePlacement>> placed, RhinoDoc doc, QueueRequest request, StageKit<QueueRequest, IO<Unit>> kit) =>
         OptionSpecs.Plain(caption, None, hidden: false, _ =>
-            from placements in placed(doc)
-            from entries in QueuePlacement.Entries(doc, placements, request)
-            from state in new QueueEdit.Add(entries).Committed(doc)
+            from placements in placed
+            from extent in SaveSource.Extent(doc)
+            let size = new Size(extent.Width, extent.Height)
+            from region in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), scope =>
+                (from frame in use(() => scope.Settings.SafeFrame)
+                 select request.Region.Framed(frame, size).Map(area =>
+                     new RenderRegion((double)area.Left / size.Width, (double)area.Top / size.Height, (double)area.Right / size.Width, (double)area.Bottom / size.Height))).Bracket())
+            from state in new QueueEdit.Add(placements.Map(placement => new QueuedEntry(Renders: true, placement.Source, placement.View, size) {
+                Clay = request.Clay, Overscan = request.Overscan, Region = region, Sun = placement.Sun,
+            })).Committed(doc)
             from shown in Shown(state)
             from step in kit.Advance(request)
             select step);
@@ -132,13 +156,17 @@ internal static partial class Dispatch {
         return IO.env.Bind(environment => Products.Transfer(
             () => EnvIO.New(token: environment.Token, syncContext: environment.SyncContext),
             scope => (from context in QueueContext.Open
-                      from plan in QueuePlan.Read(doc)
+                      from queue in QueueState.Read(doc)
+                      from book in OutputBook.Read(doc)
+                      from settings in Products.Acquired(RenderSettingsSources.Snapshot(doc))
+                      from saved in IO.lift(() => Conversions.Present(doc.Path))
+                      from plan in IO.lift(QueuePlan.Of(book, saved, settings, toSeq(queue.Entries).Filter(static entry => entry.Renders)))
                       from resumed in resume ? QueueProgress.Read(context.Record).Map(static prior => prior.Filter(static record => !record.Succeeded)) : IO.pure(Option<QueueProgress>.None)
                       from stamp in IO.lift(() => context.Clock.ToZonedClock().GetCurrentLocalDateTime())
                       from check in Preflight.Check(context, doc, plan, target).OnUiThread()
                       from cautioned in IO.lift(() => check.Cautions.Iter(static caution => Cautioned(Session.Logger, caution.Error.Message)))
                       from estimated in IO.lift(() => check.Memory.Iter(static (index, bytes) => Estimated(Session.Logger, index + 1, bytes)))
-                      from verdict in IO.lift(check.Verdict)
+                      from verdict in IO.lift(check.Refusals.Traverse(static refusal => Fin.Fail<Unit>(refusal.Error)).As().Map(static _ => unit))
                       select target.Switch(
                           (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed, Scope: scope),
                           local: static (state, _) => IO.lift(Unit () => Session.Start((
@@ -244,7 +272,11 @@ internal static partial class Dispatch {
         from path in IO.lift(static () => Conversions.Present(Environment.GetEnvironmentVariable(JobVariable)).ToFin(new DarkroomFault(JobVariable, DarkroomReason.Missing)))
         from parent in IO.lift(Conversions.Present(Environment.GetEnvironmentVariable(ParentVariable))
             .Traverse(static text => int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int id) ? Fin.Succ(id) : new DarkroomFault(text, DarkroomReason.Invalid)).As())
-        from started in IO.lift(() => Session.Start(Launched(parent.Traverse(MachinePower.Exited).As().Bind(_ => Run(path)))))
+        from started in IO.lift(Unit () => Session.Start(Launched(parent.Traverse(static id =>
+                (from process in Products.Of(() => Process.GetProcessById(id))
+                 from waited in IO.liftAsync(environment => process.WaitForExitAsync(environment.Token).ToUnit())
+                 select waited).Bracket()
+                    | @catch(static error => error.HasException<ArgumentException>(), IO.pure(unit))).As().Bind(_ => Run(path)))))
         select unit;
 
     private static IO<Unit> FarmJob(RhinoDoc doc, RunMode mode) =>

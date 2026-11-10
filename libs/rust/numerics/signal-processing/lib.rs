@@ -1,17 +1,15 @@
 #![feature(array_try_map, control_flow_into_value, default_field_values, deref_patterns, float_conversions)]
 
-use core::{fmt, num::NonZero, range::RangeInclusive};
+use core::fmt;
+use core::num::NonZero;
+use core::range::RangeInclusive;
 
 use biquad::Errors;
 use ndarray::Array1;
-use uom::{
-    fmt::DisplayStyle::Abbreviation,
-    si::{
-        f64::{Frequency, Time},
-        frequency::hertz,
-        time::second,
-    },
-};
+use uom::fmt::DisplayStyle::Abbreviation;
+use uom::si::f64::{Frequency, Time};
+use uom::si::frequency::hertz;
+use uom::si::time::second;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

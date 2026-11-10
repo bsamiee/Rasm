@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { Console, Effect, FileSystem, flow, Path, Schema } from 'effect';
 import { traversal } from '#/executors/build/executor';
-import { analyzer, dotnet, spawned } from '#/plugins/project-graph';
+import { analyzer, dotnet, spawned } from '#/plugins/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

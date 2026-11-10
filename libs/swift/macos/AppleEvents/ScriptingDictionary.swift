@@ -34,7 +34,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         }
 
         public func encode(to encoder: any Encoder) throws {
-            var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+            var fields = encoder.container(keyedBy: Key.self)
             try fields.encode(name, forKey: .name)
             try fields.encode(code.sdef, forKey: .code)
         }
@@ -65,7 +65,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         public var code: UInt64 { UInt64(eventClass) << 32 | UInt64(eventID) }
 
         public func encode(to encoder: any Encoder) throws {
-            var row: KeyedEncodingContainer<Keys> = encoder.container(keyedBy: Keys.self)
+            var row = encoder.container(keyedBy: Keys.self)
             try row.encode(name, forKey: .name)
             try row.encode(code.sdef, forKey: .code)
             try row.encode(parameters, forKey: .parameters)
@@ -91,25 +91,25 @@ public final class ScriptingDictionary: Encodable, Sendable {
     let document: Mutex<XMLDocument>
 
     public init(definition data: Data) throws(AppleEventFailure) {
-        let document: XMLDocument = try Result { try XMLDocument(data: data, options: .documentXInclude) }
+        let document = try Result { try XMLDocument(data: data, options: .documentXInclude) }
             .mapError { error in AppleEventFailure(subject: "XML of \(data.count)-byte scripting definition", reason: .host(error)) }.get()
         func elements(_ path: String) throws(AppleEventFailure) -> [XMLElement] {
             try Result { try document.nodes(forXPath: path) }.mapError { error in AppleEventFailure(subject: "scripting definition XPath \(path)", reason: .host(error)) }.get()
                 .compactMap { node in node as? XMLElement }
         }
         let typedKinds: [Kind] = [.class, .recordType, .valueType]
-        let named: [String?: [XMLElement]] = try Dictionary(grouping: elements(typedKinds.map { kind in "//\(kind.rawValue)" }.joined(separator: " | "))) { element in
+        let named = try Dictionary(grouping: elements(typedKinds.map { kind in "//\(kind.rawValue)" }.joined(separator: " | "))) { element in
             element.attribute(forName: "name")?.stringValue
         }
-        let extensions: [String?: [XMLElement]] = try Dictionary(grouping: elements("//class-extension")) { element in element.attribute(forName: "extends")?.stringValue }
+        let extensions = try Dictionary(grouping: elements("//class-extension")) { element in element.attribute(forName: "extends")?.stringValue }
         func lineage(_ level: OrderedSet<XMLElement>, _ seen: OrderedSet<XMLElement>) -> OrderedSet<XMLElement> {
-            let parents: [XMLElement] = level.flatMap { (child: XMLElement) -> [XMLElement] in child.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? [] }
-            let unseen: OrderedSet<XMLElement> = OrderedSet(parents).subtracting(seen)
+            let parents = level.flatMap { (child: XMLElement) -> [XMLElement] in child.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? [] }
+            let unseen = OrderedSet(parents).subtracting(seen)
             return unseen.isEmpty ? seen : lineage(unseen, seen.union(unseen))
         }
         func inherited(_ element: XMLElement) -> [XMLElement] {
             lineage([element], [element]).flatMap { (ancestor: XMLElement) -> [XMLElement] in
-                let extended: [XMLElement] = ancestor.attribute(forName: "name")?.stringValue.flatMap { name in extensions[name] } ?? []
+                let extended = ancestor.attribute(forName: "name")?.stringValue.flatMap { name in extensions[name] } ?? []
                 return ancestor.elements(forName: "property") + extended.flatMap { element in element.elements(forName: "property") }
             }
         }
@@ -150,7 +150,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         let declared = try Dictionary(
             uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(AppleEventFailure) in (kind, terms(try elements("//\(kind.rawValue)"))) }
         )
-        let typed: [Term] = typedKinds.flatMap { kind in declared[kind, default: []] }
+        let typed = typedKinds.flatMap { kind in declared[kind, default: []] }
         declarations = declared
         types = Scope(typed)
         members = Dictionary(grouping: typed, by: \.code).mapValues { terms in Scope(terms.flatMap(\.members)) }
@@ -160,9 +160,9 @@ public final class ScriptingDictionary: Encodable, Sendable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var listing: KeyedEncodingContainer<Kind> = encoder.container(keyedBy: Kind.self)
+        var listing = encoder.container(keyedBy: Kind.self)
         try listing.encode(commands, forKey: .command)
-        for kind: Kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []], forKey: kind) }
+        for kind in Kind.allCases where kind != .command { try listing.encode(declarations[kind, default: []], forKey: kind) }
     }
 
     public func text(of kind: Kind, named name: String) throws(AppleEventFailure) -> String {
@@ -173,13 +173,13 @@ public final class ScriptingDictionary: Encodable, Sendable {
                 return <suite>{ $suite/@*, $picked }</suite>
             return if (exists($suites)) then <dictionary>{ /dictionary/@*, $suites }</dictionary> else ()
             """
-        let selected: [String] = try document.withLock { document throws(AppleEventFailure) in
+        let selected = try document.withLock { document throws(AppleEventFailure) in
             try Result { try document.objects(forXQuery: query, constants: ["kind": kind.rawValue, "name": name]) }
                 .mapError { error in AppleEventFailure(subject: "scripting definition XQuery for \(kind.rawValue) \(name)", reason: .host(error)) }.get()
                 .compactMap { node in (node as? XMLNode)?.xmlString }
         }
         guard !selected.isEmpty else {
-            let listed: [String] = kind == .command ? commands.map(\.name) : declarations[kind, default: []].map(\.name)
+            let listed = kind == .command ? commands.map(\.name) : declarations[kind, default: []].map(\.name)
             throw AppleEventFailure(subject: name, reason: .unmatched(Unmatched(subject: kind.rawValue, query: name, candidates: OrderedSet(listed).elements)))
         }
         return selected.joined()
@@ -193,8 +193,8 @@ extension ScriptingDictionary {
 
     public static func definition(of application: URL) throws(AppleEventFailure) -> Data {
         var definition: Unmanaged<CFData>?
-        let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition)
-        guard status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() else {
+        let status = unsafe OSACopyScriptingDefinitionFromURL(application as CFURL, 0, &definition)
+        guard status == noErr, let data = unsafe definition?.takeRetainedValue() else {
             throw AppleEventFailure(subject: application.path(percentEncoded: false), reason: .osa(status))
         }
         return data as Data
@@ -208,14 +208,14 @@ extension ScriptingDictionary {
         let takes: (Command) -> Bool = { command in
             arguments.allSatisfy { argument in command.parameters.contains { term in term.name == argument || term.code == FourCharCode(sdef: argument) } }
         }
-        let scopes: [[Command]] = [Command.language, commands].map { scope in scope.filter(takes) }
-        let found: [Command] = scopes.first { scope in scope.contains(where: matching) }?.filter(matching) ?? []
-        let subject: String = arguments.isEmpty ? "command" : "command taking \(arguments.sorted().joined(separator: ", "))"
+        let scopes = [Command.language, commands].map { scope in scope.filter(takes) }
+        let found = scopes.first { scope in scope.contains(where: matching) }?.filter(matching) ?? []
+        let subject = arguments.isEmpty ? "command" : "command taking \(arguments.sorted().joined(separator: ", "))"
         return try Unmatched.single(found, subject: subject, query: query, candidates: OrderedSet(scopes.joined().map(\.name)).elements, named: \.code.sdef).get()
     }
 
     public func command(handling codes: [UInt64]) throws(Unmatched) -> Command {
-        guard let handler: Command = codes.lazy.compactMap({ code in self.commands.first { command in command.code == code } }).first else {
+        guard let handler = codes.lazy.compactMap({ code in self.commands.first { command in command.code == code } }).first else {
             throw Unmatched(subject: "command handling \(codes.map(\.sdef).joined(separator: ", "))", query: nil, candidates: OrderedSet(commands.map(\.name)).elements)
         }
         return handler
@@ -229,7 +229,7 @@ extension ScriptingDictionary {
         target: NSAppleEventDescriptor,
         refusing activating: Set<UInt64> = [],
     ) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
-        let event: NSAppleEventDescriptor = try record(
+        let event = try record(
             arguments,
             in: [Scope(command.parameters)],
             into: NSAppleEventDescriptor(
@@ -241,8 +241,8 @@ extension ScriptingDictionary {
             ),
         )
         event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
-        let direct: NSAppleEventDescriptor? = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))
-        let frontmost: Bool =
+        let direct = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))
+        let frontmost =
             switch (command.eventClass, command.eventID, direct?.forKeyword(AEKeyword(keyAEKeyForm))?.enumCodeValue, direct?.forKeyword(AEKeyword(keyAEKeyData))?.typeCodeValue) {
                 case (AEEventClass(kAECoreSuite), AEEventID(kAESetData), FourCharCode(formPropertyID), FourCharCode(pIsFrontProcess)): true
                 case (AEEventClass(kAECoreSuite), AEEventID(kAESetData), FourCharCode(formPropertyID), FourCharCode(pProperties)):
@@ -255,17 +255,22 @@ extension ScriptingDictionary {
         return event
     }
 
-    public func reply(to query: String, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) throws(AggregateError<AppleEventFailure>) -> AppleEventValue {
-        let command: Command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
+    public func reply(
+        to query: String,
+        arguments: [String: AppleEventValue],
+        target: sending NSAppleEventDescriptor,
+        refusing activating: Set<UInt64> = [],
+    ) async throws(AggregateError<AppleEventFailure>) -> AppleEventValue {
+        let command = try Result { () throws(Unmatched) in try command(query, taking: Set(arguments.keys)) }
             .aggregated { miss in AppleEventFailure(subject: query, reason: .unmatched(miss)) }.get()
-        let event: NSAppleEventDescriptor = try event(command, arguments: arguments, target: target)
-        return AppleEventValue(try Result { () throws(AppleEventFailure) in try event.send() }.aggregated(\.self).get(), in: self)
+        let event = try event(command, arguments: arguments, target: target, refusing: activating)
+        do { return AppleEventValue(try await event.sent(), in: self) } catch { throw AggregateError(first: error) }
     }
 
     func record(_ fields: [String: AppleEventValue], in scopes: [Scope], into descriptor: NSAppleEventDescriptor) throws(AggregateError<AppleEventFailure>) -> NSAppleEventDescriptor {
         try traverse(fields.sorted { left, right in left.key < right.key }) { key, value in
             Result { () throws(AggregateError<AppleEventFailure>) in
-                let term: Term = try Self.resolve(key, in: scopes).get()
+                let term = try Self.resolve(key, in: scopes).get()
                 return (term.code, try value.descriptor(as: term.types, in: self))
             }
         }
@@ -276,16 +281,16 @@ extension ScriptingDictionary {
     // --- [TERMS]
 
     static func resolve(_ name: String, in scopes: [Scope]) -> Result<Term, AggregateError<AppleEventFailure>> {
-        let named: [Term] = scopes.lazy.compactMap { scope in scope.named[name] }.first ?? []
-        let codes: [FourCharCode] = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : OrderedSet(named.map(\.code)).elements
+        let named = scopes.lazy.compactMap { scope in scope.named[name] }.first ?? []
+        let codes = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : OrderedSet(named.map(\.code)).elements
         return Unmatched.single(codes, subject: "term", query: name, candidates: OrderedSet(scopes.flatMap(\.named.keys)).elements, named: \.sdef)
             .map { code in Term(name: name, code: code, types: Set(named.flatMap(\.types)), members: []) }
             .aggregated { miss in AppleEventFailure(subject: name, reason: .unmatched(miss)) }
     }
 
     static func term(_ code: FourCharCode, in scopes: [Scope]) -> Term {
-        let found: [Term] = scopes.lazy.compactMap { scope in scope.coded[code] }.first ?? []
-        let name: String? = found.first { term in resolve(term.name, in: scopes)[case: \.success]?.code == code }?.name
+        let found = scopes.lazy.compactMap { scope in scope.coded[code] }.first ?? []
+        let name = found.first { term in resolve(term.name, in: scopes)[case: \.success]?.code == code }?.name
         return Term(name: name ?? code.sdef, code: code, types: Set(found.flatMap(\.types)), members: [])
     }
 
@@ -319,7 +324,7 @@ extension FixedWidthInteger where Self: UnsignedInteger {
     }
 
     public var sdef: String {
-        let bytes: [UInt8] = stride(from: Self.bitWidth - 8, through: 0, by: -8).map { shift in UInt8(truncatingIfNeeded: self >> shift) }
+        let bytes = stride(from: Self.bitWidth - 8, through: 0, by: -8).map { shift in UInt8(truncatingIfNeeded: self >> shift) }
         return (bytes.contains { byte in byte < 0x20 || byte == 0x7F } ? nil : String(bytes: bytes, encoding: .macOSRoman)) ?? "0x" + bytes.hexEncoded(uppercase: true)
     }
 }

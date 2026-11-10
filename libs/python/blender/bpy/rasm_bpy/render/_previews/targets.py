@@ -5,10 +5,10 @@ from contextlib import ExitStack
 from enum import auto, Enum
 from functools import partial, reduce
 import itertools
-from typing import Final, Self
+from typing import Annotated, Final, Self
 
 import bpy
-from expression import Option, Result, Some
+from expression import Option, Result, Some, try_downcast
 from mathutils import Vector
 import msgspec
 import PyOpenColorIO
@@ -17,18 +17,18 @@ from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.ownership import Ownership, Saved
 from rasm_bpy.data._ids.store import Handle
-from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
-from rasm_bpy.data._rna.paths import _struct_at
+from rasm_bpy.data._rna.descriptors import Descriptor, written
+from rasm_bpy.data._rna.paths import struct_at
 from rasm_bpy.data._rna.properties import case_choices, enum_choices
 from rasm_bpy.nodes import functions
 from rasm_bpy.nodes._desired import Graph, Members
 from rasm_bpy.nodes._graphs import Expr
-from rasm_bpy.nodes._trees import _active_output, _created, _endpoints, _linked, _socket_at, _tree_of, group_tree, Holder
+from rasm_bpy.nodes._trees import active_output, created, endpoints, group_tree, Holder, linked_sockets, socket_at, tree_of
 from rasm_bpy.nodes.changes import reconciled
 from rasm_bpy.render._color.spaces import viewed
-from rasm_bpy.render._outputs.results import _intermediate
+from rasm_bpy.render._outputs.results import intermediate
 from rasm_bpy.render._previews.scenes import Ambient, PreviewLighting, PreviewMesh, PreviewScene, Readback, Staging, Studio, SURFACES
-from rasm_bpy.scene._materials import _shaded, Clay
+from rasm_bpy.scene._materials import Clay, shaded
 from rasm_bpy.settings._attachments import Attachment
 from rasm_bpy.ui._elements.panels import Preference
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
@@ -76,24 +76,24 @@ _LIGHTING: Final = PreviewLighting()
 class NodePreviews(bpy.types.PropertyGroup):
     """Node preview settings of extension preferences, the previews rendering under their lighting and drawing by their thumbnail members."""
 
-    enabled: bpy.props.BoolProperty(name="Show Previews", description="Thumbnails over node editor nodes", default=True)  # ty: ignore[invalid-type-form]
-    automatic: bpy.props.BoolProperty(name="Auto Update", description="Changed nodes render again", default=True)  # ty: ignore[invalid-type-form]
-    scope: bpy.props.EnumProperty(name="Scope", description="Nodes that take a thumbnail", items=enum_choices(PreviewScope))  # ty: ignore[invalid-type-form]
-    every: bpy.props.BoolProperty(name="All Linked Outputs", description="Every linked output side by side")  # ty: ignore[invalid-type-form]
-    frames: bpy.props.BoolProperty(name="Follow Frame", description="Render again on frame change and during playback")  # ty: ignore[invalid-type-form]
-    fields: bpy.props.BoolProperty(name="Field Nodes", description="Shader nodes of geometry trees as swatches", default=True)  # ty: ignore[invalid-type-form]
-    surface: bpy.props.EnumProperty(name="Surface", description="Shader preview surface", items=SURFACES, default=_LIGHTING.surface.name)  # ty: ignore[invalid-type-form]
-    ambient: bpy.props.EnumProperty(name="Ambient", description="Shader preview ambient light", items=case_choices(Ambient), default=Studio.__name__)  # ty: ignore[invalid-type-form]
-    world: bpy.props.StringProperty(name="World", description="Studio light environment", default=Studio().name)  # ty: ignore[invalid-type-form]
-    strength: bpy.props.FloatProperty(name="World Light", description="Ambient light strength", min=0.0, max=10.0, default=_LIGHTING.strength)  # ty: ignore[invalid-type-form]
-    key: bpy.props.FloatProperty(name="Key Light", description="Key sun strength", min=0.0, max=20.0, default=_LIGHTING.key)  # ty: ignore[invalid-type-form]
-    scale: bpy.props.FloatProperty(name="Thumbnail Size", description="Share of node width", subtype="FACTOR", min=0.25, max=3.0, default=1.0)  # ty: ignore[invalid-type-form]
-    position: bpy.props.EnumProperty(name="Position", description="Node side holding thumbnail", items=enum_choices(Position))  # ty: ignore[invalid-type-form]
-    use_enlarge: bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top")  # ty: ignore[invalid-type-form]
-    enlarge: bpy.props.FloatProperty(name="Enlarge", description="Active node scale while enlarged", min=1.25, max=6.0, default=2.5)  # ty: ignore[invalid-type-form]
-    checker: bpy.props.BoolProperty(name="Checkerboard", description="Theme checker behind thumbnails")  # ty: ignore[invalid-type-form]
-    values: bpy.props.BoolProperty(name="Show Values", description="Number on uniform swatches", default=True)  # ty: ignore[invalid-type-form]
-    limit: bpy.props.IntProperty(name="Cached Thumbnails", description="Thumbnails kept in GPU memory and on disk", min=16, max=4096, default=256)  # ty: ignore[invalid-type-form]
+    enabled: Annotated[bool, bpy.props.BoolProperty(name="Show Previews", description="Thumbnails over node editor nodes", default=True)]
+    automatic: Annotated[bool, bpy.props.BoolProperty(name="Auto Update", description="Changed nodes render again", default=True)]
+    scope: Annotated[str, bpy.props.EnumProperty(name="Scope", description="Nodes that take a thumbnail", items=enum_choices(PreviewScope))]
+    every: Annotated[bool, bpy.props.BoolProperty(name="All Linked Outputs", description="Every linked output side by side")]
+    frames: Annotated[bool, bpy.props.BoolProperty(name="Follow Frame", description="Render again on frame change and during playback")]
+    fields: Annotated[bool, bpy.props.BoolProperty(name="Field Nodes", description="Shader nodes of geometry trees as swatches", default=True)]
+    surface: Annotated[str, bpy.props.EnumProperty(name="Surface", description="Shader preview surface", items=SURFACES, default=_LIGHTING.surface.name)]
+    ambient: Annotated[str, bpy.props.EnumProperty(name="Ambient", description="Shader preview ambient light", items=case_choices(Ambient), default=Studio.__name__)]
+    world: Annotated[str, bpy.props.StringProperty(name="World", description="Studio light environment", default=Studio().name)]
+    strength: Annotated[float, bpy.props.FloatProperty(name="World Light", description="Ambient light strength", min=0.0, max=10.0, default=_LIGHTING.strength)]
+    key: Annotated[float, bpy.props.FloatProperty(name="Key Light", description="Key sun strength", min=0.0, max=20.0, default=_LIGHTING.key)]
+    scale: Annotated[float, bpy.props.FloatProperty(name="Thumbnail Size", description="Share of node width", subtype="FACTOR", min=0.25, max=3.0, default=1.0)]
+    position: Annotated[str, bpy.props.EnumProperty(name="Position", description="Node side holding thumbnail", items=enum_choices(Position))]
+    use_enlarge: Annotated[bool, bpy.props.BoolProperty(name="Enlarge Active Node", description="Active node thumbnail larger on top")]
+    enlarge: Annotated[float, bpy.props.FloatProperty(name="Enlarge", description="Active node scale while enlarged", min=1.25, max=6.0, default=2.5)]
+    checker: Annotated[bool, bpy.props.BoolProperty(name="Checkerboard", description="Theme checker behind thumbnails")]
+    show_values: Annotated[bool, bpy.props.BoolProperty(name="Show Values", description="Number on uniform swatches", default=True)]
+    limit: Annotated[int, bpy.props.IntProperty(name="Cached Thumbnails", description="Thumbnails kept in GPU memory and on disk", min=16, max=4096, default=256)]
 
     @property
     def lighting(self) -> PreviewLighting:
@@ -105,8 +105,8 @@ class NodePreviews(bpy.types.PropertyGroup):
 class NodeSetting(bpy.types.PropertyGroup):
     """Node thumbnail settings."""
 
-    use_output: bpy.props.BoolProperty(name="Pick Output", description="Show the named output, first linked when off")  # ty: ignore[invalid-type-form]
-    output: bpy.props.StringProperty(name="Output", description="Name of the shown output")  # ty: ignore[invalid-type-form]
+    use_output: Annotated[bool, bpy.props.BoolProperty(name="Pick Output", description="Show the named output, first linked when off")]
+    output: Annotated[str, bpy.props.StringProperty(name="Output", description="Name of the shown output")]
 
 
 class Editor(msgspec.Struct, frozen=True, kw_only=True):
@@ -132,7 +132,7 @@ class Editor(msgspec.Struct, frozen=True, kw_only=True):
                         return Ok(Nothing)
                     case _:
                         return Error(Fault.of(Refusal.REQUIRED, repr(space), tuple(modifier.name for modifier in using), member="explicit preview modifier"))
-                return _enclosing(space).map(
+                return enclosing(space).map(
                     lambda groups: chosen.map(lambda modifier: cls(item=Handle.of(item), scene=Handle.of(scene), modifier=modifier.name, groups=tuple(node.name for node in groups)))
                 )
             case _:
@@ -147,8 +147,8 @@ class Editor(msgspec.Struct, frozen=True, kw_only=True):
         return self.item.resolve().bind(
             lambda item: (
                 Option
-                .of_optional(item.modifiers.get(self.modifier))
-                .bind(lambda found: Option.of_optional(found.node_group) if isinstance(found, bpy.types.NodesModifier) else Nothing)
+                .of_optional(try_downcast(bpy.types.NodesModifier, item.modifiers.get(self.modifier)))
+                .bind(lambda found: Option.of_optional(found.node_group))
                 .to_result_with(partial(Fault.of, Reason.ABSENT, repr(item.modifiers), member=self.modifier))
             )
         )
@@ -169,9 +169,19 @@ class PreviewTarget(msgspec.Struct, frozen=True, kw_only=True):
 # --- [TARGETS]
 
 
-def _targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settings: NodePreviews) -> Outcome[tuple[tuple[bpy.types.Node, bpy.types.NodeSocket, PreviewTarget], ...]]:
-    """Returns in-scope tree nodes with the targets their outputs and setting choose, each output an isolated render takes."""
-    zones, scope = _zoned(tree), PreviewScope[settings.scope]
+def targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, settings: NodePreviews) -> Outcome[tuple[tuple[bpy.types.Node, bpy.types.NodeSocket, PreviewTarget], ...]]:
+    """Returns in-scope tree nodes outside the zones valid unmuted links reach from a zone input before its output, with the targets their outputs and setting choose."""
+    scope = PreviewScope[settings.scope]
+    following: defaultdict[str, set[str]] = defaultdict(set)
+    for source, _, sink, _ in (endpoints(link) for link in tree.links if link.is_valid and not link.is_muted):
+        following[source.name].add(sink.name)
+    zones: set[str] = set()
+    for start, end in ((node.name, end.name) for node in tree.nodes for end in struct_at(node, ("paired_output",), bpy.types.Node).to_list()):
+        frontier, seen = {start}, {start}
+        while frontier:
+            frontier = {sink for name in frontier - {end} for sink in following.get(name, ())} - seen
+            seen.update(frontier)
+        zones |= seen
 
     def chosen(node: bpy.types.Node, setting: NodeSetting) -> tuple[bpy.types.NodeSocket, ...]:
         eligible = (
@@ -203,12 +213,12 @@ def _targets(identity: Identity, editor: Editor, tree: bpy.types.NodeTree, setti
     candidates = tuple(
         node for node in tree.nodes if not (isinstance(node, bpy.types.NodeFrame | bpy.types.NodeReroute | bpy.types.NodeGroupInput | bpy.types.NodeGroupOutput) or node.mute or node.name in zones)
     )
-    return _SETTING.bound(identity).map(
+    return SETTING.bound(identity).map(
         lambda attached: tuple((node, socket, target) for node in candidates if shown(node) for socket in chosen(node, attached.struct(node)) for target in isolated(node, socket).to_list())
     )
 
 
-def _enclosing(space: bpy.types.SpaceNodeEditor) -> Outcome[tuple[bpy.types.Node, ...]]:
+def enclosing(space: bpy.types.SpaceNodeEditor) -> Outcome[tuple[bpy.types.Node, ...]]:
     """Resolves unique group instances between native adjacent trees; repeated instances require an explicit `Editor.groups` path."""
     trees = tuple(item.node_tree for item in space.path)
 
@@ -224,22 +234,6 @@ def _enclosing(space: bpy.types.SpaceNodeEditor) -> Outcome[tuple[bpy.types.Node
                 return Error(Fault.of(Reason.ABSENT, repr(space), member="native node-tree path"))
 
     return accumulated(itertools.starmap(entered, itertools.pairwise(trees)))
-
-
-def _zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
-    """Returns names of nodes inside paired zones, reached forward from a zone input before its output over valid unmuted links."""
-    following: defaultdict[str, set[str]] = defaultdict(set)
-    for source, _, target, _ in (_endpoints(link) for link in tree.links if link.is_valid and not link.is_muted):
-        following[source.name].add(target.name)
-
-    def inside(start: str, end: str) -> frozenset[str]:
-        frontier, seen = {start}, {start}
-        while frontier:
-            frontier = {target for name in frontier - {end} for target in following.get(name, ())} - seen
-            seen.update(frontier)
-        return frozenset(seen)
-
-    return frozenset(name for node in tree.nodes for end in _struct_at(node, ("paired_output",), bpy.types.Node).to_list() for name in inside(node.name, end.name))
 
 
 # --- [ROUTES]
@@ -282,10 +276,10 @@ def _routed[H: Holder](identity: Identity, holder: H, target: PreviewTarget, cop
 
     def exposed(inner: bpy.types.NodeTree, source: bpy.types.NodeSocket) -> Outcome[str]:
         return (
-            _active_output(inner)
-            .bind(lambda output: _socket_at(output.inputs, "__extend__"))
-            .bind(lambda extend: _linked(inner, source, extend, handle_dynamic_sockets=True))
-            .map(lambda link: _endpoints(link)[3].identifier)
+            active_output(inner)
+            .bind(lambda output: socket_at(output.inputs, "__extend__"))
+            .bind(lambda extend: linked_sockets(inner, source, extend, handle_dynamic_sockets=True))
+            .map(lambda link: endpoints(link)[3].identifier)
         )
 
     def entered(node: bpy.types.Node) -> Outcome[bpy.types.NodeTree]:
@@ -301,18 +295,18 @@ def _routed[H: Holder](identity: Identity, holder: H, target: PreviewTarget, cop
                     tree = inner
                 case Result(error=faults):
                     return Error(faults)
-        source = _node(tree, target.node).bind(lambda node: _socket_at(node.outputs, target.socket))
+        source = _node(tree, target.node).bind(lambda node: socket_at(node.outputs, target.socket))
         for node, inner in reversed(parents):
-            source = source.bind(lambda socket: exposed(inner, socket).bind(lambda identifier: _socket_at(node.outputs, identifier)))
+            source = source.bind(lambda socket: exposed(inner, socket).bind(lambda identifier: socket_at(node.outputs, identifier)))
         return source
 
-    return _copied(identity, holder, copies).bind(lambda copy: _tree_of(copy).bind(outward).map(lambda socket: (copy, socket)))
+    return _copied(identity, holder, copies).bind(lambda copy: tree_of(copy).bind(outward).map(lambda socket: (copy, socket)))
 
 
 # --- [RENDERING]
 
 
-def _rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, size: int, lighting: PreviewLighting, world: Graph) -> Outcome[Readback]:
+def rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, size: int, lighting: PreviewLighting, world: Graph) -> Outcome[Readback]:
     """Renders a target through routed copies in the preview scene, staged per render kind and formed through the scene view, the source's updates during the render marked as its own."""
     editor = target.editor
     aov = Some(identity.identifier(PreviewScene.value)) if target.valued else Nothing
@@ -321,18 +315,15 @@ def _rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, 
         return msgspec.structs.replace(Staging(source=scene, input=(size, size), world=world, sun=lighting.sun), **changes)
 
     def swatched() -> Outcome[bpy.types.Material]:
-        def defaulted(socket: bpy.types.NodeSocket) -> Option[Value]:
-            definition: bpy.types.Struct = socket.bl_rna  # ty: ignore[invalid-assignment]
-            try:
-                prop = definition.properties["default_value"]
-            except KeyError:
-                return Nothing
-            return Some(Descriptor(root=type(socket), prop=prop).read(socket))
-
         def graph(source: bpy.types.Node, name: Option[str]) -> Outcome[Graph]:
             own: Members = {member.path: member.read(source) for member in Descriptor.saved(source, lambda prop: not prop.is_readonly and prop.identifier not in bpy.types.Node.bl_rna.properties)}
             coordinates = Expr(kind=bpy.types.ShaderNodeTexCoord, socket="Generated", socket_type=bpy.types.NodeSocketVector, key=Some("coordinates"))
-            inputs = tuple((item.identifier, coordinates if item.type == "VECTOR" else held) for item in source.inputs if not item.is_linked for held in defaulted(item).to_list())
+            inputs = tuple(
+                (item.identifier, coordinates if item.type == "VECTOR" else found.read(item))
+                for item in source.inputs
+                if not item.is_linked
+                for found in Descriptor.resolve(item, ("default_value",), bpy.types.Property).to_option().to_list()
+            )
             field = Expr(kind=type(source), inputs=inputs, members=own, socket=target.socket, key=Some("field"))
             emission = Expr(kind=bpy.types.ShaderNodeEmission, inputs=(("Color", field),), socket="Emission", key=Some("emission"))
             roots = (
@@ -344,23 +335,23 @@ def _rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, 
         found: Outcome[bpy.types.Node] = (
             editor.held().bind(lambda root: editor.tree(root).to_result_with(partial(Fault.of, Reason.ABSENT, repr(editor), member=target.node))).bind(lambda tree: _node(tree, target.node))
         )
-        material = _SWATCH.created(identity, bpy.data.materials.new, "Swatch")
-        return paired(found, material).bind(lambda parts: paired(graph(parts[0], aov), _tree_of(parts[1])).bind(lambda pair: reconciled(*pair, identity)).map(lambda _: parts[1]))
+        material = SWATCH.created(identity, bpy.data.materials.new, "Swatch")
+        return paired(found, material).bind(lambda parts: paired(graph(parts[0], aov), tree_of(parts[1])).bind(lambda pair: reconciled(*pair, identity)).map(lambda _: parts[1]))
 
     def clayed(copies: ExitStack) -> Outcome[bpy.types.Object]:
         def material_set(group: bpy.types.NodeTree, upstream: bpy.types.NodeSocket, material: bpy.types.Material) -> Outcome[None]:
             def connected(output: bpy.types.NodeGroupOutput, node: bpy.types.Node) -> Outcome[None]:
                 return accumulated((
-                    _socket_at(node.inputs, "Geometry").bind(lambda socket: _linked(group, upstream, socket)),
-                    _socket_at(node.outputs, "Geometry").bind(lambda socket: _linked(group, socket, output.inputs[0])),
-                    _socket_at(node.inputs, "Material").bind(lambda socket: written(socket, ("default_value",), material)),
+                    socket_at(node.inputs, "Geometry").bind(lambda socket: linked_sockets(group, upstream, socket)),
+                    socket_at(node.outputs, "Geometry").bind(lambda socket: linked_sockets(group, socket, output.inputs[0])),
+                    socket_at(node.inputs, "Material").bind(lambda socket: written(socket, ("default_value",), material)),
                 )).map(lambda _: None)
 
-            return paired(_active_output(group), _created(group, bpy.types.GeometryNodeSetMaterial)).bind(lambda pair: connected(*pair))
+            return paired(active_output(group), created(group, bpy.types.GeometryNodeSetMaterial)).bind(lambda pair: connected(*pair))
 
         def prepared(source: bpy.types.Object, held: tuple[Holder, bpy.types.NodeSocket], material: bpy.types.Material) -> Outcome[bpy.types.Object]:
             holder, socket = held
-            return paired(_tree_of(holder), _copied(identity, source, copies)).bind(
+            return paired(tree_of(holder), _copied(identity, source, copies)).bind(
                 lambda pair: accumulated((
                     written(pair[1], ("hide_render",), value=False),
                     written(pair[1], ("hide_viewport",), value=False),
@@ -377,11 +368,11 @@ def _rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, 
                 )).map(lambda _: pair[1])
             )
 
-        clay = _CLAY.created(identity, bpy.data.materials.new, "Clay").bind(lambda material: _shaded(material, Clay(), identity))
+        clay = CLAY.created(identity, bpy.data.materials.new, "Clay").bind(lambda material: shaded(material, Clay(), identity))
         return paired(editor.item.resolve(), editor.held().bind(lambda group: _routed(identity, group, target, copies)), clay).bind(lambda parts: prepared(*parts))
 
     def sourced(scene: bpy.types.Scene) -> Outcome[Readback]:
-        with _intermediate(identity, scene), ExitStack() as copies:
+        with intermediate(identity, scene), ExitStack() as copies:
             match target.kind:
                 case RenderKind.GEOMETRY_CLAY:
                     staging = clayed(copies).map(lambda subject: staged(scene, viewpoint=subject))
@@ -394,11 +385,11 @@ def _rendered(identity: Identity, preview: PreviewScene, target: PreviewTarget, 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_NODE_PREVIEWS: Final = Preference(key="node_previews", form=NodePreviews)
-_SETTING: Final = Attachment(key="node_preview", form=NodeSetting, owner=bpy.types.Node)
-_CLAY: Final = Ownership(kind=bpy.types.Material, key="preview_clay", saved=Saved.NEVER)
-_SWATCH: Final = Ownership(kind=bpy.types.Material, key="preview_swatch", saved=Saved.NEVER)
+NODE_PREVIEWS: Final = Preference(key="node_previews", form=NodePreviews)
+SETTING: Final = Attachment(key="node_preview", form=NodeSetting, owner=bpy.types.Node)
+CLAY: Final = Ownership(kind=bpy.types.Material, key="preview_clay", saved=Saved.NEVER)
+SWATCH: Final = Ownership(kind=bpy.types.Material, key="preview_swatch", saved=Saved.NEVER)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Editor", "NodePreviews", "NodeSetting", "Position", "PreviewScope", "PreviewTarget", "RenderKind"]
+__all__ = ["CLAY", "NODE_PREVIEWS", "SETTING", "SWATCH", "Editor", "NodePreviews", "NodeSetting", "Position", "PreviewScope", "PreviewTarget", "RenderKind", "enclosing", "rendered", "targets"]

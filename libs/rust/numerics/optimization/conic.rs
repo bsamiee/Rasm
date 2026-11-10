@@ -1,11 +1,10 @@
-use core::{cell::LazyCell, fmt, iter, mem, slice};
+use core::cell::LazyCell;
+use core::{fmt, iter, mem, slice};
 use std::borrow::Cow;
 
-use clarabel::{
-    algebra::{BlockConcatenate as _, CscMatrix, MatrixConcatenationError, MatrixMathMut as _, SparseFormatError, TriangularMatrixChecks as _},
-    get_infinity,
-    solver::{DefaultInfo, DefaultSettings, DefaultSolution, DefaultSolver, IPSolver as _, SolverStatus, SupportedConeT},
-};
+use clarabel::algebra::{BlockConcatenate as _, CscMatrix, MatrixConcatenationError, MatrixMathMut as _, SparseFormatError, TriangularMatrixChecks as _};
+use clarabel::get_infinity;
+use clarabel::solver::{DefaultInfo, DefaultSettings, DefaultSolution, DefaultSolver, IPSolver as _, SolverStatus, SupportedConeT};
 use itertools::{EitherOrBoth, Itertools as _};
 use nonempty_collections::NEVec;
 use ordered_float::OrderedFloat;
@@ -78,7 +77,6 @@ pub enum Refusal {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[expect(clippy::type_complexity, reason = "Base construction and ordered per-solve outcomes retain independent typed failures")]
 pub fn solve<F>(
     settings: DefaultSettings<f64>,
     termination: F,

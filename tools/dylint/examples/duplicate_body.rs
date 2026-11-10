@@ -1,9 +1,7 @@
-use core::{
-    f64::consts::PI,
-    fmt::{self, Debug, Display},
-    hint::black_box,
-    ops::Neg,
-};
+use core::f64::consts::PI;
+use core::fmt::{self, Debug, Display};
+use core::hint::black_box;
+use core::ops::Neg;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -386,7 +384,8 @@ mod contracts {
 }
 
 mod parameter_drops {
-    use core::{cell::RefCell, mem::DropGuard};
+    use core::cell::RefCell;
+    use core::mem::DropGuard;
 
     pub(super) fn values() -> Vec<&'static str> {
         struct Fields<T> {

@@ -1,22 +1,17 @@
-use clippy_utils::{
-    desugar_await,
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, is_from_proc_macro, peel_blocks,
-    res::MaybeDef as _,
-    source::walk_span_to_context,
-    sym,
-    ty::{implements_trait, same_type_modulo_regions},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::source::walk_span_to_context;
+use clippy_utils::ty::{implements_trait, same_type_modulo_regions};
+use clippy_utils::{desugar_await, fn_def_id, is_from_proc_macro, peel_blocks, sym};
 use itertools::Itertools as _;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
-use rustc_hir::{
-    ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, Item, ItemKind, MatchSource, Node,
-    def::{CtorKind, DefKind},
-    def_id::DefId,
-};
+use rustc_hir::def::{CtorKind, DefKind};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, Item, ItemKind, MatchSource, Node};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, FieldDef, TypeVisitableExt as _, VariantDef, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, FieldDef, TypeVisitableExt as _, VariantDef};
 
 use super::derives;
 use crate::{associated_trait, awaited_output, constructed, derived_impl, expanded_externally, impl_owner, is_error, parameter, result_parts, suggest};

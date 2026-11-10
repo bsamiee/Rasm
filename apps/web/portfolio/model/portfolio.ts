@@ -1,8 +1,7 @@
-import { Array, Effect, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
+import { Array, Effect, Function, Predicate, Record, Result, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
 import isEmail from 'validator/lib/isEmail.js';
 import { type AssetId, Assets } from '#/model/asset';
-import { defaulted } from '#/model/defaulted';
-import { Composition, Placement } from '#/model/placement';
+import { Composition, defaulted, Placement } from '#/model/placement';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,10 +27,9 @@ const PortfolioStructure = Schema.Struct({
     entries: defaulted(Schema.Array(Entry), []),
 });
 const uniqueIds = Schema.makeFilter(({ entries = [] }: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
-    [{ path: ['entries'], values: entries }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], values: compositions }))]
-        .map(({ path, values }) => ({ path, repeated: Record.keys(Record.filter(Array.groupBy<{ readonly id: string }, string>(values, Struct.get('id')), Predicate.not(Predicate.isTupleOf(1)))) }))
-        .filter(({ repeated }) => Array.isReadonlyArrayNonEmpty(repeated))
-        .map(({ path, repeated }) => ({ path, issue: `IDs repeat: ${repeated.join(', ')}` })),
+    Array.filterMap([{ path: ['entries'], values: entries }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], values: compositions }))], ({ path, values }) =>
+        Result.map(Result.liftPredicate(Record.keys(Record.filter(Array.groupBy<{ readonly id: string }, string>(values, Struct.get('id')), Predicate.not(Predicate.isTupleOf(1)))), Array.isReadonlyArrayNonEmpty, Function.constVoid), (repeated) => ({ path, issue: `IDs repeat: ${repeated.join(', ')}` })),
+    ),
 );
 const Portfolio = Object.assign(PortfolioStructure.check(uniqueIds), {
     assetIds: (portfolio: typeof PortfolioStructure.Type): ReadonlySet<typeof AssetId.Type> =>

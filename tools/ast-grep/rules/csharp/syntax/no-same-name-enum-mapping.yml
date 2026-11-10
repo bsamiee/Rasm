@@ -20,31 +20,7 @@ utils:
                     selector: switch_expression_arm
                 not: {pattern: {context: 'var t = k switch { $A.$FIRST => $A.$FIRST };', selector: switch_expression_arm}}
             - not: {has: {kind: switch_expression_arm, not: {any: [{matches: same-name-arm}, {matches: discard-arm}]}}}
-            - inside:
-                stopBy: end
-                kind: compilation_unit
-                has:
-                    stopBy: end
-                    kind: enum_declaration
-                    all:
-                        - has: {field: name, any: [{pattern: {context: 'class $A;', selector: identifier}}, {pattern: {context: 'class $B;', selector: identifier}}]}
-                        - not:
-                            has:
-                                field: body
-                                has:
-                                    kind: enum_member_declaration
-                                    all:
-                                        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
-                                        - not:
-                                            inside:
-                                                stopBy: end
-                                                kind: compilation_unit
-                                                has:
-                                                    stopBy: end
-                                                    pattern: $CONVERSION
-                                                    has:
-                                                        kind: switch_expression_arm
-                                                        pattern: {context: 'var t = k switch { $A.$NAME => $B.$NAME };', selector: switch_expression_arm}
+            - has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm, not: {matches: discard-arm}}}}
     text-type:
         any:
             - kind: implicit_type
@@ -108,18 +84,6 @@ utils:
                     - has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|ToUpper|ToLower|Trim|AsSpan|AsMemory)$'}
                     - has: {field: expression, matches: name-value}
             - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: name-value}}}}
-            - kind: invocation_expression
-              all:
-                - has: {field: function, pattern: {context: 'class $HELPER;', selector: identifier}}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
-                        stopBy: end
-                        kind: 'method_declaration, local_function_statement'
-                        all:
-                            - has: {field: name, pattern: {context: 'class $HELPER;', selector: identifier}}
-                            - has: {field: body, kind: arrow_expression_clause, has: {matches: member-name}}
     any-name:
         any:
             - kind: invocation_expression

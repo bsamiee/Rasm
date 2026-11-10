@@ -4,7 +4,8 @@ use claims::{assert_err, assert_ok, assert_some};
 use enum_map::EnumMap;
 use itertools::Either;
 use nonempty_collections::{NEBTreeSet, nev};
-use petgraph::{Direction, stable_graph::StableDiGraph};
+use petgraph::Direction;
+use petgraph::stable_graph::StableDiGraph;
 use rasm_dependency_graph::{Activity, DependencyError, Event, Precedence, Refusal, evaluation, layers, schedule};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

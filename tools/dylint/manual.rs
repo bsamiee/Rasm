@@ -1,6 +1,10 @@
-use core::{iter, ops::ControlFlow};
+use core::iter;
+use core::ops::ControlFlow;
 
-use clippy_utils::{eager_or_lazy::switch_to_eager_eval, fn_def_id, res::MaybeDef as _, sym, visitors::for_each_expr_without_closures};
+use clippy_utils::eager_or_lazy::switch_to_eager_eval;
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::visitors::for_each_expr_without_closures;
+use clippy_utils::{fn_def_id, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_hir::{Expr, ExprKind};
 use rustc_lint::LateContext;

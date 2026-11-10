@@ -1,11 +1,10 @@
-use std::{
-    collections::BTreeMap,
-    io,
-    path::PathBuf,
-    process::{Command, ExitStatus, Stdio},
-};
+use std::collections::BTreeMap;
+use std::io;
+use std::path::PathBuf;
+use std::process::{Command, ExitStatus, Stdio};
 
-use cargo_metadata::{Message, diagnostic::DiagnosticLevel};
+use cargo_metadata::Message;
+use cargo_metadata::diagnostic::DiagnosticLevel;
 use thiserror::Error;
 
 // --- [TYPES] ---------------------------------------------------------------------------

@@ -1,23 +1,18 @@
-use core::{any::TypeId, iter, num::NonZero, ops::Div};
+use core::any::TypeId;
+use core::iter;
+use core::num::NonZero;
+use core::ops::Div;
 
 use itertools::{Itertools as _, Position};
 use rasm_drawing::Visibility;
-use rust_decimal::{
-    RoundingStrategy,
-    prelude::{FromPrimitive as _, ToPrimitive as _},
-};
-use uom::{
-    Conversion,
-    si::{
-        self, Unit as _,
-        angle::{self, degree, minute, radian, second},
-        area,
-        f64::{Angle, Area, Length, Ratio, Volume},
-        length::{self, inch},
-        ratio::{percent, ratio},
-        volume,
-    },
-};
+use rust_decimal::RoundingStrategy;
+use rust_decimal::prelude::{FromPrimitive as _, ToPrimitive as _};
+use uom::Conversion;
+use uom::si::angle::{self, degree, minute, radian, second};
+use uom::si::f64::{Angle, Area, Length, Ratio, Volume};
+use uom::si::length::{self, inch};
+use uom::si::ratio::{percent, ratio};
+use uom::si::{self, Unit as _, area, volume};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,7 +1,11 @@
-use core::{cmp, f64::consts::TAU, num::NonZero};
+use core::cmp;
+use core::f64::consts::TAU;
+use core::num::NonZero;
 use std::collections::BTreeSet;
 
-use fidget::{context::Tree, shapes::Blend, var::Var};
+use fidget::context::Tree;
+use fidget::shapes::Blend;
+use fidget::var::Var;
 use itertools::{Itertools as _, iproduct};
 use nalgebra::{Affine3, Matrix3, Point3, Vector3};
 use statrs::statistics::{Data, OrderStatistics as _};

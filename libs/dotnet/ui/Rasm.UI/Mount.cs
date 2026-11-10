@@ -28,7 +28,7 @@ public sealed record Mount {
         get;
         internal init {
             field = value;
-            (Elements, Stops) = (AutomationElement.Indexed(value), Routing.Stops(value));
+            (Elements, Stops) = (toHashMap(AutomationElement.Flattened(value).Map(static element => (element.Id, element))), Routing.Stops(value));
         }
     }
 
@@ -68,7 +68,8 @@ public sealed record Mount {
                 .Somes()),
         });
 
-    internal bool Animating(Seq<Seq<Key>> animated) => Host.Visibility.Drawn && (Animations.Animating || !Clocks(animated).IsEmpty);
+    internal bool Animating(Seq<Seq<Key>> animated) =>
+        Host.Visibility.Drawn && (!Animations.Fades.IsEmpty || !Animations.Morphing.IsEmpty || !Animations.Leaving.IsEmpty || !Clocks(animated).IsEmpty);
 
     internal HashMap<InteractionState, float> StateLayers(Duration now) => Animations.StateLayers(Active(), now);
 
@@ -93,13 +94,16 @@ public sealed record Mount {
 
     internal Mount Tick(Duration now, Seq<Seq<Key>> animated) {
         (Animations Animations, Seq<SKRect> Damage) ticked = Animations.Tick(Scene, LastTick, now);
-        (Timers Timers, Seq<IO<Unit>> Elapsed, HashSet<Seq<Key>> Opened) timed = Timers.Tick(Scene, now);
-        Mount moved = (this with { Animations = ticked.Animations, Timers = timed.Timers, LastTick = now }).WithEffects(timed.Elapsed) switch {
-            var held => held with { Output = held.Output with { Damage = ticked.Damage + Clocks(animated).Choose(Scene.Bounds) } },
-        };
-        return timed.Opened.IsEmpty
-            ? moved with { Timers = timed.Timers.Rearmed(Scene, Routing.Pointer, Pending, now), Output = moved.Output with { Damage = Scene.Sampled(moved.Output.Damage) } }
-            : Completed(moved.Then(next => next.Reopened(timed.Opened.Fold(next.Opened, static (held, path) => held.TryAdd(path, None)))), now);
+        HashMap<Seq<Key>, Countdown> expired = Timers.Expiries.Filter(countdown => countdown.Elapsed(now));
+        HashMap<Seq<Key>, Countdown> opened = Timers.Hovers.Filter(countdown => countdown.Elapsed(now));
+        Timers timers = Timers with { Expiries = Timers.Expiries.AddOrUpdateRange(expired.Map(static _ => Countdown.Expired).AsIterable()), Hovers = Timers.Hovers.RemoveRange(opened.Keys) };
+        Mount moved = (this with { Animations = ticked.Animations, Timers = timers, LastTick = now })
+            .WithEffects(expired.Keys.ToSeq().Choose(path => Scene.Index.Find(path).Bind(static layout => layout.View.Expires)).Map(static expiry => expiry.Elapsed)) switch {
+                var held => held with { Output = held.Output with { Damage = ticked.Damage + Clocks(animated).Choose(Scene.Bounds) } },
+            };
+        return opened.IsEmpty
+            ? moved with { Timers = timers.Rearmed(Scene, Routing.Pointer, Pending, now), Output = moved.Output with { Damage = Scene.Sampled(moved.Output.Damage) } }
+            : Completed(moved.Then(next => next.Reopened(opened.Keys.Fold(next.Opened, static (held, path) => held.TryAdd(path, None)))), now);
     }
 
     private Mount Restyled(Host host, StyleSheet sheet, Duration now) {
@@ -119,10 +123,27 @@ public sealed record Mount {
         Mount done = routed.Then(static next => next.Opening()).Then(next => next.Revealing(this)).Then(next => next.Pruning(this)).Then(next => next.Layering(this)).Then(static next => next.Hovering())
             .Then(next => next.Nearing(this)).Then(next => next.Fragmenting(this)).Then(next => next.Watching(this)).Then(next => next.Tweening(this, now));
         Option<Vector2> detent = done.Routing.ActiveTrack.Bind(static track => track.Detent);
+        Seq<Change<AutomationElement>> changes = done.Projected(this)
+            ? toSeq(toTrackingHashMap(Elements.AsIterable()).Snapshot().RemoveRange(Elements.Keys).AddOrUpdateRange(done.Elements.AsIterable()).Changes.Values)
+            : [];
+        Seq<EntryMapped<AutomationElement, AutomationElement>> kept = changes.Choose(static change => change is EntryMapped<AutomationElement, AutomationElement> mapped ? Some(mapped) : None);
         return done with {
             Output = done.Output with {
                 Damage = done.Scene.Sampled(done.Output.Damage + (done.Routing.Focus != Routing.Focus ? Seq(Focused, done.Focused).Somes().Choose(done.Scene.Bounds) : [])),
-                Notices = (done.Projected(this) ? AccessibilityNotice.Changes(Elements, done.Elements, done.Host.Culture) : [])
+                Notices = (from held in kept
+                           from change in toSeq(ElementChange.Items)
+                           where change.Differs(held.From, held.To)
+                           select (AccessibilityNotice)new AccessibilityNotice.Changed(held.To.Id, change))
+                    .Concat(changes.Exists(static change => change.HasAdded || change.HasRemoved) || kept.Exists(static held => held.From.Frame != held.To.Frame) ? Seq<AccessibilityNotice>(new AccessibilityNotice.LayoutChanged()) : [])
+                    .Concat(changes.Choose(static change => change switch {
+                        EntryAdded<AutomationElement> added => Some(added.Value),
+                        EntryMapped<AutomationElement, AutomationElement> mapped when mapped.From.Accessible.Label != mapped.To.Accessible.Label || mapped.From.Accessible.Value != mapped.To.Accessible.Value => Some(mapped.To),
+                        _ => Option<AutomationElement>.None,
+                    })
+                        .Choose(element =>
+                            from interrupts in element.Accessible.Interrupts
+                            from text in element.Accessible.Spoken(done.Host.Culture)
+                            select (AccessibilityNotice)new AccessibilityNotice.Announced(text, interrupts)))
                     + (done.Focused != Focused ? done.Focused.Map(static path => (AccessibilityNotice)new AccessibilityNotice.FocusChanged(path)).ToSeq() : [])
                     + (detent.IsSome && detent != Routing.ActiveTrack.Bind(static track => track.Detent) ? Seq<AccessibilityNotice>(new AccessibilityNotice.Detent()) : [])
                     + done.Output.Notices,
@@ -146,8 +167,10 @@ public sealed record Mount {
             : Unhandled;
 
     private Mount Pruning(Mount prior) {
-        (Seq<PointerCapture> captured, Seq<PointerCapture> uncaptured) = Routing.Capture.ToSeq().Partition(held => held.Live(Scene));
-        (Seq<Latch> latched, Seq<Latch> unlatched) = Routing.Latch.ToSeq().Partition(held => held.Live(Scene));
+        (Seq<PointerCapture> captured, Seq<PointerCapture> uncaptured) = Routing.Capture.ToSeq().Partition(held =>
+            held.Switch(Scene, part: static (scene, part) => scene.EnabledPartAt(part.Owner).IsSome, handle: static (scene, handle) => scene.Scroller(handle.Owner).IsSome));
+        (Seq<Latch> latched, Seq<Latch> unlatched) = Routing.Latch.ToSeq().Partition(held =>
+            held.Switch(Scene, part: static (scene, part) => scene.EnabledPartAt(part.Owner).IsSome, scroll: static (scene, scroll) => scene.Scroller(scroll.Owner).IsSome));
         return (this with {
             Routing = Routing with {
                 Capture = captured.Head,
@@ -189,7 +212,7 @@ public sealed record Mount {
             Nearest = ReferenceEquals(prior.Scene, Scene) && prior.Routing.Pointer == Routing.Pointer
                 ? Nearest.Filter(near => Scene.Index.Find(near.Plot).Exists(static layout => layout.View is View.Plot))
                 : from at in Routing.Pointer
-                  from layout in Scene.Order.Rev().Find(layout => layout.View is View.Plot plot && (plot.Pointed.IsSome || plot.Crosshair.IsSome) && !Inert(layout.Path) && Scene.Visible(layout.Path).Exists(shown => shown.Contains(at)))
+                  from layout in Scene.Order.Rev().Find(layout => layout.View is View.Plot plot && (plot.Pointed.IsSome || plot.Crosshair.IsSome) && !layout.Path.Inits.Exists(Scene.Inert.Contains) && Scene.Visible(layout.Path).Exists(shown => shown.Contains(at)))
                   from near in Scene.Nearest(layout.Path, at)
                   select near,
         }).Unhandled;
@@ -272,8 +295,6 @@ public sealed record Mount {
     // --- [LOOKUPS]
 
     internal Option<Scroller> Thumb(Seq<Key> path) => Scene.Scroller(path).Filter(scroller => scroller.Owner != path);
-
-    internal bool Inert(Seq<Key> path) => path.Inits.Exists(Scene.Inert.Contains);
 
     private HashMap<Seq<Key>, Duration> Pending =>
         toHashMap(Scene.Triggered.Filter(held => held.Delay.IsSome && !Opened.ContainsKey(held.Layout.Path) && Over(held)).Choose(static held => held.Delay.Map(delay => (held.Layout.Path, delay))));

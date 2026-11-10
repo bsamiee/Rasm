@@ -93,6 +93,7 @@ catalog:
     '@effect/sql-pg': 4.1.2
     '@effect/sql-sqlite-node': 4.1.2
     '@effect/sql-d1': 4.1.2
+    '@effect/sql-clickhouse': 4.1.2
     '@pgsql/traverse': 18.8.3
     '@pgsql/types': 18.0.0
     pgsql-parser: 18.3.3
@@ -138,6 +139,9 @@ catalog:
     '@pulumi/docker-build': "0.1.0-alpha.1793426269"
     '@pulumi/minio': "1.0.0-alpha.1789107308"
     '@pulumi/github': "6.16.0-alpha.1793373074"
+    '@pulumi/cloudflare': "6.24.0-alpha.1793839704"
+    '@pulumi/command': "1.4.0-alpha.1794116294"
+    '@pulumiverse/doppler': "0.9.0" # Newest published Doppler SDK, `@dopplerhq/pulumi-doppler` replaces it once on npm
 
     # --- [COMPILERS]
 
@@ -229,6 +233,7 @@ catalogs:
         '@effect/atom-react': ^4.0.0
         '@effect/sql-pg': ^4.0.0
         '@effect/sql-d1': ^4.0.0
+        '@effect/sql-clickhouse': ^4.0.0
         pdfjs-dist: ^6.0.0
         nx: ^24.0.0
         '@typescript/native': 'npm:typescript@>=7.1.0-0'
@@ -269,6 +274,7 @@ update:
 allowBuilds:
     '@launchql/protobufjs': false
     '@parcel/watcher': true
+    '@pulumi/command': false
     '@pulumi/docker': false
     '@pulumi/docker-build': false
     '@tree-sitter-grammars/tree-sitter-toml': false

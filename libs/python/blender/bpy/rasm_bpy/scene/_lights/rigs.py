@@ -4,7 +4,7 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from enum import Enum
 from functools import partial
-from typing import ClassVar, Final, TYPE_CHECKING
+from typing import Annotated, ClassVar, Final, TYPE_CHECKING
 
 import bpy
 from expression import Option, Result, Some
@@ -16,27 +16,26 @@ import PyOpenColorIO
 
 from rasm_bpy.commands.invocations import Popup
 from rasm_bpy.commands.operators import Call, called, Done, Empty, Operator
-from rasm_bpy.data._extension.events import _updated
+from rasm_bpy.data._extension.events import updated
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Acquisitions, Handler
-from rasm_bpy.data._ids.evaluation import _evaluated
-from rasm_bpy.data._ids.images import _lighting, Tag
-from rasm_bpy.data._ids.ownership import _released, _retained, Mark, Ownership, Saved
+from rasm_bpy.data._ids.evaluation import evaluated_depsgraph
+from rasm_bpy.data._ids.images import lighting, Tag
+from rasm_bpy.data._ids.ownership import Mark, Ownership, released, retained, Saved
 from rasm_bpy.data._ids.store import Handle, IdName
-from rasm_bpy.data._rna.descriptors import Descriptor, Value, written
+from rasm_bpy.data._rna.descriptors import converted_value, Descriptor, Value, written
 from rasm_bpy.data._rna.paths import RnaPath, rooted
-from rasm_bpy.data._rna.properties import _reconciling, choices, enum_choices
+from rasm_bpy.data._rna.properties import choices, enum_choices, reconciling
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
 from rasm_bpy.nodes._content import Generated
 from rasm_bpy.scene._collections import created
-from rasm_bpy.scene._lights.emitters import _TEMPERATURE
-from rasm_bpy.scene._lights.groups import _light_group
-from rasm_bpy.scene._lights.linking import _LINK_STATE, _linked, _RECEIVERS
-from rasm_bpy.scene._objects import _active_object, _descendants, _extent, _ObjectState, _owned_object, _reconciled, _spawned, _StackEntry
-from rasm_bpy.scene._worlds import _BackdropSource, _reverted, _swapped
+from rasm_bpy.scene._lights.groups import light_group
+from rasm_bpy.scene._lights.linking import LINK_STATE, linked, RECEIVERS
+from rasm_bpy.scene._objects import active_object, bound_corners, descendants, ObjectState, owned_object, reconciled, spawned, StackEntry
+from rasm_bpy.scene._worlds import BackdropSource, reverted, swapped
 from rasm_bpy.settings._attachments import Attached, Attachment, Stored
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _FUNCTIONS, OperatorButton, Property
+from rasm_bpy.ui._layout.rows import FUNCTIONS, OperatorButton, Property
 from rasm_bpy.ui._layout.sections import Section
 from rasm_bpy.ui._layout.values import Store
 from rasm_bpy.ui._screens.areas import AreaQuery, Located
@@ -78,12 +77,12 @@ _TYPE: Final = Descriptor(root=bpy.types.Light, prop=bpy.types.Light.bl_rna.prop
 class RigSetup(bpy.types.PropertyGroup):
     """Focus, axes, linking, and reference of one rig empty."""
 
-    focus: bpy.props.EnumProperty(name="Focus", description="Rig center", items=choices((focus.name, *focus.value) for focus in _RigFocus), default=_RigFocus.BOUNDS.name)  # ty: ignore[invalid-type-form]
-    bone: bpy.props.StringProperty(name="Bone", description="Pose bone centering a bone focus")  # ty: ignore[invalid-type-form]
-    axes: bpy.props.EnumProperty(name="Axes", description="Azimuth and elevation axes", items=choices((axes.name, *axes.value) for axes in _RigAxes), default=_RigAxes.CAMERA.name)  # ty: ignore[invalid-type-form]
-    linked: bpy.props.BoolProperty(name="Target Alone", description="Lights reach target and descendants alone")  # ty: ignore[invalid-type-form]
-    reference: bpy.props.PointerProperty(type=bpy.types.Image, name="Reference", description="Image a matched rig reads")  # ty: ignore[invalid-type-form]
-    size: bpy.props.IntProperty(name="Reference Size", description="Side of the rendered reference image", min=1, default=256)  # ty: ignore[invalid-type-form]
+    focus: Annotated[str, bpy.props.EnumProperty(name="Focus", description="Rig center", items=choices((focus.name, *focus.value) for focus in _RigFocus), default=_RigFocus.BOUNDS.name)]
+    bone: Annotated[str, bpy.props.StringProperty(name="Bone", description="Pose bone centering a bone focus")]
+    axes: Annotated[str, bpy.props.EnumProperty(name="Axes", description="Azimuth and elevation axes", items=choices((axes.name, *axes.value) for axes in _RigAxes), default=_RigAxes.CAMERA.name)]
+    linked: Annotated[bool, bpy.props.BoolProperty(name="Target Alone", description="Lights reach target and descendants alone")]
+    reference: Annotated[bpy.types.Image | None, bpy.props.PointerProperty(type=bpy.types.Image, name="Reference", description="Image a matched rig reads")]
+    size: Annotated[int, bpy.props.IntProperty(name="Reference Size", description="Side of the rendered reference image", min=1, default=256)]
 
 
 class _RigState(msgspec.Struct, frozen=True, kw_only=True):
@@ -96,28 +95,26 @@ class _RigState(msgspec.Struct, frozen=True, kw_only=True):
 class RigPick(bpy.types.PropertyGroup):
     """Catalog rig name."""
 
-    name: bpy.props.EnumProperty(name="Rig", description="Catalog rig", items=choices((name, name, "") for name in RIGS))  # ty: ignore[invalid-type-form]
+    name: Annotated[str, bpy.props.EnumProperty(name="Rig", description="Catalog rig", items=choices((name, name, "") for name in RIGS))]
 
 
 class ReferencePick(bpy.types.PropertyGroup):
     """Reference recipe name from catalog."""
 
-    name: bpy.props.EnumProperty(  # ty: ignore[invalid-type-form]
-        name="Reference", items=choices((name, name, bpy.path.display_name(family.name.lower())) for name, (family, _) in REFERENCES.items())
-    )
+    name: Annotated[str, bpy.props.EnumProperty(name="Reference", items=choices((name, name, bpy.path.display_name(family.name.lower())) for name, (family, _) in REFERENCES.items()))]
 
 
 class ReferenceDraw(bpy.types.PropertyGroup):
     """Reference seed and color distribution."""
 
-    distribution: bpy.props.EnumProperty(name="Distribution", items=enum_choices(ReferenceDistribution), default=ReferenceDistribution.BALANCED.name)  # ty: ignore[invalid-type-form]
-    seed: bpy.props.IntProperty(name="Seed", min=0, max=SEED_BOUND)  # ty: ignore[invalid-type-form]
+    distribution: Annotated[str, bpy.props.EnumProperty(name="Distribution", items=enum_choices(ReferenceDistribution), default=ReferenceDistribution.BALANCED.name)]
+    seed: Annotated[int, bpy.props.IntProperty(name="Seed", min=0, max=SEED_BOUND)]
 
 
 class GelPick(bpy.types.PropertyGroup):
     """Gel name for reference tint."""
 
-    name: bpy.props.EnumProperty(name="Gel", items=enum_choices(Gel))  # ty: ignore[invalid-type-form]
+    name: Annotated[str, bpy.props.EnumProperty(name="Gel", items=enum_choices(Gel))]
 
 
 class _LightRig(msgspec.Struct, frozen=True, kw_only=True):
@@ -146,7 +143,7 @@ class _LightRig(msgspec.Struct, frozen=True, kw_only=True):
             )
         )
 
-    setup: ClassVar[Attachment[RigSetup]] = Attachment(key="rig", form=RigSetup, owner=bpy.types.Object, changed=Some(partial(_reconciling, bpy.types.Object, replaced)))
+    setup: ClassVar[Attachment[RigSetup]] = Attachment(key="rig", form=RigSetup, owner=bpy.types.Object, changed=Some(partial(reconciling, bpy.types.Object, replaced)))
     empty: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="rig", saved=Saved.USED)
     lights: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="rig_light", saved=Saved.USED)
     data: ClassVar[Ownership[bpy.types.Light]] = Ownership(kind=bpy.types.Light, key="rig", saved=Saved.USED, single=False)
@@ -184,7 +181,7 @@ class _LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 _LightRig.collection,
                 _LightRig.world,
                 _LightRig.reference,
-                Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(_updated, (bpy.types.Image,), referenced)),
+                Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Image,), referenced)),
                 self.section(),
                 self.references(),
             )
@@ -199,7 +196,7 @@ class _LightRig(msgspec.Struct, frozen=True, kw_only=True):
                     attachment=_LightRig.setup,
                     host=Some(Member(root=bpy.types.LayerObjects, path=("active",))),
                     retention=self.retention,
-                    fields={"reference": lambda member: Property(target=member, function=_FUNCTIONS["template_ID_preview"], keywords={"open": "image.open"})},
+                    fields={"reference": lambda member: Property(target=member, function=FUNCTIONS["template_ID_preview"], keywords={"open": "image.open"})},
                 )
             ),
         )
@@ -228,7 +225,7 @@ def _served(identity: Identity, item: bpy.types.Object) -> Outcome[bpy.types.Obj
 
 def _resolved(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[bpy.types.Object]:
     """Returns the object holding the rig state every rig command reads: the active rig empty, else the rig empty serving the active object, else the active object."""
-    return _active_object(view_layer).map(
+    return active_object(view_layer).map(
         lambda item: _LightRig.empty.marked(identity, item).map(lambda _: item).or_else_with(lambda: _LightRig.empty.found(identity, of=Some(item))).default_value(item)
     )
 
@@ -294,9 +291,8 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
             case _RigFocus.ORIGIN:
                 return Ok(target.matrix_world.translation.copy())
             case _RigFocus.BONE:
-                bone: str = setup.bone  # ty: ignore[unsound-assignment]
-                pose = Option.of_optional(target.pose).bind(lambda pose: catch(lambda: pose.bones[bone], exception=KeyError)().to_option())
-                return pose.map(lambda pose: target.matrix_world @ pose.head).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=bone))
+                pose = Option.of_optional(target.pose).bind(lambda pose: catch(lambda: pose.bones[setup.bone], exception=KeyError)().to_option())
+                return pose.map(lambda pose: target.matrix_world @ pose.head).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=setup.bone))
             case _RigFocus.CURSOR:
                 return Ok(scene.cursor.location.copy())
             case _RigFocus.BOUNDS:
@@ -322,40 +318,22 @@ def _rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Con
             case _RigAxes.WORLD:
                 return Ok(world)
 
-    def measured(found: tuple[tuple[Vector, Vector], Vector, Matrix]) -> Outcome[tuple[Matrix, float]]:
+    def bounded(found: tuple[tuple[Vector, Vector], Vector, Matrix]) -> Outcome[tuple[Matrix, float]]:
         (low, high), center, frame = found
         reach = Vector(tuple(max(abs(lower), abs(upper)) for lower, upper in zip((low - center)[:], (high - center)[:], strict=True)))
-        try:
-            radius: float = msgspec.convert(reach.length, type=Positive)  # ty: ignore[unsound-assignment]
-        except msgspec.ValidationError as error:
-            return Error(Fault.of(Reason.OUTSIDE, f"{target!r}.bound_box {low[:]} to {high[:]}", error, member="a positive radius"))
-        return Ok((Matrix.LocRotScale(center, frame, None).freeze(), radius))  # ty: ignore[invalid-argument-type]
+        return converted_value(reach.length, Positive, f"{target!r}.bound_box {low[:]} to {high[:]}").map(lambda radius: (Matrix.LocRotScale(center[:], frame, None).freeze(), radius))
 
     return (
-        _evaluated(layer)
-        .bind(lambda depsgraph: _extent((target, *_descendants(target, layer)), depsgraph).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member="bound_box")))
+        evaluated_depsgraph(layer)
+        .bind(
+            lambda depsgraph: (
+                Ok((Vector(points.min(axis=0).tolist()).freeze(), Vector(points.max(axis=0).tolist()).freeze()))
+                if (points := bound_corners((target, *descendants(target, layer)), depsgraph)).size
+                else Error(Fault.of(Reason.ABSENT, repr(target), member="bound_box"))
+            )
+        )
         .bind(lambda bounds: paired(centered(*bounds), framed()).map(lambda pair: (bounds, *pair)))
-        .bind(measured)
-    )
-
-
-def _fitted(target: bpy.types.Object, rig: bpy.types.Object, matrix: Matrix, radius: float, context: bpy.types.Context) -> Outcome[None]:
-    """Writes rig empty placement, display, and target constraint, its inverse set by `constraint.childof_set_inverse`.
-
-    Args:
-        target: Target object.
-        rig: Owned rig empty.
-        matrix: World matrix from `rig_frame`.
-        radius: Bounding radius from `rig_frame`.
-        context: Context the inverse operator runs under with the rig as object.
-
-    Returns:
-        `Ok` once written, or write and operator faults.
-    """
-    display = Snapshot.of(bpy.types.Object, {("empty_display_type",): "SPHERE", ("empty_display_size",): radius})
-    follow = Snapshot.of(bpy.types.ChildOfConstraint, {("target",): IdName.of(target)})
-    return _reconciled(_ObjectState(values=Some(display), placement=Some(matrix), constraints=Some({"Follow": _StackEntry(kind="CHILD_OF", values=Some(follow))})), rig, ()).bind(
-        lambda _: called(bpy.ops.constraint.childof_set_inverse, {"constraint": "Follow", "owner": "OBJECT"}, override=Some(context.temp_override(object=rig))).map(lambda _: None)
+        .bind(bounded)
     )
 
 
@@ -382,7 +360,7 @@ def _rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], contex
                     .map(lambda placed: (frame, placed))
                 )
 
-            return paired(_rig_frame(target, setup, context, scene, layer), _lighting(setup.reference, config)).bind(prepared)
+            return paired(_rig_frame(target, setup, context, scene, layer), lighting(setup.reference, config)).bind(prepared)
 
         def lights(rig: bpy.types.Object, home: bpy.types.Collection, placed: PlacedRig, *, alone: bool) -> Outcome[tuple[bpy.types.Object, ...]]:
             aim = Snapshot.of(bpy.types.TrackToConstraint, {("target",): IdName.of(rig), ("track_axis",): "TRACK_NEGATIVE_Z", ("up_axis",): "UP_Y"})
@@ -391,7 +369,7 @@ def _rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], contex
 
             def emitted(placement: PlacedLight, power: float) -> tuple["rna_enums.LightTypeItems", dict[RnaPath, Value]]:
                 light = placement.light
-                temperature: dict[RnaPath, Value] = {_TEMPERATURE.path: light.temperature} if light.temperature is not None else {}
+                temperature: dict[RnaPath, Value] = {("temperature",): light.temperature} if light.temperature is not None else {}
                 shared: dict[RnaPath, Value] = {("energy",): power, ("color",): light.color, ("use_temperature",): light.temperature is not None, **temperature}
                 match light.emitter:
                     case Point():
@@ -408,58 +386,66 @@ def _rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], contex
                 label = f"{target.name} {bpy.path.display_name(placement.light.role.name.lower())}"
 
                 def configured(item: bpy.types.Object, light: bpy.types.Light) -> Outcome[bpy.types.Object]:
-                    state = _ObjectState(
+                    state = ObjectState(
                         parent=Some(Handle.of(rig)),
-                        values=Some(Snapshot.of(bpy.types.Object, {("lightgroup",): _light_group(item.name)})),
+                        values=Some(Snapshot.of(bpy.types.Object, {("lightgroup",): light_group(item.name)})),
                         placement=Some(Matrix.Translation(placement.location)),
-                        constraints=Some({"Aim": _StackEntry(kind="TRACK_TO", values=Some(aim))}),
+                        constraints=Some({"Aim": StackEntry(kind="TRACK_TO", values=Some(aim))}),
                     )
-                    return _TYPE.write(light, kind).bind(lambda _: _reconciled(state, item, ())).bind(lambda _: assigned(light.type_recast(), values)).map(lambda _: item)
+                    return _TYPE.write(light, kind).bind(lambda _: reconciled(state, item, ())).bind(lambda _: assigned(light.type_recast(), values)).map(lambda _: item)
 
-                return _owned_object((_LightRig.lights, _LightRig.data), label, partial(bpy.data.lights.new, label, kind), home, identity, of=Some(rig), slot=Some(slot), scope=Some(rollback)).bind(
+                return owned_object((_LightRig.lights, _LightRig.data), label, partial(bpy.data.lights.new, label, kind), home, identity, of=Some(rig), slot=Some(slot), scope=Some(rollback)).bind(
                     lambda pair: configured(*pair)
                 )
 
             def joined_to(lit: tuple[bpy.types.Object, ...]) -> Outcome[tuple[bpy.types.Object, ...]]:
-                members = (target, *_descendants(target, layer)) if alone else ()
+                members = (target, *descendants(target, layer)) if alone else ()
                 return (
-                    accumulated(_linked(item, _RECEIVERS, members, _LINK_STATE.prop.default, target, context, identity) for item in lit).map(lambda _: None)
+                    accumulated(linked(item, RECEIVERS, members, LINK_STATE.prop.default, target, context, identity) for item in lit).map(lambda _: None)
                     if alone
-                    else accumulated(_RECEIVERS.write(item.light_linking, None) for item in lit).map(lambda _: None)
+                    else accumulated(RECEIVERS.write(item.light_linking, None) for item in lit).map(lambda _: None)
                 ).map(lambda _: lit)
 
             def backed() -> Outcome[None]:
                 return placed.background.map(
-                    lambda background: _swapped(
+                    lambda background: swapped(
                         _LightRig.world,
-                        {("lighting", "source"): _BackdropSource.COLOR.name, ("lighting", "color"): background.color, ("lighting", "strength"): background.strength},
+                        {("lighting", "source"): BackdropSource.COLOR.name, ("lighting", "color"): background.color, ("lighting", "strength"): background.strength},
                         scene,
                         identity,
                         Some(rollback),
                     ).map(lambda _: None)
-                ).default_with(lambda: _reverted(_LightRig.world, scene, identity).map(lambda _: None))
+                ).default_with(lambda: reverted(_LightRig.world, scene, identity).map(lambda _: None))
 
             return (
                 accumulated(placement.power for placement in placed.lights)
                 .bind(lambda powers: paired(accumulated(spawned_light(slot, placement, power) for slot, (placement, power) in enumerate(zip(placed.lights, powers))), backed()))
                 .bind(lambda pair: joined_to(pair[0]))
-                .bind(lambda lit: _released(stale).bind(lambda _: _LightRig.data.removed(identity)).map(lambda _: lit))
+                .bind(lambda lit: released(stale).bind(lambda _: _LightRig.data.removed(identity)).map(lambda _: lit))
             )
 
         def built(attached: Attached[RigSetup], store: Stored[_RigState], state: _RigState, placement: tuple[tuple[Matrix, float], PlacedRig]) -> Outcome[tuple[bpy.types.Object, ...]]:
             setup = attached.struct(source)
             (matrix, radius), placed = placement
+            display = Snapshot.of(bpy.types.Object, {("empty_display_type",): "SPHERE", ("empty_display_size",): radius})
+            follow = Snapshot.of(bpy.types.ChildOfConstraint, {("target",): IdName.of(target)})
 
             def copied(rig: bpy.types.Object) -> Outcome[bpy.types.Object]:
                 return Snapshot.capture(setup).bind(lambda held: held.apply(attached.struct(rig)).outcome).bind(lambda _: store.write(rig, state)).map(lambda _: rig)
 
             def empty(home: bpy.types.Collection) -> Outcome[bpy.types.Object]:
                 return existing.map(Ok).default_with(
-                    lambda: _spawned(f"{target.name} Rig", Nothing, home).bind(lambda rig: _LightRig.empty.owned(identity, rig, of=Some(target), filled=copied, scope=Some(rollback)))
+                    lambda: spawned(f"{target.name} Rig", Nothing, home).bind(lambda rig: _LightRig.empty.owned(identity, rig, of=Some(target), filled=copied, scope=Some(rollback)))
                 )
 
             return _LightRig.collection.made(identity, lambda: created(Some(scene.collection), f"{target.name} Rig"), of=Some(target), scope=Some(rollback)).bind(
-                lambda home: empty(home).bind(lambda rig: _fitted(target, rig, matrix, radius, context).bind(lambda _: lights(rig, home, placed, alone=setup.linked)))
+                lambda home: empty(home).bind(
+                    lambda rig: (
+                        reconciled(ObjectState(values=Some(display), placement=Some(matrix), constraints=Some({"Follow": StackEntry(kind="CHILD_OF", values=Some(follow))})), rig, ())
+                        .bind(lambda _: called(bpy.ops.constraint.childof_set_inverse, {"constraint": "Follow", "owner": "OBJECT"}, override=Some(context.temp_override(object=rig))))
+                        .bind(lambda _: lights(rig, home, placed, alone=setup.linked))
+                    )
+                )
             )
 
         source = existing.default_value(target)
@@ -468,30 +454,7 @@ def _rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], contex
         )
 
     with ExitStack() as rollback:
-        return _retained(paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(lambda found: placing(*found, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback)
-
-
-def _rig_removed(rig: bpy.types.Object, identity: Identity, scene: bpy.types.Scene) -> Outcome[int]:
-    """Removes rig lights, empty, and collection, restoring world it replaced.
-
-    Args:
-        rig: Owned rig empty.
-        identity: Identity reading marks.
-        scene: Scene with world to restore.
-
-    Returns:
-        Removed data-block count, or `refused` faults.
-    """
-    blocks = (
-        *_LightRig.lights.serving(identity, rig),
-        rig,
-        *(held for target in Mark.read(identity, rig).bind(lambda mark: mark.of).to_list() for held in _LightRig.collection.serving(identity, target)),
-    )
-    return (
-        _reverted(_LightRig.world, scene, identity)
-        .bind(lambda _: _released(blocks))
-        .bind(lambda count: accumulated((_LightRig.data.removed(identity), _LightRig.reference.removed(identity))).map(lambda counts: count + sum(counts)))
-    )
+        return retained(paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(lambda found: placing(*found, PyOpenColorIO.GetCurrentConfig(), rollback)), rollback)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -502,7 +465,7 @@ def rig_place(call: Call[Empty]) -> Outcome[Done]:
     """Places the rig about the active object, or about the target of the active rig empty."""
     return (
         rooted(bpy.types.ViewLayer, call.context)
-        .bind(_active_object)
+        .bind(active_object)
         .bind(lambda item: _served(call.identity, item))
         .bind(lambda target: _rigged(target, _LightRig.empty.found(call.identity, of=Some(target)), call.context, call.identity))
         .map(lambda lights: Done(notes=(("INFO", f"Placed {len(lights)} lights"),)))
@@ -521,7 +484,7 @@ def rig_arrange(call: Call[Empty]) -> Outcome[Done]:
     return _restated(
         call,
         lambda rig, setup, state: (
-            _lighting(setup.reference, PyOpenColorIO.GetCurrentConfig())
+            lighting(setup.reference, PyOpenColorIO.GetCurrentConfig())
             .bind(state.rig.arranged)
             .bind(lambda arranged: arranged.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(rig), member="reference")))
             .map(lambda arranged: msgspec.structs.replace(state, rig=msgspec.structs.replace(state.rig, layout=arranged)))
@@ -539,7 +502,19 @@ def rig_remove(call: Call[Empty]) -> Outcome[Done]:
             .filter_with(lambda rig: _LightRig.empty.marked(call.identity, rig).is_some(), lambda rig: Fault.of(Reason.ABSENT, repr(rig), member=_LightRig.empty.key)),
             rooted(bpy.types.Scene, call.context),
         )
-        .bind(lambda pair: _rig_removed(pair[0], call.identity, pair[1]))
+        .bind(
+            lambda pair: (
+                reverted(_LightRig.world, pair[1], call.identity)
+                .bind(
+                    lambda _: released((
+                        *_LightRig.lights.serving(call.identity, pair[0]),
+                        pair[0],
+                        *(held for target in Mark.read(call.identity, pair[0]).bind(lambda mark: mark.of).to_list() for held in _LightRig.collection.serving(call.identity, target)),
+                    ))
+                )
+                .bind(lambda count: accumulated((_LightRig.data.removed(call.identity), _LightRig.reference.removed(call.identity))).map(lambda counts: count + sum(counts)))
+            )
+        )
         .map(lambda count: Done(notes=(("INFO", f"Removed {count} rig data-blocks"),)))
     )
 

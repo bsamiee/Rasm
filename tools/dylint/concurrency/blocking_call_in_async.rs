@@ -1,12 +1,10 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir,
-    fn_def_id,
-    paths::{PathNS, find_crates},
-    res::MaybeDef as _,
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir;
+use clippy_utils::paths::{PathNS, find_crates};
+use clippy_utils::res::MaybeDef as _;
+use clippy_utils::{fn_def_id, sym};
 use rustc_data_structures::fx::FxHashSet;
-use rustc_hir::{CoroutineDesugaring, CoroutineKind, Expr, ExprKind, def_id::DefId};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{CoroutineDesugaring, CoroutineKind, Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{Ty, TyCtxt};
 use rustc_span::{Span, Symbol};

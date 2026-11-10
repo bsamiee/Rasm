@@ -3,61 +3,92 @@ source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/manual_serialization.rs
 ---
 error: `ContentBlock::text` receives text from `serde_json::to_string`
-  --> tools/dylint/examples/manual_serialization.rs:15:71
+  --> tools/dylint/examples/manual_serialization.rs:16:71
    |
-15 | fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) }
+16 | fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) }
    |                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: serialized here
-  --> tools/dylint/examples/manual_serialization.rs:15:90
+  --> tools/dylint/examples/manual_serialization.rs:16:90
    |
-15 | fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) }
+16 | fn tried(port: &Port) -> Result<ContentBlock, serde_json::Error> { Ok(ContentBlock::text(serde_json::to_string(port)?)) }
    |                                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: pass `port` to `ContentBlock::json`
    = note: `ContentBlock::json` returns `Result<ContentBlock, ErrorData>`
    = note: `#[deny(manual_serialization)]` on by default
 
 error: `ContentBlock::text` receives text from `serde_json::to_string`
-  --> tools/dylint/examples/manual_serialization.rs:19:8
+  --> tools/dylint/examples/manual_serialization.rs:20:8
    |
-19 |     Ok(ContentBlock::text(text))
+20 |     Ok(ContentBlock::text(text))
    |        ^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: serialized here
-  --> tools/dylint/examples/manual_serialization.rs:18:16
+  --> tools/dylint/examples/manual_serialization.rs:19:16
    |
-18 |     let text = serde_json::to_string(port)?;
+19 |     let text = serde_json::to_string(port)?;
    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: pass `port` to `ContentBlock::json`
    = note: `ContentBlock::json` returns `Result<ContentBlock, ErrorData>`
 
 error: `ContentBlock::text` receives text from `serde_json::to_string`
-  --> tools/dylint/examples/manual_serialization.rs:22:45
+  --> tools/dylint/examples/manual_serialization.rs:23:45
    |
-22 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+23 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: serialized here
-  --> tools/dylint/examples/manual_serialization.rs:22:64
+  --> tools/dylint/examples/manual_serialization.rs:23:64
    |
-22 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+23 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
    |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: pass `port` to `ContentBlock::json`
    = note: `ContentBlock::json` returns `Result<ContentBlock, ErrorData>`
 
 error: `unwrap_or_default` replaces `Error` with a fallback value
-  --> tools/dylint/examples/manual_serialization.rs:22:92
+  --> tools/dylint/examples/manual_serialization.rs:23:92
    |
-22 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+23 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
    |                                                                                            ^^^^^^^^^^^^^^^^^^^
    |
    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
    = note: `#[deny(discarded_error)]` on by default
 
-error: `unwrap_or_default` replaces `Error` with a fallback value
-  --> tools/dylint/examples/manual_serialization.rs:34:121
+error: `unwrap_or_default` stands an empty `String` in for `Err`
+  --> tools/dylint/examples/manual_serialization.rs:23:92
    |
-34 | ...e_json::to_string(port).map(|_| String::from("other")).unwrap_or_default()) }
+23 | fn defaulted(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).unwrap_or_default()) }
+   |                                                                                            ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+   = note: `#[deny(empty_string_default)]` on by default
+
+error: `direct` passes its parameters unchanged to `rmcp::model::ContentBlock::json`
+  --> tools/dylint/examples/manual_serialization.rs:27:1
+   |
+27 | fn direct(port: &Port) -> Result<ContentBlock, ErrorData> { ContentBlock::json(port) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/manual_serialization.rs:27:61
+   |
+27 | fn direct(port: &Port) -> Result<ContentBlock, ErrorData> { ContentBlock::json(port) }
+   |                                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `rmcp::model::ContentBlock::json` at each call site of `direct` and delete `direct`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `unwrap_or_default` replaces `Error` with a fallback value
+  --> tools/dylint/examples/manual_serialization.rs:35:121
+   |
+35 | ...e_json::to_string(port).map(|_| String::from("other")).unwrap_or_default()) }
    |                                                           ^^^^^^^^^^^^^^^^^^^
    |
    = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
+
+error: `unwrap_or_default` stands an empty `String` in for `Err`
+  --> tools/dylint/examples/manual_serialization.rs:35:121
+   |
+35 | ...e_json::to_string(port).map(|_| String::from("other")).unwrap_or_default()) }
+   |                                                           ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call

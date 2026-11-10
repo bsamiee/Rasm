@@ -24,8 +24,4 @@ serveNode(hosting, (env) =>
             s3Storage(env.BUCKET, { forcePathStyle: true }),
         ),
     ),
-).pipe(
-    Layer.provide(Otlp.layerFromConfig({ resource: { serviceName: hosting.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])))),
-    Layer.launch,
-    runMain,
-);
+).pipe(Layer.provide(Otlp.layerFromConfig({ resource: { serviceName: hosting.name } }).pipe(Layer.provide([FetchHttpClient.layer, OtlpSerialization.layerProtobuf]), Layer.provideMerge(Logger.layer([Logger.consoleJson, Logger.tracerLogger])))), Layer.launch, runMain);

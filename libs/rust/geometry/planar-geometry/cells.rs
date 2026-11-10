@@ -1,9 +1,8 @@
-use core::{borrow::Borrow, iter};
+use core::borrow::Borrow;
+use core::iter;
 
-use cavalier_contours::{
-    polyline::{BooleanOp, BooleanResult, PlineBooleanOptions, PlineSource as _, PlineVertex},
-    shape_algorithms::{IndexedPolyline, Shape},
-};
+use cavalier_contours::polyline::{BooleanOp, BooleanResult, PlineBooleanOptions, PlineSource as _, PlineVertex};
+use cavalier_contours::shape_algorithms::{IndexedPolyline, Shape};
 use itertools::{Either, Itertools as _, iproduct};
 use nalgebra::{Point2, Vector2};
 use spade::{DelaunayTriangulation, Triangulation as _};

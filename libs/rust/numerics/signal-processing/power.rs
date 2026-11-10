@@ -1,4 +1,6 @@
-use core::{borrow::Borrow, iter, num::NonZero};
+use core::borrow::Borrow;
+use core::iter;
+use core::num::NonZero;
 
 use apodize::{blackman_iter, cosine_iter, hamming_iter, hanning_iter, nuttall_iter, triangular_iter};
 use nalgebra::convert;
@@ -6,15 +8,11 @@ use ndarray::{Array1, Array2, Axis, Slice, Zip};
 use num_complex::Complex;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use realfft::RealFftPlanner;
-use uom::si::{
-    f64::{Frequency, Time},
-    frequency::hertz,
-};
+use uom::si::f64::{Frequency, Time};
+use uom::si::frequency::hertz;
 
-use crate::{
-    Band, Rate, Samples, Series, SpectraError,
-    transforms::{Transform, frequencies},
-};
+use crate::transforms::{Transform, frequencies};
+use crate::{Band, Rate, Samples, Series, SpectraError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

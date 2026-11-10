@@ -1,13 +1,13 @@
 use core::num::NonZero;
-use std::{borrow::Cow, collections::HashSet};
+use std::borrow::Cow;
+use std::collections::HashSet;
 
 use itertools::Itertools as _;
-use manifold_rust::{cancel::CancelToken, linalg};
+use manifold_rust::cancel::CancelToken;
+use manifold_rust::linalg;
 use nalgebra::{Isometry3, Point2, Point3, Vector3};
-use parry3d_f64::{
-    query::{IntersectResult, SplitResult},
-    shape::TriMesh,
-};
+use parry3d_f64::query::{IntersectResult, SplitResult};
+use parry3d_f64::shape::TriMesh;
 
 use crate::{MeshError, Operation, Solid, Tolerance};
 

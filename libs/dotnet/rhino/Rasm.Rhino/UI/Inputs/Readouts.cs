@@ -29,7 +29,7 @@ public abstract partial record ReadoutSource<TValue> where TValue : notnull {
         from first in Watched(scope).Map(static watched => watched.Value).Bracket()
         from control in build(first)
         from shown in show(control, first)
-        from followed in ViewOps.WhileLoaded(control,
+        from followed in ViewOps.Loaded(control,
             from watched in Watched(scope)
             from post in Mailboxes.Idle<Unit, TValue>(changed => changed.Find(unit).Traverse(state => show(control, state)).As().Map(static _ => unit))
             from current in post(unit, watched.Value)

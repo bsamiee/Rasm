@@ -32,12 +32,13 @@ RASM3004 | CSharp | Error | CatchAllArmAnalyzer
 RASM3005 | CSharp | Error | NamespaceOwnerAnalyzer
 RASM3006 | CSharp | Error | NamespaceOwnerAnalyzer
 RASM3007 | CSharp | Error | TypeParameterTestAnalyzer
-RASM3008 | CSharp | Error | FolderNameAnalyzer
 RASM3009 | CSharp | Error | QualifiedNameAnalyzer
 RASM3010 | CSharp | Error | QualifiedNameAnalyzer
 RASM3011 | CSharp | Error | RestatedInstanceAnalyzer
-RASM3012 | CSharp | Error | ForwardingPropertyAnalyzer
+RASM3012 | CSharp | Error | SingleReaderAnalyzer
 RASM3013 | CSharp | Error | ValueFactoryOverloadAnalyzer
+RASM3014 | CSharp | Error | QualifiedNameAnalyzer
+RASM3015 | CSharp | Error | SingleReaderAnalyzer
 RASM3101 | CSharp | Error | TypeNameTextAnalyzer
 RASM3102 | CSharp | Error | SentinelAnalyzer
 RASM3104 | CSharp | Error | CapturedWriteAnalyzer

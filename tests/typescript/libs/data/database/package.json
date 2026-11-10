@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-database",
     "private": true,
-    "description": "Database suites over SQLite, D1, and Postgres",
+    "description": "Database suites over SQLite, D1, Postgres, and ClickHouse",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
@@ -9,6 +9,7 @@
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@effect/platform-node": "catalog:",
+        "@effect/sql-clickhouse": "catalog:",
         "@effect/sql-d1": "catalog:",
         "@effect/sql-pg": "catalog:",
         "@effect/sql-sqlite-node": "catalog:",

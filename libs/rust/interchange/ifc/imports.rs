@@ -5,14 +5,13 @@ use std::collections::BTreeMap;
 #[cfg(feature = "fetch")]
 use bytes::Bytes;
 use data_encoding::{BASE64, BASE64_NOPAD, BASE64URL_NOPAD};
-use futures::{StreamExt as _, stream::FuturesUnordered};
+use futures::StreamExt as _;
+use futures::stream::FuturesUnordered;
 use indexmap::IndexMap;
 use itertools::Itertools as _;
 use nonempty_collections::{NEVec, NonEmptyIterator as _, iter};
-use petgraph::{
-    graphmap::DiGraphMap,
-    visit::{DfsPostOrder, Walker as _},
-};
+use petgraph::graphmap::DiGraphMap;
+use petgraph::visit::{DfsPostOrder, Walker as _};
 #[cfg(feature = "fetch")]
 use reqwest::{Client, Response};
 use sha2::{Digest as _, Sha256, Sha384, Sha512};

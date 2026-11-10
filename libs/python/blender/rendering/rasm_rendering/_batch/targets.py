@@ -19,7 +19,7 @@ from scipy.cluster.hierarchy import DisjointSet
 from typing_extensions import TypeForm
 
 from rasm_records import accumulated, Case, committed, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason, RecordFile
-from rasm_rendering._batch.queue import PackedFile, RenderFrames, RenderQueue
+from rasm_rendering._batch.queue import PackedFile, RENDER_QUEUE_DECODER, RenderFrames, RenderQueue
 from rasm_rendering._batch.supervision import argument, detached, HostCommands, LocalMachine, ran, RunCommand, RunFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -197,7 +197,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             def uploaded(spec: _ShamanFileSpec, placed: PackedFile) -> Outcome[httpx2.Response]:
                 try:
                     with Path(placed.source).open("rb") as stream:
-                        return _sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(stream))
+                        return sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(stream))
                 except OSError as error:
                     return Error(Fault.of(Reason.UNREADABLE, placed.source, error))
 
@@ -362,7 +362,7 @@ class JobFile(Case, frozen=True, kw_only=True):
         """Writes queue file into folder when set, then passes the file to command when set, returning the queue file path."""
         path = Option.of_optional(self.folder).map(lambda held: msgspec.structs.replace(host, folder=held)).default_value(host).path(queue.stem, RunFile.QUEUE)
         return (
-            RecordFile(path=path, form=RenderQueue)
+            RecordFile(path=path, decoder=RENDER_QUEUE_DECODER)
             .written(queue)
             .bind(lambda written: Option.of_optional(self.command).map(lambda program: ran((program, str(written))).map(lambda _: written)).default_value(Ok(written)))
             .map(lambda written: (Ok(str(written)),))
@@ -372,7 +372,7 @@ class JobFile(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[_Body] = Nothing) -> Outcome[httpx2.Response]:
+def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[_Body] = Nothing) -> Outcome[httpx2.Response]:
     """Sends request, non-success status as fault."""
     content = body.to_optional()
     data, headers = (
@@ -391,11 +391,11 @@ def _sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[_Bo
 
 def _exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = Nothing) -> Outcome[T]:
     """Sends request and decodes JSON reply."""
-    return _sent(client, method, path, body).bind(
+    return sent(client, method, path, body).bind(
         lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Endpoint", "Flamenco", "JobFile", "Manager", "Renderon", "Target"]
+__all__ = ["Endpoint", "Flamenco", "JobFile", "Manager", "Renderon", "Target", "sent"]

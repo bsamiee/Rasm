@@ -2,12 +2,20 @@
 language: pythonlang
 severity: error
 utils:
-    sourced:
-        any:
-            - {kind: import_from_statement, has: {field: module_name, kind: dotted_name, pattern: $SOURCE}}
-            - {kind: import_statement, has: {field: name, any: [{kind: dotted_name, pattern: $SOURCE}, {kind: aliased_import, has: {field: name, pattern: $SOURCE}}]}}
+    module-import:
+        kind: import_statement
+        has: {field: name, any: [{kind: dotted_name, pattern: $SOURCE}, {kind: aliased_import, has: {field: name, pattern: $SOURCE}}]}
+    member-import:
+        kind: import_from_statement
+        has: {field: module_name, kind: dotted_name, pattern: $SOURCE}
+    lazy: {regex: '^lazy[\t ]'}
+    eager: {not: {regex: '^lazy[\t ]'}}
 rule:
-    matches: sourced
-    follows: {stopBy: {not: {kind: 'import_statement, import_from_statement, future_import_statement, comment'}}, matches: sourced}
-message: '`$SOURCE` repeats the source of an earlier import statement'
-note: 'Import each source in one statement, as `import <module>` read through attributes or as `from <module> import <names>`'
+    kind: import_statement, import_from_statement
+    any:
+        - all: [{matches: lazy}, {matches: module-import}, {follows: {stopBy: &block {not: {kind: 'import_statement, import_from_statement, future_import_statement, comment'}}, all: [{matches: lazy}, {matches: member-import}]}}]
+        - all: [{matches: lazy}, {matches: member-import}, {follows: {stopBy: *block, all: [{matches: lazy}, {matches: module-import}]}}]
+        - all: [{matches: eager}, {matches: module-import}, {follows: {stopBy: *block, all: [{matches: eager}, {matches: member-import}]}}]
+        - all: [{matches: eager}, {matches: member-import}, {follows: {stopBy: *block, all: [{matches: eager}, {matches: module-import}]}}]
+message: '`$SOURCE` is imported both as a module and by name'
+note: 'Import `<source>` in one statement, as `import <source>` read through attributes or as `from <source> import <names>`'

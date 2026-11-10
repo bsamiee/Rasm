@@ -1,26 +1,21 @@
-use core::{
-    cell::{LazyCell, OnceCell},
-    cmp::Ordering,
-    fmt, iter,
-    num::TryFromIntError,
-    ops::RangeInclusive,
-};
+use core::cell::{LazyCell, OnceCell};
+use core::cmp::Ordering;
+use core::num::TryFromIntError;
+use core::ops::RangeInclusive;
+use core::{fmt, iter};
 use std::rc::Rc;
 
 use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jiff::fmt::temporal::Pieces;
-use petgraph::{
-    graphmap::DiGraphMap,
-    visit::{Dfs, Visitable as _, Walker as _},
-};
-use serde::{
-    Deserialize, Serialize,
-    de::{self, DeserializeOwned, DeserializeSeed, Deserializer, IntoDeserializer as _, MapAccess, SeqAccess, Unexpected, Visitor},
-};
+use petgraph::graphmap::DiGraphMap;
+use petgraph::visit::{Dfs, Visitable as _, Walker as _};
+use serde::de::{self, DeserializeOwned, DeserializeSeed, Deserializer, IntoDeserializer as _, MapAccess, SeqAccess, Unexpected, Visitor};
+use serde::{Deserialize, Serialize};
 use serde_json::value::Serializer;
-use serde_with::{DeserializeAs, base64::Base64};
-use uom::si::f64 as si;
+use serde_with::DeserializeAs;
+use serde_with::base64::Base64;
+use uom::si;
 
 use crate::{Composed, DataType, Fault, IfcError, Path, Schema, Value, ValueDescription, stored};
 
@@ -55,19 +50,19 @@ properties! {
         TypeName(Box<str>): Eq,
         IsExternal(bool): Eq,
         NumberOfStoreys(i64): Eq,
-        Station(si::Length),
-        RefElevation(si::Length),
-        ElevationOfRefHeight(si::Length),
-        ElevationOfTerrain(si::Length),
-        Height(si::Length),
-        Width(si::Length),
-        Length(si::Length),
-        Depth(si::Length),
-        NetArea(si::Area),
-        NetSideArea(si::Area),
-        CrossSectionArea(si::Area),
-        Volume(si::Volume),
-        NetVolume(si::Volume),
+        Station(si::f64::Length),
+        RefElevation(si::f64::Length),
+        ElevationOfRefHeight(si::f64::Length),
+        ElevationOfTerrain(si::f64::Length),
+        Height(si::f64::Length),
+        Width(si::f64::Length),
+        Length(si::f64::Length),
+        Depth(si::f64::Length),
+        NetArea(si::f64::Area),
+        NetSideArea(si::f64::Area),
+        CrossSectionArea(si::f64::Area),
+        Volume(si::f64::Volume),
+        NetVolume(si::f64::Volume),
     }
     "bsi::ifc-mat::prop" {
         StrengthClass(Box<str>): Eq,

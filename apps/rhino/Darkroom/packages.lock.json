@@ -43,9 +43,9 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.321, )",
-        "resolved": "3.0.321",
-        "contentHash": "aFP7GiBBIb2x9rBTuUpw/jSs0JVbTofADlt6WxmYVYQ24KPAjFYyxcnNNVVf4F/eqKyzjik170nOpURmmyJDKg=="
+        "requested": "[3.0.322, )",
+        "resolved": "3.0.322",
+        "contentHash": "aaynUqEHHeD0v1/RDW/Rq3d/gRkF8bRKJcvblhvuvyTAB+hGuzgFl4pBD9g6jGu+VqMWPinEGqu4hzG12TtnqQ=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Direct",
@@ -156,9 +156,9 @@
       },
       "TinyEXR.NET": {
         "type": "Direct",
-        "requested": "[1.2.0, )",
-        "resolved": "1.2.0",
-        "contentHash": "o9J/8suUS1o5SPzFB/Mb1dvd/ACDMjvqgzqr77a//1MGD3f9xKy76QSzzXzJIGbMz2PBwiYXaFgsv3uO2FGrQA=="
+        "requested": "[1.3.0, )",
+        "resolved": "1.3.0",
+        "contentHash": "KJmq4e9B+Z7qOdj/L3i37XE0cxhiJ5WMBweb7/0s7YoGwDr3WZWa7Y0hj4dmyM6dsiYhKxP/f0hi20sqKgwtrg=="
       },
       "UnitsNet": {
         "type": "Direct",
@@ -232,7 +232,7 @@
           "System.Numerics.Tensors": "[11.0.0-rc.3.26522.148, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.6.0, )",
-          "TinyEXR.NET": "[1.2.0, )",
+          "TinyEXR.NET": "[1.3.0, )",
           "UnitsNet": "[6.0.0-pre021, )",
           "Wacton.Unicolour": "[8.0.0, )"
         }

@@ -1,4 +1,4 @@
-"""Open session: file state, loads and saves through the host operators, dependency paths, packs through blender-asset-tracer, and projects."""
+"""Open session: file state, saves through the host operators, path rewrites, packs through blender-asset-tracer, and projects."""
 
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
@@ -21,9 +21,8 @@ import msgspec
 import numpy as np
 
 from rasm_bpy.commands.operators import called, Operation, Setting
-from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.ownership import _retained, _tracked
+from rasm_bpy.data._ids.ownership import retained, tracked
 from rasm_bpy.data._ids.store import Handle
 from rasm_bpy.data._rna.descriptors import Value
 from rasm_bpy.data._rna.paths import RnaPath
@@ -33,12 +32,12 @@ from rasm_rendering import PackedFile
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_OPTIONS: Final = Options()
+OPTIONS: Final = Options()
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _BlendFile(msgspec.Struct, frozen=True, kw_only=True):
+class BlendFile(msgspec.Struct, frozen=True, kw_only=True):
     """Session file state safe across loads."""
 
     path: Option[Path]
@@ -60,22 +59,14 @@ class _BlendFile(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class _Dependency(msgspec.Struct, frozen=True, kw_only=True):
-    """External file of original ID."""
-
-    owner: Handle[bpy.types.ID]
-    path: Path
-    present: bool
-
-
-class _Rebased(msgspec.Struct, frozen=True, kw_only=True):
+class Rebased(msgspec.Struct, frozen=True, kw_only=True):
     """Paths under source directory moved under another directory."""
 
     source: Path
     target: Path
 
 
-class _Pack(msgspec.Struct, frozen=True, kw_only=True):
+class Pack(msgspec.Struct, frozen=True, kw_only=True):
     """Packed blend file, every file the pack copied, faults of files the pack skipped, and the total and copied counts of its transfer."""
 
     blend: Path
@@ -84,19 +75,19 @@ class _Pack(msgspec.Struct, frozen=True, kw_only=True):
     transferred: tuple[int, int]
 
 
-class _TemplateVariable(msgspec.Struct, frozen=True, kw_only=True):
+class TemplateVariable(msgspec.Struct, frozen=True, kw_only=True):
     """Project variable, value type choosing variable type, an absent description leaving the host's in place."""
 
     value: Path | str | int | float
     description: str | None = None
 
 
-class _Project(msgspec.Struct, frozen=True, kw_only=True):
+class Project(msgspec.Struct, frozen=True, kw_only=True):
     """Desired project state."""
 
     name: str
     root: Path
-    variables: Mapping[str, _TemplateVariable] = MappingProxyType({})
+    variables: Mapping[str, TemplateVariable] = MappingProxyType({})
     libraries: Mapping[str, str] = MappingProxyType({})
 
 
@@ -167,12 +158,12 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     packer: BATPacker
     report: _PackReport
     release: ExitStack
-    finished: Callable[[Outcome[_Pack]], Outcome[object]]
+    finished: Callable[[Outcome[Pack]], Outcome[object]]
 
     @property
-    def pack(self) -> _Pack:
+    def pack(self) -> Pack:
         """Pack so far: blend file, copied files, skipped files as faults, and transfer counts."""
-        return _Pack(blend=self.packer.blendfile_location_abspath(), files=self.report.copied, skipped=self.report.skipped, transferred=self.packer.num_files_to_transfer())
+        return Pack(blend=self.packer.blendfile_location_abspath(), files=self.report.copied, skipped=self.report.skipped, transferred=self.packer.num_files_to_transfer())
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Runs one pack step, keeping the pack queued while steps remain, else finishing with the pack, or aborting and finishing with the refusal."""
@@ -186,17 +177,17 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 self.release.close()
                 return self.finished(Error(faults)).map(lambda _: Nothing)
 
-    def drained(self) -> Outcome[_Pack]:
+    def drained(self) -> Outcome[Pack]:
         """Runs every remaining step in one call, the form a background run takes, aborting at a refusal."""
         return (
-            _bat_called(lambda: tuple(iter(self.packer.step, False)))  # ruff: ignore[boolean-positional-value-in-call]
+            _bat_called(lambda: tuple(iter(self.packer.step, False)))
             .map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root)))
             .or_else_with(partial(_released, self.release))
             .map(lambda _: self.pack)
         )
 
 
-class _FarmTransfer(FileTransferProtocol):
+class FarmTransfer(FileTransferProtocol):
     """blender-asset-tracer transfer placing each traced file on disk at its pack path with its SHA-256, copying nothing for a farm upload to send."""
 
     __slots__ = ("_placed",)
@@ -212,15 +203,21 @@ class _FarmTransfer(FileTransferProtocol):
         """Places the session blend and every traced file present on disk, reporting each missing one."""
         hasher = get_hasher()
 
-        def placement(info: FileInfo) -> PackedFile:
-            relative: PurePath = info.relpath_in_pack  # ty: ignore[invalid-assignment]
-            return PackedFile(source=str(info.path_to_pack), path=relative.as_posix(), digest=bytes.fromhex(hasher(info.path_to_pack)))
+        def placement(info: FileInfo) -> tuple[Path, PurePath]:
+            match info.relpath_in_pack:
+                case PurePath() as relative:
+                    return info.path_to_pack, relative
+                case _:
+                    raise TypeError(info)
 
-        infos = tuple((info, info.path_to_pack.exists()) for info in batpacker.all_files_to_copy().values())
-        for info, present in infos:
+        def placed(path: Path, relative: PurePath) -> PackedFile:
+            return PackedFile(source=str(path), path=relative.as_posix(), digest=bytes.fromhex(hasher(path)))
+
+        infos = tuple((*placement(info), info.path_to_pack.exists()) for info in batpacker.all_files_to_copy().values())
+        for path, relative, present in infos:
             if not present:
-                batpacker.reporter.on_missing_file(info.path_to_pack, info.relpath_in_pack)  # ty: ignore[invalid-argument-type]
-        self._placed = (placement(batpacker.source_file_info()), tuple(placement(info) for info, present in infos if present))
+                batpacker.reporter.on_missing_file(path, relative)
+        self._placed = (placed(*placement(batpacker.source_file_info())), tuple(placed(path, relative) for path, relative, present in infos if present))
 
     @override
     def step(self) -> bool:
@@ -249,7 +246,7 @@ class _FarmTransfer(FileTransferProtocol):
 # --- [SAVES]
 
 
-def _saved(path: Path, operator: Operation, /, **params: Setting) -> Outcome[Path]:
+def saved(path: Path, operator: Operation, /, **params: Setting) -> Outcome[Path]:
     """Saves the session through a save operator and its keywords, returning the file written.
 
     Args:
@@ -263,44 +260,16 @@ def _saved(path: Path, operator: Operation, /, **params: Setting) -> Outcome[Pat
     return folder_made(path.parent).bind(lambda _: called(operator, {"filepath": str(path), **params})).map(lambda _: path if params.get("copy") is True else Path(bpy.data.filepath))
 
 
-# --- [LOADS]
-
-
-def _session_loaded(operator: Operation, /, **params: Setting) -> Outcome[_BlendFile]:
-    """Replaces session data through a load operator and its keywords, returning file state.
-
-    Args:
-        operator: `bpy.ops.wm.open_mainfile`, `revert_mainfile`, `recover_last_session`, or `read_homefile`.
-        **params: Operator keywords (`filepath`, `load_ui`, `use_scripts`, `use_factory_startup`, `use_empty`).
-
-    Returns:
-        File state after the load.
-    """
-    return called(operator, params).map(lambda _: _BlendFile.read())
-
-
 # --- [PATHS]
 
 
-def _dependencies() -> tuple[_Dependency, ...]:
-    """Returns absolute external files, tiles and sequences expanded."""
-    found: list[_Dependency] = []
-
-    def visited(owner: bpy.types.ID, path: str, _: bpy.types.BlendDataPathMeta) -> None:
-        absolute = Path(os.path.abspath(bpy.path.abspath(path, library=owner.library)))
-        found.append(_Dependency(owner=Handle.of(owner), path=absolute, present=absolute.exists()))
-
-    bpy.data.file_path_foreach(visited, flags={"SKIP_PACKED", "SKIP_WEAK_REFERENCES", "EXPAND_TOKENS", "EXPAND_SEQUENCES"})
-    return tuple(found)
-
-
-def relinked(relink: _Rebased | Mapping[tuple[Handle[bpy.types.ID], str], str]) -> dict[tuple[Handle[bpy.types.ID], str], str]:
+def relinked(relink: Rebased | Mapping[tuple[Handle[bpy.types.ID], str], str]) -> dict[tuple[Handle[bpy.types.ID], str], str]:
     """Rewrites local writable paths, returning relink that restores them."""
     changes: dict[tuple[Handle[bpy.types.ID], str], str] = {}
 
     def rewritten(owner: bpy.types.ID, path: str) -> Option[str]:
         match relink:
-            case _Rebased(source=source, target=target):
+            case Rebased(source=source, target=target):
                 return (
                     Some(Path(os.path.abspath(bpy.path.abspath(path))))
                     .filter(lambda held: held.is_relative_to(source))
@@ -337,7 +306,7 @@ def _bat_called[T](step: Callable[[], T]) -> Result[T, OSError | BlendFileError 
         return Error(error)
 
 
-def _started(target: Path | FileTransferProtocol, project: Path, options: Options, finished: Callable[[Outcome[_Pack]], Outcome[object]], /) -> Outcome[Packing]:
+def pack_started(target: Path | FileTransferProtocol, project: Path, options: Options, finished: Callable[[Outcome[Pack]], Outcome[object]], /) -> Outcome[Packing]:
     """Starts a packer copying into a pack folder or handing each traced file to a transfer, its abort held until the pack finishes.
 
     Args:
@@ -367,40 +336,10 @@ def _started(target: Path | FileTransferProtocol, project: Path, options: Option
     )
 
 
-def _packed(identity: Identity, target: Path | FileTransferProtocol, *, project: Path, finished: Callable[[Outcome[_Pack]], Outcome[None]], options: Options = _OPTIONS) -> Outcome[None]:
-    """Starts packing the saved session file and every dependency under target, blend paths rewritten to the pack, the reports queue stepping it.
-
-    Args:
-        identity: Extension whose reports queue advances the pack, whole at once in background runs.
-        target: Pack folder, or the transfer placing each traced file in place of a copy.
-        project: Root whose relative layout the pack keeps, files outside it relocated under the pack.
-        finished: Step reading the finished pack or the refusal that aborted it.
-        options: blender-asset-tracer trace options.
-
-    Returns:
-        Ok(None) once the first step ran, required fault for an unsaved or modified session, unreadable fault for an unreadable file.
-    """
-    return _started(target, project, options, finished).bind(identity.reports.queued)
-
-
-def _packed_session(target: Path | FileTransferProtocol, *, project: Path, options: Options = _OPTIONS) -> Outcome[_Pack]:
-    """Packs the saved session file and every dependency under target in one call, the form a background run takes, where no pass steps a pack.
-
-    Args:
-        target: Pack folder, or the transfer placing each traced file in place of a copy.
-        project: Root whose relative layout the pack keeps, files outside it relocated under the pack.
-        options: blender-asset-tracer trace options.
-
-    Returns:
-        Finished pack with its skipped files as faults, required fault for an unsaved or modified session, unreadable fault for an unreadable file.
-    """
-    return _started(target, project, options, Ok).bind(Packing.drained)
-
-
 # --- [PROJECTS]
 
 
-def project_reconciled(project: _Project) -> Outcome[None]:
+def project_reconciled(project: Project) -> Outcome[None]:
     """Reconciles open project with desired state, removing items it created when any write refuses."""
 
     def initialized() -> Outcome[bpy.types.BlenderProject]:
@@ -413,7 +352,7 @@ def project_reconciled(project: _Project) -> Outcome[None]:
         with ExitStack() as cleanup:
 
             def created[T](request: str, name: str, made: Callable[[], T | None], removed: Callable[[T], object]) -> Outcome[T]:
-                return _tracked(
+                return tracked(
                     cleanup,
                     removed,
                     catch(made, exception=RuntimeError)()
@@ -421,7 +360,7 @@ def project_reconciled(project: _Project) -> Outcome[None]:
                     .bind(lambda item: Option.of_optional(item).to_result_with(lambda: Fault.of(Reason.ABSENT, request, member=name))),
                 )
 
-            def placed(name: str, variable: _TemplateVariable) -> Outcome[None]:
+            def placed(name: str, variable: TemplateVariable) -> Outcome[None]:
                 kind: Literal["STRING", "INTEGER", "FLOAT"]
                 values: Mapping[RnaPath, Value]
                 match variable.value:
@@ -456,7 +395,7 @@ def project_reconciled(project: _Project) -> Outcome[None]:
             def saved_project(_: object) -> Outcome[None]:
                 return called(bpy.ops.project.config_save, {}).map(lambda _: None) if current.is_dirty else Ok(None)
 
-            return _retained(
+            return retained(
                 accumulated((assigned(current, {("name",): project.name}), *starmap(placed, project.variables.items()), *starmap(library, project.libraries.items()))).bind(saved_project), cleanup
             )
 
@@ -469,4 +408,4 @@ def project_reconciled(project: _Project) -> Outcome[None]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["project_reconciled", "relinked"]
+__all__ = ["OPTIONS", "BlendFile", "FarmTransfer", "Pack", "Packing", "Project", "Rebased", "TemplateVariable", "pack_started", "project_reconciled", "relinked", "saved"]

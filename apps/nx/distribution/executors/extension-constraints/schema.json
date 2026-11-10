@@ -1,0 +1,11 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "Extension constraints",
+    "description": "Rewrites the [tool.uv] constraint-dependencies of the project's uv manifest as one name==version row per distribution the installed Blender bundles, and each build-constraint-dependencies row naming one of them, keeping the file's layout and comments",
+    "type": "object",
+    "required": [ "manifest" ],
+    "properties": {
+        "manifest": { "type": "string", "description": "Manifest the plugin infers, relative to the project folder" }
+    }
+}

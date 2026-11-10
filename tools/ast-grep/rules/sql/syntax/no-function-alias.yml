@@ -3,7 +3,7 @@ language: sql
 severity: error
 rule:
     kind: identifier, quoted_identifier
-    regex: '(?i-u)^["`\[]?(ifnull|substring|ceiling|power|if|printf|log10|group_concat)["`\]]?$'
+    regex: '(?i-u)^["`\[]?(ifnull|substring|ceiling|pow|if|printf|log10|group_concat)["`\]]?$'
     all:
         - inside:
             kind: function_call
@@ -22,8 +22,8 @@ transform:
     COALESCE: {replace: {source: $NAME, replace: '(?i-u)^["`\[]?ifnull["`\]]?$', by: coalesce}}
     SLICE: {replace: {source: $COALESCE, replace: '(?i-u)^["`\[]?substring["`\]]?$', by: substr}}
     CEIL: {replace: {source: $SLICE, replace: '(?i-u)^["`\[]?ceiling["`\]]?$', by: ceil}}
-    POW: {replace: {source: $CEIL, replace: '(?i-u)^["`\[]?power["`\]]?$', by: pow}}
-    CHOICE: {replace: {source: $POW, replace: '(?i-u)^["`\[]?if["`\]]?$', by: iif}}
+    POWER: {replace: {source: $CEIL, replace: '(?i-u)^["`\[]?pow["`\]]?$', by: power}}
+    CHOICE: {replace: {source: $POWER, replace: '(?i-u)^["`\[]?if["`\]]?$', by: iif}}
     FORMAT: {replace: {source: $CHOICE, replace: '(?i-u)^["`\[]?printf["`\]]?$', by: format}}
     LOG: {replace: {source: $FORMAT, replace: '(?i-u)^["`\[]?log10["`\]]?$', by: log}}
     AGGREGATE: {replace: {source: $LOG, replace: '(?i-u)^["`\[]?group_concat["`\]]?$', by: string_agg}}

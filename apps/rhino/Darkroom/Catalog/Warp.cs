@@ -273,19 +273,16 @@ internal sealed record Shake(Vector2 Amplitude, Angle Rotation, float Zoom, floa
     public static Shake Default { get; } = new(Vector2.Zero, Angle.Zero, 1f, 5f, NoiseBasis.Perlin.Default.Octaves, 0, Timing.Default, Hold.MinValue);
 
     public bool Still => (Amplitude, Rotation, Zoom) == (Default.Amplitude, Default.Rotation, Default.Zoom);
-
-    public Fin<Matrix3x2> Inverse(PixelExtent extent, float time) =>
-        Pose.Shaken(extent, time, Rate, Amplitude, (float)Rotation.Radians, Zoom, Octaves, CoordinateHash.Branch(Seed, 0u, 11u)).Map(static pose => pose.Inverse);
 }
 
 internal sealed record ShutterMotion(Shake Shake, Duration Shutter, float Position) {
     public static ShutterMotion Default { get; } = new(Shake.Default, Duration.Zero, 0.5f);
 
-    public bool Open => Shutter != Duration.Zero;
-
     public Func<float, Fin<Matrix3x2>> Path(Pose motion, Matrix3x2 placed, PassContext context) =>
         ((float)Shutter.TotalSeconds, (float)Shake.Hold.Held(Shake.Timing.At(context)).TotalSeconds) switch {
-            var (duration, held) => share => Shake.Inverse(context.Extent, held - (duration * Position) + (duration * share)).Map(shaken => motion.Partial(share - Position).Inverse * shaken * placed),
+            var (duration, held) => share => Pose.Shaken(
+                    context.Extent, held - (duration * Position) + (duration * share), Shake.Rate, Shake.Amplitude, (float)Shake.Rotation.Radians, Shake.Zoom, Shake.Octaves, CoordinateHash.Branch(Shake.Seed, 0u, 11u))
+                .Map(shaken => motion.Partial(share - Position).Inverse * shaken.Inverse * placed),
         };
 }
 
@@ -295,7 +292,7 @@ internal sealed record AffineTransform(
     public static AffineTransform Default { get; } = new(
         Vector2.Zero, Angle.Zero, Vector2.One, Angle.Zero, Angle.Zero, new Vector2(0.5f), Vector2.Zero, Angle.Zero, 1f, ShutterMotion.Default, Resampling.Default);
 
-    private bool Swept => (Travel, Turn, Zoom) != (Default.Travel, Default.Turn, Default.Zoom) || (Motion.Open && !Motion.Shake.Still);
+    private bool Swept => (Travel, Turn, Zoom) != (Default.Travel, Default.Turn, Default.Zoom) || (Motion.Shutter != Duration.Zero && !Motion.Shake.Still);
 
     private bool Placed => (Offset, Rotation, Scale, SkewX, SkewY) != (Default.Offset, Default.Rotation, Default.Scale, Default.SkewX, Default.SkewY);
 

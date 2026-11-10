@@ -24,15 +24,16 @@ import OpenImageIO
 import PyOpenColorIO
 
 from rasm_bpy.data._extension.identity import Identity
-from rasm_bpy.data._extension.registration import _DISPATCHERS, Acquisitions, Declaration, Handler, Resource
+from rasm_bpy.data._extension.registration import Acquisitions, Declaration, DISPATCHERS, Handler, Resource
 from rasm_bpy.data._extension.reports import Refusal
 from rasm_bpy.data._ids.store import Handle
-from rasm_bpy.data._rna.descriptors import _assign, Descriptor
+from rasm_bpy.data._rna.descriptors import assign, Descriptor
+from rasm_bpy.data._rna.paths import root_in
 from rasm_bpy.data._rna.snapshots import Snapshot
-from rasm_bpy.render._color.spaces import _leaving, viewed
-from rasm_bpy.render._outputs.formats import _depth, _FILE_FORMATS, EXR, OutputFormat
+from rasm_bpy.render._color.spaces import flow, viewed
+from rasm_bpy.render._outputs.formats import EXR, FILE_FORMATS, OutputFormat, storage_depth
 from rasm_bpy.render._outputs.framing import FrameSize
-from rasm_bpy.render._outputs.paths import _scene_still_path
+from rasm_bpy.render._outputs.paths import image_path, view_path
 from rasm_bpy.scene.cameras import render_views
 from rasm_imaging import captured_scene_source, Depth, DisplayView, ImageFile, Layer, Multilayer, Optics, read_codes
 from rasm_records import accumulated, committed, Error, Fault, Nothing, Ok, Outcome, paired, Reason
@@ -40,10 +41,9 @@ from rasm_rendering import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _ResultKind = Literal["RENDER_RESULT", "COMPOSITING"]
+type ResultKind = Literal["RENDER_RESULT", "COMPOSITING"]
 type Consume = Callable[[CompletedRender], Outcome[Option[str]]]
-type ResultCapture = Callable[[bpy.types.Scene, PyOpenColorIO.Config], Outcome[Consume]]
-type _Receipt = Callable[[bpy.types.Scene], Outcome[tuple[Written, ...]]]
+type Receipt = Callable[[bpy.types.Scene], Outcome[tuple[Written, ...]]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -107,14 +107,16 @@ class CompletedRender(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def read(self, *, view: Option[str] = Nothing) -> Outcome[ImageFile]:
         """Reads final pixels in their captured encoding."""
         return self.space.to_result_with(partial(Fault.of, Reason.ABSENT, str(self.file.path), member="encoding colorspace")).bind(
-            lambda space: _combined_part(self.file, self.config, partial(_output, preferred=self.raw.bind(lambda raw: Option.of_optional(raw.layer))), view).map(
+            lambda space: _combined_part(self.file, self.config, partial(_selected_output, preferred=self.raw.bind(lambda raw: Option.of_optional(raw.layer))), view).map(
                 lambda file: msgspec.structs.replace(file, colorspace=space)
             )
         )
 
     def source(self, *, layer: Option[str] = Nothing, view: Option[str] = Nothing) -> Outcome[ImageFile]:
         """Reads pre-effects pixels using captured native source selection."""
-        return self.raw.to_result_with(partial(Fault.of, Reason.ABSENT, str(self.file.path), member="raw render source")).bind(lambda raw: _source(self.file, self.config, raw, layer=layer, view=view))
+        return self.raw.to_result_with(partial(Fault.of, Reason.ABSENT, str(self.file.path), member="raw render source")).bind(
+            lambda raw: source_image(self.file, self.config, raw, layer=layer, view=view)
+        )
 
 
 class _Frame(msgspec.Struct, frozen=True, kw_only=True):
@@ -172,7 +174,7 @@ class Written(msgspec.Struct, frozen=True, kw_only=True):
         cls, path: str, settings: bpy.types.ImageFormatSettings, output: Output, channels: Mapping[str, str], layer: Option[str], passes: Map[str, str], *, view: Option[str] = Nothing
     ) -> Option[Self]:
         """Returns written file when native depth maps to a storage depth, `channels` renaming one-channel source passes for a downstream reader."""
-        return _depth(settings).map(lambda held: cls(path=path, output=output, format=OutputFormat.stored(settings), depth=held, layer=layer, channels=channels, passes=passes, view=view))
+        return storage_depth(settings).map(lambda held: cls(path=path, output=output, format=OutputFormat.stored(settings), depth=held, layer=layer, channels=channels, passes=passes, view=view))
 
     @classmethod
     def scene(cls, scene: bpy.types.Scene, paths: tuple[tuple[Path, Option[str]], ...]) -> tuple[Self, ...]:
@@ -184,7 +186,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
     """Render image and target slot held until the native job completes."""
 
     target: Option[tuple[bpy.types.Image, bpy.types.RenderSlot]]
-    files: Option[_Receipt]
+    files: Option[Receipt]
     layer: Option[str]
     animation: bool
     frame: Outcome[Option[_Frame]] = Ok(Nothing)
@@ -198,7 +200,12 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
             prior = image.render_slots.active
             with ExitStack() as selection:
                 selection.callback(setattr, image.render_slots, "active", prior)
-                return _assign(image.render_slots, "active", slot).map_error(partial(Fault.of, Refusal.REFUSED, repr(image.render_slots))).bind(lambda _: _exported(image, scene, path))
+                return (
+                    assign(image.render_slots, "active", slot)
+                    .map_error(partial(Fault.of, Refusal.REFUSED, repr(image.render_slots)))
+                    .bind(lambda _: committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))))
+                    .map(lambda _: path)
+                )
 
         return self.target.to_result_with(partial(Fault.of, Refusal.REQUIRED, repr(scene), member="pre-operator render target slot")).bind(selected)
 
@@ -241,7 +248,7 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
                         settings
                         .apply(scene)
                         .outcome.bind(lambda _: self.exported(scene, path))
-                        .bind(lambda _: _RENDER_ORIGINS[identity].finished(scene, Written.scene(scene, ((path, Nothing),)), identity))
+                        .bind(lambda _: RENDER_ORIGINS[identity].finished(scene, Written.scene(scene, ((path, Nothing),)), identity))
                         .bind(lambda _: read_codes(path))
                     )
                 finally:
@@ -258,18 +265,18 @@ class _Job(msgspec.Struct, frozen=True, kw_only=True):
 class ResultRead(msgspec.Struct, frozen=True, kw_only=True):
     """Completed-frame consumer delivered on the main thread with requested native output codes."""
 
-    capture: ResultCapture
+    capture: Callable[[bpy.types.Scene, PyOpenColorIO.Config], Outcome[Consume]]
     codes: bool = False
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Consumer list holding the one render completion handler."""
-        return (_RENDER_ORIGINS,)
+        return (RENDER_ORIGINS,)
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Holds the consumer on the extension's consumer list until scope exit."""
-        consumers = _RENDER_ORIGINS[identity].consumers
+        consumers = RENDER_ORIGINS[identity].consumers
         with ExitStack() as stack:
             consumers.append(self)
             stack.callback(consumers.remove, self)
@@ -281,7 +288,7 @@ class Finish(msgspec.Struct, frozen=True, kw_only=True):
 
     run: Callable[[bpy.types.Scene, Written, Identity], Outcome[None]]
     outputs: frozenset[Output] = frozenset(Output)
-    formats: frozenset[str] = _FILE_FORMATS
+    formats: frozenset[str] = FILE_FORMATS
     depths: frozenset[Depth] = frozenset(Depth)
 
     def accepts(self, file: Written) -> bool:
@@ -314,12 +321,12 @@ class Finishing(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Native production and original camera framing used by finishing."""
-        return (FrameSize.attachment, _INTERMEDIATES, _RENDER_ORIGINS)
+        return (FrameSize.attachment, INTERMEDIATES, RENDER_ORIGINS)
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Registers finishing for native scene writes, owned preview exports, and routed File Output files."""
-        service, intermediates = _RENDER_ORIGINS[identity], _INTERMEDIATES[identity]
+        service, intermediates = RENDER_ORIGINS[identity], INTERMEDIATES[identity]
         with ExitStack() as scope:
             service.finishers.append(self)
             scope.callback(service.finishers.remove, self)
@@ -357,10 +364,10 @@ class _RenderOrigins:
         return self
 
     @contextmanager
-    def requested(self, scene: bpy.types.Scene, layer: Option[str], files: Option[_Receipt], *, animation: bool) -> Generator[None]:
+    def requested(self, scene: bpy.types.Scene, layer: Option[str], files: Option[Receipt], *, animation: bool) -> Generator[None]:
         """Borrows the pre-operator image and slot, which the caller keeps alive until completion."""
         key, prior = scene.session_uid, self.requests.get(scene.session_uid)
-        target = _built("RENDER_RESULT").to_option().bind(lambda image: Option.of_optional(image.render_slots.active).map(lambda slot: (image, slot)))
+        target = built("RENDER_RESULT").to_option().bind(lambda image: Option.of_optional(image.render_slots.active).map(lambda slot: (image, slot)))
         self.requests[key] = _Job(target=target, layer=layer, files=files, animation=animation)
         try:
             yield
@@ -375,7 +382,7 @@ class _RenderOrigins:
         return reduce(lambda done, row: done.bind(lambda _: row.windowed(scene, files, identity)), self.finishers, Ok(None))
 
 
-_INTERMEDIATES: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
+INTERMEDIATES: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -385,11 +392,7 @@ _INTERMEDIATES: Final = Resource[set[int]](made=lambda _identity: nullcontext(se
 @contextmanager
 def _origins(identity: Identity) -> Generator[_RenderOrigins]:
     """Captures requested frames before native slots can be reused, then queues their prepared consumers."""
-    service, intermediates = _RenderOrigins(), _INTERMEDIATES[identity]
-
-    def supported() -> bool:
-        manager: bpy.types.WindowManager = bpy.context.window_manager  # ty: ignore[invalid-assignment]
-        return current_thread() is main_thread() or manager.is_interface_locked
+    service, intermediates = _RenderOrigins(), INTERMEDIATES[identity]
 
     def opened(scene: bpy.types.Scene) -> Outcome[None]:
         if scene.session_uid not in intermediates and (job := service.requests.get(scene.session_uid)) is not None:
@@ -399,7 +402,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
     def captured(scene: bpy.types.Scene) -> Outcome[None]:
         if scene.session_uid in intermediates or (job := service.pending.get(scene.session_uid)) is None or not (captures := tuple(service.consumers)):
             return Ok(None)
-        if not supported():
+        if not (current_thread() is main_thread() or root_in(bpy.types.WindowManager, bpy.context).filter(lambda manager: manager.is_interface_locked).is_some()):
             service.pending[scene.session_uid] = msgspec.structs.replace(job, frame=Error(Fault.of(Refusal.REQUIRED, repr(scene), member="native interface lock for automatic render capture")))
             return Ok(None)
         config = deepcopy(PyOpenColorIO.GetCurrentConfig())
@@ -415,13 +418,12 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
                     color = config.getColorSpace(space)
                     return Some((space, Some(view) if not color.isData() and color.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE else Nothing))
 
-        output = _leaving(config, enabled, Some(linear)).bind(resolved)
+        output = flow(config, enabled, Some(linear)).default_value(Some(linear)).bind(resolved)
         render = scene.render
         settings = render.image_settings
         match scene.camera:
-            case bpy.types.Object(data=bpy.types.Camera(type="PERSP") as camera):
-                dof: bpy.types.CameraDOFSettings = camera.dof  # ty: ignore[invalid-assignment]
-                optics: tuple[float, float] | None = camera.lens, dof.aperture_fstop
+            case bpy.types.Object(data=bpy.types.Camera(type="PERSP", lens=lens, dof=bpy.types.CameraDOFSettings(aperture_fstop=fstop))):
+                optics: tuple[float, float] | None = lens, fstop
             case _:
                 optics = None
         prepared = tuple((row, row.capture(scene, config)) for row in captures)
@@ -438,7 +440,7 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
             number=scene.frame_current,
             consumers=tuple(answer for _, answer in prepared),
             coding=(
-                _depth(settings)
+                storage_depth(settings)
                 .filter(lambda held: held in {Depth.UINT8, Depth.UINT16})
                 .map(
                     lambda _: (
@@ -516,9 +518,9 @@ def _origins(identity: Identity) -> Generator[_RenderOrigins]:
 
 
 @contextmanager
-def _intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
+def intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]:
     """Hides scene renders from the extension's completed-image consumers during scope."""
-    held = _INTERMEDIATES[identity]
+    held = INTERMEDIATES[identity]
     with ExitStack() as stack:
         if scene.session_uid not in held:
             held.add(scene.session_uid)
@@ -526,28 +528,12 @@ def _intermediate(identity: Identity, scene: bpy.types.Scene) -> Generator[None]
         yield
 
 
-def _built(kind: _ResultKind) -> Outcome[bpy.types.Image]:
+def built(kind: ResultKind) -> Outcome[bpy.types.Image]:
     """Returns Render Result or shared compositor Viewer image, or absent fault before Blender creates it."""
     return next((Some(image) for image in bpy.data.images if image.type == kind), Nothing).to_result_with(partial(Fault.of, Reason.ABSENT, type(bpy.data.images).__name__, member=kind))
 
 
-def _saved(scene: bpy.types.Scene) -> Outcome[str]:
-    """Exports the displayed render result to a temporary EXR, multilayer over view layers and one unnamed RGBA part for a sequencer frame, the scene's format restored after on every path."""
-    path = Path(bpy.app.tempdir, f"{scene.session_uid}.exr")
-
-    def exported(image: bpy.types.Image) -> Outcome[Path]:
-        with _SAVED.held(scene.render.image_settings) as formatted:
-            return formatted.bind(lambda _: _exported(image, scene, path))
-
-    return _built("RENDER_RESULT").bind(exported).map(str)
-
-
-def _exported(image: bpy.types.Image, scene: bpy.types.Scene, path: Path) -> Outcome[Path]:
-    """Writes a native image through its producing scene under the current native output settings."""
-    return committed(path, lambda stage: catch(image.save_render, exception=RuntimeError)(str(stage), scene=scene).map_error(partial(Fault.of, Refusal.REFUSED, repr(image)))).map(lambda _: path)
-
-
-def _animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
+def animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
     """Reads native animation paths, preserving each configured individual camera view."""
     if (render := scene.render).is_movie_format:
         return Ok(())
@@ -560,29 +546,16 @@ def _animation_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
     ).map(lambda paths: Written.scene(scene, paths))
 
 
-def _still_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
+def still_files(scene: bpy.types.Scene) -> Outcome[tuple[Written, ...]]:
     """Reads native still-write paths under the actual format and configured camera views."""
     render = scene.render
     views = tuple(map(Some, render_views(render))) if render.use_multiview and render.image_settings.views_format == "INDIVIDUAL" else (Nothing,)
-    return accumulated(_scene_still_path(scene, view=view).map(lambda path: (path, view.map(lambda held: held.name))) for view in views).map(lambda paths: Written.scene(scene, paths))
+    return image_path(scene, render.filepath, render.file_extension, Nothing, use_extension=render.use_file_extension).map(
+        lambda text: Written.scene(scene, tuple((Path(view_path(scene, text, view)), view.map(lambda held: held.name)) for view in views))
+    )
 
 
-def _combined(path: str, config: PyOpenColorIO.Config, layer: Option[str] = Nothing, *, view: Option[str] = Nothing) -> Outcome[ImageFile]:
-    """Reads a saved render's Combined RGBA.
-
-    Args:
-        path: Saved multilayer render.
-        config: Configuration resolving native file colorspace tags.
-        layer: View layer to read, else the compositor's output, then the unnamed sequencer layer, then the first view layer.
-        view: Camera view from native part metadata, required when a layer holds more than one view.
-
-    Returns:
-        Associated RGBA image with native source colorspace, absent fault without a matching layer or view, required fault for an ambiguous camera view.
-    """
-    return Multilayer.read(Path(path)).bind(lambda file: _combined_part(file, config, lambda owners: layer.or_else_with(lambda: _output(owners)), view))
-
-
-def _source(file: Multilayer, config: PyOpenColorIO.Config, raw: RenderSource, *, layer: Option[str] = Nothing, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+def source_image(file: Multilayer, config: PyOpenColorIO.Config, raw: RenderSource, *, layer: Option[str] = Nothing, view: Option[str] = Nothing) -> Outcome[ImageFile]:
     """Reads a captured raw encoding and selected native view layer, requiring a choice when no default is proven."""
     return (
         layer
@@ -603,7 +576,22 @@ def _owners(file: Multilayer) -> dict[str, list[Layer]]:
     return owners
 
 
-def _output(owners: Mapping[str, list[Layer]], *, preferred: Option[str] = Nothing) -> Option[str]:
+def combined(path: str, config: PyOpenColorIO.Config, layer: Option[str] = Nothing, *, view: Option[str] = Nothing) -> Outcome[ImageFile]:
+    """Reads a saved render's Combined RGBA.
+
+    Args:
+        path: Saved multilayer render.
+        config: Configuration resolving native file colorspace tags.
+        layer: View layer to read, else the compositor's output, then the unnamed sequencer layer, then the first view layer.
+        view: Camera view from native part metadata, required when a layer holds more than one view.
+
+    Returns:
+        Associated RGBA image with native source colorspace, absent fault without a matching layer or view, required fault for an ambiguous camera view.
+    """
+    return Multilayer.read(Path(path)).bind(lambda file: _combined_part(file, config, lambda owners: layer.or_else_with(lambda: _selected_output(owners)), view))
+
+
+def _selected_output(owners: Mapping[str, list[Layer]], *, preferred: Option[str] = Nothing) -> Option[str]:
     """Selects Composite, unnamed output, captured raw selection, then first raw output."""
     return next((Some(name) for name in (_COMPOSITE, "") if name in owners), preferred).or_else_with(lambda: next((Some(name) for name in owners), Nothing))
 
@@ -649,9 +637,29 @@ def _rewritten(_scene: bpy.types.Scene, file: Written, _identity: Identity) -> O
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_RENDER_ORIGINS: Final = Resource[_RenderOrigins](made=_origins, renewed=Some(_RenderOrigins.renewed), prerequisites=(_DISPATCHERS, _INTERMEDIATES))
+RENDER_ORIGINS: Final = Resource[_RenderOrigins](made=_origins, renewed=Some(_RenderOrigins.renewed), prerequisites=(DISPATCHERS, INTERMEDIATES))
 rewrite: Final = Finish(run=_rewritten, formats=EXR, depths=frozenset({Depth.HALF, Depth.FLOAT}))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COMBINED", "CompletedRender", "Consume", "Finish", "Finishing", "RenderSource", "ResultCapture", "ResultRead", "Written", "rewrite"]
+__all__ = [
+    "COMBINED",
+    "INTERMEDIATES",
+    "RENDER_ORIGINS",
+    "CompletedRender",
+    "Consume",
+    "Finish",
+    "Finishing",
+    "Receipt",
+    "RenderSource",
+    "ResultKind",
+    "ResultRead",
+    "Written",
+    "animation_files",
+    "built",
+    "combined",
+    "intermediate",
+    "rewrite",
+    "source_image",
+    "still_files",
+]

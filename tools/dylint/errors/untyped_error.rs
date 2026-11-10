@@ -1,26 +1,21 @@
-use core::{iter, mem, ops::ControlFlow};
+use core::ops::ControlFlow;
+use core::{iter, mem};
 
-use clippy_utils::{
-    desugar_await,
-    diagnostics::span_lint_hir_and_then,
-    expr_or_init, find_binding_init, fn_def_id, get_expr_use_site, get_parent_expr, is_test_function,
-    macros::root_macro_call_first_node,
-    peel_blocks,
-    res::{MaybeDef as _, MaybeResPath as _},
-    sym,
-    ty::{same_type_modulo_regions, ty_from_hir_ty},
-    visitors::{for_each_expr, for_each_expr_without_closures},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::root_macro_call_first_node;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::ty::{same_type_modulo_regions, ty_from_hir_ty};
+use clippy_utils::visitors::{for_each_expr, for_each_expr_without_closures};
+use clippy_utils::{desugar_await, expr_or_init, find_binding_init, fn_def_id, get_expr_use_site, get_parent_expr, is_test_function, peel_blocks, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
-use rustc_hir::{
-    AmbigArg, Body, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, Node, TraitItem, TyKind,
-    def::{DefKind, Res},
-    def_id::{DefId, LocalDefId},
-    intravisit::{self, Visitor},
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::intravisit::{self, Visitor};
+use rustc_hir::{AmbigArg, Body, ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, FnRetTy, HirId, ImplItem, ImplItemKind, Item, ItemKind, MatchSource, Node, TraitItem, TyKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Binder, Clause, GenericArg, Ty, TypeVisitableExt as _, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{self, Binder, Clause, GenericArg, Ty, TypeVisitableExt as _};
 use rustc_span::{DesugaringKind, Span, Symbol};
 
 use super::{UntypedKind, body_output, text_source, untyped_kind};

@@ -9,8 +9,17 @@ utils:
         any:
             - matches: quote-escape
             - {kind: escape_sequence, regex: '^\\(\\|u005[cC]|U0000005[cC]|x0{0,2}5[cC])$'}
+    text-part:
+        kind: 'escape_sequence, string_literal_content, string_content, interpolation'
+    edge-quote:
+        any:
+            - has: {nthChild: {position: 1, ofRule: {matches: text-part}}, matches: quote-escape}
+            - has: {nthChild: {position: 1, ofRule: {matches: text-part}, reverse: true}, matches: quote-escape}
+            - has: {nthChild: {position: 1, ofRule: {matches: text-part}}, kind: string_content, regex: '^""'}
+            - has: {nthChild: {position: 1, ofRule: {matches: text-part}, reverse: true}, kind: string_content, regex: '""$'}
 rule:
     pattern: $LITERAL
+    not: {matches: edge-quote}
     any:
         - kind: 'string_literal, interpolated_string_expression'
           all:
@@ -19,7 +28,7 @@ rule:
             - has: {stopBy: {kind: interpolation}, matches: quote-escape}
             - not: {has: {stopBy: {kind: interpolation}, kind: escape_sequence, not: {matches: text-escape}}}
         - kind: verbatim_string_literal
-          has: {field: content, all: [{regex: '""'}, {regex: '[^"]'}]}
+          has: {field: content, all: [{regex: '""'}, {regex: '[^"]'}, {not: {regex: '^""|""$'}}]}
           not: {regex: '\n'}
         - kind: interpolated_string_expression
           all:
@@ -27,4 +36,4 @@ rule:
             - has: {kind: string_content, regex: '""'}
             - not: {regex: '\n'}
 message: '`$LITERAL` escapes quotes a raw string literal holds as written'
-note: 'Write `"""<text>"""`, `$"""` when interpolated, `$$"""` when the text holds braces, and `"""` on own lines around text starting or ending with a quote'
+note: 'Write `"""<text>"""`, `$"""` when interpolated, and `$$"""` when the text holds braces, a literal starting or ending with a quote keeps its escapes'

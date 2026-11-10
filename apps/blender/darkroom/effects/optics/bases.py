@@ -1,6 +1,6 @@
-"""Procedural texture bases cut to density over greater frame sides: their cases, the panel declaring them, their node form, and their evaluation at frame points."""
+"""Procedural texture bases cut to density over greater frame sides: their cases, the panel declaring them, and their node form."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from math import pi, tau
 from types import MemberDescriptorType
 from typing import Annotated, Final, get_args
@@ -8,13 +8,11 @@ from typing import Annotated, Final, get_args
 import bpy
 from expression import Option, Some
 import msgspec
-import numpy as np
-import numpy.typing as npt
 
-from rasm_bpy.data import Identity, Key, Value
-from rasm_bpy.nodes import decoded, Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, POSITION, sampled, Scalar, Socket, switched, Term, textures, vector, W, xyz
-from rasm_bpy.render import chosen, GraphInputs, origin
-from rasm_records import Case, Nothing, Outcome, paired, Positive
+from rasm_bpy.data import Key
+from rasm_bpy.nodes import Expr, Interface, InterfacePanel, item_key, math, MenuItem, MenuItems, menus, Scalar, Socket, switched, Term, textures, vector, xyz
+from rasm_bpy.render import GraphInputs, origin
+from rasm_records import Case, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -75,8 +73,8 @@ class White(Case, frozen=True, kw_only=True):
 
 # --- [INTERFACES] -----------------------------------------------------------------------
 
-_KINDS: Final[tuple[type[Basis], ...]] = get_args(Basis.__value__)  # ty: ignore[unsound-assignment]
-_TEXTURE: Final = Socket(key="texture", kind=bpy.types.NodeSocketMenu, description="Texture case", items=MenuItems.of(Basis).items)
+_KINDS: Final = get_args(Basis.__value__)
+TEXTURE: Final = Socket(key="texture", kind=bpy.types.NodeSocketMenu, description="Texture case", items=MenuItems.of(Basis).items)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -100,7 +98,7 @@ def bases(key: Key, chosen: Basis, description: str, name: str | None = None) ->
         cut = InterfacePanel.of(item_key(type(case), type(case).cut), Interface(inputs=case.cut.sockets), name="Density", description="Density the texture value maps to")
         return msgspec.structs.replace(own, inputs=(*texture, *own.inputs), panels=(cut,))
 
-    menu = msgspec.structs.replace(_TEXTURE, default_value=MenuItem.of(type(chosen)).name)
+    menu = msgspec.structs.replace(TEXTURE, default_value=MenuItem.of(type(chosen)).name)
     return InterfacePanel.of(key, Interface(inputs=(menu,), panels=tuple(map(panel, cased(_KINDS, chosen)))), name=name, description=description)
 
 
@@ -120,88 +118,25 @@ def textured(
         time: Signed evolution coordinate.
         seed: Seed operand.
         loss: Spatial loss subtracted before the cut.
-        streams: Draw families in output order, from `tiles.stream`.
+        streams: Draw families in output order, from `stream`.
 
     Returns:
         Density and tone per stream.
     """
 
-    def drawn(case: Basis) -> tuple[Expr, ...]:
+    def streamed(case: Basis) -> tuple[Expr, ...]:
         read = Some(lambda *path: shell.input(panel.socket(type(case), *path)))
-        return tuple(part for stream in streams for part in _drawn(case, point, time, origin(seed, float(stream)), read, loss))
+        return tuple(part for stream in streams for part in drawn(case, point, time, origin(seed, float(stream)), read, loss))
 
-    first, *rest = menus(shell.input(panel, _TEXTURE), {MenuItem.of(type(case)): drawn(case) for case in cased(_KINDS, chosen)})
+    first, *rest = menus(shell.input(panel, TEXTURE), {MenuItem.of(type(case)): streamed(case) for case in cased(_KINDS, chosen)})
     columns = (first, *rest)
     return tuple(zip(columns[::2], columns[1::2]))
-
-
-# --- [EVALUATION]
-
-
-def selected(panel: InterfacePanel, current: Basis, values: Mapping[Key, Value]) -> Outcome[Basis]:
-    """Returns the basis entry inputs hold, retaining current node settings for its selected case.
-
-    Args:
-        panel: Basis panel `bases` declared.
-        current: Basis holding node settings for its case, other cases taking defaults.
-        values: Entry input values by item key.
-
-    Returns:
-        `Ok` of the held basis. `Error` of `absent` for no texture value, `outside` for an item no case names, and `invalid` for a value outside its field.
-    """
-
-    def held(case: Basis) -> Outcome[Basis]:
-        prefix = item_key(panel.key, type(case))
-        return paired(decoded(case.texture, values, item_key(prefix, type(case).texture)), decoded(case.cut, values, item_key(prefix, type(case).cut))).bind(
-            lambda parts: decoded(msgspec.structs.replace(case, texture=parts[0], cut=parts[1]), values, prefix)
-        )
-
-    return chosen(values, _KINDS, panel, _TEXTURE).map(lambda kind: current if isinstance(current, kind) else kind()).bind(held)
-
-
-def evaluated(
-    identity: Identity,
-    field: Basis,
-    points: npt.NDArray[np.float64],
-    time: npt.NDArray[np.float64],
-    *,
-    seed: int,
-    streams: tuple[int, ...],
-    outputs: Callable[[Expr, Expr], tuple[Expr, ...]] = lambda density, tone: (density, tone),
-) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
-    """Returns selected basis outputs per stream in one native evaluation over frame points and evolution times.
-
-    Args:
-        identity: Extension owning the scratch evaluation tree.
-        field: Basis as `selected` reads it.
-        points: `(n, 2)` greater-side frame positions.
-        time: `(n,)` evolution coordinates.
-        seed: Seed.
-        streams: Draw families from `tiles.stream`, in output order.
-        outputs: Projection of density and tone expressions, retaining both by default.
-
-    Returns:
-        Native `(n,)` arrays in selected output order per stream, or scratch evaluation faults.
-    """
-    columns = {"position": np.column_stack((points, np.zeros(len(points)))), "w": time}
-    fields = tuple(part for stream in streams for part in outputs(*_drawn(field, POSITION, W, origin(float(seed), float(stream)), Nothing)))
-    return sampled(identity, columns, *fields)
-
-
-def density_range(field: Basis) -> Outcome[tuple[float, float]]:
-    """Encloses every finite native density, or returns a fault where its cut or cell-color support is unproved."""
-    density = field.cut.bounds()
-    match field:
-        case Voronoi(cell_color=True):
-            return paired(density, field.feature_cells.color_bounds()).map(lambda spans: (float((products := np.multiply.outer(*spans, dtype=np.float32)).min()), float(products.max())))
-        case _:
-            return density
 
 
 # --- [FORMS]
 
 
-def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Callable[[*tuple[object, ...]], Expr]], loss: Scalar = 0.0) -> tuple[Expr, Expr]:
+def drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Callable[[*tuple[object, ...]], Expr]], loss: Scalar = 0.0) -> tuple[Expr, Expr]:
     """Density and tone of one case at a decorrelation offset, its sockets read through `read` where the graph holds them, the record's values where it reads `Nothing`."""
     kind = type(case)
 
@@ -218,9 +153,9 @@ def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Ca
         case Voronoi(texture=cells):
             raw = textures.evolving(cells, point + offset, time, linked=linked(Voronoi.texture))
         case Wave(texture=wave):
-            phase: MemberDescriptorType = textures.Wave.phase_offset  # ty: ignore[invalid-assignment]
+            phase: object = textures.Wave.phase_offset
             travel = math("MULTIPLY_ADD", time, -tau, operand(wave.phase_offset, Wave.texture, phase))
-            raw = wave.node(point + vector("MULTIPLY", offset, (0.0, 0.0, 1.0)), linked=Some(lambda field: Some(travel) if field is phase else linked(Wave.texture).bind(lambda reader: reader(field))))
+            raw = wave.node(point + vector("MULTIPLY", offset, (0.0, 0.0, 1.0)), linked=Some(lambda field: Some(travel) if field == phase else linked(Wave.texture).bind(lambda reader: reader(field))))
         case Gabor(texture=oscillations):
             raw = textures.evolving(oscillations, point + offset, time, linked=linked(Gabor.texture))
         case Magic(texture=turbulence):
@@ -240,4 +175,4 @@ def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Ca
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Basis", "Gabor", "Magic", "Perlin", "Voronoi", "Wave", "White", "bases", "cased", "density_range", "evaluated", "selected", "textured"]
+__all__ = ["TEXTURE", "Basis", "Gabor", "Magic", "Perlin", "Voronoi", "Wave", "White", "bases", "cased", "drawn", "textured"]

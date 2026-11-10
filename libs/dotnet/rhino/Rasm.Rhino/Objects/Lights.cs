@@ -93,7 +93,7 @@ public abstract partial record LightColor {
         internal override (Color Diffuse, double Gain) Emitted(float gamma) => (Diffuse, 1d);
     }
 
-    public sealed record Blackbody(Temperature Kelvin) : LightColor {
+    public sealed record Blackbody(UnitsNet.Temperature Kelvin) : LightColor {
         internal override (Color Diffuse, double Gain) Emitted(float gamma) => Lights.Emitted(Lights.Blackbody((double)Kelvin.Kelvins), gamma);
     }
 

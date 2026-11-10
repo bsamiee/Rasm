@@ -1,5 +1,7 @@
-use clippy_utils::{diagnostics::span_lint_and_help, paths::PathNS};
-use rustc_hir::{Expr, ExprKind, def_id::DefId};
+use clippy_utils::diagnostics::span_lint_and_help;
+use clippy_utils::paths::PathNS;
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Expr, ExprKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::TyCtxt;
 

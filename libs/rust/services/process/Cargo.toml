@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-process"
 edition.workspace = true
-description       = "Child processes in groups and job objects that end with their owner, crashes included, and run to completion under a deadline"
+description       = "Child process ownership: process groups and job objects that end with their owner, detached service processes, and a run to completion under a deadline, a stop token, and a release grace"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -18,14 +18,18 @@ bench   = false
 [dependencies]
 tokio                = { workspace = true }
 tokio-util           = { workspace = true }
-process-wrap         = { workspace = true, features = ["std"] }
+process-wrap         = { workspace = true }
 nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 derive_more          = { workspace = true }
 itertools            = { workspace = true }
+tracing              = { workspace = true }
 
 [target."cfg(unix)".dependencies]
 rustix = { workspace = true }
+
+[target."cfg(windows)".dependencies]
+windows = { workspace = true, features = ["Win32_System_Threading"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

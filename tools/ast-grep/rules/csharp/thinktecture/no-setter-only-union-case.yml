@@ -109,29 +109,14 @@ utils:
     union-switch:
         kind: argument_list
         all:
-            - inside: {matches: switch-call}
+            - inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|SwitchPartially)$'}}}
             - has: {kind: argument, has: {matches: write-arm, pattern: $WRITE}}
             - has: {kind: argument, has: {matches: write-arm, not: {pattern: $WRITE}}}
-    switch-call:
-        kind: invocation_expression
-        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|SwitchPartially)$'}}
-    patch-mapping:
-        kind: method_declaration
-        all:
-            - has: {field: name, pattern: $METHOD}
-            - has: {kind: modifier, regex: '^partial$'}
-            - has: {field: parameters, has: {kind: parameter, matches: {csharp-attributed: {name: {regex: '^MappingTarget(Attribute)?$'}}}}}
 rule:
-    any:
-        - kind: lambda_expression
-          all:
-            - inside: {kind: argument, has: {field: name, kind: identifier, pattern: $ARM}}
-            - matches: setter-arm
-            - inside: {kind: argument, inside: {matches: union-switch}}
-        - kind: member_access_expression
-          all:
-            - inside: {kind: argument, has: {field: name, kind: identifier, pattern: $ARM}, inside: {kind: argument_list, inside: {matches: switch-call}}}
-            - has: {field: name, pattern: $METHOD}
-            - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: patch-mapping}}
+    kind: lambda_expression
+    all:
+        - inside: {kind: argument, has: {field: name, kind: identifier, pattern: $ARM}}
+        - matches: setter-arm
+        - inside: {kind: argument, inside: {matches: union-switch}}
 message: '`$ARM` arm writes host members from its case''s fields alone'
 note: 'Replace setter cases with `Func<<host>, IO<Unit>>` closures folded in order (`h => IO.lift(() => h.<member> = <value>)`)'

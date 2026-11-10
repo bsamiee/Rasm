@@ -3,11 +3,10 @@ use core::iter;
 use itertools::Itertools as _;
 use nalgebra::{Point3, Unit, UnitVector3, Vector2};
 use ndarray::{Array, ArrayRef, Dimension, Zip};
-use rstar::{
-    AABB, RTree,
-    primitives::{GeomWithData, Line},
-};
-use uom::si::{f64::Length, length::meter};
+use rstar::primitives::{GeomWithData, Line};
+use rstar::{AABB, RTree};
+use uom::si::f64::Length;
+use uom::si::length::meter;
 
 use crate::{Input, SolarError, finite, refused};
 

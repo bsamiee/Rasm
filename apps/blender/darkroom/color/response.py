@@ -4,7 +4,7 @@ from collections.abc import Generator
 from contextlib import contextmanager, nullcontext
 from functools import partial
 import math
-from typing import ClassVar, Final
+from typing import Annotated, ClassVar, Final
 
 from bl_ui.space_image import IMAGE_HT_header
 import bpy
@@ -36,7 +36,7 @@ _VIEWER: Final = image_type(("COMPOSITING",))
 class ResponseChart(bpy.types.PropertyGroup):
     """Screen switch charting the tone response over the Viewer image."""
 
-    shown: bpy.props.BoolProperty(name="Tone Response", description="Chart the tone and formation response over the Viewer image")  # ty: ignore[invalid-type-form]
+    shown: Annotated[bool, bpy.props.BoolProperty(name="Tone Response", description="Chart the tone and formation response over the Viewer image")]
 
 
 class _Request(msgspec.Struct, frozen=True, kw_only=True):
@@ -86,7 +86,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
                 return root_in(bpy.types.Scene, bpy.context).bind(lambda scene: latest.shown((scene.session_uid, columns))).map(lambda pair: pair[1])
             return Nothing
 
-        return root_in(bpy.types.Screen, bpy.context).map(lambda screen: CHARTED.read(identity, screen).map(partial(shown, screen))).default_value(Ok(Nothing))
+        return root_in(bpy.types.Screen, bpy.context).map(lambda screen: _CHARTED.read(identity, screen).map(partial(shown, screen))).default_value(Ok(Nothing))
 
     # --- [DEMAND]
 
@@ -94,8 +94,8 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
         """Returns sampling per actual scene and plot size demanded by chart-enabled windows, equal requests keeping their responses."""
         latest, columns, config = _LATEST[identity], _COLUMNS[identity], PyOpenColorIO.GetCurrentConfig()
         config_id = config.getCacheID()
-        manager: bpy.types.WindowManager = context.window_manager  # ty: ignore[invalid-assignment]
-        visible = tuple(dict.fromkeys(at.window for at in AreaQuery(space=bpy.types.SpaceImageEditor, ui_type=Some("IMAGE_EDITOR"), shows=Some(_VIEWER)).located(manager.windows)))
+        windows = (window for manager in root_in(bpy.types.WindowManager, context).to_list() for window in manager.windows)
+        visible = tuple(dict.fromkeys(at.window for at in AreaQuery(space=bpy.types.SpaceImageEditor, ui_type=Some("IMAGE_EDITOR"), shows=Some(_VIEWER)).located(windows)))
 
         def queued(request: _Request) -> Outcome[tuple[Job, ...]]:
             slot = request.scene.uid, request.columns
@@ -131,7 +131,23 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
             wanted = frozenset((Handle.of(scene), size) for scene, _, sizes in active for size in sizes)
             return (signal.fired() if latest.cleared(lambda request: (request.scene, request.columns) not in wanted) else Ok(None)).bind(
                 lambda _: (
-                    paired(windowed(config), accumulated(encoding(identity, scene, config).map(lambda found: found[1]) for scene, _, _ in active)).bind(
+                    paired(
+                        Option
+                        .of_optional(config.getColorSpace(PyOpenColorIO.ROLE_COMPOSITING_LOG))
+                        .map(lambda space: space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE))
+                        .bind(
+                            lambda transform: (
+                                Block
+                                .of_seq(tuple(transform) if isinstance(transform, PyOpenColorIO.GroupTransform) else (transform,))
+                                .choose(lambda member: Option.of_optional(try_downcast(PyOpenColorIO.AllocationTransform, member)))
+                                .try_head()
+                            )
+                        )
+                        .map(PyOpenColorIO.AllocationTransform.getVars)
+                        .map(lambda bounds: (bounds[0] - math.log2(GRAY), bounds[1] - math.log2(GRAY)))
+                        .to_result_with(partial(Fault.of, Reason.ABSENT, PyOpenColorIO.ROLE_COMPOSITING_LOG, member=PyOpenColorIO.AllocationTransform.__name__)),
+                        accumulated(encoding(identity, scene, config).map(lambda found: found[1]) for scene, _, _ in active),
+                    ).bind(
                         lambda parts: accumulated(requested(scene, entries, sizes, parts[0], guide) for (scene, entries, sizes), guide in zip(active, parts[1])).map(
                             lambda batches: tuple(job for jobs in batches for job in jobs)
                         )
@@ -141,7 +157,7 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
 
-        return accumulated(CHARTED.read(identity, window.screen).map(lambda held: held.shown) for window in visible).bind(
+        return accumulated(_CHARTED.read(identity, window.screen).map(lambda held: held.shown) for window in visible).bind(
             lambda shown: prepared(tuple(window for window, on in zip(visible, shown) if on))
         )
 
@@ -181,45 +197,21 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
             yield Ok((
                 *lifecycle,
                 _COLUMNS,
-                CHARTED,
+                _CHARTED,
                 PreviewScene(),
                 PreviewFeed(feed=partial(self.fed, signal)),
                 overlaid(DrawingPart(read=partial(self.chart, identity), drawn=Chart.drawn), _VIEWER, (signal, (ResponseChart, "shown"))),
             ))
 
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def windowed(config: PyOpenColorIO.Config) -> Outcome[tuple[float, float]]:
-    """Returns the stops around middle gray the compositing log role's allocation spans."""
-
-    def stops(allocation: PyOpenColorIO.AllocationTransform) -> tuple[float, float]:
-        low, high, *_ = allocation.getVars()
-        return low - math.log2(GRAY), high - math.log2(GRAY)
-
-    def window(space: PyOpenColorIO.ColorSpace) -> Option[tuple[float, float]]:
-        transform = space.getTransform(PyOpenColorIO.COLORSPACE_DIR_FROM_REFERENCE)
-        members = tuple(transform) if isinstance(transform, PyOpenColorIO.GroupTransform) else (transform,)
-        return Block.of_seq(members).choose(lambda member: Option.of_optional(try_downcast(PyOpenColorIO.AllocationTransform, member))).try_head().map(stops)
-
-    return (
-        Option
-        .of_optional(config.getColorSpace(PyOpenColorIO.ROLE_COMPOSITING_LOG))
-        .bind(window)
-        .to_result_with(partial(Fault.of, Reason.ABSENT, PyOpenColorIO.ROLE_COMPOSITING_LOG, member=PyOpenColorIO.AllocationTransform.__name__))
-    )
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-CHARTED: Final = Attachment(key=ToneResponse.key, form=ResponseChart, owner=bpy.types.Screen)
-response: Final = ToneResponse(kinds=frozenset(row.kind for row in (*tones, formation)))
+_CHARTED: Final = Attachment(key=ToneResponse.key, form=ResponseChart, owner=bpy.types.Screen)
 rows: Final = (
-    response,
-    Append(target=IMAGE_HT_header, rows=(Layout(rows=(Property(target=Member(root=CHARTED, path=("shown",)), keywords={"icon_only": True}, icon=Some("GRAPH")),), visible=Some(_VIEWER)),)),
+    ToneResponse(kinds=frozenset(row.kind for row in (*tones, formation))),
+    Append(target=IMAGE_HT_header, rows=(Layout(rows=(Property(target=Member(root=_CHARTED, path=("shown",)), keywords={"icon_only": True}, icon=Some("GRAPH")),), visible=Some(_VIEWER)),)),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CHARTED", "ResponseChart", "ToneResponse", "response", "rows", "windowed"]
+__all__ = ["rows"]

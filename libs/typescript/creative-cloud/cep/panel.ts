@@ -1,7 +1,7 @@
 import { fillColor } from '@rasm/mark';
 import { wcagContrast } from 'culori';
 import { Effect, FiberSet, Function, Layer, Logger, Predicate, Queue, Record, Schema, type Scope, Stream, Struct } from 'effect';
-import { ExtensionManifest } from '#/manifest';
+import { ExtensionManifest } from '#/index';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,20 +1,13 @@
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_parent_expr,
-    paths::PathNS,
-    res::{MaybeDef as _, MaybeResPath as _},
-    sym,
-    ty::is_copy,
-    visitors::is_local_used,
-};
-use rustc_data_structures::{
-    fx::{FxHashMap, FxIndexMap, IndexEntry},
-    unord::{UnordItems, UnordSet},
-};
-use rustc_hir::{
-    Body, BodyId, Expr, ExprKind, HirId, LetStmt, PatKind,
-    def_id::{DefId, LocalDefId},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::ty::is_copy;
+use clippy_utils::visitors::is_local_used;
+use clippy_utils::{fn_def_id, get_parent_expr, sym};
+use rustc_data_structures::fx::{FxHashMap, FxIndexMap, IndexEntry};
+use rustc_data_structures::unord::{UnordItems, UnordSet};
+use rustc_hir::def_id::{DefId, LocalDefId};
+use rustc_hir::{Body, BodyId, Expr, ExprKind, HirId, LetStmt, PatKind};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, TyCtxt};
 use rustc_span::{Ident, Span};

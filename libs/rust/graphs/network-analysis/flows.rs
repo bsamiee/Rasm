@@ -1,17 +1,17 @@
-use core::{borrow::Borrow, iter};
+use core::borrow::Borrow;
+use core::iter;
 use std::collections::{BTreeMap, BTreeSet};
 
-use petgraph::{
-    Directed, Undirected,
-    algo::dinics,
-    graph::NodeIndex,
-    graphmap::DiGraphMap,
-    visit::{Bfs, EdgeCount, EdgeRef as _, GraphProp, IntoEdges, NodeCount, Walker as _},
-};
+use petgraph::algo::dinics;
+use petgraph::graph::NodeIndex;
+use petgraph::graphmap::DiGraphMap;
+use petgraph::visit::{Bfs, EdgeCount, EdgeRef as _, GraphProp, IntoEdges, NodeCount, Walker as _};
+use petgraph::{Directed, Undirected};
 use rustworkx_core::max_weight_matching::max_weight_matching;
 use validated::Validated;
 
-use crate::{Failure, Network, NetworkError, Refusal, Weight, compact, connectivity::Cut, locate};
+use crate::connectivity::Cut;
+use crate::{Failure, Network, NetworkError, Refusal, Weight, compact, locate};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

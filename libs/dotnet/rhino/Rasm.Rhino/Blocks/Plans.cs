@@ -70,7 +70,9 @@ public static class Plans {
             change: static (document, change) =>
                 from stored in Stored(document.InstanceDefinitions, change.Row, change.Spec)
                 from added in unless(stored, Added(document, change.Spec, overrideExisting: true)).As()
-                from named in when(DefinitionMetadata.Of(change.Row) != change.Spec.Metadata, change.Spec.Metadata.Written(document.InstanceDefinitions, change.Row)).As()
+                let metadata = change.Spec.Metadata
+                from named in when(DefinitionMetadata.Of(change.Row) != metadata, Products.Accepted(() => document.InstanceDefinitions.Modify(
+                    change.Row, metadata.Name, Conversions.Unset(metadata.Description), metadata.Url, metadata.UrlTag, quiet: true))).As()
                 select unit,
             remove: static (document, remove) => Products.Accepted(() => document.InstanceDefinitions.Delete(remove.Row.Index, deleteReferences: false, quiet: true)),
             order: static (_, _) => IO.pure(unit));

@@ -1,7 +1,5 @@
-use core::{
-    cell::{Cell, Ref, RefCell},
-    hint::black_box,
-};
+use core::cell::{Cell, Ref, RefCell};
+use core::hint::black_box;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

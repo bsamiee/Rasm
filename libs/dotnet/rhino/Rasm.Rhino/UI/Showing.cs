@@ -8,7 +8,6 @@ using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Input;
-using Rhino.Input.Custom;
 using Rhino.UI;
 using Rhino.UI.Forms;
 
@@ -47,7 +46,7 @@ public static class Showing {
             window.Location = Eto.Drawing.Point.Round((PointF)main.Bounds.Center - ((SizeF)window.Size / 2f));
             window.LocalizeAndRestore(window.Row.Identity);
         })
-        from edges in ViewOps.WhileLoaded(window, held.Body.Showing)
+        from edges in ViewOps.Loaded(window, held.Body.Showing)
         select unit;
 
     // --- [DIALOGS]
@@ -99,33 +98,6 @@ public static class Showing {
         from name in IO.lift(() => Conversions.Required(RhinoGet.StringToCommandOptionName(target.EnglishTitle)))
         from opened in Documents.RunScript(doc, $"! _{target.Dialog.Command} _{name}", echo: false, display: None)
         select opened;
-
-    // --- [SCRIPTS]
-
-    internal static IO<Unit> RunScript(View view, RowScope scope, RhinoDoc doc) =>
-        from groups in Products.Each(ViewCatalog.Tree(view).Map(held => ViewOps.Bindings(held, scope)))
-        let bindings = new BindingGroup(groups.Bind(static bound => bound.Bindings))
-        let fields = bindings.Keys().Map(static key => (Caption: EntryKey.Name(key.Path), Key: key))
-        let pass =
-            from shown in scope.Shown(bindings)
-            from ended in Getters.Choice(doc, new GetterRequest<GetOption, bool>(view.Caption) {
-                Accept = new() { Nothing = Some(new NothingEntry<bool>(None, IO.pure(value: true))) },
-                Options =
-                    from field in fields
-                    let text = shown.Entries.Find(field.Key)
-                    select OptionSpecs.Plain(
-                        field.Caption,
-                        text.Bind(static held => Conversions.Present(held)),
-                        hidden: false,
-                        _ => Getters.Text(
-                            doc,
-                            new EntryRequest<GetString, string, bool>(field.Caption) { Default = text },
-                            literal: true,
-                            entered => scope.Commit(bindings, new ValueSet(HashMap((field.Key, entered.Value)))).Map(value: false))),
-            })
-            select ended
-        from ended in pass.RepeatUntil(static ended => ended)
-        select unit;
 
     // --- [PICKS]
 

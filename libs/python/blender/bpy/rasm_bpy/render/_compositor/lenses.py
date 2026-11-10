@@ -1,4 +1,4 @@
-"""Scene camera node forms: camera reads and projections, lens tilts and re-aims, imaging point maps and radial lens maps over a frame, the chief ray, the circle of confusion, and the iris on the native Bokeh Image node."""
+"""Scene camera node forms: camera reads and projections, lens tilts and re-aims, imaging point maps and radial lens distortion over a frame, the chief ray, the circle of confusion, and the iris on the native Bokeh Image node."""
 
 from collections.abc import Callable, Mapping
 from types import MappingProxyType
@@ -9,7 +9,7 @@ from expression import Some
 import msgspec
 
 from rasm_bpy.data._extension.identity import Key
-from rasm_bpy.nodes._graphs import _projected, equal, Expr, inverted, math, Scalar, SocketType, switched, Term, vector, xyz
+from rasm_bpy.nodes._graphs import equal, Expr, inverted, math, projected, Scalar, switched, Term, vector, xyz
 from rasm_bpy.nodes._interfaces import fielded, Interface, InterfacePanel, Socket, StockInput
 from rasm_bpy.nodes.functions import EXPRESSIONS, grouped
 from rasm_bpy.render._compositor.coordinates import FrameSpace
@@ -75,7 +75,7 @@ def camera_info(socket: str) -> Expr:
     return Expr(kind=bpy.types.GeometryNodeCameraInfo, inputs=(("Camera", _active()),), socket=socket).keyed("lens")
 
 
-def camera_object(socket: str, socket_type: SocketType = bpy.types.NodeSocketFloat, /) -> Expr:
+def camera_object(socket: str, socket_type: type[bpy.types.NodeSocket] = bpy.types.NodeSocketFloat, /) -> Expr:
     """Reads one Object Info output of the scene camera (world `Location`, `Rotation`) in a socket class's shape."""
     return Expr(kind=bpy.types.GeometryNodeObjectInfo, inputs=(("Object", _active()),), socket=socket, socket_type=socket_type)
 
@@ -97,7 +97,7 @@ def seen(local: Expr, lens: Expr, coverage: Scalar = 1.0) -> Expr:
     Returns:
         Frame fractions from the bottom-left corner with front-facing coverage in Z.
     """
-    position = vector("MULTIPLY_ADD", _projected(local, lens), (0.5, 0.5, 0.0), (0.5, 0.5, 0.0))
+    position = vector("MULTIPLY_ADD", projected(local, lens), (0.5, 0.5, 0.0), (0.5, 0.5, 0.0))
     return vector("MULTIPLY_ADD", (0.0, 0.0, 1.0), (local["Z"] < 0.0) * coverage, position)
 
 
@@ -114,7 +114,7 @@ def tilted(uv: Expr, lens: Expr, heading: Scalar, elevation: Scalar, *, forward:
     Returns:
         Source positions and front-facing geometric coverage in Z.
     """
-    ray = _projected(vector("MULTIPLY_ADD", uv, (2.0, 2.0, 0.0), (-1.0, -1.0, 1.0)), inverted(lens))
+    ray = projected(vector("MULTIPLY_ADD", uv, (2.0, 2.0, 0.0), (-1.0, -1.0, 1.0)), inverted(lens))
     turned = (
         rotated(rotated(ray, elevation, axis="X_AXIS"), math("MULTIPLY", heading, -1.0), axis="Y_AXIS")
         if forward
@@ -173,7 +173,7 @@ def chief_ray(image: Annotated[Expr, bpy.types.NodeSocketColor]) -> Mapping[Key,
     """Cosine between the scene camera's axis and the ray through each pixel of an image of its frame, sensor fit and shift included, its fourth power the natural illumination falloff."""
     pixel = FrameSpace.of(image, 1.0).fraction
     inverse = inverted(camera_info("Projection Matrix"))
-    near, middle = (_projected(vector("MULTIPLY_ADD", pixel, (2.0, 2.0, 0.0), (-1.0, -1.0, plane)), inverse) for plane in (-1.0, 0.0))
+    near, middle = (projected(vector("MULTIPLY_ADD", pixel, (2.0, 2.0, 0.0), (-1.0, -1.0, plane)), inverse) for plane in (-1.0, 0.0))
     return {"cosine": abs(vector("NORMALIZE", middle - near)["Z"])}
 
 

@@ -37,7 +37,7 @@ public struct Lockfile: Sendable {
         _ body: @escaping @Sendable () async throws(Failure) -> Value,
     ) async throws(Failure) -> Value {
         var generator = SystemRandomNumberGenerator()
-        let (date, start): (Date, _) = (Date(), clock.now)
+        let (date, start) = (Date(), clock.now)
         let now: @Sendable () -> Duration = { .seconds(date.timeIntervalSince1970) + start.duration(to: clock.now) }
         let holder: Holder<Failure> = try await acquire(lockfiles, delays: lockfiles.map { lockfile in lockfile.retry?.delays(using: &generator) ?? [] }, clock: clock, now: now)
         let work: @Sendable () async throws(Failure) -> Value = lockfiles.indices.reduce(body) { work, index in
@@ -65,8 +65,8 @@ public struct Lockfile: Sendable {
         }
         guard case (let index, let error)? = acquired.failure else { return Holder(acquired.held) }
         let released: Result<Void, Failure> = release(acquired.held)
-        guard error.reason.is(\.held), case .success = released, let delay: Duration = delays[index].first else { throw Failure.lock(error).releasing(released) }
-        let blocked: URL = lockfiles[index].url
+        guard error.reason.is(\.held), case .success = released, let delay = delays[index].first else { throw Failure.lock(error).releasing(released) }
+        let blocked = lockfiles[index].url
         logger.debug("Waiting up to \(delay, privacy: .public) for held lock \(blocked.path(percentEncoded: false), privacy: .private)")
         try await race {
             () async throws(Failure) in
@@ -84,7 +84,7 @@ public struct Lockfile: Sendable {
 
     private static func release<Failure: LockFailure>(_ held: [Held]) -> Result<Void, Failure> {
         held.reversed().reduce(.success(())) { released, lock in
-            let current: Result<Void, Failure> = Result { () throws(FileFailure) in try lock.release() }.mapError(Failure.lock)
+            let current = Result { () throws(FileFailure) in try lock.release() }.mapError(Failure.lock)
             return released.mapError { error in error.releasing(current) }.flatMap { _ in current }
         }
     }
@@ -131,7 +131,7 @@ private struct Held: Equatable, Sendable {
 
     func updated(at now: Duration) throws(FileFailure) -> Self {
         try unchanged()
-        var touched: URL = url
+        var touched = url
         var values = URLResourceValues()
         values.contentModificationDate = Date(timeIntervalSince1970: now / .seconds(1))
         let present: Void? = try ifPresent(url) { try touched.setResourceValues(values) }
@@ -151,7 +151,7 @@ private struct Held: Equatable, Sendable {
     }
 
     private static func current(_ url: URL) throws(FileFailure) -> Self {
-        guard let held: Self = try stamped(url) else { throw FileFailure(file: url, reason: .compromised) }
+        guard let held = try stamped(url) else { throw FileFailure(file: url, reason: .compromised) }
         return held
     }
 

@@ -2,24 +2,6 @@
 language: rustlang
 severity: error
 utils:
-    let-else-branch:
-        kind: if_expression
-        all:
-            - has: {field: condition, kind: let_condition, pattern: $COND}
-            - has: {field: consequence, kind: block}
-            - has:
-                field: alternative
-                kind: else_clause
-                has:
-                    kind: block
-                    any:
-                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: rust-non-item-statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
-                        - pattern: $X
-    fallback:
-        kind: match_arm
-        all:
-            - has: {field: pattern, kind: match_pattern, regex: '^_$'}
-            - has: {field: value, pattern: $X}
     arm-binding:
         kind: identifier
         pattern: $BOUND
@@ -33,20 +15,13 @@ utils:
 rule:
     kind: match_arm
     all:
-        - has: {field: pattern, kind: match_pattern, pattern: $P, not: {has: {field: condition, pattern: $_}}}
-        - has:
-            field: value
-            any:
-                - matches: let-else-branch
-                - kind: block
-                  all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
-        - precedes: {matches: fallback, pattern: $FALLBACK}
+        - matches: rust-guard-foldable-arm
+        - has: {field: pattern, pattern: $P}
+        - has: {field: value, any: [{kind: if_expression, has: {field: condition, pattern: $COND}}, {has: {stopBy: {kind: if_expression}, kind: if_expression, has: {field: condition, pattern: $COND}}}]}
         - not: {has: {field: value, any: [{matches: binding-test}, {has: {stopBy: end, matches: binding-test}}]}}
-        - not: {matches: rust-else-reads-arm-binding}
+        - precedes: {kind: match_arm, pattern: $FALLBACK}
 labels:
-    P: {style: primary, message: 'Arm nesting the `if let`'}
+    P: {style: primary, message: 'Arm nesting the `if`'}
     FALLBACK: {style: secondary, message: 'Catch-all arm the `else` repeats'}
 message: 'Arm `$P` nests `if $COND` with an `else` repeating the catch-all arm'
-note: 'Move the `let` into an arm guard, `<pattern> if let <binding> = <value> => <body>`'
+note: 'Move the condition into an arm guard, `<pattern> if <condition> => <body>`'

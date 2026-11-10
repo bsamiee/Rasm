@@ -5,25 +5,20 @@ use std::{io, panic, process};
 
 use clap::{CommandFactory, FromArgMatches};
 use crossterm::terminal;
-use futures::{
-    Stream, StreamExt as _, executor,
-    future::{Either, select},
-};
-use inquire::{InquireError, error::InquireResult};
+use futures::future::{Either, select};
+use futures::{Stream, StreamExt as _, executor};
+use inquire::InquireError;
+use inquire::error::InquireResult;
 use minus::MinusError;
 use nonempty_collections::NEVec;
-use rasm_command::{
-    Augmented, CommandError, Process,
-    telemetry::{Defaults, Failure, Handle, Layer},
-};
+use rasm_command::telemetry::{Defaults, Failure, Handle, Layer};
+use rasm_command::{Augmented, CommandError, Invocation};
 use serde::Serialize;
 use sysexits::ExitCode;
-use tokio::{runtime::Builder, task};
-use tracing_indicatif::{
-    IndicatifLayer,
-    filter::{IndicatifFilter, hide_indicatif_span_fields},
-    suspend_tracing_indicatif,
-};
+use tokio::runtime::Builder;
+use tokio::task;
+use tracing_indicatif::filter::{IndicatifFilter, hide_indicatif_span_fields};
+use tracing_indicatif::{IndicatifLayer, suspend_tracing_indicatif};
 use tracing_subscriber::fmt::format::DefaultFields;
 use validated::Validated;
 
@@ -94,7 +89,7 @@ where
         stderr,
         progress.with_filter(IndicatifFilter::new(false)).and_then(layer),
         |Augmented { options: _, args }| runtime(args),
-        async move |Process { args: Augmented { options, args }, styles, mut signals, filter, level: _ }| {
+        async move |Invocation { args: Augmented { options, args }, styles, mut signals, filter, level: _ }| {
             inquire::set_global_render_config(theme::prompts(&styles));
             let header = *styles.get_header();
             task::spawn_blocking(move || {

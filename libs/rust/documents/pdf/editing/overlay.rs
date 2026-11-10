@@ -3,18 +3,14 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use color::{OpaqueColor, Srgb};
 use hayro_syntax::object::dict::keys::{COLORSPACE, CONTENTS, N, RESOURCES};
-use krilla::{
-    SerializeSettings,
-    blend::BlendMode,
-    configure::{ConfigurationBuilder, PdfVersion},
-    geom::Size,
-    page::PageSettings,
-    pdf::PdfDocument,
-};
-use lopdf::{
-    Dictionary, Object, ObjectId,
-    content::{Content, Operation},
-};
+use krilla::SerializeSettings;
+use krilla::blend::BlendMode;
+use krilla::configure::{ConfigurationBuilder, PdfVersion};
+use krilla::geom::Size;
+use krilla::page::PageSettings;
+use krilla::pdf::PdfDocument;
+use lopdf::content::{Content, Operation};
+use lopdf::{Dictionary, Object, ObjectId};
 use nonempty_collections::NEVec;
 use strum::VariantArray as _;
 use validated::Validated;

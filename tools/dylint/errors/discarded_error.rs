@@ -1,28 +1,22 @@
 use core::ops::ControlFlow;
 use std::borrow::Cow;
 
-use clippy_utils::{
-    ExprUseNode, contains_return,
-    diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_enclosing_block, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_inside_always_const_context,
-    macros::root_macro_call,
-    paths::PathNS,
-    peel_blocks,
-    res::{MaybeDef as _, MaybeResPath as _},
-    sym,
-    ty::{get_iterator_item_ty, is_copy},
-    usage::local_used_after_expr,
-    visitors::{contains_break_or_continue, find_all_ret_expressions, for_each_expr_without_closures, is_const_evaluatable, is_local_used},
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::macros::root_macro_call;
+use clippy_utils::paths::PathNS;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::ty::{get_iterator_item_ty, is_copy};
+use clippy_utils::usage::local_used_after_expr;
+use clippy_utils::visitors::{contains_break_or_continue, find_all_ret_expressions, for_each_expr_without_closures, is_const_evaluatable, is_local_used};
+use clippy_utils::{ExprUseNode, contains_return, fn_def_id, get_enclosing_block, get_expr_use_site, get_parent_expr, is_from_proc_macro, is_inside_always_const_context, peel_blocks, sym};
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{
-    Block, Expr, ExprKind, HirId, LetStmt, LocalSource, MatchSource, Pat, PatKind, Stmt, StmtKind,
-    def::{DefKind, Res},
-    def_id::DefId,
-};
+use rustc_hir::def::{DefKind, Res};
+use rustc_hir::def_id::DefId;
+use rustc_hir::{Block, Expr, ExprKind, HirId, LetStmt, LocalSource, MatchSource, Pat, PatKind, Stmt, StmtKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{Ty, TyCtxt, print::with_forced_trimmed_paths};
+use rustc_middle::ty::print::with_forced_trimmed_paths;
+use rustc_middle::ty::{Ty, TyCtxt};
 use rustc_span::Span;
 
 use super::{body_output, has_single_failure_cause, singular, unread, untyped_kind};

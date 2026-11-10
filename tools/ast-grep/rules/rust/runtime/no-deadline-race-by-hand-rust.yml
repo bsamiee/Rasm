@@ -2,73 +2,98 @@
 language: rustlang
 severity: error
 utils:
-    deadline-call:
+    futures-select:
+        kind: 'identifier, scoped_identifier'
+        any:
+            - regex: '^((::)?futures(_util)?::)?future::select$'
+            - matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?futures(_util)?::future::(select(?-u:\b)|\{[^}]*(?-u:\b)select(?-u:\b))'}}, name: {regex: '^select$'}}}
+    arrow:
+        regex: '^=>$'
+    two-arm-select:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^(::)?((tokio|futures|futures_util)::)?(select|select_biased)$'}
+            - has:
+                kind: token_tree
+                all:
+                    - has: {matches: arrow, follows: {stopBy: end, matches: arrow}}
+                    - not: {has: {matches: arrow, follows: {stopBy: end, matches: arrow, follows: {stopBy: end, matches: arrow}}}}
+                    - not: {has: {regex: '^(if|else)$'}}
+    stop-call:
         kind: call_expression
-        has: {field: function, regex: '^((::)?tokio::)?(time::)?sleep(_until)?$|^((::)?futures_timer::)?Delay::new$|^((::)?(async_io|smol)::)?Timer::(after|at)$', pattern: $SLEEP}
-    timer-token:
+        any:
+            - has: {field: function, regex: '^((::)?tokio::)?(time::)?sleep(_until)?$|^((::)?futures_timer::)?Delay::new$|^((::)?(async_io|smol)::)?Timer::(after|at)$', pattern: $STOP}
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^cancelled(_owned)?$', pattern: $STOP}}
+                - has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*\)$'}
+    stop-token:
         kind: identifier
+        precedes: {kind: token_tree, regex: '^\('}
         any:
             - regex: '^sleep(_until)?$'
-              pattern: $SLEEP
+              pattern: $STOP
               not: {follows: {regex: '^\.$'}}
             - pattern: new
-              follows: {regex: '^::$', follows: {regex: '^Delay$', pattern: $SLEEP}}
+              follows: {regex: '^::$', follows: {regex: '^Delay$', pattern: $STOP}}
             - regex: '^(after|at)$'
-              follows: {regex: '^::$', follows: {regex: '^Timer$', pattern: $SLEEP}}
-    deadline-base:
+              follows: {regex: '^::$', follows: {regex: '^Timer$', pattern: $STOP}}
+            - regex: '^cancelled(_owned)?$'
+              pattern: $STOP
+              follows: {regex: '^\.$'}
+              precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$'}
+    stop-base:
         any:
-            - matches: deadline-call
+            - matches: stop-call
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^((::)?(std::)?boxed::)?Box::pin$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: deadline-call}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: stop-call}}
             - kind: call_expression
-              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^boxed$'}}, {has: {field: value, matches: deadline-call}}]}
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^boxed$'}}, {has: {field: value, matches: stop-call}}]}
             - kind: macro_invocation
               all:
                 - has: {field: macro, regex: '^((::)?(std|core)::pin::)?pin$'}
-                - has: {kind: token_tree, has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\('}}}
-    deadline-future:
+                - has: {kind: token_tree, has: {matches: stop-token}}
+    stop-future:
         any:
-            - matches: deadline-base
+            - matches: stop-base
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^fuse$'}}, {has: {field: value, matches: deadline-base}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^fuse$'}}, {has: {field: value, matches: stop-base}}]}
                 - has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*\)$'}
-    deadline-binding:
+    stop-binding:
         kind: identifier
         pattern: $BOUND
         inside:
             kind: function_item
             stopBy: {kind: function_item}
-            has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $BOUND}}, {has: {field: value, matches: deadline-future}}]}
-    deadline-operand:
+            has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $BOUND}}, {has: {field: value, matches: stop-future}}]}
+    stop-operand:
         any:
-            - matches: deadline-future
-            - matches: deadline-binding
+            - matches: stop-future
+            - matches: stop-binding
             - kind: reference_expression
-              has: {field: value, matches: deadline-binding}
+              has: {field: value, matches: stop-binding}
             - kind: call_expression
-              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_mut$'}}, {has: {field: value, matches: deadline-binding}}]}
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_mut$'}}, {has: {field: value, matches: stop-binding}}]}
 rule:
     any:
         - all:
-            - matches: rust-two-arm-select
+            - matches: two-arm-select
             - has: {field: macro, pattern: $RACE}
             - has: {regex: '^!$', pattern: $$BANG}
             - has:
                 kind: token_tree
                 all:
                     - any:
-                        - has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\(', precedes: &arm-end {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^=>$'}}}
-                        - has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\(', precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: *arm-end}}}}}
-                        - has: {matches: deadline-binding, precedes: *arm-end}
-                        - has: {matches: deadline-binding, precedes: *fused}
-                    - not: {has: {kind: identifier, regex: '^cancelled(_owned)?$', follows: {regex: '^\.$'}}}
-                    - not: {has: {stopBy: end, pattern: reset}}
+                        - has: {matches: stop-token, precedes: {precedes: &arm-end {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^=>$'}}}
+                        - has: {matches: stop-token, precedes: {precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: *arm-end}}}}}
+                        - has: {matches: stop-binding, precedes: *arm-end}
+                        - has: {matches: stop-binding, precedes: *fused}
+                    - not: {all: [{has: {stopBy: end, pattern: reset}}, {not: {has: {kind: identifier, regex: '^cancelled(_owned)?$', follows: {regex: '^\.$'}}}}]}
         - kind: call_expression
           all:
             - has: {field: function, all: [{matches: futures-select}, {pattern: $RACE}]}
-            - has: {field: arguments, has: {matches: deadline-operand}}
-message: '`$RACE$BANG` races one future against `$SLEEP` by hand'
-note: 'Await `tokio::time::timeout(<duration>, <future>)`, or `timeout_at(<deadline>, <future>)` for a deadline, and match `Err(Elapsed)`'
+            - has: {field: arguments, has: {matches: stop-operand}}
+message: '`$RACE$BANG` races one future against `$STOP` by hand'
+note: 'Await `tokio::time::timeout(<duration>, <future>)` or `timeout_at(<deadline>, <future>)` and match `Err(Elapsed)`, or `<token>.run_until_cancelled(<future>)` and match `None`'

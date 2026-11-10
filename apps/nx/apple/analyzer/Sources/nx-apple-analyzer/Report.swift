@@ -104,7 +104,7 @@ func joined(_ base: FilePath, _ relative: String) -> FilePath {
 }
 
 func checked(_ container: Container, _ references: [Reference]) throws(AnalyzerError) -> Container {
-    let missing: [String] = Set(references.compactMap(\.missing)).sorted()
+    let missing = Set(references.compactMap(\.missing)).sorted()
     guard missing.isEmpty else { throw AnalyzerError(subject: container.path, reason: .missing(missing)) }
     return container
 }

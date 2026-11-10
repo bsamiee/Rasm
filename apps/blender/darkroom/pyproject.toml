@@ -38,21 +38,21 @@ dev = [
     "ruff",                   # Linter and formatter hk runs from this root's environment
     "scipy-stubs",
     "ty",                     # Type checker of every member
-    "types-opencolorio",      # Stubs for PyOpenColorIO
+    "rasm-opencolorio-stubs", # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-python-preference       = "only-managed"
-environments            = [
+python-preference             = "only-managed"
+environments                  = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'linux' and platform_machine == 'aarch64'",
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
-prerelease              = "allow"
-constraint-dependencies = [
+prerelease                    = "allow"
+constraint-dependencies       = [
     "attrs==25.3.0",
     "autopep8==2.3.1",
     "cattrs==25.1.1",
@@ -75,12 +75,14 @@ constraint-dependencies = [
     "urllib3==2.4.0",
     "zstandard==0.25.0",
 ]                                                                # Versions the installed Blender bundles
+build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.sources]
-rasm-bpy       = { workspace = "../../../libs/python/blender" }
-rasm-imaging   = { workspace = "../../../libs/python/blender" }
-rasm-records   = { workspace = "../../.." }
-rasm-rendering = { workspace = "../../../libs/python/blender" }
+rasm-bpy               = { workspace = "../../../libs/python/blender" }
+rasm-imaging           = { workspace = "../../../libs/python/blender" }
+rasm-opencolorio-stubs = { workspace = "../../../libs/python/blender" }
+rasm-records           = { workspace = "../../.." }
+rasm-rendering         = { workspace = "../../../libs/python/blender" }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -95,3 +97,4 @@ ignore = ["relative-imports"] # Blender loads an extension as `bl_ext.<repositor
 [tool.ty]
 environment = { python-platform = "all", root = [".."] }               # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own; `..` holds the `darkroom` package its relative imports climb
 rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
+analysis    = { allowed-unresolved-imports = ["cycles.**"] }           # Blender bundles the Cycles add-on with no stub

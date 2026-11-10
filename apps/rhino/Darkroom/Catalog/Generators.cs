@@ -51,9 +51,6 @@ internal sealed record FieldPlacement(Vector2 Center, Angle Rotation) {
     public static FieldPlacement Default { get; } = new(new Vector2(0.5f), Angle.Zero);
 
     public Matrix3x2 Frame(PixelExtent extent) => DistanceField.Frame(extent, extent.Point(Center), Rotation);
-
-    public DistanceField Placed(DistanceField field, PixelExtent extent) =>
-        field.Placed((extent.Point(Center) - extent.Point(Default.Center)) * new Vector2(1f, -1f) / extent.ShortSide, Rotation);
 }
 
 internal sealed record GeneratedLayer(BlendingMode Mode, float Exposure) {

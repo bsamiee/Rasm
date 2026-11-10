@@ -15,7 +15,7 @@ from rasm_bpy.commands.operators import called
 from rasm_bpy.data._extension.identity import Identity
 from rasm_bpy.data._extension.registration import Resource
 from rasm_bpy.data._extension.reports import Refusal
-from rasm_bpy.data._ids.ownership import _tracked, Mark, Ownership, Saved
+from rasm_bpy.data._ids.ownership import Mark, Ownership, Saved, tracked
 from rasm_bpy.data._rna.conditions import Condition, Setting
 from rasm_bpy.data._rna.descriptors import Descriptor, written
 from rasm_bpy.nodes import functions
@@ -60,8 +60,8 @@ class Toward(Enum):
 
 # --- [CONSTANTS]------------------------------------------------------------------------
 
-_EXECUTING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
-_composites: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["use_compositing"]))
+EXECUTING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
+composites: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["use_compositing"]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -88,7 +88,7 @@ class Pinned(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _added_entry(
+def added_entry(
     scope: ExitStack, scene: bpy.types.Scene, group: bpy.types.NodeTree, /, *, name: Option[str] = Nothing, at: Option[int] = Nothing, enables: frozenset[Enabled] = frozenset(Enabled)
 ) -> Outcome[bpy.types.SceneCompositorEffect]:
     """Creates a scene compositor entry running a group under `name`, the group's name unless stated, removed when `scope` closes, its enable flags written and moved to `at` when given.
@@ -99,16 +99,16 @@ def _added_entry(
         `Ok` of the entry, `refused` when the host refuses the entry, and faults of its group, enable, and move writes.
     """
     created = catch(scene.compositor_effects.new, exception=RuntimeError)(name.default_value(group.name)).map_error(partial(Fault.of, Refusal.REFUSED, repr(scene.compositor_effects)))
-    return _tracked(scope, scene.compositor_effects.remove, created).bind(
+    return tracked(scope, scene.compositor_effects.remove, created).bind(
         lambda entry: (
             accumulated((written(entry, ("node_group",), group), *(enabled.descriptor.write(entry, enabled in enables) for enabled in Enabled)))
-            .bind(lambda _: at.map(lambda index: _relocated(scene, entry, index)).default_value(Ok(value=False)))
+            .bind(lambda _: at.map(lambda index: relocated(scene, entry, index)).default_value(Ok(value=False)))
             .map(lambda _: entry)
         )
     )
 
 
-def _relocated(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, index: int) -> Outcome[bool]:
+def relocated(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, index: int) -> Outcome[bool]:
     """Moves entry to stack index unless it sits there, answering whether it moved."""
     return (
         Ok(value=False)
@@ -117,7 +117,7 @@ def _relocated(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, i
     )
 
 
-def _marked(identity: Identity, scene: bpy.types.Scene) -> Iterator[tuple[bpy.types.SceneCompositorEffect, Mark]]:
+def marked(identity: Identity, scene: bpy.types.Scene) -> Iterator[tuple[bpy.types.SceneCompositorEffect, Mark]]:
     """Returns the scene entries whose groups hold an extension ownership mark, with that mark, in stack order."""
     return ((entry, mark) for entry in scene.compositor_effects for group in Option.of_optional(entry.node_group).to_list() for mark in Mark.read(identity, group).to_list())
 
@@ -138,10 +138,10 @@ def capturing(
 
         def placed(tree: bpy.types.NodeTree) -> Outcome[bpy.types.SceneCompositorEffect]:
             scope.callback(bpy.data.node_groups.remove, tree)
-            return _added_entry(scope, scene, tree, at=Some(at))
+            return added_entry(scope, scene, tree, at=Some(at))
 
         yield (
-            _composites
+            composites
             .check(bpy.context, Some(scene))
             .bind(lambda _: accumulated(written(entry, ("enable_for_render",), value=False) for entry in suffix))
             .bind(lambda _: functions.built("input_capture", interface, {COLOR_RESULT.key: group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor).keeping(*output)}, bpy.types.CompositorNodeTree))
@@ -153,4 +153,4 @@ def capturing(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Enabled", "Pinned", "StackEnd", "Toward", "capturing"]
+__all__ = ["EXECUTING", "Enabled", "Pinned", "StackEnd", "Toward", "added_entry", "capturing", "composites", "marked", "relocated"]

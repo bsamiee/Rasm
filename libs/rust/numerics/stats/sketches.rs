@@ -1,7 +1,8 @@
 use average::{Estimate as _, Merge, Variance};
 use datasketches::tdigest::{TDigest, TDigestMut};
 use rayon::iter::{FromParallelIterator, IntoParallelIterator, ParallelIterator as _};
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::{Bytes, DeserializeAs};
 
 use crate::StatsError;

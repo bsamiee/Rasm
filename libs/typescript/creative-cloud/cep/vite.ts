@@ -5,9 +5,9 @@ import { HostError } from '@rasm/automation';
 import { bundle } from '@rasm/automation/vite';
 import type { JscTarget } from '@swc/wasm';
 import { load } from 'cheerio';
-import { Array, Effect, FileSystem, flow, Schema } from 'effect';
+import { Array, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { build, type ConfigEnv, mergeConfig, type Plugin, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
-import { ExtensionManifest } from '#/manifest';
+import { ExtensionManifest } from '#/index';
 import { lower } from '#/node';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -20,18 +20,17 @@ interface Extension {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const VIRTUAL = /^\0?virtual:extendscript:/u;
+const INLINE = /\?inline$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Built = Schema.Struct({ output: Schema.NonEmptyArray(Schema.Struct({ code: Schema.String })) }).annotate({ description: 'Single-environment Vite build output, entry chunk first' });
+const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const extendscript = (target: JscTarget) => ({ name: 'extendscript', renderChunk: (code) => Effect.runPromise(lower(code, target)) }) satisfies Rolldown.Plugin;
-const script = (entry: string, { name, global }: { readonly name: string; readonly global: string }) => {
-    const id = `virtual:extendscript:${global}`;
-    const resolved = `\0${id}`;
+const script = (entry: string, name: string) => {
     const refused = HostError.refused(`Build of ${entry}`);
     const compiled = Effect.tryPromise({
         try: () =>
@@ -51,14 +50,12 @@ const script = (entry: string, { name, global }: { readonly name: string; readon
         catch: refused,
     }).pipe(
         Effect.flatMap(flow(Schema.decodeUnknownEffect(Built), Effect.mapError(refused))),
-        Effect.flatMap(({ output }) => Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(Schema.String))(Array.headNonEmpty(output).code))),
+        Effect.flatMap(({ output }) => Effect.orDie(Schema.encodeEffect(Quoted)(Array.headNonEmpty(output).code))),
         Effect.map((code) => `export default ${code}`),
     );
     return {
         name: 'script',
-        config: () => ({ build: { rolldownOptions: { transform: { inject: { [global]: [id, 'default'] } } } } }),
-        resolveId: { filter: { id: VIRTUAL }, handler: (source: string) => (source === id ? resolved : undefined) },
-        load: { filter: { id: VIRTUAL }, handler: (loaded: string) => (loaded === resolved ? Effect.runPromise(compiled) : undefined) },
+        load: { filter: { id: INLINE }, handler: (id: string) => (id === `${entry}?inline` ? Effect.runPromise(compiled) : undefined) },
     } satisfies Plugin;
 };
 
@@ -70,6 +67,22 @@ const cep = (directory: string, { script: hostScript, panel, config = {} }: Exte
             const source = yield* FileSystem.FileSystem.use((fs) => fs.readFileString(join(directory, ExtensionManifest.file)));
             const manifest = yield* Schema.decodeEffect(ExtensionManifest.fromXml)(source);
             const required = createRequire(join(directory, 'package.json'));
+            const host = yield* Effect.transposeOption(
+                Option.map(Option.fromUndefinedOr(hostScript), (entry) =>
+                    Effect.map(
+                        Effect.fromOption(manifest.script, () => HostError.refused(`${ExtensionManifest.file} of ${manifest.id}`)(`names no ScriptPath, host script ${entry} builds one`)),
+                        (entryFileNames) => ({
+                            consumer: 'client',
+                            build: {
+                                target: 'esnext',
+                                emptyOutDir: false,
+                                minify: false,
+                                rolldownOptions: { input: required.resolve(entry), platform: 'neutral', output: { name: ExtensionManifest.global, exports: 'default', entryFileNames, minify: false, plugins: extendscript(ExtensionManifest.target) } },
+                            },
+                        }),
+                    ),
+                ),
+            );
             const page = {
                 name: 'panel',
                 generateBundle(this: Rolldown.PluginContext, _options, output): void {
@@ -79,28 +92,16 @@ const cep = (directory: string, { script: hostScript, panel, config = {} }: Exte
                             .filter((file) => file.type === 'chunk' && file.isEntry)
                             .map((file) => document('<script>').attr('src', file.fileName)),
                     );
-                    [{ fileName: ExtensionManifest.panel, source: document.html() }, { fileName: ExtensionManifest.file, source }, ...(mode === 'development' ? [{ fileName: ExtensionManifest.debugFile, source: manifest.debug }] : [])].forEach((file) => this.emitFile({ type: 'asset', ...file }));
+                    [{ fileName: manifest.panel, source: document.html() }, { fileName: ExtensionManifest.file, source }, ...(mode === 'development' ? [{ fileName: ExtensionManifest.debugFile, source: manifest.debug }] : [])].forEach((file) => this.emitFile({ type: 'asset', ...file }));
                 },
             } satisfies Rolldown.Plugin;
             return mergeConfig(
-                bundle(directory, {
+                bundle({
                     builder: { sharedConfigBuild: true },
                     build: { rolldownOptions: { preserveEntrySignatures: 'exports-only', output: { format: 'iife' } } },
                     environments: {
                         client: { build: { target: ExtensionManifest.chromium, rolldownOptions: { input: required.resolve(panel), output: { entryFileNames: '[name].js', plugins: page } } } },
-                        ...(hostScript === undefined
-                            ? {}
-                            : {
-                                  host: {
-                                      consumer: 'client',
-                                      build: {
-                                          target: 'esnext',
-                                          emptyOutDir: false,
-                                          minify: false,
-                                          rolldownOptions: { input: required.resolve(hostScript), platform: 'neutral', output: { name: ExtensionManifest.global, exports: 'default', entryFileNames: ExtensionManifest.script, minify: false, plugins: extendscript(ExtensionManifest.target) } },
-                                      },
-                                  },
-                              }),
+                        ...Record.getSomes({ host }),
                     },
                 }),
                 config,

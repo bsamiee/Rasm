@@ -2,58 +2,102 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/parameterizable_body.rs
 ---
+error: `uptime` passes its parameters unchanged to `std::default::Default::default`
+   --> tools/dylint/examples/parameterizable_body.rs:164:1
+    |
+164 | fn uptime() -> Uptime { Default::default() }
+    | ^^^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/parameterizable_body.rs:164:25
+    |
+164 | fn uptime() -> Uptime { Default::default() }
+    |                         ^^^^^^^^^^^^^^^^^^
+    = help: call `std::default::Default::default` at each call site of `uptime` and delete `uptime`
+    = note: `#[deny(forwarding_function)]` on by default
+
+error: `clock` passes its parameters unchanged to `std::default::Default::default`
+   --> tools/dylint/examples/parameterizable_body.rs:166:1
+    |
+166 | fn clock() -> Clock { Default::default() }
+    | ^^^^^^^^^^^^^^^^^^^
+    |
+note: forwarded here
+   --> tools/dylint/examples/parameterizable_body.rs:166:23
+    |
+166 | fn clock() -> Clock { Default::default() }
+    |                       ^^^^^^^^^^^^^^^^^^
+    = help: call `std::default::Default::default` at each call site of `clock` and delete `clock`
+
+error: text of error `BadScheme` is stored
+   --> tools/dylint/examples/parameterizable_body.rs:185:122
+    |
+185 | ... clock().ticks, started(1).seconds, ticked(2).ticks, BadScheme.to_string(), TimedOut.to_string()),
+    |                                                         ^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `BadScheme` as `#[source]` of a `thiserror` variant
+    = note: `#[deny(stringified_error)]` on by default
+
+error: text of error `TimedOut` is stored
+   --> tools/dylint/examples/parameterizable_body.rs:185:145
+    |
+185 | ...d(1).seconds, ticked(2).ticks, BadScheme.to_string(), TimedOut.to_string()),
+    |                                                          ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: hold `TimedOut` as `#[source]` of a `thiserror` variant
+
 error: `<Banner as Render>::render` and `<Footer as Render>::render` repeat the body of `<Page as Render>::render` with another value in place of `"page"`
-  --> tools/dylint/examples/parameterizable_body.rs:76:5
+  --> tools/dylint/examples/parameterizable_body.rs:79:5
    |
-76 |     fn render(&self) -> String { String::from("page") }
+79 |     fn render(&self) -> String { String::from("page") }
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: repeated here
-  --> tools/dylint/examples/parameterizable_body.rs:80:5
+  --> tools/dylint/examples/parameterizable_body.rs:83:5
    |
-80 |     fn render(&self) -> String { String::from("banner") }
+83 |     fn render(&self) -> String { String::from("banner") }
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
 ...
-84 |     fn render(&self) -> String { String::from("footer") }
+87 |     fn render(&self) -> String { String::from("footer") }
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: replace `Page`, `Banner` and `Footer` with one struct holding the value, one `const` per replaced type, and one `Render` impl
    = note: `#[deny(parameterizable_body)]` on by default
 
 error: `retry_writes` repeats the body of `retry_reads` with another value in place of `3`
-   --> tools/dylint/examples/parameterizable_body.rs:119:1
+   --> tools/dylint/examples/parameterizable_body.rs:122:1
     |
-119 | const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) }
+122 | const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/parameterizable_body.rs:121:1
+   --> tools/dylint/examples/parameterizable_body.rs:124:1
     |
-121 | const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.saturating_mul(2)) }
+124 | const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.saturating_mul(2)) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: call `Policy::new` directly at each call site of `retry_reads` and `retry_writes`
 
 error: `total_circles` repeats the body of `total_squares` with another type in place of `Square`
-   --> tools/dylint/examples/parameterizable_body.rs:123:1
+   --> tools/dylint/examples/parameterizable_body.rs:126:1
     |
-123 | fn total_squares(shapes: &[Square]) -> f64 { shapes.iter().map(Shape::area).sum() }
+126 | fn total_squares(shapes: &[Square]) -> f64 { shapes.iter().map(Shape::area).sum() }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/parameterizable_body.rs:125:1
+   --> tools/dylint/examples/parameterizable_body.rs:128:1
     |
-125 | fn total_circles(shapes: &[Circle]) -> f64 { shapes.iter().map(Shape::area).sum() }
+128 | fn total_circles(shapes: &[Circle]) -> f64 { shapes.iter().map(Shape::area).sum() }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: replace `total_squares` and `total_circles` with one function generic over `S: Shape`
 
 error: `ticked` repeats the body of `started` with another type in place of `Uptime`
-   --> tools/dylint/examples/parameterizable_body.rs:165:1
+   --> tools/dylint/examples/parameterizable_body.rs:168:1
     |
-165 | fn started(value: u64) -> Uptime { Uptime::from(value.strict_add(1)) }
+168 | fn started(value: u64) -> Uptime { Uptime::from(value.strict_add(1)) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     |
 note: repeated here
-   --> tools/dylint/examples/parameterizable_body.rs:167:1
+   --> tools/dylint/examples/parameterizable_body.rs:170:1
     |
-167 | fn ticked(value: u64) -> Clock { Clock::from(value.strict_add(1)) }
+170 | fn ticked(value: u64) -> Clock { Clock::from(value.strict_add(1)) }
     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     = help: replace `started` and `ticked` with one function generic over `S: From<u64>`

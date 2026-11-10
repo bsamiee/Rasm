@@ -1,24 +1,22 @@
 use core::iter;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use color::{AlphaColor, OpaqueColor, Srgb};
 use indexmap::IndexMap;
 use nalgebra::{Affine3, Matrix4, Point3};
 use nonempty_collections::NEVec;
-use parry3d_f64::{
-    math::Vector,
-    shape::{Polyline, TriMesh, TriMeshBuilderError, TriMeshFlags},
-};
+use parry3d_f64::math::Vector;
+use parry3d_f64::shape::{Polyline, TriMesh, TriMeshBuilderError, TriMeshFlags};
 #[cfg(feature = "pcd")]
 use pcd_rs::{DataKind, DynReader, DynRecord, Field, Rgb};
 use serde::{Deserialize, Serialize};
-use serde_with::{base64::Base64, serde_as};
+use serde_with::base64::Base64;
+use serde_with::serde_as;
 use validated::Validated;
 
-use crate::{
-    Composed, Constraint, Fault, IfcError, Model, Path, Value, distinct,
-    schemas::{Attribute, attribute, encoded},
-};
+use crate::schemas::{Attribute, attribute, encoded};
+use crate::{Composed, Constraint, Fault, IfcError, Model, Path, Value, distinct};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

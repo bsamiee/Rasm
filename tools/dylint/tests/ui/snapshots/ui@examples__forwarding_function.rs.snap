@@ -1,0 +1,140 @@
+---
+source: tools/dylint/tests/ui/main.rs
+input_file: tools/dylint/examples/forwarding_function.rs
+---
+error: `Gauge::lifted` passes its parameters unchanged to `Gauge::raised`
+  --> tools/dylint/examples/forwarding_function.rs:13:5
+   |
+13 |     fn lifted(&self, step: u32) -> u32 { self.raised(step) }
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:13:42
+   |
+13 |     fn lifted(&self, step: u32) -> u32 { self.raised(step) }
+   |                                          ^^^^^^^^^^^^^^^^^
+   = help: call `Gauge::raised` at each call site of `Gauge::lifted` and delete `Gauge::lifted`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `scaled` passes its parameters unchanged to `<u32>::strict_mul`
+  --> tools/dylint/examples/forwarding_function.rs:28:1
+   |
+28 | fn scaled(value: u32, factor: u32) -> u32 { value.strict_mul(factor) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:28:45
+   |
+28 | fn scaled(value: u32, factor: u32) -> u32 { value.strict_mul(factor) }
+   |                                             ^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `<u32>::strict_mul` at each call site of `scaled` and delete `scaled`
+
+error: `forwarded` passes its parameters unchanged to `scaled`
+  --> tools/dylint/examples/forwarding_function.rs:30:1
+   |
+30 | fn forwarded(value: u32, factor: u32) -> u32 { scaled(value, factor) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:30:48
+   |
+30 | fn forwarded(value: u32, factor: u32) -> u32 { scaled(value, factor) }
+   |                                                ^^^^^^^^^^^^^^^^^^^^^
+   = help: call `scaled` at each call site of `forwarded` and delete `forwarded`
+
+error: `swapped` passes its parameters unchanged to `scaled`
+  --> tools/dylint/examples/forwarding_function.rs:32:1
+   |
+32 | fn swapped(value: u32, factor: u32) -> u32 { scaled(factor, value) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:32:46
+   |
+32 | fn swapped(value: u32, factor: u32) -> u32 { scaled(factor, value) }
+   |                                              ^^^^^^^^^^^^^^^^^^^^^
+   = help: call `scaled` at each call site of `swapped` and delete `swapped`
+
+error: `borrowed` passes its parameters unchanged to `<str>::len`
+  --> tools/dylint/examples/forwarding_function.rs:38:1
+   |
+38 | fn borrowed(text: String) -> usize { str::len(&text) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:38:38
+   |
+38 | fn borrowed(text: String) -> usize { str::len(&text) }
+   |                                      ^^^^^^^^^^^^^^^
+   = help: call `<str>::len` at each call site of `borrowed` and delete `borrowed`
+
+error: `trimmed` passes its parameters unchanged to `<str>::trim`
+  --> tools/dylint/examples/forwarding_function.rs:40:1
+   |
+40 | fn trimmed(text: &str) -> &str { text.trim() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:40:34
+   |
+40 | fn trimmed(text: &str) -> &str { text.trim() }
+   |                                  ^^^^^^^^^^^
+   = help: call `<str>::trim` at each call site of `trimmed` and delete `trimmed`
+
+error: `relayed` passes its parameters unchanged to `noted`
+  --> tools/dylint/examples/forwarding_function.rs:48:1
+   |
+48 | fn relayed(value: u32) { noted(value) }
+   | ^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:48:26
+   |
+48 | fn relayed(value: u32) { noted(value) }
+   |                          ^^^^^^^^^^^^
+   = help: call `noted` at each call site of `relayed` and delete `relayed`
+
+error: `fetched` passes its parameters unchanged to `std::future::ready`
+  --> tools/dylint/examples/forwarding_function.rs:52:1
+   |
+52 | async fn fetched(value: u32) -> u32 { ready(value).await }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:52:39
+   |
+52 | async fn fetched(value: u32) -> u32 { ready(value).await }
+   |                                       ^^^^^^^^^^^^
+   = help: call `std::future::ready` at each call site of `fetched` and delete `fetched`
+
+error: `awaited` passes its parameters unchanged to `fetched`
+  --> tools/dylint/examples/forwarding_function.rs:54:1
+   |
+54 | async fn awaited(value: u32) -> u32 { fetched(value).await }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/forwarding_function.rs:54:39
+   |
+54 | async fn awaited(value: u32) -> u32 { fetched(value).await }
+   |                                       ^^^^^^^^^^^^^^
+   = help: call `fetched` at each call site of `awaited` and delete `awaited`
+
+error: `fixed` has one reader, `expanded`
+  --> tools/dylint/examples/forwarding_function.rs:34:1
+   |
+34 | fn fixed(value: u32) -> u32 { scaled(value, 2) }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+56 | macro_rules! forwarder {
+   |
+note: read here
+  --> tools/dylint/examples/forwarding_function.rs:58:39
+   |
+58 |         fn $name(value: u32) -> u32 { fixed(value) }
+   |                                       ^^^^^
+...
+62 | forwarder!(expanded);
+   | -------------------- in this macro invocation
+   = help: move `fixed` into `expanded` as a closure
+   = note: `#[deny(single_reader)]` on by default

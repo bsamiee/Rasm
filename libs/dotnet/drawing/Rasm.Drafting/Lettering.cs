@@ -16,7 +16,7 @@ public sealed partial class LetteringForm {
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LetteringStandard {
-    public static readonly LetteringStandard Iso3098 = new(zoneHeight: Length.FromMillimeters(3.5m), form: LetteringForm.TypeB, height: static size => size.Sides.Long <= SheetSize.A2.Sides.Long ? Length.FromMillimeters(2.5m) : Length.FromMillimeters(3.5m));
+    public static readonly LetteringStandard Iso3098 = new(zoneHeight: Length.FromMillimeters(3.5m), form: LetteringForm.TypeB, height: static size => size.Sides.Long <= SheetSize.Standard.A2.Sides.Long ? Length.FromMillimeters(2.5m) : Length.FromMillimeters(3.5m));
     public static readonly LetteringStandard AsmeY142 = new(zoneHeight: Length.FromInches(0.24m), form: LetteringForm.TypeB, height: static _ => Length.FromInches(0.12m));
 
     public Length ZoneHeight { get; }

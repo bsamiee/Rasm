@@ -157,20 +157,18 @@ internal abstract partial record Vignette : IPixelStage<Vignette> {
         state.Switch(context,
             natural: static (run, _) => run.Camera.Bind(static camera => camera.Lens is Projection.Rectilinear lens ? Some(lens) : None)
                 .Map<PixelPass>(static lens => Pulled(Vector3.Zero, (x, y) => lens.Illumination(new Vector2(x + 0.5f, y + 0.5f)).IfNone(1f))),
-            outline: static (run, outline) => Some<PixelPass>(outline.Falloff(run)));
+            outline: static (run, outline) => {
+                PixelExtent extent = run.Extent;
+                DistanceField field = DistanceField.Box(extent.Point(new Vector2(outline.Width, outline.Height) / 2f), outline.Roundness);
+                float band = DistanceField.Band(outline.Feather, extent);
+                Vector2 middle = extent.Point(new Vector2(0.5f));
+                return Some<PixelPass>(Pulled(RampLight.Light(outline.Pull, run).AsVector3(), (x, y) => DistanceField.Coverage(field.Distance(new Vector2(x + 0.5f, y + 0.5f) - middle), band)));
+            });
 
     public sealed record Natural : Vignette;
 
     public sealed record Outline(float Width, float Height, float Roundness, ShortSideLength Feather, Unicolour Pull) : Vignette {
         public static new Outline Default { get; } = new(0.8f, 0.8f, 1f, ShortSideLength.Create(0.2f * float.Sqrt(float.Tau) / 3f), new Unicolour(ColourSpace.RgbLinear, 0d, 0d, 0d));
-
-        public PixelPass.Positional Falloff(PassContext context) {
-            PixelExtent extent = context.Extent;
-            DistanceField field = DistanceField.Box(extent.Point(new Vector2(Width, Height) / 2f), Roundness);
-            float band = DistanceField.Band(Feather, extent);
-            Vector2 middle = extent.Point(new Vector2(0.5f));
-            return Pulled(RampLight.Light(Pull, context).AsVector3(), (x, y) => DistanceField.Coverage(field.Distance(new Vector2(x + 0.5f, y + 0.5f) - middle), band));
-        }
     }
 
     private static PixelPass.Positional Pulled(Vector3 pull, Func<int, int, float> weight) =>

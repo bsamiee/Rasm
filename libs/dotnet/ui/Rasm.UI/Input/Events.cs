@@ -26,9 +26,7 @@ internal sealed partial class Granularity {
     internal partial Option<float> Distance(float step, float page);
 }
 
-internal sealed record Bearing(PhysicalAxis Along, int Sign, Granularity Granularity) {
-    internal Vector2 Vector => Along.With(Vector2.Zero, Sign);
-}
+internal sealed record Bearing(PhysicalAxis Along, int Sign, Granularity Granularity);
 
 [SmartEnum]
 public sealed partial class CursorShape {
@@ -42,8 +40,6 @@ public sealed partial class CursorShape {
     public static readonly CursorShape ColumnResize = new();
     public static readonly CursorShape RowResize = new();
     public static readonly CursorShape NotAllowed = new();
-
-    internal CursorShape Dragged => this == Grab ? Grabbing : this;
 
     public static CursorShape Resizing(PhysicalAxis along) => along.Map(horizontal: ColumnResize, vertical: RowResize);
 }

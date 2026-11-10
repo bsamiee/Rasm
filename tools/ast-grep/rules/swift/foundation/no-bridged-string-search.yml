@@ -52,6 +52,7 @@ rule:
             - matches: search-call
             - matches: replace-call
         - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {matches: data-needle}}}}
+        - not: {inside: {kind: 'equality_expression, infix_expression', all: [{has: {field: op, regex: '^[!=]=$'}}, {has: {field: rhs, kind: nil_literal}}]}}
         - has:
             nthChild: 1
             any:

@@ -2,7 +2,7 @@ import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { isCI } from '@nx/devkit/internal';
 import { Array, Equivalence, Option, type Path, Record, Result, String } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { ancestors, LOCK, MANIFEST, nearest, type Workspace } from '#/plugins/workspace';
+import { ancestors, CLIPPY_CONF_DIR, CONFIG, LOCK, MANIFEST, nearest, type Workspace } from '#/plugins/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -35,11 +35,13 @@ const TECHNOLOGIES = ['rust'];
 
 const own = ({ kind, crate_types }: Target) => Array.makeEquivalence(Equivalence.String)(kind, crate_types);
 
-const library = (candidate: Target) => own(candidate) && !candidate.kind.includes('bin');
+const binary = ({ kind }: Target) => kind.includes('bin');
+
+const library = (candidate: Target) => own(candidate) && !binary(candidate);
 
 const SELECTIONS: Readonly<Record<string, (target: Target) => boolean>> = {
     '--lib': library,
-    '--bins': ({ kind }) => kind.includes('bin'),
+    '--bins': binary,
     '--tests': ({ test }) => test,
     '--benches': ({ kind }) => kind.includes('bench'),
 };
@@ -83,11 +85,12 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         tokened(path, path.join(workspace.root, LOCK)),
         ...(workspace.root === root ? [] : [tokened(path, path.join(workspace.root, MANIFEST))]),
         ...ancestors(path, workspace.root).flatMap((at) =>
-            ['.cargo/config.toml', '.cargo/config', 'rust-toolchain.toml', 'rust-toolchain']
+            [...CONFIG, 'rust-toolchain.toml', 'rust-toolchain']
                 .map((name) => path.join(at, name))
                 .filter((file) => files.has(file))
                 .map((file) => tokened(path, file)),
         ),
+        { runtime: 'rustc --print host-tuple' },
         ...ENVIRONMENT.variables.map((env) => ({ env })),
         ...ENVIRONMENT.build.map((key) => configured('build', key)),
         ...Option.toArray(workspace.host).flatMap((host) => ENVIRONMENT.target.map((key) => configured('target', host, key))),
@@ -106,10 +109,15 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
     const products = crate.targets.filter(own).flatMap(workspace.files);
     const written = (folder: string) => Option.toArray(workspace.output).flatMap((at) => products.map((file) => tokened(path, path.join(at, folder, file))));
     const profiles = ['release', ...workspace.profiles];
-    const clippy = nearest(path, files, root, ['.clippy.toml', 'clippy.toml']);
+    const clippy = nearest(
+        path,
+        files,
+        Option.getOrElse(workspace.clippy, () => root),
+        ['.clippy.toml', 'clippy.toml'],
+    );
     const compiler =
         Option.isSome(clippy) || workspace.linted(crate).has('clippy')
-            ? { tool: 'clippy', check: ['clippy'] as const, fix: ['clippy', '--fix'] as const, inputs: [...Option.toArray(Option.map(clippy, (file) => tokened(path, file))), { env: 'CLIPPY_CONF_DIR' }] }
+            ? { tool: 'clippy', check: ['clippy'] as const, fix: ['clippy', '--fix'] as const, inputs: [...Option.toArray(Option.map(clippy, (file) => tokened(path, file))), { env: CLIPPY_CONF_DIR }] }
             : { tool: 'cargo', check: ['check'] as const, fix: ['fix'] as const, inputs: [] };
     const libraries = Array.getSomes((workspace.metadata.metadata?.dylint?.libraries ?? []).map((declared) => Option.map(Option.fromUndefinedOr(declared.path), (relative) => path.join(workspace.root, relative)))).flatMap((folder) => {
         const [sources, others] = Array.partition(
@@ -125,6 +133,7 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         return [...included.map((at) => tokened(path, path.join(at, '**/*'))), ...excluded.map((at) => `!${tokened(path, path.join(at, '**/*'))}`)];
     });
     const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going', ...locked()], report: 'messages' }];
+    const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', path.relative(workspace.root, root) || '.', ...profile, ...locked()], report: 'status' }];
     const checked = (placed: (selection: readonly string[]) => Pick<Command, 'args' | 'trailing'>): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
             Array.prepend(
@@ -167,6 +176,17 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         }),
         [`check--${compiler.tool}`]: target(plugin, compiler.check.join(' '), `Reports ${compiler.tool} findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: [...compiler.check, ...selection] })) }, { cache: true, inputs: [...shared, ...compiler.inputs] }),
         [`fix--${compiler.tool}`]: target(plugin, compiler.fix.join(' '), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, { cache: false }),
+        ...(crate.targets.some(binary)
+            ? {
+                  'install--cargo': target(
+                      plugin,
+                      'install',
+                      `Builds the binaries of ${crate.name} and installs them into Cargo's install root, in release unless a configuration names a profile`,
+                      { cwd: workspace.root, commands: installed([]) },
+                      { cache: false, configurations: Record.fromIterableWith(workspace.profiles, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) },
+                  ),
+              }
+            : {}),
         ...(libraries.length === 0
             ? {}
             : {

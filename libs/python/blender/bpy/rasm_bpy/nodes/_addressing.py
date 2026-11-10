@@ -14,7 +14,7 @@ from rasm_bpy.data._ids.ownership import Mark
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
 from rasm_bpy.nodes._desired import Content, ItemContent
 from rasm_bpy.nodes._interfaces import DesiredItem, Interface, InterfacePanel, Socket
-from rasm_bpy.nodes._trees import _interface_of, _socket_at
+from rasm_bpy.nodes._trees import interface_of, socket_at
 from rasm_records import Fault, Nothing, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -40,7 +40,7 @@ class InterfaceKeys(msgspec.Struct, frozen=True, kw_only=True):
             tree=tree,
             slot=slot,
             stored={row["key"]: row["identifier"] for row in tree.get(slot, ())},
-            live={item.identifier: item for item in _interface_of(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInterfacePanel)},
+            live={item.identifier: item for item in interface_of(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket | bpy.types.NodeTreeInterfacePanel)},
         )
 
     @property
@@ -93,7 +93,7 @@ class InterfaceKeys(msgspec.Struct, frozen=True, kw_only=True):
         return (
             (Option.of_optional(self.live.get(identifier)) if identifier is not None else Nothing)
             .bind(lambda each: Option.of_optional(try_downcast(kind, each)))
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(_interface_of(self.tree)), member=key))
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(interface_of(self.tree)), member=key))
         )
 
     def store(self, items: Mapping[Key, str | int], /) -> None:
@@ -130,7 +130,7 @@ class OwnedNodes(msgspec.Struct, frozen=True, kw_only=True):
 
     def socket(self, key: Key, address: str | int, *, output: bool) -> Outcome[bpy.types.NodeSocket]:
         """Live socket of the node at key, addressed by item key, item name, identifier, or enabled position."""
-        return self.node(key).bind(lambda live: _socket_at(live.outputs if output else live.inputs, address, self.sockets[key]))
+        return self.node(key).bind(lambda live: socket_at(live.outputs if output else live.inputs, address, self.sockets[key]))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -145,22 +145,22 @@ def owned(tree: bpy.types.NodeTree, identity: Identity) -> dict[Key, bpy.types.N
     return marked
 
 
-def _grouped_value(identity: Identity, tree: bpy.types.NodeTree, node: bpy.types.Node, key: Key) -> Outcome[Value]:
+def grouped_value(identity: Identity, tree: bpy.types.NodeTree, node: bpy.types.Node, key: Key) -> Outcome[Value]:
     """Reads a group node input value by its group's interface item key."""
     return (
         Option
         .of_optional(InterfaceKeys.of(tree, identity).sockets.get(key))
         .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree), member=key))
-        .bind(lambda found: _socket_at(node.inputs, found))
+        .bind(lambda found: socket_at(node.inputs, found))
         .bind(lambda held: Descriptor.resolve(held, ("default_value",), bpy.types.Property).map(lambda descriptor: descriptor.read(held)))
     )
 
 
-def _interface_sockets(tree: bpy.types.NodeTree, side: Literal["INPUT", "OUTPUT"] = "INPUT") -> Iterator[bpy.types.NodeTreeInterfaceSocket]:
+def interface_sockets(tree: bpy.types.NodeTree, side: Literal["INPUT", "OUTPUT"] = "INPUT") -> Iterator[bpy.types.NodeTreeInterfaceSocket]:
     """Reads live interface sockets of one native side in tree order, including panel toggles."""
-    return (item for item in _interface_of(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == side)
+    return (item for item in interface_of(tree).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == side)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["InterfaceItem", "InterfaceKeys", "OwnedNodes", "owned"]
+__all__ = ["InterfaceItem", "InterfaceKeys", "OwnedNodes", "grouped_value", "interface_sockets", "owned"]

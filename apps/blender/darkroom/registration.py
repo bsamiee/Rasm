@@ -10,11 +10,11 @@ from .review import calibration, metering, results
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-REGISTRATION = Registration(
+_REGISTRATION = Registration(
     __name__.rpartition(".")[0],
     (Icons(turned=calibration.turned), PreferencesPage(), *catalog.rows, *renders.rows, *luts.rows, *looks.rows, *response.rows, *metering.rows, *calibration.rows, *results.rows),
 )
-register, unregister = REGISTRATION.register, REGISTRATION.unregister
+register, unregister = _REGISTRATION.register, _REGISTRATION.unregister
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

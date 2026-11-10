@@ -32,17 +32,17 @@ class Change(Flag):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _runtime(identity: Identity, scene: bpy.types.Scene, /) -> bool:
+def runtime(identity: Identity, scene: bpy.types.Scene, /) -> bool:
     """Whether a scene a callback received is a runtime scene holding the extension's manifest ID as its mark."""
     return scene.is_runtime_data and identity.manifest.id in scene
 
 
-def _located(body: Callable[[Option[Path]], Outcome[None]], path: str, /) -> Outcome[None]:
+def located(body: Callable[[Option[Path]], Outcome[None]], path: str, /) -> Outcome[None]:
     """Passes the path a load or save handler receives to body, Nothing for the startup file's empty path."""
     return body(Option.of_optional(path or None).map(Path))
 
 
-def _updated(
+def updated(
     ids: tuple[type[bpy.types.ID], ...],
     body: Callable[[bpy.types.Scene, tuple[bpy.types.DepsgraphUpdate, ...]], Outcome[None]],
     scene: bpy.types.Scene,
@@ -58,4 +58,4 @@ def _updated(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Change"]
+__all__ = ["Change", "located", "runtime", "updated"]

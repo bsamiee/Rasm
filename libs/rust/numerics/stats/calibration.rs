@@ -1,9 +1,7 @@
-use core::{
-    cell::LazyCell,
-    fmt::Debug,
-    iter,
-    ops::{ControlFlow, Range},
-};
+use core::cell::LazyCell;
+use core::fmt::Debug;
+use core::iter;
+use core::ops::{ControlFlow, Range};
 use std::collections::HashMap;
 
 use average::{Mean, Variance};
@@ -13,14 +11,13 @@ use nonempty_collections::{NEBTreeMap, NEVec, NonEmptyIterator as _};
 use num_complex::Complex64;
 use num_dual::{Dual64, DualNum as _};
 use nuts_rs::{Chain as _, CpuLogpFunc, CpuMath, CpuMathError, EuclideanAdaptOptions, HasDims, NutsSettings, Progress, Settings};
-use rand::{Rng, SeedableRng as _, rngs::ChaCha8Rng};
+use rand::rngs::ChaCha8Rng;
+use rand::{Rng, SeedableRng as _};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use rustfft::FftPlanner;
 use serde::Serialize;
-use statrs::{
-    distribution::{ContinuousCDF as _, Normal},
-    statistics::{Data, OrderStatistics as _, RankTieBreaker},
-};
+use statrs::distribution::{ContinuousCDF as _, Normal};
+use statrs::statistics::{Data, OrderStatistics as _, RankTieBreaker};
 use validated::Validated;
 
 use crate::{Bounds, Moment, Sample, Space, StatsError, Tolerance};

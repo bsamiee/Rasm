@@ -21,7 +21,7 @@ internal abstract class ArchesPlugIn : IDefined<PlugInDefinition>, IRuiSource {
             from family in toSeq(ArchFamily.Items)
             select (from choice in toSeq(family.Choices)
                     let option = choice.Option
-                    let face = new CommandFace(option, choice.Caption) { Help = choice.Help, Icon = new IconResource(typeof(ArchesPlugIn).Assembly, $"{family.Command}_{option}.svg") }
+                    let face = new CommandFace(option, choice.Switch(plain: static held => held.Arch.Caption, foiled: static held => held.Arch.Caption)) { Help = choice.Help, Icon = new IconResource(typeof(ArchesPlugIn).Assembly, $"{family.Command}_{option}.svg") }
                     let macro = new Macro(family.Command, [new ScriptStep.Assign(ArchPrompts.Type, new ScriptValue.Word(ScriptWord.Named, option))])
                     select (Command<Macro>)new Command<Macro>.Run(face, macro) {
                         Alternate = (

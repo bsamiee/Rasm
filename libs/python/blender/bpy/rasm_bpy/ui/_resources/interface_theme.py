@@ -1,9 +1,10 @@
 """Interface themes: every member of the host's theme and style structs bound through RNA to a value or a color derivation, resolved over a base theme and written by the host's theme writer."""
 
-from collections.abc import Callable, Generator, Mapping
-from contextlib import contextmanager, ExitStack
+from collections.abc import Callable, Mapping
+from contextlib import ExitStack
 from functools import partial, reduce
 from graphlib import CycleError, TopologicalSorter
+from itertools import tee
 import math
 from pathlib import Path
 import re
@@ -21,11 +22,11 @@ import msgspec
 import numpy as np
 
 from rasm_bpy.commands.operators import called
-from rasm_bpy.data._rna.descriptors import Descriptor, Value
-from rasm_bpy.data._rna.paths import _rna, Struct
+from rasm_bpy.data._rna.descriptors import Value
+from rasm_bpy.data._rna.paths import rna, rooted, Struct
 from rasm_bpy.data._rna.snapshots import assigned, Snapshot
-from rasm_bpy.ui._resources.theme import _color
-from rasm_records import accumulated, Case, Error, Fault, Ok, Outcome, Reason
+from rasm_bpy.ui._resources.theme import display_color
+from rasm_records import accumulated, Case, Error, Fault, Ok, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -201,7 +202,7 @@ def _kind(prop: bpy.types.Property, /) -> type:
 
 def _tone(value: Value, /) -> ColorAll:
     """Returns a color member's stored value as a color."""
-    *channels, alpha = _color(value)  # ty: ignore[invalid-argument-type]
+    *channels, alpha = display_color(np.asarray(value, np.float64))
     return ColorAll("srgb", channels, alpha)
 
 
@@ -210,24 +211,10 @@ def _stored(value: ColorAll, fit: _Options, /) -> ColorAll:
     return ColorAll(value.convert("srgb").fit(**fit).to_string(hex=True, alpha=True))
 
 
-def _legible(value: ColorAll, grounds: tuple[ColorAll, ...], ratio: float, fit: _Options, options: _Options, /) -> ColorAll:
-    """Returns the stored color at the lightness nearest its own holding the ratio shown over every ground, the lightness of most contrast when none does."""
-
-    def lit(lightness: float) -> ColorAll:
-        return _stored(value.clone().set("oklch.l", lightness), fit)
-
-    def contrast(tone: ColorAll) -> float:
-        return min(ColorAll.layer((tone, ground)).contrast(ground, **options) for ground in grounds)
-
-    own = value.get("oklch.l", nans=False)
-    ordered = sorted((own, *_LIGHTNESS), key=lambda lightness: abs(lightness - own))
-    return next((tone for tone in map(lit, ordered) if contrast(tone) >= ratio), None) or max(map(lit, ordered), key=contrast)
-
-
 def _stepped(read: Callable[[str], ColorAll], fit: _Options, value: ColorAll, step: _Step, /) -> ColorAll:
     """Returns a color after one step, coloraide members refusing names and channels they lack."""
     match step:
-        case Adjust(channel=str() as channel, factor=factor, offset=offset):
+        case Adjust(channel=str(channel), factor=factor, offset=offset):
             return value.set(channel, lambda level: level * factor + offset, nans=False)
         case Adjust():
             raise ValueError("Adjust without a channel sets a number, not a color")
@@ -244,7 +231,27 @@ def _stepped(read: Callable[[str], ColorAll], fit: _Options, value: ColorAll, st
         case Closest(options=options):
             return value.closest(step.shown(read), **options)
         case Legible(ratio=ratio, options=options):
-            return _legible(value, step.shown(read), ratio, fit, options)
+            grounds, own = step.shown(read), value.get("oklch.l", nans=False)
+            tones = (_stored(value.clone().set("oklch.l", lightness), fit) for lightness in sorted((own, *_LIGHTNESS), key=lambda lightness: abs(lightness - own)))
+            passing, every = tee((min(ColorAll.layer((tone, ground)).contrast(ground, **options) for ground in grounds), tone) for tone in tones)
+            return next((tone for contrast, tone in passing if contrast >= ratio), None) or max(every, key=lambda pair: pair[0])[1]
+
+
+# --- [SESSIONS]
+
+
+def _roots(context: bpy.types.Context, /) -> Outcome[tuple[Struct, ...]]:
+    """Returns the structs the host's theme presets hold."""
+    return accumulated(typed(bpy.types.bpy_struct, path, context.path_resolve(path)) for path, _ in USERPREF_MT_interface_theme_presets.preset_xml_map)
+
+
+def _restored(context: bpy.types.Context, preferences: bpy.types.Preferences, snapshots: tuple[Snapshot, ...], filepath: str, /, *, dirty: bool) -> None:
+    """Writes the captured session values, file, and unsaved mark back, a refusal of what the host held a raised defect."""
+    match _roots(context).bind(lambda roots: accumulated(snapshot.apply(root).outcome for snapshot, root in zip(snapshots, roots, strict=True))):
+        case Result(tag="ok"):
+            preferences.themes[0].filepath, preferences.is_dirty = filepath, dirty
+        case Result(error=faults):
+            raise RuntimeError("\n".join(fault.message for fault in faults))
 
 
 def _evaluated(fit: _Options, binding: _Binding, prop: bpy.types.Property, values: Mapping[str, Value], key: str, /) -> Outcome[Value]:
@@ -266,136 +273,89 @@ def _evaluated(fit: _Options, binding: _Binding, prop: bpy.types.Property, value
         return Error(Fault.of(Reason.INVALID, key, error))
 
 
-def _reached(binding: _Binding, descriptors: Mapping[str, Descriptor], base: Mapping[str, Value], /) -> tuple[str, ...]:
-    """Returns each member a binding selects, its kind the one a source member holds when nothing else states one."""
-    named = descriptors.get(str(binding.source))
-    kinds = binding.kinds or frozenset(() if named is None else (_kind(named.prop),))
-    return tuple(
-        key
-        for key, descriptor in descriptors.items()
-        if re.fullmatch(binding.members, key) and (not kinds or _kind(descriptor.prop) in kinds) and all(band.holds(_tone(base[key])) for band in binding.where)
-    )
-
-
-def _resolved(theme: _InterfaceTheme, descriptors: Mapping[str, Descriptor], base: Mapping[str, Value], /) -> Outcome[Mapping[str, Value]]:
-    """Returns the value of each bound member over the base values, each member resolved after the members it reads, or the fault of every binding reaching no member, a dependency cycle, and every value refused."""
-    reached = tuple((binding, _reached(binding, descriptors, base)) for binding in theme.bindings)
-    bound = {key: binding for binding, keys in reached for key in keys}
-    reads = {key: (binding.reads & bound.keys()) - {key} for key, binding in bound.items()}
-    missed = tuple(Error(Fault.of(Reason.ABSENT, "Interface theme", member=binding.members)) for binding, keys in reached if not keys)
-    try:
-        order = tuple(TopologicalSorter(reads).static_order())
-    except CycleError as error:
-        return Error(Fault.of(Reason.INVALID, "Interface theme", error))
-    values, known = dict(base), dict[str, Outcome[Value]]()
-
-    def settled(key: str) -> Outcome[Value]:
-        return accumulated(known[read] for read in reads[key]).bind(lambda _: _evaluated(theme.fit, bound[key], descriptors[key].prop, values, key))
-
-    for key in order:
-        known[key] = settled(key)
-        values.update((key, value) for value in known[key].to_option().to_list())
-    return accumulated((*missed, *(known[key] for key in order if all(known[read].is_ok() for read in reads[key])))).map(lambda _: MappingProxyType({key: values[key] for key in bound}))
-
-
-# --- [SESSIONS]
-
-
-def _roots(context: bpy.types.Context, /) -> tuple[Struct, ...]:
-    """Returns the structs the host's theme presets hold."""
-    held: tuple[Struct, ...] = tuple(context.path_resolve(path) for path, _ in USERPREF_MT_interface_theme_presets.preset_xml_map)  # type: ignore[misc]  # ty: ignore[invalid-assignment]
-    return held
-
-
-def _laid(context: bpy.types.Context, theme: _InterfaceTheme, /) -> Outcome[Mapping[str, Value]]:
-    """Runs a stated base theme through the host's preset run, then writes each bound member, answering what each holds."""
-
-    def bound(snapshots: tuple[Snapshot, ...]) -> Outcome[Mapping[str, Value]]:
-        roots = _roots(context)
-        descriptors = {_rna(descriptor.path): descriptor for snapshot, root in zip(snapshots, roots, strict=True) for descriptor in snapshot.selection(root) if not descriptor.compound}
-        base = {_rna((*owner, *name)): value for snapshot in snapshots for owner, held in snapshot.tree.rows for name, value in held.rows}
-        return _resolved(theme, descriptors, base).bind(
-            lambda values: accumulated(assigned(root, {descriptors[key].path: value for key, value in values.items() if descriptors[key].root is type(root)}) for root in roots).map(lambda _: values)
-        )
-
-    based = (
-        Option
-        .of_optional(theme.base)
-        .map(
-            lambda base: called(
-                bpy.ops.script.execute_preset,
-                {"filepath": bpy.utils.preset_find(base, USERPREF_MT_interface_theme_presets.preset_subdir, ext=".xml") or base, "menu_idname": USERPREF_MT_interface_theme_presets.__name__},
-            )
-        )
-        .default_value(Ok(frozenset()))
-    )
-    return based.bind(lambda _: accumulated(map(Snapshot.capture, _roots(context)))).bind(bound)
-
-
-def _restored(context: bpy.types.Context, snapshots: tuple[Snapshot, ...], filepath: str, /, *, dirty: bool) -> None:
-    """Writes the captured session values, file, and unsaved mark back, a refusal of what the host held a raised defect."""
-    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
-    match accumulated(snapshot.apply(root).outcome for snapshot, root in zip(snapshots, _roots(context), strict=True)):
-        case Result(tag="ok"):
-            preferences.themes[0].filepath, preferences.is_dirty = filepath, dirty
-        case Result(error=faults):
-            raise RuntimeError("\n".join(fault.message for fault in faults))
-
-
-@contextmanager
-def _held(context: bpy.types.Context, theme: _InterfaceTheme, /) -> Generator[Outcome[Mapping[str, Value]]]:
-    """Lays a theme over the session for the scope, the session's theme, file, and unsaved mark restored after.
-
-    Args:
-        context: Context whose preferences hold the session's theme.
-        theme: Theme laid.
-
-    Yields:
-        Stored value of each bound member by host path, or fault of the capture, the base theme, and every binding.
-    """
-    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
-    with ExitStack() as stack:
-        filepath, dirty = preferences.themes[0].filepath, preferences.is_dirty
-        yield accumulated(map(Snapshot.capture, _roots(context))).map(lambda snapshots: stack.callback(_restored, context, snapshots, filepath, dirty=dirty)).bind(lambda _: _laid(context, theme))
-
-
-def _written(context: bpy.types.Context, theme: _InterfaceTheme, target: Path, /) -> Outcome[Path]:
-    """Writes a theme as an interface theme file through the host's writer, the session untouched after.
-
-    Args:
-        context: Context whose preferences hold the session's theme.
-        theme: Theme written.
-        target: XML file written, the name the host lists the theme under.
-
-    Returns:
-        Ok(target), or fault of the theme, or `UNWRITABLE` fault of a refused write.
-    """
-
-    @catch(exception=OSError)
-    def authored() -> Path:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        _rna_xml.xml_file_write(context, str(target), USERPREF_MT_interface_theme_presets.preset_xml_map)
-        return target
-
-    with _held(context, theme) as laid:
-        return laid.bind(lambda _: authored().map_error(partial(Fault.of, Reason.UNWRITABLE, str(target))))
-
-
 def installed(context: bpy.types.Context, theme: _InterfaceTheme, name: str, /) -> Outcome[Path]:
-    """Writes a theme named `name` and installs it through `theme_install`, into the user's theme presets and live, the host's reset marking preferences to keep it.
+    """Lays a theme over the session, writes it through the host's theme writer, restores the session's theme, file, and unsaved mark, and installs the file through `theme_install`.
 
     Args:
         context: Context whose preferences hold the session's theme.
-        theme: Theme installed.
+        theme: Theme installed, each bound member resolved after the members it reads.
         name: Name the host lists the theme under.
 
     Returns:
-        Ok(file installed), or fault of the write or the install.
+        Ok(file installed), or fault of the capture, the base theme, every binding reaching no member, a dependency cycle, every value refused, the write, or the install.
     """
-    preferences: bpy.types.Preferences = context.preferences  # ty: ignore[invalid-assignment]
+
+    def bound(roots: tuple[Struct, ...], snapshots: tuple[Snapshot, ...]) -> Outcome[Mapping[str, Value]]:
+        descriptors = {rna(descriptor.path): descriptor for snapshot, root in zip(snapshots, roots, strict=True) for descriptor in snapshot.selection(root) if not descriptor.compound}
+        base = {rna((*owner, *name)): value for snapshot in snapshots for owner, held in snapshot.tree.rows for name, value in held.rows}
+        reached = tuple(
+            (
+                binding,
+                tuple(
+                    key
+                    for key, descriptor in descriptors.items()
+                    if re.fullmatch(binding.members, key) and (not kinds or _kind(descriptor.prop) in kinds) and all(band.holds(_tone(base[key])) for band in binding.where)
+                ),
+            )
+            for binding in theme.bindings
+            for named in (descriptors.get(str(binding.source)),)
+            for kinds in (binding.kinds or frozenset(() if named is None else (_kind(named.prop),)),)
+        )
+        chosen = {key: binding for binding, keys in reached for key in keys}
+        reads = {key: (binding.reads & chosen.keys()) - {key} for key, binding in chosen.items()}
+        missed = tuple(Error(Fault.of(Reason.ABSENT, "Interface theme", member=binding.members)) for binding, keys in reached if not keys)
+        try:
+            order = tuple(TopologicalSorter(reads).static_order())
+        except CycleError as error:
+            return Error(Fault.of(Reason.INVALID, "Interface theme", error))
+        values, known = base.copy(), dict[str, Outcome[Value]]()
+
+        def settled(key: str) -> Outcome[Value]:
+            return accumulated(known[other] for other in reads[key]).bind(lambda _: _evaluated(theme.fit, chosen[key], descriptors[key].prop, values, key))
+
+        for key in order:
+            known[key] = settled(key)
+            values.update((key, value) for value in known[key].to_option().to_list())
+        return (
+            accumulated((*missed, *(known[key] for key in order if all(known[other].is_ok() for other in reads[key]))))
+            .bind(lambda _: accumulated(assigned(root, {descriptors[key].path: values[key] for key in chosen if descriptors[key].root is type(root)}) for root in roots))
+            .map(lambda _: MappingProxyType({key: values[key] for key in chosen}))
+        )
+
     with tempfile.TemporaryDirectory() as folder:
-        answer = _written(context, theme, Path(folder) / f"{name}.xml").bind(lambda path: called(bpy.ops.preferences.theme_install, {"filepath": str(path)}))
-    return answer.map(lambda _: Path(preferences.themes[0].filepath))
+        target = Path(folder) / f"{name}.xml"
+        with ExitStack() as stack:
+            written = (
+                paired(rooted(bpy.types.Preferences, context), _roots(context).bind(lambda roots: accumulated(map(Snapshot.capture, roots))))
+                .map(lambda held: stack.callback(_restored, context, *held, held[0].themes[0].filepath, dirty=held[0].is_dirty))
+                .bind(
+                    lambda _: (
+                        Option
+                        .of_optional(theme.base)
+                        .map(
+                            lambda base: called(
+                                bpy.ops.script.execute_preset,
+                                {
+                                    "filepath": bpy.utils.preset_find(base, USERPREF_MT_interface_theme_presets.preset_subdir, ext=".xml") or base,
+                                    "menu_idname": USERPREF_MT_interface_theme_presets.__name__,
+                                },
+                            )
+                        )
+                        .default_value(Ok(frozenset()))
+                    )
+                )
+                .bind(lambda _: _roots(context))
+                .bind(lambda roots: accumulated(map(Snapshot.capture, roots)).bind(partial(bound, roots)))
+                .bind(
+                    lambda _: (
+                        catch(target.parent.mkdir, exception=OSError)(parents=True, exist_ok=True)
+                        .bind(lambda _: catch(_rna_xml.xml_file_write, exception=OSError)(context, str(target), USERPREF_MT_interface_theme_presets.preset_xml_map))
+                        .map_error(partial(Fault.of, Reason.UNWRITABLE, str(target)))
+                    )
+                )
+            )
+        answer = written.bind(lambda _: called(bpy.ops.preferences.theme_install, {"filepath": str(target)}))
+    return answer.bind(lambda _: rooted(bpy.types.Preferences, context)).map(lambda preferences: Path(preferences.themes[0].filepath))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

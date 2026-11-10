@@ -1,9 +1,7 @@
 use core::iter;
 
-use cavalier_contours::{
-    polyline::{self, CoincidentSegmentBehavior, PlineOffsetOptions, PlineOrientation, PlineSource as _, TouchingLoopBehavior},
-    shape_algorithms::{IndexedPolyline, OffsetLoop, Shape, ShapeOffsetOptions},
-};
+use cavalier_contours::polyline::{self, CoincidentSegmentBehavior, PlineOffsetOptions, PlineOrientation, PlineSource as _, TouchingLoopBehavior};
+use cavalier_contours::shape_algorithms::{IndexedPolyline, OffsetLoop, Shape, ShapeOffsetOptions};
 use itertools::Itertools as _;
 
 use crate::{Closure, Distance, PlanarError, Polyline, Region, Tolerance, measured, resulting, surviving};

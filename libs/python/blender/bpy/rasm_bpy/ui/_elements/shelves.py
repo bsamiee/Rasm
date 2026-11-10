@@ -10,18 +10,14 @@ import msgspec
 
 from rasm_bpy.commands.operators import Answer, Call, Empty, Operator, Placement, PopupKind, PopupTarget
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _acquired, _Classes, _Tier, Acquisitions
+from rasm_bpy.data._extension.registration import acquired_rows, Acquisitions, Classes, Tier
 from rasm_bpy.data._rna.conditions import Condition, polled
-from rasm_bpy.files._assets import _AssetMark
-from rasm_bpy.ui._layout.rows import _realized, RowContent, RowDraw
+from rasm_bpy.files._assets import AssetMark
+from rasm_bpy.ui._layout.rows import realized, RowContent, RowDraw
 from rasm_records import Error, Fault, Nothing, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type _Use = Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -36,8 +32,8 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
     space: "rna_enums.SpaceTypeItems"
     filters: frozenset[str]
     assets: frozenset[Key] | Callable[[bpy.types.AssetRepresentation], bool]
-    activate: Option[_Use] = Nothing
-    drag: bool | _Use = True
+    activate: Option[Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]]] = Nothing
+    drag: bool | Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]] = True
     active: Option[Callable[[bpy.types.Context], Option[bpy.types.AssetWeakReference]]] = Nothing
     menu: tuple[RowContent, ...] = ()
     preview: Option[int] = Nothing
@@ -73,7 +69,7 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
                 """Whether the shelf lists the asset: one the extension marked under a named key, or one the predicate accepts."""
                 match self.assets:
                     case frozenset(keys):
-                        return _AssetMark.key_of(identity, asset).filter(keys.__contains__).is_some()
+                        return AssetMark.key_of(identity, asset).filter(keys.__contains__).is_some()
                     case accepts:
                         return accepts(asset)
 
@@ -99,15 +95,15 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
                 }
                 return (type(name, (bpy.types.AssetShelf,), native),)
 
-            return _realized(self.menu, identity).map(built)
+            return realized(self.menu, identity).map(built)
 
-        return (*(row for _, row in actions), *_acquired(self.menu), (_Tier.INTERFACE, _Classes(build=classed)))
+        return (*(row for _, row in actions), *acquired_rows(self.menu), (Tier.INTERFACE, Classes(build=classed)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _acted(use: _Use, call: Call[Empty]) -> Outcome[Answer]:
+def _acted(use: Callable[[Call[Empty], bpy.types.AssetRepresentation], Outcome[Answer]], call: Call[Empty]) -> Outcome[Answer]:
     """Runs a shelf action over the context asset, absent fault without one."""
     return Option.of_optional(call.context.asset).map(lambda asset: use(call, asset)).default_with(lambda: Error(Fault.of(Reason.ABSENT, "bpy.context", member="asset")))
 

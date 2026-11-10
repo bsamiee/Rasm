@@ -1,4 +1,5 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, sym};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::sym;
 use rustc_hir::FnRetTy;
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::print::with_forced_trimmed_paths;

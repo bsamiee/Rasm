@@ -13,6 +13,37 @@ utils:
             - matches: typescript-module-constant
               has: {kind: variable_declarator, has: {field: name, matches: binding-target}}
             - {kind: 'function_declaration, class_declaration', has: {field: name, pattern: $TARGET}}
+    module-target:
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                any:
+                    - matches: stable-target
+                    - kind: export_statement
+                      has: {matches: stable-target}
+                    - kind: import_statement
+                      not: {has: {regex: '^type$'}}
+                      has: {kind: import_clause, has: {stopBy: end, kind: identifier, pattern: $TARGET, not: {inside: {kind: import_specifier, has: {field: alias, pattern: $_}, field: name}}}}
+    exported-target:
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: export_statement
+                any:
+                    - has: {matches: stable-target}
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $TARGET}}}
+    slot:
+        kind: public_field_definition
+        all: [{has: {regex: '^static$'}}, {has: {field: name, pattern: $ALIAS}}]
+    shared-slot:
+        inside:
+            stopBy: end
+            inside: {kind: program}
+            any:
+                - precedes: {stopBy: end, has: {stopBy: end, matches: slot}}
+                - follows: {stopBy: end, has: {stopBy: end, matches: slot}}
     aliased-import:
         kind: type_identifier
         pattern: $IMPORTED
@@ -28,14 +59,7 @@ rule:
             - has: {field: value, kind: identifier, pattern: $TARGET}
             - not: {has: {field: type, kind: type_annotation}}
             - inside: {matches: typescript-module-constant}
-            - inside:
-                kind: program
-                stopBy: end
-                has:
-                    any:
-                        - matches: stable-target
-                        - kind: export_statement
-                          has: {matches: stable-target}
+            - matches: module-target
         - kind: variable_declarator
           all:
             - has:
@@ -45,21 +69,19 @@ rule:
                 not: {has: {pattern: $_, not: {any: [{kind: shorthand_property_identifier_pattern}, {kind: pair_pattern, has: {field: value, kind: identifier}}]}}}
             - has: {field: value, kind: identifier, pattern: $TARGET}
             - inside: {matches: typescript-module-constant}
-            - inside:
-                kind: program
-                stopBy: end
-                has:
-                    any:
-                        - matches: stable-target
-                        - kind: export_statement
-                          has: {matches: stable-target}
-                        - kind: import_statement
-                          not: {has: {regex: '^type$'}}
-                          has: {kind: import_clause, has: {stopBy: end, kind: identifier, pattern: $TARGET, not: {inside: {kind: import_specifier, has: {field: alias, pattern: $_}, field: name}}}}
+            - matches: module-target
+        - kind: public_field_definition
+          all:
+            - has: {regex: '^static$'}
+            - has: {field: name, kind: property_identifier, pattern: $ALIAS}
+            - has: {field: value, kind: identifier, pattern: $TARGET}
+            - not: {has: {field: type, kind: type_annotation}}
+            - matches: exported-target
+            - not: {matches: shared-slot}
         - kind: type_alias_declaration
           all:
             - has: {field: name, pattern: $ALIAS}
-            - has: {field: value, kind: 'type_identifier, nested_type_identifier', pattern: $TARGET}
+            - has: {field: value, kind: 'type_identifier, nested_type_identifier, predefined_type', pattern: $TARGET}
             - not: {has: {field: type_parameters, kind: type_parameters}}
             - not: {has: {field: value, matches: aliased-import}}
         - kind: type_alias_declaration
@@ -87,6 +109,6 @@ constraints:
     ALIAS: {not: {regex: '^default$'}}
     TARGET: {not: {regex: '^default$'}}
 message: '`$ALIAS` names `$TARGET` or its members again'
-note: 'Write `<target>` or `<target>.<member>` at each use, or import member by name, and delete the alias'
+note: 'Write `<target>` or `<target>.<member>` at each use, or import member by name, and delete the alias, a static stays where its module exports no other name for its target or several classes declare its name'
 labels:
     TARGET: {style: primary, message: Aliased name}

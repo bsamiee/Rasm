@@ -1,21 +1,18 @@
-use core::{borrow::Borrow, iter};
+use core::borrow::Borrow;
+use core::iter;
 use std::sync::Arc;
 
-use hayro_syntax::object::{self, Array, Dict, Name, dict::keys};
+use hayro_syntax::object::dict::keys;
+use hayro_syntax::object::{self, Array, Dict, Name};
 use kurbo::{Affine, Point, Rect, Shape, Vec2};
 use lopdf::{Dictionary, Object, StringFormat, decode_text_string, dictionary, text_string};
 use nonempty_collections::{IntoNonEmptyIterator as _, NonEmptyIterator as _};
 use rasm_drawing::pages::{self, Page, Scale, Viewport};
-use uom::{
-    si::{
-        Unit as _,
-        area::square_meter,
-        f64::Length,
-        length::{meter, point_computer},
-        ratio,
-    },
-    str::ParseQuantityError,
-};
+use uom::si::area::square_meter;
+use uom::si::f64::Length;
+use uom::si::length::{meter, point_computer};
+use uom::si::{Unit as _, ratio};
+use uom::str::ParseQuantityError;
 use validated::Validated;
 
 use crate::{Document, PdfError, Refusal, Subject};

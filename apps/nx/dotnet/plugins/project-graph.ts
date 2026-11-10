@@ -3,13 +3,11 @@ import { posix } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, Equal, Equivalence, FileSystem, Formatter, flow, Option, Path, Record, Schema, Stream, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
-import { aggregated, targets, upgraded } from '#/plugins/targets';
+import { Array, Effect, Equal, Equivalence, FileSystem, flow, Option, Path, Record, Schema, Struct } from 'effect';
+import { aggregated, analyzer, Node, spawned, targets, upgraded } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Node = typeof Node.Type;
 type Report = typeof Report.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -20,54 +18,13 @@ const PLATFORMS = { macOS: 'darwin', Windows: 'win32', Linux: 'linux' } as const
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Node = Schema.Struct({
-    file: Schema.String,
-    name: Schema.String,
-    language: Schema.String,
-    test: Schema.Boolean,
-    packable: Schema.Boolean,
-    publishable: Schema.Boolean,
-    configuration: Schema.String,
-    modes: Schema.Array(Schema.Struct({ configuration: Schema.String, runtime: Schema.NullOr(Schema.String), outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String) })),
-    references: Schema.Array(Schema.Struct({ root: Schema.String, declared: Schema.String })),
-    inputs: Schema.Array(Schema.String),
-    bases: Schema.Array(Schema.String),
-    packages: Schema.Array(Schema.Struct({ id: Schema.String, version: Schema.String, hash: Schema.String, direct: Schema.Boolean, dependencies: Schema.Array(Schema.String) })),
-    locks: Schema.Array(Schema.String),
-    restored: Schema.Array(Schema.String),
-    results: Schema.Array(Schema.String),
-    platforms: Schema.Array(Schema.String),
-    central: Schema.NullOr(Schema.String),
-    releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
-});
 const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
 const Reported = Schema.fromJsonString(Report);
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class DotnetError extends Schema.TaggedError<DotnetError, { readonly brand: unique symbol }>()('DotnetError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
-    override get message() {
-        return [`${this.subject}: ${this.detail}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const dotnet = Effect.fnUntraced(function* (args: readonly string[], cwd: string, input?: string) {
-    const handle = yield* ChildProcess.make('dotnet', args, { cwd, extendEnv: true, stdin: input === undefined ? 'ignore' : Stream.encodeText(Stream.succeed(input)) });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return { code, stdout, stderr };
-}, Effect.scoped);
-
-const spawned = Effect.fnUntraced(function* (args: readonly string[], cwd: string, input?: string) {
-    const run = yield* dotnet(args, cwd, input);
-    return run.code === 0 ? run.stdout : yield* DotnetError.make({ subject: ['dotnet', ...args].join(' '), detail: `exited ${run.code}: ${run.stderr.trim()}` });
-});
-
 const external = ({ id, version }: Node['packages'][number]) => `nuget:${id}@${version}`;
-
-const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(import.meta.resolve('#analyzer'))));
 
 const hashed = (fs: FileSystem.FileSystem, path: Path.Path, folders: readonly string[]) =>
     Effect.map(
@@ -207,4 +164,4 @@ const createDependencies: CreateDependencies = (_, { workspaceRoot, projects }) 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { analyzer, createDependencies, createNodes, DotnetError, dotnet, type Node, spawned };
+export { createDependencies, createNodes };

@@ -210,9 +210,6 @@ const spacing = Schema.Struct(Struct.Record(Array.flatMap(Object.values(SPACING)
     }),
 );
 class InDesignSettings extends Schema.Class<InDesignSettings, { readonly brand: unique symbol }>('InDesignSettings')({ direction, numberingSystem, kashida, marks, features, spacing }) {
-    static readonly stylisticSets = STYLISTIC_TAGS;
-    static readonly kashidaWidths = KASHIDA_WIDTHS;
-    static readonly Thousandths = thousandths;
     static readonly read = (target: Placed) => Effect.flatMap(placement(target), (placed) => held(target, placed));
     static readonly write = Effect.fnUntraced(function* (target: Text | TextDefault, change: typeof Settings.Partial.Type) {
         const placed = yield* placement(target);
@@ -274,4 +271,4 @@ const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFe
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InDesignSettings };
+export { InDesignSettings, KASHIDA_WIDTHS, STYLISTIC_TAGS, thousandths };

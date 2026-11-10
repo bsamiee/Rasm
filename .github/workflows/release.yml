@@ -15,10 +15,12 @@ defaults:
 
 jobs:
     version:
-        runs-on: ubuntu-26.04
+        runs-on: xcode-27
         timeout-minutes: 30
         permissions:
             contents: write
+        env:
+            DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
         outputs:
             commit: ${{ steps.commit.outputs.sha }}
         steps:
@@ -28,12 +30,13 @@ jobs:
                   filter: tree:0
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
+            - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
             - run: git config user.name 'github-actions[bot]' && git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             - run: nx release --skip-publish
               env:
                   GH_TOKEN: ${{ github.token }}
             - id: commit
-              run: printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+              run: git log -1 --format='sha=%H' >> "${GITHUB_OUTPUT}"
 
     build:
         needs: version
@@ -58,11 +61,13 @@ jobs:
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
             - if: matrix.runner == 'xcode-27'
+              run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
+            - if: matrix.runner == 'xcode-27'
               uses: mcneel/setup-rhino3d@b3faf87453962c0742ab2a5e72d3494505f660df # v3.0.0
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
                   release-version: wip
-            - run: nx run-many --targets=build --configuration=release --projects="$PROJECTS"
+            - run: nx run-many --targets=build --configuration=release --projects="${PROJECTS}"
               env:
                   PROJECTS: ${{ matrix.projects }}
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -71,6 +76,7 @@ jobs:
                   path: |
                       .artifacts/
                       **/dist/
+                      apps/nx/apple/analyzer/.build/out/Products/Release/nx-apple-analyzer
                       !**/node_modules/
                   if-no-files-found: error
 

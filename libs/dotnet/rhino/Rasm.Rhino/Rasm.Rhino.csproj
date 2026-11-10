@@ -6,10 +6,6 @@
         <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);PackAnalyzers</TargetsForTfmSpecificContentInPackage>
     </PropertyGroup>
 
-    <ItemGroup Label="Global Usings">
-        <Using Include="UnitsNet.Temperature" Alias="Temperature" />
-    </ItemGroup>
-
     <ItemGroup Label="Rhino">
         <PackageReference Include="Microsoft.Win32.SystemEvents" Condition="'$(TargetPlatformIdentifier)' != 'Windows'" />
         <PackageReference Include="RhinoCommon" />

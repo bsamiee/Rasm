@@ -1,12 +1,11 @@
 use itertools::EitherOrBoth;
 use rasm_bcf::{Components, IfcGuid, Presentation, Reference, ViewSetupHint, presentation};
-use uuid::{Uuid, fmt::Hyphenated};
+use uuid::Uuid;
+use uuid::fmt::Hyphenated;
 
-use crate::{
-    Composed, IfcError, Model, Path,
-    schemas::{Attribute as _, attribute},
-    spatial::{Class, SpaceBoundary, entity},
-};
+use crate::schemas::{Attribute as _, attribute};
+use crate::spatial::{Class, SpaceBoundary, entity};
+use crate::{Composed, IfcError, Model, Path};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

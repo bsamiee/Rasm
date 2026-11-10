@@ -10,7 +10,7 @@ rule:
             - pattern: {context: 'return $CALL ?? throw new $EXCEPTION($$$MESSAGE);', selector: binary_expression}
             - has: {field: left, kind: invocation_expression}
             - not: {has: {field: right, has: {kind: object_creation_expression, has: {field: type, regex: '^(UnreachableException|XunitException)$'}}}}
-            - not: {inside: {stopBy: end, kind: field_declaration}}
+            - not: {inside: {stopBy: end, kind: 'field_declaration, global_statement'}}
         - kind: invocation_expression
           all:
             - has: {field: function, regex: 'ThrowIfFail$'}
@@ -26,6 +26,6 @@ rule:
                             - matches: {csharp-owner-member: {type: {regex: '^Refused$'}, member: {regex: '^UnlessFound$'}}}
                             - kind: member_access_expression
                               has: {field: name, regex: '^ToFin$'}
-            - not: {inside: {stopBy: end, matches: languageext-io-lift}}
+            - not: {inside: {stopBy: end, any: [{kind: global_statement}, {matches: languageext-io-lift}]}}
 message: '`$CALL` throws for an absent result'
 note: 'Lift absence into the result through `Optional(<call>).ToFin(<error>)` inside a `Fin` or `IO` chain'

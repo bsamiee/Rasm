@@ -153,10 +153,6 @@ internal sealed class GripBody(GripDefinition definition) {
             var (row, column) when wrap => Some((((row % grid.Rows) + grid.Rows) % grid.Rows * grid.Columns) + (((column % grid.Columns) + grid.Columns) % grid.Columns)),
             var (row, column) => Conversions.Present(row >= 0 && row < grid.Rows && column >= 0 && column < grid.Columns, (row * grid.Columns) + column),
         }).Bind(at => Points.At(at)).Map(static GripObject (grip) => grip).ValueUnsafe();
-
-    internal GripObject? Curve(int index) => Points.Find(grip => grip.Point.CurveCVIndices.Exists(held => held == index)).ValueUnsafe();
-
-    internal GripObject? Surface(int i, int j) => Points.Find(grip => grip.Point.SurfaceCVIndices.Exists(pair => pair.I == i && pair.J == j)).ValueUnsafe();
 }
 
 public abstract class DefinedObjectGrips : CustomObjectGrips {
@@ -201,9 +197,9 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
 
     protected sealed override NurbsSurface? NurbsSurface() => control.Host.Surface.ValueUnsafe();
 
-    protected sealed override GripObject? NurbsCurveGrip(int i) => body.Curve(i);
+    protected sealed override GripObject? NurbsCurveGrip(int i) => body.Points.Find(grip => grip.Point.CurveCVIndices.Exists(held => held == i)).ValueUnsafe();
 
-    protected sealed override GripObject? NurbsSurfaceGrip(int i, int j) => body.Surface(i, j);
+    protected sealed override GripObject? NurbsSurfaceGrip(int i, int j) => body.Points.Find(grip => grip.Point.SurfaceCVIndices.Exists(pair => pair.I == i && pair.J == j)).ValueUnsafe();
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

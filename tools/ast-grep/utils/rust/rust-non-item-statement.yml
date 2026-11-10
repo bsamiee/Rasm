@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: rust-non-item-statement
-language: rustlang
-rule:
-    kind: 'expression_statement, let_declaration, empty_statement'

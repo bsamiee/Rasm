@@ -1,4 +1,4 @@
-import { Array, Cache, Effect, Function, Option, Predicate, Record } from 'effect';
+import { Array, Cache, Effect, Function, Option, Predicate, Record, String } from 'effect';
 import { absent, become, type Call, cut, dropped, edited, ensure, erased, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, type Respelling, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
 import { lockDeletes } from '#/policies/ghidra';
 import type { Word } from '#/shell/script';
@@ -292,6 +292,16 @@ const redundantCd: Fix = (site, { host }) => {
     return target?.known === true && Option.exists(host.place(target.text, site.command.cwd), (place) => Option.contains(site.command.cwd, place)) ? struck(site) : [];
 };
 
+const stranding: Fix = Effect.fnUntraced(function* (site, { host, analysis }) {
+    const { installed } = yield* Shell;
+    const [target] = site.operands;
+    const outside = Option.filter((place: string) => !host.inside(place, host.root));
+    const left = target?.known === true && site.outer.length === 0 && site.command.origin === 'call' ? outside(host.place(target.text, site.command.cwd)) : Option.none();
+    const later = Array.dedupe(analysis.sites.filter(({ command }) => command.source === site.command.source && command.start > site.command.start && Option.isSome(outside(command.cwd))).map(({ program }) => program));
+    const found = yield* Effect.forEach(Array.cartesian(Option.toArray(left), later), ([place, program]) => Effect.all([Cache.get(installed, program), Effect.map(host.output(['mise', '-C', place, 'exec', '--', 'which', program]), String.isNonEmpty)]), { concurrency: 'unbounded' });
+    return found.some(([here, away]) => here && !away) && !found.some(([here, away]) => away && !here) ? become('builtin cd')(site) : [];
+});
+
 const readsItsOwnFile: Fix = (site, call) => {
     const [source, ...others] = stages(site, call).earlier;
     const [file] = source?.operands ?? [];
@@ -376,7 +386,7 @@ const FILES: Policy = {
                 when(({ leading: [find], has: holding }) => find !== undefined && (find.text.includes('\n') || (!holding('--fixed-strings') && ESCAPED_NEWLINE.test(find.text))), ensure('-A')),
             ],
         },
-        cd: { fixes: [redundantCd] },
+        cd: { fixes: [redundantCd, stranding] },
         jq: { flags: ['--arg=2', '--argjson=2', '--slurpfile=2', '--rawfile=2'], leading: 1, leadingUnless: ['--from-file'], ends: ['--args', '--jsonargs'], reads: 'default', readsUnless: ['--null-input'], fixes: [readsItsOwnFile] },
         hyperfine: {
             flags: ['-P, --parameter-scan=3', '-L, --parameter-list=2'],

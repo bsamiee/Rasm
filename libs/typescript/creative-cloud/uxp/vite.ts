@@ -21,7 +21,6 @@ interface Plugin {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const HOSTED = /^adobe:/u;
-const ENTRY = 'main';
 const RASTER = /\.png$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -29,27 +28,26 @@ const RASTER = /\.png$/u;
 const emitted = Effect.fnUntraced(function* (directory: string, { width, path, scale = [1], theme = [] }: Icon, master: Option.Option<string>) {
     const files = RASTER.test(path) ? Array.map(scale, (factor) => ({ fileName: path.replace(RASTER, `@${factor}x.png`), width: Option.some(width * factor) })) : [{ fileName: path, width: Option.none<number>() }];
     const fs = yield* FileSystem.FileSystem;
-    return yield* Option.match(master, {
-        onNone: () => Effect.forEach(files, ({ fileName }) => Effect.map(fs.readFile(join(directory, fileName)), (source) => ({ fileName, source }))),
-        onSome: (painted) =>
-            Option.match(Array.head(theme), {
-                onNone: () => Effect.fail(HostError.refused(`Icon ${path}`)(`states no theme, painted fills exist for ${Record.keys(UxpManifest.themes).join(', ')}`)),
-                onSome: (first) =>
-                    first === 'all'
-                        ? Effect.fail(HostError.refused(`Icon ${path}`)('states theme all, painted fills exist per theme'))
-                        : Effect.forEach(files, ({ fileName, width: sized }) => Effect.map(paint(painted, UxpManifest.fills[UxpManifest.themes[first]], ...Option.toArray(sized)), (source) => ({ fileName, source })), { concurrency: 'unbounded' }),
-            }),
-    });
+    const painting = yield* Effect.transposeOption(
+        Option.map(master, (painted) =>
+            Array.head(theme).pipe(
+                Effect.fromOption(() => HostError.refused(`Icon ${path}`)(`states no theme, painted fills exist for ${Record.keys(UxpManifest.fills).join(', ')}`)),
+                Effect.filterOrFail(Schema.is(UxpManifest.Theme), () => HostError.refused(`Icon ${path}`)('states theme all, painted fills exist per theme')),
+                Effect.map((tone) => [painted, UxpManifest.fills[tone]] as const),
+            ),
+        ),
+    );
+    return yield* Effect.forEach(files, ({ fileName, width: sized }) => Effect.map(Option.match(painting, { onNone: () => fs.readFile(join(directory, fileName)), onSome: ([painted, fill]) => paint(painted, fill, ...Option.toArray(sized)) }), (source) => ({ fileName, source })), { concurrency: 'unbounded' });
 });
 const uxpScript = (directory: string, config: UserConfig): UserConfig => {
     const encoding = fileURLToPath(import.meta.resolve('@exodus/bytes/encoding-lite.js'));
     return mergeConfig(
-        bundle(directory, {
+        bundle({
             build: {
                 ssr: true,
                 target: UxpManifest.target,
                 rolldownOptions: {
-                    input: join(directory, `${ENTRY}.ts`),
+                    input: join(directory, 'main.ts'),
                     platform: 'neutral',
                     transform: {
                         inject: Record.fromIterableWith(

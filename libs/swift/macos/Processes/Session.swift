@@ -1,10 +1,6 @@
 import Results
 public import Subprocess
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-private let errorLimit: Int = 1 << 20
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension PlatformOptions {
@@ -22,11 +18,11 @@ extension Configuration {
         within timeout: Duration,
         input: some InputProtocol = .none,
     ) async throws(ProcessFailure) -> ExecutionResult<Void, Output, StringOutput<UTF8>> {
-        let subject: String = executable.description
-        let result: ExecutionResult<Void, Output, StringOutput<UTF8>> = try await withTimeout(timeout, expired: ProcessFailure(subject: subject, reason: .timedOut(timeout))) {
+        let subject = executable.description
+        let result = try await withTimeout(timeout, expired: ProcessFailure(subject: subject, reason: .timedOut(timeout))) {
             () async throws(ProcessFailure) in
             do {
-                return try await Subprocess.run(self, input: input, output: output, error: .string(limit: errorLimit))
+                return try await Subprocess.run(self, input: input, output: output, error: .string(limit: 1 << 20))
             } catch {
                 throw ProcessFailure(subject: subject, error)
             }

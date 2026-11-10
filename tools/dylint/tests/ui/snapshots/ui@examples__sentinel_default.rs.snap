@@ -2,71 +2,243 @@
 source: tools/dylint/tests/ui/main.rs
 input_file: tools/dylint/examples/sentinel_default.rs
 ---
-error: `unwrap_or_default` replaces `None` with a `u32` default tested immediately
-  --> tools/dylint/examples/sentinel_default.rs:90:48
+error: `unwrap_or_default` stands an empty `&str` in for `None`
+  --> tools/dylint/examples/sentinel_default.rs:51:71
    |
-90 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
+51 | fn viewed(value: Option<&String>) -> &str { value.map(String::as_str).unwrap_or_default() }
+   |                                                                       ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+   = note: `#[deny(empty_string_default)]` on by default
+
+error: `unwrap_or_default` stands an empty `String` in for `None`
+  --> tools/dylint/examples/sentinel_default.rs:53:85
+   |
+53 | fn cloned(map: &BTreeMap<u32, String>, key: u32) -> String { map.get(&key).cloned().unwrap_or_default() }
+   |                                                                                     ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `counted` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:55:1
+   |
+55 | fn counted(value: Option<u32>) -> u32 { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:55:41
+   |
+55 | fn counted(value: Option<u32>) -> u32 { value.unwrap_or_default() }
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `counted` and delete `counted`
+   = note: `#[deny(forwarding_function)]` on by default
+
+error: `flagged` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:57:1
+   |
+57 | fn flagged(value: Option<bool>) -> bool { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:57:43
+   |
+57 | fn flagged(value: Option<bool>) -> bool { value.unwrap_or_default() }
+   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `flagged` and delete `flagged`
+
+error: `initial` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:59:1
+   |
+59 | fn initial(value: Option<char>) -> char { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:59:43
+   |
+59 | fn initial(value: Option<char>) -> char { value.unwrap_or_default() }
+   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `initial` and delete `initial`
+
+error: `listed` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:61:1
+   |
+61 | fn listed(value: Option<Vec<u32>>) -> Vec<u32> { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:61:50
+   |
+61 | fn listed(value: Option<Vec<u32>>) -> Vec<u32> { value.unwrap_or_default() }
+   |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `listed` and delete `listed`
+
+error: `mapped` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:63:1
+   |
+63 | fn mapped(value: Option<BTreeMap<u32, u32>>) -> BTreeMap<u32, u32> { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:63:70
+   |
+63 | fn mapped(value: Option<BTreeMap<u32, u32>>) -> BTreeMap<u32, u32> { value.unwrap_or_default() }
+   |                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `mapped` and delete `mapped`
+
+error: `located` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:65:1
+   |
+65 | fn located(value: Option<PathBuf>) -> PathBuf { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:65:49
+   |
+65 | fn located(value: Option<PathBuf>) -> PathBuf { value.unwrap_or_default() }
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `located` and delete `located`
+
+error: `unwrap_or_default` stands an empty `PathBuf` in for `None`
+  --> tools/dylint/examples/sentinel_default.rs:65:55
+   |
+65 | fn located(value: Option<PathBuf>) -> PathBuf { value.unwrap_or_default() }
+   |                                                       ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `named` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:67:1
+   |
+67 | fn named(value: Option<OsString>) -> OsString { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:67:49
+   |
+67 | fn named(value: Option<OsString>) -> OsString { value.unwrap_or_default() }
+   |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `named` and delete `named`
+
+error: `unwrap_or_default` stands an empty `OsString` in for `None`
+  --> tools/dylint/examples/sentinel_default.rs:67:55
+   |
+67 | fn named(value: Option<OsString>) -> OsString { value.unwrap_or_default() }
+   |                                                       ^^^^^^^^^^^^^^^^^^^
+   |
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `sliced` passes its parameters unchanged to `std::option::Option::unwrap_or_default`
+  --> tools/dylint/examples/sentinel_default.rs:69:1
+   |
+69 | fn sliced(value: Option<&[u8]>) -> &[u8] { value.unwrap_or_default() }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/sentinel_default.rs:69:44
+   |
+69 | fn sliced(value: Option<&[u8]>) -> &[u8] { value.unwrap_or_default() }
+   |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: call `std::option::Option::unwrap_or_default` at each call site of `sliced` and delete `sliced`
+
+error: `unwrap_or_default` replaces `None` with a `u32` default tested immediately
+  --> tools/dylint/examples/sentinel_default.rs:89:48
+   |
+89 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
    |                                                ^^^^^^^^^^^^^^^^^^^
    |
 note: tested here
-  --> tools/dylint/examples/sentinel_default.rs:90:42
+  --> tools/dylint/examples/sentinel_default.rs:89:42
    |
-90 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
+89 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
    |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: test the `Option` with `is_none_or`, `is_some_and`, or a `match`, so a `Some` holding the default stays distinct from `None`
    = note: `#[deny(sentinel_default)]` on by default
 
-error: `unwrap_or` replaces `None` with a `&str` default tested immediately
-  --> tools/dylint/examples/sentinel_default.rs:92:49
+error: `unwrap_or` stands an empty `&str` in for `None`
+  --> tools/dylint/examples/sentinel_default.rs:91:49
    |
-92 | fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() }
+91 | fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() }
    |                                                 ^^^^^^^^^^^^^
    |
-note: tested here
-  --> tools/dylint/examples/sentinel_default.rs:92:43
-   |
-92 | fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() }
-   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   = help: test the `Option` with `is_none_or`, `is_some_and`, or a `match`, so a `Some` holding the default stays distinct from `None`
+   = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
 
 error: `unwrap_or_default` replaces `None` with a `&[u8]` default tested immediately
-  --> tools/dylint/examples/sentinel_default.rs:94:51
+  --> tools/dylint/examples/sentinel_default.rs:93:51
    |
-94 | fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
+93 | fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
    |                                                   ^^^^^^^^^^^^^^^^^^^
    |
 note: tested here
-  --> tools/dylint/examples/sentinel_default.rs:94:45
+  --> tools/dylint/examples/sentinel_default.rs:93:45
    |
-94 | fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
+93 | fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: test the `Option` with `is_none_or`, `is_some_and`, or a `match`, so a `Some` holding the default stays distinct from `None`
 
 error: `map_or` replaces `None` with a `u32` default tested immediately
-  --> tools/dylint/examples/sentinel_default.rs:96:52
+  --> tools/dylint/examples/sentinel_default.rs:95:52
    |
-96 | fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
+95 | fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
    |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
 note: tested here
-  --> tools/dylint/examples/sentinel_default.rs:96:46
+  --> tools/dylint/examples/sentinel_default.rs:95:46
    |
-96 | fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
+95 | fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    = help: test the `Option` with `is_none_or`, `is_some_and`, or a `match`, so a `Some` holding the default stays distinct from `None`
 
+error: `map_or_default` replaces `None` with a `u32` default tested immediately
+  --> tools/dylint/examples/sentinel_default.rs:97:60
+   |
+97 | fn mapped_default_test(value: Option<u32>) -> bool { value.map_or_default(|value| value.saturating_mul(2)) == 0 }
+   |                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: tested here
+  --> tools/dylint/examples/sentinel_default.rs:97:54
+   |
+97 | fn mapped_default_test(value: Option<u32>) -> bool { value.map_or_default(|value| value.saturating_mul(2)) == 0 }
+   |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: test the `Option` with `is_none_or`, `is_some_and`, or a `match`, so a `Some` holding the default stays distinct from `None`
+
 error: `unwrap_or_default` replaces `None` with a `char` default tested immediately
-   --> tools/dylint/examples/sentinel_default.rs:99:17
+   --> tools/dylint/examples/sentinel_default.rs:100:17
     |
- 99 |     match value.unwrap_or_default() {
+100 |     match value.unwrap_or_default() {
     |                 ^^^^^^^^^^^^^^^^^^^
     |
 note: tested here
-   --> tools/dylint/examples/sentinel_default.rs:99:5
+   --> tools/dylint/examples/sentinel_default.rs:100:5
     |
- 99 | /     match value.unwrap_or_default() {
-100 | |         '\0' => false,
-101 | |         _ => true,
-102 | |     }
+100 | /     match value.unwrap_or_default() {
+101 | |         '\0' => false,
+102 | |         _ => true,
+103 | |     }
     | |_____^
     = help: test the `Option` with `is_none_or`, `is_some_and`, or a `match`, so a `Some` holding the default stays distinct from `None`
+
+error: `unwrap_or` stands an empty `&str` in for `None`
+   --> tools/dylint/examples/sentinel_default.rs:145:16
+    |
+143 | macro_rules! tested {
+144 |     ($value:expr) => {
+145 |         $value.unwrap_or("") == ""
+    |                ^^^^^^^^^^^^^
+...
+149 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
+    |                                                            ------------- in this macro invocation
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call
+
+error: `unwrap_or` stands an empty `&str` in for `None`
+   --> tools/dylint/examples/sentinel_default.rs:145:16
+    |
+143 | macro_rules! tested {
+144 |     ($value:expr) => {
+145 |         $value.unwrap_or("") == ""
+    |                ^^^^^^^^^^^^^
+...
+149 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
+    |                                                                             -------------- in this macro invocation
+    |
+    = help: keep the `Option` through to its reader, or `match` `Some` and `None` to choose the foreign call

@@ -15,18 +15,18 @@ import msgspec
 
 from rasm_bpy.commands import invocations, keymaps, operators
 from rasm_bpy.data._extension.identity import Identity, Key
-from rasm_bpy.data._extension.registration import _entered, _Tier, Acquisitions, Declaration, Gathering
+from rasm_bpy.data._extension.registration import Acquisitions, Declaration, entered, Gathering, Tier
 from rasm_bpy.data._rna.conditions import Condition, satisfied
-from rasm_bpy.data._rna.paths import _definition, Struct
-from rasm_bpy.data._rna.properties import _declaring
+from rasm_bpy.data._rna.paths import rna_definition, Struct
+from rasm_bpy.data._rna.properties import declaring
 from rasm_bpy.settings._attachments import Attached, Attachment
 from rasm_bpy.ui._drawing.handlers import Signal
 from rasm_bpy.ui._layout.members import Member
-from rasm_bpy.ui._layout.rows import _layout_method, _realized, OperatorButton, Property, RowContent, RowDraw
-from rasm_bpy.ui._layout.sections import _fields, _SectionDraws, _sections_in, Section
-from rasm_bpy.ui._resources.icons import _ICONS
+from rasm_bpy.ui._layout.rows import layout_method, OperatorButton, Property, realized, RowContent, RowDraw
+from rasm_bpy.ui._layout.sections import field_rows, Section, SectionDraws, sections_in
+from rasm_bpy.ui._resources.icons import ICONS
 from rasm_bpy.ui._screens.areas import Located
-from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason, typed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -35,7 +35,6 @@ if TYPE_CHECKING:
 
 type FixedPlacement = Beside | Child | Sidebar | EditorRegion
 type _PanelPlacement = FixedPlacement | _DynamicPlacement
-type _Site = tuple[str, _PanelPlacement, Option[Condition]]
 _G_co = TypeVar("_G_co", bound=bpy.types.PropertyGroup, covariant=True, default=bpy.types.PropertyGroup)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -63,7 +62,7 @@ class Child(msgspec.Struct, frozen=True, kw_only=True):
     def members(self, _identity: Identity) -> dict[str, object]:
         """Copies the parent's editor and region and names it as parent."""
         parent: type[bpy.types.Panel] = self.parent  # ty: ignore[invalid-assignment]
-        return {"bl_space_type": parent.bl_space_type, "bl_region_type": parent.bl_region_type, "bl_parent_id": _definition(parent).identifier}
+        return {"bl_space_type": parent.bl_space_type, "bl_region_type": parent.bl_region_type, "bl_parent_id": rna_definition(parent).identifier}
 
 
 class Sidebar(msgspec.Struct, frozen=True, kw_only=True):
@@ -74,7 +73,7 @@ class Sidebar(msgspec.Struct, frozen=True, kw_only=True):
 
     def members(self, identity: Identity) -> dict[str, object]:
         """Places the panel in the tab, its icon the brand icon while one is packaged."""
-        mark = _ICONS.get(identity).bind(lambda icons: icons.brand)
+        mark = ICONS.get(identity).bind(lambda icons: icons.brand)
         return {"bl_space_type": self.space, "bl_region_type": "UI", "bl_category": self.category, **mark.map(lambda value: {"bl_icon_value": value}).default_value(dict[str, int]())}
 
 
@@ -123,12 +122,12 @@ class Panel(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def popovers(cls, rows: Iterable[object]) -> tuple[Self, ...]:
         """Returns a popover panel per store values popover the rows' sections reach, opened by a popover button or `wm.call_panel` alone."""
-        return tuple(cls(section=popover, at=_POPOVER) for section in _sections_in(rows) for popover in section.popover.to_list())
+        return tuple(cls(section=popover, at=POPOVER) for section in sections_in(rows) for popover in section.popover.to_list())
 
     def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the sections, a popover panel per values popover they reach, and the scope registering every placement."""
         roots = (self.section, *self.children)
-        return (*roots, *Panel.popovers(roots), (_Tier.INTERFACE, _displayed(self, identity)))
+        return (*roots, *Panel.popovers(roots), (Tier.INTERFACE, _displayed(self, identity)))
 
 
 # --- [PREFERENCES]
@@ -151,10 +150,12 @@ class Preference(msgspec.Struct, Generic[_G_co], frozen=True, kw_only=True):  # 
 
     def read(self, identity: Identity, /) -> Outcome[_G_co]:
         """Returns the group the extension's add-on preferences hold under the key, absent fault while the extension holds none."""
-        for held in identity.preferences(bpy.types.AddonPreferences).to_list():
-            group: _G_co = getattr(held, self.key)  # ty: ignore[unsound-assignment]
-            return Ok(group)
-        return Error(Fault.of(Reason.ABSENT, identity.package, member=self.key))
+        return (
+            identity
+            .preferences(bpy.types.AddonPreferences)
+            .to_result_with(lambda: Fault.of(Reason.ABSENT, identity.package, member=self.key))
+            .bind(lambda held: typed(self.form, repr(held), getattr(held, self.key)))
+        )
 
 
 class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
@@ -221,7 +222,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         kind = type(identity.package, (bpy.types.AddonPreferences,), {"bl_idname": identity.package, "__annotations__": {**pointers, **flags}, "draw": draw})
         sections = (
             *(
-                Section(key=f"preferences_{row.key}", title=Some(bpy.path.display_name(row.key)), holder=Some(Member(root=kind, path=(row.key,))), rows=(*_fields(row.form, row.key), *row.rows))
+                Section(key=f"preferences_{row.key}", title=Some(bpy.path.display_name(row.key)), holder=Some(Member(root=kind, path=(row.key,))), rows=(*field_rows(row.form, row.key), *row.rows))
                 for row in preferred
             ),
             *self.sections,
@@ -234,11 +235,11 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         def prepared() -> Generator[Outcome[None]]:
             with ExitStack() as stack:
                 stack.callback(bodies.clear)
-                yield _entered(identity, stack, (kind,)).bind(lambda _: _realized(sections, identity)).map(bodies.append)
+                yield entered(identity, stack, (kind,)).bind(lambda _: realized(sections, identity)).map(bodies.append)
 
         with ExitStack() as stack:
-            groups = tuple(group for row in preferred for group in stack.enter_context(_declaring(row.form, {}, Some(changed))))
-            yield (*groups, show_preferences, *((clear,) if stores else ()), *sections, *Panel.popovers(sections), (_Tier.PREFERENCES, prepared()))
+            groups = tuple(group for row in preferred for group in stack.enter_context(declaring(row.form, {}, Some(changed))))
+            yield (*groups, show_preferences, *((clear,) if stores else ()), *sections, *Panel.popovers(sections), (Tier.PREFERENCES, prepared()))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -254,26 +255,25 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
         """Returns a copy's key suffix: the stock panel's identifier, or the editor with its tab or region, in lowercase snake case."""
         match at:
             case Beside(panel=stock) | Child(parent=stock):
-                declared: type[bpy.types.Panel] = stock  # ty: ignore[invalid-assignment]
-                text = _definition(declared).identifier
+                text = stock.__name__
             case Sidebar(space=space, category=named) | EditorRegion(space=space, region=named):
                 text = f"{space} {named}"
         return "_".join(match.group() for match in re.finditer(r"[a-z0-9]+", text.lower()))
 
-    sites: tuple[_Site, ...] = ((panel.section.key, panel.at, panel.condition), *((f"{panel.section.key}_{slug(copy.at)}", copy.at, copy.condition) for copy in panel.copies))
+    sites = ((panel.section.key, panel.at, panel.condition), *((f"{panel.section.key}_{slug(copy.at)}", copy.at, copy.condition) for copy in panel.copies))
     drawn = paired(panel.section.realized(identity), accumulated(child.realized(identity) for child in panel.children))
     held: list[tuple[FixedPlacement, ...]] = []
     classes = ExitStack()
 
     def classed(
-        section: Section[bpy.types.PropertyGroup], draws: _SectionDraws, name: str, members: Mapping[str, object], options: frozenset[str], condition: Option[Condition]
+        section: Section[bpy.types.PropertyGroup], draws: SectionDraws, name: str, members: Mapping[str, object], options: frozenset[str], condition: Option[Condition]
     ) -> type[bpy.types.Panel]:
         """Builds a panel class over the section's draws, polled by the condition and whether the context reaches the section's holder."""
 
         def poll(_cls: type[bpy.types.Panel], context: bpy.types.Context) -> bool:
             return satisfied(condition, context) and draws.present(context)
 
-        headers = {member: _layout_method(draw) for member, shown in (("draw_header", draws.draw_header), ("draw_header_preset", draws.draw_header_preset)) for draw in shown.to_list()}
+        headers = {member: layout_method(draw) for member, shown in (("draw_header", draws.draw_header), ("draw_header_preset", draws.draw_header_preset)) for draw in shown.to_list()}
         return type(
             name,
             (bpy.types.Panel,),
@@ -285,12 +285,12 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
                 "bl_translation_context": section.translation_context,
                 "bl_options": {*options, *(() if section.opened else ("DEFAULT_CLOSED",))},
                 "poll": classmethod(poll),
-                "draw": _layout_method(draws.draw),
+                "draw": layout_method(draws.draw),
                 **headers,
             },
         )
 
-    def placed(draws: tuple[_SectionDraws, tuple[_SectionDraws, ...]], stem: str, at: FixedPlacement, condition: Option[Condition]) -> tuple[type[bpy.types.Panel], ...]:
+    def placed(draws: tuple[SectionDraws, tuple[SectionDraws, ...]], stem: str, at: FixedPlacement, condition: Option[Condition]) -> tuple[type[bpy.types.Panel], ...]:
         """Builds the panel class at one placement, ordered above the Animation panel, then its child panel classes in registration order."""
         top, children = draws
         placing = {**at.members(identity), "bl_owner_id": identity.package}
@@ -308,7 +308,7 @@ def _displayed(panel: Panel, identity: Identity) -> Generator[Outcome[None]]:
 
     def registered(now: tuple[FixedPlacement, ...]) -> Outcome[None]:
         with ExitStack() as entering:
-            if (answer := drawn.bind(lambda draws: _entered(identity, entering, tuple(cls for (stem, _, condition), at in zip(sites, now) for cls in placed(draws, stem, at, condition))))).is_ok():
+            if (answer := drawn.bind(lambda draws: entered(identity, entering, tuple(cls for (stem, _, condition), at in zip(sites, now) for cls in placed(draws, stem, at, condition))))).is_ok():
                 classes.enter_context(entering.pop_all())
                 held[:] = [now]
             return answer
@@ -342,8 +342,8 @@ def show_preferences(call: operators.Call[operators.Empty]) -> Outcome[operators
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_POPOVER: Final = EditorRegion(space="TOPBAR", region="HEADER")
+POPOVER: Final = EditorRegion(space="TOPBAR", region="HEADER")
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Beside", "Child", "EditorRegion", "FixedPlacement", "Panel", "PanelCopy", "Preference", "PreferencesPage", "Sidebar", "show_preferences"]
+__all__ = ["POPOVER", "Beside", "Child", "EditorRegion", "FixedPlacement", "Panel", "PanelCopy", "Preference", "PreferencesPage", "Sidebar", "show_preferences"]

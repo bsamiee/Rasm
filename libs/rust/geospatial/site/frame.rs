@@ -1,17 +1,13 @@
 use geo::AffineTransform;
 use geo_types::{Coord, Point};
 use nalgebra::{Isometry3, Matrix4, Point3, Translation3, UnitQuaternion, Vector3};
-use uom::si::{
-    angle::radian,
-    f64::{Angle, Length, Ratio},
-    length::meter,
-    ratio::ratio,
-};
+use uom::si::angle::radian;
+use uom::si::f64::{Angle, Length, Ratio};
+use uom::si::length::meter;
+use uom::si::ratio::ratio;
 
-use crate::{
-    Elevation, Position, SiteError,
-    crs::{Context, Crs, Factors, Transformation},
-};
+use crate::crs::{Context, Crs, Factors, Transformation};
+use crate::{Elevation, Position, SiteError};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -4,11 +4,8 @@ use kurbo::{Affine, BezPath, Line, PathSeg, Point, QuadSpline, Shape as _};
 use nonempty_collections::NEVec;
 use rasm_drawing::{Anchor, Baseline, Placement, Width};
 
-use crate::{
-    Content, DraftingError, Graphics, Head, Terminator, bounds, drawn, indexed, joined, polyline, stroked,
-    text::{Frame, Typesetter},
-    tipped, transformed,
-};
+use crate::text::{Frame, Typesetter};
+use crate::{Content, DraftingError, Graphics, Head, Terminator, bounds, drawn, indexed, joined, polyline, stroked, tipped, transformed};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

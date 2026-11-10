@@ -1,7 +1,7 @@
 import { Array, Duration, Effect, Option, type Predicate, Record, String } from 'effect';
 import { Verdict } from '#/decision';
 import { installed, WATCHER } from '#/instances';
-import { absent, all, BACKGROUNDED, type Call, dropped, edited, erased, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, unwrap, type Verdicts, when, within } from '#/policies/fix';
+import { absent, all, BACKGROUNDED, type Call, dropped, edited, erased, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, type Verdicts, when, within } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import type { Site } from '#/shell/site';
 
@@ -63,6 +63,11 @@ const watching: Fix = (site, call) => {
 };
 
 // --- [TIMERS]
+
+const unwrap =
+    (timeout?: number): Fix =>
+    (site) =>
+        Option.match(Array.head(site.rest), { onNone: () => [], onSome: ({ start }) => erased(site, { start: site.head.start, end: start }, spoken(site.words), timeout) });
 
 const taskIds = (text: string): readonly string[] => Array.dedupe(Array.getSomes(Array.fromIterable(text.matchAll(TASK_OUTPUTS)).map(({ groups }) => Option.flatMap(Option.fromNullishOr(groups), Record.get('id')))));
 
@@ -172,7 +177,7 @@ const jobbed = ({ analysis, request }: Call): Verdicts => {
     if (!trailing) {
         return refusal(`& job outlives the call, ${request.kind === 'plain' ? 'run it as its own call' : 'set run_in_background'}`);
     }
-    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), notice: Option.none(), timeout: Option.none() }), ...(request.kind === 'foreground' ? BACKGROUNDED : [])];
+    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none(), timeout: Option.none() }), ...(request.kind === 'foreground' ? BACKGROUNDED : [])];
 };
 
 const masked = ({ analysis: { sites } }: Call): Verdicts => {

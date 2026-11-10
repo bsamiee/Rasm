@@ -56,7 +56,10 @@ const hosted = (paths) => hosts.filter(([folder, , held]) => held.includes(args.
 const skillsOf = (paths) => [...new Set([...row.skills, ...row.families, ...hosted(paths)])]
 const ranked = (skills) => [...OWNERS.map((owner) => `${owner.name} (${owner.paths.join(', ')}): ${owner.decides}`), `a skill of ${skills.join(', ')}: a fact no check decides soundly, in the skill whose frontmatter \`description\` covers it`]
   .map((line, index) => `${index + 1}. ${line}`).join('\n')
-const shown = (finding) => `${finding.site} (${finding.kind}): ${finding.fact}${finding.paths.length > 0 ? ` [${finding.paths.join(', ')}]` : ''}`
+const shown = (finding) => {
+  const stated = `${finding.site} (${finding.kind}): ${finding.fact}`
+  return finding.paths.length > 0 ? `${stated} [${finding.paths.join(', ')}]` : stated
+}
 const untracked = (paths) => `the untracked files \`git status --short --untracked-files=all -- ${paths}\` lists`
 
 // --- [SCHEDULE]
@@ -118,8 +121,16 @@ Search the owner's paths for the check, row or skill lines deciding the form and
 const write = (group, reroutable, scope = `the files at or under ${group.files.join(', ')}`) => once(`Load ${loads([...group.owner.skills, row.skills[0], 'clean-prose'])}.
 Writer for ${group.owner.name}, owning ${group.owner.decides}, over ${scope}, from the improvements and regressions committed between ${args.base} and HEAD:
 ${listed(group.findings.map(shown))}
-Read ${group.files.join(', ')} whole with the code at each site. At this owner, for every instance each fact covers: fix each contradiction, tighten or widen each weak, naive or narrow check, remove each check its owner cannot decide soundly or that judges comments or dividers, and add each missing check.${row.metadata.length > 0 ? ` A rule for a form one release introduces or retires sets \`metadata\` ${row.metadata.join(' or ')}.` : ''} A new check follows the checks beside it${group.owner === SYNTAX ? '' : ', its cases beside theirs'}. Ids, names and messages are short, agent-facing and clean-prose. ${group.owner === SYNTAX ? 'Prove each rule you edit or add once, as use-ast-grep\'s rule-building states: one scan of a scratch file of violating forms and near misses, then the project at zero findings, in the foreground.' : `Run ${group.owner.name} over the finding sites alone in the foreground, before and after your edits.`}${reroutable ? ' A change a file outside yours needs (a util other rules call, a row or check of another owner, an earlier owner stating the fact) returns as a reroute with its owner and the files it edits, and that file stays as it is.' : ''}
-Edit only ${scope}. Return (structured) the files you edited, added or deleted; ids renamed and removed; ids of checks you changed or added, as they now stand;${reroutable ? ' the reroutes;' : ''} and at most 10 lines: each check removed, renamed, changed or added, with its hits${group.owner === SYNTAX ? '' : ' before and after'}.`, {
+${[
+  `Read ${group.files.join(', ')} whole with the code at each site.`,
+  'At this owner, for every instance each fact covers: fix each contradiction, tighten or widen each weak, naive or narrow check, remove each check its owner cannot decide soundly or that judges comments or dividers, and add each missing check.',
+  ...(row.metadata.length > 0 ? [`A rule for a form one release introduces or retires sets \`metadata\` ${row.metadata.join(' or ')}.`] : []),
+  group.owner === SYNTAX ? 'A new check follows the checks beside it.' : 'A new check follows the checks beside it, its cases beside theirs.',
+  'Ids, names and messages are short, agent-facing and clean-prose.',
+  group.owner === SYNTAX ? 'Prove each rule you edit or add once, as use-ast-grep\'s rule-building states: one scan of a scratch file of violating forms and near misses, then the project at zero findings, in the foreground.' : `Run ${group.owner.name} over the finding sites alone in the foreground, before and after your edits.`,
+  ...(reroutable ? ['A change a file outside yours needs (a util other rules call, a row or check of another owner, an earlier owner stating the fact) returns as a reroute with its owner and the files it edits, and that file stays as it is.'] : []),
+].join(' ')}
+Edit only ${scope}. Return (structured) ${['the files you edited, added or deleted', 'ids renamed and removed', 'ids of checks you changed or added, as they now stand', ...(reroutable ? ['the reroutes'] : []), `and at most 10 lines: each check removed, renamed, changed or added, with ${group.owner === SYNTAX ? 'its hits' : 'its hits before and after'}.`].join('; ')}`, {
   label: `write:${group.label}`,
   phase: 'Checks',
   schema: {
@@ -144,7 +155,7 @@ const close = (written) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-log(`tune ${args.language} over ${RANGE}${exclude.length > 0 ? `, except ${exclude.join(', ')}` : ''}`)
+log(`tune ${args.language} over ${exclude.length > 0 ? `${RANGE}, except ${exclude.join(', ')}` : RANGE}`)
 phase('Map')
 const listing = await once(`Partition every file \`git diff --name-only ${RANGE} -- ${[...row.pathspec, ...exclude.map((path) => `':(exclude)${path}'`)].join(' ')}\` lists into units by \`git diff --numstat\` volume: related files join (the files under the ${row.unit}, consumers beside what they consume), and units pack as much diff as one reader reads whole with its files and judges well, so small folders share a unit and a folder splits only where its diff alone exceeds one reader. Every file falls in one unit. Edit nothing. Return (structured) the units.`, {
   label: 'map:units',
@@ -166,7 +177,7 @@ const findings = found.filter((finding) => !barred(finding))
 const checked = findings.filter((finding) => NAMES.includes(finding.owner))
 const groups = grouped(checked, 'check')
 const held = skillSet.filter((skill) => findings.some((finding) => finding.owner === skill))
-log(`${counted(findings.length, NOUNS.finding)}: ${checked.length} in ${counted(groups.length, NOUNS.group)}, ${findings.length - checked.length} across ${counted(held.length, NOUNS.skill)}${held.length > 0 ? ` (${held.join(', ')})` : ''}`)
+log(`${counted(findings.length, NOUNS.finding)}: ${checked.length} in ${counted(groups.length, NOUNS.group)}, ${findings.length - checked.length} across ${held.length > 0 ? `${counted(held.length, NOUNS.skill)} (${held.join(', ')})` : counted(held.length, NOUNS.skill)}`)
 
 const skilling = pipeline(held,
   (skill) => once(`Load Skill(${skill}) and Skill(clean-prose).

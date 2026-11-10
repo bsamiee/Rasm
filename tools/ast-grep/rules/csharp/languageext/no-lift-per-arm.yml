@@ -12,43 +12,6 @@ utils:
                 all:
                     - has: {kind: argument, nthChild: 1}
                     - not: {has: {kind: argument, nthChild: 2}}
-    wrapper:
-        all:
-            - has: {field: name, pattern: {context: 'class $WRAPPER;', selector: identifier}}
-            - has: {field: body, kind: arrow_expression_clause, has: {matches: direct-lift, has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: {context: 'class $PARAM;', selector: identifier}}}}}}
-            - has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $PARAM;', selector: identifier}}}}
-    lift-thunk:
-        any:
-            - matches: direct-lift
-            - kind: invocation_expression
-              all:
-                - has: {field: function, kind: identifier, pattern: {context: 'class $WRAPPER;', selector: identifier}}
-                - any:
-                    - inside: {stopBy: end, kind: 'block, switch_section', has: {kind: local_function_statement, matches: wrapper}}
-                    - inside:
-                        stopBy: end
-                        kind: compilation_unit
-                        has:
-                            stopBy: &container {not: {kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else'}}
-                            kind: 'method_declaration, local_function_statement'
-                            matches: wrapper
-            - kind: invocation_expression
-              all:
-                - has:
-                    field: function
-                    kind: member_access_expression
-                    all:
-                        - has: {field: name, kind: identifier, pattern: {context: 'class $WRAPPER;', selector: identifier}}
-                        - has: {field: expression, kind: identifier, pattern: {context: 'class $OWNER;', selector: identifier}}
-                - inside:
-                    stopBy: end
-                    kind: compilation_unit
-                    has:
-                        stopBy: *container
-                        kind: 'class_declaration, struct_declaration, record_declaration'
-                        all:
-                            - has: {field: name, pattern: {context: 'class $OWNER;', selector: identifier}}
-                            - has: {field: body, has: {kind: method_declaration, matches: wrapper}}
     statement-lift:
         matches: direct-lift
         has:
@@ -82,7 +45,7 @@ utils:
         has: {stopBy: end, matches: void-arm}
     lifted:
         any:
-            - matches: lift-thunk
+            - matches: direct-lift
             - kind: invocation_expression
               matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^(pure|Pure|fail|Fail)$'}}}
             - matches: lifted-conditional
@@ -160,7 +123,7 @@ rule:
             - matches: lifted-switch-expression
             - matches: lifted-if
         - not: {any: [{matches: mixed-arms}, {matches: void-switch-expression}]}
-        - has: {stopBy: end, matches: lift-thunk, has: {field: function, pattern: $CALL}}
+        - has: {stopBy: end, matches: direct-lift, has: {field: function, pattern: $CALL}}
         - not: {matches: arm-body}
 message: 'Each branch arm calls `$CALL` on its own'
 note: 'Lift the whole branch once with arms returning `Fin` or a value, a `Switch` `Action` overload for statement arms'

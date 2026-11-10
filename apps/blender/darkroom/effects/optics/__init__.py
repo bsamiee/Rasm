@@ -1,1 +1,1 @@
-"""Optics effects: texture bases, detail, displacement, emission, figures, flares, glare, lens, media, particles, refraction, shapes, and warps."""
+"""Optics effects: texture bases, detail, displacement, emission, flares, glare, lens, media, particles, shapes, and warps."""

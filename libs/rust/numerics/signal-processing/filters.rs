@@ -1,11 +1,9 @@
-use core::{
-    borrow::Borrow,
-    convert::identity,
-    f64::consts::{PI, TAU},
-    iter,
-    num::NonZero,
-    range::RangeInclusive,
-};
+use core::borrow::Borrow;
+use core::convert::identity;
+use core::f64::consts::{PI, TAU};
+use core::iter;
+use core::num::NonZero;
+use core::range::RangeInclusive;
 
 use biquad::{Biquad as _, Coefficients, DirectForm2Transposed, Errors, Hertz, ToHertz as _, Type};
 use itertools::Itertools as _;
@@ -13,7 +11,9 @@ use nalgebra::convert;
 use ndarray::{Array1, Axis, Slice};
 use num_complex::Complex;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use uom::si::{f64::Frequency, frequency::hertz, ratio::ratio};
+use uom::si::f64::Frequency;
+use uom::si::frequency::hertz;
+use uom::si::ratio::ratio;
 
 use crate::{Band, Rate, Samples, Series, SpectraError};
 

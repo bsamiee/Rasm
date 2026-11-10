@@ -48,6 +48,20 @@ error: blocking call to `std::thread::scope` in async body
 62 | |     });
    | |______^
 
+error: `awaited` passes its parameters unchanged to `fs_err::tokio::read_to_string`
+  --> tools/dylint/examples/blocking_call_in_async.rs:65:1
+   |
+65 | async fn awaited(path: &Path) -> io::Result<String> { read_to_string(path).await }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/blocking_call_in_async.rs:65:55
+   |
+65 | async fn awaited(path: &Path) -> io::Result<String> { read_to_string(path).await }
+   |                                                       ^^^^^^^^^^^^^^^^^^^^
+   = help: call `fs_err::tokio::read_to_string` at each call site of `awaited` and delete `awaited`
+   = note: `#[deny(forwarding_function)]` on by default
+
 error: blocking call to `std::io::Read::read` in async body
   --> tools/dylint/examples/blocking_call_in_async.rs:79:65
    |

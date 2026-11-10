@@ -20,9 +20,9 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from rasm_bpy.data._extension.identity import Key
 from rasm_bpy.data._rna.descriptors import Descriptor, Value
-from rasm_bpy.data._rna.paths import _definition, RnaPath
+from rasm_bpy.data._rna.paths import rna_definition, RnaPath, subclass
 from rasm_bpy.nodes._desired import Content, item_key, MenuItem, MenuItems
-from rasm_bpy.nodes._trees import _base_socket, _interface_of, _new_group, _socket_at
+from rasm_bpy.nodes._trees import base_socket, interface_of, new_group, socket_at
 from rasm_records import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -105,14 +105,14 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def base(self) -> type[bpy.types.NodeSocket]:
         """Base socket class an interface item takes as its socket type."""
-        return _base_socket(self.refined)
+        return base_socket(self.refined)
 
     @property
     def members(self) -> dict[RnaPath, Value]:
         """Interface members by path in write order: subtype and dimensions of a refined class, then bounds, the class's own finite bounds where none is stated, then the default."""
         held = self.declared
         kind = held.refined
-        base = _base_socket(kind)
+        base = base_socket(kind)
         properties = kind.bl_rna.properties
         match properties["default_value"] if kind is not base and "default_value" in properties else None:
             case bpy.types.FloatProperty() | bpy.types.IntProperty() as prop:
@@ -314,7 +314,7 @@ def fielded(record: msgspec.Struct, /) -> Interface:
     """Builds the interface of a record's fields keyed by field name: a `Socketed` record's stated sockets, else a socket at its value for each field `Socket.of` takes and a panel of its fields for each field holding a record other than node content."""
     interfaces: dict[tuple[str, ...], Interface] = {}
     for owner, path, fields in _records(record, lambda held: not isinstance(held, _Socketed)):
-        sockets = owner.sockets if isinstance(owner, _Socketed) else tuple(socket for field, value in fields for socket in Socket.of(field.name, field.type, value).to_list())  # ty: ignore[invalid-argument-type]
+        sockets = owner.sockets if isinstance(owner, _Socketed) else tuple(socket for field, _ in fields for socket in Socket.of(field.name, field.type, getattr(owner, field.name)).to_list())
         interfaces[path] = Interface(
             inputs=tuple(msgspec.structs.replace(socket, key=item_key(*path, socket.key), name=socket.title) for socket in sockets) if path else sockets,
             panels=tuple(
@@ -437,17 +437,16 @@ def _declared(socket: Socket, stock: StockInput, /) -> Socket:
 
         def linked(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeTree]:
             scratch.callback(bpy.data.node_groups.remove, tree)
-            entered, node = tree.nodes.new(_definition(bpy.types.NodeGroupInput).identifier), tree.nodes.new(_definition(stock.node).identifier)
-            return _socket_at(node.inputs, stock.input).map(lambda target: tree.links.new(entered.outputs[-1], target, handle_dynamic_sockets=True)).map(lambda _: tree)
+            entered, node = tree.nodes.new(rna_definition(bpy.types.NodeGroupInput).identifier), tree.nodes.new(rna_definition(stock.node).identifier)
+            return socket_at(node.inputs, stock.input).map(lambda target: tree.links.new(entered.outputs[-1], target, handle_dynamic_sockets=True)).map(lambda _: tree)
 
-        match _new_group(kinds[0], ".stock").bind(linked):
+        match new_group(kinds[0], ".stock").bind(linked):
             case Result(tag="ok", ok=held):
-                items = tuple(item for item in _interface_of(held).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket))
+                items = tuple(item for item in interface_of(held).items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket))
             case Result(error=faults):
                 raise LookupError(stock, faults)
-        match items:
-            case (item,):
-                refined: type[bpy.types.NodeSocket] = getattr(bpy.types, item.bl_socket_idname)  # ty: ignore[unsound-assignment]
+        match items, tuple(subclass(bpy.types.NodeSocket, item.bl_socket_idname) for item in items):
+            case (item,), (Result(tag="ok", ok=refined),):
 
                 def read(name: str) -> Value:
                     return Descriptor.resolve(item, (name,), bpy.types.Property).map(lambda descriptor: descriptor.read(item)).default_value(None)

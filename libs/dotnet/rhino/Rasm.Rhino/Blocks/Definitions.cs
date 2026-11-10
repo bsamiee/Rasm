@@ -33,9 +33,6 @@ public sealed record DefinitionMetadata(string Name, Option<string> Description,
     internal string Url => Conversions.Unset(Link.Map(static link => link.Address));
 
     internal string UrlTag => Conversions.Unset(Link.Bind(static link => link.Tag));
-
-    internal IO<Unit> Written(InstanceDefinitionTable table, InstanceDefinition definition) =>
-        Products.Accepted(() => table.Modify(definition, Name, Conversions.Unset(Description), Url, UrlTag, quiet: true));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

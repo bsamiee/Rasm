@@ -1,9 +1,9 @@
 """Before and after compare in the image editor."""
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping
 from enum import auto, Enum
 from functools import cache, cached_property, partial
-from typing import ClassVar, Final, Self
+from typing import Annotated, ClassVar, Final, Self
 
 import bpy
 from expression import Option, Result, Some
@@ -11,6 +11,7 @@ import gpu
 from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix
 import msgspec
+import numpy as np
 
 from rasm_bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from rasm_bpy.data._extension.identity import Identity, Key
@@ -21,15 +22,15 @@ from rasm_bpy.data._rna.paths import RnaPath, root_in, rooted
 from rasm_bpy.data._rna.properties import enum_choices
 from rasm_bpy.data._rna.snapshots import assigned
 from rasm_bpy.settings._attachments import Attached, Attachment
-from rasm_bpy.ui._drawing.canvas import _configured, _DECODED, _draw_batch, _programs, _QUAD, _UNCLIPPED, Align, Canvas, DrawType, FontStyle, Rect, Shadow
+from rasm_bpy.ui._drawing.canvas import Align, Canvas, configured, DECODED, draw_batch, DrawType, FontStyle, programs, QUAD, Rect, Shadow, UNCLIPPED
 from rasm_bpy.ui._drawing.handlers import Refresh
 from rasm_bpy.ui._elements.gizmos import Gizmo, GizmoGroup, TargetHandler
-from rasm_bpy.ui._images.views import _framed, _HANDLE, image_type, overlaid
+from rasm_bpy.ui._images.views import framed, HANDLE, image_type, overlaid
 from rasm_bpy.ui._layout.members import Member
 from rasm_bpy.ui._layout.rows import Layout, Property, Separator
 from rasm_bpy.ui._resources.icons import Icon
 from rasm_bpy.ui._resources.previews import Texture
-from rasm_bpy.ui._resources.theme import _color, Metrics
+from rasm_bpy.ui._resources.theme import display_color, Metrics
 from rasm_records import Nothing, Ok, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -57,15 +58,15 @@ _CHANNELS: Final = ("RED", "GREEN", "BLUE", "ALPHA")
 class Compare(bpy.types.PropertyGroup):
     """Screen compare: the before frame's layout, split, and side."""
 
-    mode: bpy.props.EnumProperty(name="Compare", description="Before frame layout over the shown image", items=_MODES)  # ty: ignore[invalid-type-form]
-    split: bpy.props.FloatProperty(name="Split", description="Wipe position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)  # ty: ignore[invalid-type-form]
-    swapped: bpy.props.BoolProperty(name="Swap", description="Draw the before frame right of or below the split")  # ty: ignore[invalid-type-form]
+    mode: Annotated[str, bpy.props.EnumProperty(name="Compare", description="Before frame layout over the shown image", items=_MODES)]
+    split: Annotated[float, bpy.props.FloatProperty(name="Split", description="Wipe position across the frame", subtype="FACTOR", min=0.0, max=1.0, default=0.5)]
+    swapped: Annotated[bool, bpy.props.BoolProperty(name="Swap", description="Draw the before frame right of or below the split")]
 
 
 class Showing(bpy.types.PropertyGroup):
     """Layout a show command toggles."""
 
-    mode: bpy.props.EnumProperty(name="Compare", description="Layout to show, hiding the before frame while it shows in this layout", items=_MODES)  # ty: ignore[invalid-type-form]
+    mode: Annotated[str, bpy.props.EnumProperty(name="Compare", description="Layout to show, hiding the before frame while it shows in this layout", items=_MODES)]
 
 
 class _CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
@@ -115,7 +116,7 @@ class _CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
     def drawn(self, state: Texture[tuple[str, str]], canvas: Canvas) -> None:
         """Draws the plate in the editor's display channels, then the rule and captions over it."""
         (texture, names), metrics = state, canvas.metrics
-        style, tint = metrics.preferences.ui_styles[0].widget, _color(metrics.preferences.themes[0].image_editor.metadatatext)
+        style, tint = metrics.preferences.ui_styles[0].widget, display_color(metrics.preferences.themes[0].image_editor.metadatatext)
         strokes = (*((shadow.color, shadow.offset) for shadow in Shadow.of(style).to_list()), (tint, (0.0, 0.0)))
 
         def pictured(plate: Rect, channels: str) -> None:
@@ -129,7 +130,7 @@ class _CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
                 case channel if channel in _CHANNELS:
                     shader, quad = _channeled()
                     with Canvas.mapped(plate):
-                        _draw_batch(quad, _configured((shader, _UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_int, "shown", _CHANNELS.index(channel))))
+                        draw_batch(quad, configured((shader, UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_int, "shown", _CHANNELS.index(channel))))
                 case _:
                     pass
 
@@ -138,14 +139,13 @@ class _CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
             lines = canvas.lines(1.0)
             for shade, (dx, dy) in strokes:
                 with Canvas.mapped(msgspec.structs.replace(rule, x=rule.x + dx, y=rule.y + dy)):
-                    _draw_batch(_diagonal(), _configured(lines, partial(lines[0].uniform_float, "color", shade)))
+                    draw_batch(_diagonal(), configured(lines, partial(lines[0].uniform_float, "color", shade)))
 
         match canvas.space:
             case bpy.types.SpaceImageEditor(display_channels=channels) as space:
-                zoom: Iterable[float] = space.zoom  # ty: ignore[unsound-assignment]
-                across, up = zoom
+                across, up = np.asarray(space.zoom)
                 for compare in self.compare(bpy.context).to_list():
-                    laid = _CompareLayout.of(compare, _framed(canvas.region), canvas.extent, (texture.width * across, texture.height * up), names, metrics, metrics.font(style))
+                    laid = _CompareLayout.of(compare, framed(canvas.region), canvas.extent, (texture.width * across, texture.height * up), names, metrics, metrics.font(style))
                     texture.filter_mode(min(across, up) < 1.0)
                     with canvas.clipped(laid.clip):
                         pictured(laid.plate, channels)
@@ -237,7 +237,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             self
             .compared(attached, context)
             .filter(lambda held: Mode[held.mode] is not Mode.SIDE_BY_SIDE)
-            .bind(lambda held: root_in(bpy.types.Region, context).map(lambda region: measured(held, region, _framed(region))))
+            .bind(lambda held: root_in(bpy.types.Region, context).map(lambda region: measured(held, region, framed(region))))
         )
 
     @staticmethod
@@ -250,8 +250,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def offset(state: _Wipe) -> tuple[float, ...]:
         """Returns the split offset at the visible frame middle."""
         held, frame, middle = state
-        split: float = held.split  # ty: ignore[unsound-assignment]
-        return (split * frame.width, middle[1], 0.0) if Mode[held.mode] is Mode.VERTICAL_WIPE else (middle[0], (1.0 - split) * frame.height, 0.0)
+        return (held.split * frame.width, middle[1], 0.0) if Mode[held.mode] is Mode.VERTICAL_WIPE else (middle[0], (1.0 - held.split) * frame.height, 0.0)
 
     def moved(self, attached: Attached[Compare], context: bpy.types.Context, values: tuple[float, ...]) -> Outcome[None]:
         """Writes the split the handle's offset along the wipe axis gives, the property bounds keeping it on the frame."""
@@ -284,7 +283,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
         def rows(attached: Attached[Compare], refreshes: tuple[Refresh, ...]) -> Acquisitions:
             bind = TargetHandler[tuple[float, ...], _Wipe](get=self.offset, set=partial(self.moved, attached))
-            handle = Gizmo(kind="GIZMO_GT_move_3d", place=self.handle, bind=bind, properties={"scale_basis": _HANDLE, "draw_style": "RING_2D"})
+            handle = Gizmo(kind="GIZMO_GT_move_3d", place=self.handle, bind=bind, properties={"scale_basis": HANDLE, "draw_style": "RING_2D"})
             return (
                 self.showing,
                 self.mirroring,
@@ -315,20 +314,20 @@ def _channeled() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
     info.push_constant("BOOL", "srgbTarget")
     info.fragment_out(0, "VEC4", "fragColor")
     info.vertex_source("void main() { uv = pos; gl_Position = ModelViewProjectionMatrix * vec4(pos, 0.0, 1.0); }")
-    info.fragment_source(_DECODED + "void main() { fragColor = vec4(targeted(vec3(texture(image, uv)[shown])), 1.0); }")
+    info.fragment_source(DECODED + "void main() { fragColor = vec4(targeted(vec3(texture(image, uv)[shown])), 1.0); }")
     shader = gpu.shader.create_from_info(info)
-    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": _QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})
 
 
 @cache
 def _diagonal() -> gpu.types.GPUBatch:
     """Batches the unit diagonal a rule rectangle maps onto its line."""
-    return batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINES", {"pos": _QUAD[[0, -1]]})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+    return batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINES", {"pos": (QUAD[0], QUAD[-1])})
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_PROGRAMS: Final = _programs(_channeled.cache_clear, _diagonal.cache_clear)
+_PROGRAMS: Final = programs(_channeled.cache_clear, _diagonal.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

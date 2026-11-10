@@ -10,9 +10,17 @@ utils:
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^(replace|replacen)$'}}
             - has: {field: arguments, has: {matches: entity}}
+    markup-test:
+        kind: binary_expression
+        all: [{has: {field: operator, regex: '^==$'}}, {has: {kind: char_literal, regex: '^''(&|<|>|"|\\"|\\''|'')''$'}}]
 rule:
     any:
         - matches: entity-replace
           not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: entity-replace}}}
         - kind: match_expression
           has: {field: body, has: {kind: match_arm, all: [{has: {field: pattern, has: {stopBy: end, kind: char_literal}}}, {has: {field: value, any: [{matches: entity}, {has: {stopBy: end, matches: entity}}]}}]}}
+        - matches: entity
+          inside:
+            kind: block
+            stopBy: {kind: 'closure_expression, function_item, block'}
+            inside: {kind: if_expression, has: {field: condition, any: [{matches: markup-test}, {has: {stopBy: end, matches: markup-test}}]}}

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.Commands;
 using Rhino.FileIO;
@@ -272,22 +273,20 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
         from outcome in (from archive in use(static () => new File3dm())
                          from units in IO.lift(() => { archive.Settings.ModelUnits = doc.ModelUnits; })
                          from archived in rows.TraverseM(row => row.Archive(doc, row.Entries, archive)).As()
-                         from written in StepOutcome.Write(path, target => IO.lift(() =>
-                             archive.WriteWithLog(target, new File3dmWriteOptions(), out string log) ? Fin.Succ(unit) : new RhinoFault(target, RhinoReason.Unwritable, Inner: Error.New(log))))
+                         from written in Archives.Persist(archive, path, new File3dmWriteOptions())
                          select written).Bracket()
         select outcome;
 
     public IO<NamedWrite> Imported<T>(
         RhinoDoc doc, InputPath path, Option<Seq<StateName>> names, Func<File3dm, IEnumerable<T>> rows, Func<T, string> entry, Func<T, Transform, IO<NamedWrite>> write) =>
-        (from model in Products.Of(() => File3dm.Read(path, File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.None))
-         from stored in IO.lift(() => Conversions.Rows(rows(model)))
-         from chosen in IO.lift(names.Match(
-             Some: wanted => wanted.Traverse(held => stored.Find(row => Comparer.Equals(entry(row), held)).ToFin(Missing(held))).As(),
-             None: () => stored))
-         from scaling in IO.lift(Conversions.Required(Conversions.Present(LengthUnit.Scale(model.Settings.ModelUnits, doc.ModelUnits)).Filter(static scale => scale > 0d))
-             .Map(static scale => Transform.Scale(Point3d.Origin, scale)))
-         from written in chosen.TraverseM(row => write(row, scaling)).As()
-         select new NamedWrite(NamedWrite.Reverted(written), NamedWrite.Released(written))).Bracket();
+        Archives.Read(new ArchiveSource.Located(path, File3dm.TableTypeFilter.Settings, File3dm.ObjectTypeFilter.None), read =>
+            from stored in IO.lift(() => Conversions.Rows(rows(read.Model)))
+            from chosen in IO.lift(names.Match(
+                Some: wanted => wanted.Traverse(held => stored.Find(row => Comparer.Equals(entry(row), held)).ToFin(Missing(held))).As(),
+                None: () => stored))
+            from scaling in Archives.Scaling(read.Model, doc)
+            from written in chosen.TraverseM(row => write(row, scaling)).As()
+            select new NamedWrite(NamedWrite.Reverted(written), NamedWrite.Released(written)));
 
     public static Fin<double> Dilation(Transform xform) =>
         RhinoFault.Unless(xform.DecomposeSimilarity(out _, out double dilation, out _, RhinoMath.SqrtEpsilon) is not TransformSimilarityType.NotSimilarity, RhinoReason.Invalid, xform)

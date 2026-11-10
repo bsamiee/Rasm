@@ -14,13 +14,6 @@ public abstract partial record PieceVisibility {
     public sealed record Shown : PieceVisibility;
 
     public sealed record InViewport(ViewportTarget Viewport) : PieceVisibility;
-
-    internal IO<(bool SkipHidden, Guid Viewport)> Resolved(RhinoDoc doc) =>
-        Switch(
-            doc,
-            every: static (_, _) => IO.pure((SkipHidden: false, Viewport: Guid.Empty)),
-            shown: static (_, _) => IO.pure((SkipHidden: true, Viewport: Guid.Empty)),
-            inViewport: static (document, shown) => Viewports.With(document, shown.Viewport, static row => IO.pure((SkipHidden: true, Viewport: row.Viewport.Id))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -41,7 +34,11 @@ public static class Instances {
         // --- [EXPLODING]
 
         public IO<TValue> Explode<TValue>(RhinoDoc doc, bool explodeNested, PieceVisibility visibility, Func<Seq<(RhinoObject Piece, ObjectAttributes Attributes, Transform Xform)>, IO<TValue>> body) =>
-            from shown in visibility.Resolved(doc)
+            from shown in visibility.Switch(
+                doc,
+                every: static (_, _) => IO.pure((SkipHidden: false, Viewport: Guid.Empty)),
+                shown: static (_, _) => IO.pure((SkipHidden: true, Viewport: Guid.Empty)),
+                inViewport: static (document, inViewport) => Viewports.With(document, inViewport.Viewport, static row => IO.pure((SkipHidden: true, Viewport: row.Viewport.Id))))
             from value in (from answer in IO.lift(() => {
                 instance.Explode(shown.SkipHidden, shown.Viewport, explodeNested, out RhinoObject?[] objects, out ObjectAttributes[] attributes, out Transform[] xforms);
                 return (Objects: objects, Attributes: attributes, Xforms: xforms);

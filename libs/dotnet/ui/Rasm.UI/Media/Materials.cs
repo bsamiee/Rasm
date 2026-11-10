@@ -80,19 +80,9 @@ public abstract partial record Material {
         internal override Seq<GlyphSource> Arts => Backdrop.Bind(static filter => filter.Arts);
 
         internal static float Band(float scale) => 1f / scale;
-
-        internal (SKPoint Side, SKPoint End) Rim(bool dark) =>
-            (Clear, dark) switch {
-                (false, false) => (new SKPoint(0.8266f, 1.2402f), new SKPoint(0.8822f, 1.1543f)),
-                (false, true) => (new SKPoint(0.3867f, 0.4890f), new SKPoint(0.5761f, 0.7615f)),
-                (true, false) => (new SKPoint(0.7731f, 1.3750f), new SKPoint(1f, 1f)),
-                (true, true) => (new SKPoint(0.6434f, 1.1787f), new SKPoint(1f, 1f)),
-            };
     }
 
-    public sealed record Hatch(ColorValue Color, float Angle, float Spacing, float Width) : Material {
-        internal SKPathEffect Effect() => SKPathEffect.Create2DLine(Width, SKMatrix.CreateScale(Spacing, Spacing).PostConcat(SKMatrix.CreateRotationDegrees(Angle)));
-    }
+    public sealed record Hatch(ColorValue Color, float Angle, float Spacing, float Width) : Material;
 
     public sealed record Skin(SKImage Source, SKRectI Center) : Material;
 

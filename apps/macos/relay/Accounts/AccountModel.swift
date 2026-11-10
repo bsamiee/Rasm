@@ -32,14 +32,14 @@ final class AccountModel {
 
     var usageReadAfter: Date? {
         usage.usage.map { usage in
-            let spaced: Date = usage.observedAt.addingTimeInterval(isSelected ? Self.usageReadSpacing.selected : Self.usageReadSpacing.parked)
+            let spaced = usage.observedAt.addingTimeInterval(isSelected ? Self.usageReadSpacing.selected : Self.usageReadSpacing.parked)
             return usage.nextReset.map { reset in min(reset, spaced) } ?? spaced
         }
     }
 
     func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {
         guard acceptsOperation else { return }
-        let previous: Task<Void, Never>? = running?.task
+        let previous = running?.task
         let token = UUID()
         running = RunningOperation(
             token: token,

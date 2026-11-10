@@ -1,12 +1,8 @@
-use clippy_utils::{
-    SpanlessEq,
-    diagnostics::span_lint_hir_and_then,
-    eq_expr_value, fn_def_id, peel_blocks, peel_hir_expr_while,
-    res::{MaybeDef as _, MaybeResPath as _},
-    source::snippet,
-    sym,
-    ty::get_iterator_item_ty,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::source::snippet;
+use clippy_utils::ty::get_iterator_item_ty;
+use clippy_utils::{SpanlessEq, eq_expr_value, fn_def_id, peel_blocks, peel_hir_expr_while, sym};
 use itertools::Itertools as _;
 use rustc_hir::{Block, BodyId, Expr, ExprKind, LetStmt, Pat, PatKind, Stmt, StmtKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};

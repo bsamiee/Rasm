@@ -1,16 +1,14 @@
 use core::iter;
 
-use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    peel_blocks_with_stmt, peel_hir_expr_refs,
-    res::{MaybeDef as _, MaybeResPath as _},
-    sym,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::res::{MaybeDef as _, MaybeResPath as _};
+use clippy_utils::{peel_blocks_with_stmt, peel_hir_expr_refs, sym};
 use rustc_attr_ir::find_attr;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{Constness, Expr, ExprKind, Item, ItemKind};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, print::with_forced_trimmed_paths};
+use rustc_middle::ty;
+use rustc_middle::ty::print::with_forced_trimmed_paths;
 
 use crate::{accessed_field, associated_trait, expanded_externally, exported, generated};
 

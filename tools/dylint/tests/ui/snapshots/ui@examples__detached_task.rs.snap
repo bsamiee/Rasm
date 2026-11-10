@@ -40,6 +40,20 @@ error: dropping `tokio::task::JoinHandle` detaches its task
 45 | fn finished() -> bool { tokio::spawn(async {}).is_finished() }
    |                         ^^^^^^^^^^^^^^^^^^^^^^
 
+error: `detached` passes its parameters unchanged to `tokio::task::JoinSet::detach_all`
+  --> tools/dylint/examples/detached_task.rs:49:1
+   |
+49 | fn detached(set: &mut JoinSet<u64>) { set.detach_all(); }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: forwarded here
+  --> tools/dylint/examples/detached_task.rs:49:39
+   |
+49 | fn detached(set: &mut JoinSet<u64>) { set.detach_all(); }
+   |                                       ^^^^^^^^^^^^^^^^
+   = help: call `tokio::task::JoinSet::detach_all` at each call site of `detached` and delete `detached`
+   = note: `#[deny(forwarding_function)]` on by default
+
 error: `tokio::task::JoinSet::detach_all` detaches every task in the set
   --> tools/dylint/examples/detached_task.rs:49:43
    |

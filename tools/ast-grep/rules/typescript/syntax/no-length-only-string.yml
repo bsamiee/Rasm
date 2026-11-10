@@ -10,7 +10,7 @@ rule:
     all:
         - has: {field: value, kind: 'string, template_string', not: {has: {kind: template_substitution}}}
         - has: {field: name, kind: identifier, pattern: $NAME}
-        - inside: {matches: typescript-module-constant}
+        - inside: {kind: lexical_declaration, all: [{has: {field: kind, regex: '^const$'}}, {inside: {kind: program}}]}
         - inside:
             kind: program
             stopBy: end

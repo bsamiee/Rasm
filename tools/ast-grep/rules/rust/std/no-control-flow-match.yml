@@ -2,56 +2,71 @@
 language: rustlang
 severity: error
 utils:
-    break-variant:
-        regex: '^((::)?(std|core)::ops::)?(ControlFlow::)?Break$'
-    continue-variant:
-        regex: '^((::)?(std|core)::ops::)?(ControlFlow::)?Continue$'
-    empty-arm:
-        kind: match_arm
-        all:
-            - has: {field: pattern, kind: match_pattern, not: {has: {field: condition, pattern: $_}}}
-            - has: {field: value, regex: '^None$'}
-    two-arms:
-        kind: match_block
-        all:
-            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+    code: {not: {kind: 'line_comment, block_comment'}}
+    break-type: {regex: '^((::)?(std|core)::ops::)?(ControlFlow::)?Break$'}
+    continue-type: {regex: '^((::)?(std|core)::ops::)?(ControlFlow::)?Continue$'}
+    lone-field:
+        kind: tuple_struct_pattern
+        not: {has: {nthChild: {position: 3, ofRule: {matches: code}}}}
+    unguarded:
+        kind: match_pattern
+        not: {has: {field: condition, pattern: $_}}
+    lone-argument:
+        kind: arguments
+        not: {has: {nthChild: {position: 2, ofRule: {matches: code}}}}
     break-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, all: [{not: {has: {field: condition, pattern: $_}}}, {has: {kind: tuple_struct_pattern, all: [{has: {field: type, matches: break-variant}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $BV}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}]}
-            - has: {field: value, kind: call_expression, has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $BV}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}
+            - has: {field: pattern, matches: unguarded, has: {matches: lone-field, all: [{has: {field: type, matches: break-type}}, {has: {nthChild: {position: 2, ofRule: {matches: code}}, kind: identifier, pattern: $BV}}]}}
+            - has: {field: value, kind: call_expression, has: {field: arguments, matches: lone-argument, has: {nthChild: {position: 1, ofRule: {matches: code}}, pattern: $BV}}}
     continue-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, all: [{not: {has: {field: condition, pattern: $_}}}, {has: {kind: tuple_struct_pattern, all: [{has: {field: type, matches: continue-variant}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $CV}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}]}
-            - has: {field: value, kind: call_expression, has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $CV}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}
-    break-ok:
-        all:
-            - has: {matches: break-arm, has: {field: value, has: {field: function, regex: '^Ok$'}}}
-            - has: {matches: continue-arm, has: {field: value, has: {field: function, regex: '^Err$'}}}
-    continue-ok:
-        all:
-            - has: {matches: continue-arm, has: {field: value, has: {field: function, regex: '^Ok$'}}}
-            - has: {matches: break-arm, has: {field: value, has: {field: function, regex: '^Err$'}}}
+            - has: {field: pattern, matches: unguarded, has: {matches: lone-field, all: [{has: {field: type, matches: continue-type}}, {has: {nthChild: {position: 2, ofRule: {matches: code}}, kind: identifier, pattern: $CV}}]}}
+            - has: {field: value, kind: call_expression, has: {field: arguments, matches: lone-argument, has: {nthChild: {position: 1, ofRule: {matches: code}}, pattern: $CV}}}
+    empty-arm:
+        kind: match_arm
+        all: [{has: {field: pattern, matches: unguarded}}, {has: {field: value, regex: '^None$'}}]
     break-value:
-        all:
-            - has: {matches: break-arm, has: {field: value, has: {field: function, regex: '^Some$'}}}
-            - has: {matches: empty-arm}
+        matches: lone-field
+        all: [{has: {field: type, matches: break-type}}, {has: {nthChild: {position: 2, ofRule: {matches: code}}, kind: identifier, pattern: $VALUE}}]
     continue-value:
+        matches: lone-field
+        all: [{has: {field: type, matches: continue-type}}, {has: {nthChild: {position: 2, ofRule: {matches: code}}, kind: identifier, pattern: $VALUE}}]
+    returning-arm:
+        kind: match_arm
+        all: [{has: {field: pattern, matches: unguarded, has: {any: [{matches: break-value}, {matches: continue-value}]}}}, {has: {field: value, kind: identifier, pattern: $VALUE}}]
+    other-arm:
+        kind: match_arm
         all:
-            - has: {matches: continue-arm, has: {field: value, has: {field: function, regex: '^Some$'}}}
-            - has: {matches: empty-arm}
+            - has: {field: pattern, matches: unguarded, has: {matches: lone-field, has: {nthChild: {position: 2, ofRule: {matches: code}}, kind: identifier, pattern: $OTHER}}}
+            - has:
+                field: value
+                any:
+                    - {kind: identifier, pattern: $OTHER}
+                    - {kind: call_expression, all: [{has: {field: function, kind: 'identifier, scoped_identifier'}}, {has: {field: arguments, matches: lone-argument, has: {nthChild: {position: 1, ofRule: {matches: code}}, kind: identifier, pattern: $OTHER}}}]}
 rule:
-    kind: match_expression
-    all:
-        - has: {field: value, pattern: $CF}
-        - has:
-            field: body
-            matches: two-arms
-            any:
-                - matches: break-ok
-                - matches: continue-ok
-                - matches: break-value
-                - matches: continue-value
-message: '`match` on `$CF` rewraps each `ControlFlow` variant''s value unchanged'
-note: 'Call `<control flow>.break_ok()` or `.continue_ok()` for a `Result`, and `.break_value()` or `.continue_value()` for an `Option`'
+    any:
+        - kind: match_expression
+          all:
+            - has: {field: value, pattern: $CF}
+            - has:
+                field: body
+                not: {has: {nthChild: {position: 3, ofRule: {matches: code}}}}
+                any:
+                    - all: [{has: {matches: break-arm, has: {field: value, has: {field: function, regex: '^Ok$'}}}}, {has: {matches: continue-arm, has: {field: value, has: {field: function, regex: '^Err$'}}}}]
+                    - all: [{has: {matches: continue-arm, has: {field: value, has: {field: function, regex: '^Ok$'}}}}, {has: {matches: break-arm, has: {field: value, has: {field: function, regex: '^Err$'}}}}]
+                    - all: [{has: {matches: break-arm, has: {field: value, has: {field: function, regex: '^Some$'}}}}, {has: {matches: empty-arm}}]
+                    - all: [{has: {matches: continue-arm, has: {field: value, has: {field: function, regex: '^Some$'}}}}, {has: {matches: empty-arm}}]
+        - kind: or_pattern
+          all:
+            - not: {has: {nthChild: {position: 3, ofRule: {matches: code}}}}
+            - any:
+                - all: [{has: {nthChild: {position: 1, ofRule: {matches: code}}, matches: break-value}}, {has: {nthChild: {position: 2, ofRule: {matches: code}}, matches: continue-value}}]
+                - all: [{has: {nthChild: {position: 1, ofRule: {matches: code}}, matches: continue-value}}, {has: {nthChild: {position: 2, ofRule: {matches: code}}, matches: break-value}}]
+        - kind: match_block
+          all:
+            - not: {has: {nthChild: {position: 3, ofRule: {matches: code}}}}
+            - has: {matches: returning-arm, any: [{precedes: {stopBy: end, matches: other-arm}}, {follows: {stopBy: end, matches: other-arm}}]}
+message: '`match` over a `ControlFlow` rewraps or returns the value each variant holds'
+note: 'Call `break_ok`, `continue_ok`, `break_value`, or `continue_value` for a `Result` or `Option`, and `into_value` for a value both variants hold, aligning their types through `map_break` or `map_continue`'

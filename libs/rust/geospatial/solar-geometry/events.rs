@@ -1,17 +1,18 @@
-use core::{iter, num::NonZero, range::Range};
+use core::iter;
+use core::num::NonZero;
+use core::range::Range;
 
 use gauss_quad::GaussLegendre;
 use itertools::{Either, Itertools as _};
 use jiff::{SignedDuration, Span, Timestamp, Zoned};
 use nalgebra::{UnitQuaternion, UnitVector3};
 use nonempty_collections::nev;
-use solar_positioning::{ElevationTarget, Events, HorizonState, PreparedPositions, SolarEvents, SolarPosition, SolarPositions, time::JulianDate};
-use uom::si::{
-    angle::degree,
-    f64::{Angle, Time},
-    length::meter,
-    time::second,
-};
+use solar_positioning::time::JulianDate;
+use solar_positioning::{ElevationTarget, Events, HorizonState, PreparedPositions, SolarEvents, SolarPosition, SolarPositions};
+use uom::si::angle::degree;
+use uom::si::f64::{Angle, Time};
+use uom::si::length::meter;
+use uom::si::time::second;
 
 use crate::{Input, Operation, SolarError, Sun, at, direction, julian, location, position, positioning, prepared};
 

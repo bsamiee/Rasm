@@ -82,7 +82,7 @@ Identity and lookup follow host keys:
 - Embedded node trees sit outside `bpy.data.node_groups` with `id_data` naming each tree, and keys over them take the holding ID
 - Struct wrappers rebuild per access and ID wrappers per class refinement, and structs compare with `==`
 - Caches key by `session_uid`, stable across renames, undo, and an undone removal while `as_pointer()` addresses repeat
-- `bl_rna.identifier` names a refined subtype (`SunLight`), and dispatch matches base classes through `isinstance` or a class pattern
+- `type(<struct>).__name__` names a refined subtype (`SunLight`), and dispatch matches base classes through `isinstance` or a class pattern
 - Collection struct type tests (`ObjectModifiers`) never match a `bpy_prop_collection` value, and code binds the collection's own member
 - RNA members of a class test through `name in T.bl_rna.properties` or `T.bl_rna.functions`
 - `bpy.ops.<module>.<name>.get_rna_type()` raises `KeyError` for an operator the build lacks, its struct listing parameters in `properties`
@@ -165,40 +165,50 @@ def imported(importer: Callable[..., Returns], source: Path, /) -> Outcome[froze
 
 ## [03]-[PROPERTIES]
 
-Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA member take every keyword its RNA states, enum items as 5-tuples keeping each item's RNA `value`. Update callbacks act on `self.id_data` in place of the active item:
+Settings, operator properties, and preferences are `bpy.props` annotations on `PropertyGroup`, `Operator`, and `AddonPreferences` classes. Properties take Blender's keywords (`min`, `max`, `soft_min`, `soft_max`, `step`, `precision`, `subtype`), a `use_<name>` `BoolProperty` beside each value it switches. Copies of an RNA member take every keyword its RNA states, enum items as 5-tuples keeping each item's RNA `value` and floats their `unit` in place of `subtype`. Update callbacks act on the owning ID through `rasm_bpy.data.id_data` in place of the active item:
 
 ```python
-def copied(owner: type[Struct], member: str, /, **callbacks: Callable[..., object]) -> bpy.props._PropertyDeferred:
-    rna: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    described = rna.properties[member]
-    shared = {"name": described.name, "description": described.description, **callbacks}
+def copied(owner: type[Struct], member: str, /, *, update: Callable[[bpy.types.PropertyGroup, bpy.types.Context], None] | None = None) -> bpy.props._PropertyDeferred:
+    described = owner.bl_rna.properties[member]
     match described:
         case bpy.types.EnumProperty(enum_items=items, default=default):
-            return bpy.props.EnumProperty(**shared, items=tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in items), default=default)
+            definition = partial(bpy.props.EnumProperty, items=tuple((item.identifier, item.name, item.description, item.icon, item.value) for item in items), default=default)
         case bpy.types.BoolProperty(array_length=0, default=default):
-            return bpy.props.BoolProperty(**shared, default=default)
+            definition = partial(bpy.props.BoolProperty, default=default)
         case bpy.types.FloatProperty(array_length=0) as real:
-            kept = {key: getattr(real, key) for key in ("subtype", "unit", "soft_min", "soft_max", "step", "precision", "default")}
-            return bpy.props.FloatProperty(**shared, **kept, min=real.hard_min, max=real.hard_max)
+            definition = partial(
+                bpy.props.FloatProperty,
+                unit=real.unit,
+                min=real.hard_min,
+                max=real.hard_max,
+                soft_min=real.soft_min,
+                soft_max=real.soft_max,
+                step=real.step,
+                precision=real.precision,
+                default=real.default,
+            )
         case _:
             raise TypeError(f"{owner.__name__}.{member} is a {described.type} property")
+    return definition(name=described.name, description=described.description, update=update)
 
 
 def retagged(self: bpy.types.PropertyGroup, _context: bpy.types.Context, /) -> None:
-    owner: bpy.types.ID = self.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    owner.update_tag()
+    for owner in id_data(bpy.types.ID, self).to_list():
+        owner.update_tag()
 
 
 light = partial(copied, bpy.types.Light, update=retagged)
 
 
 class Lamp(bpy.types.PropertyGroup):
-    kind: light("type")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    use_reach: light("use_custom_distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    reach: light("cutoff_distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    kind: Annotated[str, light("type")]
+    use_reach: Annotated[bool, light("use_custom_distance")]
+    reach: Annotated[float, light("cutoff_distance")]
 ```
 
-`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `copied(<class>, <member>)` copies static or context-free RNA enum items, booleans, and scalar floats; `light` binds owner and callback once.
+`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `copied(<class>, <member>)` copies static or context-free RNA enum items, booleans, and scalar floats; `light` binds owner and callback once:
+- `partial` binds each kind's keywords and one call adds name, description, and callback, ty refusing a `**` dict of mixed values at each typed `bpy.props` parameter
+- Scalar RNA floats state array subtypes (`XYZ`, `COLOR`), which `register_class` refuses on `FloatProperty` with `ValueError` and drops the property
 
 `bpy.props` definitions take the form Blender registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
@@ -225,7 +235,7 @@ Registered values read and write through Blender:
 - Captures name members, writable-member walks reach view state (`cursor_location`, `is_dirty`) and `PASSWORD` tokens (`auth_token`, `access_token`)
 - `bl_rna.properties[name].is_readonly` is static, and `struct.is_property_readonly(name)` reports the member's read-only state in its current context
 
-## [05]-[UNDO]
+## [04]-[UNDO]
 
 Undo restores `bpy.data` outside window manager and screen data, and each change pushes its step by form:
 
@@ -246,7 +256,7 @@ Undo steps act on held state:
 - Each undo push marks the file unsaved
 - `window_manager.undo_stack` lists `steps`, `active_index`, and `active`, reading `None` before the first push
 
-## [06]-[CALLBACKS]
+## [05]-[CALLBACKS]
 
 Handler, timer, msgbus, and modal bodies run in a context Blender chose:
 - Blender passes one argument to a handler function of one positional parameter and pads every other callable with `None`
@@ -265,7 +275,7 @@ Handler, timer, msgbus, and modal bodies run in a context Blender chose:
 - Python writes to registered `bpy.props` publish no msgbus notification, `update` or not, and `bpy.msgbus.publish_rna(key=<key>)` publishes them
 - `bpy.ops` calls release the GIL to live Python threads mid-operator, and threads (`multiprocessing.Queue` feeders included) join before a `bpy` call
 
-## [07]-[BOUNDARIES]
+## [06]-[BOUNDARIES]
 
 Each entry point translates the result once into Blenders form:
 

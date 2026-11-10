@@ -42,72 +42,60 @@ const applications = Effect.map(Adobe, ({ installations, installed }) =>
         content: installed,
     }),
 ).pipe(Effect.flatten);
-const launch = ({ application }: Effect.Success<ReturnType<typeof routes>>, { reported }: Effect.Success<typeof status>) =>
-    Effect.flatMap(Adobe, ({ launched }) =>
-        Route({
-            fields: { application: application.listed, ...Struct.omit(Launch.fields, ['url']) },
-            resolve: ({ application: given, ...launching }) => Effect.flatMap(application.named(given), ({ url }) => launched({ url, ...launching })),
-            depends: ({ pid }) => Effect.succeed([reported(pid)]),
-            annotations: Context.omit(Server.Visible)(application.annotations),
-        })(
-            Tool.make('launch', {
-                description: 'Opens the application without activating it, below the frontmost window, and reuses a running instance unless new is set. Arguments and environment reach only an instance this call starts. Returns when launching ends or a dialog needs an answer',
-                parameters: Parameterless,
-                success: Launched,
-            }).annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false))),
-            (_, opened) => Effect.succeed(opened),
-        ),
+const control = Effect.fnUntraced(function* ({ application }: Effect.Success<ReturnType<typeof routes>>, { reported, launching }: Effect.Success<typeof status>) {
+    const [automation, { launched }] = yield* Effect.all([Automation, Adobe]);
+    yield* Route({
+        fields: { application: application.listed, ...Struct.omit(Launch.fields, ['url']) },
+        resolve: ({ application: given, ...options }) => Effect.flatMap(application.named(given), ({ url }) => launched({ url, ...options })),
+        depends: ({ pid }) => Effect.succeed([reported(pid)]),
+        annotations: Context.omit(Server.Visible)(application.annotations),
+    })(
+        Tool.make('launch', {
+            description: 'Opens the application without activating it, below the frontmost window, and reuses a running instance unless new is set. Arguments and environment reach only an instance this call starts. Returns when launching ends or a dialog needs an answer',
+            parameters: Parameterless,
+            success: Launched,
+        }).annotateMerge(Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false))),
+        (_, opened) => Effect.succeed(opened),
     );
-const read = ({ application }: Effect.Success<ReturnType<typeof routes>>) =>
-    Automation.use((automation) =>
-        Route(application)(
-            Tool.make('read', {
-                description: 'Reads application state with element ids and controls for perform',
-                parameters: Reading,
-                success: State,
-            }).annotate(Tool.Readonly, true),
-            (given, { pid }) => automation.read({ ...given, pid }),
-        ),
+    yield* Route(application)(
+        Tool.make('read', {
+            description: 'Reads application state with element ids and controls for perform',
+            parameters: Reading,
+            success: State,
+        }).annotate(Tool.Readonly, true),
+        (given, { pid }) => automation.read({ ...given, pid }),
     );
-const screenshot = ({ application }: Effect.Success<ReturnType<typeof routes>>) =>
-    Automation.use((automation) =>
-        Route(application)(
-            Tool.make('screenshot', {
-                description: 'Captures each presented window, or one window, as its own PNG with no activation, background and covered windows included',
-                parameters: Screenshot,
-                success: Captured,
-            }).annotate(Tool.Readonly, true),
-            Effect.fnUntraced(function* (shot, { pid }) {
-                const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-                const directory = yield* files.makeTempDirectoryScoped();
-                const written = yield* automation.screenshot({ ...shot, pid, directory: yield* path.toFileUrl(directory) });
-                return yield* Effect.all(Record.map(written, Result.match({ onSuccess: (file) => Effect.result(Effect.flatMap(path.fromFileUrl(file), Capture.read)), onFailure: (error) => Effect.succeed(Result.fail<Error>(error)) })));
-            }, Effect.scoped),
-        ),
+    yield* Route(application)(
+        Tool.make('screenshot', {
+            description: 'Captures each presented window, or one window, as its own PNG with no activation, background and covered windows included',
+            parameters: Screenshot,
+            success: Captured,
+        }).annotate(Tool.Readonly, true),
+        Effect.fnUntraced(function* (shot, { pid }) {
+            const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const directory = yield* files.makeTempDirectoryScoped();
+            const written = yield* automation.screenshot({ ...shot, pid, directory: yield* path.toFileUrl(directory) });
+            return yield* Effect.all(Record.map(written, Result.match({ onSuccess: (file) => Effect.result(Effect.flatMap(path.fromFileUrl(file), Capture.read)), onFailure: (error) => Effect.succeed(Result.fail<Error>(error)) })));
+        }, Effect.scoped),
     );
-const perform = ({ application }: Effect.Success<ReturnType<typeof routes>>, { launching }: Effect.Success<typeof status>) =>
-    Automation.use((automation) =>
-        Route({ ...application, depends: ({ pid }) => Effect.succeed([launching(pid)]) })(
-            Tool.make('perform', {
-                description: 'Runs Accessibility actions on read elements in order, refused while application launches, returning the state after the last',
-                parameters: Perform,
-                success: State,
-            }),
-            (given, { pid }) => automation.perform({ ...given, pid }),
-        ),
+    yield* Route({ ...application, depends: ({ pid }) => Effect.succeed([launching(pid)]) })(
+        Tool.make('perform', {
+            description: 'Runs Accessibility actions on read elements in order, refused while application launches, returning the state after the last',
+            parameters: Perform,
+            success: State,
+        }),
+        (given, { pid }) => automation.perform({ ...given, pid }),
     );
-const quit = ({ application }: Effect.Success<ReturnType<typeof routes>>) =>
-    Automation.use((automation) =>
-        Route({ ...application, depends: () => Effect.succeed([]) })(
-            Tool.make('quit', {
-                description: 'Sends application the quit event, returning its last state, a dialog or unresponsive instance staying running',
-                parameters: Quitting,
-                success: State,
-            }).annotate(Tool.Destructive, true),
-            (given, { pid }) => automation.quit({ ...given, pid }),
-        ),
+    yield* Route({ ...application, depends: () => Effect.succeed([]) })(
+        Tool.make('quit', {
+            description: 'Sends application the quit event, returning its last state, a dialog or unresponsive instance staying running',
+            parameters: Quitting,
+            success: State,
+        }).annotate(Tool.Destructive, true),
+        (given, { pid }) => automation.quit({ ...given, pid }),
     );
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { applications, Capture, launch, perform, quit, read, screenshot };
+export { applications, Capture, control };

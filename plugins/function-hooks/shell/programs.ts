@@ -54,7 +54,7 @@ const PROGRAMS: Policy['programs'] = {
     pnpm: { wraps: [[], ['exec'], ['dlx']], launcher: true, reports: true },
     'effect-tsgo': { flags: ['--completions=', '--log-level='], wraps: [[]], launcher: true },
     dotnet: { aliases: ['xcodebuild'], reports: true },
-    swift: { completer: 'swift@common', reports: true },
+    swift: { completer: 'swift@common', flags: ['--configuration='], reports: true },
     uv: { wraps: [['run'], ['tool', 'run']], reports: true },
     poetry: { aliases: ['hatch'], wraps: [['run']] },
     pixi: { wraps: [['run'], ['exec']] },

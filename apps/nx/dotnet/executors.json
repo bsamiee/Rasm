@@ -7,6 +7,11 @@
             "preferBatch": true,
             "description": "Runs dotnet build or publish once over a traversal project of every batched project, MSBuild ordering them and reporting each project's result"
         },
+        "check": {
+            "implementation": "./dist/executors/check/executor#execute",
+            "schema": "./executors/check/schema.json",
+            "description": "Reads the SARIF 2.1 reports a project's compile wrote and fails on each warning or error no suppression answers, with no second compile"
+        },
         "format": {
             "implementation": "./dist/executors/format/executor#execute",
             "batchImplementation": "./dist/executors/format/executor#batch",

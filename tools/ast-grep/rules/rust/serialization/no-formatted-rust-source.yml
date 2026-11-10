@@ -20,37 +20,10 @@ utils:
             - matches: item-text
             - kind: 'string_literal, raw_string_literal'
               regex: '^r?#*"(\\n|\p{Pattern_White_Space})*(#\[[^\]"]*\](\\n|\p{Pattern_White_Space})*)*(pub(\([\p{XID_Continue}\p{Pattern_White_Space}]+\))?\p{Pattern_White_Space}+)?((async|unsafe)\p{Pattern_White_Space}+)*((fn|struct|enum|trait|union|mod|impl|const|static|type)|impl(?-u:\b)[^"]*\p{Pattern_White_Space}for)\p{Pattern_White_Space}+"#*$'
-    owned-head:
-        any:
-            - matches: item-head
-            - kind: call_expression
-              any:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|to_string|into)$'}}, {has: {field: value, matches: item-head}}]}
-                - all: [{has: {field: function, regex: '^((::)?(std|alloc)::)?(string::)?String::from$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: item-head}}}]
 rule:
+    kind: 'macro_invocation, binary_expression, compound_assignment_expr, call_expression'
     all:
-        - any:
-            - kind: macro_invocation
-              all:
-                - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println)$'}}}
-                - has: {kind: token_tree, has: {all: [{matches: item-text}, {regex: '(^|[^{])\{[\p{XID_Continue}:}]'}]}}
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^\+$'}
-                - has: {field: left, matches: owned-head}
-            - kind: compound_assignment_expr
-              all:
-                - has: {field: operator, regex: '^\+=$'}
-                - has: {field: right, matches: item-head}
-            - kind: call_expression
-              any:
-                - all:
-                    - has: {field: function, kind: field_expression, has: {field: field, regex: '^push_str$'}}
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: item-head}}
-                - all:
-                    - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(concat|join)$'}}, {has: {field: value, kind: array_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: item-head}}}]}
-                - all:
-                    - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: item-text}}]}
-        - pattern: $SOURCE
+        - {matches: {rust-text-assembly: {text: {kind: &literal 'string_literal, raw_string_literal', matches: item-text}, head: {kind: *literal, matches: item-head}}}}
+        - {pattern: $SOURCE}
 message: '`$SOURCE` builds Rust source as text'
 note: 'Build the item as `quote!` tokens, parse them with `syn::parse2::<syn::File>`, and print with `prettyplease::unparse`'

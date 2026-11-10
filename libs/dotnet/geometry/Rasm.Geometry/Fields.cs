@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Rasm.Geometry;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -54,7 +52,6 @@ public abstract partial record ScalarField {
         private HalfSpace(Vector3D<double> origin, Vector3D<double> normal) => (Origin, Normal) = (origin, normal);
         public Vector3D<double> Origin { get; }
         public Vector3D<double> Normal { get; }
-        [SuppressMessage("Performance", "MA0168:Use readonly struct for in or ref readonly parameter", Justification = "HyperJet declares readonly Dot with an in parameter of mutable Vector3D<T>, preserving projection arithmetic.")]
         public override double Distance(Vector3D<double> point) => (point - Origin).Dot(Normal);
 
         public static Fin<HalfSpace> Validated(Vector3D<double> origin, Vector3D<double> normal) =>
@@ -83,10 +80,10 @@ public abstract partial record ScalarField {
     }
 
     public sealed record Measured : ScalarField {
-        private readonly Func<Vector3D<double>, double> _sample;
-        public Measured(Func<Vector3D<double>, double> sample, Option<Bounds> bounds) => (_sample, Bounds) = (sample, bounds);
+        private readonly Func<Vector3D<double>, double> sample;
+        public Measured(Func<Vector3D<double>, double> sample, Option<Bounds> bounds) => (this.sample, Bounds) = (sample, bounds);
         public override Option<Bounds> Bounds { get; }
-        public override double Distance(Vector3D<double> point) => _sample(point);
+        public override double Distance(Vector3D<double> point) => sample(point);
     }
 
     public sealed record Level(Func<Vector3D<DScalar3<double>>, DScalar3<double>> Field) : ScalarField { public override double Distance(Vector3D<double> point) => DScalar3<double>.Variables(point.X, point.Y, point.Z) switch { var (x, y, z) => Field(new(x, y, z)) switch { var f => f.Value is 0d ? 0d : f.Value / new Vector3D<double>(f.G(0), f.G(1), f.G(2)).Length() } }; }

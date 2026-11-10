@@ -5,7 +5,9 @@ use hashbrown::HashMap;
 use indexmap::{IndexMap, IndexSet};
 use itertools::{Either, Itertools as _};
 use nonempty_collections::{NEVec, NonEmptyIterator as _};
-use petgraph::{Direction, algo::kosaraju_scc, graphmap::DiGraphMap};
+use petgraph::Direction;
+use petgraph::algo::kosaraju_scc;
+use petgraph::graphmap::DiGraphMap;
 use validated::Validated;
 
 use crate::{Composed, Header, IfcError, Layer, Model, Name, Node, Path, descend, distinct, schemas};

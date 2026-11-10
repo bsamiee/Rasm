@@ -1,12 +1,11 @@
 use core::iter;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, sym};
-use rustc_ast::{
-    LitKind,
-    attr::AttributeExt as _,
-    token::{self, TokenKind},
-    tokenstream::TokenTree,
-};
+use clippy_utils::diagnostics::span_lint_hir_and_then;
+use clippy_utils::sym;
+use rustc_ast::LitKind;
+use rustc_ast::attr::AttributeExt as _;
+use rustc_ast::token::{self, TokenKind};
+use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, Attribute};
 use rustc_hir::{HirId, Item, ItemKind};
 use rustc_lint::{LateContext, LateLintPass};

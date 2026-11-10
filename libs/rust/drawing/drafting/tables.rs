@@ -1,5 +1,8 @@
-use core::{iter, num::NonZero, range::Range};
-use std::{borrow::Cow, collections::HashSet};
+use core::iter;
+use core::num::NonZero;
+use core::range::Range;
+use std::borrow::Cow;
+use std::collections::HashSet;
 
 use enum_map::EnumMap;
 use itertools::Itertools as _;
@@ -9,13 +12,9 @@ use nonempty_collections::NEVec;
 use rasm_drawing::{Anchor, Baseline, Pen, Placement, Region, Width, WidthError, cleanup};
 use validated::Validated;
 
-use crate::{
-    Content, DraftingError, Geometry, Graphics, Subject, bounds, drawn, edges, fraction, joined,
-    legends::{self, Swatch},
-    stroked,
-    text::{Label, Typesetter},
-    transformed, validated, within,
-};
+use crate::legends::{self, Swatch};
+use crate::text::{Label, Typesetter};
+use crate::{Content, DraftingError, Geometry, Graphics, Subject, bounds, drawn, edges, fraction, joined, stroked, transformed, validated, within};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -55,12 +55,7 @@ public abstract partial record AnimationKind {
     public sealed record Sun(GeoCoordinate Place, Angle North, SunWindow Window) : AnimationKind;
 }
 
-public sealed record AnimationOutput(FolderPath Folder, FileExtension Extension, NamePart Name) {
-    internal static Fin<AnimationOutput> From(string folder, string extension, string name) =>
-        (FolderPath.Of(folder), FileExtension.Validated($"{FileExtension.Mark}{extension}"), NamePart.Validated(name))
-            .Apply(static (existing, dotted, stem) => new AnimationOutput(existing, dotted, stem))
-            .As();
-}
+public sealed record AnimationOutput(FolderPath Folder, FileExtension Extension, NamePart Name);
 
 public sealed record AnimationSequence(AnimationKind Kind, int Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, AnimationQuality Quality);
 
@@ -93,7 +88,10 @@ public static class Animations {
         };
 
     private static Fin<AnimationSequence> Sequence(AnimationProperties held, AnimationKind kind) =>
-        (Conversions.Present(held.FolderName).Traverse(folder => AnimationOutput.From(folder, held.FileExtension, held.AnimationName)).As(),
+        (Conversions.Present(held.FolderName).Traverse(folder =>
+                (FolderPath.Of(folder), FileExtension.Validated($"{FileExtension.Mark}{held.FileExtension}"), NamePart.Validated(held.AnimationName))
+                    .Apply(static (existing, dotted, stem) => new AnimationOutput(existing, dotted, stem))
+                    .As()).As(),
          toSeq(AnimationQuality.Items).Find(quality => (quality.RenderFull, quality.RenderPreview) == (held.RenderFull, held.RenderPreview))
              .ToFin(new RhinoFault($"animation capture (full, preview) = ({held.RenderFull}, {held.RenderPreview})", RhinoReason.Missing)))
             .Apply((output, quality) => new AnimationSequence(kind, held.FrameCount, held.ViewportName, Conversions.Present(held.DisplayMode), output, quality))

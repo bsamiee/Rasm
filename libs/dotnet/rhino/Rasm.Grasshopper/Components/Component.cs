@@ -53,7 +53,7 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
 
     public IEnumerable<Guid> SupportedPins => declared.ToSeq().Bind(static held => toSeq(held.Ports.SupportedPins));
 
-    protected override IIcon? IconInternal => DataTypes.Icon(typeof(TSelf).Assembly, typeof(TSelf).Name);
+    protected override IIcon? IconInternal => DataTypes.Icon((typeof(TSelf).Assembly, typeof(TSelf).Name)).ValueUnsafe();
 
     // --- [TOPOLOGY]
 

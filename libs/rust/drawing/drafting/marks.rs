@@ -1,4 +1,5 @@
-use core::{f64::consts::PI, iter};
+use core::f64::consts::PI;
+use core::iter;
 
 use itertools::{EitherOrBoth, Itertools as _};
 use kurbo::{Affine, Arc, BezPath, Circle, Line, ParamCurve as _, ParamCurveArclen as _, ParamCurveDeriv as _, PathEl, PathSeg, Point, Rect, Shape as _, Size, Vec2};
@@ -7,12 +8,11 @@ use nonempty_collections::NEVec;
 use rasm_drawing::{Anchor, Baseline, Linetype, Path, Pen, Placement, Width};
 use uom::si::f64::{Angle, Length};
 
+use crate::notation::{self, Sign};
+use crate::text::{Label, Typesetter, labelled};
 use crate::{
-    DraftingError, Geometry, Graphics, Head, bounds, directed, edges, filled, graduated, indexed, joined, located, measured,
-    notation::{self, Sign},
-    oriented, polyline, station, stroked, terminated,
-    text::{Label, Typesetter, labelled},
-    tipped, transformed, units,
+    DraftingError, Geometry, Graphics, Head, bounds, directed, edges, filled, graduated, indexed, joined, located, measured, oriented, polyline, station, stroked, terminated, tipped, transformed,
+    units,
 };
 
 // --- [MODELS] --------------------------------------------------------------------------

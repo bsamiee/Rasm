@@ -1,39 +1,38 @@
 #![feature(control_flow_into_value, error_reporter, integer_casts, lock_value_accessors, nonpoison_mutex, panic_update_hook, sync_nonpoison, try_blocks_heterogeneous)]
 
-use core::{fmt, future, iter, num::NonZero, ops::ControlFlow, pin::pin, time::Duration};
+use core::num::NonZero;
+use core::ops::ControlFlow;
+use core::pin::pin;
+use core::time::Duration;
+use core::{fmt, future, iter};
+use std::error::Report;
+use std::io::{self, IsTerminal as _};
+use std::sync::Arc;
+use std::sync::nonpoison::Mutex;
 #[cfg(not(panic = "abort"))]
 use std::thread;
-use std::{
-    error::Report,
-    io::{self, IsTerminal as _},
-    panic, process,
-    sync::{Arc, nonpoison::Mutex},
-    time::Instant,
-};
+use std::time::Instant;
+use std::{panic, process};
 
 use anstream::{AutoStream, ColorChoice};
-use clap::{CommandFactory, FromArgMatches, builder::Styles};
+use clap::builder::Styles;
+use clap::{CommandFactory, FromArgMatches};
 use crossterm::event::{Event, EventStream};
-use futures::{
-    Stream, StreamExt as _,
-    channel::mpsc::{self, UnboundedSender},
-    executor,
-    future::{Either, select},
-    stream::{self, LocalBoxStream},
-};
+use futures::channel::mpsc::{self, UnboundedSender};
+use futures::future::{Either, select};
+use futures::stream::{self, LocalBoxStream};
+use futures::{Stream, StreamExt as _, executor};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::{
-    CommandError, Process,
-    telemetry::{Defaults, Failure, Handle, Layer},
-};
-use ratatui::{Frame, Terminal, backend::CrosstermBackend, layout::Rect};
+use rasm_command::telemetry::{Defaults, Failure, Handle, Layer};
+use rasm_command::{CommandError, Invocation};
+use ratatui::backend::CrosstermBackend;
+use ratatui::layout::Rect;
+use ratatui::{Frame, Terminal};
 use sysexits::ExitCode;
-use tokio::{
-    runtime::Builder,
-    task,
-    time::{self, MissedTickBehavior},
-};
+use tokio::runtime::Builder;
+use tokio::task;
+use tokio::time::{self, MissedTickBehavior};
 use tokio_stream::wrappers::IntervalStream;
 use tracing_log::AsLog as _;
 use tui_logger::{TuiTracingSubscriberLayer, TuiWidgetState};
@@ -119,7 +118,7 @@ where
 {
     const BATCH: usize = 256;
     let held = Arc::new(Held { lines: Mutex::default(), depth: P::HISTORY });
-    rasm_command::run(defaults, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), runtime, async move |Process { args, styles, mut signals, filter, level }| {
+    rasm_command::run(defaults, Arc::clone(&held), TuiTracingSubscriberLayer.and_then(layer), runtime, async move |Invocation { args, styles, mut signals, filter, level }| {
         let styles = match AutoStream::choice(&io::stdout()) {
             ColorChoice::Never => Styles::plain(),
             ColorChoice::Auto | ColorChoice::AlwaysAnsi | ColorChoice::Always => styles,
@@ -204,7 +203,6 @@ where
 
 mod keymap;
 mod session;
-mod view;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

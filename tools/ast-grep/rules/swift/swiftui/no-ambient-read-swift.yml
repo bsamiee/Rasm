@@ -18,7 +18,7 @@ rule:
     pattern: $READ
     any:
         - kind: call_expression
-          regex: '^((Foundation(\.|::))?(Date|UUID)(\.init)?\((timeIntervalSinceNow:[^)]*)?\)|(Swift(\.|::))?SystemRandomNumberGenerator\(\)|(CFAbsoluteTimeGetCurrent|CACurrentMediaTime|mach_(absolute|continuous)_time|clock_gettime_nsec_np|arc4random(_uniform|_buf)?|drand48)\([^)]*\)|(Dispatch(Wall)?Time)\.now\(\)|[^(]*\.random\(|[^(]+\.(randomElement|shuffled)\(\)|[^(]+\.isDateIn(Today|Yesterday|Tomorrow)\()'
+          regex: '^((Foundation(\.|::))?(Date|UUID)(\.init)?\((timeIntervalSinceNow:[^)]*)?\)|(Swift(\.|::))?SystemRandomNumberGenerator\(\)|(CFAbsoluteTimeGetCurrent|CACurrentMediaTime|mach_(absolute|continuous)_time|clock_gettime_nsec_np|arc4random_buf)\([^)]*\)|(Dispatch(Wall)?Time)\.now\(\)|[^(]*\.random\(|[^(]+\.(randomElement|shuffled)\(\)|[^(]+\.isDateIn(Today|Yesterday|Tomorrow)\()'
           not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^using$'}}}}}
         - kind: call_expression
           regex: '^\.init\((timeIntervalSinceNow:[^)]*)?\)$'

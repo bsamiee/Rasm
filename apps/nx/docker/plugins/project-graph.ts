@@ -105,7 +105,7 @@ const targets = (project: Project): Record<string, TargetConfiguration> => {
                   'build--compose': compose(['build'], `Builds the images of ${project.name} into the engine`, { cache: false, dependsOn: PRODUCERS, configurations }),
               }
             : {}),
-        install: compose(['up', '--detach', '--wait', '--remove-orphans'], `Starts the services of ${project.name} and waits until each is healthy`, { cache: false, dependsOn: ['build', '^install'], configurations }),
+        'install--compose': compose(['up', '--detach', '--wait', '--remove-orphans'], `Starts the services of ${project.name} and waits until each is healthy`, { cache: false, dependsOn: ['build', '^install'], configurations }),
     };
     return {
         ...inferred,
@@ -154,7 +154,7 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, files: readonl
             }),
         },
     );
-    yield* Effect.forEach(Array.getSomes(projects.map(({ files: [file], unread }) => Option.map(unread, ({ message }) => `${file} takes check--compose and install from its folder alone, and their runs report Compose's own failure: ${message}`))), (warning) => Effect.sync(() => logger.warn(warning)));
+    yield* Effect.forEach(Array.getSomes(projects.map(({ files: [file], unread }) => Option.map(unread, ({ message }) => `${file} takes check--compose and install--compose from its folder alone, and their runs report Compose's own failure: ${message}`))), (warning) => Effect.sync(() => logger.warn(warning)));
     reports.set(keyed(workspaceRoot, options), projects);
     return projects;
 });

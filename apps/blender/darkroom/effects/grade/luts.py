@@ -4,7 +4,7 @@ from collections.abc import Callable, Mapping
 from enum import auto, Enum
 from functools import partial
 from pathlib import Path
-from typing import Final, Literal, override
+from typing import Annotated, Final, Literal, override
 
 import bpy
 from expression import Option, Some
@@ -38,12 +38,9 @@ from rasm_bpy.render import (
     valued,
 )
 from rasm_imaging import bracketed, converted, corrections, cube_split, Lattice, located, LutFormat, LutOutput, pixels, processor, Rational
-from rasm_records import Fault, Nothing, Ok, Outcome, paired, Reason
+from rasm_records import Fault, Nothing, Ok, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Triple = tuple[float, float, float]
-type _Parts = tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]
 
 
 class _Source(Enum):
@@ -81,14 +78,14 @@ class CDL(CompositorRecord, frozen=True, kw_only=True):
 class Imported(Named):
     """ASC correction chosen in the file browser."""
 
-    correction: bpy.props.EnumProperty(name="Correction", items=())  # ty: ignore[invalid-type-form]
+    correction: Annotated[str, bpy.props.EnumProperty(name="Correction", items=())]
 
 
 class Exported(Named):
     """Correction written in an exact transform format, alone or resolved between scene-linear conversions."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # ty: ignore[invalid-type-form]
-    source: bpy.props.EnumProperty(name="Source", items=enum_choices(_Source))  # ty: ignore[invalid-type-form]
+    format: Annotated[str, bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))]
+    source: Annotated[str, bpy.props.EnumProperty(name="Source", items=enum_choices(_Source))]
 
 
 class Lookup(CompositorRecord, frozen=True, kw_only=True):
@@ -103,7 +100,7 @@ class Lookup(CompositorRecord, frozen=True, kw_only=True):
         """Samples the operations before the file's first 3D table on the stated lattice, then that table and the rest."""
         name = Path(self.source).name
 
-        def built(parts: _Parts) -> Outcome[Expr]:
+        def built(parts: tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]) -> Outcome[Expr]:
             head, suffix = parts
             entering = (
                 Option
@@ -147,15 +144,16 @@ class Lookup(CompositorRecord, frozen=True, kw_only=True):
 
 def _correction(values: Mapping[Key, Value]) -> Outcome[PyOpenColorIO.CDLTransform]:
     """Fresh OCIO CDL operation of the entry's slope, offset, power, and saturation."""
-    return paired(value(values, _Triple, _SLOPE), value(values, _Triple, _OFFSET), value(values, _Triple, _POWER), value(values, float, _SATURATION)).map(
-        lambda held: PyOpenColorIO.CDLTransform(slope=list(held[0]), offset=list(held[1]), power=list(held[2]), sat=held[3])
-    )
+    return paired(
+        value(values, tuple[float, float, float], _SLOPE), value(values, tuple[float, float, float], _OFFSET), value(values, tuple[float, float, float], _POWER), value(values, float, _SATURATION)
+    ).map(lambda held: PyOpenColorIO.CDLTransform(slope=list(held[0]), offset=list(held[1]), power=list(held[2]), sat=held[3]))
 
 
 def _named(identity: Identity, operator: Imported, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
     """ASC correction rows in file order, each value fixed to its file position."""
-    path: str = operator.filepath  # ty: ignore[unresolved-attribute, unsound-assignment]
-    found = reloaded(identity, path, PyOpenColorIO.GetCurrentConfig()).bind(lambda resolved: corrections(Path(resolved)))
+    found = (
+        typed(str, repr(operator), getattr(operator, "filepath", None)).bind(lambda path: reloaded(identity, path, PyOpenColorIO.GetCurrentConfig())).bind(lambda resolved: corrections(Path(resolved)))
+    )
     return choices((str(position), name.default_value(str(position + 1)), "", "NONE", position) for rows in found.to_option().to_list() for position, (name, _) in enumerate(rows))
 
 
@@ -207,7 +205,7 @@ def export_cdl(call: Call[Exported]) -> Outcome[Answer]:
 # --- [LOOKUPS]
 
 
-def _parts(identity: Identity, record: Lookup, config: PyOpenColorIO.Config) -> Outcome[_Parts]:
+def _parts(identity: Identity, record: Lookup, config: PyOpenColorIO.Config) -> Outcome[tuple[PyOpenColorIO.GroupTransform, Option[tuple[Lattice, npt.NDArray[np.float32]]]]]:
     """Splits the reloaded file into the operations before its first 3D table and that table on its own lattice."""
     return reloaded(identity, record.source, config).bind(lambda path: cube_split(config, PyOpenColorIO.FileTransform(src=path, interpolation=PyOpenColorIO.INTERP_BEST)))
 
@@ -248,4 +246,4 @@ lookup: Final = CompositorEffect(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CDL", "Exported", "Imported", "Lookup", "cdl", "lookup"]
+__all__ = ["CDL", "Lookup", "cdl", "lookup"]

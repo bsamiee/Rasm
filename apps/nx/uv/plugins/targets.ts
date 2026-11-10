@@ -17,9 +17,10 @@ const CHECKERS = {
         files: [['ty.toml'], ['pyproject.toml', 'tool', 'ty']],
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
-        folder: identity,
+        folder: identity<string>,
         run: [],
         command: (at: string) => ['ty', 'check', at],
+        mypy: undefined,
         version: '--python-version',
         description: 'Type-checks the member with ty',
         help: ['ty', 'check', '--help'],
@@ -31,9 +32,10 @@ const CHECKERS = {
         files: [['mypy.ini'], ['.mypy.ini'], ['pyproject.toml', 'tool', 'mypy'], ['setup.cfg', 'mypy']],
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
-        folder: identity,
+        folder: identity<string>,
         run: [],
         command: (at: string) => ['mypy', at],
+        mypy: [],
         version: '--python-version',
         description: 'Type-checks the member with mypy and the plugins its configuration loads',
         help: ['mypy', '--help'],
@@ -45,9 +47,10 @@ const CHECKERS = {
         files: [['pyproject.toml', 'tool', 'refurb']],
         matches: ['*.py', '*.pyi'],
         sources: ['*.py', '*.pyi'],
-        folder: (_: string, root: string) => root,
+        folder: (_: string, base: string) => base,
         run: [],
-        command: (_: string, config: string) => ['refurb', '--config-file', config, '.'],
+        command: (at: string, config: string) => ['refurb', '--config-file', config, at],
+        mypy: ['--'],
         version: '--python-version',
         description: 'Reports refurb findings over a mypy build of the member',
         help: ['refurb', '--help'],
@@ -60,15 +63,17 @@ const CHECKERS = {
         matches: ['test_*.py', '*_test.py'],
         sources: ['*'],
         run: ['--isolated'],
-        folder: identity,
+        folder: identity<string>,
         version: undefined,
         command: (at: string) => ['pytest', at],
+        mypy: undefined,
         description: 'Runs the member tests with pytest',
         help: ['pytest', '--help'],
         example: ['-k', '<expression>'],
     },
 } as const;
-const CONFIGS = Array.dedupe(Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)));
+const PIXI = 'pixi.toml';
+const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)), PIXI]);
 const SEPARATOR = /\s+/u;
 const BUILD = 'build--uv';
 const TECHNOLOGIES = ['python'];
@@ -81,7 +86,7 @@ const Patterns = Schema.Struct({
         Schema.Union([Schema.Array(Schema.String), Schema.String.pipe(Schema.decodeTo(Schema.Array(Schema.String), SchemaTransformation.transform({ decode: (text): readonly string[] => text.split(SEPARATOR).filter(String.isNonEmpty), encode: (files: readonly string[]) => files.join(' ') })))]),
     ),
 });
-const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns) }));
+const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns), cache_dir: Schema.optionalKey(Schema.String) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -120,6 +125,7 @@ const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, roo
         ),
         ([[config, settings], index]) => ({
             config,
+            cache: settings.cache_dir,
             inputs: Array.dedupe(
                 candidates
                     .slice(0, index + 1)
@@ -131,8 +137,7 @@ const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, roo
     );
 };
 
-const targets = (path: Path.Path, member: Member, plugin: string, dependencies: string, present: ReadonlySet<Member['checks'][string]>, outputPath: string | undefined): Readonly<Record<string, TargetConfiguration>> => {
-    const at = path.relative(member.workspace, member.root) || '.';
+const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Member>, plugin: string, dependencies: string, present: ReadonlyMap<Member['checks'][string], string>, outputPath: string | undefined): Readonly<Record<string, TargetConfiguration>> => {
     const root = member.root === member.workspace;
     const named = Option.fromUndefinedOr(member.name);
     const distributions = Option.map(named, (name) => (outputPath === undefined ? path.join(member.workspace, 'dist', name) : path.join(outputPath, 'uv', name)));
@@ -143,13 +148,21 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                 ? []
                 : Array.getSomes(
                       Record.collect(CHECKERS, (key, row) =>
-                          Option.map(
-                              Option.filter(Option.fromUndefinedOr(member.checks[key]), (checked) => present.has(checked)),
-                              (checked) => [key, row, checked] as const,
-                          ),
+                          Option.gen(function* () {
+                              const checked = yield* Option.fromUndefinedOr(member.checks[key]);
+                              const folder = row.folder(member.workspace, yield* Option.fromUndefinedOr(present.get(checked)));
+                              const host = checked.locked ? member : yield* Option.fromUndefinedOr(roots.get(path.dirname(checked.config)));
+                              const tool = yield* Option.filter(Option.fromUndefinedOr(host.checks[key]), ({ locked }) => locked);
+                              const typed = Record.get(member.checks, 'mypy');
+                              const read = checked.locked ? checked : yield* Option.filter(typed, ({ locked }) => locked && row.mypy !== undefined);
+                              const { cache: stated, config } = Option.getOrElse(typed, () => checked);
+                              const cache = path.join((stated ?? '.mypy_cache').replace('$MYPY_CONFIG_FILE_DIR', path.relative(folder, path.dirname(config)) || '.'), member.root, key);
+                              const interpreter = checked.locked ? [] : [CHECKERS.mypy.version, yield* Option.fromUndefinedOr(checked.version)];
+                              return [key, row, checked, folder, host, tool, read, row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', cache, ...interpreter]] as const;
+                          }),
                       ),
                   ),
-            ([key, row, checked]) =>
+            ([key, row, checked, folder, host, tool, read, forwarded]) =>
                 [
                     row.verb === 'check' ? `${row.verb}--${key}` : row.verb,
                     {
@@ -160,12 +173,15 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                                 'run',
                                 ...row.run,
                                 '--locked',
+                                ...(path.relative(member.workspace, folder).startsWith('..') ? ['--project', path.relative(folder, member.workspace)] : []),
                                 ...Option.match(named, { onNone: () => [], onSome: (name) => ['--package', name] }),
-                                ...(checked.group === undefined ? [] : ['--group', checked.group]),
-                                ...row.command(at, path.relative(member.root, checked.config)),
-                                ...(row.version === undefined || member.floor === undefined ? [] : [row.version, member.floor]),
+                                ...(read.group === undefined ? [] : ['--group', read.group]),
+                                ...(checked.locked ? [] : ['uv', 'run', '--quiet', '--locked', '--project', path.relative(folder, host.root) || '.', ...(tool.group === undefined ? [] : ['--group', tool.group])]),
+                                ...row.command(path.relative(folder, member.root) || '.', path.relative(folder, checked.config)),
+                                ...(row.version === undefined || checked.version === undefined ? [] : [row.version, checked.version]),
+                                ...forwarded,
                             ]),
-                            cwd: row.folder(member.workspace, member.root),
+                            cwd: folder,
                         },
                         cache: true,
                         inputs: [
@@ -173,10 +189,10 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                             ...built,
                             ...checked.inputs,
                             ...row.variables.map((env) => ({ env })),
-                            path.join('{workspaceRoot}', member.workspace, '.python-version'),
+                            { runtime: 'uv --version' },
                             dependencies,
-                            path.join('{workspaceRoot}', member.lock),
-                            ...(checked.projects.length === 0 ? [] : [{ input: 'default', projects: [...checked.projects] }]),
+                            ...Array.dedupe([member, host]).flatMap(({ workspace, lock }) => [path.join('{workspaceRoot}', workspace, '.python-version'), path.join('{workspaceRoot}', lock)]),
+                            ...Array.match(Array.dedupe([...read.projects, ...tool.projects]), { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] }),
                             { externalDependencies: [] },
                         ],
                         metadata: { technologies: TECHNOLOGIES, description: row.description, help: { command: line(['uv', 'run', ...row.help]), example: { args: [...row.example] } } },
@@ -192,8 +208,19 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                       inputs: [...member.manifests.map((pyproject) => path.join('{workspaceRoot}', pyproject)), '{projectRoot}/uv.lock', '{projectRoot}/uv.toml', '{projectRoot}/.python-version', { externalDependencies: [] }],
                       metadata: { technologies: TECHNOLOGIES, description: 'Fails when uv.lock no longer matches the workspace manifests', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
                   },
+                  ...(member.pixi
+                      ? {
+                            'upgrade--pixi': {
+                                executor: 'nx:run-commands',
+                                options: { command: line(['pixi', 'update']), cwd: member.workspace },
+                                outputs: ['{projectRoot}/pixi.lock'],
+                                metadata: { technologies: TECHNOLOGIES, description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
+                            },
+                        }
+                      : {}),
                   'upgrade--uv': {
                       executor: 'nx:run-commands',
+                      dependsOn: member.pixi ? ['upgrade--pixi'] : [],
                       options: { command: line(['uv', 'lock', '--upgrade']), cwd: member.workspace },
                       outputs: ['{projectRoot}/uv.lock'],
                       metadata: { technologies: TECHNOLOGIES, description: 'Moves every locked package to its newest allowed release', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
@@ -216,6 +243,16 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
                 }),
             },
         ),
+        ...(member.scripted
+            ? {
+                  'install--uv': {
+                      executor: 'nx:run-commands',
+                      options: { command: line(['uv', 'tool', 'install', '--reinstall', ...(member.python === undefined ? [] : ['--python', member.python]), '.']), cwd: member.root },
+                      cache: false,
+                      metadata: { technologies: TECHNOLOGIES, description: "Builds the member from the checkout and installs its scripts into uv's tool folder, on an interpreter its requires-python accepts", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
+                  },
+              }
+            : {}),
         ...(member.published
             ? {
                   'nx-release-publish': {
@@ -245,4 +282,4 @@ const targets = (path: Path.Path, member: Member, plugin: string, dependencies: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { BUILD, CHECKERS, CONFIGS, declared, documents, targets };
+export { BUILD, CHECKERS, CONFIGS, declared, documents, PIXI, targets };

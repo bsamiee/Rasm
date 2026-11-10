@@ -18,71 +18,28 @@ utils:
         has: {field: function, kind: field_expression, has: {field: field, regex: '^(saturating|strict|wrapping|unchecked)_mul$'}}
     scaled:
         any: [{matches: product}, {matches: mul-call}]
-    seconds-literal:
-        kind: integer_literal
-        regex: '^(6_*0|3_*6_*0_*0)(_?u64)?$'
-    millis-literal:
-        kind: integer_literal
-        regex: '^(1_*0_*0_*0|6_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0)(_?u64)?$'
-    micros-literal:
-        kind: integer_literal
-        regex: '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$'
-    nanos-literal:
-        kind: integer_literal
-        regex: '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|1_*0_*0_*0_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$'
     thousand-literal:
         kind: 'integer_literal, float_literal'
         regex: '^(1_?000(\.0*)?|1(\.0*)?e3)(_?f(32|64))?$'
     scaled-constructor:
         kind: call_expression
         all:
-            - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '(^|::)Duration$'}}, {has: {field: name, regex: '^from_(secs|millis|micros|nanos)$'}}]}
+            - has: {field: function, kind: scoped_identifier, has: {field: path, regex: '(^|::)Duration$'}}
             - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
+                    matches: scaled
+                    any:
+                        - all: [{has: {field: right, kind: integer_literal, pattern: $FACTOR}}, {has: {field: left, matches: operand}}]
+                        - all: [{has: {field: left, kind: integer_literal, pattern: $FACTOR}}, {has: {field: right, matches: operand}}]
+                        - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: integer_literal, pattern: $FACTOR}}}, {has: {field: function, has: {field: value, matches: operand}}}]
             - any:
-                - all:
-                    - has: {field: function, has: {field: name, regex: '^from_secs$'}}
-                    - has:
-                        field: arguments
-                        has:
-                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                            matches: scaled
-                            any:
-                                - all: [{has: {field: right, matches: seconds-literal}}, {has: {field: left, matches: operand}}]
-                                - all: [{has: {field: left, matches: seconds-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: seconds-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
-                - all:
-                    - has: {field: function, has: {field: name, regex: '^from_millis$'}}
-                    - has:
-                        field: arguments
-                        has:
-                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                            matches: scaled
-                            any:
-                                - all: [{has: {field: right, matches: millis-literal}}, {has: {field: left, matches: operand}}]
-                                - all: [{has: {field: left, matches: millis-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: millis-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
-                - all:
-                    - has: {field: function, has: {field: name, regex: '^from_micros$'}}
-                    - has:
-                        field: arguments
-                        has:
-                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                            matches: scaled
-                            any:
-                                - all: [{has: {field: right, matches: micros-literal}}, {has: {field: left, matches: operand}}]
-                                - all: [{has: {field: left, matches: micros-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: micros-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
-                - all:
-                    - has: {field: function, has: {field: name, regex: '^from_nanos$'}}
-                    - has:
-                        field: arguments
-                        has:
-                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-                            matches: scaled
-                            any:
-                                - all: [{has: {field: right, matches: nanos-literal}}, {has: {field: left, matches: operand}}]
-                                - all: [{has: {field: left, matches: nanos-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: nanos-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                - all: [{has: {field: function, has: {field: name, regex: '^from_secs$'}}}, {has: {field: arguments, has: {stopBy: end, kind: integer_literal, pattern: $FACTOR, regex: '^(6_*0|3_*6_*0_*0)(_?u64)?$'}}}]
+                - all: [{has: {field: function, has: {field: name, regex: '^from_millis$'}}}, {has: {field: arguments, has: {stopBy: end, kind: integer_literal, pattern: $FACTOR, regex: '^(1_*0_*0_*0|6_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0)(_?u64)?$'}}}]
+                - all: [{has: {field: function, has: {field: name, regex: '^from_micros$'}}}, {has: {field: arguments, has: {stopBy: end, kind: integer_literal, pattern: $FACTOR, regex: '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$'}}}]
+                - all: [{has: {field: function, has: {field: name, regex: '^from_nanos$'}}}, {has: {field: arguments, has: {stopBy: end, kind: integer_literal, pattern: $FACTOR, regex: '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|1_*0_*0_*0_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$'}}}]
     seconds-read:
         kind: call_expression
         all:

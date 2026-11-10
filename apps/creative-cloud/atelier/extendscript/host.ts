@@ -49,7 +49,7 @@ const written = (target: object, values: Fields, prefix: string): string[] => {
             refused = refused.concat(written(held, value, `${prefix}${key}.`));
         } else {
             try {
-                // biome-ignore lint/nursery/noUnsafeTypeAssertion: types-for-adobe declares host option fields as statics, the host instance takes each
+                // biome-ignore lint/nursery/noUnsafeTypeAssertion: `object` has no index signature and ES3 has no `Reflect.set`, the host instance takes each key
                 (target as unknown as Record<string, unknown>)[key] = value;
             } catch (thrown) {
                 refused.push(`${prefix}${key}: ${message(thrown)}`);

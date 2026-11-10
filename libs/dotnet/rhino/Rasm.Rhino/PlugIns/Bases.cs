@@ -4,6 +4,7 @@ using Rasm.Rhino.Display;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.PlugIns.Licenses;
+using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.UI;
@@ -16,14 +17,13 @@ using Rhino.Render.CustomRenderMeshes;
 using Rhino.Render.PostEffects;
 using Rhino.Runtime;
 using Rhino.UI;
-using LicenseRequest = System.Func<Rhino.PlugIns.LicenseCapabilities, string?, Rhino.PlugIns.ValidateProductKeyDelegate, Rhino.PlugIns.OnLeaseChangedDelegate, bool>;
 using PlugInMembers = (
     Rhino.PlugIns.PlugInLoadTime LoadTime,
     System.Func<(Rhino.PlugIns.LoadReturnCode Code, string Message)> OnLoad,
     System.Action CreateCommands,
     System.Action OnShutdown,
     System.Action ResetMessageBoxes,
-    object? PlugInObject,
+    object? GetPlugInObject,
     bool AddToHelpMenu,
     System.Func<bool> DisplayHelp,
     System.Action<System.Collections.Generic.List<Rhino.UI.OptionsDialogPage>> OptionsDialogPages,
@@ -58,7 +58,7 @@ using RenderMembers = (
     System.Action<System.Collections.Generic.List<Rhino.UI.Controls.ICollapsibleSection>> RenderSettingsCustomSections,
     System.Action<System.Collections.Generic.List<Rhino.UI.Controls.ICollapsibleSection>> SunCustomSections,
     System.Action<Rhino.PlugIns.CustomRenderSaveFileTypes> RegisterCustomRenderSaveFileTypes,
-    System.Func<System.Collections.Generic.IEnumerable<System.Guid>> UiContentTypes,
+    System.Func<System.Collections.Generic.List<System.Guid>, System.Collections.Generic.List<System.Guid>> UiContentTypes,
     Rhino.PlugIns.RenderPlugIn.PreviewRenderTypes? PreviewRenderType,
     System.Action<Rhino.Render.CreatePreviewEventArgs> CreatePreview,
     System.Action<Rhino.Render.CreateTexture2dPreviewEventArgs> CreateTexture2dPreview);
@@ -75,10 +75,10 @@ internal sealed class PlugInBody {
     private readonly Assembly assembly;
     private readonly PlugInDefinition definition;
     private readonly ViewCatalog catalog;
-    private readonly LicenseRequest license;
+    private readonly Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> license;
     private readonly Func<Command, bool> register;
 
-    public PlugInBody(PlugIn host, Type defined, PlugInDefinition definition, Seq<View> kindViews, Func<Command, bool> register, LicenseRequest license) {
+    public PlugInBody(PlugIn host, Type defined, PlugInDefinition definition, Seq<View> kindViews, Func<Command, bool> register, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> license) {
         (this.host, assembly, this.definition, this.register, this.license) = (host, defined.Assembly, definition, register, license);
         catalog = new ViewCatalog(definition, definition.Views.Concat(kindViews));
         Platform.Instance.LoadAssembly(typeof(PlugInBody).Assembly);
@@ -93,9 +93,14 @@ internal sealed class PlugInBody {
             static pages => _ = Session.Run(ViewRegistration.OptionsDialogPages(pages)),
             static (doc, pages) => _ = Session.Run(ViewRegistration.DocumentPropertiesDialogPages(doc, pages)),
             static collection => _ = Session.Run(ViewRegistration.ObjectPropertiesPages(collection)),
-            options => Session.Run(DocumentArchive.ShouldWrite(definition.Frames, options), failed: false),
-            (doc, archive, options) => _ = Session.Run(DocumentArchive.Write(definition.Frames, doc, archive, options)),
-            (doc, archive, options) => _ = Session.Run(DocumentArchive.Read(definition.Frames, doc, archive, options)));
+            options => Session.Run(
+                from saved in IO.lift(() => Optional(options.RhinoDoc).Filter(_ => !options.WriteGeometryOnly && options.WriteUserData && !options.WriteSelectedObjectsOnly))
+                from filled in saved.Traverse(doc => Products.Each(definition.Frames.Map(frame => frame.Filled(doc, options)))).As()
+                select filled.Exists(static held => held.Exists(identity)),
+                failed: false),
+            (doc, archive, options) => _ = Session.Run(definition.Frames.TraverseM(frame => frame.Write(doc, archive, options)).As()),
+            (doc, archive, options) => _ = Session.Run(IO.lift(() => options.OpenMode || options.NewMode)
+                .Bind(opened => when(opened, definition.Frames.TraverseM(frame => frame.Read(doc, archive)).As().Map(unit)).As())));
 
     private PlugInLoadTime LoadTime =>
         definition.LoadTime.IfNone(() =>
@@ -119,7 +124,8 @@ internal sealed class PlugInBody {
         from licensed in definition.License.TraverseM(held => Licensing.Request(held, license)).As()
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
         from views in ViewCatalog.Load(catalog)
-        from rewrites in DocumentArchive.Rewrites
+        from rewrites in Subscriptions.On<DocumentSaveEventArgs>(static h => RhinoDoc.BeginSaveDocument += h, static h => RhinoDoc.BeginSaveDocument -= h).Documents()
+            .Attach(static args => Optional(args.Document).Traverse(ArchivableDictionaries.Rewrite).As().Map(unit))
         from following in EffectList.Following
         from endpoints in IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type)))
         from modes in definition.Modes.Traverse(DisplayModes.Declared).As()
@@ -134,7 +140,7 @@ internal sealed class PlugInBody {
             IO.lift(() => PostEffect.RegisterPostEffect(scanned, host.Id)).Map(unit),
             IO.lift(() => RenderMeshProvider.RegisterProviders(scanned, host)),
             IO.lift(() => RealtimeDisplayMode.RegisterDisplayModes(scanned, host.Id)).Map(unit),
-            IO.lift(() => LightManagerSupport.RegisterProviders(scanned, host.Id)))).Map(unit));
+            IO.lift(() => LightManagerSupport.RegisterProviders(scanned, host.Id))))).Map(unit);
 
     private Unit Commands() =>
         Session.Run(Products.Each(definition.Commands.Map((row, index) =>
@@ -207,26 +213,26 @@ public static partial class PlugInShell {
 
     // --- [PLUG_INS]
 
-    public static PlugInMembers PlugIn<TDefinition>(PlugIn host, Func<Command, bool> register, LicenseRequest license) where TDefinition : IDefined<PlugInDefinition> =>
-        new PlugInBody(host, typeof(TDefinition), TDefinition.Definition, [], register, license).Members;
+    public static PlugInMembers PlugIn<TDefinition>(PlugIn host, Func<Command, bool> registerCommand, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) where TDefinition : IDefined<PlugInDefinition> =>
+        new PlugInBody(host, typeof(TDefinition), TDefinition.Definition, [], registerCommand, getLicense).Members;
 
-    public static (PlugInMembers PlugIn, (Func<FileReadOptions, FileTypeList> AddFileTypes, Func<string, int, RhinoDoc, FileReadOptions, bool> File, Action<string, string> DisplayOptionsDialog) Formats) Import<TDefinition>(
-        FileImportPlugIn host, Func<Command, bool> register, LicenseRequest license) where TDefinition : IDefined<FileDefinition<FileReadOptions>> =>
-        (new PlugInBody(host, typeof(TDefinition), TDefinition.Definition.PlugIn, FileFormats.Dialogs(TDefinition.Definition.Formats), register, license).Members,
+    public static (PlugInMembers PlugIn, (Func<FileReadOptions, FileTypeList> AddFileTypes, Func<string, int, RhinoDoc, FileReadOptions, bool> ReadFile, Action<string, string> DisplayOptionsDialog) Formats) Import<TDefinition>(
+        FileImportPlugIn host, Func<Command, bool> registerCommand, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) where TDefinition : IDefined<FileDefinition<FileReadOptions>> =>
+        (new PlugInBody(host, typeof(TDefinition), TDefinition.Definition.PlugIn, FileFormats.Dialogs(TDefinition.Definition.Formats), registerCommand, getLicense).Members,
             FileFormats.Members(TDefinition.Definition.Formats, done: true, cancelled: false, failed: false));
 
-    public static (PlugInMembers PlugIn, (Func<FileWriteOptions, FileTypeList> AddFileTypes, Func<string, int, RhinoDoc, FileWriteOptions, WriteFileResult> File, Action<string, string> DisplayOptionsDialog) Formats, bool ShouldDisplayOptionsDialog) Export<TDefinition>(
-        FileExportPlugIn host, Func<Command, bool> register, LicenseRequest license) where TDefinition : IDefined<FileDefinition<FileWriteOptions>> =>
-        (new PlugInBody(host, typeof(TDefinition), TDefinition.Definition.PlugIn, FileFormats.Dialogs(TDefinition.Definition.Formats), register, license).Members,
+    public static (PlugInMembers PlugIn, (Func<FileWriteOptions, FileTypeList> AddFileTypes, Func<string, int, RhinoDoc, FileWriteOptions, WriteFileResult> WriteFile, Action<string, string> DisplayOptionsDialog) Formats, bool ShouldDisplayOptionsDialog) Export<TDefinition>(
+        FileExportPlugIn host, Func<Command, bool> registerCommand, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) where TDefinition : IDefined<FileDefinition<FileWriteOptions>> =>
+        (new PlugInBody(host, typeof(TDefinition), TDefinition.Definition.PlugIn, FileFormats.Dialogs(TDefinition.Definition.Formats), registerCommand, getLicense).Members,
             FileFormats.Members(TDefinition.Definition.Formats, WriteFileResult.Success, WriteFileResult.Cancel, WriteFileResult.Failure),
             TDefinition.Definition.Formats.Exists(static format => format.Options.IsSome));
 
     // --- [RENDERERS]
 
     public static (PlugInMembers PlugIn, RenderMembers Render) Render<TDefinition>(
-        RenderPlugIn host, Func<Command, bool> register, LicenseRequest license) where TDefinition : IDefined<RendererDefinition> =>
+        RenderPlugIn host, Func<Command, bool> registerCommand, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) where TDefinition : IDefined<RendererDefinition> =>
         (new PlugInBody(host, typeof(TDefinition), TDefinition.Definition.PlugIn,
-                [.. TDefinition.Definition.Tabs, .. TDefinition.Definition.Panes, .. TDefinition.Definition.SettingsSections, .. TDefinition.Definition.SunSections], register, license).Members,
+                [.. TDefinition.Definition.Tabs, .. TDefinition.Definition.Panes, .. TDefinition.Definition.SettingsSections, .. TDefinition.Definition.SunSections], registerCommand, getLicense).Members,
             Rendered(host, TDefinition.Definition));
 
     private static RenderMembers Rendered(RenderPlugIn host, RendererDefinition definition) =>
@@ -234,15 +240,21 @@ public static partial class PlugInShell {
             (doc, mode, fastPreview) => Session.Run(Batches.Render(doc, mode, definition.Engine, new RenderStart.Full(fastPreview)), Result.Failure),
             (doc, mode, fastPreview, view, rect, inWindow) => Session.Run(Batches.Render(doc, mode, definition.Engine, new RenderStart.Region(fastPreview, view, rect, inWindow)), Result.Failure),
             definition.Features.Contains,
-            definition.Engine.OnSetCurrent,
-            definition.Engine.SupportedOutputTypes,
-            definition.Engine.RenderContentSerializers,
+            current => _ = Session.Run(definition.Engine.Current.Traverse(set => set(current)).As()),
+            inherited => [.. definition.Engine.OutputTypes(toSeq(inherited))],
+            () => definition.Engine.Serializers.Map(static row => (RenderContentSerializer)new DefinedContentSerializer(row)),
             [.. definition.Engine.SupportedChannels],
-            definition.Engine.InitialChannelId.Map<Guid?>(static id => id).ValueUnsafe(),
-            definition.Engine.CustomChannelName,
+            definition.Engine.InitialChannel.Map<Guid?>(static channel => RenderWindow.ChannelId(channel)).ValueUnsafe(),
+            id => Conversions.Unset(definition.Engine.CustomChannels.Find(id).Map(static english => LocalText.Of(english).Local)),
             definition.Engine.EditDecal.IsSome,
-            definition.Engine.ShowDecalProperties,
-            definition.Engine.InitializeDecalProperties,
+            properties => Session.Run(
+                definition.Engine.EditDecal.Map(edit => edit(toSeq(properties)).Map(edited => {
+                    properties.Clear();
+                    properties.AddRange(edited);
+                    return true;
+                })).IfNone(IO.pure(value: false)),
+                failed: false),
+            properties => properties.AddRange(definition.Engine.DecalDefaults),
             definition.Engine.AssignMaterial.IsSome,
             (doc, material) => RenderEngine.Pressed(definition.Engine.AssignMaterial, doc, material),
             definition.Engine.EditMaterial.IsSome,
@@ -258,7 +270,7 @@ public static partial class PlugInShell {
                 Seq(type.Extension),
                 LocalText.Of(type.Description).Local,
                 (fileName, includeAlpha, window) => Session.Run(type.Write(window, fileName, includeAlpha).Map(value: true), failed: false))))),
-            () => Session.Run(Products.Many(RenderContentType.GetAllAvailableTypes).Map(types => types.Filter(type => type.PlugInId == host.Id).Map(static type => type.Id).Strict()), Seq<Guid>()),
+            inherited => [.. inherited, .. Session.Run(Products.Many(RenderContentType.GetAllAvailableTypes).Map(types => types.Filter(type => type.PlugInId == host.Id).Map(static type => type.Id).Strict()), Seq<Guid>())],
             definition.Preview.Map<RenderPlugIn.PreviewRenderTypes?>(static row => row.Type).ValueUnsafe(),
             args => _ = Session.Run(definition.Preview.Traverse(row => row.Content(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()),
             args => _ = Session.Run(definition.Preview.Traverse(row => row.Texture(args).Bind(image => IO.lift(() => image.Iter(bitmap => args.PreviewImage = bitmap)))).As()));

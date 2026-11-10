@@ -87,18 +87,16 @@ Handlers draw the batch their `args` hold and read theme color and line scale at
 
 ```python
 def stroked(batch: gpu.types.GPUBatch, /, *, width: float, alpha: float = 1.0, color: Callable[[bpy.types.ThemeUserInterface], Color]) -> None:
-    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
-    with ExitStack() as scope:
-        scope.callback(gpu.state.blend_set, gpu.state.blend_get())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        gpu.state.blend_set("ALPHA")
-        shader.uniform_float("viewportSize", gpu.state.viewport_get()[2:])
-        shader.uniform_float("lineWidth", width * preferences.system.pixel_size)
-        shader.uniform_float("color", (*np.asarray(color(preferences.themes[0].user_interface)), alpha))
-        batch.draw(shader)
+    for preferences in root_in(bpy.types.Preferences, bpy.context).to_list():
+        with Canvas.blended("ALPHA"):
+            shader.uniform_float("viewportSize", gpu.state.viewport_get()[2:])
+            shader.uniform_float("lineWidth", width * preferences.system.pixel_size)
+            shader.uniform_float("color", (*np.asarray(color(preferences.themes[0].user_interface)), alpha))
+            batch.draw(shader)
 ```
 
-`SpaceView3D.draw_handler_add(partial(stroked, width=<pixels>, color=lambda ui: ui.<member>), (batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINE_STRIP", {"pos": points}),), "WINDOW", "POST_VIEW")` draws a world-space line at a caller's interface-pixel width in a theme color. `scope` restores the entry blend mode after a raise.
+`SpaceView3D.draw_handler_add(partial(stroked, width=<pixels>, color=lambda ui: ui.<member>), (batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINE_STRIP", {"pos": points}),), "WINDOW", "POST_VIEW")` draws a world-space line at a caller's interface-pixel width in a theme color. `Canvas.blended` from `rasm_bpy.ui` restores the entry blend mode after a raise.
 
 ## [05]-[CUSTOM_SHADERS]
 
@@ -133,7 +131,7 @@ def boxed() -> gpu.types.GPUShader:
     info.vertex_in(0, "VEC2", "corner")
     for slot, (name, width) in enumerate(WIDTHS.items(), start=1):
         info.vertex_in(slot, kind := ("FLOAT", "VEC2", "VEC3", "VEC4")[width - 1], name)
-        stage.flat(kind, f"box_{name}")  # type: ignore[arg-type]
+        stage.flat(kind, f"box_{name}")
     info.vertex_out(stage)
     info.push_constant("MAT4", "ModelViewProjectionMatrix")
     info.push_constant("BOOL", "srgbTarget")
@@ -154,10 +152,10 @@ def boxed() -> gpu.types.GPUShader:
 
 def framed(rows: NDArray[np.void], /) -> gpu.types.GPUBatch:
     corners = np.tile(np.array(((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0), (1.0, 1.0), (0.0, 1.0)), np.float32), (len(rows), 1))
-    return batch_for_shader(boxed(), "TRIS", {"corner": corners} | {name: np.repeat(rows[name], 6, axis=0) for name in WIDTHS})  # ty: ignore[invalid-argument-type]
+    return batch_for_shader(boxed(), "TRIS", {"corner": corners} | {name: np.repeat(rows[name], 6, axis=0) for name in WIDTHS})
 ```
 
-`framed(np.array(<rows>, BOX))` takes one row per frame: `rect` as pixel origin and size, `fill` and `edge` as sRGB colors, `shape` as corner radius and line width. Fragments write premultiplied color, and `framed(rows).draw(boxed())` runs under `ALPHA_PREMULT` in a scope restoring the entry blend mode like `stroked`. `fwidth` of the signed distance keeps edges one pixel soft at any scale. `boxed` compiles at first call inside a GPU context, and a raise caches nothing.
+`framed(np.array(<rows>, BOX))` takes one row per frame: `rect` as pixel origin and size, `fill` and `edge` as sRGB colors, `shape` as corner radius and line width. Fragments write premultiplied color, and `framed(rows).draw(boxed())` runs under `Canvas.blended("ALPHA_PREMULT")` like `stroked`. `fwidth` of the signed distance keeps edges one pixel soft at any scale. `boxed` compiles at first call inside a GPU context, and a raise caches nothing.
 
 ## [06]-[OFFSCREEN]
 
@@ -185,9 +183,11 @@ def rendered(draw: Callable[[], None], extent: float, size: int, /) -> NDArray[n
     with ExitStack() as scope:
         scope.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
         scope.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
-        scope.enter_context(framebuffer.bind())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        scope.enter_context(gpu.matrix.push_pop())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        scope.enter_context(gpu.matrix.push_pop_projection())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        scope.enter_context(framebuffer.bind())  # type: ignore[func-returns-value]  # ty: ignore[invalid-argument-type]
+        gpu.matrix.push()
+        scope.callback(gpu.matrix.pop)
+        gpu.matrix.push_projection()
+        scope.callback(gpu.matrix.pop_projection)
         framebuffer.clear(color=(0.0, 0.0, 0.0, 0.0), depth=1.0)
         gpu.matrix.load_identity()
         gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / extent, 2.0 / extent, 1.0, 1.0)))
@@ -198,10 +198,10 @@ def rendered(draw: Callable[[], None], extent: float, size: int, /) -> NDArray[n
 def pictured(previews: bpy.utils.previews.ImagePreviewCollection, name: str, draw: Callable[[], None], extent: float, /) -> int:
     preview: bpy.types.ImagePreview = previews.get(name) or previews.new(name)
     pixels = rendered(draw, extent, bpy.app.render_preview_size)
-    preview.image_size = preview.icon_size = (pixels.shape[1], pixels.shape[0])  # type: ignore[assignment]
+    preview.image_size = preview.icon_size = (pixels.shape[1], pixels.shape[0])
     pixels = pixels.ravel()
-    preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
-    preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
+    preview.image_pixels_float.foreach_set(pixels)
+    preview.icon_pixels_float.foreach_set(pixels)
     return preview.icon_id
 ```
 

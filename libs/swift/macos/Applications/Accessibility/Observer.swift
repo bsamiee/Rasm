@@ -2,13 +2,6 @@ import AppKit
 import ApplicationServices
 import Synchronization
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-private let notifications: [String] = [
-    kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXUIElementDestroyedNotification, kAXFocusedWindowChangedNotification, kAXTitleChangedNotification,
-    kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification,
-]
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 final class Observer: Sendable {
@@ -17,20 +10,24 @@ final class Observer: Sendable {
 
     init(_ instance: NSRunningApplication, ticks: AsyncStream<Void>.Continuation) throws(ApplicationFailure) {
         var created: AXObserver?
-        let creation: AXError = unsafe AXObserverCreate(
+        let creation = unsafe AXObserverCreate(
             instance.processIdentifier,
             { _, _, _, refcon in
-                guard let refcon: UnsafeMutableRawPointer = unsafe refcon else { return }
+                guard let refcon = unsafe refcon else { return }
                 unsafe Unmanaged<Observer>.fromOpaque(refcon).takeUnretainedValue().ticks.yield(())
             },
             &created,
         )
-        guard let observer: AXObserver = created else { throw AXUIElement.application(instance.processIdentifier).failure(creation, reading: ["AXObserverCreate"]) }
+        guard let observer = created else { throw AXUIElement.application(instance.processIdentifier).failure(creation, reading: ["AXObserverCreate"]) }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         self.ticks = ticks
         observed = Mutex(
             (
-                observer, notifications,
+                observer,
+                [
+                    kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXUIElementDestroyedNotification, kAXFocusedWindowChangedNotification, kAXTitleChangedNotification,
+                    kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification,
+                ],
                 [
                     instance.observe(\.isFinishedLaunching) { _, _ in ticks.yield(()) },
                     instance.observe(\.isActive) { _, _ in ticks.yield(()) },
@@ -43,7 +40,7 @@ final class Observer: Sendable {
     func register(on element: AXUIElement) throws(ApplicationFailure) {
         try observed.withLock { observed throws(ApplicationFailure) in
             observed.unregistered = try observed.unregistered.map { notification throws(ApplicationFailure) -> String? in
-                let added: AXError = unsafe AXObserverAddNotification(observed.observer, element, notification as CFString, Unmanaged.passUnretained(self).toOpaque())
+                let added = unsafe AXObserverAddNotification(observed.observer, element, notification as CFString, Unmanaged.passUnretained(self).toOpaque())
                 return switch added {
                     case .success, .notificationAlreadyRegistered, .notificationUnsupported: nil
                     case .apiDisabled, .cannotComplete: throw element.failure(added, reading: [notification])
@@ -56,7 +53,7 @@ final class Observer: Sendable {
 
     private func stop() {
         observed.withLock { observed in
-            for token: NSKeyValueObservation in observed.instance { token.invalidate() }
+            for token in observed.instance { token.invalidate() }
             observed.instance = []
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observed.observer), .defaultMode)
         }

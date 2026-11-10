@@ -19,14 +19,15 @@ from rasm_bpy.render import (
     DENOISING_ALBEDO,
     DENOISING_NORMAL,
     Family,
+    filtered,
     filters,
     GraphInputs,
     Holds,
     LightGroups,
     Lobes,
     LUMINANCE,
+    luminance,
     luminance_group,
-    masks,
     OPACITY,
     PassFlags,
     PassRequest,
@@ -112,10 +113,10 @@ class Sharpen(CompositorRecord, frozen=True, kw_only=True):
         source = shell.color
 
         def built(level: Expr) -> Expr:
-            gate = math("SUBTRACT", 1.0, shell.input(LATER) * filters.filtered(level, "Sobel")["Red"] * 0.25, clamp=True)
-            return vector("MULTIPLY_ADD", filters.filtered(source, "Laplace"), shell.input(_SHARPNESS) * gate, source)
+            gate = math("SUBTRACT", 1.0, shell.input(LATER) * filtered(level, "Sobel")["Red"] * 0.25, clamp=True)
+            return vector("MULTIPLY_ADD", filtered(source, "Laplace"), shell.input(_SHARPNESS) * gate, source)
 
-        return masks.luminance(shell.config, source).map(built)
+        return luminance(shell.config, source).map(built)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

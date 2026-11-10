@@ -93,6 +93,7 @@ watch-apps serve
 - Controls whose action opens a modal dialog or blocks answer once the action returns, menu items answer before their action runs
 - `log` prints one line per run sharing the caller's `WATCH_APPS_SESSION` with its `pid`, `at`, `argv`, `exit`, and last line per key, a run pid every record of that run
 - Runs append `{at, pid, argv}`, `{at, pid, line}`, and `{at, pid, exit}` to `$WATCH_APPS_LOG` (`.artifacts/logs/watch-apps.log` here), else `~/Library/Logs/watch-apps/watch-apps.log`, run `exit` holding its exit `status`, and `signal` for a run a signal ended
+- Log files of 4 MB or more rotate to `.1` through `.3` beside them, the oldest replaced, and `log` reads the kept files with the live one
 - `serve` answers the `ApplicationServer` wire over standard input and output, holding its parent's grants
 
 ## [03]-[STATES]

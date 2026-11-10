@@ -1,15 +1,11 @@
-use core::{
-    f64::consts::{FRAC_PI_2, TAU},
-    iter,
-    num::NonZero,
-};
+use core::f64::consts::{FRAC_PI_2, TAU};
+use core::iter;
+use core::num::NonZero;
 
 use nalgebra::{UnitQuaternion, UnitVector3, Vector3};
-use uom::si::{
-    angle::{radian, revolution},
-    f64::{Angle, SolidAngle},
-    solid_angle::steradian,
-};
+use uom::si::angle::{radian, revolution};
+use uom::si::f64::{Angle, SolidAngle};
+use uom::si::solid_angle::steradian;
 
 use crate::direction;
 

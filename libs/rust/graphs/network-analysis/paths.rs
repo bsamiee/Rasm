@@ -1,19 +1,15 @@
-use core::{
-    cell::Cell,
-    f64::consts::{FRAC_PI_2, PI},
-    hash::Hash,
-};
+use core::cell::Cell;
+use core::f64::consts::{FRAC_PI_2, PI};
+use core::hash::Hash;
 use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use nalgebra::{SVector, Unit};
-use petgraph::{
-    Direction::{self, Incoming, Outgoing},
-    algo::astar,
-    data::{Element, FromElements as _},
-    stable_graph::StableGraph,
-    visit::{Control, EdgeRef as _, GraphBase, IntoEdgeReferences, IntoEdges, IntoEdgesDirected, Reversed, ReversedEdgeReference, Visitable},
-};
+use petgraph::Direction::{self, Incoming, Outgoing};
+use petgraph::algo::astar;
+use petgraph::data::{Element, FromElements as _};
+use petgraph::stable_graph::StableGraph;
+use petgraph::visit::{Control, EdgeRef as _, GraphBase, IntoEdgeReferences, IntoEdges, IntoEdgesDirected, Reversed, ReversedEdgeReference, Visitable};
 use rustworkx_core::traversal::{DijkstraEvent, dijkstra_search};
 
 use crate::{Failure, Network, NetworkError, Tolerance, Weight, present};
@@ -52,16 +48,8 @@ where G: Network + IntoEdgesDirected {
     present(graph, [source]).ok().map_err(NetworkError::Refused).map(|_| search(graph, source, cost, extent, catchment))
 }
 
-pub(crate) fn search<G>(
-    graph: G,
-    source: G::NodeId,
-    cost: impl Fn(G::EdgeRef) -> Weight,
-    extent: impl Fn(G::EdgeRef, Weight) -> Weight,
-    catchment: Catchment,
-) -> IndexMap<G::NodeId, Reached<G::EdgeRef>>
-where
-    G: Network + IntoEdgesDirected,
-{
+pub(crate) fn search<G>(graph: G, source: G::NodeId, cost: impl Fn(G::EdgeRef) -> Weight, extent: impl Fn(G::EdgeRef, Weight) -> Weight, catchment: Catchment) -> Tree<G>
+where G: Network + IntoEdgesDirected {
     fn settle<H, R>(
         graph: H,
         source: H::NodeId,

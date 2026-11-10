@@ -12,7 +12,7 @@ import math
 from operator import add
 from pathlib import Path, PurePath
 from statistics import fmean
-from typing import Annotated, Self
+from typing import Annotated, Final, Self
 
 from expression import Option, Some
 from expression.extra.result import catch
@@ -259,6 +259,11 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(len(job.frames.numbers) - finished[part] for part, job in enumerate(queue.jobs))
 
 
+# --- [CODECS] ---------------------------------------------------------------------------
+
+RENDER_QUEUE_DECODER: Final = msgspec.json.Decoder(RenderQueue)
+PROGRESS_DECODER: Final = msgspec.json.Decoder(Progress)
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -270,9 +275,27 @@ def observed(path: Path) -> Outcome[Option[tuple[Progress, datetime.datetime]]]:
             catch(path.stat, exception=OSError)().map(lambda stat: (progress, datetime.datetime.fromtimestamp(stat.st_mtime, datetime.UTC))).map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
         )
 
-    return RecordFile(path=path, form=Progress).found().bind(lambda found: found.map(lambda progress: beaten(progress).map(Some)).default_value(Ok(Nothing)))
+    return RecordFile(path=path, decoder=PROGRESS_DECODER).found().bind(lambda found: found.map(lambda progress: beaten(progress).map(Some)).default_value(Ok(Nothing)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Ending", "FixedCamera", "Forecast", "FrameTime", "Frames", "Job", "JobCamera", "Liveness", "MarkedCamera", "Marker", "PackedFile", "Progress", "RenderFrames", "RenderQueue", "observed"]
+__all__ = [
+    "PROGRESS_DECODER",
+    "RENDER_QUEUE_DECODER",
+    "Ending",
+    "FixedCamera",
+    "Forecast",
+    "FrameTime",
+    "Frames",
+    "Job",
+    "JobCamera",
+    "Liveness",
+    "MarkedCamera",
+    "Marker",
+    "PackedFile",
+    "Progress",
+    "RenderFrames",
+    "RenderQueue",
+    "observed",
+]

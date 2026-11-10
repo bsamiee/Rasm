@@ -29,15 +29,13 @@ public sealed partial class Discipline {
     public static readonly Discipline OtherDisciplines = new("X");
     public static readonly Discipline Contractor = new("Z");
     public static readonly Discipline Operations = new("O");
-
-    internal static Option<int> Rank(string designator) =>
-        Some(toSeq(Items).TakeWhile(item => !designator.StartsWith(item.Key, StringComparison.Ordinal)).Count).Filter(static rank => rank < Items.Count);
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class FieldRole {
     public static readonly FieldRole Code = new(static _ => Some(0));
-    public static readonly FieldRole Designator = new(Discipline.Rank);
+    public static readonly FieldRole Designator = new(static designator =>
+        Some(toSeq(Discipline.Items).TakeWhile(item => !designator.StartsWith(item.Key, StringComparison.Ordinal)).Count).Filter(static rank => rank < Discipline.Items.Count));
     public static readonly FieldRole Sequence = new(static value => int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int sequence) ? Some(sequence) : None);
 
     [UseDelegateFromConstructor]
@@ -86,8 +84,6 @@ public sealed record NamingStandard {
     public string Name { get; }
     public NameLayout Layout { get; }
     public Seq<NameField> Fields { get; }
-
-    internal Option<NameField> SequenceField => Fields.Find(static nameField => nameField.Role == FieldRole.Sequence);
 
     private const string Upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     private const string Lower = "abcdefghijklmnopqrstuvwxyz";
@@ -171,20 +167,17 @@ public sealed partial class StandardName : IComparable<StandardName> {
     public static Fin<StandardName> From(NamingStandard standard, string text) =>
         standard.Layout.Split(standard.Fields, text).ToFin(new DraftingFault(text, DraftingReason.NameBroken)).Bind(fields => Validated(standard, fields));
 
-    public static Fin<Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) =>
-        ordered.Map(static entry => (entry.Sheet, entry.Number, entry.Number.Series, entry.Number.Sequence)).Strict() switch {
-            var rows => rows.Map(static row => row.Sequence.Map(sequence => (row.Series, sequence.Value))).Somes().Distinct().GroupBy(static entry => entry.Series)
-                .ToDictionary(static group => group.Key, static group => group.Min(static entry => entry.Value) switch {
-                    var minimum => toHashMap(group.Select((entry, index) => (entry.Value, minimum + index))),
-                }) switch {
-                    var series => rows.Map(row => (row.Sheet, Number: row.Sequence.Map(sequence => new StandardName(row.Number.Standard, row.Number.Fields.SetItem(sequence.Field,
-                            series[row.Series][sequence.Value].ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(row.Number))).Strict() switch {
-                                var renumbered => renumbered.Map(static entry => entry.Number).Concat(others).CountBy(static number => number).ToDictionary() switch {
-                                    var taken => renumbered.Map((entry, index) => taken[entry.Number] > 1 ? new DraftingFault(entry.Number.Text, DraftingReason.NumberTaken, index) : Fin.Succ(entry)).Traverse(static held => held).As(),
-                                },
-                            },
-                },
-        };
+    public static Fin<Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) {
+        Seq<(TSheet Sheet, StandardName Number, (NamingStandard Standard, HashMap<NameField, string> Fields) Series, Option<(NameField Field, string Text, int Value)> Sequence)> rows =
+            ordered.Map(static entry => (entry.Sheet, entry.Number, entry.Number.Series, entry.Number.Sequence)).Strict();
+        Dictionary<(NamingStandard Standard, HashMap<NameField, string> Fields), HashMap<int, int>> series = rows.Map(static row => row.Sequence.Map(sequence => (row.Series, sequence.Value))).Somes().Distinct()
+            .GroupBy(static entry => entry.Series)
+            .ToDictionary(static group => group.Key, static group => group.Min(static entry => entry.Value) switch { var minimum => toHashMap(group.Select((entry, index) => (entry.Value, minimum + index))) });
+        Seq<(TSheet Sheet, StandardName Number)> renumbered = rows.Map(row => (row.Sheet, Number: row.Sequence.Map(sequence => new StandardName(row.Number.Standard, row.Number.Fields.SetItem(sequence.Field,
+            series[row.Series][sequence.Value].ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(row.Number))).Strict();
+        Dictionary<StandardName, int> taken = renumbered.Map(static entry => entry.Number).Concat(others).CountBy(static number => number).ToDictionary();
+        return renumbered.Map((entry, index) => taken[entry.Number] > 1 ? new DraftingFault(entry.Number.Text, DraftingReason.NumberTaken, index) : Fin.Succ(entry)).Traverse(static held => held).As();
+    }
 
     public static Seq<(TSheet Sheet, int Ordinal, int Count)> Positions<TSheet>(Seq<(TSheet Sheet, StandardName Number)> sheets) =>
         from members in toSeq(sheets.OrderBy(static entry => entry.Number).GroupBy(static entry => entry.Number.Series)).Map(static series => toSeq(series))
@@ -209,7 +202,7 @@ public sealed partial class StandardName : IComparable<StandardName> {
             .Map(nameField => Fields.Find(nameField).Map(value => (nameField, value))).Somes()));
 
     private Option<(NameField Field, string Text, int Value)> Sequence =>
-        from nameField in Standard.SequenceField
+        from nameField in Standard.Fields.Find(static nameField => nameField.Role == FieldRole.Sequence)
         from text in Fields.Find(nameField)
         from value in nameField.Role.Rank(text)
         select (nameField, text, value);

@@ -1,8 +1,8 @@
-use core::{error::Error, hint::black_box, num::ParseIntError};
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use core::error::Error;
+use core::hint::black_box;
+use core::num::ParseIntError;
+use std::io;
+use std::path::{Path, PathBuf};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,4 +1,5 @@
-use core::{borrow::Borrow, iter, mem};
+use core::borrow::Borrow;
+use core::{iter, mem};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use hayro_syntax::object::dict::keys::{
@@ -12,12 +13,9 @@ use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
 use rasm_drawing::Visibility;
 use validated::Validated;
 
-use crate::{
-    Document, PdfError, Subject, entry,
-    layers::{self, Group},
-    navigation::{self, Navigation},
-    resolved,
-};
+use crate::layers::{self, Group};
+use crate::navigation::{self, Navigation};
+use crate::{Document, PdfError, Subject, entry, resolved};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
