@@ -11,12 +11,12 @@ using Rhino;
 
 string[] command = JsonSerializer.Deserialize<string[]>(Environment.GetEnvironmentVariable("RHINO_TEST_COMMAND") ?? throw new InvalidOperationException("RHINO_TEST_COMMAND is unset"))
     ?? throw new InvalidOperationException("RHINO_TEST_COMMAND holds no command");
-(string path, string[] arguments) = command is [_, "exec", var target, .. var rest] ? (target, rest) : (Path.ChangeExtension(command[0], ".dll"), command[1..]);
+(string path, string[] arguments) = command[1] == "exec" ? (command[2], command[3..]) : (Path.ChangeExtension(command[0], ".dll"), command[1..]);
 Assembly tests = new Suite(path, AssemblyLoadContext.GetLoadContext(typeof(RhinoApp).Assembly) ?? throw new InvalidOperationException("RhinoCommon loaded outside a load context")).LoadFromAssemblyPath(path);
 MethodInfo entry = tests.EntryPoint ?? throw new InvalidOperationException($"{path} declares no entry point");
-Assembly.SetEntryAssembly(tests);
+(typeof(Assembly).GetMethod("SetEntryAssembly", new[] { typeof(Assembly) }) ?? throw new InvalidOperationException("The host runtime states no Assembly.SetEntryAssembly")).Invoke(null, new object[] { tests });
 new Thread(() => {
-    try { if (entry.Invoke(null, [arguments]) is Task task) task.GetAwaiter().GetResult(); } finally { RhinoApp.InvokeOnUiThread(new Action(() => RhinoApp.Exit(false))); }
+    try { if (entry.Invoke(null, new object[] { arguments }) is Task task) task.GetAwaiter().GetResult(); } finally { RhinoApp.InvokeOnUiThread(new Action(() => RhinoApp.Exit(false))); }
 }) { IsBackground = true }.Start();
 
 // --- [SERVICES] ------------------------------------------------------------------------

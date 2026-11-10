@@ -20,6 +20,12 @@ max_concurrent_threads_per_session = 30
 default_tools_approval_mode = "approve"
 url                         = "http://localhost:7490/"
 
+[mcp_servers.voicebox]
+default_tools_approval_mode = "approve"
+url                         = "http://127.0.0.1:17493/mcp/"
+http_headers                = { "X-Voicebox-Client-Id" = "codex" }
+enabled                     = false
+
 [mcp_servers.roslyn-codelens]
 default_tools_approval_mode = "approve"
 command                     = "mcp-muxer"

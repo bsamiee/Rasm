@@ -4,6 +4,13 @@
             "type": "http",
             "url": "http://localhost:7490/"
         },
+        "voicebox": {
+            "type": "http",
+            "url": "http://127.0.0.1:17493/mcp/",
+            "headers": {
+                "X-Voicebox-Client-Id": "claude-code"
+            }
+        },
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",
