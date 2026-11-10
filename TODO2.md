@@ -29,7 +29,6 @@ State after the close-out of November 10. `docs/research/infrastructure/plan.md`
 ## [02]-[OPEN]
 
 No run has proven these:
-- `nx deploy @rasm/infra` after November 10: applies `DOPPLER_TOKEN` to environment `release` and the moved image tags to the host
 - Workflow `deploy.yml` has never run
 - Workflow `release.yml` was rebuilt per platform and has never run
 - Backups: no restore from the rebuilt backup services (`pgbackrest info`, `clickhouse-backup list remote`, one query per restored store)
