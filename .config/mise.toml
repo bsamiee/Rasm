@@ -65,6 +65,7 @@ TOMBI_CACHE_HOME                                          = "{{config_root}}/.ca
 TY_UV                                                     = "1"
 WATCH_APPS_LOG_DIR                                        = "{{config_root}}/.artifacts/logs"
 WATCH_APPS_SESSION                                        = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
+ZIG_GLOBAL_CACHE_DIR                                      = "{{config_root}}/.cache/zig"
 
 # --- [HOOKS] ----------------------------------------------------------------------------
 
@@ -76,6 +77,7 @@ postinstall = "hk install"
 [tools]
 "aqua:EmbarkStudios/cargo-deny"                                              = "latest"
 "aqua:nextest-rs/nextest/cargo-nextest"                                      = "latest"
+"aqua:rust-cross/cargo-zigbuild"                                             = "latest"
 "aqua:taiki-e/cargo-llvm-cov"                                                = "latest"
 ast-grep                                                                     = "latest"
 buf                                                                          = "latest"
@@ -132,6 +134,7 @@ tombi                                                                        = "
 tree-sitter                                                                  = "latest"
 uv                                                                           = "latest"
 yq                                                                           = "latest"
+zig                                                                          = "latest"
 
 [tools."github:apple/pkl-vscode"]
 asset_pattern = "pkl-vscode-*.vsix"

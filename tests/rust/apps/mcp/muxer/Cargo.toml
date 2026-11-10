@@ -42,6 +42,7 @@ tracing-subscriber                 = { workspace = true }
 clap                               = { workspace = true }
 escargot                           = { workspace = true }
 rasm-command                       = { workspace = true }
+rasm-observability                 = { workspace = true, features = ["process"] }
 
 [dev-dependencies]
 backon            = { workspace = true }

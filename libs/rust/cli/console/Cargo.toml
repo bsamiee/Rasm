@@ -38,6 +38,7 @@ inquire              = { workspace = true }
 minus                = { workspace = true }
 tracing-indicatif    = { workspace = true }
 rasm-command         = { workspace = true }
+rasm-observability   = { workspace = true, features = ["process"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

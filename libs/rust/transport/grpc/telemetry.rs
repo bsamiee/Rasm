@@ -1,6 +1,6 @@
+use core::any;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use core::{any, iter};
 use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 
@@ -8,20 +8,18 @@ use http::{Request, Response, Uri};
 use http_body::{Body, Frame, SizeHint};
 use nonempty_collections::NEVec;
 use opentelemetry::metrics::Histogram;
-use opentelemetry::{InstrumentationScope, KeyValue, StringValue, global, trace};
+use opentelemetry::{KeyValue, StringValue, global};
 use opentelemetry_http::{HeaderExtractor, HeaderInjector};
-use opentelemetry_semantic_conventions::SCHEMA_URL;
 use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, RPC_METHOD, RPC_METHOD_ORIGINAL, RPC_RESPONSE_STATUS_CODE, RPC_SYSTEM_NAME, SERVER_ADDRESS, SERVER_PORT};
 use opentelemetry_semantic_conventions::metric::{RPC_CLIENT_CALL_DURATION, RPC_SERVER_CALL_DURATION};
 use pin_project_lite::pin_project;
 use prost::Message as _;
 use prost_types::FileDescriptorSet;
-use tokio::time::Instant;
+use rasm_observability::Call;
 use tonic::{Code, GrpcMethod, Status};
 use tower::{Layer, Service};
-use tracing::Span;
 use tracing::field::Empty;
-use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
+use tracing_opentelemetry::OpenTelemetrySpanExt as _;
 use validated::Validated;
 
 use crate::GrpcError;
@@ -38,60 +36,6 @@ enum Role {
 enum Outcome {
     Status(Code),
     Failure(&'static str),
-}
-
-#[derive(Debug)]
-struct Call {
-    span: Span,
-    started: Instant,
-    client: bool,
-    attributes: Vec<KeyValue>,
-}
-
-impl Call {
-    fn finish(self, outcome: Outcome) {
-        const fn token(code: Code) -> &'static str {
-            match code {
-                Code::Ok => "OK",
-                Code::Cancelled => "CANCELLED",
-                Code::Unknown => "UNKNOWN",
-                Code::InvalidArgument => "INVALID_ARGUMENT",
-                Code::DeadlineExceeded => "DEADLINE_EXCEEDED",
-                Code::NotFound => "NOT_FOUND",
-                Code::AlreadyExists => "ALREADY_EXISTS",
-                Code::PermissionDenied => "PERMISSION_DENIED",
-                Code::ResourceExhausted => "RESOURCE_EXHAUSTED",
-                Code::FailedPrecondition => "FAILED_PRECONDITION",
-                Code::Aborted => "ABORTED",
-                Code::OutOfRange => "OUT_OF_RANGE",
-                Code::Unimplemented => "UNIMPLEMENTED",
-                Code::Internal => "INTERNAL",
-                Code::Unavailable => "UNAVAILABLE",
-                Code::DataLoss => "DATA_LOSS",
-                Code::Unauthenticated => "UNAUTHENTICATED",
-            }
-        }
-        const BOUNDARIES: [f64; 18] = [0.0001, 0.000_25, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0];
-        static DURATION: LazyLock<[Histogram<f64>; 2]> = LazyLock::new(|| {
-            let meter = global::meter_with_scope(InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_schema_url(SCHEMA_URL).build());
-            [RPC_SERVER_CALL_DURATION, RPC_CLIENT_CALL_DURATION].map(|name| meter.f64_histogram(name).with_unit("s").with_boundaries(BOUNDARIES.to_vec()).build())
-        });
-        let Self { span, started, client, mut attributes } = self;
-        let (status, failure) = match outcome {
-            Outcome::Status(code) => {
-                let failed = if client { code != Code::Ok } else { matches!(code, Code::Unknown | Code::DeadlineExceeded | Code::Unimplemented | Code::Internal | Code::Unavailable | Code::DataLoss) };
-                (Some(token(code)), failed.then(|| token(code)))
-            }
-            Outcome::Failure(kind) => (None, Some(kind)),
-        };
-        span.record(RPC_RESPONSE_STATUS_CODE, status).record(ERROR_TYPE, failure);
-        if let Some(kind) = failure {
-            span.set_status(trace::Status::error(kind));
-        }
-        attributes.extend(iter::chain(status.map(|code| KeyValue::new(RPC_RESPONSE_STATUS_CODE, code)), failure.map(|kind| KeyValue::new(ERROR_TYPE, kind))));
-        let [served, called] = &*DURATION;
-        (if client { called } else { served }).record(started.elapsed().as_secs_f64(), &attributes);
-    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -161,21 +105,18 @@ where S: Service<Request<Q>, Response = Response<B>>
             { RPC_RESPONSE_STATUS_CODE } = Empty,
             { ERROR_TYPE } = Empty,
         );
-        if client {
-            let context = span.context();
-            global::get_text_map_propagator(|propagator| propagator.inject_context(&context, &mut HeaderInjector(req.headers_mut())));
-        } else {
-            let parent = global::get_text_map_propagator(|propagator| propagator.extract(&HeaderExtractor(req.headers())));
-            let (Ok(()) | Err(SetParentError::LayerNotFound | SetParentError::SpanDisabled | SetParentError::AlreadyStarted)) = span.set_parent(parent);
-        }
         let described = [
             Some(KeyValue::new(RPC_SYSTEM_NAME, SYSTEM)),
             Some(KeyValue::new(RPC_METHOD, method)),
             address.map(|host| KeyValue::new(SERVER_ADDRESS, host)),
             port.map(|port| KeyValue::new(SERVER_PORT, i64::from(port))),
         ];
-        let inner = span.in_scope(|| self.service.call(req));
-        Observed { inner, call: Some(Call { span, started: Instant::now(), client, attributes: described.into_iter().flatten().collect() }) }
+        if client {
+            global::get_text_map_propagator(|propagator| propagator.inject_context(&span.context(), &mut HeaderInjector(req.headers_mut())));
+        }
+        let call = Call::start(span, (!client).then(|| HeaderExtractor(req.headers())).as_ref(), described.into_iter().flatten());
+        let inner = call.span.in_scope(|| self.service.call(req));
+        Observed { inner, call: Some((call, client)) }
     }
 }
 
@@ -184,13 +125,13 @@ pin_project! {
     pub struct Observed<T> {
         #[pin]
         inner: T,
-        call: Option<Call>,
+        call: Option<(Call, bool)>,
     }
 
     impl<T> PinnedDrop for Observed<T> {
         fn drop(this: Pin<&mut Self>) {
             if let Some(call) = this.project().call.take() {
-                call.finish(Outcome::Status(Code::Cancelled));
+                finished(call, Outcome::Status(Code::Cancelled));
             }
         }
     }
@@ -205,14 +146,14 @@ where F: Future<Output = Result<Response<B>, E>>
         let this = self.project();
         let (inner, held) = (this.inner, this.call);
         let polled = match held.as_ref() {
-            Some(call) => call.span.in_scope(|| inner.poll(cx)),
+            Some((call, _)) => call.span.in_scope(|| inner.poll(cx)),
             None => inner.poll(cx),
         };
         polled.map(|answered| match answered {
             Ok(response) => {
                 let call = match (held.take(), response.headers().get(Status::GRPC_STATUS)) {
                     (Some(call), Some(status)) => {
-                        call.finish(Outcome::Status(Code::from_bytes(status.as_bytes())));
+                        finished(call, Outcome::Status(Code::from_bytes(status.as_bytes())));
                         None
                     }
                     (call, Some(_) | None) => call,
@@ -221,7 +162,7 @@ where F: Future<Output = Result<Response<B>, E>>
             }
             Err(error) => {
                 if let Some(call) = held.take() {
-                    call.finish(Outcome::Failure(any::type_name::<E>()));
+                    finished(call, Outcome::Failure(any::type_name::<E>()));
                 }
                 Err(error)
             }
@@ -239,7 +180,7 @@ where B: Body
         let this = self.project();
         let (inner, held) = (this.inner, this.call);
         let polled = match held.as_ref() {
-            Some(call) => call.span.in_scope(|| inner.poll_frame(cx)),
+            Some((call, _)) => call.span.in_scope(|| inner.poll_frame(cx)),
             None => inner.poll_frame(cx),
         };
         let ended = match &polled {
@@ -249,7 +190,7 @@ where B: Body
             Poll::Pending => None,
         };
         if let Some((outcome, call)) = ended.and_then(|outcome| Some((outcome, held.take()?))) {
-            call.finish(outcome);
+            finished(call, outcome);
         }
         polled
     }
@@ -257,4 +198,42 @@ where B: Body
     fn is_end_stream(&self) -> bool { self.inner.is_end_stream() }
 
     fn size_hint(&self) -> SizeHint { self.inner.size_hint() }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn finished((call, client): (Call, bool), outcome: Outcome) {
+    const fn token(code: Code) -> &'static str {
+        match code {
+            Code::Ok => "OK",
+            Code::Cancelled => "CANCELLED",
+            Code::Unknown => "UNKNOWN",
+            Code::InvalidArgument => "INVALID_ARGUMENT",
+            Code::DeadlineExceeded => "DEADLINE_EXCEEDED",
+            Code::NotFound => "NOT_FOUND",
+            Code::AlreadyExists => "ALREADY_EXISTS",
+            Code::PermissionDenied => "PERMISSION_DENIED",
+            Code::ResourceExhausted => "RESOURCE_EXHAUSTED",
+            Code::FailedPrecondition => "FAILED_PRECONDITION",
+            Code::Aborted => "ABORTED",
+            Code::OutOfRange => "OUT_OF_RANGE",
+            Code::Unimplemented => "UNIMPLEMENTED",
+            Code::Internal => "INTERNAL",
+            Code::Unavailable => "UNAVAILABLE",
+            Code::DataLoss => "DATA_LOSS",
+            Code::Unauthenticated => "UNAUTHENTICATED",
+        }
+    }
+    const BOUNDARIES: [f64; 18] = [0.0001, 0.000_25, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0];
+    static DURATION: LazyLock<[Histogram<f64>; 2]> =
+        LazyLock::new(|| [RPC_SERVER_CALL_DURATION, RPC_CLIENT_CALL_DURATION].map(|name| rasm_observability::duration(env!("CARGO_PKG_NAME"), name, BOUNDARIES.to_vec())));
+    let (status, failure) = match outcome {
+        Outcome::Status(code) => {
+            let failed = if client { code != Code::Ok } else { matches!(code, Code::Unknown | Code::DeadlineExceeded | Code::Unimplemented | Code::Internal | Code::Unavailable | Code::DataLoss) };
+            (Some(token(code)), failed.then(|| token(code)))
+        }
+        Outcome::Failure(kind) => (None, Some(kind)),
+    };
+    let [served, called] = &*DURATION;
+    call.finish(if client { called } else { served }, status.map(StringValue::from), failure.map(|kind| (kind.into(), kind.into())));
 }

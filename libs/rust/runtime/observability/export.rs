@@ -5,34 +5,31 @@ use std::sync::nonpoison::Mutex;
 use std::thread;
 
 use enum_map::EnumMap;
-use itertools::Itertools as _;
 use nonempty_collections::NEVec;
-use opentelemetry::KeyValue;
-use opentelemetry::propagation::{TextMapCompositePropagator, TextMapPropagator};
+use opentelemetry::logs::{LogRecord as _, Severity};
 use opentelemetry::trace::TracerProvider as _;
+use opentelemetry::{InstrumentationScope, KeyValue};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::{ExporterBuildError, LogExporter, MetricExporter, SpanExporter};
 use opentelemetry_resource_detectors::{ContainerResourceDetector, HostResourceDetector, OsResourceDetector, ProcessResourceDetector, ServiceInstanceIdResourceDetector};
-use opentelemetry_sdk::error::OTelSdkError;
-use opentelemetry_sdk::logs::SdkLoggerProvider;
+use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
+use opentelemetry_sdk::logs::{LogProcessor, SdkLogRecord, SdkLoggerProvider};
 use opentelemetry_sdk::metrics::SdkMeterProvider;
 use opentelemetry_sdk::metrics::exporter::PushMetricExporter;
-use opentelemetry_sdk::propagation::{BaggagePropagator, TraceContextPropagator};
-use opentelemetry_sdk::resource::{EnvResourceDetector, ResourceDetector as _, TelemetryResourceDetector};
+use opentelemetry_sdk::resource::{EnvResourceDetector, ResourceBuilder, ResourceDetector as _, TelemetryResourceDetector};
 use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
 use opentelemetry_sdk::{Resource, logs, trace};
 use opentelemetry_semantic_conventions::SCHEMA_URL;
-use opentelemetry_semantic_conventions::attribute::{PROCESS_COMMAND_ARGS, SERVICE_NAME};
+use opentelemetry_semantic_conventions::attribute::PROCESS_COMMAND_ARGS;
 use tokio::time::Instant;
-use tracing::Subscriber;
+use tracing::{Level, Subscriber};
 use tracing_subscriber::Layer;
 use tracing_subscriber::filter::{LevelFilter, Targets, dynamic_filter_fn, filter_fn};
 use tracing_subscriber::layer::Filter;
 use tracing_subscriber::registry::LookupSpan;
 use validated::Validated;
 
-use crate::panics::Fatal;
-use crate::{ObservabilityError, Propagator, Settings, Signal};
+use crate::{ObservabilityError, PANIC, Signal};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -68,11 +65,10 @@ impl Providers {
         }
     }
 
-    pub fn otlp(settings: &Settings, resource: &Resource) -> Result<Self, NEVec<ObservabilityError>> {
+    pub fn otlp(exported: EnumMap<Signal, bool>, resource: &Resource) -> Result<Self, NEVec<ObservabilityError>> {
         fn built<B>(exported: EnumMap<Signal, bool>, signal: Signal, build: impl FnOnce() -> Result<B, ExporterBuildError>) -> Validated<Option<B>, ObservabilityError> {
-            if exported[signal] { build().map(Some).map_err(|source| ObservabilityError::Exporter { signal, source }).into() } else { Validated::Good(None) }
+            exported[signal].then(build).transpose().map_err(|source| ObservabilityError::Exporter { signal, source }).into()
         }
-        let exported = settings.exported();
         built(exported, Signal::Traces, || SpanExporter::builder().build())
             .map3(built(exported, Signal::Metrics, || MetricExporter::builder().build()), built(exported, Signal::Logs, || LogExporter::builder().build()), |spans, metrics, records| {
                 Self::new(resource, spans, metrics, records)
@@ -81,16 +77,16 @@ impl Providers {
     }
 
     #[must_use]
-    pub fn layer<S>(&self, settings: &Settings) -> impl Layer<S> + Send + Sync + 'static
+    pub fn layer<S>(&self) -> impl Layer<S> + Send + Sync + 'static
     where S: Subscriber + for<'span> LookupSpan<'span> + Send + Sync {
         const TRANSPORT: [&str; 8] = ["h2", "hyper", "mio", "reqwest", "rustls", "tonic", "tower", "want"];
-        let events = settings.span_events;
         let exported = Targets::new()
             .with_default(LevelFilter::TRACE)
             .with_targets(TRANSPORT.map(|target| (target, LevelFilter::WARN)))
             .with_target("tower_http", LevelFilter::TRACE)
             .with_target(SDK, LevelFilter::OFF);
-        let spans = tracing_opentelemetry::layer().with_tracer(self.tracer.tracer_with_scope(crate::scope())).with_filter(filter_fn(move |metadata| metadata.is_span() || *metadata.level() <= events));
+        let tracer = self.tracer.tracer_with_scope(crate::scope(env!("CARGO_PKG_NAME")));
+        let spans = tracing_opentelemetry::layer().with_tracer(tracer).with_filter(filter_fn(|metadata| metadata.is_span() || *metadata.level() <= Level::WARN));
         spans.and_then(self.logger.as_ref().map(OpenTelemetryTracingBridge::new)).with_filter(exported)
     }
 
@@ -108,8 +104,7 @@ impl Providers {
             });
             (signal, spawned.map(|_detached| stopped))
         });
-        stopping
-            .collect_vec()
+        Vec::from_iter(stopping)
             .into_iter()
             .map(|(signal, spawned)| {
                 let stopped = spawned.map_err(|source| ObservabilityError::Thread { signal, source })?;
@@ -119,6 +114,22 @@ impl Providers {
             .collect::<Validated<(), _>>()
             .ok()
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Fatal;
+
+impl LogProcessor for Fatal {
+    fn emit(&self, data: &mut SdkLogRecord, _: &InstrumentationScope) {
+        if data.event_name() == Some(PANIC) {
+            data.set_severity_number(Severity::Fatal);
+            data.set_severity_text(Severity::Fatal.name());
+        }
+    }
+
+    fn force_flush(&self) -> OTelSdkResult { Ok(()) }
+
+    fn shutdown_with_timeout(&self, _: Duration) -> OTelSdkResult { Ok(()) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -131,9 +142,9 @@ where S: 'static {
 }
 
 #[must_use]
-pub fn resource(settings: &Settings, attributes: impl IntoIterator<Item = KeyValue>) -> Resource {
+pub fn resource(exported: EnumMap<Signal, bool>, attributes: impl IntoIterator<Item = KeyValue>) -> ResourceBuilder {
     let program = Resource::builder_empty().with_schema_url(attributes, SCHEMA_URL);
-    let detected = if settings.exported().values().any(|exported| *exported) {
+    let described = if exported.values().any(|exported| *exported) {
         program
             .with_detectors(&[
                 Box::new(ServiceInstanceIdResourceDetector),
@@ -146,23 +157,5 @@ pub fn resource(settings: &Settings, attributes: impl IntoIterator<Item = KeyVal
     } else {
         program
     };
-    detected.with_detector(Box::new(EnvResourceDetector::new())).with_attributes(settings.service_name.iter().map(|name| KeyValue::new(SERVICE_NAME, name.clone()))).build()
-}
-
-#[must_use]
-pub fn propagator(settings: &Settings) -> TextMapCompositePropagator {
-    TextMapCompositePropagator::new(
-        settings
-            .propagators
-            .iter()
-            .unique()
-            .filter_map(|propagator| -> Option<Box<dyn TextMapPropagator + Send + Sync>> {
-                match propagator {
-                    Propagator::TraceContext => Some(Box::new(TraceContextPropagator::new())),
-                    Propagator::Baggage => Some(Box::new(BaggagePropagator::new())),
-                    Propagator::None => None,
-                }
-            })
-            .collect(),
-    )
+    described.with_detector(Box::new(EnvResourceDetector::new()))
 }

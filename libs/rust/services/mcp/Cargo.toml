@@ -17,7 +17,7 @@ bench   = false
 
 [features]
 proxy     = ["dep:backon", "dep:bytes", "dep:memchr", "dep:serde_path_to_error", "dep:jiff", "serde_json/raw_value", "tokio-util/time", "rmcp/client"]
-telemetry = ["dep:opentelemetry", "dep:tracing-opentelemetry"]
+telemetry = ["dep:opentelemetry", "dep:rasm-observability"]
 app       = ["dep:arc-swap", "dep:nonempty-collections", "dep:validated", "dep:derive-where", "dep:bytes", "dep:data-encoding", "dep:serde_path_to_error", "dep:serde_urlencoded", "dep:jsonschema", "dep:uuid", "dep:form_urlencoded", "dep:matchit", "dep:percent-encoding", "dep:url", "rmcp/elicitation"]
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
@@ -53,7 +53,7 @@ rmcp                               = { workspace = true, default-features = fals
 opentelemetry                      = { workspace = true, optional = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
-tracing-opentelemetry              = { workspace = true, optional = true }
+rasm-observability                 = { workspace = true, optional = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

@@ -130,8 +130,8 @@ const decoded = (inputs: Readonly<Record<string, unknown>>) =>
     );
 
 const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, tasks: readonly Pick<Task, 'id' | 'target'>[]) => {
-    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.args] as const;
-    const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command) => [tasks.filter((task) => Equal.equals(keyed(task), key)), command] as const));
+    const keyed = ({ id }: Pick<Task, 'id'>) => (inputs[id]?.commands ?? []).map((command) => [inputs[id]?.cwd, command, inputs[id]?.args] as const);
+    const steps = Array.dedupe(tasks.flatMap(keyed)).map((key) => [tasks.filter((task) => keyed(task).some((own) => Equal.equals(own, key))), key[1]] as const);
     return Effect.reduce(
         steps,
         () => Record.empty<string, TaskResult>(),

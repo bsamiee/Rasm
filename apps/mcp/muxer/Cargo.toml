@@ -48,7 +48,7 @@ rasm-command                       = { workspace = true }
 rasm-ipc                           = { workspace = true }
 rasm-mcp                           = { workspace = true, features = ["proxy"] }
 rasm-process                       = { workspace = true }
-rasm-observability                 = { workspace = true, features = ["metrics"] }
+rasm-observability                 = { workspace = true, features = ["metrics", "process"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

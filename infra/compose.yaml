@@ -81,6 +81,11 @@ x-storage-client: &storage-client
     AWS_ENDPOINT_URL: &storage-endpoint http://storage:9000
     AWS_REGION: &region us-east-1
     AWS_SECRET_ACCESS_KEY: "${RUSTFS_SECRET_KEY:-rustfsadmin}"
+x-telemetry-client: &telemetry-client
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
+    OTEL_LOGS_EXPORTER: otlp
+    OTEL_METRICS_EXPORTER: otlp
+    OTEL_TRACES_EXPORTER: otlp
 x-bucket: &bucket
     <<: *oneshot
     entrypoint: [sh, -c, '{ aws s3api head-bucket --bucket "$$0" 2>/dev/null || aws s3 mb "s3://$$0"; } && aws s3api put-bucket-lifecycle-configuration --bucket "$$0" --lifecycle-configuration "$$1"']
@@ -101,10 +106,7 @@ x-node: &node
     command: [index.js]
     entrypoint: [node]
     environment: &node-environment
-        OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
-        OTEL_LOGS_EXPORTER: otlp
-        OTEL_METRICS_EXPORTER: otlp
-        OTEL_TRACES_EXPORTER: otlp
+        <<: *telemetry-client
         PORT: &node-port "8080"
     expose:
         - *node-port
@@ -248,7 +250,7 @@ services:
         ports:
             - app_protocol: http
               host_ip: *loopback
-              published: "${CLICKHOUSE_PORT:-7413}"
+              published: &clickhouse-port "${CLICKHOUSE_PORT:-7413}"
               target: 8123
         ulimits:
             nofile: 262144
@@ -287,7 +289,7 @@ services:
         ports:
             - app_protocol: redis
               host_ip: *loopback
-              published: "${CACHE_PORT:-7415}"
+              published: &cache-port "${CACHE_PORT:-7415}"
               target: 6379
         profiles: [app, store]
 
@@ -557,10 +559,20 @@ services:
     # --- [STORE]
 
     store:
-        <<: *node
+        <<: *server
         build:
-            <<: *node-build
-            context: ../.artifacts/vite/@rasm/store/node
+            additional_contexts:
+                distroless: docker-image://gcr.io/distroless/static-debian13:nonroot
+            context: ../.artifacts/rust
+            dockerfile_inline: |
+                FROM scratch AS amd64
+                COPY x86_64-unknown-linux-musl/debug/rasm-store /
+                FROM scratch AS arm64
+                COPY aarch64-unknown-linux-musl/debug/rasm-store /
+                FROM $${TARGETARCH} AS build
+                FROM distroless
+                COPY --from=build /rasm-store /
+                ENTRYPOINT ["/rasm-store"]
         depends_on:
             cache:
                 condition: service_healthy
@@ -571,20 +583,27 @@ services:
             storage:
                 condition: service_healthy
         environment:
-            <<: [*node-environment, *storage-client]
-            POSTGRES_CONNECTIONS: "4"
+            <<: [*storage-client, *telemetry-client]
+            CACHE_URL: redis://cache:6379
+            CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"
+            CLICKHOUSE_URL: http://clickhouse:8123
+            PORT: &store-port "8080"
             POSTGRES_URL: postgres:///postgres?host=/var/run/postgresql&user=postgres
-            PUBLISHED_HOST: *loopback
-            PUBLISHED_POSTGRES: *postgres-port
-            PUBLISHED_STORAGE: *storage-port
-            STORE_AGE_LIMIT: 1 hour
-            STORE_CONNECTIONS: "5"
+            RASM_STORE_LOG_TARGET: stderr
+            STORE_PUBLISHED_CACHE: *cache-port
+            STORE_PUBLISHED_CLICKHOUSE: *clickhouse-port
+            STORE_PUBLISHED_HOST: *loopback
+            STORE_PUBLISHED_POSTGRES: *postgres-port
+            STORE_PUBLISHED_STORAGE: *storage-port
+        healthcheck:
+            <<: *probe
+            test: [CMD, /rasm-store, --probe]
         image: rasm-store
         ports:
-            - app_protocol: http
+            - app_protocol: grpc
               host_ip: *loopback
               published: "${STORE_PORT:-}"
-              target: *node-port
+              target: *store-port
         profiles: [store]
         volumes:
             - *socket

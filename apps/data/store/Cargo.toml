@@ -39,6 +39,7 @@ aws-sdk-s3           = { workspace = true }
 clickhouse           = { workspace = true }
 sqlx                 = { workspace = true, features = ["postgres"] }
 rasm-command         = { workspace = true }
+rasm-observability   = { workspace = true, features = ["process"] }
 rasm-http            = { workspace = true }
 rasm-provisioning    = { workspace = true, features = ["postgres", "bucket", "clickhouse", "cache"] }
 rasm-store-proto     = { workspace = true }

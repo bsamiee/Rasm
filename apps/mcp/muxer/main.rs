@@ -9,7 +9,7 @@ use std::path::{self, PathBuf};
 use std::process::{ExitCode, Stdio};
 use std::{env, io};
 
-use backon::{ExponentialBuilder, RetryableWithContext as _};
+use backon::ExponentialBuilder;
 use camino::Utf8PathBuf;
 use clap::{Parser, ValueEnum, ValueHint};
 use itertools::Itertools as _;
@@ -18,11 +18,11 @@ use jiff::fmt::friendly::SpanParser;
 use nonempty_collections::NEVec;
 use opentelemetry::global;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::telemetry::Program;
 use rasm_command::{CommandError, Folder, Invocation};
 use rasm_ipc::{Endpoint, Hello, IpcError, Limits, Opened};
 use rasm_mcp::{Ended, Phase, Resumable};
 use rasm_observability::Environment;
+use rasm_observability::process::Program;
 use rasm_process::ProcessError;
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
 use serde::{Deserialize, Serialize};
@@ -77,6 +77,7 @@ const BUFFER: usize = 256 << 10;
 #[command(override_usage = "mcp-muxer [OPTIONS] -- <COMMAND> [ARGUMENTS]...\n       mcp-muxer [OPTIONS]")]
 #[command(after_help = "With a COMMAND, serves that stdio MCP server to this session through the shared daemon. With none, prints the daemon state as JSON.\n\
 Environment: a shared server starts with the variables of the session that started it, without trace context; a --per session server and an unshared run receive the whole session environment.\n\
+The daemon exports telemetry under the OTEL_ variables of the session that started it.\n\
 Requests from a server opened with initialize: calls of a tool not yet seen to finish without asking run one at a time, so a request reaches the session that called; other calls run concurrently.")]
 struct Cli {
     #[arg(long, value_enum, default_value_t, help = "Sessions that share one server process")]
@@ -153,7 +154,7 @@ struct Server {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-#[derive(Debug, thiserror::Error, derive_more::IsVariant)]
+#[derive(Debug, thiserror::Error)]
 enum MuxerError {
     #[error("cannot {operation}")]
     Io { operation: Operation, source: io::Error },
@@ -204,21 +205,7 @@ fn server(command: &Command, environment: &[(String, String)], stderr: Stdio) ->
 async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
     const REACH: ExponentialBuilder =
         ExponentialBuilder::new().with_min_delay(Duration::from_millis(2)).with_max_delay(Duration::from_millis(250)).without_max_times().with_total_delay(Some(Duration::from_secs(12)));
-    type Reach<'held, I, O> = (Resumable<I, O>, &'held Endpoint, &'held Hello<Build, Request>, &'held (dyn Fn() -> io::Result<()> + 'held));
-    async fn linked<I, O>((mut session, endpoint, request, start): Reach<'_, I, O>) -> (Reach<'_, I, O>, Result<io::Result<Ended>, MuxerError>)
-    where
-        I: AsyncRead + Unpin,
-        O: AsyncWrite + Unpin,
-    {
-        let ended = match rasm_ipc::connect::<_, _, _, Welcome>(endpoint, request, OPENING, REACH, start).await {
-            Ok(Opened { body: Welcome::Serving | Welcome::State(_), reader, writer }) => match session.over(reader, writer).await {
-                Ok(Ended::Link { delivered: false }) => Err(MuxerError::Unanswered),
-                ended @ (Ok(Ended::Client | Ended::Link { delivered: true }) | Err(_)) => Ok(ended),
-            },
-            Err(error) => Err(MuxerError::Ipc(error)),
-        };
-        ((session, endpoint, request, start), ended)
-    }
+    const UNANSWERED: u8 = 3;
     #[derive(Serialize)]
     struct Printed<'held> {
         daemon: Option<State>,
@@ -299,8 +286,11 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
     let start = || {
         let located = folders.iter().filter_map(|(folder, path)| Some([format!("--{folder}-dir"), path.as_ref()?.to_string()])).flatten();
         let mut daemon = tokio::process::Command::new(&executable);
-        daemon.args(["--daemon", &instance]).args(located).env_clear().envs(iter::chain(&settings, &export).map(|(name, value)| (name, value)));
+        daemon.args(["--daemon", &instance]).args(located).env_clear().envs(environment.iter().filter(|(name, _)| name.starts_with("OTEL_")).map(|(name, value)| (name, value)));
+        daemon.envs(iter::chain(&settings, &export).map(|(name, value)| (name, value)));
         daemon.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+        #[cfg(target_vendor = "apple")]
+        daemon.env("MallocSpaceEfficient", "1");
         global::get_text_map_propagator(|propagator| propagator.inject_context(&parent, &mut Environment(daemon.as_std_mut())));
         rasm_process::detached(daemon).spawn().map(drop)
     };
@@ -310,15 +300,19 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
         Ok(endpoint) => endpoint,
         Err(error) => return unshared(MuxerError::Ipc(error), session, &command, &environment).await,
     };
+    let mut spare = 0..UNANSWERED;
     let unreached = loop {
-        match linked.retry(REACH).context((session, &endpoint, &request, &start as &dyn Fn() -> io::Result<()>)).when(MuxerError::is_unanswered).await {
-            (_, Ok(Ok(Ended::Client))) => return Ok(ExitCode::SUCCESS),
-            ((resumed, ..), Ok(Ok(Ended::Link { delivered: _ }))) => session = resumed,
-            (_, Ok(Err(source))) => return Err(failed(Operation::Relay)(source)),
-            ((resumed, ..), Err(error)) => {
-                session = resumed;
-                break error;
-            }
+        let (reader, writer) = match rasm_ipc::connect::<_, _, _, Welcome>(&endpoint, &request, OPENING, REACH, &start).await {
+            Ok(Opened { body: Welcome::Serving | Welcome::State(_), reader, writer }) => (reader, writer),
+            Err(error) => break MuxerError::Ipc(error),
+        };
+        match session.over(reader, writer).await.map_err(failed(Operation::Relay))? {
+            Ended::Client => return Ok(ExitCode::SUCCESS),
+            Ended::Link { delivered: true } => spare = 0..UNANSWERED,
+            Ended::Link { delivered: false } => match spare.next() {
+                Some(_) => {}
+                None => break MuxerError::Unanswered,
+            },
         }
     };
     unshared(unreached, session, &command, &environment).await

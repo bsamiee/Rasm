@@ -99,7 +99,7 @@ where I: IntoIterator<Item = u32> {
     const BYTES: &str = "By";
     const SECONDS: &str = "s";
     let pids = Arc::new((pids, Mutex::new((System::new()?, Vec::new(), None))));
-    let meter = provider.meter_with_scope(crate::scope());
+    let meter = provider.meter_with_scope(crate::scope(env!("CARGO_PKG_NAME")));
     let counts: &[(&str, &str, fn(&Process, Usage) -> Option<i64>)] = &[
         (PROCESS_MEMORY_USAGE, BYTES, |process, _| Some(process.memory().saturating_cast())),
         (PROCESS_MEMORY_VIRTUAL, BYTES, |process, _| Some(process.virtual_memory().saturating_cast())),
@@ -112,13 +112,17 @@ where I: IntoIterator<Item = u32> {
         let observed = move || measured(&pids, measure).into_iter().filter_map(|(pid, count)| Some((pid, count?)));
         meter.i64_observable_up_down_counter(name).with_unit(unit).with_callback(move |observer| observed().for_each(|(pid, count)| observer.observe(count, &[pid]))).build();
     }
-    let kinds: [(&str, &str, &str, [&str; 2], fn(Usage) -> Option<[u64; 2]>); 2] = [
-        (PROCESS_CONTEXT_SWITCHES, "{context_switch}", PROCESS_CONTEXT_SWITCH_TYPE, ["voluntary", "involuntary"], |usage| usage.switches),
-        (PROCESS_PAGING_FAULTS, "{fault}", SYSTEM_PAGING_FAULT_TYPE, ["major", "minor"], |usage| usage.faults),
+    let kinds: [(&str, &str, &str, [&str; 2], fn(&Process, Usage) -> Option<[u64; 2]>); 3] = [
+        (PROCESS_CONTEXT_SWITCHES, "{context_switch}", PROCESS_CONTEXT_SWITCH_TYPE, ["voluntary", "involuntary"], |_, usage| usage.switches),
+        (PROCESS_PAGING_FAULTS, "{fault}", SYSTEM_PAGING_FAULT_TYPE, ["major", "minor"], |_, usage| usage.faults),
+        (PROCESS_DISK_IO, BYTES, DISK_IO_DIRECTION, ["read", "write"], |process, _| {
+            let moved = process.disk_usage();
+            Some([moved.total_read_bytes, moved.total_written_bytes])
+        }),
     ];
     for (name, unit, key, kinds, measure) in kinds {
         let pids = Arc::clone(&pids);
-        let observed = move || measured(&pids, |_, usage| measure(usage)).into_iter().filter_map(|(pid, counts)| Some((pid, counts?)));
+        let observed = move || measured(&pids, measure).into_iter().filter_map(|(pid, counts)| Some((pid, counts?)));
         meter
             .u64_observable_counter(name)
             .with_unit(unit)
@@ -131,7 +135,7 @@ where I: IntoIterator<Item = u32> {
             })
             .build();
     }
-    let (spent, moved, lived) = (Arc::clone(&pids), Arc::clone(&pids), pids);
+    let (spent, lived) = (Arc::clone(&pids), pids);
     meter
         .f64_observable_counter(PROCESS_CPU_TIME)
         .with_unit(SECONDS)
@@ -145,16 +149,6 @@ where I: IntoIterator<Item = u32> {
         })
         .build();
     meter
-        .u64_observable_counter(PROCESS_DISK_IO)
-        .with_unit(BYTES)
-        .with_callback(move |observer| {
-            for (pid, usage) in measured(&moved, |process, _| process.disk_usage()) {
-                observer.observe(usage.total_read_bytes, &[pid.clone(), KeyValue::new(DISK_IO_DIRECTION, "read")]);
-                observer.observe(usage.total_written_bytes, &[pid, KeyValue::new(DISK_IO_DIRECTION, "write")]);
-            }
-        })
-        .build();
-    meter
         .f64_observable_gauge(PROCESS_UPTIME)
         .with_unit(SECONDS)
         .with_callback(move |observer| measured(&lived, |process, _| Duration::from_secs(process.run_time()).as_secs_f64()).into_iter().for_each(|(pid, seconds)| observer.observe(seconds, &[pid])))
@@ -164,7 +158,7 @@ where I: IntoIterator<Item = u32> {
 
 pub fn runtime(provider: &dyn MeterProvider, handle: &Handle) {
     const TASKS: &str = "{task}";
-    let meter = provider.meter_with_scope(crate::scope());
+    let meter = provider.meter_with_scope(crate::scope(env!("CARGO_PKG_NAME")));
     let counts: [(&str, &str, fn(&RuntimeMetrics) -> usize); 3] = [
         ("tokio.runtime.worker.count", "{worker}", RuntimeMetrics::num_workers),
         ("tokio.runtime.task.count", TASKS, RuntimeMetrics::num_alive_tasks),

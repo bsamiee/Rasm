@@ -24,8 +24,8 @@ use futures::stream::{self, LocalBoxStream};
 use futures::{Stream, StreamExt as _, executor};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::telemetry::{self, Failure, Layer};
-use rasm_command::{CommandError, Invocation};
+use rasm_command::{CommandError, Failure, Invocation};
+use rasm_observability::process::Layer;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::Rect;
 use ratatui::{Frame, Terminal};
@@ -110,7 +110,7 @@ impl From<ScreenError> for ExitCode {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub fn run<A, L, P, S>(
-    program: telemetry::Program,
+    program: rasm_observability::process::Program,
     layer: L,
     runtime: impl FnOnce(&A) -> Builder,
     start: impl AsyncFnOnce(Invocation<A>) -> Result<(P, S), NEVec<P::Error>> + Send + 'static,

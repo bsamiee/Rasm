@@ -192,7 +192,7 @@ where
             Some(Event::Line { session, line: Line::Oversized { head, tail } }) => {
                 let error = ErrorData::invalid_request(format!("request exceeds {} bytes, send less", self.policy.line), None);
                 if let Some(id) = identity(&head, &tail) {
-                    self.sessions.refuse(session, &id, &error);
+                    self.sessions.reply(session, refusal(&id, &error));
                 }
             }
             Some(Event::Era(asked)) => self.on_era(asked),
@@ -344,7 +344,7 @@ where
         });
         let parked = mem::take(&mut self.calls.backlog).into_iter().filter_map(|(session, line)| Some((session, identity(&line, &[])?)));
         for (session, id) in waiting.chain(parked) {
-            self.sessions.refuse(session, &id, &error);
+            self.sessions.reply(session, refusal(&id, &error));
         }
     }
 
@@ -466,7 +466,7 @@ where
             (Some(id), Some(_)) => {
                 let cause = self.status.borrow().cause.clone();
                 let message = cause.map_or_else(|| "server is starting; call again".to_owned(), |cause| format!("server is down: {cause}; call again later"));
-                self.sessions.refuse(session, id.get().as_bytes(), &ErrorData::internal_error(message, None));
+                self.sessions.reply(session, refusal(id.get().as_bytes(), &ErrorData::internal_error(message, None)));
             }
             (None, Some(method)) if method.is_initialized() =>
                 if let Some(held) = self.sessions.joined.get_mut(&session) {
@@ -542,7 +542,7 @@ where
         self.wake();
         let Some(catalog) = &self.catalog else { return false };
         let requested = read::<ProtocolVersion>(params.and_then(|params| params.protocol_version));
-        let refused = |error: &ErrorData| self.sessions.refuse(session, id.get().as_bytes(), error);
+        let refused = |error: &ErrorData| self.sessions.reply(session, refusal(id.get().as_bytes(), error));
         match (asked, catalog.era) {
             (Era::Modern, Era::Modern) => self.sessions.answer(session, id, &catalog.handshake),
             (Era::Modern, Era::Legacy) => {
@@ -568,7 +568,7 @@ where
 
     fn call(&mut self, session: u64, line: &Bytes, id: &RawValue, method: Method, params: Option<&Params<'_>>, effect: Effect) -> bool {
         if !self.clock.drain.is_serving() {
-            self.sessions.refuse(session, id.get().as_bytes(), &ErrorData::internal_error("server is stopping; call again", None));
+            self.sessions.reply(session, refusal(id.get().as_bytes(), &ErrorData::internal_error("server is stopping; call again", None)));
             return true;
         }
         self.wake();
@@ -690,7 +690,7 @@ where
         let error = ErrorData::internal_error(format!("server response exceeds {limit} bytes, ask for less output"), None);
         match request.and_then(|request| self.calls.take(request).map(|origin| (request, origin))) {
             Some((request, Origin::Session(call))) => {
-                self.sessions.refuse(call.session, &call.id, &error);
+                self.sessions.reply(call.session, refusal(&call.id, &error));
                 self.settled(request, None);
             }
             Some((_, Origin::Discover)) => self.negotiated(Era::Modern, None, None),

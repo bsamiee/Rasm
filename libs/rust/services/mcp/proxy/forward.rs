@@ -5,7 +5,7 @@ use std::error::Report;
 use std::io;
 
 use bytes::{Bytes, BytesMut};
-use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, sink, stream};
+use futures::{Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, sink, stream};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::handler::client::progress::ProgressDispatcher;
 use rmcp::model::{
@@ -16,15 +16,14 @@ use rmcp::model::{
 use rmcp::service::{ClientLifecycleMode, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct, serve_server_with_ct};
 use rmcp::{ClientHandler, ErrorData, Peer, RoleClient, RoleServer, Service, ServiceError};
 use serde::de::DeserializeOwned;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as _};
+use tokio::io::{AsyncWrite, AsyncWriteExt as _};
 use tokio::sync::{broadcast, mpsc, oneshot};
-use tokio_util::codec::FramedRead;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
 use super::Proxy;
 use super::actor::Event;
-use super::jsonrpc::{Line, Lines, decode, encoded};
+use super::jsonrpc::{Line, decode, encoded};
 use crate::error::internal;
 use crate::shared::{Shared, list_changes, resynced};
 use crate::{McpError, Progress, Subscribe};
@@ -161,17 +160,9 @@ async fn followed(peer: Peer<RoleClient>, notifier: broadcast::Sender<ServerNoti
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub(super) async fn serve<R, W>(
-    proxy: &Proxy,
-    session: u64,
-    leading: impl Iterator<Item = Line> + Send + 'static,
-    lines: FramedRead<R, Lines>,
-    writer: W,
-    outbound: mpsc::Receiver<Bytes>,
-    cut: CancellationToken,
-) -> io::Result<()>
+pub(super) async fn serve<L, W>(proxy: &Proxy, session: u64, lines: L, writer: W, outbound: mpsc::Receiver<Bytes>, cut: CancellationToken) -> io::Result<()>
 where
-    R: AsyncRead + Send + Unpin + 'static,
+    L: Stream<Item = io::Result<Line>> + Send + Unpin + 'static,
     W: AsyncWrite + Send + Unpin + 'static,
 {
     const LISTS: usize = 4;
@@ -196,7 +187,7 @@ where
             }
         }
     });
-    let asked = stream::iter(leading.map(Ok)).chain(lines).filter_map(async |line| match line {
+    let asked = lines.filter_map(async |line| match line {
         Ok(Line::Whole(line)) => typed::<ClientJsonRpcMessage>(&line),
         Ok(Line::Oversized { head: _, tail: _ }) => None,
         Err(error) => {

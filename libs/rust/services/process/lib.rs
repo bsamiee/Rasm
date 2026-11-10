@@ -58,15 +58,19 @@ pub enum ProcessOperation {
     Release,
 }
 
+pub type Input = Pin<Box<dyn AsyncWrite + Send>>;
+
+pub type Output = Pin<Box<dyn AsyncRead + Send>>;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(derive_more::Debug)]
 pub struct Streams {
     pub id: NonZero<u32>,
     #[debug(skip)]
-    pub stdin: Option<Pin<Box<dyn AsyncWrite + Send>>>,
+    pub stdin: Option<Input>,
     #[debug(skip)]
-    pub stdout: Option<Pin<Box<dyn AsyncRead + Send>>>,
+    pub stdout: Option<Output>,
     pub stderr: Option<ChildStderr>,
 }
 
@@ -261,10 +265,9 @@ pub async fn run(
     let mut child = Released(command.spawn().map_err(|source| refused(failed(ProcessOperation::Start)(source)))?);
     drop(command);
     let pid = child.0.id().and_then(NonZero::new).ok_or_else(|| refused(failed(ProcessOperation::Start)(io::Error::other("spawned process has no PID"))))?;
-    let (stdout, stdin): (Option<Pin<Box<dyn AsyncRead + Send>>>, Option<Pin<Box<dyn AsyncWrite + Send>>>) =
-        (child.0.stdout().take().map(|pipe| Box::pin(pipe) as _), child.0.stdin().take().map(|pipe| Box::pin(pipe) as _));
+    let (stdout, stdin) = (child.0.stdout().take().map(|pipe| Box::pin(pipe) as Output), child.0.stdin().take().map(|pipe| Box::pin(pipe) as Input));
     #[cfg(unix)]
-    let (stdout, stdin) = linked.map_or((stdout, stdin), |(reader, writer)| (Some(Box::pin(reader) as _), Some(Box::pin(writer) as _)));
+    let (stdout, stdin) = linked.map_or((stdout, stdin), |(reader, writer)| (Some(Box::pin(reader) as Output), Some(Box::pin(writer) as Input)));
     let mut attach = pin!(attach(Streams { id: pid, stdin, stdout, stderr: child.0.stderr().take() }));
     let (ended, attached) = {
         let exited = cfg_select! {

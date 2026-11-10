@@ -8,7 +8,6 @@ use futures::FutureExt as _;
 use futures::future::BoxFuture;
 use futures::stream::FuturesUnordered;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rmcp::ErrorData;
 use rmcp::model::JsonRpcVersion2_0;
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
@@ -17,7 +16,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::time::delay_queue;
 
 use super::Key;
-use super::jsonrpc::{Message, Severity, decode, encoded, refusal};
+use super::jsonrpc::{Message, Severity, decode, encoded};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -98,18 +97,15 @@ impl Sessions {
         }
     }
 
-    pub(super) fn refuse(&self, session: u64, id: &[u8], error: &ErrorData) {
-        match refusal(id, error) {
+    pub(super) fn reply(&self, session: u64, line: Result<Bytes, serde_json::Error>) {
+        match line {
             Ok(line) => self.deliver(session, [line]),
-            Err(error) => tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "request id unreadable"),
+            Err(error) => tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "message not encoded"),
         }
     }
 
     pub(super) fn answer(&self, session: u64, id: &RawValue, result: &impl Serialize) {
-        match encoded(&Message::<&RawValue, (), _> { jsonrpc: JsonRpcVersion2_0, id: Some(id), method: None, params: None, result: Some(result), error: None }) {
-            Ok(line) => self.deliver(session, [line]),
-            Err(error) => tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "message not encoded"),
-        }
+        self.reply(session, encoded(&Message::<&RawValue, (), _> { jsonrpc: JsonRpcVersion2_0, id: Some(id), method: None, params: None, result: Some(result), error: None }));
     }
 }
 

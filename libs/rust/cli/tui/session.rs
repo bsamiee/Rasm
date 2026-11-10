@@ -18,7 +18,7 @@ use futures::future::Either;
 use itertools::Itertools as _;
 use nonempty_collections::NEVec;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::telemetry::Filter;
+use rasm_observability::process::Filter;
 use ratatui::DefaultTerminal;
 use ratatui::layout::{Constraint, Layout};
 use ratatui::text::{Line, Span, Text};

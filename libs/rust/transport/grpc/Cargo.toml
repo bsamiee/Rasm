@@ -18,7 +18,7 @@ bench   = false
 [features]
 health     = ["dep:tonic-health"]
 reflection = ["dep:tonic-reflection"]
-telemetry  = ["dep:nonempty-collections", "dep:validated", "dep:prost", "dep:prost-types", "dep:opentelemetry", "dep:opentelemetry-http", "dep:tracing-opentelemetry"]
+telemetry  = ["dep:nonempty-collections", "dep:validated", "dep:prost", "dep:prost-types", "dep:opentelemetry", "dep:opentelemetry-http", "dep:tracing-opentelemetry", "dep:rasm-observability"]
 tls        = ["dep:rustls", "dep:rustls-platform-verifier", "tonic/tls-aws-lc"]
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
@@ -51,6 +51,7 @@ opentelemetry-http                 = { workspace = true, optional = true }
 opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 tracing-opentelemetry              = { workspace = true, optional = true }
+rasm-observability                 = { workspace = true, optional = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

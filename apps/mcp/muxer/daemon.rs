@@ -1,4 +1,4 @@
-use core::pin::{Pin, pin};
+use core::pin::pin;
 use core::sync::atomic::{AtomicU64, Ordering};
 use core::time::Duration;
 use std::collections::BTreeMap;
@@ -26,7 +26,6 @@ use serde::de::{DeserializeOwned, IgnoredAny};
 use serde_path_to_error::Track;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use tempfile::NamedTempFile;
-use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::{oneshot, watch};
 use tokio::{task, time};
 use tokio_util::sync::CancellationToken;
@@ -104,7 +103,7 @@ impl Daemon {
                 }
             }
             Err(error) => {
-                if let IpcError::Refused(Refusal::Superseded) = error {
+                if matches!(error, IpcError::Refused(Refusal::Superseded)) {
                     self.superseded.cancel();
                 }
                 tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "session refused");
@@ -116,11 +115,7 @@ impl Daemon {
         &self,
         key: &Key,
         environment: Arc<[(String, String)]>,
-    ) -> (
-        Policy,
-        impl FnMut(CancellationToken) -> BoxFuture<'static, io::Result<Link<Pin<Box<dyn AsyncRead + Send>>, Pin<Box<dyn AsyncWrite + Send>>, BoxFuture<'static, String>>>> + Send + use<>,
-        tracing::Span,
-    ) {
+    ) -> (Policy, impl FnMut(CancellationToken) -> BoxFuture<'static, io::Result<Link<rasm_process::Output, rasm_process::Input, BoxFuture<'static, String>>>> + Send + use<>, tracing::Span) {
         const RETENTION: Retention = Retention { ratio: 300, floor: Duration::from_mins(1), ceiling: Duration::from_hours(2) };
         const GRACE: Duration = Duration::from_millis(500);
         const TAIL: usize = 8;
@@ -279,10 +274,7 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
                     let session = Arc::clone(&daemon).accepted(stream).instrument(tracing::info_span!(parent: None, "session"));
                     drop(sessions.spawn(daemon.stopping.clone().run_until_cancelled_owned(session)));
                 }
-                Err(error) => {
-                    tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "session not accepted");
-                    time::sleep(SETTLE).await;
-                }
+                Err(error) => tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "session not accepted"),
             },
         }
     };

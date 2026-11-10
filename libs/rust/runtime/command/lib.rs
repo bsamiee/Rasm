@@ -1,11 +1,12 @@
-#![feature(default_field_values, error_reporter, nonpoison_mutex, sync_nonpoison, trait_alias, try_blocks_heterogeneous)]
-#![cfg_attr(unix, feature(iterator_try_collect))]
+#![feature(error_reporter, trait_alias, try_blocks_heterogeneous)]
 
+use core::error::Error;
 use core::fmt;
+use core::str::FromStr as _;
 #[cfg(windows)]
 use core::task::{Context, Poll};
 use std::error::Report;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 use std::process::{ExitCode, Termination};
 use std::{env, io};
@@ -13,13 +14,16 @@ use std::{env, io};
 use camino::Utf8PathBuf;
 use clap::builder::{Resettable, Styles};
 use clap::error::ErrorKind;
+use clap::parser::ValueSource;
 use clap::{ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, ValueHint};
 use clap_complete::CompleteEnv;
 use enum_map::EnumMap;
 use futures::stream;
 use heck::ToShoutySnakeCase as _;
-use nonempty_collections::NEVec;
-use rasm_observability::ObservabilityError;
+use itertools::{Either, Itertools as _};
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
+use opentelemetry::global;
+use rasm_observability::process::{self, Filter, Layer, Lenient, MakeWriter, Program, Stated};
 use tokio::runtime::Builder;
 #[cfg(unix)]
 use tokio::signal::unix::{SignalKind, signal};
@@ -28,12 +32,10 @@ use tokio::signal::windows;
 #[cfg(unix)]
 use tokio_stream::wrappers::SignalStream;
 use toml::de;
-use tracing_subscriber::filter::ParseError;
-use tracing_subscriber::reload;
-
-use self::telemetry::{Failure, Filter, Layer, MakeWriter, Program};
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
+pub trait Failure = Error + Into<sysexits::ExitCode> + 'static;
 
 pub type Signals = stream::SelectAll<cfg_select! { unix => { SignalStream } windows => { stream::PollFn<Box<dyn FnMut(&mut Context<'_>) -> Poll<Option<()>> + Send + Sync>> } }>;
 
@@ -69,13 +71,33 @@ struct Manual {
 
 #[derive(Args)]
 #[group(skip)]
+#[command(next_help_heading = "Process")]
+struct Named {
+    #[arg(long, global = true, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, value_parser = Lenient(Utf8PathBuf::from_str))]
+    #[arg(help = "Folder of the log file, default the per-user log folder")]
+    log_dir: Option<Stated<Utf8PathBuf>>,
+    #[arg(long, global = true, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, value_parser = Lenient(Utf8PathBuf::from_str))]
+    #[arg(help = "Folder of cached files, default the per-user cache folder")]
+    cache_dir: Option<Stated<Utf8PathBuf>>,
+    #[arg(long, global = true, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, value_parser = Lenient(Utf8PathBuf::from_str))]
+    #[arg(help = "Folder of kept state, default the per-user state folder")]
+    state_dir: Option<Stated<Utf8PathBuf>>,
+    #[arg(long, global = true, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, value_parser = Lenient(Utf8PathBuf::from_str))]
+    #[arg(help = "Folder of sockets and locks, default the per-user runtime folder")]
+    runtime_dir: Option<Stated<Utf8PathBuf>>,
+    #[command(flatten)]
+    telemetry: process::Options,
+}
+
+#[derive(Args)]
+#[group(skip)]
 struct Options {
     #[command(flatten)]
     manual: Manual,
     #[command(flatten)]
     color: colorchoice_clap::Color,
     #[command(flatten)]
-    telemetry: telemetry::Options,
+    named: Named,
 }
 
 #[derive(Debug)]
@@ -140,16 +162,6 @@ pub enum CommandError {
     File(#[from] io::Error),
     #[error("platform names no per-user {folder} folder, set --{folder}-dir")]
     Folder { folder: Folder },
-    #[error("cannot filter scope {scope}")]
-    Scope { scope: &'static str, source: ParseError },
-    #[error(transparent)]
-    Reload(reload::Error),
-    #[error("cannot install tracing subscriber, one is installed")]
-    Dispatch,
-    #[error("cannot forward log records, a logger is installed")]
-    Forward,
-    #[error(transparent)]
-    Telemetry(#[from] ObservabilityError),
     #[error("{}", fmt::from_fn(|formatter| match phase {
         settings::Phase::Parse(origin) | settings::Phase::Decode { path: _, origin: Some(origin) } => formatter.write_str(&origin.excerpt(&phase.to_string())),
         settings::Phase::Decode { path: _, origin: None } => write!(formatter, "{phase}"),
@@ -161,8 +173,6 @@ impl From<CommandError> for sysexits::ExitCode {
     fn from(value: CommandError) -> Self {
         match value {
             CommandError::Io { operation: _, source } | CommandError::File(source) => source.into(),
-            CommandError::Scope { scope: _, source: _ } | CommandError::Reload(_) | CommandError::Dispatch | CommandError::Forward => Self::Software,
-            CommandError::Telemetry(error) => error.into(),
             CommandError::Folder { folder: _ } | CommandError::Settings { phase: _, source: _ } => Self::Config,
         }
     }
@@ -177,7 +187,7 @@ impl From<CommandError> for NEVec<CommandError> {
 pub fn signals() -> Result<Signals, CommandError> {
     (try bikeshed io::Result<Signals> {
         cfg_select! {
-            unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)).into_iter().try_collect::<Signals>()?,
+            unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)).into_iter().collect::<io::Result<Signals>>()?,
             windows => {{
                 let (mut interrupt, mut interrupt_break, mut close, mut logoff, mut shutdown) =
                     (windows::ctrl_c()?, windows::ctrl_break()?, windows::ctrl_close()?, windows::ctrl_logoff()?, windows::ctrl_shutdown()?);
@@ -208,12 +218,16 @@ where
     W: MakeWriter,
     L: Layer,
     T: Termination,
-    E: Failure + From<CommandError>,
+    E: Failure,
 {
+    fn status<F>(failures: NEVec<F>) -> ExitCode
+    where F: Into<sysexits::ExitCode> {
+        sysexits::ExitCode::report(failures.into_nonempty_iter().next().0.into())
+    }
     let factory = || {
         let command = Augmented::<Options, A>::command();
         let prefix = command.get_name().to_shouty_snake_case();
-        let named = telemetry::Options::augment_args(Command::new(command.get_name().to_owned()));
+        let named = Named::augment_args(Command::new(command.get_name().to_owned()));
         let own = Vec::from_iter(named.get_arguments().filter(|argument| argument.get_env().is_none()).map(|argument| argument.get_id().clone()));
         command.mut_args(|argument| {
             if own.contains(argument.get_id()) {
@@ -227,7 +241,18 @@ where
     CompleteEnv::with_factory(factory).complete();
     let command = factory();
     let parsed = command.clone().try_get_matches().and_then(|mut matches| {
-        let stated = telemetry::Options::stated(&command, &matches);
+        let declared = process::Options::augment_args(Command::new(command.get_name().to_owned()));
+        let exported = Vec::from_iter(declared.get_arguments().filter(|argument| argument.get_env().is_some()).map(|argument| argument.get_id().clone()));
+        let rows = command.get_arguments().filter_map(|argument| {
+            let (id, variable) = (argument.get_id(), argument.get_env()?);
+            let mut values = matches.get_raw(id.as_str()).filter(|_| matches!(matches.value_source(id.as_str()), Some(ValueSource::CommandLine | ValueSource::EnvVariable)))?;
+            let value = match argument.get_value_delimiter() {
+                Some(delimiter) => Vec::from_iter(values).join(OsStr::new(delimiter.encode_utf8(&mut [0; char::MAX_LEN_UTF8]))),
+                None => values.next_back()?.to_owned(),
+            };
+            Some((exported.contains(id), (variable.to_owned(), value)))
+        });
+        let stated = Vec::from_iter(rows);
         Augmented::<Options, A>::from_arg_matches_mut(&mut matches).map(|parsed| (parsed, stated))
     });
     let printed = |error: &clap::Error, status: sysexits::ExitCode| error.print().map_or_else(|source| sysexits::ExitCode::from(source).into(), |()| status.into());
@@ -240,8 +265,8 @@ where
         }
         .map_or_else(reported, |()| ExitCode::SUCCESS)
     };
-    let (Augmented { options: Options { manual: Manual { manual: _ }, color, telemetry }, args }, [settings, export]) = match parsed {
-        Ok((Augmented { options: Options { manual: Manual { manual: Some(directory) }, color: _, telemetry: _ }, args: _ }, _)) => return written(directory),
+    let (Augmented { options: Options { manual: Manual { manual: _ }, color, named: Named { log_dir, cache_dir, state_dir, runtime_dir, telemetry } }, args }, rows) = match parsed {
+        Ok((Augmented { options: Options { manual: Manual { manual: Some(directory) }, color: _, named: _ }, args: _ }, _)) => return written(directory),
         Ok(parsed) => parsed,
         Err(error) => {
             return match factory().ignore_errors(true).try_get_matches().and_then(|mut matches| Manual::from_arg_matches_mut(&mut matches)) {
@@ -261,20 +286,32 @@ where
         Ok(runtime) => runtime,
         Err(source) => return reported(CommandError::Io { operation: CommandOperation::Runtime, source }),
     };
-    let entered = runtime.enter();
-    let started = match telemetry.start(&command, program, stderr, layer, &runtime) {
-        Ok(started) => started,
-        Err(failures) => return telemetry::status(failures),
-    };
-    let (styles, folders, filter, parent) = (command.get_styles().clone(), started.folders.clone(), started.filter.clone(), started.parent.clone());
-    let outcome = runtime.block_on(work(Invocation { args, executable, styles, folders, filter, parent, settings, export }));
-    let status = started.finish(&runtime, outcome);
-    drop(entered);
-    status
+    let chosen = EnumMap::<Folder, _>::from_array([log_dir, cache_dir, state_dir, runtime_dir].map(|row| row.transpose().map(Option::flatten)));
+    let folders = EnumMap::from_fn(|folder| {
+        let shared = || match folder {
+            Folder::Log => cfg_select! {
+                target_vendor = "apple" => dirs::home_dir().map(|home| home.join("Library").join("Logs")),
+                windows => dirs::data_local_dir().map(|data| data.join("logs")),
+                _ => dirs::state_dir(),
+            },
+            Folder::Cache => dirs::cache_dir(),
+            Folder::State => dirs::state_dir().or_else(dirs::data_local_dir),
+            Folder::Runtime => dirs::runtime_dir().or_else(dirs::cache_dir),
+        };
+        chosen[folder].as_ref().ok().cloned().flatten().or_else(|| Utf8PathBuf::from_path_buf(shared()?.join(command.get_name())).ok())
+    });
+    let (log, styles) = (folders[Folder::Log].clone(), command.get_styles().clone());
+    let program = Program { refused: program.refused.into_iter().chain(chosen.into_values().filter_map(Result::err)).collect(), ..program };
+    let instrumented = telemetry.instrumented(&command, program, log, stderr, layer, async |filter, parent| {
+        let carried = global::get_text_map_propagator(|propagator| Vec::from_iter(propagator.fields().map(str::to_owned)));
+        let stated = rows.into_iter().filter(|(_, (variable, _))| !carried.iter().any(|field| variable.eq_ignore_ascii_case(field)));
+        let (export, settings) = stated.partition_map(|(exported, row)| if exported { Either::Left(row) } else { Either::Right(row) });
+        work(Invocation { args, executable, styles, folders, filter, parent, settings, export }).await
+    });
+    runtime.block_on(instrumented).map_or_else(|failures| failures.either(status, status), Termination::report)
 }
 
 mod settings;
-pub mod telemetry;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

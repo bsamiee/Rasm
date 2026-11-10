@@ -213,16 +213,9 @@ where
         }
     }
 
-    fn open(&self) -> Option<&Live<R, W, C>> {
-        match self {
-            Self::Up(open) => Some(open),
-            Self::Down { retry: _ } | Self::Connecting { attempt: _, stop: _, started: _ } => None,
-        }
-    }
+    pub(super) fn ready(&self) -> bool { matches!(self, Self::Up(open) if open.stage.is_ready()) }
 
-    pub(super) fn ready(&self) -> bool { self.open().is_some_and(|open| open.stage.is_ready()) }
-
-    pub(super) fn room(&self, queue: usize) -> bool { self.open().is_none_or(|open| open.outgoing.len() < queue) }
+    pub(super) fn room(&self, queue: usize) -> bool { !matches!(self, Self::Up(open) if open.outgoing.len() >= queue) }
 
     pub(super) fn negotiation(&mut self) -> Option<&mut Negotiation> {
         match self.writable().map(|open| &mut open.stage) {

@@ -17,7 +17,7 @@ use tracing_subscriber::fmt::time::{FormatTime as _, SystemTime};
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields};
 use tracing_subscriber::registry::LookupSpan;
 
-use crate::panics::PANIC;
+use crate::PANIC;
 
 // --- [MODELS] --------------------------------------------------------------------------
 

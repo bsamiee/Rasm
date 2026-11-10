@@ -8,6 +8,9 @@
 # [target.aarch64-apple-darwin]
 # rustflags = ["-Zunstable-options", "--jobs-frontend=8", "-Clink-arg=--ld-path=wild"]
 
+[target.'cfg(target_env = "musl")']
+linker = "rust-lld" # Toolchain linker over CRT objects and musl bundled with Rust std, which no host C compiler holds
+
 # --- [BUILD] ----------------------------------------------------------------------------
 
 [build]
@@ -18,8 +21,12 @@ rustflags  = ["-Zunstable-options", "--jobs-frontend=8"]
 # --- [ENV] ------------------------------------------------------------------------------
 
 [env]
-CLIPPY_CONF_DIR  = { value = ".config", relative = true }
-DYLINT_RUSTFLAGS = "-Zflatten-format-args=no"
+AR_aarch64_unknown_linux_musl = "cargo-zigbuild zig ar"
+AR_x86_64_unknown_linux_musl  = "cargo-zigbuild zig ar"
+CC_aarch64_unknown_linux_musl = "cargo-zigbuild zig cc -- -fno-sanitize=all -target aarch64-linux-musl" # Subcommand drops Rust's triple, which cc-rs appends as `--target` and zig refuses, and Rust links hold no runtime for UBSan, which zig adds to unoptimized C
+CC_x86_64_unknown_linux_musl  = "cargo-zigbuild zig cc -- -fno-sanitize=all -target x86_64-linux-musl"
+CLIPPY_CONF_DIR               = { value = ".config", relative = true }
+DYLINT_RUSTFLAGS              = "-Zflatten-format-args=no"
 
 # --- [RESOLVER] -------------------------------------------------------------------------
 

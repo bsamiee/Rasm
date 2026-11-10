@@ -95,8 +95,11 @@ impl Isolated {
     pub fn new(root: &Path) -> io::Result<Self> {
         let built = |package: &str, binary: &str| {
             let build = escargot::CargoBuild::new().package(package).bin(binary).current_release().current_target().run().map_err(io::Error::other)?;
-            Ok::<_, io::Error>(build.path().to_owned())
+            let held = root.join(binary);
+            fs_err::hard_link(build.path(), &held).map(|()| held)
         };
+        let building = fs_err::File::create(root.with_file_name("build.lock"))?;
+        building.lock()?;
         let muxer = env!("CARGO_PKG_NAME").trim_end_matches("-tests");
         Ok(Self { root: root.to_owned(), muxer: built(muxer, muxer)?, fixture: built(env!("CARGO_PKG_NAME"), "mcp-fixture")?, level: "debug" })
     }
