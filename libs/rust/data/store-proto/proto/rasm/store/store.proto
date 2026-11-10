@@ -77,7 +77,7 @@ message TemplateRequest {
 // `UNAVAILABLE` from any rpc: a backing server refused the operation.
 // `UNIMPLEMENTED` from any rpc of one kind: the service runs with no server of that kind.
 // `RESOURCE_EXHAUSTED` from any rpc returning a store: its kind holds its limit of live stores.
-// A call with a deadline first waits until then for a store to end, where the service holds the limit (PostgreSQL connections, a ClickHouse database limit).
+// A create first waits the service's own bound for a store to end, where the service holds the limit (PostgreSQL connections, a ClickHouse database limit); a shorter deadline ends the wait with its own status.
 service StoreService {
     // Holds `session` while the stream stays open.
     // Sends one lease when the hold starts, its `ttl_seconds` counting from the end of the stream.

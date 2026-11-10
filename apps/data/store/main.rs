@@ -42,7 +42,7 @@ use self::service::Store;
 #[derive(Debug, Parser)]
 #[command(version, about = "Serves sessions of isolated PostgreSQL, bucket, ClickHouse, and cache stores on shared servers over gRPC", long_about = None)]
 #[command(after_help = "A kind whose server address is unset answers UNIMPLEMENTED. Messages take gzip or identity encoding, and responses use gzip when the caller accepts it.\n\
-A create past a live limit the service holds answers RESOURCE_EXHAUSTED, after waiting for a store of that kind to end while the caller's deadline allows.")]
+A create past a live limit the service holds waits --wait for a store of that kind to end, then answers RESOURCE_EXHAUSTED; a caller's shorter deadline ends the wait with its own status.")]
 struct Cli {
     #[arg(long, env = "STORE_LISTEN", value_name = "HOST[:PORT]", value_delimiter = ',', default_value = "0.0.0.0,[::]", help = "Addresses the service listens on")]
     listen: Vec<Authority>,
@@ -52,6 +52,8 @@ struct Cli {
     grace: Duration,
     #[arg(long, env = "STORE_LEASE", value_name = "SPAN", default_value = "12h", value_parser = span, help = "Time a session no stream ever held outlives its last call")]
     lease: Duration,
+    #[arg(long, env = "STORE_WAIT", value_name = "SPAN", default_value = "10s", value_parser = span, help = "Time a create at a live limit waits for a store of its kind to end")]
+    wait: Duration,
     #[arg(long, env = "STORE_SHUTDOWN", value_name = "SPAN", default_value = "20s", value_parser = span, help = "Time shutdown waits for begun creates, drops, and open connections")]
     shutdown: Duration,
     #[arg(long, env = "STORE_TIMEOUT", value_name = "SPAN", value_parser = span, help = "Longest time a call waits for its response to start, unbounded when unset")]
@@ -173,7 +175,7 @@ async fn run(invocation: Invocation<Cli>) -> Result<(), NEVec<StoreError>> {
     let bound = rasm_http::bind::<StoreError>(cli.listen, cli.port, BACKLOG).await.map_err(lifted)?;
     let incoming = bound.into_iter().flat_map(|(_, listeners)| listeners).map(|(_, listener)| TcpIncoming::from(listener).with_nodelay(Some(true)).with_keepalive(Some(cli.keepalive_interval)));
     let signals = rasm_command::signals().map_err(|error| NEVec::new(error.into()))?;
-    let app = Arc::new(Store { registry, stopping, health, standard, postgres, bucket, clickhouse, cache });
+    let app = Arc::new(Store { registry, stopping, health, standard, wait: cli.wait, postgres, bucket, clickhouse, cache });
     rasm_http::serve(app, |router, stopping| rasm_grpc::accept(server, incoming, router, stopping), signals, cli.shutdown).await.map_err(lifted)
 }
 
