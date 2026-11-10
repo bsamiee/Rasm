@@ -53,7 +53,7 @@ pub struct Bucket {
 }
 
 impl Bucket {
-    pub async fn issue(&self, id: StoreId) -> Result<Granted, ProvisioningError> {
+    async fn issue(&self, id: StoreId) -> Result<Granted, ProvisioningError> {
         let name = id.to_string();
         let policy = Policy { version: "2012-10-17", statement: [Statement { effect: "Allow", action: ["s3:*"], resource: [format!("arn:aws:s3:::{name}"), format!("arn:aws:s3:::{name}/*")] }] };
         let assumed = self.sts.assume_role().role_arn(format!("arn:aws:iam:::role/{name}")).role_session_name(&name).duration_seconds(self.duration_seconds).policy(encoded(id, &policy)?);

@@ -1,13 +1,11 @@
-import { layer } from '@effect/platform-node/NodeServices';
 import { ClickhouseClient } from '@effect/sql-clickhouse';
 import { assert, expectTypeOf, it } from '@effect/vitest';
 import { Catalog, Engine, Relation, Tokenizer } from '@rasm/database';
 import { Clickhouse } from '@rasm/database/clickhouse';
-import { service } from '@rasm/test-support/compose';
-import { Context, Effect, Layer, Record, Schema, Struct } from 'effect';
-import { SecureRandom } from 'effect/crypto';
-import { Reactivity } from 'effect/reactivity';
-import type { SqlClient, SqlError } from 'effect/sql';
+import { Store } from '@rasm/test-support/store';
+import { failed } from '@rasm/test-support/vitest';
+import { Effect, Layer, Schema, Struct } from 'effect';
+import type { SqlClient } from 'effect/sql';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -58,35 +56,20 @@ const refused = Relation.make(
     { references: [{ columns: ['account'], table: accounts }], indexes: [{ columns: ['note'], unique: true }], tenant: { column: 'tenant', setting: 'app.tenant' }, search: { columns: ['note'], tokenizer: Tokenizer.Trigram() } },
 );
 
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Database extends Context.Service<Database, { readonly restore: Effect.Effect<void, SqlError.SqlError>; readonly config: Parameters<typeof Clickhouse.layer>[0] }>()('@rasm/test-database/clickhouse.test/Database') {
-    static readonly engine = Layer.unwrap(Database.use(({ restore, config }) => Effect.as(restore, Clickhouse.layer(config, Engine.names.verbatim))));
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(
-    Layer.effect(
-        Database,
-        Effect.gen(function* () {
-            const httpPort = 8123;
-            const clickhouse = yield* service('rasm', 'clickhouse', httpPort);
-            const [username, password] = yield* Effect.all([Effect.fromOption(Record.get(clickhouse.environment, 'CLICKHOUSE_USER')), Effect.fromOption(Record.get(clickhouse.environment, 'CLICKHOUSE_PASSWORD'))]);
-            const server = { url: `http://${clickhouse.address}`, username, password };
-            const admin = yield* ClickhouseClient.make(server).pipe(Effect.provide(Reactivity.layer));
-            const database = `catalog-${yield* SecureRandom.SecureRandom.use(({ uuidV7 }) => uuidV7())}`;
-            const dropped = admin.asCommand(admin`DROP DATABASE IF EXISTS ${admin(database)} SYNC`);
-            yield* Effect.addFinalizer(() => Effect.orDie(dropped));
-            return { restore: dropped.pipe(Effect.andThen(admin.asCommand(admin`CREATE DATABASE ${admin(database)}`)), Effect.asVoid), config: { ...server, database } };
-        }),
-    ).pipe(Layer.provide([layer, SecureRandom.layerWebCrypto])),
-    { concurrent: false, timeout: '2 minutes' },
-)('clickhouse', (methods) => {
+const engine = Layer.unwrap(
+    Effect.map(
+        Store.use(({ clickhouse }) => clickhouse),
+        (config) => Clickhouse.layer(config, Engine.names.verbatim),
+    ),
+);
+
+it.layer(Store.layer(undefined, failed), { concurrent: false, timeout: '2 minutes' })('clickhouse', (methods) => {
     const isolated =
-        <A, E>(body: (sql: ClickhouseClient.ClickhouseClient) => Effect.Effect<A, E, Layer.Success<typeof Database.engine>>) =>
+        <A, E>(body: (sql: ClickhouseClient.ClickhouseClient) => Effect.Effect<A, E, Layer.Success<typeof engine>>) =>
         () =>
-            Effect.provide(Effect.flatMap(ClickhouseClient.ClickhouseClient, body), Database.engine);
+            Effect.provide(Effect.flatMap(ClickhouseClient.ClickhouseClient, body), engine);
     const pending = (catalog: Catalog) => Effect.map(Catalog.plan(catalog), Struct.get('statements'));
     const seeded = (sql: ClickhouseClient.ClickhouseClient) =>
         sql.asCommand(sql`INSERT INTO spans (${sql('Timestamp')}, ${sql('TraceId')}, ${sql('ServiceName')}, ${sql('Duration')}, ${sql('StatusCode')}, ${sql('SpanAttributes')}, ${sql('Events')})

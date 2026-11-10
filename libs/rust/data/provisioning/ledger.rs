@@ -1,4 +1,4 @@
-use core::num::{NonZero, TryFromIntError};
+use core::num::NonZero;
 use core::{iter, mem};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -154,11 +154,10 @@ impl Ledger {
     pub(crate) fn vacant(&self, kind: Kind) -> bool { !self.limits[kind].is_some_and(|limit| usize::try_from(limit).is_ok_and(|limit| self.stores[kind].len() >= limit)) }
 
     pub(crate) fn admit(&mut self, kind: Kind, id: StoreId, session: Option<(&SessionName, Option<Instant>)>, claim: Option<&Digest>) -> Result<(), ProvisioningError> {
-        let (claimed, live) = (claim.filter(|digest| self.claims.contains_key(&(kind, (*digest).clone()))), self.stores[kind].len());
-        match (claimed, self.limits[kind].map(usize::try_from)) {
+        match (claim.filter(|digest| self.claims.contains_key(&(kind, (*digest).clone()))), self.vacant(kind)) {
             (Some(digest), _) => Err(ProvisioningError::Template { digest: digest.clone(), claim: Claim::Claimed }),
-            (None, Some(Ok(limit))) if live >= limit => Err(ProvisioningError::Exhausted { kind }),
-            (None, Some(Ok(_) | Err(TryFromIntError { .. })) | None) => {
+            (None, false) => Err(ProvisioningError::Exhausted { kind }),
+            (None, true) => {
                 if let Some((session, until)) = session {
                     self.touch(session, until);
                     self.own(session, kind, id);

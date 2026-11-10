@@ -1,10 +1,9 @@
 import { matchesGlob } from 'node:path';
 import { type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, logger, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { createProjectRootMappingsFromProjectConfigurations, findProjectForPath, hashObject, hashWithWorkspaceContext } from '@nx/devkit/internal';
+import { createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext } from '@nx/devkit/internal';
 import { aggregated, cached, identity, inferred, line, type Members, reported } from '@rasm/nx-devkit/inference';
 import { present, printed } from '@rasm/nx-devkit/process';
-import { DockerfileParser } from 'dockerfile-ast';
-import { Array, Effect, FileSystem, Function, Option, Order, Path, Record, Result, Schema } from 'effect';
+import { Array, Effect, Option, Order, Path, Record, Result, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,7 +26,7 @@ const Report = Schema.fromJsonString(
             Schema.Struct({
                 profiles: Schema.optionalKey(Schema.Array(Schema.String)),
                 env_file: Schema.optionalKey(Schema.Array(Schema.Struct({ path: Schema.String }))),
-                build: Schema.optionalKey(Schema.Struct({ context: Schema.String, dockerfile: Schema.optionalKey(Schema.String), dockerfile_inline: Schema.optionalKey(Schema.String), additional_contexts: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) })),
+                build: Schema.optionalKey(Schema.Struct({ context: Schema.String, dockerfile: Schema.optionalKey(Schema.String), additional_contexts: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) })),
             }),
         ),
     }),
@@ -37,7 +36,7 @@ const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unkn
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, matched: Array.NonEmptyReadonlyArray<string>, available: boolean) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const path = yield* Path.Path;
     const cwd = path.join(workspaceRoot, root);
     const files = Array.sort(matched, Order.String);
     const [report, variables] = available
@@ -51,47 +50,25 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: strin
         : [{ name: path.basename(cwd), services: {} }, {}];
     const local = (at: string) => Option.liftPredicate(path.relative(workspaceRoot, at), (relative) => path.isAbsolute(at) && !(relative.startsWith('..') || path.isAbsolute(relative)));
     const services = Object.values(report.services);
-    const builds = Array.getSomes(services.map(({ build }) => Option.fromUndefinedOr(build))).map((build) => ({ ...build, file: Option.map(Option.fromUndefinedOr(build.dockerfile), (file) => path.resolve(build.context, file)) }));
-    const stated = yield* Effect.forEach(
-        builds,
-        ({ file, dockerfile_inline, ...build }) =>
-            Effect.map(
-                Option.match(file, {
-                    onNone: () => Effect.succeed(Option.fromUndefinedOr(dockerfile_inline)),
-                    onSome: (at) => Effect.catchReason(Effect.asSome(fs.readFileString(at)), 'PlatformError', 'NotFound', () => Effect.succeed(Option.none<string>())),
-                }),
-                (text) => ({ ...build, copies: Option.match(text, { onNone: () => [], onSome: (instructions) => DockerfileParser.parse(instructions).getCOPYs() }) }),
-            ),
-        { concurrency: 'unbounded' },
-    );
-    const copied = stated
-        .flatMap(({ copies, ...build }) => copies.map((copy) => ({ ...build, copy })))
-        .filter(({ copy }) => copy.getHeredocs().length === 0 && copy.getOpeningBracket() === null)
-        .flatMap(({ context, additional_contexts = {}, copy }) => {
-            const base = Option.match(
-                Array.findFirst(copy.getFlags(), (flag) => flag.getName() === 'from'),
-                { onNone: () => Option.some(context), onSome: (flag) => Option.flatMap(Option.fromNullishOr(flag.getValue()), (name) => Record.get(additional_contexts, name)) },
-            );
-            return Option.match(base, {
-                onNone: () => [],
-                onSome: (at) =>
-                    copy
-                        .getArguments()
-                        .slice(0, -1)
-                        .map((source) => [at, path.join(at, source.getValue())] as const),
-            });
-        });
-    const named = new Set(copied.map(([at]) => at));
+    const builds = Array.getSomes(services.map(({ build }) => Option.fromUndefinedOr(build)));
     return {
         root,
         files,
         present: available,
         name: report.name,
-        read: Array.sort(Array.dedupe([...files, path.join(root, '.env'), ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))), ...Array.getSomes(builds.map(({ file }) => Option.flatMap(file, local)))]), Order.String),
+        read: Array.sort(
+            Array.dedupe([
+                ...files,
+                path.join(root, '.env'),
+                ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))),
+                ...Array.getSomes(builds.map(({ context, dockerfile }) => Option.flatMap(Option.fromUndefinedOr(dockerfile), (file) => local(path.isAbsolute(file) ? file : path.join(context, file))))),
+            ]),
+            Order.String,
+        ),
         variables: Array.sort(Record.keys(variables), Order.String),
         profiles: Array.sort(Array.dedupe(services.flatMap(({ profiles = [] }) => profiles)), Order.String),
         built: builds.length > 0,
-        sources: Array.dedupe(Array.getSomes([...builds.flatMap(({ context, additional_contexts = {} }) => [context, ...Object.values(additional_contexts)]).filter((at) => !named.has(at)), ...copied.map(([, file]) => file)].map(local))),
+        contexts: Array.dedupe(builds.flatMap(({ context, additional_contexts = {} }) => Array.getSomes([context, ...Object.values(additional_contexts)].map(local)))),
     };
 });
 
@@ -185,14 +162,10 @@ const createDependencies: CreateDependencies = (options, { workspaceRoot, projec
                 .map((output) => [name, output] as const),
         ),
     );
-    const owners = (at: string) =>
-        Array.match(
-            produced.filter(([, output]) => matchesGlob(at, output) || matchesGlob(at, `${output}/**`)).map(([name]) => name),
-            { onEmpty: () => Option.toArray(Option.fromNullishOr(findProjectForPath(at, roots))), onNonEmpty: Function.identity },
-        );
-    return (reports.get(keyed(workspaceRoot, options)) ?? []).flatMap(({ root, files, sources }) =>
+    const owners = (at: string) => produced.filter(([, output]) => matchesGlob(at, output) || matchesGlob(at, `${output}/**`)).map(([name]) => name);
+    return (reports.get(keyed(workspaceRoot, options)) ?? []).flatMap(({ root, files, contexts }) =>
         Option.toArray(Option.fromUndefinedOr(roots.get(root))).flatMap((source) =>
-            Array.dedupe(sources.flatMap(owners))
+            Array.dedupe(contexts.flatMap(owners))
                 .filter((target) => target !== source)
                 .map((target): RawProjectGraphDependency => ({ source, target, type: DependencyType.static, sourceFile: files[0] })),
         ),

@@ -8,7 +8,7 @@ use axum::Router;
 use futures::stream::{self, BoxStream};
 use futures::{FutureExt as _, StreamExt as _};
 use rasm_http::Service;
-use rasm_provisioning::{Bucket, Cache, Claim, Clickhouse, Digest, Granted, Kind, Login, Postgres, ProvisioningError, Refusal, Registry, SessionName, StoreId, StoreIdError, Stores};
+use rasm_provisioning::{Bucket, Cache, Claim, Clickhouse, Create, Digest, Granted, Kind, Login, Postgres, ProvisioningError, Refusal, Registry, SessionName, StoreId, StoreIdError, Stores};
 use rasm_store_proto::store_service_server::{StoreService, StoreServiceServer};
 use rasm_store_proto::{BucketStore, CacheStore, ClickhouseStore, PostgresStore, SessionLease, SessionRequest, StoreRequest, TemplateRequest};
 use secrecy::ExposeSecret as _;
@@ -81,41 +81,37 @@ impl StoreService for Store {
     // --- [SESSIONS]
 
     async fn hold_session(&self, request: Request<SessionRequest>) -> Result<Response<Self::HoldSessionStream>, Status> {
-        let (grace, held) = self.registry.hold(session(request.into_inner().session)?);
+        let (grace, held) = self.registry.hold(session(request.into_inner())?);
         let ended = held.map(|()| Err(Status::unavailable("store service is stopping")));
         Ok(Response::new(stream::once(ready(Ok(lease(grace)))).chain(stream::once(ended)).boxed()))
     }
 
-    async fn renew_session(&self, request: Request<SessionRequest>) -> Result<Response<SessionLease>, Status> { Ok(Response::new(lease(self.registry.renew(&session(request.into_inner().session)?)))) }
+    async fn renew_session(&self, request: Request<SessionRequest>) -> Result<Response<SessionLease>, Status> { Ok(Response::new(lease(self.registry.renew(&session(request.into_inner())?)))) }
 
     async fn end_session(&self, request: Request<SessionRequest>) -> Result<Response<()>, Status> {
-        self.registry.end(&session(request.into_inner().session)?).await.map(Response::new).map_err(|error| status(&error))
+        self.registry.end(&session(request.into_inner())?).await.map(Response::new).map_err(|error| status(&error))
     }
 
     // --- [STORES]
 
     async fn create_postgres(&self, request: Request<SessionRequest>) -> Result<Response<PostgresStore>, Status> {
-        let ((stores, address), until) = (offered(self.postgres.as_ref(), Kind::Postgres)?, until(&request));
-        let name = session(request.into_inner().session)?;
-        stores.waiting(until).create(name).await.map(|login| Response::new(postgres(address, &login))).map_err(|error| status(&error))
+        let (stores, address, name) = requested(self.postgres.as_ref(), Kind::Postgres, request, session)?;
+        stores.create(name).await.map(|login| Response::new(postgres(address, &login))).map_err(|error| status(&error))
     }
 
     async fn create_bucket(&self, request: Request<SessionRequest>) -> Result<Response<BucketStore>, Status> {
-        let ((stores, storage), until) = (offered(self.bucket.as_ref(), Kind::Bucket)?, until(&request));
-        let name = session(request.into_inner().session)?;
-        stores.waiting(until).create(name).await.map(|granted| Response::new(bucket(storage, &granted))).map_err(|error| status(&error))
+        let (stores, storage, name) = requested(self.bucket.as_ref(), Kind::Bucket, request, session)?;
+        stores.create(name).await.map(|granted| Response::new(bucket(storage, &granted))).map_err(|error| status(&error))
     }
 
     async fn create_clickhouse(&self, request: Request<SessionRequest>) -> Result<Response<ClickhouseStore>, Status> {
-        let ((stores, address), until) = (offered(self.clickhouse.as_ref(), Kind::Clickhouse)?, until(&request));
-        let name = session(request.into_inner().session)?;
-        stores.waiting(until).create(name).await.map(|login| Response::new(clickhouse(address, &login))).map_err(|error| status(&error))
+        let (stores, address, name) = requested(self.clickhouse.as_ref(), Kind::Clickhouse, request, session)?;
+        stores.create(name).await.map(|login| Response::new(clickhouse(address, &login))).map_err(|error| status(&error))
     }
 
     async fn create_cache(&self, request: Request<SessionRequest>) -> Result<Response<CacheStore>, Status> {
-        let ((stores, address), until) = (offered(self.cache.as_ref(), Kind::Cache)?, until(&request));
-        let name = session(request.into_inner().session)?;
-        let numbered = stores.waiting(until).create(name).await.map_err(|error| status(&error))?;
+        let (stores, address, name) = requested(self.cache.as_ref(), Kind::Cache, request, session)?;
+        let numbered = stores.create(name).await.map_err(|error| status(&error))?;
         let id = numbered.login.id.to_string();
         Ok(Response::new(CacheStore {
             host: address.host.clone(),
@@ -147,15 +143,13 @@ impl StoreService for Store {
     // --- [TEMPLATES]
 
     async fn open_postgres_template(&self, request: Request<TemplateRequest>) -> Result<Response<PostgresStore>, Status> {
-        let ((stores, address), until) = (offered(self.postgres.as_ref(), Kind::Postgres)?, until(&request));
-        let (name, digest) = template(request.into_inner())?;
-        stores.waiting(until).open(name, digest).await.map(|login| Response::new(postgres(address, &login))).map_err(|error| status(&error))
+        let (stores, address, (name, digest)) = requested(self.postgres.as_ref(), Kind::Postgres, request, template)?;
+        stores.open(name, digest).await.map(|login| Response::new(postgres(address, &login))).map_err(|error| status(&error))
     }
 
     async fn open_clickhouse_template(&self, request: Request<TemplateRequest>) -> Result<Response<ClickhouseStore>, Status> {
-        let ((stores, address), until) = (offered(self.clickhouse.as_ref(), Kind::Clickhouse)?, until(&request));
-        let (name, digest) = template(request.into_inner())?;
-        stores.waiting(until).open(name, digest).await.map(|login| Response::new(clickhouse(address, &login))).map_err(|error| status(&error))
+        let (stores, address, (name, digest)) = requested(self.clickhouse.as_ref(), Kind::Clickhouse, request, template)?;
+        stores.open(name, digest).await.map(|login| Response::new(clickhouse(address, &login))).map_err(|error| status(&error))
     }
 
     async fn seal_template(&self, request: Request<StoreRequest>) -> Result<Response<()>, Status> {
@@ -163,15 +157,13 @@ impl StoreService for Store {
     }
 
     async fn clone_postgres_template(&self, request: Request<TemplateRequest>) -> Result<Response<PostgresStore>, Status> {
-        let ((stores, address), until) = (offered(self.postgres.as_ref(), Kind::Postgres)?, until(&request));
-        let (name, digest) = template(request.into_inner())?;
-        stores.waiting(until).clone_template(name, digest).await.map(|login| Response::new(postgres(address, &login))).map_err(|error| status(&error))
+        let (stores, address, (name, digest)) = requested(self.postgres.as_ref(), Kind::Postgres, request, template)?;
+        stores.clone_template(name, digest).await.map(|login| Response::new(postgres(address, &login))).map_err(|error| status(&error))
     }
 
     async fn clone_clickhouse_template(&self, request: Request<TemplateRequest>) -> Result<Response<ClickhouseStore>, Status> {
-        let ((stores, address), until) = (offered(self.clickhouse.as_ref(), Kind::Clickhouse)?, until(&request));
-        let (name, digest) = template(request.into_inner())?;
-        stores.waiting(until).clone_template(name, digest).await.map(|login| Response::new(clickhouse(address, &login))).map_err(|error| status(&error))
+        let (stores, address, (name, digest)) = requested(self.clickhouse.as_ref(), Kind::Clickhouse, request, template)?;
+        stores.clone_template(name, digest).await.map(|login| Response::new(clickhouse(address, &login))).map_err(|error| status(&error))
     }
 }
 
@@ -181,12 +173,17 @@ impl StoreService for Store {
 
 fn offered<T>(served: Option<&T>, kind: Kind) -> Result<&T, Status> { served.ok_or_else(|| Status::unimplemented(format!("service runs with no {kind} server"))) }
 
-fn until<T>(request: &Request<T>) -> Option<Instant> { rasm_grpc::timeout(request.metadata()).and_then(|limit| Instant::now().checked_add(limit)) }
+fn requested<S, P, Q, I>(served: Option<&(Stores<S>, P)>, kind: Kind, request: Request<Q>, parsed: impl FnOnce(Q) -> Result<I, Status>) -> Result<(Stores<S>, &P, I), Status>
+where S: Create + 'static {
+    let (stores, published) = offered(served, kind)?;
+    let until = rasm_grpc::timeout(request.metadata()).and_then(|limit| Instant::now().checked_add(limit));
+    Ok((stores.waiting(until), published, parsed(request.into_inner())?))
+}
 
-fn session(name: String) -> Result<SessionName, Status> { SessionName::try_new(name).map_err(|error| Status::invalid_argument(error.to_string())) }
+fn session(SessionRequest { session }: SessionRequest) -> Result<SessionName, Status> { SessionName::try_new(session).map_err(|error| Status::invalid_argument(error.to_string())) }
 
-fn template(TemplateRequest { session: name, digest }: TemplateRequest) -> Result<(SessionName, Digest), Status> {
-    Ok((session(name)?, Digest::try_new(digest).map_err(|error| Status::invalid_argument(error.to_string()))?))
+fn template(TemplateRequest { session, digest }: TemplateRequest) -> Result<(SessionName, Digest), Status> {
+    Ok((self::session(SessionRequest { session })?, Digest::try_new(digest).map_err(|error| Status::invalid_argument(error.to_string()))?))
 }
 
 fn stored(request: &StoreRequest) -> Result<StoreId, Status> { request.id.parse().map_err(|error| Status::not_found(format!("no store holds {}: {}", request.id, Report::new(error)))) }

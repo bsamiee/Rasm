@@ -59,4 +59,5 @@ packages = ["rasm_testing"]
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv]
-cache-keys = [{ file = "pyproject.toml" }, { file = "hatch_build.py" }, { file = "../../../libs/rust/data/store-proto/proto/**/*.proto" }] # uv rebuilds the generated client when the contract changes
+default-groups = "all"                                                                                                                         # Suite and build hook imports install with the package
+cache-keys     = [{ file = "pyproject.toml" }, { file = "hatch_build.py" }, { file = "../../../libs/rust/data/store-proto/proto/**/*.proto" }] # uv rebuilds the generated client when the contract changes

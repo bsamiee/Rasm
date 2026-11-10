@@ -21,7 +21,12 @@ impl Clickhouse {
     async fn login(&self, id: StoreId, comment: &str) -> Result<Login, clickhouse::error::Error> {
         let (name, granted) = (id.to_string(), Login::new(id));
         self.admin.query("CREATE USER ? IDENTIFIED BY ?").bind(Identifier(&name)).bind(granted.password.expose_secret()).execute().await?;
-        self.admin.query("GRANT ALL ON ?.* TO ?").bind(Identifier(&name)).bind(Identifier(&name)).execute().await?;
+        self.admin
+            .query("GRANT ALL ON ?.*, SELECT ON system.data_skipping_indices, SELECT ON system.projections, SELECT ON system.constraints TO ?")
+            .bind(Identifier(&name))
+            .bind(Identifier(&name))
+            .execute()
+            .await?;
         self.comment(id, comment).await.map(|()| granted)
     }
 

@@ -73,10 +73,11 @@ message TemplateRequest {
 // A session ends on `EndSession`, when the lease of its last hold runs out, or when the lease of its
 // last call runs out with no hold ever opened.
 // A store ends with its session once no client holds a connection to it.
-// `INVALID_ARGUMENT` from any rpc taking `session`: `session` is empty.
+// `INVALID_ARGUMENT` from any rpc taking `session` or `digest`: one is empty, longer than 64 bytes, or holds a control character.
 // `UNAVAILABLE` from any rpc: a backing server refused the operation.
 // `UNIMPLEMENTED` from any rpc of one kind: the service runs with no server of that kind.
 // `RESOURCE_EXHAUSTED` from any rpc returning a store: its kind holds its limit of live stores.
+// A call with a deadline first waits until then for a store to end, where the service holds the limit (PostgreSQL connections, a ClickHouse database limit).
 service StoreService {
     // Holds `session` while the stream stays open.
     // Sends one lease when the hold starts, its `ttl_seconds` counting from the end of the stream.

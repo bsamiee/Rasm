@@ -2,7 +2,7 @@ import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { ancestors, line, type Members } from '@rasm/nx-devkit/inference';
 import { Array, Equivalence, Option, type Path, Record, Result, String } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { CLIPPY_CONF_DIR, CONFIG, LOCK, MANIFEST, nearest, TOOLCHAIN, type Workspace } from '#/plugins/workspace';
+import { CLIPPY_CONF_DIR, CONFIG, LOCK, MANIFEST, nearest, type Workspace } from '#/plugins/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -67,7 +67,7 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         tokened(path, path.join(workspace.root, LOCK)),
         ...(workspace.root === root ? [] : [tokened(path, path.join(workspace.root, MANIFEST))]),
         ...ancestors(path, workspace.root).flatMap((at) =>
-            [...CONFIG, ...TOOLCHAIN]
+            [...CONFIG, 'rust-toolchain.toml', 'rust-toolchain']
                 .map((name) => path.join(at, name))
                 .filter((file) => files.has(file))
                 .map((file) => tokened(path, file)),
@@ -87,15 +87,8 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
             onNonEmpty: (features) => ['--features', features.map((feature) => `${crate.name}/${feature}`).join(',')],
         }),
     ];
-    const products = workspace.platforms.flatMap(({ triple, files: emitted }) =>
-        crate.targets
-            .filter(own)
-            .flatMap(emitted)
-            .map((file) => [Option.toArray(triple), file] as const),
-    );
-    const triples = Array.dedupe(products.flatMap(([layout]) => layout));
-    const invocations = Array.prepend(Array.match(triples, { onEmpty: () => [], onNonEmpty: (listed) => [listed.flatMap((triple) => ['--target', triple])] }), Array.empty<string>());
-    const written = (folder: string) => Option.toArray(workspace.output).flatMap((at) => products.map(([layout, file]) => tokened(path, path.join(at, ...layout, folder, file))));
+    const products = crate.targets.filter(own).flatMap(workspace.files);
+    const written = (folder: string) => Option.toArray(workspace.output).flatMap((at) => products.map((file) => tokened(path, path.join(at, folder, file))));
     const profiles = ['release', ...workspace.profiles];
     const clippy = nearest(
         path,
@@ -120,7 +113,7 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         const excluded = Array.difference(Array.dedupe([...others, ...workspace.members.map((member) => member.root).filter((nested) => nested.startsWith(`${folder}/`))]), included);
         return [...included.map((at) => tokened(path, path.join(at, '**/*'))), ...excluded.map((at) => `!${tokened(path, path.join(at, '**/*'))}`)];
     });
-    const built = (profile: readonly string[]) => Array.map(invocations, (flags): Command => ({ args: ['build', ...flags, ...profile, '--keep-going'], report: 'messages' }));
+    const built = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['build', ...profile, '--keep-going'], report: 'messages' }];
     const installed = (profile: readonly string[]): Array.NonEmptyReadonlyArray<Command> => [{ args: ['install', '--path', path.relative(workspace.root, root) || '.', ...profile], report: 'status' }];
     const checked = (placed: (selection: readonly string[]) => Pick<Command, 'args' | 'trailing'>): Array.NonEmptyReadonlyArray<Command> =>
         Array.map(
@@ -156,7 +149,7 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
             cargo: target(
                 plugin,
                 'build',
-                `Builds ${crate.name} with cargo for ${['the host', ...triples].join(', ')}`,
+                `Builds ${crate.name} with cargo`,
                 { ...selected, commands: built([]), outputs: written('debug') },
                 {
                     outputs: written('debug').map((_, index) => `{options.outputs.${index}}`),
@@ -183,8 +176,8 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         clean: {
             cargo: {
                 executor: plugin.cleaner,
-                options: { commands: invocations.map((flags) => ['cargo', 'clean', '--package', crate.name, ...flags]), previews: invocations.map((flags) => ['cargo', 'clean', '--package', crate.name, ...flags, '--dry-run']), cwd: workspace.root },
-                metadata: { technologies: TECHNOLOGIES, description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean, for ${['the host', ...triples].join(', ')}`, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
+                options: { commands: [['cargo', 'clean', '--package', crate.name]], previews: [['cargo', 'clean', '--package', crate.name, '--dry-run']], cwd: workspace.root },
+                metadata: { technologies: TECHNOLOGIES, description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean`, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
             },
         },
         fix: {

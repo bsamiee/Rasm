@@ -1,10 +1,8 @@
 use std::error::Report;
 use std::sync::Arc;
 
-use futures::FutureExt as _;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use secrecy::SecretString;
-use tokio::sync::watch;
 use tokio::time::error::Elapsed;
 use tokio::time::{self, Instant};
 
@@ -40,13 +38,6 @@ pub trait Template: Create {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) enum Wait {
-    Refused,
-    Until(Instant),
-    Unbounded,
-}
-
 #[derive(Debug)]
 pub(crate) enum Change {
     Label(Label),
@@ -70,30 +61,21 @@ impl Login {
 pub struct Stores<S> {
     pub(crate) registry: Arc<Registry>,
     pub(crate) server: Arc<S>,
-    pub(crate) wait: Wait,
+    pub(crate) limit: Option<u32>,
+    pub(crate) wait: Option<Instant>,
 }
 
 impl<S> Stores<S>
 where S: Create + 'static
 {
     #[must_use]
-    pub fn waiting(&self, until: Option<Instant>) -> Self { Self { registry: Arc::clone(&self.registry), server: Arc::clone(&self.server), wait: until.map_or(Wait::Unbounded, Wait::Until) } }
+    pub fn waiting(&self, until: Option<Instant>) -> Self { Self { registry: Arc::clone(&self.registry), server: Arc::clone(&self.server), limit: self.limit, wait: until } }
 
-    pub async fn create(&self, session: SessionName) -> Result<S::Access, ProvisioningError> {
-        loop {
-            if let Some(access) = self.vacancy(self.made(session.clone(), None).await).await? {
-                break Ok(access);
-            }
-        }
-    }
+    pub async fn create(&self, session: SessionName) -> Result<S::Access, ProvisioningError> { self.made(session, None).await }
 
     pub async fn open(&self, session: SessionName, digest: Digest) -> Result<S::Access, ProvisioningError>
     where S: Template {
-        loop {
-            if let Some(access) = self.vacancy(self.made(session.clone(), Some(digest.clone())).await).await? {
-                break Ok(access);
-            }
-        }
+        self.made(session, Some(digest)).await
     }
 
     pub async fn clone_template(&self, session: SessionName, digest: Digest) -> Result<S::Access, ProvisioningError>
@@ -108,12 +90,11 @@ where S: Create + 'static
     async fn cloned(&self, session: SessionName, digest: Digest) -> Result<S::Access, ProvisioningError>
     where S: Template {
         let (registry, server, kind) = (Arc::clone(&self.registry), Arc::clone(&self.server), self.server.kind());
-        let built = registry.watch().wait_for(|ledger| !ledger.building(kind, &digest)).await.map(drop);
-        built.map_err(|watch::error::RecvError { .. }| ProvisioningError::Stopping)?;
+        registry.reached(|ledger| !ledger.building(kind, &digest)).await?;
         self.registry
             .owned(async move {
                 let (id, now) = (registry.issue()?, Instant::now());
-                let until = now.checked_add(registry.policy().lease);
+                let until = now.checked_add(registry.policy.lease);
                 let taken = registry.edit(|ledger| {
                     ledger.take(kind, &digest, &session, until, now).map(|(template, ready)| match ready {
                         Some(ready) => Ok((template, ready, false)),
@@ -134,32 +115,31 @@ where S: Create + 'static
             .await
     }
 
-    async fn vacancy<T>(&self, made: Result<T, ProvisioningError>) -> Result<Option<T>, ProvisioningError> {
-        let Err(ProvisioningError::Exhausted { kind }) = &made else { return made.map(Some) };
-        let (kind, mut ledger) = (*kind, self.registry.watch());
-        let full = ProvisioningError::Exhausted { kind };
-        let vacant = ledger.wait_for(|ledger| ledger.vacant(kind)).map(|waited| waited.map(drop));
-        let waited = match self.wait {
-            Wait::Refused => return Err(full),
-            Wait::Until(until) => time::timeout_at(until, vacant).await.map_err(|Elapsed { .. }| full)?,
-            Wait::Unbounded => vacant.await,
-        };
-        waited.map(|()| None).map_err(|watch::error::RecvError { .. }| ProvisioningError::Stopping)
-    }
-
     async fn made(&self, session: SessionName, digest: Option<Digest>) -> Result<S::Access, ProvisioningError> {
-        let (registry, server, kind) = (Arc::clone(&self.registry), Arc::clone(&self.server), self.server.kind());
-        self.registry
-            .owned(async move {
-                let (id, until) = (registry.issue()?, Instant::now().checked_add(registry.policy().lease));
+        let kind = self.server.kind();
+        loop {
+            let (registry, server, session, digest) = (Arc::clone(&self.registry), Arc::clone(&self.server), session.clone(), digest.clone());
+            let made = self.registry.owned(async move {
+                let (id, until) = (registry.issue()?, Instant::now().checked_add(registry.policy.lease));
                 registry.edit(|ledger| ledger.admit(kind, id, Some((&session, until)), digest.as_ref()).err()).map_or(Ok(()), Err)?;
                 let (label, phase) = match digest {
                     Some(digest) => (Label::Build { session, digest: digest.clone() }, Phase::Build { digest }),
                     None => (Label::Held { session }, Phase::Held),
                 };
                 registry.settle(kind, id, phase, server.create(id, &label).await)
-            })
-            .await
+            });
+            if let Some(access) = self.vacancy(made.await).await? {
+                break Ok(access);
+            }
+        }
+    }
+
+    async fn vacancy<T>(&self, made: Result<T, ProvisioningError>) -> Result<Option<T>, ProvisioningError> {
+        let (Err(ProvisioningError::Exhausted { kind: _ }), Some(_), Some(until)) = (&made, self.limit, self.wait) else { return made.map(Some) };
+        match time::timeout_at(until, self.registry.reached(|ledger| ledger.vacant(self.server.kind()))).await {
+            Ok(vacant) => vacant.map(|()| None),
+            Err(Elapsed { .. }) => made.map(Some),
+        }
     }
 }
 
@@ -189,7 +169,7 @@ where S: Template + 'static {
     let kind = server.kind();
     let stocked: Result<(), ProvisioningError> = async {
         let id = registry.issue()?;
-        let Some((template, displaced)) = registry.edit(|ledger| ledger.stock(kind, &digest, id, registry.policy().ready).transpose()).transpose()? else { return Ok(()) };
+        let Some((template, displaced)) = registry.edit(|ledger| ledger.stock(kind, &digest, id, registry.policy.ready).transpose()).transpose()? else { return Ok(()) };
         if let Some(gone) = displaced {
             registry.spawn(Arc::clone(&registry).linger(vec![(kind, gone)]));
         }

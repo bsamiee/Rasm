@@ -30,7 +30,7 @@ Rasm/
 ├── Package.swift             # Swift modules, executables, and remote package catalog
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
 ├── Cargo.toml                # Rust workspace and dependency catalog
-├── rust-toolchain.toml       # Rust toolchain channel, components, and build targets
+├── rust-toolchain.toml       # Rust toolchain channel and components
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension

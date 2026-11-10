@@ -562,14 +562,16 @@ services:
         <<: *server
         build:
             additional_contexts:
-                distroless: docker-image://gcr.io/distroless/static-debian13:nonroot
-            context: ../.artifacts/rust
+                distroless: docker-image://gcr.io/distroless/cc-debian13:nonroot
+                rust: docker-image://rust:1.99.1-trixie
+            context: ..
             dockerfile_inline: |
-                FROM scratch AS amd64
-                COPY x86_64-unknown-linux-musl/debug/rasm-store /
-                FROM scratch AS arm64
-                COPY aarch64-unknown-linux-musl/debug/rasm-store /
-                FROM $${TARGETARCH} AS build
+                FROM rust AS build
+                WORKDIR /src
+                COPY rust-toolchain.toml ./
+                RUN rustup toolchain install
+                COPY --parents Cargo.toml Cargo.lock .cargo/config.toml apps/data apps/mcp libs/rust tests/rust tools/dylint ./
+                RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git --mount=type=cache,target=.cache/rust --mount=type=cache,target=.artifacts/rust cargo build --locked --profile dist --package rasm-store && cp .artifacts/rust/dist/rasm-store /
                 FROM distroless
                 COPY --from=build /rasm-store /
                 ENTRYPOINT ["/rasm-store"]

@@ -17,7 +17,7 @@ use tokio_util::sync::CancellationToken;
 use tokio_util::task::TaskTracker;
 
 use crate::ledger::{Entry, Ledger, Phase, Tenure};
-use crate::stores::{Change, Create, Stores, Wait};
+use crate::stores::{Change, Create, Stores};
 use crate::{Kind, Label, ProvisioningError, Refusal, Removal, SessionName, StoreId};
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -42,7 +42,7 @@ pub struct Policy {
 
 #[derive(derive_more::Debug)]
 pub struct Registry {
-    policy: Policy,
+    pub(crate) policy: Policy,
     ledger: watch::Sender<Ledger>,
     #[debug(skip)]
     servers: EnumMap<Kind, OnceLock<Arc<Erased>>>,
@@ -88,7 +88,7 @@ impl Registry {
             }
         }))
         .await;
-        Ok(Stores { registry: Arc::clone(self), server, wait: Wait::Refused })
+        Ok(Stores { registry: Arc::clone(self), server, limit, wait: None })
     }
 
     pub async fn run(self: &Arc<Self>) {
@@ -191,9 +191,13 @@ impl Registry {
 
     // --- [TASKS]
 
-    pub(crate) const fn policy(&self) -> &Policy { &self.policy }
-
-    pub(crate) fn watch(&self) -> watch::Receiver<Ledger> { self.ledger.subscribe() }
+    pub(crate) async fn reached(&self, state: impl FnMut(&Ledger) -> bool) -> Result<(), ProvisioningError> {
+        let mut ledger = self.ledger.subscribe();
+        match self.stopping.run_until_cancelled(ledger.wait_for(state)).await.map(|met| met.map(drop)) {
+            Some(Ok(())) => Ok(()),
+            Some(Err(watch::error::RecvError { .. })) | None => Err(ProvisioningError::Stopping),
+        }
+    }
 
     pub(crate) fn spawn(&self, work: impl Future<Output = ()> + Send + 'static) { drop(self.tasks.spawn(work)); }
 
@@ -235,7 +239,7 @@ impl Registry {
                 Ok(()) => Ok(()),
                 Err(error) => {
                     tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), %id, "store removed by force");
-                    self.dropped(kind, id, Removal::Forced).await
+                    (|| self.dropped(kind, id, Removal::Forced)).retry(self.policy.reclaim).await
                 }
             };
             if let Err(error) = forced {

@@ -42,7 +42,7 @@ use self::service::Store;
 #[derive(Debug, Parser)]
 #[command(version, about = "Serves sessions of isolated PostgreSQL, bucket, ClickHouse, and cache stores on shared servers over gRPC", long_about = None)]
 #[command(after_help = "A kind whose server address is unset answers UNIMPLEMENTED. Messages take gzip or identity encoding, and responses use gzip when the caller accepts it.\n\
-A create past a kind's live limit waits for a free store until the caller's deadline, then answers RESOURCE_EXHAUSTED.")]
+A create past a live limit the service holds answers RESOURCE_EXHAUSTED, after waiting for a store of that kind to end while the caller's deadline allows.")]
 struct Cli {
     #[arg(long, env = "STORE_LISTEN", value_name = "HOST[:PORT]", value_delimiter = ',', default_value = "0.0.0.0,[::]", help = "Addresses the service listens on")]
     listen: Vec<Authority>,

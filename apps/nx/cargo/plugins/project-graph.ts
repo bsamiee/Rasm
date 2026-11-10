@@ -4,7 +4,7 @@ import { aggregated, cached, identity, inferred, reported } from '@rasm/nx-devki
 import { present } from '@rasm/nx-devkit/process';
 import { Array, Effect, Option, Path, Record, Result } from 'effect';
 import { crateTargets, released, TECHNOLOGIES, unresolved, workspaceTargets } from '#/plugins/targets';
-import { CONFIG, DENY, MANIFEST, Manifest, TOOLCHAIN, toml, workspaces } from '#/plugins/workspace';
+import { CONFIG, DENY, MANIFEST, Manifest, toml, workspaces } from '#/plugins/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ interface Graph {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const FILES = `**/{${[MANIFEST, ...TOOLCHAIN, ...CONFIG, 'clippy.toml', '.clippy.toml', '.config/nextest.toml', ...Object.values(DENY).flat()].join(',')}}`;
+const FILES = `**/{${[MANIFEST, 'rust-toolchain.toml', 'rust-toolchain', ...CONFIG, 'clippy.toml', '.clippy.toml', '.config/nextest.toml', ...Object.values(DENY).flat()].join(',')}}`;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

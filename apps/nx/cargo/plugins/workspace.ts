@@ -10,7 +10,6 @@ const MANIFEST = 'Cargo.toml';
 const LOCK = 'Cargo.lock';
 const CRATE = 'nx_cargo';
 const CONFIG = ['.cargo/config.toml', '.cargo/config'] as const;
-const TOOLCHAIN = ['rust-toolchain', 'rust-toolchain.toml'] as const;
 const CLIPPY_CONF_DIR = 'CLIPPY_CONF_DIR';
 const DENY = Record.map({ config: 'deny', exceptions: 'deny.exceptions' }, (stem) => [`${stem}.toml`, `.${stem}.toml`, `.cargo/${stem}.toml`]);
 
@@ -38,7 +37,6 @@ const Metadata = Schema.fromJsonString(
 const Config = Schema.Struct({
     env: Schema.Struct({ [CLIPPY_CONF_DIR]: Schema.optionalKey(Schema.Union([Schema.String, Schema.Struct({ value: Schema.String, relative: Schema.optionalKey(Schema.Boolean) })])) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
 });
-const Toolchain = Schema.Struct({ toolchain: Schema.Struct({ targets: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }) });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Tables = Table.pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Pathed = Schema.Struct({ path: Schema.String });
@@ -73,16 +71,13 @@ const workspace = Effect.fnUntraced(
         const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
         const denied = nearest(path, files, root, DENY.config);
         const top = path.join(metadata.workspace_root, MANIFEST);
-        const executable = ['bin'];
-        const emitted = (kinds: readonly string[], flags: readonly string[]) => Effect.map(printed('rustc', ['--print', 'file-names', ...flags, '--crate-name', CRATE, ...kinds.flatMap((type) => ['--crate-type', type]), '-'], { cwd: path.join(workspaceRoot, root), input: '' }), (text) => text.split('\n'));
-        const named = (kinds: readonly string[], names: readonly string[]) => (target: typeof Target.Type) => Array.getSomes(target.crate_types.map((type) => Option.map(Array.get(names, kinds.indexOf(type)), (file) => file.replace(CRATE, target.name))));
-        const [read, lines, deny, configured, pinned] = yield* Effect.all(
+        const [read, lines, deny, configured] = yield* Effect.all(
             [
                 Effect.map(
                     Effect.forEach(Array.dedupe([top, ...metadata.packages.map(({ manifest_path }) => manifest_path)]), (file) => Effect.map(toml(Manifest, file), (parsed) => [file, parsed] as const), { concurrency: 'unbounded' }),
                     Record.fromEntries,
                 ),
-                emitted(types, ['--print', 'host-tuple']),
+                Effect.map(printed('rustc', ['--print', 'file-names', '--print', 'host-tuple', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: path.join(workspaceRoot, root), input: '' }), (text) => text.split('\n')),
                 Effect.transposeOption(Option.map(denied, (file) => Effect.map(toml(Table, path.join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(path, files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
                 Effect.forEach(
                     ancestors(path, root)
@@ -91,13 +86,7 @@ const workspace = Effect.fnUntraced(
                     (file) => Effect.map(toml(Config, path.join(workspaceRoot, file)), ({ env }) => ({ base: path.dirname(path.dirname(file)), folder: env[CLIPPY_CONF_DIR] })),
                     { concurrency: 'unbounded' },
                 ),
-                Effect.option(Effect.flatMap(Effect.fromOption(nearest(path, files, root, TOOLCHAIN)), (file) => toml(Toolchain, path.join(workspaceRoot, file)))),
             ],
-            { concurrency: 'unbounded' },
-        );
-        const cross = yield* Effect.forEach(
-            Option.toArray(pinned).flatMap(({ toolchain }) => toolchain.targets),
-            (triple) => Effect.map(emitted(executable, ['--target', triple]), (listed) => ({ triple: Option.some(triple), files: named(executable, listed) })),
             { concurrency: 'unbounded' },
         );
         const members = metadata.packages.map((crate) => ({ crate, root: path.relative(workspaceRoot, path.dirname(crate.manifest_path)) || '.' }));
@@ -133,7 +122,7 @@ const workspace = Effect.fnUntraced(
             manifests: metadata.packages.map(({ manifest_path }) => path.relative(workspaceRoot, manifest_path)),
             output: Option.liftPredicate(path.relative(workspaceRoot, metadata.target_directory), (at) => !(at.startsWith('..') || path.isAbsolute(at))),
             host: Array.findLast(lines, String.isNonEmpty),
-            platforms: [{ triple: Option.none<string>(), files: named(types, lines) }, ...cross],
+            files: (target: typeof Target.Type) => Array.getSomes(target.crate_types.map((type) => Option.map(Array.get(lines, types.indexOf(type)), (file) => file.replace(CRATE, target.name)))),
         };
     },
     (effect, _, manifest) => Effect.mapError(effect, ToolError.of(manifest, 'does not resolve as a Cargo workspace')),
@@ -150,4 +139,4 @@ const workspaces = (workspaceRoot: string, manifests: readonly string[], files: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CLIPPY_CONF_DIR, CONFIG, DENY, LOCK, MANIFEST, Manifest, Metadata, nearest, TOOLCHAIN, toml, type Workspace, workspaces };
+export { CLIPPY_CONF_DIR, CONFIG, DENY, LOCK, MANIFEST, Manifest, Metadata, nearest, toml, type Workspace, workspaces };

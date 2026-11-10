@@ -224,7 +224,7 @@ fn finished((call, client): (Call, bool), outcome: Outcome) {
             Code::Unauthenticated => "UNAUTHENTICATED",
         }
     }
-    const BOUNDARIES: [f64; 18] = [0.0001, 0.000_25, 0.0005, 0.001, 0.0025, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0];
+    const BOUNDARIES: [f64; 14] = [0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0];
     static DURATION: LazyLock<[Histogram<f64>; 2]> =
         LazyLock::new(|| [RPC_SERVER_CALL_DURATION, RPC_CLIENT_CALL_DURATION].map(|name| rasm_observability::duration(env!("CARGO_PKG_NAME"), name, BOUNDARIES.to_vec())));
     let (status, failure) = match outcome {

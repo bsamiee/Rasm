@@ -18,7 +18,6 @@
     "dependencies": {
         "@nx/devkit": "catalog:",
         "@rasm/nx-devkit": "workspace:*",
-        "dockerfile-ast": "catalog:",
         "effect": "catalog:",
         "verkit": "catalog:",
         "yaml": "catalog:"

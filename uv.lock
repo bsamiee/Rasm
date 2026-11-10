@@ -8387,6 +8387,7 @@ provides-extras = ["export", "process", "otlp-http", "otlp-grpc", "configuration
 name = "rasm-testing"
 version = "0.0.0"
 source = { editable = "tests/python/support" }
+default-groups = "all"
 dependencies = [
     { name = "boto3" },
     { name = "clickhouse-connect" },
