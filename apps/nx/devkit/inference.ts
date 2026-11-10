@@ -42,7 +42,9 @@ const aggregated = (members: Members, technologies: readonly string[], clean?: {
     const stated = clean === undefined ? undefined : members.clean?.[clean.tool];
     const cleaning: Members =
         clean === undefined || written.length === 0 ? {} : { clean: { ...members.clean, [clean.tool]: { metadata: { technologies: [...technologies], description: `Removes the outputs ${written.join(', ')} declare` }, ...stated, executor: clean.executor, options: { ...stated?.options, targets: written } } } };
-    const bound = named({ ...members, ...cleaning }).map(({ verb, name, target }) => ({ verb, name, target: target.cache === true ? { ...target, inputs: Array.dedupe([...(target.inputs ?? UNSTATED), PLATFORM]) } : target }));
+    const bound = named({ ...members, ...cleaning })
+        .map((member) => (member.verb === 'test' ? { ...member, target: { ...member.target, cache: false } } : member))
+        .map(({ verb, name, target }) => ({ verb, name, target: target.cache === true ? { ...target, inputs: Array.dedupe([...(target.inputs ?? UNSTATED), PLATFORM]) } : target }));
     return Record.fromEntries([
         ...bound.map(({ name, target }) => [name, target] as const),
         ...Record.collect(
