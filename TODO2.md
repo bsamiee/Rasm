@@ -34,7 +34,6 @@ No run has proven these:
 - Backups: no restore from the rebuilt backup services (`pgbackrest info`, `clickhouse-backup list remote`, one query per restored store)
 - Hosting program of `infra/hosting-stack.ts` has never been applied, Pulumi holds no portfolio stack
 - Doppler config `dev` holds no remote cache server or read token, so local runs never read the cache CI fills
-- Kafka rows stand in all four catalogs and in the Rust test support, against `decisions.md` [01]
 - Pyroscope waits on an owner decision (`plan/definition.md`)
 
 Test costs no setting removes:
