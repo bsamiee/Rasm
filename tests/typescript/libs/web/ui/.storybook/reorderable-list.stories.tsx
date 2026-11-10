@@ -70,15 +70,15 @@ const meta = preview.meta({
 });
 
 const Default = meta.story({
-    play: (context) => {
+    play: async (context) => {
         const { canvas, args } = context;
         const grid = within(canvas.getByRole('grid', { name: 'Sheets' }));
-        expect(sheets(context).rows()).toEqual(args.items.map(({ id }) => id));
+        await expect(sheets(context).rows()).toEqual(args.items.map(({ id }) => id));
         const controls = args.items.flatMap(({ title }) => {
             const row = within(grid.getByRole('row', { name: title }));
             return Array.make(row.getByRole('checkbox', { name: `Select ${title}` }), row.getByRole('button', { name: `Drag ${title}` }), row.getByRole('button', { name: `Move ${title}` }));
         });
-        expect(controls.every((control) => control.checkVisibility())).toBe(true);
+        await expect(controls.every((control) => control.checkVisibility())).toBe(true);
     },
 });
 const Single = meta.story({
@@ -91,9 +91,9 @@ const MoveMenu = meta.story({
     play: async (context) => {
         const { move, rows, order } = sheets(context);
         await move('Plan', 'Detail');
-        expect(order()).toEqual(['section', 'detail', 'plan']);
+        await expect(order()).toEqual(['section', 'detail', 'plan']);
         await move('Plan', 'Section');
-        expect(order()).toEqual(['plan', 'section', 'detail']);
+        await expect(order()).toEqual(['plan', 'section', 'detail']);
         await waitFor(() => expect(rows()).toEqual(['plan', 'section', 'detail']));
     },
 });
@@ -103,7 +103,7 @@ const BlockMove = meta.story({
         await select('Plan');
         await select('Section');
         await move('Plan', 'Detail');
-        expect(order()).toEqual(['detail', 'plan', 'section']);
+        await expect(order()).toEqual(['detail', 'plan', 'section']);
     },
 });
 const GatheredSelection = meta.story({
@@ -114,7 +114,7 @@ const GatheredSelection = meta.story({
         await opened('Detail');
         await waitFor(() => expect(targets()).toEqual(['Section']));
         await context.userEvent.click(screen.getByRole('menuitem', { name: 'Section' }));
-        expect(order()).toEqual(['section', 'plan', 'detail']);
+        await expect(order()).toEqual(['section', 'plan', 'detail']);
     },
 });
 const UnselectedMove = meta.story({
@@ -122,7 +122,7 @@ const UnselectedMove = meta.story({
         const { select, move, rows, order, status } = sheets(context);
         await select('Plan');
         await move('Detail', 'Plan');
-        expect(order()).toEqual(['detail', 'plan', 'section']);
+        await expect(order()).toEqual(['detail', 'plan', 'section']);
         await waitFor(() => expect(rows()).toEqual(['detail', 'plan', 'section']));
         await expect(status()).toHaveTextContent('1 selected');
     },

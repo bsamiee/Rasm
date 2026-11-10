@@ -45,16 +45,16 @@ const delivered = Effect.fnUntraced(function* (repository: Output<string>, { nam
     const doppler = new Project(project, { name: project, description }, { provider, protect: true });
     const held = Record.map(Struct.Record(['dev', 'ci', 'release', 'deploy'], undefined), (_, config) => new Environment(`${project}-${config}`, { project: doppler.name, slug: config, name: config }, { provider, protect: true }).slug);
     const synced = { integration, project: doppler.name, syncTarget: 'repo', repoName: repository, deleteBehavior: 'delete_from_target' };
+    const value = new ServiceToken(`${project}-deploy`, { project: doppler.name, config: held.deploy, name, access: 'read' }, { provider }).key;
+    const deploying = Record.map(
+        Struct.Record(['release', 'deploy'], undefined),
+        (_, environment) => new ActionsEnvironmentSecret(`${name}-${environment}-doppler`, { repository, environment: new RepositoryEnvironment(`${name}-${environment}`, { repository, environment }).environment, secretName: 'DOPPLER_TOKEN', value }).environment,
+    );
     return {
         dev: held.dev,
         ci: new secretssync.GithubActions(`${project}-ci`, { ...synced, config: held.ci }, { provider }).config,
-        release: new secretssync.GithubActions(`${project}-release`, { ...synced, config: held.release, environmentName: new RepositoryEnvironment(`${name}-release`, { repository, environment: 'release' }).environment }, { provider }).config,
-        deploy: new ActionsEnvironmentSecret(`${name}-deploy-doppler`, {
-            repository,
-            environment: new RepositoryEnvironment(`${name}-deploy`, { repository, environment: 'deploy' }).environment,
-            secretName: 'DOPPLER_TOKEN',
-            value: new ServiceToken(`${project}-deploy`, { project: doppler.name, config: held.deploy, name, access: 'read' }, { provider }).key,
-        }).environment,
+        release: new secretssync.GithubActions(`${project}-release`, { ...synced, config: held.release, environmentName: deploying.release }, { provider }).config,
+        deploy: deploying.deploy,
     };
 }, Effect.provide(layerUndici));
 

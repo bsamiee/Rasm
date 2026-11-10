@@ -3,7 +3,7 @@ import { createProjectRootMappingsFromProjectConfigurations, getNamedInputs, glo
 import { cached, identity, inferred, reported } from '@rasm/nx-devkit/inference';
 import { present, printed, ToolError } from '@rasm/nx-devkit/process';
 import { major, minor, minSatisfying, validRange } from '@renovatebot/pep440';
-import { Array, Effect, Equivalence, Option, Path, Predicate, Record, Schema, SchemaTransformation } from 'effect';
+import { Array, Effect, Equivalence, Option, Path, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
 import { CHECKERS, CONFIGS, declared, documents, PIXI, targets } from '#/plugins/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -174,16 +174,13 @@ const graph = Effect.fnUntraced(function* (workspaceRoot: string, options: objec
         workspaceRoot,
         read.flatMap(({ metadata }) => [metadata.workspace.path, ...metadata.members.map((member) => member.path)]).map((at) => path.relative(workspaceRoot, at) || '.'),
     );
-    const releases =
+    const listed =
         Option.isSome(held) || !installed
-            ? []
-            : Array.dedupe(
-                  (yield* printed('uv', ['python', 'list', 'cpython', '--only-downloads', '--all-versions', '--offline', '--output-format', 'json'], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(Releases)), Effect.mapError(ToolError.of('uv python list', 'does not decode')))).map(
-                      ({ version }) => version,
-                  ),
-              );
+            ? Result.succeed([])
+            : yield* Effect.result(printed('uv', ['python', 'list', 'cpython', '--only-downloads', '--all-versions', '--offline', '--output-format', 'json'], { cwd: workspaceRoot }).pipe(Effect.flatMap(Schema.decodeEffect(Releases)), Effect.mapError(ToolError.of('uv python list', 'does not decode'))));
+    const releases = Array.dedupe(Result.getOrElse(listed, () => []).map(({ version }) => version));
     const reports = Option.getOrElse(held, () => read.map(({ lock, metadata }) => report(path, workspaceRoot, lock, metadata, documented, releases)));
-    const failures = [...unlocked, ...unparsed];
+    const failures = [...unlocked, ...unparsed, ...Array.zip(locks, Option.toArray(Result.getFailure(listed)))];
     yield* Option.isNone(held) && installed && failures.length === 0 ? cache.set(FILES, reports, hash) : Effect.void;
     const members = reports.flatMap((workspace) => workspace.members);
     const globbed = yield* Effect.forEach(

@@ -1,7 +1,8 @@
 import type { CreateNodes, CreateNodesContext, CreateNodesResultArray } from '@nx/devkit';
-import { aggregated, identity, inferred } from '@rasm/nx-devkit/inference';
+import { aggregated, identity, inferred, reported } from '@rasm/nx-devkit/inference';
+import { ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, Option, Path, Schema } from 'effect';
-import { parse } from 'yaml';
+import { Yaml } from 'effect/encoding';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,40 +21,45 @@ const Template = Schema.Struct({
 const nodes = Effect.fnUntraced(function* (files: readonly string[], { workspaceRoot }: CreateNodesContext) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const plugin = yield* identity(import.meta.url, workspaceRoot);
-    return yield* Effect.forEach(
+    const [read, failures] = yield* Effect.partition(
         files,
-        Effect.fnUntraced(function* (file) {
-            const root = path.dirname(file);
-            const { inputs, plugins } = yield* Effect.flatMap(fs.readFileString(path.join(workspaceRoot, file)), (text) => Schema.decodeUnknownEffect(Template)(parse(text)));
-            const sources = Array.getSomes(inputs.map(({ directory }) => Option.fromUndefinedOr(directory))).map((directory) => path.join('{workspaceRoot}', root, directory, '**/*.proto'));
-            return [
-                file,
-                {
-                    projects: {
-                        [root]: {
-                            targets: aggregated(
-                                {
-                                    build: {
-                                        buf: {
-                                            executor: 'nx:run-commands',
-                                            options: { command: 'buf generate', cwd: root },
-                                            cache: true,
-                                            inputs: [`{projectRoot}/${TEMPLATE}`, ...sources],
-                                            outputs: plugins.map(({ out }) => path.join('{workspaceRoot}', root, out)),
-                                            metadata: { technologies: TECHNOLOGIES, description: `Generates code from the Protobuf inputs of ${TEMPLATE} with buf generate`, help: { command: 'buf generate --help', example: { args: ['--debug'] } } },
+        Effect.fnUntraced(
+            function* (file) {
+                const root = path.dirname(file);
+                const text = yield* fs.readFileString(path.join(workspaceRoot, file));
+                const { inputs, plugins } = yield* Schema.decodeUnknownEffect(Template)(yield* Effect.try(() => Yaml.parse(text)));
+                const sources = Array.getSomes(inputs.map(({ directory }) => Option.fromUndefinedOr(directory))).map((directory) => path.join('{workspaceRoot}', root, directory, '**/*.proto'));
+                return [
+                    file,
+                    {
+                        projects: {
+                            [root]: {
+                                targets: aggregated(
+                                    {
+                                        build: {
+                                            buf: {
+                                                executor: 'nx:run-commands',
+                                                options: { command: 'buf generate', cwd: root },
+                                                cache: true,
+                                                inputs: [`{projectRoot}/${TEMPLATE}`, ...sources, { runtime: 'buf --version' }, { externalDependencies: [] }],
+                                                outputs: plugins.map(({ out }) => path.join('{workspaceRoot}', root, out)),
+                                                metadata: { technologies: TECHNOLOGIES, description: `Generates code from the Protobuf inputs of ${TEMPLATE} with buf generate`, help: { command: 'buf generate --help', example: { args: ['--debug'] } } },
+                                            },
                                         },
                                     },
-                                },
-                                TECHNOLOGIES,
-                                { executor: plugin.cleaner, tool: 'buf' },
-                            ),
+                                    TECHNOLOGIES,
+                                    { executor: plugin.cleaner, tool: 'buf' },
+                                ),
+                            },
                         },
                     },
-                },
-            ] satisfies CreateNodesResultArray[number];
-        }),
+                ] satisfies CreateNodesResultArray[number];
+            },
+            (effect, file) => Effect.mapError(effect, (cause) => [file, ToolError.of(file, 'does not read as a buf generation template')(cause)] as const),
+        ),
         { concurrency: 'unbounded' },
     );
+    return yield* reported(read, failures);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

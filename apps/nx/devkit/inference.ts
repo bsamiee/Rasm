@@ -15,6 +15,7 @@ type Members = { readonly [V in Verb]?: Readonly<Record<string, TargetConfigurat
 const CONFIG = 'tsconfig.json';
 const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const UNSTATED = ['default', '^default'] as const satisfies NonNullable<TargetConfiguration['inputs']>;
+const NODE = { runtime: 'node --version' } as const;
 const GENERATED = { dependsOn: ['build--buf', '^build--buf'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }] } as const satisfies Pick<TargetConfiguration, 'dependsOn' | 'inputs'>;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -42,9 +43,7 @@ const aggregated = (members: Members, technologies: readonly string[], clean?: {
     const stated = clean === undefined ? undefined : members.clean?.[clean.tool];
     const cleaning: Members =
         clean === undefined || written.length === 0 ? {} : { clean: { ...members.clean, [clean.tool]: { metadata: { technologies: [...technologies], description: `Removes the outputs ${written.join(', ')} declare` }, ...stated, executor: clean.executor, options: { ...stated?.options, targets: written } } } };
-    const bound = named({ ...members, ...cleaning })
-        .map((member) => (member.verb === 'test' ? { ...member, target: { ...member.target, cache: false } } : member))
-        .map(({ verb, name, target }) => ({ verb, name, target: target.cache === true ? { ...target, inputs: Array.dedupe([...(target.inputs ?? UNSTATED), PLATFORM]) } : target }));
+    const bound = named({ ...members, ...cleaning }).map(({ verb, name, target }) => ({ verb, name, target: target.cache === true ? { ...target, inputs: Array.dedupe([...(target.inputs ?? UNSTATED), PLATFORM]) } : target }));
     return Record.fromEntries([
         ...bound.map(({ name, target }) => [name, target] as const),
         ...Record.collect(
@@ -55,16 +54,11 @@ const aggregated = (members: Members, technologies: readonly string[], clean?: {
 };
 
 const cached = Effect.fn('cached')(function* <V>(plugin: { readonly name: string }, options: unknown) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const base = path.basename(plugin.name);
-    const file = `${base}-${hashObject({ options: options ?? {} })}.hash`;
+    const path = yield* Path.Path;
+    const file = `${path.basename(plugin.name)}-${hashObject({ options: options ?? {} })}.hash`;
     const held = new PluginCache<{ readonly value: V; readonly digest: string }>(path.join(workspaceDataDirectory, file));
     const live = new Map<string, { readonly value: V; readonly digest: string }>();
-    const written = Effect.gen(function* () {
-        yield* Effect.sync(() => new PluginCache(path.join(workspaceDataDirectory, file), Object.fromEntries(live), [...live.keys()]).writeToDisk());
-        const stale = (yield* fs.readDirectory(workspaceDataDirectory)).filter((name) => name !== file && new RegExp(`^${RegExp.escape(base)}(-\\d+)?\\.hash$`, 'u').test(name));
-        yield* Effect.forEach(stale, (name) => fs.remove(path.join(workspaceDataDirectory, name), { force: true }), { discard: true });
-    });
+    const written = Effect.sync(() => new PluginCache(path.join(workspaceDataDirectory, file), Object.fromEntries(live), [...live.keys()]).writeToDisk());
     const changed = Effect.sync(() => [...live].some(([key, entry]) => held.get(key) !== entry));
     yield* Effect.addFinalizer(() => Effect.ignore(Effect.when(written, changed), { log: true, message: `Writing ${file}` }));
     return {
@@ -113,4 +107,4 @@ const inferred = <E extends Error>(nodes: Effect.Effect<CreateNodesResultArray, 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { aggregated, ancestors, CONFIG, cached, GENERATED, identity, inferred, launcher, line, type Members, reported };
+export { aggregated, ancestors, CONFIG, cached, GENERATED, identity, inferred, launcher, line, type Members, NODE, reported };

@@ -1,5 +1,5 @@
 import type { CreateNodes, CreateNodesContext, CreateNodesResultArray } from '@nx/devkit';
-import { aggregated, identity, inferred, launcher } from '@rasm/nx-devkit/inference';
+import { aggregated, identity, inferred, launcher, NODE } from '@rasm/nx-devkit/inference';
 import { Effect, FileSystem, Path } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -27,7 +27,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], { workspace
                                         executor: 'nx:run-commands',
                                         options: { command: 'cf workers types', cwd: root },
                                         cache: true,
-                                        inputs: ['default', '^default', { externalDependencies: ['cf'] }],
+                                        inputs: ['default', '^default', NODE, { externalDependencies: ['cf'] }],
                                         outputs: ['{projectRoot}/.cloudflare/types'],
                                         metadata: { technologies: TECHNOLOGIES, description: `Generates the Worker binding and runtime types from ${CONFIG}`, help: { command: `${exec} cf workers types --help`, example: { args: ['--mode', 'production'] } } },
                                     },
@@ -36,7 +36,7 @@ const nodes = Effect.fnUntraced(function* (files: readonly string[], { workspace
                             TECHNOLOGIES,
                             { executor: plugin.cleaner, tool: 'cf' },
                         ),
-                        'check--tsc': { dependsOn: ['...', 'build--cf'], inputs: ['...', { dependentTasksOutputFiles: '**/*.d.ts' }] },
+                        'check--tsc': { dependsOn: ['...', 'build--cf'] },
                     },
                 },
             },

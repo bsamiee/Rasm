@@ -1,9 +1,9 @@
 import { matchesGlob } from 'node:path';
-import { type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, logger, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, DependencyType, getOutputsForTargetAndConfiguration, hashArray, logger, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations, hashObject, hashWithWorkspaceContext } from '@nx/devkit/internal';
-import { aggregated, cached, identity, inferred, line, type Members, reported } from '@rasm/nx-devkit/inference';
-import { present, printed } from '@rasm/nx-devkit/process';
-import { Array, Effect, Option, Order, Path, Record, Result, Schema } from 'effect';
+import { aggregated, ancestors, cached, identity, inferred, line, type Members, reported } from '@rasm/nx-devkit/inference';
+import { present, printed, runtime } from '@rasm/nx-devkit/process';
+import { Array, Effect, FileSystem, Option, Order, Path, Predicate, Record, Result, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -15,6 +15,8 @@ const TECHNOLOGIES = ['compose'];
 const EVERY_PROFILE = { COMPOSE_PROFILES: '*' };
 const PRODUCERS = ['build--!(compose)', '^build'];
 const FILES = '**/{compose,docker-compose}{,.override}.{yaml,yml}';
+const PATHS = /[\w./-]+/gu;
+const INTERPOLATED = /\$\{(?<variable>\w+)/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,6 +27,7 @@ const Report = Schema.fromJsonString(
             Schema.String,
             Schema.Struct({
                 profiles: Schema.optionalKey(Schema.Array(Schema.String)),
+                ports: Schema.optionalKey(Schema.Array(Schema.Struct({ published: Schema.optionalKey(Schema.Unknown) }))),
                 env_file: Schema.optionalKey(Schema.Array(Schema.Struct({ path: Schema.String }))),
                 build: Schema.optionalKey(Schema.Struct({ context: Schema.String, dockerfile: Schema.optionalKey(Schema.String), additional_contexts: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) })),
             }),
@@ -32,6 +35,9 @@ const Report = Schema.fromJsonString(
     }),
 );
 const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
+const Options = Schema.Struct({ clients: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['**/*']))) }).annotate({
+    description: 'clients: globs of the files read for a Compose file named by path (from their folder, their project root, or the workspace root) or a variable it publishes a port under, each match an edge from its project to the Compose project',
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -51,23 +57,22 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: strin
     const local = (at: string) => Option.liftPredicate(path.relative(workspaceRoot, at), (relative) => path.isAbsolute(at) && !(relative.startsWith('..') || path.isAbsolute(relative)));
     const services = Object.values(report.services);
     const builds = Array.getSomes(services.map(({ build }) => Option.fromUndefinedOr(build)));
+    const interpolated = services
+        .flatMap(({ ports = [] }) => ports.map(({ published }) => published))
+        .filter(Predicate.isString)
+        .flatMap((text) => [...text.matchAll(INTERPOLATED)]);
+    const recipes = Array.getSomes(builds.map(({ context, dockerfile }) => Option.flatMap(Option.fromUndefinedOr(dockerfile), (file) => local(path.isAbsolute(file) ? file : path.join(context, file)))));
     return {
         root,
         files,
         present: available,
         name: report.name,
-        read: Array.sort(
-            Array.dedupe([
-                ...files,
-                path.join(root, '.env'),
-                ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))),
-                ...Array.getSomes(builds.map(({ context, dockerfile }) => Option.flatMap(Option.fromUndefinedOr(dockerfile), (file) => local(path.isAbsolute(file) ? file : path.join(context, file))))),
-            ]),
-            Order.String,
-        ),
+        read: Array.sort(Array.dedupe([...files, path.join(root, '.env'), ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))), ...recipes]), Order.String),
         variables: Array.sort(Record.keys(variables), Order.String),
         profiles: Array.sort(Array.dedupe(services.flatMap(({ profiles = [] }) => profiles)), Order.String),
         built: builds.length > 0,
+        recipes,
+        published: Array.dedupe(Array.getSomes(interpolated.map(({ groups = {} }) => Record.get(groups, 'variable')))),
         contexts: Array.dedupe(builds.flatMap(({ context, additional_contexts = {} }) => Array.getSomes([context, ...Object.values(additional_contexts)].map(local)))),
     };
 });
@@ -76,6 +81,8 @@ const targets = (plugin: string, project: Project) => {
     const inputs = [
         ...project.read.map((file) => `{workspaceRoot}/${file}`),
         { runtime: line(['docker', 'compose', '--project-directory', project.root, '--profile', '*', 'config', '--format', 'json', '--no-interpolate', '--no-path-resolution']) },
+        { runtime: 'docker compose version' },
+        { runtime: 'docker buildx version' },
         ...project.variables.map((env) => ({ env })),
         { externalDependencies: [] },
     ];
@@ -93,7 +100,7 @@ const targets = (plugin: string, project: Project) => {
                 ...(project.built ? { buildx: compose(['build', '--check'], `Lints every image ${project.name} builds through BuildKit, failing on any warning`, { cache: true, inputs, dependsOn: PRODUCERS, options: { env: EVERY_PROFILE } }) } : {}),
             },
             build: project.built ? { compose: compose(['build'], `Builds the images of ${project.name} into the engine`, { dependsOn: PRODUCERS, configurations }) } : {},
-            install: { compose: compose(['up', '--detach', '--wait', '--remove-orphans'], `Starts the services of ${project.name} and waits until each is healthy`, { dependsOn: ['build', '^install'], configurations }) },
+            install: { compose: compose(['up', '--detach', '--wait', '--remove-orphans'], `Starts the services of ${project.name} and waits until each is healthy`, { dependsOn: ['build'], configurations }) },
             upgrade: {
                 compose: {
                     executor: `${plugin}:upgrade`,
@@ -149,28 +156,44 @@ const graph = Effect.fnUntraced(function* ({ workspaceRoot }: CreateNodesContext
     );
 });
 
+const edges = Effect.fnUntraced(function* (options: unknown, { workspaceRoot, projects, fileMap, filesToProcess }: CreateDependenciesContext) {
+    const [fs, path, { clients }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Options)(options ?? {})]);
+    const roots = createProjectRootMappingsFromProjectConfigurations(projects);
+    const produced = Record.toEntries(projects)
+        .flatMap(([name, data]) => Record.keys(Record.filter(data.targets ?? {}, (target) => target.outputs !== undefined)).map((target) => ({ name, target, data })))
+        .flatMap(({ name, target, data }) => getOutputsForTargetAndConfiguration({ project: name, target }, {}, { name, type: 'lib', data }).map((output) => [name, output] as const))
+        .filter(([, output]) => !output.startsWith('!'));
+    const builders = (at: string) => produced.filter(([, output]) => matchesGlob(at, output) || matchesGlob(at, `${output}/**`)).map(([name]) => name);
+    const holder = (file: string) => Array.findFirst(ancestors(path, path.dirname(file)), (folder) => Option.fromUndefinedOr(roots.get(folder)));
+    const composed = Array.getSomes((reports.get(keyed(workspaceRoot, options)) ?? []).map((project) => Option.map(Option.fromUndefinedOr(roots.get(project.root)), (name) => ({ ...project, name }))));
+    const named = new Map(composed.flatMap(({ files, published, name }) => [...files, ...published].map((reference) => [reference, name] as const)));
+    const names = Array.dedupe([...named.keys()].map((reference) => path.basename(reference)));
+    const moved = [...Object.values(filesToProcess.projectFileMap).flat(), ...filesToProcess.nonProjectFiles].some(({ file }) => named.has(file));
+    const client = (file: string) => clients.some((glob) => matchesGlob(file, glob));
+    const candidates = Record.toEntries((moved ? fileMap : filesToProcess).projectFileMap).flatMap(([source, files]) => files.filter(({ file }) => client(file)).map(({ file }) => ({ source, file })));
+    const linked = (source: string, target: string, sourceFile: string): readonly RawProjectGraphDependency[] => (source === target ? [] : [{ source, target, type: DependencyType.static, sourceFile }]);
+    const referenced = ({ source, file }: (typeof candidates)[number], text: string) => {
+        const bases = [path.dirname(file), projects[source]?.root ?? '.', '.'];
+        const paths = names.some((name) => text.includes(name)) ? (text.match(PATHS) ?? []).flatMap((token) => bases.map((base) => path.normalize(path.join(base, token)))) : [];
+        return Array.dedupe(Array.getSomes(paths.map((at) => Option.fromUndefinedOr(named.get(at))))).flatMap((target) => linked(source, target, file));
+    };
+    const reads = yield* Effect.forEach(
+        candidates,
+        (each) =>
+            Effect.map(
+                Effect.orElseSucceed(fs.readFileString(path.join(workspaceRoot, each.file)), () => ''),
+                (text) => referenced(each, text),
+            ),
+        { concurrency: 32 },
+    );
+    return [...composed.flatMap(({ name, files, contexts, recipes }) => Array.dedupe([...contexts.flatMap(builders), ...Array.getSomes(recipes.map(holder))]).flatMap((target) => linked(name, target, files[0]))), ...reads.flat()];
+});
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const createNodes: CreateNodes = [FILES, (files, options, context) => inferred(graph(context, files, options))];
 
-const createDependencies: CreateDependencies = (options, { workspaceRoot, projects }) => {
-    const roots = createProjectRootMappingsFromProjectConfigurations(projects);
-    const produced = Record.toEntries(projects).flatMap(([name, data]) =>
-        Record.keys(Record.filter(data.targets ?? {}, (target) => target.outputs !== undefined)).flatMap((target) =>
-            getOutputsForTargetAndConfiguration({ project: name, target }, {}, { name, type: 'lib', data })
-                .filter((output) => !output.startsWith('!'))
-                .map((output) => [name, output] as const),
-        ),
-    );
-    const owners = (at: string) => produced.filter(([, output]) => matchesGlob(at, output) || matchesGlob(at, `${output}/**`)).map(([name]) => name);
-    return (reports.get(keyed(workspaceRoot, options)) ?? []).flatMap(({ root, files, contexts }) =>
-        Option.toArray(Option.fromUndefinedOr(roots.get(root))).flatMap((source) =>
-            Array.dedupe(contexts.flatMap(owners))
-                .filter((target) => target !== source)
-                .map((target): RawProjectGraphDependency => ({ source, target, type: DependencyType.static, sourceFile: files[0] })),
-        ),
-    );
-};
+const createDependencies: CreateDependencies = (options, context) => runtime.runPromise(edges(options, context));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -25,6 +25,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Service Definition">
-        <AssemblyMetadata Include="Compose" Value="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', '..', '..', '..', 'infra', 'compose.yaml'))" />
+        <AssemblyMetadata Include="Compose" Value="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '../../../../infra/compose.yaml'))" />
     </ItemGroup>
 </Project>

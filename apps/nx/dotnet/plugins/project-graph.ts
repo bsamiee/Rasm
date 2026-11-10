@@ -44,7 +44,7 @@ const evaluate = Effect.fnUntraced(function* (workspaceRoot: string, files: read
     const digest = ({ evaluated, nodes }: Report) =>
         Effect.map(
             Effect.all([
-                Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...evaluated])),
+                Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...evaluated, ...nodes.flatMap(({ locks }) => locks)])),
                 hashed(
                     fs,
                     path,

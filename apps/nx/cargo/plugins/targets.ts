@@ -57,7 +57,7 @@ const target = (plugin: Plugin, help: string, description: string, options: type
     options,
     metadata: { technologies: TECHNOLOGIES, description, help: { command: `cargo ${help} --help`, example: { args: ['--verbose'] } } },
     ...extra,
-    ...(extra.cache === true ? { inputs: [...(extra.inputs ?? []), ...plugin.inputs] } : {}),
+    ...(extra.inputs === undefined ? {} : { inputs: [...extra.inputs, ...plugin.inputs] }),
 });
 
 const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, files: ReadonlySet<string>, named: readonly Input[], crate: Crate, root: string): Members => {
@@ -141,22 +141,33 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
         libraries.length === 0
             ? { check: {}, fix: {} }
             : {
-                  check: { dylint: target(plugin, 'dylint', `Reports Dylint findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) }, { cache: true, inputs: [...shared, ...libraries, { env: 'DYLINT_RUSTFLAGS' }] }) },
+                  check: {
+                      dylint: target(
+                          plugin,
+                          'dylint',
+                          `Reports Dylint findings for ${crate.name}`,
+                          { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) },
+                          { cache: true, inputs: [...shared, ...libraries, { env: 'DYLINT_RUSTFLAGS' }, { runtime: 'cargo dylint --version' }] },
+                      ),
+                  },
                   fix: { dylint: target(plugin, 'dylint', `Applies Dylint suggestions to ${crate.name}`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, {}) },
               };
     return {
-        build: {
-            cargo: target(
-                plugin,
-                'build',
-                `Builds ${crate.name} with cargo`,
-                { ...selected, commands: built([]), outputs: written('debug') },
-                {
-                    outputs: written('debug').map((_, index) => `{options.outputs.${index}}`),
-                    configurations: Record.fromIterableWith(profiles, (profile) => [profile, { commands: built(['--profile', profile]), outputs: written(profile) }] as const),
-                },
-            ),
-        },
+        build: crate.targets.some(own)
+            ? {
+                  cargo: target(
+                      plugin,
+                      'build',
+                      `Builds ${crate.name} with cargo`,
+                      { ...selected, commands: built([]), outputs: written('debug') },
+                      {
+                          inputs: [...shared],
+                          outputs: written('debug').map((_, index) => `{options.outputs.${index}}`),
+                          configurations: Record.fromIterableWith(profiles, (profile) => [profile, { commands: built(['--profile', profile]), outputs: written(profile) }] as const),
+                      },
+                  ),
+              }
+            : {},
         test: Array.match(runs({ nextest: ['nextest', 'run'], test: ['test'] }), {
             onEmpty: () => ({}),
             onNonEmpty: (commands) => ({
@@ -165,7 +176,7 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
                     Option.isSome(nextest) ? 'nextest run' : 'test',
                     `Tests ${crate.name}`,
                     { ...selected, commands },
-                    { cache: true, inputs: [...shared, ...Option.toArray(Option.map(nextest, (file) => tokened(path, file))), { env: 'NEXTEST_PROFILE' }], ...Option.getOrElse(covered, () => ({})) },
+                    { cache: true, inputs: [...shared, ...Option.toArray(nextest).flatMap((file) => [tokened(path, file), { env: 'NEXTEST_PROFILE' }, { runtime: 'cargo nextest --version' }])], ...Option.getOrElse(covered, () => ({})) },
                 ),
             }),
         }),
@@ -191,7 +202,7 @@ const crateTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace, fil
                       'install',
                       `Builds the binaries of ${crate.name} and installs them into Cargo's install root, in release unless a configuration names a profile`,
                       { cwd: workspace.root, commands: installed([]) },
-                      { configurations: Record.fromIterableWith(workspace.profiles, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) },
+                      { inputs: [...shared], configurations: Record.fromIterableWith(workspace.profiles, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) },
                   ),
               }
             : {},
@@ -217,7 +228,7 @@ const workspaceTargets = (plugin: Plugin, path: Path.Path, workspace: Workspace)
                                         'deny',
                                         `Reports cargo-deny ${selected.join(', ')} findings over the workspace graph, failing on any warning`,
                                         { cwd: workspace.root, commands: [{ args: ['deny', '--workspace', 'check', '--deny', 'warnings', ...selected], report: 'status' }] },
-                                        { ...extra, inputs: [...manifests, lock, ...files.map((file) => tokened(path, file))] },
+                                        { ...extra, inputs: [...manifests, lock, ...files.map((file) => tokened(path, file)), { runtime: 'cargo deny --version' }] },
                                     ),
                                 ] as const,
                             ],

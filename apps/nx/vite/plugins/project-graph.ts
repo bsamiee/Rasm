@@ -1,6 +1,6 @@
 import { matchesGlob } from 'node:path';
 import type { CreateNodes, CreateNodesContext, CreateNodesResultArray, TargetConfiguration } from '@nx/devkit';
-import { aggregated, GENERATED, identity, inferred, launcher, line, type Members, reported } from '@rasm/nx-devkit/inference';
+import { aggregated, GENERATED, identity, inferred, launcher, line, type Members, NODE, reported } from '@rasm/nx-devkit/inference';
 import { resolved } from '@rasm/nx-devkit/reader';
 import { Array, Effect, FileSystem, Option, Path, pipe, Record, Schema } from 'effect';
 import { Job, Report } from '#/plugins/reader';
@@ -36,7 +36,7 @@ const targets = (path: Path.Path, exec: string, cleaner: string, root: string, r
         cache: true,
         metadata: { technologies: [technology], description, help: { command: `${exec} ${line([...argv, '--help'])}`, example: { args: [...example] } } },
     });
-    const inputs = (chain: readonly string[], runner: string, ...extra: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), ...GENERATED.inputs, ...extra, { externalDependencies: [runner] }];
+    const inputs = (chain: readonly string[], runner: string, ...extra: NonNullable<TargetConfiguration['inputs']>): NonNullable<TargetConfiguration['inputs']> => ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), ...GENERATED.inputs, ...extra, NODE, { externalDependencies: [runner] }];
     const written = (folders: readonly string[]) => folders.map((at) => path.join('{workspaceRoot}', at));
     const built = (folders: readonly string[], chain: readonly string[]): Members => ({
         build: {

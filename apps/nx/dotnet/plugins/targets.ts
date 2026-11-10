@@ -93,7 +93,7 @@ const targets = (plugin: Plugin, path: Path.Path, node: Node, named: string): Re
                 inputs: [...plugin.inputs, { dependentTasksOutputFiles: '**/*.sarif', transitive: false }],
                 metadata: { technologies, description: `Fails on each warning or error in the SARIF report the compile of ${node.name} wrote, printed as file(line,col): level id: text` },
             },
-            'dotnet-format': { ...formatted([['format', 'style', '--no-restore', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
+            'dotnet-format': { ...formatted([['format', 'style', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
         },
         test: node.test
             ? {
@@ -120,8 +120,8 @@ const targets = (plugin: Plugin, path: Path.Path, node: Node, named: string): Re
         fix: {
             'dotnet-format': formatted(
                 [
-                    ['format', 'style', '--no-restore'],
-                    ['format', 'analyzers', '--no-restore'],
+                    ['format', 'style'],
+                    ['format', 'analyzers'],
                 ],
                 `Applies the code style and analyzer fixes of ${node.name} with dotnet format style and analyzers`,
             ),
@@ -135,7 +135,7 @@ const targets = (plugin: Plugin, path: Path.Path, node: Node, named: string): Re
                       executor: `${plugin.name}:release-publish`,
                       options: { project },
                       dependsOn: ['^nx-release-publish'],
-                      metadata: { technologies, description: `Packs ${node.name} in Release and pushes the package with dotnet nuget push` },
+                      metadata: { technologies, description: `Packs the Release build of ${node.name} and pushes the package with dotnet nuget push` },
                   },
               }
             : {}),

@@ -467,7 +467,7 @@ catalog:
     # --- [BUILD]
 
     babel-plugin-react-compiler: 1.0.0
-    '@cloudflare/vite-plugin': 2.0.0-beta.v.13
+    '@cloudflare/vite-plugin': 2.0.0-beta.v.14
     '@cloudflare/workers-types': 5.20261110.1
     '@openai/sites-vite-plugin': 0.2.0
     '@cloudflare/build-output-utils': 0.9.11 # Build Output tree reader for hosting programs
@@ -655,6 +655,8 @@ overrides:
 
 update:
     ignoreDeps:
+        - nx # Moved by `nx migrate`, which applies each release's migrations
+        - '@nx/*' # Moved by `nx migrate` with `nx`
         - '@typescript/native' # Held at the native TypeScript release `@effect/tsgo` supports
         - '@duckdb/duckdb-wasm' # Held at tag `next`, SemVer orders `dev57` of tag `latest` above the later `dev114`
         - react-compiler-runtime # Held at tag `latest`, tag `rc` names 19.1.0-rc.3 from the numbering before 1.0.0

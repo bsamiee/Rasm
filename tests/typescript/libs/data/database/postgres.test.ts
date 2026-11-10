@@ -23,7 +23,12 @@ const plans = [inject('artifacts'), 'sql', 'postgres'] as const;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const engine = Layer.unwrap(Effect.map(Store.use(({ postgres }) => postgres), (config) => Pg.layer(config))).pipe(Layer.provide(Store.layer(undefined, failed)));
+const engine = Layer.unwrap(
+    Effect.map(
+        Store.use(({ postgres }) => postgres),
+        Pg.layer,
+    ),
+).pipe(Layer.provide(Store.layer(undefined, failed)));
 
 it.layer(
     Layer.effectDiscard(

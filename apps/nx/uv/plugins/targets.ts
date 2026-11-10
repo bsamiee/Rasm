@@ -78,6 +78,7 @@ const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => 
 const SEPARATOR = /\s+/u;
 const BUILD = 'build--uv';
 const TECHNOLOGIES = ['python'];
+const TOOL = [{ env: 'UV_LOCKED' }, { runtime: 'uv --version' }] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -183,9 +184,13 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
                             ...built,
                             ...checked.inputs,
                             ...row.variables.map((env) => ({ env })),
+                            ...TOOL,
                             dependencies,
                             ...Array.dedupe([member, host]).flatMap(({ workspace, lock }): NonNullable<TargetConfiguration['inputs']> => [path.join('{workspaceRoot}', workspace, '.python-version'), path.join('{workspaceRoot}', lock)]),
-                            ...Array.match(Array.dedupe([...read.projects, ...tool.projects]), { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] }),
+                            ...Array.match(
+                                Array.dedupe([...read.projects, ...tool.projects]).filter((name) => name !== member.name),
+                                { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] },
+                            ),
                             { externalDependencies: [] },
                         ],
                         metadata: { technologies: TECHNOLOGIES, description: row.description, help: { command: line(['uv', 'run', ...row.help]), example: { args: [...row.example] } } },
@@ -207,6 +212,7 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
                                       ...[...roots.values()].filter(({ workspace }) => workspace === member.workspace).map(({ root: at }) => path.join('{workspaceRoot}', at, 'pyproject.toml')),
                                       path.join('{workspaceRoot}', member.lock),
                                       ...['uv.toml', '.python-version'].map((file) => path.join('{projectRoot}', file)),
+                                      ...TOOL,
                                       { externalDependencies: [] },
                                   ],
                                   metadata: { technologies: TECHNOLOGIES, description: 'Resolves the workspace and reports the changes uv.lock lacks without writing it, failing on a stale lock under UV_LOCKED', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
@@ -255,7 +261,7 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
                                 executor: 'nx:run-commands',
                                 options: { command: line(['uv', 'build', '--package', name, '--no-sources', '--out-dir', path.relative(member.workspace, folder), '--clear']), cwd: member.workspace },
                                 cache: true,
-                                inputs: ['{projectRoot}/**/*', ...built, { externalDependencies: [] }],
+                                inputs: ['{projectRoot}/**/*', ...built, ...TOOL, { externalDependencies: [] }],
                                 outputs: [path.join('{workspaceRoot}', folder)],
                                 metadata: { technologies: TECHNOLOGIES, description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
                             },

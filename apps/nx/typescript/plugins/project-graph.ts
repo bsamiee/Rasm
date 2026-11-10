@@ -2,7 +2,7 @@ import { findPackageJSON } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { type CreateNodes, type CreateNodesContext, type CreateNodesResultArray, hashArray, type TargetConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext } from '@nx/devkit/internal';
-import { aggregated, CONFIG, cached, GENERATED, identity, inferred, launcher, line, type Members, reported } from '@rasm/nx-devkit/inference';
+import { aggregated, CONFIG, cached, GENERATED, identity, inferred, launcher, line, type Members, NODE, reported } from '@rasm/nx-devkit/inference';
 import { ToolError } from '@rasm/nx-devkit/process';
 import { configured, type Solution } from '@rasm/nx-devkit/typescript';
 import { Array, Effect, FileSystem, Option, Path, Result } from 'effect';
@@ -69,7 +69,7 @@ const compiled = (path: Path.Path, exec: string, program: Program, external: rea
                               options: { command: 'publint --strict', cwd: program.root },
                               dependsOn: ['build--*'],
                               cache: true,
-                              inputs: ['default', { dependentTasksOutputFiles: '**/*' }, { externalDependencies: ['publint'] }],
+                              inputs: ['default', { dependentTasksOutputFiles: '**/*' }, NODE, { externalDependencies: ['publint'] }],
                               outputs: [],
                               metadata: { technologies: TECHNOLOGIES, description: 'Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', help: { command: `${exec} publint run --help`, example: { args: ['--level', 'warning'] } } },
                           },

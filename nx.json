@@ -10,7 +10,7 @@
         "@rasm/nx-cargo",
         { "plugin": "@rasm/nx-uv", "options": { "outputPath": ".artifacts" }, "exclude": [ ".config/mise/locks/**" ] },
         "@rasm/nx-dotnet",
-        "@rasm/nx-docker",
+        { "plugin": "@rasm/nx-docker", "options": { "clients": [ "tests/**" ] } },
         "@rasm/nx-pulumi",
         "@rasm/nx-pnpm",
         "@rasm/nx-buf",
@@ -26,7 +26,7 @@
         "projects": [ "tag:npm:public", "tag:release" ],
         "projectsRelationship": "independent",
         "releaseTag": { "pattern": "{projectName}@{version}" },
-        "version": { "conventionalCommits": true, "fallbackCurrentVersionResolver": "disk", "preVersionCommand": "nx run-many -t build --projects=tag:npm:public" },
+        "version": { "conventionalCommits": true, "fallbackCurrentVersionResolver": "disk" },
         "conventionalCommits": { "useCommitScope": false, "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
         "changelog": { "automaticFromRef": true, "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } } }
     }

@@ -1,9 +1,10 @@
 import { execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { detectPackageManager, hashArray, normalizePath } from '@nx/devkit';
-import { getLockFileName, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, killProcessTreeGraceful } from '@nx/devkit/internal';
+import { globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, killProcessTreeGraceful } from '@nx/devkit/internal';
+import { getLockFileName } from '@nx/js';
 import { type RawTsconfigJsonCache, walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Duration, Effect, Fiber, Option, Path, Queue, Result, Schema, Stream } from 'effect';
+import { Array, Config, Duration, Effect, Fiber, Option, Path, Queue, Result, Schema, Stream } from 'effect';
 import { ancestors, CONFIG, cached } from '#/inference';
 import { spawned, ToolError } from '#/process';
 import { type Job, Jobs, REPLIES, Reply } from '#/reply';
@@ -108,6 +109,7 @@ const resolved = Effect.fn('resolved')(function* <J extends Job, A, I>({
 }) {
     const path = yield* Path.Path;
     const [protocol, reply, stored] = [Jobs(job), Reply(report), Schema.toCodecJson(report)];
+    const ci = Option.getOrUndefined(yield* Effect.orDie(Config.option(Config.String('CI'))));
     const [cache, lock, chains] = yield* Effect.all([
         cached<{ readonly report: unknown; readonly loaded: readonly string[] }>(plugin, options),
         Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [getLockFileName(detectPackageManager(workspaceRoot))])),
@@ -135,7 +137,7 @@ const resolved = Effect.fn('resolved')(function* <J extends Job, A, I>({
                     Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [each.file, path.join(each.root, MANIFEST), ...chain, ...loaded])),
                     (content) => hashArray([plugin.digest, lock, names, content]),
                 );
-            const key = hashObject({ each, launch: launch(each) });
+            const key = hashObject({ each, launch: launch(each), ci });
             return { each, key, digest, chain: chain.filter((at) => !at.startsWith(`${each.root}/`)), kept: Option.flatMap(yield* cache.get(key, ({ loaded }) => digest(loaded)), restored) };
         }),
         { concurrency: 'unbounded' },

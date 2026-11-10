@@ -17,6 +17,7 @@
     "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
         "@nx/devkit": "catalog:",
+        "@nx/js": "catalog:",
         "@rasm/nx-devkit": "workspace:*",
         "effect": "catalog:",
         "yaml": "catalog:"

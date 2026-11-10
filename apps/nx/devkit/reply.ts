@@ -1,6 +1,6 @@
 import { writeSync } from 'node:fs';
 import { registerHooks } from 'node:module';
-import { chdir, cwd, exit, stdin } from 'node:process';
+import { chdir, cwd, env, exit, stdin } from 'node:process';
 import { text } from 'node:stream/consumers';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { NodeServices } from '@effect/platform-node/NodeServices';
@@ -37,6 +37,15 @@ const served = Effect.fn('served')(function* <J extends Job, A, I>(job: J, repor
     const path = yield* Path.Path;
     const workspaceRoot = cwd();
     const edges = new Map<string | undefined, Set<string>>();
+    const ambient = { ...env };
+    const entered = (root: string) =>
+        Effect.sync(() => {
+            Object.keys(env)
+                .filter((name) => !(name in ambient))
+                .forEach((name) => Reflect.deleteProperty(env, name));
+            Object.assign(env, ambient);
+            chdir(path.join(workspaceRoot, root));
+        });
     const [jobs, reply] = [
         yield* Effect.flatMap(
             Effect.promise(() => text(stdin)),
@@ -56,7 +65,7 @@ const served = Effect.fn('served')(function* <J extends Job, A, I>(job: J, repor
     yield* Effect.forEach(
         jobs,
         Effect.fnUntraced(function* (each) {
-            yield* Effect.sync(() => chdir(path.join(workspaceRoot, each.root)));
+            yield* entered(each.root);
             const outcome = yield* Effect.result(read(each, workspaceRoot));
             const sources = Result.getOrElse(Result.map(outcome, Struct.get('sources')), Array.empty<string>);
             const line = yield* reply({ loaded: Array.dedupe([...reached(path, edges, workspaceRoot, each.root), ...sources].map((at) => path.relative(workspaceRoot, at))), outcome: Result.map(outcome, Struct.get('report')) });

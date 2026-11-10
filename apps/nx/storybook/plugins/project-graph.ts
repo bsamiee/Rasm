@@ -1,5 +1,5 @@
 import type { CreateNodes, CreateNodesContext, CreateNodesResultArray, TargetConfiguration } from '@nx/devkit';
-import { aggregated, identity, inferred, launcher, line, reported } from '@rasm/nx-devkit/inference';
+import { aggregated, identity, inferred, launcher, line, NODE, reported } from '@rasm/nx-devkit/inference';
 import { resolved } from '@rasm/nx-devkit/reader';
 import { Array, Effect, FileSystem, Option, Path, Schema } from 'effect';
 import { Job, Report } from '#/plugins/reader';
@@ -22,7 +22,7 @@ const built = (path: Path.Path, exec: string, root: string, chain: readonly stri
         executor: 'nx:run-commands',
         options: { command: line(['storybook', 'build', ...Option.match(placed, { onNone: () => [], onSome: (at) => ['--output-dir', at] })]), cwd: root },
         cache: true,
-        inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { externalDependencies: Array.dedupe(['storybook', ...packages]) }],
+        inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), NODE, { externalDependencies: Array.dedupe(['storybook', ...packages]) }],
         outputs: [Option.match(placed, { onNone: () => '{projectRoot}/storybook-static', onSome: (at) => path.join('{workspaceRoot}', root, at) })],
         metadata: { technologies: TECHNOLOGIES, description: 'Builds the static Storybook of the project stories', help: { command: `${exec} storybook build --help`, example: { args: ['--test'] } } },
     };

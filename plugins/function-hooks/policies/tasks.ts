@@ -18,7 +18,6 @@ interface Runner {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CACHE_FLAGS = new Set(['--skip-nx-cache', '--disable-nx-cache']);
 const ADDRESSING = new Set(['--projects', '--targets', '--target']);
 const AGGREGATE = 'nx:noop';
 const SEARCH_PATH = 'PYTHONPATH';
@@ -210,13 +209,6 @@ const askedTargets = (site: Site, graph: ProjectGraph) => {
     return Array.cartesian(nodes, targets).filter(([node, target]) => targetsOf(node)[target] !== undefined);
 };
 
-const cacheFlags: Fix = Effect.fnUntraced(function* (site, { host }) {
-    const asked = Option.match(yield* host.graph, { onNone: () => [], onSome: (graph) => askedTargets(site, graph) });
-    const names = [...new Set(asked.map(([, target]) => target))].join(' ');
-    const cached = asked.every(([node, target]) => [target, ...members(targetsOf(node), target)].every((name) => patternsOf(targetsOf(node)[name] ?? {}).length > 0 || targetsOf(node)[name]?.cache === true));
-    return asked.length > 0 && cached ? site.items.filter(({ names: flagged }) => !new Set(flagged).isDisjointFrom(CACHE_FLAGS)).flatMap(({ words }) => cut(site, words, `nx ${words[0].text} on ${names}`)) : [];
-});
-
 const aggregateArgs: Fix = Effect.fnUntraced(function* (site, { host }) {
     const asked = Option.match(yield* host.graph, { onNone: () => [], onSome: (graph) => askedTargets(site, graph) });
     const [aggregate] = asked.filter(([asking, target]) => patternsOf(targetsOf(asking)[target] ?? {}).length > 0);
@@ -332,14 +324,17 @@ const TASKS: Policy = {
             reports: true,
             flags: ['-c, --configuration=', '-t, --targets=', '--target=', '-p, --projects=', '--args='],
             fixes: [
-                when(has(...CACHE_FLAGS), cacheFlags),
                 when((site) => holds(PUBLISH)(site) || holds(PUBLISH, '--targets', '--target')(site), refuse('publishes dependencies for real', 'run nx release')),
                 unassign(/^NX_DAEMON=false$/u),
                 when((site) => site.tail.length > 0, aggregateArgs),
                 when((site) => site.tail.length > 0 || site.has('--args'), forwardedOptions),
                 (site) => (launcherStart(site) === site.head ? [] : edited(site, { start: launcherStart(site).start, end: site.head.start }, '')),
-                perSubcommand({ show: [hiddenErrors], graph: [hiddenErrors], reset: [(site, { host }) => (Option.exists(folderOf(host, site), (place) => host.inside(place, host.root)) ? refuse('drops the graph', 'fix the inputs')(site) : [])] }),
-                looped('nx tasks', 'use one nx run-many', 'show'),
+                perSubcommand({
+                    show: [hiddenErrors],
+                    graph: [hiddenErrors],
+                    reset: [(site, { host }) => (!site.has('--only-cache', '--only-daemon', '--only-cloud') && Option.exists(folderOf(host, site), (place) => host.inside(place, host.root)) ? refuse('drops the graph', 'fix the inputs or pass --only-cache')(site) : [])],
+                }),
+                when((site) => !site.has('--graph'), looped('nx tasks', 'use one nx run-many', 'show', 'graph')),
             ],
         },
         tsc: {

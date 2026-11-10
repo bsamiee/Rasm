@@ -73,7 +73,6 @@ internal static class Workspace {
         Seq<ProjectInstance> instances = Seq(outer) + modes.Bind(static mode => mode.Instances);
         string Placed(string output) => Relative(root, Path.GetFullPath(Path.Combine(folder, output)));
         string Extensions(ProjectInstance instance) => Path.GetFullPath(Path.Combine(folder, instance.GetPropertyValue("MSBuildProjectExtensionsPath")));
-        Seq<string> Restore(Seq<ProjectInstance> held) => held.Map(Extensions).Distinct().Filter(Directory.Exists).Bind(static at => toSeq(Directory.EnumerateFiles(at))).Map(file => Relative(root, file));
         Seq<string> imports =
             from instance in instances
             from import in toSeq(instance.ImportPaths)
@@ -98,7 +97,7 @@ internal static class Workspace {
                 [.. modes.Map(mode => new Mode(
                     mode.Configuration,
                     mode.Runtime.ValueUnsafe(),
-                    [.. mode.Instances.Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath"))).Map(Placed).Append(Restore(mode.Instances)).Distinct().Order(StringComparer.Ordinal)],
+                    [.. mode.Instances.Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath"))).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
                     [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
                     [.. mode.Instances.Choose(static instance => toSeq(instance.GetPropertyValue("ErrorLog").Split([';', ','], StringSplitOptions.RemoveEmptyEntries)).Head).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
                 [.. instances

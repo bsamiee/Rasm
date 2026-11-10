@@ -1,5 +1,5 @@
 import type { CreateNodes, CreateNodesContext, CreateNodesResultArray } from '@nx/devkit';
-import { getLockFileName } from '@nx/devkit/internal';
+import { getLockFileName } from '@nx/js';
 import { aggregated, identity, inferred } from '@rasm/nx-devkit/inference';
 import { Effect, FileSystem, Path } from 'effect';
 

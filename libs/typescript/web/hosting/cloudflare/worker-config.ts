@@ -30,6 +30,8 @@ const worker = <const E extends Record.ReadonlyRecord<string, Binding>, const C 
         name: App.resource(app, 'production'),
         env: {
             ...Struct.get(config, 'env'),
+            OTEL_SERVICE_NAME: bindings.text(app.name),
+            UPLOAD_PREFIX: bindings.text(App.uploads),
             ...Struct.evolve(
                 Record.map<keyof E & string, Binding, string>(app.env, (_, variable) => App.resource(app, 'production', variable)),
                 Struct.map(app.env, Struct.lambda<Projection>(App.Binding.$match(projection))),

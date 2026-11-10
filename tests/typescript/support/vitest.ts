@@ -64,6 +64,7 @@ const testPolicy = (): Plugin => {
             const artifacts = dirname(vitest.config.attachmentsDir);
             project.provide('artifacts', artifacts);
             project.config.browser.trace.tracesDir ??= join(artifacts, 'traces');
+            project.config.browser.screenshotDirectory ??= join(artifacts, 'screenshots');
             Array.filterMap(vitest.config.reporters, (entry) => (Array.isArray(entry) && entry[0] === html ? Result.succeed(entry[1]) : Result.failVoid)).forEach((options) => Object.assign(options, { outputDir: join(artifacts, 'html'), ...options }));
         },
     };

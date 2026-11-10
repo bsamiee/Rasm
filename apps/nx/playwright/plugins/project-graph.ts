@@ -1,5 +1,5 @@
 import type { CreateNodes, CreateNodesContext, CreateNodesResultArray, TargetConfiguration } from '@nx/devkit';
-import { aggregated, identity, inferred, launcher, line, reported } from '@rasm/nx-devkit/inference';
+import { aggregated, identity, inferred, launcher, line, NODE, reported } from '@rasm/nx-devkit/inference';
 import { resolved } from '@rasm/nx-devkit/reader';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema } from 'effect';
 import { Job, Report } from '#/plugins/reader';
@@ -25,7 +25,7 @@ const tested = (path: Path.Path, exec: string, { root, flags }: typeof Job.Type,
         executor: 'nx:run-commands',
         options: { command: line(['playwright', 'test', ...flags]), cwd: root, ...Option.getOrUndefined(Option.map(at, (folder) => ({ env: Record.map(DIRECTED, ([, name]) => path.join(folder, name)) }))) },
         cache: true,
-        inputs: ['default', '^default', ...read.filter((loaded) => !loaded.startsWith(`${root}/`)).map((loaded) => path.join('{workspaceRoot}', loaded)), { env: 'CI' }, { externalDependencies: ['@playwright/test'] }],
+        inputs: ['default', '^default', ...read.filter((loaded) => !loaded.startsWith(`${root}/`)).map((loaded) => path.join('{workspaceRoot}', loaded)), { env: 'CI' }, NODE, { externalDependencies: ['@playwright/test'] }],
         outputs: [...Option.toArray(within), ...folders.filter((written) => !Option.exists(within, (folder) => written.startsWith(`${folder}/`)))].map((written) => path.join('{workspaceRoot}', written)),
         metadata: { technologies: TECHNOLOGIES, description: 'Runs every Playwright project of the suite with playwright test', help: { command: `${exec} playwright test --help`, example: { args: ['--debug=cli'] } } },
     };

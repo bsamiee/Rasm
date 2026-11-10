@@ -17,7 +17,7 @@ lazy from rasm_testing import Defined, defined, RustfsContainer, settled, Starte
 @pytest.fixture(scope="session")
 def rows(pytestconfig: pytest.Config) -> Callable[[str], Defined]:
     """Returns the reader of a server row of `infra/compose.yaml`, each row resolved by Compose once for the test process."""
-    return functools.cache(lambda service: settled(defined(pytestconfig.rootpath / "infra" / "compose.yaml", service)))
+    return functools.cache(lambda service: settled(defined(pytestconfig.rootpath / "infra/compose.yaml", service)))
 
 
 @pytest.fixture(scope="session")

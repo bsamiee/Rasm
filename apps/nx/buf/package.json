@@ -17,8 +17,7 @@
     "dependencies": {
         "@nx/devkit": "catalog:",
         "@rasm/nx-devkit": "workspace:*",
-        "effect": "catalog:",
-        "yaml": "catalog:"
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@types/node": "catalog:",
