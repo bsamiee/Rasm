@@ -56,6 +56,7 @@ jobs:
         env:
             DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
             RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
+            RhinoInstallPath: /Applications/RhinoBETA.app # Folder `mcneel/setup-rhino3d` installs its `wip` release into, read by MSBuild as a property
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
