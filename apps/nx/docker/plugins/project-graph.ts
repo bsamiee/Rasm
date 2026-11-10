@@ -36,7 +36,7 @@ const Report = Schema.fromJsonString(
 );
 const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
 const Options = Schema.Struct({ clients: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed(['**/*']))) }).annotate({
-    description: 'clients: globs of the files read for a Compose file named by path (from their folder, their project root, or the workspace root) or a variable it publishes a port under, each match an edge from its project to the Compose project',
+    description: 'clients: globs of the files read for a Compose file named by path (from their folder, their project root, or the workspace root) or a variable it publishes a port under in any letter case (a field a library derives the variable from), each match an edge from its project to the Compose project',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -167,14 +167,15 @@ const edges = Effect.fnUntraced(function* (options: unknown, { workspaceRoot, pr
     const holder = (file: string) => Array.findFirst(ancestors(path, path.dirname(file)), (folder) => Option.fromUndefinedOr(roots.get(folder)));
     const composed = Array.getSomes((reports.get(keyed(workspaceRoot, options)) ?? []).map((project) => Option.map(Option.fromUndefinedOr(roots.get(project.root)), (name) => ({ ...project, name }))));
     const named = new Map(composed.flatMap(({ files, published, name }) => [...files, ...published].map((reference) => [reference, name] as const)));
-    const names = Array.dedupe([...named.keys()].map((reference) => path.basename(reference)));
+    const names = Array.dedupe([...named.keys()].map((reference) => path.basename(reference).toUpperCase()));
     const moved = [...Object.values(filesToProcess.projectFileMap).flat(), ...filesToProcess.nonProjectFiles].some(({ file }) => named.has(file));
     const client = (file: string) => clients.some((glob) => matchesGlob(file, glob));
     const candidates = Record.toEntries((moved ? fileMap : filesToProcess).projectFileMap).flatMap(([source, files]) => files.filter(({ file }) => client(file)).map(({ file }) => ({ source, file })));
     const linked = (source: string, target: string, sourceFile: string): readonly RawProjectGraphDependency[] => (source === target ? [] : [{ source, target, type: DependencyType.static, sourceFile }]);
     const referenced = ({ source, file }: (typeof candidates)[number], text: string) => {
         const bases = [path.dirname(file), projects[source]?.root ?? '.', '.'];
-        const paths = names.some((name) => text.includes(name)) ? (text.match(PATHS) ?? []).flatMap((token) => bases.map((base) => path.normalize(path.join(base, token)))) : [];
+        const folded = text.toUpperCase();
+        const paths = names.some((name) => folded.includes(name)) ? (text.match(PATHS) ?? []).flatMap((token) => [token.toUpperCase(), ...bases.map((base) => path.normalize(path.join(base, token)))]) : [];
         return Array.dedupe(Array.getSomes(paths.map((at) => Option.fromUndefinedOr(named.get(at))))).flatMap((target) => linked(source, target, file));
     };
     const reads = yield* Effect.forEach(
