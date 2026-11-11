@@ -1,13 +1,12 @@
 import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
 import { ancestors, type Identity, type Members } from '@rasm/nx-devkit/plugin';
-import { cleaned, commanded, described, type Inputs, line } from '@rasm/nx-devkit/target';
 import { Array, Equivalence, Option, type Path, Record, Result, String } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
 import { CLIPPY_CONF_DIR, CONFIG, LOCK, MANIFEST, nearest, type Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Input = Inputs[number];
+type Input = NonNullable<TargetConfiguration['inputs']>[number];
 type Crate = Workspace['metadata']['packages'][number];
 type Target = Crate['targets'][number];
 
@@ -50,12 +49,12 @@ const configured = (...keys: readonly string[]) => ({ env: `CARGO_${keys.join('_
 const target = (plugin: Identity, help: string, description: string, options: typeof Cargo.Type & { readonly outputs?: readonly string[] }, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
     executor: `${plugin.name}:cargo`,
     options,
-    metadata: described({ description, help: `cargo ${help} --help`, example: { args: ['--verbose'] } }),
+    metadata: { description, help: { command: `cargo ${help} --help`, example: { args: ['--verbose'] } } },
     ...extra,
     ...(extra.inputs === undefined ? {} : { inputs: [...extra.inputs, ...plugin.inputs] }),
 });
 
-const crateTargets = (plugin: Identity, path: Path.Path, workspace: Workspace, files: ReadonlySet<string>, named: readonly Input[], crate: Crate, root: string): Members => {
+const crateTargets = (plugin: Identity, path: Path.Path, workspace: Workspace, files: ReadonlySet<string>, named: readonly Input[], crate: Crate, root: string) => {
     const selected = { cwd: workspace.root, package: crate.name };
     const shared: readonly Input[] = [
         ...named,
@@ -176,14 +175,17 @@ const crateTargets = (plugin: Identity, path: Path.Path, workspace: Workspace, f
             }),
         }),
         check: {
-            [compiler.tool]: target(plugin, line(compiler.check), `Reports ${compiler.tool} findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: [...compiler.check, ...selection] })) }, { cache: true, inputs: [...shared, ...compiler.inputs] }),
+            [compiler.tool]: target(plugin, compiler.check.join(' '), `Reports ${compiler.tool} findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: [...compiler.check, ...selection] })) }, { cache: true, inputs: [...shared, ...compiler.inputs] }),
             ...linted.check,
         },
         clean: {
-            cargo: cleaned(plugin, [['cargo', 'clean', '--package', crate.name]], workspace.root, { description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean`, help: 'cargo clean --help', example: { args: ['--release'] } }, [['cargo', 'clean', '--package', crate.name, '--dry-run']]),
+            cargo: {
+                options: { commands: [['cargo', 'clean', '--package', crate.name]], cwd: workspace.root, previews: [['cargo', 'clean', '--package', crate.name, '--dry-run']] },
+                metadata: { description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean`, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
+            },
         },
         fix: {
-            [compiler.tool]: target(plugin, line(compiler.fix), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, {}),
+            [compiler.tool]: target(plugin, compiler.fix.join(' '), `Applies ${compiler.tool} suggestions to ${crate.name}`, { ...selected, commands: [{ args: [...compiler.fix, '--allow-dirty', ...filters, '--keep-going'], report: 'messages' }] }, {}),
             ...linted.fix,
         },
         install: crate.targets.some(binary)
@@ -197,7 +199,7 @@ const crateTargets = (plugin: Identity, path: Path.Path, workspace: Workspace, f
                   ),
               }
             : {},
-    };
+    } satisfies Members;
 };
 
 const workspaceTargets = (plugin: Identity, path: Path.Path, workspace: Workspace) => {
@@ -228,15 +230,12 @@ const workspaceTargets = (plugin: Identity, path: Path.Path, workspace: Workspac
                 ),
         }),
         upgrade: {
-            cargo: commanded(
-                [
-                    ['cargo', 'upgrade', '--incompatible', 'allow'],
-                    ['cargo', 'update'],
-                ],
-                workspace.root,
-                { description: 'Moves every dependency requirement to its newest release with cargo upgrade, then the lock with cargo update', help: 'cargo upgrade --help', example: { args: ['--dry-run'] } },
-                { outputs: [...manifests, lock] },
-            ),
+            cargo: {
+                executor: 'nx:run-commands',
+                options: { commands: ['cargo upgrade --incompatible allow', 'cargo update'], parallel: false, cwd: workspace.root },
+                outputs: [...manifests, lock],
+                metadata: { description: 'Moves every dependency requirement to its newest release with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { args: ['--dry-run'] } } },
+            },
         },
     } satisfies Members;
 };

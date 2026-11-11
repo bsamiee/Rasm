@@ -1,6 +1,5 @@
 import { inferred, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { commanded } from '@rasm/nx-devkit/target';
 import { Array, Effect, FileSystem, Option, Path, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
 
@@ -30,7 +29,6 @@ const { createNodes } = inferred({
     options: Schema.Struct({}),
     units: ({ files }: Request<unknown>) => Effect.succeed(files.map((file) => ({ key: file, file }))),
     read: (missing: Array.NonEmptyReadonlyArray<Unit>, { context }: Request<unknown>) => Effect.forEach(missing, ({ file }) => decoded(context.workspaceRoot, file), { concurrency: 'unbounded' }),
-    sources: (_: typeof Template.Type, { file }) => ({ tracked: [file] }),
     projects: ({ inputs, plugins }: typeof Template.Type, { file }, { path }) => {
         const root = path.dirname(file);
         return [
@@ -41,16 +39,13 @@ const { createNodes } = inferred({
                 clean: 'buf',
                 members: {
                     build: {
-                        buf: commanded(
-                            [['buf', 'generate']],
-                            root,
-                            { description: `Generates code from the Protobuf inputs of ${TEMPLATE} with buf generate`, help: 'buf generate --help', example: { args: ['--debug'] } },
-                            {
-                                cache: true,
-                                inputs: [`{projectRoot}/${TEMPLATE}`, ...Array.getSomes(inputs.map(({ directory }) => Option.fromUndefinedOr(directory))).map((directory) => path.join('{workspaceRoot}', root, directory, '**/*.proto')), { runtime: 'buf --version' }, { externalDependencies: [] }],
-                                outputs: plugins.map(({ out }) => path.join('{workspaceRoot}', root, out)),
-                            },
-                        ),
+                        buf: {
+                            command: 'buf generate',
+                            cache: true,
+                            inputs: [`{projectRoot}/${TEMPLATE}`, ...Array.getSomes(inputs.map(({ directory }) => Option.fromUndefinedOr(directory))).map((directory) => path.join('{workspaceRoot}', root, directory, '**/*.proto')), { runtime: 'buf --version' }, { externalDependencies: [] }],
+                            outputs: plugins.map(({ out }) => path.join('{workspaceRoot}', root, out)),
+                            metadata: { description: `Generates code from the Protobuf inputs of ${TEMPLATE} with buf generate`, help: { command: 'buf generate --help', example: { args: ['--debug'] } } },
+                        },
                     },
                 },
             },

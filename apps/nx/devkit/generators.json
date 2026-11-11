@@ -3,7 +3,7 @@
         "executor-schemas": {
             "factory": "./dist/generators/executor-schemas/generator#generate",
             "schema": "./generators/executor-schemas/schema.json",
-            "description": "Writes each workspace executor's schema.json from the options schema its implementation declares; runs through nx sync"
+            "description": "Writes each workspace executor's schema.json and executors.json description from the options schema its implementation declares; runs through nx sync"
         }
     }
 }

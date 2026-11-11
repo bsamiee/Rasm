@@ -3,22 +3,22 @@
         "install": {
             "implementation": "./dist/executors/install/executor#execute",
             "schema": "./executors/install/schema.json",
-            "description": "Builds a SwiftPM executable product and replaces it in SwiftPM's install folder"
+            "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Attaches the zips a release build wrote to the project's GitHub release and adds notarized apps to their Sparkle feeds"
+            "description": "Attaches each folder's zip at the version nx release set to the project's GitHub release, then publishes each notarized app naming SUFeedURL to its Sparkle feed"
         },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",
             "schema": "./executors/run/schema.json",
-            "description": "Runs swift or xcodebuild invocations in order, with Nx's per-task environment removed"
+            "description": "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed, stopping at the first failure"
         },
         "zip": {
             "implementation": "./dist/executors/zip/executor#execute",
             "schema": "./executors/zip/schema.json",
-            "description": "Zips each archived app and each SwiftPM executable product's release build, exporting, notarizing, and stapling a Developer ID app first under a notary profile"
+            "description": "Zips each archived app and each SwiftPM executable product's release build with ditto; an archive with a method is exported with it first, notarized with notarytool, stapled, and zipped again"
         }
     }
 }

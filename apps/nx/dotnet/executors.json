@@ -5,19 +5,19 @@
             "batchImplementation": "./dist/executors/build/executor#batch",
             "schema": "./executors/build/schema.json",
             "preferBatch": true,
-            "description": "Runs dotnet build or publish once over a traversal project of every batched project, MSBuild ordering them and reporting each project's result"
+            "description": "Runs dotnet build or dotnet publish once over a generated traversal project of every batched project, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result"
         },
         "check": {
             "implementation": "./dist/executors/check/executor#execute",
             "schema": "./executors/check/schema.json",
-            "description": "Reads the SARIF 2.1 reports a project's compile wrote and fails on each warning or error no suppression answers, with no second compile"
+            "description": "Reads the SARIF 2.1 reports a project's compile wrote through ErrorLog and fails on each result at level warning or error that no suppression answers, printed as file(line,col): level id: text"
         },
         "format": {
             "implementation": "./dist/executors/format/executor#execute",
             "batchImplementation": "./dist/executors/format/executor#batch",
             "schema": "./executors/format/schema.json",
             "preferBatch": true,
-            "description": "Runs dotnet format commands on one project, or once over a solution of every batched project written outside the workspace"
+            "description": "Runs dotnet format commands in order on one project, or once each over a solution of every batched project"
         }
     }
 }

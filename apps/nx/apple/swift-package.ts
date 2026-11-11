@@ -1,6 +1,5 @@
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import type { Identity, Members } from '@rasm/nx-devkit/plugin';
-import { cleaned } from '@rasm/nx-devkit/target';
 import { Array, Effect, Option, type Path, pipe, Record, Schema } from 'effect';
 import { GIT_STATUS, type Part, published, type Settings, target } from '#/targets';
 
@@ -117,9 +116,9 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
     const owned: Members = {
         ...work,
         upgrade: { 'swift-package': upgrade },
-        clean: { 'swift-package': cleaned(plugin, [['swift', 'package', '--package-path', root, 'clean']], '.', { description: `Removes the build folder of ${manifest.name} with swift package clean`, help: 'swift package clean --help' }) },
+        clean: { 'swift-package': { options: { commands: [['swift', 'package', '--package-path', root, 'clean']], cwd: '.' }, metadata: { description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } } } },
     };
-    return [{ name: manifest.name, at: root, own: owned }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own }): Part => {
+    return [{ name: manifest.name, at: root, own: owned }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own, own: { build: builds } }): Part => {
         const part = { root: at, name, file, technologies: ['swift'], clean: 'swift-package' };
         return Option.match(
             Option.map(Option.fromUndefinedOr(products.get(name)), (product) => shipped(product, at)),
@@ -127,7 +126,7 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
                 onNone: () => ({ ...part, members: own }),
                 onSome: ({ install, zipped }) => ({
                     ...part,
-                    members: { ...own, build: { ...own.build, ...Option.getOrUndefined(Option.map(zipped, ({ ditto }) => ({ ditto }))) }, install: { 'swift-package': install } },
+                    members: { ...own, build: { ...builds, ...Option.getOrUndefined(Option.map(zipped, ({ ditto }) => ({ ditto }))) }, install: { 'swift-package': install } },
                     ...Option.getOrUndefined(Option.map(zipped, ({ published: release }) => ({ published: release }))),
                     release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: INFO } } },
                 }),

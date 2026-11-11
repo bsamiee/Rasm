@@ -3,7 +3,7 @@
         "stacks": {
             "implementation": "./dist/executors/stacks/executor#execute",
             "schema": "./executors/stacks/schema.json",
-            "description": "Applies the stacks a program package states for a project's install, deploy, or released version through the Pulumi Automation API"
+            "description": "Applies the stacks a program package states for a project through the Pulumi Automation API, refreshing live state first, previewing a release under a dry run"
         }
     }
 }

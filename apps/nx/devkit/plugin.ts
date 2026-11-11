@@ -18,16 +18,14 @@ import {
     type RawProjectGraphDependency,
     type TargetConfiguration,
 } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, interpolate, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, type ManagedRuntime, Option, Order, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, interpolate, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { Array, Effect, FileSystem, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
 import { runtime, ToolError } from '#/process';
-import type { Inputs } from '#/target';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Verb = 'build' | 'check' | 'fix' | 'test' | 'serve' | 'preview' | 'install' | 'deploy' | 'upgrade' | 'clean';
-type Members = { readonly [V in Verb]?: Readonly<Record<string, TargetConfiguration>> };
+type Members = Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>>;
 type Services = ManagedRuntime.ManagedRuntime.Services<typeof runtime> | Scope.Scope;
 type Failure = readonly [file: string, error: Error];
 type Identity = Effect.Success<ReturnType<typeof identity>>;
@@ -79,7 +77,7 @@ interface Declaration<O, U extends Unit, R, E> {
     readonly options: Schema.Decoder<O>;
     readonly units: (request: Request<O>) => Effect.Effect<readonly U[], E, Services>;
     readonly read: (missing: Array.NonEmptyReadonlyArray<U>, request: Request<O>) => Effect.Effect<readonly Result.Result<Reading<R>, Error>[], E, Services>;
-    readonly sources: (report: R, unit: U, request: Request<O>) => Sources;
+    readonly sources?: (report: R, unit: U, request: Request<O>) => Sources;
     readonly projects: (report: R, unit: U, request: Request<O>) => readonly Project[];
     readonly edges?: (reports: readonly (readonly [U, R])[], context: CreateDependenciesContext, request: Request<O>) => Effect.Effect<readonly RawProjectGraphDependency[], E, Services>;
 }
@@ -87,24 +85,25 @@ interface Declaration<O, U extends Unit, R, E> {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
-const UNSTATED = ['default', '^default'] as const satisfies Inputs;
-const MANIFEST = 'package.json';
+const UNSTATED = ['default', '^default'] as const;
+const NODE = { runtime: 'node --version' } as const;
+const MANIFESTS = '{package,project}.json';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Dependencies = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String, dependencies: Dependencies, optionalDependencies: Dependencies }));
-const Row = Schema.Union([Schema.Literal(false), Schema.declare((value: unknown): value is TargetConfiguration & { readonly name?: string } => Predicate.isObject(value) && (!Predicate.hasProperty(value, 'name') || Predicate.isString(value.name)))]);
 const Common = Schema.Struct({
     outputPath: Schema.optionalKey(Schema.String),
-    targets: Schema.Record(Schema.String, Row).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     tags: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
 }).annotate({
     description:
-        'Options every plugin row reads, each defaulting to the value under the devkit package name in nx.json pluginsConfig. outputPath: workspace folder a target writes generated output under as <outputPath>/<tool>/<project name>, absent leaves each tool its own folder. targets: inferred target name or glob to false (removes it) or a target configuration Nx merges over it, its name renaming it. tags: kind a plugin states for a project (os, host, release) to the tag it takes, {<kind>} standing for the value',
+        'Options every plugin row reads, each defaulting to the value under the devkit package name in nx.json pluginsConfig. outputPath: workspace folder a target writes generated output under as <outputPath>/<tool>/<project name>, absent leaves each tool its own folder. tags: kind a plugin states for a project (os, host, release) to the tag it takes, {<kind>} standing for the value',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
 
 const ancestors = (path: Path.Path, folder: string): readonly string[] =>
     Array.unfold(
@@ -125,19 +124,8 @@ const identity = Effect.fn('identity')(function* (entry: string, workspaceRoot: 
     const modules = (url: string) => path.join(path.relative(workspaceRoot, path.dirname(fileURLToPath(url))), `**/*${path.extname(url)}`);
     const source = yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [modules(entry), modules(import.meta.url)]));
     const external = Array.difference(Array.dedupe([plugin, shared].flatMap((manifest) => Record.keys(manifest.dependencies))), packages);
-    const inputs: Inputs = plugin.file.split(path.sep).includes('node_modules') ? [{ externalDependencies: packages }] : [{ input: 'default', projects: packages }, { externalDependencies: external }];
+    const inputs: NonNullable<TargetConfiguration['inputs']> = plugin.file.split(path.sep).includes('node_modules') ? [{ externalDependencies: packages }] : [{ input: 'default', projects: packages }, { externalDependencies: external }];
     return { name: plugin.name, folder: plugin.folder, shared: shared.name, digest: hashArray([source, plugin.version, shared.version]), inputs, cleaner: `${shared.name}:clean`, publisher: `${shared.name}:publish` };
-});
-
-const manifested = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
-    const path = yield* Path.Path;
-    const found = yield* Effect.promise(() =>
-        globWithWorkspaceContext(
-            workspaceRoot,
-            roots.map((root) => path.join(root, MANIFEST)),
-        ),
-    );
-    return new Set(found.map((file) => path.dirname(file)));
 });
 
 const listed = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
@@ -148,12 +136,9 @@ const listed = Effect.fnUntraced(function* (workspaceRoot: string, roots: readon
             roots.map((root) => path.join(root, '**')),
         ),
     );
-    const owners = Array.sort(
-        Array.dedupe([...roots, ...files.filter((file) => path.basename(file) === MANIFEST).map((file) => path.dirname(file))]),
-        Order.mapInput(Order.flip(Order.Number), (folder: string) => folder.length),
-    );
-    const owned = Array.groupBy(files, (file) => owners.find((folder) => folder === '.' || file.startsWith(`${folder}/`)) ?? '.');
-    return new Map(roots.map((root) => [root, hashArray(owned[root] ?? [])] as const));
+    const held = new Set(files.filter((file) => matchesGlob(path.basename(file), MANIFESTS)).map((file) => path.dirname(file)));
+    const owned = Array.groupBy(files, (file) => ancestors(path, path.dirname(file)).find((folder) => held.has(folder)) ?? '.');
+    return new Map(roots.filter((root) => held.has(root)).map((root) => [root, hashArray(owned[root] ?? [])] as const));
 });
 
 const produced = (projects: CreateDependenciesContext['projects']) => {
@@ -168,85 +153,54 @@ const produced = (projects: CreateDependenciesContext['projects']) => {
 
 const detached = <A extends object>(value: A) => parseJson<A>(JSON.stringify(value));
 
-const targeted = (project: Project, plugin: Identity, rows: (typeof Common.Type)['targets']): Readonly<Record<string, TargetConfiguration>> => {
+const targeted = (project: Project, plugin: Identity): Readonly<Record<string, TargetConfiguration>> => {
     const technologies = [...project.technologies];
-    const applied = ({ verb, old, target }: { readonly verb: string; readonly old: string; readonly target: TargetConfiguration }) => {
-        const matched = Record.collect(
-            Record.filter(rows, (_, pattern) => pattern === old || matchesGlob(old, pattern)),
-            (_, row) => row,
-        );
-        const merged = matched.filter((row) => row !== false);
-        return matched.length > merged.length
-            ? Result.failVoid
-            : Result.succeed({
-                  verb,
-                  old,
-                  name: Option.getOrElse(
-                      Array.findLast(
-                          merged.map(({ name }) => name),
-                          Predicate.isNotUndefined,
-                      ),
-                      () => old,
-                  ),
-                  target: merged.reduce((base, { name: _, ...row }) => mergeTargetConfigurations(row, base, undefined, undefined, undefined, false), target),
-              });
-    };
-    const stated = project.clean === undefined ? undefined : project.members.clean?.[project.clean];
-    const tools = Array.filterMap(
-        Object.entries(project.members)
-            .flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, tool, old: `${verb}--${tool}`, target })))
-            .filter(({ verb, tool }) => !(verb === 'clean' && tool === project.clean))
-            .map(({ verb, old, target }) => ({ verb, old, target: { ...target, ...(target.cache === true && { inputs: Array.dedupe([...(target.inputs ?? UNSTATED), PLATFORM]) }), metadata: { technologies, ...target.metadata } } })),
-        applied,
+    const [[stated], kept] = Array.partition(
+        Record.toEntries(project.members).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, tool, target }))),
+        (member) => (member.verb === 'clean' && member.tool === project.clean ? Result.succeed(member.target) : Result.fail(member)),
     );
+    const tools = kept.map(({ verb, tool, target }) => ({
+        verb,
+        name: `${verb}--${tool}`,
+        target: {
+            ...(verb === 'clean' && { executor: plugin.cleaner }),
+            ...target,
+            ...(target.command !== undefined && { options: { cwd: project.root, ...target.options } }),
+            ...(target.cache === true && { inputs: Array.dedupe([...(target.inputs ?? UNSTATED), PLATFORM]) }),
+            metadata: { technologies, ...target.metadata },
+        },
+    }));
     const written = tools.filter(({ target }) => (target.outputs ?? []).length > 0).map(({ name }) => name);
     const cleaning =
         project.clean === undefined || (written.length === 0 && stated === undefined)
             ? []
-            : Array.filterMap(
-                  [
-                      {
-                          verb: 'clean',
-                          old: `clean--${project.clean}`,
-                          target: Array.match(written, {
-                              onEmpty: (): TargetConfiguration => ({ ...stated, metadata: { technologies, ...stated?.metadata } }),
-                              onNonEmpty: (targets): TargetConfiguration => ({ ...stated, executor: plugin.cleaner, options: { ...stated?.options, targets }, metadata: { technologies, description: `Removes the outputs ${targets.join(', ')} declare`, ...stated?.metadata } }),
-                          }),
-                      },
-                  ],
-                  applied,
-              );
+            : [
+                  {
+                      verb: 'clean',
+                      name: `clean--${project.clean}`,
+                      target: Array.match(written, {
+                          onEmpty: (): TargetConfiguration => ({ executor: plugin.cleaner, ...stated, metadata: { technologies, ...stated?.metadata } }),
+                          onNonEmpty: (targets): TargetConfiguration => ({ ...stated, executor: plugin.cleaner, options: { ...stated?.options, targets }, metadata: { technologies, description: `Removes the outputs ${targets.join(', ')} declare`, ...stated?.metadata } }),
+                      }),
+                  },
+              ];
     const members = [...tools, ...cleaning];
-    const aggregates = Record.collect(
-        Array.groupBy(members, ({ verb }) => verb),
-        (verb, group) => ({ verb, old: verb, target: { executor: 'nx:noop', dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(group.flatMap(({ target }) => target.inputs ?? UNSTATED))], metadata: { technologies, description: `Runs every ${verb}--* target` } } satisfies TargetConfiguration }),
-    );
-    const settled = [...members, ...Array.filterMap([...aggregates, ...Record.collect(project.targets ?? {}, (old, target) => ({ verb: old, old, target }))], applied)];
-    const renames = new Map(settled.map(({ old, name }) => [old, name] as const));
-    const linked = (to: string) => (to.startsWith('^') ? `^${renames.get(to.slice(1)) ?? to.slice(1)}` : (renames.get(to) ?? to));
-    return Record.fromIterableWith(settled, ({ verb, old, name, target }): readonly [string, TargetConfiguration] => [
-        name,
-        target.dependsOn === undefined
-            ? target
-            : {
-                  ...target,
-                  dependsOn: [
-                      ...target.dependsOn.map((dependency) => (Predicate.isString(dependency) ? linked(dependency) : { ...dependency, target: linked(dependency.target) })),
-                      ...settled.filter((member) => old === verb && member.verb === verb && member.old !== verb && !matchesGlob(member.name, `${verb}--*`)).map((member) => member.name),
-                  ],
-              },
-    ]);
+    return {
+        ...Record.fromIterableWith(members, ({ name, target }) => [name, target] as const),
+        ...Record.fromIterableWith(Array.dedupe(members.map(({ verb }) => verb)), (verb): readonly [string, TargetConfiguration] => [verb, { executor: 'nx:noop', dependsOn: [`${verb}--*`], metadata: { technologies, description: `Runs every ${verb}--* target` } }]),
+        ...project.targets,
+    };
 };
 
-const configured = (project: Project, plugin: Identity, { tags: templates, targets }: typeof Common.Type): Omit<ProjectConfiguration, 'root'> => {
+const configured = (project: Project, plugin: Identity, { tags: templates }: typeof Common.Type): Omit<ProjectConfiguration, 'root'> => {
     const tags = Record.collect(templates, (kind, template) => (project.kinds?.[kind] ?? []).map((value) => interpolate(template, { [kind]: value }))).flat();
-    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin, targets), ...(tags.length > 0 && { tags }), ...project.configuration };
+    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin), ...(tags.length > 0 && { tags }), ...project.configuration };
 };
 
 const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, request: Request<O>, held: readonly (readonly [U, R])[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const base = hashArray([request.plugin.digest, hashObject(request.context.nxJsonConfiguration.namedInputs ?? {})]);
-    const sources = held.map(([unit, report]) => declaration.sources(report, unit, request));
+    const sources = held.map(([unit, report]) => declaration.sources?.(report, unit, request) ?? { tracked: [unit.file] });
     const tracked = Array.isReadonlyArrayNonEmpty(held)
         ? yield* Effect.promise(() =>
               hashMultiGlobWithWorkspaceContext(
@@ -256,7 +210,7 @@ const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaratio
           )
         : [];
     const folders = Array.dedupe(sources.flatMap((source) => source.untracked ?? []));
-    const names = yield* Effect.forEach(folders, (folder) => Effect.orElseSucceed(fs.readDirectory(folder), Array.empty<string>), { concurrency: 'unbounded' });
+    const names = yield* Effect.forEach(folders, (folder) => fs.readDirectory(folder).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>()))), { concurrency: 'unbounded' });
     const hashed = new Map(Array.zipWith(folders, names, (folder, entries) => [folder, entries.toSorted().flatMap((entry) => [path.join(folder, entry), ...Option.toArray(Option.fromNullishOr(hashFile(path.join(folder, entry))))])] as const));
     const untracked = sources.map((source) => hashArray((source.untracked ?? []).flatMap((folder) => hashed.get(folder) ?? [])));
     return Array.zipWith(Array.zip(held, tracked), untracked, ([[unit], content], files) => hashArray([base, unit.key, content, files, ...Option.toArray(Option.fromUndefinedOr(unit.salt))]));
@@ -286,6 +240,8 @@ const read = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: 
     const outcomes = new Map<string, Result.Result<Reading<R>, Error>>([...valid, ...fresh.map(([unit, outcome]) => [unit.key, outcome] as const)]);
     return units.map((unit) => [unit, outcomes.get(unit.key) ?? Result.fail(ToolError.make({ subject: unit.file, detail: 'was not read' }))] as const);
 });
+
+const messaged = <E extends Error>(error: E) => Object.defineProperty(error, 'message', { value: error.message });
 
 const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, memo: Map<string, { readonly request: Request<O>; readonly reports: readonly (readonly [U, R])[] }>, files: readonly string[], options: unknown, context: CreateNodesContext) {
     const path = yield* Path.Path;
@@ -325,7 +281,7 @@ const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration:
         onNonEmpty: (errors) =>
             Effect.fail(
                 new AggregateCreateNodesError(
-                    errors.map(([file, error]) => [file, error]),
+                    errors.map(([file, error]) => [file, messaged(error)]),
                     results,
                 ),
             ),
@@ -345,15 +301,15 @@ const dependencies = Effect.fnUntraced(function* <O, U extends Unit, R, E>(decla
 const inferred = <O, U extends Unit, R, E extends Error>(declaration: Declaration<O, U, R, E>): { readonly createNodes: CreateNodes; readonly createDependencies: CreateDependencies } => {
     const memo = new Map<string, { readonly request: Request<O>; readonly reports: readonly (readonly [U, R])[] }>();
     return {
-        createNodes: [combineGlobPatterns(declaration.files.map((file) => `**/${file}`)), (files, options, context) => runtime.runPromise(Effect.scoped(nodes(declaration, memo, files, options, context)))],
+        createNodes: [combineGlobPatterns(declaration.files.map((file) => `**/${file}`)), (files, options, context) => runtime.runPromise(Effect.mapError(Effect.scoped(nodes(declaration, memo, files, options, context)), messaged))],
         createDependencies: (options, context) =>
             UndefinedOr.match(memo.get(hashArray([context.workspaceRoot, hashObject(options ?? {})])), {
                 onUndefined: () => [],
-                onDefined: (held) => runtime.runPromise(Effect.scoped(dependencies(declaration, held, context))),
+                onDefined: (held) => runtime.runPromise(Effect.mapError(Effect.scoped(dependencies(declaration, held, context)), messaged)),
             }),
     };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, type Declaration, type Identity, inferred, listed, MANIFEST, type Members, manifested, type Project, produced, type Reading, type Request, type Sources, type Unit };
+export { ancestors, type Declaration, type Identity, inferred, line, listed, MANIFESTS, type Members, NODE, type Project, produced, type Reading, type Request, type Sources, type Unit };

@@ -1,7 +1,6 @@
 import { matchesGlob } from 'node:path';
-import { inferred, type Request } from '@rasm/nx-devkit/plugin';
+import { inferred, line, NODE, type Request } from '@rasm/nx-devkit/plugin';
 import { type Answer, type Asked, consulted, Timed } from '@rasm/nx-devkit/reader';
-import { described, line, NODE } from '@rasm/nx-devkit/target';
 import { Array, Option, Record } from 'effect';
 import { Job, Report } from '#/reader';
 
@@ -48,11 +47,11 @@ const { createNodes } = inferred({
                 members: {
                     test: {
                         vitest: {
-                            executor: 'nx:run-commands',
-                            metadata: described({ description: 'Runs every Vitest project of the suite with vitest run', help: `${exec} ${line(['vitest', 'run', '--help'])}`, example: { args: ['--project', '<name>'] } }),
-                            options: { command: [line(['vitest', 'run']), ...Array.match(flags, { onEmpty: () => [], onNonEmpty: (directed) => ['{args}', line(directed)] })].join(' '), cwd: root },
+                            command: ['vitest run', ...Array.match(flags, { onEmpty: () => [], onNonEmpty: (directed) => ['{args}', line(directed)] })].join(' '),
+                            dependsOn: ['build--buf', '^build--buf'],
                             cache: true,
-                            inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { env: 'CI' }, NODE, { externalDependencies: ['vitest'] }],
+                            inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { env: 'CI' }, NODE, { externalDependencies: ['vitest'] }],
+                            metadata: { description: 'Runs every Vitest project of the suite with vitest run', help: { command: `${exec} vitest run --help`, example: { args: ['--project', '<name>'] } } },
                             outputs: [...within, ...reports.filter((at) => !within.some((folder) => at.startsWith(`${folder}/`)))].map((at) => path.join('{workspaceRoot}', at)),
                         },
                     },

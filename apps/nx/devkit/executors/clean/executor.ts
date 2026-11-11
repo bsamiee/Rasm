@@ -1,9 +1,9 @@
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema, Struct } from 'effect';
+import { CommandLine } from 'effect/process';
 import { Dry, dried, executor } from '#/executor';
 import { ran, ToolError } from '#/process';
-import { line } from '#/target';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -63,7 +63,7 @@ const execute = executor(
         const [path, dry] = yield* Effect.all([Path.Path, dried(stated)]);
         const { outputs, negated } = yield* declared(context, project, targets);
         yield* Effect.forEach(outputs, (output) => cleared(context.root, project, output, negated, dry), { discard: true });
-        yield* Effect.forEach(dry && previews === undefined ? commands : [], (command) => Effect.logInfo(`Would run ${line(command)}`), { discard: true });
+        yield* Effect.forEach(dry && previews === undefined ? commands : [], (command) => Effect.logInfo(`Would run ${CommandLine.display(command)}`), { discard: true });
         const codes = yield* Effect.forEach(dry ? (previews ?? []) : commands, (command) => Effect.map(ran(Array.headNonEmpty(command), Array.tailNonEmpty(command), { cwd: path.join(context.root, cwd), stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }), ({ code }) => code));
         return codes.every((code) => code === 0);
     }),

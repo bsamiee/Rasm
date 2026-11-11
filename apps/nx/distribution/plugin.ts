@@ -118,7 +118,7 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, named,
             ...Option.getOrUndefined(Option.map(standalone, () => ({ name: item.fields.name }))),
             members: {
                 build: Option.match(build, { onNone: () => ({}), onSome: (target) => ({ [technology]: target }) }),
-                check: Option.match(standalone, { onNone: () => ({}), onSome: (target) => ({ [technology]: { executor: 'nx:noop', dependsOn: [`build--${technology}`], inputs: target.inputs ?? [], metadata: { description: 'Compiles the project as its check' } } }) }),
+                check: Option.match(standalone, { onNone: () => ({}), onSome: () => ({ [technology]: { executor: 'nx:noop', dependsOn: [`build--${technology}`], metadata: { description: 'Compiles the project as its check' } } }) }),
                 install: Option.match(installs(item), { onNone: () => ({}), onSome: (target) => ({ [item.host.install?.tool ?? technology]: target }) }),
             },
             targets:

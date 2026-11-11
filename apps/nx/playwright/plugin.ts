@@ -1,6 +1,5 @@
-import { inferred, type Request } from '@rasm/nx-devkit/plugin';
+import { inferred, line, NODE, type Request } from '@rasm/nx-devkit/plugin';
 import { type Answer, type Asked, consulted, Timed } from '@rasm/nx-devkit/reader';
-import { commanded, NODE } from '@rasm/nx-devkit/target';
 import { Option, Record } from 'effect';
 import { Job, Report } from '#/reader';
 
@@ -38,21 +37,18 @@ const { createNodes } = inferred({
                 clean: 'playwright',
                 members: {
                     test: {
-                        playwright: commanded(
-                            [['playwright', 'test', ...flags]],
-                            root,
-                            { description: 'Runs every Playwright project of the suite with playwright test', help: `${exec} playwright test --help`, example: { args: ['--debug=cli'] } },
-                            {
-                                options: Option.getOrElse(
-                                    Option.map(placed('playwright'), (at) => ({ env: Record.map(DIRECTED, ([, name]) => path.join(path.relative(root, at), name)) })),
-                                    () => ({}),
-                                ),
-                                dependsOn: servers.map(({ project, target }) => ({ projects: [project], target, waitFor: 'ready' as const })),
-                                cache: true,
-                                inputs: ['default', '^default', ...[...chain, ...loaded].filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { env: 'CI' }, NODE, { externalDependencies: ['@playwright/test'] }],
-                                outputs: [...within, ...written.filter((at) => !within.some((folder) => at.startsWith(`${folder}/`)))].map((at) => path.join('{workspaceRoot}', at)),
-                            },
-                        ),
+                        playwright: {
+                            command: line(['playwright', 'test', ...flags]),
+                            options: Option.getOrElse(
+                                Option.map(placed('playwright'), (at) => ({ env: Record.map(DIRECTED, ([, name]) => path.join(path.relative(root, at), name)) })),
+                                () => ({}),
+                            ),
+                            dependsOn: servers.map(({ project, target }) => ({ projects: [project], target, waitFor: 'ready' as const })),
+                            cache: true,
+                            inputs: ['default', '^default', ...[...chain, ...loaded].filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { env: 'CI' }, NODE, { externalDependencies: ['@playwright/test'] }],
+                            outputs: [...within, ...written.filter((at) => !within.some((folder) => at.startsWith(`${folder}/`)))].map((at) => path.join('{workspaceRoot}', at)),
+                            metadata: { description: 'Runs every Playwright project of the suite with playwright test', help: { command: `${exec} playwright test --help`, example: { args: ['--debug=cli'] } } },
+                        },
                     },
                 },
             };

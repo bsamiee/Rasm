@@ -1,7 +1,6 @@
 import type { TargetConfiguration } from '@nx/devkit';
 import type { Identity } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
-import { cleaned } from '@rasm/nx-devkit/target';
 import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import { type Part, published, type Settings, target, tokened } from '#/targets';
 
@@ -208,13 +207,10 @@ const xcodeParts = (
                 schemes.length === 0
                     ? {}
                     : {
-                          xcodebuild: cleaned(
-                              plugin,
-                              schemes.map((scheme) => invoke('clean', scheme.name, [])),
-                              '.',
-                              { description: 'Removes the build products of each shared scheme with xcodebuild clean', help: 'xcodebuild -help', example: { args: ['-quiet'] } },
-                              schemes.map((scheme) => invoke('clean', scheme.name, ['-dry-run'])),
-                          ),
+                          xcodebuild: {
+                              options: { commands: schemes.map((scheme) => invoke('clean', scheme.name, [])), cwd: '.', previews: schemes.map((scheme) => invoke('clean', scheme.name, ['-dry-run'])) },
+                              metadata: { description: 'Removes the build products of each shared scheme with xcodebuild clean', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
+                          },
                       },
             check: schemes.length === 0 ? {} : { xcodebuild: { executor: 'nx:noop', dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } } },
             test:

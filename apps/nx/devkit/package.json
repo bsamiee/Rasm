@@ -14,7 +14,6 @@
     },
     "exports": {
         "./plugin": "./plugin.ts",
-        "./target": "./target.ts",
         "./reader": "./reader.ts",
         "./reply": "./reply.ts",
         "./executor": "./executor.ts",
@@ -48,7 +47,6 @@
         "access": "public",
         "exports": {
             "./plugin": "./dist/plugin.js",
-            "./target": "./dist/target.js",
             "./reader": "./dist/reader.js",
             "./reply": "./dist/reply.js",
             "./executor": "./dist/executor.js",

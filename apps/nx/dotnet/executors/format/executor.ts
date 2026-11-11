@@ -2,9 +2,9 @@ import type { ExecutorContext } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { executor } from '@rasm/nx-devkit/executor';
 import { iterated, ran } from '@rasm/nx-devkit/process';
-import { line } from '@rasm/nx-devkit/target';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
+import { CommandLine } from 'effect/process';
 import { grouped } from '#/executors/build/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
                 flow(Array.map(owner), Option.all),
             );
             const blamed = code === 0 ? Option.some(new Set<string>()) : Option.map(owners, (found) => new Set(found.map(Struct.get('task'))));
-            return { command: line(['dotnet', ...argv]), lines: [stdout, stderr].join('').split('\n'), blamed };
+            return { command: CommandLine.display(['dotnet', ...argv]), lines: [stdout, stderr].join('').split('\n'), blamed };
         }),
     );
     const said = (project: string, { command, lines }: (typeof runs)[number]) => {

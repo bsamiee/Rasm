@@ -1,9 +1,8 @@
 import { matchesGlob } from 'node:path';
 import { type CreateDependenciesContext, DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { createProjectRootMappingsFromProjectConfigurations } from '@nx/devkit/internal';
-import { ancestors, inferred, produced, type Request, type Unit } from '@rasm/nx-devkit/plugin';
+import { ancestors, inferred, line, produced, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { printed } from '@rasm/nx-devkit/process';
-import { described, type Inputs, line } from '@rasm/nx-devkit/target';
 import { Array, Effect, Option, Order, Path, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -61,7 +60,7 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, { root, fil
 });
 
 const targets = ({ root }: Folder, project: Composed) => {
-    const inputs: Inputs = [
+    const inputs = [
         ...project.read.map((file) => `{workspaceRoot}/${file}`),
         { runtime: line(['docker', 'compose', '--project-directory', root, '--profile', '*', 'config', '--format', 'json', '--no-interpolate', '--no-path-resolution']) },
         { runtime: 'docker compose version' },
@@ -70,11 +69,10 @@ const targets = ({ root }: Folder, project: Composed) => {
         { externalDependencies: [] },
     ];
     const configurations = Record.fromIterableWith(project.profiles, (profile) => [profile, { env: { COMPOSE_PROFILES: profile } }] as const);
-    const compose = (args: Array.NonEmptyReadonlyArray<string>, description: string, { options, ...extra }: Partial<TargetConfiguration>): TargetConfiguration => ({
+    const compose = (args: Array.NonEmptyReadonlyArray<string>, description: string, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
         ...extra,
         command: line(['docker', 'compose', ...args]),
-        options: { cwd: root, ...options },
-        metadata: described({ description, help: `docker compose ${args[0]} --help` }),
+        metadata: { description, help: { command: `docker compose ${args[0]} --help`, example: {} } },
     });
     return {
         check: {

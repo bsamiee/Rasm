@@ -1,6 +1,5 @@
 import type { TargetConfiguration } from '@nx/devkit';
 import type { Identity, Members } from '@rasm/nx-devkit/plugin';
-import { cleaned, described } from '@rasm/nx-devkit/target';
 import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -34,7 +33,7 @@ const Node = Schema.Struct({
 
 const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(import.meta.resolve('#analyzer'))));
 
-const metadata = (verb: string, description: string) => described({ description, help: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } });
+const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
 const targets = (plugin: Identity, path: Path.Path, node: Node, named: string, packages: string, secrets: Readonly<Record<string, string>>): { readonly members: Members; readonly targets: Readonly<Record<string, TargetConfiguration>> } => {
     const root = path.dirname(node.file);
@@ -106,7 +105,8 @@ const targets = (plugin: Identity, path: Path.Path, node: Node, named: string, p
             : {},
         clean: {
             dotnet: {
-                ...cleaned(plugin, [['dotnet', 'clean', node.file]], '.', { description: `Removes the build outputs of ${node.name} with dotnet clean`, help: 'dotnet clean --help', example: { args: ['--verbosity', 'detailed'] } }),
+                options: { commands: [['dotnet', 'clean', node.file]], cwd: '.' },
+                metadata: metadata('clean', `Removes the build outputs of ${node.name} with dotnet clean`),
                 ...configured(({ args }) => ({ commands: [['dotnet', 'clean', node.file, ...args]] })),
             },
         },

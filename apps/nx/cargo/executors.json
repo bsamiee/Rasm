@@ -5,7 +5,7 @@
             "batchImplementation": "./dist/executors/cargo/executor#batch",
             "schema": "./executors/cargo/schema.json",
             "preferBatch": true,
-            "description": "Runs cargo commands, merging every task of one command into one cargo process and deciding each task from its package's report"
+            "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report"
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",

@@ -6,13 +6,12 @@ import { patch } from '@decimalturn/toml-patch';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { getDependencyConfigs, globWithWorkspaceContext, workspaceDataDirectory } from '@nx/devkit/internal';
 import { printed, ran, ToolError } from '@rasm/nx-devkit/process';
-import { line } from '@rasm/nx-devkit/target';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Config, Effect, FileSystem, Match, Option, Path, type PlatformError, pipe, Record, Redacted, Schema, SemVer, Stream } from 'effect';
 import { Base64, Toml, Xml, Yaml, Zip } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import type { ChildProcessSpawner } from 'effect/process';
+import { type ChildProcessSpawner, CommandLine } from 'effect/process';
 import { applyEdits, modify } from 'jsonc-parser';
 import { cep, type Placement, uxp } from '#/placement';
 
@@ -96,7 +95,7 @@ const reported = (command: string, args: readonly string[], signal: RegExp) =>
     Effect.flatMap(printed(command, args), (stdout) =>
         Option.match(Option.fromNullishOr(signal.exec(stdout)), {
             onSome: ([matched]) => Effect.logInfo(matched),
-            onNone: () => ToolError.make({ subject: line([command, ...args]), detail: `printed no line matching ${signal.source}: ${stdout.trim()}` }),
+            onNone: () => ToolError.make({ subject: CommandLine.display([command, ...args]), detail: `printed no line matching ${signal.source}: ${stdout.trim()}` }),
         }),
     );
 
@@ -339,7 +338,7 @@ const HOSTS: readonly Host[] = [
                     const args = ['push', bundle.file, ...Option.toArray(options.registry).flatMap((source) => ['--source', source])];
                     return yield* Match.value({ present: pushed.includes(path.basename(bundle.file)), dry: options.dryRun }).pipe(
                         Match.when({ present: true }, () => Effect.logInfo(`Skipped ${path.basename(bundle.file)}, ${registry} already holds it`)),
-                        Match.when({ dry: true }, () => Effect.logInfo(`Would run ${line(['yak', ...args])}; ${registry} holds ${Array.match(pushed, { onEmpty: () => 'no distribution', onNonEmpty: (names) => names.join(', ') })} of ${bundle.name} ${bundle.version}`)),
+                        Match.when({ dry: true }, () => Effect.logInfo(`Would run ${CommandLine.display(['yak', ...args])}; ${registry} holds ${Array.match(pushed, { onEmpty: () => 'no distribution', onNonEmpty: (names) => names.join(', ') })} of ${bundle.name} ${bundle.version}`)),
                         Match.orElse(() => Effect.flatMap(yak(bundle), (executable) => reported(executable, args, PUBLISHED))),
                     );
                 },

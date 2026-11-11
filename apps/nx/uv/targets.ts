@@ -1,7 +1,6 @@
 import type { TargetConfiguration } from '@nx/devkit';
-import { ancestors, type Identity, type Members } from '@rasm/nx-devkit/plugin';
+import { ancestors, type Identity, line, type Members } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { cleaned, line } from '@rasm/nx-devkit/target';
 import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import type { Member } from '#/workspace';
@@ -244,7 +243,8 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
             clean: root
                 ? {
                       'uv-cache': {
-                          ...cleaned(plugin, [['uv', 'cache', 'prune']], member.workspace, { description: 'Removes the unused entries of the uv cache, every entry under the all configuration', help: 'uv cache prune --help', example: { args: ['--ci'] } }),
+                          options: { commands: [['uv', 'cache', 'prune']], cwd: member.workspace },
+                          metadata: { description: 'Removes the unused entries of the uv cache, every entry under the all configuration', help: { command: 'uv cache prune --help', example: { args: ['--ci'] } } },
                           configurations: { all: { commands: [['uv', 'cache', 'clean']] } },
                       },
                   }

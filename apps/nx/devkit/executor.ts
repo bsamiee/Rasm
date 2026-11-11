@@ -2,7 +2,6 @@ import { type ExecutorContext, readCachedProjectGraph } from '@nx/devkit';
 import { Array, Config, Effect, FileSystem, type ManagedRuntime, Option, Path, Schema, type Scope, Struct } from 'effect';
 import type { AfterAllProjectsVersioned } from 'nx/release';
 import { printed, runtime } from '#/process';
-import type { Command } from '#/target';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -29,7 +28,7 @@ const released = Effect.fnUntraced(function* (options: typeof Released.Type, pro
 });
 
 const relocked =
-    (lock: string, command: Command): AfterAllProjectsVersioned =>
+    (lock: string, command: Array.NonEmptyReadonlyArray<string>): AfterAllProjectsVersioned =>
     (cwd, { dryRun, rootVersionActionsOptions }) =>
         runtime.runPromise(
             Effect.gen(function* () {

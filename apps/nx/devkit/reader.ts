@@ -4,7 +4,7 @@ import { detectPackageManager, normalizePath } from '@nx/devkit';
 import { getLockFileName, globWithWorkspaceContext, hashObject, isCI, killProcessTreeGraceful } from '@nx/devkit/internal';
 import { type RawTsconfigJsonCache, walkTsconfigExtendsChain } from '@nx/js/internal';
 import { Array, Duration, Effect, Fiber, Option, Path, Queue, Result, Schema, Stream } from 'effect';
-import { ancestors, listed, MANIFEST, manifested, type Reading, type Request, type Unit } from '#/plugin';
+import { ancestors, listed, MANIFESTS, type Reading, type Request, type Unit } from '#/plugin';
 import { spawned, ToolError } from '#/process';
 import { type Job, Jobs, REPLIES, Reply } from '#/reply';
 
@@ -119,12 +119,20 @@ const consulted = <J extends Job, A, O extends typeof Timed.Type>({
         units: Effect.fnUntraced(function* (request: Request<O>) {
             const { workspaceRoot } = request.context;
             const stated = jobs(request);
-            const held = yield* manifested(workspaceRoot, Array.dedupe(stated.map(({ root }) => root)));
-            const kept = stated.filter(({ root }) => held.has(root));
-            const roots = Array.dedupe(kept.map(({ root }) => root));
-            const [chains, names] = yield* Effect.all([chained(workspaceRoot, roots), listed(workspaceRoot, roots)], { concurrency: 'unbounded' });
-            const ci = isCI();
-            return kept.map((each): Asked<J> => ({ key: each.file, file: each.file, job: each, governed: chains.get(each.root) ?? [], chain: (chains.get(each.root) ?? []).filter((at) => !at.startsWith(`${each.root}/`)), salt: hashObject({ each, launch: launch(each), ci, names: names.get(each.root) }) }));
+            const names = yield* listed(workspaceRoot, Array.dedupe(stated.map(({ root }) => root)));
+            const chains = yield* chained(workspaceRoot, [...names.keys()]);
+            const [ci, lock] = [isCI(), getLockFileName(detectPackageManager(workspaceRoot))];
+            const kept = stated.filter(({ root }) => names.has(root));
+            return kept.map(
+                (each): Asked<J> => ({
+                    key: each.file,
+                    file: each.file,
+                    job: each,
+                    governed: [request.path.join(each.root, MANIFESTS), lock, ...(chains.get(each.root) ?? [])],
+                    chain: (chains.get(each.root) ?? []).filter((at) => !at.startsWith(`${each.root}/`)),
+                    salt: hashObject({ each, launch: launch(each), ci, names: names.get(each.root) }),
+                }),
+            );
         }),
         read: Effect.fnUntraced(function* (missing: Array.NonEmptyReadonlyArray<Asked<J>>, request: Request<O>) {
             const { workspaceRoot } = request.context;
@@ -145,9 +153,7 @@ const consulted = <J extends Job, A, O extends typeof Timed.Type>({
                 { concurrency: 'unbounded' },
             );
         }),
-        sources: ({ loaded }: Answer<A>, { job: each, governed }: Asked<J>, request: Request<O>) => ({
-            tracked: [each.file, request.path.join(each.root, MANIFEST), getLockFileName(detectPackageManager(request.context.workspaceRoot)), ...governed, ...loaded],
-        }),
+        sources: ({ loaded }: Answer<A>, { file, governed }: Asked<J>) => ({ tracked: [file, ...governed, ...loaded] }),
     };
 };
 

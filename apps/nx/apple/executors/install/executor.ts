@@ -1,8 +1,8 @@
 import { pid } from 'node:process';
 import { Dry, dried, executor } from '@rasm/nx-devkit/executor';
 import { printed } from '@rasm/nx-devkit/process';
-import { line } from '@rasm/nx-devkit/target';
 import { Config, Effect, FileSystem, Path, Schema, Struct } from 'effect';
+import { CommandLine } from 'effect/process';
 import { commands } from '#/executors/run/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -30,7 +30,7 @@ const execute = executor(
         const build = ['build', '--package-path', root, '--configuration', 'release', '--product', product, ...args];
         const held = yield* fs.exists(at);
         if (dry) {
-            return yield* Effect.as(Effect.logInfo([`Would run ${line(['swift', ...build])}, then`, held ? `rename the built ${product} over ${at}` : `install it to ${path.dirname(at)} through swift package experimental-install`].join(' ')), true);
+            return yield* Effect.as(Effect.logInfo([`Would run ${CommandLine.display(['swift', ...build])}, then`, held ? `rename the built ${product} over ${at}` : `install it to ${path.dirname(at)} through swift package experimental-install`].join(' ')), true);
         }
         yield* commands({ runs: [['swift', ...build]], env }, context.root);
         return yield* held

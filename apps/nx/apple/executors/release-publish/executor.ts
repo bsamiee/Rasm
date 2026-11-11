@@ -2,8 +2,8 @@ import type { ExecutorContext } from '@nx/devkit';
 import { interpolate } from '@nx/devkit/internal';
 import { executor, Released, released } from '@rasm/nx-devkit/executor';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
-import { line } from '@rasm/nx-devkit/target';
 import { Array, Effect, FileSystem, Match, Option, Path, Schema, Struct } from 'effect';
+import { CommandLine } from 'effect/process';
 import { VersionActionsOptions, versioned } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -37,7 +37,7 @@ const appcast = Effect.fnUntraced(
             ['gh', 'release', 'upload', channel, ...repository, '--clobber', path.join(staging, asset)],
         ];
         return yield* dry
-            ? Effect.forEach(steps, (step) => Effect.logInfo(`Would run ${line(step)}`), { discard: true })
+            ? Effect.forEach(steps, (step) => Effect.logInfo(`Would run ${CommandLine.display(step)}`), { discard: true })
             : Effect.andThen(
                   fs.copyFile(path.join(cwd, zip), path.join(staging, path.basename(zip))),
                   Effect.forEach(steps, ([command, ...args]) => printed(command, args, { cwd }), { discard: true }),

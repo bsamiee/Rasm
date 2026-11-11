@@ -1,32 +1,34 @@
 import { getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
-import { hashObject, loadTsFile, resolveImplementation } from '@nx/devkit/internal';
-import { Array, Effect, JsonSchema, Option, Path, Predicate, Record, Schema } from 'effect';
-import type { SyncGeneratorResult } from 'nx/src/utils/sync-generators';
+import { hashObject, loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
+import { Array, Effect, JsonSchema, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { runtime, ToolError } from '#/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Collection = Schema.Struct({ executors: Schema.Record(Schema.String, Schema.Struct({ implementation: Schema.String, schema: Schema.String })) });
-const Manifest = Schema.Struct({ name: Schema.String });
+const Manifest = Schema.Struct({ name: Schema.String, executors: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const written = Effect.fnUntraced(function* (tree: Tree) {
     const path = yield* Path.Path;
     const projects = Record.fromEntries([...getProjects(tree)]);
-    const collections = Object.values(projects)
-        .map(({ root }) => ({ root, collection: path.join(root, 'executors.json') }))
-        .filter(({ collection }) => tree.exists(collection));
+    const collections = Array.filterMap(
+        Object.values(projects)
+            .map(({ root }) => ({ root, manifest: path.join(root, 'package.json') }))
+            .filter(({ manifest }) => tree.exists(manifest)),
+        ({ root, manifest }) => Result.map(Schema.decodeUnknownResult(Manifest)(readJson(tree, manifest)), ({ name, executors }) => ({ root, name, collection: path.join(root, executors) })),
+    );
     const rows = yield* Effect.forEach(
         collections,
-        Effect.fnUntraced(function* ({ root, collection }) {
-            const [{ executors }, { name }] = yield* Effect.all([Schema.decodeUnknownEffect(Collection)(readJson(tree, collection)), Schema.decodeUnknownEffect(Manifest)(readJson(tree, path.join(root, 'package.json')))]);
-            return Record.collect(executors, (executor, { implementation, schema }) => ({ root, name, executor, at: path.join(root, schema), implementation }));
+        Effect.fnUntraced(function* ({ root, name, collection }) {
+            const { executors } = yield* Schema.decodeUnknownEffect(Collection)(readJson(tree, collection));
+            return Record.collect(executors, (executor, { implementation, schema }) => ({ root, name, collection, executor, at: path.join(path.dirname(collection), schema), implementation }));
         }),
     );
     const stale = yield* Effect.forEach(
         rows.flat(),
-        Effect.fnUntraced(function* ({ root, name, executor, at, implementation }) {
+        Effect.fnUntraced(function* ({ root, name, collection, executor, at, implementation }) {
             const [file, member = 'default'] = implementation.split('#');
             const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file ?? implementation, path.join(tree.root, root), name, projects)), catch: ToolError.of(`${name}:${executor}`, `does not load ${implementation}`) });
             const derived = Option.liftPredicate(loaded, Predicate.hasProperty(member)).pipe(
@@ -36,16 +38,19 @@ const written = Effect.fnUntraced(function* (tree: Tree) {
                 Option.filter(Schema.isSchema),
                 Option.map(Schema.toJsonSchemaDocument),
                 Option.map(JsonSchema.toDocumentDraft07),
-                Option.map(({ schema, definitions }) => ({ $schema: JsonSchema.META_SCHEMA_URI_DRAFT_07, version: 2, ...schema, ...(Record.isEmptyRecord(definitions) ? {} : { definitions }) })),
-                Option.filter((schema) => !(tree.exists(at) && hashObject(readJson(tree, at)) === hashObject(schema))),
+                Option.map(({ schema, schema: { description }, definitions }) => ({ description, schema: { $schema: JsonSchema.META_SCHEMA_URI_DRAFT_07, version: 2, ...schema, ...(Record.isEmptyRecord(definitions) ? {} : { definitions }) } })),
             );
-            return Option.map(derived, (schema) => {
-                writeJson(tree, at, schema);
-                return at;
-            });
+            const listed = readJson<{ readonly executors: Readonly<Record<string, object>> }>(tree, collection);
+            return Option.toArray(derived)
+                .flatMap(({ schema, description }) => [[at, schema] as const, [collection, { ...listed, executors: { ...listed.executors, [executor]: { ...listed.executors[executor], description } } }] as const])
+                .filter(([to, content]) => !(tree.exists(to) && hashObject(readJson(tree, to)) === hashObject(content)))
+                .map(([to, content]) => {
+                    writeJson(tree, to, content);
+                    return to;
+                });
         }),
     );
-    return { outOfSyncMessage: `Executor schema.json files differ from the options schemas their executors declare: ${Array.getSomes(stale).join(', ')}` } satisfies SyncGeneratorResult;
+    return { outOfSyncMessage: `Executor schema.json files and executors.json descriptions differ from the options schemas their executors declare: ${Array.dedupe(stale.flat()).join(', ')}` } satisfies SyncGeneratorResult;
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

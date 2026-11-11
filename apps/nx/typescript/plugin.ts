@@ -2,9 +2,8 @@ import { findPackageJSON } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { detectPackageManager, type PackageManager, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName } from '@nx/devkit/internal';
-import { inferred, listed, type Members, manifested, type Request, type Unit } from '@rasm/nx-devkit/plugin';
+import { inferred, line, listed, type Members, NODE, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { type Command, cleaned, commanded, described, line, NODE } from '@rasm/nx-devkit/target';
 import { Array, Data, Effect, Option, Path, Record, Result, Schema } from 'effect';
 import { CONFIG, configured, type Solution } from '#/configuration';
 
@@ -16,7 +15,7 @@ type Report = Data.TaggedEnum<{
 }>;
 interface Read extends Unit {
     readonly manager?: PackageManager;
-    readonly linted: boolean;
+    readonly installed: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,7 +23,7 @@ interface Read extends Unit {
 const TECHNOLOGIES = ['typescript'];
 const MANAGERS = {
     pnpm: { manifest: 'pnpm-workspace.yaml', upgrade: ['pnpm', 'update', '--recursive', '--latest'], prune: ['pnpm', 'store', 'prune'] },
-} as const satisfies Partial<Record<PackageManager, { readonly manifest: string; readonly upgrade: Command; readonly prune: Command }>>;
+} as const satisfies Partial<Record<PackageManager, { readonly manifest: string; readonly upgrade: Array.NonEmptyReadonlyArray<string>; readonly prune: Array.NonEmptyReadonlyArray<string> }>>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -58,13 +57,14 @@ const resolved = (path: Path.Path, workspaceRoot: string, root: string, { config
     });
 };
 
-const compiled = (path: Path.Path, exec: string, { root, commands, outputs, chain }: Extract<Report, { readonly _tag: 'Program' }>, linted: boolean): Members => {
-    const metadata = (description: string, example: readonly string[]) => described({ description, help: `${exec} tsc --help`, example: { args: [...example] } });
+const compiled = (path: Path.Path, exec: string, { root, commands, outputs, chain }: Extract<Report, { readonly _tag: 'Program' }>, installed: readonly string[]): Members => {
+    const metadata = (description: string, example: readonly string[]) => ({ description, help: { command: `${exec} tsc --help`, example: { args: [...example] } } });
     const tsc: TargetConfiguration = {
         executor: 'nx:run-commands',
         options: { commands, cwd: root },
+        dependsOn: ['build--buf', '^build--buf', 'build--cf'],
         cache: true,
-        inputs: ['default', '^default', ...chain.filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { externalDependencies: ['@typescript/native'] }],
+        inputs: ['default', '^default', ...chain.filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['@typescript/native', ...Array.intersection(installed, ['@effect/tsgo'])] }],
         outputs: [],
     };
     return Array.match(outputs, {
@@ -72,14 +72,16 @@ const compiled = (path: Path.Path, exec: string, { root, commands, outputs, chai
         onNonEmpty: (written) => ({
             build: { tsc: { ...tsc, outputs: written.map((at) => path.join('{workspaceRoot}', at)), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } },
             check: {
-                tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], inputs: tsc.inputs ?? [], metadata: metadata('Type-checks through the build--tsc compile', ['--extendedDiagnostics']) },
-                ...(linted && {
-                    publint: commanded(
-                        [['publint', '--strict']],
-                        root,
-                        { description: 'Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', help: `${exec} publint run --help`, example: { args: ['--level', 'warning'] } },
-                        { dependsOn: ['build--*'], cache: true, inputs: ['default', { dependentTasksOutputFiles: '**/*' }, NODE, { externalDependencies: ['publint'] }], outputs: [] },
-                    ),
+                tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], metadata: metadata('Type-checks through the build--tsc compile', ['--extendedDiagnostics']) },
+                ...(installed.includes('publint') && {
+                    publint: {
+                        command: 'publint --strict',
+                        dependsOn: ['build--*'],
+                        cache: true,
+                        inputs: ['default', { dependentTasksOutputFiles: '**/*' }, NODE, { externalDependencies: ['publint'] }],
+                        outputs: [],
+                        metadata: { description: 'Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', help: { command: `${exec} publint run --help`, example: { args: ['--level', 'warning'] } } },
+                    },
                 }),
             },
         }),
@@ -95,13 +97,12 @@ const { createNodes } = inferred({
     units: Effect.fnUntraced(function* ({ files, context: { workspaceRoot } }: Request<unknown>) {
         const path = yield* Path.Path;
         const manager = detectPackageManager(workspaceRoot);
-        const roots = Array.dedupe(files.filter((file) => path.basename(file) === CONFIG).map(path.dirname));
-        const linted = Option.isSome(Option.liftThrowable(findPackageJSON)('publint', pathToFileURL(path.join(workspaceRoot, 'package.json'))));
-        const [packages, names] = yield* Effect.all([manifested(workspaceRoot, Array.dedupe(files.map(path.dirname))), listed(workspaceRoot, roots)], { concurrency: 'unbounded' });
-        const held = files.filter((file) => packages.has(path.dirname(file)));
+        const installed = ['publint', '@effect/tsgo'].filter((name) => Option.isSome(Option.liftThrowable(findPackageJSON)(name, pathToFileURL(path.join(workspaceRoot, 'package.json')))));
+        const names = yield* listed(workspaceRoot, Array.dedupe(files.map(path.dirname)));
+        const held = files.filter((file) => names.has(path.dirname(file)));
         return [
-            ...held.filter((file) => path.basename(file) === CONFIG).map((file): Read => ({ key: file, file, linted, ...Record.getSomes({ salt: Option.fromUndefinedOr(names.get(path.dirname(file))) }) })),
-            ...held.filter((file) => path.basename(file) === getLockFileName(manager)).map((file): Read => ({ key: file, file, linted, manager })),
+            ...held.filter((file) => path.basename(file) === CONFIG).map((file): Read => ({ key: file, file, installed, ...Record.getSomes({ salt: Option.fromUndefinedOr(names.get(path.dirname(file))) }) })),
+            ...held.filter((file) => path.basename(file) === getLockFileName(manager)).map((file): Read => ({ key: file, file, installed, manager })),
         ];
     }),
     read: Effect.fnUntraced(function* (missing: Array.NonEmptyReadonlyArray<Read>, { context: { workspaceRoot } }: Request<unknown>) {
@@ -113,10 +114,10 @@ const { createNodes } = inferred({
         );
     }),
     sources: (report: Report, { file }: Read) => ({ tracked: Report.$match(report, { Program: ({ chain }) => [file, ...chain], Workspace: () => [] }) }),
-    projects: (report: Report, { file, linted }: Read, { path, exec, plugin }) => {
+    projects: (report: Report, { file, installed }: Read, { path, exec }) => {
         const root = path.dirname(file);
         return Report.$match(report, {
-            Program: (program) => [{ file, root, technologies: TECHNOLOGIES, clean: 'tsc', members: compiled(path, exec, program, linted) }],
+            Program: (program) => [{ file, root, technologies: TECHNOLOGIES, clean: 'tsc', members: compiled(path, exec, program, installed) }],
             Workspace: ({ manager }) =>
                 Option.toArray(Record.get<string, (typeof MANAGERS)[keyof typeof MANAGERS]>(MANAGERS, manager)).map(({ manifest, upgrade, prune }) => ({
                     file,
@@ -124,14 +125,13 @@ const { createNodes } = inferred({
                     technologies: [manager],
                     members: {
                         upgrade: {
-                            [manager]: commanded(
-                                [upgrade],
-                                root,
-                                { description: `Moves every dependency requirement of the workspace and its lockfile to the newest release with ${line(upgrade)}`, help: `${line(upgrade.slice(0, 2))} --help`, example: { args: ['--interactive'] } },
-                                { outputs: [`{projectRoot}/${manifest}`, `{projectRoot}/${getLockFileName(manager)}`] },
-                            ),
+                            [manager]: {
+                                command: line(upgrade),
+                                outputs: [`{projectRoot}/${manifest}`, `{projectRoot}/${getLockFileName(manager)}`],
+                                metadata: { description: `Moves every dependency requirement of the workspace and its lockfile to the newest release with ${line(upgrade)}`, help: { command: `${line(upgrade.slice(0, 2))} --help`, example: { args: ['--interactive'] } } },
+                            },
                         },
-                        clean: { [manager]: cleaned(plugin, [prune], root, { description: `Removes the packages no project on this machine references from the ${manager} store`, help: `${line(prune)} --help` }) },
+                        clean: { [manager]: { options: { commands: [prune], cwd: root }, metadata: { description: `Removes the packages no project on this machine references from the ${manager} store`, help: { command: `${line(prune)} --help`, example: {} } } } },
                     },
                 })),
         });

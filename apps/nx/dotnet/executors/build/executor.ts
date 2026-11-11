@@ -2,9 +2,9 @@ import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { executor } from '@rasm/nx-devkit/executor';
 import { iterated, ran } from '@rasm/nx-devkit/process';
-import { line } from '@rasm/nx-devkit/target';
 import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
+import { CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     return Array.map(Array.zip(group, projects), ([[task], project]) => {
         const success = Option.exists(succeeded, (set) => set.has(project));
         const own = lines.filter((text) => text.includes(` [${project}`));
-        const result: TaskResult = { success, terminalOutput: (success ? own : [line(['dotnet', ...argv]), ...(own.length > 0 ? own : [run.stderr, run.stdout])]).join('\n') };
+        const result: TaskResult = { success, terminalOutput: (success ? own : [CommandLine.display(['dotnet', ...argv]), ...(own.length > 0 ? own : [run.stderr, run.stdout])]).join('\n') };
         return { task, result };
     });
 });

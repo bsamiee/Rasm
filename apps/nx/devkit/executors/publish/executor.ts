@@ -1,7 +1,7 @@
 import { Array, Config, Effect, Option, Path, Record, Redacted, Schema, Struct } from 'effect';
+import { CommandLine } from 'effect/process';
 import { executor, Released, released } from '#/executor';
 import { ran } from '#/process';
-import { line } from '#/target';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ const execute = executor(
                   [...commands, ...Option.toArray(final)],
                   () => true,
                   (succeeded, command) => (succeeded ? run(command) : Effect.succeed(false)),
-              ).pipe(Effect.tap(() => (Option.isNone(final) ? Effect.logInfo(`Would run ${line(publish)}`) : Effect.void)));
+              ).pipe(Effect.tap(() => (Option.isNone(final) ? Effect.logInfo(`Would run ${CommandLine.display(publish)}`) : Effect.void)));
     }),
 );
 

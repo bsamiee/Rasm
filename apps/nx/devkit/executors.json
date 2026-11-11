@@ -3,12 +3,12 @@
         "clean": {
             "implementation": "./dist/executors/clean/executor#execute",
             "schema": "./executors/clean/schema.json",
-            "description": "Removes the declared outputs of a project's targets and runs the tool's own clean command"
+            "description": "Removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and runs the tool's own clean commands when given"
         },
         "publish": {
             "implementation": "./dist/executors/publish/executor#execute",
             "schema": "./executors/publish/schema.json",
-            "description": "Publishes a project through its tool's own publish command; runs through nx release publish",
+            "description": "Publishes a project through its tool's own publish command, skipping a project nx release left unversioned; runs through nx release publish",
             "hidden": true
         }
     }
