@@ -1,4 +1,4 @@
-import { Launched, Pid } from '@rasm/applications';
+import { Launched, ProcessInstance, type RunningInstance, State } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import runtime from '@rasm/atelier-extendscript?inline';
 import { Completion, ExecuteScript, Render } from '@rasm/atelier-protocol';
@@ -77,23 +77,25 @@ const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listeni
 
 const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success<ReturnType<typeof routes>>, links: Effect.Success<typeof listening>) {
     const [automation, path, adobe] = yield* Effect.all([Automation, Path.Path, Adobe]);
-    yield* Resource.template`plugin/${McpSchema.param('pid', Pid)}`({
+    yield* Resource.template`plugin/${McpSchema.param('instance', ProcessInstance)}`({
         name: 'plugin',
         schema: Peer,
         changes: links.changes,
-        content: Effect.fnUntraced(function* (_, pid) {
+        content: Effect.fnUntraced(function* (_, instance) {
             const [instances, peers] = yield* Effect.all([SubscriptionRef.get(adobe.instances), links.peers]);
-            const running = yield* Effect.fromNullishOr(instances.find((instance) => instance.pid === pid && !('exited' in instance.state)));
+            const running = yield* Effect.fromNullishOr(instances.find((row) => row.instance === instance && !State.isAnyOf(['exited'])(row.state)));
             return yield* Unmatched.single(peers, 'linked plugin for the application', Option.some(running.url.href), (peer) => [peer.application.href]);
         }),
     });
     const [opened, rendered] = [serving('open'), serving('render')];
     const rendering = (client: Effect.Success<ReturnType<typeof links.call>>) => (request: typeof Rendering.Type & { readonly file: URL }) => client(rendered.tag, request);
-    const scripted = Effect.fnUntraced(function* (code: string, { pid, installation: { url } }: { readonly pid: number; readonly installation: { readonly url: URL } }) {
+    const scripted = Effect.fnUntraced(function* (code: string, { instance, installation: { url } }: Pick<RunningInstance, 'instance'> & { readonly installation: { readonly url: URL } }) {
         const { source, relined } = yield* lowered(code, ExtensionManifest.target, false);
         const { reply } = yield* automation.script({
-            pid,
+            instance,
             url,
+            events: ['DjxM', 'dosc'],
+            declared: { doLg: { _tag: 'enumerator', name: 'JSLg' } },
             direct: `(function (self) { var body = ${source}\n${runtime}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
         return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(Completion.answered(ResultJson, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));

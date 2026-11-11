@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { Launched, State } from '@rasm/applications';
-import { Array, Effect, Match, Option, Record, Schema, Struct } from 'effect';
+import { Array, Effect, Match, Record, Schema, Struct } from 'effect';
 import { Host } from '#/host';
 import { installed, WATCHER } from '#/policies/apps';
 
@@ -60,13 +60,14 @@ const runningAs = (pid: number, { process, asking }: typeof Outline.Type) => {
 
 const exitedAs = Match.type<typeof State.Exited.Type>().pipe(
     Match.withReturnType<readonly Said[]>(),
-    Match.when({ report: Match.defined }, ({ report: { url } }) => [['crashed', `read ${Option.getOrElse(Option.liftThrowable(fileURLToPath)(url), () => url)} before a launch`]]),
+    Match.when({ report: Match.defined }, ({ report: { url } }) => [['crashed', `read ${fileURLToPath(url)} before a launch`]]),
     Match.when({ reportFailure: Match.defined }, ({ reportFailure }) => [[`crashed with report failure ${reportFailure}`]]),
     Match.when({ reporting: true }, () => [['crashed', 'wait for its report before a launch']]),
-    Match.when({ signal: Match.defined }, ({ signal, detail = [] }) => [[['ended on signal', signal, ...detail].join(' ')]]),
-    Match.when({ status: 0 }, () => []),
-    Match.when({ status: Match.number }, ({ status }) => [[`exited ${status}`]]),
-    Match.orElse(() => []),
+    Match.when({ _tag: 'Signal' }, ({ signal, detail = [] }) => [[['ended on signal', signal, ...detail].join(' ')]]),
+    Match.when({ _tag: 'Status', status: 0 }, () => []),
+    Match.when({ _tag: 'Status' }, ({ status }) => [[`exited ${status}`]]),
+    Match.when({ _tag: 'Unread' }, () => []),
+    Match.exhaustive,
 );
 
 const watched = (text: string) =>

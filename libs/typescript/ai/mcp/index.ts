@@ -1,5 +1,6 @@
 // --- [EXPORTS] -------------------------------------------------------------------------
 
+export { Client } from '#/client';
 export { Content } from '#/content';
 export { registerRpcGroup } from '#/register-rpc-group';
 export { Resource } from '#/resource';

@@ -188,7 +188,7 @@ Actions go to the app's process through AX actions on its elements and leave the
 
 - `request_access` serves the lead, it blocks with no timeout until a person answers, and a new flag asks again for a granted app
 - `list_granted_applications` serves any agent, grants last for the session and reach every agent in it
-- Grants name a bundle id, side-by-side releases sharing one stay apart only by `pid` in `watch-apps` and Atelier
+- Grants name a bundle id, side-by-side releases sharing one stay apart by `pid` or `instance` in `watch-apps` and by `application` name or `instance` in Atelier
 - `screenshot` and `zoom` serve click coordinates alone, `capture` serves reading
 - `left_click`, `double_click`, and `computer_batch` serve an alert in `unresponsive` `windows`, a control in a `capture` image, a press that left its state unchanged, and a populated window with an empty `detail`
 - `type` and `key` serve input that needs the app's change tracking, after a click on the field, input going to the frontmost granted app

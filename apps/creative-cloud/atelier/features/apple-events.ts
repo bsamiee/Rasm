@@ -47,7 +47,7 @@ const appleEvents = Effect.fnUntraced(function* ({ dictionary }: Effect.Success<
             parameters: Execute,
             success: CommandResult,
         }),
-        (given, { pid }) => automation.execute({ ...given, pid }),
+        (given, { instance }) => automation.execute({ ...given, instance }),
     );
 });
 

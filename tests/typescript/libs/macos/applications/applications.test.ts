@@ -1,18 +1,19 @@
 import { assert, it } from '@effect/vitest';
 import { Execute, Installation, Launch, Launching, Perform, RunningInstance, Screenshot, State } from '@rasm/applications';
-import { Effect, Option, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Option, Record, Result, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PID = 64_327;
+const PROCESS = `${PID}@8589769593254`;
 const BLOCKING = 20_917;
 const AX_ERROR = 3;
 const MAIL = 'file:///Applications/Mail.app/';
 const LINE = `{"running":{"active":false,"process":"sleeping","status":"unresponsive","windows":[{"asking":true,"frame":[[653,277],[494,131]],"kind":"blocking","layer":8,"number":${BLOCKING},"onScreen":false,"title":"Adobe InDesign"},{"element":{"id":"AQID","role":"AXWindow","actions":[],"kind":"window","asking":false},"frame":[[0,0],[1800,1082]],"kind":"window","layer":0,"number":20900,"onScreen":false},{"frame":[[0,669],[500,500]],"kind":"undescribed","layer":0,"number":20901,"onScreen":false,"presented":false}]}}`;
-const INSTANCE = `{"pid":${PID},"identifier":"com.adobe.InDesign","url":"file:///Applications/Adobe%20InDesign.app/","activationPolicy":"regular","state":${LINE}}`;
-const FAILURE = `{"reason":"noProcess","subject":"${PID}","message":"Process ${PID} exited","error":${AX_ERROR}}`;
-const EXITED = `{"exited":{"signal":6,"detail":["memory"],"reporting":true,"report":{"url":"file:///report.ips","pid":${PID},"exception":"EXC_CRASH"}}}`;
-const LAUNCHING = [`{"launched":{"pid":${PID},"identifier":"com.adobe.InDesign","created":true}}`, `{"state":${INSTANCE}}`, `{"prompts":[${INSTANCE}]}`, `{"failed":${FAILURE}}`];
+const INSTANCE = `{"pid":${PID},"instance":"${PROCESS}","identifier":"com.adobe.InDesign","url":"file:///Applications/Adobe%20InDesign.app/","activationPolicy":"regular","state":${LINE}}`;
+const FAILURE = `{"reason":"refused","subject":"AXPress on AQID","message":"AXPress on AQID refused with AXError ${AX_ERROR}","error":${AX_ERROR}}`;
+const EXITED = `{"exited":{"signal":6,"detail":["memory"],"report":{"url":"file:///report.ips","pid":${PID},"instance":"${PROCESS}","service":"app.rasm.atelier.server","exception":"EXC_CRASH","signal":"SIGKILL (Code Signature Invalid)","termination":{"code":4,"indicator":"Launch Constraint Violation","namespace":"CODESIGNING"}}}}`;
+const LAUNCHING = [`{"launched":{"pid":${PID},"instance":"${PROCESS}","identifier":"com.adobe.InDesign","created":false,"replaced":true}}`, `{"state":${INSTANCE}}`, `{"prompts":[${INSTANCE}]}`, `{"failed":${FAILURE}}`];
 const LISTING = `{"_tag":"Success","success":[{"url":"${MAIL}","identifier":"com.apple.mail","name":"Mail","version":"16.0","build":"3826","scriptable":true,"activationPolicy":"regular"}]}`;
 const SHOTS = `{"${BLOCKING}":{"_tag":"Success","success":"file:///tmp/${BLOCKING}.png"},"20900":{"_tag":"Failure","failure":{"name":"ApplicationFailure","message":"Window closed"}}}`;
 const ACTIONS = `{"actions":[{"perform":{"element":"AQID","action":"AXPress"}},{"set":{"element":"AQID","value":"A"}},{"key":{"process":${PID},"code":36}}]}`;
@@ -28,9 +29,9 @@ const decoded =
     <T, E>(schema: Schema.Codec<T, E>) =>
     (line: string) =>
         Schema.decodeEffect(wire(schema))(line);
-const windowsOf = (state: typeof State.Type) => State.match<readonly (typeof State.Window.Type)[]>(state, { running: Struct.get('windows'), failed: () => [], exited: () => [] });
+const windowsOf = State.matchOrElse({ running: ({ running }) => running.windows }, Array.empty<typeof State.Window.Type>);
 const rowOf = ({ kind, asking, presented, element }: typeof State.Window.Type) => [kind, asking, presented, Option.flatMap(Option.fromUndefinedOr(element), Record.get('actions'))];
-const keptOf = (state: typeof State.Type) => State.match<unknown>(state, { running: ({ status }) => status, failed: ({ error }) => error, exited: ({ report }) => Option.flatMap(Option.fromUndefinedOr(report), Record.get('pid')) });
+const keptOf = State.match({ running: ({ running }) => running.status, failed: ({ failed: { error } }) => error, exited: ({ exited }) => Option.map(Option.fromUndefinedOr(exited.report), ({ instance, termination }) => [instance, termination?.indicator]) });
 const buildOf = ({ build }: Installation) => Option.getOrUndefined(build);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -51,8 +52,8 @@ it.effect(
             ['window', false, true, Option.some([])],
             ['undescribed', false, false, Option.none()],
         ]);
-        assert.deepStrictEqual([keptOf(running), keptOf(failed), keptOf(exited)], ['unresponsive', AX_ERROR, Option.some(PID)]);
-        assert.deepStrictEqual(launching.map(Struct.keys), [['launched'], ['state'], ['prompts'], ['failed']]);
+        assert.deepStrictEqual([keptOf(running), keptOf(failed), keptOf(exited)], ['unresponsive', AX_ERROR, Option.some([PROCESS, 'Launch Constraint Violation'])]);
+        assert.deepStrictEqual(launching.map(Struct.get('_tag')), ['launched', 'state', 'prompts', 'failed']);
         assert.deepStrictEqual(Record.map(shots, Result.isSuccess), { [BLOCKING]: true, 20900: false });
         assert.deepStrictEqual((yield* Effect.fromResult(listing)).map(buildOf), ['3826']);
         assert.lengthOf(executed.artifacts, 1);

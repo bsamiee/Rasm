@@ -1,5 +1,5 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, flow, Match, Option, Predicate, Schema, String, Struct } from 'effect';
+import { Array, Effect, flow, Record, Schema, String, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -13,16 +13,6 @@ type AppleEventValue =
     | { readonly _tag: 'specifier'; readonly want: string; readonly form: typeof Form.Type; readonly seld: AppleEventValue; readonly from?: AppleEventValue }
     | typeof Leaf.Type
     | { readonly _tag?: never; readonly [term: string]: AppleEventValue };
-
-interface Cases<A> {
-    readonly running: (running: typeof Running.Type) => A;
-    readonly failed: (failed: typeof Failed.Type) => A;
-    readonly exited: (exited: typeof Exited.Type) => A;
-}
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const LANGUAGE = 'doLg';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -73,19 +63,19 @@ class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Term
     { ...Struct.Record(TermKind.literals, Schema.Array(Term)), command: Schema.Array(Term.mapFields(Struct.assign({ parameters: Schema.Array(Term) }))) },
     { description: 'Every declaration by kind, name, and code, commands with their parameters' },
 ) {
-    static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { direct, values = [], language = 'JSLg' }: { readonly direct: AppleEventValue; readonly values?: readonly AppleEventValue[]; readonly language?: string }) {
+    static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { events, direct, declared = {} }: { readonly events: Array.NonEmptyReadonlyArray<string>; readonly direct: AppleEventValue; readonly declared?: { readonly [code: string]: AppleEventValue } }) {
         const { name, parameters } = yield* Effect.fromOption(
-            Array.findFirst(['DjxM', 'dosc'], (event) => Array.findFirst(command, flow(Struct.get('code'), String.endsWith(event)))),
-            () => Unmatched.make({ subject: 'script command', candidates: Array.map(command, Struct.get('name')) }),
+            Array.findFirst(events, (event) => Array.findFirst(command, flow(Struct.get('code'), String.endsWith(event)))),
+            () => Unmatched.make({ subject: `command with event ${events.join(' or ')}`, candidates: Array.map(command, Struct.get('name')) }),
         );
-        const passed = Array.isReadonlyArrayEmpty(values) ? {} : { [(yield* Unmatched.single(parameters, `parameter of ${name}`, Option.some('with arguments'), (parameter) => [parameter.name, parameter.code])).code]: values };
-        const spoken = Array.some(parameters, ({ code }) => code === LANGUAGE) ? { [LANGUAGE]: { _tag: 'enumerator', name: language } as const } : {};
-        return Execute.make({ command: name, arguments: { direct, ...passed, ...spoken } });
+        const codes = new Set(Array.map(parameters, Struct.get('code')));
+        return Execute.make({ command: name, arguments: { direct, ...Record.filter(declared, (_, code) => codes.has(code)) } });
     });
 }
 
 const Undeclared = Schema.Record(Schema.String, Schema.Json);
 const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Undeclared]);
+const keyed = <const Key extends string, S extends Schema.Top>(key: Key, schema: S) => Schema.Struct({ _tag: Schema.tagDefaultOmit(key), ...Struct.Record([key], schema) });
 const defaulted = <S extends Schema.Constraint & Schema.WithoutConstructorDefault>(schema: S, value: S['Encoded'] & S['~type.make.in']) => Schema.withConstructorDefault<Schema.withDecodingDefaultKey<S>>(Effect.succeed(value))(Schema.withDecodingDefaultKey<S>(Effect.succeed(value))(schema));
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });
@@ -133,30 +123,43 @@ const Running = open({
     windows: Schema.Array(Window),
 });
 const Failed = open({ reason: Schema.String.annotate({ description: 'Failure case' }), subject: Schema.String, message: Schema.optionalKey(Schema.String) });
-const Exited = open({
-    status: Schema.optionalKey(Schema.Int),
-    signal: Schema.optionalKey(Schema.Int),
-    detail: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Exit cause flags' })),
-    statusFailure: Schema.optionalKey(Schema.String),
-    reporting: Schema.optionalKey(Schema.Boolean.annotate({ description: 'A crash report is on its way' })),
-    report: Schema.optionalKey(open({ url: Schema.String.annotate({ description: 'Crash report file URL' }), exception: Schema.optionalKey(Schema.String) })),
-    reportFailure: Schema.optionalKey(Schema.String),
+const ProcessInstance = Schema.String.check(Schema.isPattern(/^\d+@\d+$/u))
+    .pipe(Schema.brand('ProcessInstance'))
+    .annotate({ description: 'Process ID and kernel start time as <pid>@<start>, unequal for a later process reusing the ID' });
+const CrashReport = open({
+    url: Schema.URL.annotate({ description: 'Crash report file' }),
+    pid: Pid,
+    instance: Schema.optionalKey(ProcessInstance),
+    executable: Schema.optionalKey(Schema.String.annotate({ description: 'Executable path, redacted under /Users and /private/tmp' })),
+    service: Schema.optionalKey(Schema.String.annotate({ description: 'launchd label of the job the process ran as' })),
+    bundleIdentifier: Schema.optionalKey(Schema.String),
+    exception: Schema.optionalKey(Schema.String.annotate({ description: 'Mach exception type' })),
+    signal: Schema.optionalKey(Schema.String),
+    termination: Schema.optionalKey(open({ namespace: Schema.String, code: Schema.optionalKey(Schema.Finite), indicator: Schema.optionalKey(Schema.String) }).annotate({ description: 'Kernel termination reason, CODESIGNING with Launch Constraint Violation for a refused launch' })),
 });
-const StateUnion = Schema.Union([Schema.Struct({ running: Running }), Schema.Struct({ failed: Failed }), Schema.Struct({ exited: Exited })]).annotate({ description: 'Running with every window, failed read, or exited with its cause' });
-const match = <A>(state: typeof StateUnion.Type, cases: Cases<A>) =>
-    Match.value(state).pipe(
-        Match.when({ running: Match.defined }, ({ running }) => cases.running(running)),
-        Match.when({ failed: Match.defined }, ({ failed }) => cases.failed(failed)),
-        Match.when({ exited: Match.defined }, ({ exited }) => cases.exited(exited)),
-        Match.exhaustive,
-    );
-const State = Object.assign(StateUnion, {
+const reported = {
+    report: Schema.optionalKey(CrashReport),
+    reportFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Crash report read failure case' })),
+};
+const ended = {
+    detail: Schema.optionalKey(Schema.Array(Schema.Literals(['memory', 'codeSigning', 'decryption'])).annotate({ description: 'Kernel exit detail: memory limit, invalid code signature, failed decryption' })),
+    reporting: Schema.optionalKey(Schema.Boolean.annotate({ description: 'A crash report is on its way' })),
+    ...reported,
+};
+const Exited = Schema.Union([
+    open({ _tag: Schema.tagDefaultOmit('Status'), status: Schema.Int.annotate({ description: 'Exit status' }), ...ended }),
+    open({ _tag: Schema.tagDefaultOmit('Signal'), signal: Schema.Int.annotate({ description: 'Terminating signal number' }), ...ended }),
+    open({ _tag: Schema.tagDefaultOmit('Unread'), statusFailure: Schema.String.annotate({ description: 'Exit status read failure' }), ...reported }),
+]).pipe(Schema.toTaggedUnion('_tag'));
+const States = Schema.Union([keyed('running', Running), keyed('failed', Failed), keyed('exited', Exited)])
+    .annotate({ description: 'Running with every window, failed read, or exited with its cause' })
+    .pipe(Schema.toTaggedUnion('_tag'));
+const State = Object.assign(States, {
     Running,
     Failed,
     Exited,
     Window,
-    match,
-    asking: (state: typeof StateUnion.Type) => match<readonly (typeof Window.Type)[]>(state, { running: ({ windows }) => windows.filter(Struct.get('asking')), failed: () => [], exited: () => [] }),
+    asking: States.matchOrElse({ running: ({ running }) => running.windows.filter(Struct.get('asking')) }, Array.empty<typeof Window.Type>),
 });
 const Perform = Schema.Struct({
     actions: Schema.NonEmptyArray(
@@ -174,23 +177,26 @@ const Launch = Schema.Struct({
     environment: defaulted(Schema.Record(Schema.String, Schema.String), {}),
     new: defaulted(Schema.Boolean, false).annotate({ description: 'Beside running instances' }),
 });
-const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical']) }).annotate({ description: 'Kernel memory pressure level and thermal state' });
+const Pressure = Schema.Struct({ memory: Schema.Literals(['normal', 'warning', 'critical']), thermal: Schema.Literals(['nominal', 'fair', 'serious', 'critical', 'unknown']) }).annotate({ description: 'Kernel memory pressure level and thermal state, unknown for a state this build names no case for' });
 const ActivationPolicy = Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'Regular in Dock, accessory for menu bar or helper process, prohibited for background only' });
 const Launched = Schema.Struct({
     pid: Pid,
+    instance: ProcessInstance,
     identifier: Schema.String.annotate({ description: 'Bundle identifier' }),
     created: Schema.Boolean.annotate({ description: 'Launch started the instance, false when it reused a running one' }),
+    replaced: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Reused instance runs code replaced on disk since it started' })),
 });
 class RunningInstance extends Schema.Class<RunningInstance, { readonly brand: unique symbol }>('RunningInstance')({
     pid: Pid,
+    instance: ProcessInstance,
     identifier: Launched.fields.identifier,
     url: Schema.URL.annotate({ description: 'Bundle' }),
     activationPolicy: ActivationPolicy,
     state: State,
 }) {}
-const Launching = Schema.Union([Schema.Struct({ launched: Launched }), Schema.Struct({ state: RunningInstance }), Schema.Struct({ prompts: Schema.Array(RunningInstance) }), Schema.Struct({ failed: Failed })]).annotate({
-    description: 'Launch events: launched first, then states and system prompts, ending settled or asking',
-});
+const Launching = Schema.Union([keyed('launched', Launched), keyed('state', RunningInstance), keyed('prompts', Schema.Array(RunningInstance)), keyed('failed', Failed)])
+    .annotate({ description: 'Launch events: launched first, then states and system prompts, ending settled or asking' })
+    .pipe(Schema.toTaggedUnion('_tag'));
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
     executable: Schema.OptionFromOptionalKey(Schema.URL.annotate({ description: 'Main executable of the bundle' })),
@@ -202,8 +208,15 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     scriptingDefinitionFile: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'OSAScriptingDefinition file in bundle Resources' })),
     activationPolicy: ActivationPolicy.annotate({ description: 'From LSBackgroundOnly and LSUIElement' }),
 }) {
-    static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !Predicate.hasProperty(instance.state, 'exited');
+    static readonly runs = (installation: Installation) => (instance: RunningInstance) => instance.url.href === installation.url.href && !State.isAnyOf(['exited'])(instance.state);
 }
+const Lifecycle = Schema.Struct({
+    agents: Schema.Array(open({ label: Schema.String, program: Schema.URL.annotate({ description: 'Executable launchd starts' }), plist: Schema.URL, keepAlive: Schema.Boolean })).annotate({ description: 'Contents/Library/LaunchAgents declarations of the named applications' }),
+    processes: Schema.Array(open({ pid: Pid, instance: ProcessInstance, executable: Schema.optionalKey(Schema.String), replaced: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Process runs other code than the file at executable holds' })) })).annotate({
+        description: 'Processes executing a file of the named bundles, the named executable, or the named instance',
+    }),
+    reports: Schema.Array(CrashReport).annotate({ description: 'Newest crash reports of the named instance, bundle identifier, or agent label' }),
+}).annotate({ description: 'watch-apps processes row, a keepAlive agent with no process at program is not running and reports hold its cause' });
 class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbol }>('Screenshot')({
     window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Absent captures each presented window' })),
     longestSide: Schema.OptionFromOptionalKey(LongestSide),
@@ -213,4 +226,4 @@ class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleEventValue, Execute, Installation, Launch, Launched, Launching, LongestSide, Perform, Pid, Pressure, RunningInstance, Screenshot, State, TermKind, Terms, WindowID };
+export { AppleEventValue, Execute, Installation, Launch, Launched, Launching, Lifecycle, LongestSide, Perform, Pid, Pressure, ProcessInstance, RunningInstance, Screenshot, State, TermKind, Terms, WindowID };

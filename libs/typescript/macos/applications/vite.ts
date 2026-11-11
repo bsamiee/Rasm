@@ -1,11 +1,11 @@
-import { execFileSync } from 'node:child_process';
 import { globSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
-import { Array, Cause, Effect, Record, Schema, Stream } from 'effect';
-import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+import { Array, Effect, Record, Schema } from 'effect';
+import type { ChildProcessSpawner } from 'effect/process';
 import { build, type PlistValue, parse } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
+import { ExitError } from '#/node';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -68,12 +68,7 @@ const helper = Effect.fnUntraced(function* (
     const name = basename(dirname(entry));
     const context = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
     const signing = yield* Effect.cached(
-        Effect.gen(function* () {
-            const handle = yield* ChildProcess.make('xcodebuild', ['-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target], { stdin: 'ignore' });
-            const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-            return code === 0 ? stdout : yield* new Cause.UnknownError(stderr, `xcodebuild -showBuildSettings for ${xcode.target} in ${xcode.project} exited ${code}: ${stderr.trim()}`);
-        }).pipe(
-            Effect.scoped,
+        ExitError.stdout(['xcodebuild', '-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target]).pipe(
             Effect.flatMap(Schema.decodeEffect(Settings)),
             Effect.map(([{ buildSettings }]) => ({ ...buildSettings, label: `${buildSettings.PRODUCT_BUNDLE_IDENTIFIER}.${service}` })),
         ),
@@ -109,10 +104,14 @@ const helper = Effect.fnUntraced(function* (
         closeBundle(): Promise<void> {
             return signing.pipe(
                 Effect.flatMap(({ label }) =>
-                    Effect.sync(() => {
-                        execFileSync(process.execPath, ['--build-sea', join(outDir, 'sea.json')], { stdio: 'inherit' });
-                        execFileSync('codesign', ['--force', '--sign', '-', '--identifier', label, '--options', 'runtime', '--entitlements', join(outDir, 'sea.entitlements'), join(outDir, name)], { stdio: 'inherit' });
-                    }),
+                    Effect.forEach(
+                        [
+                            [process.execPath, '--build-sea', join(outDir, 'sea.json')],
+                            ['codesign', '--force', '--sign', '-', '--identifier', label, '--options', 'runtime', '--entitlements', join(outDir, 'sea.entitlements'), join(outDir, name)],
+                        ] as const,
+                        ExitError.stdout,
+                        { discard: true },
+                    ),
                 ),
                 Effect.runPromiseWith(context),
             );

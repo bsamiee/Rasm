@@ -1,9 +1,9 @@
-import type { Launching } from '@rasm/applications';
+import { Launching } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import { HostError } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
 import type { Source } from '@rasm/typography';
-import { Cause, Context, Effect, Fiber, FileSystem, Layer, Match, Option, Path, Result, Schema, Sink, Stream, SubscriptionRef } from 'effect';
+import { Cause, Context, Effect, Fiber, FileSystem, Layer, Option, Path, Result, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { Rpc, RpcClient, RpcGroup } from 'effect/rpc';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -34,17 +34,13 @@ class Adobe extends Context.Service<Adobe>()('@rasm/atelier/adobe', {
             installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult),
             exited: Effect.raceFirst(automation.exited, Effect.andThen(Fiber.joinAll([discovering, tracking]), automation.exited)),
             launched: (launch: Parameters<typeof automation.launch>[0]) =>
-                automation.launch(launch).pipe(
-                    Stream.filterMapEffect(
-                        Match.type<typeof Launching.Type>().pipe(
-                            Match.when({ failed: Match.defined }, ({ failed }) => Effect.fail(HostError.refused(failed.subject)(failed.message))),
-                            Match.when({ launched: Match.defined }, ({ launched }) => Effect.succeed(Result.succeed(launched))),
-                            Match.orElse(() => Effect.succeed(Result.failVoid)),
-                        ),
+                automation
+                    .launch(launch)
+                    .pipe(
+                        Stream.filterMapEffect(Launching.matchOrElse({ failed: ({ failed }) => Effect.fail(HostError.refused(failed.subject)(failed.message)), launched: ({ launched }) => Effect.succeed(Result.succeed(launched)) }, () => Effect.succeed(Result.failVoid))),
+                        Stream.runLast,
+                        Effect.flatMap(Effect.fromOption),
                     ),
-                    Stream.runLast,
-                    Effect.flatMap(Effect.fromOption),
-                ),
         };
     }),
 }) {

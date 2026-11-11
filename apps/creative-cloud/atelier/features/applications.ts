@@ -47,7 +47,7 @@ const control = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
     yield* Route({
         fields: { application: application.listed, ...Struct.omit(Launch.fields, ['url']) },
         resolve: ({ application: given, ...options }) => Effect.flatMap(application.named(given), ({ url }) => launched({ url, ...options })),
-        depends: ({ pid }) => Effect.succeed([reported(pid)]),
+        depends: ({ instance }) => Effect.succeed([reported(instance)]),
         annotations: Context.omit(Server.Visible)(application.annotations),
     })(
         Tool.make('launch', {
@@ -63,7 +63,7 @@ const control = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
             parameters: Reading,
             success: State,
         }).annotate(Tool.Readonly, true),
-        (given, { pid }) => automation.read({ ...given, pid }),
+        (given, { instance }) => automation.read({ ...given, instance }),
     );
     yield* Route(application)(
         Tool.make('screenshot', {
@@ -71,20 +71,20 @@ const control = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
             parameters: Screenshot,
             success: Captured,
         }).annotate(Tool.Readonly, true),
-        Effect.fnUntraced(function* (shot, { pid }) {
+        Effect.fnUntraced(function* (shot, { instance }) {
             const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const directory = yield* files.makeTempDirectoryScoped();
-            const written = yield* automation.screenshot({ ...shot, pid, directory: yield* path.toFileUrl(directory) });
+            const written = yield* automation.screenshot({ ...shot, instance, directory: yield* path.toFileUrl(directory) });
             return yield* Effect.all(Record.map(written, Result.match({ onSuccess: (file) => Effect.result(Effect.flatMap(path.fromFileUrl(file), Capture.read)), onFailure: (error) => Effect.succeed(Result.fail<Error>(error)) })));
         }, Effect.scoped),
     );
-    yield* Route({ ...application, depends: ({ pid }) => Effect.succeed([launching(pid)]) })(
+    yield* Route({ ...application, depends: ({ instance }) => Effect.succeed([launching(instance)]) })(
         Tool.make('perform', {
             description: 'Runs Accessibility actions on read elements in order, refused while application launches, returning the state after the last',
             parameters: Perform,
             success: State,
         }),
-        (given, { pid }) => automation.perform({ ...given, pid }),
+        (given, { instance }) => automation.perform({ ...given, instance }),
     );
     yield* Route({ ...application, depends: () => Effect.succeed([]) })(
         Tool.make('quit', {
@@ -92,7 +92,7 @@ const control = Effect.fnUntraced(function* ({ application }: Effect.Success<Ret
             parameters: Quitting,
             success: State,
         }).annotate(Tool.Destructive, true),
-        (given, { pid }) => automation.quit({ ...given, pid }),
+        (given, { instance }) => automation.quit({ ...given, instance }),
     );
 });
 

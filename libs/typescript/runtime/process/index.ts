@@ -8,6 +8,10 @@ import envPaths from 'env-paths';
 const Level = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()), Schema.decode(SchemaTransformation.capitalize()), Schema.decodeTo(Schema.Literals(LogLevel.values)));
 const Target = Schema.Literals(['file', 'stderr']);
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const interrupted = <A, E>(exit: Exit.Exit<A, E>) => Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const layerTelemetry = Effect.fnUntraced(function* ({ resource, target, level }: { readonly resource: Parameters<typeof layerNode>[0]['resource']; readonly target: typeof Target.Type; readonly level?: LogLevel.LogLevel }) {
@@ -47,6 +51,7 @@ const layerTelemetry = Effect.fnUntraced(function* ({ resource, target, level }:
     );
     return Ref.get(refused).pipe(
         Effect.flatMap(Effect.forEach(([setting, error]) => Effect.annotateLogs(Effect.logWarning('Setting refused, default stands', Cause.fail(error)), setting), { discard: true })),
+        Effect.andThen(Effect.addFinalizer((exit) => (interrupted(exit) ? Effect.logInfo('Process interrupted') : Effect.void))),
         Layer.effectDiscard,
         Layer.provideMerge(
             Layer.provideMerge(
@@ -59,7 +64,7 @@ const layerTelemetry = Effect.fnUntraced(function* ({ resource, target, level }:
         ),
     );
 }, Layer.unwrap);
-const teardown: Runtime.Teardown = (exit, onExit) => (Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause) ? onExit(0) : Runtime.defaultTeardown(exit, onExit));
+const teardown: Runtime.Teardown = (exit, onExit) => (interrupted(exit) ? onExit(0) : Runtime.defaultTeardown(exit, onExit));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

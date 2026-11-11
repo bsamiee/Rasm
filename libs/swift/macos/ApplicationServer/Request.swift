@@ -1,10 +1,8 @@
 public import AppKit
 public import AppleEvents
 public import Applications
-import AsyncAlgorithms
 import CoreServices
 public import EffectRPC
-import OrderedCollections
 public import Processes
 import Results
 
@@ -19,14 +17,14 @@ public enum Request: Decodable, Sendable {
     case instances(identifiers: [String]?, prefix: String?)
     case pressure
     case applications(toOpen: URL)
-    case read(pid: pid_t, instance: ProcessInstance?, window: CGWindowID?)
+    case read(instance: ProcessInstance, window: CGWindowID?)
     case launch(url: URL, documents: [URL], arguments: [String], environment: [String: String], new: Bool)
-    case perform(pid: pid_t, instance: ProcessInstance?, actions: [ElementAction])
-    case quit(pid: pid_t, instance: ProcessInstance?, force: Bool)
+    case perform(instance: ProcessInstance, actions: [ElementAction])
+    case quit(instance: ProcessInstance, force: Bool)
     case terms(url: URL)
     case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
-    case execute(pid: pid_t, instance: ProcessInstance?, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
-    case screenshot(pid: pid_t, instance: ProcessInstance?, window: CGWindowID?, longestSide: Int?, directory: URL)
+    case execute(instance: ProcessInstance, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
+    case screenshot(instance: ProcessInstance, window: CGWindowID?, longestSide: Int?, directory: URL)
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -51,13 +49,13 @@ private func installation(at url: URL, admitting: () -> NSPredicate) throws(Appl
     return installation
 }
 
-private func running(_ pid: pid_t, _ named: ProcessInstance?, admitting: () -> NSPredicate) throws(ApplicationFailure) -> Instance {
-    guard let application = NSRunningApplication(processIdentifier: pid) else { throw ApplicationFailure(subject: String(pid), reason: .noProcess) }
+private func running(_ process: ProcessInstance, admitting: () -> NSPredicate) throws(ApplicationFailure) -> Instance {
+    guard let application = NSRunningApplication(processIdentifier: process.pid) else { throw ApplicationFailure(subject: process.rawValue, reason: .noProcess) }
     let instance = try Instance(application)
-    guard named.map({ named in named == instance.process }) != false else { throw ApplicationFailure(subject: String(pid), reason: .noProcess) }
+    guard instance.process == process else { throw ApplicationFailure(subject: process.rawValue, reason: .noProcess) }
     let admission = admitting()
     guard admitted(application.bundleIdentifier, by: admission) else {
-        throw ApplicationFailure(subject: String(pid), reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: application.bundleIdentifier, candidates: [])))
+        throw ApplicationFailure(subject: process.rawValue, reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: application.bundleIdentifier, candidates: [])))
     }
     return instance
 }
@@ -79,36 +77,36 @@ extension Request {
                 return .stream(SystemPressure.changes().map { pressure -> any Encodable & Sendable in Outcome(pressure) })
             case .applications(let file):
                 return .value(NSWorkspace.shared.urlsForApplications(toOpen: file))
-            case .read(let pid, let named, let window):
-                return try await .value(running(pid, named, admitting: admitting).reading(window: window))
+            case .read(let process, let window):
+                return try await .value(running(process, admitting: admitting).reading(window: window))
             case .launch(let url, let documents, let arguments, let environment, let new):
                 return try .stream(
                     NSWorkspace.shared.launching(installation(at: url, admitting: admitting), opening: documents, arguments: arguments, environment: environment, newInstance: new)
                         .map(\.self)
                 )
-            case .perform(let pid, let named, let actions):
-                let instance = try running(pid, named, admitting: admitting)
+            case .perform(let process, let actions):
+                let instance = try running(process, admitting: admitting)
                 var next: InstanceState?
-                for action in actions { next = try await action.perform(in: pid).state }
+                for action in actions { next = try await action.perform(in: process.pid).state }
                 let settled = if let next { next } else { await instance.state() }
                 return .value(settled)
-            case .quit(let pid, let named, let force):
+            case .quit(let process, let force):
                 var last: InstanceState?
-                for await outcome in try running(pid, named, admitting: admitting).quit(force: force) { last = try outcome.get() }
+                for await outcome in try running(process, admitting: admitting).quit(force: force) { last = try outcome.get() }
                 return .value(last)
             case .terms(let url):
                 return try await .value(definitions.dictionary(of: installation(at: url, admitting: admitting)))
             case .definition(let url, let kind, let name):
                 return try await .value(definitions.dictionary(of: installation(at: url, admitting: admitting)).text(of: kind, named: name))
-            case .execute(let pid, let named, let command, let arguments, let artifacts):
-                let instance = try running(pid, named, admitting: admitting)
-                guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: String(pid), reason: .noPath) }
+            case .execute(let process, let command, let arguments, let artifacts):
+                let instance = try running(process, admitting: admitting)
+                guard let url = instance.application.bundleURL else { throw ApplicationFailure(subject: process.rawValue, reason: .noPath) }
                 let scripted = try installation(at: url, admitting: admitting)
                 let reply = try await definitions.dictionary(of: scripted)
-                    .reply(to: command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: pid), refusing: refusing(scripted))
+                    .reply(to: command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: process.pid), refusing: refusing(scripted))
                 return .value(Executed(reply: reply, reading: artifacts))
-            case .screenshot(let pid, let named, let window, let longestSide, let directory):
-                let shots = try await running(pid, named, admitting: admitting).capturing(into: directory, window: window, longestSide: longestSide)
+            case .screenshot(let process, let window, let longestSide, let directory):
+                let shots = try await running(process, admitting: admitting).capturing(into: directory, window: window, longestSide: longestSide)
                 return .value(Dictionary(uniqueKeysWithValues: shots.map { number, shot in (String(number), Outcome(shot)) }))
         }
     }
