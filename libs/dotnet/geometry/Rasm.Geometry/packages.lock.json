@@ -83,6 +83,7 @@
         "resolved": "10.6.0",
         "contentHash": "Jw3+e90caB67fLwod+dVgEBimjEEVW/K7wpQs4G5/3iZeHJUWsBSYBjwh2eVkQGhmyAClGldK/4awKuqGunvyA=="
       }
-    }
+    },
+    "net10.0/win-x64": {}
   }
 }

@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/test-hooks",
+    "private": true,
+    "description": "Webhook receiver suite over a Node server on an allocated port: a signed delivery per sender accepted, changed, stale, unsigned, and unrouted deliveries refused, refusal before the body parses, and a repeated delivery accepted again",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/hooks": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

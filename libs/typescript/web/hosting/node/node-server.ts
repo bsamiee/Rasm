@@ -15,7 +15,7 @@ interface Read extends Struct.Lambda {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const read = { sqlite: Schema.String, postgres: Schema.Redacted(Schema.String), bucket: Schema.String, secret: Schema.Redacted(Schema.String), text: Schema.String, json: Schema.Json } as const;
+const read = { sqlite: Schema.String, postgres: Schema.Redacted(Schema.String), bucket: Schema.String, secret: Schema.Redacted(Schema.String), text: Schema.String, json: Schema.fromJsonString(Schema.Json) } as const;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -25,7 +25,8 @@ const serveNode = Effect.fnUntraced(function* <const E extends Record.ReadonlyRe
         Record.filterMap(
             app.env,
             Match.type<Binding>().pipe(
-                Match.tag('text', 'json', ({ value }) => value),
+                Match.tag('text', ({ value }) => value),
+                Match.tag('json', ({ value }) => JSON.stringify(value)),
                 Match.result,
             ),
         ),

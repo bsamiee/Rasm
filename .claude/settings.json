@@ -16,7 +16,7 @@
         ]
     },
     "enableAllProjectMcpServers": true,
-    "disabledMcpjsonServers": [ "greptile", "arena", "voicebox" ],
+    "disabledMcpjsonServers": [ "greptile", "arena" ],
     "worktree": {
         "bgIsolation": "none"
     },

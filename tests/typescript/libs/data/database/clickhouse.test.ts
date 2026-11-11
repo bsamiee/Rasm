@@ -2,8 +2,8 @@ import { ClickhouseClient } from '@effect/sql-clickhouse';
 import { assert, expectTypeOf, it } from '@effect/vitest';
 import { Catalog, Engine, Relation, Tokenizer } from '@rasm/database';
 import { Clickhouse } from '@rasm/database/clickhouse';
-import { Store } from '@rasm/test-support/store';
-import { failed } from '@rasm/test-support/vitest';
+import { Store } from '@rasm/test-store';
+import { failed } from '@rasm/testing/vitest';
 import { Effect, Layer, Schema, Struct } from 'effect';
 import type { SqlClient } from 'effect/sql';
 

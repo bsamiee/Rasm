@@ -4,7 +4,7 @@ import { layerConfig } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { PgClient } from '@effect/sql-pg';
 import { App } from '@rasm/hosting/app';
-import { layerTelemetry } from '@rasm/process';
+import { layerNodeFromConfig } from '@rasm/telemetry/node';
 import { Config, Effect, Layer } from 'effect';
 import { HttpMiddleware, HttpRouter, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';
@@ -16,7 +16,7 @@ HttpRouter.serve(Layer.merge(routes, HttpRouter.add('GET', App.bundle.readiness,
     Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })),
     Layer.provide([layer, Layer.provide(Layer.merge(PersistedQueue.layer, PersistedQueue.layerCleanup()), PersistedQueue.layerStoreSql()), HttpMiddleware.layerTracerDisabledForUrls([App.bundle.readiness])]),
     Layer.provide(PgClient.layerConfig({ url: Config.Redacted('POSTGRES_URL') })),
-    Layer.provide(layerTelemetry({ resource: { serviceName: 'hooks' }, target: 'stderr' })),
+    Layer.provide(layerNodeFromConfig({ resource: { serviceName: 'hooks' }, target: 'stderr' })),
     Layer.launch,
     runMain,
 );

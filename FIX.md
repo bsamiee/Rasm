@@ -4,13 +4,11 @@ Known CI costs, measured on run 42919352504 of `ci.yml` (head `4175bc63d`, Novem
 
 ## [01]-[STORE_IMAGE]
 
-Step `nx install @rasm/infra -c store` of job `linux` takes 11.5 min on every run:
-- Service `store` of `infra/compose.yaml` compiles `rasm-store` from source inside its image, and a runner starts with no build cache
-- The step runs whether or not an affected test depends on `@rasm/infra`
-
-Fix:
-- Run the step only when an affected test needs the store, a link the test rebuild declares (`@rasm/nx-docker` derives no suite edge)
-- Give the image build a cache a runner keeps between runs (BuildKit `cache-from` and `cache-to`), or pull an image a push built
+Runs with an affected store client start `rasm-store:serve--compose`, which builds service `store` of `infra/compose.yaml`:
+- Image `store` compiles `rasm-store` from source in 6 min without a layer cache, and a remote-cache hit of a store suite still starts the service
+- Service `store` reads and writes a `gha` layer cache, which Buildx drops where no `ACTIONS_*` token is set, `crazy-max/ghaction-github-runtime` sets it in job `linux`
+- Unverified until one CI run: the `gha` cache on the default `docker` driver needs the containerd image store (`docker info --format '{{.DriverStatus}}'`)
+- A change under the paths `apps/data/store/Dockerfile` copies still compiles cold, BuildKit exports no `RUN --mount=type=cache` content
 
 ## [02]-[MACOS_SETUP]
 

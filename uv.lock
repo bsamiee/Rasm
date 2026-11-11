@@ -26,6 +26,7 @@ members = [
     "rasm-records",
     "rasm-refurb",
     "rasm-refurb-tests",
+    "rasm-store-testing",
     "rasm-telemetry",
     "rasm-testing",
     "rasm-typography",
@@ -8332,6 +8333,58 @@ requires-dist = [
 ]
 
 [[package]]
+name = "rasm-store-testing"
+version = "0.0.0"
+source = { editable = "tests/python/apps/data/store" }
+default-groups = "all"
+dependencies = [
+    { name = "clickhouse-connect" },
+    { name = "connectrpc" },
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "obstore" },
+    { name = "protobuf-py" },
+    { name = "psycopg", extra = ["binary"] },
+    { name = "psycopg-pool" },
+    { name = "pyqwest" },
+    { name = "pytest" },
+    { name = "pytest-socket" },
+    { name = "rasm-records" },
+    { name = "rasm-testing" },
+    { name = "redis", extra = ["hiredis"] },
+]
+
+[package.dev-dependencies]
+build = [
+    { name = "hatchling" },
+]
+suite = [
+    { name = "anyio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "clickhouse-connect" },
+    { name = "connectrpc" },
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "obstore" },
+    { name = "protobuf-py" },
+    { name = "psycopg", extras = ["binary"] },
+    { name = "psycopg-pool" },
+    { name = "pyqwest" },
+    { name = "pytest" },
+    { name = "pytest-socket" },
+    { name = "rasm-records", editable = "libs/python/data/records" },
+    { name = "rasm-testing", editable = "tests/python/support" },
+    { name = "redis", extras = ["hiredis"] },
+]
+
+[package.metadata.requires-dev]
+build = [{ name = "hatchling" }]
+suite = [{ name = "anyio" }]
+
+[[package]]
 name = "rasm-telemetry"
 version = "0.0.0"
 source = { editable = "libs/python/runtime/telemetry" }
@@ -8389,18 +8442,14 @@ provides-extras = ["export", "process", "otlp-http", "otlp-grpc", "configuration
 name = "rasm-testing"
 version = "0.0.0"
 source = { editable = "tests/python/support" }
-default-groups = "all"
 dependencies = [
     { name = "boto3" },
     { name = "clickhouse-connect" },
-    { name = "connectrpc" },
     { name = "expression" },
     { name = "msgspec" },
     { name = "obstore" },
-    { name = "protobuf-py" },
     { name = "psycopg", extra = ["binary"] },
     { name = "psycopg-pool" },
-    { name = "pyqwest" },
     { name = "pytest" },
     { name = "pytest-socket" },
     { name = "rasm-records" },
@@ -8409,26 +8458,15 @@ dependencies = [
     { name = "testcontainers" },
 ]
 
-[package.dev-dependencies]
-build = [
-    { name = "hatchling" },
-]
-suite = [
-    { name = "anyio" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "boto3" },
     { name = "clickhouse-connect" },
-    { name = "connectrpc" },
     { name = "expression" },
     { name = "msgspec" },
     { name = "obstore" },
-    { name = "protobuf-py" },
     { name = "psycopg", extras = ["binary"] },
     { name = "psycopg-pool" },
-    { name = "pyqwest" },
     { name = "pytest" },
     { name = "pytest-socket" },
     { name = "rasm-records", editable = "libs/python/data/records" },
@@ -8436,10 +8474,6 @@ requires-dist = [
     { name = "sqlite-vec" },
     { name = "testcontainers" },
 ]
-
-[package.metadata.requires-dev]
-build = [{ name = "hatchling" }]
-suite = [{ name = "anyio" }]
 
 [[package]]
 name = "rasm-typography"

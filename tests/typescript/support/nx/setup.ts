@@ -14,6 +14,7 @@ type Services = typeof import('@effect/platform-node/NodeServices');
 const data = mkdtempDisposableSync(join(tmpdir(), 'nx-workspace-data-'));
 
 Object.assign(env, { NX_WORKSPACE_DATA_DIRECTORY: data.path, NX_DAEMON: 'false', NX_ISOLATE_PLUGINS: 'false' });
+Reflect.deleteProperty(env, 'NX_CACHE_PROJECT_GRAPH');
 
 vi.doMock('@effect/platform-node/NodeServices', (original) => Effect.runPromise(Effect.map(Effect.all([Effect.promise((): Promise<Services> => original()), Effect.promise(() => import('#/nx/tools'))]), ([services, tools]) => ({ ...services, layer: tools.layer(services.layer) }))));
 

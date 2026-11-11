@@ -43,6 +43,11 @@
     <Folder Name="/tests/" />
     <Folder Name="/tests/dotnet/" />
     <Folder Name="/tests/dotnet/apps/" />
+    <Folder Name="/tests/dotnet/apps/data/" />
+    <Folder Name="/tests/dotnet/apps/data/store/">
+        <Project Path="tests/dotnet/apps/data/store/Rasm.Store.Testing.Tests/Rasm.Store.Testing.Tests.csproj" />
+        <Project Path="tests/dotnet/apps/data/store/Rasm.Store.Testing/Rasm.Store.Testing.csproj" />
+    </Folder>
     <Folder Name="/tests/dotnet/apps/roslyn/">
         <Project Path="tests/dotnet/apps/roslyn/Rasm.Analyzers.Tests/Rasm.Analyzers.Tests.csproj" />
     </Folder>

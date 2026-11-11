@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
-ignores: ['libs/rust/runtime/observability/process.rs']
+ignores: ['libs/rust/runtime/telemetry/process.rs']
 utils:
     tracer-builder:
         any:
@@ -71,5 +71,5 @@ rule:
               matches: {rust-renamed-import: {source: *installer-source, name: {regex: *installer-name}}}
         - pattern: $SITE
         - not: {matches: rust-test-scope}
-message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-observability`, or a panic hook dropping the one before it'
-note: 'Start through `rasm_command::run`; keep panic hooks for process lifetime and call their predecessor through `panic::update_hook`'
+message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-telemetry`, or a panic hook dropping the one before it'
+note: 'Start through `rasm_cli::run`; keep panic hooks for process lifetime and call their predecessor through `panic::update_hook`'

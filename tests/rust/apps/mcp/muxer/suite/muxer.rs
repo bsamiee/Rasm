@@ -1,16 +1,19 @@
+use core::future::ready;
 use core::sync::atomic::Ordering;
 use core::time::Duration;
 use std::error::Report;
 use std::io;
 use std::path::PathBuf;
+use std::process::Stdio;
 
 use claims::{assert_err, assert_ok, assert_some};
-use futures::future;
+use futures::{StreamExt as _, future, stream};
 use mcp_muxer_tests::{Agent, Ask, Echo, Isolated, Served, Sized, Slow, Variable, Whoami, call, decoded, exited, modern, session, spawned, text};
 use rmcp::RoleClient;
-use rmcp::model::{CallToolRequest, ClientRequest};
-use rmcp::service::{ClientInitializeError, ClientLifecycleMode, PeerRequestOptions, RunningService};
-use sysinfo::{Pid, ProcessesToUpdate, System};
+use rmcp::model::{CallToolRequest, ClientRequest, NumberOrString, ProgressNotificationParam, ProgressToken};
+use rmcp::service::{ClientInitializeError, ClientLifecycleMode, ClientServiceExt as _, PeerRequestOptions, RunningService};
+use sysinfo::{Pid, ProcessesToUpdate, Signal, System};
+use tokio::time::error::Elapsed;
 use tokio::time::{self, Instant};
 
 use crate::scoped;
@@ -99,7 +102,52 @@ async fn runtime_folder_past_the_socket_limit_runs_the_server_unshared() {
     assert_ok!(passed.await, "a failed test keeps its folder");
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn unshared_server_ends_with_its_session() {
+    let passed = scoped(async |isolated: &Isolated| {
+        for (server, ignored) in [([].as_slice(), false), (["--linger", "1m"].as_slice(), true)] {
+            let mut command = isolated.relay(&[], server);
+            command.env("MCP_MUXER_RUNTIME_DIR", isolated.folder(&"long".repeat(40))).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true);
+            let mut relay = assert_ok!(command.spawn());
+            let transport = (assert_some!(relay.stdout.take()), assert_some!(relay.stdin.take()));
+            let running = assert_ok!(Agent::default().serve_with_lifecycle(transport, ClientLifecycleMode::Initialize).await);
+            assert_eq!(echoed(&running, "alone").await, "alone");
+            let closed = Instant::now();
+            assert_ok!(running.cancel().await);
+            let status = assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), relay.wait()).await, "the relay ends once its session closed standard input: {server:?}"));
+            assert!(status.success(), "the server ends on end of input, or on the terminate signal that follows when it ignores end of input: {server:?} {status}");
+            assert_eq!(closed.elapsed() >= Duration::from_secs(3), ignored, "a server is signalled only after it ignored end of input for the grace period: {server:?}");
+        }
+    });
+    assert_ok!(passed.await, "a failed test keeps its folder");
+}
+
 // --- [RESILIENCE]
+
+#[tokio::test(flavor = "multi_thread")]
+async fn daemon_stops_past_a_server_that_stopped_reading() {
+    let passed = scoped(async |isolated: &Isolated| {
+        let running = assert_ok!(session(Agent::default(), isolated.relay(&[], &["--speaks", "legacy"])).await);
+        let held = assert_some!(daemon(isolated, &[]).await);
+        let request = ClientRequest::CallToolRequest(CallToolRequest::new(assert_ok!(call("stall", &Slow { millis: 600_000, steps: 600 }))));
+        let _stalled = assert_ok!(running.peer().send_cancellable_request(request, PeerRequestOptions::no_options()).await);
+        let update = ProgressNotificationParam::new(ProgressToken(NumberOrString::Number(0)), 0.0).with_message("x".repeat(4 << 10));
+        let sends = stream::repeat(update).then(async |update| time::timeout(Duration::from_secs(1), running.peer().notify_progress(update)).await.map(|sent| assert_ok!(sent)));
+        let taken = sends.take_while(|sent| {
+            ready(match sent {
+                Ok(()) => true,
+                Err(Elapsed { .. }) => false,
+            })
+        });
+        let backed = taken.count().await;
+        assert!(backed > 256, "messages back up behind the server that reads none: {backed}");
+        let mut system = assert_ok!(System::new());
+        system.refresh_processes(ProcessesToUpdate::Some(&[Pid::from_u32(held)]), true);
+        assert_eq!(assert_some!(system.process(Pid::from_u32(held))).kill_with(Signal::Term), Some(true), "the daemon is signalled");
+        assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), exited(held)).await, "a signalled daemon stops though its server reads nothing"));
+    });
+    assert_ok!(passed.await, "a failed test keeps its folder");
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn relay_survives_daemon_loss() {

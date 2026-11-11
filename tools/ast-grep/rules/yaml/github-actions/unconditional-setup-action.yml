@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: unconditional-setup-action
+language: yamllang
+severity: error
+message: Job `$JOB` of a pull request workflow runs `$ACTION` on every run
+note: Gate the step or its job with `if:` on an output stating that a task of this run needs the installed tool
+files: ['.github/workflows/*.yml', '.github/workflows/*.yaml']
+utils:
+    if-pair: {kind: block_mapping_pair, has: {field: key, regex: '^["'']?if["'']?$'}}
+    pr-root:
+        kind: block_mapping
+        inside: {kind: block_node, inside: {kind: document}}
+        has:
+            kind: block_mapping_pair
+            all:
+                - has: {field: key, regex: '^["'']?on["'']?$'}
+                - has: {stopBy: end, kind: string_scalar, regex: '^pull_request(?:_target)?$'}
+    job-pair:
+        kind: block_mapping_pair
+        has: {field: key, pattern: $JOB}
+        inside:
+            kind: block_mapping
+            inside: {kind: block_node, inside: {kind: block_mapping_pair, has: {field: key, regex: '^["'']?jobs["'']?$'}, inside: {matches: pr-root}}}
+rule:
+    kind: block_mapping_pair
+    all:
+        - has: {field: key, regex: '^["'']?uses["'']?$'}
+        - has: {field: value, pattern: $ACTION, regex: '^[^./][^/]*/setup-[^@]+@'}
+        - inside:
+            kind: block_mapping
+            not: {has: {matches: if-pair}}
+            inside:
+                kind: block_node
+                inside:
+                    kind: block_sequence_item
+                    inside:
+                        kind: block_sequence
+                        inside:
+                            kind: block_node
+                            inside:
+                                kind: block_mapping_pair
+                                has: {field: key, regex: '^["'']?steps["'']?$'}
+                                inside: {kind: block_mapping, not: {has: {matches: if-pair}}, inside: {kind: block_node, inside: {matches: job-pair}}}

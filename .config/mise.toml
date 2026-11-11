@@ -113,7 +113,7 @@ java                                                                         = "
 jq                                                                           = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
 node                                                                         = "latest"
-pinact                                                                       = "latest"
+"npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
 pitchfork                                                                    = { os = ["macos"], version = "latest" }
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"
@@ -170,6 +170,12 @@ asset_pattern  = "pmd-dist-*-bin.zip"
 version        = "latest"
 version_prefix = "pmd_releases/"
 version_regex  = '^pmd_releases/\d+\.\d+\.\d+(-rc\d+)?$'
+
+[tools."github:sparkle-project/Sparkle"]
+asset_pattern = "Sparkle-*.tar.xz"
+bin_path      = "bin"
+os            = ["macos"]
+version       = "latest"
 
 [tools."http:docker-cli"]
 checksum_url     = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256'

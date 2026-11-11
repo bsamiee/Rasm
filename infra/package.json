@@ -26,6 +26,7 @@
         "@pulumiverse/doppler": "catalog:",
         "@rasm/hooks": "workspace:*",
         "@rasm/hosting": "workspace:*",
+        "@rasm/process": "workspace:*",
         "@rasm/ssh": "workspace:*",
         "@rasm/webhooks": "workspace:*",
         "effect": "catalog:",

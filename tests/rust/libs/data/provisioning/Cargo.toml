@@ -24,7 +24,7 @@ sqlx                   = { workspace = true, features = ["postgres"] }
 testcontainers         = { workspace = true }
 testcontainers-modules = { workspace = true }
 rasm-provisioning      = { workspace = true, features = ["postgres", "bucket", "clickhouse", "cache"] }
-rasm-test-support      = { workspace = true }
+rasm-infra-tests       = { workspace = true }
 
 [dev-dependencies]
 futures      = { workspace = true }

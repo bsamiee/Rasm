@@ -3,15 +3,27 @@ import { matchesGlob } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it, type Vitest, vi } from '@effect/vitest';
-import { type CreateNodes, type CreateNodesResult, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph } from '@nx/devkit';
-import { graphed, workspace } from '@rasm/test-support/nx/inference';
-import { replayed, spawned } from '@rasm/test-support/nx/tools';
-import { Array, Effect, FileSystem, Function, type Layer, Path, Predicate, Record, Result, Schema } from 'effect';
+import { type CreateNodes, type CreateNodesResult, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, type RawProjectGraphDependency, readProjectsConfigurationFromProjectGraph, validateDependency } from '@nx/devkit';
+import { graphed, workspace } from '@rasm/testing/nx/inference';
+import { replayed, spawned } from '@rasm/testing/nx/tools';
+import { Array, Effect, FileSystem, Function, type Layer, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { getTargetInputs, globWithWorkspaceContext, isAggregateCreateNodesError, LoadedNxPlugin, validateOutputs } from 'nx/src/devkit-internals';
 import { isProjectConfigurationsError, type ProjectConfigurationsError } from 'nx/src/project-graph/error-types';
+import { retrieveWorkspaceFiles } from 'nx/src/project-graph/utils/retrieve-workspace-files';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { updateContextWithChangedFiles } from 'nx/src/utils/workspace-context';
+import { affected } from '#/caching/affected';
+import { continuous } from '#/caching/continuous';
+import { dependentOutputs } from '#/caching/dependent-outputs';
+import { declaredInputs } from '#/caching/inputs';
+import { location } from '#/caching/location';
+import { restoredOutputs } from '#/caching/outputs';
+import { replay } from '#/caching/replay';
+import { loading } from '#/inference/loading';
+import { readiness } from '#/inference/readiness';
+import { rereads } from '#/inference/rereads';
+import { tasks } from '#/inference/tasks';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,17 +35,29 @@ interface Subject {
     readonly tools?: readonly string[];
     readonly state?: readonly string[];
     readonly broken?: readonly [file: string, text: string];
+    readonly changed?: readonly [file: string, text: string];
+    readonly compiled?: readonly [file: string, ...targets: string[]];
+    readonly runs?: readonly string[];
+    readonly typed?: true;
+    readonly served?: readonly [project: string, target: string, address: string];
+    readonly reads?: Record.ReadonlyRecord<string, readonly string[]>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = ['src/main.ts', 'README.md', 'docs/guide/index.md', 'lib/data.json', 'assets/logo.svg', 'crates/core/src/lib.rs', 'App/Program.cs', 'Sources/App/main.swift', 'pkg/module.py', 'proto/sheet.proto', 'config/settings.yaml', 'config/settings.toml'];
 const PATTERN = /\/?[*{].*$/u;
+const SOURCE = {
+    concurrent: 'nrwl/nx@2a424d3 packages/js/src/plugins/typescript/plugin.spec.ts "concurrent invocations", packages/nx/src/project-graph/project-graph.spec.ts "sane plugins"',
+    dependencies: 'nrwl/nx@2a424d3 packages/gradle/src/plugin/dependencies.spec.ts, naxodev/oss@8b43d4a packages/gonx/src/graph/static-analysis/index.spec.ts "sourceFile normalization", "deduplicates", "self-referential"',
+    typed: 'nrwl/nx@2a424d3 packages/vitest/src/plugins/plugin-vitest.spec.ts "should not set projectType"',
+} as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Json = Schema.fromJsonString(Schema.Unknown);
 const Environment = Schema.Struct({ env: Schema.String });
+const Served = Schema.Struct({ dependencies: Schema.Literal(true), target: Schema.Literal('serve--compose'), waitFor: Schema.Literal('ready') });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -89,6 +113,10 @@ const running = (command: string) => (graph: ProjectGraph) =>
         );
     });
 
+const sourced = (dependency: RawProjectGraphDependency) => ('sourceFile' in dependency ? Option.fromNullishOr(dependency.sourceFile) : Option.none());
+
+const misstated = (dependency: RawProjectGraphDependency) => dependency.source === dependency.target || (dependency.type === 'implicit' && Option.isSome(sourced(dependency))) || Option.exists(sourced(dependency), (file) => file.includes('\\'));
+
 const roots = (graph: ProjectGraph) => Record.map(graph.nodes, (node) => node.data.root);
 
 const edges = (graph: ProjectGraph) =>
@@ -106,6 +134,8 @@ const shared = (outputs: ReturnType<typeof written>) =>
     );
 
 const restored = (outputs: ReturnType<typeof written>, state: readonly string[]) => outputs.filter(({ cache, folder }) => cache && Array.intersection(folder.split('/'), state).length > 0).map(({ task, folder }) => `${task} restores ${folder}`);
+
+const unserved = (graph: ProjectGraph) => Array.filterMap(targeted(graph), ({ target, configuration, task }) => (target.startsWith('test--') && !(configuration.dependsOn ?? []).some(Schema.is(Served)) ? Result.succeed(task) : Result.failVoid));
 
 const unready = (graph: ProjectGraph) => Array.filterMap(targeted(graph), ({ configuration, task }) => (configuration.continuous === true && configuration.readyWhen === undefined ? Result.succeed(task) : Result.failVoid));
 
@@ -144,6 +174,8 @@ const cases = (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.S
         );
 
         methods.effect('writes each output path from one target alone and restores no cached output into a folder its tool keeps incremental state in', () => Effect.map(inferred(subject), (graph) => assert.deepStrictEqual([shared(written(graph)), restored(written(graph), subject.state ?? [])], [[], []])));
+
+        methods.effect('runs every test target once the serve--compose services of its dependencies are ready', () => Effect.map(inferred(subject), (graph) => assert.deepStrictEqual(unserved(graph), [])));
 
         methods.effect(
             'states no machine path in the graph',
@@ -222,6 +254,57 @@ const cases = (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.S
                 );
             }),
         );
+        methods.effect(
+            'returns equal graphs for two reads at once',
+            Effect.fnUntraced(function* () {
+                vi.stubEnv('NX_CACHE_PROJECT_GRAPH', 'false');
+                const { root, loaded } = yield* opened(subject);
+                const [left, right] = yield* Effect.all([graphed(root, [loaded]), graphed(root, [loaded])], { concurrency: 2 });
+                assert.deepStrictEqual(left, right, SOURCE.concurrent);
+            }),
+        );
+
+        methods.effect.skipIf(subject.plugin.createDependencies === undefined)(
+            'returns only dependencies Nx validates: a static edge from a file its source project owns, an implicit edge without a file, forward slashes, one edge per file and target, none to itself',
+            Effect.fnUntraced(function* () {
+                const { root, loaded } = yield* opened(subject);
+                const graph = yield* graphed(root, [loaded]);
+                const names = Record.mapEntries(graph.nodes, (node, name) => [node.data.root, name]);
+                const { fileMap } = yield* Effect.promise(() => retrieveWorkspaceFiles(root, names));
+                const context = { projects: readProjectsConfigurationFromProjectGraph(graph).projects, externalNodes: graph.externalNodes ?? {}, fileMap, filesToProcess: fileMap, nxJsonConfiguration: readNxJson(root), workspaceRoot: root };
+                const dependencies = yield* Effect.fromNullishOr(subject.plugin.createDependencies);
+                const returned = yield* Effect.promise(() => Promise.resolve(dependencies(subject.options, context)));
+                returned.forEach((dependency) => validateDependency(dependency, context));
+                const keys = returned.map((dependency) => [dependency.source, dependency.target, dependency.type, ...Option.toArray(sourced(dependency))].join(' '));
+                assert.deepStrictEqual([returned.filter(misstated), Array.dedupe(keys)], [[], keys], SOURCE.dependencies);
+            }),
+        );
+
+        methods.effect.skipIf(subject.typed === true)(
+            'sets no projectType on a project whose manifest states none',
+            Effect.fnUntraced(function* () {
+                vi.stubEnv('NX_CACHE_PROJECT_GRAPH', 'false');
+                const { root, loaded } = yield* opened(subject);
+                const files = yield* Effect.promise(() => globWithWorkspaceContext(root, [subject.plugin.createNodes[0]]));
+                const typed = Object.values(yield* listed(root, loaded, files))
+                    .flatMap(({ projects = {} }) => Object.values(projects))
+                    .filter(({ projectType }) => projectType !== undefined)
+                    .map(({ name, projectType }) => ({ name, projectType }));
+                assert.deepStrictEqual(typed, [], SOURCE.typed);
+            }),
+        );
+
+        loading(subject, methods);
+        rereads(subject, methods);
+        tasks(subject, methods);
+        replay(subject, methods);
+        declaredInputs(subject, methods);
+        location(subject, methods);
+        restoredOutputs(subject, methods);
+        continuous(subject, methods);
+        dependentOutputs(subject, methods);
+        affected(subject, methods);
+        readiness(subject, methods);
     });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

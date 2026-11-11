@@ -19,7 +19,7 @@ interface Entry<A> {
 
 const encodeJsonText = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
 const updatedUris = <A>(last: HashMap.HashMap<string, Entry<A>>, current: HashMap.HashMap<string, Entry<A>>) => Array.flatMap([...last], ([key, entry]) => (Option.contains(Option.map(HashMap.get(current, key), Struct.get('value')), entry.value) ? [] : [...entry.uris]));
-const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType?: string | undefined; readonly description?: string | undefined }>({ schema, changes, mimeType, description, ...descriptor }: D & { readonly schema: Schema.Codec<A, I>; readonly changes: Stream.Stream<unknown, never, R> }) {
+const make = Effect.fnUntraced(function* <A, I, R, D extends Partial<Record<'uri' | 'mimeType' | 'description', string | undefined>>>({ schema, changes, uri, mimeType, description, ...descriptor }: D & { readonly schema: Schema.Codec<A, I>; readonly changes: Stream.Stream<unknown, never, R> }) {
     const [server, store, watched] = yield* Effect.all([McpServer.McpServer, SubscriptionRef.make(HashMap.empty<string, Entry<A>>()), Ref.make(HashMap.empty<string, number>())]);
     const codec = Schema.toCodecJson(schema);
     const encoded = Schema.encodeEffect(codec);
@@ -50,8 +50,10 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType
                   Effect.orDie,
                   Effect.map((text) => McpSchema.ReadResourceResult.make({ contents: [McpSchema.TextResourceContents.make({ uri: at, mimeType: media, text })] })),
               );
+    const updated = (at: string) => server.notifications['notifications/resources/updated']({ uri: at });
     yield* changes.pipe(
         Stream.mapEffect(() => SubscriptionRef.get(store)),
+        Stream.tap((entries) => (uri === undefined || HashMap.has(entries, uri) ? Effect.void : updated(uri))),
         Stream.flattenIterable,
         Stream.mapEffect(
             Effect.fnUntraced(
@@ -69,7 +71,7 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType
     );
     yield* SubscriptionRef.changes(store).pipe(
         Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, current) => [current, updatedUris(last, current)]),
-        Stream.runForEach((uri) => server.notifications['notifications/resources/updated']({ uri })),
+        Stream.runForEach(updated),
         Effect.forkScoped,
     );
     return {
@@ -111,8 +113,9 @@ const register = Effect.fnUntraced(function* <A, I, E extends Error, R>({
     readonly content: Effect.Effect<A, E, R>;
     readonly changes: Stream.Stream<unknown, never, R>;
 }) {
-    const [server, services, store] = yield* Effect.all([Server, Effect.context<R>(), make({ ...descriptor, schema, changes })]);
+    const [server, services] = yield* Effect.all([Server, Effect.context<R>()]);
     const [uri, read] = [server.uri(descriptor.name), Effect.provideContext(content, services)];
+    const store = yield* make({ ...descriptor, uri, schema, changes });
     yield* McpServer.registerResource({ ...store.descriptor, uri, content: store.read(uri, uri, read) });
     return store.depend(Effect.succeed({ key: uri, content: read }));
 });

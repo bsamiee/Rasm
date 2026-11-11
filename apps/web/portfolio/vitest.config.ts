@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { testPolicy } from '@rasm/test-support/vitest';
+import { testPolicy } from '@rasm/testing/vitest';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import { defineConfig, mergeConfig } from 'vitest/config';
 import application from '#/vite.config';

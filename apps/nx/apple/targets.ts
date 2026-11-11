@@ -26,9 +26,7 @@ const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', G
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean), notaryProfile: Schema.optionalKey(Schema.String) }).annotate({
-    description: 'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. notaryProfile: notarytool keychain profile Developer ID archives notarize under',
-});
+const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean) }).annotate({ description: 'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild' });
 const VersionActionsOptions = Schema.Struct({ manifest: Schema.String });
 const Kind = Schema.Literals(['.plist', '.xcproj']);
 const Versioned = Schema.fromJsonString(Schema.Struct({ version: Schema.NullOr(Schema.String), project: Schema.String }));
@@ -42,14 +40,14 @@ const analyzer = Effect.gen(function* () {
 
 const tokened = (path: Path.Path, at: string) => (path.isAbsolute(at) || at.startsWith('..') ? [] : [path.join('{workspaceRoot}', at)]);
 
-const published = (plugin: Identity, technology: string, folders: readonly string[], notarized: readonly string[]): TargetConfiguration => ({
+const published = (plugin: Identity, technology: string, folders: readonly string[]): TargetConfiguration => ({
     executor: `${plugin.name}:release-publish`,
     dependsOn: ['^nx-release-publish'],
     inputs: plugin.inputs,
-    options: { folders, notarized },
+    options: { folders },
     metadata: {
         technologies: [technology],
-        description: notarized.length === 0 ? "Attaches the zips the release build wrote to the project's GitHub release" : "Attaches the zips the release build wrote to the project's GitHub release, then adds each notarized app naming SUFeedURL to its Sparkle feed",
+        description: "Attaches the zip or disk image the release build wrote to the project's GitHub release, then adds each notarized disk image of an app naming SUFeedURL to its Sparkle feed where SPARKLE_ED_PRIVATE_KEY is set",
         help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
     },
 });

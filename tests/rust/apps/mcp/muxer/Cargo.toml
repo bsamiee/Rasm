@@ -41,17 +41,17 @@ tracing                            = { workspace = true }
 tracing-subscriber                 = { workspace = true }
 clap                               = { workspace = true }
 escargot                           = { workspace = true }
-rasm-command                       = { workspace = true }
-rasm-observability                 = { workspace = true, features = ["process"] }
+rasm-cli                           = { workspace = true }
+rasm-telemetry                     = { workspace = true, features = ["process"] }
 
 [dev-dependencies]
-backon            = { workspace = true }
-bytes             = { workspace = true }
-tokio             = { workspace = true, features = ["test-util"] }
-rasm-mcp          = { workspace = true, features = ["proxy"] }
-claims            = { workspace = true }
-hdrhistogram      = { workspace = true }
-rasm-test-support = { workspace = true }
+backon       = { workspace = true }
+bytes        = { workspace = true }
+tokio        = { workspace = true, features = ["test-util"] }
+rasm-mcp     = { workspace = true, features = ["proxy"] }
+claims       = { workspace = true }
+hdrhistogram = { workspace = true }
+rasm-testing = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

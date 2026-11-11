@@ -1,7 +1,7 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, Function, flow, Layer, Match, Metric, Option, pipe, Record, Ref, Schema, SchemaGetter, type Scope, Stream, UndefinedOr } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, Fiber, Function, Layer, Match, Metric, Option, pipe, Record, Ref, Schema, SchemaGetter, type Scope, Stream, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
+import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { Host, NetAddress } from 'effect/net';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -71,14 +71,12 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
         const allowed = new Set([...options.hosts, 'localhost', ...NetAddress.loopbackAddresses.map(NetAddress.formatUrlHost), Host.formatHostPort(options.address)]);
         const hostValidation = HttpRouter.middleware(
             (next) =>
-                Effect.flatMap(
-                    HttpServerRequest.HttpServerRequest,
-                    flow(
-                        HttpServerRequest.toURL,
-                        Option.exists(({ host, hostname }) => allowed.has(host) || allowed.has(hostname)),
-                        (accepted) => (accepted ? next : Effect.succeed(HttpServerResponse.empty({ status: 403 }))),
-                    ),
-                ),
+                Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
+                    const { origin } = request.headers;
+                    return Option.exists(HttpServerRequest.toURL(request), ({ host, hostname }) => (allowed.has(host) || allowed.has(hostname)) && (origin === undefined || URL.parse(origin)?.host === host))
+                        ? Effect.provideService(next, HttpServerRequest.HttpServerRequest, request.modify({ headers: Headers.remove(request.headers, 'origin') }))
+                        : Effect.succeed(HttpServerResponse.empty({ status: 403 }));
+                }),
             { global: true },
         );
         const transport = Layer.unwrap(
@@ -132,7 +130,7 @@ const metered = McpServer.middleware((effect, { method, target }) =>
 const executions = (uri: Server['Service']['uri'], retention: Duration.Duration, server: McpServer.McpServer['Service'], scope: Scope.Scope) => {
     const entries = Ref.makeUnsafe(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>());
     const name = 'executions';
-    const descriptor = { uri: uri(name), name, description: `Cancelled or refused state-changing calls that keep running, finished calls drop after one read or ${Duration.format(retention)}`, mimeType: 'application/json' };
+    const descriptor = { uri: uri(name), name, description: `Refused state-changing calls that keep running, finished calls drop after one read or ${Duration.format(retention)}`, mimeType: 'application/json' };
     const registered = Effect.cached(
         McpServer.registerResource({
             ...descriptor,
@@ -151,19 +149,16 @@ const executions = (uri: Server['Service']['uri'], retention: Duration.Duration,
             Effect.flatMap(Effect.transposeOption),
             Effect.map((result) => ({ tool, arguments: given, result })),
         );
-        const addEntry = Effect.gen(function* () {
-            yield* Ref.update(entries, Array.append(entry));
-            yield* Effect.forkIn(Deferred.await(done).pipe(Effect.exit, Effect.andThen(Effect.sleep(retention)), Effect.andThen(Ref.update(entries, Array.difference([entry])))), scope);
-        });
-        yield* Effect.forkIn(Deferred.complete(done, answer), scope, { uninterruptible: true });
+        const running = yield* Effect.forkIn(Deferred.complete(done, answer), scope);
         const [outcome, pending] = yield* pipe(
             Deferred.await(done),
             Effect.map((value) => [value, false] as const),
             Effect.raceFirst(Effect.map(Deferred.await(earlyResult), (value) => [value, true] as const)),
             Effect.interruptible,
-            Effect.onInterrupt(() => addEntry),
+            Effect.onInterrupt(() => Fiber.interrupt(running)),
         );
-        return yield* Effect.as(pending ? addEntry : Effect.void, outcome);
+        const dropped = Deferred.await(done).pipe(Effect.exit, Effect.andThen(Effect.sleep(retention)), Effect.andThen(Ref.update(entries, Array.difference([entry]))));
+        return yield* Effect.as(pending ? Effect.andThen(Ref.update(entries, Array.append(entry)), Effect.forkIn(dropped, scope)) : Effect.void, outcome);
     }, Effect.uninterruptible);
     return Effect.map(registered, (registration) => ({ registration, record, link: McpSchema.ResourceLink.make(descriptor) }));
 };

@@ -1,7 +1,7 @@
 import type { RawProjectGraphDependency } from '@nx/devkit';
 import { inferred, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
-import { Array, Effect, Record, Result, Schema } from 'effect';
-import { crateTargets, released, workspaceTargets } from '#/targets';
+import { Array, Effect, Option, Record, Result, Schema } from 'effect';
+import { crateTargets, library, released, workspaceTargets } from '#/targets';
 import { CONFIG, DENY, MANIFEST, workspaces } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -25,21 +25,30 @@ const analyzed = Effect.fnUntraced(function* ({ files: matched, context, plugin,
     const projects = resolved.flatMap((workspace) => {
         const crates = Record.fromIterableWith(workspace.members, ({ crate, root }) => {
             const { targets, release } = released(plugin, path, crate, workspace.root);
-            return [root, { name: crate.name, release, published: targets, members: crateTargets(plugin, path, workspace, files, [named(root), `^${named(root)}`], crate, root) }] as const;
+            const implicit = crate.metadata?.nx?.implicitDependencies;
+            return [
+                root,
+                {
+                    name: Option.match(Array.findFirst(crate.targets, library), { onNone: () => crate.name, onSome: ({ name }) => name }),
+                    configuration: { ...(release !== undefined && { release }), ...(implicit !== undefined && { implicitDependencies: [...implicit] }) },
+                    published: targets,
+                    members: crateTargets(plugin, path, workspace, files, [named(root), `^${named(root)}`], crate, root),
+                },
+            ] as const;
         });
         const own = crates[workspace.root];
         const rooted = workspaceTargets(plugin, path, workspace);
         return Record.collect(
-            { ...crates, [workspace.root]: { name: undefined, release: undefined, published: {}, ...own, members: { ...own?.members, check: { ...own?.members.check, ...rooted.check }, upgrade: rooted.upgrade } } },
-            (root, { name, release, published, members }): Project => ({
+            { ...crates, [workspace.root]: { name: undefined, configuration: {}, published: {}, ...own, members: { ...own?.members, check: { ...own?.members.check, ...rooted.check }, upgrade: rooted.upgrade } } },
+            (root, { name, configuration, published, members }): Project => ({
                 file: path.join(workspace.root, MANIFEST),
                 root,
                 technologies: TECHNOLOGIES,
                 clean: 'cargo',
                 members,
                 targets: published,
+                configuration,
                 ...(name !== undefined && { name }),
-                ...(release !== undefined && { configuration: { release } }),
             }),
         );
     });

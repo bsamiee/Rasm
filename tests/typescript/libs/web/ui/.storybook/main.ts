@@ -6,7 +6,7 @@ import { mergeConfig } from 'vite';
 
 export default defineMain({
     framework: '@storybook/react-vite',
-    addons: ['@rasm/test-support/storybook', '@rasm/nx-storybook/preset'],
+    addons: ['@rasm/testing/storybook', '@rasm/nx-storybook/preset'],
     stories: ['./*.stories.@(ts|tsx)'],
     viteFinal: (config) => mergeConfig(config, { plugins: [react({ compiler: { panicThreshold: 'all_errors' } })] }),
 });

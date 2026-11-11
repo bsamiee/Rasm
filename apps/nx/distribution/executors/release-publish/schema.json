@@ -51,5 +51,5 @@
     },
     "additionalProperties": true,
     "title": "Release publish",
-    "description": "Attaches each host package the project's build wrote to its GitHub release and publishes it to its host's package server, skipping distributions the server holds and a project nx release left unversioned"
+    "description": "Attaches each host package the project's build wrote to its GitHub release, then publishes it to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned"
 }

@@ -5,7 +5,7 @@ use std::io;
 use backon::ExponentialBuilder;
 use claims::{assert_err, assert_none, assert_ok, assert_some};
 use futures::FutureExt as _;
-use futures::future::BoxFuture;
+use futures::future::{self, BoxFuture};
 use mcp_muxer_tests::decoded;
 use rasm_mcp::{Era, History, Line, Lines, Link, Liveness, Phase, Policy, Proxy, Retention, identity};
 use rmcp::model::{ClientCapabilities, Implementation, InitializeRequestParams, JsonRpcVersion2_0};
@@ -323,6 +323,23 @@ async fn subscriptions_are_restored_after_a_restart_and_released_with_the_last_s
 }
 
 #[tokio::test(start_paused = true)]
+async fn leaving_session_takes_its_parked_calls_with_it() {
+    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let mut leaving = joined(&proxy).await;
+    leaving.send(r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ask"}}"#).await;
+    assert_eq!(server.wire.next().await.method.as_deref(), Some("tools/call"));
+    leaving.send(r#"{"jsonrpc":"2.0","id":2,"method":"resources/subscribe","params":{"uri":"file:///a"}}"#).await;
+    server.wire.silent(Duration::from_millis(100)).await;
+    drop(leaving);
+    assert_eq!(server.wire.next().await.method.as_deref(), Some("notifications/cancelled"), "the leaving session's open call is cancelled at the server");
+    server.wire.silent(Duration::from_secs(1)).await;
+    server.stop.cancelled().await;
+    drop(server);
+    assert_ok!(proxy.status().wait_for(|status| status.phase == Phase::Idle).await, "a server no session subscribes to stops once unused");
+}
+
+#[tokio::test(start_paused = true)]
 async fn server_requests_reach_the_session_whose_call_caused_them() {
     let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
     let mut server = assert_some!(starts.recv().await).linked().await;
@@ -397,6 +414,47 @@ async fn session_that_stops_reading_is_disconnected_and_log_messages_follow_leve
     assert_eq!(proxy.status().borrow().sessions, 1, "the server and the reading session stay");
 }
 
+#[tokio::test(start_paused = true)]
+async fn oversized_server_notification_and_request_fail_no_call() {
+    let (proxy, mut starts, _actor) = proxy(16, 1 << 10);
+    let mut server = assert_some!(starts.recv().await).linked().await;
+    let mut caller = joined(&proxy).await;
+    let padding = "x".repeat(2 << 10);
+    caller.send(r#"{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"wide"}}"#).await;
+    let call = server.wire.next().await;
+    let issued = assert_ok!(serde_json::to_string(assert_some!(call.id.as_ref())));
+    server.wire.send(&format!(r#"{{"jsonrpc":"2.0","method":"notifications/message","params":{{"level":"info","data":"{padding}"}}}}"#)).await;
+    server.wire.send(&format!(r#"{{"jsonrpc":"2.0","id":{issued},"method":"elicitation/create","params":{{"message":"{padding}"}}}}"#)).await;
+    server.wire.send(&call.answered("{}")).await;
+    let answer = caller.next().await;
+    assert_eq!((answer.id.clone(), answer.error.message.as_deref()), (Some(Id::Number(7)), None), "a notification or request over the line limit fails no call: {answer:?}");
+    let refused = server.wire.next().await;
+    assert_eq!(refused.id, call.id, "the request over the line limit is refused under its own id");
+    assert!(refused.error.message.as_deref().is_some_and(|message| message.contains("exceeds")), "the refusal states the limit: {refused:?}");
+}
+
+#[tokio::test(start_paused = true)]
+async fn stop_and_drain_pass_a_server_that_stopped_reading() {
+    let (proxy, mut starts, actor) = proxy(4, 1 << 20);
+    let server = assert_some!(starts.recv().await).linked().await;
+    let mut caller = joined(&proxy).await;
+    let flooding = tokio::spawn(async move {
+        let padding = "x".repeat(32 << 10);
+        for _ in 0..32 {
+            caller.send(&format!(r#"{{"jsonrpc":"2.0","method":"notifications/roots/list_changed","params":{{"pad":"{padding}"}}}}"#)).await;
+        }
+    });
+    time::sleep(Duration::from_secs(1)).await;
+    assert!(!flooding.is_finished(), "the server reads nothing, so the session's messages back up");
+    assert_ok!(time::timeout(Duration::from_secs(1), proxy.drain(Duration::from_millis(250))).await, "a drain passes messages queued behind a server that stopped reading");
+    let exited = async {
+        server.stop.cancelled().await;
+        assert_ok!(server.exit.send("killed".to_owned()));
+    };
+    assert_ok!(time::timeout(Duration::from_secs(1), future::join(proxy.stop(), exited)).await, "a stop passes messages queued behind a server that stopped reading");
+    assert_ok!(actor.await, "the proxy task ends with the stop");
+}
+
 #[tokio::test]
 async fn oversized_line_names_its_request_from_either_end() {
     let mut lines = Lines::new(64);
@@ -412,7 +470,7 @@ async fn oversized_line_names_its_request_from_either_end() {
             assert_ok!(lines.decode(&mut buffer))
         });
         let named = match &decoded {
-            Some(Line::Oversized { head, tail }) => identity(head, tail),
+            Some(Line::Oversized { head, tail }) => identity(head, tail).0,
             Some(Line::Whole(_)) | None => None,
         };
         assert_eq!(named.as_deref(), Some(id.as_bytes()), "a line over the limit is yielded once and its request id is read from the head or the tail: {decoded:?}");

@@ -8,7 +8,7 @@ import { App } from '@rasm/hosting/app';
 import { serveNode } from '@rasm/hosting/node';
 import { Sites } from '@rasm/hosting/openai-sites';
 import { s3Storage } from '@rasm/object-storage/s3';
-import { layerTelemetry } from '@rasm/process';
+import { layerNodeFromConfig } from '@rasm/telemetry/node';
 import { Config, Layer } from 'effect';
 import hosting from '#/hosting.config';
 import { app } from '#/server/app';
@@ -27,4 +27,4 @@ serveNode(hosting, Sites.identity, (env) =>
             s3Storage({ bucket: env.BUCKET, uploadPrefix: App.uploads }, { forcePathStyle: true }),
         ),
     ),
-).pipe(Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })), Layer.provide(layerTelemetry({ resource: { serviceName: hosting.name }, target: 'stderr' })), Layer.launch, runMain);
+).pipe(Layer.provide(layerConfig(createServer, { port: Config.Port(App.bundle.portVariable) })), Layer.provide(layerNodeFromConfig({ resource: { serviceName: hosting.name }, target: 'stderr' })), Layer.launch, runMain);

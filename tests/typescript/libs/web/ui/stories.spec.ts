@@ -1,5 +1,5 @@
 import { expect } from '@playwright/test';
-import { it } from '@rasm/test-support/playwright';
+import { it } from '@rasm/testing/playwright';
 import { Effect, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

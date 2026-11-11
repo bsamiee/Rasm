@@ -24,25 +24,38 @@ jobs:
             packages: write
         env:
             DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-            RhinoInstallPath: /Applications/RhinoBETA.app # Folder `mcneel/setup-rhino3d` installs its `wip` release into, read by MSBuild as a property
             UV_LOCKED: "true"
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   filter: tree:0
+            - id: blender
+              run: |
+                  series=$(git ls-files -z '*blender_manifest.toml' | xargs -0 sed -En 's/^blender_version_min *= *"([0-9]+\.[0-9]+).*/\1/p' | sort -V | tail -n 1)
+                  printf 'series=%s\n' "${series}" >> "${GITHUB_OUTPUT}"
+            - uses: BradyAJohnston/setup-blender@1006ec809db1af1422bd1197e107e2c4d368d81e # v5.2.0
+              with:
+                  version: ${{ steps.blender.outputs.series }}
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
             - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
             - uses: mcneel/setup-rhino3d@b3faf87453962c0742ab2a5e72d3494505f660df # v3.0.0
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
-                  release-version: wip
             - run: git config user.name 'github-actions[bot]' && git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             - run: nx release --skip-publish
               env:
                   GH_TOKEN: ${{ github.token }}
             - run: nx run-many --targets=build --configuration=release --projects=tag:npm:public,tag:release
+              env:
+                  APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
+                  APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+                  DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+                  DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+                  ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+                  ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+                  ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
             - id: nuget
               uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
               with:
@@ -52,4 +65,6 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
                   YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
+                  BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
+                  SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
             - run: git diff --exit-code -- '*Cargo.lock' '*Package.resolved'

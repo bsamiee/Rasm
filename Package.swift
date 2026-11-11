@@ -25,20 +25,23 @@ let embeddedInfo: (String) -> [LinkerSetting] = { folder in
 
 let modules: [Target] = [
 
-    // --- [CORE]
+    // --- [DATA]
 
-    .target(name: "Encoding", path: "libs/swift/core/Encoding"),
-    .target(name: "Results", path: "libs/swift/core/Results"),
-    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
+    .target(name: "Encoding", path: "libs/swift/data/Encoding"),
+    .target(name: "Results", path: "libs/swift/data/Results"),
+
+    // --- [RPC]
+
+    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/rpc/JSONRPC"),
     .target(
         name: "EffectRPC",
         dependencies: [
             "Encoding", "JSONRPC", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Tracing", package: "swift-distributed-tracing"),
         ],
-        path: "libs/swift/core/EffectRPC",
+        path: "libs/swift/rpc/EffectRPC",
     ),
 
-    // --- [MACOS]
+    // --- [RUNTIME]
 
     .target(
         name: "Files",
@@ -46,7 +49,7 @@ let modules: [Target] = [
             "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Logging", package: "swift-log"),
         ],
-        path: "libs/swift/macos/Files",
+        path: "libs/swift/runtime/Files",
     ),
     .target(
         name: "Telemetry",
@@ -54,7 +57,7 @@ let modules: [Target] = [
             "Encoding", "Files", .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"),
             .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "Tracing", package: "swift-distributed-tracing"),
         ],
-        path: "libs/swift/macos/Telemetry",
+        path: "libs/swift/runtime/Telemetry",
     ),
     .target(
         name: "Processes",
@@ -62,8 +65,20 @@ let modules: [Target] = [
             "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CasePaths", package: "swift-case-paths"),
             .product(name: "Subprocess", package: "swift-subprocess"),
         ],
-        path: "libs/swift/macos/Processes",
+        path: "libs/swift/runtime/Processes",
     ),
+    .target(
+        name: "CurrentProcess",
+        dependencies: [
+            "Applications", "Files", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
+            .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
+            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "SystemMetrics", package: "swift-system-metrics"),
+        ],
+        path: "libs/swift/runtime/CurrentProcess",
+    ),
+
+    // --- [MACOS]
+
     .target(
         name: "AppleEvents",
         dependencies: [
@@ -89,15 +104,6 @@ let modules: [Target] = [
         ],
         path: "libs/swift/macos/ApplicationServer",
     ),
-    .target(
-        name: "CurrentProcess",
-        dependencies: [
-            "Applications", "Files", "Telemetry", .product(name: "CasePathsCore", package: "swift-case-paths"), .product(name: "Configuration", package: "swift-configuration"),
-            .product(name: "Instrumentation", package: "swift-distributed-tracing"), .product(name: "Logging", package: "swift-log"), .product(name: "OTel", package: "swift-otel"),
-            .product(name: "ServiceLifecycle", package: "swift-service-lifecycle"), .product(name: "SystemMetrics", package: "swift-system-metrics"),
-        ],
-        path: "libs/swift/macos/CurrentProcess",
-    ),
 ]
 let executables: [Target] = [
     .executableTarget(
@@ -121,18 +127,18 @@ let tests: [Target] = [
             "Encoding", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump"),
             .product(name: "PropertyBased", package: "swift-property-based"),
         ],
-        path: "tests/swift/libs/core/Encoding",
+        path: "tests/swift/libs/data/Encoding",
     ),
     .testTarget(
         name: "ResultsTests",
         dependencies: ["Results", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
-        path: "tests/swift/libs/core/Results",
+        path: "tests/swift/libs/data/Results",
     ),
-    .testTarget(name: "JSONRPCTests", dependencies: ["Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/swift/libs/core/JSONRPC"),
+    .testTarget(name: "JSONRPCTests", dependencies: ["Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/swift/libs/rpc/JSONRPC"),
     .testTarget(
         name: "EffectRPCTests",
         dependencies: ["EffectRPC", "Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
-        path: "tests/swift/libs/core/EffectRPC",
+        path: "tests/swift/libs/rpc/EffectRPC",
     ),
 ]
 

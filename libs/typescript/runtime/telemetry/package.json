@@ -38,6 +38,7 @@
         "@opentelemetry/semantic-conventions": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "env-paths": "catalog:",
         "rotating-file-stream": "catalog:"
     },
     "peerDependencies": {
@@ -58,6 +59,7 @@
         "@opentelemetry/sdk-node": "catalog:peers",
         "@opentelemetry/semantic-conventions": "catalog:peers",
         "effect": "catalog:peers",
+        "env-paths": "catalog:peers",
         "rotating-file-stream": "catalog:peers"
     },
     "peerDependenciesMeta": {
@@ -101,6 +103,9 @@
             "optional": true
         },
         "@opentelemetry/sdk-node": {
+            "optional": true
+        },
+        "env-paths": {
             "optional": true
         },
         "rotating-file-stream": {

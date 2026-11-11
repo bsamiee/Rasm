@@ -1,0 +1,7 @@
+# Conformance scenarios the served @rasm/mcp endpoint fails for a cause outside the library.
+# The conformance CLI exits 0 when only these fail and exits 1 on an unexpected failure or on an entry that now passes.
+server:
+    # Effect 4.1.4 serves no resource subscriptions over HTTP: mcpRuntime declares `resources.subscribe: false` for every HTTP
+    # session and McpServer.layerHttp answers GET with 405, the spec leaves `subscribe` optional
+    - resources-subscribe
+    - resources-unsubscribe

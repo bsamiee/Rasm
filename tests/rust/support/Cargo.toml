@@ -1,9 +1,9 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-test-support"
+name              = "rasm-testing"
 edition.workspace = true
-description       = "Test fixtures kept after a failed test: sessions and stores of the store service, SQLite files, folders, and drivers of started server containers"
+description       = "Test fixtures kept after a failed test: folders and SQLite files"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -15,45 +15,22 @@ bench   = false
 
 [[test]]
 name = "suite"
-path = "suite/main.rs"
+path = "suite.rs"
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-tokio                  = { workspace = true }
-futures                = { workspace = true }
-arc-swap               = { workspace = true }
-thiserror              = { workspace = true }
-derive_more            = { workspace = true }
-serde                  = { workspace = true }
-serde_json             = { workspace = true }
-serde_path_to_error    = { workspace = true }
-oci-spec               = { workspace = true }
-jiff                   = { workspace = true }
-uuid                   = { workspace = true }
-http                   = { workspace = true }
-aws-sdk-s3             = { workspace = true }
-tonic                  = { workspace = true }
-object_store           = { workspace = true }
-clap                   = { workspace = true }
-clickhouse             = { workspace = true }
-redis                  = { workspace = true }
-sqlx                   = { workspace = true, features = ["postgres", "sqlite-bundled", "sqlite-load-extension"] }
-libsqlite3-sys         = { workspace = true }
-sqlite-vec             = { workspace = true }
-rdkafka                = { workspace = true }
-assert_fs              = { workspace = true }
-testcontainers         = { workspace = true }
-testcontainers-modules = { workspace = true }
-rasm-store-proto       = { workspace = true }
-
-[target."cfg(windows)".dependencies]
-rdkafka = { workspace = true, features = ["cmake-build"] } # librdkafka configures through CMake on Windows, through its own script elsewhere
+futures        = { workspace = true }
+derive-where   = { workspace = true }
+derive_more    = { workspace = true }
+sqlx           = { workspace = true, features = ["sqlite-bundled", "sqlite-load-extension"] }
+libsqlite3-sys = { workspace = true }
+sqlite-vec     = { workspace = true }
+assert_fs      = { workspace = true }
 
 [dev-dependencies]
-backon = { workspace = true }
+tokio  = { workspace = true }
 claims = { workspace = true }
-blake3 = { workspace = true }
 fs-err = { workspace = true, features = ["tokio"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------

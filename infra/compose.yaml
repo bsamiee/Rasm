@@ -18,7 +18,6 @@ x-oneshot: &oneshot
 x-app: &app
     <<: *server
     oom_score_adj: 500
-    profiles: [app]
 x-probe: &probe
     start_period: 5m
 x-socket: &socket postgres-socket:/var/run/postgresql
@@ -90,7 +89,6 @@ x-bucket: &bucket
     <<: *oneshot
     entrypoint: [sh, -c, '{ aws s3api head-bucket --bucket "$$0" 2>/dev/null || aws s3 mb "s3://$$0"; } && aws s3api put-bucket-lifecycle-configuration --bucket "$$0" --lifecycle-configuration "$$1"']
     image: amazon/aws-cli:2.40.0
-    restart: on-failure:6 # A bucket behind Traefik answers 404 until Traefik routes its healthy store, within its 2 s provider throttle
 x-node: &node
     <<: *server
     build: &node-build
@@ -113,19 +111,34 @@ x-node: &node
     healthcheck:
         <<: *probe
         test: [CMD, node, --input-type=module, --eval, "const response = await fetch('http://127.0.0.1:' + process.env.PORT + '/readyz'); if (response.status !== 204) throw new Error('HTTP ' + response.status);"]
-x-litestream: &litestream
-    <<: *app
+
+# --- [HOSTED_APP] -----------------------------------------------------------------------
+
+x-hosted-app:
     configs:
-        - source: litestream
-          target: /etc/litestream.yml
-    environment:
-        LITESTREAM_ACCESS_KEY_ID: null
-        LITESTREAM_AZURE_ACCOUNT_KEY: null
-        LITESTREAM_ENDPOINT: null
-        LITESTREAM_REGION: null
-        LITESTREAM_REPLICA_URL: null
-        LITESTREAM_SECRET_ACCESS_KEY: null
-    image: litestream/litestream:0.5.18-scratch
+        litestream:
+            content: |
+                dbs: [{path: /data/database.sqlite, replica: {url: "$${LITESTREAM_REPLICA_URL}", endpoint: "$${LITESTREAM_ENDPOINT}", region: "$${LITESTREAM_REGION}"}}]
+    services:
+        app:
+            <<: [*app, *node]
+        litestream: &litestream
+            <<: *app
+            command: [replicate, -config, /etc/litestream.yml]
+            configs:
+                - source: litestream
+                  target: /etc/litestream.yml
+            environment:
+                LITESTREAM_ACCESS_KEY_ID: null
+                LITESTREAM_AZURE_ACCOUNT_KEY: null
+                LITESTREAM_ENDPOINT: null
+                LITESTREAM_REGION: null
+                LITESTREAM_REPLICA_URL: null
+                LITESTREAM_SECRET_ACCESS_KEY: null
+            image: litestream/litestream:0.5.18-scratch
+        litestream-restore:
+            <<: [*oneshot, *litestream]
+            command: [restore, -config, /etc/litestream.yml, -if-db-not-exists, -if-replica-exists, -integrity-check, quick, /data/database.sqlite]
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -140,6 +153,10 @@ services:
                 postgres: docker-image://postgres:19rc1-trixie
             args:
                 EXTENSIONS: "${POSTGRES_EXTENSIONS:-cron hypopg partman pgaudit pgvector postgis-3}"
+            cache_from:
+                - type=gha,scope=rasm-postgres
+            cache_to:
+                - type=gha,scope=rasm-postgres,mode=max
             dockerfile_inline: |
                 FROM postgres
                 ARG EXTENSIONS
@@ -488,6 +505,7 @@ services:
             AWS_REGION: null
             AWS_SECRET_ACCESS_KEY: null
         profiles: [backup-s3]
+        restart: on-failure:6 # Traefik answers 404 for storage up to its 2 s provider throttle after storage turns healthy
     backup-remote:
         <<: [*oneshot, *clickhouse-backup]
         command: [list, remote]
@@ -543,19 +561,6 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock:ro
             - authelia:/backup/authelia:ro
 
-    # --- [APP]
-
-    app:
-        <<: [*app, *node]
-        cpus: ${APP_CPUS:-0}
-        mem_limit: ${APP_MEMORY:-0}
-    litestream-restore:
-        <<: [*oneshot, *litestream]
-        command: [restore, -config, /etc/litestream.yml, -if-db-not-exists, -if-replica-exists, -integrity-check, quick, /data/database.sqlite]
-    litestream:
-        <<: *litestream
-        command: [replicate, -config, /etc/litestream.yml]
-
     # --- [STORE]
 
     store:
@@ -564,6 +569,10 @@ services:
             additional_contexts:
                 distroless: docker-image://gcr.io/distroless/cc-debian13:nonroot
                 rust: docker-image://rust:1.99.1-trixie
+            cache_from:
+                - type=gha,scope=rasm-store
+            cache_to:
+                - type=gha,scope=rasm-store,mode=max
             context: ..
             dockerfile: apps/data/store/Dockerfile
         depends_on:
@@ -600,13 +609,6 @@ services:
         profiles: [store]
         volumes:
             - *socket
-
-    # --- [TOOLS]
-
-    verapdf:
-        image: verapdf/cli:v1.30.4
-        network_mode: none
-        profiles: [tools]
 
 # --- [CONFIGS] --------------------------------------------------------------------------
 
@@ -693,9 +695,6 @@ configs:
         content: |
             apiVersion: 1
             providers: [{name: clickhouse, options: {path: /var/lib/grafana/plugins/grafana-clickhouse-datasource/dashboards}}]
-    litestream:
-        content: |
-            dbs: [{path: /data/database.sqlite, replica: {url: "$${LITESTREAM_REPLICA_URL}", endpoint: "$${LITESTREAM_ENDPOINT}", region: "$${LITESTREAM_REGION}"}}]
 
 # --- [VOLUMES] --------------------------------------------------------------------------
 

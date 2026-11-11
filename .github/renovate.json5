@@ -1,0 +1,9 @@
+{
+    $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+    extends: ['config:best-practices'],
+    schedule: ['* 0-3 * * *'],
+    lockFileMaintenance: { enabled: true, schedule: ['* 0-3 * * *'] },
+    automerge: true,
+    // The repository requires no status checks, so Renovate merges after every check passes in place of GitHub auto-merge
+    platformAutomerge: false,
+}

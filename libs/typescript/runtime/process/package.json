@@ -2,7 +2,7 @@
     "name": "@rasm/process",
     "version": "0.0.0",
     "private": true,
-    "description": "Entry of a Node program: its documented log settings read from its own variables, the per-user log folder, telemetry for the whole process, and a log record and exit status on interruption",
+    "description": "Child processes over Effect commands: a finished command's exit code, stdout, and stderr read in one scope, its stdout or an error on a non-zero exit, and launchd login agent control",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -15,10 +15,6 @@
         ".": "./index.ts"
     },
     "files": [ "dist" ],
-    "dependencies": {
-        "@rasm/telemetry": "workspace:*",
-        "env-paths": "catalog:"
-    },
     "devDependencies": {
         "@types/node": "catalog:",
         "effect": "catalog:"

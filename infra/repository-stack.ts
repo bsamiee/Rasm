@@ -1,5 +1,5 @@
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
-import type { ExecutorContext } from '@nx/devkit';
+import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
 import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { local } from '@pulumi/command';
 import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryDeployKey, RepositoryEnvironment, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
@@ -12,7 +12,6 @@ import { Yaml } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { interpolateReleaseConfig } from 'nx/src/command-line/release/utils/interpolate-release-config';
-import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
 import { run } from '#/command';
 import { Deployed } from '#/platform-stack';
 

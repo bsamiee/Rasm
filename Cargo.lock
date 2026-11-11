@@ -6897,7 +6897,12 @@ dependencies = [
  "console",
  "globset",
  "once_cell",
+ "pest",
+ "pest_derive",
+ "regex",
+ "serde",
  "similar",
+ "strip-ansi-escapes",
  "tempfile",
  "walkdir",
 ]
@@ -7247,9 +7252,9 @@ dependencies = [
 
 [[package]]
 name = "jsonschema"
-version = "0.61.0"
+version = "0.61.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1324c9bebe052584e96e7c80d2f9cf2d86e1a6d83d621a46932c5636996be18"
+checksum = "e404978f72e1a21b53c96114b8a56e4cee7f17bd0a09b9c130875ed02a696f43"
 dependencies = [
  "ahash",
  "bytecount",
@@ -7276,18 +7281,18 @@ dependencies = [
 
 [[package]]
 name = "jsonschema-regex"
-version = "0.61.0"
+version = "0.61.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe90ff57cd46c2e873aa3628f87fdf32421c5f800b64e96e93efa094215235b5"
+checksum = "84cdf272371326ec8db8ce2608a52635d8edeeaf0189604e2ad627327b79e6db"
 dependencies = [
  "regex-syntax",
 ]
 
 [[package]]
 name = "jsonschema-value"
-version = "0.61.0"
+version = "0.61.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65422cdf4b8d9b214579884c7125713e521e0cf11b738f232589360a7b61bcb5"
+checksum = "e5e4a7f3b3c19c9cd2aa37937e1704229a0bcb1b446308a148574d56ace0c6ba"
 dependencies = [
  "ahash",
  "bytecount",
@@ -8099,11 +8104,11 @@ dependencies = [
  "nonempty-collections",
  "opentelemetry",
  "opentelemetry-semantic-conventions",
- "rasm-command",
+ "rasm-cli",
  "rasm-ipc",
  "rasm-mcp",
- "rasm-observability",
  "rasm-process",
+ "rasm-telemetry",
  "rlimit",
  "rmcp",
  "serde",
@@ -8136,10 +8141,10 @@ dependencies = [
  "jiff",
  "nonempty-collections",
  "opentelemetry-semantic-conventions",
- "rasm-command",
+ "rasm-cli",
  "rasm-mcp",
- "rasm-observability",
- "rasm-test-support",
+ "rasm-telemetry",
+ "rasm-testing",
  "rmcp",
  "schemars 1.2.3",
  "serde",
@@ -11126,7 +11131,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rasm-command"
+name = "rasm-cli"
 version = "0.0.0"
 dependencies = [
  "annotate-snippets",
@@ -11144,7 +11149,7 @@ dependencies = [
  "itertools 0.15.0",
  "nonempty-collections",
  "opentelemetry",
- "rasm-observability",
+ "rasm-telemetry",
  "serde",
  "serde_path_to_error",
  "sysexits",
@@ -11171,8 +11176,8 @@ dependencies = [
  "itertools 0.15.0",
  "minus",
  "nonempty-collections",
- "rasm-command",
- "rasm-observability",
+ "rasm-cli",
+ "rasm-telemetry",
  "serde",
  "serde-content",
  "serde_json",
@@ -11382,7 +11387,7 @@ dependencies = [
  "pin-project-lite",
  "prost 0.14.4",
  "prost-types",
- "rasm-observability",
+ "rasm-telemetry",
  "rustls",
  "rustls-platform-verifier",
  "sysexits",
@@ -11417,6 +11422,29 @@ dependencies = [
  "tokio-util",
  "tracing",
  "validated",
+]
+
+[[package]]
+name = "rasm-http-tests"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "backon",
+ "bytes",
+ "claims",
+ "futures",
+ "h2",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "rasm-http",
+ "rasm-infra-tests",
+ "rlimit",
+ "rstest",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
 ]
 
 [[package]]
@@ -11468,6 +11496,29 @@ dependencies = [
  "rayon",
  "statrs",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "rasm-infra-tests"
+version = "0.0.0"
+dependencies = [
+ "aws-sdk-s3",
+ "backon",
+ "claims",
+ "clickhouse",
+ "futures",
+ "http",
+ "oci-spec",
+ "rdkafka",
+ "redis",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "sqlx",
+ "testcontainers",
+ "testcontainers-modules",
+ "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]
@@ -11551,7 +11602,7 @@ dependencies = [
  "opentelemetry",
  "opentelemetry-semantic-conventions",
  "percent-encoding",
- "rasm-observability",
+ "rasm-telemetry",
  "rmcp",
  "serde",
  "serde_json",
@@ -11642,43 +11693,6 @@ dependencies = [
  "nonempty-collections",
  "rasm-numerical-analysis",
  "rasm-stats",
-]
-
-[[package]]
-name = "rasm-observability"
-version = "0.0.0"
-dependencies = [
- "anstream",
- "bytesize",
- "camino",
- "clap",
- "derive_more",
- "enum-map",
- "fs-err",
- "itertools 0.15.0",
- "jiff",
- "libproc",
- "log",
- "nix",
- "nonempty-collections",
- "nutype",
- "opentelemetry",
- "opentelemetry-appender-tracing",
- "opentelemetry-otlp",
- "opentelemetry-resource-detectors",
- "opentelemetry-semantic-conventions",
- "opentelemetry_sdk",
- "serde_json",
- "sysexits",
- "sysinfo",
- "thiserror 2.0.21",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-log",
- "tracing-opentelemetry",
- "tracing-subscriber",
- "validated",
 ]
 
 [[package]]
@@ -11825,8 +11839,8 @@ dependencies = [
  "hdrhistogram",
  "http",
  "jiff",
+ "rasm-infra-tests",
  "rasm-provisioning",
- "rasm-test-support",
  "redis",
  "secrecy",
  "serde",
@@ -12000,12 +12014,12 @@ dependencies = [
  "http",
  "jiff",
  "nonempty-collections",
- "rasm-command",
+ "rasm-cli",
  "rasm-grpc",
  "rasm-http",
- "rasm-observability",
  "rasm-provisioning",
  "rasm-store-proto",
+ "rasm-telemetry",
  "redis",
  "secrecy",
  "sqlx",
@@ -12034,39 +12048,81 @@ dependencies = [
 ]
 
 [[package]]
-name = "rasm-test-support"
+name = "rasm-store-tests"
 version = "0.0.0"
 dependencies = [
  "arc-swap",
- "assert_fs",
- "aws-sdk-s3",
  "backon",
  "blake3",
  "claims",
  "clap",
  "clickhouse",
  "derive_more",
- "fs-err",
  "futures",
  "http",
  "jiff",
- "libsqlite3-sys",
  "object_store",
- "oci-spec",
  "rasm-store-proto",
- "rdkafka",
+ "rasm-testing",
  "redis",
- "serde",
- "serde_json",
- "serde_path_to_error",
- "sqlite-vec",
  "sqlx",
- "testcontainers",
- "testcontainers-modules",
  "thiserror 2.0.21",
  "tokio",
  "tonic",
  "uuid",
+]
+
+[[package]]
+name = "rasm-telemetry"
+version = "0.0.0"
+dependencies = [
+ "anstream",
+ "bytesize",
+ "camino",
+ "clap",
+ "derive_more",
+ "enum-map",
+ "fs-err",
+ "itertools 0.15.0",
+ "jiff",
+ "libproc",
+ "log",
+ "nix",
+ "nonempty-collections",
+ "nutype",
+ "opentelemetry",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp",
+ "opentelemetry-resource-detectors",
+ "opentelemetry-semantic-conventions",
+ "opentelemetry_sdk",
+ "serde_json",
+ "sysexits",
+ "sysinfo",
+ "thiserror 2.0.21",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-log",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "validated",
+]
+
+[[package]]
+name = "rasm-testing"
+version = "0.0.0"
+dependencies = [
+ "assert_fs",
+ "claims",
+ "derive-where",
+ "derive_more",
+ "fs-err",
+ "futures",
+ "libsqlite3-sys",
+ "sqlite-vec",
+ "sqlx",
+ "tokio",
 ]
 
 [[package]]
@@ -12082,8 +12138,8 @@ dependencies = [
  "itertools 0.15.0",
  "nonempty-collections",
  "opentelemetry-semantic-conventions",
- "rasm-command",
- "rasm-observability",
+ "rasm-cli",
+ "rasm-telemetry",
  "ratatui",
  "ratatui-core",
  "rustix",
@@ -12594,9 +12650,9 @@ dependencies = [
 
 [[package]]
 name = "referencing"
-version = "0.61.0"
+version = "0.61.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aafb75c629a3f4cf1d1503eb9d588153392cde1bb4424adb75ed737e16201fd6"
+checksum = "eba9bfd41f0d7d8fbf9c7ed23b788a3f97e9f5d9419be812ff7e08b8dc6b14ec"
 dependencies = [
  "ahash",
  "fluent-uri",
@@ -14415,6 +14471,15 @@ dependencies = [
  "unicode-bidi",
  "unicode-normalization",
  "unicode-properties",
+]
+
+[[package]]
+name = "strip-ansi-escapes"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a8f8038e7e7969abb3f1b7c2a811225e9296da208539e0f79c5251d6cac0025"
+dependencies = [
+ "vte 0.14.1",
 ]
 
 [[package]]
@@ -16538,7 +16603,16 @@ checksum = "054ff75fb8fa83e609e685106df4faeffdf3a735d3c74ebce97ec557d5d36fd9"
 dependencies = [
  "itoa",
  "unicode-width 0.2.3",
- "vte",
+ "vte 0.15.0",
+]
+
+[[package]]
+name = "vte"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "231fdcd7ef3037e8330d8e17e61011a2c244126acc0a982f4040ac3f9f0bc077"
+dependencies = [
+ "memchr",
 ]
 
 [[package]]

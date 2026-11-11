@@ -1,3 +1,4 @@
+import { Completed } from '@rasm/process';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Forward } from '#/forward';
@@ -16,7 +17,7 @@ class SshError extends Schema.TaggedError<SshError, { readonly brand: unique sym
     override get message() {
         const outcome = SshError.fields.reason.match(this.reason, {
             Exit: ({ code, stderr }) => `remote command exited ${code}, read its output: ${stderr}`,
-            Unreachable: ({ stderr }) => `OpenSSH exited ${errored} (no connection, a lost connection, or a remote command exiting ${errored}), check the host, its dials, and its identity: ${stderr}`,
+            Unreachable: ({ stderr }) => `OpenSSH exited ${errored} with no shared connection (no connection, a lost connection, or a command exiting ${errored} on its own connection), check the host, its dials, and its identity: ${stderr}`,
             Refused: ({ stderr }) => `OpenSSH refused the forward, free its bind end: ${stderr}`,
         });
         return `${this.subject} ${outcome}`;
@@ -28,16 +29,14 @@ class SshError extends Schema.TaggedError<SshError, { readonly brand: unique sym
 class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
     make: Effect.fnUntraced(function* (folder: string) {
         const [spawner, fs, path, root] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Line)(folder)]);
-        const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => spawner.spawn(ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { extendEnv: true, ...options }));
-        const exchanged = Effect.fnUntraced(function* (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-            const handle = yield* started(words, { stdin: 'ignore', ...options });
-            const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-            return { stdout, stderr, code };
-        }, Effect.scoped);
-        const settled =
-            (host: Host) =>
-            ({ stdout, stderr, code }: Effect.Success<ReturnType<typeof exchanged>>) =>
-                code === 0 ? Effect.succeed(stdout) : Effect.fail(SshError.make({ reason: code === errored ? { _tag: 'Unreachable', stderr } : { _tag: 'Exit', code, stdout, stderr }, subject: host.name }));
+        const commanded = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { extendEnv: true, ...options });
+        const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => spawner.spawn(commanded(words, options));
+        const exchanged = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(Completed.run(commanded(words, { stdin: 'ignore', ...options })), ChildProcessSpawner.ChildProcessSpawner, spawner);
+        const settled = (host: Host) =>
+            Effect.fnUntraced(function* ({ stdout, stderr, code }: Completed) {
+                const reached = code !== errored || (yield* exchanged(host.request(host.control(path, root), 'check'))).code === 0;
+                return yield* code === 0 ? Effect.succeed(stdout) : SshError.make({ reason: reached ? { _tag: 'Exit', code, stdout, stderr } : { _tag: 'Unreachable', stderr }, subject: host.name });
+            });
         const written = Effect.fnUntraced(function* (host: Host, beside: Readonly<Record<string, string>> = {}) {
             const files = Record.toEntries({ ...(yield* Effect.fromResult(host.files(path, root))), ...beside });
             yield* Effect.forEach(Array.dedupe(files.map(([file]) => path.dirname(file))), (home) => fs.makeDirectory(home, { recursive: true, mode: 0o700 }), { discard: true });

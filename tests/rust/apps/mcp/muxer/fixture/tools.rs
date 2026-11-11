@@ -2,6 +2,7 @@ use core::future::ready;
 use core::time::Duration;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::thread;
 
 use clap::ValueEnum;
 use mcp_muxer_tests::{Answer, Ask, Echo, Sized, Slow, Variable, Whoami};
@@ -55,6 +56,16 @@ impl Fixture {
             }
         }
         Ok("done".to_owned())
+    }
+
+    #[tool(description = "Read no request for the time given, logging each step to standard error")]
+    fn stall(Parameters(Slow { millis, steps }): Parameters<Slow>) -> String {
+        let pause = Duration::from_millis(millis).checked_div(steps).unwrap_or_default();
+        for step in 1..=steps {
+            thread::sleep(pause);
+            tracing::info!(step, steps, "reading no request");
+        }
+        "resumed".to_owned()
     }
 
     #[tool(description = "Ask the client a question and return its answer: an input-required result on 2026-07-28, an elicitation request before it")]

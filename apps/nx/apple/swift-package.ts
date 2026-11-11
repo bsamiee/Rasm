@@ -81,7 +81,7 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
             options.placed('swiftpm', product),
             Option.map((folder) => ({
                 ditto: {
-                    executor: `${plugin.name}:zip`,
+                    executor: `${plugin.name}:package`,
                     dependsOn: ['build--swift-build'],
                     inputs: [path.join('{workspaceRoot}', at, INFO), ...plugin.inputs],
                     options: { products: [] },
@@ -89,7 +89,7 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
                     outputs: [path.join('{workspaceRoot}', folder, `${product}-*.zip`)],
                     metadata: { technologies: ['swift'], description: `Zips the release build of ${product} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
                 },
-                published: published(plugin, 'swift', [folder], []),
+                published: published(plugin, 'swift', [folder]),
             })),
         );
         return {

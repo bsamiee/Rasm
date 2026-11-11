@@ -260,4 +260,4 @@ const released = (plugin: Identity, path: Path.Path, crate: Crate, cwd: string):
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crateTargets, released, workspaceTargets };
+export { crateTargets, library, released, workspaceTargets };

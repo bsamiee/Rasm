@@ -1,9 +1,10 @@
+import { tmpdir } from 'node:os';
 import { join, matchesGlob, relative } from 'node:path';
 import process from 'node:process';
-import { type CreateDependenciesContext, DependencyType, logger, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { type CreateDependenciesContext, DependencyType, logger, type PostTasksExecution, type PreTasksExecution, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { type Identity, inferred, type Project, produced, type Request, type Unit } from '@rasm/nx-devkit/plugin';
-import { present, printed, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Combiner, Effect, FileSystem, flow, Option, Path, Record, Result, Schema } from 'effect';
+import { present, printed, runtime, ToolError } from '@rasm/nx-devkit/process';
+import { Array, Combiner, Config, Effect, FileSystem, flow, Option, Path, Record, Redacted, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, type Settings, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
@@ -21,6 +22,8 @@ interface Graph {
 const READ = [MANIFEST, INFO, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'] as const;
 const FILES = [...READ, '*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'] as const;
 const HOST: NodeJS.Platform = 'darwin';
+const IDENTITIES = ['APPLE_DEVELOPMENT_P12', 'DEVELOPER_ID_P12'] as const;
+const KEYCHAINS = join(tmpdir(), 'nx-apple');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -160,7 +163,42 @@ const edges = (reports: readonly (readonly [Unit, Graph])[], { projects }: Creat
         ];
     });
 
+const keychain = (id: string) => join(KEYCHAINS, `${process.pid}-${id}.keychain-db`);
+
+const removed = (id: string) => Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.asVoid(Effect.when(printed('security', ['delete-keychain', keychain(id)]), fs.exists(keychain(id)))));
+
+const identified = Effect.fnUntraced(function* (id: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const abandoned = (yield* Effect.orElseSucceed(fs.readDirectory(KEYCHAINS), Array.empty<string>)).filter((name) => Option.isNone(Option.liftThrowable(process.kill)(Number.parseInt(name, 10), 0)));
+    yield* Effect.forEach(abandoned, (name) => Effect.ignore(printed('security', ['delete-keychain', join(KEYCHAINS, name)])), { discard: true });
+    const identities = Array.getSomes(yield* Effect.forEach(IDENTITIES, (name) => Config.option(Config.all({ name: Config.succeed(name), p12: Config.schema(Schema.Redacted(Schema.Uint8ArrayFromBase64), name), passphrase: Config.Redacted(`${name}_PASSWORD`) }))));
+    if (identities.length === 0) {
+        return;
+    }
+    const [at, folder] = [keychain(id), yield* fs.makeTempDirectoryScoped()];
+    const listed = yield* Effect.filter(
+        [...(yield* printed('security', ['list-keychains', '-d', 'user'])).matchAll(/(?<=")[^"\n]+(?=")/gu)].map(([held]) => held),
+        fs.exists,
+    );
+    yield* fs.makeDirectory(KEYCHAINS, { recursive: true });
+    yield* printed('security', ['create-keychain', '-p', id, at]);
+    yield* printed('security', ['set-keychain-settings', at]);
+    yield* printed('security', ['unlock-keychain', '-p', id, at]);
+    yield* Effect.forEach(identities, ({ name, p12, passphrase }) =>
+        Effect.andThen(
+            fs.writeFile(join(folder, name), Redacted.value(p12), { mode: 0o600 }),
+            Effect.mapError(printed('security', ['import', join(folder, name), '-k', at, '-P', Redacted.value(passphrase), '-A', '-t', 'cert', '-f', 'pkcs12']), () => ToolError.make({ subject: name, detail: `does not import as a PKCS#12 identity under ${name}_PASSWORD` })),
+        ),
+    );
+    yield* printed('security', ['set-key-partition-list', '-S', 'apple-tool:,apple:', '-k', id, at]);
+    yield* printed('security', ['list-keychains', '-d', 'user', '-s', at, ...listed]);
+}, Effect.scoped);
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+const preTasksExecution: PreTasksExecution = (_, { id }) => runtime.runPromise(process.platform === HOST ? Effect.onError(identified(id), () => Effect.ignore(removed(id))) : Effect.void);
+
+const postTasksExecution: PostTasksExecution = (_, { id }) => runtime.runPromise(process.platform === HOST ? removed(id) : Effect.void);
 
 const { createNodes, createDependencies } = inferred({
     module: import.meta.url,
@@ -184,4 +222,4 @@ const { createNodes, createDependencies } = inferred({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createDependencies, createNodes };
+export { createDependencies, createNodes, postTasksExecution, preTasksExecution };

@@ -14,7 +14,7 @@
         "@effect/platform-node": "catalog:",
         "@effect/sql-pg": "catalog:",
         "@rasm/hosting": "workspace:*",
-        "@rasm/process": "workspace:*",
+        "@rasm/telemetry": "workspace:*",
         "@rasm/webhooks": "workspace:*",
         "effect": "catalog:"
     },

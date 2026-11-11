@@ -17,11 +17,11 @@ catalog:
 
     # --- [CORE]
 
-    effect: 4.1.3
-    '@effect/platform-node': 4.1.3
-    '@effect/platform-bun': 4.1.3
-    '@effect/platform-browser': 4.1.3
-    '@effect/platform-cloudflare': 4.1.3
+    effect: 4.1.4
+    '@effect/platform-node': 4.1.4
+    '@effect/platform-bun': 4.1.4
+    '@effect/platform-browser': 4.1.4
+    '@effect/platform-cloudflare': 4.1.4
 
     # --- [SERIALIZATION]
 
@@ -144,7 +144,7 @@ catalog:
 
     # --- [OBSERVABILITY]
 
-    '@effect/opentelemetry': 4.1.3
+    '@effect/opentelemetry': 4.1.4
     '@opentelemetry/semantic-conventions': 1.45.0
     '@opentelemetry/api': 1.10.0
     '@opentelemetry/api-logs': 0.223.0 # Severity numbers `@effect/opentelemetry` imports, `@opentelemetry/api` holds every other log type
@@ -188,12 +188,12 @@ catalog:
 
     # --- [LANGUAGE_MODELS]
 
-    '@effect/ai-anthropic': 4.1.3
-    '@effect/ai-openai': 4.1.3
-    '@effect/ai-openrouter': 4.1.3
-    '@effect/ai-openai-compat': 4.1.3
-    '@effect/ai-cloudflare': 4.1.3
-    '@effect/ai-typesafe': 4.1.3
+    '@effect/ai-anthropic': 4.1.4
+    '@effect/ai-openai': 4.1.4
+    '@effect/ai-openrouter': 4.1.4
+    '@effect/ai-openai-compat': 4.1.4
+    '@effect/ai-cloudflare': 4.1.4
+    '@effect/ai-typesafe': 4.1.4
     '@modelcontextprotocol/ext-apps': 2.1.0 # MCP application protocol and browser client
 
     # --- [USER_INTERFACE]
@@ -215,7 +215,7 @@ catalog:
     react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.6
     scheduler: 0.28.0
-    '@effect/atom-react': 4.1.3
+    '@effect/atom-react': 4.1.4
     '@floating-ui/react': 0.27.20
     '@tanstack/react-table': 9.3.1
     '@tanstack/react-virtual': 3.14.26
@@ -267,13 +267,13 @@ catalog:
 
     '@electric-sql/d2mini': 0.1.8
     '@electric-sql/d2ts': 0.1.8
-    '@effect/sql-pg': 4.1.3
-    '@effect/sql-sqlite-node': 4.1.3
-    '@effect/sql-sqlite-bun': 4.1.3
-    '@effect/sql-sqlite-wasm': 4.1.3
-    '@effect/sql-d1': 4.1.3
-    '@effect/sql-clickhouse': 4.1.3
-    '@effect/sql-sqlite-do': 4.1.3
+    '@effect/sql-pg': 4.1.4
+    '@effect/sql-sqlite-node': 4.1.4
+    '@effect/sql-sqlite-bun': 4.1.4
+    '@effect/sql-sqlite-wasm': 4.1.4
+    '@effect/sql-d1': 4.1.4
+    '@effect/sql-clickhouse': 4.1.4
+    '@effect/sql-sqlite-do': 4.1.4
     '@clickhouse/client': 1.25.0 # ClickHouse HTTP client with row streams, typed settings, and query parameters
     '@clickhouse/client-web': 1.25.0 # ClickHouse HTTP client over `fetch` for browsers and Workers
     '@pgsql/traverse': 18.8.4
@@ -477,7 +477,7 @@ catalog:
     '@openai/sites-vite-plugin': 0.2.0
     '@cloudflare/build-output-utils': 0.9.11 # Build Output tree reader for hosting programs
     '@cloudflare/config': 0.31.0 # `cloudflare.config.ts` uncached loader and parser for hosting programs
-    cf: 1.0.0-beta.28 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
+    cf: 1.0.0-beta.29 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
     signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
     tinyglobby: 0.2.17 # Types of the file lister Vitest lists test files through
     vite-plugin-static-copy: 4.1.1
@@ -504,9 +504,9 @@ catalog:
 
     # --- [GENERATORS]
 
-    '@effect/docgen': 4.1.3
-    '@effect/openapi-generator': 4.1.3
-    '@effect/graphql-generator': 4.1.3
+    '@effect/docgen': 4.1.4
+    '@effect/openapi-generator': 4.1.4
+    '@effect/graphql-generator': 4.1.4
 
     # --- [LINTING]
 
@@ -542,7 +542,7 @@ catalog:
     # --- [TESTING]
 
     vitest: 5.1.0
-    '@effect/vitest': 4.1.3
+    '@effect/vitest': 4.1.4
     fast-check: 4.10.2
     '@vitest/browser-playwright': 5.1.0
     '@vitest/coverage-v8': 5.1.0
@@ -558,7 +558,10 @@ catalog:
     '@storybook/addon-vitest': 11.0.0-beta.1
     '@storybook/addon-a11y': 11.0.0-beta.1
     '@storybook/addon-docs': 11.0.0-beta.1
-    '@cloudflare/vitest-plugin': 1.6.1
+    '@cloudflare/vitest-plugin': 1.7.0
+    svix: 2.10.0 # Svix reference signer and verifier a webhook suite exchanges signatures with
+    stripe: 23.1.0 # Stripe reference test header and event construction a webhook suite exchanges signatures with
+    '@octokit/webhooks-methods': 6.0.0 # GitHub reference sign and verify a webhook suite exchanges signatures with
     testcontainers: 12.2.1
     '@testcontainers/postgresql': 12.2.1
     '@testcontainers/clickhouse': 12.2.1
@@ -568,6 +571,7 @@ catalog:
     '@testcontainers/localstack': 12.2.1
     '@testcontainers/kafka': 12.2.1
     '@modelcontextprotocol/inspector': 2.14.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+    ajv: 8.20.0 # JSON Schema validation of resolved Nx project configuration against Nx's own schema
 
 catalogs:
 
@@ -605,6 +609,7 @@ catalogs:
         postcss: ^8.0.0
         cheerio: ^1.0.0
         rotating-file-stream: ^3.0.0
+        env-paths: ^4.0.0
         '@effect/opentelemetry': ^4.0.0
         '@opentelemetry/api': ^1.10.0
         '@opentelemetry/api-logs': '>=0.203.0 <0.300.0'

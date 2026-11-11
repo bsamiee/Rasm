@@ -1,5 +1,5 @@
 import { matchesGlob } from 'node:path';
-import { joinPathFragments, type Tree } from '@nx/devkit';
+import { joinPathFragments, type ProjectGraphProjectNode, type Tree } from '@nx/devkit';
 import { runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
@@ -11,52 +11,36 @@ const Options = Schema.Struct({ manifest: Schema.String });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const located = Effect.fnUntraced(function* (tree: Tree, root: string, options: unknown) {
-    const { manifest } = yield* Schema.decodeUnknownEffect(Options)(options);
+const located = Effect.fnUntraced(function* (tree: Tree, { name, data: { root } }: ProjectGraphProjectNode, manifests: readonly string[]) {
+    const manifest = yield* Effect.mapError(Effect.fromOption(Array.head(manifests)), ToolError.of(name, 'names no manifest in its versionActionsOptions'));
     const at = joinPathFragments(root, manifest);
-    const host = yield* Effect.fromOption(
-        Array.findFirst(HOSTS, (candidate) => candidate.write !== undefined && matchesGlob(manifest, candidate.manifest)),
-        () => ToolError.make({ subject: at, detail: 'is no manifest whose version this plugin writes' }),
-    );
-    const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => ToolError.make({ subject: at, detail: 'is missing' })));
-    const version = yield* Effect.flatMap(host.read(text, at), (fields) =>
-        Effect.fromOption(
-            Option.flatMap(fields, ({ version: declared }) => Option.fromUndefinedOr(declared)),
-            () => ToolError.make({ subject: at, detail: 'states no version' }),
-        ),
-    );
-    return { at, text, host, version };
+    const { read, write } = yield* Effect.mapError(Effect.fromOption(Array.findFirst(HOSTS, (host) => matchesGlob(manifest, host.manifest))), ToolError.of(at, 'is no host manifest'));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), ToolError.of(at, 'is missing'));
+    const stated = Option.flatMap(yield* read(text, at), ({ version }) => Option.fromUndefinedOr(version));
+    return { at, text, version: yield* Effect.mapError(Effect.fromOption(stated), ToolError.of(at, 'states no version')), write: yield* Effect.mapError(Effect.fromNullishOr(write), ToolError.of(at, 'takes its version from its build, not from nx release')) };
 });
 
-const written = Effect.fnUntraced(function* (tree: Tree, root: string, options: unknown, version: string) {
-    const { at, text, host } = yield* located(tree, root, options);
-    tree.write(at, yield* Effect.fromNullishOr(host.write).pipe(Effect.flatMap((write) => write(text, version))));
+const written = Effect.fnUntraced(function* (tree: Tree, node: ProjectGraphProjectNode, manifests: readonly string[], version: string) {
+    const { at, text, write } = yield* located(tree, node, manifests);
+    tree.write(at, yield* write(text, version));
     return [`New version ${version} written to manifest: ${at}`];
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class HostVersionActions extends VersionActions {
-    override validManifestFilenames: string[] = [];
     override readonly excludeManifestsFromFormatting = true;
 
-    override init(tree: Tree) {
-        return runtime.runPromise(
-            Effect.flatMap(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ manifest }) =>
-                Effect.promise(() => {
-                    this.validManifestFilenames = [manifest];
-                    return super.init(tree);
-                }),
-            ),
-        );
+    override get validManifestFilenames() {
+        return Option.toArray(Option.map(Schema.decodeUnknownOption(Options)(this.finalConfigForProject.versionActionsOptions), ({ manifest }) => manifest));
     }
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
-        return runtime.runPromise(Effect.map(located(tree, this.projectGraphNode.data.root, this.finalConfigForProject.versionActionsOptions), ({ at, version }) => ({ currentVersion: version, manifestPath: at })));
+        return runtime.runPromise(Effect.map(located(tree, this.projectGraphNode, this.validManifestFilenames), ({ at, version }) => ({ currentVersion: version, manifestPath: at })));
     }
 
     override readCurrentVersionFromRegistry() {
-        return runtime.runPromise(ToolError.make({ subject: this.projectGraphNode.name, detail: 'publishes its host packages as GitHub release files, which hold no registry version; use the disk or git-tag current version resolver' }));
+        return runtime.runPromise(ToolError.make({ subject: this.projectGraphNode.name, detail: 'reads no current version from a host store; use the disk or git-tag current version resolver' }));
     }
 
     override readCurrentVersionOfDependency() {
@@ -64,7 +48,7 @@ class HostVersionActions extends VersionActions {
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        return written(tree, this.projectGraphNode.data.root, this.finalConfigForProject.versionActionsOptions, newVersion).pipe(runtime.runPromise);
+        return runtime.runPromise(written(tree, this.projectGraphNode, this.validManifestFilenames, newVersion));
     }
 
     override updateProjectDependencies() {

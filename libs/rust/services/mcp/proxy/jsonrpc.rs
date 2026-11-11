@@ -217,9 +217,17 @@ pub fn refusal(id: &[u8], error: &ErrorData) -> Result<Bytes, serde_json::Error>
 }
 
 #[must_use]
-pub fn identity(head: &[u8], tail: &[u8]) -> Option<Bytes> {
+pub fn identity(head: &[u8], tail: &[u8]) -> (Option<Bytes>, Option<Method>) {
     use serde::de::{DeserializeSeed, IgnoredAny, MapAccess, Visitor};
-    struct Leading<'slot>(&'slot mut Option<Bytes>);
+    #[derive(Deserialize)]
+    #[serde(field_identifier, rename_all = "lowercase")]
+    enum Member {
+        Id,
+        Method,
+        #[serde(other)]
+        Other,
+    }
+    struct Leading<'slot>(&'slot mut (Option<Bytes>, Option<Method>));
     impl<'de> Visitor<'de> for Leading<'_> {
         type Value = ();
 
@@ -227,11 +235,11 @@ pub fn identity(head: &[u8], tail: &[u8]) -> Option<Bytes> {
 
         fn visit_map<M>(self, mut map: M) -> Result<(), M::Error>
         where M: MapAccess<'de> {
-            while let Some(key) = map.next_key::<std::borrow::Cow<'de, str>>()? {
-                if key == ID {
-                    *self.0 = Some(Bytes::copy_from_slice(map.next_value::<&RawValue>()?.get().as_bytes()));
-                } else {
-                    map.next_value::<IgnoredAny>()?;
+            while let Some(member) = map.next_key()? {
+                match member {
+                    Member::Id => self.0.0 = Some(Bytes::copy_from_slice(map.next_value::<&RawValue>()?.get().as_bytes())),
+                    Member::Method => self.0.1 = Some(map.next_value()?),
+                    Member::Other => map.next_value().map(|IgnoredAny| ())?,
                 }
             }
             Ok(())
@@ -245,26 +253,18 @@ pub fn identity(head: &[u8], tail: &[u8]) -> Option<Bytes> {
             deserializer.deserialize_map(self)
         }
     }
-    #[derive(Deserialize)]
-    struct Trailing<'tail> {
-        #[serde(borrow)]
-        id: &'tail RawValue,
-    }
-    const ID: &str = "id";
-    let mut found = None;
+    let mut found = (None, None);
     let mut decoder = serde_json::Deserializer::from_slice(head);
     if let Err(error) = Leading(&mut found).deserialize(&mut decoder).and_then(|()| decoder.end()) {
         tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&error), "message head ends before its close");
     }
-    found.or_else(|| {
-        let start = memchr::memmem::rfind(tail, format!("\"{ID}\"").as_bytes()).filter(|start| start.checked_sub(1).and_then(|before| tail.get(before)) != Some(&b'\\'))?;
-        let members = [b"{", tail.get(start..)?].concat();
-        match decode::<Trailing<'_>>(&members) {
-            Ok(Trailing { id }) => Some(Bytes::copy_from_slice(id.get().as_bytes())),
-            Err(error) => {
-                tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&error), "message tail holds no top-level id");
-                None
-            }
+    let trailing = memchr::memchr_iter(b'"', tail).find_map(|start| match decode::<Envelope<'_>>(&[b"{", tail.get(start..)?].concat()) {
+        Ok(Envelope { id, method, params: _, result: _, error: _ }) => Some((id.map(|id| Bytes::copy_from_slice(id.get().as_bytes())), method)),
+        Err(error) => {
+            tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&error), start, "message tail opens no top-level member here");
+            None
         }
-    })
+    });
+    let (id, method) = trailing.unwrap_or_default();
+    (found.0.or(id), found.1.or(method))
 }

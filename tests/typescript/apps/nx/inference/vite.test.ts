@@ -10,15 +10,19 @@ import { cases, inferred, running, type Subject } from '#/inference/cases';
 const subject: Subject = {
     plugin: { name: manifest.name, createNodes },
     packages: ['vite', '@rasm/nx-vite'],
+    runs: ['build'],
+    changed: ['kit/entry.ts', "export const outDir = 'built';\n"],
+    served: ['site', 'serve--vite', 'http://localhost:4517'],
     files: {
         'package.json': '{ "name": "root", "workspaces": ["site", "kit"] }\n',
         'site/package.json': '{ "name": "site", "type": "module" }\n',
         'site/index.html': '<!doctype html><html lang="en"><head><title>Site</title></head><body><script type="module" src="./main.ts"></script></body></html>\n',
         'site/main.ts': "document.title = 'Site';\n",
-        'site/vite.config.ts': "import { readySignal } from '@rasm/nx-vite/ready-signal';\nimport { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { outDir: 'out' }, plugins: [readySignal()] });\n",
+        'site/vite.config.ts': "import { readySignal } from '@rasm/nx-vite/ready-signal';\nimport { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { outDir: 'out' }, server: { port: 4517, strictPort: true }, plugins: [readySignal()] });\n",
         'kit/package.json': '{ "name": "kit", "type": "module" }\n',
         'kit/index.ts': 'export const kit = 1;\n',
-        'kit/vite.config.ts': "import { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { lib: { entry: 'index.ts', formats: ['es'] } } });\n",
+        'kit/entry.ts': "export const outDir = 'dist';\n",
+        'kit/vite.config.ts': "import { defineConfig } from 'vite';\nimport { outDir } from './entry.ts';\n\nexport default defineConfig({ build: { outDir, lib: { entry: 'index.ts', formats: ['es'] } } });\n",
     },
     broken: ['kit/vite.config.ts', "import { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { lib: { entry:\n"],
 };

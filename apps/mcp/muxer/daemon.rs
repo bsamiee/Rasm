@@ -19,7 +19,7 @@ use opentelemetry::global;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_ipc::{Endpoint, Instance, IpcError, Opened, Refusal};
 use rasm_mcp::{History, Link, Liveness, Policy, Pool, Retention, Store};
-use rasm_observability::metrics;
+use rasm_telemetry::metrics;
 use rmcp::model::{ClientCapabilitiesBuilder, ElicitationCapability, Implementation, InitializeRequestParams, ProtocolVersion, RootsCapabilities, SamplingCapability};
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
 use serde::de::{DeserializeOwned, IgnoredAny};
@@ -227,7 +227,7 @@ where T: DeserializeOwned {
 pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Duration>, built: Build) -> Result<(), MuxerError> {
     const LINGER: Duration = Duration::from_secs(10);
     const SETTLE: Duration = Duration::from_millis(250);
-    let mut signals = rasm_command::signals()?;
+    let mut signals = rasm_cli::signals()?;
     let claim = ExponentialBuilder::new().with_min_delay(Duration::from_millis(1)).with_max_delay(Duration::from_millis(100)).without_max_times().with_total_delay(Some(Duration::from_secs(30)));
     let Some(Instance { listener, held }) = Instance::claim(&endpoint, claim).await? else { return Ok(()) };
     let files = rlimit::increase_nofile_limit(u64::MAX).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "open file limit not raised")).ok();
@@ -286,8 +286,11 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
     }
     daemon.stopping.cancel();
     sessions.close();
-    sessions.wait().await;
-    daemon.pool.stop().await;
+    tokio::select! {
+        biased;
+        _ = signals.next() => {}
+        () = sessions.wait().then(|()| daemon.pool.stop()) => {}
+    }
     tracing::info!(reason, "stopped");
     drop(held);
     Ok(())

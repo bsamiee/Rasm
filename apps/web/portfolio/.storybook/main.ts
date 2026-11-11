@@ -6,7 +6,7 @@ import application from '#/vite.config';
 
 export default defineMain({
     framework: { name: '@storybook/react-vite', options: { builder: { viteConfigPath: null } } },
-    addons: ['@rasm/test-support/storybook'],
+    addons: ['@rasm/testing/storybook'],
     stories: ['./*.stories.ts'],
     viteFinal: (config, { configType }) => mergeConfig(config, application({ command: configType === 'PRODUCTION' ? 'build' : 'serve', mode: 'test' })),
 });

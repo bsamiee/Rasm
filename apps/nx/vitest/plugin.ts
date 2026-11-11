@@ -48,7 +48,7 @@ const { createNodes } = inferred({
                     test: {
                         vitest: {
                             command: ['vitest run', ...Array.match(flags, { onEmpty: () => [], onNonEmpty: (directed) => ['{args}', line(directed)] })].join(' '),
-                            dependsOn: ['generate', '^generate'],
+                            dependsOn: ['codegen', '^codegen'],
                             cache: true,
                             inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { env: 'CI' }, NODE, { externalDependencies: ['vitest'] }],
                             metadata: { description: 'Runs every Vitest project of the suite with vitest run', help: { command: `${exec} vitest run --help`, example: { args: ['--project', '<name>'] } } },

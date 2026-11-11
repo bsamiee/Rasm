@@ -11,7 +11,7 @@ import { retrieveProjectConfigurations, retrieveWorkspaceFiles } from 'nx/src/pr
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const workspace = Effect.fn('workspace')(function* (files: Record.ReadonlyRecord<string, string>, packages: readonly string[], resolved: string | URL) {
+const checkout = Effect.fn('checkout')(function* (files: Record.ReadonlyRecord<string, string>, packages: readonly string[], resolved: string | URL) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const root = yield* Effect.flatMap(fs.makeTempDirectoryScoped({ prefix: 'nx-workspace-' }), fs.realPath);
     yield* Effect.forEach(Record.toEntries(files), ([file, text]) => Effect.andThen(fs.makeDirectory(path.join(root, path.dirname(file)), { recursive: true }), fs.writeFileString(path.join(root, file), text)), { concurrency: 'unbounded', discard: true });
@@ -24,7 +24,11 @@ const workspace = Effect.fn('workspace')(function* (files: Record.ReadonlyRecord
         }),
         { discard: true },
     );
-    yield* Effect.acquireRelease(
+    return root;
+});
+
+const entered = (root: string) =>
+    Effect.acquireRelease(
         Effect.sync(() => {
             const prior = workspaceRoot;
             setWorkspaceRoot(root);
@@ -36,8 +40,8 @@ const workspace = Effect.fn('workspace')(function* (files: Record.ReadonlyRecord
                 resetWorkspaceContext();
             }),
     );
-    return root;
-});
+
+const workspace = (files: Record.ReadonlyRecord<string, string>, packages: readonly string[], resolved: string | URL) => Effect.tap(checkout(files, packages, resolved), entered);
 
 const graphed = Effect.fn('graphed')(function* (root: string, plugins: readonly LoadedNxPlugin[]) {
     const refused = (cause: unknown) => (isProjectConfigurationsError(cause) || isAggregateProjectGraphError(cause) ? cause : new Cause.UnknownError(cause, 'Nx refused the workspace before reading a plugin result'));
@@ -50,4 +54,4 @@ const graphed = Effect.fn('graphed')(function* (root: string, plugins: readonly 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { graphed, workspace };
+export { checkout, entered, graphed, workspace };

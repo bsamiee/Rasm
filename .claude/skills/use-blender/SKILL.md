@@ -142,7 +142,7 @@ Searches find code using a member:
 
 ## [07]-[EXTENSIONS]
 
-`nx build <project>` writes an extension project's archives under `.artifacts/blender/<id>`, and `nx install <project>` installs the one for this platform through `install-file`.
+`nx build <project>` writes an extension project's archives under `.artifacts/blender/<project>`, and `nx install <project>` installs the one for this platform through `install-file`.
 
 Repository `user_default` holds extensions installed from a file, remote repositories the rest:
 - `install-file` over an installed extension replaces its folder and modules whatever the archive version

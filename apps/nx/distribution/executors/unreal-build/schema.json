@@ -25,13 +25,6 @@
                 "type": "string"
             }
         },
-        "engines": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            },
-            "description": "Engine roots by association, read before Epic's install registry"
-        },
         "args": {
             "type": "array",
             "description": "Arguments appended to the UnrealBuildTool or AutomationTool command",

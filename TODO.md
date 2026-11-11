@@ -45,7 +45,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 - Rust waits for a later session's launch:
   - Deepened: cli, typst, ifc, bcf, numerical-analysis, regression, graph-layout, implicit-modeling, dependency-graph, drafting annotation, mesh, site, solar-geometry, weather
   - Deepen left, in order:
-    - Services and graphs: `rasm-observability` `process`, daemon, mcp, network-analysis
+    - Services and graphs: `rasm-telemetry` `process`, daemon, mcp, network-analysis
     - Numerics and geometry: stats, optimization, signal-processing, dynamic-simulation, proximity, planar-geometry, form-finding
     - Data, drawing, documents and interchange: arrow, drawing, drawing-views, drafting `sheets`, pdf, workbooks, dwg
   - Checks owed: `rasm-drafting` `sheets` against the deepened annotation

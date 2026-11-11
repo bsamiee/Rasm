@@ -81,7 +81,7 @@ const deployApp = Effect.fn('deployApp')(function* ({ app, mode, identity, root 
                     const destinations = hosts.apply(Array.map((host) => ({ type: 'public', uri: `${host}${identity.paths.signin}` })));
                     const guarded = new ZeroTrustAccessApplication(name, { accountId, name, type: 'self_hosted', destinations, policies: [{ id: policy.id, precedence: 1 }], httpOnlyCookieAttribute: true, sameSiteCookieAttribute: 'lax' }, provided);
                     const source = { _tag: 'Cloudflare', teamDomain: getZeroTrustOrganizationOutput({ accountId }, provided).authDomain, audience: guarded.aud } as const;
-                    return { [Access.variable]: { type: 'plain_text', text: output({ source, logout: Access.cloudflare.logout }).apply((access) => Effect.runPromiseWith(context)(Schema.encodeEffect(Access.json)(Access.make(access)))) } };
+                    return { [Access.variable]: { type: 'plain_text', text: output({ source, logout: Access.cloudflare.logout }).apply((access) => Effect.runPromiseWith(context)(Effect.flatMap(Schema.decodeEffect(Access)(access), Schema.encodeEffect(Access.json)))) } };
                 },
             }),
         }),

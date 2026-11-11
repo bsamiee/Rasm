@@ -1,7 +1,7 @@
 import { it } from '@effect/vitest';
 import { s3Storage } from '@rasm/object-storage/s3';
-import { Store } from '@rasm/test-support/store';
-import { failed } from '@rasm/test-support/vitest';
+import { Store } from '@rasm/test-store';
+import { failed } from '@rasm/testing/vitest';
 import { Context, type Effect, Layer } from 'effect';
 import { cases } from '#/cases';
 

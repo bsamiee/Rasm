@@ -119,6 +119,8 @@ pub struct Status {
 #[derive(Debug, Clone)]
 pub struct Proxy {
     events: mpsc::Sender<Event>,
+    drains: mpsc::Sender<(Duration, oneshot::Sender<()>)>,
+    stopping: CancellationToken,
     status: watch::Receiver<Status>,
     in_flight: Arc<AtomicUsize>,
     joined: Arc<AtomicU64>,
@@ -136,15 +138,24 @@ impl Proxy {
         W: AsyncWrite + Send + Unpin,
         C: Future<Output = String> + Send,
     {
-        let (events, inbox) = mpsc::channel(policy.queue);
+        let ((events, inbox), (drains, draining), stopping) = (mpsc::channel(policy.queue), mpsc::channel(1), CancellationToken::new());
         let History { catalog, failures, cause, until } = history;
         let delay = until.map(|until| until.duration_since(Timestamp::now())).filter(SignedDuration::is_positive).map_or(Duration::ZERO, SignedDuration::unsigned_abs);
         let phase = if failures == 0 { Phase::Starting } else { Phase::Down };
         let (status, watched) = watch::channel(Status { phase, failures, delay, cause, catalog: catalog.map(Arc::new), ..Status::default() });
         let in_flight = Arc::new(AtomicUsize::new(0));
-        let proxy =
-            Self { events, status: watched, in_flight: Arc::clone(&in_flight), joined: Arc::new(AtomicU64::new(0)), client: policy.client.client_info.clone(), line: policy.line, queue: policy.queue };
-        (proxy, Actor::new(policy, connect, inbox, status, Calls::new(in_flight)).run())
+        let proxy = Self {
+            events,
+            drains,
+            stopping: stopping.clone(),
+            status: watched,
+            in_flight: Arc::clone(&in_flight),
+            joined: Arc::new(AtomicU64::new(0)),
+            client: policy.client.client_info.clone(),
+            line: policy.line,
+            queue: policy.queue,
+        };
+        (proxy, Actor::new(policy, connect, inbox, draining, stopping, status, Calls::new(in_flight)).run())
     }
 
     #[must_use]
@@ -235,16 +246,15 @@ impl Proxy {
 
     pub async fn drain(&self, settle: Duration) {
         let (drained, done) = oneshot::channel();
-        let asked = self.events.send(Event::Drain { settle, drained }).map_err(|mpsc::error::SendError(_)| io::ErrorKind::ConnectionAborted.into());
+        let asked = self.drains.send((settle, drained)).map_err(|mpsc::error::SendError(_)| io::ErrorKind::ConnectionAborted.into());
         if let Err(error) = asked.and_then(|()| done.map_err(io::Error::other)).await {
             tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "server stopped before its calls drained");
         }
     }
 
     pub async fn stop(&self) {
-        match self.events.send(Event::Stop).await {
-            Ok(()) | Err(mpsc::error::SendError(_)) => self.events.closed().await,
-        }
+        self.stopping.cancel();
+        self.events.closed().await;
     }
 }
 

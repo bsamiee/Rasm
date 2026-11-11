@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use backon::ExponentialBuilder;
 use jiff::Timestamp;
+use rasm_infra_tests::{Hosted as _, ServerError, defined};
 use rasm_provisioning::{Clickhouse, Login, Policy, Postgres, Registry};
-use rasm_test_support::{FixtureError, Hosted as _, defined};
 use secrecy::ExposeSecret as _;
 use sqlx::postgres::{PgConnectOptions, PgConnection, PgPoolOptions};
 use sqlx::{ConnectOptions as _, PgPool};
@@ -54,7 +54,7 @@ pub async fn stopped(running: Running) -> io::Result<()> {
     running.lifetime.await.map_err(io::Error::other)
 }
 
-pub async fn postgres(compose: &Path, settings: &[&str]) -> Result<(ContainerAsync<postgres::Postgres>, u16, Postgres), FixtureError> {
+pub async fn postgres(compose: &Path, settings: &[&str]) -> Result<(ContainerAsync<postgres::Postgres>, u16, Postgres), ServerError> {
     const POSTGRES: &str = "postgres";
     let command = iter::chain([POSTGRES], settings.iter().flat_map(|setting| ["-c", setting]));
     let request = defined(compose, POSTGRES, postgres::Postgres::default()).await?.with_cmd(command);
@@ -67,7 +67,7 @@ pub async fn entered(port: u16, login: &Login, database: &str) -> Result<PgConne
     PgConnectOptions::new().host(LOCALHOST).port(port).username(&login.id.to_string()).password(login.password.expose_secret()).database(database).connect().await
 }
 
-pub async fn clickhouse(compose: &Path) -> Result<(ContainerAsync<clickhouse::ClickHouse>, u16, Clickhouse), FixtureError> {
+pub async fn clickhouse(compose: &Path) -> Result<(ContainerAsync<clickhouse::ClickHouse>, u16, Clickhouse), ServerError> {
     const CLICKHOUSE: &str = "clickhouse";
     let request = defined(compose, CLICKHOUSE, clickhouse::ClickHouse::default()).await?;
     let request = request.with_env_var("CLICKHOUSE_PASSWORD", CLICKHOUSE).with_env_var("CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "1");

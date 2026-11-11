@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/test-hosting",
+    "private": true,
+    "description": "Hosting suites over a Node server on an allocated port: Cloudflare Access tokens verified against a served key set, forwarded identity headers, and the Node server's bindings, readiness, and body limits",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/hosting": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

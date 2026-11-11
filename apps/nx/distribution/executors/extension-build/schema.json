@@ -11,5 +11,5 @@
     "required": [ "outputPath" ],
     "additionalProperties": true,
     "title": "Extension build",
-    "description": "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its locked registry dependencies as wheels for the running Blender and its local dependencies as subpackages"
+    "description": "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects for each platform the manifest lists, one archive per platform"
 }

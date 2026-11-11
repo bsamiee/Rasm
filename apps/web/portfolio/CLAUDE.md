@@ -123,8 +123,8 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 [SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node:
 - `server/worker.ts` passes its services and `Worker.fetch` over its routes to `Worker`, with `Template` from the assets binding and `layerTelemetry` of `@rasm/workers/execution`
 - Worker `layerTelemetry` writes one JSON log record per console line, records each span in the Workers trace, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names at the end of each invocation
-- `server/main.ts` passes `Sites.identity` and an `env` callback to `serveNode`, then the HTTP server on `PORT` and the app name as `serviceName` to `layerTelemetry` of `@rasm/process` with target `stderr`
-- `layerTelemetry` reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`, writes one JSON log record per line to stderr, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names through the OpenTelemetry SDK
+- `server/main.ts` passes `Sites.identity` and an `env` callback to `serveNode`, then the HTTP server on `PORT` and the app name as `serviceName` to `layerNodeFromConfig` of `@rasm/telemetry/node` with target `stderr`
+- `layerNodeFromConfig` reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`, writes one JSON log record per line to stderr, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names through the OpenTelemetry SDK
 - `vite.config.ts` adds `siteHead`, `nodeServer`, and `cloudflare` unless Vite mode is `test`, which Vitest sets and `.storybook/main.ts` passes
 - `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
 - `site/shell.tsx` states the whole content security policy of a production build, and `Template.render` sets no header without one

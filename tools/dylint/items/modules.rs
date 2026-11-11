@@ -1,9 +1,11 @@
+use core::fmt::Display;
 use core::iter;
 use std::ffi::OsStr;
 use std::io::{self, ErrorKind};
 use std::path::{self, Path, PathBuf};
 use std::sync::Arc;
 
+use cargo_metadata::MetadataCommand;
 use clippy_utils::diagnostics::{span_lint, span_lint_hir_and_then};
 use clippy_utils::res::MaybeResPath as _;
 use clippy_utils::{desugar_await, get_async_fn_body, is_entrypoint_fn, peel_blocks_with_stmt, peel_hir_expr_refs, tokenize_with_text};
@@ -39,26 +41,21 @@ pub(crate) struct Pass {
 }
 
 lint!(default Pass;
-    ORPHAN_MODULE: "source files and `mod.rs` folders in a module's folder that no module declares",
+    ORPHAN_MODULE: "source files and `mod.rs` folders in a module's folder that no module of the package declares and no Cargo target names",
     SINGLE_READER: "crate-private free items with one reader, outside macro output, reading no item hidden from that reader, and with no signature type their module declares",
     FORWARDING_FUNCTION: "functions and inherent methods whose body calls another function with each parameter once, in any order, and returns its result unchanged"
 );
 
 impl Pass {
-    fn orphans(cx: &LateContext<'_>, files: &[Arc<SourceFile>], declared: impl IntoIterator<Item = PathBuf>) {
+    fn orphans(cx: &LateContext<'_>, owners: impl IntoIterator<Item = (Arc<SourceFile>, PathBuf)>, declared: impl IntoIterator<Item = PathBuf>) {
         const EXTENSION: &str = "rs";
         let declared = declared.into_iter().collect::<FxHashSet<_>>();
-        let rooted = |stem: Option<&str>| stem.is_some_and(|stem| matches!(stem, "lib" | "main" | "mod" | "build"));
-        for (file, path) in files.iter().filter_map(|file| match &file.name {
-            FileName::Real(name) => name.local_path().filter(|path| path.extension().is_some_and(|extension| extension == EXTENSION)).map(|path| (file, path)),
-            _ => None,
-        }) {
+        for (file, folder) in owners {
             let first = file.src.as_ref().and_then(|source| source.chars().next()).map_or_default(char::len_utf8);
             let span = Span::with_root_ctxt(file.start_pos, file.absolute_position(RelativeBytePos::from_usize(first)));
             let report = |message: String| span_lint(cx, ORPHAN_MODULE, span, message);
-            let folder = if rooted(path.file_stem().and_then(OsStr::to_str)) { path.with_file_name("") } else { path.with_extension("") };
             match fs_err::read_dir(folder).and_then(|entries| entries.map(|entry| entry.map(|entry| entry.path())).collect::<Result<Vec<_>, _>>()) {
-                Ok(entries) => entries.into_iter().sorted().filter(|entry| !rooted(entry.file_stem().and_then(OsStr::to_str))).for_each(|entry| {
+                Ok(entries) => entries.into_iter().sorted().for_each(|entry| {
                     let nested = entry.extension().is_none_or(|extension| extension != EXTENSION);
                     let module = if nested { entry.join("mod.rs") } else { entry };
                     match fs_err::canonicalize(&module) {
@@ -370,7 +367,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let map = tcx.sess.source_map();
         let root = map.lookup_source_file(tcx.def_span(CRATE_DEF_ID).lo());
         walk.modules.insert(root.start_pos, true);
-        let compiled = map.files().iter().filter(|file| file.is_real_file() && !file.is_imported()).cloned().collect::<Vec<_>>();
         let local = |name: &FileName| if let FileName::Real(real) = name { real.local_path().map(Path::to_path_buf) } else { None };
         let identity = |file: &Path, siblings: bool| {
             let absolute = path::absolute(file)?;
@@ -383,8 +379,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             ))
         };
         let mod_file = |file: &Path| file.file_stem().is_some_and(|stem| stem == kw::Mod.as_str());
-        let mut pending = compiled
+        let own = map
+            .files()
             .iter()
+            .filter(|file| file.is_real_file() && !file.is_imported())
             .filter_map(|file| {
                 let path = local(&file.name)?;
                 let siblings = walk.modules.get(&file.start_pos).map(|&overridden| overridden || mod_file(&path));
@@ -393,18 +391,47 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .collect::<Vec<_>>();
         let mut parser = ParseSess::with_dcx(DiagCtxt::new(Box::new(SilentEmitter)), tcx.sess.psess.clone_source_map());
         parser.edition = tcx.sess.edition();
-        let failed = |error: io::Error| span_lint(cx, ORPHAN_MODULE, tcx.def_span(CRATE_DEF_ID), error.to_string());
-        let mut known = match pending.iter().map(|(_, path, siblings)| identity(path, siblings.unwrap_or_default())).collect::<io::Result<FxHashSet<_>>>() {
-            Ok(known) => known,
-            Err(error) => return failed(error),
+        let failed = |error: &dyn Display| span_lint(cx, ORPHAN_MODULE, tcx.def_span(CRATE_DEF_ID), error.to_string());
+        let ids = match own.iter().map(|(_, path, siblings)| identity(path, siblings.unwrap_or_default())).collect::<io::Result<Vec<_>>>() {
+            Ok(ids) => ids,
+            Err(error) => return failed(&error),
         };
+        let folders = iter::zip(&own, &ids)
+            .filter(|((_, _, siblings), _)| siblings.is_some())
+            .unique_by(|&(_, (_, directory, stem))| (directory, stem))
+            .filter_map(|((file, path, siblings), _)| Some((Arc::clone(file), if (*siblings)? { path.parent()?.to_path_buf() } else { path.with_extension("") })))
+            .collect::<Vec<_>>();
+        let mut known = ids.into_iter().collect::<FxHashSet<_>>();
+        let rooted = match local(&root.name).map(path::absolute).transpose() {
+            Ok(rooted) => rooted,
+            Err(error) => return failed(&error),
+        };
+        let metadata = match MetadataCommand::new().no_deps().exec() {
+            Ok(metadata) => metadata,
+            Err(error) => return failed(&error),
+        };
+        let Some(package) = metadata.packages.iter().find(|package| package.targets.iter().any(|target| rooted.as_deref() == Some(target.src_path.as_std_path()))) else {
+            return failed(&format_args!("no package of the workspace at `{}` names this crate root as a target", metadata.workspace_root));
+        };
+        let targets = match package.targets.iter().map(|target| identity(target.src_path.as_std_path(), true)).collect::<io::Result<Vec<_>>>() {
+            Ok(targets) => targets,
+            Err(error) => return failed(&error),
+        };
+        let mut pending =
+            match targets.iter().filter(|id| !known.contains(*id)).map(|(sibling, ..)| map.load_file(sibling).map(|file| (file, sibling.clone(), Some(true), false))).collect::<io::Result<Vec<_>>>() {
+                Ok(siblings) => iter::chain(siblings, own.into_iter().map(|(file, path, siblings)| (file, path, siblings, true))).collect::<Vec<_>>(),
+                Err(error) => return failed(&error),
+            };
+        known.extend(targets);
         let mut unseen = FxHashSet::default();
-        while let Some((source_file, source_path, sibling_modules)) = pending.pop() {
+        while let Some((source_file, source_path, sibling_modules, walked)) = pending.pop() {
             let Some(source) = &source_file.src else { continue };
-            unseen.extend(tokenize_with_text(source).filter(|(kind, ..)| matches!(kind, TokenKind::Ident | TokenKind::RawIdent)).filter_map(|(_, text, span)| {
-                let name = text.trim_prefix(RAW_IDENTIFIER_PREFIX);
-                (!walk.seen.contains(&source_file.absolute_position(RelativeBytePos::from_usize(span.start.strict_add(text.len().strict_sub(name.len())))))).then(|| Symbol::intern(name))
-            }));
+            if walked {
+                unseen.extend(tokenize_with_text(source).filter(|(kind, ..)| matches!(kind, TokenKind::Ident | TokenKind::RawIdent)).filter_map(|(_, text, span)| {
+                    let name = text.trim_prefix(RAW_IDENTIFIER_PREFIX);
+                    (!walk.seen.contains(&source_file.absolute_position(RelativeBytePos::from_usize(span.start.strict_add(text.len().strict_sub(name.len())))))).then(|| Symbol::intern(name))
+                }));
+            }
             let Some(sibling_modules) = sibling_modules else { continue };
             let relative = source_path.file_stem().filter(|_| !sibling_modules).and_then(OsStr::to_str).map(Ident::from_str);
             let Some(declared) = module_paths(&parser, source_file.name.clone(), &source_path, relative, source) else { return };
@@ -412,19 +439,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 let id = match identity(&candidate, siblings) {
                     Ok(id) => id,
                     Err(error) if error.kind() == ErrorKind::NotFound => continue,
-                    Err(error) => return failed(error),
+                    Err(error) => return failed(&error),
                 };
                 if !known.insert(id) {
                     continue;
                 }
                 match map.load_file(&candidate) {
-                    Ok(file) => pending.push((file, candidate, Some(siblings))),
+                    Ok(file) => pending.push((file, candidate, Some(siblings), walked)),
                     Err(error) if error.kind() == ErrorKind::NotFound => (),
-                    Err(error) => return failed(error),
+                    Err(error) => return failed(&error),
                 }
             }
         }
-        Self::orphans(cx, &compiled, known.into_iter().map(|(path, _, _)| path));
+        Self::orphans(cx, folders, known.into_iter().map(|(path, _, _)| path));
         for (&target, sites) in &self.sites {
             let outside = || sites.iter().filter(move |&&(caller, _)| caller != target);
             if let Ok(caller) = outside().map(|&(caller, _)| caller).all_equal_value()

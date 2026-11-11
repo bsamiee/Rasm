@@ -48,7 +48,7 @@ const failed = Effect.map(
 const testPolicy = (): Plugin => {
     const html = fileURLToPath(import.meta.resolve('@vitest/ui/reporter'));
     return {
-        name: '@rasm/test-support/vitest',
+        name: '@rasm/testing/vitest',
         enforce: 'pre',
         config(config) {
             const policy = {

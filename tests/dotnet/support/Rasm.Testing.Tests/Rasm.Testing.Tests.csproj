@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Suite of Rasm.Testing: store service kinds through their catalog drivers, SQLite, a Testcontainers lifecycle, and settlement by test result</Description>
+        <Description>Suite of Rasm.Testing: SQLite, a Testcontainers lifecycle, and settlement by test result</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
@@ -8,10 +8,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Data Storage">
-        <PackageReference Include="AWSSDK.S3" />
-        <PackageReference Include="ClickHouse.Driver" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
-        <PackageReference Include="Npgsql" />
         <PackageReference Include="StackExchange.Redis" />
     </ItemGroup>
 

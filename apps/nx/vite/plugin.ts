@@ -21,7 +21,7 @@ const { createNodes } = inferred({
         jobs: ({ files, path, placed }: Request<typeof Timed.Type>) => files.map((file) => Job.make({ root: path.dirname(file), file, ...Record.getSomes({ outDir: Option.map(placed('vite'), (at) => path.relative(path.dirname(file), at)) }) })),
     }),
     projects: ({ report: { folders, signals } }: Answer<typeof Report.Type>, { job: { root, file, outDir }, chain }: Asked<typeof Job>, { path, exec }) => {
-        const needs = { dependsOn: ['generate', '^generate'], inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, NODE, { externalDependencies: ['vite'] }] };
+        const needs = { dependsOn: ['codegen', '^codegen'], inputs: ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, NODE, { externalDependencies: ['vite'] }] };
         const placed = Option.fromUndefinedOr(outDir);
         const built = Option.fromUndefinedOr(folders);
         const served = Option.liftPredicate({ continuous: true, readyWhen: { signal: true as const }, ...needs }, () => signals);

@@ -6,6 +6,7 @@ import { cases, inferred, running, type Subject } from '#/inference/cases';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const SERVED = { dependencies: true, target: 'serve--compose', waitFor: 'ready' } as const;
 const SPEC = "import { test } from '@playwright/test';\n\ntest('opens', async ({ page }) => {\n    await page.goto('/');\n});\n";
 const config = (servers: string) => `import { defineConfig } from '@playwright/test';\n\nexport default defineConfig({ testDir: '.', reporter: [['html', { open: 'never' }]], ${servers} });\n`;
 
@@ -31,15 +32,23 @@ const subject: Subject = {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 cases(subject, (it) => {
+    it.effect('runs playwright test for a config whose webServer states no command', () =>
+        inferred({ ...subject, files: { 'package.json': '{ "name": "root", "workspaces": ["bare"] }\n', 'bare/package.json': '{ "name": "bare", "type": "module" }\n', 'bare/playwright.config.ts': config("webServer: { url: 'http://localhost:4175', reuseExistingServer: true }"), 'bare/site.spec.ts': SPEC } }).pipe(
+            Effect.map(running('playwright test')),
+            Effect.map(Array.map(({ project }) => project)),
+            Effect.map((tested) => assert.deepStrictEqual(tested, ['bare'], 'nrwl/nx@2a424d3 packages/playwright/src/plugins/plugin.spec.ts "should not crash on a webServer without a command"')),
+        ),
+    );
+
     it.effect('runs playwright test cached, writing its results and HTML report folders, and waits for the Nx task a reused webServer command runs, at the top level and per Playwright project, and for no server Playwright owns', () =>
         inferred(subject).pipe(
             Effect.map(running('playwright test')),
             Effect.map(Array.map(({ project, cache, outputs, waits }) => ({ project, cache, outputs: outputs.toSorted(), waits }))),
             Effect.map((tested) =>
                 assert.deepStrictEqual(tested, [
-                    { project: 'owned', cache: true, outputs: ['owned/playwright-report', 'owned/test-results'], waits: [] },
-                    { project: 'reused', cache: true, outputs: ['reused/playwright-report', 'reused/test-results'], waits: [{ projects: ['site'], target: 'serve', waitFor: 'ready' }] },
-                    { project: 'split', cache: true, outputs: ['split/playwright-report', 'split/test-results'], waits: [{ projects: ['site'], target: 'preview', waitFor: 'ready' }] },
+                    { project: 'owned', cache: true, outputs: ['owned/playwright-report', 'owned/test-results'], waits: [SERVED] },
+                    { project: 'reused', cache: true, outputs: ['reused/playwright-report', 'reused/test-results'], waits: [{ projects: ['site'], target: 'serve', waitFor: 'ready' }, SERVED] },
+                    { project: 'split', cache: true, outputs: ['split/playwright-report', 'split/test-results'], waits: [{ projects: ['site'], target: 'preview', waitFor: 'ready' }, SERVED] },
                 ]),
             ),
         ),

@@ -92,6 +92,7 @@ const { createNodes, createDependencies } = inferred({
                 externalNodes: Record.fromIterableWith(node.packages, (reference): readonly [string, ProjectGraphExternalNode] => [external(reference), { type: 'nuget', name: external(reference), data: { version: reference.version, packageName: reference.id, hash: reference.hash } }]),
                 configuration: {
                     ...(limited && { tags: supported.map((held) => `os:${held}`) }),
+                    ...(node.implicit.length > 0 && { implicitDependencies: [...node.implicit] }),
                     ...(hosted && releasable(node) && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { projectFile: path.basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
                 },
             };

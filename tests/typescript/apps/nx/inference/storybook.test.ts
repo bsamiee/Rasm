@@ -28,6 +28,14 @@ const subject: Subject = {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 cases(subject, (it) => {
+    it.effect('builds a Storybook whose config is main.js', () =>
+        inferred({ ...subject, files: { ...subject.files, 'package.json': '{ "name": "root", "workspaces": ["signalled", "silent", "plain"] }\n', 'plain/package.json': '{ "name": "plain", "type": "module" }\n', 'plain/.storybook/main.js': main(''), 'plain/sheet.stories.ts': STORY } }).pipe(
+            Effect.map(running('storybook build')),
+            Effect.map(Array.map(({ project }) => project)),
+            Effect.map((built) => assert.include(built, 'plain', 'nrwl/nx@2a424d3 packages/storybook/src/plugins/plugin.spec.ts "should support main.js"')),
+        ),
+    );
+
     it.effect('builds each Storybook with storybook build, cached, writing storybook-static', () =>
         inferred(subject).pipe(
             Effect.map(running('storybook build')),

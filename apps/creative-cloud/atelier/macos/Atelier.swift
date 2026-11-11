@@ -1,3 +1,4 @@
+import AppKit
 import Applications
 import CoreGraphics
 import CurrentProcess
@@ -16,10 +17,22 @@ import UnixSignals
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
+final class UpdaterDelegate: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
     func updater(_: SPUUpdater, willInstallUpdateOnQuit _: SUAppcastItem, immediateInstallationBlock: () -> Void) -> Bool {
         immediateInstallationBlock()
         return true
+    }
+
+    func standardUserDriverWillHandleShowingUpdate(_: Bool, forUpdate _: SUAppcastItem, state _: SPUUserUpdateState) {
+        NSApplication.shared.setActivationPolicy(.regular)
+        NSApplication.shared.dockTile.badgeLabel = "1"
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        NSApplication.shared.dockTile.badgeLabel = nil
+        NSApplication.shared.setActivationPolicy(.prohibited)
     }
 }
 
@@ -70,7 +83,7 @@ enum Atelier {
                 let calls = DispatchQueue(label: "Atelier.calls", attributes: .concurrent)
                 let output = DispatchSerialQueue(label: "Atelier.output")
                 let updaterDelegate = UpdaterDelegate()
-                let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
+                let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: updaterDelegate)
                 defer { extendLifetime((updater, updaterDelegate)) }
                 var context = InstrumentationContext.topLevel
                 InstrumentationSystem.instrument.extract(ProcessInfo.processInfo.environment, into: &context, using: EnvironmentCarrier())

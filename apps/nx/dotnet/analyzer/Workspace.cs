@@ -33,6 +33,7 @@ internal sealed record Node(
     ImmutableArray<string> Restored,
     ImmutableArray<string> Results,
     ImmutableArray<string> Platforms,
+    ImmutableArray<string> Implicit,
     string? Central,
     Tracking? Releases);
 
@@ -131,6 +132,7 @@ internal static class Workspace {
                     .Distinct()
                     .Order(StringComparer.Ordinal)],
                 [.. toSeq(outer.GetItems("SupportedPlatform")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
+                [.. toSeq(outer.GetItems("NxImplicitDependency")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
                 Flag(outer, "ManagePackageVersionsCentrally") ? Relative(root, outer.GetPropertyValue("DirectoryPackagesPropsPath")) : null,
                 Tracked(root, instances)),
             Seq(file.Replace('\\', '/')) + inside + walked);

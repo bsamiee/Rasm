@@ -1,34 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Per-test stores as xUnit v3 fixtures: store service sessions through their catalog drivers, SQLite, and Testcontainers</Description>
+        <Description>Per-test resources as xUnit v3 fixtures settled by test result: SQLite databases and Testcontainers servers</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
         <PackageReference Include="CliWrap" />
         <PackageReference Include="LanguageExt.Core" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions" />
-    </ItemGroup>
-
-    <ItemGroup Label="Remote Procedure Calls">
-        <PackageReference Include="Grpc.Core.Api" />
-        <PackageReference Include="Grpc.Net.Client" />
-        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
-        <Protobuf Include="../../../../libs/rust/data/store-proto/proto/rasm/store/store.proto" GrpcServices="Client" Access="Internal" />
-    </ItemGroup>
-
-    <ItemGroup Label="Serialization">
-        <PackageReference Include="Google.Protobuf" />
     </ItemGroup>
 
     <ItemGroup Label="Data Storage">
-        <PackageReference Include="AWSSDK.Core" />
-        <PackageReference Include="AWSSDK.S3" />
-        <PackageReference Include="ClickHouse.Driver" />
         <PackageReference Include="HiraokaHyperTools.sqlite-vec" />
         <PackageReference Include="Microsoft.Data.Sqlite" />
-        <PackageReference Include="Npgsql" />
         <PackageReference Include="SQLitePCLRaw.core" />
-        <PackageReference Include="StackExchange.Redis" />
     </ItemGroup>
 
     <ItemGroup Label="Testing">

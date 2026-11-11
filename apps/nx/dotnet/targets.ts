@@ -25,6 +25,7 @@ const Node = Schema.Struct({
     restored: Schema.Array(Schema.String),
     results: Schema.Array(Schema.String),
     platforms: Schema.Array(Schema.String),
+    implicit: Schema.Array(Schema.String),
     central: Schema.NullOr(Schema.String),
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });

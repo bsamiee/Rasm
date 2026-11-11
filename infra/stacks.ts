@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 import type { StackRequest, Stacks } from '@rasm/nx-pulumi/stacks';
-import { Array, Cause, Config, Effect, FileSystem, flow, type Layer, Match, Option, Record } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, type Layer, Match, Option, Record } from 'effect';
 import { deployed } from '#/command';
 import { hostingRows, hostingStack, hostingValues } from '#/hosting-stack';
 import manifest from '#/package.json' with { type: 'json' };
@@ -11,7 +11,7 @@ import { repositoryStack } from '#/repository-stack';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const project = 'rasm-infra';
+const project = manifest.name.replace('@', '').replace('/', '-');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -75,16 +75,9 @@ const hosted = Match.typeTags<StackRequest>()({
     Release: ({ context }) => held(context, true),
 });
 
-const selected = Effect.fnUntraced(function* (request: StackRequest) {
-    const { projectName, projectsConfigurations } = request.context;
-    const selection = yield* Effect.fromNullishOr(projectName);
-    yield* Effect.fromNullishOr(projectsConfigurations.projects[selection]);
-    return selection === manifest.name ? yield* owned(request) : Array.map(yield* hosted(request), inline);
-}, Effect.provide(layer));
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const stacks: Stacks = flow(selected, Effect.runPromise);
+const stacks: Stacks = (request) => Effect.runPromise(Effect.provide(request.context.projectName === manifest.name ? owned(request) : Effect.map(hosted(request), Array.map(inline)), layer));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

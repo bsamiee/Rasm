@@ -1,5 +1,5 @@
 import { defineConfig } from '@playwright/test';
-import { config, served } from '@rasm/test-support/playwright';
+import { config, served } from '@rasm/testing/playwright';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

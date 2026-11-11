@@ -15,7 +15,8 @@ OTHER_LDFLAGS = -Xlinker -fatal_warnings
 PRODUCT_NAME = $(TARGET_NAME)
 
 // --- [SIGNING] -------------------------------------------------------------------------
-CODE_SIGN_STYLE = Automatic
+CODE_SIGN_IDENTITY = Apple Development
+CODE_SIGN_STYLE = Manual
 DEVELOPMENT_TEAM = BBXB9R367P
 ENABLE_ENHANCED_SECURITY = YES
 ENABLE_HARDENED_RUNTIME = YES

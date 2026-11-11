@@ -50,22 +50,14 @@
         },
         "folders": {
             "type": "array",
-            "description": "Folders the release build zips into, relative to the workspace root",
-            "items": {
-                "type": "string"
-            }
-        },
-        "notarized": {
-            "type": "array",
-            "description": "Folders holding a notarized, stapled app, whose SUFeedURL names its Sparkle feed",
-            "default": [],
+            "description": "Folders the release build packages into, relative to the workspace root",
             "items": {
                 "type": "string"
             }
         }
     },
-    "required": [ "folders", "notarized" ],
+    "required": [ "folders" ],
     "additionalProperties": true,
     "title": "Release publish",
-    "description": "Attaches each folder's zip at the version nx release set to the project's GitHub release, then publishes each notarized app naming SUFeedURL to its Sparkle feed"
+    "description": "Attaches each folder's disk image, else its zip, at the version nx release set to the project's GitHub release; where SPARKLE_ED_PRIVATE_KEY is set, adds each disk image holding a stapled notarization ticket to the Sparkle feed its app names in SUFeedURL"
 }

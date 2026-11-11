@@ -44,6 +44,10 @@ name = "macro_matching"
 path = "tests/expansions/macro_matching.rs"
 
 [[example]]
+name = "orphan_module_target"
+path = "examples/orphan_module_target/suite.rs"
+
+[[example]]
 name       = "manual_path_is_empty_no_std"
 crate-type = ["lib"]
 
@@ -85,6 +89,7 @@ itertools      = { workspace = true }
 camino         = { workspace = true }
 dunce          = { workspace = true }
 fs-err         = { workspace = true }
+cargo_metadata = { workspace = true }
 clippy_utils   = { workspace = true }
 dylint_linting = { workspace = true }
 
@@ -111,7 +116,6 @@ opentelemetry_sdk                  = { workspace = true }
 tracing                            = { workspace = true }
 clap                               = { workspace = true }
 nuts-rs                            = { workspace = true }
-cargo_metadata                     = { workspace = true }
 insta                              = { workspace = true, features = ["glob"] }
 rasm-lints-auxiliary               = { workspace = true }
 

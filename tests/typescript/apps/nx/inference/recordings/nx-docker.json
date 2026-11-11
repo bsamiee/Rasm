@@ -19,6 +19,41 @@
         "stdout": "{}\n\n",
         "stderr": ""
     },
+    "14299634551310500091 stack$ docker compose config --format json --no-interpolate": {
+        "code": 0,
+        "stdout": "{\n  \"name\": \"stack\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"stack_default\"\n    }\n  },\n  \"services\": {\n    \"api\": {\n      \"build\": {\n        \"context\": \"<root>/api\",\n        \"dockerfile\": \"Dockerfile\"\n      },\n      \"networks\": {\n        \"default\": null\n      },\n      \"profiles\": [\n        \"app\"\n      ]\n    },\n    \"cache\": {\n      \"image\": \"valkey/valkey:8\",\n      \"networks\": {\n        \"default\": null\n      }\n    },\n    \"site\": {\n      \"build\": {\n        \"context\": \"<root>/dist/web\",\n        \"dockerfile_inline\": \"FROM scratch\"\n      },\n      \"networks\": {\n        \"default\": null\n      },\n      \"profiles\": [\n        \"app\"\n      ]\n    }\n  }\n}",
+        "stderr": ""
+    },
+    "14299634551310500091 stack$ docker compose config --variables --format json": {
+        "code": 0,
+        "stdout": "{}\n\n",
+        "stderr": ""
+    },
+    "14299634551310500091 store$ docker compose config --format json --no-interpolate": {
+        "code": 1,
+        "stdout": "",
+        "stderr": "go-yaml load error in parser (while parsing a flow sequence) at L4.C16-L5.C1: did not find expected ',' or ']'\n"
+    },
+    "16420136132546288466 stack$ docker compose config --format json --no-interpolate": {
+        "code": 0,
+        "stdout": "{\n  \"name\": \"stack\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"stack_default\"\n    }\n  },\n  \"services\": {\n    \"api\": {\n      \"build\": {\n        \"context\": \"<root>/api\",\n        \"dockerfile\": \"Dockerfile\"\n      },\n      \"networks\": {\n        \"default\": null\n      },\n      \"profiles\": [\n        \"app\"\n      ]\n    },\n    \"cache\": {\n      \"image\": \"valkey/valkey:8\",\n      \"networks\": {\n        \"default\": null\n      }\n    },\n    \"site\": {\n      \"build\": {\n        \"context\": \"<root>/dist/web\",\n        \"dockerfile_inline\": \"FROM scratch\"\n      },\n      \"networks\": {\n        \"default\": null\n      },\n      \"profiles\": [\n        \"app\"\n      ]\n    }\n  }\n}",
+        "stderr": ""
+    },
+    "16420136132546288466 stack$ docker compose config --variables --format json": {
+        "code": 0,
+        "stdout": "{}\n\n",
+        "stderr": ""
+    },
+    "16420136132546288466 store$ docker compose config --format json --no-interpolate": {
+        "code": 0,
+        "stdout": "{\n  \"name\": \"store\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"store_default\"\n    }\n  },\n  \"services\": {\n    \"database\": {\n      \"image\": \"postgres:18\",\n      \"networks\": {\n        \"default\": null\n      }\n    }\n  }\n}",
+        "stderr": ""
+    },
+    "16420136132546288466 store$ docker compose config --variables --format json": {
+        "code": 0,
+        "stdout": "{}\n\n",
+        "stderr": ""
+    },
     "5965365566393951627 store$ docker compose config --format json --no-interpolate": {
         "code": 1,
         "stdout": "",

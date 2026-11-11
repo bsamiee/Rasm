@@ -36,4 +36,4 @@ rule:
                     has: {field: name, pattern: $NAME, regex: '(^|_)(otlp|otel|opentelemetry|telemetry)(_|$)', not: {regex: '^otel_'}}
     not: {matches: rust-test-scope}
 message: '`$NAME` names a telemetry environment variable outside the OpenTelemetry `OTEL_*` set'
-note: 'Use `rasm_command::run` for the `<NAME>_LOG_*` and `OTEL_*` rows, or read specified `OTEL_*` variables'
+note: 'Use `rasm_cli::run` for the `<NAME>_LOG_*` and `OTEL_*` rows, or read specified `OTEL_*` variables'

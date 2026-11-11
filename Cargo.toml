@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members  = ["apps/data/*", "apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*", "tests/rust/apps/*/*", "tests/rust/support"]
+members  = ["apps/data/*", "apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*", "tests/rust/apps/*/*", "tests/rust/infra", "tests/rust/support"]
 
 # --- [IDENTITY]
 
@@ -131,7 +131,7 @@ yaml-edit           = "0.3.6"                                                   
 
 # --- [SCHEMA]
 
-jsonschema = { version = "0.61.0", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
+jsonschema = { version = "0.61.1", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
 schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1", "preserve_order"] } # JSON Schema derived from record types in field declaration order
 
 # --- [NEWTYPES]
@@ -678,7 +678,11 @@ escargot               = "1.0.1"                                                
 hdrhistogram           = "7.6.0"                                                                                                                                                                                           # Latency histograms with percentile queries at fixed relative error
 criterion              = { version = "0.8.2", features = ["async_tokio"] }                                                                                                                                                 # Statistical benchmarks with saved baselines
 oci-spec               = { version = "0.10.0", default-features = false, features = ["distribution"] }                                                                                                                     # Image references parsed into registry, repository, tag, and digest
-insta                  = "1.49.0"                                                                                                                                                                                          # Inline and file snapshot assertions
+insta                  = { version = "1.49.0", features = ["json", "redactions", "glob", "filters"] }                                                                                                                      # Inline and file snapshot assertions, JSON-RPC transcript snapshots with id redactions, one case per transcript file
+h2                     = "0.4.20"                                                                                                                                                                                          # HTTP/2 client observing GOAWAY and RST_STREAM frames
+http-body-util         = "0.1.5"                                                                                                                                                                                           # Collected response bodies
+hyper                  = { version = "1.12.0", features = ["client", "http1", "http2"] }                                                                                                                                   # Raw HTTP/1 and HTTP/2 client connections in suites
+hyper-util             = { version = "0.1.21", features = ["client-legacy", "tokio", "http1", "http2"] }                                                                                                                   # Tokio IO adapters for hyper connections
 insta-cmd              = "0.7.0"                                                                                                                                                                                           # Binary runs snapshotted with exit code and output
 libtest-mimic          = "0.8.2"                                                                                                                                                                                           # Custom test runners with native libtest discovery
 proptest               = { version = "1.12.0", features = ["attr-macro"] }                                                                                                                                                 # Property tests with shrinking and persisted failures
@@ -686,22 +690,24 @@ proptest-derive        = "0.9.0"                                                
 proptest-state-machine = "0.9.0"                                                                                                                                                                                           # Model-based tests over operation sequences
 rstest                 = "0.28.0"                                                                                                                                                                                          # Fixtures, parameterized cases, and per-test timeouts
 similar-asserts        = "2.0.0"                                                                                                                                                                                           # Diffed assertion failures over large values
+tokio-test             = "0.4.6"                                                                                                                                                                                           # Scripted read and write peers asserting exact bytes written and read
 test-context           = "0.5.8"                                                                                                                                                                                           # Setup and teardown around each test through a context type, teardown running after a panic
-testcontainers         = { version = ">=0.27.3, <0.28", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog", "docker-compose"] }                                                              # Disposable service containers and Compose projects with HTTP readiness waits and removal on termination signals, at the release testcontainers-modules 0.15 links (0.28 pins another `bollard-stubs` and fails resolution beside it), default `ring` adds ring beside aws-lc-rs
+testcontainers         = { version = ">=0.27.3, <0.28", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog", "docker-compose"] }                                        # Disposable service containers and Compose projects with HTTP readiness waits and removal on termination signals, at the release testcontainers-modules 0.15 links (0.28 pins another `bollard-stubs` and fails resolution beside it), default `ring` adds ring beside aws-lc-rs
 testcontainers-modules = { version = "0.15.0", default-features = false, features = ["aws-lc-rs", "clickhouse", "kafka", "localstack", "minio", "mosquitto", "hashicorp_vault", "postgres", "redis", "rustfs", "valkey"] } # Prebuilt service definitions that integration tests start, default `ring` adds ring beside aws-lc-rs
 tracing-test           = "0.2.6"                                                                                                                                                                                           # Captured spans and events asserted in tests
 wiremock               = "0.6.5"                                                                                                                                                                                           # HTTP doubles on loopback server
 
 # --- [MEMBERS]
 
-rasm-command            = { path = "libs/rust/runtime/command" }
-rasm-console            = { path = "libs/rust/cli/console" }
-rasm-tui                = { path = "libs/rust/cli/tui" }
+rasm-cli                = { path = "libs/rust/runtime/cli" }
+rasm-process            = { path = "libs/rust/runtime/process" }
+rasm-telemetry          = { path = "libs/rust/runtime/telemetry" }
+rasm-console            = { path = "libs/rust/terminal/console" }
+rasm-tui                = { path = "libs/rust/terminal/tui" }
+rasm-grpc               = { path = "libs/rust/services/grpc" }
 rasm-http               = { path = "libs/rust/services/http" }
 rasm-ipc                = { path = "libs/rust/services/ipc" }
 rasm-mcp                = { path = "libs/rust/services/mcp" }
-rasm-process            = { path = "libs/rust/services/process" }
-rasm-observability      = { path = "libs/rust/runtime/observability" }
 rasm-mesh               = { path = "libs/rust/geometry/mesh" }
 rasm-proximity          = { path = "libs/rust/geometry/proximity" }
 rasm-planar-geometry    = { path = "libs/rust/geometry/planar-geometry" }
@@ -719,7 +725,6 @@ rasm-signal-processing  = { path = "libs/rust/numerics/signal-processing" }
 rasm-arrow              = { path = "libs/rust/data/arrow" }
 rasm-store-proto        = { path = "libs/rust/data/store-proto" }
 rasm-provisioning       = { path = "libs/rust/data/provisioning" }
-rasm-grpc               = { path = "libs/rust/transport/grpc" }
 rasm-network-analysis   = { path = "libs/rust/graphs/network-analysis" }
 rasm-graph-layout       = { path = "libs/rust/graphs/graph-layout" }
 rasm-typst              = { path = "libs/rust/documents/typst" }
@@ -733,7 +738,9 @@ rasm-weather            = { path = "libs/rust/geospatial/weather" }
 rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
-rasm-test-support       = { path = "tests/rust/support" }
+rasm-testing            = { path = "tests/rust/support" }
+rasm-infra-tests        = { path = "tests/rust/infra" }
+rasm-mcp-tests          = { path = "tests/rust/libs/services/mcp" }
 mcp-muxer               = { path = "apps/mcp/muxer" }
 
 # --- [LINTS] ----------------------------------------------------------------------------

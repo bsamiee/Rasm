@@ -15,7 +15,7 @@ const subject: Subject = {
         'pyproject.toml': '[project]\nname = "sheets"\nversion = "0.1.0"\nrequires-python = ">=3.13"\ndependencies = ["sheets-core"]\n\n[tool.uv.workspace]\nmembers = ["packages/*"]\n\n[tool.uv.sources]\nsheets-core = { workspace = true }\n',
         'uv.lock':
             'version = 1\nrevision = 5\nrequires-python = ">=3.13"\n\n[manifest]\nmembers = [\n    "sheets",\n    "sheets-core",\n]\n\n[[package]]\nname = "sheets"\nversion = "0.1.0"\nsource = { virtual = "." }\ndependencies = [\n    { name = "sheets-core" },\n]\n\n[package.metadata]\nrequires-dist = [{ name = "sheets-core", editable = "packages/core" }]\n\n[[package]]\nname = "sheets-core"\nversion = "0.1.0"\nsource = { editable = "packages/core" }\n',
-        'packages/core/pyproject.toml': '[project]\nname = "sheets-core"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[build-system]\nrequires = ["uv_build>=0.9,<1"]\nbuild-backend = "uv_build"\n',
+        'packages/core/pyproject.toml': '[project]\nname = "sheets-core"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n\n[build-system]\nrequires = ["uv_build>=0.9,<1"]\nbuild-backend = "uv_build"\n\n[tool.nx]\nimplicitDependencies = ["sheet-tools"]\n',
         'packages/core/sheets_core/__init__.py': '',
         'tools/pyproject.toml': '[project]\nname = "sheet-tools"\nversion = "0.1.0"\nrequires-python = ">=3.13"\n',
         'tools/uv.lock': 'version = 1\nrevision = 5\nrequires-python = ">=3.13"\n\n[[package]]\nname = "sheet-tools"\nversion = "0.1.0"\nsource = { virtual = "." }\n',
@@ -26,7 +26,20 @@ const subject: Subject = {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 cases(subject, (it) => {
-    it.effect('names each project by its project name and links a workspace source from the pyproject.toml that states it', () =>
-        Effect.map(inferred(subject), (graph) => assert.deepOwnInclude({ ...roots(graph), edges: edges(graph) }, { sheets: '.', 'sheets-core': 'packages/core', 'sheet-tools': 'tools', edges: [{ source: 'sheets', target: 'sheets-core', type: 'static' }] })),
+    it.effect('names each project by its project name, links a workspace source from the pyproject.toml that states it, and links an implicit dependency its tool.nx table states', () =>
+        Effect.map(inferred(subject), (graph) =>
+            assert.deepOwnInclude(
+                { ...roots(graph), edges: edges(graph) },
+                {
+                    sheets: '.',
+                    'sheets-core': 'packages/core',
+                    'sheet-tools': 'tools',
+                    edges: [
+                        { source: 'sheets', target: 'sheets-core', type: 'static' },
+                        { source: 'sheets-core', target: 'sheet-tools', type: 'implicit' },
+                    ],
+                },
+            ),
+        ),
     );
 });

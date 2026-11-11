@@ -1,11 +1,11 @@
 import { globSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
+import { Completed } from '@rasm/process';
 import { Array, Effect, Record, Schema } from 'effect';
-import type { ChildProcessSpawner } from 'effect/process';
+import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { build, type PlistValue, parse } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
-import { ExitError } from '#/node';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -68,7 +68,7 @@ const helper = Effect.fnUntraced(function* (
     const name = basename(dirname(entry));
     const context = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
     const signing = yield* Effect.cached(
-        ExitError.stdout(['xcodebuild', '-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target]).pipe(
+        Completed.output(ChildProcess.make('xcodebuild', ['-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target], { stdin: 'ignore' })).pipe(
             Effect.flatMap(Schema.decodeEffect(Settings)),
             Effect.map(([{ buildSettings }]) => ({ ...buildSettings, label: `${buildSettings.PRODUCT_BUNDLE_IDENTIFIER}.${service}` })),
         ),
@@ -109,7 +109,7 @@ const helper = Effect.fnUntraced(function* (
                             [process.execPath, '--build-sea', join(outDir, 'sea.json')],
                             ['codesign', '--force', '--sign', '-', '--identifier', label, '--options', 'runtime', '--entitlements', join(outDir, 'sea.entitlements'), join(outDir, name)],
                         ] as const,
-                        ExitError.stdout,
+                        ([command, ...args]) => Completed.output(ChildProcess.make(command, args, { stdin: 'ignore' })),
                         { discard: true },
                     ),
                 ),

@@ -1,3 +1,4 @@
+import { Completed } from '@rasm/process';
 import { Array, Effect, FileSystem, Layer, MutableRef, Option, Path, PlatformError, Record, Schema, Sink, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner, CommandLine } from 'effect/process';
 import { hashWithWorkspaceContext } from 'nx/src/devkit-internals';
@@ -37,8 +38,8 @@ const standard = (command: ChildProcess.Command): ChildProcess.StandardCommand =
 
 const absent = (tool: string) => PlatformError.systemError({ _tag: 'NotFound', module: 'ChildProcess', method: 'spawn', pathOrDescriptor: tool });
 
-const recorded = Effect.fnUntraced(function* (handle: ChildProcessSpawner.ChildProcessHandle, root: string, key: string) {
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+const recorded = Effect.fnUntraced(function* (real: ChildProcessSpawner.ChildProcessSpawner['Service'], command: ChildProcess.Command, root: string, key: string) {
+    const { code, stdout, stderr } = yield* Effect.provideService(Completed.run(command), ChildProcessSpawner.ChildProcessSpawner, real);
     const reply = { code, stdout: stdout.replaceAll(root, ROOT), stderr: stderr.replaceAll(root, ROOT) };
     MutableRef.update(taken, Record.set(key, reply));
     return reply;
@@ -72,7 +73,7 @@ const answered = Effect.fnUntraced(function* (real: ChildProcessSpawner.ChildPro
         Effect.sync(() => MutableRef.update(unrecorded, Array.append(key))),
         Effect.fail(absent(tool)),
     );
-    const fresh = record ? Effect.flatMap(real.spawn(command), (handle) => recorded(handle, root, key)) : unread;
+    const fresh = record ? recorded(real, command, root, key) : unread;
     const held = renew ? Option.none() : Record.get(replies, key);
     return replied(yield* missing.includes(tool) ? Effect.fail(absent(tool)) : Option.match(held, { onSome: Effect.succeed, onNone: () => fresh }), root);
 });

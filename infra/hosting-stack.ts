@@ -1,11 +1,13 @@
-import { dirname, join, relative, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import aws from '@pulumi/aws';
 import { local } from '@pulumi/command';
 import { IamServiceAccount, IlmPolicy, Provider } from '@pulumi/minio';
-import { asset, getOrganization, getProject, type Input, interpolate, jsonStringify, type Resource, runtime, StackReference, secret } from '@pulumi/pulumi';
+import postgresql from '@pulumi/postgresql';
+import { all, getOrganization, getProject, type Input, interpolate, jsonStringify, type Resource, runtime, StackReference, secret } from '@pulumi/pulumi';
+import { RandomPassword } from '@pulumi/random';
 import { Access } from '@rasm/hosting';
 import { App, type Binding } from '@rasm/hosting/app';
 import { Sites } from '@rasm/hosting/openai-sites';
@@ -15,8 +17,7 @@ import { Array, ByteSize, Cause, Clock, Config, ConfigProvider, Data, Duration, 
 import { Yaml } from 'effect/encoding';
 import { CommandLine } from 'effect/process';
 import { deployed, run } from '#/command';
-import { backupTarget, connections, Deployed, identified, type platformStacks } from '#/platform-stack';
-import { postgresRoles } from '#/postgres-roles';
+import { backupTarget, connections, Deployed, definition, identified, type platformStacks, uploaded } from '#/platform-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -41,10 +42,9 @@ type Engine = Data.TaggedEnum<{ Machine: Record.ReadonlyRecord<never, never>; Ho
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const definition = join(import.meta.dirname, 'compose.yaml');
 const mount = '/data';
 const forwarded = { id: 'Remote-User', email: 'Remote-Email' };
-const compose = Array.make('docker', 'compose', '--file', '-', '--profile', '*');
+const compose = Array.make('docker', 'compose', '--file', '-');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -73,6 +73,7 @@ const Platform = Schema.fromJsonString(
                 ),
             }),
         }),
+        'x-hosted-app': Schema.Struct({ configs: Schema.Unknown, services: Schema.Struct(Struct.Record(['app', 'litestream', 'litestream-restore'], Schema.Unknown)) }),
     }),
 );
 
@@ -139,14 +140,8 @@ const tunneled = Effect.fnUntraced(function* (
 
 const copied = Effect.fnUntraced(function* (host: Host, root: string, project: string, { create, delete: removed, stdin, environment }: Operation, bundles: readonly string[], { protect, dependsOn }: Applied) {
     const paths = yield* Path.Path;
-    const over = (words: Array.NonEmptyReadonlyArray<string>, sent: readonly string[] = []) => Effect.fromResult(Result.flatMap(host.command(paths, connections, words, sent), CommandLine.join));
-    const placed = yield* Effect.forEach(bundles, (bundle) =>
-        Effect.map(
-            Effect.all([over(['rm', '-rf', bundle]), over(['mkdir', '-p', dirname(bundle)]), Effect.fromResult(CommandLine.join(host.copy(paths, connections, join(root, bundle), dirname(bundle))))]),
-            (steps) => new local.Command(`${project}-${bundle}`, { create: steps.join(' && '), triggers: [new asset.FileArchive(join(root, bundle))], addPreviousOutputInEnv: false }),
-        ),
-    );
-    const [up, down] = yield* Effect.all([over(create, Record.keys(environment)), over(removed, Record.keys(environment))]);
+    const over = (words: Array.NonEmptyReadonlyArray<string>) => Effect.fromResult(Result.flatMap(host.command(paths, connections, words, Record.keys(environment)), CommandLine.join));
+    const [placed, up, down] = yield* Effect.all([Effect.forEach(bundles, (bundle) => uploaded(host, project, root, bundle, [])), over(create), over(removed)]);
     return new local.Command(project, { create: up, delete: down, stdin, environment: secret(environment), addPreviousOutputInEnv: false }, { protect, dependsOn: [...dependsOn, ...placed] });
 });
 
@@ -192,6 +187,36 @@ const stored = (stack: Stack, { storage: { environment } }: (typeof Platform.Typ
         return { environment: { AWS_ENDPOINT_URL_S3: within.href, AWS_REGION: region, AWS_ACCESS_KEY_ID: account.accessKey, AWS_SECRET_ACCESS_KEY: account.secretKey }, resources: [account] };
     });
 
+const postgresRoles = ({ app, mode }: Stack, variable: string, server: Required<Pick<postgresql.ProviderArgs, 'host' | 'port' | 'username' | 'password'>>, within: Readonly<Record<'postgres' | 'pgbouncer', URL>>) => {
+    const database = App.resource(app, mode, variable);
+    const provided = { provider: new postgresql.Provider(database, { ...server, sslmode: 'disable' }) };
+    const roles = Record.map({ migrator: { idleInTransactionSessionTimeout: 60_000 }, runtime: { statementTimeout: 15_000, idleInTransactionSessionTimeout: 30_000 } }, (settings: postgresql.RoleArgs, role) => {
+        const key = new RandomPassword(`${database}-${role}`, { length: 40, special: false }).result;
+        return { name: new postgresql.Role(`${database}-${role}`, { name: `${database}-${role}`, login: true, password: key, ...settings }, provided).name, key };
+    });
+    const owned = new postgresql.Database(database, { name: database, owner: roles.migrator.name }, { ...provided, protect: App.modes[mode].kept });
+    const statistics = new postgresql.Extension(database, { name: 'pg_stat_statements', database: owned.name }, provided);
+    const granted = Record.map({ table: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], sequence: ['USAGE', 'SELECT'] }, (privileges, objectType) => new postgresql.DefaultPrivileges(`${database}-${objectType}`, { database: owned.name, owner: roles.migrator.name, role: roles.runtime.name, objectType, privileges }, provided));
+    const url = (endpoint: URL, role: Input<string>, key: Input<string>) =>
+        all([role, key, owned.name]).apply(([username, password, pathname]) => {
+            const target = Object.assign(new URL(endpoint), { username, password, pathname });
+            target.searchParams.set('sslmode', 'disable');
+            return target.href;
+        });
+    return {
+        [variable]: url(
+            within.pgbouncer,
+            all([granted.table.role, granted.sequence.role]).apply(([role]) => role),
+            roles.runtime.key,
+        ),
+        [`${variable}_MIGRATOR`]: url(
+            within.postgres,
+            all([roles.migrator.name, statistics.name]).apply(([role]) => role),
+            roles.migrator.key,
+        ),
+    };
+};
+
 const stores = Effect.fnUntraced(function* (stack: Stack, { services }: typeof Platform.Type, reached: Effect.Success<ReturnType<Effect.Success<ReturnType<typeof engaged>>['reach']>>) {
     const { app, mode } = stack;
     const within = Record.map(Struct.pick(services, ['postgres', 'pgbouncer', 'storage']), ({ ports: [{ target, app_protocol }] }, service) => new URL(`${app_protocol}://${service}:${target}`));
@@ -199,7 +224,7 @@ const stores = Effect.fnUntraced(function* (stack: Stack, { services }: typeof P
     const bound = yield* Effect.forEach(Record.toEntries(app.env), ([variable, binding]) =>
         Match.value<Binding>(binding).pipe(
             Match.tag('sqlite', () => Effect.succeed<Readonly<Record<string, Input<string>>>>({ [variable]: join(mount, variable, 'database.sqlite') })),
-            Match.tag('postgres', () => Effect.succeed(postgresRoles(App.resource(app, mode, variable), variable, server, { runtime: within.pgbouncer, migrator: within.postgres }, App.modes[mode].kept))),
+            Match.tag('postgres', () => Effect.succeed(postgresRoles(stack, variable, server, within))),
             Match.tag('bucket', () => Effect.succeed({ [variable]: App.resource(app, mode, variable) })),
             Match.tag('secret', () => Config.all({ [variable]: Config.map(Config.Redacted(variable), Redacted.value) })),
             Match.tag('text', 'json', () => Effect.succeed({})),
@@ -210,51 +235,50 @@ const stores = Effect.fnUntraced(function* (stack: Stack, { services }: typeof P
     return { environment: Record.fromEntries([...bound, ...Option.toArray(Option.map(buckets, Struct.get('environment')))].flatMap(Record.toEntries)), resources: Option.match(buckets, { onNone: () => [], onSome: Struct.get('resources') }) };
 });
 
-const documented = Effect.fnUntraced(function* ({ app, mode }: Stack, { networks, configs }: typeof Platform.Type, bundle: Effect.Success<ReturnType<typeof bundled>>, variables: readonly string[], backup: Effect.Success<ReturnType<typeof engaged>>['backup']) {
+const documented = Effect.fnUntraced(function* ({ app, mode }: Stack, { networks, configs, 'x-hosted-app': template }: typeof Platform.Type, bundle: Effect.Success<ReturnType<typeof bundled>>, variables: readonly string[], backup: Effect.Success<ReturnType<typeof engaged>>['backup']) {
     const fs = yield* FileSystem.FileSystem;
     const [name, { domain }] = [App.resource(app, mode), Array.headNonEmpty(configs.authelia.content.session.cookies)];
+    const [base, file, memory] = yield* Effect.all([fs.makeTempFileScoped({ suffix: '.json' }), fs.makeTempFileScoped({ suffix: '.json' }), Effect.fromOption(ByteSize.toNumber(app.limits.memory))]);
+    const extended = Record.map(template.services, (_, service) => ({ extends: { file: base, service } }));
     const mounts = Record.fromIterableWith(Record.keys(Record.filter(app.env, App.Binding.$is('sqlite'))), (variable) => [App.resource(app, mode, variable), join(mount, variable)]);
     const replicas = Option.match(backup, {
         onNone: () => [],
         onSome: ({ replica }) =>
             Record.keys(mounts).map((source) => {
                 const [restore, volumes, environment] = [`litestream-restore-${source}`, [{ type: 'volume', source, target: mount }], { LITESTREAM_REPLICA_URL: replica(source) }];
-                return {
-                    restore,
-                    services: { [restore]: { extends: { file: definition, service: 'litestream-restore' }, environment, volumes }, [`litestream-${source}`]: { extends: { file: definition, service: 'litestream' }, depends_on: { [restore]: { condition: 'service_completed_successfully' } }, environment, volumes } },
-                };
+                return { restore, services: { [restore]: { ...extended['litestream-restore'], environment, volumes }, [`litestream-${source}`]: { ...extended.litestream, depends_on: { [restore]: { condition: 'service_completed_successfully' } }, environment, volumes } } };
             }),
     });
-    const [file, text] = yield* Effect.all([
-        fs.makeTempFileScoped({ suffix: '.json' }),
-        Effect.orDie(
-            Schema.encodeEffect(Document)({
-                name,
-                services: {
-                    app: {
-                        extends: { file: definition, service: 'app' },
-                        build: { context: bundle.server, additional_contexts: { assets: bundle.client }, args: { ASSETS: App.bundle.assets } },
-                        environment: Record.fromIterableWith(variables, (variable) => [variable, null]),
-                        labels: { 'traefik.enable': 'true', [`traefik.http.routers.${name}.rule`]: `Host(\`${name}.${domain}\`)`, [`traefik.http.routers.${name}.entrypoints`]: 'websecure', [`traefik.http.routers.${name}.middlewares`]: 'authelia' },
-                        volumes: Record.collect(mounts, (source, target) => ({ type: 'volume', source, target })),
-                        depends_on: Record.fromIterableWith(replicas, ({ restore }) => [restore, { condition: 'service_completed_successfully' }]),
-                    },
-                    ...Record.fromEntries(replicas.flatMap(({ services }) => Record.toEntries(services))),
+    const written = (path: string, document: unknown) => Effect.flatMap(Effect.orDie(Schema.encodeEffect(Document)(document)), (text) => fs.writeFileString(path, text));
+    yield* Effect.all([
+        written(base, { services: template.services }),
+        written(file, {
+            name,
+            configs: template.configs,
+            services: {
+                app: {
+                    ...extended.app,
+                    build: { context: bundle.server, additional_contexts: { assets: bundle.client }, args: { ASSETS: App.bundle.assets } },
+                    cpus: app.limits.cpus,
+                    mem_limit: memory,
+                    environment: Record.fromIterableWith(variables, (variable) => [variable, null]),
+                    labels: { 'traefik.enable': 'true', [`traefik.http.routers.${name}.rule`]: `Host(\`${name}.${domain}\`)`, [`traefik.http.routers.${name}.entrypoints`]: 'websecure', [`traefik.http.routers.${name}.middlewares`]: 'authelia' },
+                    volumes: Record.collect(mounts, (source, target) => ({ type: 'volume', source, target })),
+                    depends_on: Record.fromIterableWith(replicas, ({ restore }) => [restore, { condition: 'service_completed_successfully' }]),
                 },
-                networks: { default: { name: networks.default.name, external: true } },
-                volumes: Record.map(mounts, (_, source) => ({ name: source })),
-            }),
-        ),
+                ...Record.fromEntries(replicas.flatMap(({ services }) => Record.toEntries(services))),
+            },
+            networks: { default: { name: networks.default.name, external: true } },
+            volumes: Record.map(mounts, (_, source) => ({ name: source })),
+        }),
     ]);
-    const memory = yield* Effect.fromOption(ByteSize.toNumber(app.limits.memory));
-    yield* fs.writeFileString(file, text);
-    return { host: `${name}.${domain}`, stdin: yield* run('docker', ['compose', '--file', file, '--profile', '*', 'config', '--no-path-resolution', '--format', 'json'], { APP_CPUS: `${app.limits.cpus}`, APP_MEMORY: `${memory}b` }) };
+    return { host: `${name}.${domain}`, stdin: yield* run('docker', ['compose', '--file', file, 'config', '--no-path-resolution', '--format', 'json']) };
 }, Effect.scoped);
 
 const served = (engine: Engine): Row =>
     Effect.fnUntraced(function* (stack) {
         const [bundle, row, applied, commands] = yield* Effect.all([bundled(stack), engaged(engine, stack.context.root), Clock.currentTimeMillis, Effect.succeed({ create: Array.appendAll(compose, ['up', '--build', '--detach', '--wait', '--remove-orphans']), delete: Array.appendAll(compose, ['down', '--volumes']) })]);
-        const platform = yield* Effect.flatMap(run('docker', ['compose', '--file', definition, '--profile', '*', 'config', '--format', 'json'], row.variables), Schema.decodeEffect(Platform));
+        const platform = yield* Effect.flatMap(run('docker', ['compose', '--file', definition, 'config', '--format', 'json'], row.variables), Schema.decodeEffect(Platform));
         const [{ environment, resources }, access] = yield* Effect.all([
             Effect.flatMap(row.reach(platform.services), (reached) => stores(stack, platform, reached)).pipe(Effect.provide(ConfigProvider.layer(row.settings))),
             Effect.orDie(Schema.encodeEffect(Access.json)(Access.make({ source: { _tag: 'Forwarded', ...forwarded }, logout: new URL('logout', Array.headNonEmpty(platform.configs.authelia.content.session.cookies).authelia_url).href }))),

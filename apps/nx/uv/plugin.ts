@@ -36,7 +36,7 @@ const analyzed = Effect.fnUntraced(function* ({ files, context: { workspaceRoot 
     );
     const releases = Array.dedupe(Result.getOrElse(listed, () => []).map(({ version }) => version));
     const workspaces = yield* Effect.forEach(read, ({ lock, metadata }) => located(workspaceRoot, report(path, workspaceRoot, lock, metadata, documented, releases)), { concurrency: 'unbounded' });
-    return Result.succeed({ report: workspaces, failures: [...unlocked, ...unparsed, ...Array.zip(locks, Option.toArray(Result.getFailure(listed)))] });
+    return Result.succeed({ report: workspaces, failures: [...unlocked, ...unparsed, ...workspaces.flatMap(({ failures }) => failures), ...Array.zip(locks, Option.toArray(Result.getFailure(listed)))] });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -69,7 +69,10 @@ const { createNodes, createDependencies } = inferred({
                     clean: 'uv',
                     ...stated,
                     ...(member.name !== undefined && { name: member.name }),
-                    ...(member.published && { configuration: { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } } }),
+                    configuration: {
+                        ...(member.implicit !== undefined && { implicitDependencies: [...member.implicit] }),
+                        ...(member.published && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } }),
+                    },
                 };
             }),
         );

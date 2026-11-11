@@ -1,0 +1,20 @@
+{
+    "name": "@rasm/test-workers",
+    "private": true,
+    "description": "Workers entry suite in workerd: fetch, scheduled, and queue events dispatched to the handlers and through the running Worker, one layer build per isolate, work a response leaves running, and per-message acknowledgement and retry",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@cloudflare/vitest-plugin": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/testing": "workspace:*",
+        "@rasm/workers": "workspace:*",
+        "@types/node": "catalog:",
+        "cf": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

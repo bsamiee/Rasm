@@ -10,7 +10,6 @@ type Runs = readonly (readonly [string, ...string[]])[];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const DEVELOPER_ID = { identity: 'Developer ID Application', method: 'developer-id' } as const;
 const LOCATED = ['INFOPLIST_FILE', 'CODE_SIGN_ENTITLEMENTS'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -27,11 +26,10 @@ const Analyzed = Schema.fromJsonString(Schema.Struct({ containers: Schema.Array(
 const Evaluated = Schema.fromJsonString(
     Schema.Array(
         Schema.Struct({
+            action: Schema.Literals(['build', 'archive']).transform([false, true]),
             target: Schema.String,
             buildSettings: Schema.Struct({
                 CONFIGURATION: Schema.String,
-                CODE_SIGN_IDENTITY: Schema.optionalKey(Schema.String),
-                ENABLE_HARDENED_RUNTIME: Schema.optionalKey(Schema.Literals(['NO', 'YES']).transform([false, true])),
                 SRCROOT: Schema.String,
                 SKIP_INSTALL: Schema.Literals(['NO', 'YES']).transform([false, true]),
                 INSTALL_PATH: Schema.String,
@@ -56,7 +54,7 @@ const invocation = (path: Path.Path, options: Settings, built: string) => {
 const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: Settings, container: typeof Container.Type, built: string) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const { flags } = invocation(path, options, built);
-    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(printed('xcodebuild', ['archive', '-showBuildSettings', '-json', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
+    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(printed('xcodebuild', ['build', 'archive', '-showBuildSettings', '-json', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map(({ name }) => name);
     const archived = Array.zip(schemes, yield* Effect.forEach(schemes, (scheme) => read(scheme, [])));
     const others = yield* Effect.forEach(
@@ -81,7 +79,7 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: S
     );
     const archives = archived.flatMap(([scheme, listed]) =>
         Array.match(
-            listed.filter(({ buildSettings }) => !buildSettings.SKIP_INSTALL).map(({ buildSettings }) => buildSettings),
+            listed.filter(({ action: archiving, buildSettings }) => archiving && !buildSettings.SKIP_INSTALL).map(({ buildSettings }) => buildSettings),
             {
                 onEmpty: () => [],
                 onNonEmpty: (installed) => [
@@ -90,7 +88,6 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: S
                         configuration: Array.headNonEmpty(installed).CONFIGURATION,
                         places: Array.dedupe(Array.map(installed, Struct.get('INSTALL_PATH'))),
                         bundles: Array.getSomes(Array.map(installed, Struct.get('WRAPPER_NAME'))),
-                        notarized: installed.every((signing) => signing.ENABLE_HARDENED_RUNTIME === true && signing.CODE_SIGN_IDENTITY?.startsWith(DEVELOPER_ID.identity) === true),
                     },
                 ],
             },
@@ -120,22 +117,30 @@ const xcodeParts = (
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
     const output = (scheme: string) => Option.map(options.placed('xcode', name), (at) => path.join(at, scheme));
-    const exported = Array.getSomes(archives.map(({ scheme, configuration, notarized }) => Option.map(output(scheme), (folder) => ({ configuration, folder, notarized, entry: { archive: path.join(folder, `${scheme}.xcarchive`), folder, ...(notarized ? { method: DEVELOPER_ID.method } : {}) } }))));
-    const packaging = [
-        { tool: 'ditto', notarized: false, options: {}, description: 'Zips each archived app with ditto for a GitHub release', help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
-        {
-            tool: 'notarytool',
-            notarized: true,
-            options: options.notaryProfile === undefined ? {} : { profile: options.notaryProfile },
-            description: 'Exports each Developer ID archive, notarizes it with notarytool, staples the ticket, and zips the app',
-            help: { command: 'xcrun notarytool submit --help', example: { args: ['--timeout', '2h'] } },
-        },
-    ].flatMap((kind) =>
-        Array.match(
-            exported.filter(({ notarized }) => notarized === kind.notarized),
-            { onEmpty: () => [], onNonEmpty: (exports) => [{ ...kind, exports }] },
-        ),
-    );
+    const releasing = Array.match(Array.getSomes(archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: path.join(folder, `${scheme}.xcarchive`) })))), {
+        onEmpty: () => ({ packaging: {}, publishing: {} }),
+        onNonEmpty: (exported) => ({
+            packaging: {
+                ditto: {
+                    executor: `${plugin.name}:package`,
+                    dependsOn: ['build--xcodebuild'],
+                    inputs: plugin.inputs,
+                    options: { exports: [] },
+                    configurations: Record.map(
+                        Array.groupBy(exported, ({ configuration }) => configuration.toLowerCase()),
+                        (group) => ({ exports: group.map(({ archive, folder }) => ({ archive, folder })) }),
+                    ),
+                    outputs: exported.flatMap(({ folder }) => ['*.zip', '*.dmg', '*.app'].map((pattern) => path.join('{workspaceRoot}', folder, pattern))),
+                    metadata: {
+                        technologies: ['xcode'],
+                        description: 'Zips each archived app with ditto for a GitHub release, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity exports it under that identity into a disk image that is signed, notarized, and stapled',
+                        help: { command: 'man ditto', example: { args: ['--norsrc'] } },
+                    },
+                } satisfies TargetConfiguration,
+            },
+            publishing: { published: published(plugin, 'xcode', Array.map(exported, Struct.get('folder'))) },
+        }),
+    });
     const referenced = container.buildFiles
         .filter((at) => path.relative(path.dirname(container.path), at).startsWith('..'))
         .flatMap((at) => tokened(path, at))
@@ -187,21 +192,7 @@ const xcodeParts = (
                               { dependsOn: ['^build'], inputs: read, outputs: tokened(path, lock), ...modes(builds) },
                           ),
                       }),
-                ...Record.fromIterableWith(packaging, ({ tool, exports, options: given, description, help }): readonly [string, TargetConfiguration] => [
-                    tool,
-                    {
-                        executor: `${plugin.name}:zip`,
-                        dependsOn: ['build--xcodebuild'],
-                        inputs: plugin.inputs,
-                        options: { exports: [], ...given },
-                        configurations: Record.map(
-                            Array.groupBy(exports, ({ configuration }) => configuration.toLowerCase()),
-                            (group) => ({ exports: group.map(Struct.get('entry')) }),
-                        ),
-                        outputs: exports.map(({ folder }) => path.join('{workspaceRoot}', folder, '*.zip')),
-                        metadata: { technologies: ['xcode'], description, help },
-                    },
-                ]),
+                ...releasing.packaging,
             },
             clean:
                 schemes.length === 0
@@ -240,16 +231,7 @@ const xcodeParts = (
                           ),
                       },
         },
-        ...(exported.length === 0
-            ? {}
-            : {
-                  published: published(
-                      plugin,
-                      'xcode',
-                      exported.map(({ folder }) => folder),
-                      exported.filter(({ notarized }) => notarized).map(({ folder }) => folder),
-                  ),
-              }),
+        ...releasing.publishing,
     };
 };
 

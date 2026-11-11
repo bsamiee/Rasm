@@ -1,8 +1,8 @@
 import { assert, it } from '@effect/vitest';
-import { Scheme, Webhook } from '@rasm/webhooks';
+import { Scheme, Webhook, WebhookError } from '@rasm/webhooks';
 import { TailscaleEvent } from '@rasm/webhooks/tailscale';
 import { WebhookTest } from '@rasm/webhooks/testing';
-import { Array, DateTime, Duration, Effect, Function, Layer, Option, Queue, Record, Redacted, Ref, Schedule, Schema } from 'effect';
+import { Array, Bytes, DateTime, Duration, Effect, Exit, Function, Layer, Option, Queue, Record, Redacted, Ref, Schedule, Schema } from 'effect';
 import type { Digest, Mac, Signature } from 'effect/crypto';
 import { Headers, HttpClient, HttpClientRequest, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { PersistedQueue } from 'effect/persistence';
@@ -30,22 +30,22 @@ const standard = {
     crowded: (signed: string) => `v1,AAAA v9,BBBB ${signed} v1,CCCC`,
 } as const;
 const pair = { private: 'whsk_nWGxne/9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A=', public: 'whpk_11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=', foreign: 'whsk_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' } as const;
+const hub = { ...standard, scheme: Scheme.github, late: 'verified', crowded: (signed: string) => `sha256=00ff,${signed},sha256=abcd` } as const;
 const vectors = {
     standard: { ...standard, bytes: encoder.encode(standard.body), signed: 'v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE=' },
     binary: { ...standard, bytes: Uint8Array.from({ length: 256 }, (_, index) => index), signed: 'v1,sEcZ042G8Crqgxbybb3y0eDxQR3TcfYsk11I1XULhSI=', accepted: 'SchemaError' },
     rust: { ...standard, secret: standard.foreign, foreign: standard.secret, id: 'msg_27UH4WbU6Z5A5EzD8u03UvzRbpk', at: 1_649_367_553, bytes: encoder.encode('{"email":"test@example.com","username":"test_user"}'), signed: 'v1,tZ1I4/hDygAJgO5TYxiSd6Sd0kDW6hPenDe+bTa3Kkw=' },
     ed25519: { ...standard, secret: pair.private, foreign: pair.foreign, bytes: encoder.encode(standard.body), signed: 'v1a,fldxM4gAKugP6nnt1hdz3sgGfZ6d99nzrMFnZOELIxbzEHoVmAb2ADpkJK7zgPePmPsle0zV9jSeGlHFG2NVAw==' },
     svix: { ...standard, scheme: Scheme.svix, secret: 'whsec_plJ3nmyCDGBKInavdOK15jsl', id: 'msg_loFOjxBNrRLzqYUf', at: 1_731_705_121, bytes: encoder.encode('{"event_type":"ping","data":{"success":true}}'), signed: 'v1,rAvfW3dJ/X/qxhsaXPOyyCGmRKsaKWcsNccKXlIktD0=' },
-    github: {
-        ...standard,
-        scheme: Scheme.github,
-        secret: "It's a Secret to Everybody",
-        bytes: encoder.encode('Hello, World!'),
-        signed: 'sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17',
-        accepted: 'SchemaError',
-        late: 'SchemaError',
-        crowded: (signed: string) => `sha256=00ff,${signed},sha256=abcd`,
+    github: { ...hub, secret: "It's a Secret to Everybody", bytes: encoder.encode('Hello, World!'), signed: 'sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17', accepted: 'SchemaError', late: 'SchemaError' },
+    octokit: { ...hub, secret: 'mysecret', foreign: 'foo', bytes: encoder.encode('{"foo":"bar"}'), signed: 'sha256=4864d2759938a15468b5df9ade20bf161da9b4f737ea61794142f3484236bda3' },
+    escapes: {
+        ...hub,
+        secret: 'development',
+        bytes: encoder.encode(String.raw`{"foo":"Foo\n\u001B[34mbar: ♥♥♥♥♥♥♥♥\nthis-is-lost\u001B[0m\u001B[2K"}`),
+        signed: 'sha256=afecc3caa27548bb90d51a50384cb2868b9a3327b4ad6a01c9bd4ed0f8b0b12c',
     },
+    escaped: { ...hub, secret: 'development', bytes: encoder.encode(String.raw`{"foo":"\\u001b"}`), signed: 'sha256=6f8326efbacfbd04e870cea25b5652e635be8c9807f2fd5348ef60753c9e96ed' },
     tailscale: {
         ...standard,
         scheme: Scheme.tailscale,
@@ -87,6 +87,53 @@ const posted = (headers: Headers.Headers, body: Uint8Array) =>
         HttpClient.execute,
         Effect.map(({ status }) => status),
     );
+const references = {
+    standardwebhooks: {
+        scheme: Scheme.standard,
+        secret: standard.secret,
+        exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
+            const reference = new (yield* Effect.promise(() => import('standardwebhooks'))).Webhook(standard.secret);
+            const accepted = yield* Effect.as(
+                Effect.try(() => reference.verify(standard.body, { ...ours })),
+                true,
+            );
+            return { accepted, theirs: { 'webhook-id': standard.id, 'webhook-timestamp': `${DateTime.toEpochSeconds(now)}`, 'webhook-signature': reference.sign(standard.id, DateTime.toDate(now), standard.body) } };
+        }),
+    },
+    svix: {
+        scheme: Scheme.svix,
+        secret: vectors.svix.secret,
+        exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
+            const reference = new (yield* Effect.promise(() => import('svix'))).Webhook(vectors.svix.secret);
+            const accepted = yield* Effect.as(
+                Effect.try(() => reference.verify(standard.body, { ...ours })),
+                true,
+            );
+            return { accepted, theirs: { 'svix-id': standard.id, 'svix-timestamp': `${DateTime.toEpochSeconds(now)}`, 'svix-signature': reference.sign(standard.id, DateTime.toDate(now), standard.body) } };
+        }),
+    },
+    stripe: {
+        scheme: Scheme.stripe,
+        secret: vectors.stripe.secret,
+        exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
+            const [{ default: Stripe }, header] = yield* Effect.all([Effect.promise(() => import('stripe')), Effect.fromOption(Headers.get(ours, Scheme.stripe.signature))]);
+            const accepted = yield* Effect.as(
+                Effect.tryPromise(() => Stripe.webhooks.constructEventAsync(standard.body, header, vectors.stripe.secret)),
+                true,
+            );
+            return { accepted, theirs: { [Scheme.stripe.signature]: yield* Effect.promise(() => Stripe.webhooks.generateTestHeaderStringAsync({ payload: standard.body, secret: vectors.stripe.secret, timestamp: DateTime.toEpochSeconds(now) })) } };
+        }),
+    },
+    '@octokit/webhooks-methods': {
+        scheme: Scheme.github,
+        secret: vectors.octokit.secret,
+        exchanged: Effect.fnUntraced(function* (ours: Headers.Headers) {
+            const [{ sign, verify }, header] = yield* Effect.all([Effect.promise(() => import('@octokit/webhooks-methods')), Effect.fromOption(Headers.get(ours, Scheme.github.signature))]);
+            const [accepted, signed] = yield* Effect.all([Effect.promise(() => verify(vectors.octokit.secret, standard.body, header)), Effect.promise(() => sign(vectors.octokit.secret, standard.body))]);
+            return { accepted, theirs: { [Scheme.github.signature]: signed } };
+        }),
+    },
+};
 
 const cases = (crypto: Layer.Layer<Mac.Mac | Signature.Signature | Digest.Digest>) => {
     it.effect(
@@ -164,16 +211,74 @@ const cases = (crypto: Layer.Layer<Mac.Mac | Signature.Signature | Digest.Digest
             assert.deepStrictEqual([covered, Array.dedupe(uncovered).map((key) => digest.test(key)), Array.dedupe(unidentified).map((key) => digest.test(key))], [[id, id, 'WebhookError'], [true], [true]]);
         }, Effect.provide(crypto)),
     );
-    it.live(
-        'exchanges signatures with the standardwebhooks reference library',
+    it.effect.each([
+        { label: 'no id header', change: Headers.remove('webhook-id'), accepted: false },
+        { label: 'no timestamp header', change: Headers.remove('webhook-timestamp'), accepted: false },
+        { label: 'a timestamp that is no number', change: Headers.set('webhook-timestamp', 'hello'), accepted: false },
+        { label: 'a signature entry holding no value', change: Headers.set('webhook-signature', 'v1,'), accepted: false },
+        { label: 'malformed signature entries before a valid one', change: Headers.set('webhook-signature', `v1 v1,not-base64! ${vectors.standard.signed}`), accepted: true },
+    ])(
+        'standard scheme: a request with $label verifies: $accepted, each refusal a WebhookError',
+        Effect.fnUntraced(function* ({ change, accepted }) {
+            const { scheme, secret, id, at, bytes } = vectors.standard;
+            const webhook = yield* made(scheme, secret);
+            yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
+            const verified = yield* outcome(webhook.verify(change(yield* webhook.sign(id, bytes)), bytes));
+            assert.include(accepted ? ['verified'] : Object.keys(WebhookError.fields.reason.cases), verified);
+        }, Effect.provide(crypto)),
+    );
+    it.effect(
+        'standard scheme: refuses a secret holding no key, verifies with a secret written without its whsec_ prefix, and signs the bytes of a view alone',
         Effect.fnUntraced(function* () {
-            const { scheme, secret, id, body } = standard;
-            const [webhook, now, standardwebhooks] = yield* Effect.all([made(scheme, secret), DateTime.now, Effect.promise(() => import('standardwebhooks'))]);
-            const reference = new standardwebhooks.Webhook(secret);
-            const ours = yield* webhook.sign(id, encoder.encode(body));
-            const theirs = Headers.fromInput({ 'webhook-id': id, 'webhook-timestamp': `${DateTime.toEpochSeconds(now)}`, [scheme.signature]: reference.sign(id, DateTime.toDate(now), body) });
-            const accepted = yield* Effect.try(() => reference.verify(body, { ...ours }));
-            assert.deepStrictEqual([accepted, yield* webhook.verify(theirs, encoder.encode(body))], [{ test: 2_432_232_314 }, { id, event: { test: 2_432_232_314 } }]);
+            const { scheme, secret, id, at, bytes } = vectors.binary;
+            const [empty, webhook, bare] = yield* Effect.all([Effect.exit(made(scheme, 'whsec_')), made(scheme, secret), Effect.exit(made(scheme, secret.slice('whsec_'.length)))]);
+            yield* TestClock.setTime(Duration.toMillis(Duration.seconds(at)));
+            const margin = encoder.encode('--');
+            const headers = yield* webhook.sign(id, Bytes.concat([margin, bytes, margin]).subarray(margin.length, margin.length + bytes.length));
+            const unprefixed = yield* Exit.match(bare, { onFailure: () => Effect.succeed('refused at construction'), onSuccess: (reader) => outcome(reader.verify(headers, bytes)) });
+            assert.deepStrictEqual([Exit.isFailure(empty), Headers.get(headers, scheme.signature), unprefixed], [true, Option.some(vectors.binary.signed), vectors.binary.accepted]);
+        }, Effect.provide(crypto)),
+    );
+    it.effect(
+        'standard scheme: signs a UTF-8 byte order mark like any other byte, and decodes the JSON after it',
+        Effect.fnUntraced(function* () {
+            const { scheme, secret, id, bytes } = vectors.standard;
+            const webhook = yield* made(scheme, secret);
+            const marked = Bytes.concat([encoder.encode('\uFEFF'), bytes]);
+            const headers = yield* webhook.sign(id, marked);
+            const [event, unmarked] = yield* Effect.all([Effect.match(webhook.verify(headers, marked), { onSuccess: (delivery) => delivery.event, onFailure: ({ _tag }) => _tag }), outcome(webhook.verify(headers, bytes))]);
+            assert.deepStrictEqual([event, unmarked], [{ test: 2_432_232_314 }, 'Mismatch']);
+        }, Effect.provide(crypto)),
+    );
+    it.live.each(Record.keys(references))(
+        'exchanges signatures with the %s reference library',
+        Effect.fnUntraced(function* (name) {
+            const { scheme, secret, exchanged } = references[name];
+            const [webhook, now, bytes] = [yield* made(scheme, secret), yield* DateTime.now, encoder.encode(standard.body)];
+            const { accepted, theirs } = yield* exchanged(yield* webhook.sign(standard.id, bytes), now);
+            const { event } = yield* webhook.verify(Headers.fromInput(theirs), bytes);
+            assert.deepStrictEqual([accepted, event], [true, { test: 2_432_232_314 }]);
+        }, Effect.provide(crypto)),
+    );
+    it.effect.each([
+        { status: 200, delivered: true },
+        { status: 204, delivered: true },
+        { status: 299, delivered: true },
+        { status: 301, delivered: false },
+        { status: 404, delivered: false },
+        { status: 410, delivered: false },
+        { status: 429, delivered: false },
+        { status: 500, delivered: false },
+        { status: 502, delivered: false },
+        { status: 503, delivered: false },
+        { status: 504, delivered: false },
+    ])(
+        'counts a delivery answered $status as delivered: $delivered',
+        Effect.fnUntraced(function* ({ status, delivered }) {
+            const webhook = yield* made(Scheme.standard, standard.secret);
+            const answered = WebhookTest(Effect.succeed(HttpServerResponse.empty({ status, headers: { location: url, 'retry-after': '120' } })));
+            const sent = yield* Effect.exit(webhook.deliver(url, { id: standard.id, event: { test: 1 } })).pipe(Effect.provide(answered));
+            assert.strictEqual(Exit.isSuccess(sent), delivered);
         }, Effect.provide(crypto)),
     );
     it.effect(

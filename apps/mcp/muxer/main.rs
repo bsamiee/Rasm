@@ -18,12 +18,12 @@ use jiff::fmt::friendly::SpanParser;
 use nonempty_collections::NEVec;
 use opentelemetry::global;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rasm_command::{CommandError, Folder, Invocation};
+use rasm_cli::{CommandError, Folder, Invocation};
 use rasm_ipc::{Endpoint, Hello, IpcError, Limits, Opened};
 use rasm_mcp::{Ended, Phase, Resumable};
-use rasm_observability::Environment;
-use rasm_observability::process::Program;
-use rasm_process::ProcessError;
+use rasm_telemetry::Environment;
+use rasm_telemetry::process::Program;
+use rasm_process::{Failure, ProcessError};
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as _};
@@ -219,11 +219,16 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
     {
         const GRACE: Duration = Duration::from_secs(3);
         tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&unreached), "daemon unavailable, running the server unshared");
-        let status = rasm_process::run(server(command, environment, Stdio::inherit()), Some(BUFFER), None, GRACE, &CancellationToken::new(), async |streams| match (streams.stdout, streams.stdin) {
-            (Some(reader), Some(writer)) => session.over(reader, writer).await.map(drop),
+        let stop = CancellationToken::new();
+        let served = rasm_process::run(server(command, environment, Stdio::inherit()), Some(BUFFER), None, GRACE, &stop, async |streams| match (streams.stdout, streams.stdin) {
+            (Some(reader), Some(writer)) => session.over(reader, writer).await.map(|(Ended::Client | Ended::Link { delivered: _ })| stop.cancel()),
             (_, _) => Err(io::ErrorKind::BrokenPipe.into()),
-        })
-        .await?;
+        });
+        let status = match served.await {
+            Ok(status) => status,
+            Err(ProcessError { program: _, process: Some((_, Some(status))), failures }) if failures.iter().all(|failure| matches!(failure, Failure::Cancelled)) => status,
+            Err(error) => return Err(error.into()),
+        };
         Ok(match status.code().map(u8::try_from) {
             Some(Ok(code)) => ExitCode::from(code),
             Some(Err(error)) => {
@@ -323,7 +328,7 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
 mod daemon;
 
 fn main() -> ExitCode {
-    rasm_command::run(
+    rasm_cli::run(
         Program { scopes: Vec::from_iter([env!("CARGO_CRATE_NAME"), "rasm_ipc", "rasm_mcp", "rasm_process"].map(|scope| (scope, None))), .. },
         io::stderr,
         Identity::new(),

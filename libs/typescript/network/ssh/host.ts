@@ -8,8 +8,8 @@ const dialed = 'dialed';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Line = Schema.NonEmptyString.check(Schema.isPattern(/^[^\0\n\r"'\\%]+$/u)).annotate({
-    description: 'One value ssh_config, known_hosts, and sh read as written, free of quotes, backslash, percent, newline, and NUL',
+const Line = Schema.NonEmptyString.check(Schema.isPattern(/^[^\0\n\r"'\\%$]+$/u)).annotate({
+    description: 'One value ssh_config, known_hosts, and sh read as written, free of quotes, backslash, percent, dollar, newline, and NUL',
 });
 const Seconds = Schema.DurationFromMillis.check(Schema.makeFilter(flow(Duration.toSeconds, Number.isInteger), { description: 'Whole seconds, the unit OpenSSH reads' }), Schema.makeIsGreaterThan({ order: Duration.Order })(Duration.zero));
 const dial = { host: Schema.HostFromString.pipe(Schema.decodeTo(Schema.flip(Schema.HostFromString))), port: Schema.OptionFromOptionalKey(Schema.Port) };

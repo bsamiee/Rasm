@@ -1,0 +1,59 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-grpc"
+edition.workspace = true
+description       = "gRPC parts over tonic: accepting connections until a stop that ends open response streams, inbound deadlines, reflection, RPC spans and call duration metrics with W3C context, channels with backoff and platform certificate verification, and a health probe"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [FEATURES] -------------------------------------------------------------------------
+
+[features]
+health     = ["dep:tonic-health"]
+reflection = ["dep:tonic-reflection"]
+telemetry  = ["dep:nonempty-collections", "dep:validated", "dep:prost", "dep:prost-types", "dep:opentelemetry", "dep:opentelemetry-http", "dep:tracing-opentelemetry", "dep:rasm-telemetry"]
+tls        = ["dep:rustls", "dep:rustls-platform-verifier", "tonic/tls-aws-lc"]
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+backon                             = { workspace = true }
+futures                            = { workspace = true }
+pin-project-lite                   = { workspace = true }
+tokio                              = { workspace = true }
+tokio-util                         = { workspace = true }
+nonempty-collections               = { workspace = true, optional = true }
+sysexits                           = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true, optional = true }
+derive_more                        = { workspace = true }
+bytes                              = { workspace = true }
+rustls                             = { workspace = true, optional = true }
+rustls-platform-verifier           = { workspace = true, optional = true }
+axum                               = { workspace = true }
+http                               = { workspace = true }
+http-body                          = { workspace = true }
+tower                              = { workspace = true }
+prost                              = { workspace = true, optional = true }
+prost-types                        = { workspace = true, optional = true }
+tonic                              = { workspace = true }
+tonic-health                       = { workspace = true, optional = true }
+tonic-reflection                   = { workspace = true, optional = true }
+opentelemetry                      = { workspace = true, optional = true }
+opentelemetry-http                 = { workspace = true, optional = true }
+opentelemetry-semantic-conventions = { workspace = true }
+tracing                            = { workspace = true }
+tracing-opentelemetry              = { workspace = true, optional = true }
+rasm-telemetry                     = { workspace = true, optional = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

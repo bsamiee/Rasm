@@ -62,7 +62,7 @@ const compiled = (path: Path.Path, exec: string, { root, commands, outputs, chai
     const tsc: TargetConfiguration = {
         executor: 'nx:run-commands',
         options: { commands, cwd: root },
-        dependsOn: ['generate', '^generate'],
+        dependsOn: ['codegen', '^codegen'],
         cache: true,
         inputs: ['default', '^default', ...chain.filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['@typescript/native', ...Array.intersection(installed, ['@effect/tsgo'])] }],
         outputs: [],

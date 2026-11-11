@@ -26,6 +26,7 @@ dev                   = [
     "pandas-stubs",
     "scipy-stubs",
     "types-geopandas",
+    "types-grpcio",
     "types-lxml",
     "types-openpyxl",
     "types-protobuf",
@@ -41,7 +42,7 @@ test                  = [
     "pytest-randomly",                                                            # Random test order and seeds
     "pytest-socket",                                                              # Block unrequested network connections
     "pytest-timeout",                                                             # Per-test deadline
-    "rasm-testing",                                                               # Store, SQLite, and server fixtures, loaded by pytest as a plugin
+    "rasm-testing",                                                               # SQLite and server fixtures, loaded by pytest as a plugin
     "testcontainers",                                                             # Disposable service containers a test starts, stops, and restarts, with Postgres, ClickHouse, Valkey, MinIO, and Kafka modules in one distribution
 ]
 core                  = [
@@ -378,6 +379,8 @@ members = [
     "libs/python/runtime/cli",
     "libs/python/runtime/telemetry",
     "tests/python/apps/cli/foundry",
+    "tests/python/apps/data/store",
+    "tests/python/libs/runtime/telemetry",
     "tests/python/support",
     "tests/python/tools/refurb",
     "tools/refurb",
@@ -442,7 +445,7 @@ WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 cache-dir   = ".cache/ruff"
 preview     = true
 line-length = 200
-src         = ["apps/cli/*", "libs/python/*/*", "tests/python/support", "tools/refurb"]
+src         = ["apps/cli/*", "libs/python/*/*", "tests/python/apps/*/*", "tests/python/libs/*/*", "tests/python/support", "tests/python/tools/*", "tools/refurb"]
 format      = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -626,15 +629,14 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "apps/blender"] }    # 3.13 uv roots, each checked through its own `[tool.ty]`
+src         = { exclude = ["libs/python/blender", "apps/blender", "tests/python/libs/blender"] } # 3.13 uv roots and their test members, each checked through its root's `[tool.ty]`
 analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }        # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
 rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
-files                   = ["."]
-exclude                 = ["^libs/python/blender/", "^apps/blender/"]
+exclude                 = ["^libs/python/blender/", "^apps/blender/", "^tests/python/libs/blender/"]
 cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
 strict                  = true
 warn_unreachable        = true
@@ -736,21 +738,20 @@ exclude           = [".venv/"]       # Third-party packages of a virtual environ
 [tool.pytest]
 strict                    = true
 cache_dir                 = ".cache/pytest"
-testpaths                 = ["tests/python"]
 collect_imported_tests    = false
 empty_parameter_set_mark  = "fail_at_collect"
 addopts                   = [
-    "--disable-plugin-autoload",                                                                                         # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
+    "--disable-plugin-autoload",              # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
     "-p",
     "hypothesispytest",
     "-p",
     "pytest_cov",
     "-p",
-    "pytester",                                                                                                          # Inner pytest runs for the suites of pytest plugins
+    "pytester",                               # Inner pytest runs for the suites of pytest plugins
     "-p",
     "randomly",
     "-p",
-    "rasm_testing.plugin",                                                                                               # Store, SQLite, and server fixtures of `tests/python/support`
+    "rasm_testing.plugin",                    # SQLite and server fixtures of `tests/python/support`
     "-p",
     "socket",
     "-p",
@@ -762,8 +763,7 @@ addopts                   = [
 ]
 filterwarnings            = ["error"]
 timeout                   = "30"
-store_silent              = "store service at {subject} granted no session, `nx install @rasm/infra -c store` starts it"
-tmp_path_retention_policy = "failed"                                                                                     # Keeps the folders of failed tests alone, as a store is kept for its failed test
+tmp_path_retention_policy = "failed"          # Keeps the folders of failed tests alone, as a store is kept for its failed test
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 

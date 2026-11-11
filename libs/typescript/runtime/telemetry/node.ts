@@ -16,9 +16,10 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { startNodeSdk } from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { ATTR_PROCESS_PID } from '@opentelemetry/semantic-conventions/incubating';
-import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Runtime, Schema, Struct, Tracer, UndefinedOr } from 'effect';
+import { Array, Cause, Config, Context, Effect, ErrorReporter, Exit, Formatter, Function, flow, Layer, Logger, LogLevel, Match, Metric, MutableRef, Option, Predicate, Record, Ref, Runtime, Schema, SchemaTransformation, String, Struct, Tracer, UndefinedOr } from 'effect';
+import envPaths from 'env-paths';
 import { createStream, type FileSize, type Interval, type Options } from 'rotating-file-stream';
-import { errorReporter, exporters, formatLogRecord, layerWithoutDefaultLogger } from '#/index';
+import { errorReporter, exporters, formatLogRecord, layerMinimumLogLevels, layerWithoutDefaultLogger } from '#/index';
 
 // --- [TABLES] --------------------------------------------------------------------------
 
@@ -50,12 +51,16 @@ const Rotation = Schema.Struct({
 }) satisfies Schema.Schema<{ readonly size: FileSize; readonly interval: Interval; readonly maxFiles: number }>;
 const ROTATION = { size: '8M', interval: '1d', maxFiles: 7 } as const satisfies typeof Rotation.Type;
 
+const Level = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()), Schema.decode(SchemaTransformation.capitalize()), Schema.decodeTo(Schema.Literals(LogLevel.values)));
+const Target = Schema.Literals(['file', 'stderr']);
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Baggage = Context.Reference<ReturnType<typeof propagation.getBaggage>>('@rasm/telemetry/node/Baggage', { defaultValue: Function.constUndefined });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const interrupted = <A, E>(exit: Exit.Exit<A, E>) => Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause);
 const propagator = new CompositePropagator({ propagators: [new W3CTraceContextPropagator(), new W3CBaggagePropagator()] });
 const lineage: (span: Tracer.AnySpan) => Context.Context<never> = Match.valueTags({ ExternalSpan: Struct.get('annotations'), Span: (local) => Option.match(local.parent, { onNone: () => local.annotations, onSome: lineage }) });
 const toEnvironment = Effect.map(Effect.all([Effect.serviceOption(Tracer.ParentSpan), Baggage]), ([parent, baggage]) => {
@@ -150,7 +155,7 @@ const layerUncaughtExceptionMonitor = Layer.effectDiscard(
 );
 const layerErrorReported = Layer.effectDiscard(
     Effect.addFinalizer((exit) =>
-        Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)
+        Exit.isFailure(exit) && !interrupted(exit)
             ? Effect.andThen(
                   Effect.logError(exit.cause),
                   Effect.sync(() => Option.map(Option.liftPredicate(Cause.squash(exit.cause), Predicate.isObject), (error) => Object.assign(error, { [Runtime.errorReported]: false }))),
@@ -172,7 +177,58 @@ const layerNode = ({ resource, file, instrumentations }: { readonly resource: Pa
         ),
     );
 };
+const layerNodeFromConfig = Effect.fnUntraced(function* ({ resource, target, level }: { readonly resource: Parameters<typeof layerNode>[0]['resource']; readonly target: typeof Target.Type; readonly level?: LogLevel.LogLevel }) {
+    const refused = yield* Ref.make<readonly (readonly [setting: { readonly variable: string; readonly value: string }, error: Config.ConfigError])[]>([]);
+    const prefix = String.constantCase(resource.serviceName);
+    const decoded =
+        <A>(codec: Schema.ConstraintCodec<A, unknown>) =>
+        (variable: string) =>
+            Config.schema(codec, variable);
+    const read = <A>(variable: string, config: (variable: string) => Config.Config<A>) =>
+        Effect.catch(
+            Config.nested(Config.option(config(variable)), prefix),
+            Effect.fnUntraced(function* (error) {
+                const value = yield* Config.nested(Config.String(variable), prefix);
+                yield* Ref.update(refused, Array.append([{ variable: `${prefix}_${variable}`, value }, error] as const));
+                return Option.none<A>();
+            }),
+        );
+    const stated = yield* Effect.all({
+        level: read('LOG_LEVEL', decoded(Level)),
+        filter: read('LOG_FILTER', (variable) => Config.Record(Schema.String, Level, variable, { trim: true })),
+        target: read('LOG_TARGET', decoded(Target)),
+        path: read('LOG_DIR', decoded(Schema.String)),
+        size: read('LOG_SIZE', decoded(Rotation.fields.size)),
+        interval: read('LOG_AGE', decoded(Rotation.fields.interval)),
+        maxFiles: read('LOG_FILES', decoded(Rotation.fields.maxFiles)),
+    });
+    const rotation = {
+        ...Option.getOrUndefined(Option.map(stated.size, (size) => ({ size }))),
+        ...Option.getOrUndefined(Option.map(stated.interval, (interval) => ({ interval }))),
+        ...Option.getOrUndefined(Option.map(stated.maxFiles, (maxFiles) => ({ maxFiles }))),
+    };
+    const file = [`${resource.serviceName}.log`, { path: Option.getOrElse(stated.path, () => envPaths(resource.serviceName, { suffix: '' }).log), ...rotation }] as const;
+    const minimum = Option.getOrElse(
+        Option.orElse(Option.fromUndefinedOr(level), () => stated.level),
+        () => 'Info' as const,
+    );
+    return Ref.get(refused).pipe(
+        Effect.flatMap(Effect.forEach(([setting, error]) => Effect.annotateLogs(Effect.logWarning('Setting refused, default stands', Cause.fail(error)), setting), { discard: true })),
+        Effect.andThen(Effect.addFinalizer((exit) => (interrupted(exit) ? Effect.logInfo('Process interrupted') : Effect.void))),
+        Layer.effectDiscard,
+        Layer.provideMerge(
+            Layer.provideMerge(
+                layerMinimumLogLevels(
+                    minimum,
+                    Option.getOrElse(stated.filter, () => ({})),
+                ),
+                layerNode({ resource, ...(Option.getOrElse(stated.target, () => target) === 'stderr' ? {} : { file }) }),
+            ),
+        ),
+    );
+}, Layer.unwrap);
+const teardown: Runtime.Teardown = (exit, onExit) => (interrupted(exit) ? onExit(0) : Runtime.defaultTeardown(exit, onExit));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Baggage, layerErrorReported, layerFromEnvironment, layerNode, layerNodeSdk, layerUncaughtExceptionMonitor, Rotation, toEnvironment, toRotatingFile };
+export { Baggage, layerErrorReported, layerFromEnvironment, layerNode, layerNodeFromConfig, layerNodeSdk, layerUncaughtExceptionMonitor, Rotation, teardown, toEnvironment, toRotatingFile };

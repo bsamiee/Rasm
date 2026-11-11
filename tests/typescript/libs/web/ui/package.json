@@ -10,7 +10,7 @@
         "@effect/atom-react": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/nx-storybook": "workspace:*",
-        "@rasm/test-support": "workspace:*",
+        "@rasm/testing": "workspace:*",
         "@rasm/ui": "workspace:*",
         "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",

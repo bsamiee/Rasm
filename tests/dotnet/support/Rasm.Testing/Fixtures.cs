@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text.Json;
@@ -87,5 +88,13 @@ public sealed partial class Fixtures : INotifyTestLifecycleAsync {
         from defined in IO.lift(Optional(composed.Services[service].Deserialize(Compose.Default.Service)).ToFin(Errors.ParseError(service)))
         select (defined.Image, toSeq(defined.Command ?? []));
 
-    internal static IO<Unit> Disposed(IAsyncDisposable resource) => IO.liftAsync(() => resource.DisposeAsync().AsTask().ToUnit());
+    public static IO<Unit> Disposed(IAsyncDisposable resource) => IO.liftAsync(() => resource.DisposeAsync().AsTask().ToUnit());
+
+    // --- [COMMANDS]
+
+    public static async Task<object?> ScalarAsync(Func<DbCommand> command) {
+        DbCommand asked = command();
+        await using (asked.ConfigureAwait(false))
+            return await asked.ExecuteScalarAsync(TestContext.Current.CancellationToken).ConfigureAwait(false);
+    }
 }

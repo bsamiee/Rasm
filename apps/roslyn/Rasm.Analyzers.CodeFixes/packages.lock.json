@@ -281,6 +281,7 @@
           "System.Composition.Runtime": "10.0.1"
         }
       }
-    }
+    },
+    ".NETStandard,Version=v2.0/win-x64": {}
   }
 }

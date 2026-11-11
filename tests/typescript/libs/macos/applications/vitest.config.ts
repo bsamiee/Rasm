@@ -1,4 +1,4 @@
-import { testPolicy } from '@rasm/test-support/vitest';
+import { testPolicy } from '@rasm/testing/vitest';
 import { defineConfig } from 'vitest/config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

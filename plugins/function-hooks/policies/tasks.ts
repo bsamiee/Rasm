@@ -9,7 +9,7 @@ import { analyzed, Shell, type Site } from '#/shell/site';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Targets = Readonly<Record<string, TargetConfiguration<{ readonly command?: string }>>>;
+type Targets = Readonly<Record<string, TargetConfiguration<Readonly<Record<string, unknown>>>>>;
 interface Runner {
     readonly node: ProjectGraphProjectNode;
     readonly target: string;
@@ -20,6 +20,7 @@ interface Runner {
 
 const ADDRESSING = new Set(['--projects', '--targets', '--target']);
 const AGGREGATE = 'nx:noop';
+const LONG = '--';
 const SEARCH_PATH = 'PYTHONPATH';
 const PUBLISH = /(?:^|[:,])nx-release-publish(?:,|$)/u;
 const SPACES = /\s+/u;
@@ -92,7 +93,16 @@ const ownersOf = Effect.fnUntraced(function* ({ nodes }: ProjectGraph, site: Sit
             Option.filter(host.place(value, Option.some(folder)), (place) => host.inside(place, host.root)),
             owner,
         );
-    const selected = site.values(...(site.row.routes?.selects ?? [])).map((value) => Option.orElse(Record.get(nodes, value), () => located(value)));
+    const spellings = spellingsOf(site, (yield* Shell).programs);
+    const selects = site.row.routes?.selects ?? [];
+    const stated = new Map(
+        Object.values(nodes).flatMap((node) =>
+            Object.values(targetsOf(node))
+                .filter(({ metadata }) => !spellings.isDisjointFrom(new Set(metadata?.help?.command.split(' '))))
+                .flatMap(({ options = {} }) => selects.map((flag) => [options[flag.slice(LONG.length)], node] as const)),
+        ),
+    );
+    const selected = site.values(...selects).map((value) => Option.orElse(Option.fromUndefinedOr(stated.get(value)), () => Option.orElse(Record.get(nodes, value), () => located(value))));
     const named = [...selected, ...places.map(owner)];
     const found = named.length === 0 ? Option.toArray(owner(folder)) : Option.getOrElse(Option.all(named), () => []);
     return [...new Map(found.map((node) => [node.name, node])).values()];
@@ -121,7 +131,7 @@ const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, si
     return running.map((target): Runner => ({ node, target, verb: verbOf(targets, target) })).filter(({ verb, target }) => (named.size > 0 ? named.has(verb) : !moded.has(verb) && targets[target]?.cache === true));
 });
 
-const launcherStart = ({ head, outer }: Site): Word => outer[outer.findLastIndex(({ row, path }) => !(row.launcher === true || row.module !== undefined || row.wraps === '--' || path.length > 0)) + 1]?.head ?? head;
+const launcherStart = ({ head, outer }: Site): Word => outer[outer.findLastIndex(({ row, path }) => !(row.launcher === true || row.module !== undefined || (row.wraps !== '--' && path.length > 0))) + 1]?.head ?? head;
 
 const route: Fix = Effect.fnUntraced(function* (site, call) {
     const { host } = call;

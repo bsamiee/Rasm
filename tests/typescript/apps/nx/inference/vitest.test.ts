@@ -12,6 +12,7 @@ const CONFIG = "import { defineConfig } from 'vitest/config';\n\nexport default 
 const subject: Subject = {
     plugin: { name: manifest.name, createNodes },
     packages: ['vitest', 'vite'],
+    runs: ['test'],
     files: {
         'package.json': '{ "name": "root", "workspaces": ["unit", "idle", "wide"] }\n',
         'unit/package.json': '{ "name": "unit", "type": "module" }\n',
@@ -29,6 +30,14 @@ const subject: Subject = {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 cases(subject, (it) => {
+    it.effect('gives the root project no test target for a root config that lists test.projects', () =>
+        inferred({ ...subject, files: { ...subject.files, 'vitest.config.ts': "import { defineConfig } from 'vitest/config';\n\nexport default defineConfig({ test: { projects: ['unit', 'wide'] } });\n" } }).pipe(
+            Effect.map(running('vitest run')),
+            Effect.map(Array.map(({ project }) => project)),
+            Effect.map((tested) => assert.notInclude(tested, 'root', 'nrwl/nx@2a424d3 packages/vitest/src/plugins/plugin-vitest.spec.ts "should NOT create a project for root config with projects array"')),
+        ),
+    );
+
     it.effect('runs vitest run, cached on the CI variable Vitest reads and writing its coverage folder, for each config that lists a test file and for no config that lists none', () =>
         inferred(subject).pipe(
             Effect.map(running('vitest run')),

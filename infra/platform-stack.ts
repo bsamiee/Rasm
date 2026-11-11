@@ -1,7 +1,7 @@
 import { dirname, join, relative } from 'node:path';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
 import { local } from '@pulumi/command';
-import { asset, type Input, interpolate, type Output, output, runtime, secret, unsecret } from '@pulumi/pulumi';
+import { asset, type Input, interpolate, type Output, output, type Resource, runtime, secret, unsecret } from '@pulumi/pulumi';
 import { getDevicesOutput, TailnetKey, Webhook } from '@pulumi/tailscale';
 import { PrivateKey } from '@pulumi/tls';
 import { paths } from '@rasm/hooks/senders';
@@ -24,6 +24,7 @@ interface Target {
 
 const sessions = 100;
 const connections = join(dirname(import.meta.dirname), '.cache', 'ssh');
+const definition = join(import.meta.dirname, 'compose.yaml');
 const dialing = { alive: { interval: 5000, count: 3 }, persist: 60_000, within: 2000 };
 const settings = { TRAEFIK_CERTRESOLVER: 'acme', POSTGRES_AUDIT_LOG: 'ddl' };
 const profiles = ['platform', 'deployed'];
@@ -187,13 +188,19 @@ const Composed = Schema.fromJsonString(Schema.Struct({ services: Schema.Record(S
 const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
 const Credentials = Schema.fromJsonString(Schema.Struct({ auths: Schema.Record(Schema.String, Schema.Struct({ auth: Schema.String })) }));
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const identified = (host: string) => join(connections, host, `${host}.key`);
 const backupTarget = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>, domain: string) {
     const { BACKUP_KIND: kind } = yield* Schema.decodeEffect(Kind)(deployed);
     const bucket = `${domain.replaceAll('.', '-')}-backup`;
     return yield* Effect.transposeOption(Option.map(kind, (stated) => Effect.map(backups[stated](deployed), (row) => row(bucket))));
+});
+const uploaded = Effect.fnUntraced(function* (host: Host, name: string, root: string, bundle: string, dependsOn: readonly Resource[]) {
+    const path = yield* Path.Path;
+    const [source, folder] = [join(root, bundle), dirname(bundle)];
+    const steps = yield* Effect.fromResult(Result.all([...Array.make(['rm', '-rf', bundle] as const, ['mkdir', '-p', folder] as const).map((words) => Result.flatMap(host.command(path, connections, words), CommandLine.join)), CommandLine.join(host.copy(path, connections, source, folder))]));
+    return new local.Command(`${name}-${bundle}`, { create: steps.join(' && '), triggers: [new asset.FileArchive(source)], addPreviousOutputInEnv: false }, { dependsOn: [...dependsOn] });
 });
 const prepared = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>) {
     const decoded = yield* Schema.decodeUnknownEffect(Deployed)(deployed);
@@ -237,8 +244,7 @@ const accessed = Effect.fnUntraced(function* (host: string, { hostKey, machine, 
     );
     const ready = unsecret(output(deploy.privateKeyOpenssh).apply((material) => (runtime.isDryRun() ? connections : placed(material).pipe(Effect.runPromiseWith(context)))));
     const over = (through: Host, words: Array.NonEmptyReadonlyArray<string>, sent: readonly string[] = []) => Effect.map(Effect.fromResult(Result.flatMap(through.command(path, connections, words, sent), CommandLine.join)), (line) => ready.apply(() => line));
-    const reached = Option.getOrElse(meshed, () => direct);
-    return { mesh, direct, reached, over, copied: (source: string, target: string) => Effect.fromResult(CommandLine.join(reached.copy(path, connections, source, target))) };
+    return { mesh, direct, reached: Option.getOrElse(meshed, () => direct), over };
 });
 
 const equipped = Effect.fnUntraced(function* (host: string, { domain, tags, tailnet }: (typeof Hosts.Type)['DEPLOYED_HOSTS'][string], { mesh, direct, over }: Effect.Success<ReturnType<typeof accessed>>, key: local.Command, credentials: string, script: string) {
@@ -268,7 +274,7 @@ const provisioned = Effect.fnUntraced(function* ({ deployed, decoded, listings, 
     const [fs, project, root] = [yield* FileSystem.FileSystem, import.meta.dirname, dirname(import.meta.dirname)];
     const stated = yield* Effect.fromOption(Record.get(decoded.DEPLOYED_HOSTS, host));
     const { memory: installed, authorized } = yield* Effect.flatMap(listings[stated.machine], (listed) => Effect.fromOption(Record.get(listed, host), () => new Cause.NoSuchElementError(`${stated.machine} lists no machine named ${host}`)));
-    const [{ backup, candidates }, definition, domain] = [yield* allotted(deployed, stated.domain.name, installed), join(project, 'compose.yaml'), stated.domain];
+    const [{ backup, candidates }, domain] = [yield* allotted(deployed, stated.domain.name, installed), stated.domain];
     const [applied, credentials, script, text, variables, { services: composed }] = yield* Effect.all([
         Clock.currentTimeMillis,
         Schema.encodeEffect(Credentials)({ auths: Record.map(registries, (auth) => ({ auth: auth(decoded) })) }),
@@ -283,12 +289,7 @@ const provisioned = Effect.fnUntraced(function* ({ deployed, decoded, listings, 
     const { authenticated, joined, reachable } = yield* equipped(host, stated, access, key, credentials, script);
     const bundles = yield* Effect.forEach(
         Array.dedupe(Object.values(composed).flatMap(({ build }) => Array.fromNullishOr(build?.context))).filter((built) => built !== project),
-        (bundle) => {
-            const [held, source] = [relative(root, bundle), new asset.FileArchive(bundle)];
-            return Effect.all([access.over(access.reached, ['rm', '-rf', held]), access.over(access.reached, ['mkdir', '-p', dirname(held)]), access.copied(bundle, dirname(held))]).pipe(
-                Effect.map(([cleared, made, copied]) => new local.Command(`${host}-${held}`, { create: interpolate`${cleared} && ${made} && ${copied}`, triggers: [source], addPreviousOutputInEnv: false }, { dependsOn: reachable })),
-            );
-        },
+        (bundle) => uploaded(access.reached, host, root, relative(root, bundle), reachable),
     );
     const named = records[domain.dns](domain.name, [domain.name, `*.${domain.name}`], host);
     const supplied: Readonly<Record<string, Input<string>>> = {
@@ -313,6 +314,8 @@ const provisioned = Effect.fnUntraced(function* ({ deployed, decoded, listings, 
     return { host, domain: domain.name, records: named.map(({ name }) => name), services: services.id, connection: Struct.omit(yield* Schema.encodeEffect(Host)(access.reached), ['identity']), identity: deploy.privateKeyOpenssh };
 });
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 const platformStacks = flow(
     prepared,
     Effect.map((shared) => Object.keys(shared.decoded.DEPLOYED_HOSTS).map((stackName) => ({ stackName, program: provisioned(shared, stackName) }))),
@@ -320,4 +323,4 @@ const platformStacks = flow(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { backupTarget, connections, Deployed, identified, platformStacks };
+export { backupTarget, connections, Deployed, definition, identified, platformStacks, uploaded };

@@ -19,6 +19,7 @@
     },
     "files": [ "dist" ],
     "dependencies": {
+        "@rasm/process": "workspace:*",
         "ssh-config": "catalog:"
     },
     "devDependencies": {

@@ -1,7 +1,8 @@
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { ToolError } from '@rasm/nx-devkit/process';
 import { major, minor, minSatisfying, validRange } from '@renovatebot/pep440';
-import { Array, Effect, Equivalence, Option, Path, Predicate, Record, Schema, SchemaTransformation } from 'effect';
+import { Array, Effect, Equivalence, Option, Path, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
 import { CHECKERS, declared, PIXI } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -28,6 +29,8 @@ const Declared = Schema.Struct({
 });
 const Sourced = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ sources: Schema.Record(Schema.String, Schema.Unknown) }) }) });
 const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
+const Tooled = Schema.Struct({ tool: Schema.Struct({ nx: Schema.Unknown.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
+const Nx = Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Local = Schema.Literals(['editable', 'virtual', 'directory', 'path']);
 const Node = Schema.Struct({
     name: Schema.optionalKey(Schema.String),
@@ -89,9 +92,14 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
                 { onNone: () => metadata.workspace.id, onSome: ({ id }) => id },
             )
         ]?.dependency_groups ?? [];
+    const tables = members.map((member) => {
+        const file = path.join(member.root, 'pyproject.toml');
+        return [file, Result.flatMap(Schema.decodeUnknownResult(Tooled)(documented.get(file)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx))] as const;
+    });
     return {
         lock,
-        members: members.map((member) => {
+        failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), (cause) => [file, ToolError.of(file, 'does not decode')(cause)] as const)),
+        members: Array.zipWith(members, tables, (member, [, table]) => {
             const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], workspaceGroups, Equivalence.Struct({ name: Equivalence.String }));
             const packaged = 'editable' in (resolution[member.id]?.source ?? {});
             const own = Option.getOrUndefined(floor(member.root));
@@ -103,6 +111,7 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
                 pixi: documented.has(path.join(workspace, PIXI)) || Schema.is(Pixi)(documented.get(path.join(workspace, 'pyproject.toml'))),
                 scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
                 python: Option.getOrUndefined(Option.flatMap(manifest(member.root), (project) => Option.fromUndefinedOr(project['requires-python']))),
+                implicit: Result.getOrUndefined(table)?.implicitDependencies,
                 published: packaged && Option.exists(manifest(member.root), ({ classifiers, dynamic }) => !(dynamic.includes('classifiers') || classifiers.some((classifier) => classifier.startsWith(PRIVATE)))),
                 lock,
                 nested: members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`))),

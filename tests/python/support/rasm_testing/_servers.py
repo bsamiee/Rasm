@@ -1,18 +1,25 @@
-"""Servers a test controls: Testcontainers containers started for one test or once for a test process, the RustFS module testcontainers lacks, and the catalog driver opened on each server."""
+"""Servers a test controls: Testcontainers containers started for one test or once for a test process, the RustFS module testcontainers lacks, the catalog driver opened on each server, and an HTTP server on a loopback port answering from a function of the test."""
 
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager, closing, ExitStack, nullcontext
+from datetime import timedelta
 from functools import partial
 from pathlib import Path
+import socket
 import subprocess
 from typing import overload, Protocol
 import uuid
 
+import anyio
+from anyio.from_thread import BlockingPortal
 import boto3
 import clickhouse_connect
 from clickhouse_connect.driver import Client, default_port
 from expression import Option
 from expression.extra.result import catch
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
+from hypercorn.typing import ASGIReceiveCallable, ASGISendCallable, Scope
 import msgspec
 from obstore.store import S3Store
 from psycopg_pool import ConnectionPool
@@ -51,6 +58,25 @@ class _Composed(msgspec.Struct, frozen=True, kw_only=True):
     """Compose model `docker compose config` prints, each service undecoded until one is read."""
 
     services: Mapping[str, msgspec.Raw]
+
+
+class Received(msgspec.Struct, frozen=True, kw_only=True):
+    """Request a hosted server received: method, path, headers under lower-case names, whole body, and the event loop clock when the body ended."""
+
+    method: str
+    path: str
+    headers: Mapping[str, str]
+    body: bytes
+    at: timedelta
+
+
+class Answer(msgspec.Struct, frozen=True, kw_only=True):
+    """Response a hosted server sends once `delay` has passed."""
+
+    status: int = 200
+    headers: Mapping[str, str] = frozendict()
+    body: bytes = b""
+    delay: timedelta = timedelta()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -106,6 +132,44 @@ def logged(node: pytest.Item, failed: pytest.StashKey[bool], server: DockerConta
         node.add_report_section("teardown", server.image, b"".join(server.get_logs()).decode(errors="replace"))
 
 
+def hosting(stack: ExitStack, portal: BlockingPortal, answering: Callable[[Received], Answer], /) -> tuple[str, Sequence[Received]]:
+    """Serves HTTP/1.1 and h2c on a loopback port the system picks, answering each request from `answering` on the portal's event loop, until the exit stack's scope ends.
+
+    Returns:
+        The server's base URL and the requests it received so far, in arrival order.
+    """
+    received: list[Received] = []
+
+    async def app(scope: Scope, receive: ASGIReceiveCallable, send: ASGISendCallable) -> None:
+        if scope["type"] != "http":
+            return
+        body, more = b"", True
+        while more:
+            match await receive():
+                case {"type": "http.request", "body": bytes() as chunk, "more_body": bool() as more}:
+                    body += chunk
+                case _:
+                    more = False
+        request = Received(
+            method=scope["method"], path=scope["path"], headers={name.decode(): value.decode() for name, value in scope["headers"]}, body=body, at=timedelta(seconds=anyio.current_time())
+        )
+        received.append(request)
+        answer = answering(request)
+        await anyio.sleep(answer.delay / timedelta(seconds=1))
+        await send({"type": "http.response.start", "status": answer.status, "headers": [(name.encode(), value.encode()) for name, value in answer.headers.items()]})
+        await send({"type": "http.response.body", "body": answer.body, "more_body": False})
+
+    listener = socket.create_server(("127.0.0.1", 0))
+    host, port = listener.getsockname()
+    config = Config()
+    config.bind, config.graceful_timeout = [f"fd://{listener.detach()}"], 0
+    stopped = portal.call(anyio.Event)
+    served = portal.start_task_soon(partial(serve, app, config, shutdown_trigger=stopped.wait))
+    stack.callback(served.result)
+    stack.callback(portal.call, stopped.set)
+    return f"http://{host}:{port}", received
+
+
 @overload
 def opened(server: PostgresContainer, /) -> AbstractContextManager[ConnectionPool]: ...
 @overload
@@ -141,4 +205,4 @@ def opened(server: DockerContainer, /) -> AbstractContextManager[object]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Defined", "RustfsContainer", "Started", "defined", "logged", "opened", "serving"]
+__all__ = ["Answer", "Defined", "Received", "RustfsContainer", "Started", "defined", "hosting", "logged", "opened", "serving"]

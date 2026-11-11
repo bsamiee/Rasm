@@ -19,7 +19,7 @@ import {
     type TargetConfiguration,
 } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
+import { Array, Effect, FileSystem, type ManagedRuntime, Option, Path, PlatformError, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
 import { runtime, ToolError } from '#/process';
 
@@ -84,9 +84,13 @@ interface Declaration<O, U extends Unit, R, E> {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
-const UNSTATED = ['default', '^default'] as const;
+const UPSTREAM = '^default';
+const SOURCES = ['default', UPSTREAM] as const;
+const CLEAN = 'clean';
+const PUBLISH = 'nx-release-publish';
 const NODE = { runtime: 'node --version' } as const;
 const MANIFESTS = '{package,project}.json';
+const SERVED = { dependencies: true, target: 'serve--compose', waitFor: 'ready' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -148,48 +152,47 @@ const produced = (projects: CreateDependenciesContext['projects']) => {
 
 const detached = <A extends object>(value: A) => parseJson<A>(JSON.stringify(value));
 
-const targeted = (project: Project, plugin: Identity): Readonly<Record<string, TargetConfiguration>> => {
+const targeted = (project: Project, plugin: Identity, upstream: string): Readonly<Record<string, TargetConfiguration>> => {
     const technologies = [...project.technologies];
-    const [[stated], kept] = Array.partition(
-        Record.toEntries(project.members).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, tool, target }))),
-        (member) => (member.verb === 'clean' && member.tool === project.clean ? Result.succeed(member.target) : Result.fail(member)),
-    );
-    const tools = kept.map(({ verb, tool, target }) => ({
-        verb,
-        name: `${verb}--${tool}`,
-        target: {
-            ...(verb === 'clean' && { executor: plugin.cleaner }),
-            ...target,
-            ...(target.command !== undefined && { options: { cwd: project.root, ...target.options } }),
-            ...(target.cache === true && { inputs: Array.dedupe([...(target.inputs ?? UNSTATED), PLATFORM]) }),
-            metadata: { technologies, ...target.metadata },
-        },
-    }));
+    const defaults: Readonly<Record<string, TargetConfiguration>> = { [CLEAN]: { executor: plugin.cleaner }, test: { dependsOn: [SERVED] } };
+    const stated = Record.toEntries(project.members).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, name: `${verb}--${tool}`, target: { ...defaults[verb], ...target }, dependsOn: [...(target.dependsOn ?? []), ...(defaults[verb]?.dependsOn ?? [])] })));
+    const tools = stated.map(({ verb, name, target, dependsOn }) => {
+        const owned = [plugin.name, plugin.shared].some((owner) => target.executor?.startsWith(`${owner}:`) === true);
+        const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (input === UPSTREAM ? upstream : input)), ...(owned ? plugin.inputs : [])]);
+        return {
+            verb,
+            name,
+            target: {
+                ...target,
+                ...(dependsOn.length > 0 && { dependsOn }),
+                ...(target.command !== undefined && { options: { cwd: project.root, ...target.options } }),
+                ...(read !== undefined && { inputs: Array.dedupe([...read, ...(read.some(Predicate.hasProperty('externalDependencies')) ? [] : [{ externalDependencies: [] }]), ...(target.cache === true ? [PLATFORM] : [])]) }),
+                metadata: { technologies, ...target.metadata },
+            },
+        };
+    });
+    const named = Record.fromIterableWith(tools, ({ name, target }): readonly [string, TargetConfiguration] => [name, target]);
     const written = tools.filter(({ target }) => (target.outputs ?? []).length > 0).map(({ name }) => name);
-    const cleaning =
-        project.clean === undefined || (written.length === 0 && stated === undefined)
-            ? []
-            : [
-                  {
-                      verb: 'clean',
-                      name: `clean--${project.clean}`,
-                      target: Array.match(written, {
-                          onEmpty: (): TargetConfiguration => ({ executor: plugin.cleaner, ...stated, metadata: { technologies, ...stated?.metadata } }),
-                          onNonEmpty: (targets): TargetConfiguration => ({ ...stated, executor: plugin.cleaner, options: { ...stated?.options, targets }, metadata: { technologies, description: `Removes the outputs ${targets.join(', ')} declare`, ...stated?.metadata } }),
-                      }),
-                  },
-              ];
-    const members = [...tools, ...cleaning];
+    const cleaning = Option.toArray(Option.filter(Option.fromUndefinedOr(project.clean), () => written.length > 0)).map((tool) => `${CLEAN}--${tool}`);
     return {
-        ...Record.fromIterableWith(members, ({ name, target }) => [name, target] as const),
-        ...Record.fromIterableWith(Array.dedupe(members.map(({ verb }) => verb)), (verb): readonly [string, TargetConfiguration] => [verb, { executor: 'nx:noop', dependsOn: [`${verb}--*`], metadata: { technologies, description: `Runs every ${verb}--* target` } }]),
+        ...named,
+        ...Record.fromIterableWith(cleaning, (name): readonly [string, TargetConfiguration] => [
+            name,
+            { executor: plugin.cleaner, ...named[name], options: { ...named[name]?.options, targets: written }, metadata: { technologies, description: `Removes the outputs ${written.join(', ')} declare`, ...named[name]?.metadata } },
+        ]),
+        ...Record.fromIterableWith(Array.dedupe([...tools.map(({ verb }) => verb), ...cleaning.map(() => CLEAN)]), (verb): readonly [string, TargetConfiguration] => [
+            verb,
+            { executor: 'nx:noop', dependsOn: [`${verb}--*`], outputs: [], metadata: { technologies, description: `Runs every ${verb}--* target` } },
+        ]),
+        ...(project.publish !== undefined && { [PUBLISH]: { ...project.publish, dependsOn: [...(project.publish.dependsOn ?? []), `^${PUBLISH}`] } }),
         ...project.targets,
     };
 };
 
-const configured = (project: Project, plugin: Identity): Omit<ProjectConfiguration, 'root'> => {
-    const tags = [...(project.configuration?.release === undefined ? [] : ['release']), ...(project.configuration?.tags ?? [])];
-    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin), ...project.configuration, ...(tags.length > 0 && { tags }) };
+const configured = (project: Project, plugin: Identity, upstream: string): Omit<ProjectConfiguration, 'root'> => {
+    const release = project.release === undefined ? project.configuration?.release : { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { ...project.release } } };
+    const tags = [...(release === undefined ? [] : ['release']), ...(project.configuration?.tags ?? [])];
+    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin, upstream), ...project.configuration, ...(release !== undefined && { release }), ...(tags.length > 0 && { tags }) };
 };
 
 const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, request: Request<O>, held: readonly (readonly [U, R])[]) {

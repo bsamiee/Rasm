@@ -2,6 +2,8 @@ use core::hint::black_box;
 
 #[path = "orphan_module/declared.rs"]
 mod declared;
+#[path = "orphan_module_target/shared.rs"]
+mod shared;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -16,4 +18,4 @@ macro_rules! observed {
     };
 }
 
-fn main() { black_box(observed!()); }
+fn main() { black_box((observed!(), shared::SHARED)); }

@@ -3,61 +3,41 @@
 [project]
 name            = "rasm-testing"
 version         = "0.0.0"
-description     = "Store, SQLite, and server fixtures for pytest: stores of the store service a test makes, a private SQLite database, and Testcontainers servers a test controls"
+description     = "SQLite and server fixtures for pytest: a private SQLite database, Testcontainers servers a test controls, and HTTP servers a test hosts on a loopback port"
 classifiers     = ["Framework :: Pytest", "Private :: Do Not Upload", "Typing :: Typed"]
 requires-python = ">=3.15"
 
 dependencies = [
     # --- [CORE]
 
-    "expression",         # Results of store service calls, their recovery by status code, and the session limit as an option
-    "msgspec",            # Kind, template, store, and session records
+    "expression",         # Results of Compose and decode steps, and absent rows as options
+    "msgspec",            # Compose service rows
     "pytest",             # Fixtures, report hooks, stash keys, and report sections
-    "pytest-socket",      # `enable_socket` marker the plugin adds to each test reaching the store service or a server
+    "pytest-socket",      # `enable_socket` marker the plugin adds to each test reaching a server
     "rasm-records",       # Fault results and their report text
-
-    # --- [CONTRACT]
-
-    "connectrpc",         # gRPC protocol client the generated `StoreServiceClientSync` extends, `ConnectError` and its codes
-    "protobuf-py",        # Runtime of the generated store messages
-    "pyqwest",            # HTTP/2 transport of the client
 
     # --- [DRIVERS]
 
-    "clickhouse-connect", # ClickHouse client opened on a `clickhouse` store or server
-    "obstore",            # Object store opened on a `bucket` store or a RustFS server
-    "psycopg-pool",       # Connection pool opened on a `postgres` store or server
+    "clickhouse-connect", # ClickHouse client opened on a ClickHouse server
+    "obstore",            # Object store opened on a RustFS server
+    "psycopg-pool",       # Connection pool opened on a Postgres server
     "psycopg[binary]",    # libpq build the pool connects through
-    "redis[hiredis]",     # Valkey client opened on a `cache` store or server
+    "redis[hiredis]",     # Valkey client opened on a Valkey server
     "sqlite-vec",         # `vec0` extension loaded into each SQLite database
 
     # --- [SERVERS]
 
+    "anyio",              # Event loop thread a test hosts servers on, and its clock on each received request
     "boto3",              # Bucket creation on a RustFS server, which `obstore` has no call for
+    "hypercorn",          # HTTP/1.1 and h2c server answering from a function of the test on a loopback port
     "testcontainers",     # Containers a test starts, restarts, and stops, their module rows, and wait strategies
 ]
-
-# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
-
-[dependency-groups]
-build = ["hatchling"] # Build hook interface `hatch_build.py` implements
-suite = ["anyio"]     # Threads the template suite clones one digest on at once
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
 
 [build-system]
-requires      = ["grpcio-tools", "hatchling", "protoc-gen-connectrpc", "protoc-gen-py"]
-build-backend = "hatchling.build"
+requires      = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
 
-[tool.hatch.build.targets.sdist.force-include]
-"../../../libs/rust/data/store-proto/proto" = "proto" # Contract the build hook generates the client from, read from the source tree or from this copy
-
-[tool.hatch.build.targets.wheel]
-packages = ["rasm_testing"]
-
-[tool.hatch.build.targets.wheel.hooks.custom]
-# --- [UV] -------------------------------------------------------------------------------
-
-[tool.uv]
-default-groups = "all"                                                                                                                         # Suite and build hook imports install with the package
-cache-keys     = [{ file = "pyproject.toml" }, { file = "hatch_build.py" }, { file = "../../../libs/rust/data/store-proto/proto/**/*.proto" }] # uv rebuilds the generated client when the contract changes
+[tool.uv.build-backend]
+module-root = ""

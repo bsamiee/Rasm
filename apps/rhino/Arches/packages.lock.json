@@ -1,7 +1,7 @@
 {
   "version": 2,
   "dependencies": {
-    "net10.0": {
+    "net10.0-windows7.0": {
       "ErrorProne.NET.CoreAnalyzers": {
         "type": "Direct",
         "requested": "[0.9.0-beta.4, )",
@@ -30,25 +30,13 @@
         "type": "Direct",
         "requested": "[9.0.26300.9401, )",
         "resolved": "9.0.26300.9401",
-        "contentHash": "dHy7hJ0OffgidFZMrYmaRgirutzavd8RlE33UJwPQLKgMxclDl4Ekm1P+0Pl8IVgza01dvgE63IFb18t8R6OCw==",
-        "dependencies": {
-          "System.Drawing.Common": "8.0.0"
-        }
+        "contentHash": "dHy7hJ0OffgidFZMrYmaRgirutzavd8RlE33UJwPQLKgMxclDl4Ekm1P+0Pl8IVgza01dvgE63IFb18t8R6OCw=="
       },
       "Roslynator.Analyzers": {
         "type": "Direct",
         "requested": "[5.0.1, )",
         "resolved": "5.0.1",
         "contentHash": "sCZ0Di4B937wKa9pwKbdsE6Njr8A/FdCLw28+yDKyMaDZ/f8JWxcFn6NOCukzKhCG/eA6M2DbXlKkrPi0g0lIA=="
-      },
-      "System.Drawing.Common": {
-        "type": "Direct",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "kohT9ZZlkB5R5ifihCBnPJLdIUQGiTj1ZI6z4LKatr+F4MmIJJu7qQpBkqt9280ivtnSvlTx9qZEY+CpJ0zMkA==",
-        "dependencies": {
-          "Microsoft.Win32.SystemEvents": "10.0.0"
-        }
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
@@ -119,7 +107,6 @@
           "Microsoft.Extensions.Logging": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )",
           "Microsoft.VisualStudio.Threading": "[18.12.1, )",
-          "Microsoft.Win32.SystemEvents": "[10.0.0, )",
           "Mono.Unix": "[7.1.0-final.1.21458.1, )",
           "NodaTime": "[3.3.7, )",
           "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
@@ -134,7 +121,6 @@
           "Rasm.Telemetry.Api": "[1.0.0, )",
           "RhinoCommon": "[9.0.26300.9401, )",
           "SuperLinq": "[6.4.1, )",
-          "System.Drawing.Common": "[10.0.0, )",
           "System.IO.Hashing": "[11.0.0-rc.3.26522.148, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.6.0, )",
@@ -156,7 +142,6 @@
           "Rasm.Rhino": "[1.0.0, )",
           "RhinoCommon": "[9.0.26300.9401, )",
           "SuperLinq": "[6.4.1, )",
-          "System.Drawing.Common": "[10.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
@@ -169,7 +154,6 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )",
-          "Microsoft.Extensions.Logging.Configuration": "[10.0.14, )",
           "Microsoft.Extensions.Options": "[10.0.14, )",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "[10.0.14, )",
           "Microsoft.Extensions.Primitives": "[10.0.14, )",
@@ -369,12 +353,6 @@
           "Microsoft.VisualStudio.Validation": "17.13.22"
         }
       },
-      "Microsoft.Win32.SystemEvents": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "bYdnhuD0XxcVTrxc8RyBjXo+AXYWJPnda3clhGz2Kakleyun1PyrzYV8RezT7ZYmR9OBSOgvpFQcvHo/K8Y90w=="
-      },
       "Mono.Unix": {
         "type": "CentralTransitive",
         "requested": "[7.1.0-final.1.21458.1, )",
@@ -544,13 +522,7 @@
         "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
       }
     },
-    "net10.0/osx-arm64": {
-      "Microsoft.Win32.SystemEvents": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "bYdnhuD0XxcVTrxc8RyBjXo+AXYWJPnda3clhGz2Kakleyun1PyrzYV8RezT7ZYmR9OBSOgvpFQcvHo/K8Y90w=="
-      },
+    "net10.0-windows7.0/osx-arm64": {
       "Mono.Unix": {
         "type": "CentralTransitive",
         "requested": "[7.1.0-final.1.21458.1, )",
@@ -558,13 +530,7 @@
         "contentHash": "Rhxz4A7By8Q0wEgDqR+mioDsYXGrcYMYPiWE9bSaUKMpG8yAGArhetEQV5Ms6KhKCLdQTlPYLBKPZYoKbAvT/g=="
       }
     },
-    "net10.0/win-x64": {
-      "Microsoft.Win32.SystemEvents": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "bYdnhuD0XxcVTrxc8RyBjXo+AXYWJPnda3clhGz2Kakleyun1PyrzYV8RezT7ZYmR9OBSOgvpFQcvHo/K8Y90w=="
-      },
+    "net10.0-windows7.0/win-x64": {
       "Mono.Unix": {
         "type": "CentralTransitive",
         "requested": "[7.1.0-final.1.21458.1, )",

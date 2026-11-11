@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { layer } from '@effect/platform-node/NodeAddressResolver';
 import { layerConfig } from '@effect/platform-node/NodeDns';
 import { layerServer } from '@effect/platform-node/NodeHttpServer';
-import { layerTelemetry } from '@rasm/process';
+import { layerNodeFromConfig } from '@rasm/telemetry/node';
 import { Config, type Duration, Effect, Layer, Option, Schema } from 'effect';
 import { Command, Flag, GlobalFlag } from 'effect/cli';
 import { HttpRouter, HttpServer } from 'effect/http';
@@ -23,7 +23,7 @@ const serve = Effect.fnUntraced(function* <E, R, E2, R2>(
         listen: listen === undefined ? listened : Flag.withDefault(listened, listen),
         hosts: Flag.String('allowed-host').pipe(Flag.atLeast(1), Flag.withFallbackConfig(Config.Array(Schema.String, 'MCP_ALLOWED_HOSTS')), Flag.withDefault([]), Flag.withDescription('Accepted Host header beyond loopback and bound address')),
     };
-    const telemetry = Effect.map(GlobalFlag.LogLevel, (flag) => layerTelemetry({ resource: { serviceName: name, serviceVersion: manifest.version }, target: 'file', ...Option.getOrUndefined(Option.map(flag, (level) => ({ level }))) }));
+    const telemetry = Effect.map(GlobalFlag.LogLevel, (flag) => layerNodeFromConfig({ resource: { serviceName: name, serviceVersion: manifest.version }, target: 'file', ...Option.getOrUndefined(Option.map(flag, (level) => ({ level }))) }));
     return yield* Command.make(
         name,
         settings,

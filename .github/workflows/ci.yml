@@ -35,7 +35,7 @@ jobs:
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
             - run: playwright install --with-deps --only-shell chromium
-            - run: nx install @rasm/infra -c store
+            - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
             - &cache
               id: cache
               run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health" && printf 'reachable=true\n' >> "${GITHUB_OUTPUT}" || printf '::warning::Nx remote cache is unreachable, tasks run without it\n'
@@ -54,7 +54,6 @@ jobs:
         env:
             DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
             RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
-            RhinoInstallPath: /Applications/RhinoBETA.app # Folder `mcneel/setup-rhino3d` installs its `wip` release into, read by MSBuild as a property
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -66,12 +65,11 @@ jobs:
             - run: pnpm install
             - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
             - id: hosts
-              run: rhino=$(nx show projects --affected --targets=check,test,build --projects=tag:os:win32 --sep=,) && printf 'rhino=%s\n' "${rhino}" >> "${GITHUB_OUTPUT}"
+              run: rhino=$(nx show projects --affected --withTarget=build--dotnet --projects=tag:os:win32 --sep=,) && printf 'rhino=%s\n' "${rhino}" >> "${GITHUB_OUTPUT}"
             - if: steps.hosts.outputs.rhino != ''
               uses: mcneel/setup-rhino3d@b3faf87453962c0742ab2a5e72d3494505f660df # v3.0.0
               with:
                   email-address: ${{ secrets.RHINO_EMAIL }}
-                  release-version: wip
             - *cache
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin'
               env: *nx-cache

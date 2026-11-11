@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-distribution",
     "version": "0.0.0",
-    "description": "Nx plugin building Blender extensions, Adobe UXP and CEP packages, and Unreal plug-ins, and installing and publishing host packages (Blender extensions, Yak packages, Adobe UXP and CEP plug-ins and Unreal plug-ins) through each host's own channel",
+    "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx and CEP .zxp, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, attaches it to the GitHub release, and publishes it to the host store taking uploads",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",

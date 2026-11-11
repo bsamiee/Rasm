@@ -25,6 +25,7 @@ const Package = Schema.Struct({
     dependencies: Schema.Array(Linked.mapFields(Struct.assign({ path: Schema.optionalKey(Schema.String) }))),
     targets: Schema.Array(Target),
     features: Schema.Record(Schema.String, Schema.Array(Schema.String)),
+    metadata: Schema.NullOr(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)) })) })),
 });
 const Metadata = Schema.fromJsonString(
     Schema.Struct({

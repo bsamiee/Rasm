@@ -30,12 +30,5 @@ ready_cmd   = { run = ["docker", "version"], timeout = "5m" }
 run         = "exec colima start --foreground --ssh-config=false --mount none --port-forwarder grpc --cpus {{ (num_cpus() | int / 2) | int }} --memory 8"
 stop_signal = { signal = "SIGTERM", timeout = "5m" }
 
-[daemons.services]
-auto    = ["start"]
-depends = ["docker"]
-logs    = { time_retention = "7d" }
-oneshot = true
-run     = "nx install @rasm/infra -c store"
-
 [daemon_groups]
 default = ["docker"]

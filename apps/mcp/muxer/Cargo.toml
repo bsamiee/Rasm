@@ -44,11 +44,11 @@ opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 tracing-subscriber                 = { workspace = true }
 clap                               = { workspace = true }
-rasm-command                       = { workspace = true }
+rasm-cli                           = { workspace = true }
 rasm-ipc                           = { workspace = true }
 rasm-mcp                           = { workspace = true, features = ["proxy"] }
 rasm-process                       = { workspace = true }
-rasm-observability                 = { workspace = true, features = ["metrics", "process"] }
+rasm-telemetry                     = { workspace = true, features = ["metrics", "process"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

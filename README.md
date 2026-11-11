@@ -104,8 +104,9 @@ flowchart LR
 
 - Each fact sits once in the file its tool reads, and every other use derives it
 - Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json`, `targetDefaults`, or `namedInputs`
-- Manifest `nx` tables state only a path no manifest row or tool reports (a file a build reads unimported)
+- Manifest `nx` tables state only a dependency or path no manifest row or tool reports (a service a client calls, a file a build reads unimported)
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-devkit`, and a row's own options win
+- Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
 - Verbs aggregate `<verb>--<tool>` targets, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
@@ -125,12 +126,12 @@ flowchart LR
 ## [04]-[TASKS]
 
 `nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
-- `generate` writes source code a project's tools derive from its schemas and configuration
+- `codegen` writes source code a project's tools derive from its schemas and configuration
 - `build` compiles or packages a project into its declared outputs
 - `check` reports findings of checkers reading the project model and changes no source file
 - `fix` applies fixes from checkers reading the project model
 - `test` runs a project's test runners
-- `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports
+- `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports, and starts the Compose services whose Dockerfile it holds, which stay up
 - `preview` builds a project, then serves its build output as `serve` does
 - `install` puts a local build into its host or starts local services
 - `deploy` applies a project's infrastructure stacks, `--stack=<name>` one of them, `-c release` those of a released version
@@ -143,12 +144,12 @@ Other tasks run through their own commands:
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
 - Workflow `release.yml` runs `nx release --skip-publish`, a `-c release` build, then `nx release publish`, which takes no configuration
+- `doppler run --config release --command 'nx build <app> -c release'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
-- `nx install @rasm/infra` starts local services of `infra/compose.yaml`, only `-c store` adds or updates the store service test suites read
-- `mise daemons start services` applies a changed `infra/compose.yaml` and waits until every service is healthy
+- `nx install @rasm/infra` starts local services of `infra/compose.yaml`, `-c <profile>` adds the services of one profile
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx deploy @rasm/infra` applies the repository and deployed-host stacks
-- `mise lock --bump` moves tools and `pinact run --update` moves workflow action pins to their newest release SHA
+- Workflow `renovate.yml` runs Renovate daily, which moves catalogs, manifests, locks, mise tools, and workflow action pins to their newest release and merges each change once its checks pass
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
 - `nx sync` writes each executor's `schema.json` and `executors.json` description from its declared options schema, `nx sync:check` fails on a stale one
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
@@ -190,6 +191,8 @@ Packaging turns a build into the one file its host or store takes, and every cha
 |  [19]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |
 |  [20]   | Backup target                  | Doppler `rasm/deploy` `BACKUP_*` rows, absent `BACKUP_KIND` runs no backup                             |
 |  [21]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml`, started with the first shell or agent session             |
+|  [22]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
+|  [23]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`    |
 
 - Tool rows stay at `latest` where their backend lists releases, a `version_regex` over release tags excludes a development build `latest` resolves
 

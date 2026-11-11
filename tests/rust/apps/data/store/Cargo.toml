@@ -1,0 +1,51 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-store-tests"
+edition.workspace = true
+description       = "Store service suite and its client: sessions, stores, and templates as fixtures kept after a failed test"
+
+[package.metadata.nx]
+implicitDependencies = ["rasm-store"] # Server the client connects to, started by its `serve--compose` target before a test of a dependent runs
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+[[test]]
+name = "suite"
+path = "suite.rs"
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+tokio            = { workspace = true }
+futures          = { workspace = true }
+arc-swap         = { workspace = true }
+thiserror        = { workspace = true }
+derive_more      = { workspace = true }
+jiff             = { workspace = true }
+uuid             = { workspace = true }
+http             = { workspace = true }
+tonic            = { workspace = true }
+object_store     = { workspace = true }
+clap             = { workspace = true }
+clickhouse       = { workspace = true }
+redis            = { workspace = true }
+sqlx             = { workspace = true, features = ["postgres"] }
+rasm-store-proto = { workspace = true }
+rasm-testing     = { workspace = true }
+
+[dev-dependencies]
+backon = { workspace = true }
+claims = { workspace = true }
+blake3 = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

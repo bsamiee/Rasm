@@ -24,10 +24,10 @@ const { createNodes } = inferred({
             technologies: ['cloudflare'],
             clean: 'cf',
             members: {
-                generate: {
+                codegen: {
                     cf: {
                         command: 'cf workers types',
-                        dependsOn: ['^generate'],
+                        dependsOn: ['^codegen'],
                         cache: true,
                         inputs: ['default', '^default', NODE, { externalDependencies: ['cf'] }],
                         outputs: ['{projectRoot}/.cloudflare/types'],

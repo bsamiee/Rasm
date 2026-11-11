@@ -1,0 +1,19 @@
+{
+    "name": "@rasm/test-mcp",
+    "private": true,
+    "description": "MCP suites over @rasm/mcp: protocol lifecycle, transports, sessions, cancellation, progress, tools, resources, and completion per protocol version through the HTTP handler with no socket, the executions resource, routed tools, RPC groups, content blocks, the reconnecting client, and the official conformance scenarios against a served endpoint",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/mcp": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

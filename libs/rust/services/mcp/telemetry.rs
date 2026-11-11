@@ -14,7 +14,7 @@ use opentelemetry_semantic_conventions::attribute::{
     ERROR_TYPE, EXCEPTION_MESSAGE, GEN_AI_OPERATION_NAME, GEN_AI_PROMPT_NAME, GEN_AI_TOOL_NAME, JSONRPC_REQUEST_ID, MCP_METHOD_NAME, MCP_PROTOCOL_VERSION, MCP_RESOURCE_URI, RPC_RESPONSE_STATUS_CODE,
 };
 use opentelemetry_semantic_conventions::metric::{MCP_SERVER_OPERATION_DURATION, MCP_SERVER_SESSION_DURATION};
-use rasm_observability::Call;
+use rasm_telemetry::Call;
 use rmcp::model::{
     CallToolRequest, CallToolResult, ClientNotification, ClientRequest, GetPromptRequest, InitializeRequest, MetaObject, ProtocolVersion, ReadResourceRequest, ServerConfig, ServerResult,
     SubscribeRequest, UnsubscribeRequest,
@@ -59,7 +59,7 @@ where S: Service<RoleServer>
 {
     async fn handle_request(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
         const EXECUTE_TOOL: &str = "execute_tool";
-        static OPERATION: LazyLock<Histogram<f64>> = LazyLock::new(|| rasm_observability::duration(env!("CARGO_PKG_NAME"), MCP_SERVER_OPERATION_DURATION, BOUNDARIES.to_vec()));
+        static OPERATION: LazyLock<Histogram<f64>> = LazyLock::new(|| rasm_telemetry::duration(env!("CARGO_PKG_NAME"), MCP_SERVER_OPERATION_DURATION, BOUNDARIES.to_vec()));
         let method = request.method().to_owned();
         let (tool, prompt, uri) = match &request {
             ClientRequest::CallToolRequest(CallToolRequest { params, .. }) => (Some(params.name.to_string()), None, None),
@@ -127,7 +127,7 @@ where S: Service<RoleServer>
 
 impl<S> Drop for Traced<S> {
     fn drop(&mut self) {
-        static SESSION: LazyLock<Histogram<f64>> = LazyLock::new(|| rasm_observability::duration(env!("CARGO_PKG_NAME"), MCP_SERVER_SESSION_DURATION, BOUNDARIES.to_vec()));
+        static SESSION: LazyLock<Histogram<f64>> = LazyLock::new(|| rasm_telemetry::duration(env!("CARGO_PKG_NAME"), MCP_SERVER_SESSION_DURATION, BOUNDARIES.to_vec()));
         if let Some((opened, version)) = self.opened.take() {
             SESSION.record(opened.elapsed().as_secs_f64(), &[KeyValue::new(MCP_PROTOCOL_VERSION, version.as_str().to_owned())]);
         }

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-ssh",
     "private": true,
-    "description": "SSH suite against two sshd containers: commands and environment, one shared connection across callers and processes, preferred and stated dials while a dial stops and resumes, a killed connection, forwards, a hop, an agent, certificates, and unreachable hosts",
+    "description": "SSH suites against two sshd containers: commands, exit statuses, and late stderr, one shared connection across callers and processes, control requests, preferred and stated dials, forwards under each server forwarding policy, copies, a hop, an agent, certificates, and the config the OpenSSH client resolves",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
@@ -10,7 +10,7 @@
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/ssh": "workspace:*",
-        "@rasm/test-support": "workspace:*",
+        "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "testcontainers": "catalog:",

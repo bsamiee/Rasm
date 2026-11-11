@@ -12,6 +12,8 @@ const subject: Subject = {
     options: { trustPackages: true },
     tools: ['swift'],
     state: ['.build'],
+    typed: true,
+    compiled: ['Sources/Paper/Paper.swift', 'build--swift-build'],
     files: {
         'package.json': '{ "name": "root" }\n',
         'Package.swift': '// swift-tools-version: 6.2\nimport PackageDescription\n\nlet package = Package(\n    name: "Atlas",\n    products: [.library(name: "Sheets", targets: ["Sheets"])],\n    targets: [\n        .target(name: "Sheets", dependencies: ["Paper"]),\n        .target(name: "Paper"),\n    ]\n)\n',

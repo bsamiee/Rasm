@@ -6,7 +6,7 @@ import { Automation } from '@rasm/applications/node';
 import { Peer } from '@rasm/atelier-protocol/peer';
 import { HostError } from '@rasm/automation';
 import { serve } from '@rasm/mcp/node';
-import { teardown } from '@rasm/process';
+import { teardown } from '@rasm/telemetry/node';
 import { Array, Deferred, Duration, Effect, FileSystem, identity, Layer, Path, Result, Schema, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { parse } from 'plist';

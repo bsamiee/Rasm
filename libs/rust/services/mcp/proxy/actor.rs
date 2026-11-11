@@ -57,8 +57,6 @@ pub(super) enum Event {
     Joined { session: u64, out: mpsc::Sender<Bytes>, cut: CancellationToken },
     Line { session: u64, line: Line },
     Era(oneshot::Sender<Option<Era>>),
-    Drain { settle: Duration, drained: oneshot::Sender<()> },
-    Stop,
 }
 
 #[derive(Debug, derive_more::IsVariant)]
@@ -117,6 +115,8 @@ pub(super) struct Actor<F, A, R, W, C> {
     #[debug(skip)]
     connect: F,
     events: mpsc::Receiver<Event>,
+    drains: mpsc::Receiver<(Duration, oneshot::Sender<()>)>,
+    stopping: CancellationToken,
     status: watch::Sender<Status>,
     upstream: Upstream<A, R, W, C>,
     failures: usize,
@@ -140,7 +140,15 @@ where
 {
     // --- [LIFECYCLE]
 
-    pub(super) fn new(policy: Policy, connect: F, events: mpsc::Receiver<Event>, status: watch::Sender<Status>, calls: Calls) -> Self {
+    pub(super) fn new(
+        policy: Policy,
+        connect: F,
+        events: mpsc::Receiver<Event>,
+        drains: mpsc::Receiver<(Duration, oneshot::Sender<()>)>,
+        stopping: CancellationToken,
+        status: watch::Sender<Status>,
+        calls: Calls,
+    ) -> Self {
         let (failures, delay, catalog) = {
             let held = status.borrow();
             (held.failures, held.delay, held.catalog.clone())
@@ -149,6 +157,8 @@ where
             policy,
             connect,
             events,
+            drains,
+            stopping,
             status,
             upstream: Upstream::down(delay),
             failures,
@@ -170,10 +180,16 @@ where
         loop {
             let room = self.upstream.room(self.policy.queue);
             tokio::select! {
+                () = self.stopping.cancelled() => break self.stop().await,
                 wake = self.upstream.next() => self.on_wake(wake),
                 event = self.events.recv(), if room => if self.on_event(event) {
                     break self.stop().await;
                 },
+                Some((settle, drained)) = self.drains.recv() => {
+                    let timer = self.clock.timers.insert(Timer::Settle, settle);
+                    self.clock.drain = Drain::Draining { drained, settle, timer };
+                    self.drained(false);
+                }
                 Some(expired) = self.clock.timers.next(), if !self.clock.timers.is_empty() => self.on_timer(expired.into_inner()).await,
                 Some(session) = self.sessions.left.next(), if !self.sessions.left.is_empty() => self.leave(session),
             }
@@ -182,7 +198,7 @@ where
 
     fn on_event(&mut self, event: Option<Event>) -> bool {
         match event {
-            None | Some(Event::Stop) => return true,
+            None => return true,
             Some(Event::Joined { session, out, cut }) => {
                 self.sessions.join(session, out, cut);
                 self.status.send_modify(|status| status.sessions = self.sessions.joined.len());
@@ -191,16 +207,11 @@ where
             Some(Event::Line { session, line: Line::Whole(line) }) => self.on_line(session, &line),
             Some(Event::Line { session, line: Line::Oversized { head, tail } }) => {
                 let error = ErrorData::invalid_request(format!("request exceeds {} bytes, send less", self.policy.line), None);
-                if let Some(id) = identity(&head, &tail) {
+                if let (Some(id), _) = identity(&head, &tail) {
                     self.sessions.reply(session, refusal(&id, &error));
                 }
             }
             Some(Event::Era(asked)) => self.on_era(asked),
-            Some(Event::Drain { settle, drained }) => {
-                let timer = self.clock.timers.insert(Timer::Settle, settle);
-                self.clock.drain = Drain::Draining { drained, settle, timer };
-                self.drained(false);
-            }
         }
         false
     }
@@ -342,7 +353,7 @@ where
             Origin::Session(call) => Some((call.session, call.id)),
             Origin::Discover | Origin::Initialize | Origin::Internal => None,
         });
-        let parked = mem::take(&mut self.calls.backlog).into_iter().filter_map(|(session, line)| Some((session, identity(&line, &[])?)));
+        let parked = mem::take(&mut self.calls.backlog).into_iter().filter_map(|(session, line)| Some((session, identity(&line, &[]).0?)));
         for (session, id) in waiting.chain(parked) {
             self.sessions.reply(session, refusal(&id, &error));
         }
@@ -438,13 +449,13 @@ where
     fn leave(&mut self, session: u64) {
         let Some(Session { out: _, cut, initialized: _, level: _ }) = self.sessions.joined.remove(&session) else { return };
         cut.cancel();
+        self.calls.backlog.retain(|(parked, _)| *parked != session);
         for request in self.calls.of(session) {
             if self.calls.take(request).is_some() {
                 self.upstream.send(message(None, CancelledNotificationMethod::VALUE, Some(CancelledNotificationParam::new(Some(RequestId::Number(request.cast_signed())), None))));
                 self.settled(request, None);
             }
         }
-        self.calls.backlog.retain(|(parked, _)| *parked != session);
         for id in Vec::from_iter(self.calls.asked.extract_if(.., |_, asked| *asked == session).map(|(id, _)| id)) {
             self.decline(&id, "client session closed before answering");
         }
@@ -492,7 +503,7 @@ where
                     self.settled(request, None);
                 }
             }
-            (None, Some(id)) => self.calls.backlog.retain(|(parked, held)| *parked != session || identity(held, &[]).is_none_or(|parked| *parked != *id.get().as_bytes())),
+            (None, Some(id)) => self.calls.backlog.retain(|(parked, held)| *parked != session || identity(held, &[]).0.is_none_or(|parked| *parked != *id.get().as_bytes())),
             (None, None) => {}
         }
     }
@@ -682,11 +693,14 @@ where
     fn on_oversized(&mut self, head: &[u8], tail: &[u8]) {
         let limit = self.policy.line;
         tracing::debug!(limit, "server message over the line limit, discarded");
-        let only = {
-            let mut callers = self.calls.callers().map(|(request, _)| request);
-            callers.next().filter(|_| callers.next().is_none())
+        let request = match identity(head, tail) {
+            (Some(id), None) => issued(&id),
+            (Some(id), Some(_)) => {
+                self.upstream.send(refusal(&id, &ErrorData::invalid_request(format!("request exceeds {limit} bytes, send less"), None)));
+                None
+            }
+            (None, Some(_) | None) => None,
         };
-        let request = identity(head, tail).and_then(|id| issued(&id)).or(only);
         let error = ErrorData::internal_error(format!("server response exceeds {limit} bytes, ask for less output"), None);
         match request.and_then(|request| self.calls.take(request).map(|origin| (request, origin))) {
             Some((request, Origin::Session(call))) => {

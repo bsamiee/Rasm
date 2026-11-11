@@ -7,6 +7,7 @@
     "neverConnectToCloud": true,
     "sync": { "globalGenerators": [ "@rasm/nx-devkit:executor-schemas" ] },
     "plugins": [
+        "@rasm/nx-distribution",
         { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true } },
         "@rasm/nx-cargo",
         { "plugin": "@rasm/nx-uv", "exclude": [ ".config/mise/locks/**" ] },
@@ -19,8 +20,7 @@
         "@rasm/nx-vitest",
         "@rasm/nx-storybook",
         "@rasm/nx-cloudflare",
-        "@rasm/nx-playwright",
-        "@rasm/nx-distribution"
+        "@rasm/nx-playwright"
     ],
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" }, "@rasm/nx-devkit": { "outputPath": ".artifacts" } },
     "release": {

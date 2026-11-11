@@ -94,7 +94,7 @@ where
                 }
                 Either::Right(Some(Ok(Line::Oversized { head, tail }))) => {
                     let error = ErrorData::invalid_request(format!("request exceeds {} bytes, send less", self.limit), None);
-                    self.refused(identity(&head, &tail).into_iter(), &error).await?;
+                    self.refused(identity(&head, &tail).0.into_iter(), &error).await?;
                     Ok(())
                 }
                 Either::Right(Some(Err(error))) => return Err(error),

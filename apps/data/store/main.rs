@@ -16,10 +16,10 @@ use http::uri::{Authority, Scheme};
 use jiff::Timestamp;
 use jiff::fmt::friendly::SpanParser;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use rasm_command::{CommandError, Invocation};
+use rasm_cli::{CommandError, Invocation};
 use rasm_grpc::{GrpcError, Telemetry};
 use rasm_http::HttpError;
-use rasm_observability::process::Program;
+use rasm_telemetry::process::Program;
 use rasm_provisioning::{Kind, Policy, ProvisioningError, Registry};
 use rasm_store_proto::FILE_DESCRIPTOR_SET;
 use rasm_store_proto::store_service_server::StoreServiceServer;
@@ -174,13 +174,13 @@ async fn run(invocation: Invocation<Cli>) -> Result<(), NEVec<StoreError>> {
     let server = cli.timeout.into_iter().fold(liveness, Server::timeout).layer(Telemetry::server(descriptors).map_err(lifted)?);
     let bound = rasm_http::bind::<StoreError>(cli.listen, cli.port, BACKLOG).await.map_err(lifted)?;
     let incoming = bound.into_iter().flat_map(|(_, listeners)| listeners).map(|(_, listener)| TcpIncoming::from(listener).with_nodelay(Some(true)).with_keepalive(Some(cli.keepalive_interval)));
-    let signals = rasm_command::signals().map_err(|error| NEVec::new(error.into()))?;
+    let signals = rasm_cli::signals().map_err(|error| NEVec::new(error.into()))?;
     let app = Arc::new(Store { registry, stopping, health, standard, wait: cli.wait, postgres, bucket, clickhouse, cache });
     rasm_http::serve(app, |router, stopping| rasm_grpc::accept(server, incoming, router, stopping), signals, cli.shutdown).await.map_err(lifted)
 }
 
 fn main() -> ExitCode {
-    rasm_command::run(
+    rasm_cli::run(
         Program { scopes: Vec::from_iter([env!("CARGO_CRATE_NAME"), "rasm_grpc", "rasm_http", "rasm_provisioning"].map(|scope| (scope, None))), .. },
         io::stderr,
         Identity::new(),

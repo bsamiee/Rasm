@@ -38,10 +38,10 @@ const { createNodes } = inferred({
                 technologies: ['buf'],
                 clean: 'buf',
                 members: {
-                    generate: {
+                    codegen: {
                         buf: {
                             command: 'buf generate',
-                            dependsOn: ['^generate'],
+                            dependsOn: ['^codegen'],
                             cache: true,
                             inputs: [`{projectRoot}/${TEMPLATE}`, ...Array.getSomes(inputs.map(({ directory }) => Option.fromUndefinedOr(directory))).map((directory) => path.join('{workspaceRoot}', root, directory, '**/*.proto')), { runtime: 'buf --version' }, { externalDependencies: [] }],
                             outputs: plugins.map(({ out }) => path.join('{workspaceRoot}', root, out)),

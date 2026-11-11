@@ -3,34 +3,27 @@
         "extension-build": {
             "implementation": "./dist/executors/extension-build/executor#execute",
             "schema": "./executors/extension-build/schema.json",
-            "description": "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its locked registry dependencies as wheels for the running Blender and its local dependencies as subpackages"
+            "description": "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects for each platform the manifest lists, one archive per platform"
         },
         "package": {
             "implementation": "./dist/executors/package/executor#execute",
             "schema": "./executors/package/schema.json",
-            "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its source folder: a .ccx zip for a manifest.json, a ZXPSignCmd-signed .zxp for a CSXS/manifest.xml"
+            "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its tracked source folder: a .ccx zip for a manifest.json, a .zxp ZXPSignCmd signs with a certificate it creates for the build for a CSXS/manifest.xml"
         },
         "install": {
             "implementation": "./dist/executors/install/executor#execute",
             "schema": "./executors/install/schema.json",
-            "description": "Installs each host package the project's build wrote for this platform, in the configuration each build task ran in, through the host's own installer"
+            "description": "Installs what the project's build wrote in the run's configuration where its host loads it: each package built for this platform through the host's own installer, or the unpacked build folder for a host loading one"
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Attaches each host package the project's build wrote to its GitHub release and publishes it to its host's package server, skipping distributions the server holds and a project nx release left unversioned"
+            "description": "Attaches each host package the project's build wrote to its GitHub release, then publishes it to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned"
         },
         "unreal-build": {
             "implementation": "./dist/executors/unreal-build/executor#execute",
-            "batchImplementation": "./dist/executors/unreal-build/executor#batch",
             "schema": "./executors/unreal-build/schema.json",
-            "preferBatch": true,
             "description": "Builds a .uproject's editor target through UnrealBuildTool, or packages a .uplugin through AutomationTool's BuildPlugin once per engine its hosts name and archives each package"
-        },
-        "place": {
-            "implementation": "./dist/executors/place/executor#execute",
-            "schema": "./executors/place/schema.json",
-            "description": "Places the unpacked plug-in the project's builds wrote into the host's per-user plug-in folder in one exchange, registers a UXP plug-in in its host's registry file, and signs a CEP extension before placing it"
         }
     }
 }

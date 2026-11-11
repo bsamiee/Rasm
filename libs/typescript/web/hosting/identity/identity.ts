@@ -1,4 +1,4 @@
-import { Config, Data, Effect, Layer, Option, Record, Schema, SchemaTransformation, Struct } from 'effect';
+import { Config, Data, Effect, Layer, Option, Record, Schema, SchemaGetter, SchemaTransformation, Struct } from 'effect';
 import { SecureRandom, Signature } from 'effect/crypto';
 import { FetchHttpClient, Headers, HttpRouter, HttpServerRequest, HttpServerResponse, UrlParams } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
@@ -7,6 +7,12 @@ import { Jwks, Jwt } from 'effect/jose';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Header = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()));
+const Origin = Schema.String.pipe(
+    Schema.decodeTo(Schema.URLFromString.check(Schema.makeFilter(({ href, origin }) => href === `${origin}/`, { expected: 'an HTTPS origin or its host' })), {
+        decode: SchemaGetter.transform((stated: string) => (URL.parse(stated)?.protocol === 'https:' ? stated : `https://${stated}`)),
+        encode: SchemaGetter.passthrough(),
+    }),
+);
 
 class User extends Schema.Class<User, { readonly brand: unique symbol }>('User')({ id: Schema.NonEmptyString, email: Schema.OptionFromOptionalKey(Schema.String) }) {}
 
@@ -26,7 +32,7 @@ class Identity extends Data.Class<{
 }
 
 class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Access')({
-    source: Schema.TaggedUnion({ Cloudflare: { teamDomain: Schema.String, audience: Schema.String }, Forwarded: { id: Header, email: Header } }),
+    source: Schema.TaggedUnion({ Cloudflare: { teamDomain: Origin, audience: Schema.String }, Forwarded: { id: Header, email: Header } }),
     logout: Schema.String,
 }) {
     static readonly variable = 'ACCESS';
@@ -49,11 +55,11 @@ class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Ac
             Cloudflare: ({ teamDomain, audience }) =>
                 Effect.map(
                     Layer.build(
-                        Layer.mergeAll(Jwks.layerRemote({ url: `https://${teamDomain}${Access.cloudflare.certs}` }).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: 'manual' }))), Signature.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto))),
+                        Layer.mergeAll(Jwks.layerRemote({ url: new URL(Access.cloudflare.certs, teamDomain).href }).pipe(Layer.provide(FetchHttpClient.layer), Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: 'manual' }))), Signature.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto))),
                     ),
                     (keys) => (request: HttpServerRequest.HttpServerRequest) =>
                         Effect.fromOption(Option.orElse(Headers.get(request.headers, Access.cloudflare.header), () => Record.get(request.cookies, Access.cloudflare.cookie))).pipe(
-                            Effect.flatMap((token) => Jwt.verifyWithKeySet(Claims, token, { issuer: `https://${teamDomain}`, audience, algorithms: [Access.cloudflare.algorithm] })),
+                            Effect.flatMap((token) => Jwt.verifyWithKeySet(Claims, token, { issuer: teamDomain.origin, audience, algorithms: [Access.cloudflare.algorithm] })),
                             Effect.map(Struct.get('claims')),
                             Effect.provideContext(keys),
                         ),

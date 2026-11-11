@@ -1,7 +1,6 @@
-import { constants, userInfo } from 'node:os';
 import { Unmatched } from '@rasm/search';
 import { Array, Context, Duration, Effect, Function, identity, Layer, Record, Schedule, Schema, Stream } from 'effect';
-import { ChildProcess, type ChildProcessSpawner, CommandLine } from 'effect/process';
+import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 import { Execute, Installation, Launch, Launching, Perform, Pressure, ProcessInstance, RunningInstance, Screenshot, State, TermKind, Terms, WindowID } from '#/index';
@@ -9,14 +8,6 @@ import { Execute, Installation, Launch, Launching, Perform, Pressure, ProcessIns
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Selection = typeof Selection.Type;
-interface Launchctl {
-    readonly absent: readonly number[];
-    readonly argv: (domain: string, subject: string) => readonly string[];
-}
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const UNKNOWN_SERVICE = 113;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -39,20 +30,6 @@ const Contract = RpcGroup.make(
     Rpc.make('execute', { payload: { instance: ProcessInstance, ...Execute.fields }, success: Execute.Result, error: Failure }),
     Rpc.make('screenshot', { payload: { instance: ProcessInstance, ...Screenshot.fields, directory: Schema.URL.annotate({ description: 'Directory receiving <number>.png' }) }, success: Screenshot.Result, error: Failure }),
 );
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class ExitError extends Schema.TaggedError<ExitError, { readonly brand: unique symbol }>()('ExitError', { argv: Schema.NonEmptyArray(Schema.String), code: Schema.Int, stderr: Schema.String }) {
-    static readonly stdout = Effect.fn('ExitError.stdout')(function* (argv: Array.NonEmptyReadonlyArray<string>) {
-        const handle = yield* ChildProcess.make(Array.headNonEmpty(argv), Array.tailNonEmpty(argv), { stdin: 'ignore' });
-        const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-        return code === 0 ? stdout : yield* ExitError.make({ argv, code, stderr });
-    }, Effect.scoped);
-
-    override get message(): string {
-        return `${CommandLine.display(this.argv)} exited ${this.code}: ${this.stderr.trim()}`;
-    }
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -86,24 +63,6 @@ class Automation extends Context.Service<Automation>()('@rasm/applications/node/
     }, Layer.unwrap);
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const LoginAgent = Record.map(
-    {
-        loaded: { absent: [UNKNOWN_SERVICE], argv: (domain, label) => ['print', `${domain}/${label}`] },
-        stop: { absent: [constants.errno.ESRCH], argv: (domain, label) => ['bootout', `${domain}/${label}`] },
-        restart: { absent: [UNKNOWN_SERVICE], argv: (domain, label) => ['kickstart', '-k', `${domain}/${label}`] },
-        start: { absent: [], argv: (domain, propertyList) => ['bootstrap', domain, propertyList] },
-    } satisfies Record<string, Launchctl>,
-    ({ absent, argv }: Launchctl, operation) =>
-        Effect.fn(`LoginAgent.${operation}`)((subject: string) =>
-            ExitError.stdout(['launchctl', ...argv(`gui/${userInfo().uid}`, subject)]).pipe(
-                Effect.as(true),
-                Effect.catchTag('ExitError', (error) => (absent.includes(error.code) ? Effect.succeed(false) : Effect.fail(error))),
-            ),
-        ),
-);
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Automation, ExitError, LoginAgent };
+export { Automation };

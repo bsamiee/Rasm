@@ -5,20 +5,20 @@
             "schema": "./executors/install/schema.json",
             "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"
         },
+        "package": {
+            "implementation": "./dist/executors/package/executor#execute",
+            "schema": "./executors/package/schema.json",
+            "description": "Zips each archived app and each SwiftPM executable product's release build with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity, exports each archive under it into a disk image, signs it, notarizes it with that App Store Connect key, and staples the ticket"
+        },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Attaches each folder's zip at the version nx release set to the project's GitHub release, then publishes each notarized app naming SUFeedURL to its Sparkle feed"
+            "description": "Attaches each folder's disk image, else its zip, at the version nx release set to the project's GitHub release; where SPARKLE_ED_PRIVATE_KEY is set, adds each disk image holding a stapled notarization ticket to the Sparkle feed its app names in SUFeedURL"
         },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",
             "schema": "./executors/run/schema.json",
             "description": "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed, stopping at the first failure"
-        },
-        "zip": {
-            "implementation": "./dist/executors/zip/executor#execute",
-            "schema": "./executors/zip/schema.json",
-            "description": "Zips each archived app and each SwiftPM executable product's release build with ditto; an archive with a method is exported with it first, notarized with notarytool, stapled, and zipped again"
         }
     }
 }
