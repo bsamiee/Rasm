@@ -1,5 +1,6 @@
 public import AppKit
 import ImageIO
+import Processes
 public import ScreenCaptureKit
 import UniformTypeIdentifiers
 
@@ -30,7 +31,7 @@ extension SCScreenshotConfiguration {
     }
 }
 
-extension NSRunningApplication {
+extension Instance {
     public func screenshots(
         of windows: [CGWindowID],
         longestSide: Int? = nil,
@@ -40,10 +41,10 @@ extension NSRunningApplication {
         await NSApplication.loadApplication()
         let content: SCShareableContent
         do { content = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: false) } catch {
-            throw ApplicationFailure(subject: String(processIdentifier), reason: .host(error as NSError))
+            throw ApplicationFailure(subject: String(process.pid), reason: .host(error as NSError))
         }
         let listed = Dictionary(
-            content.windows.filter { window in window.owningApplication?.processID == processIdentifier }.map { window in (window.windowID, window) }
+            content.windows.filter { window in window.owningApplication?.processID == process.pid }.map { window in (window.windowID, window) }
         ) { first, _ in first }
         var shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = [:]
         for number in windows {
@@ -71,7 +72,7 @@ extension NSRunningApplication {
             switch await state() {
                 case .running(let running): windows = running.windows.filter(\.presented).map(\.number)
                 case .failed(let failure): throw failure
-                case .exited: throw ApplicationFailure(subject: String(processIdentifier), reason: .noProcess)
+                case .exited: throw ApplicationFailure(subject: String(process.pid), reason: .noProcess)
             }
         }
         return try await screenshots(of: windows, longestSide: longestSide).reduce(into: [:]) { files, shot in

@@ -2,16 +2,17 @@ import AppKit
 public import AppleEvents
 import CasePathsCore
 public import Foundation
+import Processes
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public actor ScriptingDefinitions {
-    private var held: [URL: (processes: Set<pid_t>, reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>)] = [:]
+    private var held: [URL: (processes: Set<ProcessInstance>, reading: Task<Result<ScriptingDictionary, AppleEventFailure>, Never>)] = [:]
 
     public init() {}
 
     public func dictionary(of installation: Installation) async throws(AppleEventFailure) -> ScriptingDictionary {
-        let processes = Set(NSWorkspace.shared.instances(of: installation.runs).map(\.processIdentifier))
+        let processes = Set(NSWorkspace.shared.instances(of: installation.runs).map(\.process))
         let reading =
             switch held[installation.url] {
                 case .some(let hit) where hit.processes == processes: hit.reading

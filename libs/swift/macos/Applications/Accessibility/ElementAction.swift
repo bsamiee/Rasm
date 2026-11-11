@@ -28,17 +28,15 @@ extension ElementAction {
     public func perform(
         in process: pid_t? = nil,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
-    ) async throws(ApplicationFailure) -> (instance: NSRunningApplication, state: InstanceState) {
+    ) async throws(ApplicationFailure) -> (instance: Instance, state: InstanceState) {
         if case .perform(_, kAXRaiseAction) = self {
             throw ApplicationFailure(subject: "\(self), raising a window takes focus from the frontmost application", reason: .refused(nil))
         }
         let (instance, target) = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in
             let target = try resolved(in: process)
             let subject = process ?? target.owner
-            guard let instance = NSRunningApplication(processIdentifier: subject), !instance.isTerminated else {
-                throw ApplicationFailure(subject: String(subject), reason: .noProcess)
-            }
-            return (instance, target)
+            guard let application = NSRunningApplication(processIdentifier: subject) else { throw ApplicationFailure(subject: String(subject), reason: .noProcess) }
+            return (try Instance(application), target)
         }
         let states = instance.states(clock: clock)
         let acted = try await withTaskExecutorPreference(accessibility) { () throws(ApplicationFailure) in

@@ -15,6 +15,7 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 
 ```bash
 watch-apps find <app-or-pid>...
+watch-apps processes <app-or-pid-or-executable>... [--reports <count>]
 watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [--line-length <characters>] [--arguments <argument>...]
 watch-apps quit <app-or-pid>... [--force]
 ```
@@ -29,8 +30,18 @@ Monitor {"command": "watch-apps watch <app> [<helper>]... --line-length 500",
 - Pass a bundle id, a path, or a `url` from a `find` line or a `fail` line's `candidates`
 - `find`, `watch`, and `launch` resolve a name as a `file:` URL, a path (a name with `/`), a process ID, a bundle id, a file name, then a display name
 - Names resolve whole, ignoring case, diacritics, and a file name's `.app`
+- Process IDs read as `<pid>`, or as a line's `instance` (`<pid>@<start>`), which names one process and never a later process reusing its pid, `key` taking `<pid>` alone
+- `find`, `watch`, `launch`, and `processes` resolve the process ID of a helper executing inside an app bundle to that app
 - `find` prints `{"<name>": [<installation>...]}` per name, launching nothing and needing no Accessibility grant
 - Installations hold `url`, `executable`, `identifier`, `name`, `version`, `build`, `scriptable`, `scriptingDefinitionFile`, and `activationPolicy` (`prohibited` for `LSBackgroundOnly`, `accessory` for `LSUIElement`, else `regular`)
+- `processes` prints `{"<name>": {"agents": [...], "processes": [...], "reports": [...]}}` per name, launching nothing and needing no Accessibility grant
+- `processes` takes names as `find` does, an executable path, a process ID, or an `instance`, an exited one included
+- `agents` hold each `Contents/Library/LaunchAgents` plist of the named apps with `label`, `program`, `plist`, and `keepAlive`
+- `processes` hold each process executing a file in the named bundles with `pid`, `instance`, `executable`, and `replaced`
+- `replaced` reads true for a process running other code than the file at `executable` holds, as after an install over a running app
+- `reports` hold the newest crash reports of the named instance, bundle id, or agent label, `--reports` many per name (3)
+- Reports name executables under `/Users` and `/private/tmp` redacted, so an executable path there matches none, pass its `instance`
+- Agents with `keepAlive` and no process at `program` are not running: not registered, not approved, or failed to start with its cause in `reports`
 - Names resolving to no app print an `unnamed` `fail` line, `candidates` holding the `url` of each app with a display name containing it
 - `watch` follows every installation its names resolve to and exits when no name resolves
 - `quit`, `read`, and `capture` take a line's process ID, or resolve a name as `find` does and act on every instance running its installations
@@ -39,7 +50,8 @@ Monitor {"command": "watch-apps watch <app> [<helper>]... --line-length 500",
 - `launch` prints an `unnamed` `fail` line with each installation's `url` in `candidates` for a name resolving to more than one bundle id
 - One instance per app: `launch` reuses the instance running at the app's path unless `--new` is passed
 - Apps are never hidden: `launch` withholds activation, and new instances open with no state restored, no recent item added, and no prompt
-- `launch` prints `{"<bundle>":{"<pid>":{"launched":{"created":<bool>}}}}` first, false for a reused instance
+- `launch` prints `{"<bundle>":{"<pid>":{"instance":"<pid>@<start>","launched":{"created":<bool>}}}}` first, false for a reused instance
+- `launched` holds `replaced` true for a reused instance running code its path no longer holds, `quit` it or pass `--new` for the installed code
 - `launch` prints lines until `status` settles or a row asks, or until exit with `--wait`, then exits leaving the app running
 - `launch --wait` returns the app's exit status, or 128 plus its signal
 - `launch --wait` quits an instance it created when the run ends first (signal, reader closing, starting process exiting), and exits with its status
@@ -105,7 +117,8 @@ watch-apps serve
 
 ## [03]-[STATES]
 
-Lines read `{"<bundle id>": {"<pid>": <state>}}`, a field the app leaves unknown is absent:
+Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`, a field the app leaves unknown is absent:
+- `instance` holds the pid with its kernel start time in Mach ticks, one value per process whatever pid reuse follows
 - States read `{"running": {<fields>}}`, `{"failed": {<fields>}}`, or `{"exited": {<fields>}}`
 - `fail` lines read `{"<key>": {"fail": {"reason": <case>, "subject": <text>, "message": <text>}}}` with facts its reason holds, keyed by name, bundle id, pid, element id, `system`, or `watch-apps`
 - `system` lines read `{"system": {"memory": "normal|warning|critical", "thermal": "nominal|fair|serious|critical"}}` from the kernel, printing off `normal` and `nominal` and on return
@@ -139,7 +152,7 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, a field the app leaves unknown
 - Walks descend into scroll areas and visible table rows, outline rows, and list children, and reach menus only on explicit walks running the app's `menuWillOpen`
 - Alert button `identifier` reads `action-button-<n>` in the order the buttons were added, panel buttons `OKButton` and `CancelButton` on save and open, `PDPrint` and `PSOK` on print and page setup
 
-Instances are read at insertion and after each window, sheet, title, focus, menu, minimize, or destruction notification they post. A heartbeat reads each instance's open and focused windows and window-server rows once per 1-second messaging timeout, and reads the instance again when either changes. A stopped process reads `unresponsive` with no message sent. One silent heartbeat keeps the last status, and the second in a row reads `unresponsive`, `process` holding what the main thread did during it. With no earlier answer (`read`, a new `watch`), the first silent heartbeat reads `unresponsive`. A main thread awaiting a processor (an idle app under App Nap on a loaded machine) keeps its last status, and with no earlier answer reads `runnable` after a second message. `launching` holds until the app finishes launching unless a row asks first or its main thread sleeps with no processor time through a second silent heartbeat in a row, which reads `unresponsive`. `exited` reads `status` for an exit or `signal` for a kill with `detail` naming a `memory`, `codeSigning`, or `decryption` kill and `reporting` while a crash report is due, then a second line adds `report` (`url`, `pid`, `bundleIdentifier`, Mach `exception`) once ReportCrash writes it, or `reportFailure` after 60 seconds without one. `statusFailure` holds the cause of a failed exit status read.
+Instances are read at insertion and after each window, sheet, title, focus, menu, minimize, or destruction notification they post. A heartbeat reads each instance's open and focused windows and window-server rows once per 1-second messaging timeout, and reads the instance again when either changes. A stopped process reads `unresponsive` with no message sent. One silent heartbeat keeps the last status, and the second in a row reads `unresponsive`, `process` holding what the main thread did during it. With no earlier answer (`read`, a new `watch`), the first silent heartbeat reads `unresponsive`. A main thread awaiting a processor (an idle app under App Nap on a loaded machine) keeps its last status, and with no earlier answer reads `runnable` after a second message. `launching` holds until the app finishes launching unless a row asks first or its main thread sleeps with no processor time through a second silent heartbeat in a row, which reads `unresponsive`. `exited` reads `status` for an exit or `signal` for a kill with `detail` naming a `memory`, `codeSigning`, or `decryption` kill and `reporting` while a crash report is due, then a second line adds `report` (`url`, `pid`, `instance`, `executable`, `service` launchd label, `bundleIdentifier`, Mach `exception`, `signal`, and `termination` with `namespace`, `code`, and `indicator`, `CODESIGNING` with `Launch Constraint Violation` for a refused launch) once ReportCrash writes it, or `reportFailure` after 60 seconds without one. `statusFailure` holds the cause of a failed exit status read.
 
 | [INDEX] | [STATE]                                | [ACTION]                                              |
 | :-----: | :------------------------------------- | :---------------------------------------------------- |
@@ -153,6 +166,8 @@ Instances are read at insertion and after each window, sheet, title, focus, menu
 |  [08]   | `unresponsive` after quit, no answer   | `quit <pid> --force`                                  |
 |  [09]   | `fail` `untrusted`                     | Grant Accessibility access                            |
 |  [10]   | `exited` with `report`                 | Read the report at `url` before a launch              |
+|  [11]   | `fail` `host` or `noProcess` at launch | `processes <app>`, read `reports` for the cause       |
+|  [12]   | `launched` with `replaced`             | `quit <pid>`, then `launch`, or `launch --new`        |
 
 Hold script calls while a `blocking` row stands, calls sent before get no answer or an error (-29). `sample <pid> 1 -file <path>` reads an instance's stacks without touching it.
 

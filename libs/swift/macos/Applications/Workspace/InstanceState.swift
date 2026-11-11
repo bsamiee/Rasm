@@ -11,6 +11,11 @@ public import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+public struct Instance: Hashable, Sendable {
+    public let application: NSRunningApplication
+    public let process: ProcessInstance
+}
+
 @CasePathable
 public enum InstanceState: Equatable, Sendable {
     public struct Running: Equatable, Sendable {
@@ -216,15 +221,22 @@ extension InstanceState {
     }
 }
 
-extension NSRunningApplication {
-    fileprivate var promptNames: [String] { [localizedName].compactMap(\.self) }
+extension Instance {
+    public init(_ application: NSRunningApplication) throws(ApplicationFailure) {
+        let pid = application.processIdentifier
+        do throws(Errno) { process = try ProcessInstance(of: pid) } catch { throw ApplicationFailure(error, process: String(pid)) }
+        guard !application.isTerminated else { throw ApplicationFailure(subject: String(pid), reason: .noProcess) }
+        self.application = application
+    }
+
+    fileprivate var promptNames: [String] { [application.localizedName].compactMap(\.self) }
 
     public func state(walking walked: @Sendable (Element) -> Bool = \.asking) async -> InstanceState {
         var last = Beat(once: true)
         while true {
             last = await beat(after: last, walking: walked)
             guard let read = last.state else { continue }
-            guard !isDialogHelper else { return read }
+            guard !application.isDialogHelper else { return read }
             let prompts: [InstanceState.Window] = await NSWorkspace.shared.instances(of: \.isDialogHelper).async.reduce(into: []) { rows, helper in
                 rows += await helper.state().prompting(promptNames)
             }
@@ -240,7 +252,7 @@ extension NSRunningApplication {
         return lifetime(
             combineLatest(
                 beats(walking: walked, clock: clock),
-                chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, NSWorkspace.shared.tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
+                chain([OrderedDictionary<Instance, InstanceState>()].async, NSWorkspace.shared.tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
             ).map {
                 state,
                 helpers in state.prompted(helpers.values.flatMap { helper in helper.prompting(names) })
@@ -253,7 +265,7 @@ extension NSRunningApplication {
         _ running: some AsyncSequence<InstanceState, Never> & Sendable,
         clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        chain([Result<ProcessExit, Errno>?.none].async, termination(of: processIdentifier).map(Optional.some))
+        chain([Result<ProcessExit, Errno>?.none].async, process.termination().map(Optional.some))
             .flatMapLatest { exit in chain(running.prefix(exit == nil ? .max : 0), self.ended(exit, clock: clock)) }
             .removeDuplicates { previous, next in previous.printsSame(as: next) }
     }
@@ -264,7 +276,7 @@ extension NSRunningApplication {
                 case (.none, _): nil
                 case (.some(let exit), false): .exited(exit, report: nil)
                 case (.some(.success(let ended)), true) where ended.reports:
-                    .exited(.success(ended), report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, clock: clock))
+                    .exited(.success(ended), report: await CrashReport.written(by: self.process, since: self.application.launchDate ?? .distantPast, clock: clock))
                 case (.some, true): nil
             }
         }
@@ -277,10 +289,10 @@ extension NSRunningApplication {
     ) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
         let states = states(clock: clock)
         guard !force else {
-            return if forceTerminate() {
+            return if application.forceTerminate() {
                 states.map(Result<InstanceState, ApplicationFailure>.success)
             } else {
-                [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(processIdentifier), reason: isTerminated ? .noProcess : .refused(nil)))].async
+                [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(process.pid), reason: process.hasExited ? .noProcess : .refused(nil)))].async
             }
         }
         return AsyncStream { output in
@@ -317,12 +329,12 @@ extension NSRunningApplication {
         let request = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
             eventID: AEEventID(kAEQuitApplication),
-            targetDescriptor: NSAppleEventDescriptor(processIdentifier: processIdentifier),
+            targetDescriptor: NSAppleEventDescriptor(processIdentifier: process.pid),
             returnID: AEReturnID(kAutoGenerateReturnID),
             transactionID: AETransactionID(kAnyTransactionID),
         )
         if saving { request.setParam(NSAppleEventDescriptor(enumCode: kAEYes), forKeyword: keyAESaveOptions) }
-        let subject = String(processIdentifier)
+        let subject = String(process.pid)
         do {
             _ = try await request.sent(timeout: NSAppleEventTimeOutDefault)
         } catch  where error.status == OSStatus(userCanceledErr) {
@@ -334,7 +346,7 @@ extension NSRunningApplication {
                 case .running, .exited: reply.yield(.failure(ApplicationFailure(subject: subject, reason: .refused(nil))))
             }
         } catch  where error.status == OSStatus(procNotFound) {
-            if kill(processIdentifier, SIGTERM) != 0 { reply.yield(.failure(ApplicationFailure(subject: subject, reason: .event(error)))) }
+            if case .failure = Result(catching: { () throws(Errno) in try process.signal(SIGTERM) }) { reply.yield(.failure(ApplicationFailure(subject: subject, reason: .event(error)))) }
         } catch {
             reply.yield(.failure(ApplicationFailure(subject: subject, reason: .event(error))))
         }
@@ -342,23 +354,21 @@ extension NSRunningApplication {
 }
 
 extension NSWorkspace {
-    public func instances(of matching: (NSRunningApplication) -> Bool) -> [NSRunningApplication] {
-        runningApplications.filter { instance in
-            instance.activationPolicy != .prohibited && !instance.isTerminated && matching(instance) && !hasExited(instance.processIdentifier)
-        }
+    public func instances(of matching: (NSRunningApplication) -> Bool) -> [Instance] {
+        runningApplications.filter { application in application.activationPolicy != .prohibited && matching(application) }.compactMap { application in try? Instance(application) }
     }
 
     public func instanceStates(
         of matching: @escaping @Sendable (NSRunningApplication) -> Bool,
         walking walked: @escaping @Sendable (Element) -> Bool = \.asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
-    ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
+    ) -> some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable {
         combineLatest(
             tracked(of: matching, walking: walked, clock: clock),
-            chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
+            chain([OrderedDictionary<Instance, InstanceState>()].async, tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
         )
         .map { states, helpers in
-            OrderedDictionary<NSRunningApplication, InstanceState>(
+            OrderedDictionary<Instance, InstanceState>(
                 uniqueKeysWithValues: states.map { instance, state in (instance, state.prompted(helpers.values.flatMap { helper in helper.prompting(instance.promptNames) })) }
             )
         }
@@ -369,19 +379,19 @@ extension NSWorkspace {
         of matching: @escaping @Sendable (NSRunningApplication) -> Bool,
         walking walked: @escaping @Sendable (Element) -> Bool,
         clock: some Clock<Duration> & Sendable,
-    ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
-        let (inserted, insert) = AsyncStream<NSRunningApplication>.makeStream()
-        let listed = Mutex<Set<NSRunningApplication>?>(nil)
+    ) -> some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable {
+        let (inserted, insert) = AsyncStream<Instance>.makeStream()
+        let listed = Mutex<Set<Instance>?>(nil)
         let observation = observe(\.runningApplications, options: [.initial]) { workspace, _ in
             let running = workspace.instances(of: matching)
             listed.withLock { held in held = held ?? Set(running) }
             for instance in running { insert.yield(instance) }
         }
         let initial = listed.withLock { held in held ?? [] }
-        let changes = AsyncStream<(instance: NSRunningApplication, state: InstanceState)> { change in
+        let changes = AsyncStream<(instance: Instance, state: InstanceState)> { change in
             let following = Task {
                 await withDiscardingTaskGroup { group in
-                    var followed: Set<NSRunningApplication> = []
+                    var followed: Set<Instance> = []
                     for await instance in inserted where followed.insert(instance).inserted {
                         let states = instance.lifetime(instance.beats(walking: walked, clock: clock), clock: clock)
                         group.addTask {
@@ -397,7 +407,7 @@ extension NSWorkspace {
         }
         return chain(
             (initial.isEmpty ? [OrderedDictionary()] : []).async,
-            changes.reductions(into: (states: OrderedDictionary<NSRunningApplication, InstanceState>(), waiting: initial)) { held, next in
+            changes.reductions(into: (states: OrderedDictionary<Instance, InstanceState>(), waiting: initial)) { held, next in
                 if held.waiting.isEmpty { held.states.removeAll { _, state in state.is(\.exited) } }
                 let awaited = held.waiting.remove(next.instance) != nil
                 if !(awaited && next.state.is(\.exited)) { held.states[next.instance] = next.state }

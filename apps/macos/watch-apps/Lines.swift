@@ -43,25 +43,54 @@ struct Exit: Codable {
 
 enum Event: Encodable {
     case fail(ApplicationFailure)
-    case launched(created: Bool)
+    case launched(Launched)
     case running(Outline)
     case captured(Screenshot)
 
     private enum Key: CodingKey {
-        case fail, launched, running, captured, created
+        case fail, launched, running, captured, created, replaced
     }
 
     func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
         switch self {
             case .fail(let failure): try fields.encode(failure, forKey: .fail)
-            case .launched(let created):
-                var launched = fields.nestedContainer(keyedBy: Key.self, forKey: .launched)
-                try launched.encode(created, forKey: .created)
+            case .launched(let launched):
+                var row = fields.nestedContainer(keyedBy: Key.self, forKey: .launched)
+                try row.encode(launched.created, forKey: .created)
+                if launched.replaced { try row.encode(true, forKey: .replaced) }
             case .running(let outline): try fields.encode(outline, forKey: .running)
             case .captured(let screenshot): try fields.encode(screenshot, forKey: .captured)
         }
     }
+}
+
+struct Tagged<Value: Encodable>: Encodable {
+    private enum Key: CodingKey {
+        case instance
+    }
+
+    let instance: ProcessInstance
+    let value: Value
+
+    func encode(to encoder: any Encoder) throws {
+        try value.encode(to: encoder)
+        var fields = encoder.container(keyedBy: Key.self)
+        try fields.encode(instance, forKey: .instance)
+    }
+}
+
+struct Lifecycle: Encodable {
+    struct Row: Encodable {
+        let instance: ProcessInstance
+        let pid: pid_t
+        let executable: String?
+        let replaced: Bool?
+    }
+
+    let agents: [LaunchAgent]
+    let processes: [Row]
+    let reports: [CrashReport]
 }
 
 struct Screenshot: Encodable {

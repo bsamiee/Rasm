@@ -117,6 +117,10 @@ let revisions: [String] = try await log.reduceLines(into: [], limit: limit) { ha
 - `.name` searches the child environment's `PATH` whatever its working directory, a missing program is `SubprocessError.Code.executableNotFound`
 - Arguments reach the child as separate values with no shell, `.inherit.updating([...])` changes variables for one run and `nil` removes one
 - Processes the caller may send `SIGKILL`, children or not, report exit through `kqueue` `EVFILT_PROC` with `NOTE_EXIT | NOTE_EXITSTATUS | NOTE_EXIT_DETAIL`, `data` holding wait status, and any other process fails the registration with `EACCES` (XNU `filt_procattach`; `man 2 kqueue`'s "child processes only" is stale)
+- `ProcessInstance` from `Processes` names one process by pid and kernel start time (`proc_pid_rusage` `ri_proc_start_abstime`), a later process reusing the pid never equals it
+- `ProcessInstance(of:)` reads the identity once, and exit watches, signals (`proc_signal_with_audittoken`), thread and usage reads, and crash report matches take the instance, never a bare pid
+- `runsInstalledCode()` reads `SecCodeCheckValidity` of the running code, false once the file at its path holds other code (`errSecCSStaticCodeChanged`) or none
+- Kernel paths (`proc_pidpath`) compare with `URL.canonical()` from `Files`, `resolvingSymlinksInPath()` drops `/private`
 - `kAEQuitApplication` with `keyAESaveOptions` set to `kAEYes` saves every document with a location, a quit a person or agent answers leaves it unset
 
 ## [04]-[COMMAND_LINES]

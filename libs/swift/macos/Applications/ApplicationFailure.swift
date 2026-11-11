@@ -137,7 +137,7 @@ extension ApplicationFailure: Encodable {
 
 extension ApplicationFailure {
     init(_ error: AXError, subject: String, process: pid_t?, answering action: ElementAction? = nil, otherwise: () -> Self) {
-        let exited = process.flatMap { process in hasExited(process) ? process : nil }
+        let exited = process.flatMap { process in Result(catching: { () throws(Errno) in try ProcessInstance(of: process) }).is(\.failure) ? process : nil }
         self =
             switch (error, exited) {
                 case (.apiDisabled, _) where !AXIsProcessTrusted(): Self(subject: ProcessInfo.processInfo.processName, reason: .untrusted)
@@ -147,8 +147,8 @@ extension ApplicationFailure {
             }
     }
 
-    init(_ error: Errno, process: pid_t) {
-        self = Self(subject: String(process), reason: error == .noSuchProcess ? .noProcess : .system(error))
+    init(_ error: Errno, process: String) {
+        self = Self(subject: process, reason: error == .noSuchProcess ? .noProcess : .system(error))
     }
 }
 

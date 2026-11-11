@@ -37,7 +37,7 @@ extension NSWorkspace {
     public func systemPrompts(
         naming names: [String],
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
-    ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
+    ) -> some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable {
         tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)
             .map { held in
                 held.compactMapValues { state in

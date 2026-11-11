@@ -132,7 +132,7 @@ extension Program {
         ClosureService {
             let since = UserDefaults.standard.object(forKey: "crashReports.since") as? Date ?? .now
             UserDefaults.standard.set(Date.now, forKey: "crashReports.since")
-            let found = CrashReport.reports(for: identifier, since: since)
+            let found = CrashReport.reports(since: since) { report in report.bundleIdentifier == identifier }
             for report in found.reports {
                 let fields: [String: Logging.Logger.MetadataValue?] = [
                     "process.pid": .stringConvertible(report.pid), "file": .string(report.url.path(percentEncoded: false)),

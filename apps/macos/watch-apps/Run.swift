@@ -72,9 +72,9 @@ final class Run: Sendable {
     private let telemetry: ServiceGroup = Program.current.telemetry(scopes: [Run.self])
     private let services: Task<Void, any Error>
     private let logger: Logger
-    private let held: Mutex<(status: ExitCode, shown: [pid_t: Data], journal: Journal?)>
+    private let held: Mutex<(status: ExitCode, shown: [ProcessInstance: Data], journal: Journal?)>
     private let closed: (stream: AsyncStream<Int32?>, continuation: AsyncStream<Int32?>.Continuation) = AsyncStream.makeStream()
-    private let claims: (stream: AsyncStream<NSRunningApplication?>, continuation: AsyncStream<NSRunningApplication?>.Continuation)?
+    private let claims: (stream: AsyncStream<Instance?>, continuation: AsyncStream<Instance?>.Continuation)?
 
     init(output: FileDescriptor? = .standardOutput, lineLength: Int? = nil, waiting: Bool = false) {
         let opening = Result { () throws(ApplicationFailure) in
@@ -130,8 +130,8 @@ final class Run: Sendable {
 
     func set(_ status: ExitCode) { held.withLock { held in held.status = status } }
 
-    func show(_ instance: NSRunningApplication, _ state: InstanceState, whole: Bool = false) {
-        let (key, pid) = (instance.key, String(instance.processIdentifier))
+    func show(_ instance: Instance, _ state: InstanceState, whole: Bool = false) {
+        let (key, pid, process) = (instance.key, String(instance.process.pid), instance.process)
         let shown: any Encodable
         if case .running(let running) = state, !whole {
             let outline = Outline(
@@ -151,27 +151,27 @@ final class Run: Sendable {
                 status: running.status,
                 windows: running.windows.filter { window in window.presented && !window.asking }.map(\.number),
             )
-            let fitted = lineLength.map { limit in outline.fitted(within: limit) { outline in encoded([key: [pid: Event.running(outline)]]).count } } ?? outline
-            shown = [key: [pid: Event.running(fitted)]]
+            let fitted = lineLength.map { limit in outline.fitted(within: limit) { outline in encoded([key: [pid: Tagged(instance: process, value: Event.running(outline))]]).count } } ?? outline
+            shown = [key: [pid: Tagged(instance: process, value: Event.running(fitted))]]
         } else {
-            shown = [key: [pid: state]]
+            shown = [key: [pid: Tagged(instance: process, value: state)]]
         }
         let line = encoded(shown)
-        guard held.withLock({ held in held.shown.updateValue(line, forKey: instance.processIdentifier) }) != line else { return }
+        guard held.withLock({ held in held.shown.updateValue(line, forKey: process) }) != line else { return }
         emit(line, logging: shown, as: key)
     }
 
     func show(_ step: Launching, as key: String) {
         switch step {
-            case .launched(let launched): emit(key, [String(launched.pid): Event.launched(created: launched.created)])
+            case .launched(let launched): emit(key, [String(launched.instance.process.pid): Tagged(instance: launched.instance.process, value: Event.launched(launched))])
             case .state(let row): show(row.instance, row.state)
             case .prompts(let rows): for row: RunningInstance in rows { show(row.instance, row.state) }
             case .failed(let failure): fail(key, failure)
         }
     }
 
-    func follow(_ feed: some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable) async {
-        _ = await feed.reduce(OrderedDictionary<NSRunningApplication, InstanceState>()) { last, next in
+    func follow(_ feed: some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable) async {
+        _ = await feed.reduce(OrderedDictionary<Instance, InstanceState>()) { last, next in
             for (instance, state) in next { show(instance, state) }
             for (instance, state) in last where next[instance] == nil && !state.is(\.exited) { emit(instance.key, [String: String]()) }
             return next
@@ -182,7 +182,7 @@ final class Run: Sendable {
         for await step in steps {
             show(step, as: key)
             switch step {
-                case .launched(let launched): claims?.continuation.yield(launched.created ? NSRunningApplication(processIdentifier: launched.pid) : nil)
+                case .launched(let launched): claims?.continuation.yield(launched.created ? launched.instance : nil)
                 case .failed: claims?.continuation.yield(nil)
                 case .state(let row) where claims != nil: settle(row.state)
                 case .state, .prompts: break
@@ -193,7 +193,7 @@ final class Run: Sendable {
     func recording(_ steps: some AsyncSequence<any Encodable & Sendable, Never> & Sendable) -> some AsyncSequence<any Encodable & Sendable, Never> & Sendable {
         steps.map { step in
             if case .launched(let launched)? = step as? Launching {
-                self.show(.launched(launched), as: NSRunningApplication(processIdentifier: launched.pid)?.key ?? String(launched.pid))
+                self.show(.launched(launched), as: launched.instance.key)
             }
             return step
         }
@@ -209,7 +209,7 @@ final class Run: Sendable {
         }
     }
 
-    func quit(_ instance: NSRunningApplication, _ steps: some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable) async -> InstanceState? {
+    func quit(_ instance: Instance, _ steps: some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable) async -> InstanceState? {
         await steps.reduce(InstanceState?.none) { last, step in
             switch step {
                 case .success(let state):
@@ -251,8 +251,9 @@ final class Run: Sendable {
         let run = Run(output: output, lineLength: lineLength, waiting: waiting)
         let operation = "\(Program.current.name) \(command._commandName)"
         let signals = await UnixSignalsSequence(trapping: .sigterm, .sigint, .sighup).map { signal in Int32?.some(signal.rawValue) }
-        let parent = termination(of: getppid()).compactMap { exit in exit[case: \.success].map { _ in Int32?.none } }
-        let endings = merge(signals, parent, run.closed.stream)
+        let parent = Result { () throws(Errno) in try ProcessInstance(of: getppid()) }
+        let orphaned = (parent[case: \.success]?.termination() ?? AsyncStream { continuation in continuation.finish() }).compactMap { exit in exit[case: \.success].map { _ in Int32?.none } }
+        let endings = merge(signals, orphaned, run.closed.stream)
         await withTaskGroup(of: Int32??.self) { group in
             group.addTask {
                 var context = InstrumentationContext.topLevel
@@ -282,6 +283,6 @@ final class Run: Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-extension NSRunningApplication {
-    var key: String { bundleIdentifier ?? String(processIdentifier) }
+extension Instance {
+    var key: String { application.bundleIdentifier ?? String(process.pid) }
 }

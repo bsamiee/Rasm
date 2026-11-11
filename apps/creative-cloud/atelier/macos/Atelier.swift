@@ -12,7 +12,6 @@ import Sparkle
 import System
 import Telemetry
 import Tracing
-import UniformTypeIdentifiers
 import UnixSignals
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -56,14 +55,13 @@ enum Atelier {
             do {
                 try disclaimed.get()
                 guard serving else {
-                    let agents = try FileManager.default.contentsOfDirectory(
-                        at: Bundle.main.bundleURL.appending(components: "Contents", "Library", "LaunchAgents"),
-                        includingPropertiesForKeys: nil,
-                    )
-                    .filter { file in UTType(filenameExtension: file.pathExtension)?.conforms(to: .propertyList) == true }
-                    .map { file in SMAppService.agent(plistName: file.lastPathComponent) }
-                    _ = try traverse(agents.filter { agent in agent.status != .requiresApproval }) { agent in Result { try agent.register() }.aggregated(\.self) }.get()
-                    if agents.contains(where: { agent in agent.status == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
+                    let agents = try Program.current.agents()
+                    var registered: [Result<Void, ApplicationFailure>] = []
+                    for agent in agents where agent.service.status != .requiresApproval {
+                        registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() })
+                    }
+                    _ = try traverse(registered) { outcome in outcome.aggregated(\.self) }.get()
+                    if agents.contains(where: { agent in agent.service.status == .requiresApproval }) { SMAppService.openSystemSettingsLoginItems() }
                     return
                 }
                 do { try checkAccessibilityTrust(prompting: true) } catch { logger.notice("Started without Accessibility trust", error: error) }

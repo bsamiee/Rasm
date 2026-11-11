@@ -1,6 +1,7 @@
 public import AppKit
 import AsyncAlgorithms
 import CasePathsCore
+import Processes
 public import Results
 import System
 import UniformTypeIdentifiers
@@ -51,8 +52,19 @@ extension Installation {
             URL(string: name).flatMap { url in url.isFileURL ? url : nil }
             ?? (path.removingLastComponent().isEmpty && path.lastComponent?.kind == .regular ? nil : URL(filePath: name, directoryHint: .isDirectory))
         if let located { return [try Self(at: located)] }
-        if let pid = pid_t(name) {
-            guard let bundle = NSRunningApplication(processIdentifier: pid)?.bundleURL else { throw ApplicationFailure(subject: name, reason: .noProcess) }
+        let process: ProcessInstance?
+        do throws(Errno) { process = try ProcessInstance(named: name) } catch { throw ApplicationFailure(error, process: name) }
+        if let process {
+            let executable: FilePath
+            do throws(Errno) { executable = try process.executable() } catch { throw ApplicationFailure(error, process: name) }
+            let enclosing: URL?
+            do {
+                enclosing = try sequence(first: URL(filePath: executable.string)) { url in url.pathComponents.count > 1 ? url.deletingLastPathComponent() : nil }
+                    .first { url in try url.resourceValues(forKeys: [.contentTypeKey]).contentType?.conforms(to: .applicationBundle) == true }
+            } catch {
+                throw ApplicationFailure(subject: executable.string, reason: .host(error as NSError))
+            }
+            guard let bundle = NSRunningApplication(processIdentifier: process.pid)?.bundleURL ?? enclosing else { throw ApplicationFailure(subject: executable.string, reason: .noIdentifier) }
             return [try Self(at: bundle)]
         }
         let registered = try readable(await listed(NSWorkspace.shared.urlsForApplications(withBundleIdentifier: name).map { url in url.path(percentEncoded: false) }))
@@ -120,8 +132,16 @@ extension Installation {
 
 extension NSWorkspace {
     @MainActor
-    public func instances(named name: String) async throws(ApplicationFailure) -> [NSRunningApplication] {
-        if let pid = pid_t(name) { return [NSRunningApplication(processIdentifier: pid)].compactMap(\.self) }
+    public func instances(named name: String) async throws(ApplicationFailure) -> [Instance] {
+        switch Result(catching: { () throws(Errno) in try ProcessInstance(named: name) }) {
+            case .success(.some(let process)):
+                return [NSRunningApplication(processIdentifier: process.pid)].compactMap(\.self).compactMap { application in try? Instance(application) }.filter { instance in
+                    instance.process == process
+                }
+            case .failure(.noSuchProcess): return []
+            case .failure(let error): throw ApplicationFailure(error, process: name)
+            case .success(.none): break
+        }
         let found = try await Installation.installed(named: name)
         return instances { instance in found.contains { installation in installation.runs(instance) } }
     }

@@ -5,6 +5,7 @@ import AsyncAlgorithms
 import Carbon.HIToolbox
 import CasePaths
 import CurrentProcess
+import Files
 import OrderedCollections
 import Processes
 import System
@@ -26,6 +27,51 @@ private func installed(_ names: [String], _ run: Run) async -> [(name: String, i
         }
     }
     .reduce(into: []) { found, entry in found.append(entry) }
+}
+
+private func lifecycle(of name: String, reports limit: Int) async throws(ApplicationFailure) -> Lifecycle {
+    let exited = ProcessInstance(rawValue: name)
+    let named: ProcessInstance?
+    do throws(Errno) { named = try ProcessInstance(named: name) } catch  where error == .noSuchProcess && exited != nil { named = exited } catch {
+        throw ApplicationFailure(subject: name, reason: error == .noSuchProcess ? .noProcess : .system(error))
+    }
+    let file: URL?
+    do throws(Errno) { file = named == nil && !FilePath(name).removingLastComponent().isEmpty ? try ifPresent { () throws(Errno) in try URL(filePath: name).canonical() } : nil } catch {
+        throw ApplicationFailure(subject: name, reason: .system(error))
+    }
+    let regular: Bool
+    do { regular = try file?.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true } catch { throw ApplicationFailure(subject: name, reason: .host(error as NSError)) }
+    let executable = regular ? file.map { file in FilePath(file.path(percentEncoded: false)) } : nil
+    let installations = named == nil && executable == nil ? try await Installation.installed(named: name) : []
+    let agents = Array(try installations.map { installation throws(ApplicationFailure) in try installation.agents() }.joined())
+    let bundles: [FilePath]
+    do throws(Errno) { bundles = try installations.map { installation throws(Errno) in FilePath(try installation.url.canonical().path(percentEncoded: false)) } } catch {
+        throw ApplicationFailure(subject: name, reason: .system(error))
+    }
+    let scoped: (FilePath) -> Bool = { path in path == executable || bundles.contains(where: path.starts(with:)) }
+    let owned: (CrashReport) -> Bool = { report in
+        report.executable.map { path in scoped(FilePath(path)) } == true || installations.contains { installation in installation.identifier == report.bundleIdentifier }
+            || agents.contains { agent in agent.label == report.service }
+    }
+    let running: [ProcessInstance]
+    do throws(Errno) {
+        running =
+            switch named {
+                case .some(let named) where named.hasExited: []
+                case .some(let named): [named]
+                case .none: try ProcessInstance.executing(scoped)
+            }
+    } catch {
+        throw ApplicationFailure(subject: name, reason: .system(error))
+    }
+    let found = CrashReport.reports { report in named.map { named in report.instance == named } ?? owned(report) }
+    return Lifecycle(
+        agents: agents,
+        processes: running.map { instance in
+            Lifecycle.Row(instance: instance, pid: instance.pid, executable: try? instance.executable().string, replaced: (try? instance.runsInstalledCode()).map { installed in !installed })
+        },
+        reports: Array(found.reports.prefix(limit)),
+    )
 }
 
 private func act(_ command: (some ParsableCommand).Type, _ action: ElementAction, key: String) async {
@@ -54,8 +100,8 @@ struct Running: ParsableArguments {
     @Argument(help: "Process IDs from a line, or installed application paths, file: URLs, bundle identifiers, or whole file or display names. Names ignore case and diacritics")
     var names: [String]
 
-    func each(_ run: Run, _ body: @escaping @Sendable (NSRunningApplication) async throws(ApplicationFailure) -> Void) async {
-        var instances: OrderedSet<NSRunningApplication> = []
+    func each(_ run: Run, _ body: @escaping @Sendable (Instance) async throws(ApplicationFailure) -> Void) async {
+        var instances: OrderedSet<Instance> = []
         for name in names {
             do throws(ApplicationFailure) {
                 let found = try await NSWorkspace.shared.instances(named: name)
@@ -238,7 +284,10 @@ struct Capture: AsyncParsableCommand {
                 for (number, shot) in shots.sorted(by: { first, second in first.key < second.key }) {
                     do throws(ApplicationFailure) {
                         let file = try shot.get()
-                        run.emit(instance.key, [String(instance.processIdentifier): Event.captured(Screenshot(file: file.path(percentEncoded: false), number: number))])
+                        run.emit(
+                            instance.key,
+                            [String(instance.process.pid): Tagged(instance: instance.process, value: Event.captured(Screenshot(file: file.path(percentEncoded: false), number: number)))],
+                        )
                     } catch {
                         run.fail(instance.key, error)
                     }
@@ -307,6 +356,28 @@ struct Quit: AsyncParsableCommand {
         await Run.execute(Self.self) { run in
             await running.each(run) { instance in
                 if await run.quit(instance, instance.quit(force: force))?.is(\.exited) != true { run.fail() }
+            }
+        }
+    }
+}
+
+struct ProcessTable: AsyncParsableCommand {
+    static let configuration: CommandConfiguration = .init(commandName: "processes", abstract: "Prints each name's launch agents, running processes, and newest crash reports with no launch")
+
+    @Argument(help: "Names as find takes, executable paths, process IDs, or instance values from a line, an exited instance included")
+    var names: [String]
+
+    @Option(help: ArgumentHelp("Newest crash reports printed per name", valueName: "count"))
+    var reports: Int = 3
+
+    func validate() throws(ValidationError) {
+        if reports < 0 { throw ValidationError("\(reports) is negative") }
+    }
+
+    func run() async {
+        await Run.execute(Self.self, accessibility: false) { run in
+            for name in OrderedSet(names) {
+                do throws(ApplicationFailure) { run.emit(name, try await lifecycle(of: name, reports: reports)) } catch { run.fail(name, error) }
             }
         }
     }

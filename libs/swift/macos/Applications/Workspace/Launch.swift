@@ -1,5 +1,6 @@
 public import AppKit
 import AsyncAlgorithms
+import Files
 import OrderedCollections
 import Processes
 import System
@@ -8,33 +9,48 @@ import System
 
 public struct RunningInstance: Encodable, Sendable {
     private enum Key: CodingKey {
-        case pid, identifier, url, activationPolicy, state
+        case pid, instance, identifier, url, activationPolicy, state
     }
 
-    public let instance: NSRunningApplication
+    public let instance: Instance
     public let identifier: String
     public let url: URL
     public let state: InstanceState
 
-    public init?(_ instance: NSRunningApplication, state: InstanceState) {
-        guard let url = instance.bundleURL, let identifier = instance.bundleIdentifier else { return nil }
+    public init?(_ instance: Instance, state: InstanceState) {
+        guard let url = instance.application.bundleURL, let identifier = instance.application.bundleIdentifier else { return nil }
         (self.instance, self.identifier, self.url, self.state) = (instance, identifier, url, state)
     }
 
     public func encode(to encoder: any Encoder) throws {
         var fields = encoder.container(keyedBy: Key.self)
-        try fields.encode(instance.processIdentifier, forKey: .pid)
+        try fields.encode(instance.process.pid, forKey: .pid)
+        try fields.encode(instance.process, forKey: .instance)
         try fields.encode(identifier, forKey: .identifier)
         try fields.encode(url, forKey: .url)
-        try fields.encode(instance.activationPolicy.name, forKey: .activationPolicy)
+        try fields.encode(instance.application.activationPolicy.name, forKey: .activationPolicy)
         try fields.encode(state, forKey: .state)
     }
 }
 
 public struct Launched: Encodable, Sendable {
-    public let pid: pid_t
+    private enum Key: CodingKey {
+        case pid, instance, identifier, created, replaced
+    }
+
+    public let instance: Instance
     public let identifier: String
     public let created: Bool
+    public let replaced: Bool
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: Key.self)
+        try fields.encode(instance.process.pid, forKey: .pid)
+        try fields.encode(instance.process, forKey: .instance)
+        try fields.encode(identifier, forKey: .identifier)
+        try fields.encode(created, forKey: .created)
+        if replaced { try fields.encode(true, forKey: .replaced) }
+    }
 }
 
 public enum Launching: Encodable, Sendable {
@@ -76,15 +92,20 @@ extension NSWorkspace {
         arguments: [String] = [],
         environment: [String: String] = [:],
         newInstance: Bool = false,
-    ) async throws(ApplicationFailure) -> (instance: NSRunningApplication, created: Bool) {
+    ) async throws(ApplicationFailure) -> (instance: Instance, created: Bool) {
         let url = installation.url
-        let running = runningApplications.filter(installation.runs)
+        let running = runningApplications.filter(installation.runs).compactMap { application in try? Instance(application) }
         let creating = newInstance || running.isEmpty
         if let reused = running.first, !creating, documents.isEmpty { return (reused, false) }
-        let executable = installation.executable?.path(percentEncoded: false)
-        let listing: (String) throws(ApplicationFailure) -> Set<pid_t> = { executable throws(ApplicationFailure) in
-            do throws(Errno) { return try processes(executing: executable) } catch { throw ApplicationFailure(subject: executable, reason: .system(error)) }
+        let listing: (URL) throws(ApplicationFailure) -> Set<ProcessInstance> = { executable throws(ApplicationFailure) in
+            do throws(Errno) {
+                let path = FilePath(try executable.canonical().path(percentEncoded: false))
+                return Set(try ProcessInstance.executing { running in running == path })
+            } catch {
+                throw ApplicationFailure(subject: executable.path(percentEncoded: false), reason: .system(error))
+            }
         }
+        let executable = installation.executable
         let before = try executable.map(listing) ?? []
         let configuration = OpenConfiguration()
         configuration.activates = false
@@ -110,13 +131,13 @@ extension NSWorkspace {
         } catch {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error as NSError))
         }
-        guard opened.processIdentifier == -1, let executable else { return (opened, !running.contains(opened)) }
+        guard opened.processIdentifier == -1, let executable else { return (try Instance(opened), !running.map(\.application).contains(opened)) }
         let after = try listing(executable)
         let started = after.subtracting(before).first
-        guard let instance = (started ?? after.first).flatMap(NSRunningApplication.init(processIdentifier:)) else {
+        guard let process = started ?? after.first, let application = NSRunningApplication(processIdentifier: process.pid) else {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .noProcess)
         }
-        return (instance, started != nil)
+        return (Instance(application: application, process: process), started != nil)
     }
 
     public func launching(
@@ -148,7 +169,8 @@ extension NSWorkspace {
                         newInstance: newInstance,
                     )
                     prompting.cancel()
-                    output.yield(.launched(Launched(pid: instance.processIdentifier, identifier: installation.identifier, created: created)))
+                    let replaced = !created && Result(catching: { () throws(Errno) in try instance.process.runsInstalledCode() }) == .success(false)
+                    output.yield(.launched(Launched(instance: instance, identifier: installation.identifier, created: created, replaced: replaced)))
                     for await state in instance.states(clock: clock) {
                         if let running = RunningInstance(instance, state: state) { output.yield(.state(running)) }
                         switch state {
