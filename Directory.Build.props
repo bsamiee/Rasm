@@ -40,11 +40,12 @@
     </ItemGroup>
 
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RepoTargetFramework)-windows</TargetFramework>
+        <RhinoTargetFramework>net10.0</RhinoTargetFramework>
+        <TargetFramework>$(RhinoTargetFramework)</TargetFramework>
+        <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RhinoTargetFramework)-windows</TargetFramework>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
         <PlatformTarget>AnyCPU</PlatformTarget>
-        <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
         <PublishReferencesSymbols>false</PublishReferencesSymbols>
     </PropertyGroup>

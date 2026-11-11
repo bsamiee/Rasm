@@ -1,7 +1,9 @@
+#[cfg(feature = "sqlite")]
 use core::ffi::{c_char, c_int};
 use core::fmt::Debug;
 use core::future::ready;
 use core::panic::AssertUnwindSafe;
+#[cfg(feature = "sqlite")]
 use core::{mem, ptr};
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Termination};
@@ -11,8 +13,11 @@ use assert_fs::fixture::FixtureError;
 use derive_more::Deref;
 use derive_where::derive_where;
 use futures::FutureExt as _;
+#[cfg(feature = "sqlite")]
 use libsqlite3_sys::{SQLITE_OK, sqlite3, sqlite3_api_routines, sqlite3_free};
+#[cfg(feature = "sqlite")]
 use sqlx::SqlitePool;
+#[cfg(feature = "sqlite")]
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -59,6 +64,7 @@ impl Fixture for Folder {
     fn kept(self) -> impl Future<Output = Result<PathBuf, FixtureError>> { ready(Ok(self.0.into_persistent().to_path_buf())) }
 }
 
+#[cfg(feature = "sqlite")]
 #[derive(Debug, Deref)]
 pub struct Sqlite {
     #[deref]
@@ -66,6 +72,7 @@ pub struct Sqlite {
     folder: Folder,
 }
 
+#[cfg(feature = "sqlite")]
 impl Fixture for Sqlite {
     type Within = (PathBuf, SqliteConnectOptions);
     type Kept = PathBuf;

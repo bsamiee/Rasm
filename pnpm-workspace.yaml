@@ -468,6 +468,7 @@ catalog:
     nx: 24.0.6
     '@nx/devkit': 24.0.6
     '@nx/js': 24.0.6 # tsconfig `extends` chains the config-reading plugins hash
+    '@nx/web': 24.0.6 # `file-server` executor serving a built Storybook
 
     # --- [BUILD]
 
@@ -475,8 +476,8 @@ catalog:
     '@cloudflare/vite-plugin': 2.0.0-beta.v.14
     '@cloudflare/workers-types': 5.20261110.1
     '@openai/sites-vite-plugin': 0.2.0
-    '@cloudflare/build-output-utils': 0.9.11 # Build Output tree reader for hosting programs
-    '@cloudflare/config': 0.31.0 # `cloudflare.config.ts` uncached loader and parser for hosting programs
+    '@cloudflare/build-output-utils': 0.9.12 # Build Output tree reader for hosting programs
+    '@cloudflare/config': 0.31.1 # `cloudflare.config.ts` uncached loader and parser for hosting programs
     cf: 1.0.0-beta.29 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
     signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
     tinyglobby: 0.2.17 # Types of the file lister Vitest lists test files through
@@ -594,6 +595,7 @@ catalogs:
         '@playwright/test': ^1.66.0-0
         pdfjs-dist: ^6.0.0
         nx: ^24.0.0
+        '@nx/web': ^24.0.0 # Nx resolves the executor from the workspace's own `@nx/web`, released in step with its `nx`
         '@typescript/native': 'npm:typescript@>=7.1.0-0'
         '@pulumi/pulumi': ^3.274.0-0
         '@pulumi/cloudflare': ^6.0.0-0
@@ -646,8 +648,6 @@ overrides:
     '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
     '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
     '@opentelemetry/api': 'catalog:' # OpenTelemetry 2 under `@pulumi/pulumi` peers below 1.10, a second copy splits every `vitest` snapshot
-    cf>@cloudflare/config: 'catalog:'
-    cf>@cloudflare/build-output-utils: 'catalog:'
     cloudevents>uuid: 14.0.3 # `cloudevents` 10.0.0 names `uuid` 8, a release line npm marks unsupported
     '@axe-core/playwright>playwright-core:peer': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version
     tree-sitter: '-'     # Node bindings the grammar packages name as peers, the build compiles their C sources alone

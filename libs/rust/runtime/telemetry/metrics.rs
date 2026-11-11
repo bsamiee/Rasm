@@ -25,7 +25,6 @@ use opentelemetry_semantic_conventions::metric::{
     PROCESS_UPTIME,
 };
 use sysinfo::{MINIMUM_CPU_UPDATE_INTERVAL, Pid, Process, ProcessRefreshKind, ProcessesToUpdate, System};
-use tokio::runtime::{Handle, RuntimeMetrics};
 use tokio::time::Instant;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -154,33 +153,4 @@ where I: IntoIterator<Item = u32> {
         .with_callback(move |observer| measured(&lived, |process, _| Duration::from_secs(process.run_time()).as_secs_f64()).into_iter().for_each(|(pid, seconds)| observer.observe(seconds, &[pid])))
         .build();
     Ok(())
-}
-
-pub fn runtime(provider: &dyn MeterProvider, handle: &Handle) {
-    const TASKS: &str = "{task}";
-    let meter = provider.meter_with_scope(crate::scope(env!("CARGO_PKG_NAME")));
-    let counts: [(&str, &str, fn(&RuntimeMetrics) -> usize); 3] = [
-        ("tokio.runtime.worker.count", "{worker}", RuntimeMetrics::num_workers),
-        ("tokio.runtime.task.count", TASKS, RuntimeMetrics::num_alive_tasks),
-        ("tokio.runtime.global_queue.depth", TASKS, RuntimeMetrics::global_queue_depth),
-    ];
-    for (name, unit, read) in counts {
-        let metrics = handle.metrics();
-        meter.i64_observable_up_down_counter(name).with_unit(unit).with_callback(move |observer| observer.observe(read(&metrics).saturating_cast(), &[])).build();
-    }
-    #[cfg(target_has_atomic = "64")]
-    {
-        let indexed = |index: usize| [KeyValue::new("tokio.worker.index", index.saturating_cast::<i64>())];
-        let (busy, parked) = (handle.metrics(), handle.metrics());
-        meter
-            .f64_observable_counter("tokio.runtime.worker.busy_time")
-            .with_unit("s")
-            .with_callback(move |observer| (0..busy.num_workers()).for_each(|index| observer.observe(busy.worker_total_busy_duration(index).as_secs_f64(), &indexed(index))))
-            .build();
-        meter
-            .u64_observable_counter("tokio.runtime.worker.park.count")
-            .with_unit("{park}")
-            .with_callback(move |observer| (0..parked.num_workers()).for_each(|index| observer.observe(parked.worker_park_count(index), &indexed(index))))
-            .build();
-    }
 }

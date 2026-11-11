@@ -108,6 +108,12 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.14"
         }
       },
+      "Microsoft.macOS.Ref.net10.0_26.0": {
+        "type": "Direct",
+        "requested": "[26.0.11017, )",
+        "resolved": "26.0.11017",
+        "contentHash": "LpFdOvwwe+dvXxQQaud0gnCSOgDOcOgWlKxFBkK3/uUSRDprhauoM7q6Ycsmx0G9yLGTBCS2oQXqyaJptdX6bw=="
+      },
       "Microsoft.VisualStudio.Threading": {
         "type": "Direct",
         "requested": "[18.12.1, )",
@@ -124,12 +130,6 @@
         "requested": "[18.12.1, )",
         "resolved": "18.12.1",
         "contentHash": "sQt7NpnselT1gP1a7bTfhmfHYV0jbavst/8mOoWTMSjXhXzWPssqgBoIwrxNsgJUa7XQzD2raSRMAFfmlepxNw=="
-      },
-      "Microsoft.Win32.SystemEvents": {
-        "type": "Direct",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "bYdnhuD0XxcVTrxc8RyBjXo+AXYWJPnda3clhGz2Kakleyun1PyrzYV8RezT7ZYmR9OBSOgvpFQcvHo/K8Y90w=="
       },
       "Mono.Unix": {
         "type": "Direct",
@@ -416,6 +416,12 @@
         "resolved": "10.0.14",
         "contentHash": "1bbZqqCJTPba3inTADExbp/9PsGVyvGOX3zr6tFr7ySCgVkX9Lpw7BV0TizktNItd3SsbUu1sQfSAYm1GZMoNw=="
       },
+      "Microsoft.Win32.SystemEvents": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.0, )",
+        "resolved": "10.0.0",
+        "contentHash": "bYdnhuD0XxcVTrxc8RyBjXo+AXYWJPnda3clhGz2Kakleyun1PyrzYV8RezT7ZYmR9OBSOgvpFQcvHo/K8Y90w=="
+      },
       "NLog": {
         "type": "CentralTransitive",
         "requested": "[6.2.2, )",
@@ -462,20 +468,6 @@
         "requested": "[10.6.0, )",
         "resolved": "10.6.0",
         "contentHash": "Jw3+e90caB67fLwod+dVgEBimjEEVW/K7wpQs4G5/3iZeHJUWsBSYBjwh2eVkQGhmyAClGldK/4awKuqGunvyA=="
-      }
-    },
-    "net10.0/win-x64": {
-      "Microsoft.Win32.SystemEvents": {
-        "type": "Direct",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "bYdnhuD0XxcVTrxc8RyBjXo+AXYWJPnda3clhGz2Kakleyun1PyrzYV8RezT7ZYmR9OBSOgvpFQcvHo/K8Y90w=="
-      },
-      "Mono.Unix": {
-        "type": "Direct",
-        "requested": "[7.1.0-final.1.21458.1, )",
-        "resolved": "7.1.0-final.1.21458.1",
-        "contentHash": "Rhxz4A7By8Q0wEgDqR+mioDsYXGrcYMYPiWE9bSaUKMpG8yAGArhetEQV5Ms6KhKCLdQTlPYLBKPZYoKbAvT/g=="
       }
     },
     "net10.0-windows7.0": {
@@ -921,14 +913,6 @@
         "requested": "[10.6.0, )",
         "resolved": "10.6.0",
         "contentHash": "Jw3+e90caB67fLwod+dVgEBimjEEVW/K7wpQs4G5/3iZeHJUWsBSYBjwh2eVkQGhmyAClGldK/4awKuqGunvyA=="
-      }
-    },
-    "net10.0-windows7.0/win-x64": {
-      "Mono.Unix": {
-        "type": "Direct",
-        "requested": "[7.1.0-final.1.21458.1, )",
-        "resolved": "7.1.0-final.1.21458.1",
-        "contentHash": "Rhxz4A7By8Q0wEgDqR+mioDsYXGrcYMYPiWE9bSaUKMpG8yAGArhetEQV5Ms6KhKCLdQTlPYLBKPZYoKbAvT/g=="
       }
     }
   }

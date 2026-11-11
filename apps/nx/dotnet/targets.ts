@@ -1,5 +1,5 @@
 import type { TargetConfiguration } from '@nx/devkit';
-import type { Identity, Members } from '@rasm/nx-devkit/plugin';
+import { type Identity, line, type Members } from '@rasm/nx-devkit/plugin';
 import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -26,6 +26,7 @@ const Node = Schema.Struct({
     results: Schema.Array(Schema.String),
     platforms: Schema.Array(Schema.String),
     implicit: Schema.Array(Schema.String),
+    packed: Schema.String,
     central: Schema.NullOr(Schema.String),
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
@@ -36,103 +37,108 @@ const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(im
 
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
-const targets = (plugin: Identity, path: Path.Path, node: Node, named: string, packages: string): { readonly members: Members; readonly targets: Readonly<Record<string, TargetConfiguration>> } => {
+const targets = (plugin: Identity, path: Path.Path, node: Node, packages: Option.Option<string>): { readonly members: Members; readonly publish?: TargetConfiguration } => {
     const root = path.dirname(node.file);
     const project = path.join('{projectRoot}', path.basename(node.file));
     const inputs: NonNullable<TargetConfiguration['inputs']> = [
-        named,
-        `^${named}`,
+        'default',
+        '^default',
         ...node.inputs.map((input) => path.join('{workspaceRoot}', input)),
-        ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${path.join('{workspaceRoot}', base, '**')}`),
+        ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${path.join('{projectRoot}', path.relative(root, base), '**')}`),
         { env: 'NUGET_PACKAGES' },
-        { externalDependencies: [] },
     ];
-    const modes = node.modes.map((mode) => ({
-        name: [mode.configuration.toLowerCase(), ...Option.toArray(Option.fromNullOr(mode.runtime))].join('_'),
-        args: ['--configuration', mode.configuration, ...(mode.runtime === null ? [] : ['--runtime', mode.runtime])],
-        verb: Array.isReadonlyArrayNonEmpty(mode.published) ? 'publish' : 'build',
-        outputs: [...mode.outputs, ...mode.published],
-        reports: mode.reports,
-        primary: mode.configuration === node.configuration && mode.runtime === null,
-    }));
-    const configured = <A>(each: (mode: (typeof modes)[number]) => A) => ({
-        configurations: Record.fromIterableWith(modes, (mode) => [mode.name, each(mode)] as const),
-        ...Record.getSomes({ defaultConfiguration: Option.map(Array.findFirst(modes, Struct.get('primary')), Struct.get('name')) }),
+    const modes = node.modes.map((mode) => {
+        const runtime = mode.runtime === null ? [] : ['--runtime', mode.runtime];
+        return {
+            name: [mode.configuration.toLowerCase(), ...Array.fromNullishOr(mode.runtime)].join('_'),
+            args: ['--configuration', mode.configuration, ...runtime],
+            restored: [...runtime, `-p:Configuration=${mode.configuration}`],
+            verb: Array.isReadonlyArrayNonEmpty(mode.published) ? 'publish' : 'build',
+            outputs: [...mode.outputs, ...mode.published, ...mode.reports],
+            reports: mode.reports,
+            primary: mode.configuration === node.configuration && mode.runtime === null,
+        };
     });
+    const moded = <A extends object>(each: (mode: (typeof modes)[number]) => A) => ({
+        options: Option.getOrElse(Option.map(Array.findFirst(modes, Struct.get('primary')), each), (): Partial<A> => ({})),
+        configurations: Record.fromIterableWith(modes, (mode) => [mode.name, each(mode)] as const),
+    });
+    const built = moded(({ verb, args, outputs }) => ({ command: [verb, ...args], outputs }));
+    const checked = moded(({ reports }) => ({ reports }));
+    const tested = moded(({ args, restored }) => ({ commands: [{ command: line(['dotnet', 'restore', ...restored]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', ...args])] }));
+    const cleaned = moded(({ args }) => ({ commands: [['dotnet', 'clean', node.file, ...args]] }));
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${plugin.name}:format`,
         options: { commands, project },
         dependsOn: ['build--dotnet'],
-        inputs: Array.dedupe([...inputs, ...plugin.inputs]),
+        inputs,
         metadata: metadata(Array.headNonEmpty(Array.headNonEmpty(commands)), description),
     });
-    const members: Members = {
-        build: {
-            dotnet: {
-                executor: `${plugin.name}:build`,
-                options: { project },
-                ...configured(({ verb, args, outputs }) => ({ command: [verb, ...args], outputs })),
-                outputs: Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`),
-                dependsOn: ['^build--dotnet'],
-                cache: true,
-                inputs: Array.dedupe([...inputs, ...plugin.inputs, { workingDirectory: 'absolute' as const }]),
-                metadata: metadata(node.publishable ? 'publish' : 'build', node.publishable ? `Builds ${node.name} with its references in one MSBuild run, publishing it in every configuration` : `Builds ${node.name} with its references in one MSBuild run`),
-            },
-        },
-        check: {
-            'dotnet-build': {
-                executor: `${plugin.name}:check`,
-                ...configured(({ reports }) => ({ reports })),
-                dependsOn: ['build--dotnet'],
-                cache: true,
-                inputs: [...plugin.inputs, { dependentTasksOutputFiles: '**/*.sarif', transitive: false }],
-                metadata: { description: `Fails on each warning or error in the SARIF report the compile of ${node.name} wrote, printed as file(line,col): level id: text` },
-            },
-            'dotnet-format': { ...formatted([['format', 'style', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
-        },
-        test: node.test
-            ? {
-                  dotnet: {
-                      executor: 'nx:run-commands',
-                      options: { command: 'dotnet test --no-build', cwd: '{projectRoot}' },
-                      ...configured(({ args }) => ({ args })),
-                      dependsOn: ['build--dotnet'],
-                      cache: true,
-                      inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
-                      outputs: node.results.map((results) => path.join('{workspaceRoot}', results)),
-                      metadata: metadata('test', `Tests ${node.name} with dotnet test`),
-                  },
-              }
-            : {},
-        clean: {
-            dotnet: {
-                options: { commands: [['dotnet', 'clean', node.file]], cwd: '.' },
-                metadata: metadata('clean', `Removes the build outputs of ${node.name} with dotnet clean`),
-                ...configured(({ args }) => ({ commands: [['dotnet', 'clean', node.file, ...args]] })),
-            },
-        },
-        fix: {
-            'dotnet-format': formatted(
-                [
-                    ['format', 'style'],
-                    ['format', 'analyzers'],
-                ],
-                `Applies the code style and analyzer fixes of ${node.name} with dotnet format style and analyzers`,
-            ),
-        },
-    };
+    const packed = Option.getOrElse(packages, () => node.packed);
     return {
-        members,
-        targets: node.packable
-            ? {
-                  'nx-release-publish': {
-                      executor: plugin.publisher,
-                      options: { commands: [['dotnet', 'pack', project, '--no-build', '--output', packages]], publish: ['dotnet', 'nuget', 'push', path.join(packages, '*.nupkg'), '--skip-duplicate'], flags: { registry: '--source' } },
-                      dependsOn: ['^nx-release-publish'],
-                      metadata: { description: `Packs the Release build of ${node.name} and pushes the package with dotnet nuget push`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
-                  },
-              }
-            : {},
+        members: {
+            build: {
+                dotnet: {
+                    executor: `${plugin.name}:build`,
+                    options: { project, ...built.options },
+                    configurations: built.configurations,
+                    outputs: Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`),
+                    dependsOn: ['^build--dotnet'],
+                    cache: true,
+                    inputs,
+                    metadata: metadata(node.publishable ? 'publish' : 'build', node.publishable ? `Builds ${node.name} with its references in one MSBuild run, publishing it in every configuration` : `Builds ${node.name} with its references in one MSBuild run`),
+                },
+            },
+            check: {
+                'dotnet-build': {
+                    executor: `${plugin.name}:check`,
+                    ...checked,
+                    dependsOn: ['build--dotnet'],
+                    cache: true,
+                    inputs: [{ dependentTasksOutputFiles: '**/*.sarif', transitive: false }],
+                    metadata: { description: `Fails on each warning or error in the SARIF report the compile of ${node.name} wrote, printed as file(line,col): level id: text` },
+                },
+                'dotnet-format': { ...formatted([['format', 'style', '--verify-no-changes']], `Fails on any code style finding in ${node.name}, the IDE rules no build runs included, with dotnet format style --verify-no-changes`), cache: true },
+            },
+            test: node.test
+                ? {
+                      dotnet: {
+                          executor: 'nx:run-commands',
+                          options: { parallel: false, cwd: '{projectRoot}', ...tested.options },
+                          configurations: tested.configurations,
+                          dependsOn: ['build--dotnet'],
+                          cache: true,
+                          inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
+                          outputs: node.results.map((results) => path.join('{workspaceRoot}', results)),
+                          metadata: metadata('test', `Restores ${node.name} and tests the build with dotnet test`),
+                      },
+                  }
+                : {},
+            clean: { dotnet: { options: { cwd: '.', ...cleaned.options }, configurations: cleaned.configurations, metadata: metadata('clean', `Removes the build outputs of ${node.name} with dotnet clean`) } },
+            fix: {
+                'dotnet-format': formatted(
+                    [
+                        ['format', 'style'],
+                        ['format', 'analyzers'],
+                    ],
+                    `Applies the code style and analyzer fixes of ${node.name} with dotnet format style and analyzers`,
+                ),
+            },
+        },
+        ...(node.packable && {
+            publish: {
+                executor: plugin.publisher,
+                options: {
+                    commands: [
+                        ['dotnet', 'restore', project],
+                        ['dotnet', 'pack', project, '--no-build', '--output', packed],
+                    ],
+                    publish: ['dotnet', 'nuget', 'push', path.join(packed, '*.nupkg'), '--skip-duplicate'],
+                    flags: { registry: '--source' },
+                },
+                metadata: { description: `Packs the Release build of ${node.name} and pushes the package with dotnet nuget push`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
+            },
+        }),
     };
 };
 

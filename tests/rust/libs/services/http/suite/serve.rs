@@ -11,6 +11,7 @@ use rstest::rstest;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::{TcpSocket, TcpStream};
 use tokio::time;
+use tokio_util::task::AbortOnDropHandle;
 
 use crate::{GRACE, GREETING, QUUX, fetched, read_until, running};
 
@@ -80,7 +81,7 @@ async fn http2() {
     let running = running(&["127.0.0.1"], GRACE).await;
     let stream = TokioIo::new(assert_ok!(TcpStream::connect(running.addresses[0]).await));
     let (mut sender, connection) = assert_ok!(hyper::client::conn::http2::Builder::new(TokioExecutor::new()).handshake(stream).await);
-    let _driven = tokio::spawn(connection);
+    let _driven = AbortOnDropHandle::new(tokio::spawn(connection));
     let request = assert_ok!(Request::get(format!("http://{}/", running.addresses[0])).body(Empty::<Bytes>::new()));
     let response = assert_ok!(sender.send_request(request).await);
     assert_eq!((response.status(), response.version()), (StatusCode::OK, Version::HTTP_2), "a prior-knowledge connection is answered over HTTP/2");
@@ -96,13 +97,17 @@ async fn accept_survives_descriptor_exhaustion() {
     let (_, hard) = assert_ok!(Resource::NOFILE.get());
     assert_ok!(Resource::NOFILE.set(256.min(hard), hard));
     let input = std::io::stdin();
-    let held = core::iter::from_fn(|| input.as_fd().try_clone_to_owned().ok()).collect::<Vec<_>>();
-    assert!(!held.is_empty(), "descriptors run out under the lowered limit");
-    let mut client = assert_ok!(socket.connect(running.addresses[0]).await);
+    let mut held = Vec::new();
+    let exhausted = loop {
+        match input.as_fd().try_clone_to_owned() {
+            Ok(descriptor) => held.push(descriptor),
+            Err(exhausted) => break exhausted,
+        }
+    };
+    assert!(!held.is_empty() && exhausted.raw_os_error().is_some(), "descriptors run out under the lowered limit: {exhausted}");
+    let _refused = assert_ok!(socket.connect(running.addresses[0]).await);
     time::sleep(Duration::from_millis(200)).await;
     drop(held);
-    assert_ok!(client.write_all(b"GET / HTTP/1.1\r\nHost: example.domain\r\nConnection: close\r\n\r\n").await);
-    let mut answer = String::new();
-    assert_ok!(assert_ok!(time::timeout(Duration::from_secs(10), client.read_to_string(&mut answer)).await, "the listener accepts again once descriptors are free"));
-    assert!(answer.starts_with("HTTP/1.1 200 OK\r\n") && answer.ends_with(GREETING), "{answer}");
+    let answered = assert_ok!(time::timeout(Duration::from_secs(10), fetched(running.addresses[0], "/")).await, "the listener accepts again once descriptors are free");
+    assert_eq!(answered, (StatusCode::OK, GREETING.into()));
 }

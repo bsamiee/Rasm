@@ -1,0 +1,172 @@
+using Microsoft.CodeAnalysis.Testing;
+using Rasm.Analyzers.Tests.Verifiers;
+using Rasm.Rhino.Analyzers;
+using Xunit;
+
+namespace Rasm.Analyzers.Tests.EtoRules;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+public sealed class RetainedTransferTests : CSharpCodeFixVerifier<RetainedTransferAnalyzer, EmptyCodeFixProvider> {
+    [Fact]
+    public Task RetainedThenTransferred() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using Eto.Forms;
+        using LanguageExt;
+        using Rasm.Rhino;
+
+        namespace Rasm.Rhino {
+            public sealed record Owned<T>(T Value, EnvIO Scope);
+
+            public static class Products {
+                public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
+                public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) => body;
+            }
+        }
+
+        internal static class RetainedThenTransferred {
+            internal static IO<Unit> Kept(Action<IDisposable> retain) =>
+                from panel in IO.lift(static () => new Button())
+                from kept in IO.lift(() => retain(panel))
+                from shown in {|#0:Products.Transfer(() => panel, Show)|}
+                select shown;
+
+            internal static IO<Unit> Stored(Ref<Option<Owned<Button>>> slot) =>
+                from panel in Products.Replace(slot, IO.lift(static () => new Button()))
+                from shown in {|#1:Products.Transfer(() => panel, Show)|}
+                select shown;
+
+            internal static IO<Unit> Bound(Ref<Option<Owned<Button>>> slot) =>
+                Products.Replace(slot, IO.lift(static () => new Button())).Bind(panel => {|#2:Products.Transfer(() => panel, Show)|});
+
+            internal static Unit Direct(Action<IDisposable> retain, Button panel) {
+                retain(panel);
+                return {|#3:Products.Transfer(() => panel, Show)|}.Run();
+            }
+
+            private static IO<Unit> Show(Button panel) => IO.lift(() => { panel.Visible = true; });
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("Products.Transfer", "panel", "retain"),
+        Diagnostic().WithLocation(1).WithArguments("Products.Transfer", "panel", "Products.Replace"),
+        Diagnostic().WithLocation(2).WithArguments("Products.Transfer", "panel", "Products.Replace"),
+        Diagnostic().WithLocation(3).WithArguments("Products.Transfer", "panel", "retain"));
+
+    [Fact]
+    public Task TransferredOnce() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using Eto.Forms;
+        using LanguageExt;
+        using Rasm.Rhino;
+
+        namespace Rasm.Rhino {
+            public sealed record Owned<T>(T Value, EnvIO Scope);
+
+            public static class Products {
+                public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
+                public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) => body;
+            }
+        }
+
+        internal static class TransferredOnce {
+            internal static IO<Unit> Fresh() => Products.Transfer(static () => new Button(), Show);
+
+            internal static IO<Unit> Later(Action<IDisposable> retain) =>
+                from panel in IO.lift(static () => new Button())
+                from shown in Products.Transfer(() => panel, Show)
+                from kept in IO.lift(() => retain(panel))
+                select kept;
+
+            internal static IO<Unit> Built(Func<IO<Button>> built) =>
+                from body in built()
+                from shown in Products.Transfer(() => body, Show)
+                select shown;
+
+            private static IO<Unit> Show(Button panel) => IO.lift(() => { panel.Visible = true; });
+        }
+        """);
+
+    [Fact]
+    public Task OwnershipBranches() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using Eto.Forms;
+        using LanguageExt;
+        using Rasm.Rhino;
+        using static LanguageExt.Prelude;
+
+        namespace Rasm.Rhino {
+            public sealed record Owned<T>(T Value, EnvIO Scope);
+
+            public static class Products {
+                public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to) where T : class, IDisposable => IO.lift(() => make()!).Bind(to);
+                public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) => body;
+            }
+        }
+
+        internal static class OwnershipBranches {
+            internal static IO<Unit> Disjoint(Action<IDisposable> retain, Button panel, bool flag) {
+                if (flag) retain(panel);
+                else return Products.Transfer(() => panel, Show);
+                return IO.pure(unit);
+            }
+
+            internal static IO<Unit> Returned(Action<IDisposable> retain, Button panel, bool flag) {
+                if (flag) {
+                    retain(panel);
+                    return IO.pure(unit);
+                }
+                return Products.Transfer(() => panel, Show);
+            }
+
+            internal static IO<Unit> Shared(Action<IDisposable> retain, Button panel, bool flag) {
+                if (flag) retain(panel);
+                return {|#0:Products.Transfer(() => panel, Show)|};
+            }
+
+            internal static IO<Unit> Deferred(Action<IDisposable> retain, Button panel) {
+                Action callback = () => retain(panel);
+                return Products.Transfer(() => panel, Show);
+            }
+
+            internal static IO<Unit> Finalized(Action<IDisposable> retain, Button panel, bool flag) {
+                if (flag) {
+                    try {
+                        retain(panel);
+                    }
+                    finally {
+                        throw new InvalidOperationException();
+                    }
+                }
+                return Products.Transfer(() => panel, Show);
+            }
+
+            internal static Func<IO<Unit>> Callback(Action<IDisposable> retain, Button panel) => () => {
+                retain(panel);
+                return {|#1:Products.Transfer(() => panel, Show)|};
+            };
+
+            internal static IO<Unit> Looped(Action<IDisposable> retain, Button panel) {
+                IO<Unit> shown = IO.pure(unit);
+                for (int index = 0; index < 2; ++index) {
+                    shown = {|#2:Products.Transfer(() => panel, Show)|};
+                    retain(panel);
+                }
+                return shown;
+            }
+
+            internal static IO<Unit> Later(Action<IDisposable> retain, Button panel) {
+                IO<Unit> shown = Products.Transfer(() => panel, Show);
+                retain(panel);
+                return shown;
+            }
+
+            internal static IO<Unit> Show(Button panel) => IO.lift(() => { panel.Visible = true; });
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("Products.Transfer", "panel", "retain"),
+        Diagnostic().WithLocation(1).WithArguments("Products.Transfer", "panel", "retain"),
+        Diagnostic().WithLocation(2).WithArguments("Products.Transfer", "panel", "retain"));
+}

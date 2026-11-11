@@ -3,10 +3,7 @@ import type { ProjectGraph, Tree } from '@nx/devkit';
 import { relocked } from '@rasm/nx-devkit/executor';
 import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, Option, Path, Record, Schema, String } from 'effect';
-import { FetchHttpClient } from 'effect/http';
 import { VersionActions } from 'nx/release';
-import { sortReversed } from 'verkit';
-import { releases } from '#/executors/release-publish/executor';
 import { LOCK, MANIFEST } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,7 +21,6 @@ const Manifest = Schema.Struct({
     workspace: Schema.optionalKey(Schema.Struct({ package: Schema.optionalKey(Schema.Struct({ version: Schema.optionalKey(Schema.String) })) })),
 });
 const Located = Schema.fromJsonString(Schema.Struct({ root: Schema.String }));
-const Options = Schema.Struct({ lock: Schema.String, registry: Schema.optionalKey(Schema.String) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -46,6 +42,11 @@ const versioned = Effect.fnUntraced(function* (tree: Tree, manifest: string) {
     const owner = file === manifest ? own : yield* read(tree, file);
     return { ...owner, file, inherited, field: inherited ? ['workspace', 'package', 'version'] : ['package', 'version'], current: (inherited ? owner.manifest.workspace?.package?.version : version) ?? '0.0.0' };
 });
+
+const crated = (tree: Tree, projectGraph: ProjectGraph, project: string) => {
+    const manifest = `${projectGraph.nodes[project]?.data.root}/${MANIFEST}`;
+    return tree.exists(manifest) ? Effect.map(read(tree, manifest), (held) => held.manifest.package?.name ?? project) : Effect.succeed(project);
+};
 
 const assigned = (value: Record<string, unknown>, [key, ...rest]: readonly string[], next: unknown): Record<string, unknown> => (key === undefined ? value : { ...value, [key]: rest.length === 0 ? next : assigned(table(value[key]), rest, next) });
 
@@ -91,33 +92,26 @@ class CargoVersionActions extends VersionActions {
         return runtime.runPromise(Effect.map(versioned(tree, `${this.projectGraphNode.data.root}/${MANIFEST}`), ({ file, current }) => ({ manifestPath: file, currentVersion: current })));
     }
 
-    readCurrentVersionFromRegistry(tree: Tree) {
-        const [{ name, data }, options] = [this.projectGraphNode, this.finalConfigForProject.versionActionsOptions];
-        return runtime.runPromise(
-            Effect.gen(function* () {
-                const [{ registry }, { manifest }] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), read(tree, `${data.root}/${MANIFEST}`)]);
-                const published = yield* Effect.transposeOption(
-                    Option.map(
-                        Option.liftPredicate(manifest.package?.name ?? name, () => registry === undefined),
-                        releases,
-                    ),
-                );
-                return Option.getOrNull(Option.map(published, ({ url, published: versions }) => ({ currentVersion: Option.getOrNull(Array.head(sortReversed(versions.filter(({ yanked }) => yanked !== true).map(({ vers }) => vers)))), logText: `crates.io index ${url}` })));
-            }).pipe(Effect.provide(FetchHttpClient.layer)),
-        );
+    override readCurrentVersionFromRegistry() {
+        return Promise.resolve(null);
     }
 
     readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
         const manifest = `${this.projectGraphNode.data.root}/${MANIFEST}`;
-        const dependency = projectGraph.nodes[dependencyProjectName]?.name ?? dependencyProjectName;
         return runtime.runPromise(
             Effect.gen(function* () {
-                const crates = new Set([dependency]);
+                const crates = new Set([yield* crated(tree, projectGraph, dependencyProjectName)]);
                 const declared = Array.head(requirements((yield* read(tree, manifest)).raw, crates));
                 const source = Option.exists(declared, ({ inherited }) => inherited) ? Array.head(requirements((yield* read(tree, yield* located(tree, manifest))).raw, crates)) : declared;
+                const stated = Option.flatMap(source, ({ current }) => Option.fromUndefinedOr(current));
                 return {
-                    currentVersion: Option.getOrNull(Option.flatMap(source, ({ current }) => Option.fromUndefinedOr(current))),
-                    dependencyCollection: Option.getOrNull(Option.map(declared, ({ at }) => at.join('.'))),
+                    currentVersion: Option.getOrNull(stated),
+                    dependencyCollection: Option.getOrNull(
+                        Option.andThen(
+                            stated,
+                            Option.map(declared, ({ at }) => at.join('.')),
+                        ),
+                    ),
                 };
             }),
         );
@@ -136,9 +130,9 @@ class CargoVersionActions extends VersionActions {
 
     updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
         const manifests = this.manifestsToUpdate;
-        const versions = new Map(Record.collect(dependenciesToUpdate, (project, version) => [projectGraph.nodes[project]?.name ?? project, version] as const));
         return runtime.runPromise(
             Effect.gen(function* () {
+                const versions = new Map(yield* Effect.forEach(Record.toEntries(dependenciesToUpdate), ([project, version]) => Effect.map(crated(tree, projectGraph, project), (crate) => [crate, version] as const)));
                 const crates = new Set(versions.keys());
                 const own = yield* Effect.forEach(manifests, ({ manifestPath }) => Effect.map(read(tree, manifestPath), (manifest) => ({ file: manifestPath, ...manifest })));
                 const roots = yield* Effect.forEach(

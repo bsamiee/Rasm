@@ -7,6 +7,7 @@
         "#/*": "./*.ts"
     },
     "devDependencies": {
+        "@cloudflare/workers-types": "catalog:",
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
@@ -26,6 +27,7 @@
         "@rasm/nx-vite": "workspace:*",
         "@rasm/nx-vitest": "workspace:*",
         "@rasm/testing": "workspace:*",
+        "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
         "@types/node": "catalog:",
         "ajv": "catalog:",
@@ -34,6 +36,7 @@
         "nx": "catalog:",
         "storybook": "catalog:",
         "vite": "catalog:",
-        "vitest": "catalog:"
+        "vitest": "catalog:",
+        "yaml": "catalog:"
     }
 }

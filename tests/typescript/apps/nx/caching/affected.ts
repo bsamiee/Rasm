@@ -1,16 +1,8 @@
 import { assert } from '@effect/vitest';
-import { answered, called, hashed } from '@rasm/testing/nx/cli';
+import { answered, committed, hashed } from '@rasm/testing/nx/cli';
 import { Array, Effect, Record, Schema } from 'effect';
 import type { Subject } from '#/inference/cases';
 import { amended, type Methods, placed, present, SLOW, sources } from '#/inference/workspaces';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const COMMIT = [
-    ['init', '--quiet'],
-    ['add', '--all'],
-    ['-c', 'user.name=suite', '-c', 'user.email=suite@example.com', 'commit', '--quiet', '--message', 'base'],
-] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -24,7 +16,7 @@ const affected = (subject: Subject, it: Methods) =>
         Effect.fnUntraced(function* () {
             const [file, text] = yield* Effect.fromNullishOr(sources(subject)[0]);
             const root = yield* placed(subject);
-            yield* Effect.forEach(COMMIT, (args) => called(root, 'git', args, {}), { discard: true });
+            yield* committed(root);
             const before = yield* hashed(root);
             yield* amended(root, file, `${text}\n`);
             const after = yield* hashed(root);

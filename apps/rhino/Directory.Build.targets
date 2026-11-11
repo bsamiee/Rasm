@@ -56,11 +56,10 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="PrepareYakPackage" DependsOnTargets="ResolveRhinoInstallation">
+    <Target Name="PrepareYakPackage">
         <PropertyGroup>
             <_YakPublishDir>$([MSBuild]::NormalizeDirectory('$(PublishDir)'))</_YakPublishDir>
             <_YakArtifactsPublishDir>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', '$(ArtifactsPublishOutputName)', '$(ArtifactsProjectName)', '$(ArtifactsPivots)'))</_YakArtifactsPublishDir>
-            <_YakDotnet Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(RhinoResourcesDir)dotnet/$(NETCoreSdkPortableRuntimeIdentifier.Split('-')[1])/dotnet</_YakDotnet>
         </PropertyGroup>
         <ItemGroup>
             <_YakPublished Include="@(ResolvedFileToPublish->'$(_YakPublishDir)%(RelativePath)')" />
@@ -75,17 +74,13 @@
             <_YakArchive Condition="'$(_YakArchive)' == ''">$(_YakPublishDir)$(_YakPlatform).yak</_YakArchive>
         </PropertyGroup>
         <ItemGroup>
-            <_CompatReference Include="@(_RhinoSupplied->'%(HostFile)');@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll');@(_YakPublished->WithMetadataValue('Extension', '.dll'))" Condition="'$(_YakPlatform)' == 'mac' and '$(_YakDotnet)' != ''" />
-            <_YakInput Include="@(_YakPublished);$(MSBuildAllProjects);$(YakExecutable);$(RhinoResourcesDir)dotnetstart.*.deps.json;$(RhinoResourcesDir)dotnetstart.*.runtimeconfig.json" />
-            <_YakInput Include="$(RhinoInstallPath)/Contents/Info.plist;$(RhinoResourcesDir)yak.dll;$(RhinoResourcesDir)yak.*.json;$(_YakDotnet)" Condition="'$(_YakDotnet)' != ''" />
-            <_YakInput Include="$(RhinoResourcesDir)Compat.dll;$(RhinoResourcesDir)Compat.*.json;@(_CompatReference)" Condition="'@(_CompatReference)' != ''" />
+            <_YakInput Include="@(_YakPublished);$(MSBuildAllProjects)" />
         </ItemGroup>
     </Target>
 
     <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="PrepareYakPackage" Condition="'$(TargetExt)' == '.rhp'" Inputs="@(_YakInput)" Outputs="$(_YakArchive)">
         <Delete Files="@(_YakPrevious)" />
-        <Exec Command="&quot;$(_YakDotnet)&quot; &quot;$(RhinoResourcesDir)Compat.dll&quot; -q --check-net10 --check-system-assemblies &quot;$(_YakPublishDir)$(TargetFileName)&quot; @(_CompatReference->'&quot;%(FullPath)&quot;', ' ')" Condition="'@(_CompatReference)' != ''" StandardOutputImportance="low" CustomErrorRegularExpression="^\s*✗ FAIL " EchoOff="true" />
-        <Exec Command="&quot;$(YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" LogStandardErrorAsError="true" />
+        <Exec Command="yak build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" LogStandardErrorAsError="true" />
         <ItemGroup>
             <_YakBuilt Include="$(_YakPublishDir)*-$(_YakPlatform).yak" />
         </ItemGroup>

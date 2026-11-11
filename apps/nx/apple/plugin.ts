@@ -64,7 +64,11 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
         Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: path.dirname(file), manifest }))),
         Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists'>) {
             const listed = yield* Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(path.join(workspaceRoot, swiftPackage.root, module.path, INFO)));
-            return { ...swiftPackage, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;
+            const { products, targets } = swiftPackage.manifest;
+            const shown = (configuration: string) => Effect.map(printed('swift', ['build', '--package-path', swiftPackage.root, '--configuration', configuration, '--show-bin-path'], { cwd: workspaceRoot }), (at) => path.relative(workspaceRoot, at.trim()));
+            const whole = Array.isReadonlyArrayNonEmpty(products) && products.every(({ type }) => 'executable' in type) && targets.every(({ resources }) => resources.length === 0);
+            const bins = whole ? { bins: yield* Effect.all({ debug: shown('debug'), release: shown('release') }, { concurrency: 'unbounded' }) } : {};
+            return { ...swiftPackage, ...bins, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;
         }),
     );
     const described = new Map(packages.map((swiftPackage) => [path.resolve(workspaceRoot, swiftPackage.root), swiftPackage] as const));

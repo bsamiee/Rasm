@@ -1,0 +1,10 @@
+{
+    "type": "object",
+    "properties": {
+        "name": { "type": "string", "description": "User's name", "default": "John Doe" },
+        "age": { "type": "integer", "description": "User's age", "default": 30 },
+        "score": { "type": "number", "description": "User's score", "default": 95.5 },
+        "status": { "type": "string", "description": "User's status", "enum": [ "active", "inactive", "pending" ], "default": "active" },
+        "verified": { "type": "boolean", "description": "Verification status", "default": true }
+    }
+}

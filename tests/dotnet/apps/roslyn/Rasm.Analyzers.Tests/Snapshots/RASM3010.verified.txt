@@ -1,2 +1,0 @@
-#0 `System.Collections.Immutable.ImmutableArray<int>` clashes with nothing in scope, import `System.Collections.Immutable` and write `ImmutableArray<int>`
-RASM3012 `Base` forwards `Plane.WorldXY`, read `Plane.WorldXY` at each use

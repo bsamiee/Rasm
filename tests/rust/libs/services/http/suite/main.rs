@@ -1,9 +1,8 @@
-#![feature(error_iter, error_reporter)]
+#![feature(error_iter)]
 
 use core::future::ready;
 use core::net::SocketAddr;
 use core::time::Duration;
-use std::error::Report;
 use std::io;
 use std::sync::Arc;
 
@@ -12,19 +11,20 @@ use axum::extract::ConnectInfo;
 use axum::routing::{get, post};
 use bytes::Bytes;
 use claims::assert_ok;
-use futures::FutureExt as _;
 use http::header::HOST;
 use http::uri::Authority;
 use http::{Request, StatusCode};
 use http_body_util::{BodyExt as _, Empty};
 use hyper_util::rt::TokioIo;
-use rasm_http::{Service, accept, bind, serve};
+use nonempty_collections::NEVec;
+use rasm_http::{HttpError, Service, accept, bind, serve};
 use tokio::io::{AsyncRead, AsyncReadExt as _};
 use tokio::net::TcpStream;
 use tokio::sync::{Semaphore, mpsc};
 use tokio::task::JoinHandle;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use tokio_util::sync::CancellationToken;
+use tokio_util::task::AbortOnDropHandle;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ struct Running {
     addresses: Vec<SocketAddr>,
     app: Arc<Greeter>,
     stop: mpsc::UnboundedSender<()>,
-    served: JoinHandle<Result<(), Vec<String>>>,
+    served: JoinHandle<Result<(), NEVec<HttpError<io::Error>>>>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -88,8 +88,7 @@ async fn running(hosts: &[&str], grace: Duration) -> Running {
     let (addresses, listeners) = bound.into_iter().flat_map(|(_, listeners)| listeners).unzip::<_, _, Vec<_>, Vec<_>>();
     let (stop, requests) = mpsc::unbounded_channel();
     let app = Arc::new(Greeter { entered: Semaphore::new(0), release: Semaphore::new(0), drained: CancellationToken::new() });
-    let serving = serve(Arc::clone(&app), async move |router, stopping| accept(listeners, router, stopping).await, UnboundedReceiverStream::new(requests), grace);
-    let served = tokio::spawn(serving.map(|outcome| outcome.map_err(|errors| errors.iter().map(|error| Report::new(error).to_string()).collect())));
+    let served = tokio::spawn(serve(Arc::clone(&app), async move |router, stopping| accept(listeners, router, stopping).await, UnboundedReceiverStream::new(requests), grace));
     Running { addresses, app, stop, served }
 }
 
@@ -106,7 +105,7 @@ async fn read_until(stream: &mut (impl AsyncRead + Unpin), done: impl Fn(&[u8]) 
 async fn fetched(address: SocketAddr, path: &str) -> (StatusCode, Bytes) {
     let stream = TokioIo::new(assert_ok!(TcpStream::connect(address).await));
     let (mut sender, connection) = assert_ok!(hyper::client::conn::http1::handshake(stream).await);
-    let _driven = tokio::spawn(connection);
+    let _driven = AbortOnDropHandle::new(tokio::spawn(connection));
     let request = assert_ok!(Request::get(path).header(HOST, "example.domain").body(Empty::<Bytes>::new()));
     let response = assert_ok!(sender.send_request(request).await);
     (response.status(), assert_ok!(response.into_body().collect().await).to_bytes())

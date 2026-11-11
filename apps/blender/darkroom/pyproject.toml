@@ -35,9 +35,12 @@ dependencies = [
 dev = [
     "fake-bpy-module-latest", # Stubs for bpy, bmesh, mathutils, and gpu
     "mypy",                   # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "rasm-refurb",            # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
+    "refurb",                 # FURB checks Ruff lacks, over a mypy build
     "ruff",                   # Linter and formatter hk runs from this root's environment
     "scipy-stubs",
     "ty",                     # Type checker of every member
+    "vulture",                # Private functions, classes, methods, and attributes nothing reads
     "rasm-opencolorio-stubs", # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
 ]
 
@@ -77,12 +80,12 @@ constraint-dependencies       = [
 build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.sources]
+rasm-refurb            = { workspace = "../../.." }
 rasm-bpy               = { workspace = "../../../libs/python/blender" }
 rasm-imaging           = { workspace = "../../../libs/python/blender" }
 rasm-opencolorio-stubs = { workspace = "../../../libs/python/blender" }
 rasm-records           = { workspace = "../../.." }
 rasm-rendering         = { workspace = "../../../libs/python/blender" }
-rasm-telemetry         = { workspace = "../../.." }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 

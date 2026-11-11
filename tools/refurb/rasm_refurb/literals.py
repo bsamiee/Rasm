@@ -3,10 +3,10 @@
 from itertools import pairwise
 
 import msgspec
-lazy from mypy.nodes import ComparisonExpr, MemberExpr, StrExpr, Var
-lazy from mypy.types import flatten_nested_unions, get_proper_type, Instance, LiteralType, Type
-lazy from refurb.checks.common import get_mypy_type
-lazy from refurb.error import Error
+from mypy.nodes import ComparisonExpr, MemberExpr, StrExpr, Var
+from mypy.types import flatten_nested_unions, get_proper_type, Instance, LiteralType, Type
+from refurb.checks.common import get_mypy_type
+from refurb.error import Error
 
 from rasm_refurb._findings import fullname, RasmError
 

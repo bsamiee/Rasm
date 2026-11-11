@@ -5,11 +5,12 @@ import functools
 import uuid
 
 import pytest
-lazy from testcontainers.community.clickhouse import ClickHouseContainer
-lazy from testcontainers.community.postgres import PostgresContainer
-lazy from testcontainers.community.valkey import ValkeyContainer
+from testcontainers.community.clickhouse import ClickHouseContainer
+from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.valkey import ValkeyContainer
 
-lazy from rasm_testing import Defined, defined, RustfsContainer, settled, Started
+from rasm_testing import settled
+from rasm_testing.containers import Defined, defined, RustfsContainer, Started
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 

@@ -4,7 +4,7 @@
 
 [workspace]
 resolver = "3"
-members  = ["apps/data/*", "apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*", "tests/rust/apps/*/*", "tests/rust/infra", "tests/rust/support"]
+members  = ["apps/grpc/*", "apps/grpc/store/proto", "apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*", "tests/rust/apps/*/*", "tests/rust/infra", "tests/rust/support"]
 
 # --- [IDENTITY]
 
@@ -318,26 +318,26 @@ suppaftp     = { version = "12.2.1", features = ["tokio-rustls-aws-lc-rs"] }    
 
 # --- [OBSERVABILITY]
 
-instrumented-object-store          = ">=55.0.0, <56"                                                                                                                        # Tracing spans around object store reads, writes, and lists, at the release linking object_store 0.13 with DataFusion 55
-log                                = "0.4.35"                                                                                                                               # Logger registration failure `LogTracer::init` returns
-opentelemetry                      = "0.33.1"                                                                                                                               # Trace, metric, and log API
-opentelemetry-appender-tracing     = "0.33.1"                                                                                                                               # Tracing events exported as log records
-opentelemetry-http                 = "0.33.1"                                                                                                                               # W3C trace context injected into and extracted from HTTP headers
-opentelemetry-otlp                 = { version = "0.33.1", features = ["grpc-tonic", "http-json", "reqwest-rustls", "tls-aws-lc", "tls-roots", "gzip-http", "gzip-tonic"] } # OTLP over gRPC, HTTP/protobuf, or HTTP/JSON as `OTEL_EXPORTER_OTLP_PROTOCOL` names, TLS from native roots, gzip when `OTEL_EXPORTER_OTLP_COMPRESSION` names it
-opentelemetry-proto                = "0.33.1"                                                                                                                               # OTLP messages decoded from OTLP JSON
-opentelemetry-resource-detectors   = "0.13.0"                                                                                                                               # Host, OS, process, container, and service instance resource attributes
-opentelemetry-semantic-conventions = { version = "0.33.1", features = ["semconv_experimental"] }                                                                            # Semantic-convention attribute names
-opentelemetry_sdk                  = "0.33.1"                                                                                                                               # Tracer, meter, and logger providers with processors and samplers
-oxtel-sql                          = { version = "0.3.1", features = ["sqlx-0.9"] }                                                                                         # Database client spans with OpenTelemetry semantic-convention fields around sqlx queries, recorded through tracing
-pprof                              = { version = "0.15.0", features = ["flamegraph", "frame-pointer"] }                                                                     # In-process CPU profiles and flamegraphs
-pyroscope                          = { version = "2.1.5", features = ["backend-pprof-rs"] }                                                                                 # Continuous profiles pushed to Pyroscope
-sysinfo                            = { version = "0.40.1", default-features = false, features = ["system"] }                                                                # Process and host resource readings, `system` alone links no IOKit
-tokio-metrics                      = "0.5.2"                                                                                                                                # Runtime and task metrics on stable tokio
-tracing                            = "0.1.44"                                                                                                                               # Spans and events emitted at service boundaries
-tracing-appender                   = "0.2.5"                                                                                                                                # Rolling and non-blocking file writers, the rolling clock adds `time` 0.3 beside jiff
-tracing-log                        = "0.2.0"                                                                                                                                # `log` records forwarded into tracing at every level, reloadable filter decides each
-tracing-opentelemetry              = "0.34.0"                                                                                                                               # Tracing spans exported as OpenTelemetry spans
-tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                                                                                      # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
+instrumented-object-store           = ">=55.0.0, <56"                                                                                                                        # Tracing spans around object store reads, writes, and lists, at the release linking object_store 0.13 with DataFusion 55
+log                                 = "0.4.35"                                                                                                                               # Logger registration failure `LogTracer::init` returns
+opentelemetry                       = "0.33.1"                                                                                                                               # Trace, metric, and log API
+opentelemetry-appender-tracing      = "0.33.1"                                                                                                                               # Tracing events exported as log records
+opentelemetry-instrumentation-tokio = "0.3.0"                                                                                                                                # Tokio runtime worker, queue, task, park, and busy-time instruments on the global meter
+opentelemetry-http                  = "0.33.1"                                                                                                                               # W3C trace context injected into and extracted from HTTP headers
+opentelemetry-otlp                  = { version = "0.33.1", features = ["grpc-tonic", "http-json", "reqwest-rustls", "tls-aws-lc", "tls-roots", "gzip-http", "gzip-tonic"] } # OTLP over gRPC, HTTP/protobuf, or HTTP/JSON as `OTEL_EXPORTER_OTLP_PROTOCOL` names, TLS from native roots, gzip when `OTEL_EXPORTER_OTLP_COMPRESSION` names it
+opentelemetry-proto                 = "0.33.1"                                                                                                                               # OTLP messages decoded from OTLP JSON
+opentelemetry-resource-detectors    = "0.13.0"                                                                                                                               # Host, OS, process, container, and service instance resource attributes
+opentelemetry-semantic-conventions  = { version = "0.33.1", features = ["semconv_experimental"] }                                                                            # Semantic-convention attribute names
+opentelemetry_sdk                   = "0.33.1"                                                                                                                               # Tracer, meter, and logger providers with processors and samplers
+oxtel-sql                           = { version = "0.3.1", features = ["sqlx-0.9"] }                                                                                         # Database client spans with OpenTelemetry semantic-convention fields around sqlx queries, recorded through tracing
+pprof                               = { version = "0.15.0", features = ["flamegraph", "frame-pointer"] }                                                                     # In-process CPU profiles and flamegraphs
+pyroscope                           = { version = "2.1.5", features = ["backend-pprof-rs"] }                                                                                 # Continuous profiles pushed to Pyroscope
+sysinfo                             = { version = "0.40.1", default-features = false, features = ["system"] }                                                                # Process and host resource readings, `system` alone links no IOKit
+tracing                             = "0.1.44"                                                                                                                               # Spans and events emitted at service boundaries
+tracing-appender                    = "0.2.5"                                                                                                                                # Rolling and non-blocking file writers, the rolling clock adds `time` 0.3 beside jiff
+tracing-log                         = "0.2.0"                                                                                                                                # `log` records forwarded into tracing at every level, reloadable filter decides each
+tracing-opentelemetry               = "0.34.0"                                                                                                                               # Tracing spans exported as OpenTelemetry spans
+tracing-subscriber                  = { version = "0.3.23", features = ["env-filter"] }                                                                                      # Subscriber registry, reloadable directive filter, per-layer filters, and the `MakeWriter` sink the JSON layer writes to
 
 # --- [USER_INTERFACE]
 
@@ -692,7 +692,7 @@ rstest                 = "0.28.0"                                               
 similar-asserts        = "2.0.0"                                                                                                                                                                                           # Diffed assertion failures over large values
 tokio-test             = "0.4.6"                                                                                                                                                                                           # Scripted read and write peers asserting exact bytes written and read
 test-context           = "0.5.8"                                                                                                                                                                                           # Setup and teardown around each test through a context type, teardown running after a panic
-testcontainers         = { version = ">=0.27.3, <0.28", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog", "docker-compose"] }                                        # Disposable service containers and Compose projects with HTTP readiness waits and removal on termination signals, at the release testcontainers-modules 0.15 links (0.28 pins another `bollard-stubs` and fails resolution beside it), default `ring` adds ring beside aws-lc-rs
+testcontainers         = { version = ">=0.27.3, <0.28", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog"] }                                                                                # Disposable service containers with HTTP readiness waits and removal on termination signals, at the release testcontainers-modules 0.15 links (0.28 pins another `bollard-stubs` and fails resolution beside it), default `ring` adds ring beside aws-lc-rs
 testcontainers-modules = { version = "0.15.0", default-features = false, features = ["aws-lc-rs", "clickhouse", "kafka", "localstack", "minio", "mosquitto", "hashicorp_vault", "postgres", "redis", "rustfs", "valkey"] } # Prebuilt service definitions that integration tests start, default `ring` adds ring beside aws-lc-rs
 tracing-test           = "0.2.6"                                                                                                                                                                                           # Captured spans and events asserted in tests
 wiremock               = "0.6.5"                                                                                                                                                                                           # HTTP doubles on loopback server
@@ -723,7 +723,7 @@ rasm-dependency-graph   = { path = "libs/rust/graphs/dependency-graph" }
 rasm-optimization       = { path = "libs/rust/numerics/optimization", default-features = false }
 rasm-signal-processing  = { path = "libs/rust/numerics/signal-processing" }
 rasm-arrow              = { path = "libs/rust/data/arrow" }
-rasm-store-proto        = { path = "libs/rust/data/store-proto" }
+rasm-store-proto        = { path = "apps/grpc/store/proto" }
 rasm-provisioning       = { path = "libs/rust/data/provisioning" }
 rasm-network-analysis   = { path = "libs/rust/graphs/network-analysis" }
 rasm-graph-layout       = { path = "libs/rust/graphs/graph-layout" }

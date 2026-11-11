@@ -1,36 +1,31 @@
-import { joinPathFragments, type Tree, workspaceRoot } from '@nx/devkit';
-import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
+import type { Tree } from '@nx/devkit';
+import { Manifested } from '@rasm/nx-devkit/executor';
+import { runtime, ToolError } from '@rasm/nx-devkit/process';
+import ast from '@xml-tools/ast';
+import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Effect, identity, Option, Result, Schema, SemVer, String } from 'effect';
-import { VersionActions } from 'nx/release';
-import { isValid, sortReversed } from 'verkit';
-import { analyzer } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ projectFile: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) });
-const Metadata = Schema.UndefinedOr(Schema.Struct({ registry: Schema.optionalKey(Schema.String) }));
-const Evaluated = Schema.fromJsonString(Schema.Struct({ Properties: Schema.Struct({ PackageId: Schema.String, Version: Schema.String }) }));
-const Searched = Schema.fromJsonString(Schema.Struct({ searchResult: Schema.Array(Schema.Struct({ packages: Schema.Array(Schema.Struct({ version: Schema.String })) })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const evaluated = (project: string) => Effect.flatMap(printed('dotnet', ['msbuild', project, '-getProperty:PackageId', '-getProperty:Version'], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
-
-const searched = Effect.fnUntraced(function* (project: string, metadata: Readonly<Record<string, unknown>> | undefined) {
-    const [{ Properties }, decoded] = yield* Effect.all([evaluated(project), Schema.decodeEffect(Metadata)(metadata)]);
-    const registry = decoded?.registry;
-    const { searchResult } = yield* Effect.flatMap(printed('dotnet', ['package', 'search', Properties.PackageId, '--exact-match', '--prerelease', '--format', 'json', ...(registry === undefined ? [] : ['--source', registry])], { cwd: workspaceRoot }), Schema.decodeEffect(Searched));
-    const latest = Array.head(sortReversed(searchResult.flatMap(({ packages }) => packages.map(({ version }) => version)).filter((version) => isValid(version))));
-    return {
-        currentVersion: Option.getOrNull(latest),
-        logText: Option.match(latest, { onNone: () => `${Properties.PackageId} has no release on ${registry ?? 'the NuGet.config sources'}`, onSome: (version) => `${Properties.PackageId} ${version}` }),
-    };
+const versioned = Effect.fnUntraced(function* (text: string, at: string) {
+    const { cst, tokenVector, lexErrors, parseErrors } = xml.parse(text);
+    const document = yield* Effect.mapError(Effect.fromOption(Option.liftPredicate(cst, (node): node is DocumentCstNode => node.name === 'document' && lexErrors.length + parseErrors.length === 0)), ToolError.of(at, 'does not parse as an MSBuild project file'));
+    const groups = Array.fromNullishOr(ast.buildAst(document, tokenVector).rootElement).flatMap(({ subElements }) => subElements.filter(({ name }) => name === 'PropertyGroup'));
+    const stated = Array.findLast(
+        groups.flatMap(({ subElements }) => subElements.filter(({ name }) => name === 'Version')),
+        ({ textContents }) => Array.findFirst(textContents, ({ text, position }) => Option.map(Option.fromNullOr(text), (version) => ({ version, position }))),
+    );
+    return yield* Effect.mapError(Effect.fromOption(stated), ToolError.of(at, 'states no Version property, which nx release reads and writes in the project file'));
 });
 
-const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), () => ToolError.make({ subject: file, detail: 'is missing' }));
+const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), ToolError.of(file, 'is missing'));
 
 const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files: (typeof Options.Type)['releases'][number]) {
-    const [recorded, pending, release] = yield* Effect.all([read(tree, files.shipped), read(tree, files.unshipped), Effect.mapError(Effect.fromResult(SemVer.parse(version)), (cause) => ToolError.make({ subject: version, detail: 'is no semantic version', cause }))]);
+    const [recorded, pending, release] = yield* Effect.all([read(tree, files.shipped), read(tree, files.unshipped), Effect.mapError(Effect.fromResult(SemVer.parse(version)), ToolError.of(version, 'is no semantic version'))]);
     const [rows, comments] = Array.partition(
         pending.split('\n'),
         Result.liftPredicate((line: string) => !line.trimStart().startsWith(';'), identity),
@@ -50,59 +45,23 @@ const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files:
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class DotnetVersionActions extends VersionActions {
-    override validManifestFilenames: string[] = [];
-    override readonly excludeManifestsFromFormatting = true;
-    #releases: (typeof Options.Type)['releases'] = [];
-
-    override init(tree: Tree) {
-        return runtime.runPromise(
-            Effect.flatMap(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ projectFile, releases }) =>
-                Effect.promise(() => {
-                    this.validManifestFilenames = [projectFile];
-                    this.#releases = releases;
-                    return super.init(tree);
-                }),
-            ),
-        );
+class DotnetVersionActions extends Manifested {
+    override get validManifestFilenames() {
+        return Option.toArray(Option.map(Schema.decodeUnknownOption(Options)(this.finalConfigForProject.versionActionsOptions), ({ projectFile }) => projectFile));
     }
 
-    get project() {
-        return Effect.map(Effect.fromOption(Array.head(this.validManifestFilenames)), (file) => joinPathFragments(this.projectGraphNode.data.root, file));
+    override stated(text: string, at: string) {
+        return Effect.map(versioned(text, at), ({ version }) => version);
     }
 
-    override readCurrentVersionFromSourceManifest() {
-        const resolved = this.project;
-        return runtime.runPromise(
-            Effect.gen(function* () {
-                const project = yield* resolved;
-                const { Properties } = yield* evaluated(project);
-                return { currentVersion: Properties.Version, manifestPath: project };
-            }),
-        );
-    }
-
-    override readCurrentVersionFromRegistry(_: Tree, currentVersionResolverMetadata: Record<string, unknown> | undefined) {
-        return runtime.runPromise(Effect.flatMap(this.project, (project) => searched(project, currentVersionResolverMetadata)));
-    }
-
-    override readCurrentVersionOfDependency() {
-        return Promise.resolve({ currentVersion: null, dependencyCollection: null });
+    override restated(text: string, version: string, at: string) {
+        return Effect.map(versioned(text, at), ({ position }) => `${text.slice(0, position.startOffset)}${version}${text.slice(position.endOffset + 1)}`);
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        const [resolved, releases] = [this.project, this.#releases];
-        return runtime.runPromise(
-            Effect.gen(function* () {
-                const project = yield* resolved;
-                tree.write(project, yield* printed('dotnet', [yield* analyzer, 'version', newVersion], { cwd: workspaceRoot, input: yield* read(tree, project) }));
-                return [`New version ${newVersion} written to manifest: ${project}`, ...(yield* Effect.forEach(releases, (files) => shipped(tree, newVersion, files))).flat()];
-            }),
-        );
-    }
-
-    override updateProjectDependencies() {
-        return Promise.resolve([]);
+        const written = Effect.promise(() => super.updateProjectVersion(tree, newVersion));
+        const tracked = Effect.flatMap(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ releases }) => Effect.forEach(releases, (files) => shipped(tree, newVersion, files)));
+        return runtime.runPromise(Effect.zipWith(written, tracked, (logs, moved) => [...logs, ...moved.flat()]));
     }
 }
 

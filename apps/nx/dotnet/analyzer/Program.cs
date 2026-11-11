@@ -1,7 +1,4 @@
 using System.Text.Json;
-using System.Xml;
-using Microsoft.Build.Construction;
-using Microsoft.Build.Evaluation;
 using Microsoft.Build.Locator;
 
 namespace MsbuildAnalyzer;
@@ -13,9 +10,8 @@ internal static class Program {
 
     public static int Main(string[] args) =>
         IO.lift(() => args switch {
-            ["version", var version] => Registered(Environment.CurrentDirectory, () => Versioned(version)),
             [var root] => Registered(Path.GetFullPath(root), () => Write(Path.GetFullPath(root))),
-            _ => Error.New("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line; or MsbuildAnalyzer version <version>, with a project file on stdin"),
+            _ => Error.New("Usage: MsbuildAnalyzer <workspace-root>, with workspace-relative files on stdin, one per line"),
         }).RunSafe().IfFail(static error => {
             Console.Error.WriteLine(error.Message);
             return 1;
@@ -32,15 +28,6 @@ internal static class Program {
 
     private static int Write(string root) {
         Console.Out.Write(JsonSerializer.Serialize(Workspace.Analyze(root, Listed()), Json));
-        return 0;
-    }
-
-    private static int Versioned(string version) {
-        using ProjectCollection collection = new();
-        using XmlReader reader = XmlReader.Create(Console.In);
-        ProjectRootElement project = ProjectRootElement.Create(reader, collection, preserveFormatting: true);
-        _ = project.AddProperty("Version", version);
-        project.Save(Console.Out);
         return 0;
     }
 

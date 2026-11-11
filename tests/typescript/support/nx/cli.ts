@@ -3,7 +3,7 @@ import { env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { ProjectGraph } from '@nx/devkit';
 import { Completed } from '@rasm/process';
-import { Array, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
 import { checkout } from '#/nx/inference';
@@ -104,6 +104,20 @@ const called = Effect.fn('called')(function* (root: string, command: string, arg
     return { code, stdout, stderr, output: `${stdout}${stderr}` };
 });
 
+const committed = Effect.fn('committed')(function* (root: string, tags: readonly string[] = []) {
+    const rows = [['init', '--quiet'], ['config', 'user.name', 'suite'], ['config', 'user.email', 'suite@example.com'], ['config', 'commit.gpgsign', 'false'], ['config', 'tag.gpgsign', 'false'], ['add', '--all'], ['commit', '--quiet', '--message', 'base'], ...tags.map((tag) => ['tag', tag])];
+    yield* Effect.forEach(
+        rows,
+        (args) =>
+            Effect.filterOrFail(
+                called(root, 'git', args, {}),
+                ({ code }) => code === 0,
+                ({ code, output }) => new Cause.UnknownError(output, `git ${args.join(' ')} exited ${code}: ${output}`),
+            ),
+        { discard: true },
+    );
+});
+
 const nx = (root: string, args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) => Effect.flatMap(Path.Path, (path) => called(root, path.join(root, 'node_modules/.bin/nx'), args, set));
 
 const answered = (root: string, args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) => Effect.flatMap(nx(root, args, set), ({ code, stdout, output }) => (code === 0 ? Effect.succeed(stdout) : Effect.fail(NxRefusal.make({ argv: args, code, output }))));
@@ -135,4 +149,4 @@ const hashed = Effect.fn('hashed')(function* (root: string, set: Record.Readonly
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answered, called, graph, hashed, installed, NxRefusal, nx, ran };
+export { answered, called, committed, graph, hashed, installed, NxRefusal, nx, ran };

@@ -3,6 +3,7 @@
 from pathlib import Path
 from sys import getrecursionlimit
 from textwrap import dedent
+lazy from collections.abc import Callable, Mapping
 
 import pytest
 lazy from mypy.nodes import ArgKind, CallExpr, MemberExpr, NameExpr, OpExpr, StrExpr
@@ -11,7 +12,10 @@ lazy import structlog
 
 from rasm_refurb.events import check, ErrorLostLogFieldError
 lazy from rasm_refurb import fullname
-lazy from suite.conftest import Findings
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

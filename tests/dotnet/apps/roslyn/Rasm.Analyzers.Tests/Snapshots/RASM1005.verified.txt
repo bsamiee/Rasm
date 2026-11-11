@@ -1,3 +1,0 @@
-#0 `[.. held, value * 2]` copies `held` on every step, write `held.Add(value * 2)`
-#1 `[.. held, value]` copies `held` on every step, write `held.Add(value)`
-#2 `[.. /* source */ held, /* item */ value, /* end */]` copies `held` on every step, write `held.Add(value)`

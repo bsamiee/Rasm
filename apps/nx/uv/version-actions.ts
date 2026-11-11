@@ -2,9 +2,8 @@ import { parse, patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, type Tree } from '@nx/devkit';
 import { relocked } from '@rasm/nx-devkit/executor';
 import { runtime, ToolError } from '@rasm/nx-devkit/process';
-import { clean, compare, explain } from '@renovatebot/pep440';
-import { Array, Effect, Option, Record, Schema, SemVer, UndefinedOr } from 'effect';
-import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
+import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
+import { Array, Effect, Option, Predicate, Record, Schema, SemVer, String } from 'effect';
 import { VersionActions } from 'nx/release';
 import { LOCK, normalized } from '#/workspace';
 
@@ -12,8 +11,9 @@ import { LOCK, normalized } from '#/workspace';
 
 const PYPROJECT = 'pyproject.toml';
 const PRERELEASES = { a: 'alpha', b: 'beta', rc: 'rc' } as const;
-const NAME = /^\s*(?<name>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)/iu;
-const TRAILING = /\/+$/u;
+const REQUIREMENT = /^\s*(?<name>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)\s*(?:\[[^\]]*\])?(?<specifier>[^;]*)/iu;
+const RANGE = new RegExp(RANGE_PATTERN, 'giu');
+const RAISED = new Set(['==', '===', '~=', '>=']);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,25 +25,9 @@ const Project = Schema.Struct({
         dependencies: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         'optional-dependencies': Schema.Record(Schema.String, Schema.Array(Schema.String)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
-});
-const Indexes = Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.String, url: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) });
-const Configured = Schema.Struct({ tool: Schema.Struct({ uv: Indexes }) });
-const SETTINGS = {
-    'uv.toml': (parsed: unknown) => Option.map(Schema.decodeUnknownOption(Indexes)(parsed), (settings) => settings.index),
-    [PYPROJECT]: (parsed: unknown) => Option.map(Schema.decodeUnknownOption(Configured)(parsed), (settings) => settings.tool.uv.index),
-} as const;
-const Simple = Schema.Struct({ versions: Schema.Array(Schema.String) });
-const Locked = Schema.Struct({
-    package: Schema.Array(
-        Schema.Struct({
-            name: Schema.String,
-            metadata: Schema.optionalKey(Schema.Struct({ 'requires-dist': Schema.optionalKey(Schema.Array(Schema.Struct({ name: Schema.String, extras: Schema.optionalKey(Schema.Array(Schema.String)), marker: Schema.optionalKey(Schema.String) }))) })),
-        }),
-    ),
+    'dependency-groups': Schema.Record(Schema.String, Schema.Array(Schema.Unknown)).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
 });
 const Raw = Schema.Struct({ project: Table });
-const Metadata = Schema.Struct({ index: Schema.optionalKey(Schema.String) });
-const Options = Schema.Struct({ lock: Schema.String });
 const Semantic = Schema.Struct({
     epoch: Schema.Literal(0),
     release: Schema.Tuple([Schema.Int, Schema.optionalKey(Schema.Int), Schema.optionalKey(Schema.Int)]),
@@ -67,10 +51,24 @@ const pep440 = (version: string) =>
         () => ToolError.make({ subject: version, detail: 'has no PEP 440 form; use a prerelease id of alpha, beta, or rc' }),
     );
 
-const named = (requirement: string) =>
-    Option.map(
-        Option.flatMap(Option.fromNullishOr(NAME.exec(requirement)?.groups), ({ name }) => Option.fromNullishOr(name)),
-        normalized,
+const required = (requirement: string) => Option.flatMap(Option.fromNullishOr(REQUIREMENT.exec(requirement)?.groups), ({ name, specifier = '' }) => Option.map(Option.fromNullishOr(name), (stated) => ({ name: normalized(stated), specifier: specifier.trim() })));
+
+const raised = (floors: ReadonlyMap<string, string>, row: string) =>
+    Option.match(
+        Option.flatMap(required(row), ({ name, specifier }) => Option.filter(Option.fromUndefinedOr(floors.get(name)), () => String.isNonEmpty(specifier))),
+        {
+            onNone: () => Effect.succeed(row),
+            onSome: (version) => {
+                const marked = row.indexOf(';');
+                const written = [...row.matchAll(RANGE)].reduceRight((text, clause) => {
+                    const { operator, version: stated } = clause.groups ?? {};
+                    const [held, next] = [explain(stated)?.release ?? [], explain(version)?.release ?? []];
+                    const moved = held.length < next.length ? next.slice(0, held.length).join('.') : version;
+                    return stated !== undefined && operator !== undefined && RAISED.has(operator) && (marked < 0 || clause.index < marked) ? `${text.slice(0, clause.index)}${clause[0].replace(stated, moved)}${text.slice(clause.index + clause[0].length)}` : text;
+                }, row);
+                return Option.exists(required(written), ({ specifier }) => satisfies(version, specifier)) ? Effect.succeed(written) : Effect.fail(ToolError.make({ subject: row, detail: `excludes the released ${version} once each lower bound moves to it` }));
+            },
+        },
     );
 
 const document = Effect.fnUntraced(function* (tree: Tree, at: string) {
@@ -82,7 +80,7 @@ const document = Effect.fnUntraced(function* (tree: Tree, at: string) {
 const project = Effect.fnUntraced(function* (tree: Tree, root: string) {
     const { text, parsed } = yield* document(tree, joinPathFragments(root, PYPROJECT));
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
-    return { text, parsed, project: decoded.project, table: raw.project };
+    return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project };
 });
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -90,10 +88,6 @@ const project = Effect.fnUntraced(function* (tree: Tree, root: string) {
 class UvVersionActions extends VersionActions {
     override readonly validManifestFilenames = [PYPROJECT];
     override readonly excludeManifestsFromFormatting = true;
-
-    get lock() {
-        return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ lock }) => lock);
-    }
 
     override readDependencies(_tree: Tree, projectGraph: ProjectGraph) {
         return Promise.resolve((projectGraph.dependencies[this.projectGraphNode.name] ?? []).filter(({ target }) => target in projectGraph.nodes));
@@ -109,30 +103,8 @@ class UvVersionActions extends VersionActions {
         );
     }
 
-    override readCurrentVersionFromRegistry(tree: Tree, currentVersionResolverMetadata: Record<string, unknown> | undefined) {
-        const [located, root] = [this.lock, this.projectGraphNode.data.root];
-        return runtime.runPromise(
-            Effect.gen(function* () {
-                const [lock, { project: declared }, { index }] = yield* Effect.all([located, project(tree, root), Schema.decodeEffect(Metadata)(currentVersionResolverMetadata ?? {})]);
-                const configured = yield* Effect.forEach(
-                    Record.toEntries(SETTINGS).filter(([file]) => tree.exists(joinPathFragments(lock, '..', file))),
-                    ([file, form]) => Effect.map(document(tree, joinPathFragments(lock, '..', file)), ({ parsed }) => Option.getOrElse(form(parsed), Array.empty)),
-                );
-                const url = yield* UndefinedOr.match(index, {
-                    onUndefined: () => Effect.succeed('https://pypi.org/simple'),
-                    onDefined: (name) => Effect.mapBoth(Effect.fromOption(Array.findFirst(configured.flat(), (entry) => entry.name === name)), { onFailure: () => ToolError.make({ subject: name, detail: `names no uv index in the uv.toml or pyproject.toml beside ${lock}` }), onSuccess: (entry) => entry.url }),
-                });
-                const response = yield* HttpClient.execute(HttpClientRequest.get(`${url.replace(TRAILING, '')}/${normalized(declared.name)}/`).pipe(HttpClientRequest.setHeader('Accept', 'application/vnd.pypi.simple.v1+json')));
-                const versions = yield* HttpClientResponse.matchStatus(response, {
-                    404: () => Effect.succeed<readonly string[]>([]),
-                    orElse: (listing) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(listing), HttpClientResponse.schemaBodyJson(Simple)), (page) => page.versions),
-                });
-                return yield* Option.match(Array.last(versions.toSorted(compare)), {
-                    onNone: () => Effect.succeed<{ readonly currentVersion: string | null; readonly logText: string }>({ currentVersion: null, logText: `${declared.name} has no release on ${url}` }),
-                    onSome: (newest) => Effect.map(semver(newest), (currentVersion) => ({ currentVersion, logText: `${declared.name} ${newest} on ${url}` })),
-                });
-            }).pipe(Effect.provide(FetchHttpClient.layer)),
-        );
+    override readCurrentVersionFromRegistry() {
+        return Promise.resolve(null);
     }
 
     override readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
@@ -140,15 +112,18 @@ class UvVersionActions extends VersionActions {
         return runtime.runPromise(
             Effect.gen(function* () {
                 const node = yield* Effect.fromNullishOr(projectGraph.nodes[dependencyProjectName]);
-                const [{ project: dependent }, { project: dependency }] = yield* Effect.all([project(tree, root), project(tree, node.data.root)]);
-                const collections = [['dependencies', dependent.dependencies] as const, ...Record.collect(dependent['optional-dependencies'], (extra, rows) => [`optional-dependencies.${extra}`, rows] as const)];
-                return yield* Option.match(
-                    Array.findFirst(collections, ([, rows]) => rows.some((row) => Option.contains(named(row), normalized(dependency.name)))),
-                    {
-                        onNone: () => Effect.succeed<{ readonly currentVersion: string | null; readonly dependencyCollection: string | null }>({ currentVersion: null, dependencyCollection: null }),
-                        onSome: ([dependencyCollection]) => Effect.map(semver(dependency.version), (currentVersion) => ({ currentVersion, dependencyCollection })),
-                    },
-                );
+                const [{ project: dependent, groups }, { project: dependency }] = yield* Effect.all([project(tree, root), project(tree, node.data.root)]);
+                const collections = [
+                    ['dependencies', dependent.dependencies] as const,
+                    ...Record.collect(dependent['optional-dependencies'], (extra, rows) => [`optional-dependencies.${extra}`, rows] as const),
+                    ...Record.collect(groups, (group, rows) => [`dependency-groups.${group}`, rows.filter(Predicate.isString)] as const),
+                ];
+                const floors = (row: string) => Option.exists(required(row), ({ name, specifier }) => String.isNonEmpty(specifier) && name === normalized(dependency.name));
+                const stated = Array.findFirst(collections, ([, rows]) => rows.some(floors));
+                return yield* Option.match(stated, {
+                    onNone: () => Effect.succeed<{ readonly currentVersion: string | null; readonly dependencyCollection: string | null }>({ currentVersion: null, dependencyCollection: null }),
+                    onSome: ([dependencyCollection]) => Effect.map(semver(dependency.version), (currentVersion) => ({ currentVersion, dependencyCollection })),
+                });
             }),
         );
     }
@@ -166,34 +141,27 @@ class UvVersionActions extends VersionActions {
     }
 
     override updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
-        const [located, { root }] = [this.lock, this.projectGraphNode.data];
+        const { root } = this.projectGraphNode.data;
+        const at = joinPathFragments(root, PYPROJECT);
         return runtime.runPromise(
             Effect.gen(function* () {
-                const lock = yield* located;
-                const [{ text, parsed, table, project: dependent }, { package: locked }] = yield* Effect.all([project(tree, root), Effect.flatMap(document(tree, lock), (lockfile) => Schema.decodeUnknownEffect(Locked)(lockfile.parsed))]);
-                const declared = Option.getOrElse(
-                    Option.flatMap(
-                        Array.findFirst(locked, (entry) => entry.name === normalized(dependent.name)),
-                        (entry) => Option.fromUndefinedOr(entry.metadata?.['requires-dist']),
-                    ),
-                    Array.empty,
-                );
                 const released = yield* Effect.forEach(Record.toEntries(dependenciesToUpdate), ([dependency, version]) => Effect.all([Effect.flatMap(Effect.fromNullishOr(projectGraph.nodes[dependency]), (node) => project(tree, node.data.root)), pep440(version)]));
                 const floors = new Map(released.map(([manifest, version]) => [normalized(manifest.project.name), version] as const));
-                const floored = (row: string) =>
-                    Option.getOrElse(
-                        Option.map(
-                            Option.flatMap(named(row), (name) => Option.all([Option.fromUndefinedOr(floors.get(name)), Array.findFirst(declared, (entry) => entry.name === name)])),
-                            ([floor, entry]) => {
-                                const pinned = Option.match(Option.liftPredicate(entry.extras ?? [], Array.isReadonlyArrayNonEmpty), { onNone: () => `${entry.name}>=${floor}`, onSome: (extras) => `${entry.name}[${extras.join(',')}]>=${floor}` });
-                                return UndefinedOr.match(entry.marker, { onUndefined: () => pinned, onDefined: (marker) => `${pinned}; ${marker}` });
-                            },
-                        ),
-                        () => row,
-                    );
-                const optional = Record.map(dependent['optional-dependencies'], (rows) => rows.map(floored));
-                tree.write(joinPathFragments(root, PYPROJECT), patch(text, { ...parsed, project: { ...table, ...('dependencies' in table ? { dependencies: dependent.dependencies.map(floored) } : {}), ...(Record.isEmptyRecord(optional) ? {} : { 'optional-dependencies': optional }) } }));
-                return [...floors].map(([name, floor]) => `Floor ${name}>=${floor} written to ${joinPathFragments(root, PYPROJECT)}`);
+                if (floors.size === 0) {
+                    return [];
+                }
+                const { text, parsed, table, project: dependent, groups } = yield* project(tree, root);
+                const moved = (row: unknown) => (Predicate.isString(row) ? raised(floors, row) : Effect.succeed(row));
+                const [dependencies, optional, grouped] = yield* Effect.all([Effect.forEach(dependent.dependencies, moved), Effect.all(Record.map(dependent['optional-dependencies'], Effect.forEach(moved))), Effect.all(Record.map(groups, Effect.forEach(moved)))]);
+                tree.write(
+                    at,
+                    patch(text, {
+                        ...parsed,
+                        project: { ...table, ...('dependencies' in table ? { dependencies } : {}), ...(Record.isEmptyRecord(optional) ? {} : { 'optional-dependencies': optional }) },
+                        ...(Record.isEmptyRecord(grouped) ? {} : { 'dependency-groups': grouped }),
+                    }),
+                );
+                return [...floors].map(([name, floor]) => `Lower bound of ${name} moved to ${floor} in ${at}`);
             }),
         );
     }
@@ -201,7 +169,7 @@ class UvVersionActions extends VersionActions {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const afterAllProjectsVersioned = relocked(LOCK, ['uv', 'lock']);
+const afterAllProjectsVersioned = relocked(LOCK, ['uv', 'lock', '--no-locked']);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

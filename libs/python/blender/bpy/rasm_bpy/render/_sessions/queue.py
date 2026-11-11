@@ -71,6 +71,7 @@ from rasm_rendering import (
     shutdown_cancelled,
     spawned,
     supervision,
+    Target,
     Test,
 )
 
@@ -100,8 +101,8 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
         def summary(dispatcher: Dispatcher, context: bpy.types.Context, properties: Dispatch) -> Outcome[tuple[str, ...]]:
             def counted(plan: Plan, preferences: QueuePreferences) -> Outcome[tuple[str, ...]]:
-                return accumulated(scene_of(scope.scene).map(lambda scene: len(ranged(scene).numbers)) for scope in plan.scopes).map(
-                    lambda counts: (type(preferences.target).__name__, f"{len(plan.scopes)} jobs, {sum(counts)} frames")
+                return paired(accumulated(scene_of(scope.scene).map(lambda scene: len(ranged(scene).numbers)) for scope in plan.scopes), preferences.target).map(
+                    lambda found: (type(found[1]).__name__, f"{len(plan.scopes)} jobs, {sum(found[0])} frames")
                 )
 
             return paired(dispatcher.planned(context, properties, datetime.datetime.now(datetime.UTC), revising=dispatcher.planning), dispatcher.preference.read(dispatcher.identity)).bind(
@@ -254,12 +255,14 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
             Option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(lambda _: None)).default_value(Ok(None)),
         ).map(lambda _: None)
 
-    def gated(plan: Plan, preferences: QueuePreferences) -> Outcome[None]:
+    def gated(plan: Plan, preferences: QueuePreferences) -> Outcome[Target]:
         return paired(
-            file_audit(), accumulated(scene_of(scope.scene).bind(partial(audited, scope)) for scope in plan.scopes), Dispatcher.connected() if isinstance(preferences.target, Flamenco) else Ok(None)
-        ).map(lambda _: None)
+            file_audit(),
+            accumulated(scene_of(scope.scene).bind(partial(audited, scope)) for scope in plan.scopes),
+            preferences.target.bind(lambda target: (Dispatcher.connected() if isinstance(target, Flamenco) else Ok(None)).map(lambda _: target)),
+        ).map(lambda found: found[2])
 
-    def written(plan: Plan, preferences: QueuePreferences, manager: bpy.types.WindowManager) -> Outcome[Done]:
+    def written(plan: Plan, preferences: QueuePreferences, manager: bpy.types.WindowManager, target: Target) -> Outcome[Done]:
         stem = content_hash(Plan, plan).hex()
         return (
             accumulated(scene_of(scope.scene) for scope in plan.scopes)
@@ -268,7 +271,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
             .bind(lambda _: dispatcher.host.pruned(lambda keys: keys[: preferences.kept]))
             .bind(lambda _: assigned(dispatcher.queued.struct(manager), {("plan",): stem}))
             .bind(lambda _: saved(Path(bpy.data.filepath), bpy.ops.wm.save_mainfile))
-            .bind(lambda source: spawned(dispatcher.host.argv(RunCommand.PREPARE, PrepareArguments(plan=stem, target=preferences.target), Some(str(source))), detached=True))
+            .bind(lambda source: spawned(dispatcher.host.argv(RunCommand.PREPARE, PrepareArguments(plan=stem, target=target), Some(str(source))), detached=True))
             .map(partial(dispatcher.state.started, stem))
             .map(lambda _: identity.reports.logger.info("Plan sent", plan=stem, jobs=len(plan.scopes)))
             .map(lambda _: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {identity.reports.log(identity.identifier(RunCommand.PREPARE))}"),)))
@@ -276,8 +279,7 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
 
     return (
         paired(dispatcher.planned(context, call.properties, moment, revising=dispatcher.preparing), dispatcher.preference.read(identity), rooted(bpy.types.WindowManager, context))
-        .bind(lambda parts: gated(parts[0], parts[1]).map(lambda _: parts))
-        .bind(lambda parts: written(*parts))
+        .bind(lambda parts: gated(parts[0], parts[1]).bind(partial(written, *parts)))
         .bind(lambda done: dispatcher.watched().map(lambda _: done))
     )
 
@@ -371,9 +373,9 @@ def pack(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
 def read_manager(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     """Reads Manager storage, worker tags, and job types, reporting each worker tag."""
 
-    def flamenco(preferences: QueuePreferences) -> Outcome[Flamenco]:
-        match preferences.target:
-            case Flamenco() as target:
+    def flamenco(preferences: QueuePreferences, target: Target) -> Outcome[Flamenco]:
+        match target:
+            case Flamenco():
                 return Ok(target)
             case other:
                 return Error(Fault.of(Reason.OUTSIDE, repr(preferences), type(other).__name__, member=Flamenco.__name__))
@@ -381,7 +383,13 @@ def read_manager(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
     def noted(manager: Manager) -> Done:
         return Done(notes=(("INFO", f"Job type {'installed' if manager.job_type.is_some() else 'missing'}"), *(("INFO", f"Worker tag {tag.name}") for tag in manager.tags)))
 
-    return dispatcher.preference.read(call.identity).bind(flamenco).bind(lambda target: Dispatcher.connected().bind(lambda _: target.server.opened(Manager.queried))).map(noted)
+    return (
+        dispatcher.preference
+        .read(call.identity)
+        .bind(lambda preferences: preferences.target.bind(partial(flamenco, preferences)))
+        .bind(lambda target: Dispatcher.connected().bind(lambda _: target.server.opened(Manager.queried)))
+        .map(noted)
+    )
 
 
 def install_job_type(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:

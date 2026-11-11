@@ -965,9 +965,12 @@ dev = [
     { name = "fake-bpy-module-latest" },
     { name = "mypy" },
     { name = "rasm-opencolorio-stubs" },
+    { name = "rasm-refurb" },
+    { name = "refurb" },
     { name = "ruff" },
     { name = "scipy-stubs" },
     { name = "ty" },
+    { name = "vulture" },
 ]
 
 [package.metadata]
@@ -991,9 +994,12 @@ dev = [
     { name = "fake-bpy-module-latest" },
     { name = "mypy" },
     { name = "rasm-opencolorio-stubs", editable = "../../../libs/python/blender/opencolorio-stubs" },
+    { name = "rasm-refurb", editable = "../../../tools/refurb" },
+    { name = "refurb" },
     { name = "ruff" },
     { name = "scipy-stubs" },
     { name = "ty" },
+    { name = "vulture" },
 ]
 
 [[package]]
@@ -1064,6 +1070,29 @@ requires-dist = [
     { name = "msgspec", extras = ["toml"], specifier = ">=0.19.0" },
     { name = "numpy", specifier = ">=2.1.0" },
     { name = "typing-extensions", specifier = ">=4.13.0" },
+]
+
+[[package]]
+name = "rasm-refurb"
+version = "0.0.0"
+source = { editable = "../../../tools/refurb" }
+dependencies = [
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "mypy" },
+    { name = "rasm-records" },
+    { name = "refurb" },
+    { name = "structlog" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "expression" },
+    { name = "msgspec" },
+    { name = "mypy" },
+    { name = "rasm-records", editable = "../../../libs/python/data/records" },
+    { name = "refurb" },
+    { name = "structlog" },
 ]
 
 [[package]]
@@ -1152,6 +1181,18 @@ requires-dist = [
     { name = "structlog" },
 ]
 provides-extras = ["export", "process", "otlp-http", "otlp-grpc", "configuration", "metrics"]
+
+[[package]]
+name = "refurb"
+version = "2.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "mypy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/48/90/572837d7ec45cb9385b85b751bd5f317294a938e1600b2b7190618a2929b/refurb-2.3.1.tar.gz", hash = "sha256:8605ef2cf40804403340396b9cf51b13bd5d0f5f6a84f8b4447484b7ba94bc79", size = 90117, upload-time = "2026-04-03T21:43:51.158Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/17/62/e675136b4b04d2e2910c78763ff264339bd968162d9a7d8dfb9771af3051/refurb-2.3.1-py3-none-any.whl", hash = "sha256:c18f0abdeb478ab86df5bfc352b635fa3543b403950f610814884055115e9a82", size = 141403, upload-time = "2026-04-03T21:43:52.595Z" },
+]
 
 [[package]]
 name = "requests"
@@ -1335,6 +1376,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8a/78/16493d9c386d8e60e442a35feac5e00f0913c0f4b7c217c11e8ec2ff53e0/urllib3-2.4.0.tar.gz", hash = "sha256:414bc6535b787febd7567804cc015fee39daab8ad86268f1310a9250697de466", size = 390672, upload-time = "2025-04-10T15:23:39.232Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6b/11/cc635220681e93a0183390e26485430ca2c7b5f9d33b15c74c2861cb8091/urllib3-2.4.0-py3-none-any.whl", hash = "sha256:4e16665048960a0900c702d4a66415956a584919c03361cac9f1df5c5dd7e813", size = 128680, upload-time = "2025-04-10T15:23:37.377Z" },
+]
+
+[[package]]
+name = "vulture"
+version = "2.16"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/66/3e/4d08c5903b2c0c70cad583c170cc4a663fc6a61e2ad00b711fcda61358cd/vulture-2.16.tar.gz", hash = "sha256:f8d9f6e2af03011664a3c6c240c9765b3f392917d3135fddca6d6a68d359f717", size = 52680, upload-time = "2026-03-25T14:41:27.141Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/be/f935130312330614811dae2ea9df3f395f6d63889eb6c2e68c14507152ee/vulture-2.16-py3-none-any.whl", hash = "sha256:6e0f1c312cef1c87856957e5c2ca9608834a7c794c2180477f30bf0e4cc58eee", size = 26993, upload-time = "2026-03-25T14:41:26.21Z" },
 ]
 
 [[package]]

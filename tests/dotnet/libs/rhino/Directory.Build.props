@@ -4,15 +4,4 @@
     </PropertyGroup>
 
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
-
-    <PropertyGroup Label="Rhino Test Host">
-        <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --rhino-profile &quot;$(RHINO_TEST_PROFILE)&quot;</TestingPlatformCommandLineArguments>
-    </PropertyGroup>
-
-    <ItemGroup Label="Rhino Test Host">
-        <ProjectReference Include="$(MSBuildThisFileDirectory)../../support/Rasm.Rhino.Testing/Rasm.Rhino.Testing.csproj" />
-    </ItemGroup>
-
-    <Import Project="../../support/Rasm.Rhino.Testing/buildTransitive/Rasm.Rhino.Testing.props" />
-    <Import Project="../../support/Rasm.Rhino.Testing/buildTransitive/Rasm.Rhino.Testing.targets" />
 </Project>

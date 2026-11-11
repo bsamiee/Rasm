@@ -1,12 +1,12 @@
 """Servers a test starts through Testcontainers: each catalog driver against its server, a restart a test controls, and the logs a failed test reports."""
 
+import obstore
 import pytest
-lazy import obstore
-lazy from testcontainers.community.clickhouse import ClickHouseContainer
-lazy from testcontainers.community.postgres import PostgresContainer
-lazy from testcontainers.community.valkey import ValkeyContainer
+from testcontainers.community.clickhouse import ClickHouseContainer
+from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.valkey import ValkeyContainer
 
-lazy from rasm_testing import Defined, opened, RustfsContainer, Started
+from rasm_testing.containers import Defined, opened, RustfsContainer, Started
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -63,5 +63,5 @@ def test_a_failed_test_reports_the_logs_of_its_server(pytester: pytest.Pytester,
             started(ValkeyContainer({cache_row.image!r}))
             pytest.fail("refused")
     """)
-    (torn,) = (report for report in pytester.inline_run("-p", "rasm_testing.plugin").getreports("pytest_runtest_logreport") if report.when == "teardown")
+    (torn,) = (report for report in pytester.inline_run("-p", "rasm_testing.containers").getreports("pytest_runtest_logreport") if report.when == "teardown")
     assert [name for name, text in torn.sections if "Ready to accept connections" in text] == [f"Captured {cache_row.image} teardown"]

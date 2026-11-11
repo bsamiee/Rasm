@@ -1,2 +1,0 @@
-#0 `Thinktecture.Runtime.Extensions` declares `Thinktecture`, declare types under the project namespace
-#1 `System.Text.Json` declares `System.Text.Json.Serialization`, declare types under the project namespace

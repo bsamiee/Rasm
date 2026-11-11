@@ -1,9 +1,15 @@
 """Keyword arguments restating literal defaults."""
 
 from textwrap import dedent
+lazy from collections.abc import Callable, Mapping
+
+lazy from refurb.error import Error
 
 lazy from rasm_refurb.defaults import ErrorRestatedDefaultError
-lazy from suite.conftest import Findings
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

@@ -1,2 +1,0 @@
-#0 `Match` returns `Some` value unchanged, write `value.IfNone(static () => 0)`
-#1 `Match` returns `Succ` value unchanged, write `value.IfFail(static _ => 0)`

@@ -5,7 +5,7 @@ name            = "rasm-refurb"
 version         = "0.0.0"
 description     = "Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin"
 classifiers     = ["Private :: Do Not Upload"]
-requires-python = ">=3.15"
+requires-python = ">=3.13"
 
 dependencies = [
     "expression",   # `Option` and `Result`, whose fullnames RASM101 reads

@@ -1,16 +1,17 @@
 """Structlog log fields lost to event text, positional arguments, or a discarded logger."""
 
+from collections import deque
 from inspect import getmembers, isfunction, signature
+from types import MappingProxyType
 from typing import get_protocol_members
-lazy from collections import deque
 
+from mypy.nodes import ArgKind, CallExpr, Expression, ExpressionStmt, FUNC_NO_INFO, FuncDef, get_func_def, ListExpr, MemberExpr, OpExpr, RefExpr, StarExpr, TupleExpr, Var
+from mypy.types import CallableType, find_unpack_in_list, get_proper_type, TupleType, Type, TypeVarTupleType, UnpackType
+from refurb.checks.common import get_mypy_type, is_subclass
+from refurb.error import Error
 import structlog
 from structlog.stdlib import AsyncBoundLogger
 from structlog.typing import BindableLogger, FilteringBoundLogger
-lazy from mypy.nodes import ArgKind, CallExpr, Expression, ExpressionStmt, FUNC_NO_INFO, FuncDef, get_func_def, ListExpr, MemberExpr, OpExpr, RefExpr, StarExpr, TupleExpr, Var
-lazy from mypy.types import CallableType, find_unpack_in_list, get_proper_type, TupleType, Type, TypeVarTupleType, UnpackType
-lazy from refurb.checks.common import get_mypy_type, is_subclass
-lazy from refurb.error import Error
 
 from rasm_refurb._findings import fullname, RasmError
 
@@ -19,7 +20,9 @@ from rasm_refurb._findings import fullname, RasmError
 _LOGGERS = frozenset(map(fullname, (FilteringBoundLogger, BindableLogger, structlog.BoundLoggerBase, AsyncBoundLogger)))
 _FACTORIES = frozenset(map(fullname, (structlog.get_logger, structlog.stdlib.get_logger, structlog.wrap_logger)))
 _BINDERS = frozenset(name for name in get_protocol_members(BindableLogger) if not name.startswith("_"))
-_EVENTS = frozendict({name: index for name, member in getmembers(FilteringBoundLogger, isfunction) for index, parameter in enumerate(signature(member).parameters, start=-1) if parameter == "event"})
+_EVENTS = MappingProxyType({
+    name: index for name, member in getmembers(FilteringBoundLogger, isfunction) for index, parameter in enumerate(signature(member).parameters, start=-1) if parameter == "event"
+})
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 

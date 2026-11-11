@@ -1,11 +1,11 @@
 """Keyword arguments restating the literal default a same-module function or a `msgspec.Struct` field declares."""
 
+from collections import Counter, defaultdict
 from functools import cache
 from typing import override
-lazy from collections import Counter, defaultdict
 
 import msgspec
-lazy from mypy.nodes import (
+from mypy.nodes import (
     AssignmentStmt,
     BytesExpr,
     CallExpr,
@@ -30,9 +30,9 @@ lazy from mypy.nodes import (
     UnaryExpr,
     Var,
 )
-lazy from mypy.types import CallableType, FunctionLike, get_proper_type, Instance, Type
-lazy from refurb.checks.common import get_mypy_type, is_equivalent, stringify
-lazy from refurb.error import Error
+from mypy.types import CallableType, FunctionLike, get_proper_type, Instance, Type
+from refurb.checks.common import get_mypy_type, is_equivalent, stringify
+from refurb.error import Error
 
 from rasm_refurb._findings import fullname, RasmError
 from rasm_refurb._loops import Traverser

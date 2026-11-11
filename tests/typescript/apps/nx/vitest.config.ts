@@ -1,6 +1,16 @@
 import { testPolicy } from '@rasm/testing/vitest';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig({ plugins: [testPolicy()], test: { include: ['inference/*.test.ts', 'workspace/*.test.ts', '*.test.ts'], setupFiles: ['@rasm/testing/nx/setup'], testTimeout: 60_000, unstubEnvs: true } });
+export default defineConfig({
+    plugins: [testPolicy()],
+    test: {
+        include: ['inference/*.test.ts', 'delivery/*.test.ts', '*.test.ts'],
+        exclude: [...configDefaults.exclude, '**/*.e2e.test.ts'],
+        setupFiles: ['@rasm/testing/nx/setup'],
+        provide: { driven: false },
+        testTimeout: 60_000,
+        unstubEnvs: true,
+    },
+});

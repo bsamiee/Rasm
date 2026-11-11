@@ -115,9 +115,10 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `cloudflare.config.ts` projects it through `worker(hosting, config)`, and the hosting row names each deployed Worker and resource by its mode
 - `server/main.ts` passes it to `serveNode`, which reads each store variable from the environment and each `text` value from the declaration
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
+- `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs, `tsconfig.worker.json` Worker entry with `cloudflare.config.ts` and `.cloudflare/types`
 - `.openai/hosting.json` names the D1 and R2 bindings OpenAI Sites supplies, written by hand, and the host assigns `project_id`
 - `nx install @rasm/portfolio` applies the app on the local engine, `nx deploy @rasm/portfolio --stack=<row>` on one hosting row
-- Row `cloudflare` deploys the built Worker with its D1 database, R2 bucket and lifecycle rules, and an Access application on the sign-in path
+- Row `cloudflare` deploys the built Worker with every binding its Build Output states, creating each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
 - `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote
 
 [SERVERS]: `server/app.ts` composes routes over passed services, D1 and `r2Storage` from the Worker, SQLite and path-style `s3Storage` from Node:

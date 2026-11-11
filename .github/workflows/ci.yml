@@ -34,6 +34,7 @@ jobs:
             - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
+            - run: nx sync:check
             - run: playwright install --with-deps --only-shell chromium
             - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
             - &cache
@@ -42,18 +43,15 @@ jobs:
               env:
                   SERVER: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx affected --targets=check,test,build
-              env: &nx-cache
+              env:
                   NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.reachable == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
                   NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
-            - &locks
-              run: git diff --exit-code -- '*Cargo.lock' '*Package.resolved'
 
     macos:
         runs-on: xcode-27
         timeout-minutes: 60
         env:
             DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
-            RHINO_TOKEN: ${{ secrets.RHINO_TOKEN }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -64,13 +62,10 @@ jobs:
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
             - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
-            - id: hosts
-              run: rhino=$(nx show projects --affected --withTarget=build--dotnet --projects=tag:os:win32 --sep=,) && printf 'rhino=%s\n' "${rhino}" >> "${GITHUB_OUTPUT}"
-            - if: steps.hosts.outputs.rhino != ''
-              uses: mcneel/setup-rhino3d@b3faf87453962c0742ab2a5e72d3494505f660df # v3.0.0
-              with:
-                  email-address: ${{ secrets.RHINO_EMAIL }}
             - *cache
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin'
-              env: *nx-cache
-            - *locks
+              env:
+                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.reachable == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
+                  NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+                  APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
+                  APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}

@@ -1,3 +1,4 @@
+import web from '@nx/web/package.json' with { type: 'json' };
 import { inferred, line, NODE, type Request } from '@rasm/nx-devkit/plugin';
 import { type Answer, type Asked, consulted, Timed } from '@rasm/nx-devkit/reader';
 import { Array, Option } from 'effect';
@@ -15,8 +16,10 @@ const { createNodes } = inferred({
     options: Timed,
     ...consulted({ entry: import.meta.resolve('#/reader'), job: Job, report: Report, launch: () => MODE, jobs: ({ files, path }: Request<typeof Timed.Type>) => files.map((file) => Job.make({ root: path.dirname(path.dirname(file)), file })) }),
     projects: ({ report: { packages, signals } }: Answer<typeof Report.Type>, { job: { root, file }, chain }: Asked<typeof Job>, { path, exec, placed }) => {
-        const inputs = ['default', '^default', ...chain.map((at) => path.join('{workspaceRoot}', at)), NODE, { externalDependencies: Array.dedupe(['storybook', ...packages]) }];
+        const inputs = ['default', '^default', ...chain, NODE, { externalDependencies: Array.dedupe(['storybook', ...packages]) }];
         const output = placed('storybook');
+        const written = Option.getOrElse(output, () => path.join(root, 'storybook-static'));
+        const built = 'build--storybook';
         return [
             {
                 file,
@@ -27,10 +30,22 @@ const { createNodes } = inferred({
                     build: {
                         storybook: {
                             command: line(['storybook', 'build', ...Option.match(output, { onNone: () => [], onSome: (at) => ['--output-dir', path.relative(root, at)] })]),
+                            dependsOn: ['codegen--*', '^codegen'],
                             cache: true,
                             inputs,
-                            outputs: [Option.match(output, { onNone: () => '{projectRoot}/storybook-static', onSome: (at) => path.join('{workspaceRoot}', at) })],
+                            outputs: [path.join('{workspaceRoot}', written)],
                             metadata: { description: 'Builds the static Storybook of the project stories', help: { command: `${exec} storybook build --help`, example: { args: ['--test'] } } },
+                        },
+                    },
+                    preview: {
+                        storybook: {
+                            executor: `${web.name}:file-server`,
+                            dependsOn: [built],
+                            continuous: true,
+                            readyWhen: { signal: true },
+                            inputs,
+                            options: { buildTarget: built, staticFilePath: written },
+                            metadata: { description: `Serves the static Storybook ${built} writes through the ${web.name} file server` },
                         },
                     },
                     ...(signals && {

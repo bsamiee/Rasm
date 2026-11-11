@@ -1,4 +1,0 @@
-#0 `Modifier` holds data-free items, move consumer data onto items or declare a shape-differing record union
-#1 `Glass` keys items by unread member names, move consumer data onto items or declare a shape-differing record union
-#2 `Channel` keys items by unread member names, move consumer data onto items or declare a shape-differing record union
-RASM3015 `Channels.Get` has one reader in the assembly, in `Channels.Checked`, fold `Channels.Get` into `Channels.Checked`

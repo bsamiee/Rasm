@@ -4,8 +4,9 @@ import { env } from 'node:process';
 import type { layer } from '@effect/platform-node/NodeServices';
 import type { Vitest } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
-import { graph, installed } from '@rasm/testing/nx/cli';
-import { Array, DateTime, Effect, FileSystem, type Layer, Option, Path, Predicate, Record } from 'effect';
+import { called, graph, installed } from '@rasm/testing/nx/cli';
+import { checkout } from '@rasm/testing/nx/inference';
+import { Array, Cause, DateTime, Effect, FileSystem, type Layer, Option, Path, Predicate, Record } from 'effect';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
 import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import type { Subject } from '#/inference/cases';
@@ -27,7 +28,36 @@ const row = ({ plugin, options }: Subject) => ({ plugin: plugin.name, ...(option
 
 const present = ({ tools = [] }: Subject) => tools.every((tool) => FOLDERS.some((folder) => existsSync(join(folder, tool))));
 
-const placed = (subject: Subject, files: Record.ReadonlyRecord<string, string> = {}, nxJson: NxJsonConfiguration = { plugins: [row(subject)] }) => installed({ ...subject.files, ...files }, [subject.plugin.name, ...(subject.packages ?? [])], import.meta.url, nxJson, subject.state);
+const written = Effect.fnUntraced(function* (root: string, [manifest, tool, ...args]: NonNullable<Subject['locked']>[number]) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const folder = path.dirname(manifest);
+    const before = yield* fs.readDirectory(path.join(root, folder));
+    yield* Effect.filterOrFail(
+        called(path.join(root, folder), tool, args, {}),
+        ({ code }) => code === 0,
+        ({ output }) => new Cause.UnknownError(output, `${tool} ${args.join(' ')} wrote no lock beside ${manifest}: ${output}`),
+    );
+    const after = yield* fs.readDirectory(path.join(root, folder));
+    return yield* Effect.forEach(Array.difference(after, before), (name) => Effect.map(fs.readFileString(path.join(root, folder, name)), (text) => [path.join(folder, name), text] as const));
+});
+
+const locks = ({ files, locked = [] }: Subject) =>
+    Array.match(
+        locked.filter(([manifest]) => manifest in files),
+        {
+            onEmpty: (): Effect.Effect<Record.ReadonlyRecord<string, string>> => Effect.succeed({}),
+            onNonEmpty: (rows) =>
+                checkout(files, [], import.meta.url).pipe(
+                    Effect.flatMap((root) => Effect.forEach(rows, (stated) => written(root, stated))),
+                    Effect.map((held) => Record.fromEntries(held.flat())),
+                ),
+        },
+    );
+
+const placed = Effect.fnUntraced(function* (subject: Subject, files: Record.ReadonlyRecord<string, string> = {}, nxJson: NxJsonConfiguration = { plugins: [row(subject)] }) {
+    const held = yield* locks(subject);
+    return yield* installed({ ...subject.files, ...held, ...files }, [subject.plugin.name, ...(subject.packages ?? [])], import.meta.url, nxJson, subject.state);
+});
 
 const amended = Effect.fnUntraced(function* (root: string, file: string, text: string) {
     const [fs, path, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, DateTime.now]);

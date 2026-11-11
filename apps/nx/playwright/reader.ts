@@ -1,30 +1,42 @@
 import { createRequire } from 'node:module';
 import { execPath } from 'node:process';
-import { type ProjectGraph, parseTargetString } from '@nx/devkit';
 import { loadConfigFile } from '@nx/devkit/internal';
 import type { PlaywrightTestConfig } from '@playwright/test';
 import { ran, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { outermost, served } from '@rasm/nx-devkit/reply';
-import { Array, Effect, Option, Path, Predicate, pipe, Record, Schema } from 'effect';
+import { Array, Effect, Option, Path, Predicate, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORTS: Record.ReadonlyRecord<string, string> = { html: 'playwright-report', blob: 'blob-report', coverage: 'coverage', perfetto: 'test-results' };
-const TASK = /(?:^|\s)nx run (?<task>\S+)$/u;
-const UNBUILT: ProjectGraph = { nodes: {}, dependencies: {} };
+const REPORTERS: Record.ReadonlyRecord<string, readonly [name: string, defaulted: boolean, variable?: string]> = {
+    junit: ['junit.xml', false, 'PLAYWRIGHT_JUNIT_OUTPUT_FILE'],
+    html: ['playwright-report', true, 'PLAYWRIGHT_HTML_OUTPUT_DIR'],
+    blob: ['blob-report', true, 'PLAYWRIGHT_BLOB_OUTPUT_DIR'],
+    coverage: ['coverage', true],
+    perfetto: ['test-results', true],
+};
+const TASK = /(?:^|\s)nx (?:run (?<project>[^\s:]+):(?<target>[^\s:]+)(?::\S*)?|(?<target>\S+) (?<project>\S+))$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Job = Schema.Struct({ root: Schema.String, file: Schema.String, flags: Schema.Array(Schema.String), directed: Schema.Array(Schema.String) }).annotate({
     description: 'One Playwright config read under the flags its target passes, with the reporters its target directs through a variable',
 });
-const Report = Schema.Struct({ folders: Schema.optionalKey(Schema.Array(Schema.String)), servers: Schema.Array(Schema.Struct({ project: Schema.String, target: Schema.String })) }).annotate({
-    description: 'Workspace-relative paths the run writes, absent where Playwright lists no test, and the Nx tasks its reused webServer commands run',
+const Served = Schema.Struct({ project: Schema.String, target: Schema.String });
+const Report = Schema.Struct({
+    folders: Schema.optionalKey(Schema.Array(Schema.String)),
+    servers: Schema.Array(Served),
+    files: Schema.Array(Schema.String),
+    output: Schema.String,
+    merged: Schema.optionalKey(Schema.Struct({ blob: Schema.String, reports: Schema.Array(Schema.String) })),
+}).annotate({
+    description:
+        'Workspace-relative paths the run writes, absent where Playwright lists no test; the Nx tasks its reused webServer commands run; its test files relative to the config folder in name order; the workspace-relative output folder of its first project; and, for a config listing the blob reporter, the workspace-relative blob folder and the outputs of its other reporters',
 });
 const Reported = Schema.Struct({ outputFile: Schema.optionalKey(Schema.String), outputDir: Schema.optionalKey(Schema.String), outputFolder: Schema.optionalKey(Schema.String) }).annotate({
     description: 'The output options of a Playwright reporter entry, read in the order @nx/playwright reads them',
 });
-const Listing = Schema.fromJsonString(Schema.Struct({ config: Schema.Struct({ projects: Schema.Array(Schema.Struct({ outputDir: Schema.String })) }), suites: Schema.Array(Schema.Unknown) })).annotate({
+const Listing = Schema.fromJsonString(Schema.Struct({ config: Schema.Struct({ rootDir: Schema.String, projects: Schema.NonEmptyArray(Schema.Struct({ outputDir: Schema.String })) }), suites: Schema.Array(Schema.Struct({ file: Schema.String })) })).annotate({
     description: 'The JSONReport of playwright test --list --reporter=json',
 });
 
@@ -37,10 +49,29 @@ const read = Effect.fnUntraced(function* ({ root, file, flags, directed }: typeo
     const cli = yield* Effect.try({ try: () => createRequire(path.join(folder, 'package.json')).resolve('@playwright/test/cli'), catch: ToolError.of(file, `resolves no @playwright/test from ${root}`) });
     const listing = yield* Effect.mapError(ran(execPath, [cli, 'test', '--list', '--pass-with-no-tests', '--reporter=json', '--config', path.join(workspaceRoot, file), ...flags], { cwd: folder }), ToolError.of(file, 'cannot start the Playwright listing'));
     const { config, suites } = yield* Effect.mapError(Schema.decodeEffect(Listing)(listing.stdout), ToolError.of(file, `lists no report: ${listing.stderr.trim()}`));
-    const reports = Array.getSomes(
-        (Predicate.isString(reporter) ? [[reporter, {}] as const] : reporter).map(([name, options]) =>
-            Option.firstSomeOf([Option.flatMap(Schema.decodeUnknownOption(Reported)(options), ({ outputFile, outputDir, outputFolder }) => Option.fromUndefinedOr(outputFile ?? outputDir ?? outputFolder)), Option.filter(Record.get(REPORTS, name), () => !directed.includes(name))]),
+    const defaults = Record.map(
+        Record.filter(REPORTERS, ([, defaulted]) => defaulted),
+        ([at]) => at,
+    );
+    const stated = (Predicate.isString(reporter) ? [[reporter, {}] as const] : reporter).map(([name, options]) => [name, Option.flatMap(Schema.decodeUnknownOption(Reported)(options), ({ outputFile, outputDir, outputFolder }) => Option.fromUndefinedOr(outputFile ?? outputDir ?? outputFolder))] as const);
+    const undirected = Record.filter(defaults, (_, name) => !directed.includes(name));
+    const reports = Array.getSomes(stated.map(([name, at]) => Option.orElse(at, () => Record.get(undirected, name))));
+    const written = stated.map(
+        ([name, at]) =>
+            [
+                name,
+                Option.map(
+                    Option.orElse(at, () => Record.get(defaults, name)),
+                    (to) => path.relative(workspaceRoot, path.resolve(folder, to)),
+                ),
+            ] as const,
+    );
+    const merged = Option.map(
+        Option.flatMap(
+            Array.findFirst(written, ([name]) => name === 'blob'),
+            ([, at]) => at,
         ),
+        (blob) => ({ blob: path.extname(blob) === '.zip' ? path.dirname(blob) : blob, reports: Array.getSomes(written.filter(([name]) => name !== 'blob').map(([, at]) => at)) }),
     );
     const folders = outermost(
         path,
@@ -52,16 +83,10 @@ const read = Effect.fnUntraced(function* ({ root, file, flags, directed }: typeo
         [webServer, ...projects.map((project) => project.webServer ?? [])]
             .flat()
             .filter(({ reuseExistingServer, wait, env }) => reuseExistingServer === true && wait === undefined && env === undefined)
-            .map(({ command }) =>
-                pipe(
-                    Option.fromNullishOr(TASK.exec(command)?.groups),
-                    Option.flatMap(Option.liftThrowable(({ task = '' }) => parseTargetString(task, UNBUILT))),
-                    Option.filter(({ configuration }) => configuration === undefined),
-                    Option.map(({ project, target }) => ({ project, target })),
-                ),
-            ),
+            .map(({ command }) => Schema.decodeUnknownOption(Served)(TASK.exec(command)?.groups)),
     );
-    return { report: Report.make({ ...(listed && { folders }), servers }), sources: listed ? [] : [path.join(folder, '**')] };
+    const files = Array.dedupe(suites.map(({ file: at }) => path.relative(folder, path.resolve(config.rootDir, at)))).toSorted();
+    return { report: Report.make({ ...(listed && { folders }), servers, files, output: path.relative(workspaceRoot, Array.headNonEmpty(config.projects).outputDir), ...Record.getSomes({ merged }) }), sources: [path.join(folder, '**')] };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -72,4 +97,4 @@ if (import.meta.main) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Job, Report };
+export { Job, REPORTERS, Report };

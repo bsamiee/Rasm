@@ -22,8 +22,7 @@ use rasm_mcp::{History, Link, Liveness, Policy, Pool, Retention, Store};
 use rasm_telemetry::metrics;
 use rmcp::model::{ClientCapabilitiesBuilder, ElicitationCapability, Implementation, InitializeRequestParams, ProtocolVersion, RootsCapabilities, SamplingCapability};
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
-use serde::de::{DeserializeOwned, IgnoredAny};
-use serde_path_to_error::Track;
+use serde::de::IgnoredAny;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 use tempfile::NamedTempFile;
 use tokio::sync::{oneshot, watch};
@@ -46,7 +45,7 @@ impl Records {
 impl Store<Key> for Records {
     async fn load(&self, key: &Key) -> io::Result<Option<History>> {
         match fs_err::tokio::read(self.path(&key.0)?).await {
-            Ok(held) => record::<(Command, History)>(&held).map(|(command, history)| (command == key.0).then_some(history)),
+            Ok(held) => rasm_mcp::decode::<(Command, History)>(&held).map_err(io::Error::other).map(|(command, history)| (command == key.0).then_some(history)),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(error) => Err(error),
         }
@@ -213,15 +212,6 @@ impl Daemon {
     }
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn record<T>(held: &[u8]) -> io::Result<T>
-where T: DeserializeOwned {
-    let mut decoder = serde_json::Deserializer::from_slice(held);
-    let value = serde_path_to_error::deserialize(&mut decoder).map_err(io::Error::other)?;
-    decoder.end().map(|()| value).map_err(|source| io::Error::other(serde_path_to_error::Error::new(Track::new().path(), source)))
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Duration>, built: Build) -> Result<(), MuxerError> {
@@ -233,7 +223,7 @@ pub(crate) async fn serve(endpoint: Endpoint, cache: &Utf8Path, idle: Option<Dur
     let files = rlimit::increase_nofile_limit(u64::MAX).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "open file limit not raised")).ok();
     tracing::info!(pid = std::process::id(), ?built, files, "listening");
     let stale = async |path: std::path::PathBuf| {
-        let (command, IgnoredAny) = record::<(Command, IgnoredAny)>(&fs_err::tokio::read(&path).await?)?;
+        let (command, IgnoredAny) = rasm_mcp::decode::<(Command, IgnoredAny)>(&fs_err::tokio::read(&path).await?).map_err(io::Error::other)?;
         Ok::<_, io::Error>(crate::build(&fs_err::tokio::metadata(&command.program).await?)? != command.file)
     };
     let records = fs_err::tokio::read_dir(cache).map_ok(|records| stream::try_unfold(records, async |mut records| Ok(records.next_entry().await?.map(|entry| (entry, records))))).try_flatten_stream();

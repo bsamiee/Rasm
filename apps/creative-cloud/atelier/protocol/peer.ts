@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Deferred, Duration, Effect, flow, Latch, Layer, Number, Option, Predicate, Record, Ref, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Deferred, Duration, Effect, Exit, flow, Latch, Layer, Number, Option, Predicate, Record, Ref, Schedule, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse, Url } from 'effect/http';
 import { Host, NetAddress } from 'effect/net';
 import { type Rpc, RpcClient, type RpcClientError, type RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
@@ -46,14 +46,10 @@ class Peer extends Schema.Class<Peer, { readonly brand: unique symbol }>('Peer')
                             return {
                                 address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Loopback, globalThis.Number(dialed.port)),
                                 run: (handler) =>
-                                    reader.pipe(
-                                        Effect.flatMap((opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))),
-                                        Effect.scoped,
-                                        Effect.tapCauseIf(Cause.hasDies, Effect.logError),
-                                        Effect.exit,
-                                        Effect.andThen(Effect.sleep(import.meta.env.LINK.redial)),
-                                        Effect.forever,
-                                    ),
+                                    Stream.fromEffectSchedule(
+                                        Effect.exit(Effect.scoped(Effect.flatMap(reader, (opened) => handler(Socket.make({ reader: Effect.succeed(opened), writer }))))).pipe(Effect.map((exit) => (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause) ? Option.some(Cause.pretty(exit.cause)) : Option.none()))),
+                                        Schedule.spaced(import.meta.env.LINK.redial),
+                                    ).pipe(Stream.changes, Stream.runForEach(Option.match({ onNone: () => Effect.void, onSome: (failure) => Effect.logError(`Link to ${dialed.href} failed, redialing every ${import.meta.env.LINK.redial}`, failure) })), Effect.forever),
                             };
                         }),
                     ),

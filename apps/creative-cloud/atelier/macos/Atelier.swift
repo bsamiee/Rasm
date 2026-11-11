@@ -68,7 +68,7 @@ enum Atelier {
             do {
                 try disclaimed.get()
                 guard serving else {
-                    let agents = try Program.current.agents()
+                    let agents = try Installation(at: Bundle.main.bundleURL).agents()
                     var registered: [Result<Void, ApplicationFailure>] = []
                     for agent in agents where agent.service.status != .requiresApproval {
                         registered.append(await Result { () async throws(ApplicationFailure) in try await agent.register() })

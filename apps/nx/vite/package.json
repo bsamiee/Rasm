@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-vite",
     "version": "0.0.0",
-    "description": "Nx plugin inferring Vite builds, and the development and preview servers of configs holding its readySignal() plugin, from Vite's own resolved configuration",
+    "description": "Nx plugin inferring Vite builds, and the development and preview servers of configs holding its readySignal() plugin or stating a server, from Vite's own resolved configuration",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",

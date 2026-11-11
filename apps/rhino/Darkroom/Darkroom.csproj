@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Version>0.0.0</Version>
         <Description>Post-production from raw render to finished image</Description>
         <TargetExt>.rhp</TargetExt>
         <PlugInId>b5bac151-510d-4dc3-9f2d-14526e39d793</PlugInId>

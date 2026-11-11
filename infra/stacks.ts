@@ -77,7 +77,15 @@ const hosted = Match.typeTags<StackRequest>()({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const stacks: Stacks = (request) => Effect.runPromise(Effect.provide(request.context.projectName === manifest.name ? owned(request) : Effect.map(hosted(request), Array.map(inline)), layer));
+const stacks: Stacks = (request) =>
+    Effect.runPromise(
+        Effect.provide(
+            Effect.gen(function* () {
+                return request.context.projectName === manifest.name ? yield* owned(request) : Array.map(yield* hosted(request), inline);
+            }),
+            layer,
+        ),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

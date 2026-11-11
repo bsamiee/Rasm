@@ -39,6 +39,13 @@
             "items": {
                 "type": "string"
             }
+        },
+        "outputs": {
+            "type": "array",
+            "description": "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}",
+            "items": {
+                "type": "string"
+            }
         }
     },
     "required": [ "runs" ],

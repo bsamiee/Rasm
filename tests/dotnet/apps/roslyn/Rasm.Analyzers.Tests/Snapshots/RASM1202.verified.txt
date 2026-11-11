@@ -1,3 +1,0 @@
-#0 `ILogger.Log` called with hand-written state, declare a `partial void` method under `[LoggerMessage]`
-#1 `ILogger.Log` called with hand-written state, declare a `partial void` method under `[LoggerMessage]`
-#2 `ILogger.BeginScope` called with hand-written state, declare a `LoggerMessage.DefineScope` delegate in a static field

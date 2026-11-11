@@ -8,6 +8,7 @@
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
+        "@cloudflare/workers-types": "catalog:",
         "@effect/platform-node": "catalog:",
         "@effect/sql-clickhouse": "catalog:",
         "@effect/sql-d1": "catalog:",

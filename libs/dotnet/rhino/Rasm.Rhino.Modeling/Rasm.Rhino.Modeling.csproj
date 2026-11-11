@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Version>0.0.0</Version>
         <Description>Geometric modeling over RhinoCommon: construction, booleans, fillets, sweeps, intersections, and repair</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

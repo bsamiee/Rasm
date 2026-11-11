@@ -4,8 +4,6 @@ using CoreAnimation;
 using Eto;
 using Eto.Drawing;
 using Eto.Forms;
-using Eto.Mac.Drawing;
-using Eto.Mac.Forms;
 using Foundation;
 using ObjCRuntime;
 using Rasm.Rhino.UI.Mac;
@@ -40,13 +38,16 @@ internal sealed class AppKitPlatform : IHostPlatform {
     private readonly AtomHashMap<(float Size, bool Bold), Font> faces = AtomHashMap<(float Size, bool Bold), Font>();
 
     public IO<Unit> Digits(Control control) =>
-        IO.lift(() => Optional(control as CommonControl).Iter(common => common.Font = faces.FindOrAdd((common.Font.Size, common.Font.Bold), () => new Font(new FontHandler(
-            NSFont.MonospacedDigitSystemFontOfSize(common.Font.Size, common.Font.Bold ? NSFontWeight.Bold : NSFontWeight.Regular))))));
+        IO.lift(() => Optional(control as CommonControl).Iter(common => common.Font = faces.FindOrAdd((common.Font.Size, common.Font.Bold), () => {
+            Font.IHandler face = Platform.Instance.Create<Font.IHandler>();
+            ((WidgetHandler<NSFont, Font>)face).Control = Conversions.Required(NSFont.MonospacedDigitSystemFontOfSize(common.Font.Size, common.Font.Bold ? NSFontWeight.Bold : NSFontWeight.Regular)).ThrowIfFail();
+            return new Font(face);
+        })));
 
     // --- [FRAMES]
 
     public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, bool> tick) =>
-        from host in IO.lift(() => Conversions.Required(view.GetContainerView()))
+        from host in IO.lift(() => Conversions.Required(view.ControlObject as NSView))
         from target in use(() => new FrameTarget(tick))
         from link in use(IO.lift(() => host.GetDisplayLink(target, FrameTarget.Ticked)), static held => Products.Each(Seq(IO.lift(held.Invalidate), IO.lift(held.Dispose))).Map(unit))
         from scheduled in IO.lift(() => link.AddToRunLoop(NSRunLoop.Main, NSRunLoopMode.Common))

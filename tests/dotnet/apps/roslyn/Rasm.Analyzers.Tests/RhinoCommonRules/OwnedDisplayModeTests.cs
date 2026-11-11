@@ -1,0 +1,129 @@
+using Microsoft.CodeAnalysis.Testing;
+using Rasm.Analyzers.Tests.Verifiers;
+using Rasm.Rhino.Analyzers;
+using Xunit;
+
+namespace Rasm.Analyzers.Tests.RhinoCommonRules;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+public sealed class OwnedDisplayModeTests : CSharpCodeFixVerifier<OwnedDisplayModeAnalyzer, EmptyCodeFixProvider> {
+    [Fact]
+    public Task LeakedMode() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using LanguageExt;
+        using LanguageExt.Common;
+        using Rasm.Rhino;
+        using Rhino.Display;
+        using static LanguageExt.Prelude;
+
+        namespace Rasm.Rhino {
+            public static class Products {
+                public static IO<T> Of<T>(Func<T?> call) where T : class => IO.lift(() => Optional(call()).ToFin(Error.New("missing")));
+            }
+
+            public static class Conversions {
+                public static Fin<T> Required<T>(T? value) where T : class => Optional(value).ToFin(Error.New("missing"));
+            }
+
+            internal static class Missing {
+                internal static Fin<T> Unless<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
+            }
+        }
+
+        internal static class LeakedMode {
+            internal static IO<Unit> Viewed(RhinoViewport viewport, Guid id) =>
+                IO.lift(() => { viewport.DisplayMode = {|#0:DisplayModeDescription.GetDisplayMode(id)|}; });
+
+            internal static Guid Current(RhinoViewport viewport) => {|#1:viewport.DisplayMode|}.Id;
+
+            internal static IO<DisplayModeDescription> Displayed(Guid id) =>
+                from display in IO.lift(() => Missing.Unless({|#2:DisplayModeDescription.GetDisplayMode(id)|}, nameof(DisplayModeDescription.GetDisplayMode)))
+                select display;
+
+            internal static Fin<Guid> Named(string name) => Conversions.Required({|#3:DisplayModeDescription.FindByName(name)|}).Map(static mode => mode.Id);
+
+            internal static void Other(Guid id, DisplayModeDescription other) {
+                (DisplayModeDescription First, DisplayModeDescription Second) held = ({|#4:DisplayModeDescription.GetDisplayMode(id)|}, other);
+                held.Second.Dispose();
+            }
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("DisplayModeDescription.GetDisplayMode(id)"),
+        Diagnostic().WithLocation(1).WithArguments("viewport.DisplayMode"),
+        Diagnostic().WithLocation(2).WithArguments("DisplayModeDescription.GetDisplayMode(id)"),
+        Diagnostic().WithLocation(3).WithArguments("DisplayModeDescription.FindByName(name)"),
+        Diagnostic().WithLocation(4).WithArguments("DisplayModeDescription.GetDisplayMode(id)"));
+
+    [Fact]
+    public Task ReleasedMode() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using LanguageExt;
+        using LanguageExt.Common;
+        using Rasm.Rhino;
+        using Rhino.Display;
+        using static LanguageExt.Prelude;
+
+        namespace Rasm.Rhino {
+            public static class Products {
+                public static IO<T> Of<T>(Func<T?> call) where T : class => IO.lift(() => Optional(call()).ToFin(Error.New("missing")));
+            }
+
+            public static class Conversions {
+                public static Fin<T> Required<T>(T? value) where T : class => Optional(value).ToFin(Error.New("missing"));
+            }
+
+            internal static class Missing {
+                internal static Fin<T> Unless<T>(T? value, string member) where T : class => value is { } found ? found : Error.New(member);
+            }
+        }
+
+        internal static class ReleasedMode {
+            internal static IO<Guid> Current(RhinoViewport viewport) => Products.Of(() => viewport.DisplayMode).Map(static mode => mode.Id);
+
+            internal static IO<DisplayModeDescription> Held(Guid id) => Products.Of(() => DisplayModeDescription.GetDisplayMode(id));
+
+            internal static Guid Used(string name) {
+                using DisplayModeDescription mode = DisplayModeDescription.FindByName(name);
+                return mode.Id;
+            }
+
+            internal static void Assigned(RhinoViewport viewport, DisplayModeDescription mode) => viewport.DisplayMode = mode;
+
+            internal static int Deconstructed(RhinoViewport viewport, DisplayModeDescription mode) {
+                int count;
+                (viewport.DisplayMode, count) = (mode, 1);
+                return count;
+            }
+
+            internal static IO<Guid> Acquired(Guid id) =>
+                from mode in use(() => DisplayModeDescription.GetDisplayMode(id))
+                select mode.Id;
+
+            internal static IO<Guid> Checked(string name) =>
+                from found in IO.lift(Optional(DisplayModeDescription.FindByName(name)).ToFin(Error.New(name)))
+                from mode in use(() => found)
+                select mode.Id;
+
+            internal static IO<Unit> Released(RhinoViewport viewport) => release(viewport.DisplayMode);
+
+            internal static void Casted(Guid id) => ((IDisposable)DisplayModeDescription.GetDisplayMode(id)).Dispose();
+
+            internal static void Conditional(Guid id) => DisplayModeDescription.GetDisplayMode(id)?.Dispose();
+
+            internal static void Tuple(Guid id) {
+                (DisplayModeDescription Mode, int Count) held = (DisplayModeDescription.GetDisplayMode(id), 1);
+                held.Mode.Dispose();
+            }
+
+            internal static void Deconstructed(Guid id) {
+                DisplayModeDescription mode;
+                int count;
+                (mode, count) = (DisplayModeDescription.GetDisplayMode(id), 1);
+                mode.Dispose();
+            }
+        }
+        """);
+}

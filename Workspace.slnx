@@ -43,10 +43,10 @@
     <Folder Name="/tests/" />
     <Folder Name="/tests/dotnet/" />
     <Folder Name="/tests/dotnet/apps/" />
-    <Folder Name="/tests/dotnet/apps/data/" />
-    <Folder Name="/tests/dotnet/apps/data/store/">
-        <Project Path="tests/dotnet/apps/data/store/Rasm.Store.Testing.Tests/Rasm.Store.Testing.Tests.csproj" />
-        <Project Path="tests/dotnet/apps/data/store/Rasm.Store.Testing/Rasm.Store.Testing.csproj" />
+    <Folder Name="/tests/dotnet/apps/grpc/" />
+    <Folder Name="/tests/dotnet/apps/grpc/store/">
+        <Project Path="tests/dotnet/apps/grpc/store/Rasm.Store.Testing.Tests/Rasm.Store.Testing.Tests.csproj" />
+        <Project Path="tests/dotnet/apps/grpc/store/Rasm.Store.Testing/Rasm.Store.Testing.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/apps/roslyn/">
         <Project Path="tests/dotnet/apps/roslyn/Rasm.Analyzers.Tests/Rasm.Analyzers.Tests.csproj" />
@@ -56,7 +56,6 @@
         <Project Path="tests/dotnet/libs/rhino/Rasm.Rhino.Tests/Rasm.Rhino.Tests.csproj" />
     </Folder>
     <Folder Name="/tests/dotnet/support/">
-        <Project Path="tests/dotnet/support/Rasm.Rhino.Testing/Rasm.Rhino.Testing.csproj" />
         <Project Path="tests/dotnet/support/Rasm.Testing.Tests/Rasm.Testing.Tests.csproj" />
         <Project Path="tests/dotnet/support/Rasm.Testing/Rasm.Testing.csproj" />
     </Folder>

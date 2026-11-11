@@ -11,6 +11,7 @@ const Run = Schema.Struct({
     env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables every invocation runs with, over the caller's" }),
     applications: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Application bundles the invocations install, a running one named in the last line as needing a relaunch' }),
     args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to every invocation' }),
+    outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
 }).annotate({ title: 'Run', description: "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed, stopping at the first failure" });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

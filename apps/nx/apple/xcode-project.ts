@@ -114,7 +114,7 @@ const xcodeParts = (
 ): Part => {
     const { lock, flags } = invocation(path, options, built);
     const name = path.basename(container.path, path.extname(container.path));
-    const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-scheme', scheme, ...extra] as const;
+    const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
     const output = (scheme: string) => Option.map(options.placed('xcode', name), (at) => path.join(at, scheme));
     const releasing = Array.match(Array.getSomes(archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: path.join(folder, `${scheme}.xcarchive`) })))), {

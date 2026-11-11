@@ -25,7 +25,7 @@ const FILES = Array.dedupe(HOSTS.map(({ manifest }) => basename(manifest)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const projects = (declared: readonly Declared[], _: Unit, { path, plugin, named, placed }: Request<unknown>): readonly Project[] => {
+const projects = (declared: readonly Declared[], _: Unit, { path, plugin, placed }: Request<unknown>): readonly Project[] => {
     const discovered = Array.filterMap(declared, (item) =>
         Result.map(
             Result.fromOption(
@@ -54,14 +54,12 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, named,
                           cache: archive !== undefined,
                           inputs: [
                               '{projectRoot}/**/*',
-                              `^${named(item.root)}`,
+                              '^default',
                               ...(build.pack === undefined ? [] : [{ dependentTasksOutputFiles: '**/*' }]),
                               ...Array.fromNullishOr(build.probe).map((probe) => ({ runtime: probe.join(' ') })),
                               ...hosts(item)
                                   .filter((other) => other !== item)
                                   .map((other) => `{workspaceRoot}/${other.file}`),
-                              { externalDependencies: [] },
-                              ...plugin.inputs,
                           ],
                           ...(archive !== undefined && { outputs: [`{options.outputPath}/*${archive}`] }),
                           metadata: { description: `Builds the ${technology} project its ${manifest} declares through ${build.command}` },
@@ -90,22 +88,18 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, named,
                 check: standalone === true && build !== undefined ? { [technology]: { executor: 'nx:noop', dependsOn: [`build--${technology}`], metadata: { description: 'Compiles the project as its check' } } } : {},
                 install: installs,
             },
-            targets:
-                archive === undefined
-                    ? {}
-                    : {
-                          'nx-release-publish': {
-                              executor: `${plugin.name}:release-publish`,
-                              dependsOn: ['^nx-release-publish'],
-                              defaultConfiguration: 'release',
-                              configurations: { release: {} },
-                              metadata: { description: [`Attaches the ${technology} packages build wrote in its release configuration to the project's GitHub release`, ...Array.fromNullishOr(publish).map(({ store, command }) => `publishes them to ${store} through ${command}`)].join(' and ') },
-                          },
-                      },
+            ...(archive !== undefined && {
+                publish: {
+                    executor: `${plugin.name}:release-publish`,
+                    defaultConfiguration: 'release',
+                    configurations: { release: {} },
+                    metadata: { description: [`Attaches the ${technology} packages build wrote in its release configuration to the project's GitHub release`, ...Array.fromNullishOr(publish).map(({ store, command }) => `publishes them to ${store} through ${command}`)].join(' and ') },
+                },
+            }),
+            ...(write !== undefined && { release: { manifest: path.relative(item.root, item.file) } }),
             configuration: {
                 ...(platforms !== undefined && { tags: platforms.map((os) => `os:${os}`) }),
                 ...(standalone === true && linked.length > 0 && { implicitDependencies: linked.map((other) => other.fields.name) }),
-                ...(write !== undefined && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: path.relative(item.root, item.file) } } } }),
             },
         };
     });

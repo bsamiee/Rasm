@@ -2,8 +2,8 @@
     "extends": "../../../../../tsconfig.web.json",
     "compilerOptions": {
         "declaration": false,
-        "noEmit": true
+        "noEmit": true,
+        "types": [ "node", "vite/client", "@cloudflare/workers-types/experimental" ]
     },
-    "files": [ ".cloudflare/types/index.d.ts" ],
-    "include": [ "**/*" ]
+    "include": [ "**/*", ".cloudflare/types" ]
 }

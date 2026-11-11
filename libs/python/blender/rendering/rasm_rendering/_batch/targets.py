@@ -1,7 +1,9 @@
 """Render queue targets: HTTP exchanges inside one client scope, Flamenco Manager submission, B-Renderon queues, and job files."""
 
 from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 import datetime
+from email.utils import parsedate_to_datetime
 from functools import partial
 from http import HTTPMethod
 from itertools import batched, starmap
@@ -17,6 +19,7 @@ import httpx2
 import msgspec
 from opentelemetry.instrumentation.httpx import HTTPX2ClientInstrumentor
 from scipy.cluster.hierarchy import DisjointSet
+from tenacity import retry_if_result, RetryCallState, Retrying, stop_after_attempt, stop_before_delay, wait_exponential_jitter
 from typing_extensions import TypeForm
 
 from rasm_records import accumulated, Case, committed, Error, Fault, files_copied, Nothing, Ok, Outcome, paired, Reason, RecordFile
@@ -38,26 +41,65 @@ _LINES: Final = msgspec.json.Encoder()
 # --- [EXCHANGE]
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Session:
+    """Open client scope of one server: its client and the deadline the attempts of a refused request end within."""
+
+    client: httpx2.Client
+    deadline: datetime.timedelta
+
+    def sent(self, method: HTTPMethod, path: str, body: Option[_Body] = Nothing) -> Outcome[httpx2.Response]:
+        """Sends a request, a non-success status as fault, a request held in memory sent again while the server answers 429 or 503, each wait from `_awaited`, until its sixth attempt or the deadline, and a streamed one once."""
+        content = body.to_optional()
+        data, headers = (
+            (msgspec.json.encode(content), {"Content-Type": "application/json"})
+            if isinstance(content, msgspec.Struct)
+            else (None, {})
+            if content is None
+            else (content, {"Content-Type": "application/octet-stream"})
+        )
+        attempted = Retrying(
+            stop=stop_after_attempt(6 if isinstance(data, bytes | None) else 1) | stop_before_delay(self.deadline.total_seconds()),
+            retry=retry_if_result(lambda response: response.status_code in {httpx2.codes.TOO_MANY_REQUESTS, httpx2.codes.SERVICE_UNAVAILABLE}),
+            wait=_awaited,
+            retry_error_callback=lambda state: state.outcome and state.outcome.result(),
+        )
+        return (
+            catch(attempted, exception=httpx2.RequestError)(self.client.request, method, path, content=data, headers=headers)
+            .map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error))
+            .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error)))
+        )
+
+    def exchanged[T](self, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = Nothing) -> Outcome[T]:
+        """Sends a request and decodes its JSON reply."""
+        return self.sent(method, path, body).bind(
+            lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
+        )
+
+
 class Endpoint(msgspec.Struct, frozen=True, kw_only=True):
-    """Server address with socket timeout."""
+    """HTTP or HTTPS server address naming a host, with the socket timeout of one attempt and the deadline the attempts of a refused request end within."""
 
     url: str
     timeout: datetime.timedelta = datetime.timedelta(seconds=10)
+    deadline: datetime.timedelta = datetime.timedelta(minutes=1)
 
     def __post_init__(self) -> None:
-        """Validates a timeout above zero."""
-        if self.timeout <= datetime.timedelta():
-            raise ValueError(self.timeout)
+        """Validates an `http` or `https` URL naming a host, and a timeout and a deadline above zero."""
+        try:
+            address = httpx2.URL(self.url)
+        except httpx2.InvalidURL as error:
+            raise ValueError(self.url) from error
+        if address.scheme not in {"http", "https"} or not address.host:
+            raise ValueError(self.url)
+        if min(self.timeout, self.deadline) <= datetime.timedelta():
+            raise ValueError(self.timeout, self.deadline)
 
-    def opened[T](self, operation: Callable[[httpx2.Client], Outcome[T]]) -> Outcome[T]:
+    def opened[T](self, operation: Callable[[Session], Outcome[T]]) -> Outcome[T]:
         """Runs operation inside one client scope, the client closing on every path and each of its requests a client span carrying the current trace context to the server."""
-
-        def held(url: httpx2.URL) -> Outcome[T]:
-            with httpx2.Client(base_url=url, timeout=self.timeout.total_seconds()) as client:
-                HTTPX2ClientInstrumentor.instrument_client(client)
-                return operation(client)
-
-        return catch(httpx2.URL, exception=httpx2.InvalidURL)(self.url).map_error(partial(Fault.of, Reason.FAILED, self.url)).bind(held)
+        with httpx2.Client(base_url=self.url, timeout=self.timeout.total_seconds()) as client:
+            HTTPX2ClientInstrumentor.instrument_client(client)
+            return operation(Session(client=client, deadline=self.deadline))
 
 
 # --- [FLAMENCO]
@@ -161,12 +203,12 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
     tags: tuple[_WorkerTag, ...]
 
     @classmethod
-    def queried(cls, client: httpx2.Client) -> Outcome[Self]:
+    def queried(cls, session: Session) -> Outcome[Self]:
         """Reads storage location, the Rasm job type, and worker tags."""
         return paired(
-            _exchange(client, HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{_PLATFORM}", _SharedStorageLocation),
-            _exchange(client, HTTPMethod.GET, "/api/v3/jobs/types", _AvailableJobTypes),
-            _exchange(client, HTTPMethod.GET, "/api/v3/worker-mgt/tags", _WorkerTagList),
+            session.exchanged(HTTPMethod.GET, f"/api/v3/configuration/shared-storage/users/{_PLATFORM}", _SharedStorageLocation),
+            session.exchanged(HTTPMethod.GET, "/api/v3/jobs/types", _AvailableJobTypes),
+            session.exchanged(HTTPMethod.GET, "/api/v3/worker-mgt/tags", _WorkerTagList),
         ).map(lambda found: cls(storage=found[0], job_type=Block(found[1].job_types).filter(lambda kind: kind.name == Flamenco.job_type).try_head(), tags=found[2].tags))
 
     def worker_tag(self, tag: str, /) -> Outcome[str]:
@@ -179,7 +221,7 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             .to_result_with(lambda: Fault.of(Reason.ABSENT, type(self).__name__, member=f"worker tag {tag!r}"))
         )
 
-    def placed(self, client: httpx2.Client, queue: RenderQueue) -> Outcome[tuple[Mapping[str, str], Option[_JobStorageInfo]]]:
+    def placed(self, session: Session, queue: RenderQueue) -> Outcome[tuple[Mapping[str, str], Option[_JobStorageInfo]]]:
         """Uploads every job's pack to Shaman when enabled, else copies it to Manager storage, each pack under its job's part folder, returning the Manager path of each blend and the Shaman checkout."""
         jobs = {job.file: (part, job) for part, job in enumerate(queue.jobs)}.values()
         entries = {PurePosixPath(str(part), placed.path).as_posix(): placed for part, job in jobs for placed in job.placements}
@@ -199,15 +241,16 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
             def uploaded(spec: _ShamanFileSpec, placed: PackedFile) -> Outcome[httpx2.Response]:
                 try:
                     with Path(placed.source).open("rb") as stream:
-                        return sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(stream))
+                        return session.sent(HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(stream))
                 except OSError as error:
                     return Error(Fault.of(Reason.UNREADABLE, placed.source, error))
 
             return (
-                _exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/requirements", _Checkout, Some(_Checkout(files=specs)))
+                session
+                .exchanged(HTTPMethod.POST, "/api/v3/shaman/checkout/requirements", _Checkout, Some(_Checkout(files=specs)))
                 .map(lambda wanted: frozenset(spec.path for spec in wanted.files))
                 .bind(lambda lacking: accumulated(uploaded(spec, placed) for spec, placed in zip(specs, entries.values(), strict=True) if spec.path in lacking))
-                .bind(lambda _: _exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/create", _Checkout, Some(_Checkout(files=specs, checkout_path=folder))))
+                .bind(lambda _: session.exchanged(HTTPMethod.POST, "/api/v3/shaman/checkout/create", _Checkout, Some(_Checkout(files=specs, checkout_path=folder))))
                 .bind(lambda created: Option.of_optional(created.checkout_path).to_result_with(lambda: Fault.of(Reason.ABSENT, "Shaman checkout", member="checkoutPath")))
                 .map(lambda path: (stored(path), Some(_JobStorageInfo(shaman_checkout_id=path))))
             )
@@ -233,7 +276,7 @@ class Flamenco(Case, frozen=True, kw_only=True):
     paused: bool = False
     tag: str | None = None
 
-    def submitted(self, client: httpx2.Client, queue: RenderQueue, render_command: str) -> Outcome[tuple[Outcome[str], ...]]:
+    def submitted(self, session: Session, queue: RenderQueue, render_command: str) -> Outcome[tuple[Outcome[str], ...]]:
         """Submits each prerequisite-joined job group as one Manager job."""
 
         def posted(manager: Manager, tag: Option[str], files: Mapping[str, str], storage: Option[_JobStorageInfo]) -> tuple[Outcome[str], ...]:
@@ -257,8 +300,7 @@ class Flamenco(Case, frozen=True, kw_only=True):
                     )
                     for part, job in jobs
                 )
-                return _exchange(
-                    client,
+                return session.exchanged(
                     HTTPMethod.POST,
                     "/api/v3/jobs",
                     _ManagerJob,
@@ -279,19 +321,19 @@ class Flamenco(Case, frozen=True, kw_only=True):
 
             return tuple(map(component, components.subsets()))
 
-        return Manager.queried(client).bind(
+        return Manager.queried(session).bind(
             lambda manager: (
                 Option
                 .of_optional(self.tag)
                 .map(lambda tag: manager.worker_tag(tag).map(Some))
                 .default_value(Ok(Nothing))
-                .bind(lambda tag: manager.placed(client, queue).map(lambda found: posted(manager, tag, *found)))
+                .bind(lambda tag: manager.placed(session, queue).map(lambda found: posted(manager, tag, *found)))
             )
         )
 
     def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
         """Submits the queue through one Manager client scope with the host render command, returning each Manager job ID."""
-        return self.server.opened(lambda client: self.submitted(client, queue, host.commands[RunCommand.RENDER]))
+        return self.server.opened(lambda session: self.submitted(session, queue, host.commands[RunCommand.RENDER]))
 
 
 class _QueueItem(msgspec.Struct, frozen=True, kw_only=True):
@@ -374,30 +416,18 @@ class JobFile(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[_Body] = Nothing) -> Outcome[httpx2.Response]:
-    """Sends request, non-success status as fault."""
-    content = body.to_optional()
-    data, headers = (
-        (msgspec.json.encode(content), {"Content-Type": "application/json"})
-        if isinstance(content, msgspec.Struct)
-        else (None, {})
-        if content is None
-        else (content, {"Content-Type": "application/octet-stream"})
-    )
+def _awaited(state: RetryCallState, /) -> float:
+    """Returns the seconds before a refused request's next attempt: the `Retry-After` of its answer as delay seconds or as an HTTP-date, else the jittered exponential wait of the attempt."""
+    stated = Option.of_optional(state.outcome).map(lambda outcome: outcome.result().headers.get("retry-after", "")).default_value("")
     return (
-        catch(client.request, exception=httpx2.RequestError)(method, path, content=data, headers=headers)
-        .map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error))
-        .bind(lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error)))
-    )
-
-
-def _exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = Nothing) -> Outcome[T]:
-    """Sends request and decodes JSON reply."""
-    return sent(client, method, path, body).bind(
-        lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
+        float(stated)
+        if stated.isdecimal()
+        else catch(parsedate_to_datetime, exception=ValueError)(stated)
+        .map(lambda moment: max((moment - datetime.datetime.now(datetime.UTC)).total_seconds(), 0.0))
+        .default_with(lambda _: wait_exponential_jitter()(state))
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Endpoint", "Flamenco", "JobFile", "Manager", "Renderon", "Target", "sent"]
+__all__ = ["Endpoint", "Flamenco", "JobFile", "Manager", "Renderon", "Session", "Target"]

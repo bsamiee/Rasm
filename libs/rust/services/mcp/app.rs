@@ -174,6 +174,7 @@ pub struct Router<A> {
 impl<A> Router<A>
 where A: Server
 {
+    #[expect(deprecated, reason = "the initialize-era revisions keep logging, which SEP-2577 deprecates")]
     pub async fn new(
         identity: Implementation,
         settings: Settings,
@@ -186,6 +187,7 @@ where A: Server
         let (tools, resources) = (routers.tools.load().is_some(), routers.resources.load().is_some());
         let mut capabilities = ServerCapabilities::builder()
             .enable_completions()
+            .enable_logging()
             .enable_prompts()
             .enable_prompts_list_changed()
             .enable_resources()

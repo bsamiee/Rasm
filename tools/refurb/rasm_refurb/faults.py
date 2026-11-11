@@ -1,14 +1,14 @@
 """`Result` errors typed as `str`, `Exception`, or `BaseException`, and `Option` or `Result` values iterated directly."""
 
+from collections import defaultdict, deque
 from functools import cache
-lazy from collections import defaultdict, deque
+from itertools import chain
 
 from expression import Option, Result
-from refurb.visitor import RefurbVisitor
-lazy from mypy.argmap import map_actuals_to_formals
-lazy from mypy.erasetype import erase_typevars
-lazy from mypy.maptype import map_instance_to_supertype
-lazy from mypy.nodes import (
+from mypy.argmap import map_actuals_to_formals
+from mypy.erasetype import erase_typevars
+from mypy.maptype import map_instance_to_supertype
+from mypy.nodes import (
     ArgKind,
     AssignmentStmt,
     CallExpr,
@@ -28,11 +28,12 @@ lazy from mypy.nodes import (
     TypeAlias,
     TypeInfo,
 )
-lazy from mypy.subtypes import is_subtype
-lazy from mypy.types import AnyType, CallableType, flatten_nested_unions, get_proper_type, Instance, Overloaded, TupleType, Type, TypeAliasType, TypeOfAny, UnionType, UnpackType
-lazy from refurb.checks.common import get_mypy_type, stringify
-lazy from refurb.error import Error
-lazy from refurb.settings import Settings
+from mypy.subtypes import is_subtype
+from mypy.types import AnyType, CallableType, flatten_nested_unions, get_proper_type, Instance, Overloaded, TupleType, Type, TypeAliasType, TypeOfAny, UnionType, UnpackType
+from refurb.checks.common import get_mypy_type, stringify
+from refurb.error import Error
+from refurb.settings import Settings
+from refurb.visitor import RefurbVisitor
 
 from rasm_refurb._findings import fullname, RasmError
 from rasm_refurb._loops import Traverser
@@ -87,7 +88,7 @@ def _faults(returned: Type) -> tuple[TypeInfo, ...]:
             owned = _faults(get_proper_type(target))
             return tuple(info for info in _faults(resolved) if info not in owned)
         case _, UnionType(items=items):
-            return tuple(dict.fromkeys(*_faults(item) for item in items))
+            return tuple(dict.fromkeys(chain.from_iterable(_faults(item) for item in items)))
         case _, Instance(type=owner, args=[_, error]) if owner.fullname == _RESULT:
             pending = deque((error,))
         case _:
@@ -140,11 +141,11 @@ def _unpacked(target: Expression, source: Expression | Type | None, /) -> tuple[
         case TupleExpr(items=items) | ListExpr(items=items):
             match source, get_proper_type(found):
                 case TupleExpr(items=values) | ListExpr(items=values), _ if len(values) == len(items):
-                    return tuple(*_unpacked(item, part) for item, part in zip(items, values))
+                    return tuple(chain.from_iterable(map(_unpacked, items, values)))
                 case _, TupleType(items=parts) if len(parts) == len(items):
-                    return tuple(*_unpacked(item, part) for item, part in zip(items, parts))
+                    return tuple(chain.from_iterable(map(_unpacked, items, parts)))
                 case _:
-                    return tuple(*_unpacked(item, _element(found)) for item in items)
+                    return tuple(chain.from_iterable(_unpacked(item, _element(found)) for item in items))
         case _:
             return ()
 
@@ -169,10 +170,12 @@ class _Walk(RefurbVisitor, Traverser):
                 self.operands.update(((sequence, found := _typed(sequence)), *_unpacked(target, _element(found))))
             case GeneratorExpr(indices=targets, sequences=sequences, is_async=asynchronous) | DictionaryComprehension(indices=targets, sequences=sequences, is_async=asynchronous):
                 self.operands.update(
-                    (*((sequence, found), *_unpacked(target, _element(found))) for target, sequence, waited in zip(targets, sequences, asynchronous) if not waited for found in (_typed(sequence),))
+                    chain.from_iterable(
+                        ((sequence, found), *_unpacked(target, _element(found))) for target, sequence, waited in zip(targets, sequences, asynchronous) if not waited for found in (_typed(sequence),)
+                    )
                 )
             case AssignmentStmt(lvalues=targets, rvalue=value):
-                self.operands.update(*_unpacked(target, value) for target in targets)
+                self.operands.update(chain.from_iterable(_unpacked(target, value) for target in targets))
             case ComparisonExpr(operators=operators, operands=[_, *rights]):
                 self.operands.update((right, _typed(right)) for operator, right in zip(operators, rights) if operator in {"in", "not in"})
             case CallExpr(args=arguments, arg_kinds=kinds, arg_names=names, callee=callee):
@@ -213,7 +216,7 @@ def check(node: MypyFile, errors: list[Error]) -> None:
     walk = _Walk()
     walk.accept(node)
     declared: list[tuple[TypeAlias | FuncDef, Type]] = []
-    for definition in (*((*symbol.node.items, symbol.node.impl) if isinstance(symbol.node, OverloadedFuncDef) else (symbol.node,)) for _, symbol, _ in node.local_definitions()):
+    for definition in chain.from_iterable((*symbol.node.items, symbol.node.impl) if isinstance(symbol.node, OverloadedFuncDef) else (symbol.node,) for _, symbol, _ in node.local_definitions()):
         match definition:
             case TypeAlias(target=returned) as declaration:
                 declared.append((declaration, returned))

@@ -66,14 +66,14 @@ const tasks = (subject: Subject, it: Methods) => {
     );
 
     live(
-        'names no production input where nx.json defines none, and no ^default input where nx.json defines production',
+        'names no production input where nx.json defines none, and where nx.json defines production names no ^default input and reads production, never default, for its build targets',
         Effect.fnUntraced(function* () {
             const plain = yield* Effect.flatMap(placed(subject), graph);
             const defined = yield* Effect.flatMap(placed(subject, {}, { plugins: [row(subject)], ...PRODUCTION }), graph);
             assert.deepStrictEqual(
-                [naming(plain, ['production', '^production']), naming(defined, ['^default'])],
-                [[], []],
-                'nrwl/nx@2a424d3 packages/docker/src/plugins/plugin.spec.ts "default namedInputs when production is not available", packages/storybook/src/plugins/plugin.spec.ts "stop using production once nx.json removes it"',
+                [naming(plain, ['production', '^production']), naming(defined, ['^default']), naming(defined, ['default']).filter((task) => task.includes(':build--'))],
+                [[], [], []],
+                'nrwl/nx@2a424d3 packages/docker/src/plugins/plugin.spec.ts "should create nodes based on Dockerfile" inputs production and ^production, "should use default namedInputs when production is not available", packages/storybook/src/plugins/plugin.spec.ts "should stop using production once nx.json removes it"',
             );
         }),
     );

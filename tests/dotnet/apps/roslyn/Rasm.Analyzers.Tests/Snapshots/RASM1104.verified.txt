@@ -1,2 +1,0 @@
-#0 `Progress.Create` throws on `value` from the caller, return `Fin<Progress>` through `Validate`
-#1 `Progress.Create` throws on `dones` from the caller, return `Fin<Progress>` through `Validate`

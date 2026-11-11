@@ -164,22 +164,30 @@ class QueuePreferences(bpy.types.PropertyGroup):
     scripts_folder: Annotated[str, bpy.props.StringProperty(name="Flamenco Scripts", description="Manager job type scripts folder, none when empty", subtype="DIR_PATH")]
 
     @property
-    def target(self) -> Target:
-        """Target record of the chosen kind."""
+    def target(self) -> Outcome[Target]:
+        """Target record of the chosen kind, an `INVALID` fault for a Manager address outside an `http` or `https` URL naming a host."""
         match self.kind:
             case Flamenco.__name__:
-                return Flamenco(server=Endpoint(url=self.manager), priority=self.priority, chunk=self.chunk, paused=self.paused, tag=self.tag or None)
+                return (
+                    catch(Endpoint, exception=ValueError)(url=self.manager)
+                    .map_error(partial(Fault.of, Reason.INVALID, f"Manager {self.manager!r}"))
+                    .map(lambda server: Flamenco(server=server, priority=self.priority, chunk=self.chunk, paused=self.paused, tag=self.tag or None))
+                )
             case Renderon.__name__:
-                return Renderon(executable=self.executable or None, blender=self.blender)
+                return Ok(Renderon(executable=self.executable or None, blender=self.blender))
             case JobFile.__name__:
-                return JobFile(folder=self.folder or None, command=self.command or None)
+                return Ok(JobFile(folder=self.folder or None, command=self.command or None))
             case _:
-                return LocalMachine(retries=self.retries, sampled=self.sampled)
+                return Ok(LocalMachine(retries=self.retries, sampled=self.sampled))
 
     @property
-    def listener(self) -> Listener:
-        """Notice server and topic."""
-        return Listener(server=Endpoint(url=self.server), topic=self.topic or None)
+    def listener(self) -> Outcome[Listener]:
+        """Notice server and topic, an `INVALID` fault for a server address outside an `http` or `https` URL naming a host."""
+        return (
+            catch(Endpoint, exception=ValueError)(url=self.server)
+            .map_error(partial(Fault.of, Reason.INVALID, f"Notice Server {self.server!r}"))
+            .map(lambda server: Listener(server=server, topic=self.topic or None))
+        )
 
     @property
     def stale(self) -> datetime.timedelta:
@@ -299,9 +307,9 @@ class Dispatcher(msgspec.Struct, frozen=True):
         return Ok(None) if bpy.app.online_access else Error(Fault.of(Refusal.REQUIRED, _ONLINE.message))
 
     @staticmethod
-    def posted(listener: Listener, notice: Notice) -> Outcome[None]:
-        """Posts notice, requiring online access for an enabled topic."""
-        return (Dispatcher.connected() if listener.topic is not None else Ok(None)).bind(lambda _: published(listener, notice))
+    def posted(listener: Outcome[Listener], notice: Notice) -> Outcome[None]:
+        """Posts notice to the listener the preferences hold, requiring online access for an enabled topic."""
+        return listener.bind(lambda held: (Dispatcher.connected() if held.topic is not None else Ok(None)).bind(lambda _: published(held, notice)))
 
     # --- [PLANNING]
 

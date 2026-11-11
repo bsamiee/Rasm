@@ -1,5 +1,4 @@
 use core::error::Error;
-use core::net::SocketAddr;
 use std::collections::BTreeSet;
 use std::io;
 
@@ -34,8 +33,8 @@ async fn listener_accepts_on_every_address_of(#[case] host: &str) {
 
 #[tokio::test]
 async fn wildcards_of_both_families_share_one_port() {
-    let running = running(&["[::]", "0.0.0.0"], GRACE).await;
-    let port = assert_ok!(running.addresses.first().map(SocketAddr::port).ok_or("no listener"));
+    let port = assert_ok!(assert_ok!(std::net::TcpListener::bind("127.0.0.1:0")).local_addr()).port();
+    let running = running(&[&format!("[::]:{port}"), &format!("0.0.0.0:{port}")], GRACE).await;
     assert_eq!(
         running.addresses.iter().map(|address| (address.is_ipv6(), address.port())).collect::<BTreeSet<_>>(),
         BTreeSet::from([(false, port), (true, port)]),

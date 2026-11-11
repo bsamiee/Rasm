@@ -1,2 +1,0 @@
-#0 `doc.Views.Redraw()` controls view redraw outside `Commits`, pass a `RedrawPolicy` to `Commits.Commit` or `Commits.WithinRedraw`
-#1 `doc.Views.Redraw` controls view redraw outside `Commits`, pass a `RedrawPolicy` to `Commits.Commit` or `Commits.WithinRedraw`

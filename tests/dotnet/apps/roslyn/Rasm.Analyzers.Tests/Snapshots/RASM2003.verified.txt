@@ -1,1 +1,0 @@
-#0 `doc` reads `RhinoDoc` off UI thread in `Task.Run`, read in an `OnUiThread()` `IO` and pass values or duplicated geometry

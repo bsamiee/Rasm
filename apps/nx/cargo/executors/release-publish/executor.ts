@@ -1,9 +1,8 @@
 import { pathToFileURL } from 'node:url';
 import { executor, Released, released } from '@rasm/nx-devkit/executor';
-import { printed } from '@rasm/nx-devkit/process';
-import { Array, Effect, Equivalence, Match, Option, Path, Schema, String, Struct } from 'effect';
+import { printed, ran } from '@rasm/nx-devkit/process';
+import { Array, Effect, Equivalence, Match, Path, Schema, String, Struct } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { ran } from '#/executors/cargo/executor';
 import { Metadata } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -62,12 +61,17 @@ const execute = executor(
         return skipped
             ? yield* Effect.as(Effect.logInfo(`Skipped ${crate.name}@${crate.version}, the registry already holds it or nx release left it unchanged`), true)
             : yield* Effect.map(
-                  ran(cwd, ['publish', ...[crate, ...overlay].flatMap((member) => ['--package', `path+${pathToFileURL(path.dirname(member.manifest_path)).href}#${member.name}`]), ...Option.toArray(Option.fromUndefinedOr(registry)).flatMap((held) => ['--registry', held]), ...(dry ? ['--dry-run'] : []), '--locked']),
-                  ({ code }) => Option.contains(code, 0),
+                  ran('cargo', ['publish', ...[crate, ...overlay].flatMap((member) => ['--package', `path+${pathToFileURL(path.dirname(member.manifest_path)).href}#${member.name}`]), ...Array.fromNullishOr(registry).flatMap((held) => ['--registry', held]), ...(dry ? ['--dry-run'] : []), '--locked'], {
+                      cwd,
+                      stdin: 'inherit',
+                      stdout: 'inherit',
+                      stderr: 'inherit',
+                  }),
+                  ({ code }) => code === 0,
               );
     }, Effect.provide(FetchHttpClient.layer)),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute, releases };
+export { execute };

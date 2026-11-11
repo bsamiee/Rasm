@@ -53,6 +53,12 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.14"
         }
       },
+      "Microsoft.macOS.Ref.net10.0_26.0": {
+        "type": "Direct",
+        "requested": "[26.0.11017, )",
+        "resolved": "26.0.11017",
+        "contentHash": "LpFdOvwwe+dvXxQQaud0gnCSOgDOcOgWlKxFBkK3/uUSRDprhauoM7q6Ycsmx0G9yLGTBCS2oQXqyaJptdX6bw=="
+      },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
         "requested": "[18.12.1, )",

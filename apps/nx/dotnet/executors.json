@@ -9,7 +9,9 @@
         },
         "check": {
             "implementation": "./dist/executors/check/executor#execute",
+            "batchImplementation": "./dist/executors/check/executor#batch",
             "schema": "./executors/check/schema.json",
+            "preferBatch": true,
             "description": "Reads the SARIF 2.1 reports a project's compile wrote through ErrorLog and fails on each result at level warning or error that no suppression answers, printed as file(line,col): level id: text"
         },
         "format": {

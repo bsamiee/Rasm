@@ -1,7 +1,7 @@
 import process from 'node:process';
 import { assert, it } from '@effect/vitest';
 import { Forward, Ssh, SshError } from '@rasm/ssh';
-import { Array, Effect, FileSystem, Path, pipe, Record, Schedule, Schema } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, pipe, Record, Schedule, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Asked, Reached } from '#/peer';
 import { answered, bounds, callers, connection, greeted, greeting, Master, printed, reached, reasoned, Sshd, served, vacant, within } from '#/sshd';
@@ -185,6 +185,27 @@ it.layer(Sshd.layer(), { timeout: bounds.started, excludeTestServices: true })('
             assert.strictEqual(yield* reached(ssh, hosts.certified), far.name);
             assert.strictEqual(reasoned(yield* Effect.flip(reached(ssh, hosts.bare))), 'Unreachable');
         }, Effect.scoped),
+        bounds.test,
+    );
+
+    methods.effect(
+        'refuses a host whose key differs from its trusted key and prints the failed verification',
+        Effect.fnUntraced(function* () {
+            const [ssh, { hosted }] = yield* Effect.all([Ssh, Sshd]);
+            const failed = yield* Effect.flip(reached(ssh, yield* hosted('mismatched', { trust: { _tag: 'HostKeys', keys: ['ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl'] } })));
+            assert.include(Schema.is(SshError)(failed) ? failed.message : String(failed), 'Host key verification failed.', 'openssh/openssh-portable regress/test-exec.sh StrictHostKeyChecking yes over one known_hosts line per alias; ssh(1) "VERIFYING HOST KEYS"');
+        }),
+        bounds.test,
+    );
+
+    methods.effect(
+        'runs the next command over the shared connection after a running command is interrupted',
+        Effect.fnUntraced(function* () {
+            const [ssh, { hosted, far }] = yield* Effect.all([Ssh, Sshd]);
+            const host = yield* hosted('interrupted');
+            const cut = yield* Effect.timeoutOption(ssh.run(host, ['sleep', '600']), '2 seconds');
+            assert.deepStrictEqual([Option.isNone(cut), yield* reached(ssh, host)], [true, far.name], 'Effect-TS/effect@7865dbb packages/sql/pg/test/Client.integration.test.ts "interruption"; openssh/openssh-portable regress/multiplex.sh -Ocheck after a session ends');
+        }),
         bounds.test,
     );
 

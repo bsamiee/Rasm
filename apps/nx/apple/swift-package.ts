@@ -9,6 +9,7 @@ interface Package {
     readonly file: string;
     readonly root: string;
     readonly plists: ReadonlySet<string>;
+    readonly bins?: Readonly<Record<'debug' | 'release', string>>;
     readonly manifest: typeof Described.Type;
 }
 
@@ -28,8 +29,8 @@ const Described = Schema.fromJsonString(
         name: Schema.String,
         platforms: Schema.Array(Schema.Struct({ name: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
         dependencies: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-        targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, product_memberships: Listed, target_dependencies: Listed, product_dependencies: Listed })),
-        products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
+        targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, product_memberships: Listed, target_dependencies: Listed, product_dependencies: Listed, resources: Schema.Array(Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
+        products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String), type: Schema.Record(Schema.String, Schema.Unknown) })),
     }),
 );
 
@@ -46,19 +47,27 @@ const sources = (path: Path.Path, { root, manifest }: Package, described: Readon
 ];
 
 const packageParts = (path: Path.Path, options: Settings, plugin: Identity, local: Package, described: ReadonlyMap<string, Package>): readonly Part[] => {
-    const { file, root, plists, manifest } = local;
+    const { file, root, plists, manifest, bins } = local;
     const modules = manifest.targets.filter((module) => module.product_memberships.length > 0 && module.name !== manifest.name);
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(path, local, described), path.join('{workspaceRoot}', '.swift-version'), ...plugin.inputs];
-    const build = ['swift', 'build', '--package-path', root] as const;
+    const pinned = '--force-resolved-versions';
+    const build = ['swift', 'build', '--package-path', root, pinned] as const;
+    const written = (folder?: string) => [path.join(root, RESOLVED), ...(folder === undefined ? [] : manifest.products.map(({ name }) => path.join(folder, name)))].map((at) => path.join('{workspaceRoot}', at));
     const work = {
         build: {
             'swift-build': target(
                 plugin,
                 [build],
-                { technologies: ['swift'], description: `Builds ${manifest.name} with SwiftPM, in release under the release configuration`, help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } } },
-                { inputs, outputs: [path.join('{workspaceRoot}', root, RESOLVED)], configurations: { release: { runs: [[...build, '--configuration', 'release']] } } },
+                { technologies: ['swift'], description: `Builds ${manifest.name} with SwiftPM, in release under the release configuration, cached where its products are executables alone`, help: { command: 'swift build --help', example: { args: ['--product', manifest.products[0]?.name ?? manifest.name] } } },
+                {
+                    ...(bins !== undefined && { cache: true }),
+                    inputs,
+                    options: { outputs: written(bins?.debug) },
+                    outputs: written(bins?.debug).map((_, index) => `{options.outputs.${index}}`),
+                    configurations: { release: { runs: [[...build, '--configuration', 'release']], outputs: written(bins?.release) } },
+                },
             ),
         },
         check: { 'swift-build': { executor: 'nx:noop', dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Compiles ${manifest.name} as its type check` } } },
@@ -68,7 +77,7 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
                 : {
                       swift: target(
                           plugin,
-                          [['swift', 'test', '--package-path', root]],
+                          [['swift', 'test', '--package-path', root, pinned]],
                           { technologies: ['swift'], description: `Tests ${manifest.name} with SwiftPM`, help: { command: 'swift test --help', example: { args: ['--filter', suites[0]?.name ?? manifest.name] } } },
                           { cache: true, dependsOn: ['build--swift-build'], inputs: [...inputs, { dependentTasksOutputFiles: path.join(root, RESOLVED) }] },
                       ),
@@ -96,7 +105,7 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
             zipped,
             install: {
                 executor: `${plugin.name}:install`,
-                options: { package: root, product, env: GIT_STATUS },
+                options: { package: root, product, env: GIT_STATUS, args: [pinned] },
                 metadata: { technologies: ['swift'], description: `Builds ${product} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
             },
         };

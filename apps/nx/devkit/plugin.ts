@@ -12,7 +12,6 @@ import {
     getOutputsForTargetAndConfiguration,
     getPackageManagerCommand,
     hashArray,
-    logger,
     type PackageManager,
     type ProjectConfiguration,
     type ProjectGraphExternalNode,
@@ -21,7 +20,7 @@ import {
     type TargetConfiguration,
 } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, type ManagedRuntime, Option, Path, PlatformError, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
+import { Array, Effect, FileSystem, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
 import { runtime, ToolError } from '#/process';
 
@@ -40,6 +39,7 @@ interface Project {
     readonly name?: string;
     readonly clean?: string;
     readonly targets?: Readonly<Record<string, TargetConfiguration>>;
+    readonly atoms?: { readonly name: string; readonly verb: string; readonly tool: string; readonly each: Readonly<Record<string, TargetConfiguration>> };
     readonly release?: Readonly<Record<string, unknown>>;
     readonly publish?: TargetConfiguration;
     readonly configuration?: Omit<ProjectConfiguration, 'root' | 'name' | 'targets' | 'metadata'>;
@@ -91,6 +91,7 @@ interface Declaration<O, U extends Unit, R, E> {
 const PLATFORM = { runtime: 'node -p process.platform+process.arch' } as const;
 const UPSTREAM = '^default';
 const SOURCES = ['default', UPSTREAM] as const;
+const ALL_FILES = ['check', 'fix', 'test'];
 const NODE = { runtime: 'node --version' } as const;
 const MANIFESTS = '{package,project}.json';
 const SERVED = { dependencies: true, target: 'serve--compose', waitFor: 'ready' } as const;
@@ -155,14 +156,22 @@ const produced = (projects: CreateDependenciesContext['projects']) => {
 
 const detached = <A extends object>(value: A) => parseJson<A>(JSON.stringify(value));
 
-const targeted = (project: Project, plugin: Identity, upstream: string): Readonly<Record<string, TargetConfiguration>> => {
+const targeted = (project: Project, plugin: Identity, sources: string): Readonly<Record<string, TargetConfiguration>> => {
     const technologies = [...project.technologies];
     const [clean, publish] = ['clean', 'nx-release-publish'] as const;
     const defaults: Readonly<Record<string, TargetConfiguration>> = { [clean]: { executor: plugin.cleaner }, test: { dependsOn: [SERVED] } };
-    const stated = Record.toEntries(project.members).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, name: `${verb}--${tool}`, target: { ...defaults[verb], ...target }, dependsOn: [...(target.dependsOn ?? []), ...(defaults[verb]?.dependsOn ?? [])] })));
+    const whole = Option.fromUndefinedOr(project.atoms);
+    const split = Option.match(whole, { onNone: () => [], onSome: ({ name, verb, each }) => Record.collect(each, (key, target) => ({ verb, name: `${name}--${key}`, target })) });
+    const stated = [...Record.toEntries(project.members).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, name: `${verb}--${tool}`, target }))), ...split].map(({ verb, name, target }) => ({
+        verb,
+        name,
+        target: { ...defaults[verb], ...target },
+        dependsOn: [...(target.dependsOn ?? []), ...(defaults[verb]?.dependsOn ?? [])],
+    }));
     const tools = stated.map(({ verb, name, target, dependsOn }) => {
         const owned = [plugin.name, plugin.shared].some((owner) => target.executor?.startsWith(`${owner}:`) === true);
-        const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (input === UPSTREAM ? upstream : input)), ...(owned ? plugin.inputs : [])]);
+        const renamed: Readonly<Record<string, string>> = { [UPSTREAM]: `^${sources}`, ...(ALL_FILES.includes(verb) ? {} : { default: sources }) };
+        const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (Predicate.isString(input) ? (renamed[input] ?? input) : input)), ...(owned ? plugin.inputs : [])]);
         return {
             verb,
             name,
@@ -178,8 +187,23 @@ const targeted = (project: Project, plugin: Identity, upstream: string): Readonl
     const named = Record.fromIterableWith(tools, ({ name, target }): readonly [string, TargetConfiguration] => [name, target]);
     const written = tools.filter(({ target }) => (target.outputs ?? []).length > 0).map(({ name }) => name);
     const cleaning = Option.toArray(Option.filter(Option.fromUndefinedOr(project.clean), () => written.length > 0)).map((tool) => `${clean}--${tool}`);
+    const parent = Option.map(
+        Option.filter(whole, () => split.length > 0),
+        ({ name, verb, tool }): readonly [string, TargetConfiguration] => [
+            name,
+            {
+                executor: 'nx:noop',
+                cache: true,
+                dependsOn: split.map((atom) => atom.name),
+                ...UndefinedOr.map(named[`${verb}--${tool}`]?.inputs, (inputs) => ({ inputs })),
+                outputs: split.flatMap((atom) => named[atom.name]?.outputs ?? []),
+                metadata: { technologies: [...project.technologies], description: `Runs every ${name}--* target, one per file ${verb}--${tool} runs together`, nonAtomizedTarget: `${verb}--${tool}` },
+            },
+        ],
+    );
     return {
         ...named,
+        ...Record.fromEntries(Option.toArray(parent)),
         ...Record.fromIterableWith(cleaning, (name): readonly [string, TargetConfiguration] => [
             name,
             { executor: plugin.cleaner, ...named[name], options: { ...named[name]?.options, targets: written }, metadata: { technologies, description: `Removes the outputs ${written.join(', ')} declare`, ...named[name]?.metadata } },
@@ -190,10 +214,10 @@ const targeted = (project: Project, plugin: Identity, upstream: string): Readonl
     };
 };
 
-const configured = (project: Project, plugin: Identity, upstream: string): Omit<ProjectConfiguration, 'root'> => {
+const configured = (project: Project, plugin: Identity, sources: string): Omit<ProjectConfiguration, 'root'> => {
     const release = project.release === undefined ? project.configuration?.release : { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { ...project.release } } };
     const tags = [...(release === undefined ? [] : ['release']), ...(project.configuration?.tags ?? [])];
-    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin, upstream), ...project.configuration, ...(release !== undefined && { release }), ...(tags.length > 0 && { tags }) };
+    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin, sources), ...project.configuration, ...(release !== undefined && { release }), ...(tags.length > 0 && { tags }) };
 };
 
 const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, request: Request<O>, held: readonly (readonly [U, R])[]) {
@@ -242,16 +266,12 @@ const read = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: 
 
 const messaged = <E extends Error>(error: E) => Object.defineProperty(error, 'message', { value: error.message });
 
-const absent = (error: unknown): Option.Option<string> =>
-    PlatformError.isPlatformError(error) && Predicate.isTagged(error.reason, 'NotFound') && error.reason.module === 'ChildProcess' ? Option.some(`${error.reason.pathOrDescriptor}`) : Option.flatMap(Option.liftPredicate(error, Predicate.hasProperty('cause')), ({ cause }) => absent(cause));
-
 const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, memo: Map<string, { readonly request: Request<O>; readonly reports: readonly (readonly [U, R])[] }>, files: readonly string[], options: unknown, context: CreateNodesContext) {
     const path = yield* Path.Path;
     const plugin = yield* identity(declaration.module, context.workspaceRoot);
     const settings = { ...context.nxJsonConfiguration.pluginsConfig?.[plugin.shared], ...(Predicate.isObject(options) ? options : {}) };
     const [common, own] = yield* Effect.all([Schema.decodeEffect(Common)(settings), Schema.decodeEffect(declaration.options)(settings)]);
     const manager = detectPackageManager(context.workspaceRoot);
-    const upstream = 'production' in (context.nxJsonConfiguration.namedInputs ?? {}) ? '^production' : UPSTREAM;
     const request: Request<O> = {
         files: files.toSorted(),
         options: own,
@@ -266,15 +286,7 @@ const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration:
     const readings = yield* read(declaration, request, settings, yield* declaration.units(request));
     const reports = Array.filterMap(readings, ([unit, outcome]) => Result.map(outcome, ({ report }) => [unit, report] as const));
     memo.set(hashArray([context.workspaceRoot, hashObject(options ?? {})]), { request, reports });
-    const [unstarted, failures] = Array.partition(
-        readings.flatMap(([unit, outcome]) => Result.match(outcome, { onFailure: (error): readonly Failure[] => [[unit.file, error]], onSuccess: ({ failures: partial = [] }) => partial })),
-        ([file, error]) =>
-            Result.fromOption(
-                Option.map(absent(error), (tool) => `${file} presents no project: ${tool} names a program absent on this host`),
-                (): Failure => [file, error],
-            ),
-    );
-    yield* Effect.sync(() => unstarted.forEach((message) => logger.warn(message)));
+    const failures = readings.flatMap(([unit, outcome]) => Result.match(outcome, { onFailure: (error): readonly Failure[] => [[unit.file, error]], onSuccess: ({ failures: partial = [] }) => partial }));
     const results: CreateNodesResultArray = Record.toEntries(
         detached(
             Record.map(
@@ -283,7 +295,7 @@ const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration:
                     (project) => project.file,
                 ),
                 (group) => ({
-                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin, upstream)] as const),
+                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin, request.named(project.root))] as const),
                     externalNodes: Record.fromEntries(group.flatMap((project) => Record.toEntries(project.externalNodes ?? {}))),
                 }),
             ),

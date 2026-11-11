@@ -3,8 +3,7 @@
     "compilerOptions": {
         "declaration": false,
         "noEmit": true,
-        "types": [ "node", "@cloudflare/vitest-plugin/types" ]
+        "types": [ "node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types" ]
     },
-    "files": [ ".cloudflare/types/index.d.ts" ],
-    "include": [ "**/*" ]
+    "include": [ "**/*", ".cloudflare/types" ]
 }

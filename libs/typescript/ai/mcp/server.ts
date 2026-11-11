@@ -72,10 +72,18 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
         const hostValidation = HttpRouter.middleware(
             (next) =>
                 Effect.flatMap(HttpServerRequest.HttpServerRequest, (request) => {
-                    const { origin } = request.headers;
-                    return Option.exists(HttpServerRequest.toURL(request), ({ host, hostname }) => (allowed.has(host) || allowed.has(hostname)) && (origin === undefined || URL.parse(origin)?.host === host))
-                        ? Effect.provideService(next, HttpServerRequest.HttpServerRequest, request.modify({ headers: Headers.remove(request.headers, 'origin') }))
-                        : Effect.succeed(HttpServerResponse.empty({ status: 403 }));
+                    const served = Option.filter(HttpServerRequest.toURL(request), ({ host, hostname }) => allowed.has(host) || allowed.has(hostname));
+                    const origin = Option.flatMap(Headers.get(request.headers, 'origin'), Option.liftNullishOr(URL.parse));
+                    const headers = Option.exists(
+                        Option.zipWith(served, origin, (url, from) => url.host === from.host),
+                        Boolean,
+                    )
+                        ? Headers.remove(request.headers, 'origin')
+                        : request.headers;
+                    return Option.match(served, {
+                        onNone: () => Effect.succeed(HttpServerResponse.empty({ status: 403 })),
+                        onSome: () => Effect.provideService(next, HttpServerRequest.HttpServerRequest, request.modify({ headers })),
+                    });
                 }),
             { global: true },
         );
@@ -92,8 +100,8 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
                     registrations: Layer.provide(app, Server.layer({ scheme: manifest.name, retention: options.retention })),
                 }),
             ),
-        ).pipe(Layer.provideMerge(McpServer.McpServer.layer));
-        return Layer.merge(transport, hostValidation);
+        );
+        return Layer.merge(transport.pipe(Layer.provideMerge(McpServer.McpServer.layer)), hostValidation);
     };
 }
 

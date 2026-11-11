@@ -1,49 +1,69 @@
+use core::fmt;
+use core::str::FromStr;
 use std::error::Report;
 use std::io;
 
 use bytes::{Buf as _, Bytes, BytesMut};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::ErrorData;
-use rmcp::model::JsonRpcVersion2_0;
+use rmcp::model::{
+    CallToolRequestMethod, CancelledNotificationMethod, ConstString as _, DiscoverRequestMethod, GetPromptRequestMethod, InitializeResultMethod, InitializedNotificationMethod, JsonRpcVersion2_0,
+    LoggingMessageNotificationMethod, PingRequestMethod, ProgressNotificationMethod, ResourceUpdatedNotificationMethod, SetLevelRequestMethod, SubscribeRequestMethod,
+    SubscriptionsListenRequestMethod, UnsubscribeRequestMethod,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use serde_path_to_error::Track;
+use serde_with::{DeserializeFromStr, SerializeDisplay};
 use tokio_util::codec::Decoder;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, derive_more::IsVariant)]
-pub enum Method {
-    #[serde(rename = "initialize")]
-    Initialize,
-    #[serde(rename = "notifications/initialized")]
-    Initialized,
-    #[serde(rename = "server/discover")]
-    Discover,
-    #[serde(rename = "ping")]
-    Ping,
-    #[serde(rename = "notifications/cancelled")]
-    Cancelled,
-    #[serde(rename = "notifications/progress")]
-    Progress,
-    #[serde(rename = "tools/call")]
-    CallTool,
-    #[serde(rename = "prompts/get")]
-    GetPrompt,
-    #[serde(rename = "resources/subscribe")]
-    Subscribe,
-    #[serde(rename = "resources/unsubscribe")]
-    Unsubscribe,
-    #[serde(rename = "notifications/resources/updated")]
-    ResourceUpdated,
-    #[serde(rename = "subscriptions/listen")]
-    Listen,
-    #[serde(rename = "logging/setLevel")]
-    SetLevel,
-    #[serde(rename = "notifications/message")]
-    Logged,
-    #[serde(other)]
-    Other,
+macro_rules! methods {
+    ($($variant:ident = $name:ty,)*) => {
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, SerializeDisplay, DeserializeFromStr, derive_more::IsVariant)]
+        pub enum Method {
+            $($variant,)*
+            Other,
+        }
+
+        impl fmt::Display for Method {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(match self {
+                    $(Self::$variant => <$name>::VALUE,)*
+                    Self::Other => "Other",
+                })
+            }
+        }
+
+        impl FromStr for Method {
+            type Err = !;
+
+            fn from_str(s: &str) -> Result<Self, !> {
+                Ok(match s {
+                    $(<$name>::VALUE => Self::$variant,)*
+                    _ => Self::Other,
+                })
+            }
+        }
+    };
+}
+
+methods! {
+    Initialize = InitializeResultMethod,
+    Initialized = InitializedNotificationMethod,
+    Discover = DiscoverRequestMethod,
+    Ping = PingRequestMethod,
+    Cancelled = CancelledNotificationMethod,
+    Progress = ProgressNotificationMethod,
+    CallTool = CallToolRequestMethod,
+    GetPrompt = GetPromptRequestMethod,
+    Subscribe = SubscribeRequestMethod,
+    Unsubscribe = UnsubscribeRequestMethod,
+    ResourceUpdated = ResourceUpdatedNotificationMethod,
+    Listen = SubscriptionsListenRequestMethod,
+    SetLevel = SetLevelRequestMethod,
+    Logged = LoggingMessageNotificationMethod,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -231,7 +251,7 @@ pub fn identity(head: &[u8], tail: &[u8]) -> (Option<Bytes>, Option<Method>) {
     impl<'de> Visitor<'de> for Leading<'_> {
         type Value = ();
 
-        fn expecting(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result { formatter.write_str("a JSON-RPC message") }
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str("a JSON-RPC message") }
 
         fn visit_map<M>(self, mut map: M) -> Result<(), M::Error>
         where M: MapAccess<'de> {

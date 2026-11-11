@@ -4,6 +4,6 @@
         "declaration": false,
         "noEmit": true
     },
-    "files": [ ".cloudflare/types/index.d.ts" ],
-    "include": [ "**/*", ".storybook/*" ]
+    "files": [],
+    "references": [ { "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }, { "path": "./tsconfig.worker.json" } ]
 }

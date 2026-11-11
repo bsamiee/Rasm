@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2029-01-01","capabilities":{},"clientInfo":{"name":"ExampleClient","version":"1.0.0"}}}

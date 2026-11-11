@@ -1,0 +1,18 @@
+{
+    "type": "object",
+    "properties": {
+        "untitledSingle": { "type": "string", "enum": [ "option1", "option2", "option3" ] },
+        "titledSingle": {
+            "type": "string",
+            "oneOf": [ { "const": "value1", "title": "First Option" }, { "const": "value2", "title": "Second Option" }, { "const": "value3", "title": "Third Option" } ]
+        },
+        "legacyEnum": { "type": "string", "enum": [ "opt1", "opt2", "opt3" ], "enumNames": [ "Option One", "Option Two", "Option Three" ] },
+        "untitledMulti": { "type": "array", "items": { "type": "string", "enum": [ "option1", "option2", "option3" ] } },
+        "titledMulti": {
+            "type": "array",
+            "items": {
+                "anyOf": [ { "const": "value1", "title": "First Choice" }, { "const": "value2", "title": "Second Choice" }, { "const": "value3", "title": "Third Choice" } ]
+            }
+        }
+    }
+}

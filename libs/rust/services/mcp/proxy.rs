@@ -10,8 +10,9 @@ use backon::ExponentialBuilder;
 use bytes::Bytes;
 use futures::{StreamExt as _, TryFutureExt as _, stream};
 use jiff::{SignedDuration, Timestamp};
+use memchr::memmem::Finder;
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rmcp::model::{Implementation, InitializeRequestParams, ServerCapabilities, ServerJsonRpcMessage};
+use rmcp::model::{ConstString as _, Implementation, InitializeRequestParams, InitializeResultMethod, ServerCapabilities, ServerJsonRpcMessage};
 use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as _, BufWriter};
@@ -169,46 +170,22 @@ impl Proxy {
         R: AsyncRead + Send + Unpin + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
     {
-        let mut lines = FramedRead::new(reader, Lines::new(self.line));
-        let Some(first) = lines.next().await.transpose()? else { return Ok(()) };
-        let initializes = match &first {
-            Line::Whole(line) => match decode::<Envelope<'_>>(line) {
+        let stopped = |mpsc::error::SendError(_)| io::Error::from(io::ErrorKind::ConnectionAborted);
+        let named = Finder::new(InitializeResultMethod::VALUE);
+        let initializes = |line: &Line| match line {
+            Line::Whole(line) if named.find(line).is_some() => match decode::<Envelope<'_>>(line) {
                 Ok(envelope) => envelope.method == Some(Method::Initialize),
                 Err(error) => {
-                    tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&error), "first client line unreadable");
+                    tracing::trace!({ EXCEPTION_MESSAGE } = %Report::new(&error), "client line unreadable");
                     false
                 }
             },
-            Line::Oversized { head: _, tail: _ } => false,
+            Line::Whole(_) | Line::Oversized { head: _, tail: _ } => false,
         };
-        let stopped = |mpsc::error::SendError(_)| io::Error::from(io::ErrorKind::ConnectionAborted);
-        let mut early = Vec::new();
-        let era = if initializes {
-            let (asked, mut answered) = oneshot::channel();
-            self.events.send(Event::Era(asked)).await.map_err(stopped)?;
-            loop {
-                tokio::select! {
-                    biased;
-                    era = &mut answered => break era.map_err(io::Error::other)?,
-                    line = lines.next(), if early.len() < self.queue => match line.transpose()? {
-                        Some(line) => early.push(line),
-                        None => return Ok(()),
-                    },
-                }
-            }
-        } else {
-            None
-        };
+        let mut lines = FramedRead::new(reader, Lines::new(self.line));
         let (session, cut) = (self.joined.fetch_add(1, Ordering::Relaxed), CancellationToken::new());
         let (out, mut outbound) = mpsc::channel(self.queue);
         self.events.send(Event::Joined { session, out, cut: cut.clone() }).await.map_err(stopped)?;
-        let leading = iter::once(first).chain(early);
-        if era == Some(Era::Modern) {
-            return Box::pin(forward::serve(self, session, stream::iter(leading.map(Ok)).chain(lines), writer, outbound, cut)).await;
-        }
-        for line in leading {
-            self.events.send(Event::Line { session, line }).await.map_err(stopped)?;
-        }
         let (mut writer, mut batch) = (BufWriter::new(writer), Vec::new());
         loop {
             tokio::select! {
@@ -234,6 +211,29 @@ impl Proxy {
                     batch.clear();
                 }
                 line = lines.next() => match line {
+                    Some(Ok(first)) if initializes(&first) => {
+                        let (asked, mut answered) = oneshot::channel();
+                        self.events.send(Event::Era(asked)).await.map_err(stopped)?;
+                        let mut early = Vec::new();
+                        let era = loop {
+                            tokio::select! {
+                                biased;
+                                era = &mut answered => break era.map_err(io::Error::other)?,
+                                line = lines.next(), if early.len() < self.queue => match line.transpose()? {
+                                    Some(line) => early.push(line),
+                                    None => return Ok(()),
+                                },
+                            }
+                        };
+                        let leading = iter::once(first).chain(early);
+                        if era == Some(Era::Modern) {
+                            writer.flush().await?;
+                            return Box::pin(forward::serve(self, session, stream::iter(leading.map(Ok)).chain(lines), writer.into_inner(), outbound, cut)).await;
+                        }
+                        for line in leading {
+                            self.events.send(Event::Line { session, line }).await.map_err(stopped)?;
+                        }
+                    }
                     Some(Ok(line)) => if let Err(mpsc::error::SendError(_)) = self.events.send(Event::Line { session, line }).await {
                         break Ok(());
                     },

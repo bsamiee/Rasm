@@ -11,6 +11,7 @@ const subject: Subject = {
     plugin: { name: manifest.name, createNodes, createDependencies },
     options: { trustPackages: true },
     tools: ['swift'],
+    hosts: ['swift'],
     state: ['.build'],
     typed: true,
     compiled: ['Sources/Paper/Paper.swift', 'build--swift-build'],

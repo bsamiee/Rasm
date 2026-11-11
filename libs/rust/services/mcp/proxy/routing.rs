@@ -132,7 +132,7 @@ impl Calls {
         let id = self.next;
         self.next = self.next.saturating_add(1);
         if let Origin::Session(call) = &origin {
-            self.in_flight.store(self.waiting().saturating_add(1), Ordering::Relaxed);
+            self.in_flight.fetch_add(1, Ordering::Relaxed);
             self.named.insert((call.session, call.id.clone()), id);
         }
         self.pending.insert(id, origin);
@@ -142,7 +142,7 @@ impl Calls {
     pub(super) fn take(&mut self, request: u64) -> Option<Origin> {
         let origin = self.pending.remove(&request)?;
         if let Origin::Session(call) = &origin {
-            self.in_flight.store(self.waiting().saturating_sub(1), Ordering::Relaxed);
+            self.in_flight.fetch_sub(1, Ordering::Relaxed);
             self.named.remove(&(call.session, call.id.clone()));
         }
         Some(origin)

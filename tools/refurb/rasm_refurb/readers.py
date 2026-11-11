@@ -1,18 +1,20 @@
 """Package-internal module names and private class members whose readers, counted across every file of the member refurb builds, number one, and private-module exports no other file reads."""
 
 import ast
+from collections import Counter, defaultdict
+from collections.abc import Callable, Iterator
 from functools import cache
 from importlib.util import resolve_name
+from itertools import chain
 from pathlib import Path
 import tomllib
+from types import MappingProxyType
 from typing import override
-lazy from collections import Counter, defaultdict
-lazy from collections.abc import Callable, Iterator
 
+from expression import Option
+from expression.extra.result import catch
 import msgspec
-lazy from expression import Option
-lazy from expression.extra.result import catch
-lazy from mypy.nodes import (
+from mypy.nodes import (
     AssignmentStmt,
     BytesExpr,
     CallExpr,
@@ -48,11 +50,11 @@ lazy from mypy.nodes import (
     UnaryExpr,
     WhileStmt,
 )
-lazy from mypy.types import get_proper_type, Instance, Type, TypeType, TypeVarType
-lazy from mypy.util import correct_relative_import
-lazy from refurb.checks.common import get_mypy_type
-lazy from refurb.error import Error
-lazy from refurb.settings import Settings
+from mypy.types import get_proper_type, Instance, Type, TypeType, TypeVarType
+from mypy.util import correct_relative_import
+from refurb.checks.common import get_mypy_type
+from refurb.error import Error
+from refurb.settings import Settings
 
 from rasm_refurb._findings import RasmError
 from rasm_refurb._loops import Traverser
@@ -98,13 +100,13 @@ class ErrorNameReadersError(RasmError):
 class _Index(msgspec.Struct, frozen=True, kw_only=True):
     """Reads of every member file: the names each module loads, reader units per name with the nesting of each read, names read outside a call or as a comparison operand, the modules reading each name, and names a host, an entry, or an importable module publishes."""
 
-    loads: frozendict[str, frozenset[str]]
-    readers: frozendict[tuple[str, str], tuple[tuple[str, str, int], ...]]
+    loads: MappingProxyType[str, frozenset[str]]
+    readers: MappingProxyType[tuple[str, str], tuple[tuple[str, str, int], ...]]
     values: frozenset[tuple[str, str]]
     compared: frozenset[tuple[str, str]]
-    importers: frozendict[tuple[str, str], frozenset[str]]
+    importers: MappingProxyType[tuple[str, str], frozenset[str]]
     public: frozenset[tuple[str, str]]
-    members: frozendict[str, frozenset[str]]
+    members: MappingProxyType[str, frozenset[str]]
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -145,7 +147,7 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
         for root in roots
         for target in catch(Path.read_text, exception=OSError)(root / "pyproject.toml")
         .map(lambda text: tomllib.loads(text).get("project", {}))
-        .map(lambda project: (*project.get("scripts", {}).values(), *(*group.values() for group in project.get("entry-points", {}).values())))
+        .map(lambda project: (*project.get("scripts", {}).values(), *chain.from_iterable(group.values() for group in project.get("entry-points", {}).values())))
         .default_value(())
         for source, _, name in (target.partition(":"),)
     }
@@ -231,13 +233,13 @@ def _index(roots: tuple[Path, ...], /) -> _Index:
             compared.update((key,) if id(found) in operands else ())
             public.update(() if label else (key,))
     return _Index(
-        loads=frozendict((module, frozenset(found)) for module, found in loads.items()),
-        readers=frozendict((key, tuple(found)) for key, found in readers.items()),
+        loads=MappingProxyType({module: frozenset(found) for module, found in loads.items()}),
+        readers=MappingProxyType({key: tuple(found) for key, found in readers.items()}),
         values=frozenset(values),
         compared=frozenset(compared),
-        importers=frozendict((key, frozenset(found)) for key, found in importers.items()),
+        importers=MappingProxyType({key: frozenset(found) for key, found in importers.items()}),
         public=frozenset(public),
-        members=frozendict((name, frozenset(found)) for name, found in members.items()),
+        members=MappingProxyType({name: frozenset(found) for name, found in members.items()}),
     )
 
 

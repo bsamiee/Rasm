@@ -11,6 +11,7 @@
         "@biomejs/biome": "catalog:",
         "@effect/tsgo": "catalog:",
         "@nx/js": "catalog:",
+        "@nx/web": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/nx-apple": "workspace:*",
         "@rasm/nx-buf": "workspace:*",

@@ -56,11 +56,14 @@ const stated = Effect.fnUntraced(function* (context: ExecutorContext, project: s
 const execute = executor(
     Publish,
     Effect.fnUntraced(function* ({ folders, ...options }, context, project) {
-        const [{ dry, version, unversioned, attached }, fs, path] = yield* Effect.all([released(options, context, project), FileSystem.FileSystem, Path.Path]);
+        const [{ dry, version, unversioned, tagged, attached }, fs, path] = yield* Effect.all([released(options, context, project), FileSystem.FileSystem, Path.Path]);
         if (unversioned) {
             return yield* Effect.as(Effect.logInfo(`Skipped ${project}, nx release left it unversioned`), true);
         }
         const known = yield* Option.match(version, { onSome: Effect.succeed, onNone: () => stated(context, project) });
+        if (!(yield* tagged(known))) {
+            return yield* Effect.as(Effect.logInfo(`Skipped ${project}, no release tag holds ${known}`), true);
+        }
         const listed = yield* Effect.forEach(folders, (folder) => Effect.orElseSucceed(fs.readDirectory(path.join(context.root, folder)), Array.empty<string>));
         const packages = yield* Effect.forEach(Array.zip(folders, listed), ([folder, names]) =>
             Effect.mapBoth(Effect.fromOption(Array.findFirst(['.dmg', '.zip'], (kind) => Array.findFirst(names, String.endsWith(`-${known}${kind}`)))), {

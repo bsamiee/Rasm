@@ -2,14 +2,17 @@
 
 from sys import getrecursionlimit
 from textwrap import dedent
-lazy from collections.abc import Callable
+lazy from collections.abc import Callable, Mapping
 
 from mypy.nodes import ARG_POS, Block, CallExpr, ClassDef, Expression, NameExpr, OpExpr, SymbolTable, TupleExpr, TypeInfo
 import pytest
 lazy from refurb.error import Error
 
 from rasm_refurb.bpy_collections import check, ErrorCollectionTypeTestError
-lazy from suite.conftest import Findings
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

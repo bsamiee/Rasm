@@ -43,7 +43,7 @@ const { createNodes } = inferred({
                             command: 'buf generate',
                             dependsOn: ['^codegen'],
                             cache: true,
-                            inputs: [`{projectRoot}/${TEMPLATE}`, ...Array.getSomes(inputs.map(({ directory }) => Option.fromUndefinedOr(directory))).map((directory) => path.join('{workspaceRoot}', root, directory, '**/*.proto')), { runtime: 'buf --version' }, { externalDependencies: [] }],
+                            inputs: [`{projectRoot}/${TEMPLATE}`, ...Array.getSomes(inputs.map(({ directory }) => Option.fromUndefinedOr(directory))).map((directory) => path.join('{workspaceRoot}', root, directory, '**/*.proto')), { runtime: 'buf --version' }],
                             outputs: plugins.map(({ out }) => path.join('{workspaceRoot}', root, out)),
                             metadata: { description: `Generates code from the Protobuf inputs of ${TEMPLATE} with buf generate`, help: { command: 'buf generate --help', example: { args: ['--debug'] } } },
                         },

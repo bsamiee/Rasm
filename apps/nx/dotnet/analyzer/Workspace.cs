@@ -34,6 +34,7 @@ internal sealed record Node(
     ImmutableArray<string> Results,
     ImmutableArray<string> Platforms,
     ImmutableArray<string> Implicit,
+    string Packed,
     string? Central,
     Tracking? Releases);
 
@@ -98,7 +99,7 @@ internal static class Workspace {
                 [.. modes.Map(mode => new Mode(
                     mode.Configuration,
                     mode.Runtime.ValueUnsafe(),
-                    [.. mode.Instances.Bind(static instance => Seq(instance.GetPropertyValue("OutputPath"), instance.GetPropertyValue("IntermediateOutputPath"))).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
+                    [.. mode.Instances.Map(static instance => instance.GetPropertyValue("OutputPath")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
                     [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
                     [.. mode.Instances.Choose(static instance => toSeq(instance.GetPropertyValue("ErrorLog").Split([';', ','], StringSplitOptions.RemoveEmptyEntries)).Head).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
                 [.. instances
@@ -133,6 +134,7 @@ internal static class Workspace {
                     .Order(StringComparer.Ordinal)],
                 [.. toSeq(outer.GetItems("SupportedPlatform")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
                 [.. toSeq(outer.GetItems("NxImplicitDependency")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
+                Placed(modes.Find(static mode => mode.Runtime.IsNone && mode.Configuration.Equals("Release", StringComparison.OrdinalIgnoreCase)).Bind(static mode => mode.Instances.Head).IfNone(outer).GetPropertyValue("PackageOutputPath")),
                 Flag(outer, "ManagePackageVersionsCentrally") ? Relative(root, outer.GetPropertyValue("DirectoryPackagesPropsPath")) : null,
                 Tracked(root, instances)),
             Seq(file.Replace('\\', '/')) + inside + walked);

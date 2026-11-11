@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Version>0.0.0</Version>
         <Description>Interfaces as pure state transitions, drawn and driven by any host</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

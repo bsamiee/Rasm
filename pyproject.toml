@@ -42,7 +42,7 @@ test                  = [
     "pytest-randomly",                                                            # Random test order and seeds
     "pytest-socket",                                                              # Block unrequested network connections
     "pytest-timeout",                                                             # Per-test deadline
-    "rasm-testing",                                                               # SQLite and server fixtures, loaded by pytest as a plugin
+    "rasm-testing[containers,hosting,sqlite]",                                    # SQLite, container, and hosted server fixtures, each loaded by pytest as a plugin
     "testcontainers",                                                             # Disposable service containers a test starts, stops, and restarts, with Postgres, ClickHouse, Valkey, MinIO, and Kafka modules in one distribution
 ]
 core                  = [
@@ -371,6 +371,12 @@ override-dependencies    = ["cachebox>=6", "pyarrow>=26"]        # CPython 3.15 
 no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
+[[tool.uv.index]]
+name        = "pypi"
+url         = "https://pypi.org/simple/"
+publish-url = "https://upload.pypi.org/legacy/" # `uv publish --index pypi` uploads here and skips a file the index already holds
+explicit    = true
+
 [tool.uv.workspace]
 members = [
     "apps/cli/foundry",
@@ -379,7 +385,7 @@ members = [
     "libs/python/runtime/cli",
     "libs/python/runtime/telemetry",
     "tests/python/apps/cli/foundry",
-    "tests/python/apps/data/store",
+    "tests/python/apps/grpc/store",
     "tests/python/libs/runtime/telemetry",
     "tests/python/support",
     "tests/python/tools/refurb",
@@ -426,7 +432,7 @@ CPATH             = "$CONDA_PREFIX/include"
 LDFLAGS           = "-L$CONDA_PREFIX/lib -Wl,-rpath,$CONDA_PREFIX/lib"
 
 [tool.pixi.environments.default.target.osx.tasks]
-python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # `pixi run` loses activation `DYLD_*` rows through the SIP-protected `/usr/bin/env` that captures them
+python = { cmd = "python", env = { DYLD_FALLBACK_LIBRARY_PATH = "$CONDA_PREFIX/lib:$HOME/lib:/usr/local/lib:/lib:/usr/lib" } } # `pixi run` loses activation `DYLD_*` rows through the SIP-protected `/usr/bin/env` that captures them, and a set variable replaces dyld's default fallback list, restated after the Pixi folder
 
 [tool.pixi.environments.default.target.linux.tasks]
 python = { cmd = "python", env = { LD_LIBRARY_PATH = "$CONDA_PREFIX/lib" } } # An activation row reaches every `pixi run` child ahead of system libraries, sdist builds included
@@ -629,14 +635,13 @@ require-lazy         = [
 
 [tool.ty]
 environment = { python-platform = "all" }
-src         = { exclude = ["libs/python/blender", "apps/blender", "tests/python/libs/blender"] } # 3.13 uv roots and their test members, each checked through its root's `[tool.ty]`
-analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }        # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
-rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
+src         = { exclude = ["libs/python/blender", "apps/blender", "tests/python/libs/blender"] } # 3.13 uv roots, each checked through its own `[tool.ty]`, kept out of the project an editor's ty server opens at this root
+analysis    = { allowed-unresolved-imports = ["uharfbuzz.**"] }                                  # uharfbuzz re-exports its compiled `_harfbuzz` module, which ships no stub
+rules       = { all = "error", unused-type-ignore-comment = "ignore" }                           # mypy `unused-ignore` owns unused `type: ignore` comments
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
-exclude                 = ["^libs/python/blender/", "^apps/blender/", "^tests/python/libs/blender/"]
 cache_dir               = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
 strict                  = true
 warn_unreachable        = true
@@ -644,7 +649,7 @@ exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
 strict_bytes            = true
-untyped_calls_exclude   = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "ots", "ufo2ft"]                                                                                                                                       # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
+untyped_calls_exclude   = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.exporter.otlp.proto.http.trace_exporter", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "ots", "ufo2ft"]                                                                              # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
 enable_error_code       = ["deprecated", "exhaustive-match", "explicit-override", "narrowed-type-not-subtype", "redundant-expr", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type"]                                                        # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code
 overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }, { module = ["PyOpenColorIO.PyOpenColorIO.ColorSpaceHelpers", "PyOpenColorIO.PyOpenColorIO.DisplayViewHelpers"], follow_imports = "skip", follow_imports_for_stubs = true }] # OpenColorIO binds `AddColorSpace` and `AddDisplayView` with a required parameter after a defaulted one, which no stub states
@@ -737,23 +742,27 @@ exclude           = [".venv/"]       # Third-party packages of a virtual environ
 
 [tool.pytest]
 strict                    = true
-cache_dir                 = ".cache/pytest"
+cache_dir                 = "$PYTEST_CACHE_DIR"
 collect_imported_tests    = false
 empty_parameter_set_mark  = "fail_at_collect"
 addopts                   = [
-    "--disable-plugin-autoload",              # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
+    "--disable-plugin-autoload",                # Loads the plugins named below alone, never every `pytest11` entry point the environment holds
     "-p",
     "hypothesispytest",
     "-p",
     "pytest_cov",
     "-p",
-    "pytester",                               # Inner pytest runs for the suites of pytest plugins
+    "pytester",                                 # Inner pytest runs for the suites of pytest plugins
     "-p",
     "randomly",
     "-p",
-    "rasm_testing.plugin",                    # SQLite and server fixtures of `tests/python/support`
+    "rasm_testing.containers",                  # Testcontainers servers of `tests/python/support`
     "-p",
-    "socket",
+    "rasm_testing.hosting",                     # Hosted HTTP servers of `tests/python/support`
+    "-p",
+    "rasm_testing.sqlite",                      # SQLite database of `tests/python/support`
+    "-p",
+    "pytest_socket",                            # Named by its module, the entry point name `socket` being the standard library module the server plugins import first
     "-p",
     "timeout",
     "--tb=short",
@@ -763,7 +772,7 @@ addopts                   = [
 ]
 filterwarnings            = ["error"]
 timeout                   = "30"
-tmp_path_retention_policy = "failed"          # Keeps the folders of failed tests alone, as a store is kept for its failed test
+tmp_path_retention_policy = "failed"            # Keeps the folders of failed tests alone, as a store is kept for its failed test
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 

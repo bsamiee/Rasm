@@ -1,8 +1,7 @@
-"""SQLite and server fixtures for pytest: a private SQLite database, Testcontainers servers a test controls, and HTTP servers a test hosts on a loopback port, loaded by `-p rasm_testing.plugin`."""
+"""Fixtures for pytest, each a plugin module behind the extra of its name: `sqlite` a private SQLite database, `containers` Testcontainers servers a test controls, `hosting` HTTP servers a test hosts on a loopback port, over the outcomes and limits of `rasm_testing.plugin`."""
 
-lazy from rasm_testing._servers import Answer, Defined, defined, hosting, logged, opened, Received, RustfsContainer, serving, Started
-lazy from rasm_testing.plugin import FAILED, LIMIT, settled
+from rasm_testing._outcomes import FAILED, LIMIT, raised, reaching, settled
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["FAILED", "LIMIT", "Answer", "Defined", "Received", "RustfsContainer", "Started", "defined", "hosting", "logged", "opened", "serving", "settled"]
+__all__ = ["FAILED", "LIMIT", "raised", "reaching", "settled"]

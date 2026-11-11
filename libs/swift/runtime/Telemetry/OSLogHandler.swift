@@ -1,20 +1,6 @@
 public import Logging
 public import os
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-public enum Privacy: Int64, Logging.Logger.MetadataValueAttributes.Attribute {
-    case `private`
-    case `public`
-
-    public static func of(_ value: Logging.Logger.MetadataValue) -> Self? {
-        switch value {
-            case .stringConvertible(is Bool), .stringConvertible(is any BinaryInteger), .stringConvertible(is any BinaryFloatingPoint): .public
-            case .string, .stringConvertible, .dictionary, .array: value.attributes[Self.self]
-        }
-    }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public struct OSLogHandler: LogHandler {
@@ -59,12 +45,6 @@ public struct OSLogHandler: LogHandler {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension Logging.Logger.MetadataValue.StringInterpolation {
-    public mutating func appendInterpolation(_ value: some Sendable, privacy: Privacy) {
-        appendInterpolation(value, attributes: [privacy])
-    }
-}
 
 extension LogHandler {
     func attributes(of event: LogEvent) -> Logging.Logger.Metadata {

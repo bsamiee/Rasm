@@ -56,6 +56,12 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.14"
         }
       },
+      "Microsoft.macOS.Ref.net10.0_26.0": {
+        "type": "Direct",
+        "requested": "[26.0.11017, )",
+        "resolved": "26.0.11017",
+        "contentHash": "LpFdOvwwe+dvXxQQaud0gnCSOgDOcOgWlKxFBkK3/uUSRDprhauoM7q6Ycsmx0G9yLGTBCS2oQXqyaJptdX6bw=="
+      },
       "Microsoft.VisualStudio.Threading": {
         "type": "Direct",
         "requested": "[18.12.1, )",
@@ -224,7 +230,6 @@
           "Microsoft.Extensions.Logging": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )",
           "Microsoft.VisualStudio.Threading": "[18.12.1, )",
-          "Microsoft.Win32.SystemEvents": "[10.0.0, )",
           "Mono.Unix": "[7.1.0-final.1.21458.1, )",
           "NodaTime": "[3.3.7, )",
           "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
@@ -234,12 +239,10 @@
           "OpenTelemetry.Resources.Process": "[1.20.1-rc.1, )",
           "OpenTelemetry.Resources.ProcessRuntime": "[1.20.1-beta.1, )",
           "QuikGraph": "[2.5.0, )",
-          "Rasm.Drafting": "[1.0.0, )",
-          "Rasm.Telemetry": "[1.0.0, )",
-          "Rasm.Telemetry.Api": "[1.0.0, )",
-          "RhinoCommon": "[9.0.26300.9401, )",
+          "Rasm.Drafting": "[0.0.0, )",
+          "Rasm.Telemetry": "[0.0.0, )",
+          "Rasm.Telemetry.Api": "[0.0.0, )",
           "SuperLinq": "[6.4.1, )",
-          "System.Drawing.Common": "[10.0.0, )",
           "System.IO.Hashing": "[11.0.0-rc.3.26522.148, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.6.0, )",
@@ -258,7 +261,6 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[10.0.14, )",
           "Microsoft.Extensions.Logging": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )",
-          "Microsoft.Extensions.Logging.Configuration": "[10.0.14, )",
           "Microsoft.Extensions.Options": "[10.0.14, )",
           "Microsoft.Extensions.Options.ConfigurationExtensions": "[10.0.14, )",
           "Microsoft.Extensions.Primitives": "[10.0.14, )",

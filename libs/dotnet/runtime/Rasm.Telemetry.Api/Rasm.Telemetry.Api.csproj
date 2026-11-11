@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Version>0.0.0</Version>
         <Description>LanguageExt failures as log records and span status, for a library emitting through ILogger and ActivitySource alone</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

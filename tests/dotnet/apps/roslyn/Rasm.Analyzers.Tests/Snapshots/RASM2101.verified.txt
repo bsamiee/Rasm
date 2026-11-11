@@ -1,4 +1,0 @@
-#0 `GetBool` reads `PersistentSettings` through a default value, call `settings.TryGetBool("held", out bool value)`
-#1 `GetEnumValue` reads `PersistentSettings` through a default value, call `settings.TryGetEnumValue<DayOfWeek>("day", out DayOfWeek value)`
-#2 `GetColor` reads `PersistentSettings` through a default value, call `settings.TryGetColor("color", out Color value)`
-#3 `GetColor` reads `PersistentSettings` through a default value, call `settings.TryGetColor("color", out Color? value)`

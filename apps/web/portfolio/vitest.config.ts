@@ -9,6 +9,6 @@ import application from '#/vite.config';
 export default defineConfig((env) =>
     mergeConfig(application(env), {
         plugins: [testPolicy()],
-        test: { projects: [{ extends: true, plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { name: 'stories', browser: { enabled: true, screenshotFailures: true }, api: { allowWrite: true } } }] },
+        test: { projects: [{ extends: true, plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { name: 'storybook', browser: { enabled: true, screenshotFailures: true }, api: { allowWrite: true } } }] },
     }),
 );

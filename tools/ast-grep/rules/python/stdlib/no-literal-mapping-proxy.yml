@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
-ignores: ['{apps/blender,libs/python/blender,libs/python/data/records}/**']
+ignores: ['{apps/blender,libs/python/blender,libs/python/data/records,libs/python/runtime/telemetry,tests/python/libs/blender,tests/python/support,tools/refurb}/**']
 rule:
     kind: call
     all:

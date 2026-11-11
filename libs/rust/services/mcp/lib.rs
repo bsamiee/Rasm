@@ -1,5 +1,5 @@
-#![feature(error_reporter)]
-#![cfg_attr(feature = "app", feature(associated_type_defaults, default_field_values, integer_casts, lock_value_accessors, nonpoison_mutex, sync_nonpoison))]
+#![feature(error_reporter, lock_value_accessors, nonpoison_mutex, sync_nonpoison)]
+#![cfg_attr(feature = "app", feature(associated_type_defaults, default_field_values, integer_casts))]
 
 use core::future::{Ready, ready};
 use core::pin::pin;
@@ -26,25 +26,34 @@ pub struct Progress(watch::Sender<Option<ProgressNotificationParam>>);
 
 impl Progress {
     pub fn report(&self, update: ProgressNotificationParam) {
-        self.0.send_if_modified(|latest| {
-            latest
-                .as_mut()
-                .filter(|held| update.progress.is_finite() && update.progress >= held.progress && (update.progress, update.total, &update.message) != (held.progress, held.total, &held.message))
-                .map(|held| (held.progress, held.total, held.message) = (update.progress, update.total, update.message))
-                .is_some()
+        self.0.send_if_modified(|latest| match latest {
+            Some(held) if update.progress.is_finite() && update.progress >= held.progress && (update.progress, update.total, &update.message) != (held.progress, held.total, &held.message) => {
+                (held.progress, held.total, held.message) = (update.progress, update.total, update.message);
+                true
+            }
+            None if update.progress.is_finite() => {
+                *latest = Some(update);
+                true
+            }
+            Some(_) | None => false,
         });
     }
 
     pub fn relay<F>(&self, context: &RequestContext<RoleServer>, call: F) -> impl Future<Output = F::Output> + Send
     where F: Future<Output: Send> + Send {
         let peer = context.peer.clone();
-        let updates = stream::iter(context.meta.get_progress_token().map(|token| {
-            self.seed(token);
-            WatchStream::new(self.0.subscribe())
-        }))
-        .flatten()
-        .scan(0.0_f64, |sent, latest| ready(Some(latest.filter(|held| held.progress > *sent).inspect(|held| *sent = held.progress))))
-        .filter_map(ready);
+        let stamped = |token: ProgressToken| {
+            WatchStream::new(self.0.subscribe()).map(move |latest| {
+                latest.map(|mut held| {
+                    held.progress_token = token.clone();
+                    held
+                })
+            })
+        };
+        let updates = stream::iter(context.meta.get_progress_token().map(stamped))
+            .flatten()
+            .scan(None, |sent, latest| ready(Some(latest.filter(|held| sent.is_none_or(|sent| held.progress > sent)).inspect(|held| *sent = Some(held.progress)))))
+            .filter_map(ready);
         async move {
             let relayed = updates.map(Ok).try_for_each(|held| peer.notify_progress(held)).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed"));
             match future::select(pin!(call), pin!(relayed)).await {
@@ -52,16 +61,6 @@ impl Progress {
                 future::Either::Right(((), call)) => call.await,
             }
         }
-    }
-
-    fn seed(&self, token: ProgressToken) {
-        self.0.send_if_modified(|latest| {
-            match latest {
-                Some(held) => held.progress_token = token,
-                None => *latest = Some(ProgressNotificationParam::new(token, 0.0_f64)),
-            }
-            false
-        });
     }
 }
 
@@ -92,6 +91,6 @@ pub use proxy::{
     pool::{Pool, Store},
     session::{Ended, Resumable},
 };
-pub use shared::{Connection, Shared};
+pub use shared::{Connection, Log, Shared};
 #[cfg(feature = "telemetry")]
 pub use telemetry::Traced;

@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Version>0.0.0</Version>
         <Description>Historical arch forms drawn by their traditional geometric constructions</Description>
         <TargetExt>.rhp</TargetExt>
         <PlugInId>07134403-e825-43e4-b711-8fa2f330760a</PlugInId>

@@ -1,4 +1,4 @@
-"""SQLite fixture and the TCP rule, each through the plugin row every suite loads."""
+"""SQLite fixture and the TCP rule, each through the plugin rows a suite loads."""
 
 from contextlib import closing
 import sqlite3
@@ -46,7 +46,7 @@ def test_a_failed_test_keeps_its_sqlite_file(pytester: pytest.Pytester) -> None:
             sqlite.commit()
             pytest.fail("refused")
     """)
-    (torn,) = (report for report in pytester.inline_run("-p", "rasm_testing.plugin").getreports("pytest_runtest_logreport") if report.when == "teardown")
+    (torn,) = (report for report in pytester.inline_run("-p", "rasm_testing.sqlite").getreports("pytest_runtest_logreport") if report.when == "teardown")
     (kept,) = (text for name, text in torn.sections if "kept sqlite" in name)
     with closing(sqlite3.connect(kept)) as reader:
         assert reader.execute("select mark from marks").fetchall() == [("held",)]
@@ -68,4 +68,4 @@ def test_tcp_opens_for_a_test_requesting_a_server_and_stays_refused_for_others(p
             with pytest.raises(UserWarning, match="tried to use socket"):
                 socket.socket()
     """)
-    pytester.runpytest_subprocess("-p", "rasm_testing.plugin", "--disable-socket", "-W", "error").assert_outcomes(passed=2)
+    pytester.runpytest_subprocess("-p", "rasm_testing.containers", "-p", "rasm_testing.sqlite", "--disable-socket", "-W", "error").assert_outcomes(passed=2)

@@ -39,6 +39,29 @@ cases(subject, (it) => {
         ),
     );
 
+    it.effect('gives the root project no tsc target for a root tsconfig.json beside its sources', () =>
+        inferred({ ...subject, files: { 'package.json': '{ "name": "root" }\n', 'tsconfig.json': '{}\n', 'src/index.ts': 'export const root = 1;\n' } }).pipe(
+            Effect.map(running('tsc')),
+            Effect.map((compiled) => assert.deepStrictEqual(compiled, [], 'nrwl/nx@2a424d3 packages/js/src/plugins/typescript/plugin.spec.ts "should not create nodes for root tsconfig.json files"')),
+        ),
+    );
+
+    it.effect('compiles a tsconfig that references a folder the workspace lacks', () =>
+        inferred({
+            ...subject,
+            files: {
+                'package.json': '{ "name": "root", "workspaces": ["lib"] }\n',
+                'lib/package.json': '{ "name": "lib", "type": "module" }\n',
+                'lib/tsconfig.json': '{ "compilerOptions": { "outDir": "dist", "rootDir": ".", "declaration": true, "module": "nodenext" }, "include": ["*.ts"], "references": [{ "path": "../lib-2" }] }\n',
+                'lib/index.ts': 'export const lib = 1;\n',
+            },
+        }).pipe(
+            Effect.map(running('tsc')),
+            Effect.map(Array.map(({ project }) => project)),
+            Effect.map((compiled) => assert.deepStrictEqual(compiled, ['lib'], 'nrwl/nx@2a424d3 packages/js/src/plugins/typescript/plugin.spec.ts "should handle ts project references pointing to non-existing files and not throw"')),
+        ),
+    );
+
     it.effect('compiles each tsconfig with tsc, cached, writing under the outDir of a config that emits and nothing for a config that sets or inherits noEmit', () =>
         inferred(subject).pipe(
             Effect.map(running('tsc')),

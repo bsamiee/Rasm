@@ -1,10 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Snapshot tests of analyzer rules, their code fixes, and the plug-in shell generator</Description>
-        <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
-        <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
-        <SolutionDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'global.json'))))</SolutionDir>
-        <SolutionName>$([System.IO.Path]::GetFileName($(SolutionDir.TrimEnd('/'))))</SolutionName>
+        <Description>Tests of analyzer rules and their code fixes, one class per analyzer over inline sources</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Compiler Fixtures">
@@ -26,8 +22,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Testing">
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzer.Testing" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CodeFix.Testing" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
-        <PackageReference Include="Verify.XunitV3" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">

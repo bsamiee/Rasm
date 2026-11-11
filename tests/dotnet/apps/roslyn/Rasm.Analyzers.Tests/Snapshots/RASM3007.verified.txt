@@ -1,6 +1,0 @@
-#0 `value.Record is Dither` tests `TState` for concrete `Dither`, declare behavior as a static virtual member of the `TState` constraint
-#1 `Dither dither` tests `TState` for concrete `Dither`, declare behavior as a static virtual member of the `TState` constraint
-#2 `state as Exposure` tests `TState` for concrete `Exposure`, declare behavior as a static virtual member of the `TState` constraint
-#3 `typeof(TState) == typeof(Dither)` tests `TState` for concrete `Dither`, declare behavior as a static virtual member of the `TState` constraint
-#4 `typeof(Dither) != typeof(TState)` tests `TState` for concrete `Dither`, declare behavior as a static virtual member of the `TState` constraint
-#5 `kind == typeof(Dither)` tests `TState` for concrete `Dither`, declare behavior as a static virtual member of the `TState` constraint

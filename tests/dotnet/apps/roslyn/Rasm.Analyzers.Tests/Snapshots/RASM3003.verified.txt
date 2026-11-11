@@ -1,4 +1,0 @@
-#0 `_ =` discards awaitable `Task.Run(() => count + 1)`, await `Task.Run(() => count + 1)` or return `Task.Run(() => count + 1)` to an awaiting caller
-#1 `_ =` discards awaitable `Task.Delay(1)`, await `Task.Delay(1)` or return `Task.Delay(1)` to an awaiting caller
-#2 `_ =` discards awaitable `ValueTask.FromResult(1)`, await `ValueTask.FromResult(1)` or return `ValueTask.FromResult(1)` to an awaiting caller
-#3 `_ =` discards awaitable `value`, await `value` or return `value` to an awaiting caller

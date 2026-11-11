@@ -15,7 +15,7 @@ use rmcp::handler::server::tool::{IntoCallToolResult, ToolCallContext, ToolRoute
 use rmcp::handler::server::tool_name_validation::validate_and_warn_tool_name;
 use rmcp::model::{
     CallToolRequestMethod, CallToolRequestParams, CallToolResponse, CallToolResult, CreateTaskResult, ElicitRequest, ElicitRequestParams, ElicitationAction, ElicitationSchema, InputRequest,
-    InputRequiredResult, JsonObject, NumberOrString, ProgressToken, ServerResult,
+    InputRequiredResult, JsonObject, ServerResult,
 };
 use rmcp::service::{ElicitationSafe, RequestContext};
 use rmcp::task_manager::{TaskContext, TaskExit, TaskOptions};
@@ -26,7 +26,7 @@ use serde_json::Value;
 use tokio::sync::{mpsc, oneshot, watch};
 use tokio::time::{self, Instant};
 use tokio_stream::wrappers::{UnboundedReceiverStream, WatchStream};
-use tokio_util::sync::CancellationToken;
+use tokio_util::sync::{CancellationToken, DropGuard};
 use tokio_util::task::AbortOnDropHandle;
 use url::Url;
 use uuid::Uuid;
@@ -86,6 +86,7 @@ pub(super) struct Running {
     progress: Progress,
     execution: Execution,
     destructive: bool,
+    released: DropGuard,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -161,8 +162,7 @@ where A: Server {
         responder.send(answer).unwrap_or_else(|unawaited| tracing::debug!(question = key, %unawaited, "question no longer awaits its answer"));
     }
     async fn tasked(running: Running, task: TaskContext, halted: CancellationToken) -> Result<CallToolResult, TaskExit> {
-        let Running { mut call, questions, pending, progress, execution: _, destructive } = running;
-        progress.seed(ProgressToken(NumberOrString::String(task.task_id().into())));
+        let Running { mut call, questions, pending, progress, execution: _, destructive, released } = running;
         let asked = stream::iter(pending).chain(UnboundedReceiverStream::new(questions)).map(Either::Left);
         let reported = WatchStream::new(progress.0.subscribe()).filter_map(|latest| ready(latest.and_then(|held| held.message))).map(Either::Right);
         let side = stream::select(asked, reported).for_each_concurrent(None, |item| {
@@ -176,14 +176,17 @@ where A: Server {
             }
         });
         let settled = async {
-            tokio::select! {
+            let completed = tokio::select! {
                 biased;
-                completed = &mut call => match completed? {
-                    CallToolResponse::Complete(result) => Ok(result),
-                    _ => Err(TaskExit::Error(internal(ServiceError::UnexpectedResponse))),
-                },
-                () = task.cancelled(), if !destructive => Err(TaskExit::Cancelled),
-                () = halted.cancelled(), if !destructive => Err(TaskExit::Cancelled),
+                completed = &mut call => completed,
+                Some(()) | None = halted.run_until_cancelled(task.cancelled()) => {
+                    drop(released);
+                    if destructive { call.await } else { return Err(TaskExit::Cancelled) }
+                }
+            };
+            match completed? {
+                CallToolResponse::Complete(result) => Ok(result),
+                _ => Err(TaskExit::Error(internal(ServiceError::UnexpectedResponse))),
             }
         };
         match future::select(pin!(settled), pin!(side)).await {
@@ -228,7 +231,7 @@ where A: Server {
         called.extensions.insert(Elicitation { context: called.clone(), asked });
         let (app, released) = (server.app.clone(), called.ct.clone().drop_guard());
         let call = async move { tools.call(ToolCallContext::new(&app, request, called)).await };
-        Running { call: call.inspect(move |_| drop(released)).boxed(), questions, pending: BTreeMap::new(), progress, execution, destructive }
+        Running { call: call.boxed(), questions, pending: BTreeMap::new(), progress, execution, destructive, released }
     };
     let pause = |paused: Running| {
         let state = Uuid::new_v4().to_string();
@@ -251,6 +254,7 @@ where A: Server {
             }
             completed = running.progress.relay(&context, &mut running.call) => completed,
             () = context.ct.cancelled() => {
+                drop(running.released);
                 if running.destructive {
                     recorded(&server.routers.executions, server.retention, running.execution, running.call).await;
                 }

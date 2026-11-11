@@ -8,7 +8,7 @@ Runs with an affected store client start `rasm-store:serve--compose`, which buil
 - Image `store` compiles `rasm-store` from source in 6 min without a layer cache, and a remote-cache hit of a store suite still starts the service
 - Service `store` reads and writes a `gha` layer cache, which Buildx drops where no `ACTIONS_*` token is set, `crazy-max/ghaction-github-runtime` sets it in job `linux`
 - Unverified until one CI run: the `gha` cache on the default `docker` driver needs the containerd image store (`docker info --format '{{.DriverStatus}}'`)
-- A change under the paths `apps/data/store/Dockerfile` copies still compiles cold, BuildKit exports no `RUN --mount=type=cache` content
+- A change under the paths `apps/grpc/store/Dockerfile` copies still compiles cold, BuildKit exports no `RUN --mount=type=cache` content
 
 ## [02]-[MACOS_SETUP]
 

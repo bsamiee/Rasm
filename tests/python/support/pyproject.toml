@@ -3,34 +3,35 @@
 [project]
 name            = "rasm-testing"
 version         = "0.0.0"
-description     = "SQLite and server fixtures for pytest: a private SQLite database, Testcontainers servers a test controls, and HTTP servers a test hosts on a loopback port"
+description     = "Fixtures for pytest, each behind an extra: a private SQLite database, Testcontainers servers a test controls, and HTTP servers a test hosts on a loopback port"
 classifiers     = ["Framework :: Pytest", "Private :: Do Not Upload", "Typing :: Typed"]
-requires-python = ">=3.15"
+requires-python = ">=3.13"
 
 dependencies = [
-    # --- [CORE]
+    "expression",    # Outcome a test step settles
+    "pytest",        # Fixtures, report hooks, stash keys, and report sections
+    "pytest-socket", # `enable_socket` marker a plugin adds to each test reaching a server
+    "rasm-records",  # Fault results and their report text
+]
 
-    "expression",         # Results of Compose and decode steps, and absent rows as options
-    "msgspec",            # Compose service rows
-    "pytest",             # Fixtures, report hooks, stash keys, and report sections
-    "pytest-socket",      # `enable_socket` marker the plugin adds to each test reaching a server
-    "rasm-records",       # Fault results and their report text
-
-    # --- [DRIVERS]
-
+[project.optional-dependencies]
+containers = [
+    "boto3",              # Bucket creation on a RustFS server, which `obstore` has no call for
     "clickhouse-connect", # ClickHouse client opened on a ClickHouse server
+    "msgspec",            # Compose service rows
     "obstore",            # Object store opened on a RustFS server
     "psycopg-pool",       # Connection pool opened on a Postgres server
     "psycopg[binary]",    # libpq build the pool connects through
     "redis[hiredis]",     # Valkey client opened on a Valkey server
-    "sqlite-vec",         # `vec0` extension loaded into each SQLite database
-
-    # --- [SERVERS]
-
-    "anyio",              # Event loop thread a test hosts servers on, and its clock on each received request
-    "boto3",              # Bucket creation on a RustFS server, which `obstore` has no call for
-    "hypercorn",          # HTTP/1.1 and h2c server answering from a function of the test on a loopback port
     "testcontainers",     # Containers a test starts, restarts, and stops, their module rows, and wait strategies
+]
+hosting    = [
+    "anyio",              # Event loop thread a test hosts servers on, and its clock on each received request
+    "hypercorn",          # HTTP/1.1 and h2c server answering from a function of the test on a loopback port
+    "msgspec",            # Request and answer records of a hosted server
+]
+sqlite     = [
+    "sqlite-vec",         # `vec0` extension loaded into each SQLite database
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------
@@ -41,3 +42,8 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-root = ""
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../../pyproject.toml" # Ruff reads this manifest's `requires-python` through its own table

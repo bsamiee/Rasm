@@ -1,9 +1,0 @@
-RASM3014 `Narrowing` renames a type, write the type at each use
-#0 `As()` narrows `Fin<int>` to itself, delete the call
-#1 `As()` narrows `Option<int>` to itself, delete the call
-#2 `As()` narrows `Fin<int>` to itself, delete the call
-#3 `As()` narrows `Option<int>` to itself, delete the call
-#4 `As()` narrows `Option<int>` to itself, delete the call
-#5 `As()` narrows `Option<int>` to itself, delete the call
-#6 `As()` narrows `Option<int>` to itself, delete the call
-#7 `As()` narrows `Fin<int>` to itself, delete the call

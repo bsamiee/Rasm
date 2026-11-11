@@ -178,7 +178,7 @@ where
             self.start();
         }
         loop {
-            let room = self.upstream.room(self.policy.queue);
+            let room = self.upstream.room();
             tokio::select! {
                 () = self.stopping.cancelled() => break self.stop().await,
                 wake = self.upstream.next() => self.on_wake(wake),

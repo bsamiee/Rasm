@@ -1,0 +1,93 @@
+using Microsoft.CodeAnalysis.Testing;
+using Rasm.Analyzers.Tests.Verifiers;
+using Rasm.Rhino.Analyzers;
+using Xunit;
+
+namespace Rasm.Analyzers.Tests.RhinoCommonRules;
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+public sealed class MacGuardTests : CSharpCodeFixVerifier<MacGuardAnalyzer, EmptyCodeFixProvider> {
+    [Fact]
+    public Task UnguardedMac() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using LanguageExt;
+        using LanguageExt.Common;
+        using Rhino.Display;
+        using Rhino.DocObjects.Tables;
+        using static LanguageExt.Prelude;
+
+        namespace Rasm.Rhino {
+            internal static class Refused {
+                internal static Fin<Unit> Unless(bool done, string member) => done ? unit : Error.New(member);
+            }
+        }
+
+        internal static class UnguardedMac {
+            internal static Fin<Unit> Restored(NamedViewTable table, int index, RhinoViewport viewport) =>
+                Rasm.Rhino.Refused.Unless({|#0:table.RestoreWithAspectRatio(index, viewport)|}, nameof(NamedViewTable.RestoreWithAspectRatio));
+
+            internal static bool OnMac(NamedViewTable table, int index, RhinoViewport viewport) => OperatingSystem.IsMacOS() && {|#1:table.RestoreWithAspectRatio(index, viewport)|};
+
+            internal static string[] Arguments() {
+                string[] arguments = {|#2:Environment.GetCommandLineArgs()|};
+                return arguments;
+            }
+
+            internal static string[] Aliased() {
+                bool mac = OperatingSystem.IsMacOS();
+                return mac ? [] : {|#3:Environment.GetCommandLineArgs()|};
+            }
+
+            internal static string[] Inverted() => OperatingSystem.IsMacOS() ? {|#4:Environment.GetCommandLineArgs()|} : [];
+
+            internal static Func<string[]> Deferred() => {|#5:Environment.GetCommandLineArgs|};
+        }
+        """,
+        Diagnostic().WithLocation(0).WithArguments("table.RestoreWithAspectRatio(index, viewport)", "asserts and aborts Rhino when a docked target's aspect differs from its named view's", "guard it with `!OperatingSystem.IsMacOS() &&`"),
+        Diagnostic().WithLocation(1).WithArguments("table.RestoreWithAspectRatio(index, viewport)", "asserts and aborts Rhino when a docked target's aspect differs from its named view's", "guard it with `!OperatingSystem.IsMacOS() &&`"),
+        Diagnostic().WithLocation(2).WithArguments("Environment.GetCommandLineArgs()", "returns only Rhino's .NET startup assembly", "read macOS launch arguments through `NSProcessInfo.ProcessInfo.Arguments`"),
+        Diagnostic().WithLocation(3).WithArguments("Environment.GetCommandLineArgs()", "returns only Rhino's .NET startup assembly", "read macOS launch arguments through `NSProcessInfo.ProcessInfo.Arguments`"),
+        Diagnostic().WithLocation(4).WithArguments("Environment.GetCommandLineArgs()", "returns only Rhino's .NET startup assembly", "read macOS launch arguments through `NSProcessInfo.ProcessInfo.Arguments`"),
+        Diagnostic().WithLocation(5).WithArguments("Environment.GetCommandLineArgs", "returns only Rhino's .NET startup assembly", "read macOS launch arguments through `NSProcessInfo.ProcessInfo.Arguments`"));
+
+    [Fact]
+    public Task GuardedMac() => VerifyAnalyzerAsync(
+        """
+        using System;
+        using System.Linq;
+        using LanguageExt;
+        using LanguageExt.Common;
+        using Rhino.Display;
+        using Rhino.DocObjects.Tables;
+        using static LanguageExt.Prelude;
+
+        namespace Rasm.Rhino {
+            internal static class Refused {
+                internal static Fin<Unit> Unless(bool done, string member) => done ? unit : Error.New(member);
+            }
+        }
+
+        internal static class GuardedMac {
+            internal static Fin<Unit> Restored(NamedViewTable table, int index, RhinoViewport viewport) =>
+                Rasm.Rhino.Refused.Unless(!OperatingSystem.IsMacOS() && table.RestoreWithAspectRatio(index, viewport), nameof(NamedViewTable.RestoreWithAspectRatio));
+
+            internal static bool Either(NamedViewTable table, int index, RhinoViewport viewport) => OperatingSystem.IsMacOS() || table.RestoreWithAspectRatio(index, viewport);
+
+            internal static string[] Branched(Func<string[]> native) => OperatingSystem.IsMacOS() ? native() : Environment.GetCommandLineArgs();
+
+            internal static string[] Negated(Func<string[]> native) => !OperatingSystem.IsMacOS() ? Environment.GetCommandLineArgs() : native();
+
+            internal static string[] Statement(Func<string[]> native) {
+                if (OperatingSystem.IsMacOS()) return native();
+                else return Environment.GetCommandLineArgs();
+            }
+
+            internal static int Counted() {
+                if (!OperatingSystem.IsMacOS()) return Environment.GetCommandLineArgs().Count();
+                return 0;
+            }
+        }
+        """);
+}

@@ -6,9 +6,14 @@ use claims::{assert_err, assert_ok};
 use futures::{FutureExt as _, future};
 use h2::Reason;
 use http::{Request, StatusCode};
+use nonempty_collections::{IntoNonEmptyIterator as _, NonEmptyIterator as _};
+use rasm_http::{HttpError, Stage, Timeout};
+use rstest::rstest;
+use sysexits::ExitCode;
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::net::TcpStream;
 use tokio::time;
+use tokio_util::task::AbortOnDropHandle;
 
 use crate::{GRACE, GREETING, fetched, read_until, running};
 
@@ -57,7 +62,7 @@ async fn shutdown_closes_listener_before_drain() {
     let call = tokio::spawn(fetched(address, "/held"));
     assert_ok!(running.app.entered.acquire().await).forget();
     assert_ok!(running.stop.send(()));
-    let refused = || TcpStream::connect(address).map(|connected| connected.map_or_else(|error| Ok(error.kind()), |_accepted| Err(())));
+    let refused = || TcpStream::connect(address).map(|connected| connected.map_or_else(|error| Ok(error.kind()), |_accepted| Err(io::Error::from(io::ErrorKind::AlreadyExists))));
     let kind = assert_ok!(refused.retry(ConstantBuilder::new().with_delay(Duration::from_millis(10)).with_max_times(100)).await, "the listener closes before in-flight work ends");
     assert!(matches!(kind, io::ErrorKind::ConnectionRefused | io::ErrorKind::ConnectionReset), "{kind:?}");
     assert!(!call.is_finished(), "the held call is still in flight");
@@ -86,12 +91,31 @@ async fn graceful_shutdown_delayed_ok() {
 #[tokio::test]
 async fn graceful_shutdown_timeout() {
     let mut running = running(&["127.0.0.1"], GRACE).await;
-    let calls = [(); 3].map(|()| tokio::spawn(fetched(running.addresses[0], "/held")));
+    let calls = [(); 3].map(|()| AbortOnDropHandle::new(tokio::spawn(fetched(running.addresses[0], "/held"))));
     assert_ok!(running.app.entered.acquire_many(3).await).forget();
     assert_ok!(running.stop.send(()));
     running.app.release.add_permits(2);
     assert_err!(time::timeout(SETTLE, &mut running.served).await, "shutdown should not be completed: as not all our conns finish");
     assert_eq!(calls.iter().filter(|call| call.is_finished()).count(), 2, "the calls that could finish did");
+}
+
+// --- [ABANDONED]
+
+#[rstest]
+#[case::grace_deadline(SETTLE, 1, Timeout::Deadline(SETTLE))]
+#[case::second_shutdown_request(GRACE, 2, Timeout::Request)]
+#[tokio::test]
+async fn shutdown_past_its_bound_is_abandoned(#[case] grace: Duration, #[case] requests: usize, #[case] bound: Timeout) {
+    let running = running(&["127.0.0.1"], grace).await;
+    let _call = AbortOnDropHandle::new(tokio::spawn(fetched(running.addresses[0], "/held")));
+    assert_ok!(running.app.entered.acquire().await).forget();
+    for _ in 0..requests {
+        assert_ok!(running.stop.send(()));
+    }
+    let failures = assert_err!(assert_ok!(assert_ok!(time::timeout(LIMIT, running.served).await, "a bounded shutdown ends with the call still held")));
+    let (abandoned, rest) = failures.split_first();
+    assert!(rest.is_empty() && matches!(abandoned, HttpError::Abandoned { reason, pending } if *reason == bound && pending.contains(&Stage::Server)), "{abandoned:?}");
+    assert_eq!(ExitCode::from(failures.into_nonempty_iter().next().0), ExitCode::TempFail, "an abandoned shutdown is a temporary failure");
 }
 
 // --- [PROTOCOL]

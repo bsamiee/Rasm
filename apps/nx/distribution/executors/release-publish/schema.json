@@ -26,7 +26,7 @@
                 "required": [ "newVersion" ],
                 "additionalProperties": true
             },
-            "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+            "description": "Versions nx release set in this run, a project it left unversioned is skipped; absent under nx release publish alone, where a version holding no release tag is skipped"
         },
         "registry": {
             "type": "string",
@@ -51,5 +51,5 @@
     },
     "additionalProperties": true,
     "title": "Release publish",
-    "description": "Attaches each host package the project's build wrote to its GitHub release, then publishes it to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned"
+    "description": "Attaches each host package the project's build wrote to its GitHub release, then publishes it to its host's store where one takes uploads, skipping a version the store holds, a version no release tag holds under nx release publish alone, and a project nx release left unversioned"
 }

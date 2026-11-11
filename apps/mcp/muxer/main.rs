@@ -21,9 +21,9 @@ use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_cli::{CommandError, Folder, Invocation};
 use rasm_ipc::{Endpoint, Hello, IpcError, Limits, Opened};
 use rasm_mcp::{Ended, Phase, Resumable};
-use rasm_telemetry::Environment;
-use rasm_telemetry::process::Program;
 use rasm_process::{Failure, ProcessError};
+use rasm_telemetry::Environment;
+use rasm_telemetry::process::{Options, Program};
 use rmcp::transport::async_rw::DEFAULT_MAX_LINE_LENGTH;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as _};
@@ -87,7 +87,7 @@ struct Cli {
     env: Vec<String>,
     #[arg(long, value_name = "DIRECTORY", value_hint = ValueHint::DirPath, help = "Directory the server runs in, default this session's working directory")]
     directory: Option<PathBuf>,
-    #[arg(long, env = "MCP_MUXER_IDLE", value_name = "DURATION", help_heading = "Daemon", value_parser = |text: &str| SpanParser::new().parse_unsigned_duration(text))]
+    #[arg(long, env = rasm_cli::DERIVED, value_name = "DURATION", help_heading = "Daemon", value_parser = |text: &str| SpanParser::new().parse_unsigned_duration(text))]
     #[arg(help = "Time an unused server stays up, default 300 times its start cost between 1m and 2h")]
     idle: Option<Duration>,
     #[arg(long, hide = true, value_name = "INSTANCE")]
@@ -291,7 +291,7 @@ async fn run(invocation: Invocation<Cli>) -> Result<ExitCode, MuxerError> {
     let start = || {
         let located = folders.iter().filter_map(|(folder, path)| Some([format!("--{folder}-dir"), path.as_ref()?.to_string()])).flatten();
         let mut daemon = tokio::process::Command::new(&executable);
-        daemon.args(["--daemon", &instance]).args(located).env_clear().envs(environment.iter().filter(|(name, _)| name.starts_with("OTEL_")).map(|(name, value)| (name, value)));
+        daemon.args(["--daemon", &instance]).args(located).env_clear().envs(environment.iter().filter(|(name, _)| Options::exported(name)).map(|(name, value)| (name, value)));
         daemon.envs(iter::chain(&settings, &export).map(|(name, value)| (name, value)));
         daemon.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
         #[cfg(target_vendor = "apple")]

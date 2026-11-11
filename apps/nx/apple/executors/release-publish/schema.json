@@ -26,7 +26,7 @@
                 "required": [ "newVersion" ],
                 "additionalProperties": true
             },
-            "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+            "description": "Versions nx release set in this run, a project it left unversioned is skipped; absent under nx release publish alone, where a version holding no release tag is skipped"
         },
         "registry": {
             "type": "string",

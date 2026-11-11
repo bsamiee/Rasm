@@ -1,11 +1,11 @@
 """Type tests against RNA collection structs no runtime value matches."""
 
-lazy from collections import deque
+from collections import deque
 
-lazy from mypy.nodes import CallExpr, OpExpr, RefExpr, TupleExpr, TypeAlias, TypeInfo
-lazy from mypy.patterns import ClassPattern
-lazy from mypy.types import flatten_nested_unions, get_proper_type, Instance
-lazy from refurb.error import Error
+from mypy.nodes import CallExpr, OpExpr, RefExpr, TupleExpr, TypeAlias, TypeInfo
+from mypy.patterns import ClassPattern
+from mypy.types import flatten_nested_unions, get_proper_type, Instance
+from refurb.error import Error
 
 from rasm_refurb._findings import RasmError
 

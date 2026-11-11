@@ -5,7 +5,6 @@ files:
     - libs/python/blender/**
     - libs/python/data/records/**
     - apps/blender/**
-    - eng/python/rasm_eng/_{probe,session,streams}.py
 rule:
     kind: string
     pattern: $S

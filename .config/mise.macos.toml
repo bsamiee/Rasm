@@ -4,9 +4,7 @@
 _.path                                = ["{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
 COLIMA_HOME                           = "{{ env.HOME }}/.colima"
 DOCKER_HOST                           = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
-MISE_EXPERIMENTAL                     = "1"
 PITCHFORK_SUPERVISOR_AUTO_START       = "false"
-RHINO_TEST_PROFILE                    = "{{ env.HOME }}/Library/Application Support/Rasm/Rhino Tests"
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock"
 
 # --- [BOOTSTRAP] ------------------------------------------------------------------------

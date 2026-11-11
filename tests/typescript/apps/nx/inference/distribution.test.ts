@@ -11,6 +11,7 @@ const BLENDER = 'schema_version = "1.0.0"\nid = "sheet_layout"\nversion = "0.1.0
 const subject: Subject = {
     plugin: { name: manifest.name, createNodes },
     tools: ['blender'],
+    hosts: ['blender'],
     files: {
         'package.json': '{ "name": "root", "workspaces": ["sheets", "panel"] }\n',
         'sheets/package.json': '{ "name": "sheets" }\n',

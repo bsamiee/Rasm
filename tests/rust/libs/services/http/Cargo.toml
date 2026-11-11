@@ -14,23 +14,25 @@ path = "suite/main.rs"
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dev-dependencies]
-backon           = { workspace = true }
-futures          = { workspace = true }
-tokio            = { workspace = true }
-tokio-stream     = { workspace = true }
-tokio-util       = { workspace = true }
-rlimit           = { workspace = true }
-bytes            = { workspace = true }
-axum             = { workspace = true }
-http             = { workspace = true }
-claims           = { workspace = true }
-h2               = { workspace = true }
-http-body-util   = { workspace = true }
-hyper            = { workspace = true }
-hyper-util       = { workspace = true }
-rstest           = { workspace = true }
-rasm-http        = { workspace = true }
-rasm-infra-tests = { workspace = true }
+backon               = { workspace = true }
+futures              = { workspace = true }
+nonempty-collections = { workspace = true }
+tokio                = { workspace = true }
+tokio-stream         = { workspace = true }
+tokio-util           = { workspace = true }
+rlimit               = { workspace = true }
+sysexits             = { workspace = true }
+bytes                = { workspace = true }
+axum                 = { workspace = true }
+http                 = { workspace = true }
+claims               = { workspace = true }
+h2                   = { workspace = true }
+http-body-util       = { workspace = true }
+hyper                = { workspace = true }
+hyper-util           = { workspace = true }
+rstest               = { workspace = true }
+rasm-http            = { workspace = true }
+rasm-infra-tests     = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

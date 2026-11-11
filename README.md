@@ -26,7 +26,7 @@ Rasm/
 ├── global.json               # .NET SDK and test runner
 ├── Directory.Packages.props  # .NET central package versions
 ├── Directory.Build.props     # .NET build defaults and artifacts output
-├── Directory.Build.targets   # .NET items and Rhino host targets
+├── Directory.Build.targets   # .NET items and Rhino SDK references
 ├── NuGet.config              # NuGet sources
 ├── Package.swift             # Swift modules, executables, and remote package catalog
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
@@ -36,7 +36,7 @@ Rasm/
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
-├── .github/                  # Workflows, issue forms, and jactionlint settings
+├── .github/                  # Workflows, composite actions, issue forms, and jactionlint settings
 ├── .cargo/                   # Cargo build settings and compiler source link
 ├── .config/                  # Files tools find in .config/ or read through a path setting
 ├── .claude/                  # Claude Code knowledge and settings
@@ -103,7 +103,9 @@ flowchart LR
 ## [03]-[PRINCIPLES]
 
 - Each fact sits once in the file its tool reads, and every other use derives it
-- Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json`, `targetDefaults`, or `namedInputs`
+- Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json`, `targetDefaults`, or hand-written `namedInputs`
+- `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
+- Cargo, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
 - Manifest `nx` tables state only a dependency or path no manifest row or tool reports (a service a client calls, a file a build reads unimported)
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-devkit`, and a row's own options win
 - Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
@@ -119,7 +121,11 @@ flowchart LR
 - `.config/mise.toml` `[env]` rows move the folders: caches to `.cache/<tool>`, logs under `.artifacts/logs` in a file or folder per tool
 - Tool behavior comes from its source and docs at the installed version, a plugin never restates what a tool, host, package, or Nx already does
 - Tools with their own incremental state keep it, Nx caches results around it and restores an intermediate folder only with the outputs built from it
-- Plugins present targets a platform or host limits only on a machine holding it, and tag a project a platform limits `os:<platform>`
+- Host SDKs and tools come from packages and mise rows, and building, checking, and packaging a host project needs no host installed
+- A host runs wherever its vendor releases and licenses it for that machine, CI runners included, as Blender does through its `bpy` wheel
+- Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`
+- Tests of code calling a host run where the host runs, and logic needing no host sits in projects tested on every platform
+- Rhino tests load the installed Rhino through Rhino.Inside under a desktop license, which `RHINO_TOKEN` replaces only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
 - Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
 
@@ -131,7 +137,7 @@ flowchart LR
 - `check` reports findings of checkers reading the project model and changes no source file
 - `fix` applies fixes from checkers reading the project model
 - `test` runs a project's test runners
-- `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports, and starts the Compose services whose Dockerfile it holds, which stay up
+- `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports or a Vite config states `server`, and starts the Compose services whose Dockerfile it holds, which stay up
 - `preview` builds a project, then serves its build output as `serve` does
 - `install` puts a local build into its host or starts local services
 - `deploy` applies a project's infrastructure stacks, `--stack=<name>` one of them, `-c release` those of a released version
@@ -144,6 +150,7 @@ Other tasks run through their own commands:
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
 - Workflow `release.yml` runs `nx release --skip-publish`, a `-c release` build, then `nx release publish`, which takes no configuration
+- Dispatch inputs of `release.yml` reach both `nx release` runs: `specifier` (empty reads conventional commits), `first-release`, and `dry-run`, on by default
 - `doppler run --config release --command 'nx build <app> -c release'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
 - `nx install @rasm/infra` starts local services of `infra/compose.yaml`, `-c <profile>` adds the services of one profile
@@ -152,7 +159,7 @@ Other tasks run through their own commands:
 - Workflow `renovate.yml` runs Renovate daily, which moves catalogs, manifests, locks, mise tools, and workflow action pins to their newest release and merges each change once its checks pass
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
 - `nx sync` writes each executor's `schema.json` and `executors.json` description from its declared options schema, `nx sync:check` fails on a stale one
-- `pixi run --locked uv sync` builds Python distributions against Pixi libraries
+- `mise deps` builds Python distributions against Pixi libraries when `pixi.lock`, `pyproject.toml`, or `uv.lock` changed, through `pixi run --locked uv sync`
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 
 ## [05]-[DELIVERY]

@@ -1,5 +1,6 @@
 import { assert } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
+import { getReadyCheckReadyWhen } from '@nx/devkit/internal';
 import { createDependencies, createNodes } from '@rasm/nx-docker';
 import manifest from '@rasm/nx-docker/package.json' with { type: 'json' };
 import { Array, Effect, Schema } from 'effect';
@@ -21,11 +22,21 @@ const subject: Subject = {
     broken: ['store/compose.yaml', 'name: store\nservices:\n    database:\n        image: [postgres\n'],
 };
 
+const QUOTED = /'[^']*'/gu;
+const UNSAFE = /my proj|;touch|\$\(id\)/u;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Probe = Schema.Struct({ command: Schema.String });
+const Ran = Schema.Struct({ command: Schema.optionalKey(Schema.String), commands: Schema.optionalKey(Schema.Array(Schema.String)) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const unquoted = (graph: ProjectGraph) =>
+    Object.values(graph.nodes)
+        .flatMap((node) => Object.values(node.data.targets ?? {}))
+        .flatMap(({ options, readyWhen }) => [...Array.fromOption(Schema.decodeUnknownOption(Ran)(options)).flatMap(({ command, commands = [] }) => [...Array.fromNullishOr(command), ...commands]), ...(Schema.is(Probe)(readyWhen) ? [readyWhen.command] : [])])
+        .filter((line) => UNSAFE.test(line.replaceAll(QUOTED, '')));
 
 const composed = (subcommand: string) => (graph: ProjectGraph) => Array.dedupe(running(`docker compose ${subcommand}`)(graph).map(({ project }) => project));
 
@@ -41,8 +52,25 @@ cases(subject, (it) => {
     it.effect('serves a service from the project holding its Dockerfile, as a continuous target ready once Compose reports the container healthy', () =>
         inferred(subject).pipe(
             Effect.map(running('docker compose --project-directory stack up')),
-            Effect.map(Array.map(({ project, target, continuous, readyWhen }) => ({ project, target, continuous, ready: Schema.is(Probe)(readyWhen) && readyWhen.command.includes(' ps api ') }))),
-            Effect.map((served) => assert.deepStrictEqual(served, [{ project: 'api', target: 'serve--compose', continuous: true, ready: true }])),
+            Effect.map(Array.map(({ project, target, continuous, readyWhen }) => ({ project, target, continuous, readyWhen }))),
+            Effect.map((served) =>
+                assert.deepStrictEqual(served, [{ project: 'api', target: 'serve--compose', continuous: true, readyWhen: getReadyCheckReadyWhen(`${manifest.name}/ready-check`, undefined, 'stack', 'api') }], 'nrwl/nx @nx/devkit readiness getReadyCheckReadyWhen: a ready-check module node runs on every platform'),
+            ),
+        ),
+    );
+
+    it.effect('states a project folder that holds a space or a shell metacharacter in a command only inside single quotes', () =>
+        Effect.map(
+            inferred({
+                ...subject,
+                files: {
+                    'package.json': '{ "name": "root" }\n',
+                    'my proj/compose.yaml': 'name: spaced\nservices:\n    app:\n        build:\n            context: .\n',
+                    'my proj/Dockerfile': 'FROM scratch\nCOPY compose.yaml /compose.yaml\n',
+                    'a;touch pwned;$(id)/compose.yaml': 'name: pwned\nservices:\n    cache:\n        image: valkey/valkey:8\n',
+                },
+            }),
+            (graph) => assert.deepStrictEqual([composed('up')(graph).length, unquoted(graph)], [2, []], 'nrwl/nx@2a424d3 packages/docker/src/plugins/plugin.spec.ts image reference generation "should handle spaces in project path", "should replace shell metacharacters in project path"'),
         ),
     );
 });

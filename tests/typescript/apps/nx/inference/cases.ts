@@ -2,7 +2,7 @@ import { homedir, tmpdir } from 'node:os';
 import { matchesGlob } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
-import { assert, it, type Vitest, vi } from '@effect/vitest';
+import { assert, describe, it, type Vitest, vi } from '@effect/vitest';
 import { type CreateNodes, type CreateNodesResult, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, type RawProjectGraphDependency, readProjectsConfigurationFromProjectGraph, validateDependency } from '@nx/devkit';
 import { graphed, workspace } from '@rasm/testing/nx/inference';
 import { replayed, spawned } from '@rasm/testing/nx/tools';
@@ -13,10 +13,8 @@ import { isProjectConfigurationsError, type ProjectConfigurationsError } from 'n
 import { retrieveWorkspaceFiles } from 'nx/src/project-graph/utils/retrieve-workspace-files';
 import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { updateContextWithChangedFiles } from 'nx/src/utils/workspace-context';
+import { inject } from 'vitest';
 import { affected } from '#/caching/affected';
-import { continuous } from '#/caching/continuous';
-import { dependentOutputs } from '#/caching/dependent-outputs';
-import { declaredInputs } from '#/caching/inputs';
 import { location } from '#/caching/location';
 import { restoredOutputs } from '#/caching/outputs';
 import { replay } from '#/caching/replay';
@@ -33,7 +31,9 @@ interface Subject {
     readonly files: Record.ReadonlyRecord<string, string>;
     readonly packages?: readonly string[];
     readonly tools?: readonly string[];
+    readonly hosts?: readonly string[];
     readonly state?: readonly string[];
+    readonly locked?: ReadonlyArray<readonly [manifest: string, tool: string, ...args: string[]]>;
     readonly broken?: readonly [file: string, text: string];
     readonly changed?: readonly [file: string, text: string];
     readonly compiled?: readonly [file: string, ...targets: string[]];
@@ -50,6 +50,11 @@ const PATTERN = /\/?[*{].*$/u;
 const SOURCE = {
     concurrent: 'nrwl/nx@2a424d3 packages/js/src/plugins/typescript/plugin.spec.ts "concurrent invocations", packages/nx/src/project-graph/project-graph.spec.ts "sane plugins"',
     dependencies: 'nrwl/nx@2a424d3 packages/gradle/src/plugin/dependencies.spec.ts, naxodev/oss@8b43d4a packages/gonx/src/graph/static-analysis/index.spec.ts "sourceFile normalization", "deduplicates", "self-referential"',
+    missing:
+        'nrwl/nx@2a424d3 packages/dotnet/src/plugins/create-nodes.ts "Failed to run MSBuild analyzer" logs and rethrows, packages/dotnet/src/analyzer/analyzer-client.spec.ts "should return an error result when the analyzer exits non-zero", nx-go/nx-go@1785753 packages/nx-go/src/graph/create-dependencies.spec.ts thrown tool failure',
+    hosted: 'README [03] "Plugins present targets a platform or host limits only on a machine holding it"; nearest exemplar nx-go/nx-go@1785753 packages/nx-go/src/graph/create-dependencies.spec.ts silent tool failure returns no dependency',
+    marked: 'naxodev/oss@8b43d4a packages/nx-cloudflare/src/plugin.spec.ts "project marker required", lucasvieirasilva/nx-plugins@1c05d36 packages/nx-python/src/plugins/plugin.spec.ts expect(pattern).toBe(\'**/{uv,poetry}.lock\')',
+    unmatched: 'nx-go/nx-go@1785753 packages/nx-go/src/graph/create-dependencies.spec.ts no tool call without files to process',
     typed: 'nrwl/nx@2a424d3 packages/vitest/src/plugins/plugin-vitest.spec.ts "should not set projectType"',
 } as const;
 
@@ -147,16 +152,12 @@ const refused = (refusal: ProjectConfigurationsError, plugin: string, file: stri
 const unnamed = (refusal: unknown, tools: readonly string[]): readonly unknown[] =>
     isProjectConfigurationsError(refusal) ? refusal.errors.flatMap((error) => (isAggregateCreateNodesError(error) ? error.errors.map(([, cause]) => cause.message) : [error.message])).filter((message) => !tools.some((tool) => message.includes(tool))) : [refusal];
 
-const cases = (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.Success<typeof layer>>) => void = Function.constVoid) =>
-    it.layer(layer, { excludeTestServices: true })(subject.plugin.name, (methods) => {
+const inferring =
+    (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.Success<typeof layer>>) => void) =>
+    (methods: Vitest.MethodsNonLive<Layer.Success<typeof layer>>): void => {
         stated(methods);
 
-        methods('matches the files that mark a project and no source file', () =>
-            assert.deepStrictEqual(
-                SOURCES.filter((file) => matchesGlob(file, subject.plugin.createNodes[0])),
-                [],
-            ),
-        );
+        methods('matches a file of its workspace that marks a project, and no source file', () => assert.deepStrictEqual([Record.keys(subject.files).some((file) => matchesGlob(file, subject.plugin.createNodes[0])), SOURCES.filter((file) => matchesGlob(file, subject.plugin.createNodes[0]))], [true, []], SOURCE.marked));
 
         methods.effect(
             'returns projects Nx merges, with outputs under the workspace, inputs Nx expands, a readiness check on every continuous target, and a task graph for every target',
@@ -238,22 +239,36 @@ const cases = (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.S
             Effect.fnUntraced(function* () {
                 vi.stubEnv('NX_CACHE_PROJECT_GRAPH', 'false');
                 const { root, loaded } = yield* opened({ ...subject, files: { 'package.json': '{"name":"root"}', 'README.md': '# root\n' }, packages: [] });
-                assert.deepStrictEqual(yield* spawned(listed(root, loaded, [])), [{}, []]);
+                assert.deepStrictEqual(yield* spawned(listed(root, loaded, [])), [{}, []], SOURCE.unmatched);
             }),
         );
 
-        methods.effect.skipIf((subject.tools ?? []).length === 0)(
-            'names the missing tool in every refusal, or returns the projects it reads without the tool',
+        methods.effect.skipIf(Array.difference(subject.tools ?? [], subject.hosts ?? []).length === 0)(
+            'refuses the graph where its tools are missing, and names a missing tool in every refusal',
             Effect.fnUntraced(function* () {
                 vi.stubEnv('NX_CACHE_PROJECT_GRAPH', 'false');
-                const { root, loaded } = yield* opened(subject, subject.tools);
+                const required = Array.difference(subject.tools ?? [], subject.hosts ?? []);
+                const { root, loaded } = yield* opened(subject, required);
                 const refusals = yield* Effect.match(graphed(root, [loaded]), { onSuccess: () => [], onFailure: Array.of });
-                assert.deepStrictEqual(
-                    Array.flatMap(refusals, (refusal) => unnamed(refusal, subject.tools ?? [])),
-                    [],
-                );
+                assert.deepStrictEqual([refusals.length, Array.flatMap(refusals, (refusal) => unnamed(refusal, required))], [1, []], SOURCE.missing);
             }),
         );
+
+        methods.effect.skipIf((subject.hosts ?? []).length === 0)(
+            'loads the graph on a machine without the host its platform limits, presenting there fewer targets than with the host and none the host machine lacks',
+            Effect.fnUntraced(function* () {
+                vi.stubEnv('NX_CACHE_PROJECT_GRAPH', 'false');
+                const presented = (missing: readonly string[]) =>
+                    Effect.map(
+                        Effect.flatMap(opened(subject, missing), ({ root, loaded }) => graphed(root, [loaded])),
+                        (graph) => targeted(graph).map(({ task }) => task),
+                    );
+                const held = yield* presented([]);
+                const lacking = yield* presented(subject.hosts ?? []);
+                assert.deepStrictEqual([Array.difference(lacking, held), lacking.length < held.length], [[], true], SOURCE.hosted);
+            }),
+        );
+
         methods.effect(
             'returns equal graphs for two reads at once',
             Effect.fnUntraced(function* () {
@@ -293,19 +308,12 @@ const cases = (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.S
                 assert.deepStrictEqual(typed, [], SOURCE.typed);
             }),
         );
+    };
 
-        loading(subject, methods);
-        rereads(subject, methods);
-        tasks(subject, methods);
-        replay(subject, methods);
-        declaredInputs(subject, methods);
-        location(subject, methods);
-        restoredOutputs(subject, methods);
-        continuous(subject, methods);
-        dependentOutputs(subject, methods);
-        affected(subject, methods);
-        readiness(subject, methods);
-    });
+const cases = (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.Success<typeof layer>>) => void = Function.constVoid): void => {
+    describe.skipIf(inject('driven'))(`${subject.plugin.name} in the Nx process`, () => it.layer(layer, { excludeTestServices: true })(inferring(subject, stated)));
+    describe.runIf(inject('driven'))(`${subject.plugin.name} through the Nx CLI`, () => it.layer(layer, { excludeTestServices: true })((methods) => [loading, rereads, tasks, replay, location, restoredOutputs, affected, readiness].forEach((driven) => driven(subject, methods))));
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

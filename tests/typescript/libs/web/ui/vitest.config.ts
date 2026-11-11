@@ -13,7 +13,7 @@ export default defineConfig({
         browser: { enabled: true },
         projects: [
             { extends: true, plugins: [react({ compiler: { panicThreshold: 'all_errors' } })], test: { name: 'components', include: ['*.test.{ts,tsx}'] } },
-            { extends: true, plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { name: 'stories', browser: { screenshotFailures: true } } },
+            { extends: true, plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })], test: { name: 'storybook', browser: { screenshotFailures: true } } },
         ],
     },
 });

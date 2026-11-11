@@ -21,13 +21,14 @@
     </ItemGroup>
 
     <ItemGroup Label="Package Management">
-        <PackageVersion Include="NuGet.Common"                                            Version="7.9.0" />                             <!-- NuGet client logging contracts and shared utilities -->
-        <PackageVersion Include="NuGet.Configuration"                                     Version="7.9.0" />                             <!-- NuGet.config settings, package sources, and source mapping -->
-        <PackageVersion Include="NuGet.Frameworks"                                        Version="7.9.0" />                             <!-- Target framework parsing, compatibility, and nearest-match reduction -->
-        <PackageVersion Include="NuGet.Packaging"                                         Version="7.9.0" />                             <!-- NuGet package readers and PackageReference asset selection conventions -->
-        <PackageVersion Include="NuGet.ProjectModel"                                      Version="7.9.0" />                             <!-- NuGet restore inputs and resolved package assets -->
-        <PackageVersion Include="NuGet.Protocol"                                          Version="7.9.0" />                             <!-- NuGet feed resources for package metadata, search, and downloads -->
-        <PackageVersion Include="NuGet.Versioning"                                        Version="7.9.0" />                             <!-- Semantic version parsing, comparison, and range evaluation -->
+        <PackageVersion Include="NuGet.Common"                                            Version="8.0.0" />                             <!-- NuGet client logging contracts and shared utilities -->
+        <PackageVersion Include="NuGet.Configuration"                                     Version="8.0.0" />                             <!-- NuGet.config settings, package sources, and source mapping -->
+        <PackageVersion Include="NuGet.Frameworks"                                        Version="8.0.0" />                             <!-- Target framework parsing, compatibility, and nearest-match reduction -->
+        <PackageVersion Include="NuGet.Packaging"                                         Version="8.0.0" />                             <!-- NuGet package readers and PackageReference asset selection conventions -->
+        <PackageVersion Include="NuGet.ProjectModel"                                      Version="8.0.0" />                             <!-- NuGet restore inputs and resolved package assets -->
+        <PackageVersion Include="NuGet.Protocol"                                          Version="8.0.0" />                             <!-- NuGet feed resources for package metadata, search, and downloads -->
+        <PackageVersion Include="NuGet.Resolver"                                          Version="8.0.0" />                             <!-- Dependency resolution of package graphs NuGet.Protocol consumers pin through central management -->
+        <PackageVersion Include="NuGet.Versioning"                                        Version="8.0.0" />                             <!-- Semantic version parsing, comparison, and range evaluation -->
     </ItemGroup>
 
     <ItemGroup Label="Build Engine">
@@ -40,7 +41,9 @@
         <PackageVersion Include="Grasshopper"                                             Version="9.0.26300.9401" />                    <!-- Grasshopper 1 reference assemblies Grasshopper and GH_IO -->
         <PackageVersion Include="Grasshopper2"                                            Version="9.0.26300.9401" />                    <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO -->
         <PackageVersion Include="Krafs.Publicizer"                                        Version="2.3.2" />                             <!-- Compile access to internal and private members of a referenced assembly -->
+        <PackageVersion Include="Microsoft.macOS.Ref.net10.0_26.0"                        Version="26.0.11017" />                        <!-- AppKit and Foundation reference assembly Microsoft.macOS, at the version Rhino for Mac ships -->
         <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0-rc.3.26522.148" />             <!-- Display, power, and session change notifications System.Drawing.Common subscribes to -->
+        <PackageVersion Include="Rhino.Inside"                                            Version="9.0.26084.13070-beta" />              <!-- Loads the installed Rhino into a .NET process, the in-process host Rhino tests run in -->
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0" />                            <!-- openNURBS geometry access for reading and writing 3dm files -->
         <PackageVersion Include="RhinoCommon"                                             Version="9.0.26300.9401" />                    <!-- Rhino SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
         <PackageVersion Include="System.Drawing.Common"                                   Version="11.0.0-rc.3.26522.148" />             <!-- GDI+ based drawing, imaging, and text rendering API -->
@@ -792,7 +795,9 @@
     <ItemGroup Label="Testing">
         <PackageVersion Include="coverlet.MTP"                                            Version="10.1.0" />                            <!-- Code coverage for Microsoft Testing Platform -->
         <PackageVersion Include="CsCheck"                                                 Version="5.0.1" />                             <!-- Property-based testing with shrinking, concurrency, and performance checks -->
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing"           Version="1.1.4" />                             <!-- Framework-agnostic C# code fix verification with incremental and fix-all iterations -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzer.Testing"                 Version="5.14.0-1.26561.1" />                  <!-- Analyzer test state, markup, expected diagnostics, and reference assemblies for every test framework -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.CodeFix.Testing"                  Version="5.14.0-1.26561.1" />                  <!-- Code fix test state with incremental and fix-all iterations and the verifier base class -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing"           Version="5.14.0-1.26561.1" />                  <!-- C# analyzer and code fix tests over a workspace, built from dotnet/roslyn, on feed dotnet-tools -->
         <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing"               Version="10.11.0" />                           <!-- Fake time provider for deterministic time-dependent tests -->
         <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump"                  Version="2.5.2" />                             <!-- Crash dump capture for failing test processes -->
         <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"                   Version="2.5.2" />                             <!-- Process dump capture for hung test runs -->
@@ -808,7 +813,6 @@
         <PackageVersion Include="Testcontainers.PostgreSql"                               Version="4.16.0" />                            <!-- PostgreSQL container with its connection string -->
         <PackageVersion Include="Testcontainers.Redis"                                    Version="4.16.0" />                            <!-- Redis-protocol container with its connection string, Valkey through `WithImage` since no Valkey module exists -->
         <PackageVersion Include="Testcontainers.XunitV3"                                Version="4.16.0" />                            <!-- Container lifetime bound to xunit v3 tests and fixtures, container logs written to test output -->
-        <PackageVersion Include="Verify.XunitV3"                                          Version="33.3.4" />                            <!-- Snapshot verification writing received files beside reviewed verified files for xunit v3 -->
         <PackageVersion Include="xunit.analyzers"                                         Version="2.3.0" />                             <!-- Roslyn analyzers for test correctness and style -->
         <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.3" />                             <!-- Assertions for test support libraries without runner -->
         <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.3" />                             <!-- Attributes and TestContext for test support libraries without entry point or runner -->

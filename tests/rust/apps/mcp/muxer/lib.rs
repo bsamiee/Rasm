@@ -88,6 +88,7 @@ pub struct Isolated {
     pub root: PathBuf,
     pub muxer: PathBuf,
     pub fixture: PathBuf,
+    pub everything: PathBuf,
     pub level: &'static str,
 }
 
@@ -101,7 +102,7 @@ impl Isolated {
         let building = fs_err::File::create(root.with_file_name("build.lock"))?;
         building.lock()?;
         let muxer = env!("CARGO_PKG_NAME").trim_end_matches("-tests");
-        Ok(Self { root: root.to_owned(), muxer: built(muxer, muxer)?, fixture: built(env!("CARGO_PKG_NAME"), "mcp-fixture")?, level: "debug" })
+        Ok(Self { root: root.to_owned(), muxer: built(muxer, muxer)?, fixture: built(env!("CARGO_PKG_NAME"), "mcp-fixture")?, everything: built("rasm-mcp-tests", "mcp-everything")?, level: "debug" })
     }
 
     #[must_use]
@@ -120,18 +121,20 @@ impl Isolated {
     }
 
     #[must_use]
-    pub fn relay(&self, options: &[&str], server: &[&str]) -> Command {
-        let mut command = self.isolated(&self.muxer);
-        command.args(options).arg("--").arg(&self.fixture).args(server);
+    pub fn serving(&self, relayed: Option<&[&str]>, server: &Path, arguments: &[&str]) -> Command {
+        let mut command = self.isolated(relayed.map_or(server, |_| &self.muxer));
+        if let Some(options) = relayed {
+            command.args(options).arg("--").arg(server);
+        }
+        command.args(arguments);
         command
     }
 
     #[must_use]
-    pub fn direct(&self, server: &[&str]) -> Command {
-        let mut command = self.isolated(&self.fixture);
-        command.args(server);
-        command
-    }
+    pub fn relay(&self, options: &[&str], server: &[&str]) -> Command { self.serving(Some(options), &self.fixture, server) }
+
+    #[must_use]
+    pub fn direct(&self, server: &[&str]) -> Command { self.serving(None, &self.fixture, server) }
 
     pub async fn state(&self, settings: &[(&str, &str)]) -> io::Result<Reported> {
         let output = self.isolated(&self.muxer).envs(settings.iter().copied()).stdin(Stdio::null()).output().await?;

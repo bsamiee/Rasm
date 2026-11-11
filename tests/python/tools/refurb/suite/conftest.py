@@ -9,15 +9,11 @@ lazy from refurb.error import Error, ErrorCode
 lazy from refurb.main import run_refurb
 lazy from refurb.settings import load_settings
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Findings = Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 @pytest.fixture(scope="session", params=[".".join(map(str, sys.version_info[:2]))])
-def findings(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Findings:
+def findings(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Callable[[str | Mapping[str, str], *tuple[type[Error], ...]], tuple[Error, ...]]:
     """Runs selected refurb rules over one typed build and reports compiler failures directly."""
     settings = load_settings(["--python-version", request.param])
 

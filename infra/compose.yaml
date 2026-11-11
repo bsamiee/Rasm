@@ -574,7 +574,7 @@ services:
             cache_to:
                 - type=gha,scope=rasm-store,mode=max
             context: ..
-            dockerfile: apps/data/store/Dockerfile
+            dockerfile: apps/grpc/store/Dockerfile
         depends_on:
             cache:
                 condition: service_healthy
@@ -586,17 +586,17 @@ services:
                 condition: service_healthy
         environment:
             <<: [*storage-client, *telemetry-client]
-            CACHE_URL: redis://cache:6379
             CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"
-            CLICKHOUSE_URL: http://clickhouse:8123
             PORT: &store-port "8080"
-            POSTGRES_URL: postgres:///postgres?host=/var/run/postgresql&user=postgres
+            RASM_STORE_CACHE_URL: redis://cache:6379
+            RASM_STORE_CLICKHOUSE_URL: http://clickhouse:8123
             RASM_STORE_LOG_TARGET: stderr
-            STORE_PUBLISHED_CACHE: *cache-port
-            STORE_PUBLISHED_CLICKHOUSE: *clickhouse-port
-            STORE_PUBLISHED_HOST: *loopback
-            STORE_PUBLISHED_POSTGRES: *postgres-port
-            STORE_PUBLISHED_STORAGE: *storage-port
+            RASM_STORE_POSTGRES_URL: postgres:///postgres?host=/var/run/postgresql&user=postgres
+            RASM_STORE_PUBLISHED_CACHE: *cache-port
+            RASM_STORE_PUBLISHED_CLICKHOUSE: *clickhouse-port
+            RASM_STORE_PUBLISHED_HOST: *loopback
+            RASM_STORE_PUBLISHED_POSTGRES: *postgres-port
+            RASM_STORE_PUBLISHED_STORAGE: *storage-port
         healthcheck:
             <<: *probe
             test: [CMD, /rasm-store, --probe]

@@ -27,7 +27,6 @@ use opentelemetry::propagation::{TextMapCompositePropagator, TextMapPropagator};
 use opentelemetry::{Context, KeyValue, global};
 use opentelemetry_sdk::propagation::{BaggagePropagator, TraceContextPropagator};
 use opentelemetry_semantic_conventions::attribute::{EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, EXCEPTION_TYPE, SERVICE_NAME, SERVICE_VERSION};
-use tokio::runtime::Handle;
 use tokio::task;
 use tracing::subscriber::{self, SetGlobalDefaultError};
 use tracing::{Dispatch, Level, Subscriber, dispatcher, field};
@@ -151,6 +150,9 @@ pub struct Options {
 }
 
 impl Options {
+    #[must_use]
+    pub fn exported(variable: &str) -> bool { variable.starts_with("OTEL_") }
+
     pub async fn instrumented<W, L, T, E>(
         self,
         command: &Command,
@@ -243,7 +245,7 @@ impl Options {
                 let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carrier));
                 if let Some(meter) = &providers.meter {
                     global::set_meter_provider(meter.clone());
-                    metrics::runtime(meter, &Handle::current());
+                    opentelemetry_instrumentation_tokio::observe_current_runtime();
                     metrics::process(meter, || [process::id()]).unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(&error), "process metrics unavailable"));
                 }
                 let exporting = detected.then(|| DropGuard::new((providers, local.clone()), stopped as fn(_)));

@@ -1,7 +1,7 @@
-import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
+import { DependencyType, type ProjectGraphExternalNode, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
+import { ancestors } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { major, minor, minSatisfying, validRange } from '@renovatebot/pep440';
 import { Array, Effect, Equivalence, Option, Path, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
 import { CHECKERS, declared, PIXI } from '#/targets';
 
@@ -13,6 +13,7 @@ type Member = Workspace['members'][number];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LOCK = 'uv.lock';
+const MANIFEST = 'pyproject.toml';
 const PRIVATE = 'Private ::';
 const SEPARATORS = /[-_.]+/gu;
 
@@ -27,18 +28,18 @@ const Declared = Schema.Struct({
         scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 });
-const Sourced = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ sources: Schema.Record(Schema.String, Schema.Unknown) }) }) });
+const Indexed = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String), 'publish-url': Schema.optionalKey(Schema.String) })) }) }) });
 const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
 const Tooled = Schema.Struct({ tool: Schema.Struct({ nx: Schema.Unknown.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
 const Nx = Schema.Struct({ implicitDependencies: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Local = Schema.Literals(['editable', 'virtual', 'directory', 'path']);
 const Node = Schema.Struct({
     name: Schema.optionalKey(Schema.String),
+    version: Schema.optionalKey(Schema.String),
     source: Schema.Record(Schema.String, Schema.Unknown).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     dependencies: Schema.Array(Schema.Struct({ id: Schema.String }).pipe(Schema.decodeTo(Schema.String, SchemaTransformation.transform({ decode: ({ id }) => id, encode: (id) => ({ id }) })))),
     dependency_groups: Schema.Array(Schema.Struct({ name: Schema.String, id: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
 });
-const Releases = Schema.fromJsonString(Schema.Array(Schema.Struct({ version: Schema.String })));
 const Metadata = Schema.fromJsonString(
     Schema.Struct({
         schema: Schema.Struct({ version: Schema.Literal('preview') }),
@@ -52,39 +53,27 @@ const Metadata = Schema.fromJsonString(
 
 const normalized = (name: string) => name.toLowerCase().replaceAll(SEPARATORS, '-');
 
-const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: typeof Metadata.Type, documented: ReadonlyMap<string, unknown>, releases: readonly string[]) => {
+const sited = (path: Path.Path, workspaceRoot: string) => (node: typeof Node.Type) =>
+    Option.map(
+        Record.findFirst(node.source, (at, key) => Schema.is(Local)(key) && Predicate.isString(at)),
+        ([, at]) => path.relative(workspaceRoot, path.normalize(String(at))) || '.',
+    );
+
+const folders = (path: Path.Path, workspaceRoot: string, { workspace, resolution }: typeof Metadata.Type) => Array.dedupe([path.relative(workspaceRoot, workspace.path) || '.', ...Array.getSomes(Object.values(resolution).map(sited(path, workspaceRoot)))]);
+
+const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: typeof Metadata.Type, documented: ReadonlyMap<string, unknown>, external: boolean) => {
     const { resolution } = metadata;
-    const local = (node: typeof Node.Type) =>
-        Option.map(
-            Record.findFirst(node.source, (at, key) => Schema.is(Local)(key) && Predicate.isString(at)),
-            ([, at]) => path.relative(workspaceRoot, path.normalize(String(at))) || '.',
-        );
+    const local = sited(path, workspaceRoot);
     const workspace = path.relative(workspaceRoot, metadata.workspace.path) || '.';
     const located = (id: string) => Option.flatMap(Option.fromUndefinedOr(resolution[id]), (node) => Option.all({ root: local(node), name: Option.fromUndefinedOr(node.name) }));
     const reach = (ids: ReadonlySet<string>): ReadonlySet<string> => {
         const next = new Set([...ids, ...[...ids].flatMap((id) => resolution[id]?.dependencies ?? [])]);
         return next.size === ids.size ? ids : reach(next);
     };
-    const closure = (start: string) => Array.getSomes([...reach(new Set([start]))].map((id) => Option.fromUndefinedOr(resolution[id])));
-    const sourced = (root: string) => new Set(Option.match(Schema.decodeUnknownOption(Sourced)(documented.get(path.join(root, 'pyproject.toml'))), { onNone: () => [], onSome: ({ tool }) => Record.keys(tool.uv.sources).map(normalized) }));
-    const manifest = (root: string) => Option.map(Schema.decodeUnknownOption(Declared)(documented.get(path.join(root, 'pyproject.toml'))), ({ project }) => project);
-    const floor = (root: string) =>
-        Option.flatMap(
-            Option.flatMap(manifest(root), (project) => Option.fromUndefinedOr(project['requires-python'])),
-            (requires) => Option.map(Option.fromNullishOr(validRange(requires) ? minSatisfying([...releases], requires) : null), (lowest) => `${major(lowest)}.${minor(lowest)}`),
-        );
-    const listed = metadata.members.map((member) => ({ ...member, root: path.relative(workspaceRoot, member.path) || '.' }));
-    const members = listed.some((member) => member.root === workspace)
-        ? listed
-        : [
-              ...listed,
-              {
-                  name: Option.getOrUndefined(Option.flatMap(manifest(workspace), (project) => Option.fromUndefinedOr(project.name))),
-                  path: metadata.workspace.path,
-                  id: metadata.workspace.id,
-                  root: workspace,
-              },
-          ];
+    const distributed = (name: string) => (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), (node) => node.name === name && Option.isNone(local(node)));
+    const stated = (root: string) => documented.get(path.join(root, MANIFEST));
+    const manifest = (root: string) => Option.map(Schema.decodeUnknownOption(Declared)(stated(root)), ({ project }) => project);
+    const members = metadata.members.map((member) => ({ ...member, root: path.relative(workspaceRoot, member.path) || '.' }));
     const workspaceGroups =
         resolution[
             Option.match(
@@ -93,53 +82,56 @@ const report = (path: Path.Path, workspaceRoot: string, lock: string, metadata: 
             )
         ]?.dependency_groups ?? [];
     const tables = members.map((member) => {
-        const file = path.join(member.root, 'pyproject.toml');
+        const file = path.join(member.root, MANIFEST);
         return [file, Result.flatMap(Schema.decodeUnknownResult(Tooled)(documented.get(file)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx))] as const;
     });
+    const index = Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined));
+    const manifests = Array.dedupe(
+        folders(path, workspaceRoot, metadata)
+            .flatMap((root) => ancestors(path, root))
+            .map((folder) => path.join(folder, MANIFEST)),
+    ).filter((file) => documented.has(file));
+    const registered = Record.filterMap(external ? resolution : {}, ({ name, version, source }) => (name !== undefined && version !== undefined && 'registry' in source ? Result.succeed<ProjectGraphExternalNode>({ type: 'pypi', name: `pypi:${name}`, data: { version, packageName: name } }) : Result.failVoid));
     return {
         lock,
         failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), (cause) => [file, ToolError.of(file, 'does not decode')(cause)] as const)),
+        externals: Record.fromIterableWith(Object.values(registered), (node) => [node.name, node] as const),
         members: Array.zipWith(members, tables, (member, [, table]) => {
             const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], workspaceGroups, Equivalence.Struct({ name: Equivalence.String }));
             const packaged = 'editable' in (resolution[member.id]?.source ?? {});
-            const own = Option.getOrUndefined(floor(member.root));
             return {
                 name: member.name,
                 root: member.root,
                 workspace,
                 packaged,
-                pixi: documented.has(path.join(workspace, PIXI)) || Schema.is(Pixi)(documented.get(path.join(workspace, 'pyproject.toml'))),
+                manifests,
+                index: Option.getOrUndefined(Option.flatMap(index, ({ name }) => Option.fromUndefinedOr(name))),
+                pixi: documented.has(path.join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
                 scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
                 python: Option.getOrUndefined(Option.flatMap(manifest(member.root), (project) => Option.fromUndefinedOr(project['requires-python']))),
                 implicit: Result.getOrUndefined(table)?.implicitDependencies,
                 published: packaged && Option.exists(manifest(member.root), ({ classifiers, dynamic }) => !(dynamic.includes('classifiers') || classifiers.some((classifier) => classifier.startsWith(PRIVATE)))),
                 lock,
                 nested: members.some((other) => other.root !== member.root && (member.root === '.' || other.root.startsWith(`${member.root}/`))),
-                checks: Record.getSomes(
-                    Record.map(CHECKERS, (_, key) => {
-                        const distributed = (node: typeof Node.Type) => node.name === key && Option.isNone(local(node));
-                        const provides = (id: string) => Option.exists(Option.fromUndefinedOr(resolution[id]), distributed);
-                        const group = Array.findFirst(groups, ({ id }) => (resolution[id]?.dependencies ?? []).some(provides));
-                        const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
-                        const grouped = { group: Option.getOrUndefined(group)?.name, projects: Array.dedupe(Array.getSomes(from.map(located)).map(({ name }) => name)).toSorted() };
-                        const locked = closure(member.id)
-                            .concat(...from.map(closure))
-                            .some(distributed);
-                        return Option.map(declared(path, documented, member.root, key), (project) => ({
-                            ...project,
-                            ...grouped,
-                            locked,
-                            version: Option.getOrUndefined(floor(locked ? workspace : path.dirname(project.config))) === own ? undefined : own,
-                        }));
-                    }),
-                ),
+                checks: Record.map(CHECKERS, (row, key) => {
+                    const group = Array.findFirst(groups, ({ id }) => (resolution[id]?.dependencies ?? []).some(distributed(key)));
+                    const from = Option.match(group, { onNone: () => [], onSome: ({ id }) => resolution[id]?.dependencies ?? [] });
+                    const installed = [...reach(new Set([member.id, ...from]))];
+                    return {
+                        ...declared(path, documented, member.root, key),
+                        group: Option.getOrUndefined(group)?.name,
+                        projects: Array.dedupe(Array.getSomes(from.map(located)).map(({ name }) => name)).toSorted(),
+                        locked: installed.some(distributed(key)),
+                        covered: row.coverage !== undefined && installed.some(distributed(row.coverage)),
+                    };
+                }),
             };
         }),
         edges: members.flatMap((member) => {
-            const own = sourced(member.root);
-            return Object.values(Record.filter(resolution, (node) => node.name === member.name && Option.contains(local(node), member.root)))
-                .flatMap((node) => Array.getSomes(node.dependencies.map(located)))
-                .map(({ root, name }): RawProjectGraphDependency => (own.has(normalized(name)) ? { source: member.root, target: root, type: DependencyType.static, sourceFile: path.join(member.root, 'pyproject.toml') } : { source: member.root, target: root, type: DependencyType.implicit }));
+            const sourceFile = path.join(member.root, MANIFEST);
+            const own = Record.keys(Record.filter(resolution, (node) => node.name === member.name && Option.contains(local(node), member.root)));
+            const targeted = [...own.flatMap((id) => Array.getSomes((resolution[id]?.dependencies ?? []).map(located))).map(({ root }) => root), ...Array.dedupe([...reach(new Set(own))].flatMap((id) => registered[id]?.name ?? []))];
+            return targeted.map((target): RawProjectGraphDependency => ({ source: member.root, target, type: DependencyType.static, sourceFile }));
         }),
     };
 };
@@ -157,4 +149,4 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, { members, .
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { LOCK, located, type Member, Metadata, normalized, Releases, report, type Workspace };
+export { folders, LOCK, located, MANIFEST, type Member, Metadata, normalized, report, type Workspace };

@@ -15,7 +15,7 @@ use camino::Utf8PathBuf;
 use clap::builder::{Resettable, Styles};
 use clap::error::ErrorKind;
 use clap::parser::ValueSource;
-use clap::{ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, ValueHint};
+use clap::{Arg, ArgMatches, Args, Command, CommandFactory, FromArgMatches, Parser, ValueHint};
 use clap_complete::CompleteEnv;
 use enum_map::EnumMap;
 use futures::stream;
@@ -47,6 +47,10 @@ pub enum Folder {
     State,
     Runtime,
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+pub const DERIVED: &str = "";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -228,15 +232,10 @@ where
         let command = Augmented::<Options, A>::command();
         let prefix = command.get_name().to_shouty_snake_case();
         let named = Named::augment_args(Command::new(command.get_name().to_owned()));
-        let own = Vec::from_iter(named.get_arguments().filter(|argument| argument.get_env().is_none()).map(|argument| argument.get_id().clone()));
-        command.mut_args(|argument| {
-            if own.contains(argument.get_id()) {
-                let variable = format!("{prefix}_{}", argument.get_id().as_str().to_shouty_snake_case());
-                argument.env(variable)
-            } else {
-                argument
-            }
-        })
+        let unnamed = named.get_arguments().filter(|argument| argument.get_env().is_none());
+        let derived = command.get_arguments().filter(|argument| argument.get_env() == Some(OsStr::new(DERIVED)));
+        let own = Vec::from_iter(unnamed.chain(derived).map(|argument| argument.get_id().clone()));
+        command.mut_args(|argument| own.contains(argument.get_id()).then(|| format!("{prefix}_{}", argument.get_id().as_str().to_shouty_snake_case())).into_iter().fold(argument, Arg::env))
     };
     CompleteEnv::with_factory(factory).complete();
     let command = factory();

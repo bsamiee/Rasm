@@ -8,6 +8,7 @@
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
+        "@cloudflare/workers-types": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/object-storage": "workspace:*",
         "@rasm/test-store": "workspace:*",

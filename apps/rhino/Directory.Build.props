@@ -1,7 +1,6 @@
 <Project>
     <PropertyGroup Label="Rhino Host">
         <RhinoHost>true</RhinoHost>
-        <RhinoProduct>true</RhinoProduct>
     </PropertyGroup>
 
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />

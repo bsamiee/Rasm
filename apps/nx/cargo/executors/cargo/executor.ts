@@ -177,4 +177,4 @@ const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batch, Cargo, type Command, execute, ran };
+export { batch, Cargo, type Command, execute };

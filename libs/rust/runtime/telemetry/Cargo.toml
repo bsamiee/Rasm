@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-telemetry"
 edition.workspace = true
-description       = "Telemetry over tracing and OpenTelemetry: measured call spans, an environment carrier, a panic record, a JSON log record formatter, a rotating log file several processes append to, OTLP providers with their resource, process and runtime metrics, and the settings rows running them for a process"
+description       = "Telemetry over tracing and OpenTelemetry: measured call spans, an environment carrier, a panic record, a JSON log record formatter, a rotating log file several processes append to, OTLP providers with their resource, process metrics, and the settings rows running them for a process"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 
@@ -19,40 +19,41 @@ bench   = false
 logs    = ["dep:itertools", "dep:nutype", "dep:serde_json", "dep:jiff", "dep:camino", "dep:fs-err", "dep:tracing-log", "dep:tracing-subscriber"]
 export  = ["dep:nonempty-collections", "dep:sysexits", "dep:thiserror", "dep:validated", "dep:derive_more", "dep:enum-map", "dep:opentelemetry-appender-tracing", "dep:opentelemetry-otlp", "dep:opentelemetry-resource-detectors", "dep:opentelemetry_sdk", "dep:tracing-subscriber"]
 metrics = ["dep:libproc", "dep:nix", "dep:sysinfo"]
-process = ["logs", "export", "metrics", "dep:bytesize", "dep:log", "dep:tracing-appender", "dep:anstream", "dep:clap"]
+process = ["logs", "export", "metrics", "dep:bytesize", "dep:log", "dep:opentelemetry-instrumentation-tokio", "dep:tracing-appender", "dep:anstream", "dep:clap"]
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 [dependencies]
-tokio                              = { workspace = true }
-nonempty-collections               = { workspace = true, optional = true }
-sysexits                           = { workspace = true, optional = true }
-thiserror                          = { workspace = true, optional = true }
-validated                          = { workspace = true, optional = true }
-derive_more                        = { workspace = true, optional = true }
-enum-map                           = { workspace = true, optional = true }
-itertools                          = { workspace = true, optional = true }
-nutype                             = { workspace = true, optional = true }
-bytesize                           = { workspace = true, optional = true }
-serde_json                         = { workspace = true, optional = true }
-jiff                               = { workspace = true, optional = true }
-camino                             = { workspace = true, optional = true }
-fs-err                             = { workspace = true, optional = true }
-log                                = { workspace = true, optional = true }
-opentelemetry                      = { workspace = true }
-opentelemetry-appender-tracing     = { workspace = true, optional = true }
-opentelemetry-otlp                 = { workspace = true, optional = true }
-opentelemetry-resource-detectors   = { workspace = true, optional = true }
-opentelemetry-semantic-conventions = { workspace = true }
-opentelemetry_sdk                  = { workspace = true, optional = true }
-sysinfo                            = { workspace = true, optional = true }
-tracing                            = { workspace = true }
-tracing-appender                   = { workspace = true, optional = true }
-tracing-log                        = { workspace = true, optional = true }
-tracing-opentelemetry              = { workspace = true }
-tracing-subscriber                 = { workspace = true, optional = true }
-anstream                           = { workspace = true, optional = true }
-clap                               = { workspace = true, optional = true }
+tokio                               = { workspace = true }
+nonempty-collections                = { workspace = true, optional = true }
+sysexits                            = { workspace = true, optional = true }
+thiserror                           = { workspace = true, optional = true }
+validated                           = { workspace = true, optional = true }
+derive_more                         = { workspace = true, optional = true }
+enum-map                            = { workspace = true, optional = true }
+itertools                           = { workspace = true, optional = true }
+nutype                              = { workspace = true, optional = true }
+bytesize                            = { workspace = true, optional = true }
+serde_json                          = { workspace = true, optional = true }
+jiff                                = { workspace = true, optional = true }
+camino                              = { workspace = true, optional = true }
+fs-err                              = { workspace = true, optional = true }
+log                                 = { workspace = true, optional = true }
+opentelemetry                       = { workspace = true }
+opentelemetry-appender-tracing      = { workspace = true, optional = true }
+opentelemetry-instrumentation-tokio = { workspace = true, optional = true }
+opentelemetry-otlp                  = { workspace = true, optional = true }
+opentelemetry-resource-detectors    = { workspace = true, optional = true }
+opentelemetry-semantic-conventions  = { workspace = true }
+opentelemetry_sdk                   = { workspace = true, optional = true }
+sysinfo                             = { workspace = true, optional = true }
+tracing                             = { workspace = true }
+tracing-appender                    = { workspace = true, optional = true }
+tracing-log                         = { workspace = true, optional = true }
+tracing-opentelemetry               = { workspace = true }
+tracing-subscriber                  = { workspace = true, optional = true }
+anstream                            = { workspace = true, optional = true }
+clap                                = { workspace = true, optional = true }
 
 [target."cfg(unix)".dependencies]
 nix = { workspace = true, optional = true }

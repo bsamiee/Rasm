@@ -37,7 +37,6 @@ interface Found {
     readonly version: string;
     readonly foreign: boolean;
     readonly text: string;
-    readonly root: string;
     readonly names: readonly string[];
 }
 
@@ -79,17 +78,8 @@ const Cep = Schema.Struct({ ExtensionBundleId: Schema.String, ExtensionBundleVer
 const References = Schema.optionalKey(Schema.Array(Schema.Struct({ Name: Schema.String, Enabled: Schema.optionalKey(Schema.Boolean) })));
 const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
 const Plugin = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.String, Installed: Schema.optionalKey(Schema.Boolean), Plugins: References }));
-const Printed = Schema.Trim.check(Schema.isNonEmpty());
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const yak = ({ root }: Found) =>
-    Effect.flatMap(printed('dotnet', ['msbuild', '-getProperty:YakExecutable'], { cwd: root }), (stdout) =>
-        Option.match(Schema.decodeOption(Printed)(stdout), {
-            onSome: Effect.succeed,
-            onNone: () => ToolError.make({ subject: root, detail: 'evaluates no YakExecutable, which MSBuild sets from the Rhino install it resolves; install Rhino or set RhinoInstallPath' }),
-        }),
-    );
 
 const exact = (subject: string, version: string) =>
     Effect.fromResult(SemVer.parse(version)).pipe(
@@ -147,7 +137,7 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext, start: st
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const project = yield* Effect.fromNullishOr(context.projectName);
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
-    const [targets, root] = [node.data.targets ?? {}, path.join(context.root, node.data.root)];
+    const targets = node.data.targets ?? {};
     const rows = HOSTS.filter(({ technology }) => node.data.metadata?.technologies?.includes(technology) === true);
     const running = Record.fromIterableWith(
         Object.values(context.taskGraph?.tasks ?? {}).filter(({ target }) => target.project === project),
@@ -184,7 +174,7 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext, start: st
     const stated = (host: Host, at: string, text: string, file: string, names: readonly string[]) =>
         Effect.map(
             host.read(text, file),
-            Option.flatMap(({ name, version, foreign = false }) => Option.map(Option.fromUndefinedOr(version), (known): Found => ({ host, at, name, version: known, foreign, text, root, names }))),
+            Option.flatMap(({ name, version, foreign = false }) => Option.map(Option.fromUndefinedOr(version), (known): Found => ({ host, at, name, version: known, foreign, text, names }))),
         );
     const packages = yield* Effect.forEach(
         written.flatMap((file) => rows.filter(({ archive }) => archive !== undefined && file.endsWith(archive)).map((host) => ({ file, host }))),
@@ -243,7 +233,7 @@ const HOSTS: readonly Host[] = [
         archive: '.yak',
         platforms: Record.keys(YAK),
         read: (text, file) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version, foreign: Record.toEntries(YAK).some(([os, built]) => os !== platform && matchesGlob(file, `**/*-${built}.yak/*`)) }))),
-        install: { command: 'yak install', run: (found) => Effect.flatMap(yak(found), (executable) => Effect.asVoid(printed(executable, ['install', found.at]))) },
+        install: { command: 'yak install', run: ({ at }) => Effect.asVoid(printed('yak', ['install', at])) },
         publish: {
             store: 'https://yak.rhino3d.com',
             command: 'yak push',
@@ -255,7 +245,7 @@ const HOSTS: readonly Host[] = [
                         orElse: (response) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Pushed)), ({ distributions }) => distributions.some(({ filename }) => filename === basename(at))),
                     }),
                 ),
-            push: (found, store) => Effect.flatMap(yak(found), (executable) => Effect.asVoid(printed(executable, ['push', found.at, '--source', store]))),
+            push: ({ at }, store) => Effect.asVoid(printed('yak', ['push', at, '--source', store])),
         },
     },
     {

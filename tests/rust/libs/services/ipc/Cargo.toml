@@ -1,0 +1,36 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name              = "rasm-ipc-tests"
+edition.workspace = true
+description       = "Local socket service suite: one listener per name, stale name reclaim, socket mode, peer credentials, the opening exchange over scripted peers, and connecting with no server or under a race"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+[[test]]
+name = "suite"
+path = "suite/main.rs"
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dev-dependencies]
+backon       = { workspace = true }
+futures      = { workspace = true }
+tokio        = { workspace = true, features = ["test-util"] }
+tokio-util   = { workspace = true }
+interprocess = { workspace = true }
+fs-err       = { workspace = true, features = ["tokio"] }
+claims       = { workspace = true }
+validated    = { workspace = true }
+tokio-test   = { workspace = true }
+rstest       = { workspace = true }
+rasm-ipc     = { workspace = true }
+rasm-testing = { workspace = true }
+
+[target."cfg(unix)".dev-dependencies]
+rustix = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

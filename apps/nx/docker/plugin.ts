@@ -1,5 +1,6 @@
 import { matchesGlob } from 'node:path';
 import { type CreateDependenciesContext, DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { getReadyCheckReadyWhen } from '@nx/devkit/internal';
 import { inferred, line, produced, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { printed } from '@rasm/nx-devkit/process';
 import { Array, Effect, Option, Order, Path, Record, Schema } from 'effect';
@@ -16,7 +17,7 @@ interface Folder extends Unit {
 
 const EVERY_PROFILE = { COMPOSE_PROFILES: '*' };
 const PRODUCERS = ['build--!(compose)', '^build'];
-const ENGINE = [{ runtime: 'docker compose version' }, { runtime: 'docker buildx version' }, { externalDependencies: [] }];
+const ENGINE = [{ runtime: 'docker compose version' }, { runtime: 'docker buildx version' }];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -70,14 +71,14 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, { root, fil
     };
 });
 
-const served = ({ root }: Folder, project: Composed, services: Array.NonEmptyReadonlyArray<string>, named: string): TargetConfiguration => {
+const served = ({ root }: Folder, project: Composed, services: Array.NonEmptyReadonlyArray<string>, plugin: string): TargetConfiguration => {
     const compose = ['docker', 'compose', '--project-directory', root];
     return {
         command: `${line([...compose, 'up', '--wait', '--build', ...services])} && ${line([...compose, 'logs', '--follow', ...services])}`,
         continuous: true,
         options: { cwd: '.' },
-        readyWhen: { command: services.map((service) => `${line([...compose, 'ps', service, '--format', '{{.State}} {{.Health}}'])} | grep -qxE 'running (healthy)?'`).join(' && ') },
-        inputs: [named, `^${named}`, { runtime: line([...compose, 'config', '--format', 'json', ...services]) }, ...ENGINE],
+        readyWhen: getReadyCheckReadyWhen(`${plugin}/ready-check`, undefined, root, ...services),
+        inputs: ['default', '^default', { runtime: line([...compose, 'config', '--format', 'json', ...services]) }, ...ENGINE],
         metadata: { description: `Starts ${services.join(', ')} of ${project.name} with the services each depends on, rebuilding a changed image, and follows their logs, the services staying up after the run`, help: { command: 'docker compose up --help', example: {} } },
     };
 };
@@ -96,7 +97,7 @@ const targets = ({ root }: Folder, project: Composed) => {
             ...(project.built && { buildx: compose(['build', '--check'], `Lints every image ${project.name} builds through BuildKit, failing on any warning`, { cache: true, inputs, dependsOn: PRODUCERS, options: { env: EVERY_PROFILE } }) }),
         },
         build: project.built ? { compose: compose(['build'], `Builds the images of ${project.name} into the engine`, { dependsOn: PRODUCERS, configurations }) } : {},
-        install: { compose: compose(['up', '--wait', '--remove-orphans'], `Starts the services of ${project.name} and waits until each is healthy`, { dependsOn: ['build'], configurations }) },
+        install: { compose: compose(['up', '--wait', '--remove-orphans'], `Starts the services of ${project.name} and waits until each is healthy`, { dependsOn: ['build--*'], configurations }) },
     };
 };
 
@@ -121,8 +122,8 @@ const { createNodes, createDependencies } = inferred({
         ),
     read: (missing: Array.NonEmptyReadonlyArray<Folder>, { context }: Request<unknown>) => Effect.forEach(missing, (folder) => Effect.result(Effect.map(analyzed(context.workspaceRoot, folder), (report) => ({ report }))), { concurrency: 'unbounded' }),
     sources: (project: Composed) => ({ tracked: project.read }),
-    projects: (project: Composed, folder, { named }) => {
-        const serving = Record.map(project.servers, (services, root) => ({ serve: { compose: served(folder, project, services, named(root)) } }));
+    projects: (project: Composed, folder, { plugin }) => {
+        const serving = Record.map(project.servers, (services) => ({ serve: { compose: served(folder, project, services, plugin.name) } }));
         return [{ file: folder.file, root: folder.root, name: project.name, technologies: ['compose'], members: { ...targets(folder, project), ...serving[folder.root] } }, ...Record.collect(Record.remove(serving, folder.root), (root, members) => ({ file: folder.file, root, technologies: ['compose'], members }))];
     },
     edges,

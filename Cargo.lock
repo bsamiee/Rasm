@@ -1607,6 +1607,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit-set"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56d87354e4229f54a44f7bf2435906a4656dba36026ab6eaca629a2c436a691c"
+dependencies = [
+ "bit-vec 0.10.2",
+]
+
+[[package]]
 name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1617,6 +1626,16 @@ name = "bit-vec"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
+
+[[package]]
+name = "bit-vec"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72503af1e72be411d74ca45cd6b309878fcb35354e252fc2a3a8bda3a97082a0"
+dependencies = [
+ "borsh",
+ "serde",
+]
 
 [[package]]
 name = "bit_field"
@@ -3775,18 +3794,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.10",
-]
-
-[[package]]
-name = "docker-compose-types"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ea51e75cfa9371c4d760270c3da13516d7206121d668c1fbdd6fd83d1782b0f"
-dependencies = [
- "derive_builder 0.20.2",
- "indexmap 2.14.2",
- "serde",
- "serde_yaml",
 ]
 
 [[package]]
@@ -6752,7 +6759,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "525e9ff3e1a4be2fbea1fdf0e98686a6d98b4d8f937e1bf7402245af1909e8c3"
 dependencies = [
  "byteorder-lite",
- "quick-error",
+ "quick-error 2.0.1",
 ]
 
 [[package]]
@@ -8131,7 +8138,6 @@ name = "mcp-muxer-tests"
 version = "0.0.0"
 dependencies = [
  "backon",
- "bytes",
  "claims",
  "clap",
  "escargot",
@@ -8142,10 +8148,11 @@ dependencies = [
  "nonempty-collections",
  "opentelemetry-semantic-conventions",
  "rasm-cli",
- "rasm-mcp",
+ "rasm-mcp-tests",
  "rasm-telemetry",
  "rasm-testing",
  "rmcp",
+ "rstest",
  "schemars 1.2.3",
  "serde",
  "serde_json",
@@ -9338,6 +9345,16 @@ dependencies = [
  "http",
  "opentelemetry",
  "reqwest 0.13.5",
+]
+
+[[package]]
+name = "opentelemetry-instrumentation-tokio"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32707b35a8ea8950e732ac39ca4a9c73690c9d940c8ea51a27ed2a04cf5d3332"
+dependencies = [
+ "opentelemetry",
+ "tokio",
 ]
 
 [[package]]
@@ -10576,14 +10593,31 @@ version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8530004ccb15eae51c7e40009fbe317f341f804db54dc033eec1c50be28cfa0"
 dependencies = [
+ "bit-set 0.11.1",
+ "bit-vec 0.10.2",
  "bitflags",
  "chacha20",
  "core_detect",
  "num-traits",
+ "proptest-macro",
  "rand 0.10.3",
  "rand_xorshift",
  "regex-syntax",
+ "rusty-fork",
+ "tempfile",
  "unarray",
+]
+
+[[package]]
+name = "proptest-macro"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e99782ea31698c2206c6887c1220d2f594b291c26cb9ec5b6d7cf175320bc212"
+dependencies = [
+ "convert_case 0.11.0",
+ "proc-macro2",
+ "quote",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -10792,6 +10826,12 @@ dependencies = [
  "web-sys",
  "winapi",
 ]
+
+[[package]]
+name = "quick-error"
+version = "1.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
 
 [[package]]
 name = "quick-error"
@@ -11404,6 +11444,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-grpc-tests"
+version = "0.0.0"
+dependencies = [
+ "backon",
+ "bytes",
+ "claims",
+ "futures",
+ "h2",
+ "http",
+ "rasm-grpc",
+ "rstest",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tonic",
+ "tonic-health",
+ "tonic-reflection",
+]
+
+[[package]]
 name = "rasm-http"
 version = "0.0.0"
 dependencies = [
@@ -11438,10 +11498,12 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "nonempty-collections",
  "rasm-http",
  "rasm-infra-tests",
  "rlimit",
  "rstest",
+ "sysexits",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -11538,6 +11600,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasm-ipc-tests"
+version = "0.0.0"
+dependencies = [
+ "backon",
+ "claims",
+ "fs-err",
+ "futures",
+ "interprocess",
+ "rasm-ipc",
+ "rasm-testing",
+ "rstest",
+ "rustix",
+ "tokio",
+ "tokio-test",
+ "tokio-util",
+ "validated",
+]
+
+[[package]]
 name = "rasm-lints"
 version = "0.0.0"
 dependencies = [
@@ -11608,6 +11689,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_urlencoded",
+ "serde_with",
  "thiserror 2.0.21",
  "tokio",
  "tokio-stream",
@@ -11616,6 +11698,36 @@ dependencies = [
  "url",
  "uuid",
  "validated",
+]
+
+[[package]]
+name = "rasm-mcp-tests"
+version = "0.0.0"
+dependencies = [
+ "axum",
+ "backon",
+ "bytes",
+ "claims",
+ "clap",
+ "fs-err",
+ "futures",
+ "nonempty-collections",
+ "opentelemetry-semantic-conventions",
+ "proptest",
+ "rasm-cli",
+ "rasm-mcp",
+ "rasm-telemetry",
+ "rasm-testing",
+ "rmcp",
+ "rstest",
+ "schemars 1.2.3",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -12092,6 +12204,7 @@ dependencies = [
  "nutype",
  "opentelemetry",
  "opentelemetry-appender-tracing",
+ "opentelemetry-instrumentation-tokio",
  "opentelemetry-otlp",
  "opentelemetry-resource-detectors",
  "opentelemetry-semantic-conventions",
@@ -12417,7 +12530,7 @@ dependencies = [
  "avif-serialize",
  "imgref",
  "loop9",
- "quick-error",
+ "quick-error 2.0.1",
  "rav1e",
  "rayon",
  "rgb",
@@ -12857,23 +12970,31 @@ version = "3.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d24a7e92f4bcaa36b97fa93c4fa7ca8f3e669eced949345b3462dba333c7f909"
 dependencies = [
+ "async-trait",
  "base64 0.23.1",
+ "bytes",
  "chrono",
  "futures",
+ "http",
+ "http-body",
+ "http-body-util",
  "indexmap 2.14.2",
  "libc",
  "pastey 0.2.3",
  "pin-project-lite",
  "process-wrap",
+ "rand 0.10.3",
  "rmcp-macros",
  "schemars 1.2.3",
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "sse-stream",
  "thiserror 2.0.21",
  "tokio",
  "tokio-stream",
  "tokio-util",
+ "tower-service",
  "tracing",
  "url",
  "uuid",
@@ -13310,6 +13431,18 @@ dependencies = [
  "rand_pcg",
  "rayon",
  "rayon-cond",
+]
+
+[[package]]
+name = "rusty-fork"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cc6bf79ff24e648f6da1f8d1f011e9cac26491b619e6b9280f2b47f1774e6ee2"
+dependencies = [
+ "fnv",
+ "quick-error 1.2.3",
+ "tempfile",
+ "wait-timeout",
 ]
 
 [[package]]
@@ -14332,6 +14465,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "sse-stream"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c25ac7aff0abd1dbc474536e40416e1102c7dd9bfba0b9861c6d357f835dcfb4"
+dependencies = [
+ "bytes",
+ "futures-util",
+ "http-body",
+ "http-body-util",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -14827,7 +14973,6 @@ dependencies = [
  "bollard",
  "bytes",
  "conquer-once",
- "docker-compose-types",
  "docker_credential",
  "either",
  "etcetera",
@@ -14849,7 +14994,6 @@ dependencies = [
  "tokio-stream",
  "tokio-util",
  "url",
- "uuid",
 ]
 
 [[package]]
@@ -14952,7 +15096,7 @@ dependencies = [
  "fax 0.2.7",
  "flate2",
  "half",
- "quick-error",
+ "quick-error 2.0.1",
  "weezl 0.1.12",
  "zstd 0.13.4",
  "zune-jpeg",
@@ -15090,6 +15234,17 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "12bc5db7778a8e08ee255090861e0e7aac55e784300077e7ed293c7be36168b2"
+dependencies = [
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]
@@ -16623,6 +16778,15 @@ checksum = "a5924018406ce0063cd67f8e008104968b74b563ee1b85dde3ed1f7cb87d3dbd"
 dependencies = [
  "arrayvec",
  "memchr",
+]
+
+[[package]]
+name = "wait-timeout"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
+dependencies = [
+ "libc",
 ]
 
 [[package]]

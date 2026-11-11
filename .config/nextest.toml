@@ -9,3 +9,20 @@ dir = ".artifacts/rust/nextest"
 fail-fast    = false
 leak-timeout = { period = "200ms", result = "fail" }
 slow-timeout = { period = "60s", terminate-after = 3 }
+
+[[profile.default.overrides]]
+filter       = "package(rasm-mcp-tests) and test(/^conformance::/)"
+slow-timeout = { period = "120s", terminate-after = 2 }
+test-group   = "mcp-conformance"
+
+[[profile.default.overrides]]
+filter       = "test(/h2spec|interop|grpcurl/)"
+slow-timeout = { period = "300s", terminate-after = 2 }
+
+[profile.ci]
+junit = { path = "junit.xml" }
+
+# --- [GROUPS] ---------------------------------------------------------------------------
+
+[test-groups.mcp-conformance]
+max-threads = 4

@@ -1,4 +1,0 @@
-#0 Catch-all arm over `Mode` maps `Mode.Second`, `Mode.Third` to one result, name `Mode.Second`, `Mode.Third` in arms joined by `or` per shared result
-#1 Catch-all arm over `Mode` maps `Mode.Third` to one result, name `Mode.Third` in arms joined by `or` per shared result
-#2 Catch-all arm over `Mode` maps `Mode.Second`, `Mode.Third` to one result, name `Mode.Second`, `Mode.Third` in arms joined by `or` per shared result
-#3 Catch-all arm over `Mode` maps `Mode.Third` to one result, name `Mode.Third` in arms joined by `or` per shared result

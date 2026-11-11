@@ -1,5 +1,0 @@
-#0 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `Products.Of`
-#1 `viewport.DisplayMode` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `Products.Of`
-#2 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `Products.Of`
-#3 `DisplayModeDescription.FindByName(name)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `Products.Of`
-#4 `DisplayModeDescription.GetDisplayMode(id)` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `Products.Of`

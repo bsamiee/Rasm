@@ -2,7 +2,7 @@ import { assert } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-vite';
 import manifest from '@rasm/nx-vite/package.json' with { type: 'json' };
-import { Array, Effect, Result } from 'effect';
+import { Array, Effect, Option, Result } from 'effect';
 import { cases, inferred, running, type Subject } from '#/inference/cases';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -27,7 +27,32 @@ const subject: Subject = {
     broken: ['kit/vite.config.ts', "import { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { lib: { entry:\n"],
 };
 
+const LIBRARY = 'nrwl/nx@2a424d3 packages/vite/src/plugins/plugin.spec.ts "Library mode"';
+const LIB = "lib: { entry: 'index.ts', formats: ['es'] }";
+const LIBRARIES = [
+    { label: 'no server', config: `export default defineConfig({ build: { ${LIB} } });`, ran: ['vite build'] },
+    { label: 'a server port', config: `export default defineConfig({ build: { ${LIB} }, server: { port: 3000 } });`, ran: ['vite', 'vite build', 'vite preview'] },
+    { label: 'an empty server', config: `export default defineConfig({ build: { ${LIB} }, server: {} });`, ran: ['vite', 'vite build', 'vite preview'] },
+    { label: 'a server stated while serving alone', config: `export default defineConfig(({ command }) => ({ build: { ${LIB} }, ...(command === 'serve' ? { server: { port: 4200 } } : {}) }));`, ran: ['vite', 'vite build', 'vite preview'] },
+    { label: 'a server a plugin of the config states', config: `export default defineConfig({ build: { ${LIB} }, plugins: [{ name: 'user-plugin', config: () => ({ server: { port: 4200 } }) }] });`, ran: ['vite', 'vite build', 'vite preview'] },
+    {
+        label: 'a config that throws while serving',
+        config: `export default defineConfig(({ command }) => {\n    if (command === 'serve') {\n        throw new Error('This config only builds');\n    }\n    return { build: { ${LIB} } };\n});`,
+        ran: ['vite build'],
+    },
+] as const;
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const subcommands = (graph: ProjectGraph) =>
+    Array.dedupe(
+        running('vite')(graph).map(({ command }) =>
+            Option.getOrElse(
+                Array.findFirst(['vite build', 'vite preview'], (stated) => command.startsWith(stated)),
+                () => 'vite',
+            ),
+        ),
+    ).toSorted();
 
 const previewed = (graph: ProjectGraph) => running('vite preview')(graph).map(({ project, continuous, after }) => ({ project, continuous, after }));
 
@@ -60,6 +85,12 @@ cases(subject, (it) => {
 
     it.effect('previews the build output as a continuous task after the target that builds it', () => Effect.map(inferred(subject), (graph) => assert.deepStrictEqual(previewed(graph), built(graph))));
 
+    it.effect.each(LIBRARIES)('runs $ran for a library config with $label', ({ config, ran }) =>
+        inferred({ ...subject, files: { 'package.json': '{ "name": "root", "workspaces": ["kit"] }\n', 'kit/package.json': '{ "name": "kit", "type": "module" }\n', 'kit/index.ts': 'export const kit = 1;\n', 'kit/vite.config.ts': `import { defineConfig } from 'vite';\n\n${config}\n` } }).pipe(
+            Effect.map((graph) => assert.deepStrictEqual(subcommands(graph), [...ran], LIBRARY)),
+        ),
+    );
+
     it.effect('writes the build under the outputPath nx.json states', () =>
         inferred({ ...subject, files: { ...subject.files, 'nx.json': '{ "pluginsConfig": { "@rasm/nx-devkit": { "outputPath": ".artifacts" } } }\n' } }).pipe(
             Effect.map(running('vite build')),
@@ -70,6 +101,30 @@ cases(subject, (it) => {
                     { project: 'site', outputs: ['.artifacts/vite/site'] },
                 ]),
             ),
+        ),
+    );
+
+    it.effect('builds a config that states its entry as build input where the folder holds no index.html', () =>
+        inferred({
+            ...subject,
+            files: {
+                'package.json': '{ "name": "root", "workspaces": ["entered"] }\n',
+                'entered/package.json': '{ "name": "entered", "type": "module" }\n',
+                'entered/main.ts': "export const entered = 'main';\n",
+                'entered/vite.config.ts': "import { defineConfig } from 'vite';\n\nexport default defineConfig({ build: { rolldownOptions: { input: { index: 'main.ts' } } } });\n",
+            },
+        }).pipe(
+            Effect.map(running('vite build')),
+            Effect.map(Array.map(({ project }) => project)),
+            Effect.map((builds) => assert.deepStrictEqual(builds, ['entered'], 'nrwl/nx@2a424d3 packages/vite/src/plugins/plugin.spec.ts "should create nodes when rollupOptions contains input"')),
+        ),
+    );
+
+    it.effect('previews a config that reports its address to Nx as a task ready on that signal', () =>
+        inferred(subject).pipe(
+            Effect.map(running('vite preview')),
+            Effect.map(Array.map(({ project, readyWhen }) => ({ project, readyWhen }))),
+            Effect.map((ready) => assert.deepStrictEqual(ready, [{ project: 'site', readyWhen: { signal: true } }], 'nrwl/nx@2a424d3 packages/vite/src/plugins/plugin.spec.ts "waits for the signal when the config loads nxReadySignal()" targets.preview.readyWhen')),
         ),
     );
 });

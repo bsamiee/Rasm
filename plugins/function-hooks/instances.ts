@@ -16,9 +16,10 @@ type Instance = typeof Instance.Type;
 const Change = Schema.Struct({ created: Schema.Array(Instance), reused: Schema.Array(Instance), exited: Schema.Array(Schema.Int) });
 type Change = typeof Change.Type;
 
-const Watched = Instance.mapFields(Struct.assign({ ended: Schema.Boolean, conditions: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) }));
+const Watched = Instance.mapFields(Struct.assign({ ended: Schema.Boolean, status: Schema.optionalKey(State.Running.schema.fields.status), asks: Schema.Boolean, conditions: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) }));
 
 const Outline = Schema.Struct({
+    status: State.Running.schema.fields.status,
     process: State.Running.schema.fields.process,
     asking: Schema.Array(Schema.Struct({ kind: State.Window.schema.fields.kind, number: State.Window.schema.fields.number, title: Schema.optionalKey(Schema.String) })),
 });
@@ -79,6 +80,8 @@ const watched = (text: string) =>
                 pid,
                 bundle,
                 ended,
+                ...(running !== undefined && { status: running.status }),
+                asks: running !== undefined && Array.isReadonlyArrayNonEmpty(running.asking),
                 conditions: ended ? [] : said.map(([condition]) => `${bundle} ${pid} ${condition}`),
                 notes: said.map((parts) => `${bundle} ${pid} ${parts.join(', ')}`),
             };

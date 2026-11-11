@@ -1,18 +1,17 @@
 use core::future;
 use core::pin::Pin;
 use core::time::Duration;
-use std::collections::VecDeque;
 use std::error::Report;
 use std::io;
 
-use bytes::{Buf as _, Bytes};
-use futures::future::{Either, OptionFuture};
-use futures::{StreamExt as _, TryFutureExt as _};
+use bytes::Bytes;
+use futures::future::OptionFuture;
+use futures::{SinkExt, StreamExt as _};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use serde_json::value::RawValue;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt as _, BufWriter};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Instant;
-use tokio_util::codec::FramedRead;
+use tokio_util::codec::{BytesCodec, FramedRead, FramedWrite};
 use tokio_util::sync::CancellationToken;
 
 use super::jsonrpc::{Line, Lines};
@@ -85,8 +84,7 @@ pub(super) struct Live<R, W, C> {
     #[debug(skip)]
     lines: FramedRead<R, Lines>,
     #[debug(skip)]
-    writer: BufWriter<W>,
-    outgoing: VecDeque<Bytes>,
+    writer: FramedWrite<W, BytesCodec>,
     #[debug(skip)]
     closed: Pin<Box<C>>,
     stop: CancellationToken,
@@ -131,15 +129,8 @@ where
 
     pub(super) fn link(link: Link<R, W, C>, limit: usize, stop: CancellationToken, started: Instant) -> Self {
         let Link { reader, writer, closed } = link;
-        Self::Up(Box::new(Live {
-            lines: FramedRead::new(reader, Lines::new(limit)),
-            writer: BufWriter::new(writer),
-            outgoing: VecDeque::new(),
-            closed: Box::pin(closed),
-            stop,
-            started,
-            stage: Stage::Handshake(Negotiation::default()),
-        }))
+        let (lines, writer) = (FramedRead::new(reader, Lines::new(limit)), FramedWrite::new(writer, BytesCodec::new()));
+        Self::Up(Box::new(Live { lines, writer, closed: Box::pin(closed), stop, started, stage: Stage::Handshake(Negotiation::default()) }))
     }
 
     pub(super) async fn next(&mut self) -> Wake<R, W, C> {
@@ -151,21 +142,13 @@ where
                 wake
             }
             Self::Up(open) => loop {
-                let Live { lines, writer, outgoing, closed, stop: _, started: _, stage } = &mut **open;
+                let Live { lines, writer, closed, stop: _, started: _, stage } = &mut **open;
                 let reading = !stage.is_ending();
-                let written = match (reading, outgoing.front(), writer.buffer().is_empty()) {
-                    (true, Some(chunk), _) => Some(Either::Left(writer.write(chunk))),
-                    (true, None, false) => Some(Either::Right(writer.flush().map_ok(|()| 0))),
-                    (true, None, true) | (false, _, _) => None,
-                };
+                let unsent = reading && !writer.write_buffer().is_empty();
                 tokio::select! {
                     biased;
-                    Some(written) = OptionFuture::from(written) => match written {
-                        Ok(count) => {
-                            outgoing.front_mut().into_iter().for_each(|chunk| chunk.advance(count));
-                            outgoing.pop_front_if(|chunk| chunk.is_empty());
-                        }
-                        Err(error) => break Wake::Failed(error),
+                    Some(flushed) = OptionFuture::from(unsent.then(|| SinkExt::<Bytes>::flush(writer))) => if let Err(error) = flushed {
+                        break Wake::Failed(error);
                     },
                     Some(line) = OptionFuture::from(reading.then(|| lines.next())) => break Wake::Line(line),
                     cause = closed => break Wake::Closed(cause),
@@ -180,7 +163,7 @@ where
         }
         match self {
             Self::Up(open) => {
-                open.outgoing.clear();
+                open.writer.write_buffer_mut().clear();
                 open.stop.cancel();
                 open.stage = Stage::Ending;
             }
@@ -191,7 +174,7 @@ where
     pub(super) async fn close(self) -> Option<String> {
         match self {
             Self::Up(open) => {
-                let Live { lines, writer, outgoing: _, closed, stop, started: _, stage: _ } = *open;
+                let Live { lines, writer, closed, stop, started: _, stage: _ } = *open;
                 stop.cancel();
                 drop((lines, writer));
                 Some(closed.await)
@@ -215,7 +198,7 @@ where
 
     pub(super) fn ready(&self) -> bool { matches!(self, Self::Up(open) if open.stage.is_ready()) }
 
-    pub(super) fn room(&self, queue: usize) -> bool { !matches!(self, Self::Up(open) if open.outgoing.len() >= queue) }
+    pub(super) fn room(&self) -> bool { !matches!(self, Self::Up(open) if open.writer.write_buffer().len() >= open.writer.backpressure_boundary()) }
 
     pub(super) fn negotiation(&mut self) -> Option<&mut Negotiation> {
         match self.writable().map(|open| &mut open.stage) {
@@ -234,7 +217,7 @@ where
 
     pub(super) fn send(&mut self, line: Result<Bytes, serde_json::Error>) {
         match (line, self.writable()) {
-            (Ok(line), Some(open)) => open.outgoing.push_back(line),
+            (Ok(line), Some(open)) => open.writer.write_buffer_mut().extend_from_slice(&line),
             (Ok(_), None) => {}
             (Err(error), _) => tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "message not encoded"),
         }
@@ -242,7 +225,7 @@ where
 
     pub(super) fn forward(&mut self, chunks: impl IntoIterator<Item = Bytes>) {
         if let Some(open) = self.writable().filter(|open| open.stage.is_ready()) {
-            open.outgoing.extend(chunks);
+            chunks.into_iter().for_each(|chunk| open.writer.write_buffer_mut().extend_from_slice(&chunk));
         }
     }
 }

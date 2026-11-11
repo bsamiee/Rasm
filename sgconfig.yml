@@ -3,6 +3,7 @@
 
 ruleDirs: [tools/ast-grep/rules]
 utilDirs: [tools/ast-grep/utils]
+testConfigs: [{testDir: tools/ast-grep/rule-tests}]
 noIgnore: [hidden]
 languageGlobs:
     xml: ["NuGet.config"]

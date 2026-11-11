@@ -25,7 +25,7 @@ use super::Proxy;
 use super::actor::Event;
 use super::jsonrpc::{Line, decode, encoded};
 use crate::error::internal;
-use crate::shared::{Shared, list_changes, resynced};
+use crate::shared::{Shared, Subscriptions, list_changes, resynced};
 use crate::{McpError, Progress, Subscribe};
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -124,6 +124,31 @@ impl Subscribe for Forward {
     }
 }
 
+#[derive(Debug)]
+struct Legacy(Subscriptions<Forward>);
+
+impl Service<RoleServer> for Legacy {
+    async fn handle_request(&self, request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
+        match request {
+            request @ (ClientRequest::InitializeRequest(_)
+            | ClientRequest::DiscoverRequest(_)
+            | ClientRequest::PingRequest(_)
+            | ClientRequest::SubscribeRequest(_)
+            | ClientRequest::UnsubscribeRequest(_)
+            | ClientRequest::SubscriptionsListenRequest(_)) => self.0.handle_request(request, context).await,
+            request => self.0.service().handle_request(request, context).await,
+        }
+    }
+
+    fn handle_notification(&self, notification: ClientNotification, context: NotificationContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + Send + '_ {
+        self.0.handle_notification(notification, context)
+    }
+
+    fn get_info(&self) -> ServerConfig { self.0.service().get_info() }
+
+    fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> { self.0.service().supported_protocol_versions() }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn fault(error: ServiceError) -> ErrorData {
@@ -216,7 +241,7 @@ where
         Ok::<_, io::Error>(Forward { peer, info, version, progress, notifier, _following: following })
     })
     .await?;
-    let served = Box::pin(serve_server_with_ct(shared.connection(), (Box::pin(replies), Box::pin(asked)), stop.clone())).await.map_err(io::Error::other)?;
+    let served = Box::pin(serve_server_with_ct(Legacy(shared.subscriptions()), (Box::pin(replies), Box::pin(asked)), stop.clone())).await.map_err(io::Error::other)?;
     tokio::select! {
         quit = served.waiting() => tracing::debug!(?quit, "translated session ended"),
         quit = upstream.waiting() => tracing::debug!(?quit, "server ended the translated session"),

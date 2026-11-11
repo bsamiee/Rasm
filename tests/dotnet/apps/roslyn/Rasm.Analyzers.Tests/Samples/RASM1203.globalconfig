@@ -1,1 +1,0 @@
-RASM1203.reporters = M:Rhino.Runtime.HostUtils.ExceptionReport(System.Exception)|M:Rhino.Runtime.HostUtils.ExceptionReport(System.String,System.Exception)

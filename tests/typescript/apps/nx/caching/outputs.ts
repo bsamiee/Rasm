@@ -11,11 +11,14 @@ const HIDDEN = ['node_modules', '.nx'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const content = Effect.fnUntraced(function* (file: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const { type } = yield* fs.stat(file);
-    return type === 'File' ? Buffer.from(yield* fs.readFile(file)).toString('base64') : type;
-});
+const content = Effect.fnUntraced(
+    function* (file: string) {
+        const fs = yield* FileSystem.FileSystem;
+        const { type } = yield* fs.stat(file);
+        return type === 'File' ? Buffer.from(yield* fs.readFile(file)).toString('base64') : type;
+    },
+    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('Absent')),
+);
 
 const restoredOutputs = (subject: Subject, it: Methods) =>
     it.effect.skipIf(!present(subject) || subject.runs === undefined)(

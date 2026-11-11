@@ -5,14 +5,20 @@ import type { Routes } from '#/server';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Sockets = Set<Promise<string>>;
+interface Session {
+    readonly served: () => Promise<string>;
+    readonly watched: (names: readonly string[], agent: string | undefined) => Promise<void>;
+}
+type Life = PromiseWithResolvers<Session>;
 type Row = Instance & { readonly agent?: string };
 type Watched = Routes['watched'][1][number];
-type Noted = Watched & { readonly owner: string | undefined; readonly untold: readonly string[] };
+type Noted = Watched & { readonly owner: string | undefined; readonly untold: readonly string[]; readonly launching: boolean };
 type Tracked = Map<number, Noted>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ROW_PREFIX = 'instances:';
+const TOLD_PREFIX = 'told:';
 const LAST_SEGMENT = /\/[^/]*$/u;
 const ERROR_LINE = /Error\b/u;
 const NOTE_INTERVAL = 600_000;
@@ -27,22 +33,35 @@ const APP_SERVERS = [
 
 // --- [SERVER]
 
+const within = <A>(signal: AbortSignal | undefined, work: Promise<A>): Promise<A> => {
+    const stopped = Promise.withResolvers<never>();
+    signal?.addEventListener('abort', () => stopped.reject(signal.reason), { once: true });
+    if (signal?.aborted === true) {
+        stopped.reject(signal.reason);
+    }
+    return Promise.race([work, stopped.promise]);
+};
+
 const started = ($: EngineInterface, sockets: Sockets): Promise<string> => {
     const ready = Promise.withResolvers<string>();
     const supervised = async (): Promise<void> => {
         const child = $.process.spawn({ argv: ['mise', 'exec', '--', 'node', `${$.plugin.root}/server.ts`], cwd: $.plugin.root });
-        const seen = { stdout: '', stderr: '' };
+        const seen: { stdout: string; stderr: string; failure: string | undefined } = { stdout: '', stderr: '', failure: undefined };
         for await (const { stream, text } of child) {
-            seen[stream] = `${seen[stream]}${text}`;
-            if (seen.stdout.endsWith('\n')) {
-                ready.resolve(seen.stdout.split('\n', 1).join(''));
+            const held = `${seen[stream]}${text}`;
+            const [line = held, ...rest] = held.split('\n');
+            const listening = stream === 'stdout' && rest.length > 0;
+            seen.failure ??= stream === 'stderr' ? [line, ...rest].slice(0, -1).find((printed) => ERROR_LINE.test(printed)) : undefined;
+            seen[stream] = listening ? `${line}\n` : (rest.at(-1) ?? held);
+            if (listening) {
+                ready.resolve(line);
             }
         }
         const { signal } = await child.result;
         if (signal !== null && seen.stdout !== '') {
-            await $.process.run(['rm', '-r', seen.stdout.split('\n', 1).join('').replace(LAST_SEGMENT, '')]);
+            await $.process.run(['rm', '-r', seen.stdout.trimEnd().replace(LAST_SEGMENT, '')]);
         }
-        ready.reject(new Error(seen.stderr.split('\n').find((line) => ERROR_LINE.test(line)) ?? `server ended ${signal ?? seen.stderr.trim()}`));
+        ready.reject(new Error(seen.failure ?? `server ended ${signal ?? seen.stderr.trim()}`));
     };
     sockets.clear();
     sockets.add(ready.promise);
@@ -54,12 +73,13 @@ const started = ($: EngineInterface, sockets: Sockets): Promise<string> => {
 
 const asked = <R extends keyof Routes>($: EngineInterface, socketPath: string, route: R, body: Routes[R][0]) => $.http.fetch(`http://function-hooks/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), socketPath });
 
-const posted = async <R extends keyof Routes>($: EngineInterface, sockets: Sockets, route: R, body: Routes[R][0]): Promise<Routes[R][1]> => {
+const posted = async <R extends keyof Routes>($: EngineInterface, life: Life, sockets: Sockets, route: R, body: Routes[R][0], signal?: AbortSignal): Promise<Routes[R][1]> => {
     const [socket] = sockets;
-    const running = socket ?? started($, sockets);
-    const answered = await asked($, await running, route, body).catch(() => undefined);
+    const running = socket ?? life.promise.then(({ served }) => served());
+    const answered = await within(signal, asked($, await within(signal, running), route, body)).catch(() => undefined);
+    signal?.throwIfAborted();
     const [current] = sockets;
-    const { ok, status, text } = answered ?? (await asked($, await (current === undefined || current === running ? started($, sockets) : current), route, body));
+    const { ok, status, text } = answered ?? (await within(signal, asked($, await within(signal, current === undefined || current === running ? life.promise.then(({ served }) => served()) : current), route, body)));
     const answer: Routes[R][1] = ok ? JSON.parse(text) : await Promise.reject(new Error(`${route} answered ${status}, ${text}`));
     return answer;
 };
@@ -80,12 +100,14 @@ const shown = ($: EngineInterface, tracked: Tracked): void => {
 };
 
 const noted = ($: EngineInterface, tracked: Tracked, own: readonly Watched[], rows: readonly Row[], agent: string | undefined): void => {
-    own.forEach((state) => {
-        const before = tracked.get(state.pid);
+    own.forEach((read) => {
+        const before = tracked.get(read.pid);
+        const launching = read.status === 'launching' || (before?.launching === true && read.status === 'unresponsive');
+        const state = launching && !read.asks ? { ...read, conditions: [], notes: [] } : read;
         const fresh = state.notes.filter((note) => before?.notes.includes(note) !== true);
         const row = rows.find(({ pid }) => pid === state.pid);
         (state.ended ? fresh : []).forEach((note) => $.ui.log(note));
-        held(tracked, { ...state, owner: row === undefined ? agent : row.agent, untold: [...(before?.untold ?? []).filter((note) => state.notes.includes(note)), ...fresh] });
+        held(tracked, { ...state, launching, owner: row === undefined ? agent : row.agent, untold: [...(before?.untold ?? []).filter((note) => state.notes.includes(note)), ...fresh] });
     });
     shown($, tracked);
 };
@@ -111,7 +133,7 @@ const recorded = async ($: EngineInterface, agent: string | undefined, { created
 
 const watchFailed = ($: EngineInterface, cause: unknown): void => $.ui.log(`function-hooks watch failed, ${cause instanceof Error ? cause.message : JSON.stringify(cause)}`, { to: 'debug' });
 
-const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<string>, tracked: Tracked, names: readonly string[], agent: string | undefined): Promise<void> => {
+const watching = async ($: EngineInterface, life: Life, sockets: Sockets, watches: Set<string>, tracked: Tracked, names: readonly string[], agent: string | undefined): Promise<void> => {
     const session = await $.session.id();
     const key = `${session} ${names.join(' ')}`;
     if (names.length === 0 || watches.has(key)) {
@@ -125,18 +147,13 @@ const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<strin
         for await (const { stream, text } of child) {
             const lines = stream === 'stdout' ? `${buffer.partial}${text}` : buffer.partial;
             const cut = lines.lastIndexOf('\n') + 1;
-            const states =
-                cut === 0
-                    ? undefined
-                    : await posted($, sockets, 'watched', lines.slice(0, cut)).catch((cause: unknown) => {
-                          watchFailed($, cause);
-                      });
-            buffer.partial = states === undefined ? lines : lines.slice(cut);
+            const states = cut === 0 ? [] : await posted($, life, sockets, 'watched', lines.slice(0, cut));
+            buffer.partial = lines.slice(cut);
             if ((await $.session.id()) !== session) {
                 return;
             }
             const rows = await rowsOf($, session);
-            const own = (states ?? []).filter(({ pid, bundle }) => rows.every((row) => row.bundle !== bundle) || rows.some((row) => row.pid === pid));
+            const own = states.filter(({ pid, bundle }) => rows.every((row) => row.bundle !== bundle) || rows.some((row) => row.pid === pid));
             own.forEach(({ pid }) => seen.add(pid));
             noted($, tracked, own, rows, agent);
             await recorded($, undefined, { created: [], exited: own.filter(({ ended }) => ended).map(({ pid }) => pid) });
@@ -155,38 +172,36 @@ const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<strin
     }
 };
 
-const rewatched = async ($: EngineInterface, sockets: Sockets, watches: Set<string>, tracked: Tracked): Promise<void> => {
+const rewatched = async ($: EngineInterface, life: Life, sockets: Sockets, watches: Set<string>, tracked: Tracked): Promise<void> => {
     const rows = await rowsOf($, await $.session.id());
     rows.forEach(({ bundle, agent }) => {
-        watching($, sockets, watches, tracked, [bundle], agent).catch((cause: unknown) => watchFailed($, cause));
+        watching($, life, sockets, watches, tracked, [bundle], agent).catch((cause: unknown) => watchFailed($, cause));
     });
 };
 
-const driven = ($: EngineInterface, sockets: Sockets, watches: Set<string>, tracked: Tracked, tool: string, agent: string | undefined): Promise<void> =>
-    watching(
-        $,
-        sockets,
-        watches,
-        tracked,
-        APP_SERVERS.filter(([server]) => server.test(tool)).map(([, identifier]) => identifier),
-        agent,
+const driven = (life: Life, tool: string, agent: string | undefined): Promise<void> =>
+    life.promise.then(({ watched }) =>
+        watched(
+            APP_SERVERS.filter(([server]) => server.test(tool)).map(([, identifier]) => identifier),
+            agent,
+        ),
     );
 
-const observed = async ($: EngineInterface, sockets: Sockets, watches: Set<string>, tracked: Tracked, agent: string | undefined, text: string | undefined): Promise<void> => {
+const observed = async ($: EngineInterface, life: Life, sockets: Sockets, agent: string | undefined, text: string | undefined, signal: AbortSignal): Promise<void> => {
     if (text === undefined) {
         return;
     }
-    const change = await posted($, sockets, 'observe', text);
+    const [change, { watched }] = await Promise.all([posted($, life, sockets, 'observe', text, signal), life.promise]);
     await recorded($, agent, change);
     [...change.created, ...change.reused].forEach(({ bundle }) => {
-        watching($, sockets, watches, tracked, [bundle], agent).catch((cause: unknown) => watchFailed($, cause));
+        watched([bundle], agent).catch((cause: unknown) => watchFailed($, cause));
     });
 };
 
-const quitEnded = async ($: EngineInterface, sockets: Sockets): Promise<void> => {
+const quitEnded = async ($: EngineInterface, life: Life, sockets: Sockets, signal: AbortSignal): Promise<void> => {
     const ended = new Set((await $.agent.list()).filter(({ status }) => ENDED.has(status)).map(({ id }) => id));
     const instances = (await rowsOf($, await $.session.id())).filter(({ agent }) => agent !== undefined && ended.has(agent));
-    await Promise.all([...Map.groupBy(instances, ({ agent }) => agent)].map(async ([agent, owned]) => recorded($, agent, await posted($, sockets, 'quit', owned))));
+    await Promise.all([...Map.groupBy(instances, ({ agent }) => agent)].map(async ([agent, owned]) => recorded($, agent, await posted($, life, sockets, 'quit', owned, signal))));
 };
 
 const quitSession = async ($: EngineInterface, session: string): Promise<void> => {
@@ -194,31 +209,32 @@ const quitSession = async ($: EngineInterface, session: string): Promise<void> =
     if (script.length > 0) {
         await $.process.run(['sh', '-c', script.join('\n')], { stdin: '' });
     }
-    await Promise.all((await rowKeysOf($, session)).map((key) => $.store.delete(key)));
+    const told = (await $.store.keys()).filter((key) => key.startsWith(`${TOLD_PREFIX}${session}:`));
+    await Promise.all([...(await rowKeysOf($, session)), ...told].map((key) => $.store.delete(key)));
 };
 
 // --- [FAILURES]
 
 const unjudged = (cause: string) => `function-hooks did not judge this command: ${cause.split('\n', 1).join('')}`;
 
-const failOpen =
-    (told: Map<string | undefined, number>) =>
-    async <E extends { readonly agentId?: string | undefined }, A extends { readonly deny?: string | undefined; readonly context?: readonly string[] | undefined }>(
-        $: EngineInterface,
-        e: E,
-        next: { (e: E): Promise<A>; readonly error: { readonly message?: string; readonly kind: string }; readonly called: boolean },
-    ): Promise<A> => {
-        const line = unjudged(next.error.message ?? next.error.kind);
-        const now = await $.clock.now();
-        const due = now - (told.get(e.agentId) ?? Number.NEGATIVE_INFINITY) >= NOTE_INTERVAL;
-        $.ui.log(line, { to: 'debug' });
-        const answer = await next(e);
-        if (next.called || !due || answer.deny !== undefined) {
-            return answer;
-        }
-        told.set(e.agentId, now);
-        return { ...answer, context: [...(answer.context ?? []), line] };
-    };
+const failed = async <E extends { readonly agentId?: string | undefined }, A extends { readonly deny?: string | undefined; readonly context?: readonly string[] | undefined }>(
+    $: EngineInterface,
+    e: E,
+    next: { (e: E): Promise<A>; readonly error: { readonly message?: string; readonly kind: string }; readonly called: boolean },
+): Promise<A> => {
+    const line = unjudged(next.error.message ?? next.error.kind);
+    const [now, session] = await Promise.all([$.clock.now(), $.session.id()]);
+    const key = `${TOLD_PREFIX}${session}:${e.agentId}`;
+    const before = await $.store.get(key);
+    const due = now - (typeof before === 'number' ? before : Number.NEGATIVE_INFINITY) >= NOTE_INTERVAL;
+    $.ui.log(line, { to: 'debug' });
+    const answer = await next(e);
+    if (next.called || !due || answer.deny !== undefined) {
+        return answer;
+    }
+    await $.store.set(key, now);
+    return { ...answer, context: [...(answer.context ?? []), line] };
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -226,17 +242,19 @@ const register: Register = (on) => {
     const sockets: Sockets = new Set();
     const watches = new Set<string>();
     const tracked: Tracked = new Map();
-    const failed = failOpen(new Map());
+    const life: Life = Promise.withResolvers();
     on('session.start', async ($, e, next) => {
+        const answer = await next(e);
+        life.resolve({ served: () => started($, sockets), watched: (names, agent) => watching($, life, sockets, watches, tracked, names, agent) });
         if (sockets.size === 0) {
             started($, sockets).catch(() => undefined);
         }
-        await rewatched($, sockets, watches, tracked);
+        rewatched($, life, sockets, watches, tracked).catch((cause: unknown) => watchFailed($, cause));
         shown($, tracked);
-        return next(e);
+        return answer;
     });
     on('prompt.submit', async ($, e, next) => {
-        const owned = e.command === undefined ? await taken($, tracked, undefined) : [];
+        const owned = e.command === undefined && e.turnId === undefined ? await taken($, tracked, undefined) : [];
         const answer = await next(owned.length === 0 ? e : { ...e, context: [...(e.context ?? []), ...owned.flatMap(({ untold }) => untold)] });
         if (answer.drop !== undefined) {
             owned.forEach((state) => held(tracked, { ...(tracked.get(state.pid) ?? state), untold: [...state.untold, ...(tracked.get(state.pid)?.untold ?? [])] }));
@@ -252,30 +270,37 @@ const register: Register = (on) => {
         return notes.length === 0 ? answer : { ...answer, context: [...(answer.context ?? []), ...notes] };
     });
     on('tool.call', { tool: new RegExp(APP_SERVERS.map(([server]) => server.source).join('|'), 'u') }, ($, e, next) => {
-        driven($, sockets, watches, tracked, e.tool, e.agentId).catch((cause: unknown) => watchFailed($, cause));
+        driven(life, e.tool, e.agentId).catch((cause: unknown) => watchFailed($, cause));
         return next(e);
     }).catch(failed);
     on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
     on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, run list_granted_applications' })).catch(failed);
     on('tool.call', { tool: ['mcp__atelier__launch', 'mcp__atelier__open'] }, async ($, e, next) => {
         const answer = await next(e);
-        await observed($, sockets, watches, tracked, e.agentId, answer.text);
+        await observed($, life, sockets, e.agentId, answer.text, next.signal);
         return answer;
     }).catch(failed);
     on('tool.call', { tool: ['Bash', 'Monitor'] }, async ($, e, next) => {
         if (e.command === undefined) {
             return next(e);
         }
-        const decision = await posted($, sockets, 'decide', {
-            command: e.command,
-            cwd: await $.session.cwd(),
-            kind: e.tool === 'Bash' && e.run_in_background === true ? 'background' : KINDS[e.tool],
-            ...(e.tool === 'Bash' && e.timeout !== undefined && { timeout: e.timeout }),
-            ...(e.agentId !== undefined && { agent: e.agentId }),
-        });
+        const decision = await posted(
+            $,
+            life,
+            sockets,
+            'decide',
+            {
+                command: e.command,
+                cwd: await $.session.cwd(),
+                kind: e.tool === 'Bash' && e.run_in_background === true ? 'background' : KINDS[e.tool],
+                ...(e.tool === 'Bash' && e.timeout !== undefined && { timeout: e.timeout }),
+                ...(e.agentId !== undefined && { agent: e.agentId }),
+            },
+            next.signal,
+        );
         const observing = async <A extends { readonly text?: string | undefined }>(answer: A, observes: boolean) => {
             if (observes && e.tool === 'Bash') {
-                await observed($, sockets, watches, tracked, e.agentId, answer.text);
+                await observed($, life, sockets, e.agentId, answer.text, next.signal);
             }
             return answer;
         };
@@ -294,7 +319,7 @@ const register: Register = (on) => {
     }).catch(failed);
     on('turn.complete', async ($, e, next) => {
         const answer = await next(e);
-        await quitEnded($, sockets);
+        await quitEnded($, life, sockets, next.signal);
         return answer;
     });
     on('session.end', async ($, e, next) => {

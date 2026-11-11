@@ -1,9 +1,0 @@
-#0 `Copied` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#1 `Tested` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#6 `Switched` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#7 `Combined` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#2 `Narrowed` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#3 `Kind` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#4 `Typed` narrows `curve.DuplicateShallow()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#8 `Narrowed` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`
-#5 `Held` narrows `curve.Duplicate()` to `Curve`, acquire a copy typed `Curve` through `Products.Copied`

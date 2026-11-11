@@ -25,7 +25,6 @@ blob-report/
 .playwright-mcp/
 storybook-static/
 .vs/
-*.received.*
 *.pending-snap
 *.snap.new
 

@@ -20,6 +20,12 @@
         "resolved": "3.0.322",
         "contentHash": "aaynUqEHHeD0v1/RDW/Rq3d/gRkF8bRKJcvblhvuvyTAB+hGuzgFl4pBD9g6jGu+VqMWPinEGqu4hzG12TtnqQ=="
       },
+      "Microsoft.macOS.Ref.net10.0_26.0": {
+        "type": "Direct",
+        "requested": "[26.0.11017, )",
+        "resolved": "26.0.11017",
+        "contentHash": "LpFdOvwwe+dvXxQQaud0gnCSOgDOcOgWlKxFBkK3/uUSRDprhauoM7q6Ycsmx0G9yLGTBCS2oQXqyaJptdX6bw=="
+      },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
         "requested": "[18.12.1, )",
@@ -133,8 +139,8 @@
           "OpenTelemetry.Resources.OperatingSystem": "[1.20.1-beta.1, )",
           "OpenTelemetry.Resources.Process": "[1.20.1-rc.1, )",
           "OpenTelemetry.Resources.ProcessRuntime": "[1.20.1-beta.1, )",
-          "Rasm.Telemetry": "[1.0.0, )",
-          "Rasm.Telemetry.Api": "[1.0.0, )",
+          "Rasm.Telemetry": "[0.0.0, )",
+          "Rasm.Telemetry.Api": "[0.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
@@ -153,7 +159,6 @@
           "Microsoft.Extensions.Logging": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.14, )",
           "Microsoft.VisualStudio.Threading": "[18.12.1, )",
-          "Microsoft.Win32.SystemEvents": "[10.0.0, )",
           "Mono.Unix": "[7.1.0-final.1.21458.1, )",
           "NodaTime": "[3.3.7, )",
           "NodaTime.Serialization.SystemTextJson": "[1.4.0, )",
@@ -163,12 +168,10 @@
           "OpenTelemetry.Resources.Process": "[1.20.1-rc.1, )",
           "OpenTelemetry.Resources.ProcessRuntime": "[1.20.1-beta.1, )",
           "QuikGraph": "[2.5.0, )",
-          "Rasm.Drafting": "[1.0.0, )",
-          "Rasm.Telemetry": "[1.0.0, )",
-          "Rasm.Telemetry.Api": "[1.0.0, )",
-          "RhinoCommon": "[9.0.26300.9401, )",
+          "Rasm.Drafting": "[0.0.0, )",
+          "Rasm.Telemetry": "[0.0.0, )",
+          "Rasm.Telemetry.Api": "[0.0.0, )",
           "SuperLinq": "[6.4.1, )",
-          "System.Drawing.Common": "[10.0.0, )",
           "System.IO.Hashing": "[11.0.0-rc.3.26522.148, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
           "Thinktecture.Runtime.Extensions.Json": "[10.6.0, )",
@@ -648,20 +651,6 @@
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
-      }
-    },
-    "net10.0/win-x64": {
-      "Microsoft.Win32.SystemEvents": {
-        "type": "CentralTransitive",
-        "requested": "[10.0.0, )",
-        "resolved": "10.0.0",
-        "contentHash": "bYdnhuD0XxcVTrxc8RyBjXo+AXYWJPnda3clhGz2Kakleyun1PyrzYV8RezT7ZYmR9OBSOgvpFQcvHo/K8Y90w=="
-      },
-      "Mono.Unix": {
-        "type": "CentralTransitive",
-        "requested": "[7.1.0-final.1.21458.1, )",
-        "resolved": "7.1.0-final.1.21458.1",
-        "contentHash": "Rhxz4A7By8Q0wEgDqR+mioDsYXGrcYMYPiWE9bSaUKMpG8yAGArhetEQV5Ms6KhKCLdQTlPYLBKPZYoKbAvT/g=="
       }
     },
     "net10.0-windows7.0": {
@@ -784,8 +773,8 @@
           "OpenTelemetry.Resources.OperatingSystem": "[1.20.1-beta.1, )",
           "OpenTelemetry.Resources.Process": "[1.20.1-rc.1, )",
           "OpenTelemetry.Resources.ProcessRuntime": "[1.20.1-beta.1, )",
-          "Rasm.Telemetry": "[1.0.0, )",
-          "Rasm.Telemetry.Api": "[1.0.0, )",
+          "Rasm.Telemetry": "[0.0.0, )",
+          "Rasm.Telemetry.Api": "[0.0.0, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )"
         }
       },
@@ -813,10 +802,9 @@
           "OpenTelemetry.Resources.Process": "[1.20.1-rc.1, )",
           "OpenTelemetry.Resources.ProcessRuntime": "[1.20.1-beta.1, )",
           "QuikGraph": "[2.5.0, )",
-          "Rasm.Drafting": "[1.0.0, )",
-          "Rasm.Telemetry": "[1.0.0, )",
-          "Rasm.Telemetry.Api": "[1.0.0, )",
-          "RhinoCommon": "[9.0.26300.9401, )",
+          "Rasm.Drafting": "[0.0.0, )",
+          "Rasm.Telemetry": "[0.0.0, )",
+          "Rasm.Telemetry.Api": "[0.0.0, )",
           "SuperLinq": "[6.4.1, )",
           "System.IO.Hashing": "[11.0.0-rc.3.26522.148, )",
           "Thinktecture.Runtime.Extensions": "[10.6.0, )",
@@ -1291,14 +1279,6 @@
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
-      }
-    },
-    "net10.0-windows7.0/win-x64": {
-      "Mono.Unix": {
-        "type": "CentralTransitive",
-        "requested": "[7.1.0-final.1.21458.1, )",
-        "resolved": "7.1.0-final.1.21458.1",
-        "contentHash": "Rhxz4A7By8Q0wEgDqR+mioDsYXGrcYMYPiWE9bSaUKMpG8yAGArhetEQV5Ms6KhKCLdQTlPYLBKPZYoKbAvT/g=="
       }
     }
   }

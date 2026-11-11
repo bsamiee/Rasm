@@ -9,7 +9,7 @@ import msgspec
 
 from rasm_records import Ok, Outcome
 from rasm_rendering._batch.queue import Forecast
-from rasm_rendering._batch.targets import Endpoint, sent
+from rasm_rendering._batch.targets import Endpoint
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -117,7 +117,7 @@ def published(listener: Listener, notice: Notice) -> Outcome[None]:
         Option
         .of_optional(listener.topic)
         .map(lambda topic: _Publication(topic=topic, title=f"Render {type(notice).__name__}", message=notice.message, priority=notice.priority, tags=notice.tags))
-        .map(lambda publication: listener.server.opened(lambda client: sent(client, HTTPMethod.POST, "/", Some(publication)).map(lambda _: None)))
+        .map(lambda publication: listener.server.opened(lambda session: session.sent(HTTPMethod.POST, "/", Some(publication)).map(lambda _: None)))
         .default_value(Ok(None))
     )
 
