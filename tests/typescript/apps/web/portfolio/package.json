@@ -4,7 +4,6 @@
     "description": "Portfolio suite in Chromium against the Vite development server Nx starts",
     "type": "module",
     "devDependencies": {
-        "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/portfolio": "workspace:*",
         "@rasm/test-support": "workspace:*",

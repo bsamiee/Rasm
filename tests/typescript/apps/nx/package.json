@@ -1,0 +1,37 @@
+{
+    "name": "@rasm/test-nx",
+    "private": true,
+    "description": "Nx plugin suites: each @rasm/nx-* plugin run through Nx's own project graph pipeline on a temp workspace against the rules Nx states for inferred projects, targets, dependencies, and graph caching",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@playwright/test": "catalog:",
+        "@rasm/nx-apple": "workspace:*",
+        "@rasm/nx-buf": "workspace:*",
+        "@rasm/nx-cargo": "workspace:*",
+        "@rasm/nx-cloudflare": "workspace:*",
+        "@rasm/nx-distribution": "workspace:*",
+        "@rasm/nx-docker": "workspace:*",
+        "@rasm/nx-dotnet": "workspace:*",
+        "@rasm/nx-playwright": "workspace:*",
+        "@rasm/nx-pulumi": "workspace:*",
+        "@rasm/nx-storybook": "workspace:*",
+        "@rasm/nx-typescript": "workspace:*",
+        "@rasm/nx-uv": "workspace:*",
+        "@rasm/nx-vite": "workspace:*",
+        "@rasm/nx-vitest": "workspace:*",
+        "@rasm/test-support": "workspace:*",
+        "@storybook/react-vite": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "storybook": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

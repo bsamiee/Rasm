@@ -77,10 +77,10 @@ class Store extends Context.Service<Store>()('@rasm/test-support/store', {
                 );
             };
         const credentials = Effect.fnUntraced(function* (granted: BucketStore) {
-            const first = yield* Ref.make(Option.some(granted));
+            const [first, services] = yield* Effect.all([Ref.make(Option.some(granted)), Effect.context<never>()]);
             const current = Effect.flatMap(Ref.getAndSet(first, Option.none()), Option.match({ onNone: () => call(StoreService.method.renewBucket, { id: granted.id }), onSome: Effect.succeed }));
             const signing = Effect.map(Effect.all([current, DateTime.now]), ([{ accessKeyId, secretAccessKey, sessionToken, credentialsTtlSeconds }, now]) => ({ accessKeyId, secretAccessKey, sessionToken, expiration: DateTime.toDate(DateTime.add(now, { seconds: credentialsTtlSeconds })) }));
-            return { bucket: granted.bucket, client: { endpoint: granted.endpoint, region: granted.region, forcePathStyle: true, credentials: () => Effect.runPromise(signing) } satisfies S3ClientConfig };
+            return { bucket: granted.bucket, client: { endpoint: granted.endpoint, region: granted.region, forcePathStyle: true, credentials: () => Effect.runPromiseWith(services)(signing) } satisfies S3ClientConfig };
         });
         const leases = yield* Effect.tryPromise({ try: () => transport.stream(StoreService.method.holdSession, held, undefined, undefined, createAsyncIterable([{ session }])), catch: silent });
         const [lease, renewed] = yield* Stream.peel(Stream.fromAsyncIterable(leases.message, silent), Sink.head());

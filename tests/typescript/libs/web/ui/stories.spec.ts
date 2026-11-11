@@ -14,21 +14,20 @@ const Index = Schema.fromJsonString(Schema.Struct({ entries: Schema.Record(Schem
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it('serves a docs page for every component and stories that break no WCAG 2.1 A or AA rule', async ({ page, request, axe }) => {
+it('serves a docs page for every component and stories that break no WCAG A or AA rule', async ({ page, request, axe }) => {
     it.setTimeout(everyStory);
-    const { entries } = await Schema.decodeUnknownPromise(Index)(await (await request.get('index.json')).text());
+    const { entries } = await Schema.decodePromise(Index)(await (await request.get('index.json')).text());
     const listed = Object.values(entries);
     const documented = new Set(listed.filter(({ type }) => type === 'docs').map(({ title }) => title));
     expect(listed.filter(({ title }) => !documented.has(title))).toEqual([]);
-    const scanned = axe.withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);
     const visited = await Effect.runPromise(
         Effect.forEach(
             listed.filter(({ type }) => type === 'story'),
             ({ id }) =>
-                Effect.promise(async () => {
+                Effect.tryPromise(async () => {
                     await page.goto(`iframe.html?viewMode=story&id=${id}`);
                     await expect(page.locator('#storybook-root > *, [role="dialog"]').first()).toBeAttached();
-                    return { id, broken: (await scanned.analyze()).violations };
+                    return { id, broken: (await axe.analyze()).violations };
                 }),
         ),
     );

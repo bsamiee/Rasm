@@ -2,7 +2,7 @@
     "name": "@rasm/test-support",
     "version": "0.0.0",
     "private": true,
-    "description": "Vitest, Playwright, and Storybook test policy, store fixtures over the rasm.store gRPC contract, and Compose service lifecycles",
+    "description": "Shared test logic by category: Vitest runner policy, Playwright base and served-task config, Storybook addons, store fixtures over the rasm.store gRPC contract, Compose service lifecycles, and Nx plugin inference workspaces with recorded tool replies",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -15,6 +15,9 @@
     },
     "exports": {
         "./compose": "./compose.ts",
+        "./nx/inference": "./nx/inference.ts",
+        "./nx/setup": "./nx/setup.ts",
+        "./nx/tools": "./nx/tools.ts",
         "./playwright": "./playwright.ts",
         "./store": "./store.ts",
         "./storybook": "./storybook/preview.ts",
@@ -38,12 +41,15 @@
     "devDependencies": {
         "@aws-sdk/client-s3": "catalog:",
         "@bufbuild/protoc-gen-es": "catalog:",
+        "@effect/platform-node": "catalog:",
         "@effect/sql-clickhouse": "catalog:",
         "@effect/sql-pg": "catalog:",
         "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:",
+        "nx": "catalog:",
         "redis": "catalog:",
         "storybook": "catalog:",
         "vite": "catalog:",
@@ -53,8 +59,10 @@
         "@aws-sdk/client-s3": "catalog:peers",
         "@effect/sql-clickhouse": "catalog:peers",
         "@effect/sql-pg": "catalog:peers",
+        "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:peers",
         "effect": "catalog:peers",
+        "nx": "catalog:peers",
         "redis": "catalog:peers",
         "storybook": "catalog:peers",
         "vite": "catalog:peers",
@@ -70,7 +78,13 @@
         "@effect/sql-pg": {
             "optional": true
         },
+        "@nx/devkit": {
+            "optional": true
+        },
         "@playwright/test": {
+            "optional": true
+        },
+        "nx": {
             "optional": true
         },
         "redis": {
@@ -90,6 +104,9 @@
         "access": "public",
         "exports": {
             "./compose": "./dist/compose.js",
+            "./nx/inference": "./dist/nx/inference.js",
+            "./nx/setup": "./dist/nx/setup.js",
+            "./nx/tools": "./dist/nx/tools.js",
             "./playwright": "./dist/playwright.js",
             "./store": "./dist/store.js",
             "./storybook": "./dist/storybook/preview.js",

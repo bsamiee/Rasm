@@ -71,19 +71,19 @@ class Sshd extends Context.Service<Sshd>()('@rasm/test-ssh/sshd.test/Sshd', {
             { source: `${files.client}.pub`, target: '/keys/authorized' },
             { source: `${files.authority}.pub`, target: '/keys/authority.pub' },
         ];
-        const [network, runtime] = yield* Effect.all([Effect.acquireDisposable(Effect.promise(() => new Network().start())), Effect.promise(() => getContainerRuntimeClient())]);
+        const [network, runtime] = yield* Effect.all([Effect.acquireDisposable(Effect.tryPromise(() => new Network().start())), Effect.tryPromise(() => getContainerRuntimeClient())]);
         const serving = Effect.fnUntraced(function* (alias: string) {
-            const image = yield* Effect.promise(() =>
+            const image = yield* Effect.tryPromise(() =>
                 GenericContainer.fromDockerfile(import.meta.dirname)
                     .withBuildkit()
                     .build('rasm/test-ssh', { deleteOnExit: false }),
             );
             const defined = image.withNetwork(network).withNetworkAliases(alias).withCopyFilesToContainer(copied).withExposedPorts(served).withLogConsumer(logged(alias));
-            const container = yield* Effect.acquireDisposable(Effect.promise(() => defined.withCommand(['sh', '-c', `{ nc -ll -p ${greeting.port} -e echo ${greeting.text} & } && ${listening}`]).start()));
+            const container = yield* Effect.acquireDisposable(Effect.tryPromise(() => defined.withCommand(['sh', '-c', `{ nc -ll -p ${greeting.port} -e echo ${greeting.text} & } && ${listening}`]).start()));
             const engine = runtime.container.getById(container.getId());
             const paused = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
                 Effect.andThen(
-                    Effect.promise(() => engine.pause()),
+                    Effect.tryPromise(() => engine.pause()),
                     Effect.ensuring(
                         effect,
                         Effect.promise(() => engine.unpause()),

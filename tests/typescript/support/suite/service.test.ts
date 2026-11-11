@@ -1,8 +1,10 @@
 import { GetObjectCommand, PutObjectCommand, S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
 import { assert, it } from '@effect/vitest';
-import { Array, Cause, Deferred, Effect, Exit, flow, Layer, Option, Ref, Result, Schema, Scope } from 'effect';
+import { readCachedProjectGraph } from '@nx/devkit';
+import { Array, Cause, Config, Deferred, Effect, Exit, flow, Layer, Option, Record, Ref, Result, Schema, Scope } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { FetchHttpClient, HttpBody, HttpClient } from 'effect/http';
+import { findAllProjectNodeDependencies } from 'nx/src/utils/project-graph-utils';
 import { createClient, type RedisClientOptions } from 'redis';
 import { Store, StoreError } from '#/store';
 import { failed } from '#/vitest';
@@ -11,6 +13,10 @@ import { failed } from '#/vitest';
 
 const callers = 4;
 const refusing = 20_000;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Waited = Schema.Struct({ dependencies: Schema.Literal(true), target: Schema.Literal('serve--compose'), waitFor: Schema.Literal('ready') }).annotate({ description: 'dependsOn entry waiting for the continuous Compose service of every project a suite depends on' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -27,7 +33,7 @@ const stored = ({ bucket, client }: { readonly bucket: string; readonly client: 
     Effect.acquireUseRelease(
         Effect.sync(() => new S3Client(client)),
         (storage) =>
-            Effect.promise(() =>
+            Effect.tryPromise(() =>
                 storage
                     .send(new PutObjectCommand({ Bucket: bucket, Key: 'held', Body: 'stored' }))
                     .then(() => storage.send(new GetObjectCommand({ Bucket: bucket, Key: 'held' })))
@@ -36,7 +42,7 @@ const stored = ({ bucket, client }: { readonly bucket: string; readonly client: 
         (storage) => Effect.sync(() => storage.destroy()),
     );
 
-const pinged = (options: RedisClientOptions) => Effect.scoped(Effect.flatMap(opened(options), (client) => Effect.promise(() => client.ping())));
+const pinged = (options: RedisClientOptions) => Effect.scoped(Effect.flatMap(opened(options), (client) => Effect.tryPromise(() => client.ping())));
 
 const asked = ({ url, database, username, password }: { readonly url: string; readonly database: string; readonly username: string; readonly password: string }, query: string) =>
     HttpClient.post(url, { urlParams: { database }, headers: { 'X-ClickHouse-User': username, 'X-ClickHouse-Key': password }, body: HttpBody.text(query) }).pipe(
@@ -105,3 +111,19 @@ it.layer(Layer.merge(Store.layer(undefined, failed), SecureRandom.layerWebCrypto
         }),
     );
 });
+
+it.effect(
+    'runs under a test target that waits for the continuous Compose service of the store project it reaches through the graph, a service declaring readiness and reading its Compose file',
+    Effect.fnUntraced(function* () {
+        const [graph, project, server] = [readCachedProjectGraph(), yield* Config.String('NX_TASK_TARGET_PROJECT'), 'rasm-store'];
+        const targeted = (name: string, target: string) => Option.flatMap(Record.get(graph.nodes, name), ({ data }) => Record.get(data.targets ?? {}, target));
+        assert.deepStrictEqual(
+            {
+                waits: Option.exists(targeted(project, 'test--vitest'), ({ dependsOn = [] }) => dependsOn.some(Schema.is(Waited))),
+                reached: findAllProjectNodeDependencies(project, graph).includes(server),
+                served: Option.map(targeted(server, 'serve--compose'), ({ continuous, readyWhen, inputs = [] }) => ({ continuous, ready: readyWhen !== undefined, composed: inputs.includes('{workspaceRoot}/infra/compose.yaml') })),
+            },
+            { waits: true, reached: true, served: Option.some({ continuous: true, ready: true, composed: true }) },
+        );
+    }),
+);

@@ -8,12 +8,10 @@
     },
     "devDependencies": {
         "@effect/atom-react": "catalog:",
-        "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/nx-storybook": "workspace:*",
         "@rasm/test-support": "workspace:*",
         "@rasm/ui": "workspace:*",
-        "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
         "@types/node": "catalog:",

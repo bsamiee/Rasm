@@ -25,14 +25,14 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
         );
     const read = Effect.fn('read')(function* (key: string, init: RequestInit = {}) {
         const response = HttpServerResponse.toWeb(yield* ObjectStorage.serve({ key, mime: media.mime }, media.options).pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, init)))));
-        return { status: response.status, headers: response.headers, body: yield* Effect.promise(() => response.bytes()) };
+        return { status: response.status, headers: response.headers, body: yield* Effect.tryPromise(() => response.bytes()) };
     });
     const status = (key: string) => Effect.map(read(key), Struct.get('status'));
     const objectBytes = Effect.fn('objectBytes')(
         function* (key: string) {
             const { objects } = yield* ObjectStorage;
             const { body } = yield* Effect.tryPromise(() => objects.getObject(key));
-            return yield* Effect.promise(() => new Response(body).bytes());
+            return yield* Effect.tryPromise(() => new Response(body).bytes());
         },
         Effect.catchIf(
             ({ cause }) => isObjectNotFoundError(cause),
@@ -165,7 +165,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectSt
             yield* put(key, content.length, chunked(content));
             const reopen = () => Effect.runPromiseWith(context)(reopened);
             const options = { key: (n: number) => `conformance/${n}`, readObject: (written: string) => Effect.runPromiseWith(context)(objectBytes(written)) };
-            const reports = yield* Effect.all([Effect.promise(() => checkObjectStore(objects, { key, content })), Effect.promise(() => checkResumableWriteStore(reopen, options))], { concurrency: 'unbounded' });
+            const reports = yield* Effect.all([Effect.tryPromise(() => checkObjectStore(objects, { key, content })), Effect.tryPromise(() => checkResumableWriteStore(reopen, options))], { concurrency: 'unbounded' });
             const report = tallyConformance(Array.flatMap(reports, ({ checks }) => checks));
             assert.isTrue(report.ok, formatConformanceReport(report));
         }, Effect.provide(storage)),

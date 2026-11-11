@@ -5,6 +5,7 @@ import { Button, FormValidationContext } from 'react-aria-components';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const standardFormatter = SchemaIssue.makeFormatterStandardSchemaV1();
+const MINIMUM_TARGET = { minBlockSize: 24, minInlineSize: 24 } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -29,7 +30,17 @@ const Issues = Object.assign(lines, {
                 lines(issue),
                 Array.map((line) => ({ path: line.path, shown: text?.(line) ?? (Array.isReadonlyArrayNonEmpty(line.path) ? `${line.path.map(String).join(' › ')} · ${line.message}` : line.message) })),
                 Array.dedupeWith(Equivalence.mapInput(Equivalence.String, Struct.get('shown'))),
-                Array.map(({ path, shown }) => <li key={shown}>{onField === undefined ? shown : <Button onPress={() => onField(path)}>{shown}</Button>}</li>),
+                Array.map(({ path, shown }) => (
+                    <li key={shown}>
+                        {onField === undefined ? (
+                            shown
+                        ) : (
+                            <Button onPress={() => onField(path)} style={MINIMUM_TARGET}>
+                                {shown}
+                            </Button>
+                        )}
+                    </li>
+                )),
             )}
         </ul>
     ),

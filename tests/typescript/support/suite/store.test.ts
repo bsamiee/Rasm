@@ -28,7 +28,7 @@ class Migration extends Schema.TaggedError<Migration, { readonly brand: unique s
 
 const signatures = (credentials: () => Promise<{ readonly accessKeyId: string; readonly secretAccessKey: string; readonly sessionToken: string }>) =>
     Effect.map(
-        Effect.promise(() => Promise.all([credentials(), credentials()])),
+        Effect.tryPromise(() => Promise.all([credentials(), credentials()])),
         Array.map(({ accessKeyId, secretAccessKey, sessionToken }) => [accessKeyId, secretAccessKey, sessionToken]),
     );
 
@@ -99,7 +99,7 @@ class Contract extends Context.Service<Contract>()('@rasm/test-support/suite/sto
                     return closed;
                 }),
         );
-        yield* Effect.promise(() => once(server, 'listening'));
+        yield* Effect.tryPromise(() => once(server, 'listening'));
         const address = server.address();
         return {
             port: typeof address === 'object' && address !== null ? address.port : 0,

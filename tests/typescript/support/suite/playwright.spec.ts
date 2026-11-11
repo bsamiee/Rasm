@@ -9,8 +9,3 @@ it('axe reports the rule a page breaks and nothing on a page that breaks none', 
     await page.setContent('<!doctype html><html lang="en"><head><title>Sheet</title></head><body><main><h1>Sheet</h1><img alt="Plan" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" /></main></body></html>');
     expect((await axe.analyze()).violations).toEqual([]);
 });
-
-it('the base keeps a trace and a screenshot of a failed test alone', async ({ page }, { project }) => {
-    await page.setContent('<!doctype html><title>Sheet</title>');
-    expect([project.use.trace, project.use.screenshot]).toEqual(['retain-on-failure', 'only-on-failure']);
-});

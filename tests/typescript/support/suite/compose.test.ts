@@ -16,11 +16,11 @@ const opened = (host: string, port: number) => createClient({ socket: { host, po
 
 const asked = <A>(host: string, port: number, ask: (client: ReturnType<typeof opened>) => Promise<A>) =>
     Effect.acquireUseRelease(
-        Effect.promise(() => {
+        Effect.tryPromise(() => {
             const client = opened(host, port);
             return client.connect().then(() => client);
         }),
-        (client) => Effect.promise(() => ask(client)),
+        (client) => Effect.tryPromise(() => ask(client)),
         (client) => Effect.sync(() => client.destroy()),
     );
 
@@ -42,7 +42,7 @@ it.live(
         const services = yield* environment(fileURLToPath(new URL('../../../../infra/compose.yaml', import.meta.url)), ['cache'], (compose) => compose.withEnvironment({ CACHE_PORT: '0' }).withDefaultWaitStrategy(Wait.forListeningPorts()));
         const cache = services.getContainer('cache-1');
         const written = yield* asked(cache.getHost(), cache.getMappedPort(served), (client) => client.set('sheet', 'plan').then(() => client.get('sheet')));
-        yield* Effect.promise(() => cache.restart());
+        yield* Effect.tryPromise(() => cache.restart());
         const kept = yield* asked(cache.getHost(), cache.getMappedPort(served), (client) => client.get('sheet'));
         assert.deepStrictEqual([written, kept], ['plan', null]);
     }),
