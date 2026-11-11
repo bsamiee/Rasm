@@ -45,7 +45,6 @@ catalog:
     jsonc-parser: 4.0.0-next.2 # JSON edits keeping layout
     json5: 2.2.3 # Xcode project file parser
     chevrotain: 13.2.0
-    ts-morph: 28.0.0 # TypeScript syntax tree reads and edits through compiler API
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
@@ -511,9 +510,7 @@ catalog:
 
     # --- [LINTING]
 
-    '@ast-grep/napi': 0.51.1 # Structural search and rewrite over syntax trees from Node
     '@biomejs/biome': 2.6.6
-    dependency-cruiser: 18.8.0-beta-2 # Library root entry load closures
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
     refa: 0.12.1    # Regular expression character classes the ast-grep catalogs compare
 

@@ -40,7 +40,7 @@
 
 | [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                  |
 | :-----: | :---------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `outline`   | `ast-grep outline <path>` lists file declarations or folder exports, `--items exports` a file's public API  |
+|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` lists signatures and members, `--items exports` the public API   |
 |  [02]   | `tree`      | `tree <dir>` lists directories and files, `-D` only directories                                             |
 |  [03]   | `loc`       | `loc <dir>` counts code lines with complexity score per file and folder                                     |
 |  [04]   | `fd`        | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it          |

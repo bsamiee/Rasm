@@ -14,7 +14,6 @@ MCP tools answer one-off matches and syntax trees, the CLI runs project scans, o
 - [04]-[CONFIG](references/config.md): Project discovery, custom languages, trust, globs, stdin, exit codes, and injections
 - [05]-[PERFORMANCE](references/performance.md): Scan and outline cost
 - [06]-[GRAMMARS](references/grammars.md): Choosing, extending, and building the parsers custom languages load
-- [07]-[NAPI](references/napi.md): Parsing and rewriting inside a Node tool through `@ast-grep/napi`
 
 [TEMPLATES]:
 - [01]-[RULE](templates/rule.yml): Clause order of a durable rule

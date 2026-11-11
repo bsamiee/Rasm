@@ -353,7 +353,7 @@ Over `def fn(alpha, beta=1, *rest, gamma: int = 2):` and `def none(): pass`, `--
 ## [07]-[CATALOGS]
 
 Each outlined language holds one catalog file, registered as its `outlineRules`:
-- Catalogs build from `tools/ast-grep/outline/<lang>.yml` into the `.cache/ast-grep/outline/<lang>.yml` its `outlineRules` names, `nx run grammars:grammar:<lang>` writes it beside the library
+- Catalogs build from `tools/ast-grep/outline/<lang>.yml` into the `.artifacts/cmake/grammars/outline/<lang>.yml` its `outlineRules` names, hk step `grammars` writes it beside the library
 - Sources open with an idless document of shared utils, rewriters, transforms, and variants, each document receiving what it calls and its `language`
 - Kinds and fields come from the grammar's `node-types.json`, never from what current sources hold
 - Every declaration kind a body accepts, supertypes expanded through `subtypes`, holds a document, expression, statement, and text kinds hold none

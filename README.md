@@ -146,16 +146,20 @@ Other tasks run through their own commands:
 - `nx deploy @rasm/infra` applies the repository and deployed-host stacks
 - `mise lock --bump` moves tools and `pinact run --update` moves workflow action pins to their newest release SHA
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
-- `nx sync` writes each executor's `schema.json` from its declared options schema, `nx sync:check` fails on a stale one
+- `nx sync` writes each executor's `schema.json` and `executors.json` description from its declared options schema, `nx sync:check` fails on a stale one
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 
 ## [05]-[DELIVERY]
 
-Products reach a person through separate levels:
-- Repository tooling serves development alone, installing builds over a host's previous install and running local services from the checkout
-- Each product's versioned tag and GitHub release mark one release and hold a packaged product's files as an alternative install path
-- Each host's install and update channel receives published products
+Packaging turns a build into the one file its host or store takes, and every channel delivers that file:
+- Hosts and ecosystems decide package format (`.yak`, `.nupkg`, wheel, `.dmg`)
+- Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never its store
+- Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
+- Releases version and tag a project and attach its packaged files to its GitHub release, the direct-download channel
+- Release assets hold native files unwrapped, and a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`
+- Publishing pushes the same packaged file to its host's or ecosystem's official store
+- GitHub releases are a primary channel for host plugins and apps, for libraries the registry is canonical and release assets optional
 
 ## [06]-[OWNERS]
 
