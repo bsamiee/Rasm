@@ -53,12 +53,7 @@ public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
 
     public static Fin<Transfer> Read(string value) => Named.TryGetValue(value, out Transfer? named) ? named : Parametric(value, toSeq(value.Split(':')));
 
-    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Transfer? item) {
-        (item, ImagingFault? fault) = Optional(value).Match(
-            Some: static text => Read(text).Match(Succ: static transfer => ((Transfer?)transfer, (ImagingFault?)null), Fail: static error => (null, error.Filter<ImagingFault>().Head as ImagingFault)),
-            None: static () => (null, null));
-        return fault;
-    }
+    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Transfer? item) => TextValidation.Parsed(value, Read, out item);
 
     private static Fin<float> Number(string text) =>
         float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float number) ? number : ImagingFault.Of(ImagingReason.Malformed, text);

@@ -84,12 +84,7 @@ public sealed partial record Gamut : IConvertible<string> {
                 }),
             };
 
-    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Gamut? item) {
-        (item, ImagingFault? fault) = Optional(value).Match(
-            Some: static text => Read(text).Match(Succ: static gamut => ((Gamut?)gamut, (ImagingFault?)null), Fail: static error => (null, error.Filter<ImagingFault>().Head as ImagingFault)),
-            None: static () => (null, null));
-        return fault;
-    }
+    public static ImagingFault? Validate(string? value, IFormatProvider? provider, out Gamut? item) => TextValidation.Parsed(value, Read, out item);
 
     public Matrix4x4 MatrixTo(Gamut target) => Columns(Configuration, ColourSpace.RgbLinear, target.Configuration, ColourSpace.RgbLinear);
 

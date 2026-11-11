@@ -100,6 +100,7 @@ git-lfs                                                                      = "
 "github:docker/buildx"                                                       = { bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$plugins/docker-buildx"', version = "latest" }
 "github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
 "github:hostinger/api-cli"                                                   = "latest"
+"github:kucherenko/jscpd"                                                    = "latest"
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
 "github:sbdchd/squawk"                                                       = "latest"
 google-java-format                                                           = "latest"

@@ -29,6 +29,7 @@
         "@types/node": "catalog:",
         "@typescript/native": "catalog:",
         "bootstrap-icons": "catalog:",
+        "knip": "catalog:",
         "nx": "catalog:",
         "publint": "catalog:",
         "typescript": "catalog:"

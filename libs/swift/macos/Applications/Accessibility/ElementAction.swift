@@ -3,7 +3,6 @@ import ApplicationServices
 import AsyncAlgorithms
 import CasePathsCore
 public import CoreGraphics
-import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 

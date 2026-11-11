@@ -11,9 +11,6 @@
     "license": "MIT",
     "sideEffects": false,
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
         ".": "./index.ts"
     },
@@ -31,9 +28,6 @@
         "access": "public",
         "exports": {
             ".": "./dist/index.js"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

@@ -1,7 +1,6 @@
 import AppKit
 import ApplicationServices
 import AsyncAlgorithms
-import CasePaths
 import CasePathsCore
 import Processes
 import System

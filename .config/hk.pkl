@@ -131,6 +131,14 @@ steps {
       command { argv = List("jactionlint", "--strict-exit", "--format", "gcc", "{{files}}") }
     }
   }
+  ["jscpd"] {
+    glob = "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,pyi,rs,swift,cs,c,h,java}"
+    check = new CommandSpec {
+      command = new Command { argv = List("jscpd", "--config", ".config/jscpd.json", ".") }
+      effect = "read"
+    }
+    diagnostic_format = "gcc"
+  }
   ["javac"] {
     glob = "**/*.java"
     check = new CommandSpec {
@@ -156,6 +164,19 @@ steps {
       command = new Command { argv = List("hk", "validate", "--deny-warnings") }
       effect = "read"
     }
+  }
+  ["knip"] = (Builtins.knip) {
+    glob =
+      List(
+        "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}",
+        "**/package.json",
+        "knip.json",
+        "pnpm-workspace.yaml",
+      )
+    types = List()
+    workspace_indicator = null
+    check { command = "knip --no-progress" }
+    fix = null
   }
   ["pkl-format"] = Builtins.pkl_format
   ["plutil"] {

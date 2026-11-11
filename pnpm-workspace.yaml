@@ -456,9 +456,9 @@ catalog:
 
     # --- [COMPILERS]
 
-    '@effect/tsgo': 0.67.5 # Effect diagnostics for native TypeScript compiler and language server
+    '@effect/tsgo': 0.67.7 # Effect diagnostics for native TypeScript compiler and language server
     typescript: npm:@typescript/typescript6@6.0.2 # Classic compiler API for every tool loading `typescript` by name, native TypeScript ships none
-    '@typescript/native': npm:typescript@7.1.0-dev.20261106.1 # Native TypeScript release `@effect/tsgo` supports
+    '@typescript/native': npm:typescript@7.1.0-dev.20261109.1 # Native TypeScript release `@effect/tsgo` supports
     '@swc/wasm': 1.16.22
     tslib: 2.9.1
     '@types/node': 26.6.6
@@ -512,6 +512,7 @@ catalog:
 
     '@biomejs/biome': 2.6.6
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
+    knip: 6.45.0 # Unused files, internal exports, and dependencies per package, catalog rows never reported
     refa: 0.12.1    # Regular expression character classes the ast-grep catalogs compare
 
     # --- [GRAMMARS]

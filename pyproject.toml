@@ -17,6 +17,7 @@ dev                   = [
     "refurb",                                                                     # FURB checks Ruff lacks, over a mypy build
     "ruff",                                                                       # Linter and formatter of every project
     "ty",                                                                         # Type checker of every project
+    "vulture",                                                                    # Private functions, classes, methods, and attributes nothing reads
     "yamllint",                                                                   # YAML linter of every YAML file
 
     # --- [STUBS]
@@ -465,7 +466,6 @@ ignore                    = [
     "typing-only-standard-library-import",                                                                                                                                                       # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
     "suspicious-subprocess-import",                                                                                                                                                              # Reports every `subprocess` import, process boundaries call it
     "missing-copyright-notice",                                                                                                                                                                  # Files hold no license header
-    "commented-out-code",                                                                                                                                                                        # Reads `# --- [<LABEL>]` section and subsection dividers as code
     "float-equality-comparison",                                                                                                                                                                 # Authored controls compare against exact identity values (`0.0`, `1.0`)
     "zip-without-explicit-strict",                                                                                                                                                               # `strict=True` asserts lengths the code constructs
     "batched-without-explicit-strict",                                                                                                                                                           # `strict=True` asserts lengths the code constructs
@@ -509,6 +509,7 @@ isort                     = { combine-as-imports = true, force-sort-within-secti
 pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
+task-tags                 = ["---", "TODO", "FIXME", "XXX"]                                                                                                                                      # `# --- [<LABEL>]` dividers open with `---`, commented-out-code skips comments opening with a task tag
 pylint                    = { allow-dunder-method-names = ["__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }                                                       # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
@@ -722,6 +723,13 @@ disable    = [
     "FURB190",    # Unbound `str` methods lose receiver overrides and reject bytes accepted by an untyped lambda
     "FURB192",    # Ruff runs FURB192
 ]
+
+# --- [VULTURE] --------------------------------------------------------------------------
+
+[tool.vulture]
+ignore_names      = ["[!_]*", "_*_"] # Public names are API, `_x_` and `__x__` names are hooks the runtime calls
+ignore_decorators = ["@*.register"]  # `functools.singledispatch` calls registered handlers through its dispatcher
+exclude           = [".venv/"]       # Third-party packages of a virtual environment a member folder holds
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 

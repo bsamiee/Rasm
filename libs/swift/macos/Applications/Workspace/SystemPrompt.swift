@@ -1,6 +1,5 @@
 public import AppKit
 import AsyncAlgorithms
-import CasePaths
 import CasePathsCore
 public import OrderedCollections
 import RegexBuilder

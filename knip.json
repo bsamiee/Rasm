@@ -1,0 +1,13 @@
+{
+    "$schema": "./node_modules/knip/schema.json",
+    "exclude": [ "catalog" ],
+    "treatConfigHintsAsErrors": true,
+    "ignoreDependencies": [ "@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "@storybook/addon-vitest", "adobe", "claude-code", "indesign-uxp-types" ],
+    "ignoreUnresolved": [ "claude-code-tools" ],
+    "ignoreIssues": { "package.json": [ "dependencies", "devDependencies", "optionalPeerDependencies" ] },
+    "wrangler": { "config": [ "cloudflare.config.ts" ] },
+    "workspaces": {
+        ".": { "entry": [], "project": [] },
+        "apps/nx/*": { "entry": [ "executors/*/executor.ts", "generators/*/generator.ts" ] }
+    }
+}

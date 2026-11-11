@@ -1,6 +1,5 @@
 import CasePathsCore
 public import Configuration
-import Files
 public import Foundation
 import Logging
 import Synchronization

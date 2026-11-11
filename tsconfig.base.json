@@ -18,9 +18,11 @@
                 "allowedExperimentalApis": [ "effect", "@effect" ],
                 "barrelImportPackages": [ "effect" ],
                 "effectFn": [ "span", "untraced" ],
+                "ignoreEffectSuggestionsInTscExitCode": false,
                 "keyPatterns": [ { "target": "service" }, { "target": "custom" }, { "target": "error", "pattern": "identifier" }, { "target": "taggedClass", "pattern": "identifier" } ],
                 "diagnosticSeverity": {
                     "anyUnknownInErrorContext": "error",
+                    "catchUnfailableEffect": "error",
                     "mapMapErrorToMapBoth": "error",
                     "unsafeEffectTypeAssertion": "error",
                     "extendsNativeError": "error",

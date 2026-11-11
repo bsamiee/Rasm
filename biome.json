@@ -47,6 +47,7 @@
                 "noUnsafePlusOperands": "error",
                 "noUnsafeReturn": "error",
                 "noUnsafeTypeAssertion": "error",
+                "noUselessAssignment": "error",
                 "noUselessCall": "error",
                 "noUselessTypeAssertion": "error",
                 "noUselessTypeConversion": "error",

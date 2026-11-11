@@ -45,3 +45,13 @@ public sealed record ImagingFault(object? Subject, ImagingReason Reason, Option<
     public static Fin<Unit> Unless<T>(bool flag, ImagingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string? names = null) =>
         flag ? unit : Of(reason, rejected, index, names: names);
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+internal static class TextValidation {
+    internal static ImagingFault? Parsed<T>(string? value, Func<string, Fin<T>> read, out T? item) where T : class {
+        Fin<Option<T>> parsed = Optional(value).Traverse(read).As();
+        item = parsed.ToOption().Bind(static held => held).ValueUnsafe();
+        return parsed.Match(Succ: static _ => null, Fail: static error => error.Filter<ImagingFault>().Head as ImagingFault);
+    }
+}

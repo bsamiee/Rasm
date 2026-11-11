@@ -3,6 +3,9 @@
     "private": true,
     "description": "Atelier After Effects",
     "type": "module",
+    "exports": {
+        "./extendscript": "./extendscript.ts"
+    },
     "dependencies": {
         "@rasm/atelier-extendscript": "workspace:*",
         "@rasm/atelier-protocol": "workspace:*",

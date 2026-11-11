@@ -9,6 +9,10 @@
         "#/*.css": "./*.css",
         "#/*.tsx": "./*.tsx"
     },
+    "exports": {
+        "./server": "./server/main.ts",
+        "./worker": "./server/worker.ts"
+    },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",
         "@effect/atom-react": "catalog:",

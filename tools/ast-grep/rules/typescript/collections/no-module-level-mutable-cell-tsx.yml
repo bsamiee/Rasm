@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: tsxlang
+severity: error
+ignores: ['.claude/workflows/**']
+utils:
+    cell:
+        kind: identifier
+        pattern: $CELL
+        all:
+            - matches: {typescript-local-binding: {owner: {kind: program}}}
+            - matches: {typescript-collection-receiver: {collection: {regex: '^(Weak)?(Map|Set)$'}}}
+    write:
+        kind: call_expression
+        pattern: $WRITE
+        all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: '^(set|add|delete|clear|getOrInsert|getOrInsertComputed)$'}
+                    - has: {field: object, matches: cell}
+            - inside:
+                stopBy: end
+                any:
+                    - matches: typescript-function-boundary
+                      not: {inside: {kind: parenthesized_expression, inside: {kind: call_expression, field: function}}}
+                    - kind: public_field_definition
+                      not: {has: {regex: '^static$', not: {pattern: $_}}}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - has: {field: name, kind: identifier, pattern: $CELL}
+        - regex: '(?-u:\b)(Weak)?(Map|Set)(?-u:\b)'
+        - inside: {kind: 'lexical_declaration, variable_declaration', inside: {any: [{kind: program}, {kind: export_statement, inside: {kind: program}}]}}
+        - inside: {kind: program, stopBy: end, has: {stopBy: end, matches: write}}
+labels:
+    DECLARATION: {style: primary}
+    WRITE: {style: secondary, message: Written inside a function}
+message: '`$CELL` holds process state functions write'
+note: 'Return the value to its reader or pass it as an argument, state a later call reads belongs to a service its layer builds'

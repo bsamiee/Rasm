@@ -3,6 +3,9 @@
     "private": true,
     "description": "Atelier Illustrator",
     "type": "module",
+    "exports": {
+        "./extendscript": "./extendscript.ts"
+    },
     "dependencies": {
         "@rasm/atelier-extendscript": "workspace:*",
         "@rasm/atelier-protocol": "workspace:*",

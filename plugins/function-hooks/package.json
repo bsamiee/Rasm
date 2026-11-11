@@ -6,6 +6,11 @@
     "imports": {
         "#/*": "./*.ts"
     },
+    "exports": {
+        "./register": "./hooks/register.ts",
+        "./codex": "./codex.ts",
+        "./server": "./server.ts"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",

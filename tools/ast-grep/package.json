@@ -6,6 +6,10 @@
     "imports": {
         "#/*": "./*"
     },
+    "exports": {
+        "./grammars/*": "./grammars/*/grammar.js",
+        "./outline": "./outline/main.ts"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@tree-sitter-grammars/tree-sitter-toml": "catalog:",

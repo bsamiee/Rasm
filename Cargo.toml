@@ -908,6 +908,7 @@ type_complexity             = "allow" # Scores nested generic types and asks for
 pedantic                      = { level = "deny", priority = -1 } # Binary names off kebab case and `readme` keys restating inferred file, each fact is stated once
 non_kebab_case_features       = "deny"                            # Feature names off kebab case, one spelling beside kebab-case package and binary names
 non_kebab_case_packages       = "deny"                            # Package names off kebab case, Nx project, package, and installed binary share one spelling
+unused_dependencies           = "deny"                            # Dependencies no target of their crate uses
 unused_workspace_dependencies = "allow"                           # Flags catalog rows held for future members, Cargo resolves inherited rows alone
 
 # --- [PATCHES] --------------------------------------------------------------------------
