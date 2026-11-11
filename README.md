@@ -122,6 +122,7 @@ flowchart LR
 ## [04]-[TASKS]
 
 `nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
+- `generate` writes source code a project's tools derive from its schemas and configuration
 - `build` compiles or packages a project into its declared outputs
 - `check` reports findings of checkers reading the project model and changes no source file
 - `fix` applies fixes from checkers reading the project model
