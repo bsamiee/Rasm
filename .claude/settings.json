@@ -21,13 +21,23 @@
         "bgIsolation": "none"
     },
     "enabledPlugins": {
-        "function-hooks@rasm": true
+        "function-hooks@rasm": true,
+        "astral@astral-sh": true,
+        "rust-analyzer-lsp@claude-plugins-official": true,
+        "swift-lsp@claude-plugins-official": true
     },
     "extraKnownMarketplaces": {
         "rasm": {
             "source": {
                 "source": "directory",
                 "path": "./plugins"
+            },
+            "autoUpdate": true
+        },
+        "astral-sh": {
+            "source": {
+                "source": "github",
+                "repo": "astral-sh/agent-plugins"
             },
             "autoUpdate": true
         }

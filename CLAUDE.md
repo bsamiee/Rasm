@@ -31,6 +31,7 @@
 - ALWAYS use `github` MCP for any GitHub fact or action, `gh` for work on the local checkout
 - ALWAYS use `clean-prose` skill for any English a change writes, names and agent-facing text included
 - ALWAYS use `dotnet-roslyn-codelens` skill to read, trace, or change any file in a .NET solution
+- ALWAYS use `LSP` tool for references, implementations, call hierarchy, and type of a Python, Rust, or Swift symbol before changing or removing it
 - ALWAYS use `xcode` MCP for any Apple platform fact or Xcode build, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
 - ALWAYS use `use-rhino` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
@@ -60,7 +61,7 @@ Code calls the API that provides a capability directly, and any layer in between
 
 Values come from the code, host, or package that already states them:
 - ALWAYS declare a fact no host or package exposes once, in the code responsible for it, and compute every other use from it
-- ALWAYS reference members through compiler-checked symbols or generated accessors, never a name string or hand-written lookup per member or custom generator
+- ALWAYS reference members by compiler-checked symbol or generated accessor, never a name string, hand-written lookup per member, or custom generator
 - ALWAYS derive values from the operation and its target, a caller passing what the operation knows (value, flag, description) is a defect
 - ALWAYS let behavior and layout follow from how many parts callers supply, of which kind, and how nested, callers pass content and no mode
 - ALWAYS set a per-user host setting through that host's API at plug-in load
@@ -89,7 +90,7 @@ Architecture: no folder holding one file, no flat folders, no tiny or oversized 
 - NEVER let a string decide behavior: rebuild the logic over the value it stands for, never an enum renaming the strings
 - NEVER nest code more than 3 levels, flatten it by rebuilding the logic chain, never by extracting helpers or forwarding
 - Declared structs, enums, types, constants, and strings stay only when no host, package, or declaration states their fact and they remove logic
-- Fewer, richer objects: one object replaces several of different types, and consumers are rebuilt to its shape
+- Fewer, richer objects: one object replaces objects of different types, and consumers are rebuilt to its shape
 - Values and control flow are algebraic: one parameterized value, field, or member replaces a family of near-identical ones
 - Logic walks and parses its input once, bounds recursion, and looks keyed data up by key, never a repeated pass or linear search
 
