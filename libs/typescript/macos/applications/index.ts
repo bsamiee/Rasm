@@ -126,7 +126,7 @@ const Window = open({
 const Running = open({
     active: Schema.Boolean,
     status: Schema.Literals(['launching', 'responding', 'unresponsive']),
-    process: Schema.optionalKey(Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state on unresponsive, sleeping while waiting, stopped by signal or debugger' })),
+    process: Schema.optionalKey(Schema.Literals(['running', 'runnable', 'sleeping', 'stopped']).annotate({ description: 'Main thread on unresponsive, running after time on a processor, runnable while waiting for one, sleeping while blocked, stopped by a signal' })),
     usage: Schema.optionalKey(open({ cpu: Schema.Finite.annotate({ description: 'CPU seconds' }), footprint: Schema.Finite.annotate({ description: 'Physical footprint bytes' }), threads: Schema.Int }).annotate({ description: 'On read and on turning unresponsive' })),
     usageFailure: Schema.optionalKey(Schema.String.annotate({ description: 'Usage read failure' })),
     menus: Schema.optionalKey(Schema.Array(Element)),

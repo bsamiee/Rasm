@@ -13,7 +13,8 @@ import Tracing
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let installedNames: ArgumentHelp = "Installed application paths, bundle identifiers, display names, or process IDs of running instances. Names ignore case and diacritics"
+private let installedNames: ArgumentHelp =
+    "Installed application paths, file: URLs, bundle identifiers, whole file or display names, or process IDs of running instances. Names ignore case and diacritics"
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -50,16 +51,21 @@ struct OutlineOptions: ParsableArguments {
 }
 
 struct Running: ParsableArguments {
-    @Argument(help: "Running application paths, bundle identifiers, display names, or process IDs from a line. Names ignore case and diacritics")
+    @Argument(help: "Process IDs from a line, or installed application paths, file: URLs, bundle identifiers, or whole file or display names. Names ignore case and diacritics")
     var names: [String]
 
     func each(_ run: Run, _ body: @escaping @Sendable (NSRunningApplication) async throws(ApplicationFailure) -> Void) async {
-        let named = names.map { name in
-            pid_t(name).map { pid in [NSRunningApplication(processIdentifier: pid)].compactMap(\.self) } ?? NSWorkspace.shared.instances(named: name)
+        var instances: OrderedSet<NSRunningApplication> = []
+        for name in names {
+            do throws(ApplicationFailure) {
+                let found = try await NSWorkspace.shared.instances(named: name)
+                if found.isEmpty { run.emit(name, [String: String]()) }
+                instances.formUnion(found)
+            } catch {
+                run.fail(name, error)
+            }
         }
-        for (name, found) in zip(names, named) where found.isEmpty { run.emit(name, [String: String]()) }
-        let instances = OrderedSet(named.joined())
-        await withDiscardingTaskGroup { group in
+        await withDiscardingTaskGroup { [instances] group in
             for instance in instances {
                 group.addTask {
                     do throws(ApplicationFailure) { try await body(instance) } catch { run.fail(instance.key, error) }
@@ -70,7 +76,7 @@ struct Running: ParsableArguments {
 }
 
 struct Find: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Prints each name's installations, best match first, with no launch")
+    static let configuration: CommandConfiguration = .init(abstract: "Prints each name's installations with no launch")
 
     @Argument(help: installedNames)
     var names: [String]
@@ -168,7 +174,7 @@ struct Launch: AsyncParsableCommand {
                 if names.isEmpty {
                     document.map { file in (file.path(percentEncoded: false), Result { () throws(ApplicationFailure) in (try Installation(opening: file), [file]) }) }
                 } else {
-                    await installed(names, run).map { name, found in (name, Result { () throws(ApplicationFailure) in (try Installation.newest(of: name, among: found), document) }) }
+                    await installed(names, run).map { name, found in (name, Result { () throws(ApplicationFailure) in (try Installation.preferred(of: name, among: found), document) }) }
                 }
             for case (let key, .failure(let failure)) in resolved { run.fail(key, failure) }
             let applications = OrderedDictionary(

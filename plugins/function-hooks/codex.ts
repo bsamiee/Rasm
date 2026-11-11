@@ -1,11 +1,10 @@
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Cause, Console, Effect, Function, Layer, Option, Schema, Stdio, Stream } from 'effect';
 import { KeyValueStore } from 'effect/persistence';
 import { Decision } from '#/decision';
-import { unjudged } from '#/hooks/register';
 import { decide, live, Notes } from '#/policies/rules';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -27,6 +26,8 @@ const rendered: (decision: Decision) => Option.Option<object> = Decision.match({
 
 const noted: (additionalContext: string) => object = (additionalContext) => ({ hookSpecificOutput: { hookEventName: EVENT, additionalContext } });
 
+const unjudged = (cause: string) => `codex-hooks did not judge this command: ${cause.split('\n', 1).join('')}`;
+
 const told = (agent: string, line: string) =>
     Notes.use((notes) => notes.due(agent, new Map([[EVENT, line]]))).pipe(
         Effect.tap(() => Console.error(line)),
@@ -42,12 +43,12 @@ const judged = ({ session_id, cwd, tool_input: { command } }: (typeof Input)['Ty
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Told = KeyValueStore.layerFileSystem(join(tmpdir(), 'function-hooks')).pipe(Layer.catchCause(() => KeyValueStore.layerMemory));
+const Told = KeyValueStore.layerFileSystem(join(tmpdir(), 'codex-hooks')).pipe(Layer.catchCause(() => KeyValueStore.layerMemory));
 
 Stdio.Stdio.use(({ stdin }) => Stream.mkString(Stream.decodeText(stdin))).pipe(
     Effect.flatMap(Schema.decodeEffect(Input)),
     Effect.flatMap(judged),
-    Effect.provide(Layer.provideMerge(live, Layer.provideMerge(Told, layer))),
+    Effect.provide(Layer.provideMerge(live(resolve(import.meta.dirname, '../..')), Layer.provideMerge(Told, layer))),
     Effect.flatMap(
         Option.match({
             onNone: () => Effect.void,

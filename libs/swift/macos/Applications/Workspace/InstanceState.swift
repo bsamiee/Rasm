@@ -115,7 +115,7 @@ extension InstanceState.Window {
 
 extension InstanceState.Running {
     fileprivate var printed: (status: Status, active: Bool, asking: [CGWindowID], menus: [Element.ID]) {
-        (status == .unresponsive(.running) ? .unresponsive(.sleeping) : status, active, asking.map(\.number), menus.filter { menu in menu.role == kAXMenuRole }.map(\.id))
+        (status, active, asking.map(\.number), menus.filter { menu in menu.role == kAXMenuRole }.map(\.id))
     }
 
     fileprivate func printsSame(as other: Self) -> Bool {
@@ -220,12 +220,16 @@ extension NSRunningApplication {
     fileprivate var promptNames: [String] { [localizedName].compactMap(\.self) }
 
     public func state(walking walked: @Sendable (Element) -> Bool = \.asking) async -> InstanceState {
-        let read = await beat(after: nil, walking: walked).state ?? .failed(ApplicationFailure(subject: String(processIdentifier), reason: .cancelled))
-        guard !isDialogHelper else { return read }
-        let prompts: [InstanceState.Window] = await NSWorkspace.shared.instances { instance in instance.isDialogHelper }.async.reduce(into: []) { rows, helper in
-            rows += await helper.beat(after: nil, walking: \.asking).state?.prompting(promptNames) ?? []
+        var last = Beat(once: true)
+        while true {
+            last = await beat(after: last, walking: walked)
+            guard let read = last.state else { continue }
+            guard !isDialogHelper else { return read }
+            let prompts: [InstanceState.Window] = await NSWorkspace.shared.instances(of: \.isDialogHelper).async.reduce(into: []) { rows, helper in
+                rows += await helper.state().prompting(promptNames)
+            }
+            return read.prompted(prompts)
         }
-        return read.prompted(prompts)
     }
 
     public func states(
@@ -289,7 +293,7 @@ extension NSRunningApplication {
                     switch event {
                         case .success(.exited):
                             if sending == nil { reply.finish() }
-                        case .success(.running(let running)) where running.asking.isEmpty && !running.status.is(\.unresponsive):
+                        case .success(.running(let running)) where running.asking.isEmpty && [nil, .runnable].contains(running.status[case: \.unresponsive]):
                             guard sending == nil else { continue }
                             sending = Task { await requestQuit(saving: saving, answering: reply, clock: clock) }
                         case .failure, .success(.running), .success(.failed):
@@ -340,21 +344,8 @@ extension NSRunningApplication {
 extension NSWorkspace {
     public func instances(of matching: (NSRunningApplication) -> Bool) -> [NSRunningApplication] {
         runningApplications.filter { instance in
-            instance.activationPolicy != .prohibited && !instance.isTerminated && matching(instance)
-                && Result { () throws(Errno) in try ProcessStatus(of: instance.processIdentifier) } != .failure(.noSuchProcess)
+            instance.activationPolicy != .prohibited && !instance.isTerminated && matching(instance) && !hasExited(instance.processIdentifier)
         }
-    }
-
-    public func instances(named name: String) -> [NSRunningApplication] {
-        guard !name.hasPrefix("/") else {
-            let path = URL(filePath: name, directoryHint: .isDirectory).resolvingSymlinksInPath().path(percentEncoded: false)
-            return instances { instance in instance.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == path }
-        }
-        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
-        let exact = instances { instance in
-            [instance.bundleIdentifier, instance.localizedName].contains { candidate in candidate?.compare(name, options: options) == .orderedSame }
-        }
-        return exact.isEmpty ? instances { instance in instance.activationPolicy == .regular && instance.localizedName?.range(of: name, options: options) != nil } : exact
     }
 
     public func instanceStates(

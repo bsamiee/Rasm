@@ -1,10 +1,8 @@
-import { Clock, Context, Effect, Layer, Option, Record, Schema, String } from 'effect';
+import { Clock, Context, Duration, Effect, Layer, Option, Record, Schema, String } from 'effect';
 import { KeyValueStore } from 'effect/persistence';
 import { decisionOf, editsOf, notesOf, type Request } from '#/decision';
-import { NOTE_INTERVAL } from '#/hooks/register';
 import { Host } from '#/host';
-import { WATCHER } from '#/instances';
-import { APPS } from '#/policies/apps';
+import { APPS, WATCHER } from '#/policies/apps';
 import { FILES } from '#/policies/files';
 import { all, type Call, type Policy } from '#/policies/fix';
 import { GHIDRA } from '#/policies/ghidra';
@@ -16,6 +14,7 @@ import { analyzed, Shell } from '#/shell/site';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const NOTE_INTERVAL = Duration.toMillis('10 minutes');
 const POLICIES: readonly Policy[] = [APPS, FILES, WAITS, GIT, GHIDRA, TASKS, { programs: PROGRAMS }];
 const EVERY = POLICIES.flatMap(({ every = [] }) => every);
 const CALLS = POLICIES.flatMap(({ calls = [] }) => calls);
@@ -64,7 +63,7 @@ const decide = Effect.fnUntraced(function* (request: Request) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const live = Layer.merge(Shell.layer(PROGRAMS_BY_NAME), Notes.layer).pipe(Layer.provideMerge(Host.layer));
+const live = (root: string) => Layer.merge(Shell.layer(PROGRAMS_BY_NAME), Notes.layer).pipe(Layer.provideMerge(Host.layer(root)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

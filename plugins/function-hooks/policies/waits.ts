@@ -1,6 +1,6 @@
 import { Array, Duration, Effect, Option, type Predicate, Record, String } from 'effect';
 import { Verdict } from '#/decision';
-import { installed, WATCHER } from '#/instances';
+import { installed, WATCHER } from '#/policies/apps';
 import { absent, all, BACKGROUNDED, type Call, dropped, edited, erased, type Fix, has, inserted, type Policy, quote, refusal, silent, spoken, stages, type Verdicts, when, within } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import type { Site } from '#/shell/site';

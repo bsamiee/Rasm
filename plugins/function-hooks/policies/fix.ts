@@ -28,7 +28,6 @@ interface Policy {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SHELL_SAFE = /^[\w@%+=:,./-]+$/u;
-const NINE_WORDS = /^(?:\S+ +){0,8}\S+/u;
 const BACKGROUNDED: Verdicts = [Verdict.Background({ notice: 'Call runs in the background, wait for its notice' })];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -72,7 +71,7 @@ const redirected = ({ command }: Site, op: string, descriptor?: string, target?:
 
 // --- [VERDICTS]
 
-const refusal = (reason: string): Verdicts => [Verdict.Refuse({ reason: NINE_WORDS.exec(reason)?.[0] ?? reason })];
+const refusal = (reason: string): Verdicts => [Verdict.Refuse({ reason })];
 
 const changed = (site: Site, { start, end }: Span, text: Option.Option<string>, before?: string, timeout?: number): Verdicts => {
     if (site.command.origin === 'call') {

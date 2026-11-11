@@ -65,7 +65,7 @@ public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Er
             return read < 0 ? .failure(Errno(rawValue: errno)) : .success(ProcessExit(status: TerminationStatus(waitStatus: data), detail: ExitDetail(rawValue: data & NOTE_EXIT_DETAIL_MASK)))
         }
         switch registered {
-            case .success(let queue) where Result { () throws(Errno) in try ProcessStatus(of: process) } == .failure(.noSuchProcess):
+            case .success(let queue) where hasExited(process):
                 continuation.yield(drained(queue.fileDescriptor) ?? .failure(.noSuchProcess))
                 continuation.finish()
             case .success(let queue):

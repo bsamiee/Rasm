@@ -30,9 +30,8 @@ class HookError extends Schema.TaggedError<HookError, { readonly brand: unique s
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
-    make: Effect.gen(function* () {
+    make: Effect.fnUntraced(function* (root: string) {
         const [fs, path, spawner, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, Config.option(Config.String('HOME'))]);
-        const root = path.resolve(import.meta.dirname, '../..');
         const environment = (name: string) => Effect.orElseSucceed(Config.option(Config.String(name)), Option.none);
         const graphs = yield* Cache.make({
             capacity: 1,
@@ -88,7 +87,7 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
         };
     }),
 }) {
-    static readonly layer = Layer.effect(this, this.make);
+    static readonly layer = (root: string) => Layer.effect(this, this.make(root));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

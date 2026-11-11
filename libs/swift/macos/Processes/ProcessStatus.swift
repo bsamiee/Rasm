@@ -5,8 +5,16 @@ public import System
 
 public enum ProcessStatus: String, Encodable, Sendable {
     case running
+    case runnable
     case sleeping
     case stopped
+}
+
+public struct MainThread: Sendable {
+    public let stopped: Bool
+    public let runnable: Bool
+    public let time: Duration
+    public let at: SuspendingClock.Instant
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -17,22 +25,26 @@ func information<Info: BitwiseCopyable>(of process: pid_t, _ flavor: Int32, _ em
     return info
 }
 
-extension ProcessStatus {
-    public init(of process: pid_t, mainThread: Bool = false) throws(Errno) {
-        switch (Int32(try information(of: process, PROC_PIDTBSDINFO, proc_bsdinfo()).pbi_status), mainThread) {
-            case (SSTOP, _): self = .stopped
-            case (SZOMB, _): throw .noSuchProcess
-            case (_, true):
-                let main = try information(of: process, PROC_PIDLISTTHREADS, UInt64.zero)
-                self = try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: main).pth_run_state == TH_STATE_RUNNING ? .running : .sleeping
-            case (_, false): self = try information(of: process, PROC_PIDTASKINFO, proc_taskinfo()).pti_numrunning > 0 ? .running : .sleeping
-        }
-    }
+public func hasExited(_ process: pid_t) -> Bool {
+    do throws(Errno) { return Int32(try information(of: process, PROC_PIDTBSDINFO, proc_bsdinfo()).pbi_status) == SZOMB } catch { return error == .noSuchProcess }
 }
 
-public func mainThreadUserTime(of process: pid_t) throws(Errno) -> Duration {
-    let main = try information(of: process, PROC_PIDLISTTHREADS, UInt64.zero)
-    return .nanoseconds(try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: main).pth_user_time)
+extension MainThread {
+    public init(of process: pid_t) throws(Errno) {
+        let state = Int32(try information(of: process, PROC_PIDTBSDINFO, proc_bsdinfo()).pbi_status)
+        guard state != SZOMB else { throw .noSuchProcess }
+        let thread = try information(of: process, PROC_PIDTHREADINFO, proc_threadinfo(), argument: information(of: process, PROC_PIDLISTTHREADS, UInt64.zero))
+        self.init(stopped: state == SSTOP, runnable: thread.pth_run_state == TH_STATE_RUNNING, time: .nanoseconds(thread.pth_user_time + thread.pth_system_time), at: .now)
+    }
+
+    public func status(since earlier: Self) -> ProcessStatus {
+        switch (stopped, runnable, time - earlier.time) {
+            case (true, _, _): .stopped
+            case (false, false, .zero): .sleeping
+            case (false, true, let ran) where ran * 2 < earlier.at.duration(to: at): .runnable
+            case (false, _, _): .running
+        }
+    }
 }
 
 public func processes(executing path: String) throws(Errno) -> Set<pid_t> {

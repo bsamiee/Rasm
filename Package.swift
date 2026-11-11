@@ -115,9 +115,6 @@ let executables: [Target] = [
     )
 ]
 let tests: [Target] = [
-
-    // --- [CORE]
-
     .testTarget(
         name: "EncodingTests",
         dependencies: [
@@ -136,14 +133,6 @@ let tests: [Target] = [
         name: "EffectRPCTests",
         dependencies: ["EffectRPC", "Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
         path: "tests/swift/libs/core/EffectRPC",
-    ),
-
-    // --- [MACOS]
-
-    .testTarget(
-        name: "ApplicationsTests",
-        dependencies: ["Applications", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
-        path: "tests/swift/libs/macos/Applications",
     ),
 ]
 

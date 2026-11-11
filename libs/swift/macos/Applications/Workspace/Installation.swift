@@ -1,6 +1,5 @@
 public import AppKit
 import Files
-import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,8 +25,8 @@ private struct BundleInfo: Decodable {
     }
 
     let identifier: String?
-    let version: Installation.Version?
-    let build: Installation.Version?
+    let version: String?
+    let build: String?
     let scriptingDefinitionFile: String?
     let agent: InfoFlag?
     let backgroundOnly: InfoFlag?
@@ -42,37 +41,6 @@ private struct BundleInfo: Decodable {
 }
 
 public struct Installation: Encodable, Hashable, Sendable {
-    public struct Version: RawRepresentable, Codable, Hashable, Comparable, Sendable {
-        public let rawValue: String
-        private let release: [Int]
-        private let prerelease: Substring?
-
-        public init(rawValue: String) {
-            let end = rawValue.firstIndex { character in !character.isASCII || !(character.isNumber || character == ".") } ?? rawValue.endIndex
-            let suffix = rawValue[end...].drop { character in character == "-" }
-            self.rawValue = rawValue
-            let numbers = rawValue[..<end].split(separator: ".").compactMap { component in Int(component) }
-            release = Array(numbers.reversed().drop { component in component == 0 }.reversed())
-            prerelease = suffix.isEmpty ? nil : suffix
-        }
-
-        public static func == (lhs: Self, rhs: Self) -> Bool { (lhs.release, lhs.prerelease) == (rhs.release, rhs.prerelease) }
-
-        public static func < (lhs: Self, rhs: Self) -> Bool {
-            switch (lhs.prerelease, rhs.prerelease) {
-                case _ where lhs.release != rhs.release: lhs.release.lexicographicallyPrecedes(rhs.release)
-                case (.some(let left), .some(let right)): left.compare(right, options: .numeric) == .orderedAscending
-                case (.some, .none): true
-                case (.none, _): false
-            }
-        }
-
-        public func hash(into hasher: inout Hasher) {
-            hasher.combine(release)
-            hasher.combine(prerelease)
-        }
-    }
-
     private enum CodingKeys: CodingKey {
         case url
         case executable
@@ -89,8 +57,8 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let executable: URL?
     public let identifier: String
     public let name: String
-    public let version: Version?
-    public let build: Version?
+    public let version: String?
+    public let build: String?
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
     public let activationPolicy: NSApplication.ActivationPolicy
@@ -147,15 +115,15 @@ extension Installation {
         )
     }
 
-    public static func newest(of name: String, among installations: [Self]) throws(ApplicationFailure) -> Self {
-        let version = installations.compactMap(\.version).max()
-        return try Unmatched.single(
-            installations.filter { installation in installation.version == version },
-            subject: "newest installation",
-            query: name,
-            candidates: [],
-        ) { installation in installation.url.path(percentEncoded: false) }
-        .mapError { miss in ApplicationFailure(subject: name, reason: .unmatched(miss)) }.get()
+    public static func preferred(of name: String, among installations: [Self]) throws(ApplicationFailure) -> Self {
+        let shared = Set(installations.map(\.identifier))
+        let registered =
+            installations.count > 1 && shared.count == 1
+            ? shared.first.flatMap(NSWorkspace.shared.urlForApplication(withBundleIdentifier:))?.resolvingSymlinksInPath().pathComponents : nil
+        guard let chosen = installations.count == 1 ? installations.first : installations.first(where: { installation in installation.url.pathComponents == registered }) else {
+            throw ApplicationFailure(subject: name, reason: .unnamed(installations.map(\.url)))
+        }
+        return chosen
     }
 
     public func runs(_ instance: NSRunningApplication) -> Bool {

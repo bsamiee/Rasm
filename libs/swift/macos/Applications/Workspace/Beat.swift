@@ -9,6 +9,7 @@ import System
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Beat: Sendable {
+    var once: Bool = false
     var state: InstanceState?
     var observer: Result<Observer, ApplicationFailure>?
     var status: InstanceState.Running.Status?
@@ -19,7 +20,7 @@ struct Beat: Sendable {
     var menus: [Element] = []
     var answered: Set<CGWindowID>?
     var baseline: Set<CGWindowID>?
-    var mainThread: Duration?
+    var silent: Bool = false
     var usage: Result<ResourceUsage, Errno>?
 }
 
@@ -28,16 +29,15 @@ struct Beat: Sendable {
 extension NSRunningApplication {
     var isDialogHelper: Bool { bundleIdentifier.map(dialogHelpers.contains) == true }
 
-    private func rows(_ listed: [InstanceState.Window], in beat: Beat, reading once: Bool, _ description: (CGWindowID) -> InstanceState.Window.Description) -> [InstanceState.Window] {
+    private func rows(_ listed: [InstanceState.Window], in beat: Beat, _ description: (CGWindowID) -> InstanceState.Window.Description) -> [InstanceState.Window] {
         let numbers = Set(listed.map(\.number))
         return (listed + beat.described.keys.filter { number in !numbers.contains(number) }.compactMap(InstanceState.Window.listed(number:))).map { window in
-            window.described(description(window.number), arrived: beat.baseline.map { baseline in !baseline.contains(window.number) } ?? once)
+            window.described(description(window.number), arrived: beat.baseline.map { baseline in !baseline.contains(window.number) } ?? beat.once)
         }
     }
 
     private func answering(
         after held: Beat,
-        sampling: Bool,
         listed: [InstanceState.Window],
         walking walked: (Element) -> Bool,
         heartbeat: Bool,
@@ -74,30 +74,29 @@ extension NSRunningApplication {
         next.tokens = tokens
         next.numbers = numbers
         next.answered = numbers
-        next.mainThread = nil
-        if !sampling, status == .responding, next.baseline == nil { next.baseline = numbers }
-        return concluded(next, status: status, sampling: sampling, listed: listed) { number in next.described[number].map(InstanceState.Window.Description.element) ?? .undescribed }
+        next.silent = false
+        if !next.once, status == .responding, next.baseline == nil { next.baseline = numbers }
+        return concluded(next, status: status, listed: listed) { number in next.described[number].map(InstanceState.Window.Description.element) ?? .undescribed }
     }
 
-    private func silent(after held: Beat, sampling: Bool, process: ProcessStatus, listed: [InstanceState.Window]) throws(ApplicationFailure) -> Beat {
-        let time: Duration
-        do { time = try mainThreadUserTime(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
-        let modal = Int(CGWindowLevelForKey(.modalPanelWindow))
-        let tagged = Set(listed.filter { window in window.layer == modal }.map(\.number))
-        let idle = held.mainThread == time
-        let flat = isFinishedLaunching && idle
-        let status: InstanceState.Running.Status =
-            switch (isFinishedLaunching, held.mainThread == nil, held.status) {
-                case (false, _, _) where idle: .unresponsive(process)
-                case (false, _, _): .launching
-                case (true, true, .some(let answered)): answered
-                case (true, _, _): .unresponsive(process)
+    private func silent(after held: Beat, process: ProcessStatus, listed: [InstanceState.Window]) -> Beat {
+        let status: InstanceState.Running.Status? =
+            switch (isFinishedLaunching, held.silent, process, held.status) {
+                case (false, true, .sleeping, _): .unresponsive(process)
+                case (false, _, _, _): .launching
+                case (true, false, _, .some(let answered)), (true, true, .runnable, .some(let answered)): answered
+                case (true, false, .runnable, .none): nil
+                case (true, _, _, _): .unresponsive(process)
             }
         var next = held
+        next.silent = true
+        guard let status else { return next }
         next.status = status
-        next.mainThread = time
-        return concluded(next, status: status, sampling: sampling, listed: listed) { number in
-            switch (held.described[number], tagged.contains(number), flat && held.answered.map { answered in !answered.contains(number) } == true) {
+        let modal = Int(CGWindowLevelForKey(.modalPanelWindow))
+        let tagged = Set(listed.filter { window in window.layer == modal && window.onScreen }.map(\.number))
+        let parked = isFinishedLaunching && held.silent && process == .sleeping
+        return concluded(next, status: status, listed: listed) { number in
+            switch (held.described[number], tagged.contains(number), parked && held.answered.map { answered in !answered.contains(number) } == true) {
                 case (.some(let element), let isTagged, _) where element.asking || !isTagged: .element(element)
                 case (_, true, _), (.none, false, true): .blocking
                 case (_, false, _): .undescribed
@@ -108,14 +107,13 @@ extension NSRunningApplication {
     private func concluded(
         _ beat: Beat,
         status: InstanceState.Running.Status,
-        sampling: Bool,
         listed: [InstanceState.Window],
         _ description: (CGWindowID) -> InstanceState.Window.Description,
     ) -> Beat {
         var next = beat
         if status.is(\.unresponsive), next.baseline == nil, isFinishedLaunching { next.baseline = [] }
         next.usage =
-            switch (sampling, status, beat.usage) {
+            switch (beat.once, status, beat.usage) {
                 case (false, .unresponsive, .some(let usage)): usage
                 case (false, .launching, _), (false, .responding, _): nil
                 case (true, _, _), (false, .unresponsive, .none): Result { () throws(Errno) in try ResourceUsage(of: processIdentifier) }
@@ -124,7 +122,7 @@ extension NSRunningApplication {
             InstanceState.Running(
                 status: status,
                 active: next.active ?? isActive,
-                windows: rows(listed, in: next, reading: sampling, description),
+                windows: rows(listed, in: next, description),
                 prompts: [],
                 menus: next.menus,
                 usage: next.usage,
@@ -135,31 +133,29 @@ extension NSRunningApplication {
 
     @concurrent
     func beat(
-        after last: Beat?,
+        after held: Beat,
         walking walked: @Sendable (Element) -> Bool,
         heartbeat: Bool = false,
         ticks: AsyncStream<Void>.Continuation? = nil,
     ) async -> Beat {
         await withTaskExecutorPreference(accessibility) { () -> Beat in
             let listed = InstanceState.Window.owned(by: processIdentifier).filter { window in !window.frame.isEmpty }
-            let held = last ?? Beat()
-            let sampling = last == nil
             do throws(ApplicationFailure) {
-                let process: ProcessStatus
-                do throws(Errno) { process = try ProcessStatus(of: processIdentifier, mainThread: true) } catch { throw ApplicationFailure(error, process: processIdentifier) }
-                guard process != .stopped else {
-                    return concluded(held, status: .unresponsive(.stopped), sampling: sampling, listed: listed) { number in
+                let before: MainThread
+                do throws(Errno) { before = try MainThread(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
+                guard !before.stopped else {
+                    return concluded(held, status: .unresponsive(.stopped), listed: listed) { number in
                         held.described[number].map(InstanceState.Window.Description.element) ?? .undescribed
                     }
                 }
                 guard activationPolicy != .prohibited else {
-                    return concluded(held, status: .responding, sampling: sampling, listed: listed) { _ in .undescribed }
+                    return concluded(held, status: .responding, listed: listed) { _ in .undescribed }
                 }
-                do throws(ApplicationFailure) {
-                    return try answering(after: held, sampling: sampling, listed: listed, walking: walked, heartbeat: heartbeat, ticks: ticks)
-                } catch  where error.reason.is(\.unanswered) {
-                    return try silent(after: held, sampling: sampling, process: process, listed: listed)
-                }
+                let answer = Result { () throws(ApplicationFailure) in try answering(after: held, listed: listed, walking: walked, heartbeat: heartbeat, ticks: ticks) }
+                guard case .failure(let failure) = answer, failure.reason.is(\.unanswered) else { return try answer.get() }
+                let after: MainThread
+                do throws(Errno) { after = try MainThread(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
+                return silent(after: held, process: after.status(since: before), listed: listed)
             } catch {
                 var failed = held
                 failed.state = .failed(error)
@@ -170,7 +166,8 @@ extension NSRunningApplication {
 
     func beats(walking walked: @escaping @Sendable (Element) -> Bool, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
         let (ticks, tick) = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
-        return merge(chain([()].async, ticks).map { _ in false }, AsyncTimerSequence(interval: messagingTimeout, clock: clock).map { _ in true })
+        let heartbeats = AsyncStream { (try? await clock.sleep(for: messagingTimeout)).map { true } }
+        return merge(chain([()].async, ticks).map { _ in false }, heartbeats)
             .reductions(Beat()) { last, heartbeat in await self.beat(after: last, walking: walked, heartbeat: heartbeat, ticks: tick) }
             .compactMap(\.state)
             .prefix { state in state[case: \.failed]?.reason.is(\.noProcess) != true }

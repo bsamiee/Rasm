@@ -120,7 +120,7 @@ final class Run: Sendable {
                 logger.error("Command failed in host", error: failure, metadata: ["key": "\(key, privacy: .public)"])
             case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noExtension,
                 .noReport,
-                .cancelled, .unmatched, .malformed:
+                .cancelled, .unmatched, .unnamed, .malformed:
                 logger.warning("Command refused input", error: failure, metadata: ["key": "\(key, privacy: .public)"])
         }
         emit(key, Event.fail(failure))
@@ -147,7 +147,7 @@ final class Run: Sendable {
                     )
                 },
                 menus: running.menus.filter { menu in menu.role == kAXMenuRole }.compactMap(\.title),
-                process: running.status[case: \.unresponsive] == .stopped ? .stopped : nil,
+                process: running.status[case: \.unresponsive],
                 status: running.status,
                 windows: running.windows.filter { window in window.presented && !window.asking }.map(\.number),
             )

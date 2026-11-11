@@ -1,9 +1,9 @@
 import { constants } from 'node:os';
 import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Installation } from '@rasm/applications';
-import { Array, Effect, Option, Predicate, Record, String } from 'effect';
-import { installed, WATCHER } from '#/instances';
+import { Installation } from '@rasm/applications';
+import { Array, Effect, Option, Predicate, Record, Schema, String } from 'effect';
+import { Host } from '#/host';
 import { type Call, ensure, type Fix, has, inserted, type Policy, quote, refusal, refuse, stages, when, whole, within } from '#/policies/fix';
 import type { Program } from '#/shell/programs';
 import type { Word } from '#/shell/script';
@@ -11,6 +11,7 @@ import { Shell } from '#/shell/site';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const WATCHER = 'watch-apps';
 const BUNDLE = /^(?<bundle>\/.+?\.app)\/Contents\/MacOS\/[^/]+$/u;
 const ADDRESSED = /^(?:tell|(?<verb>\w+)) (?:application|app) (?:id )?"(?<app>[^"]+)"(?: to (?<body>.+))?$/u;
 const LAUNCHING = /^(?:activate|launch|run|reopen|open (?:POSIX file )?"(?<path>[^"]+)")$/u;
@@ -24,9 +25,21 @@ const PIDS = /^\d+/gmu;
 const ENDING = new Set(['TERM', 'KILL', `${constants.signals.SIGTERM}`, `${constants.signals.SIGKILL}`]);
 const FINDERS = new Set(['ps', 'pgrep', 'pidof']);
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Found = Schema.fromJsonString(Schema.toCodecJson(Schema.Record(Schema.String, Schema.Array(Installation))));
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [BUNDLES]
+
+const installed = (names: readonly (number | string)[]): Effect.Effect<Record<string, readonly Installation[]>, never, Host> =>
+    Array.isReadonlyArrayNonEmpty(names)
+        ? Effect.map(
+              Host.use((host) => host.output([WATCHER, 'find', ...Array.map(names, (name) => `${name}`)])),
+              (text) => Record.fromEntries(Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Found)(line))).flatMap(Record.toEntries)),
+          )
+        : Effect.succeed({});
 
 const foreground = ({ activationPolicy }: Installation) => activationPolicy === 'regular';
 
@@ -43,8 +56,6 @@ const switchesOf = (installations: readonly Installation[], given: readonly stri
 const launchLine = (subjects: readonly string[], documents: readonly string[], environment: readonly Word[] = [], args: readonly Word[] = [], switches: readonly string[] = []): string =>
     [WATCHER, 'launch', ...subjects, ...(documents.length > 0 ? ['--document', ...documents] : []), ...(environment.length > 0 ? ['--environment', ...environment.map(({ raw }) => raw)] : []), ...(args.length + switches.length > 0 ? ['--arguments', ...args.map(({ raw }) => raw), ...switches] : [])].join(' ');
 
-const installationsOf = ({ text }: Word, cwd: Option.Option<string>, { host }: Call) => Effect.map(installed(text.includes('/') ? Option.toArray(host.place(text, cwd)) : [text]), (installations) => Object.values(installations).flat());
-
 const headlessPath = ([installation, ...others]: readonly Installation[], rest: readonly Word[], programs: ReadonlyMap<string, Program>): Option.Option<string> =>
     Option.fromUndefinedOr(installation).pipe(
         Option.flatMap(({ executable }) => executable),
@@ -60,7 +71,8 @@ const launched = (named: readonly string[], waits: readonly string[], allowed: r
         const { program, rest } = site;
         const loose = site.items.filter(({ names }) => names.length === 0).map(({ words: [word] }) => word);
         const [app] = [...site.supplied('--app', '--bundle'), ...loose.filter(({ text }) => text.endsWith('.app'))];
-        const subjects = [...named, ...Option.toArray(Option.map(Option.fromNullishOr(app), ({ raw }) => raw))];
+        const place = Option.flatMap(Option.fromNullishOr(app), (word) => Option.filter(call.host.place(word.text, site.command.cwd), () => word.known && (word.text.includes('/') || loose.includes(word))));
+        const subjects = [...named, ...Option.toArray(Option.orElse(Option.map(place, quote), () => Option.map(Option.fromNullishOr(app), ({ raw }) => raw)))];
         const target = subjects.join(' ') || '<app>';
         const documents = loose.filter((word) => word !== app);
         const [url] = [...site.supplied('--url'), ...documents.filter(({ text }) => URL.canParse(text))];
@@ -78,7 +90,7 @@ const launched = (named: readonly string[], waits: readonly string[], allowed: r
         if (foreign.size > 0) {
             return refusal(`${program} ${[...foreign].join(' ')} opens ${target}, use ${WATCHER} launch ${target}`);
         }
-        const found = app === undefined ? [] : yield* installationsOf(app, site.command.cwd, call);
+        const found = app === undefined ? [] : Object.values(yield* installed([Option.getOrElse(place, () => app.text)])).flat();
         const environment = site.supplied('--env');
         const { programs } = yield* Shell;
         if (found.length > 0 && !found.some(foreground)) {
@@ -265,4 +277,4 @@ const APPS: Policy = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { APPS };
+export { APPS, installed, WATCHER };

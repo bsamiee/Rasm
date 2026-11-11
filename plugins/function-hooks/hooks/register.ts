@@ -1,10 +1,13 @@
 import type { AgentStatus, EngineInterface, Register } from 'claude-code';
-import type { Instance, Routes } from '#/decision';
+import type { Instance } from '#/instances';
+import type { Routes } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Sockets = Set<Promise<string>>;
 type Row = Instance & { readonly agent?: string };
+type Watched = Routes['watched'][1][number];
+type Noted = Watched & { readonly owner: string | undefined; readonly untold: readonly string[] };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -60,6 +63,42 @@ const posted = async <R extends keyof Routes>($: EngineInterface, sockets: Socke
     return answer;
 };
 
+// --- [NOTES]
+
+const NOTED = new Map<number, Noted>();
+
+const held = (state: Noted): void => {
+    if (state.ended && state.untold.length === 0) {
+        NOTED.delete(state.pid);
+    } else {
+        NOTED.set(state.pid, state);
+    }
+};
+
+const shown = ($: EngineInterface): void => {
+    const standing = [...NOTED.values()].flatMap(({ conditions }) => conditions);
+    $.ui.status(standing.length === 0 ? undefined : standing.join('; '));
+};
+
+const noted = ($: EngineInterface, own: readonly Watched[], rows: readonly Row[], agent: string | undefined): void => {
+    own.forEach((state) => {
+        const before = NOTED.get(state.pid);
+        const fresh = state.notes.filter((note) => before?.notes.includes(note) !== true);
+        const row = rows.find(({ pid }) => pid === state.pid);
+        (state.ended ? fresh : []).forEach((note) => $.ui.log(note));
+        held({ ...state, owner: row === undefined ? agent : row.agent, untold: [...(before?.untold ?? []).filter((note) => state.notes.includes(note)), ...fresh] });
+    });
+    shown($);
+};
+
+const taken = async ($: EngineInterface, agent: string | undefined): Promise<readonly Noted[]> => {
+    const orphaned = agent === undefined && [...NOTED.values()].some(({ owner, untold }) => owner !== undefined && untold.length > 0);
+    const running = new Set(orphaned ? (await $.agent.list()).filter(({ status }) => !ENDED.has(status)).map(({ id }) => id) : []);
+    const owned = [...NOTED.values()].filter(({ owner, untold }) => untold.length > 0 && (owner === agent || (agent === undefined && owner !== undefined && !running.has(owner))));
+    owned.forEach((state) => held({ ...state, untold: [] }));
+    return owned;
+};
+
 // --- [INSTANCES]
 
 const rowKeysOf = async ($: EngineInterface, session: string): Promise<readonly string[]> => (await $.store.keys()).filter((key) => key.startsWith(`${ROW_PREFIX}${session}:`));
@@ -73,21 +112,6 @@ const recorded = async ($: EngineInterface, agent: string | undefined, { created
 
 const watchFailed = ($: EngineInterface, cause: unknown): void => $.ui.log(`function-hooks watch failed, ${cause instanceof Error ? cause.message : JSON.stringify(cause)}`, { to: 'debug' });
 
-const delivered = async ($: EngineInterface, note: string, agent: string | undefined): Promise<void> => {
-    const { isDelivered } = agent === undefined ? { isDelivered: false } : await $.session.send({ to: { agentId: agent }, text: note });
-    if (!isDelivered) {
-        await $.prompt.submit({ text: note });
-    }
-};
-
-const noted = (own: Routes['watched'][1], rows: readonly Row[], seen: Map<number, Routes['watched'][1][number]>, agent: string | undefined) =>
-    own.flatMap((state) => {
-        const before = seen.get(state.pid)?.notes ?? [];
-        const row = rows.find(({ pid }) => pid === state.pid);
-        seen.set(state.pid, state);
-        return state.notes.filter((note) => !before.includes(note)).map((note) => ({ note, owner: row === undefined ? agent : row.agent }));
-    });
-
 const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<string>, names: readonly string[], agent: string | undefined): Promise<void> => {
     const session = await $.session.id();
     const key = `${session} ${names.join(' ')}`;
@@ -95,10 +119,11 @@ const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<strin
         return;
     }
     watches.add(key);
-    const seen = new Map<number, Routes['watched'][1][number]>();
+    const seen = new Set<number>();
     const buffer = { partial: '' };
+    const child = $.process.spawn({ argv: ['watch-apps', 'watch', ...names] });
     try {
-        for await (const { stream, text } of $.process.spawn({ argv: ['watch-apps', 'watch', ...names] })) {
+        for await (const { stream, text } of child) {
             const lines = stream === 'stdout' ? `${buffer.partial}${text}` : buffer.partial;
             const cut = lines.lastIndexOf('\n') + 1;
             const states =
@@ -109,20 +134,25 @@ const watching = async ($: EngineInterface, sockets: Sockets, watches: Set<strin
                       });
             buffer.partial = states === undefined ? lines : lines.slice(cut);
             if ((await $.session.id()) !== session) {
-                break;
+                return;
             }
             const rows = await rowsOf($, session);
             const own = (states ?? []).filter(({ pid, bundle }) => rows.every((row) => row.bundle !== bundle) || rows.some((row) => row.pid === pid));
-            noted(own, rows, seen, agent).forEach(({ note, owner }) => {
-                delivered($, note, owner).catch((cause: unknown) => watchFailed($, cause));
-            });
+            own.forEach(({ pid }) => seen.add(pid));
+            noted($, own, rows, agent);
             await recorded($, undefined, { created: [], exited: own.filter(({ ended }) => ended).map(({ pid }) => pid) });
-            if (own.length > 0 && [...seen.values()].every(({ ended }) => ended)) {
-                break;
+            if (own.length > 0 && [...seen].every((pid) => NOTED.get(pid)?.ended !== false)) {
+                return;
             }
+        }
+        const { code } = await child.result;
+        if (code !== null && code !== 0) {
+            watchFailed($, new Error(`watch-apps watch ${names.join(' ')} exited ${code}`));
         }
     } finally {
         watches.delete(key);
+        [...seen].filter((pid) => NOTED.get(pid)?.ended === false).forEach((pid) => NOTED.delete(pid));
+        shown($);
     }
 };
 
@@ -173,13 +203,17 @@ const TOLD = new Map<string | undefined, number>();
 
 const unjudged = (cause: string) => `function-hooks did not judge this command: ${cause.split('\n', 1).join('')}`;
 
-const failOpen = async <E extends { readonly agentId?: string | undefined }, A extends { readonly deny?: string | undefined; readonly context?: readonly string[] | undefined }>($: EngineInterface, e: E, next: { (e: E): Promise<A>; readonly error: { readonly message?: string; readonly kind: string } }): Promise<A> => {
+const failOpen = async <E extends { readonly agentId?: string | undefined }, A extends { readonly deny?: string | undefined; readonly context?: readonly string[] | undefined }>(
+    $: EngineInterface,
+    e: E,
+    next: { (e: E): Promise<A>; readonly error: { readonly message?: string; readonly kind: string }; readonly called: boolean },
+): Promise<A> => {
     const line = unjudged(next.error.message ?? next.error.kind);
     const now = await $.clock.now();
     const due = now - (TOLD.get(e.agentId) ?? Number.NEGATIVE_INFINITY) >= NOTE_INTERVAL;
     $.ui.log(line, { to: 'debug' });
     const answer = await next(e);
-    if (!due || answer.deny !== undefined) {
+    if (next.called || !due || answer.deny !== undefined) {
         return answer;
     }
     TOLD.set(e.agentId, now);
@@ -196,14 +230,31 @@ const register: Register = (on) => {
             started($, sockets).catch(() => undefined);
         }
         await rewatched($, sockets, watches);
+        shown($);
         return next(e);
+    });
+    on('prompt.submit', async ($, e, next) => {
+        const owned = e.command === undefined ? await taken($, undefined) : [];
+        const answer = await next(owned.length === 0 ? e : { ...e, context: [...(e.context ?? []), ...owned.flatMap(({ untold }) => untold)] });
+        if (answer.drop !== undefined) {
+            owned.forEach((state) => held({ ...(NOTED.get(state.pid) ?? state), untold: [...state.untold, ...(NOTED.get(state.pid)?.untold ?? [])] }));
+        }
+        return answer;
+    });
+    on('tool.call', async ($, e, next) => {
+        const answer = await next(e);
+        if (answer.deny !== undefined) {
+            return answer;
+        }
+        const notes = (await taken($, e.agentId)).flatMap(({ untold }) => untold);
+        return notes.length === 0 ? answer : { ...answer, context: [...(answer.context ?? []), ...notes] };
     });
     on('tool.call', { tool: new RegExp(APP_SERVERS.map(([server]) => server.source).join('|'), 'u') }, ($, e, next) => {
         driven($, sockets, watches, e.tool, e.agentId).catch((cause: unknown) => watchFailed($, cause));
         return next(e);
     }).catch(failOpen);
     on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
-    on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, report back and stop' })).catch(failOpen);
+    on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, run list_granted_applications' })).catch(failOpen);
     on('tool.call', { tool: ['mcp__atelier__launch', 'mcp__atelier__open'] }, async ($, e, next) => {
         const answer = await next(e);
         await observed($, sockets, watches, e.agentId, answer.text);
@@ -245,6 +296,8 @@ const register: Register = (on) => {
         return answer;
     });
     on('session.end', async ($, e, next) => {
+        NOTED.clear();
+        shown($);
         await quitSession($, e.sessionId);
         return next(e);
     });
@@ -252,4 +305,4 @@ const register: Register = (on) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { NOTE_INTERVAL, register, unjudged };
+export { register };

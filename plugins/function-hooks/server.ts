@@ -1,18 +1,24 @@
 import { createServer } from 'node:http';
+import { resolve } from 'node:path';
 import process from 'node:process';
 import { layer, layerHttpServices } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
-import { Array, Cause, Console, Effect, FileSystem, Function, Layer, Option, Path, Predicate, Ref, Schedule, type Schema } from 'effect';
+import { Array, Cause, Console, Effect, FileSystem, Function, Layer, Option, Path, Predicate, Ref, Schedule, Schema } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { KeyValueStore } from 'effect/persistence';
-import { Routes } from '#/decision';
+import { Decision, Request } from '#/decision';
 import { Host } from '#/host';
-import { observed, quit, watched } from '#/instances';
+import { Change, Instance, observed, quit, Watched, watched } from '#/instances';
 import { decide, live } from '#/policies/rules';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = ['.', 'shell', 'policies'];
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Routes = { decide: [Request, Decision], observe: [Schema.String, Change], quit: [Schema.Array(Instance), Change], watched: [Schema.String, Schema.Array(Watched)] } as const;
+type Routes = { readonly [Route in keyof typeof Routes]: { readonly [At in 0 | 1]: (typeof Routes)[Route][At]['Type'] } };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -65,4 +71,8 @@ const untilStale = Effect.gen(function* () {
     yield* Effect.repeat(stale, { schedule: Schedule.spaced('2 seconds'), until: Predicate.isTruthy });
 });
 
-Effect.raceAllFirst([Layer.launch(Server), untilStale]).pipe(Effect.provide(Layer.provideMerge(live, Layer.merge(layerHttpServices, KeyValueStore.layerMemory))), Effect.tapCause(Function.flow(Cause.pretty, Console.error)), runMain({ disableErrorReporting: true }));
+Effect.raceAllFirst([Layer.launch(Server), untilStale]).pipe(Effect.provide(Layer.provideMerge(live(resolve(import.meta.dirname, '../..')), Layer.merge(layerHttpServices, KeyValueStore.layerMemory))), Effect.tapCause(Function.flow(Cause.pretty, Console.error)), runMain({ disableErrorReporting: true }));
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+export { type Routes };

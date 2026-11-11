@@ -1,4 +1,4 @@
-import { Array, Data, Duration, Number, Option, Schema, Struct } from 'effect';
+import { Array, Data, Duration, Number, Option, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,12 +20,6 @@ const Request = Schema.Struct({
 });
 type Request = typeof Request.Type;
 
-const Instance = Schema.Struct({ pid: Schema.Int, bundle: Schema.String.check(Schema.isPattern(/^[\w.-]+$/u)) });
-type Instance = typeof Instance.Type;
-
-const Change = Schema.Struct({ created: Schema.Array(Instance), reused: Schema.Array(Instance), exited: Schema.Array(Schema.Int) });
-type Change = typeof Change.Type;
-
 const Decision = Schema.TaggedUnion({
     Allow: { observes: Schema.Boolean },
     Deny: { reason: Schema.String },
@@ -38,9 +32,6 @@ const Decision = Schema.TaggedUnion({
     },
 });
 type Decision = typeof Decision.Type;
-
-const Routes = { decide: [Request, Decision], observe: [Schema.String, Change], quit: [Schema.Array(Instance), Change], watched: [Schema.String, Schema.Array(Instance.mapFields(Struct.assign({ notes: Schema.Array(Schema.String), ended: Schema.Boolean })))] } as const;
-type Routes = { readonly [Route in keyof typeof Routes]: { readonly [At in 0 | 1]: (typeof Routes)[Route][At]['Type'] } };
 
 const Verdict = Data.taggedEnum<Verdict>();
 
@@ -90,4 +81,4 @@ const decisionOf = (command: string, verdicts: readonly Verdict[], edits: readon
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Change, Decision, decisionOf, editsOf, Instance, notesOf, type Request, Routes, Verdict };
+export { Decision, decisionOf, editsOf, notesOf, Request, Verdict };

@@ -35,6 +35,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
         case host(NSError)
         case cancelled
         case unmatched(Unmatched)
+        case unnamed([URL])
         case unwatched(FileFailure)
         case malformed(String)
 
@@ -80,6 +81,8 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .host(let error): "\(subject): \(error.localizedDescription)"
             case .cancelled: "Canceled \(subject)"
             case .unmatched(let miss): miss.errorDescription
+            case .unnamed(let candidates) where candidates.isEmpty: "\(subject) names no application"
+            case .unnamed: "\(subject) names no single application, pass one candidate"
             case .unwatched(let failure): failure.errorDescription
             case .malformed(let message): message
         }
@@ -94,7 +97,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .unwatched(let failure): [NSUnderlyingErrorKey: failure]
             case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
             case .untrusted, .noCaptureAccess, .unanswered, .unreadable, .unresolved, .foreign, .disabled, .notSettable, .refused, .noIdentifier, .noPath, .noHandler, .noWindow, .noImage,
-                .noExtension, .noEncoder, .noReport, .cancelled, .malformed:
+                .noExtension, .noEncoder, .noReport, .cancelled, .unnamed, .malformed:
                 [:]
         }
     }
@@ -120,6 +123,7 @@ extension ApplicationFailure: Encodable {
                 try fields.encodeIfPresent(read.label, forKey: .label)
                 try fields.encode(read.error.rawValue, forKey: .error)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
+            case .unnamed(let candidates): try fields.encode(candidates, forKey: .candidates)
             case .noReport(let limit): try fields.encode(limit / .seconds(1), forKey: .limit)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
@@ -133,7 +137,7 @@ extension ApplicationFailure: Encodable {
 
 extension ApplicationFailure {
     init(_ error: AXError, subject: String, process: pid_t?, answering action: ElementAction? = nil, otherwise: () -> Self) {
-        let exited = process.flatMap { process in Result { () throws(Errno) in try ProcessStatus(of: process) } == .failure(.noSuchProcess) ? process : nil }
+        let exited = process.flatMap { process in hasExited(process) ? process : nil }
         self =
             switch (error, exited) {
                 case (.apiDisabled, _) where !AXIsProcessTrusted(): Self(subject: ProcessInfo.processInfo.processName, reason: .untrusted)
