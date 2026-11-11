@@ -1,6 +1,6 @@
 import { execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { detectPackageManager, normalizePath } from '@nx/devkit';
+import { normalizePath } from '@nx/devkit';
 import { getLockFileName, globWithWorkspaceContext, hashObject, isCI, killProcessTreeGraceful } from '@nx/devkit/internal';
 import { type RawTsconfigJsonCache, walkTsconfigExtendsChain } from '@nx/js/internal';
 import { Array, Duration, Effect, Fiber, Option, Path, Queue, Result, Schema, Stream } from 'effect';
@@ -121,7 +121,7 @@ const consulted = <J extends Job, A, O extends typeof Timed.Type>({
             const stated = jobs(request);
             const names = yield* listed(workspaceRoot, Array.dedupe(stated.map(({ root }) => root)));
             const chains = yield* chained(workspaceRoot, [...names.keys()]);
-            const [ci, lock] = [isCI(), getLockFileName(detectPackageManager(workspaceRoot))];
+            const [ci, lock] = [isCI(), getLockFileName(request.manager)];
             const kept = stated.filter(({ root }) => names.has(root));
             return kept.map(
                 (each): Asked<J> => ({
@@ -129,7 +129,7 @@ const consulted = <J extends Job, A, O extends typeof Timed.Type>({
                     file: each.file,
                     job: each,
                     governed: [request.path.join(each.root, MANIFESTS), lock, ...(chains.get(each.root) ?? [])],
-                    chain: (chains.get(each.root) ?? []).filter((at) => !at.startsWith(`${each.root}/`)),
+                    chain: (chains.get(each.root) ?? []).filter((at) => !at.startsWith(`${each.root}/`)).map((at) => request.path.join('{workspaceRoot}', at)),
                     salt: hashObject({ each, launch: launch(each), ci, names: names.get(each.root) }),
                 }),
             );

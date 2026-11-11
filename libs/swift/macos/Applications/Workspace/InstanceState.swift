@@ -355,7 +355,7 @@ extension Instance {
 
 extension NSWorkspace {
     public func instances(of matching: (NSRunningApplication) -> Bool) -> [Instance] {
-        runningApplications.filter { application in application.activationPolicy != .prohibited && matching(application) }.compactMap { application in try? Instance(application) }
+        runningApplications.filter(matching).compactMap { application in try? Instance(application) }
     }
 
     public func instanceStates(

@@ -7,12 +7,6 @@ import { Jwks, Jwt } from 'effect/jose';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Header = Schema.String.pipe(Schema.decode(SchemaTransformation.toLowerCase()));
-const Origin = Schema.String.pipe(
-    Schema.decodeTo(Schema.URLFromString.check(Schema.makeFilter(({ href, origin }) => href === `${origin}/`, { expected: 'an HTTPS origin or its host' })), {
-        decode: SchemaGetter.transform((stated: string) => (URL.parse(stated)?.protocol === 'https:' ? stated : `https://${stated}`)),
-        encode: SchemaGetter.passthrough(),
-    }),
-);
 
 class User extends Schema.Class<User, { readonly brand: unique symbol }>('User')({ id: Schema.NonEmptyString, email: Schema.OptionFromOptionalKey(Schema.String) }) {}
 
@@ -32,7 +26,18 @@ class Identity extends Data.Class<{
 }
 
 class Access extends Schema.Class<Access, { readonly brand: unique symbol }>('Access')({
-    source: Schema.TaggedUnion({ Cloudflare: { teamDomain: Origin, audience: Schema.String }, Forwarded: { id: Header, email: Header } }),
+    source: Schema.TaggedUnion({
+        Cloudflare: {
+            teamDomain: Schema.String.pipe(
+                Schema.decodeTo(Schema.URLFromString.check(Schema.makeFilter(({ href, origin }) => href === `${origin}/`, { expected: 'an HTTPS origin or its host' })), {
+                    decode: SchemaGetter.transform((stated: string) => (URL.parse(stated)?.protocol === 'https:' ? stated : `https://${stated}`)),
+                    encode: SchemaGetter.passthrough(),
+                }),
+            ),
+            audience: Schema.String,
+        },
+        Forwarded: { id: Header, email: Header },
+    }),
     logout: Schema.String,
 }) {
     static readonly variable = 'ACCESS';

@@ -52,7 +52,7 @@
         <CopyDocumentationFileToOutputDirectory>false</CopyDocumentationFileToOutputDirectory>
     </PropertyGroup>
 
-    <PropertyGroup Label="Runtimes" Condition="'$(UseCurrentRuntimeIdentifier)' == 'true'">
+    <PropertyGroup Label="Runtimes" Condition="'$(UseCurrentRuntimeIdentifier)' == 'true' or '$(IsRoslynComponent)' == 'true'">
         <RuntimeIdentifiers>osx-arm64;win-x64</RuntimeIdentifiers>
     </PropertyGroup>
 

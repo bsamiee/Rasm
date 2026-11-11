@@ -20,7 +20,7 @@ interface Runner {
 
 const ADDRESSING = new Set(['--projects', '--targets', '--target']);
 const AGGREGATE = 'nx:noop';
-const LONG = '--';
+const LONG = /^--/u;
 const SEARCH_PATH = 'PYTHONPATH';
 const PUBLISH = /(?:^|[:,])nx-release-publish(?:,|$)/u;
 const SPACES = /\s+/u;
@@ -95,14 +95,11 @@ const ownersOf = Effect.fnUntraced(function* ({ nodes }: ProjectGraph, site: Sit
         );
     const spellings = spellingsOf(site, (yield* Shell).programs);
     const selects = site.row.routes?.selects ?? [];
-    const stated = new Map(
-        Object.values(nodes).flatMap((node) =>
-            Object.values(targetsOf(node))
-                .filter(({ metadata }) => !spellings.isDisjointFrom(new Set(metadata?.help?.command.split(' '))))
-                .flatMap(({ options = {} }) => selects.map((flag) => [options[flag.slice(LONG.length)], node] as const)),
-        ),
-    );
-    const selected = site.values(...selects).map((value) => Option.orElse(Option.fromUndefinedOr(stated.get(value)), () => Option.orElse(Record.get(nodes, value), () => located(value))));
+    const run = Object.values(nodes)
+        .flatMap((node) => Object.values(targetsOf(node)).map((target) => [node, target] as const))
+        .filter(([, { metadata }]) => !spellings.isDisjointFrom(new Set(metadata?.help?.command.split(' '))));
+    const stated = new Map(Array.cartesianWith(run, selects, ([node, { options = {} }], flag) => [options[flag.replace(LONG, '')], node] as const));
+    const selected = site.values(...selects).map((value) => Option.firstSomeOf([Option.fromUndefinedOr(stated.get(value)), Record.get(nodes, value), located(value)]));
     const named = [...selected, ...places.map(owner)];
     const found = named.length === 0 ? Option.toArray(owner(folder)) : Option.getOrElse(Option.all(named), () => []);
     return [...new Map(found.map((node) => [node.name, node])).values()];

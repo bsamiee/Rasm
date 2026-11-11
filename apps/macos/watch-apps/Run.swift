@@ -37,7 +37,7 @@ struct Journal: Sendable {
         file = Self.folder.appending(component: [callerSession, String(getpid())].compactMap(\.self).joined(separator: ".")).appendingPathExtension("jsonl")
         try FileManager.default.createDirectory(at: Self.folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         for old in try Self.files().dropLast(runLimit.files - 1) { _ = try ifPresent { try FileManager.default.removeItem(at: old) } }
-        descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .writeOnly, options: [.append, .create, .truncate], permissions: .ownerReadWrite)
+        descriptor = try FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .writeOnly, options: [.append, .create, .truncate, .closeOnExec], permissions: .ownerReadWrite)
         try descriptor.writeAll(start)
         (self.start, bytes) = (start, start.count)
     }
@@ -238,6 +238,14 @@ final class Run: Sendable {
         await telemetry.triggerGracefulShutdown()
         _ = await services.result
         WatchApps.exit(withError: status)
+    }
+
+    func restart(into executable: URL) async -> Never {
+        await telemetry.triggerGracefulShutdown()
+        _ = await services.result
+        _ = unsafe execv(executable.path(percentEncoded: false), CommandLine.unsafeArgv)
+        fail(Program.current.name, ApplicationFailure(subject: executable.path(percentEncoded: false), reason: .system(Errno(rawValue: errno))))
+        await finish()
     }
 
     static func execute(

@@ -1,0 +1,26 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-telemetry-tests"
+version         = "0.0.0"
+requires-python = ">=3.15"
+
+dependencies = [
+    # --- [CORE]
+
+    "anyio",                                       # Event loop thread the trace service runs on, its clock on each call, and the worker thread of an export a test interrupts
+    "msgspec",                                     # Call and reply records of the trace service
+    "pytest",                                      # Fixtures, parameters, captured logs, and inner runs
+    "rasm-telemetry[otlp-grpc,otlp-http,process]", # Collector exporter, flush-driven span processor, tracer provider, and the instrumented process scope under test
+    "rasm-testing",                                # HTTP server a test hosts, its answers, and the requests it received
+
+    # --- [PROTOCOL]
+
+    "googleapis-common-protos",                    # `google.rpc` Status of a refused OTLP/HTTP export and RetryInfo of a throttled OTLP/gRPC export
+    "grpcio",                                      # Trace service a test hosts, status codes, and trailing metadata
+    "opentelemetry-exporter-otlp-proto-common",    # Span encoding each received request is compared with
+    "opentelemetry-exporter-otlp-proto-grpc",      # OTLP/gRPC span exporter behind the flush-driven processor
+    "opentelemetry-exporter-otlp-proto-http",      # OTLP/HTTP span exporter the collector returns
+    "opentelemetry-proto",                         # Export request, response, and partial success messages of the trace service
+    "opentelemetry-sdk",                           # Finished spans, export results, and the `OTEL_EXPORTER_OTLP_*` variable names
+]

@@ -78,7 +78,7 @@ const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof
 
 const { linked, scripted } = Effect.runSync(link);
 const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X>) => void) {
-    const { app } = yield* Model;
+    const [{ app }, { id }] = yield* Effect.all([Model, Plugin]);
     const mode = picker(
         'Mode',
         Record.toEntries({
@@ -131,10 +131,14 @@ const typesetting = Effect.fnUntraced(function* (root: HTMLElement, fork: <A, X>
     Record.collect(groups, (textContent, children) => widget('div', {}, widget('sp-detail', { textContent }), ...children)).forEach((child) => root.appendChild(child));
     const events = ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'] as const;
     const listened = (event: (typeof events)[number]) =>
-        Effect.acquireRelease(
-            Effect.sync(() => app.addEventListener(event, changed)),
-            Function.constant(Effect.sync(() => app.removeEventListener(event, changed))),
-        );
+        Effect.sync(() => {
+            const name = `${id}:${event}`;
+            const stale = app.eventListeners.itemByName(name);
+            if (stale.isValid) {
+                stale.remove();
+            }
+            Object.assign(app.addEventListener(event, changed), { name });
+        });
     yield* Effect.forEach(events, listened, { discard: true });
     yield* Effect.sync(changed);
 }, scripted);

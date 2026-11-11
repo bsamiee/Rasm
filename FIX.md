@@ -25,12 +25,3 @@ Job `macos` spends 9 min before its first task:
 Fix:
 - Keep the built Apple analyzer between runs, keyed on its sources
 - Shorten the cold graph: a developer machine takes 37 s with every plugin cache empty, 30 s of it `xcodebuild -showBuildSettings` per shared scheme in `@rasm/nx-apple`
-
-## [03]-[QUEUED_RUNS]
-
-Runs of `ci.yml` on `main` share one concurrency group with `cancel-in-progress` off:
-- A push waits for the run before it, and a third push cancels the waiting second
-- Several pushes in a row report one result per run length, 15 min each
-
-Fix:
-- Decide whether pushes to `main` cancel the run in progress, as pull requests do
