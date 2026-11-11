@@ -16,8 +16,6 @@ const Publish = Released.mapFields(
     Struct.assign({
         cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
         package: Schema.String.annotate({ description: 'Crate to publish' }),
-        registry: Schema.optionalKey(Schema.String).annotate({ description: 'Registry name from Cargo configuration, crates.io when unset' }),
-        firstRelease: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Skips the registry version check' }),
     }),
 ).annotate({ title: 'Release publish', description: 'Publishes a crate with cargo publish, skipping a version the registry already holds; runs through nx release publish' });
 const Published = Schema.fromJsonString(Schema.Struct({ vers: Schema.String, yanked: Schema.optionalKey(Schema.NullOr(Schema.Boolean)) }));
@@ -51,8 +49,9 @@ const releases = Effect.fnUntraced(function* (name: string) {
 
 const execute = executor(
     Publish,
-    Effect.fnUntraced(function* ({ cwd: root, package: named, registry, firstRelease, ...stated }, context, project) {
-        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, project)]);
+    Effect.fnUntraced(function* ({ cwd: root, package: named, ...stated }, context, project) {
+        const { registry, firstRelease } = stated;
+        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, context, project)]);
         const cwd = path.resolve(context.root, root);
         const { packages } = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Metadata));
         const crate = yield* Effect.fromOption(Array.findFirst(packages, ({ name }) => name === named));

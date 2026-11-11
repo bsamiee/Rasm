@@ -10,7 +10,7 @@
         { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true } },
         "@rasm/nx-cargo",
         { "plugin": "@rasm/nx-uv", "exclude": [ ".config/mise/locks/**" ] },
-        { "plugin": "@rasm/nx-dotnet", "options": { "apiKey": "NUGET_API_KEY" } },
+        "@rasm/nx-dotnet",
         "@rasm/nx-docker",
         "@rasm/nx-pulumi",
         "@rasm/nx-buf",
@@ -22,11 +22,10 @@
         "@rasm/nx-playwright",
         "@rasm/nx-distribution"
     ],
-    "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" }, "@rasm/nx-devkit": { "outputPath": ".artifacts", "tags": { "os": "os:{os}", "host": "host:{host}", "release": "release" } } },
+    "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" }, "@rasm/nx-devkit": { "outputPath": ".artifacts" } },
     "release": {
         "projects": [ "tag:npm:public", "tag:release" ],
         "projectsRelationship": "independent",
-        "releaseTag": { "pattern": "{projectName}@{version}" },
         "version": { "conventionalCommits": true, "fallbackCurrentVersionResolver": "disk" },
         "conventionalCommits": { "useCommitScope": false, "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
         "changelog": { "automaticFromRef": true, "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } } }

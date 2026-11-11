@@ -44,16 +44,14 @@ const { createNodes } = inferred({
     projects: (report: readonly Hosted[], _, { path, plugin }) =>
         report.map(({ file, programs, hosted }) => {
             const stacks = (request: string, description: string, dependsOn: readonly string[]): TargetConfiguration => ({ executor: `${plugin.name}:stacks`, options: { programs, request }, dependsOn: [hosted ? 'build' : '^build', ...dependsOn], metadata: { description } });
-            const deploy = stacks('Deploy', 'Applies or destroys the stacks a program package states for a project, refreshing live state first', []);
-            const project = { file, root: path.dirname(file), technologies: TECHNOLOGIES };
-            return hosted
-                ? {
-                      ...project,
-                      members: { install: { pulumi: stacks('Install', "Applies the stacks a program package states for a project's local install, refreshing live state first", ['^install']) } },
-                      targets: { deploy, 'nx-release-publish': stacks('Release', 'Applies the stacks a program package states for a released version, previewing them under a dry run', ['^nx-release-publish']) },
-                      kinds: { release: TECHNOLOGIES },
-                  }
-                : { ...project, members: {}, targets: { deploy } };
+            const deploy = { ...stacks('Deploy', 'Applies or destroys the stacks a program package states for a project, refreshing live state first; configuration release applies the stacks of a released version, previewing them under a dry run', []), configurations: { release: { request: 'Release' } } };
+            return {
+                file,
+                root: path.dirname(file),
+                technologies: TECHNOLOGIES,
+                members: hosted ? { install: { pulumi: stacks('Install', "Applies the stacks a program package states for a project's local install, refreshing live state first", ['^install']) } } : {},
+                targets: { deploy },
+            };
         }),
 });
 

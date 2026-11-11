@@ -28,6 +28,26 @@
             },
             "description": "Versions nx release set in this run, a project it left unversioned is skipped"
         },
+        "registry": {
+            "type": "string",
+            "description": "Registry nx release publish passes as --registry, in the form the tool names one"
+        },
+        "tag": {
+            "type": "string",
+            "description": "Distribution tag nx release publish passes as --tag"
+        },
+        "access": {
+            "type": "string",
+            "description": "Access level nx release publish passes as --access"
+        },
+        "otp": {
+            "type": "number",
+            "description": "One-time password nx release publish passes as --otp"
+        },
+        "firstRelease": {
+            "type": "boolean",
+            "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
+        },
         "cwd": {
             "type": "string",
             "description": "Cargo workspace root, relative to the Nx workspace root"
@@ -35,14 +55,6 @@
         "package": {
             "type": "string",
             "description": "Crate to publish"
-        },
-        "registry": {
-            "type": "string",
-            "description": "Registry name from Cargo configuration, crates.io when unset"
-        },
-        "firstRelease": {
-            "type": "boolean",
-            "description": "Skips the registry version check"
         }
     },
     "required": [ "cwd", "package" ],

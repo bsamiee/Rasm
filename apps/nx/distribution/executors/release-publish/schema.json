@@ -30,7 +30,23 @@
         },
         "registry": {
             "type": "string",
-            "description": "Package server URL nx release publish passes as --registry, in place of the host's default server"
+            "description": "Registry nx release publish passes as --registry, in the form the tool names one"
+        },
+        "tag": {
+            "type": "string",
+            "description": "Distribution tag nx release publish passes as --tag"
+        },
+        "access": {
+            "type": "string",
+            "description": "Access level nx release publish passes as --access"
+        },
+        "otp": {
+            "type": "number",
+            "description": "One-time password nx release publish passes as --otp"
+        },
+        "firstRelease": {
+            "type": "boolean",
+            "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
         }
     },
     "additionalProperties": true,

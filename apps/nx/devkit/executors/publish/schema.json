@@ -28,6 +28,26 @@
             },
             "description": "Versions nx release set in this run, a project it left unversioned is skipped"
         },
+        "registry": {
+            "type": "string",
+            "description": "Registry nx release publish passes as --registry, in the form the tool names one"
+        },
+        "tag": {
+            "type": "string",
+            "description": "Distribution tag nx release publish passes as --tag"
+        },
+        "access": {
+            "type": "string",
+            "description": "Access level nx release publish passes as --access"
+        },
+        "otp": {
+            "type": "number",
+            "description": "One-time password nx release publish passes as --otp"
+        },
+        "firstRelease": {
+            "type": "boolean",
+            "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
+        },
         "commands": {
             "type": "array",
             "description": "Argument lists run in order before the publish, under a dry run too (a pack, a build)",
@@ -71,21 +91,28 @@
                 "type": "string"
             }
         },
-        "secrets": {
+        "flags": {
             "type": "object",
-            "additionalProperties": {
-                "type": "string"
+            "properties": {
+                "registry": {
+                    "type": "string"
+                },
+                "tag": {
+                    "type": "string"
+                },
+                "access": {
+                    "type": "string"
+                },
+                "otp": {
+                    "type": "string"
+                },
+                "firstRelease": {
+                    "type": "string"
+                }
             },
-            "description": "Flag to the environment variable holding its value, each set variable appends the pair to publish",
+            "additionalProperties": true,
+            "description": "Option nx release publish passes to the tool's flag for it (registry to --source), a set option appends the flag and its value to publish and to preview, a true one the flag alone",
             "default": {}
-        },
-        "registry": {
-            "type": "string",
-            "description": "Registry nx release publish passes as --registry, appended to publish and preview after registryFlag"
-        },
-        "registryFlag": {
-            "type": "string",
-            "description": "The tool's flag taking a registry (--source, --index), absent ignores registry"
         },
         "args": {
             "type": "array",
@@ -101,7 +128,7 @@
             "default": "."
         }
     },
-    "required": [ "commands", "publish", "secrets", "args", "cwd" ],
+    "required": [ "commands", "publish", "flags", "args", "cwd" ],
     "additionalProperties": true,
     "title": "Publish",
     "description": "Publishes a project through its tool's own publish command, skipping a project nx release left unversioned; runs through nx release publish"

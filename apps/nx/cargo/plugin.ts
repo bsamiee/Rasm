@@ -39,7 +39,7 @@ const analyzed = Effect.fnUntraced(function* ({ files: matched, context, plugin,
                 members,
                 targets: published,
                 ...(name !== undefined && { name }),
-                ...(release !== undefined && { kinds: { release: ['cargo'] }, configuration: { release } }),
+                ...(release !== undefined && { configuration: { release } }),
             }),
         );
     });

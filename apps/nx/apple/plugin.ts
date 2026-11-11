@@ -1,11 +1,12 @@
 import { join, matchesGlob, relative } from 'node:path';
+import process from 'node:process';
 import { type CreateDependenciesContext, DependencyType, logger, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { type Identity, inferred, type Project, produced, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { present, printed, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Combiner, Effect, FileSystem, flow, Option, Path, Record, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
-import { analyzer, Options, type Part, type Settings, target, tokened } from '#/targets';
-import { Analyzed, evaluated, invocation, released, xcodeParts } from '#/xcode-project';
+import { analyzer, Options, type Part, type Settings, tokened } from '#/targets';
+import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,6 +20,7 @@ interface Graph {
 
 const READ = [MANIFEST, INFO, 'Package@swift-*.swift', '*.xcodeproj/project.xcproj', '*.xcworkspace/contents.xcworkspacedata', '*.xcscheme', '*.xcconfig'] as const;
 const FILES = [...READ, '*.xcodeproj/project.pbxproj', '*.xctestplan', '*.entitlements', '*.plist'] as const;
+const HOST: NodeJS.Platform = 'darwin';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -90,12 +92,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
         ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error) => [marker(container.path), error] as const)),
         ...unsupported.map((file) => [file, ToolError.make({ subject: file, detail: 'has no reader, and no project.xcproj sits beside it' })] as const),
     ];
-    yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => logger.warn(`${file} takes its project and targets from the file alone, and its runs report the tool's own failure: ${reason}`)));
-    const filed = unread.map(({ file, reason }) =>
-        path.basename(file) === MANIFEST
-            ? { file, reason, root: path.dirname(file), name: path.basename(path.resolve(workspaceRoot, path.dirname(file))), technology: 'swift', tool: 'swift-build', clean: 'swift-package', run: ['swift', 'build', '--package-path', path.dirname(file)] as const }
-            : { file, reason, root: path.dirname(path.dirname(file)), name: path.basename(path.dirname(file), path.extname(path.dirname(file))), technology: 'xcode', tool: 'xcodebuild', clean: 'xcodebuild', run: ['xcodebuild', 'build', ...invocation(path, options, path.dirname(file)).flags] as const },
-    );
+    yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => logger.warn(`${file} presents no project: ${reason}`)));
     const packaged = flow(local, Option.isSome);
     const platforms = (at: string) => Option.match(local(at), { onNone: () => [], onSome: (swiftPackage) => swiftPackage.manifest.platforms.map((platform) => platform.name) });
     const destinations = (folders: readonly string[]) => Array.dedupe(folders.flatMap((folder) => (platforms(folder).length === 0 ? Option.toArray(host) : platforms(folder))));
@@ -107,20 +104,6 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
     const parts: readonly Part[] = [
         ...packages.flatMap((swiftPackage) => packageParts(path, options, plugin, swiftPackage, described)),
         ...xcode.map(({ container, inputs, archives }) => xcodeParts(path, options, plugin, marker(container.path), container, Array.dedupe([...inputs.flatMap((at) => tokened(path, at)), ...linked(container).filter((input) => !input.endsWith(RESOLVED))]), archives, built(container.path), destinations, packaged)),
-        ...filed.map(
-            ({ file, reason, root, name, technology, tool, clean, run }): Part => ({
-                root,
-                name,
-                file,
-                technologies: [technology],
-                clean,
-                ...released(path, plugin, file),
-                members: {
-                    build: { [tool]: target(plugin, [run], { technologies: [technology], description: `Builds ${name} with ${run[0]}, inferred from ${file} alone: ${reason}` }, { inputs: [path.join('{projectRoot}', '**/*'), ...plugin.inputs] }) },
-                    check: { [tool]: { executor: 'nx:noop', dependsOn: [`build--${tool}`], metadata: { technologies: [technology], description: `Compiles ${name} as its type check` } } },
-                },
-            }),
-        ),
     ];
     const grouped = Array.groupBy(parts, (part) => part.root);
     const conflicts = Record.filter(grouped, (group) => new Set(group.map((part) => part.name)).size > 1);
@@ -155,8 +138,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
                     clean: part.clean,
                     members: part.members,
                     targets: part.published === undefined ? {} : { 'nx-release-publish': part.published },
-                    kinds: { os: ['darwin'], release: part.release === undefined ? [] : ['github'] },
-                    ...(part.release !== undefined && { configuration: { release: part.release } }),
+                    configuration: { tags: [`os:${HOST}`], ...(part.release !== undefined && { release: part.release }) },
                 }),
             ),
             edges: Array.dedupeWith(edges, (left, right) => left.source === right.source && left.target === right.target),
@@ -191,7 +173,7 @@ const { createNodes, createDependencies } = inferred({
             Option.flatMap(compiled, (stat) => Option.map(stat.mtime, (at) => at.valueOf())),
             () => 0,
         );
-        return Array.take(files, 1).map((file): Unit => ({ key: MANIFEST, file, salt: [String(built), ...files].join('\n') }));
+        return Array.take(process.platform === HOST ? files : [], 1).map((file): Unit => ({ key: MANIFEST, file, salt: [String(built), ...files].join('\n') }));
     }),
     read: (missing: Array.NonEmptyReadonlyArray<Unit>, { files, context, plugin, options, placed }: Request<typeof Options.Type>) =>
         Effect.map(analyze(context.workspaceRoot, { ...options, placed }, { ...plugin, inputs: [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, ...plugin.inputs] }, files), (reading) => missing.map(() => reading)),

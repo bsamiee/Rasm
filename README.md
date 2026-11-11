@@ -20,6 +20,7 @@ Rasm/
 ├── tsconfig.base.json        # TypeScript options every package compiles and emits with
 ├── tsconfig.web.json         # TypeScript options for bundled browser code
 ├── biome.json                # TypeScript and JSON formatting and lint
+├── knip.json                 # Unused files, internal exports, and dependencies per TypeScript package
 ├── pyproject.toml            # Python workspace root, catalog groups, and checker settings
 ├── Workspace.slnx            # .NET solution listing every project
 ├── global.json               # .NET SDK and test runner
@@ -117,7 +118,9 @@ flowchart LR
 - `.config/mise.toml` `[env]` rows move the folders: caches to `.cache/<tool>`, logs under `.artifacts/logs` in a file or folder per tool
 - Tool behavior comes from its source and docs at the installed version, a plugin never restates what a tool, host, package, or Nx already does
 - Tools with their own incremental state keep it, Nx caches results around it and restores an intermediate folder only with the outputs built from it
-- CI selects projects by tags: `os:<platform>` where a toolchain or host limits build platforms, `host:<technology>` where a build runs a host no runner holds
+- Plugins present targets a platform or host limits only on a machine holding it, and tag a project a platform limits `os:<platform>`
+- CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
+- Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
 
 ## [04]-[TASKS]
 
@@ -130,7 +133,7 @@ flowchart LR
 - `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports
 - `preview` builds a project, then serves its build output as `serve` does
 - `install` puts a local build into its host or starts local services
-- `deploy` applies a project's infrastructure stacks, `--stack=<name>` one of them
+- `deploy` applies a project's infrastructure stacks, `--stack=<name>` one of them, `-c release` those of a released version
 - `upgrade` moves an ecosystem root's dependency requirements and locks to newer releases through its own tool
 - `clean` removes the outputs a project's targets declare and runs its tool's clean
 
@@ -139,7 +142,7 @@ Other tasks run through their own commands:
 - `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
-- Workflow `release.yml` runs `nx release --skip-publish`, then per platform a `-c release` build of the versioned projects and `nx release publish`
+- Workflow `release.yml` runs `nx release --skip-publish`, a `-c release` build, then `nx release publish`, which takes no configuration
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
 - `nx install @rasm/infra` starts local services of `infra/compose.yaml`, only `-c store` adds or updates the store service test suites read
 - `mise daemons start services` applies a changed `infra/compose.yaml` and waits until every service is healthy

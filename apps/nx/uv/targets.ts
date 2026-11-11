@@ -280,7 +280,7 @@ const targets = (path: Path.Path, member: Member, roots: ReadonlyMap<string, Mem
             {
                 onNone: () => ({}),
                 onSome: (folder) => {
-                    const publish = ['uv', 'publish', path.join(folder, '*')];
+                    const publish = ['uv', 'publish', path.join(folder, '*'), '--check-url', 'https://pypi.org/simple/'];
                     return {
                         'nx-release-publish': {
                             executor: plugin.publisher,

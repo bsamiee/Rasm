@@ -255,4 +255,4 @@ const xcodeParts = (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Analyzed, evaluated, invocation, released, xcodeParts };
+export { Analyzed, evaluated, xcodeParts };

@@ -49,6 +49,7 @@ interface Host {
     readonly build?: {
         readonly executor: string;
         readonly command: string;
+        readonly probe?: Array.NonEmptyReadonlyArray<string>;
         readonly variables?: readonly [certificate: string, password: string];
         readonly pack?: (folder: string, names: readonly string[], file: string, timestampAuthority: Option.Option<string>) => Effect.Effect<void, ToolError | PlatformError.PlatformError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>;
     };
@@ -277,7 +278,7 @@ const HOSTS: readonly Host[] = [
                 Effect.mapBoth({ onFailure: ToolError.of(file, 'does not decode'), onSuccess: ({ id, version, platforms, build }) => Option.some({ name: id, version, platforms: build?.generated?.platforms ?? platforms ?? [] }) }),
             ),
         write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: ToolError.of(EXTENSION, 'does not parse as TOML'), onSuccess: (document) => patch(text, { ...document, version }) }),
-        build: { executor: 'extension-build', command: 'blender --command extension build' },
+        build: { executor: 'extension-build', command: 'blender --command extension build', probe: ['blender', '--version'] },
         install: {
             tool: 'blender',
             command: 'blender --command extension install-file',
@@ -431,4 +432,4 @@ const HOSTS: readonly Host[] = [
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { built, EXTENSION, type Fields, HOSTS, type Host, type Package, type Publish, sourced, UNREAL };
+export { built, EXTENSION, type Fields, HOSTS, type Host, sourced, UNREAL };

@@ -69,7 +69,7 @@ const { createNodes, createDependencies } = inferred({
                     clean: 'uv',
                     ...stated,
                     ...(member.name !== undefined && { name: member.name }),
-                    ...(member.published && { kinds: { release: ['pypi'] }, configuration: { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } } }),
+                    ...(member.published && { configuration: { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { lock: member.lock } } } } }),
                 };
             }),
         );

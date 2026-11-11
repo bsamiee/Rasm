@@ -1,7 +1,9 @@
 import { matchesGlob } from 'node:path';
+import { platform } from 'node:process';
 import type { TargetConfiguration } from '@nx/devkit';
 import { inferred, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
-import { Array, Effect, FileSystem, Function, Option, Path, pipe, Result, Schema, UndefinedOr } from 'effect';
+import { present } from '@rasm/nx-devkit/process';
+import { Array, Effect, FileSystem, Function, Option, Path, pipe, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type Fields, HOSTS, type Host } from '#/host-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -139,7 +141,6 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, named,
                               },
                           },
                       },
-            kinds: { host: item.host.build !== undefined && item.host.build.pack === undefined ? [technology] : [], release: versioned ? ['github'] : [] },
             configuration: {
                 ...(Option.isSome(standalone) && linked.length > 0 && { implicitDependencies: linked.map((other) => other.fields.name) }),
                 ...(versioned && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: path.relative(item.root, item.file) } } } }),
@@ -165,8 +166,10 @@ const { createNodes } = inferred({
                 ),
             ),
         );
+        const hosts = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms }) => platform in platforms || Struct.keys(platforms).length === 0);
+        const held = yield* Effect.filter(hosts, ({ build }) => (build?.probe === undefined ? Effect.succeed(true) : Effect.map(present(Array.headNonEmpty(build.probe), Array.tailNonEmpty(build.probe)), Option.isSome)));
         const [read, failures] = yield* Effect.partition(
-            matched,
+            matched.filter(({ host }) => held.includes(host)),
             ({ file, host, root }) =>
                 fs.readFileString(path.join(context.workspaceRoot, file)).pipe(
                     Effect.flatMap((text) => host.read(text, file)),
@@ -175,7 +178,7 @@ const { createNodes } = inferred({
             { concurrency: 'unbounded' },
         );
         const report = Array.getSomes(read).filter(({ fields }) => fields.installed !== true);
-        return missing.map(() => Result.succeed({ report, failures }));
+        return missing.map(() => Result.succeed({ report, failures, partial: held.length < hosts.length }));
     }),
     sources: () => ({ tracked: FILES.map((file) => `**/${file}`) }),
     projects,

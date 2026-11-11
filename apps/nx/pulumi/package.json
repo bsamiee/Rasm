@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-pulumi",
     "version": "0.0.0",
-    "description": "Nx plugin running Pulumi Automation API inline programs as install, deploy, and release targets of the projects they host",
+    "description": "Nx plugin running Pulumi Automation API inline programs as install and deploy targets of the projects they host",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -9,9 +9,6 @@
     },
     "license": "MIT",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
         ".": "./plugin.ts",
         "./stacks": "./executors/stacks/executor.ts",
@@ -40,9 +37,6 @@
             "./stacks": "./dist/executors/stacks/executor.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     },
     "executors": "./executors.json"

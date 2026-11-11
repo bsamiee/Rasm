@@ -35,7 +35,7 @@ const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(im
 
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
-const targets = (plugin: Identity, path: Path.Path, node: Node, named: string, packages: string, secrets: Readonly<Record<string, string>>): { readonly members: Members; readonly targets: Readonly<Record<string, TargetConfiguration>> } => {
+const targets = (plugin: Identity, path: Path.Path, node: Node, named: string, packages: string): { readonly members: Members; readonly targets: Readonly<Record<string, TargetConfiguration>> } => {
     const root = path.dirname(node.file);
     const project = path.join('{projectRoot}', path.basename(node.file));
     const inputs: NonNullable<TargetConfiguration['inputs']> = [
@@ -126,7 +126,7 @@ const targets = (plugin: Identity, path: Path.Path, node: Node, named: string, p
             ? {
                   'nx-release-publish': {
                       executor: plugin.publisher,
-                      options: { commands: [['dotnet', 'pack', project, '--no-build', '--output', packages]], publish: ['dotnet', 'nuget', 'push', path.join(packages, '*.nupkg'), '--skip-duplicate'], registryFlag: '--source', secrets },
+                      options: { commands: [['dotnet', 'pack', project, '--no-build', '--output', packages]], publish: ['dotnet', 'nuget', 'push', path.join(packages, '*.nupkg'), '--skip-duplicate'], flags: { registry: '--source' } },
                       dependsOn: ['^nx-release-publish'],
                       metadata: { description: `Packs the Release build of ${node.name} and pushes the package with dotnet nuget push`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
                   },

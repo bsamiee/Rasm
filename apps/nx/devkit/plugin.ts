@@ -18,7 +18,7 @@ import {
     type RawProjectGraphDependency,
     type TargetConfiguration,
 } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, interpolate, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
 import { runtime, ToolError } from '#/process';
@@ -38,8 +38,7 @@ interface Project {
     readonly name?: string;
     readonly clean?: string;
     readonly targets?: Readonly<Record<string, TargetConfiguration>>;
-    readonly kinds?: Readonly<Record<string, readonly string[]>>;
-    readonly configuration?: Omit<ProjectConfiguration, 'root' | 'name' | 'targets' | 'tags' | 'metadata'>;
+    readonly configuration?: Omit<ProjectConfiguration, 'root' | 'name' | 'targets' | 'metadata'>;
     readonly externalNodes?: Readonly<Record<string, ProjectGraphExternalNode>>;
 }
 
@@ -93,12 +92,8 @@ const MANIFESTS = '{package,project}.json';
 
 const Dependencies = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String, dependencies: Dependencies, optionalDependencies: Dependencies }));
-const Common = Schema.Struct({
-    outputPath: Schema.optionalKey(Schema.String),
-    tags: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
-}).annotate({
-    description:
-        'Options every plugin row reads, each defaulting to the value under the devkit package name in nx.json pluginsConfig. outputPath: workspace folder a target writes generated output under as <outputPath>/<tool>/<project name>, absent leaves each tool its own folder. tags: kind a plugin states for a project (os, host, release) to the tag it takes, {<kind>} standing for the value',
+const Common = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
+    description: 'Options every plugin row reads, each defaulting to the value under the devkit package name in nx.json pluginsConfig. outputPath: workspace folder a target writes generated output under as <outputPath>/<tool>/<project name>, absent leaves each tool its own folder',
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -192,9 +187,9 @@ const targeted = (project: Project, plugin: Identity): Readonly<Record<string, T
     };
 };
 
-const configured = (project: Project, plugin: Identity, { tags: templates }: typeof Common.Type): Omit<ProjectConfiguration, 'root'> => {
-    const tags = Record.collect(templates, (kind, template) => (project.kinds?.[kind] ?? []).map((value) => interpolate(template, { [kind]: value }))).flat();
-    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin), ...(tags.length > 0 && { tags }), ...project.configuration };
+const configured = (project: Project, plugin: Identity): Omit<ProjectConfiguration, 'root'> => {
+    const tags = [...(project.configuration?.release === undefined ? [] : ['release']), ...(project.configuration?.tags ?? [])];
+    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin), ...project.configuration, ...(tags.length > 0 && { tags }) };
 };
 
 const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, request: Request<O>, held: readonly (readonly [U, R])[]) {
@@ -270,7 +265,7 @@ const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration:
                     (project) => project.file,
                 ),
                 (group) => ({
-                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin, common)] as const),
+                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin)] as const),
                     externalNodes: Record.fromEntries(group.flatMap((project) => Record.toEntries(project.externalNodes ?? {}))),
                 }),
             ),

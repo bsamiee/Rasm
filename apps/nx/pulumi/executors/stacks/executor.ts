@@ -3,7 +3,7 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
 import type { InlineProgramArgs, LocalWorkspaceOptions, Stack, UpOptions } from '@pulumi/pulumi/automation/index.js';
-import { executor, Released, released } from '@rasm/nx-devkit/executor';
+import { Dry, dried, executor } from '@rasm/nx-devkit/executor';
 import { ToolError } from '@rasm/nx-devkit/process';
 import { Console, Data, Effect, FileSystem, Function, Match, Option, Path, Record, Schema, Struct } from 'effect';
 
@@ -12,17 +12,17 @@ import { Console, Data, Effect, FileSystem, Function, Match, Option, Path, Recor
 type StackRequest = Data.TaggedEnum<{
     Install: { readonly context: ExecutorContext };
     Deploy: { readonly context: ExecutorContext; readonly stack: Option.Option<string> };
-    Release: { readonly context: ExecutorContext; readonly version: string };
+    Release: { readonly context: ExecutorContext };
 }>;
 type Stacks = (request: StackRequest) => Promise<readonly (InlineProgramArgs & LocalWorkspaceOptions)[]>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const StackRequest = Data.taggedEnum<StackRequest>();
-const Options = Released.mapFields(
+const Options = Dry.mapFields(
     Struct.assign({
         programs: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Program packages, each resolved from the project and exporting stacks(request)' }),
-        request: Schema.Literals(['Install', 'Deploy', 'Release']).annotate({ description: "What the run asks each program's stacks for: a local install, a deploy, or a released version", default: 'Deploy' }),
+        request: Schema.Literals(['Install', 'Deploy', 'Release']).annotate({ description: "What the run asks each program's stacks for: a local install, a deploy, or the deploy of a released version", default: 'Deploy' }),
         stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack a deploy applies, absent applies every stack' }),
         destroy: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Destroys the stacks of a deploy and removes them' }),
     }),
@@ -92,22 +92,16 @@ const programmed = Effect.fnUntraced(function* (entry: string, program: string, 
 const execute = executor(
     Options,
     Effect.fnUntraced(function* ({ programs, request, stack, destroy, ...stated }, context, project) {
-        const [path, { dry, version, unversioned }] = yield* Effect.all([Path.Path, released(stated, project)]);
+        const [path, dry] = yield* Effect.all([Path.Path, dried(stated)]);
         const { root } = yield* Effect.fromNullishOr(context.projectsConfigurations.projects[project]);
-        const packaged = Effect.mapError(Effect.fromNullishOr(context.projectGraph.nodes[project]?.data.metadata?.js?.packageVersion), ToolError.of(project, 'states no version in its package.json'));
-        const releasing = unversioned ? Effect.succeedNone : Effect.map(Option.match(version, { onSome: Effect.succeed, onNone: () => packaged }), (set) => Option.some<StackRequest>(StackRequest.Release({ context, version: set })));
         const operation = ({ Install: 'up', Deploy: destroy === true ? 'destroy' : 'up', Release: dry ? 'preview' : 'up' } as const)[request];
-        const asked = yield* Match.value(request).pipe(
-            Match.when('Install', () => Effect.succeedSome<StackRequest>(StackRequest.Install({ context }))),
-            Match.when('Deploy', () => Effect.succeedSome<StackRequest>(StackRequest.Deploy({ context, stack: Option.fromUndefinedOr(stack) }))),
-            Match.when('Release', () => releasing),
+        const asked = Match.value(request).pipe(
+            Match.when('Install', () => StackRequest.Install({ context })),
+            Match.when('Deploy', () => StackRequest.Deploy({ context, stack: Option.fromUndefinedOr(stack) })),
+            Match.when('Release', () => StackRequest.Release({ context })),
             Match.exhaustive,
         );
-        const [reports, failures] = yield* Effect.partition(
-            Option.toArray(asked).flatMap((selected) => programs.map((program) => ({ selected, program }))),
-            ({ selected, program }) => programmed(path.join(context.root, root, 'package.json'), program, selected, operation),
-            { concurrency: 'unbounded' },
-        );
+        const [reports, failures] = yield* Effect.partition(programs, (program) => programmed(path.join(context.root, root, 'package.json'), program, asked, operation), { concurrency: 'unbounded' });
         const lines = reports.flat();
         yield* Effect.forEach(lines, (line) => Effect.flatMap(Schema.encodeEffect(Line)(line), Console.log));
         yield* Effect.forEach(failures, (failure) => Console.error(failure.message));

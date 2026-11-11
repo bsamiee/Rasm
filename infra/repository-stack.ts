@@ -7,10 +7,12 @@ import { interpolate, jsonStringify, type Output, secret } from '@pulumi/pulumi'
 import { Acl, DnsPreferences, FederatedIdentity, TailnetSettings } from '@pulumi/tailscale';
 import { PrivateKey } from '@pulumi/tls';
 import { Environment, Project, Provider, ServiceToken, secretssync } from '@pulumiverse/doppler';
-import { Array, Cause, Config, Effect, FileSystem, Option, Path, Record, Redacted, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Path, Record, Redacted, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
+import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { interpolateReleaseConfig } from 'nx/src/command-line/release/utils/interpolate-release-config';
+import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
 import { run } from '#/command';
 import { Deployed } from '#/platform-stack';
 
@@ -95,7 +97,7 @@ const assets = (repository: Output<string>, name: string) => {
     };
 };
 
-const guarded = (repository: Output<string>, { name, fullName, forms, pattern }: { readonly name: string; readonly fullName: Output<string>; readonly forms: readonly (typeof Form.Type)[]; readonly pattern: string }) => ({
+const guarded = (repository: Output<string>, { name, fullName, forms, patterns }: { readonly name: string; readonly fullName: Output<string>; readonly forms: readonly (typeof Form.Type)[]; readonly patterns: readonly string[] }) => ({
     securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
     allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
     workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read' }).defaultWorkflowPermissions,
@@ -106,7 +108,7 @@ const guarded = (repository: Output<string>, { name, fullName, forms, pattern }:
         name: 'release tags',
         target: 'tag',
         enforcement: 'active',
-        conditions: { refName: { includes: [`refs/tags/${interpolateReleaseConfig(pattern, { projectName: '**', version: '**', releaseGroupName: '**' })}`], excludes: [] } },
+        conditions: { refName: { includes: patterns.map((pattern) => `refs/tags/${interpolateReleaseConfig(pattern, { projectName: '**', version: '**', releaseGroupName: '**' })}`), excludes: [] } },
         rules: { update: true, deletion: true, nonFastForward: true },
     }).rulesetId,
 });
@@ -116,11 +118,15 @@ const guarded = (repository: Output<string>, { name, fullName, forms, pattern }:
 const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, deployed: Readonly<Record<string, string>>) {
     const [fs, path, { DEPLOYED_HOSTS: hosts, CLOUDFLARE_ACCOUNT_ID: accountId }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Account)(deployed)]);
     const { name: stackName, description } = yield* Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest));
+    const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
+    const { groups } = yield* Effect.flatMap(
+        Effect.promise(() => createNxReleaseConfig(context.projectGraph, files, context.nxJsonConfiguration.release)),
+        ({ nxReleaseConfig }) => Effect.fromNullishOr(nxReleaseConfig),
+    );
     return {
         stackName,
         program: Effect.gen(function* () {
-            const [pattern, { name, owner }, project, login, forms, organization] = yield* Effect.all([
-                Effect.fromOption(Option.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern), () => new Cause.NoSuchElementError('nx.json states no release.releaseTag.pattern for the release tag ruleset')),
+            const [{ name, owner }, project, login, forms, organization] = yield* Effect.all([
                 Effect.flatMap(run('gh', ['repo', 'view', '--json', 'name,owner']), Schema.decodeEffect(Origin)),
                 Config.String('DOPPLER_PROJECT'),
                 Effect.flatMap(run('doppler', ['configure', 'get', 'token', 'api-host', '--json']), Schema.decodeEffect(Login)),
@@ -153,7 +159,7 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
                 tailnet: tailnet(hosts, { name, repository, fullName, environment: configs.deploy }),
                 access: access(accountId, organization),
                 ...assets(repository, name),
-                ...guarded(repository, { name, fullName, forms, pattern }),
+                ...guarded(repository, { name, fullName, forms, patterns: Array.dedupe(Record.collect(groups ?? {}, (_, { releaseTag }) => releaseTag.pattern)) }),
             };
         }),
     };
