@@ -1,14 +1,37 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Install",
-    "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none",
     "type": "object",
     "properties": {
-        "package": { "type": "string", "description": "Package folder the plugin infers, passed as --package-path" },
-        "product": { "type": "string", "description": "Executable product the plugin infers from swift package describe" },
-        "env": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Environment variables every swift invocation runs with, over the caller's" },
-        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the release build and placed ahead of experimental-install, whose own build then takes the same options" }
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "package": {
+            "type": "string",
+            "description": "Package folder the plugin infers, passed as --package-path"
+        },
+        "product": {
+            "type": "string",
+            "description": "Executable product the plugin infers from swift package describe"
+        },
+        "env": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "Environment variables every swift invocation runs with, over the caller's"
+        },
+        "args": {
+            "type": "array",
+            "description": "Arguments appended to the release build and placed ahead of experimental-install",
+            "items": {
+                "type": "string"
+            }
+        }
     },
-    "required": [ "package", "product" ]
+    "required": [ "package", "product" ],
+    "additionalProperties": true,
+    "title": "Install",
+    "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"
 }

@@ -1,9 +1,9 @@
+import { getReadyUrl } from '@nx/devkit';
 import { defineConfig } from '@playwright/test';
 import { config } from '@rasm/test-support/playwright';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(config, {
-    testMatch: '*.spec.ts',
-    webServer: { command: 'pnpm exec storybook dev --ci', wait: { stdout: /Local:\s+(?<playwright_test_base_url>http:\/\/[\w.]+:[1-9]\d*)/u }, timeout: 120_000 },
-});
+const url = getReadyUrl('http://127.0.0.1:6006');
+
+export default defineConfig(config, { testMatch: '*.spec.ts', use: { baseURL: url }, webServer: { command: 'pnpm exec nx run @rasm/test-ui:serve--storybook', url, reuseExistingServer: true } });

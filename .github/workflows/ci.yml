@@ -34,6 +34,7 @@ jobs:
             - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
             - run: pnpm install
+            - run: nx sync:check
             - run: playwright install --with-deps --only-shell chromium
             - run: nx install @rasm/infra -c store
             - &cache

@@ -1,15 +1,19 @@
 import type { ExecutorContext } from '@nx/devkit';
-import { runtime, ToolError } from '@rasm/nx-devkit/process';
+import { executor } from '@rasm/nx-devkit/executor';
+import { ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, Option, Path, Schema, UndefinedOr } from 'effect';
-import { sourced } from '#/plugins/host-packages';
+import { sourced } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String), timestampAuthority: Schema.optionalKey(Schema.String) }).annotate({ description: 'package executor options, schema.json defaults applied' });
+const Options = Schema.Struct({
+    outputPath: Schema.optionalKey(Schema.String).annotate({ description: 'Folder, relative to the workspace root, receiving the package; unset, the target packs nothing' }),
+    timestampAuthority: Schema.String.annotate({ description: 'Timestamp server ZXPSignCmd -tsa signs against, so a CEP package outlives its certificate', default: 'http://timestamp.digicert.com' }),
+}).annotate({ title: 'Package', description: "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its source folder: a .ccx zip for a manifest.json, a ZXPSignCmd-signed .zxp for a CSXS/manifest.xml" });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const packed = Effect.fnUntraced(function* (context: ExecutorContext, outputPath: string, timestampAuthority: Option.Option<string>) {
+const packed = Effect.fnUntraced(function* (context: ExecutorContext, outputPath: string, timestampAuthority: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const target = yield* Effect.fromNullishOr(context.targetName);
     const { project, manifests: found } = yield* sourced(context, Option.fromUndefinedOr(context.configurationName), target);
@@ -26,17 +30,13 @@ const packed = Effect.fnUntraced(function* (context: ExecutorContext, outputPath
     yield* fs.makeDirectory(directory, { recursive: true });
     const stale = (yield* fs.readDirectory(directory)).filter((name) => manifests.some(({ archive }) => name.endsWith(archive)));
     yield* Effect.forEach(stale, (name) => fs.remove(path.join(directory, name)), { discard: true });
-    yield* Effect.forEach(manifests, ({ pack, folder, names, version, archive }) => pack(folder, names, path.join(directory, `${path.basename(project)}-${version}${archive}`), timestampAuthority), { discard: true });
-    return { success: true };
+    yield* Effect.forEach(manifests, ({ pack, folder, names, version, archive }) => pack(folder, names, path.join(directory, `${path.basename(project)}-${version}${archive}`), Option.some(timestampAuthority)), { discard: true });
+    return true;
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) =>
-    Schema.decodeUnknownEffect(Options)(options).pipe(
-        Effect.flatMap(({ outputPath, timestampAuthority }) => UndefinedOr.match(outputPath, { onUndefined: () => Effect.succeed({ success: true }), onDefined: (at) => packed(context, at, Option.fromUndefinedOr(timestampAuthority)) })),
-        runtime.runPromise,
-    );
+const execute = executor(Options, ({ outputPath, timestampAuthority }, context) => UndefinedOr.match(outputPath, { onUndefined: () => Effect.succeed(true), onDefined: (at) => packed(context, at, timestampAuthority) }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

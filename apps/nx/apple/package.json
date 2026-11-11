@@ -14,7 +14,7 @@
         "#analyzer": "@rasm/nx-apple-darwin-arm64/nx-apple-analyzer"
     },
     "exports": {
-        ".": "./plugins/project-graph.ts",
+        ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
@@ -38,7 +38,7 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/project-graph.js",
+            ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json"

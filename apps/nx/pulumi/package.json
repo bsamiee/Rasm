@@ -13,8 +13,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./plugins/project-graph.ts",
-        "./stacks": "./executors/deploy/executor.ts",
+        ".": "./plugin.ts",
+        "./stacks": "./executors/stacks/executor.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
@@ -36,8 +36,8 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/project-graph.js",
-            "./stacks": "./dist/executors/deploy/executor.js",
+            ".": "./dist/plugin.js",
+            "./stacks": "./dist/executors/stacks/executor.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json"
         },

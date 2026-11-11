@@ -1,7 +1,8 @@
 import type { ExecutorContext } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { line } from '@rasm/nx-devkit/inference';
-import { iterated, ran, runtime } from '@rasm/nx-devkit/process';
+import { executor } from '@rasm/nx-devkit/executor';
+import { iterated, ran } from '@rasm/nx-devkit/process';
+import { line } from '@rasm/nx-devkit/target';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 import { grouped } from '#/executors/build/executor';
@@ -16,7 +17,11 @@ const UNFORMATTED = 2;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Format = Schema.Struct({ commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)), project: Schema.String, args: Schema.optionalKey(Schema.Array(Schema.String)) });
+const Format = Schema.Struct({
+    commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
+    project: Schema.String.annotate({ description: 'Project file the commands run on' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to every command' }),
+}).annotate({ title: 'Format', description: 'Runs dotnet format commands in order on one project, or once each over a solution of every batched project' });
 const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Schema.String }))).annotate({ description: 'The file dotnet format --report writes, one entry per document it changed or would change' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -71,14 +76,13 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = flow(
-    Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-        const format = yield* Schema.decodeUnknownEffect(Format)(options);
-        const [{ result }] = yield* Effect.scoped(formatted(context.root, [[context.root, format]]));
+const execute = executor(
+    Format,
+    Effect.fnUntraced(function* (format, context) {
+        const [{ result }] = yield* formatted(context.root, [[context.root, format]]);
         yield* Console.log(result.terminalOutput);
-        return { success: result.success };
+        return result.success;
     }),
-    runtime.runPromise,
 );
 
 const batch = iterated((_: unknown, inputs: Readonly<Record<string, unknown>>, __: unknown, context: ExecutorContext) =>

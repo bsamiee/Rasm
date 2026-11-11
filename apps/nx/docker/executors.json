@@ -1,9 +1,0 @@
-{
-    "executors": {
-        "upgrade": {
-            "implementation": "./dist/executors/upgrade/executor#execute",
-            "schema": "./executors/upgrade/schema.json",
-            "description": "Moves each image tag a Compose file states to the newest registry tag of the same form"
-        }
-    }
-}

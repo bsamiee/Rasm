@@ -464,6 +464,12 @@ catalog:
     tslib: 2.9.1
     '@types/node': 26.6.6
 
+    # --- [NX]
+
+    nx: 24.0.6
+    '@nx/devkit': 24.0.6
+    '@nx/js': 24.0.6 # tsconfig `extends` chains the config-reading plugins hash
+
     # --- [BUILD]
 
     babel-plugin-react-compiler: 1.0.0
@@ -473,13 +479,6 @@ catalog:
     '@cloudflare/build-output-utils': 0.9.11 # Build Output tree reader for hosting programs
     '@cloudflare/config': 0.31.0 # `cloudflare.config.ts` uncached loader and parser for hosting programs
     cf: 1.0.0-beta.28 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
-    nx: 24.0.5
-    '@nx/devkit': 24.0.5
-    '@nx/dotnet': 24.0.5
-    '@nx/js': 24.0.5
-    '@nx/playwright': 24.0.5
-    '@nx/vite': 24.0.5
-    '@nx/vitest': 24.0.5
     signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
     tinyglobby: 0.2.17 # Types of the file lister Vitest lists test files through
     vite-plugin-static-copy: 4.1.1
@@ -592,7 +591,7 @@ catalogs:
         redis: ^6.0.0-0
         '@playwright/test': ^1.66.0-0
         pdfjs-dist: ^6.0.0
-        nx: 24.0.5
+        nx: ^24.0.0
         '@typescript/native': 'npm:typescript@>=7.1.0-0'
         '@pulumi/pulumi': ^3.274.0-0
         '@pulumi/cloudflare': ^6.0.0-0
@@ -653,15 +652,11 @@ overrides:
 
 # --- [UPDATE] ---------------------------------------------------------------------------
 
+# `nx upgrade rasm` runs `pnpm update --recursive --latest`: each row moves to tag `latest`, a row already ahead of it (a prerelease) stays, Nx rows included
 update:
     ignoreDeps:
-        - nx # Moved by `nx migrate`, which applies each release's migrations
-        - '@nx/*' # Moved by `nx migrate` with `nx`
         - '@typescript/native' # Held at the native TypeScript release `@effect/tsgo` supports
         - '@duckdb/duckdb-wasm' # Held at tag `next`, SemVer orders `dev57` of tag `latest` above the later `dev114`
-        - react-compiler-runtime # Held at tag `latest`, tag `rc` names 19.1.0-rc.3 from the numbering before 1.0.0
-        - babel-plugin-react-compiler # Held at tag `latest`, tag `rc` names 19.1.0-rc.3 from the numbering before 1.0.0
-        - '@grafana/grafana-foundation-sdk' # Held at tag `latest`, tags per Grafana release name builds older than it
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 

@@ -1,8 +1,9 @@
+import { getReadyUrl } from '@nx/devkit';
 import { defineConfig } from '@playwright/test';
 import { config } from '@rasm/test-support/playwright';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(config, {
-    webServer: { command: 'pnpm exec vite --port 0', cwd: '../../../../../apps/web/portfolio', wait: { stdout: /Local:\s+(?<playwright_test_base_url>http:\/\/[\w.]+:[1-9]\d*)/u }, timeout: 120_000 },
-});
+const url = getReadyUrl('http://localhost:5173');
+
+export default defineConfig(config, { use: { baseURL: url }, webServer: { command: 'pnpm exec nx run @rasm/portfolio:serve--vite', url, reuseExistingServer: true } });

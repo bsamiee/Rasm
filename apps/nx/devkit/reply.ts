@@ -1,5 +1,5 @@
 import { writeSync } from 'node:fs';
-import { registerHooks } from 'node:module';
+import { createRequire, registerHooks } from 'node:module';
 import { chdir, cwd, env, exit, stdin } from 'node:process';
 import { text } from 'node:stream/consumers';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -32,6 +32,11 @@ const reached = (path: Path.Path, edges: ReadonlyMap<string | undefined, Readonl
     };
     return [...walk(Array.getSomes([...edges.keys()].map((url) => Option.filter(Option.fromUndefinedOr(url), (at) => at.startsWith(inside)))))].map((url) => fileURLToPath(url));
 };
+
+const loaded = <A>(folder: string, ...specifiers: Array.NonEmptyReadonlyArray<string>) =>
+    Effect.tryPromise({ try: (): Promise<A> => import(pathToFileURL(specifiers.reduce((from, specifier) => createRequire(from).resolve(specifier), `${folder}/package.json`)).href), catch: ToolError.of(specifiers.join(' > '), `does not load from ${folder}`) });
+
+const outermost = (path: Path.Path, workspaceRoot: string, folders: readonly string[]) => Array.dedupe(folders.map((at) => path.relative(workspaceRoot, at))).filter((at, _, all) => !all.some((other) => at.startsWith(`${other}/`)));
 
 const served = Effect.fn('served')(function* <J extends Job, A, I>(job: J, report: Schema.Codec<A, I>, read: (job: J['Type'], workspaceRoot: string) => Effect.Effect<{ readonly report: A; readonly sources: readonly string[] }, ToolError, NodeServices>): Effect.fn.Return<void, Error, NodeServices> {
     const path = yield* Path.Path;
@@ -78,4 +83,4 @@ const served = Effect.fn('served')(function* <J extends Job, A, I>(job: J, repor
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Job, Jobs, REPLIES, Reply, served };
+export { type Job, Jobs, loaded, outermost, REPLIES, Reply, served };

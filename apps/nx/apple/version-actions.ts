@@ -2,7 +2,7 @@ import { joinPathFragments, type Tree } from '@nx/devkit';
 import { runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Effect, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
-import { VersionActionsOptions, versioned } from '#/plugins/targets';
+import { VersionActionsOptions, versioned } from '#/targets';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

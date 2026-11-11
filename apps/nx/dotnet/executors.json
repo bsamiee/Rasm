@@ -18,16 +18,6 @@
             "schema": "./executors/format/schema.json",
             "preferBatch": true,
             "description": "Runs dotnet format commands on one project, or once over a solution of every batched project written outside the workspace"
-        },
-        "upgrade": {
-            "implementation": "./dist/executors/upgrade/executor#execute",
-            "schema": "./executors/upgrade/schema.json",
-            "description": "Moves a central package file's versions to the newest listed releases its consumers accept, then restores its projects with dotnet restore --force-evaluate"
-        },
-        "release-publish": {
-            "implementation": "./dist/executors/release-publish/executor#execute",
-            "schema": "./executors/release-publish/schema.json",
-            "description": "Packs a project in Release and pushes its package with dotnet nuget push, skipping a project nx release left unversioned"
         }
     }
 }

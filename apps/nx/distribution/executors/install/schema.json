@@ -1,10 +1,14 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Install",
-    "description": "Installs each host package the project's build wrote for this platform, in the configuration each build task ran in, through the host's own installer",
     "type": "object",
     "properties": {
-        "dryRun": { "type": "boolean", "description": "Reads the packages and prints each install without running the installer" }
-    }
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        }
+    },
+    "additionalProperties": true,
+    "title": "Install",
+    "description": "Installs each host package the project's build wrote for this platform, in the configuration each build task ran in, through the host's own installer"
 }

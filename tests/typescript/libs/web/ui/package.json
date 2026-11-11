@@ -8,7 +8,9 @@
     },
     "devDependencies": {
         "@effect/atom-react": "catalog:",
+        "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
+        "@rasm/nx-storybook": "workspace:*",
         "@rasm/test-support": "workspace:*",
         "@rasm/ui": "workspace:*",
         "@storybook/addon-docs": "catalog:",

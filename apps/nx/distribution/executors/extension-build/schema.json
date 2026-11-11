@@ -1,11 +1,15 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Extension build",
-    "description": "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its locked registry dependencies as wheels for the running Blender and its local dependencies as subpackages",
     "type": "object",
-    "required": [ "outputPath" ],
     "properties": {
-        "outputPath": { "type": "string", "description": "Workspace-relative folder the archives are written to" }
-    }
+        "outputPath": {
+            "type": "string",
+            "description": "Workspace-relative folder the archives are written to"
+        }
+    },
+    "required": [ "outputPath" ],
+    "additionalProperties": true,
+    "title": "Extension build",
+    "description": "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its locked registry dependencies as wheels for the running Blender and its local dependencies as subpackages"
 }

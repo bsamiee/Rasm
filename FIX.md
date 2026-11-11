@@ -9,7 +9,7 @@ Step `nx install @rasm/infra -c store` of job `linux` takes 11.5 min on every ru
 - The step runs whether or not an affected test depends on `@rasm/infra`
 
 Fix:
-- Run the step only when `nx show projects --affected -t test` lists a project that depends on `@rasm/infra`, an edge `@rasm/nx-docker` derives
+- Run the step only when an affected test needs the store, a link the test rebuild declares (`@rasm/nx-docker` derives no suite edge)
 - Give the image build a cache a runner keeps between runs (BuildKit `cache-from` and `cache-to`), or pull an image a push built
 
 ## [02]-[MACOS_SETUP]
@@ -26,7 +26,7 @@ Job `macos` spends 9 min before its first task:
 
 Fix:
 - Keep the built Apple analyzer between runs, keyed on its sources
-- Find why the first graph build takes 3.2 min on a runner against under 1 min on a developer machine
+- Shorten the cold graph: a developer machine takes 37 s with every plugin cache empty, 30 s of it `xcodebuild -showBuildSettings` per shared scheme in `@rasm/nx-apple`
 
 ## [03]-[QUEUED_RUNS]
 

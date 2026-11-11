@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-playwright",
     "version": "0.0.0",
-    "description": "Nx plugin inferring Playwright suites from each Playwright configuration",
+    "description": "Nx plugin inferring Playwright suites from each Playwright configuration, and the Nx servers its webServer commands name",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -13,7 +13,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./plugins/project-graph.ts",
+        ".": "./plugin.ts",
         "./package.json": "./package.json"
     },
     "files": [ "dist" ],
@@ -29,12 +29,13 @@
         "nx": "catalog:"
     },
     "peerDependencies": {
+        "@playwright/test": "catalog:peers",
         "nx": "catalog:peers"
     },
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/project-graph.js",
+            ".": "./dist/plugin.js",
             "./package.json": "./package.json"
         },
         "imports": {

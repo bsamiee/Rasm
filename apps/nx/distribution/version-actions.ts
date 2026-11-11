@@ -3,7 +3,7 @@ import { joinPathFragments, type Tree } from '@nx/devkit';
 import { runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
-import { HOSTS } from '#/plugins/host-packages';
+import { HOSTS } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

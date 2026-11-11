@@ -13,12 +13,11 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./plugins/project-graph.ts",
+        ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
-        "./package.json": "./package.json",
-        "./executors.json": "./executors.json"
+        "./package.json": "./package.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "files": [ "dist" ],
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@nx/devkit": "catalog:",
@@ -36,14 +35,12 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/project-graph.js",
+            ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
+            "./package.json": "./package.json"
         },
         "imports": {
             "#/*": "./dist/*.js"
         }
-    },
-    "executors": "./executors.json"
+    }
 }

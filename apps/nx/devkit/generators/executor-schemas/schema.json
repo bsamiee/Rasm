@@ -1,0 +1,8 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "version": 2,
+    "title": "ExecutorSchemas",
+    "description": "Writes each workspace executor's schema.json from the options schema its implementation declares",
+    "type": "object",
+    "properties": {}
+}

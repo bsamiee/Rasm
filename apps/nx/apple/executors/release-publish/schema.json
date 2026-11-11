@@ -1,14 +1,51 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Release publish",
-    "description": "Attaches each folder's zip at the version nx release set to the project's GitHub release, then publishes each notarized app naming SUFeedURL to its Sparkle feed",
     "type": "object",
     "properties": {
-        "folders": { "type": "array", "items": { "type": "string" }, "description": "Folders the release build zips into, relative to the workspace root" },
-        "notarized": { "type": "array", "items": { "type": "string" }, "description": "Folders holding a notarized, stapled app, whose SUFeedURL names its Sparkle feed" },
-        "dryRun": { "type": "boolean", "description": "Prints each step without running it" },
-        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "nxReleaseVersionData": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "newVersion": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [ "newVersion" ],
+                "additionalProperties": true
+            },
+            "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+        },
+        "folders": {
+            "type": "array",
+            "description": "Folders the release build zips into, relative to the workspace root",
+            "items": {
+                "type": "string"
+            }
+        },
+        "notarized": {
+            "type": "array",
+            "description": "Folders holding a notarized, stapled app, whose SUFeedURL names its Sparkle feed",
+            "default": [],
+            "items": {
+                "type": "string"
+            }
+        }
     },
-    "required": [ "folders" ]
+    "required": [ "folders", "notarized" ],
+    "additionalProperties": true,
+    "title": "Release publish",
+    "description": "Attaches each folder's zip at the version nx release set to the project's GitHub release, then publishes each notarized app naming SUFeedURL to its Sparkle feed"
 }

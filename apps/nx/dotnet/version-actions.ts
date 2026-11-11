@@ -3,7 +3,7 @@ import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, identity, Option, Result, Schema, SemVer, String } from 'effect';
 import { VersionActions } from 'nx/release';
 import { isValid, sortReversed } from 'verkit';
-import { analyzer } from '#/plugins/targets';
+import { analyzer } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

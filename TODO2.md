@@ -16,15 +16,14 @@ State after the close-out of November 10. `docs/research/infrastructure/plan.md`
 |  [08]   | Nx remote cache       | `nx-cache` in `infra/compose.yaml`, cache rows in `ci.yml`      | `curl <server>/health` prints `OK`                     |
 |  [09]   | Pulumi project name   | `infra/stacks.ts`, from `infra/package.json`                    | `pulumi stack ls --all`                                |
 |  [10]   | `NODE_VERSION` row    | `.config/mise.toml`, from mise's resolved Node                  | `x-node` in `infra/compose.yaml` reads it              |
-|  [11]   | Platform inputs       | `PLATFORM` in `apps/nx/devkit/inference.ts`                     | `nx show project <name> --json` lists it per target    |
+|  [11]   | Platform inputs       | `PLATFORM` in `apps/nx/devkit/plugin.ts`                        | `nx show project <name> --json` lists it per target    |
 |  [12]   | Local engine          | `[daemons.docker]` in `.config/mise.macos.toml`                 | `mise daemons start docker`                            |
 |  [13]   | Session services      | `[daemons.services]`, `nx install @rasm/infra -c store`         | `docker ps` lists each service healthy                 |
 |  [14]   | Store service         | `apps/data/store`, service `store` of `infra/compose.yaml`      | `nx run-many -t test` over the four support suites     |
 |  [15]   | Store fixtures        | `tests/<language>/support` over `store.proto`                   | Each suite reaches the store through its generated client |
-|  [16]   | Store links           | `@rasm/nx-docker` option `clients`, Dockerfile owner            | `nx show target inputs <suite>:<target> --check <file>` |
-|  [17]   | Test configuration    | `tests/typescript/support`, `@rasm/nx-vite`, `@rasm/nx-playwright` | `nx run-many -t test--vitest test--playwright`      |
-|  [18]   | Image tag upgrades    | `apps/nx/docker/executors/upgrade`                              | `nx run @rasm/infra:upgrade--compose --dryRun`         |
-|  [19]   | Host access           | `@rasm/ssh`, `DEPLOYED_HOSTS` routes                            | A call answers over the tailnet and over the address   |
+|  [16]   | Store links           | Dockerfile owner edge of `@rasm/nx-docker`, suite links open in the test rebuild | `nx graph --focus=@rasm/infra`              |
+|  [17]   | Test configuration    | `tests/typescript/support`, `@rasm/nx-vitest`, `@rasm/nx-playwright` | `nx run-many -t test--vitest test--playwright`    |
+|  [18]   | Host access           | `@rasm/ssh`, `DEPLOYED_HOSTS` routes                            | A call answers over the tailnet and over the address   |
 
 ## [02]-[OPEN]
 

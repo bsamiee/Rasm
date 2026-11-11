@@ -2,8 +2,9 @@ import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
+import { executor } from '@rasm/nx-devkit/executor';
 import { runtime, spawned } from '@rasm/nx-devkit/process';
-import { Array, Effect, Equal, FileSystem, flow, HashSet, Match, Option, Path, Record, Schema, Stream } from 'effect';
+import { Array, Effect, Equal, FileSystem, HashSet, Match, Option, Path, Record, Schema, Stream } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,8 +17,19 @@ const REPORTS = {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Command = Schema.Struct({ args: Schema.NonEmptyArray(Schema.String), trailing: Schema.optionalKey(Schema.Array(Schema.String)), report: Schema.Literals(['messages', 'tests', 'status']), packages: Schema.optionalKey(Schema.Array(Schema.Struct({ root: Schema.String, name: Schema.String }))) });
-const Cargo = Schema.Struct({ cwd: Schema.String, commands: Schema.NonEmptyArray(Command), package: Schema.optionalKey(Schema.String), args: Schema.optionalKey(Schema.Array(Schema.String)), outputs: Schema.optionalKey(Schema.Array(Schema.String)) });
+const Command = Schema.Struct({
+    args: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Subcommand and its arguments' }),
+    trailing: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments after --, before the report flags' }),
+    report: Schema.Literals(['messages', 'tests', 'status']).annotate({ description: 'Output each task is decided from: compiler messages, nextest suite events, or the exit status' }),
+    packages: Schema.optionalKey(Schema.Array(Schema.Struct({ root: Schema.String, name: Schema.String }))).annotate({ description: 'Further packages the command selects' }),
+});
+const Cargo = Schema.Struct({
+    cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
+    commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),
+    package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to every command' }),
+    outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Files the commands write, each folder created before the run' }),
+}).annotate({ title: 'Cargo', description: "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report" });
 const Diagnostic = Schema.Struct({ reason: Schema.Literal('compiler-message'), manifest_path: Schema.String, message: Schema.Struct({ level: Schema.String, rendered: Schema.OptionFromNullOr(Schema.String) }) });
 const Artifact = Schema.Struct({ reason: Schema.Literal('compiler-artifact'), manifest_path: Schema.String, target: Schema.Struct({ kind: Schema.Array(Schema.String) }) });
 const Finished = Schema.Struct({ reason: Schema.Literal('build-finished'), success: Schema.Boolean });
@@ -148,14 +160,13 @@ const scheduled = (context: ExecutorContext, inputs: Readonly<Record<string, typ
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = flow(
-    Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-        const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
+const execute = executor(
+    Cargo,
+    Effect.fnUntraced(function* (cargo, context, project) {
+        const target = yield* Effect.fromNullishOr(context.targetName);
         const id = `${project}:${target}`;
-        const results = yield* scheduled(context, yield* decoded({ [id]: options }), [{ id, target: { project, target } }]);
-        return { success: Object.values(results).every(({ success }) => success) };
+        return Object.values(yield* scheduled(context, { [id]: cargo }, [{ id, target: { project, target } }])).every(({ success }) => success);
     }),
-    runtime.runPromise,
 );
 
 const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) =>

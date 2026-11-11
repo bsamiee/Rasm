@@ -1,8 +1,0 @@
-{
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "version": 2,
-    "title": "Upgrade",
-    "description": "Moves every row of the pnpm workspace's default catalog to the highest version among its dist-tags, skipping rows update.ignoreDeps holds, then runs pnpm update --recursive",
-    "type": "object",
-    "properties": {}
-}

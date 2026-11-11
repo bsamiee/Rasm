@@ -1,16 +1,16 @@
-import type { ExecutorContext } from '@nx/devkit';
 import { interpolate } from '@nx/devkit/internal';
-import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Config, Effect, Match, Option, Path, Schema, UndefinedOr } from 'effect';
-import { built, type Package, type Publish } from '#/plugins/host-packages';
+import { executor, Released, released } from '@rasm/nx-devkit/executor';
+import { printed, ToolError } from '@rasm/nx-devkit/process';
+import { Array, Effect, Match, Option, Path, Schema, Struct, UndefinedOr } from 'effect';
+import { built, type Package, type Publish } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({
-    registry: Schema.optionalKey(Schema.String),
-    dryRun: Schema.optionalKey(Schema.Boolean),
-    nxReleaseVersionData: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ newVersion: Schema.NullOr(Schema.String) }))),
-});
+const Options = Released.mapFields(
+    Struct.assign({
+        registry: Schema.optionalKey(Schema.String).annotate({ description: "Package server URL nx release publish passes as --registry, in place of the host's default server" }),
+    }),
+).annotate({ title: 'Release publish', description: "Attaches each host package the project's build wrote to its GitHub release and publishes it to its host's package server, skipping distributions the server holds and a project nx release left unversioned" });
 const Release = Schema.fromJsonString(Schema.Struct({ data: Schema.Struct({ repository: Schema.Struct({ release: Schema.NullOr(Schema.Struct({ immutable: Schema.Boolean, releaseAssets: Schema.Struct({ nodes: Schema.Array(Schema.Struct({ name: Schema.String })) }) })) }) }) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -30,31 +30,29 @@ const attached = Effect.fnUntraced(function* (bundle: Package, tag: string, work
     );
 });
 
-const published = Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-    const [publish, dry] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false))]);
-    const configuration = Option.fromUndefinedOr(context.configurationName);
-    const { project, outputs, packages } = yield* built(context, configuration, 'build');
-    const version = publish.nxReleaseVersionData?.[project]?.newVersion;
-    if (version === null) {
-        return yield* Effect.as(Effect.logInfo(`Skipped ${project}, nx release left it unversioned`), { success: true });
-    }
-    const rebuild = Option.match(configuration, { onNone: () => `nx build ${project}`, onSome: (name) => `nx build ${project} -c ${name}` });
-    const refused = [
-        ...(packages.length === 0 ? [`no host package sits under ${Array.match(outputs, { onEmpty: () => 'its build outputs, which name no path', onNonEmpty: (paths) => paths.join(', ') })}; run ${rebuild} first`] : []),
-        ...packages.filter((bundle) => version !== undefined && bundle.version !== version).map((bundle) => `${bundle.file} is at ${bundle.version}, not ${version} that nx release set; run ${rebuild} after versioning`),
-    ];
-    const settings = { dryRun: publish.dryRun ?? dry, registry: Option.fromUndefinedOr(publish.registry) };
-    const pattern = yield* Effect.mapError(Effect.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern), ToolError.of('nx.json release.releaseTag.pattern', 'is unset, and names the GitHub release each package attaches to'));
-    yield* Array.match(refused, { onEmpty: () => Effect.void, onNonEmpty: (reasons) => ToolError.make({ subject: project, detail: reasons.join('; ') }) });
-    yield* Effect.forEach(packages, (bundle) => Effect.andThen(attached(bundle, interpolate(pattern, { projectName: project, version: bundle.version }), context.root, settings), UndefinedOr.match(bundle.host.publish, { onUndefined: () => Effect.void, onDefined: (channel) => channel.run(bundle, settings) })), {
-        discard: true,
-    });
-    return { success: true };
-});
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const execute = (options: unknown, context: ExecutorContext) => published(options, context).pipe(runtime.runPromise);
+const execute = executor(
+    Options,
+    Effect.fnUntraced(function* ({ registry, ...stated }, context, project) {
+        const { dry, version, unversioned } = yield* released(stated, project);
+        const configuration = Option.fromUndefinedOr(context.configurationName);
+        const { outputs, packages } = yield* built(context, configuration, 'build');
+        if (unversioned) {
+            return yield* Effect.as(Effect.logInfo(`Skipped ${project}, nx release left it unversioned`), true);
+        }
+        const rebuild = Option.match(configuration, { onNone: () => `nx build ${project}`, onSome: (name) => `nx build ${project} -c ${name}` });
+        const refused = [
+            ...(packages.length === 0 ? [`no host package sits under ${Array.match(outputs, { onEmpty: () => 'its build outputs, which name no path', onNonEmpty: (paths) => paths.join(', ') })}; run ${rebuild} first`] : []),
+            ...packages.filter((bundle) => Option.exists(version, (set) => bundle.version !== set)).map((bundle) => `${bundle.file} is at ${bundle.version}, not ${Option.getOrElse(version, () => bundle.version)} that nx release set; run ${rebuild} after versioning`),
+        ];
+        const settings = { dryRun: dry, registry: Option.fromUndefinedOr(registry) };
+        const pattern = yield* Effect.mapError(Effect.fromNullishOr(context.nxJsonConfiguration.release?.releaseTag?.pattern), ToolError.of('nx.json release.releaseTag.pattern', 'is unset, and names the GitHub release each package attaches to'));
+        yield* Array.match(refused, { onEmpty: () => Effect.void, onNonEmpty: (reasons) => ToolError.make({ subject: project, detail: reasons.join('; ') }) });
+        yield* Effect.forEach(packages, (bundle) => Effect.andThen(attached(bundle, interpolate(pattern, { projectName: project, version: bundle.version }), context.root, settings), UndefinedOr.match(bundle.host.publish, { onUndefined: () => Effect.void, onDefined: (channel) => channel.run(bundle, settings) })), {
+            discard: true,
+        });
+        return true;
+    }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -1,8 +1,9 @@
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { line } from '@rasm/nx-devkit/inference';
-import { iterated, ran, runtime } from '@rasm/nx-devkit/process';
-import { Array, Console, Effect, Equal, FileSystem, flow, Option, Path, Predicate, pipe, Record, Schema, Stream, Struct } from 'effect';
+import { executor } from '@rasm/nx-devkit/executor';
+import { iterated, ran } from '@rasm/nx-devkit/process';
+import { line } from '@rasm/nx-devkit/target';
+import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -15,7 +16,12 @@ const HEX = 16;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Build = Schema.Struct({ project: Schema.String, command: Schema.NonEmptyArray(Schema.String), args: Schema.optionalKey(Schema.Array(Schema.String)) });
+const Build = Schema.Struct({
+    project: Schema.String.annotate({ description: 'Project file to build' }),
+    command: Schema.NonEmptyArray(Schema.String).annotate({ description: 'dotnet verb and its switches for the configuration, which the plugin infers' }),
+    outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the dotnet command' }),
+}).annotate({ title: 'Build', description: "Runs dotnet build or dotnet publish once over a generated traversal project of every batched project, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result" });
 const Results = Schema.fromJsonString(Schema.Struct({ Items: Schema.Struct({ Built: Schema.Array(Schema.Struct({ Identity: Schema.String })) }) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -87,14 +93,13 @@ const grouped = <A extends { readonly project: string }>(planned: readonly (read
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = flow(
-    Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-        const build = yield* Schema.decodeUnknownEffect(Build)(options);
-        const [{ result }] = yield* Effect.scoped(built(context.root, [[context.root, build]]));
+const execute = executor(
+    Build,
+    Effect.fnUntraced(function* (build, context) {
+        const [{ result }] = yield* built(context.root, [[context.root, build]]);
         yield* Console.log(result.terminalOutput);
-        return { success: result.success };
+        return result.success;
     }),
-    runtime.runPromise,
 );
 
 const batch = iterated((graph: TaskGraph, inputs: Readonly<Record<string, unknown>>, _: unknown, context: ExecutorContext) =>
@@ -108,4 +113,4 @@ const batch = iterated((graph: TaskGraph, inputs: Readonly<Record<string, unknow
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batch, execute, grouped, traversal };
+export { batch, execute, grouped };

@@ -1,14 +1,42 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Build",
-    "description": "Runs dotnet build or dotnet publish once over a generated traversal project of every batched project, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result",
     "type": "object",
     "properties": {
-        "project": { "type": "string", "description": "Project file to build" },
-        "command": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "dotnet verb and its switches for the configuration, which the plugin infers" },
-        "outputs": { "type": "array", "items": { "type": "string" }, "description": "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" },
-        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to the dotnet command" }
+        "project": {
+            "type": "string",
+            "description": "Project file to build"
+        },
+        "command": {
+            "type": "array",
+            "minItems": 1,
+            "description": "dotnet verb and its switches for the configuration, which the plugin infers",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "outputs": {
+            "type": "array",
+            "description": "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}",
+            "items": {
+                "type": "string"
+            }
+        },
+        "args": {
+            "type": "array",
+            "description": "Arguments appended to the dotnet command",
+            "items": {
+                "type": "string"
+            }
+        }
     },
-    "required": [ "project", "command" ]
+    "required": [ "project", "command" ],
+    "additionalProperties": true,
+    "title": "Build",
+    "description": "Runs dotnet build or dotnet publish once over a generated traversal project of every batched project, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result"
 }

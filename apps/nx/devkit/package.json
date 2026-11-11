@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-devkit",
     "version": "0.0.0",
-    "description": "Parts every @rasm/nx-* plugin shares: a child-process runner bound to the host's exit, the tool error, verb aggregates, plugin identity, the plugin cache, the child config reader, and the TypeScript configuration reader",
+    "description": "Model every @rasm/nx-* plugin declares itself on: a plugin states its files, options, cached reads, and projects, and gets createNodes, createDependencies, verb targets, executors, and release steps built over Nx's own members",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -13,15 +13,17 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./inference": "./inference.ts",
-        "./process": "./process.ts",
+        "./plugin": "./plugin.ts",
+        "./target": "./target.ts",
         "./reader": "./reader.ts",
         "./reply": "./reply.ts",
-        "./typescript": "./typescript.ts",
+        "./executor": "./executor.ts",
+        "./process": "./process.ts",
         "./package.json": "./package.json",
-        "./executors.json": "./executors.json"
+        "./executors.json": "./executors.json",
+        "./generators.json": "./generators.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json", "generators.json", "generators/*/schema.json" ],
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -31,36 +33,34 @@
     "devDependencies": {
         "@nx/js": "catalog:",
         "@types/node": "catalog:",
-        "@typescript/native": "catalog:",
         "nx": "catalog:"
     },
     "peerDependencies": {
         "@nx/js": "catalog:",
-        "@typescript/native": "catalog:peers",
         "nx": "catalog:peers"
     },
     "peerDependenciesMeta": {
         "@nx/js": {
-            "optional": true
-        },
-        "@typescript/native": {
             "optional": true
         }
     },
     "publishConfig": {
         "access": "public",
         "exports": {
-            "./inference": "./dist/inference.js",
-            "./process": "./dist/process.js",
+            "./plugin": "./dist/plugin.js",
+            "./target": "./dist/target.js",
             "./reader": "./dist/reader.js",
             "./reply": "./dist/reply.js",
-            "./typescript": "./dist/typescript.js",
+            "./executor": "./dist/executor.js",
+            "./process": "./dist/process.js",
             "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
+            "./executors.json": "./executors.json",
+            "./generators.json": "./generators.json"
         },
         "imports": {
             "#/*": "./dist/*.js"
         }
     },
-    "executors": "./executors.json"
+    "executors": "./executors.json",
+    "generators": "./generators.json"
 }

@@ -1,36 +1,138 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Cargo",
-    "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report",
     "type": "object",
     "properties": {
-        "cwd": { "type": "string", "description": "Cargo workspace root, relative to the Nx workspace root" },
-        "package": { "type": "string", "description": "Package the task selects, passed to cargo as a package ID spec" },
+        "cwd": {
+            "type": "string",
+            "description": "Cargo workspace root, relative to the Nx workspace root"
+        },
         "commands": {
             "type": "array",
             "minItems": 1,
             "description": "Cargo invocations in order, a task stopping at its first failure",
-            "items": {
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "minItems": 1,
+                            "description": "Subcommand and its arguments",
+                            "items": [
+                                {
+                                    "type": "string"
+                                }
+                            ],
+                            "additionalItems": {
+                                "type": "string"
+                            }
+                        },
+                        "trailing": {
+                            "type": "array",
+                            "description": "Arguments after --, before the report flags",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "report": {
+                            "type": "string",
+                            "enum": [ "messages", "tests", "status" ],
+                            "description": "Output each task is decided from: compiler messages, nextest suite events, or the exit status"
+                        },
+                        "packages": {
+                            "type": "array",
+                            "description": "Further packages the command selects",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "root": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [ "root", "name" ],
+                                "additionalProperties": true
+                            }
+                        }
+                    },
+                    "required": [ "args", "report" ],
+                    "additionalProperties": true
+                }
+            ],
+            "additionalItems": {
                 "type": "object",
                 "properties": {
-                    "args": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Arguments before the package selection" },
-                    "trailing": { "type": "array", "items": { "type": "string" }, "description": "Arguments after --, passed on to the compiler run" },
-                    "packages": {
+                    "args": {
                         "type": "array",
-                        "items": { "type": "object", "properties": { "root": { "type": "string" }, "name": { "type": "string" } }, "required": [ "root", "name" ] },
-                        "description": "Packages the command selects beside each task's own, each by its folder relative to the Nx workspace root and its name"
+                        "minItems": 1,
+                        "description": "Subcommand and its arguments",
+                        "items": [
+                            {
+                                "type": "string"
+                            }
+                        ],
+                        "additionalItems": {
+                            "type": "string"
+                        }
+                    },
+                    "trailing": {
+                        "type": "array",
+                        "description": "Arguments after --, before the report flags",
+                        "items": {
+                            "type": "string"
+                        }
                     },
                     "report": {
+                        "type": "string",
                         "enum": [ "messages", "tests", "status" ],
-                        "description": "What decides each task: cargo's JSON messages (`messages`), nextest's per-suite results (`tests`), or the exit status alone (`status`)"
+                        "description": "Output each task is decided from: compiler messages, nextest suite events, or the exit status"
+                    },
+                    "packages": {
+                        "type": "array",
+                        "description": "Further packages the command selects",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "root": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [ "root", "name" ],
+                            "additionalProperties": true
+                        }
                     }
                 },
-                "required": [ "args", "report" ]
+                "required": [ "args", "report" ],
+                "additionalProperties": true
             }
         },
-        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every command" },
-        "outputs": { "type": "array", "items": { "type": "string" }, "description": "Files the commands write, each folder created before the run" }
+        "package": {
+            "type": "string",
+            "description": "Package the task selects, passed to cargo as a package ID spec"
+        },
+        "args": {
+            "type": "array",
+            "description": "Arguments appended to every command",
+            "items": {
+                "type": "string"
+            }
+        },
+        "outputs": {
+            "type": "array",
+            "description": "Files the commands write, each folder created before the run",
+            "items": {
+                "type": "string"
+            }
+        }
     },
-    "required": [ "cwd", "commands" ]
+    "required": [ "cwd", "commands" ],
+    "additionalProperties": true,
+    "title": "Cargo",
+    "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report"
 }

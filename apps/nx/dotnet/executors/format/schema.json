@@ -1,13 +1,53 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Format",
-    "description": "Runs dotnet format commands in order on one project, or once each over a solution of every batched project",
     "type": "object",
     "properties": {
-        "commands": { "type": "array", "items": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "minItems": 1, "description": "dotnet format subcommands and their switches, run in order, which the plugin infers" },
-        "project": { "type": "string", "description": "Project file the commands run on" },
-        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to every command" }
+        "commands": {
+            "type": "array",
+            "minItems": 1,
+            "description": "dotnet format subcommands and their switches, run in order, which the plugin infers",
+            "items": [
+                {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": [
+                        {
+                            "type": "string"
+                        }
+                    ],
+                    "additionalItems": {
+                        "type": "string"
+                    }
+                }
+            ],
+            "additionalItems": {
+                "type": "array",
+                "minItems": 1,
+                "items": [
+                    {
+                        "type": "string"
+                    }
+                ],
+                "additionalItems": {
+                    "type": "string"
+                }
+            }
+        },
+        "project": {
+            "type": "string",
+            "description": "Project file the commands run on"
+        },
+        "args": {
+            "type": "array",
+            "description": "Arguments appended to every command",
+            "items": {
+                "type": "string"
+            }
+        }
     },
-    "required": [ "commands", "project" ]
+    "required": [ "commands", "project" ],
+    "additionalProperties": true,
+    "title": "Format",
+    "description": "Runs dotnet format commands in order on one project, or once each over a solution of every batched project"
 }

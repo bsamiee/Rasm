@@ -4,6 +4,7 @@ import { siteHead } from '@rasm/hosting/head';
 import { Sites } from '@rasm/hosting/openai-sites';
 import { nodeServer } from '@rasm/hosting/vite';
 import { pdfjs } from '@rasm/media/vite';
+import { readySignal } from '@rasm/nx-vite/ready-signal';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { bindings } from 'cf/config';
@@ -18,6 +19,7 @@ export default defineConfig(({ command, mode }) => ({
         tailwindcss(),
         pdfjs(),
         sites(),
+        readySignal(),
         ...(mode === 'test'
             ? []
             : [

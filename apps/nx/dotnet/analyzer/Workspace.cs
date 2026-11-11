@@ -82,7 +82,7 @@ internal static class Workspace {
         Seq<string> bases = Seq(outer.GetPropertyValue("BaseOutputPath"), outer.GetPropertyValue("BaseIntermediateOutputPath")).Map(at => Path.GetFullPath(Path.Combine(folder, at)));
         Seq<string> inside = imports.Map(import => Relative(root, import)).Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal));
         Seq<string> locks = instances
-            .Map(Locked)
+            .Map(static instance => Path.GetFullPath(Path.Combine(instance.Directory, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName)))
             .Distinct()
             .Filter(File.Exists);
         return (
@@ -138,9 +138,6 @@ internal static class Workspace {
 
     public static ProjectInstance Load(string path, ImmutableDictionary<string, string> properties, EvaluationContext context, ProjectCollection collection) =>
         ProjectInstance.FromFile(path, new ProjectOptions { GlobalProperties = properties, ProjectCollection = collection, EvaluationContext = context, LoadSettings = ProjectLoadSettings.DoNotEvaluateElementsWithFalseCondition });
-
-    public static string Locked(ProjectInstance instance) =>
-        Path.GetFullPath(Path.Combine(instance.Directory, instance.GetPropertyValue("NuGetLockFilePath") is { Length: > 0 } named ? named : PackagesLockFileFormat.LockFileName));
 
     private static ImmutableDictionary<string, string> Properties(string configuration, Option<string> runtime, Option<string> framework) =>
         (Seq<(string Name, string Value)>(("Configuration", configuration)) + runtime.Map(static value => (Name: "RuntimeIdentifier", Value: value)).ToSeq() + framework.Map(static value => (Name: "TargetFramework", Value: value)).ToSeq())

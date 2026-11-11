@@ -23,19 +23,10 @@
         <PackageReference Include="NuGet.Frameworks" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.Packaging" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.ProjectModel" ExcludeAssets="runtime" />
-        <PackageReference Include="NuGet.Protocol" ExcludeAssets="runtime" />
         <PackageReference Include="NuGet.Versioning" ExcludeAssets="runtime" />
-    </ItemGroup>
-
-    <ItemGroup Label="Runtime Diagnostics">
-        <PackageReference Include="Microsoft.Extensions.DependencyModel" />
     </ItemGroup>
 
     <ItemGroup Label="Core">
         <PackageReference Include="LanguageExt.Core" />
-    </ItemGroup>
-
-    <ItemGroup Label="Workspace Projects">
-        <ProjectReference Include="../../../../libs/dotnet/runtime/Rasm.Hosting/Rasm.Hosting.csproj" />
     </ItemGroup>
 </Project>

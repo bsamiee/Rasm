@@ -102,9 +102,9 @@ flowchart LR
 ## [03]-[PRINCIPLES]
 
 - Each fact sits once in the file its tool reads, and every other use derives it
-- Nx plugins infer every project and target from ecosystem manifests and tool output, with no `project.json`, `targetDefaults`, or `namedInputs`
-- A manifest's own `nx` table states a path no manifest row and no tool reports, a file a build reads unimported
-- Compose clients are derived: a file naming a Compose file by path links its project, a Dockerfile inside a project links the image to it
+- Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json`, `targetDefaults`, or `namedInputs`
+- Manifest `nx` tables state only a path no manifest row or tool reports (a file a build reads unimported)
+- Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-devkit`, and a row's own options win
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
 - Verbs aggregate `<verb>--<tool>` targets, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
@@ -118,15 +118,16 @@ flowchart LR
 - Tool behavior comes from its source and docs at the installed version, a plugin never restates what a tool, host, package, or Nx already does
 - Tools with their own incremental state keep it, Nx caches results around it and restores an intermediate folder only with the outputs built from it
 - CI selects projects by tags: `os:<platform>` where a toolchain or host limits build platforms, `host:<technology>` where a build runs a host no runner holds
-- Release selects projects by `release` and by `npm:public`, the tag Nx gives each public package
 
 ## [04]-[TASKS]
 
-`nx <verb> <project>` runs one project with the tasks its targets depend on, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
+`nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
 - `build` compiles or packages a project into its declared outputs
 - `check` reports findings of checkers reading the project model and changes no source file
 - `fix` applies fixes from checkers reading the project model
 - `test` runs a project's test runners
+- `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports
+- `preview` builds a project, then serves its build output as `serve` does
 - `install` puts a local build into its host or starts local services
 - `deploy` applies a project's infrastructure stacks, `--stack=<name>` one of them
 - `upgrade` moves an ecosystem root's dependency requirements and locks to newer releases through its own tool
@@ -136,14 +137,16 @@ Other tasks run through their own commands:
 - `git submodule update --init --checkout assets` fills `assets/` before a build that reads a shared asset
 - `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
-- Workflow `release.yml` runs `nx release --skip-publish`, a `-c release` build of the versioned projects per platform, then `nx release publish` there, which takes no configuration
+- Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
+- Workflow `release.yml` runs `nx release --skip-publish`, then per platform a `-c release` build of the versioned projects and `nx release publish`
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
-- `nx install @rasm/infra` starts the local services of `infra/compose.yaml`, `-c store` adds the store service supplying test databases and buckets
-- Suites read the store service as session state no test target starts or stops, `nx install @rasm/infra -c store` applies a changed store before its suites run
+- `nx install @rasm/infra` starts local services of `infra/compose.yaml`, only `-c store` adds or updates the store service test suites read
 - `mise daemons start services` applies a changed `infra/compose.yaml` and waits until every service is healthy
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx deploy @rasm/infra` applies the repository and deployed-host stacks
-- `mise lock --bump` moves tools, `nx migrate` moves Nx, and `pinact run --update` moves workflow action pins to their newest release SHA
+- `mise lock --bump` moves tools and `pinact run --update` moves workflow action pins to their newest release SHA
+- `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
+- `nx sync` writes each executor's `schema.json` from its declared options schema, `nx sync:check` fails on a stale one
 - `pixi run --locked uv sync` builds Python distributions against Pixi libraries
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 

@@ -1,16 +1,52 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Release publish",
-    "description": "Publishes a crate with cargo publish",
     "type": "object",
     "properties": {
-        "cwd": { "type": "string", "description": "Cargo workspace root, relative to the Nx workspace root" },
-        "package": { "type": "string", "description": "Crate to publish" },
-        "registry": { "type": "string", "description": "Registry name from Cargo configuration, crates.io when unset" },
-        "dryRun": { "type": "boolean", "description": "Packages and verifies without uploading" },
-        "firstRelease": { "type": "boolean", "description": "Skips the registry version check" },
-        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "nxReleaseVersionData": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "newVersion": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [ "newVersion" ],
+                "additionalProperties": true
+            },
+            "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+        },
+        "cwd": {
+            "type": "string",
+            "description": "Cargo workspace root, relative to the Nx workspace root"
+        },
+        "package": {
+            "type": "string",
+            "description": "Crate to publish"
+        },
+        "registry": {
+            "type": "string",
+            "description": "Registry name from Cargo configuration, crates.io when unset"
+        },
+        "firstRelease": {
+            "type": "boolean",
+            "description": "Skips the registry version check"
+        }
     },
-    "required": [ "cwd", "package" ]
+    "required": [ "cwd", "package" ],
+    "additionalProperties": true,
+    "title": "Release publish",
+    "description": "Publishes a crate with cargo publish, skipping a version the registry already holds; runs through nx release publish"
 }

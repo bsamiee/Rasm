@@ -1,11 +1,13 @@
 import { fileURLToPath } from 'node:url';
-import type { ExecutorContext } from '@nx/devkit';
-import { runtime } from '@rasm/nx-devkit/process';
-import { Array, Console, Effect, FileSystem, flow, Path, Schema, Struct } from 'effect';
+import { executor } from '@rasm/nx-devkit/executor';
+import { Array, Console, Effect, FileSystem, Path, Schema, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Check = Schema.Struct({ reports: Schema.Array(Schema.String) });
+const Check = Schema.Struct({ reports: Schema.Array(Schema.String).annotate({ description: "Workspace-relative SARIF files the configuration's compile writes, which the plugin infers from each evaluation's ErrorLog" }) }).annotate({
+    title: 'Check',
+    description: "Reads the SARIF 2.1 reports a project's compile wrote through ErrorLog and fails on each result at level warning or error that no suppression answers, printed as file(line,col): level id: text",
+});
 const Failing = Schema.Literals(['warning', 'error']);
 const Result = Schema.Struct({
     ruleId: Schema.String,
@@ -22,19 +24,18 @@ const rendered = ({ ruleId, level, message, locations }: typeof Result.Type) => 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = flow(
-    Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
+const execute = executor(
+    Check,
+    Effect.fnUntraced(function* ({ reports }, context) {
         const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-        const { reports } = yield* Schema.decodeUnknownEffect(Check)(options);
         const read = yield* Effect.forEach(reports, (report) => Effect.flatMap(fs.readFileString(path.resolve(context.root, report)), Schema.decodeEffect(Report)), { concurrency: 'unbounded' });
         const findings = read
             .flatMap(Struct.get('runs'))
             .flatMap(Struct.get('results'))
             .filter((result) => result.suppressions === undefined && Schema.is(Failing)(result.level));
         yield* Effect.forEach(findings, (finding) => Console.log(rendered(finding)));
-        return { success: findings.length === 0 };
+        return findings.length === 0;
     }),
-    runtime.runPromise,
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

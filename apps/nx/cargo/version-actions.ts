@@ -1,12 +1,13 @@
 import { parse, patch } from '@decimalturn/toml-patch';
-import { type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
+import type { ProjectGraph, Tree } from '@nx/devkit';
+import { relocked } from '@rasm/nx-devkit/executor';
 import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, Option, Path, Record, Schema, String } from 'effect';
+import { Array, Effect, Option, Path, Record, Schema, String } from 'effect';
 import { FetchHttpClient } from 'effect/http';
-import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
+import { VersionActions } from 'nx/release';
 import { sortReversed } from 'verkit';
 import { releases } from '#/executors/release-publish/executor';
-import { LOCK, MANIFEST } from '#/plugins/workspace';
+import { LOCK, MANIFEST } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,7 +24,6 @@ const Manifest = Schema.Struct({
     workspace: Schema.optionalKey(Schema.Struct({ package: Schema.optionalKey(Schema.Struct({ version: Schema.optionalKey(Schema.String) })) })),
 });
 const Located = Schema.fromJsonString(Schema.Struct({ root: Schema.String }));
-const Root = Schema.Struct({ skipLockFileUpdate: Schema.optionalKey(Schema.Boolean) });
 const Options = Schema.Struct({ lock: Schema.String, registry: Schema.optionalKey(Schema.String) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -174,26 +174,7 @@ class CargoVersionActions extends VersionActions {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, rootVersionActionsOptions }) =>
-    runtime.runPromise(
-        Effect.gen(function* () {
-            const [path, fs, options] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeEffect(Root)(rootVersionActionsOptions ?? {})]);
-            const locks =
-                dryRun === true || options.skipLockFileUpdate === true
-                    ? []
-                    : Array.dedupe(
-                          Object.values(readCachedProjectGraph().nodes).flatMap((node) =>
-                              Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions).pipe(
-                                  Option.map(({ lock }) => lock),
-                                  Option.filter((lock) => path.basename(lock) === LOCK),
-                                  Option.toArray,
-                              ),
-                          ),
-                      );
-            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(printed('cargo', ['update', '--workspace'], { cwd: path.join(cwd, path.dirname(lock)) }), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
-            return { changedFiles: changed, deletedFiles: [] };
-        }),
-    );
+const afterAllProjectsVersioned = relocked(LOCK, ['cargo', 'update', '--workspace']);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

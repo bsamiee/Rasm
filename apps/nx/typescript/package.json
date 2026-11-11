@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-typescript",
     "version": "0.0.0",
-    "description": "Nx plugin inferring TypeScript type checks and emits and publint package checks from the compiler's own configuration",
+    "description": "Nx plugin inferring TypeScript type checks and emits, publint package checks, and the package manager upgrade and store prune of the workspace",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -13,7 +13,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./plugins/project-graph.ts",
+        ".": "./plugin.ts",
         "./package.json": "./package.json"
     },
     "files": [ "dist" ],
@@ -34,7 +34,7 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/project-graph.js",
+            ".": "./dist/plugin.js",
             "./package.json": "./package.json"
         },
         "imports": {

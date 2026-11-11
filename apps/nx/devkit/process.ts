@@ -1,6 +1,5 @@
 import process from 'node:process';
-import { layer } from '@effect/platform-node/NodeServices';
-import { Boolean, Effect, Formatter, ManagedRuntime, Option, Schema, Stream } from 'effect';
+import { Boolean, Effect, Formatter, Layer, ManagedRuntime, Option, pipe, Schema, Stream } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 import { onExit } from 'signal-exit';
 
@@ -63,7 +62,12 @@ const present = (command: string, args: readonly string[], options: Run = {}) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(layer);
+const runtime = pipe(
+    Effect.promise(() => import('@effect/platform-node/NodeServices')),
+    Effect.map(({ layer }) => layer),
+    Layer.unwrap,
+    ManagedRuntime.make,
+);
 
 const iterated =
     <Args extends readonly unknown[], A, E>(results: (...args: Args) => Stream.Stream<A, E, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>) =>

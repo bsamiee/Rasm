@@ -45,6 +45,7 @@
         "@cloudflare/vite-plugin": "catalog:",
         "@openai/sites-vite-plugin": "catalog:",
         "@rasm/mark": "workspace:*",
+        "@rasm/nx-vite": "workspace:*",
         "@rasm/test-support": "workspace:*",
         "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
@@ -65,7 +66,9 @@
     },
     "nx": {
         "targets": {
-            "build--vite": { "outputs": [ "...", "{projectRoot}/.cloudflare/output" ] }
+            "build--vite": {
+                "outputs": [ "...", "{projectRoot}/.cloudflare/output" ]
+            }
         }
     }
 }

@@ -1,12 +1,39 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Release publish",
-    "description": "Publishes each host package the project's build wrote to its host's package server, skipping distributions the server holds and a project nx release left unversioned",
     "type": "object",
     "properties": {
-        "registry": { "type": "string", "description": "Package server URL nx release publish passes as --registry, in place of the host's default server" },
-        "dryRun": { "type": "boolean", "description": "Reads the packages and the server and prints each upload without sending it" },
-        "nxReleaseVersionData": { "type": "object", "description": "Versions nx release resolved per project" }
-    }
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "nxReleaseVersionData": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "newVersion": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [ "newVersion" ],
+                "additionalProperties": true
+            },
+            "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+        },
+        "registry": {
+            "type": "string",
+            "description": "Package server URL nx release publish passes as --registry, in place of the host's default server"
+        }
+    },
+    "additionalProperties": true,
+    "title": "Release publish",
+    "description": "Attaches each host package the project's build wrote to its GitHub release and publishes it to its host's package server, skipping distributions the server holds and a project nx release left unversioned"
 }

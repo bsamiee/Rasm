@@ -1,8 +1,6 @@
 {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$schema": "http://json-schema.org/draft-07/schema#",
     "version": 2,
-    "title": "Zip",
-    "description": "Zips each archived app and each SwiftPM executable product's release build with ditto; an archive with a method is exported with it first, notarized with notarytool, stapled, and zipped again",
     "type": "object",
     "properties": {
         "exports": {
@@ -10,29 +8,55 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "archive": { "type": "string", "description": "Archive xcodebuild archive wrote" },
-                    "folder": { "type": "string", "description": "Folder holding the zip, and the export of a notarized archive" },
-                    "method": { "type": "string", "description": "Export method, present where the archive configuration signs with a Developer ID Application identity and the hardened runtime" }
+                    "archive": {
+                        "type": "string"
+                    },
+                    "folder": {
+                        "type": "string"
+                    },
+                    "method": {
+                        "type": "string"
+                    }
                 },
-                "required": [ "archive", "folder" ]
-            },
-            "description": "Archives the plugin infers for the scheme's archive configuration, none in any other configuration"
+                "required": [ "archive", "folder" ],
+                "additionalProperties": true
+            }
         },
         "products": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
-                    "package": { "type": "string", "description": "Package folder, passed as --package-path to swift build --show-bin-path" },
-                    "product": { "type": "string", "description": "Executable product swift package describe names" },
-                    "folder": { "type": "string", "description": "Folder holding <product>-<version>.zip" },
-                    "manifest": { "type": "string", "description": "Info.plist the product embeds, whose CFBundleShortVersionString names the zip" }
+                    "package": {
+                        "type": "string"
+                    },
+                    "product": {
+                        "type": "string"
+                    },
+                    "folder": {
+                        "type": "string"
+                    },
+                    "manifest": {
+                        "type": "string"
+                    }
                 },
-                "required": [ "package", "product", "folder", "manifest" ]
-            },
-            "description": "Executable products the plugin infers for the release configuration, none in any other configuration"
+                "required": [ "package", "product", "folder", "manifest" ],
+                "additionalProperties": true
+            }
         },
-        "profile": { "type": "string", "description": "notarytool keychain profile from the plugin's notaryProfile option, required by archives with a method" },
-        "args": { "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" }, "description": "Arguments after -- appended to notarytool submit, else to ditto" }
-    }
+        "profile": {
+            "type": "string",
+            "description": "notarytool keychain profile from the plugin's notaryProfile option, required by archives with a method"
+        },
+        "args": {
+            "type": "array",
+            "description": "Arguments appended to notarytool submit, else to ditto",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "additionalProperties": true,
+    "title": "Zip",
+    "description": "Zips each archived app and each SwiftPM executable product's release build with ditto; an archive with a method is exported with it first, notarized with notarytool, stapled, and zipped again"
 }

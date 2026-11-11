@@ -1,24 +1,27 @@
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Array, Config, Effect, FileSystem, Function, flow, Glob, Path, Record, Result, Schema } from 'effect';
-import { line } from '#/inference';
-import { ran, runtime, ToolError } from '#/process';
+import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema, Struct } from 'effect';
+import { Dry, dried, executor } from '#/executor';
+import { ran, ToolError } from '#/process';
+import { line } from '#/target';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Clean = Schema.Struct({
-    targets: Schema.Array(Schema.String),
-    commands: Schema.Array(Schema.NonEmptyArray(Schema.String)),
-    previews: Schema.optionalKey(Schema.Array(Schema.NonEmptyArray(Schema.String))),
-    cwd: Schema.String,
-    dryRun: Schema.Boolean,
-});
+const Commands = Schema.Array(Schema.NonEmptyArray(Schema.String));
+const Targets = Schema.Array(Schema.String);
+const Clean = Dry.mapFields(
+    Struct.assign({
+        targets: Targets.annotate({ description: 'Targets of the project, each declared output of every configuration is removed', default: [] }),
+        commands: Commands.annotate({ description: "The tool's own clean commands, each an argument list", default: [] }),
+        previews: Schema.optionalKey(Commands).annotate({ description: "The tool's own dry-run forms, run in place of commands under a dry run" }),
+        cwd: Schema.String.annotate({ description: 'Folder the commands run in, relative to the workspace root', default: '.' }),
+    }),
+).annotate({ title: 'Clean', description: "Removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and runs the tool's own clean commands when given" });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const declared = Effect.fnUntraced(function* (context: ExecutorContext, targets: readonly string[]) {
+const declared = Effect.fnUntraced(function* (context: ExecutorContext, project: string, targets: readonly string[]) {
     const path = yield* Path.Path;
-    const project = yield* Effect.fromNullishOr(context.projectName);
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
     const selections = targets.flatMap((target) => [{ target }, ...Record.keys(node.data.targets?.[target]?.configurations ?? {}).map((configuration) => ({ target, configuration }))]);
     const [outputs, negated] = Array.partition(
@@ -28,7 +31,7 @@ const declared = Effect.fnUntraced(function* (context: ExecutorContext, targets:
             (output) => output.slice(1),
         ),
     );
-    return { project, negated, outputs: outputs.filter((output) => !(output.startsWith('..') || path.isAbsolute(output))) };
+    return { negated, outputs: outputs.filter((output) => !(output.startsWith('..') || path.isAbsolute(output))) };
 });
 
 const cleared = Effect.fnUntraced(function* (root: string, project: string, output: string, negated: readonly string[], dry: boolean) {
@@ -52,19 +55,19 @@ const cleared = Effect.fnUntraced(function* (root: string, project: string, outp
     yield* Effect.forEach(removed, (at) => Effect.andThen(dry ? Effect.void : fs.remove(path.join(root, at), { recursive: true, force: true }), Effect.logInfo(`${dry ? 'Would remove' : 'Removed'} ${at}`)), { discard: true });
 });
 
-const cleaned = Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-    const [path, { targets, commands, previews, cwd, dryRun }, environment] = yield* Effect.all([Path.Path, Schema.decodeUnknownEffect(Clean)(options), Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false))]);
-    const dry = dryRun || environment;
-    const { project, outputs, negated } = yield* declared(context, targets);
-    yield* Effect.forEach(outputs, (output) => cleared(context.root, project, output, negated, dry), { discard: true });
-    yield* Effect.forEach(dry && previews === undefined ? commands : [], (command) => Effect.logInfo(`Would run ${line(command)}`), { discard: true });
-    const codes = yield* Effect.forEach(dry ? (previews ?? []) : commands, (command) => Effect.map(ran(Array.headNonEmpty(command), Array.tailNonEmpty(command), { cwd: path.join(context.root, cwd), stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }), ({ code }) => code));
-    return { success: codes.every((code) => code === 0) };
-});
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = flow(cleaned, runtime.runPromise);
+const execute = executor(
+    Clean,
+    Effect.fnUntraced(function* ({ targets, commands, previews, cwd, ...stated }, context, project) {
+        const [path, dry] = yield* Effect.all([Path.Path, dried(stated)]);
+        const { outputs, negated } = yield* declared(context, project, targets);
+        yield* Effect.forEach(outputs, (output) => cleared(context.root, project, output, negated, dry), { discard: true });
+        yield* Effect.forEach(dry && previews === undefined ? commands : [], (command) => Effect.logInfo(`Would run ${line(command)}`), { discard: true });
+        const codes = yield* Effect.forEach(dry ? (previews ?? []) : commands, (command) => Effect.map(ran(Array.headNonEmpty(command), Array.tailNonEmpty(command), { cwd: path.join(context.root, cwd), stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }), ({ code }) => code));
+        return codes.every((code) => code === 0);
+    }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

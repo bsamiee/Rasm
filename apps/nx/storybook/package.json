@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-storybook",
     "version": "0.0.0",
-    "description": "Nx plugin inferring Storybook builds from each Storybook main configuration",
+    "description": "Nx plugin inferring Storybook builds from each Storybook main configuration, and the development server of one naming its preset",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -13,7 +13,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./plugins/project-graph.ts",
+        ".": "./plugin.ts",
+        "./preset": "./preset.ts",
         "./package.json": "./package.json"
     },
     "files": [ "dist" ],
@@ -29,12 +30,14 @@
         "storybook": "catalog:"
     },
     "peerDependencies": {
-        "nx": "catalog:peers"
+        "nx": "catalog:peers",
+        "storybook": "catalog:peers"
     },
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/project-graph.js",
+            ".": "./dist/plugin.js",
+            "./preset": "./dist/preset.js",
             "./package.json": "./package.json"
         },
         "imports": {

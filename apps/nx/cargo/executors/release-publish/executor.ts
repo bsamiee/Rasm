@@ -1,10 +1,10 @@
 import { pathToFileURL } from 'node:url';
-import type { ExecutorContext } from '@nx/devkit';
-import { printed, runtime } from '@rasm/nx-devkit/process';
-import { Array, Config, Effect, Equivalence, flow, Match, Option, Path, Schema, String } from 'effect';
+import { executor, Released, released } from '@rasm/nx-devkit/executor';
+import { printed } from '@rasm/nx-devkit/process';
+import { Array, Effect, Equivalence, Match, Option, Path, Schema, String, Struct } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { ran } from '#/executors/cargo/executor';
-import { Metadata } from '#/plugins/workspace';
+import { Metadata } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -12,15 +12,15 @@ const LEVEL = 2;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Publish = Schema.Struct({
-    cwd: Schema.String,
-    package: Schema.String,
-    registry: Schema.optionalKey(Schema.String),
-    dryRun: Schema.optionalKey(Schema.Boolean),
-    firstRelease: Schema.optionalKey(Schema.Boolean),
-    nxReleaseVersionData: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ newVersion: Schema.NullOr(Schema.String) }))),
-});
-const Released = Schema.fromJsonString(Schema.Struct({ vers: Schema.String, yanked: Schema.optionalKey(Schema.NullOr(Schema.Boolean)) }));
+const Publish = Released.mapFields(
+    Struct.assign({
+        cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
+        package: Schema.String.annotate({ description: 'Crate to publish' }),
+        registry: Schema.optionalKey(Schema.String).annotate({ description: 'Registry name from Cargo configuration, crates.io when unset' }),
+        firstRelease: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Skips the registry version check' }),
+    }),
+).annotate({ title: 'Release publish', description: 'Publishes a crate with cargo publish, skipping a version the registry already holds; runs through nx release publish' });
+const Published = Schema.fromJsonString(Schema.Struct({ vers: Schema.String, yanked: Schema.optionalKey(Schema.NullOr(Schema.Boolean)) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -43,37 +43,30 @@ const releases = Effect.fnUntraced(function* (name: string) {
                 Effect.map((text) => text.split('\n').filter(String.isNonEmpty)),
             ),
     });
-    const published = yield* Effect.forEach(lines, (line) => Schema.decodeEffect(Released)(line));
+    const published = yield* Effect.forEach(lines, (line) => Schema.decodeEffect(Published)(line));
     return { url, published };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = flow(
-    Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-        const [path, publish, dry, project] = yield* Effect.all([Path.Path, Schema.decodeUnknownEffect(Publish)(options), Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), Effect.fromNullishOr(context.projectName)]);
-        const dryRun = publish.dryRun === true || dry;
-        const cwd = path.resolve(context.root, publish.cwd);
+const execute = executor(
+    Publish,
+    Effect.fnUntraced(function* ({ cwd: root, package: named, registry, firstRelease, ...stated }, context, project) {
+        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, project)]);
+        const cwd = path.resolve(context.root, root);
         const { packages } = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Metadata));
-        const crate = yield* Effect.fromOption(Array.findFirst(packages, ({ name }) => name === publish.package));
-        const unpublished = (member: typeof crate) => (publish.registry === undefined && publish.firstRelease !== true ? Effect.map(releases(member.name), ({ published }) => !published.some(({ vers }) => vers === member.version)) : Effect.succeed(true));
+        const crate = yield* Effect.fromOption(Array.findFirst(packages, ({ name }) => name === named));
+        const unpublished = (member: typeof crate) => (registry === undefined && firstRelease !== true ? Effect.map(releases(member.name), ({ published }) => !published.some(({ vers }) => vers === member.version)) : Effect.succeed(true));
         const local = (member: typeof crate): readonly (typeof crate)[] => member.dependencies.flatMap(({ path: at }) => packages.filter(({ manifest_path }) => at !== undefined && path.dirname(manifest_path) === at)).flatMap((dependency) => [dependency, ...local(dependency)]);
-        const skipped = publish.nxReleaseVersionData?.[project]?.newVersion === null || !(yield* unpublished(crate));
-        const overlay = dryRun ? yield* Effect.filter(Array.dedupeWith(local(crate), Equivalence.Struct({ name: Equivalence.String })), (member) => unpublished(member)) : [];
+        const skipped = unversioned || !(yield* unpublished(crate));
+        const overlay = dry ? yield* Effect.filter(Array.dedupeWith(local(crate), Equivalence.Struct({ name: Equivalence.String })), (member) => unpublished(member)) : [];
         return skipped
-            ? yield* Effect.as(Effect.logInfo(`Skipped ${crate.name}@${crate.version}, the registry already holds it or nx release left it unchanged`), { success: true })
+            ? yield* Effect.as(Effect.logInfo(`Skipped ${crate.name}@${crate.version}, the registry already holds it or nx release left it unchanged`), true)
             : yield* Effect.map(
-                  ran(cwd, [
-                      'publish',
-                      ...[crate, ...overlay].flatMap((member) => ['--package', `path+${pathToFileURL(path.dirname(member.manifest_path)).href}#${member.name}`]),
-                      ...Option.toArray(Option.fromUndefinedOr(publish.registry)).flatMap((registry) => ['--registry', registry]),
-                      ...(dryRun ? ['--dry-run'] : []),
-                      '--locked',
-                  ]),
-                  ({ code }) => ({ success: Option.contains(code, 0) }),
+                  ran(cwd, ['publish', ...[crate, ...overlay].flatMap((member) => ['--package', `path+${pathToFileURL(path.dirname(member.manifest_path)).href}#${member.name}`]), ...Option.toArray(Option.fromUndefinedOr(registry)).flatMap((held) => ['--registry', held]), ...(dry ? ['--dry-run'] : []), '--locked']),
+                  ({ code }) => Option.contains(code, 0),
               );
     }, Effect.provide(FetchHttpClient.layer)),
-    runtime.runPromise,
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

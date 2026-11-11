@@ -1,14 +1,18 @@
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
+import { executor } from '@rasm/nx-devkit/executor';
+import { printed, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, Option, Path, Record, Schema, Stream, String } from 'effect';
 import { Toml, Zip } from 'effect/encoding';
-import { EXTENSION } from '#/plugins/host-packages';
+import { EXTENSION } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Build = Schema.Struct({ outputPath: Schema.String });
+const Build = Schema.Struct({ outputPath: Schema.String.annotate({ description: 'Workspace-relative folder the archives are written to' }) }).annotate({
+    title: 'Extension build',
+    description: "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its locked registry dependencies as wheels for the running Blender and its local dependencies as subpackages",
+});
 const Manifest = Schema.Struct({ id: Schema.String, platforms: Schema.optionalKey(Schema.Array(Schema.String)) });
 const Interpreter = Schema.fromJsonString(Schema.Struct({ python: Schema.String, platform: Schema.String, tags: Schema.Array(Schema.String), distributions: Schema.Record(Schema.String, Schema.String), undeclared: Schema.Record(Schema.String, Schema.String), modules: Schema.Array(Schema.String) }));
 const Locked = Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory: Schema.optionalKey(Schema.Struct({ path: Schema.String })) })) });
@@ -75,27 +79,27 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     return stage;
 });
 
-const built = Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-    const [path, fs, { outputPath: folder }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeUnknownEffect(Build)(options)]);
-    const project = yield* Effect.fromNullishOr(context.projectName);
-    const { root } = (yield* Effect.fromNullishOr(context.projectGraph.nodes[project])).data;
-    const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
-    const declared = yield* Effect.flatMap(toml(text, EXTENSION), Schema.decodeUnknownEffect(Manifest));
-    const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
-    yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
-    yield* Effect.forEach(
-        (yield* fs.readDirectory(path.join(context.root, folder))).filter((file) => file.startsWith(`${declared.id}-`) && path.extname(file) === '.zip'),
-        (file) => fs.remove(path.join(context.root, folder, file)),
-    );
-    const source = bundle ? yield* staged(context, root, text) : root;
-    yield* printed('blender', ['--command', 'extension', 'build', ...(bundle || declared.platforms !== undefined ? ['--split-platforms'] : []), '--source-dir', source, '--output-dir', folder], { cwd: context.root });
-    return { success: true };
-}, Effect.scoped);
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = (options: unknown, context: ExecutorContext) => built(options, context).pipe(runtime.runPromise);
+const execute = executor(
+    Build,
+    Effect.fnUntraced(function* ({ outputPath: folder }, context, project) {
+        const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
+        const { root } = (yield* Effect.fromNullishOr(context.projectGraph.nodes[project])).data;
+        const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
+        const declared = yield* Effect.flatMap(toml(text, EXTENSION), Schema.decodeUnknownEffect(Manifest));
+        const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
+        yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
+        yield* Effect.forEach(
+            (yield* fs.readDirectory(path.join(context.root, folder))).filter((file) => file.startsWith(`${declared.id}-`) && path.extname(file) === '.zip'),
+            (file) => fs.remove(path.join(context.root, folder, file)),
+        );
+        const source = bundle ? yield* staged(context, root, text) : root;
+        yield* printed('blender', ['--command', 'extension', 'build', ...(bundle || declared.platforms !== undefined ? ['--split-platforms'] : []), '--source-dir', source, '--output-dir', folder], { cwd: context.root });
+        return true;
+    }),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute, probed, toml };
+export { execute };

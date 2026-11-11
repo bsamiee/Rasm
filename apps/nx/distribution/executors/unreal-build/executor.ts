@@ -3,10 +3,11 @@ import { homedir } from 'node:os';
 import { platform, stderr, stdout } from 'node:process';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
+import { executor } from '@rasm/nx-devkit/executor';
 import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Cause, Effect, Equivalence, Exit, FileSystem, Option, Path, Record, Schema, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Zip } from 'effect/encoding';
-import { UNREAL } from '#/plugins/host-packages';
+import { UNREAL } from '#/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,13 +17,13 @@ const SEPARATOR = /[/\\]/u;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Build = Schema.Struct({
-    outputPath: Schema.String,
-    descriptor: Schema.String,
-    hosts: Schema.Array(Schema.String),
-    dependencies: Schema.Array(Schema.String),
-    engines: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
-    args: Schema.optionalKey(Schema.Array(Schema.String)),
-});
+    outputPath: Schema.String.annotate({ description: "Workspace-relative folder a plug-in's archives are written to" }),
+    descriptor: Schema.String.annotate({ description: 'Project .uproject or .uplugin, relative to the workspace root' }),
+    hosts: Schema.Array(Schema.String).annotate({ description: '.uproject files building a plug-in, whose engine associations name each engine BuildPlugin runs on; empty for a plug-in no project builds, which takes its EngineVersion' }),
+    dependencies: Schema.Array(Schema.String).annotate({ description: 'Workspace plug-ins a .uplugin names, passed to BuildPlugin as -Dependencies' }),
+    engines: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Engine roots by association, read before Epic's install registry" }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the UnrealBuildTool or AutomationTool command' }),
+}).annotate({ title: 'Unreal build', description: "Builds a .uproject's editor target through UnrealBuildTool, or packages a .uplugin through AutomationTool's BuildPlugin once per engine its hosts name and archives each package" });
 const Descriptor = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String), EngineVersion: Schema.optionalKey(Schema.String), VersionName: Schema.optionalKey(Schema.String) }));
 const Launcher = Schema.fromJsonString(Schema.Struct({ InstallationList: Schema.Array(Schema.Struct({ AppName: Schema.String, InstallLocation: Schema.String })) }));
 const Registered = Schema.Struct({ Installations: Schema.Record(Schema.String, Schema.String) });
@@ -128,13 +129,13 @@ const decided = (context: ExecutorContext, inputs: Readonly<Record<string, unkno
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const executed = Effect.fnUntraced(function* (options: unknown, context: ExecutorContext) {
-    const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
-    const results = yield* decided(context, { [`${project}:${target}`]: options }, { dependencies: {} });
-    return { success: Object.values(results).every(({ success }) => success) };
-});
-
-const execute = (options: unknown, context: ExecutorContext) => executed(options, context).pipe(runtime.runPromise);
+const execute = executor(
+    Build,
+    Effect.fnUntraced(function* (options, context, project) {
+        const target = yield* Effect.fromNullishOr(context.targetName);
+        return Object.values(yield* decided(context, { [`${project}:${target}`]: options }, { dependencies: {} })).every(({ success }) => success);
+    }),
+);
 
 const batch = (taskGraph: TaskGraph, inputs: Record<string, unknown>, _overrides: unknown, context: ExecutorContext) => runtime.runPromise(decided(context, inputs, taskGraph));
 

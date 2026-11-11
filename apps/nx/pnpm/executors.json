@@ -1,9 +1,0 @@
-{
-    "executors": {
-        "upgrade": {
-            "implementation": "./dist/executors/upgrade/executor#execute",
-            "schema": "./executors/upgrade/schema.json",
-            "description": "Moves every pnpm catalog row to the highest version its dist-tags name, then refreshes the lockfile with pnpm update"
-        }
-    }
-}

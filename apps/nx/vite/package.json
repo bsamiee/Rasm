@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-vite",
     "version": "0.0.0",
-    "description": "Nx plugin inferring Vite builds and Vitest suites from each tool's own resolved configuration",
+    "description": "Nx plugin inferring Vite builds, and the development and preview servers of configs holding its readySignal() plugin, from Vite's own resolved configuration",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -13,7 +13,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./plugins/project-graph.ts",
+        ".": "./plugin.ts",
+        "./ready-signal": "./ready-signal.ts",
         "./package.json": "./package.json"
     },
     "files": [ "dist" ],
@@ -26,17 +27,17 @@
     "devDependencies": {
         "@types/node": "catalog:",
         "nx": "catalog:",
-        "tinyglobby": "catalog:",
-        "vite": "catalog:",
-        "vitest": "catalog:"
+        "vite": "catalog:"
     },
     "peerDependencies": {
-        "nx": "catalog:peers"
+        "nx": "catalog:peers",
+        "vite": "catalog:peers"
     },
     "publishConfig": {
         "access": "public",
         "exports": {
-            ".": "./dist/plugins/project-graph.js",
+            ".": "./dist/plugin.js",
+            "./ready-signal": "./dist/ready-signal.js",
             "./package.json": "./package.json"
         },
         "imports": {

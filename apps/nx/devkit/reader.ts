@@ -1,20 +1,33 @@
 import { execPath } from 'node:process';
 import { fileURLToPath } from 'node:url';
-import { detectPackageManager, hashArray, normalizePath } from '@nx/devkit';
-import { globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, killProcessTreeGraceful } from '@nx/devkit/internal';
-import { getLockFileName } from '@nx/js';
+import { detectPackageManager, normalizePath } from '@nx/devkit';
+import { getLockFileName, globWithWorkspaceContext, hashObject, isCI, killProcessTreeGraceful } from '@nx/devkit/internal';
 import { type RawTsconfigJsonCache, walkTsconfigExtendsChain } from '@nx/js/internal';
-import { Array, Config, Duration, Effect, Fiber, Option, Path, Queue, Result, Schema, Stream } from 'effect';
-import { ancestors, CONFIG, cached } from '#/inference';
+import { Array, Duration, Effect, Fiber, Option, Path, Queue, Result, Schema, Stream } from 'effect';
+import { ancestors, listed, MANIFEST, manifested, type Reading, type Request, type Unit } from '#/plugin';
 import { spawned, ToolError } from '#/process';
 import { type Job, Jobs, REPLIES, Reply } from '#/reply';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface Asked<J extends Job> extends Unit {
+    readonly job: J['Type'];
+    readonly chain: readonly string[];
+    readonly governed: readonly string[];
+}
+
+interface Answer<A> {
+    readonly report: A;
+    readonly loaded: readonly string[];
+}
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MANIFEST = 'package.json';
+const CONFIG = 'tsconfig.json';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Timed = Schema.Struct({ deadline: Schema.DurationFromString.pipe(Schema.withDecodingDefaultKey(Effect.succeed('1 minute'))) }).annotate({ description: 'deadline: longest wait for one config to answer before its reader child is stopped' });
 const Referencing = Schema.Struct({ references: Schema.Array(Schema.Struct({ path: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -42,17 +55,19 @@ const chained = Effect.fnUntraced(function* (workspaceRoot: string, roots: reado
         );
         return linked.filter((to) => !seen.has(to)).reduce((found, to) => reached(to, found), seen);
     };
-    return roots.map((root) => {
-        const files = Option.match(
-            Array.findFirst(governing(root), (file) => present.has(file)),
-            { onNone: () => [], onSome: (config) => [...reached(path.join(workspaceRoot, config), new Set())] },
-        );
-        return [root, files.map((at) => normalizePath(path.relative(workspaceRoot, at))).filter((at) => !(at.startsWith('..') || at.split('/').includes('node_modules')))] as const;
-    });
+    return new Map(
+        roots.map((root) => {
+            const files = Option.match(
+                Array.findFirst(governing(root), (file) => present.has(file)),
+                { onNone: () => [], onSome: (config) => [...reached(path.join(workspaceRoot, config), new Set())] },
+            );
+            return [root, files.map((at) => normalizePath(path.relative(workspaceRoot, at))).filter((at) => !(at.startsWith('..') || at.split('/').includes('node_modules')))] as const;
+        }),
+    );
 });
 
-const consulted = Effect.fnUntraced(function* <J extends Job, A, I, T extends { readonly each: J['Type'] }>(entry: string, jobs: ReturnType<typeof Jobs<J>>, reply: ReturnType<typeof Reply<A, I>>, workspaceRoot: string, launch: Readonly<Record<string, string>>, deadline: Duration.Duration, asked: readonly T[]) {
-    const input = yield* Effect.orDie(Schema.encodeEffect(jobs)(asked.map(({ each }) => each)));
+const answered = Effect.fnUntraced(function* <J extends Job, A>(entry: string, jobs: ReturnType<typeof Jobs<J>>, reply: ReturnType<typeof Reply<A, A>>, workspaceRoot: string, launch: Readonly<Record<string, string>>, deadline: Duration.Duration, asked: readonly Asked<J>[]) {
+    const input = yield* Effect.orDie(Schema.encodeEffect(jobs)(asked.map(({ job }) => job)));
     const handle = yield* spawned(execPath, [fileURLToPath(entry)], { cwd: workspaceRoot, env: launch, stdin: Stream.encodeText(Stream.succeed(input)), stdout: 'ignore', killSignal: 'SIGKILL', additionalFds: { [`fd${REPLIES}`]: { type: 'output' } } });
     const [stderr, replies] = yield* Effect.all([Effect.forkScoped(Stream.mkString(Stream.decodeText(handle.stderr))), Stream.toQueue(Stream.splitLines(Stream.decodeText(handle.getOutputFd(REPLIES))), { capacity: 'unbounded' })]);
     const stopped = Effect.promise(() => killProcessTreeGraceful(handle.pid, 'SIGKILL'));
@@ -65,12 +80,12 @@ const consulted = Effect.fnUntraced(function* <J extends Job, A, I, T extends { 
         ),
     );
     const decoded = Schema.decodeResult(reply);
-    const answered = read.map(
+    const settled = read.map(
         ([request, text]) =>
             [
                 request,
                 Result.gen(function* () {
-                    const { loaded, outcome } = yield* Result.mapError(decoded(text), ToolError.of(request.each.file, 'got a reply that does not decode'));
+                    const { loaded, outcome } = yield* Result.mapError(decoded(text), ToolError.of(request.file, 'got a reply that does not decode'));
                     return { report: yield* outcome, loaded };
                 }),
             ] as const,
@@ -79,107 +94,63 @@ const consulted = Effect.fnUntraced(function* <J extends Job, A, I, T extends { 
     const unanswered = yield* Array.match(unread, {
         onEmpty: () => Effect.succeed([]),
         onNonEmpty: Effect.fnUntraced(function* ([[first, silent], ...rest]) {
-            const reasons = [[first, silent ? `sent no reply within ${Duration.format(deadline)}` : yield* ended] as const, ...rest.map(([request]) => [request, `not read, the reader stopped at ${first.each.file}`] as const)];
-            return reasons.map(([request, detail]) => [request, Result.fail(ToolError.make({ subject: request.each.file, detail }))] as const);
+            const reasons = [[first, silent ? `sent no reply within ${Duration.format(deadline)}` : yield* ended] as const, ...rest.map(([request]) => [request, `not read, the reader stopped at ${first.file}`] as const)];
+            return reasons.map(([request, detail]) => [request, Result.fail(ToolError.make({ subject: request.file, detail }))] as const);
         }),
     });
-    return [...answered, ...unanswered];
+    return [...settled, ...unanswered];
 }, Effect.scoped);
 
-const resolved = Effect.fn('resolved')(function* <J extends Job, A, I>({
+const consulted = <J extends Job, A, O extends typeof Timed.Type>({
     entry,
     job,
     report,
     launch,
-    plugin,
-    options,
-    workspaceRoot,
     jobs,
-    deadline,
 }: {
     readonly entry: string;
     readonly job: J;
-    readonly report: Schema.Codec<A, I>;
+    readonly report: Schema.Codec<A, A>;
     readonly launch: (job: J['Type']) => Readonly<Record<string, string>>;
-    readonly plugin: { readonly name: string; readonly digest: string };
-    readonly options: unknown;
-    readonly workspaceRoot: string;
-    readonly jobs: readonly J['Type'][];
-    readonly deadline: Duration.Duration;
-}) {
-    const path = yield* Path.Path;
-    const [protocol, reply, stored] = [Jobs(job), Reply(report), Schema.toCodecJson(report)];
-    const ci = Option.getOrUndefined(yield* Effect.orDie(Config.option(Config.String('CI'))));
-    const [cache, lock, chains] = yield* Effect.all([
-        cached<{ readonly report: unknown; readonly loaded: readonly string[] }>(plugin, options),
-        Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [getLockFileName(detectPackageManager(workspaceRoot))])),
-        chained(workspaceRoot, Array.dedupe(jobs.map(({ root }) => root))),
-    ]);
-    const rooted = new Map(
-        yield* Effect.forEach(
-            chains,
-            Effect.fnUntraced(function* ([root, chain]) {
-                const files = yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.join(root, '**')]));
-                const nested = files.filter((file) => path.basename(file) === MANIFEST && path.dirname(file) !== root).map((file) => `${path.dirname(file)}/`);
-                const own = (file: string) => !nested.some((folder) => file.startsWith(folder));
-                return [root, { chain, names: hashArray(files.filter(own)) }] as const;
-            }),
-            { concurrency: 'unbounded' },
-        ),
-    );
-    const restored = ({ report: encoded, loaded }: { readonly report: unknown; readonly loaded: readonly string[] }) => Option.map(Schema.decodeUnknownOption(stored)(encoded), (value) => ({ report: value, loaded }));
-    const held = yield* Effect.forEach(
-        jobs,
-        Effect.fnUntraced(function* (each) {
-            const { chain, names } = yield* Effect.orDie(Effect.fromNullishOr(rooted.get(each.root)));
-            const digest = (loaded: readonly string[]) =>
-                Effect.map(
-                    Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [each.file, path.join(each.root, MANIFEST), ...chain, ...loaded])),
-                    (content) => hashArray([plugin.digest, lock, names, content]),
-                );
-            const key = hashObject({ each, launch: launch(each), ci });
-            return { each, key, digest, chain: chain.filter((at) => !at.startsWith(`${each.root}/`)), kept: Option.flatMap(yield* cache.get(key, ({ loaded }) => digest(loaded)), restored) };
+    readonly jobs: (request: Request<O>) => readonly J['Type'][];
+}) => {
+    const [protocol, reply] = [Jobs(job), Reply(report)];
+    return {
+        units: Effect.fnUntraced(function* (request: Request<O>) {
+            const { workspaceRoot } = request.context;
+            const stated = jobs(request);
+            const held = yield* manifested(workspaceRoot, Array.dedupe(stated.map(({ root }) => root)));
+            const kept = stated.filter(({ root }) => held.has(root));
+            const roots = Array.dedupe(kept.map(({ root }) => root));
+            const [chains, names] = yield* Effect.all([chained(workspaceRoot, roots), listed(workspaceRoot, roots)], { concurrency: 'unbounded' });
+            const ci = isCI();
+            return kept.map((each): Asked<J> => ({ key: each.file, file: each.file, job: each, governed: chains.get(each.root) ?? [], chain: (chains.get(each.root) ?? []).filter((at) => !at.startsWith(`${each.root}/`)), salt: hashObject({ each, launch: launch(each), ci, names: names.get(each.root) }) }));
         }),
-        { concurrency: 'unbounded' },
-    );
-    const kept = Effect.fnUntraced(
-        function* ([request, result]: readonly [(typeof held)[number], Result.Result<{ readonly report: A; readonly loaded: readonly string[] }, ToolError>]) {
-            const { report: value, loaded: named } = yield* Effect.fromResult(result);
-            const loaded = yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [request.each.file, ...named]));
-            const [encoded, now] = yield* Effect.all([Effect.orDie(Schema.encodeEffect(stored)(value)), request.digest(loaded)]);
-            yield* cache.set(request.key, { report: encoded, loaded }, now);
-            return { report: value, loaded };
-        },
-        (effect, [request]) => Effect.map(Effect.result(effect), (outcome) => [request, outcome] as const),
-    );
-    const runs = Object.values(
-        Array.groupBy(
-            held.filter((request) => Option.isNone(request.kept)),
-            ({ each }) => hashObject(launch(each)),
-        ),
-    );
-    const fresh = yield* Effect.forEach(
-        runs,
-        (run) =>
-            Effect.flatMap(
-                consulted(entry, protocol, reply, workspaceRoot, launch(Array.headNonEmpty(run).each), deadline, run),
-                Effect.forEach((pair) => kept(pair)),
-            ),
-        { concurrency: 'unbounded' },
-    );
-    const read = new Map(fresh.flat());
-    const settled = Array.getSomes(
-        held.map((request) =>
-            Option.map(
-                Option.orElse(Option.map(request.kept, Result.succeed), () => Option.fromUndefinedOr(read.get(request))),
-                (outcome) => [request, outcome] as const,
-            ),
-        ),
-    );
-    const [answers, failures] = Array.partition(settled, ([{ each, chain }, outcome]) => Result.mapBoth(outcome, { onSuccess: (answer) => ({ job: each, chain, ...answer }), onFailure: (error) => [each.file, error] as const }));
-    return { answers, failures };
-});
+        read: Effect.fnUntraced(function* (missing: Array.NonEmptyReadonlyArray<Asked<J>>, request: Request<O>) {
+            const { workspaceRoot } = request.context;
+            const runs = Object.values(Array.groupBy(missing, ({ job: each }) => hashObject(launch(each))));
+            const replies = yield* Effect.forEach(runs, (run) => answered(entry, protocol, reply, workspaceRoot, launch(Array.headNonEmpty(run).job), request.options.deadline, run), { concurrency: 'unbounded' });
+            const read = new Map(replies.flat().map(([asked, outcome]) => [asked.key, outcome] as const));
+            return yield* Effect.forEach(
+                missing,
+                (asked): Effect.Effect<Result.Result<Reading<Answer<A>>, Error>> =>
+                    Result.match(read.get(asked.key) ?? Result.fail(ToolError.make({ subject: asked.file, detail: 'was not read' })), {
+                        onFailure: (error) => Effect.succeed(Result.fail<Error>(error)),
+                        onSuccess: ({ report: value, loaded: named }) =>
+                            Effect.map(
+                                Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [asked.file, ...named])),
+                                (loaded) => Result.succeed<Reading<Answer<A>>>({ report: { report: value, loaded } }),
+                            ),
+                    }),
+                { concurrency: 'unbounded' },
+            );
+        }),
+        sources: ({ loaded }: Answer<A>, { job: each, governed }: Asked<J>, request: Request<O>) => ({
+            tracked: [each.file, request.path.join(each.root, MANIFEST), getLockFileName(detectPackageManager(request.context.workspaceRoot)), ...governed, ...loaded],
+        }),
+    };
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { resolved };
+export { type Answer, type Asked, consulted, Timed };

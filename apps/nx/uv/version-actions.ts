@@ -1,11 +1,12 @@
 import { parse, patch } from '@decimalturn/toml-patch';
-import { joinPathFragments, type ProjectGraph, readCachedProjectGraph, type Tree } from '@nx/devkit';
-import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
+import { joinPathFragments, type ProjectGraph, type Tree } from '@nx/devkit';
+import { relocked } from '@rasm/nx-devkit/executor';
+import { runtime, ToolError } from '@rasm/nx-devkit/process';
 import { clean, compare, explain } from '@renovatebot/pep440';
-import { Array, Effect, FileSystem, Option, Path, Record, Schema, SemVer, UndefinedOr } from 'effect';
+import { Array, Effect, Option, Record, Schema, SemVer, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
-import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { LOCK, normalized } from '#/plugins/project-graph';
+import { VersionActions } from 'nx/release';
+import { LOCK, normalized } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -200,26 +201,7 @@ class UvVersionActions extends VersionActions {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun }) =>
-    runtime.runPromise(
-        Effect.gen(function* () {
-            const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-            const locks =
-                dryRun === true
-                    ? []
-                    : Array.dedupe(
-                          Object.values(readCachedProjectGraph().nodes).flatMap((node) =>
-                              Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions).pipe(
-                                  Option.map(({ lock }) => lock),
-                                  Option.filter((lock) => path.basename(lock) === LOCK),
-                                  Option.toArray,
-                              ),
-                          ),
-                      );
-            const changed = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(path.join(cwd, lock)), Effect.andThen(printed('uv', ['lock'], { cwd: path.join(cwd, path.dirname(lock)) }), fs.readFileString(path.join(cwd, lock))), (before, after) => before !== after));
-            return { changedFiles: changed, deletedFiles: [] };
-        }),
-    );
+const afterAllProjectsVersioned = relocked(LOCK, ['uv', 'lock']);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
