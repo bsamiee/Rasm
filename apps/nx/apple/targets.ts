@@ -14,7 +14,6 @@ interface Part {
     readonly technologies: readonly string[];
     readonly clean: string;
     readonly members: Members;
-    readonly published?: TargetConfiguration;
     readonly release?: NonNullable<ProjectConfiguration['release']>;
 }
 type Settings = typeof Options.Type & { readonly placed: (tool: string, name: string) => Option.Option<string> };
@@ -39,18 +38,6 @@ const analyzer = Effect.gen(function* () {
 });
 
 const tokened = (path: Path.Path, at: string) => (path.isAbsolute(at) || at.startsWith('..') ? [] : [path.join('{workspaceRoot}', at)]);
-
-const published = (plugin: Identity, technology: string, folders: readonly string[]): TargetConfiguration => ({
-    executor: `${plugin.name}:release-publish`,
-    dependsOn: ['^nx-release-publish'],
-    inputs: plugin.inputs,
-    options: { folders },
-    metadata: {
-        technologies: [technology],
-        description: "Attaches the zip or disk image the release build wrote to the project's GitHub release, then adds each notarized disk image of an app naming SUFeedURL to its Sparkle feed where SPARKLE_ED_PRIVATE_KEY is set",
-        help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
-    },
-});
 
 const EDITORS = {
     '.plist': {
@@ -79,4 +66,4 @@ const target = (plugin: Identity, runs: (typeof Run.Type)['runs'], metadata: Non
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { analyzer, GIT_STATUS, Options, type Part, published, type Settings, SHORT_VERSION, target, tokened, VersionActionsOptions, versioned };
+export { analyzer, GIT_STATUS, Options, type Part, type Settings, SHORT_VERSION, target, tokened, VersionActionsOptions, versioned };

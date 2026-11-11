@@ -32,29 +32,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "fake-bpy-module-latest", # Stubs for bpy, bmesh, mathutils, and gpu
-    "mypy",                   # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
-    "rasm-refurb",            # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
-    "refurb",                 # FURB checks Ruff lacks, over a mypy build
-    "ruff",                   # Linter and formatter hk runs from this root's environment
-    "scipy-stubs",
-    "ty",                     # Type checker of every member
-    "vulture",                # Private functions, classes, methods, and attributes nothing reads
-    "rasm-opencolorio-stubs", # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
-]
-
-# --- [UV] -------------------------------------------------------------------------------
-
-[tool.uv]
-environments                  = [
-    "sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "sys_platform == 'linux' and platform_machine == 'aarch64'",
-    "sys_platform == 'win32' and platform_machine == 'AMD64'",
-]
-prerelease                    = "allow"
-constraint-dependencies       = [
+blender = [
     "attrs==25.3.0",
     "autopep8==2.3.1",
     "cattrs==25.1.1",
@@ -76,7 +54,34 @@ constraint-dependencies       = [
     "typing_extensions==4.14.1",
     "urllib3==2.4.0",
     "zstandard==0.25.0",
-]                                                                # Versions the installed Blender bundles
+]                                # Versions Blender bundles, the lock holds each at it and the extension build leaves each out of its archives
+dev     = [
+    "fake-bpy-module-latest",    # Stubs for bpy, bmesh, mathutils, and gpu
+    "mypy",                      # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "rasm-refurb",               # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
+    "refurb",                    # FURB checks Ruff lacks, over a mypy build
+    "ruff",                      # Linter and formatter hk runs from this root's environment
+    "scipy-stubs",
+    "ty",                        # Type checker of every member
+    "vulture",                   # Private functions, classes, methods, and attributes nothing reads
+    "rasm-opencolorio-stubs",    # Stubs for PyOpenColorIO generated from the OpenColorIO Blender bundles
+]
+
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv]
+environments                  = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+required-environments         = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]                                                                # Platforms `blender_manifest.toml` lists, a package with no source distribution and no wheel for one fails `uv lock`
+prerelease                    = "allow"
 build-constraint-dependencies = ["opencolorio==2.5.0"]           # Builds generating the PyOpenColorIO stubs import the OpenColorIO release Blender bundles
 
 [tool.uv.sources]

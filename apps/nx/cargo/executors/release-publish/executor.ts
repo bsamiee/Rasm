@@ -50,7 +50,7 @@ const execute = executor(
     Publish,
     Effect.fnUntraced(function* ({ cwd: root, package: named, ...stated }, context, project) {
         const { registry, firstRelease } = stated;
-        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, context, project)]);
+        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, project)]);
         const cwd = path.resolve(context.root, root);
         const { packages } = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Metadata));
         const crate = yield* Effect.fromOption(Array.findFirst(packages, ({ name }) => name === named));

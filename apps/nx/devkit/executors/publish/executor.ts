@@ -25,7 +25,7 @@ const Publish = Released.mapFields(
 const execute = executor(
     Publish,
     Effect.fnUntraced(function* ({ commands, publish, preview, flags, args, cwd, ...stated }, context, project) {
-        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, context, project)]);
+        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, project)]);
         const passed = Struct.keys(flags).flatMap((option) =>
             Option.match(Option.all([Option.fromUndefinedOr(flags[option]), Option.filter(Option.fromUndefinedOr(stated[option]), (value) => value !== false)]), {
                 onNone: () => [],

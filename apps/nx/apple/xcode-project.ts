@@ -2,7 +2,7 @@ import type { TargetConfiguration } from '@nx/devkit';
 import type { Identity } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, Struct } from 'effect';
-import { type Part, published, type Settings, target, tokened } from '#/targets';
+import { type Part, type Settings, target, tokened } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -118,27 +118,24 @@ const xcodeParts = (
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
     const output = (scheme: string) => Option.map(options.placed('xcode', name), (at) => path.join(at, scheme));
     const releasing = Array.match(Array.getSomes(archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: path.join(folder, `${scheme}.xcarchive`) })))), {
-        onEmpty: () => ({ packaging: {}, publishing: {} }),
+        onEmpty: () => ({}),
         onNonEmpty: (exported) => ({
-            packaging: {
-                ditto: {
-                    executor: `${plugin.name}:package`,
-                    dependsOn: ['build--xcodebuild'],
-                    inputs: plugin.inputs,
-                    options: { exports: [] },
-                    configurations: Record.map(
-                        Array.groupBy(exported, ({ configuration }) => configuration.toLowerCase()),
-                        (group) => ({ exports: group.map(({ archive, folder }) => ({ archive, folder })) }),
-                    ),
-                    outputs: exported.flatMap(({ folder }) => ['*.zip', '*.dmg', '*.app'].map((pattern) => path.join('{workspaceRoot}', folder, pattern))),
-                    metadata: {
-                        technologies: ['xcode'],
-                        description: 'Zips each archived app with ditto for a GitHub release, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity exports it under that identity into a disk image that is signed, notarized, and stapled',
-                        help: { command: 'man ditto', example: { args: ['--norsrc'] } },
-                    },
-                } satisfies TargetConfiguration,
-            },
-            publishing: { published: published(plugin, 'xcode', Array.map(exported, Struct.get('folder'))) },
+            ditto: {
+                executor: `${plugin.name}:package`,
+                dependsOn: ['build--xcodebuild'],
+                inputs: plugin.inputs,
+                options: { exports: [] },
+                configurations: Record.map(
+                    Array.groupBy(exported, ({ configuration }) => configuration.toLowerCase()),
+                    (group) => ({ exports: group.map(({ archive, folder }) => ({ archive, folder })) }),
+                ),
+                outputs: exported.flatMap(({ folder }) => ['*.zip', '*.dmg', '*.app'].map((pattern) => path.join('{workspaceRoot}', folder, pattern))),
+                metadata: {
+                    technologies: ['xcode'],
+                    description: 'Zips each archived app with ditto for a GitHub release, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity exports it under that identity into a disk image that is signed, notarized, and stapled',
+                    help: { command: 'man ditto', example: { args: ['--norsrc'] } },
+                },
+            } satisfies TargetConfiguration,
         }),
     });
     const referenced = container.buildFiles
@@ -192,7 +189,7 @@ const xcodeParts = (
                               { dependsOn: ['^build'], inputs: read, outputs: tokened(path, lock), ...modes(builds) },
                           ),
                       }),
-                ...releasing.packaging,
+                ...releasing,
             },
             clean:
                 schemes.length === 0
@@ -231,7 +228,6 @@ const xcodeParts = (
                           ),
                       },
         },
-        ...releasing.publishing,
     };
 };
 

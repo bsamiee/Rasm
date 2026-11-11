@@ -52,28 +52,19 @@
         <CopyDocumentationFileToOutputDirectory>false</CopyDocumentationFileToOutputDirectory>
     </PropertyGroup>
 
-    <PropertyGroup Label="Runtimes" Condition="'$(UseCurrentRuntimeIdentifier)' == 'true' or '$(IsRoslynComponent)' == 'true'">
-        <RuntimeIdentifiers>osx-arm64;win-x64</RuntimeIdentifiers>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' == 'Windows'">$(DefaultItemExcludes);**/Mac/**</DefaultItemExcludes>
-        <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' != 'Windows'">$(DefaultItemExcludes);**/Windows/**</DefaultItemExcludes>
-    </PropertyGroup>
-
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <PackageReference Update="Grasshopper;Grasshopper2;RhinoCommon" ExcludeAssets="runtime" PrivateAssets="all" />
-        <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" Condition="'$(TargetPlatformIdentifier)' == 'Windows'" />
         <SupportedPlatform Remove="@(SupportedPlatform)" />
         <SupportedPlatform Include="macOS;Windows" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
     </ItemGroup>
 
-    <ItemGroup Label="Rhino Mac Host" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
+    <ItemGroup Label="Rhino Platform References" Condition="'$(RhinoHost)' != ''">
         <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.macOS.Ref.net10.0_26.0" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+        <PackageReference Include="Microsoft.macOS.Ref.net10.0_26.0;Microsoft.WindowsDesktop.App.Ref" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
         <Reference Include="$(PkgMicrosoft_macOS_Ref_net10_0_26_0)/ref/net10.0/Microsoft.macOS.dll" Private="false" />
+        <Reference Include="$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(RhinoTargetFramework)/PresentationCore.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(RhinoTargetFramework)/PresentationFramework.dll;$(PkgMicrosoft_WindowsDesktop_App_Ref)/ref/$(RhinoTargetFramework)/WindowsBase.dll" Private="false" />
     </ItemGroup>
 
     <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.targets" Condition="'$(RhinoHost)' != ''" />

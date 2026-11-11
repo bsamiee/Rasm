@@ -1,5 +1,5 @@
 import type { TargetConfiguration } from '@nx/devkit';
-import { type Identity, line, type Members } from '@rasm/nx-devkit/plugin';
+import { type Identity, line, type Members, PLATFORM } from '@rasm/nx-devkit/plugin';
 import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -46,6 +46,7 @@ const targets = (plugin: Identity, path: Path.Path, node: Node, packages: Option
         ...node.inputs.map((input) => path.join('{workspaceRoot}', input)),
         ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${path.join('{projectRoot}', path.relative(root, base), '**')}`),
         { env: 'NUGET_PACKAGES' },
+        PLATFORM,
     ];
     const modes = node.modes.map((mode) => {
         const runtime = mode.runtime === null ? [] : ['--runtime', mode.runtime];

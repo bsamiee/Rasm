@@ -1,55 +1,57 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "version": 2,
-    "type": "object",
-    "properties": {
-        "dryRun": {
-            "type": "boolean",
-            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
-        },
-        "nxReleaseVersionData": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "object",
-                "properties": {
-                    "newVersion": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ]
-                    }
-                },
-                "required": [ "newVersion" ],
-                "additionalProperties": true
-            },
-            "description": "Versions nx release set in this run, a project it left unversioned is skipped; absent under nx release publish alone, where a version holding no release tag is skipped"
-        },
-        "registry": {
-            "type": "string",
-            "description": "Registry nx release publish passes as --registry, in the form the tool names one"
-        },
-        "tag": {
-            "type": "string",
-            "description": "Distribution tag nx release publish passes as --tag"
-        },
-        "access": {
-            "type": "string",
-            "description": "Access level nx release publish passes as --access"
-        },
-        "otp": {
-            "type": "number",
-            "description": "One-time password nx release publish passes as --otp"
-        },
-        "firstRelease": {
-            "type": "boolean",
-            "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
-        }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": 2,
+  "type": "object",
+  "properties": {
+    "dryRun": {
+      "type": "boolean",
+      "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
     },
-    "additionalProperties": true,
-    "title": "Release publish",
-    "description": "Attaches each host package the project's build wrote to its GitHub release, then publishes it to its host's store where one takes uploads, skipping a version the store holds, a version no release tag holds under nx release publish alone, and a project nx release left unversioned"
+    "nxReleaseVersionData": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "newVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "newVersion"
+        ],
+        "additionalProperties": true
+      },
+      "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+    },
+    "registry": {
+      "type": "string",
+      "description": "Registry nx release publish passes as --registry, in the form the tool names one"
+    },
+    "tag": {
+      "type": "string",
+      "description": "Distribution tag nx release publish passes as --tag"
+    },
+    "access": {
+      "type": "string",
+      "description": "Access level nx release publish passes as --access"
+    },
+    "otp": {
+      "type": "number",
+      "description": "One-time password nx release publish passes as --otp"
+    },
+    "firstRelease": {
+      "type": "boolean",
+      "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
+    }
+  },
+  "additionalProperties": true,
+  "title": "Release publish",
+  "description": "Publishes each host package the project's build wrote to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned"
 }

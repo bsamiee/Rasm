@@ -1,9 +1,10 @@
 import { findPackageJSON } from 'node:module';
+import { devNull } from 'node:os';
 import { env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { ProjectGraph } from '@nx/devkit';
 import { Completed } from '@rasm/process';
-import { Array, Cause, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
 import { checkout } from '#/nx/inference';
@@ -104,19 +105,24 @@ const called = Effect.fn('called')(function* (root: string, command: string, arg
     return { code, stdout, stderr, output: `${stdout}${stderr}` };
 });
 
-const committed = Effect.fn('committed')(function* (root: string, tags: readonly string[] = []) {
-    const rows = [['init', '--quiet'], ['config', 'user.name', 'suite'], ['config', 'user.email', 'suite@example.com'], ['config', 'commit.gpgsign', 'false'], ['config', 'tag.gpgsign', 'false'], ['add', '--all'], ['commit', '--quiet', '--message', 'base'], ...tags.map((tag) => ['tag', tag])];
-    yield* Effect.forEach(
-        rows,
+const committed = (root: string) =>
+    Effect.forEach(
+        [
+            ['init', '--quiet'],
+            ['add', '--all'],
+            ['commit', '--quiet', '--message', 'base'],
+        ],
         (args) =>
-            Effect.filterOrFail(
-                called(root, 'git', args, {}),
-                ({ code }) => code === 0,
-                ({ code, output }) => new Cause.UnknownError(output, `git ${args.join(' ')} exited ${code}: ${output}`),
+            Completed.output(
+                ChildProcess.make('git', args, {
+                    cwd: root,
+                    stdin: 'ignore',
+                    extendEnv: true,
+                    env: { GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 'suite', GIT_AUTHOR_EMAIL: 'suite@example.com', GIT_COMMITTER_NAME: 'suite', GIT_COMMITTER_EMAIL: 'suite@example.com' },
+                }),
             ),
         { discard: true },
     );
-});
 
 const nx = (root: string, args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) => Effect.flatMap(Path.Path, (path) => called(root, path.join(root, 'node_modules/.bin/nx'), args, set));
 

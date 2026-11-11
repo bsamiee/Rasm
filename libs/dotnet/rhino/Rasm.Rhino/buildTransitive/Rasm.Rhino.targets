@@ -27,4 +27,12 @@
         <ReferenceCopyLocalPaths DestinationSubDirectory="lib/" />
         <ReferencePath DestinationSubDirectory="lib/" />
     </ItemDefinitionGroup>
+
+    <Target Name="PlacePlugInNatives" AfterTargets="ResolvePackageAssets" Condition="'$(TargetExt)' == '.rhp'">
+        <ItemGroup>
+            <RuntimeTargetsCopyLocalItems Remove="@(RuntimeTargetsCopyLocalItems)" Condition="'%(AssetType)' == 'native' and '%(RuntimeIdentifier)' != 'osx-arm64' and '%(RuntimeIdentifier)' != 'win-x64' and '%(RuntimeIdentifier)' != 'win-arm64'" />
+            <RuntimeTargetsCopyLocalItems Update="@(RuntimeTargetsCopyLocalItems)" DestinationSubDirectory="lib/" Condition="'%(RuntimeIdentifier)' == 'osx-arm64'" />
+            <RuntimeTargetsCopyLocalItems Update="@(RuntimeTargetsCopyLocalItems)" DestinationSubDirectory="lib/%(DestinationSubDirectory)" Condition="'%(RuntimeIdentifier)' != 'osx-arm64'" />
+        </ItemGroup>
+    </Target>
 </Project>

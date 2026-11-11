@@ -77,7 +77,7 @@
         <None Include="buildTransitive/*" Pack="true" PackagePath="buildTransitive/" />
     </ItemGroup>
 
-    <Target Name="PackAnalyzers" DependsOnTargets="ResolveProjectReferences" Condition="'$(TargetFramework)' == '$(RhinoTargetFramework)'">
+    <Target Name="PackAnalyzers" DependsOnTargets="ResolveProjectReferences">
         <ItemGroup>
             <TfmSpecificPackageFile Include="@(Analyzer->HasMetadata('PackagePath'))" />
         </ItemGroup>

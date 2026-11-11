@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-distribution",
     "version": "0.0.0",
-    "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx and CEP .zxp, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, attaches it to the GitHub release, and publishes it to the host store taking uploads",
+    "description": "Nx plugin inferring host packages from their manifests, one row per kind (Blender extension, Yak package, Adobe UXP .ccx and CEP .zxp, Unreal plug-in): each row builds the package with its host tool, installs it where the host loads it, and publishes it to the host store taking uploads",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -11,7 +11,6 @@
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#blender": "./executors/extension-build/blender.py",
         "#vendored": "./executors/extension-build/vendored.py"
     },
     "exports": {
@@ -20,7 +19,7 @@
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json", "executors/extension-build/blender.py", "executors/extension-build/vendored.py", "executors/extension-build/vendored.py.lock" ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json", "executors/extension-build/vendored.py", "executors/extension-build/vendored.py.lock" ],
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@nx/devkit": "catalog:",
@@ -47,7 +46,6 @@
         },
         "imports": {
             "#/*": "./dist/*.js",
-            "#blender": "./executors/extension-build/blender.py",
             "#vendored": "./executors/extension-build/vendored.py"
         }
     },

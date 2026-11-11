@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.Versioning;
 using AppKit;
 using CoreAnimation;
 using Eto;
@@ -14,6 +15,7 @@ namespace Rasm.Rhino.UI.Mac;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
+[SupportedOSPlatform("macos27.0")]
 internal sealed class FrameTarget(Func<Duration, bool> tick) : NSObject {
     private const string Frame = "frame:";
 
@@ -23,6 +25,7 @@ internal sealed class FrameTarget(Func<Duration, bool> tick) : NSObject {
     public void Tick(CADisplayLink link) => Session.Run(IO.lift(() => link.Paused = !tick(Duration.FromSeconds(link.TargetTimestamp))));
 }
 
+[SupportedOSPlatform("macos27.0")]
 internal sealed class AppKitPlatform : IHostPlatform {
 
     // --- [CHANGES]
@@ -56,6 +59,7 @@ internal sealed class AppKitPlatform : IHostPlatform {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+[SupportedOSPlatform("macos27.0")]
 public sealed class AppKitInitializer : IPlatformInitializer {
     public void Initialize(Platform platform) => platform.Add<IHostPlatform>(static () => new AppKitPlatform());
 }

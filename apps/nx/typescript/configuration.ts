@@ -1,6 +1,8 @@
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { normalizePath } from '@nx/devkit';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { API, type ParsedCommandLine } from '@typescript/native/sync';
+import type { ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Effect, Option, Path, Result } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -13,9 +15,22 @@ const CONFIG = 'tsconfig.json';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const configured = Effect.fn('configured')(function* (workspaceRoot: string, configs: readonly string[]) {
+const configured = Effect.fn('configured')(function* (workspaceRoot: string, compiled: { readonly file: string; readonly tools: { readonly tsc: readonly string[] } }, configs: readonly string[]) {
     const path = yield* Path.Path;
     const unopened = ToolError.of(workspaceRoot, 'opens no TypeScript project');
+    const local = createRequire(path.resolve(workspaceRoot, compiled.file));
+    const { API } = yield* Array.match(compiled.tools.tsc, {
+        onEmpty: () => ToolError.make({ subject: compiled.file, detail: 'reaches no installed package whose manifest holds bin.tsc' }),
+        onNonEmpty: (names) =>
+            Effect.firstSuccessOf(
+                names.map((name) =>
+                    Effect.tryPromise({
+                        try: (): Promise<typeof import('@typescript/native/sync')> => import(pathToFileURL(local.resolve(`${name}/sync`)).href),
+                        catch: ToolError.of(name, 'exports no ./sync compiler API, which native TypeScript holds'),
+                    }),
+                ),
+            ),
+    });
     const api = yield* Effect.acquireDisposable(Effect.sync(() => new API({ cwd: workspaceRoot })));
     const referenced = ({ projectReferences = [] }: ParsedCommandLine) => projectReferences.map(({ path: at }) => (path.extname(at) === '.json' ? at : path.join(at, CONFIG)));
     const solutions = configs.map(

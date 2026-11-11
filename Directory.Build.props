@@ -1,7 +1,6 @@
 <Project>
     <PropertyGroup Label="Artifacts Output">
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
-        <ArtifactsPath Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != '$(NETCoreSdkPortableRuntimeIdentifier)'">$(ArtifactsPath)/$(RuntimeIdentifier)</ArtifactsPath>
     </PropertyGroup>
 
     <PropertyGroup Label="Package Metadata">
@@ -42,9 +41,6 @@
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <RhinoTargetFramework>net10.0</RhinoTargetFramework>
         <TargetFramework>$(RhinoTargetFramework)</TargetFramework>
-        <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RhinoTargetFramework)-windows</TargetFramework>
-        <EnableWindowsTargeting>true</EnableWindowsTargeting>
-        <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
         <PlatformTarget>AnyCPU</PlatformTarget>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
         <PublishReferencesSymbols>false</PublishReferencesSymbols>

@@ -118,11 +118,9 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
         Record.filter(grouped, (_, root) => !(root in conflicts)),
         (_, group): Part => {
             const [release] = Array.getSomes(group.map((part) => Option.fromUndefinedOr(part.release)));
-            const publishes = Array.getSomes(group.map((part) => Option.fromUndefinedOr(part.published)));
             return {
                 ...Array.headNonEmpty(group),
                 ...(release === undefined ? {} : { release }),
-                ...(Array.isReadonlyArrayNonEmpty(publishes) ? { published: publishes.reduce(combined) } : {}),
                 technologies: Array.dedupe(group.flatMap((part) => part.technologies)),
                 members: joined.combineAll(group.map((part) => part.members)),
             };
@@ -144,7 +142,6 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
                     technologies: part.technologies,
                     clean: part.clean,
                     members: part.members,
-                    targets: part.published === undefined ? {} : { 'nx-release-publish': part.published },
                     configuration: { tags: [`os:${HOST}`], ...(part.release !== undefined && { release: part.release }) },
                 }),
             ),

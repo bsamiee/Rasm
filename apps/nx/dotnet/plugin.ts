@@ -80,15 +80,14 @@ const { createNodes, createDependencies } = inferred({
         return nodes.map((node): Project => {
             const root = path.dirname(node.file);
             const supported = Array.intersection(Record.keys(PLATFORMS), node.platforms).map((name) => PLATFORMS[name]);
-            const limited = supported.length > 0 && supported.length < Record.keys(PLATFORMS).length;
-            const hosted = !limited || supported.some((held) => held === platform);
+            const limited = node.test && supported.length > 0 && supported.length < Record.keys(PLATFORMS).length;
             return {
                 file: node.file,
                 root,
                 name: node.name,
                 technologies: ['dotnet', node.language],
-                ...(hosted ? targets(plugin, path, node, placed('nuget', node.name)) : { members: {} }),
-                ...(hosted && releasable(node) && { release: { projectFile: path.basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } }),
+                ...targets(plugin, path, { ...node, test: limited ? supported.some((held) => held === platform) : node.test }, placed('nuget', node.name)),
+                ...(releasable(node) && { release: { projectFile: path.basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } }),
                 externalNodes: Record.fromIterableWith(node.packages, (reference): readonly [string, ProjectGraphExternalNode] => [external(reference), { type: 'nuget', name: external(reference), data: { version: reference.version, packageName: reference.id, hash: reference.hash } }]),
                 configuration: {
                     ...(limited && { tags: supported.map((held) => `os:${held}`) }),

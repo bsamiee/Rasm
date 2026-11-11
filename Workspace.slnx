@@ -51,10 +51,6 @@
     <Folder Name="/tests/dotnet/apps/roslyn/">
         <Project Path="tests/dotnet/apps/roslyn/Rasm.Analyzers.Tests/Rasm.Analyzers.Tests.csproj" />
     </Folder>
-    <Folder Name="/tests/dotnet/libs/" />
-    <Folder Name="/tests/dotnet/libs/rhino/">
-        <Project Path="tests/dotnet/libs/rhino/Rasm.Rhino.Tests/Rasm.Rhino.Tests.csproj" />
-    </Folder>
     <Folder Name="/tests/dotnet/support/">
         <Project Path="tests/dotnet/support/Rasm.Testing.Tests/Rasm.Testing.Tests.csproj" />
         <Project Path="tests/dotnet/support/Rasm.Testing/Rasm.Testing.csproj" />

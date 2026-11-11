@@ -1,13 +1,9 @@
 import { assert, it } from '@effect/vitest';
-import { workspaceRoot } from '@nx/devkit';
-import { called } from '@rasm/testing/nx/cli';
-import { Effect, FileSystem, Option, Path, Record } from 'effect';
+import { Effect } from 'effect';
 import { type Located, matched, Workflows } from '#/delivery/workflows';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const RHINO = /^mcneel\/setup-rhino3d@/u;
-const COMMON = /<PackageVersion Include="RhinoCommon"\s+Version="(?<major>\d+)\./u;
 const SETUP = /^[^./][^/]*\/setup-[^@]+@/u;
 const OUTPUT = /\b(?:steps|needs)\.[\w-]+\.outputs\./u;
 const BLENDER = /blender/iu;
@@ -54,23 +50,6 @@ it.layer(Workflows.live, { excludeTestServices: true })('conditional host setup'
                 [],
                 'delivery/blender-plugin/.github/workflows/blender-baseline.yml holds the Blender install behind `workflow_call`, delivery/MolecularNodes/.github/workflows/release.yml installs it in the release job',
             );
-        }),
-    );
-    methods.effect(
-        'installs the Rhino major the RhinoCommon package names',
-        Effect.fnUntraced(function* () {
-            const [{ steps }, fs, path] = yield* Effect.all([Workflows, FileSystem.FileSystem, Path.Path]);
-            const referenced = Option.flatMap(Option.fromNullishOr(COMMON.exec(yield* fs.readFileString(path.join(workspaceRoot, 'Directory.Packages.props')))?.groups), Record.get('major'));
-            const defaulted = steps.filter(({ step }) => matched(RHINO, step.uses) && step.with?.['download-url'] === undefined);
-            assert.deepStrictEqual(Option.contains(referenced, '8') ? [] : defaulted.map(({ at }) => at), [], 'delivery/setup-rhino3d/src/main.js channel `8/latest` unless `download-url` names an installer of another major, delivery/setup-rhino3d/README.md "Downloads the latest Rhino (8 at the time of writing)"');
-        }),
-    );
-    methods.effect(
-        'passes the rule tests of the check that refuses an ungated setup action',
-        Effect.fnUntraced(function* () {
-            const { code, output } = yield* called(workspaceRoot, 'ast-grep', ['test'], {});
-            assert.strictEqual(code, 0, `ci/docs/ast-grep__test-rule.md \`ast-grep test\` over testConfigs, delivery/ast-grep-essentials/sgconfig.yml: ${output}`);
-            assert.include(output, 'unconditional-setup-action', 'delivery/ast-grep-essentials/tests/python/avoid-mktemp-python-test.yml: one `<id>-test.yml` of valid and invalid cases per rule');
         }),
     );
 });

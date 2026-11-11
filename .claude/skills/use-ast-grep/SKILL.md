@@ -5,7 +5,7 @@ description: "Use when outlining, searching, or rewriting code with ast-grep or 
 
 # [AST_GREP]
 
-MCP tools answer one-off matches and syntax trees, the CLI runs project scans, outlines, rewrites, and execution limits. Search rules stay inline, durable rules sit under `ruleDirs`.
+MCP tools answer one-off matches and syntax trees, the CLI runs project scans, outlines, rewrites, and execution limits. Search rules stay inline, durable rules sit under `ruleDirs`. Rules take no test folder or `testConfigs` row, the repository scan checks each one.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Rule diagnostics and rewrites

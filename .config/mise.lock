@@ -2552,6 +2552,39 @@ url = "https://github.com/jdx/hk/releases/download/v2.12.0/hk-x86_64-pc-windows-
 signer = "sigstore-oidc:https://github.com/jdx/hk/.github/workflows/release.yml"
 repository_ids = { repository = "922514152" }
 
+[[tools."http:blender-ext"]]
+version = "5.3.0"
+backend = "http:blender-ext"
+specifiers = ["latest"]
+
+[tools."http:blender-ext"."platforms.linux-arm64"]
+checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
+url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+
+[tools."http:blender-ext"."platforms.linux-arm64-musl"]
+checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
+url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+
+[tools."http:blender-ext"."platforms.linux-x64"]
+checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
+url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+
+[tools."http:blender-ext"."platforms.linux-x64-musl"]
+checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
+url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+
+[tools."http:blender-ext"."platforms.macos-arm64"]
+checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
+url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+
+[tools."http:blender-ext"."platforms.macos-x64"]
+checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
+url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+
+[tools."http:blender-ext"."platforms.windows-x64"]
+checksum = "sha256:f3b5445be87c5a8404309426e882f88b9486a5de94e1ab5fb94fd4b92bdb0699"
+url = "https://raw.githubusercontent.com/blender/blender/v5.3.0/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+
 [[tools."http:dataflow-errorprone"]]
 version = "3.49.5-eisop1"
 backend = "http:dataflow-errorprone"

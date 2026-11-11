@@ -3,7 +3,7 @@
         "extension-build": {
             "implementation": "./dist/executors/extension-build/executor#execute",
             "schema": "./executors/extension-build/schema.json",
-            "description": "Builds the Blender extension archives the project's blender_manifest.toml declares; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects for each platform the manifest lists, one archive per platform"
+            "description": "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles"
         },
         "package": {
             "implementation": "./dist/executors/package/executor#execute",
@@ -18,7 +18,7 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Attaches each host package the project's build wrote to its GitHub release, then publishes it to its host's store where one takes uploads, skipping a version the store holds, a version no release tag holds under nx release publish alone, and a project nx release left unversioned"
+            "description": "Publishes each host package the project's build wrote to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned"
         },
         "unreal-build": {
             "implementation": "./dist/executors/unreal-build/executor#execute",

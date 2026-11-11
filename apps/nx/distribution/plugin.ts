@@ -1,7 +1,7 @@
 import { basename, matchesGlob } from 'node:path';
 import { platform } from 'node:process';
 import type { TargetConfiguration } from '@nx/devkit';
-import { inferred, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
+import { ancestors, inferred, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { present } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, Function, Option, Path, Result, Schema, Struct } from 'effect';
 import { type Fields, HOSTS, type Host } from '#/host-packages';
@@ -13,7 +13,8 @@ interface Declared {
     readonly manifest: string;
     readonly root: string;
     readonly fields: Fields;
-    readonly hosted: boolean;
+    readonly lock?: string;
+    readonly withheld: readonly ('archive' | 'build' | 'install' | 'publish')[];
 }
 interface Discovered extends Declared {
     readonly host: Host;
@@ -22,6 +23,7 @@ interface Discovered extends Declared {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const FILES = Array.dedupe(HOSTS.map(({ manifest }) => basename(manifest)));
+const LOCKS = Array.dedupe(HOSTS.flatMap(({ build }) => Array.fromNullishOr(build?.lock)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -32,7 +34,7 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, placed
                 Array.findFirst(HOSTS, (host) => host.manifest === item.manifest),
                 Function.constVoid,
             ),
-            (host): Discovered => ({ ...item, host: item.hosted ? host : Struct.omit(host, ['archive', 'build', 'install', 'publish']) }),
+            (host): Discovered => ({ ...item, host: Struct.omit(host, item.withheld) }),
         ),
     );
     const holds = (other: Discovered, item: Discovered) => (other.fields.folders ?? []).some((folder) => !path.relative(path.join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
@@ -56,7 +58,8 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, placed
                               '{projectRoot}/**/*',
                               '^default',
                               ...(build.pack === undefined ? [] : [{ dependentTasksOutputFiles: '**/*' }]),
-                              ...Array.fromNullishOr(build.probe).map((probe) => ({ runtime: probe.join(' ') })),
+                              ...Array.fromNullishOr(item.lock).map((lock) => `{workspaceRoot}/${lock}`),
+                              ...(build.runtime ?? []).map((runtime) => ({ runtime })),
                               ...hosts(item)
                                   .filter((other) => other !== item)
                                   .map((other) => `{workspaceRoot}/${other.file}`),
@@ -88,12 +91,12 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, placed
                 check: standalone === true && build !== undefined ? { [technology]: { executor: 'nx:noop', dependsOn: [`build--${technology}`], metadata: { description: 'Compiles the project as its check' } } } : {},
                 install: installs,
             },
-            ...(archive !== undefined && {
+            ...(publish !== undefined && {
                 publish: {
                     executor: `${plugin.name}:release-publish`,
                     defaultConfiguration: 'release',
                     configurations: { release: {} },
-                    metadata: { description: [`Attaches the ${technology} packages build wrote in its release configuration to the project's GitHub release`, ...Array.fromNullishOr(publish).map(({ store, command }) => `publishes them to ${store} through ${command}`)].join(' and ') },
+                    metadata: { description: `Publishes the ${technology} packages build wrote in its release configuration to ${publish.store} through ${publish.command}` },
                 },
             }),
             ...(write !== undefined && { release: { manifest: path.relative(item.root, item.file) } }),
@@ -124,20 +127,29 @@ const { createNodes } = inferred({
             ),
         );
         const local = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms = [platform] }) => platforms.includes(platform));
-        const held = yield* Effect.filter(local, ({ build }) => (build?.probe === undefined ? Effect.succeed(true) : Effect.map(present(Array.headNonEmpty(build.probe), Array.tailNonEmpty(build.probe)), Option.isSome)));
+        const held = yield* Effect.filter(local, ({ install }) => (install?.probe === undefined ? Effect.succeed(true) : Effect.map(present(Array.headNonEmpty(install.probe), Array.tailNonEmpty(install.probe)), Option.isSome)));
+        const locked = yield* Effect.forEach(matched, ({ host, root }) =>
+            Effect.map(
+                Effect.findFirst(Array.cartesianWith(ancestors(path, root), Array.fromNullishOr(host.build?.lock), path.join), (lock) => fs.exists(path.join(context.workspaceRoot, lock))),
+                Option.match({ onNone: () => ({}), onSome: (lock) => ({ lock }) }),
+            ),
+        );
         const [read, failures] = yield* Effect.partition(
-            matched,
-            ({ file, host, root }) =>
+            Array.zip(matched, locked),
+            ([{ file, host, root }, lock]) =>
                 fs.readFileString(path.join(context.workspaceRoot, file)).pipe(
                     Effect.flatMap((text) => host.read(text, file)),
-                    Effect.mapBoth({ onFailure: (error): readonly [string, Error] => [file, error], onSuccess: Option.map((fields): Declared => ({ file, manifest: host.manifest, root, fields, hosted: held.includes(host) })) }),
+                    Effect.mapBoth({
+                        onFailure: (error): readonly [string, Error] => [file, error],
+                        onSuccess: Option.map((fields): Declared => ({ file, manifest: host.manifest, root, fields, ...lock, withheld: [...(local.includes(host) ? [] : (['archive', 'build', 'publish'] as const)), ...(held.includes(host) ? [] : (['install'] as const))] })),
+                    }),
                 ),
             { concurrency: 'unbounded' },
         );
         const report = Array.getSomes(read).filter(({ fields }) => fields.installed !== true);
         return missing.map(() => Result.succeed({ report, failures, partial: held.length < local.length }));
     }),
-    sources: () => ({ tracked: FILES.map((file) => `**/${file}`) }),
+    sources: () => ({ tracked: [...FILES, ...LOCKS].map((file) => `**/${file}`) }),
     projects,
 });
 

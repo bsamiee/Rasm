@@ -179,7 +179,7 @@ const targeted = (project: Project, plugin: Identity, sources: string): Readonly
                 ...target,
                 ...(dependsOn.length > 0 && { dependsOn }),
                 ...(target.command !== undefined && { options: { cwd: project.root, ...target.options } }),
-                ...(read !== undefined && { inputs: Array.dedupe([...read, ...(read.some(Predicate.hasProperty('externalDependencies')) ? [] : [{ externalDependencies: [] }]), ...(target.cache === true ? [PLATFORM] : [])]) }),
+                ...(read !== undefined && { inputs: Array.dedupe([...read, ...(read.some(Predicate.hasProperty('externalDependencies')) ? [] : [{ externalDependencies: [] }])]) }),
                 metadata: { technologies, ...target.metadata },
             },
         };
@@ -337,4 +337,4 @@ const inferred = <O, U extends Unit, R, E extends Error>(declaration: Declaratio
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, type Declaration, type Identity, inferred, line, listed, MANIFESTS, type Members, NODE, type Project, produced, type Reading, type Request, type Sources, type Unit };
+export { ancestors, type Declaration, type Identity, inferred, line, listed, MANIFESTS, type Members, NODE, PLATFORM, type Project, produced, type Reading, type Request, type Sources, type Unit };

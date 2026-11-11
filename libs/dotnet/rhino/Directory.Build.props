@@ -4,10 +4,4 @@
     </PropertyGroup>
 
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
-
-    <PropertyGroup Label="Rhino Libraries">
-        <TargetFramework />
-        <TargetFrameworks>$(RhinoTargetFramework);$(RhinoTargetFramework)-windows</TargetFrameworks>
-        <UseCurrentRuntimeIdentifier>false</UseCurrentRuntimeIdentifier>
-    </PropertyGroup>
 </Project>

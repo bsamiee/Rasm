@@ -1,9 +1,8 @@
-import { findPackageJSON } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { availableParallelism } from 'node:os';
 import type { TargetConfiguration } from '@nx/devkit';
-import { inferred, line, listed, type Members, NODE, type Request, type Unit } from '@rasm/nx-devkit/plugin';
+import { ancestors, inferred, line, listed, type Members, NODE, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, Option, Path, Result, Schema } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIG, configured, type Solution } from '#/configuration';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -14,8 +13,12 @@ interface Program {
     readonly chain: readonly string[];
 }
 interface Read extends Unit {
-    readonly installed: readonly string[];
+    readonly tools: { readonly tsc: readonly string[]; readonly tsgo: readonly string[]; readonly publint: readonly string[] };
 }
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Installed = Schema.fromJsonString(Schema.Struct({ name: Schema.String, bin: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -49,14 +52,59 @@ const resolved = (path: Path.Path, workspaceRoot: string, root: string, { config
     });
 };
 
-const compiled = (path: Path.Path, exec: string, root: string, { commands, outputs, chain }: Program, installed: readonly string[]): Members => {
+const held = Effect.fnUntraced(
+    function* (workspaceRoot: string, folders: readonly string[]) {
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const entries = (folder: string, scope: string) => fs.readDirectory(path.join(workspaceRoot, folder, 'node_modules', scope)).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>())));
+        const top = yield* Effect.forEach(folders, (folder) =>
+            Effect.map(
+                entries(folder, ''),
+                Array.map((name) => [folder, name] as const),
+            ),
+        );
+        const scoped = yield* Effect.forEach(
+            top.flat().filter(([, name]) => name.startsWith('@')),
+            ([folder, scope]) =>
+                Effect.map(
+                    entries(folder, scope),
+                    Array.map((name) => [folder, `${scope}/${name}`] as const),
+                ),
+        );
+        const installed = [...top.flat().filter(([, name]) => !name.startsWith('.')), ...scoped.flat()];
+        const manifests = yield* Effect.forEach(
+            installed,
+            ([folder, name]) =>
+                fs.readFileString(path.join(workspaceRoot, folder, 'node_modules', name, 'package.json')).pipe(
+                    Effect.map(Schema.decodeOption(Installed)),
+                    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeedNone),
+                ),
+            { concurrency: availableParallelism() },
+        );
+        const named = Array.zip(installed, manifests).flatMap(([[folder, owner], manifest]) =>
+            Option.toArray(Option.map(manifest, ({ name, bin = {} }) => (Predicate.isString(bin) ? [path.basename(name)] : Record.keys(bin))))
+                .flat()
+                .map((command) => [command, folder, owner] as const),
+        );
+        return Record.map(
+            Array.groupBy(named, ([command]) => command),
+            (rows) =>
+                Record.map(
+                    Array.groupBy(rows, ([, folder]) => folder),
+                    Array.map(([, , name]) => name),
+                ),
+        );
+    },
+    (effect, workspaceRoot) => Effect.mapError(effect, ToolError.of(workspaceRoot, 'does not list the packages its projects install')),
+);
+
+const compiled = (path: Path.Path, exec: string, root: string, { commands, outputs, chain }: Program, tools: Read['tools']): Members => {
     const metadata = (description: string, example: readonly string[]) => ({ description, help: { command: `${exec} tsc --help`, example: { args: [...example] } } });
     const tsc: TargetConfiguration = {
         executor: 'nx:run-commands',
         options: { commands, cwd: root },
         dependsOn: ['codegen--*', '^codegen'],
         cache: true,
-        inputs: ['default', '^default', ...chain.filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: ['@typescript/native', ...Array.intersection(installed, ['@effect/tsgo'])] }],
+        inputs: ['default', '^default', ...chain.filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [...tools.tsc, ...tools.tsgo] }],
         outputs: [],
     };
     return Array.match(outputs, {
@@ -65,12 +113,12 @@ const compiled = (path: Path.Path, exec: string, root: string, { commands, outpu
             build: { tsc: { ...tsc, dependsOn: ['codegen--*', '^codegen', '^build'], outputs: written.map((at) => path.join('{workspaceRoot}', at)), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } },
             check: {
                 tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], metadata: metadata('Type-checks through the build--tsc compile', ['--extendedDiagnostics']) },
-                ...(installed.includes('publint') && {
+                ...(Array.isReadonlyArrayNonEmpty(tools.publint) && {
                     publint: {
                         command: 'publint --strict',
                         dependsOn: ['build--*'],
                         cache: true,
-                        inputs: ['default', { dependentTasksOutputFiles: '**/*' }, NODE, { externalDependencies: ['publint'] }],
+                        inputs: ['default', { dependentTasksOutputFiles: '**/*' }, NODE, { externalDependencies: [...tools.publint] }],
                         outputs: [],
                         metadata: { description: 'Lints the tarball the package manager packs against its package.json with publint, warnings failing through --strict', help: { command: `${exec} publint run --help`, example: { args: ['--level', 'warning'] } } },
                     },
@@ -88,13 +136,14 @@ const { createNodes } = inferred({
     options: Schema.Struct({}),
     units: Effect.fnUntraced(function* ({ files, context: { workspaceRoot } }: Request<unknown>) {
         const path = yield* Path.Path;
-        const installed = ['publint', '@effect/tsgo'].filter((name) => Option.isSome(Option.liftThrowable(findPackageJSON)(name, pathToFileURL(path.join(workspaceRoot, 'package.json')))));
         const nested = files.filter((file) => path.dirname(file) !== '.');
+        const packages = yield* held(workspaceRoot, Array.dedupe(nested.flatMap((file) => ancestors(path, path.dirname(file)))));
+        const holding = (command: string, file: string) => Array.dedupe(ancestors(path, path.dirname(file)).flatMap((folder) => packages[command]?.[folder] ?? []));
         const names = yield* listed(workspaceRoot, Array.dedupe(nested.map(path.dirname)));
         return Array.filterMap(nested, (file) =>
             Result.map(
                 Result.fromNullishOr(names.get(path.dirname(file)), () => file),
-                (salt): Read => ({ key: file, file, installed, salt }),
+                (salt): Read => ({ key: file, file, tools: { tsc: holding('tsc', file), tsgo: holding('effect-tsgo', file), publint: holding('publint', file) }, salt }),
             ),
         );
     }),
@@ -103,6 +152,7 @@ const { createNodes } = inferred({
         const solutions = new Map(
             yield* configured(
                 workspaceRoot,
+                Array.headNonEmpty(missing),
                 missing.map(({ file }) => file),
             ),
         );
@@ -114,7 +164,7 @@ const { createNodes } = inferred({
         );
     }),
     sources: ({ chain }: Program, { file }: Read) => ({ tracked: [file, ...chain] }),
-    projects: (program: Program, { file, installed }: Read, { path, exec }) => [{ file, root: path.dirname(file), technologies: ['typescript'], clean: 'tsc', members: compiled(path, exec, path.dirname(file), program, installed) }],
+    projects: (program: Program, { file, tools }: Read, { path, exec }) => [{ file, root: path.dirname(file), technologies: ['typescript'], clean: 'tsc', members: compiled(path, exec, path.dirname(file), program, tools) }],
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

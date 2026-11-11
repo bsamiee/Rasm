@@ -7,7 +7,6 @@ import { assert, it, vi } from '@effect/vitest';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration, readProjectsConfigurationFromProjectGraph, workspaceRoot } from '@nx/devkit';
 import { createNodes } from '@rasm/nx-distribution';
 import manifest from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { committed } from '@rasm/testing/nx/cli';
 import { entered, graphed } from '@rasm/testing/nx/inference';
 import { Array, Config, Effect, Exit, FileSystem, MutableRef, Path, Predicate, Record, Schema, Stream } from 'effect';
 import { Zip } from 'effect/encoding';
@@ -22,10 +21,10 @@ const PROJECT = 'sheet';
 const ROOT = 'packages/sheet';
 const MANIFEST = 'blender_manifest.toml';
 const EXECUTABLE = 0o755;
-const TOOLS = ['cargo', 'gh', 'uv', 'swift', 'xcrun', 'blender'];
+const TOOLS = ['cargo', 'uv', 'swift', 'xcrun', 'blender'];
 const GLOB = /\/?[*{].*$/u;
-const PUBLISHING = /\s(?:publish|upload)(?:\s|$)/u;
-const NX: NxJsonConfiguration = { release: { projects: [PROJECT], projectsRelationship: 'independent', releaseTag: { pattern: '{projectName}@{version}' } } };
+const PUBLISHING = /\spublish(?:\s|$)/u;
+const NX: NxJsonConfiguration = { release: { projects: [PROJECT], projectsRelationship: 'independent' } };
 const FILES = {
     'package.json': '{ "name": "root" }\n',
     'nx.json': JSON.stringify(NX),
@@ -35,10 +34,6 @@ const FILES = {
     [`${ROOT}/${MANIFEST}`]: `schema_version = "1.0.0"\nid = "${PROJECT}"\nversion = "0.1.0"\nname = "Sheets"\ntagline = "Sheet layout"\nmaintainer = "Studio <studio@example.com>"\ntype = "add-on"\nblender_version_min = "5.0.0"\nlicense = ["SPDX:MIT"]\n`,
     [`${ROOT}/__init__.py`]: 'def register():\n    pass\n\n\ndef unregister():\n    pass\n',
 };
-const TAGGED = [
-    { tags: [], held: 'no tag' },
-    { tags: [`${PROJECT}@0.0.9`], held: 'the tag of an earlier version alone' },
-] as const;
 const STORED = [
     { held: 'lacks the version', data: [], posted: [`POST /api/v1/extensions/${PROJECT}/versions/upload/`] },
     { held: 'holds the version', data: [{ id: PROJECT, version: '0.1.0' }], posted: [] },
@@ -47,7 +42,6 @@ const distribution: Subject = { plugin: { name: manifest.name, createNodes }, to
 const PUBLISHERS = [
     { plugin: '@rasm/nx-cargo', options: { cwd: '.', package: PROJECT } },
     { plugin: '@rasm/nx-distribution', options: {} },
-    { plugin: '@rasm/nx-apple', options: { folders: [ROOT] } },
 ] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -61,7 +55,7 @@ const recorded = Effect.fnUntraced(function* () {
     const [fs, path, folders] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('PATH')]);
     const root = yield* Effect.flatMap(fs.makeTempDirectoryScoped({ prefix: 'nx-publish-' }), fs.realPath);
     const log = path.join(root, 'started.log');
-    const script = (tool: string) => [`#!/bin/sh\necho "${tool} $*" >> '${log}'`, 'case "$0 $* " in */gh\\ release\\ view\\ *) echo \'{"isImmutable":false,"assets":[]}\' ;; esac', `case "${tool} $* " in gh\\ * | *" publish "* | *" upload "*) exit 0 ;; esac\nPATH='${folders}' exec ${tool} "$@"\n`].join('\n');
+    const script = (tool: string) => [`#!/bin/sh\necho "${tool} $*" >> '${log}'`, `case "${tool} $* " in *" publish "*) exit 0 ;; esac\nPATH='${folders}' exec ${tool} "$@"\n`].join('\n');
     yield* Effect.forEach(Record.toEntries({ ...FILES, ...Record.fromIterableWith(TOOLS, (tool) => [`bin/${tool}`, script(tool)]) }), ([file, text]) => Effect.andThen(fs.makeDirectory(path.join(root, path.dirname(file)), { recursive: true }), fs.writeFileString(path.join(root, file), text)), {
         discard: true,
     });
@@ -123,7 +117,7 @@ const packed = Effect.fnUntraced(function* (folder: string) {
 
 it.layer(layer, { excludeTestServices: true })('release-publish executors', (methods) => {
     methods.effect.each(PUBLISHERS)(
-        '$plugin: succeeds and starts no publish or upload for a project nx release left without a new version',
+        '$plugin: succeeds and starts no publish for a project nx release left without a new version',
         Effect.fnUntraced(function* ({ plugin, options }) {
             const { context, published } = yield* recorded();
             const run = yield* implemented(plugin);
@@ -136,28 +130,11 @@ it.layer(layer, { excludeTestServices: true })('release-publish executors', (met
         }),
     );
 
-    methods.effect.each(TAGGED.filter(() => present(distribution)))(
-        '@rasm/nx-distribution: succeeds and starts no publish or upload without version data where the repository holds $held',
-        Effect.fnUntraced(function* ({ tags }) {
-            const { context, published } = yield* recorded();
-            yield* entered(context.root);
-            const projectGraph = yield* graphed(context.root, [new LoadedNxPlugin(distribution.plugin, { plugin: manifest.name })]);
-            yield* committed(context.root, tags);
-            const run = yield* implemented(manifest.name);
-            const result = yield* Effect.tryPromise(() => Promise.resolve(run({}, { ...context, projectGraph, projectsConfigurations: readProjectsConfigurationFromProjectGraph(projectGraph) })));
-            assert.deepStrictEqual(
-                [Record.has(projectGraph.nodes, PROJECT), Schema.is(Succeeded)(result), yield* published],
-                [true, true, []],
-                'nrwl/nx@2a424d3 packages/js/src/executors/release-publish/release-publish.impl.spec.ts "should proceed with publishing when nxReleaseVersionData is not provided", "skips publishing when the requested tag already points to the current version": the store decides, here the release tag {projectName}@{version} of nx.json release.releaseTag.pattern',
-            );
-        }),
-    );
-
     methods.effect.each(STORED.filter(() => present(distribution)))(
-        '@rasm/nx-distribution: uploads a tagged version to its GitHub release without version data, and posts it to a store that $held',
+        '@rasm/nx-distribution: posts the built package to a store that $held',
         Effect.fnUntraced(function* ({ data, posted }) {
             const path = yield* Path.Path;
-            const { context, published } = yield* recorded();
+            const { context } = yield* recorded();
             const { registry, received } = yield* stocked(data);
             yield* entered(context.root);
             const projectGraph = yield* graphed(context.root, [new LoadedNxPlugin(distribution.plugin, { plugin: manifest.name })]);
@@ -166,13 +143,12 @@ it.layer(layer, { excludeTestServices: true })('release-publish executors', (met
                 .flatMap((target) => getOutputsForTargetAndConfiguration({ project: PROJECT, target }, {}, node))
                 .map((output) => output.replace(GLOB, ''));
             yield* Effect.forEach(folders, (folder) => packed(path.join(context.root, folder)), { discard: true });
-            yield* committed(context.root, [`${PROJECT}@0.1.0`]);
             const run = yield* implemented(manifest.name);
             const exit = yield* Effect.exit(Effect.tryPromise(() => Promise.resolve(run({ registry }, { ...context, projectGraph, projectsConfigurations: readProjectsConfigurationFromProjectGraph(projectGraph) }))));
             assert.deepStrictEqual(
-                [Exit.isSuccess(exit) && Schema.is(Succeeded)(exit.value), (yield* published).some((line) => line.startsWith(`gh release upload ${PROJECT}@0.1.0`)), MutableRef.get(received).filter((line) => line.startsWith('POST '))],
-                [true, true, posted],
-                `nrwl/nx@2a424d3 packages/js/src/executors/release-publish/release-publish.impl.spec.ts "publishes when npm reports the exact version is missing", "skips publishing when the requested tag already points to the current version": ${inspect(exit, { depth: 12 })}`,
+                [Exit.isSuccess(exit) && Schema.is(Succeeded)(exit.value), MutableRef.get(received).filter((line) => line.startsWith('POST '))],
+                [true, posted],
+                `nrwl/nx@2a424d3 packages/js/src/executors/release-publish/release-publish.impl.spec.ts "publishes when npm reports the exact version is missing", "skips publishing when the version already exists": ${inspect(exit, { depth: 12 })}`,
             );
         }),
     );

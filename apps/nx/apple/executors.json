@@ -10,11 +10,6 @@
             "schema": "./executors/package/schema.json",
             "description": "Zips each archived app and each SwiftPM executable product's release build with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity, exports each archive under it into a disk image, signs it, notarizes it with that App Store Connect key, and staples the ticket"
         },
-        "release-publish": {
-            "implementation": "./dist/executors/release-publish/executor#execute",
-            "schema": "./executors/release-publish/schema.json",
-            "description": "Attaches each folder's disk image, else its zip, at the version nx release set to the project's GitHub release; where SPARKLE_ED_PRIVATE_KEY is set, adds each disk image holding a stapled notarization ticket to the Sparkle feed its app names in SUFeedURL"
-        },
         "run": {
             "implementation": "./dist/executors/run/executor#execute",
             "schema": "./executors/run/schema.json",

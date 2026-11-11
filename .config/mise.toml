@@ -114,7 +114,7 @@ google-java-format                                                           = "
 "github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["linux", "macos/arm64"], version = "latest" }
 hk                                                                           = { version = "latest", workflow = "release.yml" }
 hyperfine                                                                    = "latest"
-imagemagick                                                                  = { os = ["macos", "windows"], version = "latest" }
+imagemagick                                                                  = "latest"
 jactionlint                                                                  = "latest"
 java                                                                         = "latest"
 jq                                                                           = "latest"
@@ -183,6 +183,12 @@ asset_pattern = "Sparkle-*.tar.xz"
 bin_path      = "bin"
 os            = ["macos"]
 version       = "latest"
+
+[tools."http:blender-ext"]
+url              = "https://raw.githubusercontent.com/blender/blender/v{{ version }}/scripts/addons_core/bl_pkg/cli/blender_ext.py"
+version          = "latest"
+version_list_url = "https://api.github.com/repos/blender/blender/tags"
+version_order    = "semver"
 
 [tools."http:docker-cli"]
 checksum_url     = 'https://download.docker.com/{{ os(macos="mac") }}/static/test/{{ arch(x64="x86_64", arm64="aarch64") }}/docker-cli_{{ version }}.tgz.sha256'

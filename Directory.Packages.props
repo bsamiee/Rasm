@@ -43,7 +43,7 @@
         <PackageVersion Include="Krafs.Publicizer"                                        Version="2.3.2" />                             <!-- Compile access to internal and private members of a referenced assembly -->
         <PackageVersion Include="Microsoft.macOS.Ref.net10.0_26.0"                        Version="26.0.11017" />                        <!-- AppKit and Foundation reference assembly Microsoft.macOS, at the version Rhino for Mac ships -->
         <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0-rc.3.26522.148" />             <!-- Display, power, and session change notifications System.Drawing.Common subscribes to -->
-        <PackageVersion Include="Rhino.Inside"                                            Version="9.0.26084.13070-beta" />              <!-- Loads the installed Rhino into a .NET process, the in-process host Rhino tests run in -->
+        <PackageVersion Include="Microsoft.WindowsDesktop.App.Ref"                        Version="[10.0.14]" />                         <!-- WPF reference assemblies under ref/net10.0, which later release lines omit -->
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0" />                            <!-- openNURBS geometry access for reading and writing 3dm files -->
         <PackageVersion Include="RhinoCommon"                                             Version="9.0.26300.9401" />                    <!-- Rhino SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
         <PackageVersion Include="System.Drawing.Common"                                   Version="11.0.0-rc.3.26522.148" />             <!-- GDI+ based drawing, imaging, and text rendering API -->
@@ -345,6 +345,7 @@
         <PackageVersion Include="Emgu.CV.runtime.ubuntu-26.04-x64"                        Version="5.0.0.6584" />                        <!-- Full OpenCV native binaries for Ubuntu -->
         <PackageVersion Include="Emgu.runtime.windows.msvc.rt.arm64"                      Version="19.51.36257" />                       <!-- Microsoft Visual C++ runtime libraries Emgu CV loads on Windows arm64 -->
         <PackageVersion Include="Emgu.runtime.windows.msvc.rt.x64"                        Version="19.51.36257" />                       <!-- Microsoft Visual C++ runtime libraries Emgu CV loads on Windows x64 -->
+        <PackageVersion Include="Emgu.runtime.windows.msvc.rt.x86"                        Version="19.51.36257" />                       <!-- Microsoft Visual C++ runtime libraries Emgu.CV.runtime.mini.windows depends on for Windows x86 -->
         <PackageVersion Include="Magick.NET-Q16-HDRI-AnyCPU"                              Version="15.0.0" />                            <!-- ImageMagick image processing with 16-bit HDRI pixel channels -->
         <PackageVersion Include="SixLabors.ImageSharp"                                    Version="4.1.3" />                             <!-- Managed image decoding, encoding, and processing -->
         <PackageVersion Include="TextureCompressor"                                       Version="0.1.0" />                             <!-- Managed BCn, ETC, ASTC, and PVRTC texture codecs -->

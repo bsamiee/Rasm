@@ -122,10 +122,10 @@ flowchart LR
 - Tool behavior comes from its source and docs at the installed version, a plugin never restates what a tool, host, package, or Nx already does
 - Tools with their own incremental state keep it, Nx caches results around it and restores an intermediate folder only with the outputs built from it
 - Host SDKs and tools come from packages and mise rows, and building, checking, and packaging a host project needs no host installed
-- A host runs wherever its vendor releases and licenses it for that machine, CI runners included, as Blender does through its `bpy` wheel
+- Hosts run wherever their vendor releases and licenses them for a machine, CI runners included, as Blender does through its `bpy` wheel
 - Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`
 - Tests of code calling a host run where the host runs, and logic needing no host sits in projects tested on every platform
-- Rhino tests load the installed Rhino through Rhino.Inside under a desktop license, which `RHINO_TOKEN` replaces only on Windows Server and Linux
+- Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
 - Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
 
@@ -149,7 +149,8 @@ Other tasks run through their own commands:
 - `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
-- Workflow `release.yml` runs `nx release --skip-publish`, a `-c release` build, then `nx release publish`, which takes no configuration
+- Workflow `release.yml` runs `nx release --skip-publish`, a `-c release` build, tag uploads, then `nx release publish`, which takes no configuration
+- Tag uploads add a tag's `build--*` output files that name its version to its GitHub release, and a `.dmg` to its app's `SUFeedURL` Sparkle feed
 - Dispatch inputs of `release.yml` reach both `nx release` runs: `specifier` (empty reads conventional commits), `first-release`, and `dry-run`, on by default
 - `doppler run --config release --command 'nx build <app> -c release'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
@@ -168,7 +169,7 @@ Packaging turns a build into the one file its host or store takes, and every cha
 - Hosts and ecosystems decide package format (`.yak`, `.nupkg`, wheel, `.dmg`)
 - Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never its store
 - Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
-- Releases version and tag a project and attach its packaged files to its GitHub release, the direct-download channel
+- Releases version and tag a project, its GitHub release the direct-download channel
 - Release assets hold native files unwrapped, and a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`
 - Publishing pushes the same packaged file to its host's or ecosystem's official store
 - GitHub releases are a primary channel for host plugins and apps, for libraries the registry is canonical and release assets optional

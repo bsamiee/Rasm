@@ -596,7 +596,6 @@ catalogs:
         pdfjs-dist: ^6.0.0
         nx: ^24.0.0
         '@nx/web': ^24.0.0 # Nx resolves the executor from the workspace's own `@nx/web`, released in step with its `nx`
-        '@typescript/native': 'npm:typescript@>=7.1.0-0'
         '@pulumi/pulumi': ^3.274.0-0
         '@pulumi/cloudflare': ^6.0.0-0
         '@pulumi/command': ^1.0.0-0

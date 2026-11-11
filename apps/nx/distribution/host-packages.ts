@@ -5,7 +5,8 @@ import { basename, join, matchesGlob } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
-import { getDependencyConfigs, globWithWorkspaceContext } from '@nx/devkit/internal';
+import { getDependencyConfigs, globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
+import { PLATFORM } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
@@ -48,8 +49,8 @@ interface Host {
     readonly standalone?: true;
     readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, ToolError>;
     readonly write?: (text: string, version: string) => Effect.Effect<string, ToolError>;
-    readonly build?: { readonly executor: string; readonly command: string; readonly probe?: Array.NonEmptyReadonlyArray<string>; readonly pack?: (folder: Found, file: string, timestampAuthority: string) => Step };
-    readonly install?: { readonly command: string; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found) => Step };
+    readonly build?: { readonly executor: string; readonly command: string; readonly lock?: string; readonly runtime?: readonly string[]; readonly pack?: (folder: Found, file: string, timestampAuthority: string) => Step };
+    readonly install?: { readonly command: string; readonly probe?: Array.NonEmptyReadonlyArray<string>; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found) => Step };
     readonly publish?: { readonly store: string; readonly command: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string) => Stored };
 }
 
@@ -57,8 +58,10 @@ interface Host {
 
 const EXTENSION = 'blender_manifest.toml';
 const SIGNER = 'ZXPSignCmd';
+const PYTHON = ['run', '--no-project', 'python', '-c'] as const;
+const LOCATED = "shutil.which('blender_ext.py', os.F_OK)";
+const BUILDER = [...PYTHON, `import os, runpy, shutil, sys; sys.argv[0] = ${LOCATED}; runpy.run_path(sys.argv[0], run_name='__main__')`] as const;
 const BLENDER: Partial<Record<NodeJS.Platform, string>> = { darwin: 'macos', linux: 'linux', win32: 'windows' };
-const YAK = { darwin: 'mac', win32: 'win' } as const satisfies Partial<Record<NodeJS.Platform, string>>;
 const UNREAL: Partial<Record<NodeJS.Platform, string>> = { darwin: 'Mac', linux: 'Linux' };
 const ADOBE: Partial<Record<NodeJS.Platform, Config.Config<string>>> = {
     darwin: Config.succeed(join(homedir(), 'Library', 'Application Support', 'Adobe')),
@@ -204,9 +207,15 @@ const HOSTS: readonly Host[] = [
                 }),
             ),
         write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: ToolError.of(EXTENSION, 'does not parse as TOML'), onSuccess: (document) => patch(text, { ...document, version }) }),
-        build: { executor: 'extension-build', command: 'blender --command extension build', probe: ['blender', '--version'] },
+        build: {
+            executor: 'extension-build',
+            command: 'blender_ext.py build',
+            lock: 'uv.lock',
+            runtime: ['uv --version', ['uv', ...PYTHON, `import hashlib, os, shutil; print(hashlib.file_digest(open(${LOCATED}, 'rb'), 'sha256').hexdigest())`].map(quoteShellArg).join(' ')],
+        },
         install: {
             command: 'blender --command extension install-file',
+            probe: ['blender', '--version'],
             run: ({ at, name }) =>
                 Effect.flatMap(printed('blender', ['--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at]), (stdout) =>
                     new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : ToolError.make({ subject: at, detail: `blender exited 0 without installing it: ${stdout.trim()}` }),
@@ -231,9 +240,8 @@ const HOSTS: readonly Host[] = [
         manifest: 'manifest.yml',
         technology: 'yak',
         archive: '.yak',
-        platforms: Record.keys(YAK),
-        read: (text, file) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version, foreign: Record.toEntries(YAK).some(([os, built]) => os !== platform && matchesGlob(file, `**/*-${built}.yak/*`)) }))),
-        install: { command: 'yak install', run: ({ at }) => Effect.asVoid(printed('yak', ['install', at])) },
+        read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version }))),
+        install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }) => Effect.asVoid(printed('yak', ['install', at])) },
         publish: {
             store: 'https://yak.rhino3d.com',
             command: 'yak push',
@@ -242,7 +250,7 @@ const HOSTS: readonly Host[] = [
                     HttpClient.get(`${store}/versions/${name}/${version}`),
                     HttpClientResponse.matchStatus({
                         404: () => Effect.succeed(false),
-                        orElse: (response) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Pushed)), ({ distributions }) => distributions.some(({ filename }) => filename === basename(at))),
+                        orElse: (response) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Pushed)), ({ distributions }) => distributions.some(({ filename }) => filename.toLowerCase() === basename(at).toLowerCase())),
                     }),
                 ),
             push: ({ at }, store) => Effect.asVoid(printed('yak', ['push', at, '--source', store])),
@@ -354,10 +362,10 @@ const HOSTS: readonly Host[] = [
                 onFailure: ToolError.of('uplugin', 'does not decode'),
                 onSuccess: ({ Version }) => applyEdits(text, [...modify(text, ['VersionName'], version, {}), ...modify(text, ['Version'], (Version ?? 0) + 1, {})]),
             }),
-        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin' },
+        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin', runtime: [PLATFORM.runtime] },
     },
 ];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { EXTENSION, type Fields, type Found, HOSTS, type Host, located, UNREAL, zipped };
+export { BUILDER, EXTENSION, type Fields, type Found, HOSTS, type Host, located, UNREAL, zipped };

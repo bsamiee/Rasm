@@ -6,13 +6,13 @@
         <TestingPlatformCommandLineArguments>--report-trx</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
-    <PropertyGroup Label="Hang and Crash Reports" Condition="'$(OutputType)' == 'Exe' and '$(RhinoHost)' == ''">
+    <PropertyGroup Label="Hang and Crash Reports" Condition="'$(OutputType)' == 'Exe'">
         <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --hangdump --hangdump-type None --hangdump-timeout 10m --crash-report-if-supported</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Testing" Condition="'$(OutputType)' == 'Exe'">
-        <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" Condition="'$(RhinoHost)' == ''" />
-        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" Condition="'$(RhinoHost)' == ''" />
+        <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" />
+        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
         <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
         <PackageReference Include="xunit.v3.mtp-v2" />
     </ItemGroup>

@@ -28,7 +28,6 @@
         "nx": "catalog:"
     },
     "peerDependencies": {
-        "@typescript/native": "catalog:peers",
         "nx": "catalog:peers"
     },
     "publishConfig": {

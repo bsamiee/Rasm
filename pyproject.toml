@@ -523,7 +523,6 @@ pylint                    = { allow-dunder-method-names = ["__name__", "__versio
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**"                                                           = ["assert"]
-"apps/nx/distribution/executors/extension-build/blender.py"          = ["banned-api", "implicit-namespace-package"]                   # Blender runs this script by path in its bundled interpreter, which holds no `msgspec`
 "libs/python/runtime/telemetry/rasm_telemetry/_entries.py"           = ["banned-api"]                                                 # Holds the stdlib logger under each bound logger, the `logging.getLogger` call every other module leaves to it
 "libs/python/runtime/telemetry/rasm_telemetry/export.py"             = ["import-private-name"]                                        # opentelemetry-api holds the entry point lookup the SDK caches in private `_importlib_metadata` alone
 "libs/python/runtime/telemetry/rasm_telemetry/process.py"            = ["banned-api", "import-private-name", "private-member-access"] # Composition root the `logging` rows name, opentelemetry-api holds environment carriers and its cached entry point lookup, the SDK its exporter name resolution, and system-metrics its default table in private members alone

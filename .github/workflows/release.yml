@@ -41,14 +41,9 @@ jobs:
               with:
                   fetch-depth: 0
                   filter: tree:0
-            - id: blender
-              run: |
-                  series=$(git ls-files -z '*blender_manifest.toml' | xargs -0 sed -En 's/^blender_version_min *= *"([0-9]+\.[0-9]+).*/\1/p' | sort -V | tail -n 1)
-                  printf 'series=%s\n' "${series}" >> "${GITHUB_OUTPUT}"
-            - uses: BradyAJohnston/setup-blender@1006ec809db1af1422bd1197e107e2c4d368d81e # v5.2.0
-              with:
-                  version: ${{ steps.blender.outputs.series }}
             - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+              with:
+                  cache: false
             - run: pnpm install
             - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
             - run: git config user.name 'github-actions[bot]' && git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -68,6 +63,54 @@ jobs:
                   ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
                   ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
                   ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
+            - id: assets
+              run: |
+                  [[ "$(git rev-parse HEAD)" != "${GITHUB_SHA}" ]] || exit 0
+                  upload=(gh release upload)
+                  if [[ "${DRY_RUN}" == true ]]; then upload=(echo "${upload[@]}"); fi
+                  attached=''
+                  for tag in $(git tag --points-at HEAD); do
+                      files=$(
+                          nx show project "${tag%@*}" --json |
+                              jq --raw-output --arg project "${tag%@*}" '.targets | to_entries[] | select(.key | startswith("build--")) | "\($project):\(.key)" + if .value.configurations.release then " --configuration=release" else "" end' |
+                              xargs -r -L 1 nx show target outputs --json |
+                              jq --raw-output '.expandedOutputs[]?' |
+                              xargs -r -I {} find {} -maxdepth 1 -type f -name "*${tag##*@}*"
+                      )
+                      if [[ -n "${files}" ]]; then
+                          xargs "${upload[@]}" "${tag}" --clobber <<< "${files}"
+                          attached+=$(awk -v tag="${tag}" '{ print tag "\t" $0 }' <<< "${files}")$'\n'
+                      else
+                          printf 'No build output of %s is named with %s\n' "${tag%@*}" "${tag##*@}"
+                      fi
+                  done
+                  printf 'files<<EOF\n%sEOF\n' "${attached}" >> "${GITHUB_OUTPUT}"
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  DRY_RUN: ${{ inputs.dry-run }}
+            - run: |
+                  dry=()
+                  if [[ "${DRY_RUN}" == true ]]; then dry=(echo); fi
+                  while IFS=$'\t' read -r tag image; do
+                      [[ "${image}" == *.dmg && -n "${SPARKLE_ED_PRIVATE_KEY}" ]] || continue
+                      feed=$(plutil -extract SUFeedURL raw -o - "${image%/*}"/*.app/Contents/Info.plist) || continue
+                      [[ "${feed}" =~ ^https://github\.com/([^/]+/[^/]+)/releases/download/([^/]+)/([^/]+)$ ]] || { printf '::error::SUFeedURL %s names no GitHub release asset (https://github.com/<owner>/<repo>/releases/download/<tag>/<file>)\n' "${feed}"; exit 1; }
+                      repository="${BASH_REMATCH[1]}" channel="${BASH_REMATCH[2]}" asset="${BASH_REMATCH[3]}"
+                      staging=$(mktemp -d)
+                      cp "${image}" "${staging}"
+                      if held=$(gh release view "${channel}" --repo "${repository}" --json assets --jq '.assets[].name'); then
+                          if grep --fixed-strings --line-regexp --quiet "${asset}" <<< "${held}"; then gh release download "${channel}" --repo "${repository}" --pattern "${asset}" --dir "${staging}"; fi
+                      else
+                          "${dry[@]}" gh release create "${channel}" --repo "${repository}" --prerelease --title "${channel}" --notes "Sparkle feed ${asset}"
+                      fi
+                      "${dry[@]}" generate_appcast --ed-key-file - --download-url-prefix "https://github.com/${repository}/releases/download/${tag}/" "${staging}" <<< "${SPARKLE_ED_PRIVATE_KEY}"
+                      "${dry[@]}" gh release upload "${channel}" --repo "${repository}" --clobber "${staging}/${asset}"
+                  done <<< "${FILES}"
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+                  FILES: ${{ steps.assets.outputs.files }}
+                  DRY_RUN: ${{ inputs.dry-run }}
             - id: nuget
               uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
               with:
@@ -78,6 +121,5 @@ jobs:
                   NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
                   YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
                   BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
-                  SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
                   FIRST_RELEASE: ${{ inputs.first-release }}
                   DRY_RUN: ${{ inputs.dry-run }}

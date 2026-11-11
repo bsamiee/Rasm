@@ -1,7 +1,7 @@
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import type { Identity, Members } from '@rasm/nx-devkit/plugin';
 import { Array, Effect, Option, type Path, pipe, Record, Schema } from 'effect';
-import { GIT_STATUS, type Part, published, type Settings, target } from '#/targets';
+import { GIT_STATUS, type Part, type Settings, target } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -98,7 +98,6 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
                     outputs: [path.join('{workspaceRoot}', folder, `${product}-*.zip`)],
                     metadata: { technologies: ['swift'], description: `Zips the release build of ${product} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
                 },
-                published: published(plugin, 'swift', [folder]),
             })),
         );
         return {
@@ -135,8 +134,7 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
                 onNone: () => ({ ...part, members: own }),
                 onSome: ({ install, zipped }) => ({
                     ...part,
-                    members: { ...own, build: { ...builds, ...Option.getOrUndefined(Option.map(zipped, ({ ditto }) => ({ ditto }))) }, install: { 'swift-package': install } },
-                    ...Option.getOrUndefined(Option.map(zipped, ({ published: release }) => ({ published: release }))),
+                    members: { ...own, build: { ...builds, ...Option.getOrUndefined(zipped) }, install: { 'swift-package': install } },
                     release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: INFO } } },
                 }),
             },

@@ -1,3 +1,4 @@
+using System.Runtime.Versioning;
 using System.Windows.Media;
 using Eto;
 using Eto.Forms;
@@ -10,6 +11,7 @@ namespace Rasm.Rhino.UI.Windows;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
+[SupportedOSPlatform("windows")]
 internal sealed class WpfPlatform : IHostPlatform {
 
     // --- [CHANGES]
@@ -53,6 +55,7 @@ internal sealed class WpfPlatform : IHostPlatform {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+[SupportedOSPlatform("windows")]
 public sealed class WpfInitializer : IPlatformInitializer {
     public void Initialize(Platform platform) => platform.Add<IHostPlatform>(static () => new WpfPlatform());
 }

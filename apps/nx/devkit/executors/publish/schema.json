@@ -1,135 +1,143 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "version": 2,
-    "type": "object",
-    "properties": {
-        "dryRun": {
-            "type": "boolean",
-            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": 2,
+  "type": "object",
+  "properties": {
+    "dryRun": {
+      "type": "boolean",
+      "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+    },
+    "nxReleaseVersionData": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "newVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
         },
-        "nxReleaseVersionData": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "object",
-                "properties": {
-                    "newVersion": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ]
-                    }
-                },
-                "required": [ "newVersion" ],
-                "additionalProperties": true
-            },
-            "description": "Versions nx release set in this run, a project it left unversioned is skipped; absent under nx release publish alone, where a version holding no release tag is skipped"
-        },
+        "required": [
+          "newVersion"
+        ],
+        "additionalProperties": true
+      },
+      "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+    },
+    "registry": {
+      "type": "string",
+      "description": "Registry nx release publish passes as --registry, in the form the tool names one"
+    },
+    "tag": {
+      "type": "string",
+      "description": "Distribution tag nx release publish passes as --tag"
+    },
+    "access": {
+      "type": "string",
+      "description": "Access level nx release publish passes as --access"
+    },
+    "otp": {
+      "type": "number",
+      "description": "One-time password nx release publish passes as --otp"
+    },
+    "firstRelease": {
+      "type": "boolean",
+      "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
+    },
+    "commands": {
+      "type": "array",
+      "description": "Argument lists run in order before the publish, under a dry run too (a pack, a build)",
+      "default": [],
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": [
+          {
+            "type": "string"
+          }
+        ],
+        "additionalItems": {
+          "type": "string"
+        }
+      }
+    },
+    "publish": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The tool's publish argument list",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "string"
+      }
+    },
+    "preview": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The tool's own dry-run form, run in place of publish under a dry run, absent prints publish and runs nothing",
+      "items": [
+        {
+          "type": "string"
+        }
+      ],
+      "additionalItems": {
+        "type": "string"
+      }
+    },
+    "flags": {
+      "type": "object",
+      "properties": {
         "registry": {
-            "type": "string",
-            "description": "Registry nx release publish passes as --registry, in the form the tool names one"
+          "type": "string"
         },
         "tag": {
-            "type": "string",
-            "description": "Distribution tag nx release publish passes as --tag"
+          "type": "string"
         },
         "access": {
-            "type": "string",
-            "description": "Access level nx release publish passes as --access"
+          "type": "string"
         },
         "otp": {
-            "type": "number",
-            "description": "One-time password nx release publish passes as --otp"
+          "type": "string"
         },
         "firstRelease": {
-            "type": "boolean",
-            "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
-        },
-        "commands": {
-            "type": "array",
-            "description": "Argument lists run in order before the publish, under a dry run too (a pack, a build)",
-            "default": [],
-            "items": {
-                "type": "array",
-                "minItems": 1,
-                "items": [
-                    {
-                        "type": "string"
-                    }
-                ],
-                "additionalItems": {
-                    "type": "string"
-                }
-            }
-        },
-        "publish": {
-            "type": "array",
-            "minItems": 1,
-            "description": "The tool's publish argument list",
-            "items": [
-                {
-                    "type": "string"
-                }
-            ],
-            "additionalItems": {
-                "type": "string"
-            }
-        },
-        "preview": {
-            "type": "array",
-            "minItems": 1,
-            "description": "The tool's own dry-run form, run in place of publish under a dry run, absent prints publish and runs nothing",
-            "items": [
-                {
-                    "type": "string"
-                }
-            ],
-            "additionalItems": {
-                "type": "string"
-            }
-        },
-        "flags": {
-            "type": "object",
-            "properties": {
-                "registry": {
-                    "type": "string"
-                },
-                "tag": {
-                    "type": "string"
-                },
-                "access": {
-                    "type": "string"
-                },
-                "otp": {
-                    "type": "string"
-                },
-                "firstRelease": {
-                    "type": "string"
-                }
-            },
-            "additionalProperties": true,
-            "description": "Option nx release publish passes to the tool's flag for it (registry to --source), a set option appends the flag and its value to publish and to preview, a true one the flag alone",
-            "default": {}
-        },
-        "args": {
-            "type": "array",
-            "description": "Arguments appended to publish and to preview",
-            "default": [],
-            "items": {
-                "type": "string"
-            }
-        },
-        "cwd": {
-            "type": "string",
-            "description": "Folder the commands run in, relative to the workspace root",
-            "default": "."
+          "type": "string"
         }
+      },
+      "additionalProperties": true,
+      "description": "Option nx release publish passes to the tool's flag for it (registry to --source), a set option appends the flag and its value to publish and to preview, a true one the flag alone",
+      "default": {}
     },
-    "required": [ "commands", "publish", "flags", "args", "cwd" ],
-    "additionalProperties": true,
-    "title": "Publish",
-    "description": "Publishes a project through its tool's own publish command, skipping a project nx release left unversioned; runs through nx release publish"
+    "args": {
+      "type": "array",
+      "description": "Arguments appended to publish and to preview",
+      "default": [],
+      "items": {
+        "type": "string"
+      }
+    },
+    "cwd": {
+      "type": "string",
+      "description": "Folder the commands run in, relative to the workspace root",
+      "default": "."
+    }
+  },
+  "required": [
+    "commands",
+    "publish",
+    "flags",
+    "args",
+    "cwd"
+  ],
+  "additionalProperties": true,
+  "title": "Publish",
+  "description": "Publishes a project through its tool's own publish command, skipping a project nx release left unversioned; runs through nx release publish"
 }
