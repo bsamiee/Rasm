@@ -178,6 +178,7 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                 'uv',
                 'run',
                 '--no-active',
+                '--locked',
                 ...row.run,
                 ...(path.relative(member.workspace, folder).startsWith('..') ? ['--project', path.relative(folder, member.workspace)] : []),
                 ...flagged('--package', member.name),

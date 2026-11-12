@@ -1234,23 +1234,15 @@ hosting = [
 [package.metadata]
 requires-dist = [
     { name = "anyio", marker = "extra == 'hosting'" },
-    { name = "boto3", marker = "extra == 'containers'" },
-    { name = "clickhouse-connect", marker = "extra == 'containers'" },
     { name = "expression" },
     { name = "hypercorn", marker = "extra == 'hosting'" },
-    { name = "msgspec", marker = "extra == 'containers'" },
     { name = "msgspec", marker = "extra == 'hosting'" },
-    { name = "obstore", marker = "extra == 'containers'" },
-    { name = "psycopg", extras = ["binary"], marker = "extra == 'containers'" },
-    { name = "psycopg-pool", marker = "extra == 'containers'" },
     { name = "pytest" },
     { name = "pytest-socket" },
     { name = "rasm-records", editable = "../../../data/records" },
-    { name = "redis", extras = ["hiredis"], marker = "extra == 'containers'" },
     { name = "sqlite-vec", marker = "extra == 'sqlite'" },
-    { name = "testcontainers", marker = "extra == 'containers'" },
 ]
-provides-extras = ["containers", "hosting", "sqlite"]
+provides-extras = ["hosting", "sqlite"]
 
 [[package]]
 name = "refurb"

@@ -111,7 +111,7 @@ flowchart LR
 - Each fact sits once in the file its tool reads, and every other use derives it
 - Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json`, `targetDefaults`, or hand-written `namedInputs`
 - `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
-- Cargo, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
+- Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
 - `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
 - Manifest `nx` tables state only a dependency or path no manifest row or tool reports (a service a client calls, a file a build reads unimported)
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-devkit`, and a row's own options win
