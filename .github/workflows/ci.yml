@@ -38,19 +38,19 @@ jobs:
               id: setup
               uses: ./.github/actions/setup
               with:
-                  assets-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
                   cache-server: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx sync:check
             - run: playwright install --with-deps --only-shell chromium
             - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
             - run: nx affected --targets=check,test,build
               env:
-                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
+                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache-server }}
             - &reports
               if: always()
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: ${{ github.job }}-reports
+                  if-no-files-found: ignore
                   path: |
                       .artifacts/playwright
                       .artifacts/vitest

@@ -50,19 +50,19 @@ internal static class Workspace {
 
     private static readonly FrozenSet<string> Projects = FrozenSet.Create(StringComparer.OrdinalIgnoreCase, ".csproj", ".fsproj", ".vbproj");
 
-    public static Report Analyze(string root, Seq<string> files, Seq<string> submodules) {
+    public static Report Analyze(string root, Seq<string> files) {
         EvaluationContext context = EvaluationContext.Create(EvaluationContext.SharingPolicy.Shared);
         using ProjectCollection collection = new();
         Seq<(string File, Fin<(Node Node, Seq<string> Evaluated)> Result)> read = files
             .Filter(static file => Projects.Contains(Path.GetExtension(file)))
-            .Map(file => (file, Try.lift(() => Evaluate(root, file, submodules, context, collection)).Run()));
+            .Map(file => (file, Try.lift(() => Evaluate(root, file, context, collection)).Run()));
         return new Report(
             [.. read.Choose(static held => held.Result.ToOption().Map(static evaluated => evaluated.Node))],
             [.. read.Choose(static held => held.Result.Match(Succ: static _ => None, Fail: error => Some(new Failure(held.File, error.Message))))],
             [.. read.Bind(static held => held.Result.Match(Succ: static evaluated => evaluated.Evaluated, Fail: static _ => Seq<string>())).Distinct().Order(StringComparer.Ordinal)]);
     }
 
-    private static Fin<(Node Node, Seq<string> Evaluated)> Evaluate(string root, string file, Seq<string> submodules, EvaluationContext context, ProjectCollection collection) {
+    private static Fin<(Node Node, Seq<string> Evaluated)> Evaluate(string root, string file, EvaluationContext context, ProjectCollection collection) {
         string path = Path.GetFullPath(Path.Combine(root, file));
         if (Path.GetDirectoryName(path) is not { } folder) return Error.New($"{path} names no folder");
         ProjectInstance outer = Load(path, Defaults, context, collection);
@@ -109,7 +109,7 @@ internal static class Workspace {
                 [.. imports
                     .Append(from instance in instances from type in Seq("Compile", "AdditionalFiles", "EmbeddedResource", "Content", "GlobalAnalyzerConfigFiles") from item in toSeq(instance.GetItems(type)) select item.GetMetadataValue("FullPath"))
                     .Append(from instance in instances from target in toSeq(instance.Targets.Values) from input in toSeq(instance.ExpandString(target.Inputs).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) select Path.GetFullPath(Path.Combine(instance.Directory, input)))
-                    .Filter(input => (File.Exists(input) || submodules.Exists(at => Under(input, at))) && !Under(input, folder) && !bases.Exists(at => Under(input, at)))
+                    .Filter(input => File.Exists(input) && !Under(input, folder) && !bases.Exists(at => Under(input, at)))
                     .Map(input => Relative(root, input))
                     .Filter(static relative => !relative.StartsWith("..", StringComparison.Ordinal))
                     .Append(walked)

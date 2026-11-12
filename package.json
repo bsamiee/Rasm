@@ -19,7 +19,6 @@
         "@rasm/nx-distribution": "workspace:*",
         "@rasm/nx-docker": "workspace:*",
         "@rasm/nx-dotnet": "workspace:*",
-        "@rasm/nx-git": "workspace:*",
         "@rasm/nx-playwright": "workspace:*",
         "@rasm/nx-pulumi": "workspace:*",
         "@rasm/nx-storybook": "workspace:*",

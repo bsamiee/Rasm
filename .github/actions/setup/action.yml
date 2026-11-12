@@ -1,33 +1,19 @@
 name: Setup
-description: Fills the assets submodule at its recorded commit, installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and reports whether the Nx remote cache server answers
+description: Installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and returns the Nx remote cache server where it answers
 
 inputs:
-    assets-key:
-        description: Deploy key reading the assets repository, empty leaves assets to the tasks that read it
-        default: ""
     cache-server:
         description: Nx self-hosted remote cache server, empty runs tasks without one
         default: ""
 
 outputs:
-    cache:
-        description: Holds true where the remote cache server answers
-        value: ${{ steps.cache.outputs.reachable }}
+    cache-server:
+        description: Holds the remote cache server where it answers, empty otherwise
+        value: ${{ steps.cache.outputs.server }}
 
 runs:
     using: composite
     steps:
-        - id: assets
-          if: inputs.assets-key != ''
-          run: "{ printf 'ref=' && git rev-parse HEAD:assets; } >> \"${GITHUB_OUTPUT}\""
-          shell: bash
-        - if: inputs.assets-key != ''
-          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-          with:
-              repository: ${{ github.repository }}-Assets
-              ref: ${{ steps.assets.outputs.ref }}
-              path: assets
-              ssh-key: ${{ inputs.assets-key }}
         - if: runner.os == 'macOS'
           run: printf 'DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer\n' >> "${GITHUB_ENV}"
           shell: bash
@@ -36,7 +22,7 @@ runs:
           shell: bash
         - id: cache
           if: inputs.cache-server != ''
-          run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health" && printf 'reachable=true\n' >> "${GITHUB_OUTPUT}" || printf '::warning::Nx remote cache is unreachable, tasks run without it\n'
+          run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health" && printf 'server=%s\n' "${SERVER}" >> "${GITHUB_OUTPUT}" || printf '::warning::Nx remote cache is unreachable, tasks run without it\n'
           shell: bash
           env:
               SERVER: ${{ inputs.cache-server }}
@@ -44,4 +30,4 @@ runs:
           run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
           shell: bash
           env:
-              NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.reachable == 'true' && inputs.cache-server || '' }}
+              NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.server }}

@@ -53,7 +53,6 @@ jobs:
             - id: setup
               uses: ./.github/actions/setup
               with:
-                  assets-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
                   cache-server: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
               env:
@@ -65,7 +64,7 @@ jobs:
             - if: ${{ !inputs.dry-run }}
               run: nx run-many --targets=attach --configuration=release
               env:
-                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
+                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache-server }}
             - if: ${{ inputs.publish && !inputs.dry-run }}
               run: nx release publish --first-release=${{ inputs.first-release }}
               env:

@@ -122,7 +122,6 @@ Not done: no dispatch of `release.yml`, dry or real. It waits on a green CI run 
 - **No root `clean--cargo` target.** The Cargo build folder reached 101 GB in four days. Cargo has no build-folder garbage collection (cargo#5026 is open); `cargo-sweep` is unmaintained and ignores `build-dir`. Owner choice recorded and not made: wait for cargo#5026 and reclaim with `cargo clean`, or a prune in the plugin.
 - **Fetched .NET inputs match no files.** `.cache/dotnet/fetched/<sha>` filesets are git-ignored and need `includeIgnored`; the dotnet plugin currently drops them.
 - **Unused catalog rows** `sqlite-vec` and its `-bun`, `-wasm`, `-do` variants in `pnpm-workspace.yaml`, noted and not acted on.
-- **Renovate.** `RENOVATE_HOST_RULES` is in Doppler `ci` and synced to GitHub (owner, 2026-11-12). Whether the `git-submodules` manager now moves the `assets` pin has not been observed in a run.
 - **The hooks module has no check on a CI runner.** Owner ruling: no Nx target yet; `claude plugin validate --strict plugins/function-hooks` and `claude plugin test plugins/function-hooks` are run by hand (both passed on 2026-11-12, 12 tests).
 - **Review owed.** The session's two pushed fixes (`5fb1895a1`, `518e6ad90`) and the earlier pushed work of this session have had no fresh adversarial review.
 

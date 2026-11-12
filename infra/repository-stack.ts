@@ -2,10 +2,9 @@ import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
 import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { local } from '@pulumi/command';
-import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryDeployKey, RepositoryEnvironment, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
+import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryEnvironment, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { interpolate, jsonStringify, type Output, secret } from '@pulumi/pulumi';
 import { Acl, DnsPreferences, FederatedIdentity, TailnetSettings } from '@pulumi/tailscale';
-import { PrivateKey } from '@pulumi/tls';
 import { Environment, Project, Provider, ServiceToken, secretssync } from '@pulumiverse/doppler';
 import { Array, Cause, Config, Effect, FileSystem, Path, Record, Redacted, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
@@ -94,16 +93,6 @@ const feed = (accountId: string, hosts: typeof Account.Type.DEPLOYED_HOSTS, { na
     };
 };
 
-const assets = (repository: Output<string>, name: string) => {
-    const held = new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true });
-    const key = new PrivateKey(`${name}-assets-deploy`, { algorithm: 'ED25519' });
-    return {
-        assets: held.fullName,
-        assetsDeployKey: new RepositoryDeployKey(`${name}-assets-deploy`, { repository: held.name, title: `${name} CI`, key: key.publicKeyOpenssh, readOnly: true }).title,
-        assetsSecret: new ActionsSecret(`${name}-assets-deploy-key`, { repository, secretName: 'ASSETS_DEPLOY_KEY', value: key.privateKeyOpenssh }).secretName,
-    };
-};
-
 const guarded = (repository: Output<string>, { name, fullName, forms, patterns }: { readonly name: string; readonly fullName: Output<string>; readonly forms: readonly (typeof Form.Type)[]; readonly patterns: readonly string[] }) => ({
     securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
     allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
@@ -166,7 +155,7 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
                 tailnet: tailnet(hosts, { name, repository, fullName, environment: configs.deploy }),
                 access: access(accountId, organization),
                 ...feed(accountId, hosts, { name, repository, environment: configs.release }),
-                ...assets(repository, name),
+                assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
                 ...guarded(repository, { name, fullName, forms, patterns: Array.dedupe(Record.collect(groups ?? {}, (_, { releaseTag }) => releaseTag.pattern)) }),
             };
         }),

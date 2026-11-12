@@ -21,9 +21,9 @@ import {
     type TargetConfiguration,
 } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Deferred, Effect, FileSystem, Filter, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
+import { Array, Deferred, Effect, FileSystem, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
-import { present, runtime, ToolError } from '#/process';
+import { runtime, ToolError } from '#/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -47,11 +47,6 @@ interface Project {
     readonly publish?: TargetConfiguration;
     readonly configuration?: Omit<ProjectConfiguration, 'root' | 'name' | 'targets' | 'metadata'>;
     readonly externalNodes?: Readonly<Record<string, ProjectGraphExternalNode>>;
-}
-
-interface Submodule {
-    readonly name: string;
-    readonly root: string;
 }
 
 interface Unit {
@@ -107,7 +102,6 @@ const MANIFESTS = '{package,project}.json';
 
 const Dependencies = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String, dependencies: Dependencies, optionalDependencies: Dependencies }));
-const Gitlink = Schema.TemplateLiteralParser(['submodule.', Schema.String, '.path\n', Schema.String]);
 const Hosted = Schema.fromJsonString(Schema.Struct({ os: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }));
 const Common = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
     description: 'Options every plugin row reads, each defaulting to the value under the devkit package name in nx.json pluginsConfig. outputPath: workspace folder a target writes generated output under as <outputPath>/<tool>/<project name>, absent leaves each tool its own folder',
@@ -140,29 +134,6 @@ const identity = Effect.fn('identity')(function* (entry: string, workspaceRoot: 
     return { name: plugin.name, folder: plugin.folder, shared: shared.name, digest: hashArray([source, plugin.version, shared.version]), inputs, cleaner: `${shared.name}:clean`, publisher: `${shared.name}:publish` };
 });
 
-const submodules = Effect.fnUntraced(function* (folder: string) {
-    const path = yield* Path.Path;
-    const cache = new PluginCache<readonly Submodule[]>(path.join(workspaceDataDirectory, 'gitlinks.hash'));
-    const stamp = Option.map(Option.fromNullishOr(hashFile(path.join(folder, '.gitmodules'))), (digest) => hashArray([folder, digest]));
-    const read = Effect.map(present('git', ['config', '--null', '--file', '.gitmodules', '--get-regexp', String.raw`^submodule\..*\.path$`], { cwd: folder }), (stated) =>
-        Array.filterMap(
-            Option.toArray(stated).flatMap((text) => text.split('\0')),
-            Filter.fromPredicateOption(Schema.decodeUnknownOption(Gitlink)),
-        ).map(([, name, , root]): Submodule => ({ name, root })),
-    );
-    const stored = (key: string) =>
-        Effect.tap(read, (held) =>
-            Effect.sync(() => {
-                cache.set(key, held);
-                cache.writeToDisk();
-            }),
-        );
-    return yield* Option.match(stamp, {
-        onNone: () => Effect.succeed(Array.empty<Submodule>()),
-        onSome: (key) => UndefinedOr.match(cache.get(key), { onDefined: Effect.succeed, onUndefined: () => stored(key) }),
-    });
-});
-
 const listed = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
     const path = yield* Path.Path;
     const files = yield* Effect.promise(() =>
@@ -188,7 +159,7 @@ const produced = (projects: CreateDependenciesContext['projects']) => {
 
 const detached = <A extends object>(value: A) => parseJson<A>(JSON.stringify(value));
 
-const targeted = (project: Project, plugin: Identity, sources: string, held: readonly Submodule[]): Readonly<Record<string, TargetConfiguration>> => {
+const targeted = (project: Project, plugin: Identity, sources: string): Readonly<Record<string, TargetConfiguration>> => {
     const technologies = [...project.technologies];
     const [clean, publish] = ['clean', 'nx-release-publish'] as const;
     const defaults: Readonly<Record<string, TargetConfiguration>> = { [clean]: { executor: plugin.cleaner } };
@@ -214,16 +185,12 @@ const targeted = (project: Project, plugin: Identity, sources: string, held: rea
     const renamed = (verb: string): Readonly<Record<string, string>> => ({ [UPSTREAM]: `^${sources}`, ...(ALL_FILES.includes(verb) ? {} : { default: sources }) });
     const tools = stated.map(({ verb, name, target }) => {
         const owned = [plugin.name, plugin.shared].some((owner) => target.executor?.startsWith(`${owner}:`) === true);
-        const filled = (input: string) => held.filter(({ root }) => root !== project.root && (input === `{workspaceRoot}/${root}` || input.startsWith(`{workspaceRoot}/${root}/`)));
-        const fills = Array.dedupe((target.inputs ?? []).filter(Predicate.isString).flatMap(filled));
-        const dependsOn = [...(target.dependsOn ?? []), ...fills.map(({ name: submodule }) => ({ projects: [submodule], target: 'build--git' }))];
         const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (Predicate.isString(input) ? (renamed(verb)[input] ?? input) : input)), ...(owned ? plugin.inputs : [])]);
         return {
             verb,
             name,
             target: {
                 ...target,
-                ...(dependsOn.length > 0 && { dependsOn }),
                 ...(target.command !== undefined && { options: { cwd: project.root, ...target.options } }),
                 ...(read !== undefined && { inputs: Array.dedupe([...read, ...(read.some(Predicate.hasProperty('externalDependencies')) ? [] : [{ externalDependencies: [] }])]) }),
                 metadata: { technologies, ...target.metadata },
@@ -269,13 +236,13 @@ const targeted = (project: Project, plugin: Identity, sources: string, held: rea
     };
 };
 
-const configured = (project: Project, plugin: Identity, sources: string, os: readonly string[], held: readonly Submodule[]): Omit<ProjectConfiguration, 'root'> => {
+const configured = (project: Project, plugin: Identity, sources: string, os: readonly string[]): Omit<ProjectConfiguration, 'root'> => {
     const allowed = os.filter((entry) => !entry.startsWith('!'));
     const tags = [...(project.release === undefined ? [] : ['release']), ...allowed.map((system) => `os:${system}`), ...(project.configuration?.tags ?? [])];
     return {
         ...(project.name !== undefined && { name: project.name }),
         metadata: { technologies: [...project.technologies] },
-        targets: os.includes(`!${platform}`) || !(allowed.length === 0 || allowed.includes(platform)) ? {} : targeted(project, plugin, sources, held),
+        targets: os.includes(`!${platform}`) || !(allowed.length === 0 || allowed.includes(platform)) ? {} : targeted(project, plugin, sources),
         ...project.configuration,
         ...(project.release !== undefined && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { ...project.release } } } }),
         ...(tags.length > 0 && { tags }),
@@ -370,7 +337,6 @@ const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration:
     memo.set(hashArray([context.workspaceRoot, hashObject(options ?? {})]), { request, reports });
     const failures = readings.flatMap(([unit, outcome]) => Result.match(outcome, { onFailure: (error): readonly Failure[] => [[unit.file, error]], onSuccess: ({ failures: partial = [] }) => partial }));
     const projects = reports.flatMap(([unit, report]) => declaration.projects(report, unit, request));
-    const held = yield* submodules(context.workspaceRoot);
     const hosts = new Map(
         yield* Effect.forEach(
             Array.dedupe(projects.map((project) => project.root)),
@@ -388,7 +354,7 @@ const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration:
             Record.map(
                 Array.groupBy(projects, (project) => project.file),
                 (group) => ({
-                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin, request.named(project.root), hosts.get(project.root) ?? [], held)] as const),
+                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin, request.named(project.root), hosts.get(project.root) ?? [])] as const),
                     externalNodes: Record.fromEntries(group.flatMap((project) => Record.toEntries(project.externalNodes ?? {}))),
                 }),
             ),
@@ -431,4 +397,4 @@ const inferred = <O, U extends Unit, R, E extends Error>(declaration: Declaratio
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, type Declaration, type Identity, inferred, line, listed, MANIFESTS, type Members, NODE, PLATFORM, type Project, produced, type Reading, type Request, type Sources, submodules, type Unit };
+export { ancestors, type Declaration, type Identity, inferred, line, listed, MANIFESTS, type Members, NODE, PLATFORM, type Project, produced, type Reading, type Request, type Sources, type Unit };

@@ -17,5 +17,4 @@ jobs:
                   token: ${{ secrets.RENOVATE_TOKEN }}
               env:
                   RENOVATE_REPOSITORIES: ${{ github.repository }}
-                  RENOVATE_HOST_RULES: ${{ secrets.RENOVATE_HOST_RULES }}
                   RENOVATE_ALLOWED_UNSAFE_EXECUTIONS: '["mise", "pixi"]'
