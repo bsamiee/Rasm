@@ -44,8 +44,8 @@ const { createNodes } = inferred({
                             continuous: true,
                             readyWhen: { signal: true },
                             inputs,
-                            options: { buildTarget: built, staticFilePath: written },
-                            metadata: { description: `Serves the static Storybook ${built} writes through the ${web.name} file server` },
+                            options: { buildTarget: built, staticFilePath: written, cors: false },
+                            metadata: { description: `Serves the static Storybook ${built} writes through the ${web.name} file server, without CORS headers` },
                         },
                     },
                     ...(signals && {
