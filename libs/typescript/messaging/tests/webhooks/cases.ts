@@ -10,6 +10,10 @@ import { TestClock } from 'effect/testing';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const standardwebhooks = await import('standardwebhooks');
+const svix = await import('svix');
+const { default: Stripe } = await import('stripe');
+const octokit = await import('@octokit/webhooks-methods');
 const encoder = new TextEncoder();
 const tolerance = Duration.fromInputUnsafe('5 minutes');
 const second = Duration.toMillis('1 second');
@@ -92,7 +96,7 @@ const references = {
         scheme: Scheme.standard,
         secret: standard.secret,
         exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
-            const reference = new (yield* Effect.promise(() => import('standardwebhooks'))).Webhook(standard.secret);
+            const reference = new standardwebhooks.Webhook(standard.secret);
             const accepted = yield* Effect.as(
                 Effect.try(() => reference.verify(standard.body, { ...ours })),
                 true,
@@ -104,7 +108,7 @@ const references = {
         scheme: Scheme.svix,
         secret: vectors.svix.secret,
         exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
-            const reference = new (yield* Effect.promise(() => import('svix'))).Webhook(vectors.svix.secret);
+            const reference = new svix.Webhook(vectors.svix.secret);
             const accepted = yield* Effect.as(
                 Effect.try(() => reference.verify(standard.body, { ...ours })),
                 true,
@@ -116,7 +120,7 @@ const references = {
         scheme: Scheme.stripe,
         secret: vectors.stripe.secret,
         exchanged: Effect.fnUntraced(function* (ours: Headers.Headers, now: DateTime.Utc) {
-            const [{ default: Stripe }, header] = yield* Effect.all([Effect.promise(() => import('stripe')), Effect.fromOption(Headers.get(ours, Scheme.stripe.signature))]);
+            const header = yield* Effect.fromOption(Headers.get(ours, Scheme.stripe.signature));
             const accepted = yield* Effect.as(
                 Effect.tryPromise(() => Stripe.webhooks.constructEventAsync(standard.body, header, vectors.stripe.secret)),
                 true,
@@ -128,8 +132,8 @@ const references = {
         scheme: Scheme.github,
         secret: vectors.octokit.secret,
         exchanged: Effect.fnUntraced(function* (ours: Headers.Headers) {
-            const [{ sign, verify }, header] = yield* Effect.all([Effect.promise(() => import('@octokit/webhooks-methods')), Effect.fromOption(Headers.get(ours, Scheme.github.signature))]);
-            const [accepted, signed] = yield* Effect.all([Effect.promise(() => verify(vectors.octokit.secret, standard.body, header)), Effect.promise(() => sign(vectors.octokit.secret, standard.body))]);
+            const header = yield* Effect.fromOption(Headers.get(ours, Scheme.github.signature));
+            const [accepted, signed] = yield* Effect.all([Effect.promise(() => octokit.verify(vectors.octokit.secret, standard.body, header)), Effect.promise(() => octokit.sign(vectors.octokit.secret, standard.body))]);
             return { accepted, theirs: { [Scheme.github.signature]: signed } };
         }),
     },

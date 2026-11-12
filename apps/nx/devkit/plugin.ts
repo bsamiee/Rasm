@@ -216,13 +216,13 @@ const targeted = (project: Project, plugin: Identity, sources: string, held: rea
         target: { ...defaults[verb], ...target },
         dependsOn: [...(target.dependsOn ?? []), ...(defaults[verb]?.dependsOn ?? [])],
     }));
+    const renamed = (verb: string): Readonly<Record<string, string>> => ({ [UPSTREAM]: `^${sources}`, ...(ALL_FILES.includes(verb) ? {} : { default: sources }) });
     const tools = stated.map(({ verb, name, target, dependsOn: waited }) => {
         const owned = [plugin.name, plugin.shared].some((owner) => target.executor?.startsWith(`${owner}:`) === true);
-        const renamed: Readonly<Record<string, string>> = { [UPSTREAM]: `^${sources}`, ...(ALL_FILES.includes(verb) ? {} : { default: sources }) };
         const filled = (input: string) => held.filter(({ root }) => root !== project.root && (input === `{workspaceRoot}/${root}` || input.startsWith(`{workspaceRoot}/${root}/`)));
         const fills = Array.dedupe((target.inputs ?? []).filter(Predicate.isString).flatMap(filled));
         const dependsOn = [...waited, ...fills.map(({ name: submodule }) => ({ projects: [submodule], target: 'build--git' }))];
-        const placed = (input: string) => (filled(input).length > 0 ? { fileset: input, includeIgnored: true } : (renamed[input] ?? input));
+        const placed = (input: string) => (filled(input).length > 0 ? { fileset: input, includeIgnored: true } : (renamed(verb)[input] ?? input));
         const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (Predicate.isString(input) ? placed(input) : input)), ...(owned ? plugin.inputs : [])]);
         return {
             verb,
@@ -265,7 +265,7 @@ const targeted = (project: Project, plugin: Identity, sources: string, held: rea
             {
                 executor: 'nx:noop',
                 dependsOn: [`${verb}--*`],
-                inputs: Array.dedupe(['...', ...tools.filter((tool) => tool.verb === verb).flatMap(({ target }) => target.inputs ?? SOURCES)]),
+                inputs: Array.dedupe(['...', ...tools.filter((tool) => tool.verb === verb).flatMap(({ target }) => target.inputs ?? SOURCES.map((input) => renamed(verb)[input] ?? input))]),
                 outputs: [],
                 metadata: { technologies, description: `Runs every ${verb}--* target` },
             },

@@ -23,7 +23,7 @@ from rasm_store_testing import BUCKET, CACHE, CLICKHOUSE, Lease, POSTGRES, Refus
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 CASES = Path(__file__).with_name("store_cases.py")
-PLUGINS = ("-p", "rasm_store_testing.plugin")
+PLUGINS = ("-p", "rasm_store_testing")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

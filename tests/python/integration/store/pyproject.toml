@@ -32,6 +32,11 @@ dependencies = [
     "redis[hiredis]",     # Valkey client opened on a `cache` store
 ]
 
+# --- [ENTRY_POINTS] ---------------------------------------------------------------------
+
+[project.entry-points.pytest11]
+rasm_store_testing = "rasm_store_testing.plugin" # Plugin a pytest run loads by this name, as the test target of a member declaring it does
+
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
 [dependency-groups]
