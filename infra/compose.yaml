@@ -93,11 +93,17 @@ x-node: &node
     <<: *server
     build: &node-build
         additional_contexts:
-            node: docker-image://dhi.io/node:${NODE_VERSION}
+            distroless: &distroless docker-image://gcr.io/distroless/cc-debian13:nonroot
+            mise: docker-image://jdxcode/mise:2026.11.7-debian
         dockerfile_inline: |
             FROM scratch AS assets
-            FROM node
+            FROM mise AS node
+            ENV MISE_DATA_DIR=/mise MISE_NODE_VERSION=${NODE_VERSION}
+            RUN ["mise", "install", "node"]
+            FROM distroless
             ARG ASSETS
+            COPY --from=node /usr/lib/*-linux-gnu/libatomic.so.1 /usr/lib/
+            COPY --from=node /mise/installs/node/${NODE_VERSION}/bin/node /usr/local/bin/node
             WORKDIR /app
             COPY --from=assets . ./$${ASSETS}
             COPY . .
@@ -430,7 +436,7 @@ services:
         <<: *server
         build:
             additional_contexts:
-                distroless: docker-image://gcr.io/distroless/cc-debian13:nonroot
+                distroless: *distroless
             dockerfile_inline: |
                 FROM scratch AS amd64
                 ADD --checksum=sha256:18fa55033d5f0d1b18fc192b75ca35f39d2cb81938bbc559f7a9f5b686f4046f --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.4.5/nx-cache-aws-v1.4.5-linux-x86_64 /nx-cache-aws

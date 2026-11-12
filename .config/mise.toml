@@ -54,7 +54,7 @@ HK_PKL_CACHE_DIR                              = "{{config_root}}/.cache/pklr"
 HYPOTHESIS_STORAGE_DIRECTORY                  = "{{config_root}}/.cache/hypothesis"
 JAVAC_PLUGINS                                 = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
 NODE_COMPILE_CACHE                            = "{{config_root}}/.cache/node"
-NODE_VERSION                                  = "26.13.0"
+NODE_VERSION                                  = { tools = true, value = "{{ tools.node.version }}" }
 NX_ISOLATE_PLUGINS                            = "false"                                                                                                                                                                                                                                                                                                                 # In-process plugins load faster than plugin workers while the daemon is off
 NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
 PLAYWRIGHT_CLI_SESSION                        = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"

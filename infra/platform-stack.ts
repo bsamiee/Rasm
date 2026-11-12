@@ -8,7 +8,6 @@ import { paths } from '@rasm/hooks/senders';
 import { Host, Ssh } from '@rasm/ssh';
 import { TailscaleEvent } from '@rasm/webhooks/tailscale';
 import { Array, ByteSize, Cause, Clock, Config, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, Struct } from 'effect';
-import { Base64 } from 'effect/encoding';
 import { type ChildProcessSpawner, CommandLine } from 'effect/process';
 import { run } from '#/command';
 
@@ -52,7 +51,6 @@ const files = {
     '/etc/systemd/journald.conf.d/90-platform.conf': { content: '[Journal]\nSystemMaxUse=1G\n', reload: [['systemctl', 'restart', 'systemd-journald']] },
     '/etc/systemd/system.conf.d/90-platform.conf': { content: '[Manager]\nDefaultTimeoutStopSec=150s\n', reload: [['systemctl', 'daemon-reexec']] },
 };
-const registries = { 'dhi.io': ({ DOCKERHUB_USERNAME, DOCKERHUB_TOKEN }: Record.ReadonlyRecord<'DOCKERHUB_USERNAME' | 'DOCKERHUB_TOKEN', string>) => Base64.encode(`${DOCKERHUB_USERNAME}:${DOCKERHUB_TOKEN}`) };
 const machines = {
     hostinger: {
         user: 'root',
@@ -164,21 +162,7 @@ const Deployed = Hosts.mapFields(
     Struct.assign({
         BACKUP_KIND: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(backups))),
         ...Struct.Record(
-            [
-                'CLOUDFLARE_ACCOUNT_ID',
-                'DOCKERHUB_USERNAME',
-                'DOCKERHUB_TOKEN',
-                'POSTGRES_PASSWORD',
-                'CLICKHOUSE_PASSWORD',
-                'CLICKHOUSE_READER_PASSWORD',
-                'RUSTFS_ACCESS_KEY',
-                'RUSTFS_SECRET_KEY',
-                'AUTHELIA_SESSION_SECRET',
-                'AUTHELIA_STORAGE_ENCRYPTION_KEY',
-                'AUTHELIA_OWNER_PASSWORD_HASH',
-                'NX_CACHE_WRITE_TOKEN',
-                'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN',
-            ],
+            ['CLOUDFLARE_ACCOUNT_ID', 'POSTGRES_PASSWORD', 'CLICKHOUSE_PASSWORD', 'CLICKHOUSE_READER_PASSWORD', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY', 'AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'AUTHELIA_OWNER_PASSWORD_HASH', 'NX_CACHE_WRITE_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN'],
             Schema.NonEmptyString,
         ),
     }),
@@ -186,7 +170,6 @@ const Deployed = Hosts.mapFields(
 const Kind = Deployed.mapFields(Struct.pick(['BACKUP_KIND']));
 const Composed = Schema.fromJsonString(Schema.Struct({ services: Schema.Record(Schema.String, Schema.Struct({ build: Schema.optionalKey(Schema.Struct({ context: Schema.String })) })) }));
 const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
-const Credentials = Schema.fromJsonString(Schema.Struct({ auths: Schema.Record(Schema.String, Schema.Struct({ auth: Schema.String })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -247,9 +230,8 @@ const accessed = Effect.fnUntraced(function* (host: string, { hostKey, machine, 
     return { mesh, direct, reached: Option.getOrElse(meshed, () => direct), over };
 });
 
-const equipped = Effect.fnUntraced(function* (host: string, { domain, tags, tailnet }: (typeof Hosts.Type)['DEPLOYED_HOSTS'][string], { mesh, direct, over }: Effect.Success<ReturnType<typeof accessed>>, key: local.Command, credentials: string, script: string) {
+const equipped = Effect.fnUntraced(function* (host: string, { domain, tags, tailnet }: (typeof Hosts.Type)['DEPLOYED_HOSTS'][string], { mesh, direct, over }: Effect.Success<ReturnType<typeof accessed>>, key: local.Command, script: string) {
     const engine = new local.Command(host, { create: yield* over(direct, ['bash', '-s', '--', ...packages, ...Option.toArray(Option.as(mesh, 'tailscale'))]), stdin: script, addPreviousOutputInEnv: false }, { dependsOn: key });
-    const authenticated = new local.Command(`${host}-registries`, { create: yield* over(direct, ['install', '-D', '-m', '0600', '/dev/stdin', '.docker/config.json']), stdin: secret(credentials), addPreviousOutputInEnv: false }, { dependsOn: engine });
     const configured = yield* Effect.reduce(
         Record.toEntries(files),
         () => Array.of(engine),
@@ -267,7 +249,7 @@ const equipped = Effect.fnUntraced(function* (host: string, { domain, tags, tail
             })),
         ),
     );
-    return { authenticated, joined, reachable: Option.match(joined, { onNone: () => configured, onSome: (enrollment) => [enrollment.reachable] }) };
+    return { joined, reachable: Option.match(joined, { onNone: () => configured, onSome: (enrollment) => [enrollment.reachable] }) };
 });
 
 const provisioned = Effect.fnUntraced(function* ({ deployed, decoded, listings, enrolled }: Effect.Success<ReturnType<typeof prepared>>, host: string) {
@@ -275,9 +257,8 @@ const provisioned = Effect.fnUntraced(function* ({ deployed, decoded, listings, 
     const stated = yield* Effect.fromOption(Record.get(decoded.DEPLOYED_HOSTS, host));
     const { memory: installed, authorized } = yield* Effect.flatMap(listings[stated.machine], (listed) => Effect.fromOption(Record.get(listed, host), () => new Cause.NoSuchElementError(`${stated.machine} lists no machine named ${host}`)));
     const [{ backup, candidates }, domain] = [yield* allotted(deployed, stated.domain.name, installed), stated.domain];
-    const [applied, credentials, script, text, variables, { services: composed }] = yield* Effect.all([
+    const [applied, script, text, variables, { services: composed }] = yield* Effect.all([
         Clock.currentTimeMillis,
-        Schema.encodeEffect(Credentials)({ auths: Record.map(registries, (auth) => ({ auth: auth(decoded) })) }),
         fs.readFileString(join(project, 'host.sh')),
         fs.readFileString(definition),
         Effect.flatMap(run('docker', ['compose', '--file', definition, 'config', '--variables', '--format', 'json']), Schema.decodeEffect(Variables)),
@@ -286,7 +267,7 @@ const provisioned = Effect.fnUntraced(function* ({ deployed, decoded, listings, 
     const deploy = new PrivateKey(host, { algorithm: 'ED25519' });
     const key = new local.Command(`${host}-key`, { ...authorized(deploy.publicKeyOpenssh.apply((openssh) => openssh.trim())), triggers: [deploy.publicKeyOpenssh] });
     const access = yield* accessed(host, stated, deploy);
-    const { authenticated, joined, reachable } = yield* equipped(host, stated, access, key, credentials, script);
+    const { joined, reachable } = yield* equipped(host, stated, access, key, script);
     const bundles = yield* Effect.forEach(
         Array.dedupe(Object.values(composed).flatMap(({ build }) => Array.fromNullishOr(build?.context))).filter((built) => built !== project),
         (bundle) => uploaded(access.reached, host, root, relative(root, bundle), reachable),
@@ -309,7 +290,7 @@ const provisioned = Effect.fnUntraced(function* ({ deployed, decoded, listings, 
     const services = new local.Command(
         `${host}-services`,
         { create: yield* composing('up', '--build', '--detach', '--wait', '--remove-orphans'), delete: yield* composing('down'), stdin: text, addPreviousOutputInEnv: false, environment: secret(supplied) },
-        { dependsOn: [...reachable, authenticated, ...named, ...bundles], deleteBeforeReplace: true, protect: true },
+        { dependsOn: [...reachable, ...named, ...bundles], deleteBeforeReplace: true, protect: true },
     );
     return { host, domain: domain.name, records: named.map(({ name }) => name), services: services.id, connection: Struct.omit(yield* Schema.encodeEffect(Host)(access.reached), ['identity']), identity: deploy.privateKeyOpenssh };
 });

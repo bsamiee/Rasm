@@ -81,17 +81,26 @@ presets hold no build folder and the plugin passes `-B` under `.artifacts/cmake/
 
 Owner ruling, verbatim: "remove the handtyped 2nd version - just fully align to alpha? but keep this as last so we fix all other things - but we can deep mine all new things it enables + allows us to do and other tools to move with it and their capabilities to fully land on that + ensur no mixed paradimgs we rebuild things to that".
 
-Facts:
-- CI and this Mac both run Node `27.0.0-alpha.0.0.0`, because `.config/mise.toml` asks for `node = "latest"` with `prereleases = true`.
-- `.config/mise.toml` `[env]` holds a hand-typed `NODE_VERSION = "26.13.0"`. It only names the Compose container image (`infra/compose.yaml:96`, `dhi.io/node:${NODE_VERSION}`) and is read by `infra/platform-stack.ts`.
-- No Docker image of Node 27 alpha exists on dhi.io or Docker Hub. dhi.io has 26.13.0.
-- Two forms were recorded for the Compose Node images and neither is decided or tried: install Node from the nodejs.org archive in the build, or install it through mise onto the distroless base.
-- What Node 27 brings (nodejs.org release post, 2026-10-29): V8 15.6 (`Math.sumPrecise`, iterator `join`, `includes`, `zip`), native `fs.glob`, experimental `net/promises`, `--allow-env`, npm 12.1, OpenSSL 4.1, a default heap limit of half of physical memory with Buffer memory counted, `http` keep-alive 65 s, null-prototype `req.headers`, `net` throwing on a second `listen`.
-- Breakages already met and fixed: the static file server (`corser`; commit `5fb1895a1`) and SQLite 3.54.1 JSON subqueries (`libs/typescript/data/database/sqlite.ts` wraps them in `json()`).
-- No tool in the serve-and-test path runs its own CI on Node 27 except `ws`; Storybook's CI runs Node 22 only (`node-27-toolchain-audit.md`).
-- Not measured: a Node 26 against Node 27 timing comparison, and the effect of the V8 heap cap.
+Done on 2026-11-12, uncommitted:
+- `.config/mise.lock` holds Node `27.0.0-alpha.0.1.0`, and `NODE_VERSION` in `.config/mise.toml` derives from `tools.node.version`.
+- Compose Node images install that version through mise in a build stage of `infra/compose.yaml` and copy `node` and `libatomic.so.1` onto the distroless nonroot base, so Mac, CI, the Atelier helper, and containers run one nodejs.org build.
+- `infra/platform-stack.ts` holds no `dhi.io` login, `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` stay in Doppler unread.
+- Atelier's helper builds with `useCodeCache`, which under `useVfs` caches every module of its virtual file system.
+- `Math.sumPrecise` sums in typography shaping and the portfolio grid, and `Iterator.zip` replaces the four nested zips in `apps/nx/devkit`, `apps/nx/distribution`, `tests/typescript/support/nx`, and `libs/typescript/data/database`.
+- workerd 1.20261110.1 holds all five builtins, Safari gains `Iterator.zip`, `join`, and `includes` in 27.3, and Adobe hosts and the hooks module keep `Number.sumAll` and `Array.zip`.
+- Proof: `nx run-many -t check` over ten edited and consumer projects passed, the `hooks` image ran `node index.js` as uid 65532 up to its `POSTGRES_URL` check, and the built helper started from its virtual file system.
 
-Not done: all of it. The hand-typed row is still there.
+Facts:
+- Node derives its heap limit from the container memory limit (268 MiB under `-m 512m`, 1072 MiB under `-m 2g`), and hosted apps set `mem_limit`, so no stack states a heap size.
+- `NX_USE_V8_SERIALIZER` governs Nx socket channels alone, and `useDaemonProcess: false` with `NX_ISOLATE_PLUGINS=false` opens none.
+- `@types/node` has no 27 release, so `net/promises`, `fs.mkstemp`, `zlib.crc32c`, and `subprocess.timedOut` stay unused until it does.
+- `cors: false` on `preview--storybook` stays while `http-server` depends on `corser`.
+- No tool in the serve-and-test path runs its own CI on Node 27 except `ws` (`node-27-toolchain-audit.md`).
+
+Not done:
+- The VPS and local Compose services still run the previous images until the owner asks for an install or deploy.
+- No test ran on `27.0.0-alpha.0.1.0`.
+- Not measured: Node 26 against Node 27 timing, and helper start time with and without the code cache.
 
 ## 3. First release
 
