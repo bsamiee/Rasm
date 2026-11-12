@@ -456,6 +456,7 @@ services:
             S3_ENDPOINT_URL: *storage-endpoint
             SERVICE_ACCESS_TOKEN: "${NX_CACHE_WRITE_TOKEN:-nx-cache-write}"
         image: rasm-nx-cache
+        init: true
         labels:
             traefik.enable: "true"
             traefik.http.routers.nx-cache.entrypoints: websecure
