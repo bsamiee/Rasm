@@ -88,6 +88,8 @@ Non-empty `lines` give `Array.max` an element, and `largest` is a `Line` with no
 - Resources shared across cases build once as an `Option` over the non-empty set of cases needing them, each case joining through `Option.toArray`
 - `Struct.renameKeys` maps keys to the spelling a host reads, `Struct.evolveKeys` computes them, a destructure rebuilding the object restating both
 - Named reductions (`BigDecimal.sumAll`, `Array.max`, `Array.groupBy`) state their fold
+- Numbers sum through `Math.sumPrecise`, and three or more sequences zip through `Iterator.zip` outside browser code
+- Modules an Adobe host or Claude Code loads keep `Number.sumAll` and nested `Array.zip`
 - `reduce` with a seed folds a reduction no member names, `Array.mapAccum(xs, seed, (state, x) => [next, y])` maps under a running state
 - `Array.makeBy` and `Array.range` generate sequences from a length or bounds
 - Relations between neighbors map the adjacent pairs `Array.window(values, 2)` returns, a gap filling from `Array.range` over its pair

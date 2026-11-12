@@ -86,7 +86,7 @@ const helper = Effect.fnUntraced(function* (
                 Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder, withFileTypes: true })),
                 ({ name: file, parentPath }) => [file, join(parentPath, file)],
             );
-            const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets });
+            const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, useCodeCache: true, disableExperimentalSEAWarning: true, assets });
             return signing.pipe(
                 Effect.map(({ CODE_SIGN_ENTITLEMENTS, DEVELOPMENT_TEAM, PROJECT_DIR, label }): readonly Rolldown.EmittedAsset[] => {
                     const entitlements = parse(readFileSync(resolve(PROJECT_DIR, CODE_SIGN_ENTITLEMENTS), 'utf8'));

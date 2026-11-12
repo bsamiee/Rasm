@@ -89,19 +89,19 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
         );
         const distributed = justifying ? ranks.reduce((line, rank) => distribute(line, rank, width), unjustified) : unjustified;
         const finished = Array.map(distributed, finish);
-        const advance = Number.sumAll(finished.map(({ shaped }) => shaped.advance));
+        const advance = Math.sumPrecise(finished.map(({ shaped }) => shaped.advance));
         const slack = width - advance;
         return Justification.make({
             runs: Array.map(finished, ({ shaped, ratios }) => ({ shaped, ratios })),
             direction,
             offset: slack * (direction === 'RTL' ? 1 - aligned : aligned),
             slack,
-            addedWidths: Record.map(Struct.Record(MECHANISMS, 0), (_, mechanism) => Number.sumAll(finished.map(({ added }) => added[mechanism]))),
+            addedWidths: Record.map(Struct.Record(MECHANISMS, 0), (_, mechanism) => Math.sumPrecise(finished.map(({ added }) => added[mechanism]))),
         });
     };
 
     get advance() {
-        return Number.sumAll(this.runs.map(({ shaped }) => shaped.advance));
+        return Math.sumPrecise(this.runs.map(({ shaped }) => shaped.advance));
     }
     get extents() {
         const [, boxes] = Array.mapAccum(this.direction === 'RTL' ? Array.reverse(this.runs) : this.runs, this.offset, (left, { shaped }) => [left + shaped.advance, Option.map(shaped.extents, (box) => ({ ...box, minX: box.minX + left, maxX: box.maxX + left }))] as const);
@@ -113,7 +113,7 @@ class Justification extends Schema.Class<Justification, { readonly brand: unique
 
 // --- [MEASURES]
 
-const summed = flow(Object.values<number>, Number.sumAll);
+const summed = flow(Object.values<number>, Math.sumPrecise);
 const alternate = (settings: Settings) => Option.filter(Record.get(settings.features, JUSTIFICATION_ALTERNATES), Number.isGreaterThan(0));
 const rescaled = (glyph: Glyph, ratio: number): Glyph => ({ ...glyph, xOffset: glyph.xOffset * ratio, scale: glyph.scale * ratio, extents: Option.map(glyph.extents, (box) => ({ ...box, xBearing: box.xBearing * ratio, width: box.width * ratio })) });
 const isWordSpace = (text: string, cluster: number) => WORD_SPACE.test(text.charAt(cluster));
@@ -138,11 +138,11 @@ const bases = (face: Face, shaped: ShapedText) => {
                 shaped.glyphs.filter(({ cluster }) => isWordSpace(text, cluster)),
                 ({ cluster }) => scriptAt(letters, cluster),
             ),
-            (spaces) => Number.sumAll(spaces.map(Struct.get('xAdvance'))),
+            (spaces) => Math.sumPrecise(spaces.map(Struct.get('xAdvance'))),
         ),
         slots: new Set(Array.filterMap(Array.window(placed, 2), ([before, after]) => (Option.exists(joinAt(before.cluster), (join) => Option.contains(joinAt(after.cluster), join)) ? Result.failVoid : Result.succeed(before.at)))),
         space: Option.getOrElse(face.advance(wordSpace), () => 0),
-        glyph: Number.sumAll(shaped.glyphs.filter((glyph) => isLetter(text, glyph)).map(Struct.get('xAdvance'))),
+        glyph: Math.sumPrecise(shaped.glyphs.filter((glyph) => isLetter(text, glyph)).map(Struct.get('xAdvance'))),
     };
 };
 const widths = ({ base, settings: { spacing }, amounts }: Measured) => ({
@@ -151,7 +151,7 @@ const widths = ({ base, settings: { spacing }, amounts }: Measured) => ({
     glyph: base.glyph * spacing.glyph.desired + amounts.glyph,
 });
 const lineWidth = (line: Line) =>
-    Number.sumAll(
+    Math.sumPrecise(
         line.map((measured) => {
             const { words, letter, glyph } = widths(measured);
             return measured.shaped.advance + summed(words) - summed(measured.base.words) + letter + glyph - measured.base.glyph;
@@ -322,7 +322,7 @@ const mechanisms = (line: Line, rank: number, stretching: boolean): readonly Mec
 const distribute = (line: Line, rank: number, width: number): Line => {
     const slack = width - lineWidth(line);
     const group = mechanisms(line, rank, slack >= 0).filter((mechanism) => mechanism.capacity > 0);
-    const total = Number.sumAll(group.map(Struct.get('capacity')));
+    const total = Math.sumPrecise(group.map(Struct.get('capacity')));
     const target = Math.min(Math.abs(slack), total);
     const [continuous, discrete] = Array.partition(
         group,
@@ -330,7 +330,7 @@ const distribute = (line: Line, rank: number, width: number): Line => {
     );
     const placed = discrete.reduce((current, mechanism) => mechanism.take(current, (target * mechanism.capacity) / total), line);
     const rest = Math.max(0, target - Math.abs(lineWidth(placed) + slack - width));
-    const shared = Number.sumAll(continuous.map(Struct.get('capacity')));
+    const shared = Math.sumPrecise(continuous.map(Struct.get('capacity')));
     return continuous.reduce((current, mechanism) => mechanism.take(current, Math.min(mechanism.capacity, (rest * mechanism.capacity) / shared)), placed);
 };
 

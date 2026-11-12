@@ -146,7 +146,7 @@ const { createNodes } = inferred({
         );
         const hosted = yield* Effect.forEach(matched, ({ file, host }) => (host.held === undefined || !local.includes(host) ? Effect.succeed(true) : host.held(path.join(context.workspaceRoot, file))));
         const [read, failures] = yield* Effect.partition(
-            Array.zipWith(Array.zip(matched, locked), hosted, ([found, lock], engined) => [found, lock, engined] as const),
+            Iterator.zip([matched, locked, hosted]),
             ([{ file, host, root }, lock, engined]) =>
                 fs.readFileString(path.join(context.workspaceRoot, file)).pipe(
                     Effect.flatMap((text) => host.read(text, file)),

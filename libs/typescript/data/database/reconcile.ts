@@ -225,13 +225,15 @@ const diff = <L extends Live & { readonly columns: readonly Live[]; readonly ref
             return take(claimed, (candidate) => candidate.generation === item.identity.generation && (aliases.has(candidate.row.name) || aliases.has(candidate.origin)));
         });
         const [, chosen] = Array.mapAccum(Array.zip(declared, owned), owners, (claimed, [item, own]) => (Option.isSome(own) ? ([claimed, own] as const) : take(claimed, (candidate) => candidate.row.name === item.name)));
-        const found = Array.zip(Array.zip(declared, owned), chosen).map(([[item, own], choice]) => ({
-            item,
-            row: Option.map(choice, Struct.get('row')),
-            owned: Option.isSome(own),
-            identity: Option.match(choice, { onNone: () => ({ origin: item.identity.origin, generation: item.identity.generation }), onSome: ({ origin, generation }) => ({ origin, generation }) }),
-            recorded: Option.flatMap(choice, Struct.get('recorded')),
-        }));
+        const found = Iterator.zip([declared, owned, chosen])
+            .map(([item, own, choice]) => ({
+                item,
+                row: Option.map(choice, Struct.get('row')),
+                owned: Option.isSome(own),
+                identity: Option.match(choice, { onNone: () => ({ origin: item.identity.origin, generation: item.identity.generation }), onSome: ({ origin, generation }) => ({ origin, generation }) }),
+                recorded: Option.flatMap(choice, Struct.get('recorded')),
+            }))
+            .toArray();
         const renamed = Array.filterMap(
             found,
             Filter.fromPredicateOption(({ item, row }) => Option.filter(row, ({ name }) => name !== item.name).pipe(Option.map((current) => ({ row: current, item })))),

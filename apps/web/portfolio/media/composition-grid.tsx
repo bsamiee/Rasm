@@ -11,7 +11,7 @@ const CompositionGrid = ({ composition, active, presentation, renderMedia }: { c
     const ratios = Array.map(composition.items, Placement.ratio);
     return (
         <div className="composition" data-align={composition.align} data-presentation={presentation} data-scale={composition.scale}>
-            <CustomProperties properties={{ '--ratio-max': Array.max(ratios, Number.Order), '--ratio-sum': Number.sumAll(ratios), '--pair-columns': ratios.map((ratio) => `minmax(0, ${ratio / Array.min(ratios, Number.Order)}fr)`).join(' ') }}>
+            <CustomProperties properties={{ '--ratio-max': Array.max(ratios, Number.Order), '--ratio-sum': Math.sumPrecise(ratios), '--pair-columns': ratios.map((ratio) => `minmax(0, ${ratio / Array.min(ratios, Number.Order)}fr)`).join(' ') }}>
                 {(scope) => (
                     <div className="composition-items" {...scope}>
                         <MediaFigure active={active} placement={first} presentation={presentation} priority={false} renderMedia={renderMedia} />

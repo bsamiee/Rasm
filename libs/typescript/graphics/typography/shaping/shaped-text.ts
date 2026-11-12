@@ -1,4 +1,4 @@
-import { Array, Effect, Function, Number, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Array, Effect, Function, Option, Order, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Buffer, BufferFlag, ClusterLevel, Direction, Feature, GlyphClass, GlyphFlag, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
 import { Settings } from '#/settings';
 import type { Face } from '#/shaping/face';
@@ -68,7 +68,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
         const { start, length } = Option.getOrElse(item, () => Span.make({ start: 0, end: text.length }));
         buffer.addText(text, start, length);
         buffer.setClusterLevel(ClusterLevel[clusterLevel]);
-        buffer.setFlags(Number.sumAll(Array.map(flags, (flag) => BufferFlag[flag])));
+        buffer.setFlags(Math.sumPrecise(Array.map(flags, (flag) => BufferFlag[flag])));
         Option.match(language, { onNone: Function.constVoid, onSome: (tag) => buffer.setLanguage(otTagToLanguage(tag)) });
         Option.match(script, { onNone: Function.constVoid, onSome: (tag) => buffer.setScript(otTagToScript(tag)) });
         Option.match(direction, { onNone: Function.constVoid, onSome: (key) => buffer.setDirection(Direction[key]) });
@@ -111,7 +111,7 @@ class ShapedText extends Schema.Class<ShapedText, { readonly brand: unique symbo
     };
 
     get advance() {
-        return Math.hypot(Number.sumAll(this.glyphs.map(Struct.get('xAdvance'))), Number.sumAll(this.glyphs.map(Struct.get('yAdvance'))));
+        return Math.hypot(Math.sumPrecise(this.glyphs.map(Struct.get('xAdvance'))), Math.sumPrecise(this.glyphs.map(Struct.get('yAdvance'))));
     }
     get extents(): Option.Option<typeof Bounds.Type> {
         const [, boxes] = Array.mapAccum(this.glyphs, { x: 0, y: 0 }, (pen, { xAdvance, yAdvance, xOffset, yOffset, extents }) => [

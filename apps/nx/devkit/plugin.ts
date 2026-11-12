@@ -298,7 +298,9 @@ const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaratio
     const names = yield* Effect.forEach(folders, (folder) => fs.readDirectory(folder).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed(Array.empty<string>()))), { concurrency: 'unbounded' });
     const hashed = new Map(Array.zipWith(folders, names, (folder, entries) => [folder, entries.toSorted().flatMap((entry) => [path.join(folder, entry), ...Option.toArray(Option.fromNullishOr(hashFile(path.join(folder, entry))))])] as const));
     const untracked = sources.map((source) => hashArray((source.untracked ?? []).flatMap((folder) => hashed.get(folder) ?? [])));
-    return Array.zipWith(Array.zip(held, tracked), untracked, ([[unit], content], files) => hashArray([base, unit.key, content, files, ...Option.toArray(Option.fromUndefinedOr(unit.salt))]));
+    return Iterator.zip([held, tracked, untracked])
+        .map(([[unit], content, files]) => hashArray([base, unit.key, content, files, ...Option.toArray(Option.fromUndefinedOr(unit.salt))]))
+        .toArray();
 });
 
 const read = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, flights: Flights<R, E>, request: Request<O>, settings: object, units: readonly U[]) {

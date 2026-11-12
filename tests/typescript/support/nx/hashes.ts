@@ -36,7 +36,7 @@ if (import.meta.main) {
             const environments = Record.fromIterableWith(tasks, (task) => [task.id, getTaskSpecificEnv(task, projectGraph)]);
             const hashes = yield* Effect.tryPromise(() => createTaskHasher(projectGraph, nxJson).hashTasks(tasks, planned, environments));
             const inputs = yield* Effect.forEach(tasks, (task) => Effect.tryPromise(() => getTaskRawInputs(task.id, { projectGraph, nxJson })));
-            const read = Record.fromIterableWith(Array.zip(Array.zip(tasks, hashes), inputs), ([[task, hash], held]) => [task.id, { ...task.target, hash: hash.value, cache: isCacheableTask(task), waits: waits(planned.continuousDependencies[task.id]), ...held }]);
+            const read = Record.fromIterableWith(Iterator.zip([tasks, hashes, inputs]), ([task, hash, held]) => [task.id, { ...task.target, hash: hash.value, cache: isCacheableTask(task), waits: waits(planned.continuousDependencies[task.id]), ...held }]);
             yield* Effect.flatMap(Schema.encodeUnknownEffect(Json)(read), Console.log);
         }),
     );
