@@ -7,10 +7,6 @@ import { cases, inferred, running, type Subject } from '#/inference/cases';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const COMPOSED = [
-    { dependencies: true, target: 'build--compose' },
-    { dependencies: true, target: 'serve--compose', waitFor: 'ready' },
-] as const;
 const SPEC = "import { test } from '@playwright/test';\n\ntest('opens', async ({ page }) => {\n    await page.goto('/');\n});\n";
 const config = (servers: string) => `import { defineConfig } from '@playwright/test';\n\nexport default defineConfig({ testDir: '.', reporter: [['html', { open: 'never' }]], ${servers} });\n`;
 
@@ -143,9 +139,9 @@ cases(subject, (it) => {
             Effect.map(Array.map(({ project, cache, outputs, waits }) => ({ project, cache, outputs: outputs.toSorted(), waits }))),
             Effect.map((tested) =>
                 assert.deepStrictEqual(tested, [
-                    { project: 'owned', cache: true, outputs: ['owned/playwright-report', 'owned/test-results'], waits: [...COMPOSED] },
-                    { project: 'reused', cache: true, outputs: ['reused/playwright-report', 'reused/test-results'], waits: [{ projects: ['site'], target: 'serve', waitFor: 'ready' }, ...COMPOSED] },
-                    { project: 'split', cache: true, outputs: ['split/playwright-report', 'split/test-results'], waits: [{ projects: ['site'], target: 'preview', waitFor: 'ready' }, ...COMPOSED] },
+                    { project: 'owned', cache: true, outputs: ['owned/playwright-report', 'owned/test-results'], waits: [] },
+                    { project: 'reused', cache: true, outputs: ['reused/playwright-report', 'reused/test-results'], waits: [{ projects: ['site'], target: 'serve', waitFor: 'ready' }] },
+                    { project: 'split', cache: true, outputs: ['split/playwright-report', 'split/test-results'], waits: [{ projects: ['site'], target: 'preview', waitFor: 'ready' }] },
                 ]),
             ),
         ),

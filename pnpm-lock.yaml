@@ -21,12 +21,6 @@ catalogs:
     '@biomejs/biome':
       specifier: 2.6.6
       version: 2.6.6
-    '@bufbuild/protobuf':
-      specifier: 2.17.0
-      version: 2.17.0
-    '@bufbuild/protoc-gen-es':
-      specifier: 2.17.0
-      version: 2.17.0
     '@cloudflare/build-output-utils':
       specifier: 0.9.12
       version: 0.9.12
@@ -39,12 +33,6 @@ catalogs:
     '@cloudflare/workers-types':
       specifier: 5.20261110.1
       version: 5.20261110.1
-    '@connectrpc/connect':
-      specifier: 2.3.0
-      version: 2.3.0
-    '@connectrpc/connect-node':
-      specifier: 2.3.0
-      version: 2.3.0
     '@decimalturn/toml-patch':
       specifier: 3.3.2
       version: 3.3.2
@@ -378,9 +366,6 @@ catalogs:
     react-zoom-pan-pinch:
       specifier: 4.2.0
       version: 4.2.0
-    redis:
-      specifier: 6.4.0-beta.0
-      version: 6.4.0-beta.0
     refa:
       specifier: 0.12.1
       version: 0.12.1
@@ -519,9 +504,6 @@ importers:
       '@rasm/nx-apple':
         specifier: workspace:*
         version: link:apps/nx/apple
-      '@rasm/nx-buf':
-        specifier: workspace:*
-        version: link:apps/nx/buf
       '@rasm/nx-cargo':
         specifier: workspace:*
         version: link:apps/nx/cargo
@@ -829,25 +811,6 @@ importers:
         version: link:analyzer
 
   apps/nx/apple/analyzer: {}
-
-  apps/nx/buf:
-    dependencies:
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.0.6(nx@24.0.6)
-      '@rasm/nx-devkit':
-        specifier: workspace:*
-        version: link:../devkit
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      nx:
-        specifier: 'catalog:'
-        version: 24.0.6
 
   apps/nx/cargo:
     dependencies:
@@ -1754,13 +1717,7 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
-      '@effect/sql-clickhouse':
-        specifier: 'catalog:'
-        version: 4.1.4(@effect/platform-node@4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0)))(effect@4.1.4)
       '@effect/sql-d1':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)
-      '@effect/sql-pg':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)
       '@effect/sql-sqlite-node':
@@ -1772,9 +1729,6 @@ importers:
       '@rasm/database':
         specifier: workspace:*
         version: link:../../database
-      '@rasm/test-store':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/integration/store
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../../tests/typescript/support
@@ -1808,9 +1762,6 @@ importers:
       '@rasm/object-storage':
         specifier: workspace:*
         version: link:../../object-storage
-      '@rasm/test-store':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/integration/store
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../../tests/typescript/support
@@ -2421,58 +2372,6 @@ importers:
         specifier: 'catalog:'
         version: 26.6.6
 
-  tests/typescript/integration/store:
-    dependencies:
-      '@bufbuild/protobuf':
-        specifier: 'catalog:'
-        version: 2.17.0
-      '@connectrpc/connect':
-        specifier: 'catalog:'
-        version: 2.3.0(@bufbuild/protobuf@2.17.0)
-      '@connectrpc/connect-node':
-        specifier: 'catalog:'
-        version: 2.3.0(@bufbuild/protobuf@2.17.0)(@connectrpc/connect@2.3.0(@bufbuild/protobuf@2.17.0))
-    devDependencies:
-      '@aws-sdk/client-s3':
-        specifier: 'catalog:'
-        version: 3.1165.0
-      '@bufbuild/protoc-gen-es':
-        specifier: 'catalog:'
-        version: 2.17.0(@bufbuild/protobuf@2.17.0)(supports-color@10.2.2)
-      '@effect/sql-clickhouse':
-        specifier: 'catalog:'
-        version: 4.1.4(@effect/platform-node@4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0)))(effect@4.1.4)
-      '@effect/sql-pg':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.0.6(nx@24.0.6)
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../support
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-      nx:
-        specifier: 'catalog:'
-        version: 24.0.6
-      redis:
-        specifier: 'catalog:'
-        version: 6.4.0-beta.0(@opentelemetry/api@1.10.0)
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
-
   tests/typescript/nx:
     devDependencies:
       '@cloudflare/workers-types':
@@ -2493,9 +2392,6 @@ importers:
       '@rasm/nx-apple':
         specifier: workspace:*
         version: link:../../../apps/nx/apple
-      '@rasm/nx-buf':
-        specifier: workspace:*
-        version: link:../../../apps/nx/buf
       '@rasm/nx-cargo':
         specifier: workspace:*
         version: link:../../../apps/nx/cargo
@@ -2607,16 +2503,10 @@ importers:
       '@vitest/ui':
         specifier: 'catalog:'
         version: 5.1.0(vitest@5.1.0)
-      testcontainers:
-        specifier: 'catalog:'
-        version: 12.2.1(bare-buffer@3.7.1)(supports-color@10.2.2)
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.0.6(nx@24.0.6)
@@ -2635,9 +2525,6 @@ importers:
       nx:
         specifier: 'catalog:'
         version: 24.0.6
-      redis:
-        specifier: 'catalog:'
-        version: 6.4.0-beta.0(@opentelemetry/api@1.10.0)
       vite:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -3419,22 +3306,6 @@ packages:
   '@blazediff/core@1.10.0':
     resolution: {integrity: sha512-AOQff0zgR7cGsZL+4E7hVkmujoPUpm0J9xzWGWZj5wCjd3gmxESXAPfKyuzs93VdpQNFhHlBhfOjrcZ+XTERtQ==}
 
-  '@bufbuild/protobuf@2.17.0':
-    resolution: {integrity: sha512-hcPkSz6D7MiTU/5VBBhK+kxaYDoOdQ6yJRFJ3kS8Nydp+VZXfg1vrpABKPNod8bXMufsVCmiUJVIKFzCzta4uw==}
-
-  '@bufbuild/protoc-gen-es@2.17.0':
-    resolution: {integrity: sha512-Uk8Hx145z76lDOEPhWChy53jtKITUnqG0vASuOiRybbZbBbx4oho9JDqt8QZsHemeTCNl6q4yy4Qpc2iV5outQ==}
-    engines: {node: '>=22'}
-    hasBin: true
-    peerDependencies:
-      '@bufbuild/protobuf': 2.17.0
-    peerDependenciesMeta:
-      '@bufbuild/protobuf':
-        optional: true
-
-  '@bufbuild/protoplugin@2.17.0':
-    resolution: {integrity: sha512-4ExU8AGygKkwIx3U8D5kyBOn9rcCM1qnj4wCP95RbP1CRe73QvVGHQ/lOp6IQiyvQMh9BGrYGht+ZDa8gwC2fg==}
-
   '@canvas/image-data@1.1.0':
     resolution: {integrity: sha512-QdObRRjRbcXGmM1tmJ+MrHcaz1MftF2+W7YI+MsphnsCrmtyfS0d5qJbk0MeSbUeyM/jCb0hmnkXPsy026L7dA==}
 
@@ -3515,18 +3386,6 @@ packages:
 
   '@cloudflare/workers-types@5.20261110.1':
     resolution: {integrity: sha512-XOr3TDQ2sNDiP9zoZtdwYVhuLZ3aFY+G+G4iSeNO9p/HDSveZJpyCbUtmpEElaClLBe9hIzfN26qd0i/S7ksPg==}
-
-  '@connectrpc/connect-node@2.3.0':
-    resolution: {integrity: sha512-kcQgV4GqFIESsl0MOHInC9/wNYU4aJDvG1OfGR5Lq6/l0gqycSGqEk+fixXGcUtPLc8vJBgS4V1nTmWlh4o9gw==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      '@bufbuild/protobuf': ^2.7.0
-      '@connectrpc/connect': 2.3.0
-
-  '@connectrpc/connect@2.3.0':
-    resolution: {integrity: sha512-rjAn8L9KbAZrkwiB8m1qzDsLs74hkYmwwM2iSWuxTPVOTRm/EZw31smKbQqPU50AXqJC5eKKpEnA6Uf/swQOgQ==}
-    peerDependencies:
-      '@bufbuild/protobuf': ^2.7.0
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -5826,11 +5685,6 @@ packages:
     resolution: {integrity: sha512-mbCddXd+jm7hfx7w2YU64/Av4/NqqeG3GoRZgxPcgoTxYjhrcfJRw9ULch71SS4G+Q3bOXFhRvPqjguN0Hyp5w==}
     hasBin: true
 
-  '@typescript/vfs@1.6.6':
-    resolution: {integrity: sha512-gXw0+tpchiQUjTcbnNIPnyLFIhbwJ7M1VaxLQ1vXhjQxtTBK3sdDLY1ih0jxCu1I5K3V0dDxq8CkVZtIMspC3A==}
-    peerDependencies:
-      typescript: '*'
-
   '@uppy/components@2.1.1':
     resolution: {integrity: sha512-U/QUqG0MJDYXIA9KG4P/akcOoKpmVXSdUsySMhZU1riLEA7cUM6iP0JffKMpjw3E8e+BoHrasLg0KrhcgMTU1A==}
     peerDependencies:
@@ -7961,11 +7815,6 @@ packages:
   types-for-adobe@7.2.6:
     resolution: {integrity: sha512-rZUJtQvDk4MdQe0eMSwwtWNwI4BnXvhh2hsb8NKD0V/GZoQhnVQ1IPNhYw0cNGaMnzI/yrT7prByLCuxEjZXeA==}
 
-  typescript@5.4.5:
-    resolution: {integrity: sha512-vcI4UpRgg81oIRUFwR0WSIHKt11nJ7SAVlYNIu+QpqeyXP+gpQJy/Z4+F0aGxSE4MqwjyXvW/TzgkLAx2AGHwQ==}
-    engines: {node: '>=14.17'}
-    hasBin: true
-
   typescript@6.0.3:
     resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
@@ -9270,24 +9119,6 @@ snapshots:
 
   '@blazediff/core@1.10.0': {}
 
-  '@bufbuild/protobuf@2.17.0': {}
-
-  '@bufbuild/protoc-gen-es@2.17.0(@bufbuild/protobuf@2.17.0)(supports-color@10.2.2)':
-    dependencies:
-      '@bufbuild/protoplugin': 2.17.0(supports-color@10.2.2)
-    optionalDependencies:
-      '@bufbuild/protobuf': 2.17.0
-    transitivePeerDependencies:
-      - supports-color
-
-  '@bufbuild/protoplugin@2.17.0(supports-color@10.2.2)':
-    dependencies:
-      '@bufbuild/protobuf': 2.17.0
-      '@typescript/vfs': 1.6.6(supports-color@10.2.2)(typescript@5.4.5)
-      typescript: 5.4.5
-    transitivePeerDependencies:
-      - supports-color
-
   '@canvas/image-data@1.1.0': {}
 
   '@clack/core@1.4.3':
@@ -9378,15 +9209,6 @@ snapshots:
     optional: true
 
   '@cloudflare/workers-types@5.20261110.1': {}
-
-  '@connectrpc/connect-node@2.3.0(@bufbuild/protobuf@2.17.0)(@connectrpc/connect@2.3.0(@bufbuild/protobuf@2.17.0))':
-    dependencies:
-      '@bufbuild/protobuf': 2.17.0
-      '@connectrpc/connect': 2.3.0(@bufbuild/protobuf@2.17.0)
-
-  '@connectrpc/connect@2.3.0(@bufbuild/protobuf@2.17.0)':
-    dependencies:
-      '@bufbuild/protobuf': 2.17.0
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -11224,13 +11046,6 @@ snapshots:
   '@typescript/typescript6@6.0.2':
     dependencies:
       '@typescript/old': typescript@6.0.3
-
-  '@typescript/vfs@1.6.6(supports-color@10.2.2)(typescript@5.4.5)':
-    dependencies:
-      debug: 4.4.3(supports-color@10.2.2)
-      typescript: 5.4.5
-    transitivePeerDependencies:
-      - supports-color
 
   '@uppy/components@2.1.1(@uppy/core@6.3.1)(@uppy/google-drive-picker@2.0.1(@uppy/core@6.3.1))(@uppy/google-photos-picker@2.0.1(@uppy/core@6.3.1))':
     dependencies:
@@ -13633,8 +13448,6 @@ snapshots:
       tagged-tag: 1.0.0
 
   types-for-adobe@7.2.6: {}
-
-  typescript@5.4.5: {}
 
   typescript@6.0.3: {}
 

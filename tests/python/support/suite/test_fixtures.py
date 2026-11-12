@@ -53,14 +53,14 @@ def test_a_failed_test_keeps_its_sqlite_file(pytester: pytest.Pytester) -> None:
 
 
 def test_tcp_opens_for_a_test_requesting_a_server_and_stays_refused_for_others(pytester: pytest.Pytester) -> None:
-    """Under `--disable-socket` with warnings as errors, a test requesting `started` creates a socket and a test requesting `sqlite` is refused one."""
+    """Under `--disable-socket` with warnings as errors, a test requesting `portal` creates a socket and a test requesting `sqlite` is refused one."""
     pytester.makepyfile("""
         import socket
 
         import pytest
 
 
-        def test_reaching(started):
+        def test_reaching(portal):
             socket.socket().close()
 
 
@@ -68,4 +68,4 @@ def test_tcp_opens_for_a_test_requesting_a_server_and_stays_refused_for_others(p
             with pytest.raises(UserWarning, match="tried to use socket"):
                 socket.socket()
     """)
-    pytester.runpytest_subprocess("-p", "rasm_testing.containers", "-p", "rasm_testing.sqlite", "--disable-socket", "-W", "error").assert_outcomes(passed=2)
+    pytester.runpytest_subprocess("-p", "rasm_testing.hosting", "-p", "rasm_testing.sqlite", "--disable-socket", "-W", "error").assert_outcomes(passed=2)

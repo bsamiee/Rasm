@@ -64,7 +64,6 @@ const SOURCE = {
 
 const Json = Schema.fromJsonString(Schema.Unknown);
 const Environment = Schema.Struct({ env: Schema.String });
-const Served = Schema.Struct({ dependencies: Schema.Literal(true), target: Schema.Literal('serve--compose'), waitFor: Schema.Literal('ready') });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -146,8 +145,6 @@ const shared = (outputs: ReturnType<typeof written>) =>
 
 const restored = (outputs: ReturnType<typeof written>, state: readonly string[]) => outputs.filter(({ cache, folder }) => cache && Array.intersection(folder.split('/'), state).length > 0).map(({ task, folder }) => `${task} restores ${folder}`);
 
-const unserved = (graph: ProjectGraph) => Array.filterMap(targeted(graph), ({ target, configuration, task }) => (target.startsWith('test--') && !(configuration.dependsOn ?? []).some(Schema.is(Served)) ? Result.succeed(task) : Result.failVoid));
-
 const unready = (graph: ProjectGraph) => Array.filterMap(targeted(graph), ({ configuration, task }) => (configuration.continuous === true && configuration.readyWhen === undefined ? Result.succeed(task) : Result.failVoid));
 
 const refused = (refusal: ProjectConfigurationsError, plugin: string, file: string) => ({
@@ -189,8 +186,6 @@ const inferring =
                 ),
             ),
         );
-
-        methods.effect('runs every test target once the serve--compose services of its dependencies are ready', () => Effect.map(inferred(subject), (graph) => assert.deepStrictEqual(unserved(graph), [])));
 
         methods.effect(
             'states no machine path in the graph',

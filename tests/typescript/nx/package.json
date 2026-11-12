@@ -13,7 +13,6 @@
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/nx-apple": "workspace:*",
-        "@rasm/nx-buf": "workspace:*",
         "@rasm/nx-cargo": "workspace:*",
         "@rasm/nx-cloudflare": "workspace:*",
         "@rasm/nx-cmake": "workspace:*",

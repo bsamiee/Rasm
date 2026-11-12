@@ -151,16 +151,13 @@ services:
         build:
             additional_contexts:
                 postgres: docker-image://postgres:19rc1-trixie
-            args:
-                EXTENSIONS: "${POSTGRES_EXTENSIONS:-cron hypopg partman pgaudit pgvector postgis-3}"
             cache_from:
                 - type=gha,scope=rasm-postgres
             cache_to:
                 - type=gha,scope=rasm-postgres,mode=max
             dockerfile_inline: |
                 FROM postgres
-                ARG EXTENSIONS
-                RUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates pgbackrest pgbouncer $$(printf "postgresql-$${PG_MAJOR}-%s " $${EXTENSIONS}) && rm -rf /var/lib/apt/lists/* && sed --in-place '$$a trusted = true' /usr/share/postgresql/$${PG_MAJOR}/extension/*.control
+                RUN apt-get update && apt-get install --yes --no-install-recommends ca-certificates pgbackrest pgbouncer $$(printf "postgresql-$${PG_MAJOR}-%s " cron hypopg partman pgaudit pgvector postgis-3) && rm -rf /var/lib/apt/lists/* && sed --in-place '$$a trusted = true' /usr/share/postgresql/$${PG_MAJOR}/extension/*.control
                 COPY <<HBA /etc/postgresql/pg_hba.conf
                 local all all trust
                 host all all all scram-sha-256
@@ -169,12 +166,8 @@ services:
         command:
             - postgres
             - --hba_file=/etc/postgresql/pg_hba.conf
-            - --shared_preload_libraries=${POSTGRES_PRELOAD:-pg_stat_statements,auto_explain,pg_plan_advice,pg_stash_advice,pgaudit,pg_cron}
-            - --max_connections=${POSTGRES_MAX_CONNECTIONS:-100}
+            - --shared_preload_libraries=pg_stat_statements,auto_explain,pg_plan_advice,pg_stash_advice,pgaudit,pg_cron
             - --superuser_reserved_connections=10
-            - --fsync=${POSTGRES_DURABILITY:-on}
-            - --full_page_writes=${POSTGRES_DURABILITY:-on}
-            - --synchronous_commit=${POSTGRES_DURABILITY:-on}
             - --shared_buffers=${POSTGRES_SHARED_BUFFERS:-128MB}
             - --effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4GB}
             - --maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}
@@ -210,7 +203,7 @@ services:
         ports:
             - app_protocol: postgresql
               host_ip: &loopback 127.0.0.1
-              published: &postgres-port "${POSTGRES_PORT:-7411}"
+              published: "${POSTGRES_PORT:-7411}"
               target: 5432
         volumes:
             - postgres:/var/lib/postgresql
@@ -250,15 +243,11 @@ services:
               target: /etc/clickhouse-server/users.d/rasm.xml
         environment:
             CLICKHOUSE_CACHE_SIZE_TO_RAM_MAX_RATIO: ${CLICKHOUSE_CACHE_SIZE_TO_RAM_MAX_RATIO:-0.5}
-            CLICKHOUSE_DATABASE_ATOMIC_DELAY_BEFORE_DROP_TABLE_SEC: ${CLICKHOUSE_DATABASE_ATOMIC_DELAY_BEFORE_DROP_TABLE_SEC:-480}
-            CLICKHOUSE_DATABASE_CATALOG_DROP_TABLE_CONCURRENCY: ${CLICKHOUSE_DATABASE_CATALOG_DROP_TABLE_CONCURRENCY:-16}
-            CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_CLEANUP_PERIOD_SEC: ${CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_CLEANUP_PERIOD_SEC:-86400}
-            CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_HIDE_TIMEOUT_SEC: ${CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_HIDE_TIMEOUT_SEC:-3600}
-            CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_RM_TIMEOUT_SEC: ${CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_RM_TIMEOUT_SEC:-2592000}
             CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
             CLICKHOUSE_MAX_SERVER_MEMORY_USAGE_TO_RAM_RATIO: ${CLICKHOUSE_MAX_SERVER_MEMORY_USAGE_TO_RAM_RATIO:-0.9}
             CLICKHOUSE_MERGES_MUTATIONS_MEMORY_USAGE_TO_RAM_RATIO: ${CLICKHOUSE_MERGES_MUTATIONS_MEMORY_USAGE_TO_RAM_RATIO:-0.5}
             CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"
+            CLICKHOUSE_READER_MEMORY: "${CLICKHOUSE_READER_MEMORY:-0}"
             CLICKHOUSE_READER_PASSWORD: "${CLICKHOUSE_READER_PASSWORD:-clickhouse-reader}"
         healthcheck:
             <<: *probe
@@ -267,7 +256,7 @@ services:
         ports:
             - app_protocol: http
               host_ip: *loopback
-              published: &clickhouse-port "${CLICKHOUSE_PORT:-7413}"
+              published: "${CLICKHOUSE_PORT:-7413}"
               target: 8123
         ulimits:
             nofile: 262144
@@ -292,13 +281,13 @@ services:
         ports:
             - app_protocol: http
               host_ip: *loopback
-              published: &storage-port "${STORAGE_PORT:-7412}"
+              published: "${STORAGE_PORT:-7412}"
               target: 9000
         volumes:
             - storage:/data
     cache:
         <<: *app
-        command: [valkey-server, --save, "", --databases, "10000", --maxmemory, "${CACHE_MEMORY:-256mb}", --maxmemory-policy, volatile-lfu]
+        command: [valkey-server, --save, "", --maxmemory, "${CACHE_MEMORY:-256mb}", --maxmemory-policy, allkeys-lfu]
         healthcheck:
             <<: *probe
             test: [CMD, valkey-cli, ping]
@@ -306,9 +295,9 @@ services:
         ports:
             - app_protocol: redis
               host_ip: *loopback
-              published: &cache-port "${CACHE_PORT:-7415}"
+              published: "${CACHE_PORT:-7415}"
               target: 6379
-        profiles: [app, store]
+        profiles: [app]
 
     # --- [PLATFORM]
 
@@ -561,55 +550,6 @@ services:
             - /var/run/docker.sock:/var/run/docker.sock:ro
             - authelia:/backup/authelia:ro
 
-    # --- [STORE]
-
-    store:
-        <<: *server
-        build:
-            additional_contexts:
-                chef: docker-image://lukemathwalker/cargo-chef:0.1.78-rust-1.99.1-trixie
-                distroless: docker-image://gcr.io/distroless/cc-debian13:nonroot
-            cache_from:
-                - type=gha,scope=rasm-store
-            cache_to:
-                - type=gha,scope=rasm-store,mode=max
-            context: ..
-            dockerfile: apps/grpc/store/Dockerfile
-        depends_on:
-            cache:
-                condition: service_healthy
-            clickhouse:
-                condition: service_healthy
-            postgres:
-                condition: service_healthy
-            storage:
-                condition: service_healthy
-        environment:
-            <<: [*storage-client, *telemetry-client]
-            CLICKHOUSE_PASSWORD: "${CLICKHOUSE_PASSWORD:-clickhouse}"
-            PORT: &store-port "8080"
-            RASM_STORE_CACHE_URL: redis://cache:6379
-            RASM_STORE_CLICKHOUSE_URL: http://clickhouse:8123
-            RASM_STORE_LOG_TARGET: stderr
-            RASM_STORE_POSTGRES_URL: postgres:///postgres?host=/var/run/postgresql&user=postgres
-            RASM_STORE_PUBLISHED_CACHE: *cache-port
-            RASM_STORE_PUBLISHED_CLICKHOUSE: *clickhouse-port
-            RASM_STORE_PUBLISHED_HOST: *loopback
-            RASM_STORE_PUBLISHED_POSTGRES: *postgres-port
-            RASM_STORE_PUBLISHED_STORAGE: *storage-port
-        healthcheck:
-            <<: *probe
-            test: [CMD, /rasm-store, --probe]
-        image: rasm-store
-        ports:
-            - app_protocol: grpc
-              host_ip: *loopback
-              published: "${STORE_PORT:-}"
-              target: *store-port
-        profiles: [store]
-        volumes:
-            - *socket
-
 # --- [CONFIGS] --------------------------------------------------------------------------
 
 configs:
@@ -628,16 +568,15 @@ configs:
             auth_user = postgres
             pool_mode = transaction
             max_client_conn = 1000
+            default_pool_size = 3
+            max_user_connections = 90
+            server_idle_timeout = 10
+            autodb_idle_timeout = 60
     clickhouse:
         content: |
             <clickhouse>
                 <cache_size_to_ram_max_ratio from_env="CLICKHOUSE_CACHE_SIZE_TO_RAM_MAX_RATIO"/>
                 <concurrent_threads_scheduler>max_min_fair</concurrent_threads_scheduler>
-                <database_atomic_delay_before_drop_table_sec from_env="CLICKHOUSE_DATABASE_ATOMIC_DELAY_BEFORE_DROP_TABLE_SEC"/>
-                <database_catalog_drop_table_concurrency from_env="CLICKHOUSE_DATABASE_CATALOG_DROP_TABLE_CONCURRENCY"/>
-                <database_catalog_unused_dir_cleanup_period_sec from_env="CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_CLEANUP_PERIOD_SEC"/>
-                <database_catalog_unused_dir_hide_timeout_sec from_env="CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_HIDE_TIMEOUT_SEC"/>
-                <database_catalog_unused_dir_rm_timeout_sec from_env="CLICKHOUSE_DATABASE_CATALOG_UNUSED_DIR_RM_TIMEOUT_SEC"/>
                 <max_server_memory_usage_to_ram_ratio from_env="CLICKHOUSE_MAX_SERVER_MEMORY_USAGE_TO_RAM_RATIO"/>
                 <merges_mutations_memory_usage_to_ram_ratio from_env="CLICKHOUSE_MERGES_MUTATIONS_MEMORY_USAGE_TO_RAM_RATIO"/>
                 <merge_tree><default_compression_codec>ZSTD(3)</default_compression_codec></merge_tree>
@@ -653,7 +592,7 @@ configs:
     clickhouse-users:
         content: |
             <clickhouse>
-                <profiles><reader><readonly>1</readonly><constraints><max_execution_time><changeable_in_readonly/></max_execution_time></constraints></reader></profiles>
+                <profiles><reader><readonly>1</readonly><max_memory_usage from_env="CLICKHOUSE_READER_MEMORY"/><constraints><max_execution_time><changeable_in_readonly/></max_execution_time></constraints></reader></profiles>
                 <users><reader><password from_env="CLICKHOUSE_READER_PASSWORD"/><profile>reader</profile><grants><query>GRANT SELECT ON *.*</query></grants></reader></users>
             </clickhouse>
     authelia:

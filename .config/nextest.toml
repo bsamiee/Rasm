@@ -15,10 +15,6 @@ filter       = "package(rasm-mcp-tests) and test(/^conformance::/)"
 slow-timeout = { period = "120s", terminate-after = 2 }
 test-group   = "mcp-conformance"
 
-[[profile.default.overrides]]
-filter       = "test(/h2spec|interop|grpcurl/)"
-slow-timeout = { period = "300s", terminate-after = 2 }
-
 [profile.ci]
 junit = { path = "junit.xml" }
 

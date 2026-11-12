@@ -15,7 +15,6 @@ node_modules/
 /.cargo/rustc-source
 dist/
 .cloudflare/
-.buf/
 .vitest/
 coverage/
 test-results/

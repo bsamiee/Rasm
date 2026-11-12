@@ -1,11 +1,6 @@
 using System.Data.Common;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using CliWrap;
-using CliWrap.Buffered;
-using DotNet.Testcontainers.Containers;
 using Microsoft.Data.Sqlite;
 using SQLitePCL;
 using Xunit;
@@ -20,7 +15,7 @@ public sealed record Fixture<T>(T Value, Func<TestResult, IO<Unit>> Settle);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-public sealed partial class Fixtures : INotifyTestLifecycleAsync {
+public sealed class Fixtures : INotifyTestLifecycleAsync {
 
     // --- [SCOPES]
 
@@ -46,15 +41,6 @@ public sealed partial class Fixtures : INotifyTestLifecycleAsync {
 
     // --- [LOCAL]
 
-    private sealed record Composed(ImmutableDictionary<string, JsonElement> Services) {
-        internal sealed record Service(string Image, ImmutableArray<string>? Command = null);
-    }
-
-    [JsonSourceGenerationOptions(JsonSerializerDefaults.Web, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true)]
-    [JsonSerializable(typeof(Composed))]
-    [JsonSerializable(typeof(Composed.Service))]
-    private sealed partial class Compose : JsonSerializerContext;
-
     public static IO<Fixture<SqliteConnection>> Sqlite { get; } =
         from connection in IO.lift(static () => new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = ":memory:" }.ConnectionString))
         from opened in IO.lift(() => {
@@ -72,23 +58,6 @@ public sealed partial class Fixtures : INotifyTestLifecycleAsync {
                     TestContext.Current.AddAttachment($"{Guid.CreateVersion7()}.sqlite3", copy);
                 }),
                 Fin: static serialized => IO.lift(() => raw.sqlite3_free(serialized.Image)))).As().Finally(IO.lift(connection.Dispose)));
-
-    public static IO<Fixture<TContainer>> Container<TContainer>(Func<TContainer> build) where TContainer : IContainer =>
-        from container in IO.lift(build)
-        from started in IO.liftAsync(env => container.StartAsync(env.Token).ToUnit()) | @catch(K<IO, Unit> (error) => Disposed(container) >> IO.fail<Unit>(error))
-        select new Fixture<TContainer>(container, result => when(result is TestResult.Failed, IO.liftAsync(env => container.GetLogsAsync(ct: env.Token)).Map(logs => {
-            TestContext.Current.AddAttachment($"{container.Name}.stdout", logs.Stdout);
-            TestContext.Current.AddAttachment($"{container.Name}.stderr", logs.Stderr);
-            return unit;
-        })).As().Finally(Disposed(container)));
-
-    public static IO<(string Image, Seq<string> Command)> Defined(string compose, string service) =>
-        from resolved in IO.liftAsync(env => Cli.Wrap("docker").WithArguments(["compose", "--file", compose, "--profile", "*", "config", "--format", "json"]).ExecuteBufferedAsync(env.Token).Task)
-        from composed in IO.lift(Optional(JsonSerializer.Deserialize(resolved.StandardOutput, Compose.Default.Composed)).ToFin(Errors.ParseError(compose)))
-        from defined in IO.lift(Optional(composed.Services[service].Deserialize(Compose.Default.Service)).ToFin(Errors.ParseError(service)))
-        select (defined.Image, toSeq(defined.Command ?? []));
-
-    public static IO<Unit> Disposed(IAsyncDisposable resource) => IO.liftAsync(() => resource.DisposeAsync().AsTask().ToUnit());
 
     // --- [COMMANDS]
 

@@ -195,7 +195,6 @@ const postgresRoles = ({ app, mode }: Stack, variable: string, server: Required<
         return { name: new postgresql.Role(`${database}-${role}`, { name: `${database}-${role}`, login: true, password: key, ...settings }, provided).name, key };
     });
     const owned = new postgresql.Database(database, { name: database, owner: roles.migrator.name }, { ...provided, protect: App.modes[mode].kept });
-    const statistics = new postgresql.Extension(database, { name: 'pg_stat_statements', database: owned.name }, provided);
     const granted = Record.map({ table: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'], sequence: ['USAGE', 'SELECT'] }, (privileges, objectType) => new postgresql.DefaultPrivileges(`${database}-${objectType}`, { database: owned.name, owner: roles.migrator.name, role: roles.runtime.name, objectType, privileges }, provided));
     const url = (endpoint: URL, role: Input<string>, key: Input<string>) =>
         all([role, key, owned.name]).apply(([username, password, pathname]) => {
@@ -209,11 +208,7 @@ const postgresRoles = ({ app, mode }: Stack, variable: string, server: Required<
             all([granted.table.role, granted.sequence.role]).apply(([role]) => role),
             roles.runtime.key,
         ),
-        [`${variable}_MIGRATOR`]: url(
-            within.postgres,
-            all([roles.migrator.name, statistics.name]).apply(([role]) => role),
-            roles.migrator.key,
-        ),
+        [`${variable}_MIGRATOR`]: url(within.postgres, roles.migrator.name, roles.migrator.key),
     };
 };
 

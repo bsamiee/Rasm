@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-object-storage",
     "private": true,
-    "description": "Object storage suites over R2 and S3",
+    "description": "Object storage suites over R2",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
@@ -11,7 +11,6 @@
         "@cloudflare/workers-types": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/object-storage": "workspace:*",
-        "@rasm/test-store": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "cf": "catalog:",

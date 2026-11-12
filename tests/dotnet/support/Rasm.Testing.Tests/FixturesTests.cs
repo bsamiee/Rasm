@@ -1,10 +1,6 @@
-using System.Collections.Generic;
-using System.Reflection;
 using CsCheck;
 using Microsoft.Data.Sqlite;
 using Rasm.Testing;
-using StackExchange.Redis;
-using Testcontainers.Redis;
 using Xunit;
 using Xunit.v3;
 
@@ -46,40 +42,6 @@ public sealed class FixturesTests(Fixtures fixtures) {
         File.Delete(kept);
     }
 
-    // --- [LIFECYCLE]
-
-    [Fact]
-    public async Task CacheServerLosesItsKeysWhenItRestarts() {
-        (string image, Seq<string> command) = await Fixtures.Defined(Composed, "cache").RunAsync(TestContext.Current.CancellationToken);
-        RedisContainer server = await fixtures.TakeAsync(Fixtures.Container(new RedisBuilder(image).WithCommand([.. command]).Build));
-        ConnectionMultiplexer before = await ConnectionMultiplexer.ConnectAsync(server.GetConnectionString());
-        await using (before.ConfigureAwait(false))
-            Assert.True(await before.GetDatabase().StringSetAsync("held", "stored"));
-        await server.StopAsync(TestContext.Current.CancellationToken);
-        await server.StartAsync(TestContext.Current.CancellationToken);
-        ConnectionMultiplexer after = await ConnectionMultiplexer.ConnectAsync(server.GetConnectionString());
-        await using (after.ConfigureAwait(false))
-            Assert.False(await after.GetDatabase().KeyExistsAsync("held"));
-    }
-
-    [Fact]
-    public async Task FailedContainerSettlementAttachesItsLogs() {
-        (string image, Seq<string> command) = await Fixtures.Defined(Composed, "cache").RunAsync(TestContext.Current.CancellationToken);
-        Fixture<RedisContainer> opened = await Fixtures.Container(new RedisBuilder(image).WithCommand([.. command]).Build).RunAsync(TestContext.Current.CancellationToken);
-        string name = opened.Value.Name;
-        _ = await opened.Settle(TestResult.Failed).RunAsync(TestContext.Current.CancellationToken);
-        Assert.Equal(
-            Seq($"{name}.stderr", $"{name}.stdout"),
-            toSeq(TestContext.Current.Attachments?.Keys.Order(StringComparer.Ordinal)));
-    }
-
-    [Fact]
-    public async Task UndefinedServiceFailsNamingItself() =>
-        Assert.Contains(
-            "absent",
-            (await Assert.ThrowsAsync<KeyNotFoundException>(static () => Fixtures.Defined(Composed, "absent").RunAsync(TestContext.Current.CancellationToken).AsTask())).Message,
-            StringComparison.Ordinal);
-
     // --- [SETTLEMENT]
 
     [Fact]
@@ -109,6 +71,4 @@ public sealed class FixturesTests(Fixtures fixtures) {
             typeof(SqliteConnection).FullName,
             (await Assert.ThrowsAsync<InvalidOperationException>(() => unscoped.TakeAsync(Fixtures.Sqlite).AsTask())).Message);
     }
-
-    private static string Composed => Assert.IsType<string>(typeof(FixturesTests).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Single(static stated => stated.Key is "Compose").Value);
 }

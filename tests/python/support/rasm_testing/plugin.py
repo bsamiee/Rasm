@@ -25,13 +25,13 @@ class Timed(Protocol):
 
 @pytest.hookimpl(optionalhook=True, tryfirst=True)
 def pytest_timeout_set_timer(item: pytest.Item, settings: Timed) -> None:
-    """Records on a test the time pytest-timeout allows it, the limit of each call a fixture makes for the test, and leaves the timer to pytest-timeout."""
+    """Records on a test the time pytest-timeout allows it and leaves the timer to pytest-timeout."""
     item.stash[LIMIT] = timedelta(seconds=settings.timeout)
 
 
 @pytest.hookimpl(wrapper=True, tryfirst=True)
 def pytest_runtest_makereport(item: pytest.Item) -> Generator[None, pytest.TestReport, pytest.TestReport]:
-    """Records on a test whether its setup or call failed, the fact a fixture's release and a server's log report read."""
+    """Records on a test whether its setup or call failed, the fact a fixture's release reads."""
     report = yield
     item.stash[FAILED] = item.stash.get(FAILED, False) or report.failed
     return report

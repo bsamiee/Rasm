@@ -1,10 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Per-test resources as xUnit v3 fixtures settled by test result: SQLite databases and Testcontainers servers</Description>
+        <Description>Per-test resources as xUnit v3 fixtures settled by test result: SQLite databases</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
-        <PackageReference Include="CliWrap" />
         <PackageReference Include="LanguageExt.Core" />
     </ItemGroup>
 
@@ -15,7 +14,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Testing">
-        <PackageReference Include="Testcontainers" />
         <PackageReference Include="xunit.v3.extensibility.core" />
     </ItemGroup>
 </Project>

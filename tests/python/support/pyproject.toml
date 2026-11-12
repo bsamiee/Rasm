@@ -3,7 +3,7 @@
 [project]
 name            = "rasm-testing"
 version         = "0.0.0"
-description     = "Fixtures for pytest, each behind an extra: a private SQLite database, Testcontainers servers a test controls, and HTTP servers a test hosts on a loopback port"
+description     = "Fixtures for pytest, each behind an extra: a private SQLite database and HTTP servers a test hosts on a loopback port"
 classifiers     = ["Framework :: Pytest", "Private :: Do Not Upload", "Typing :: Typed"]
 requires-python = ">=3.13"
 
@@ -15,23 +15,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-containers = [
-    "boto3",              # Bucket creation on a RustFS server, which `obstore` has no call for
-    "clickhouse-connect", # ClickHouse client opened on a ClickHouse server
-    "msgspec",            # Compose service rows
-    "obstore",            # Object store opened on a RustFS server
-    "psycopg-pool",       # Connection pool opened on a Postgres server
-    "psycopg[binary]",    # libpq build the pool connects through
-    "redis[hiredis]",     # Valkey client opened on a Valkey server
-    "testcontainers",     # Containers a test starts, restarts, and stops, their module rows, and wait strategies
+hosting = [
+    "anyio",      # Event loop thread a test hosts servers on, and its clock on each received request
+    "hypercorn",  # HTTP/1.1 and h2c server answering from a function of the test on a loopback port
+    "msgspec",    # Request and answer records of a hosted server
 ]
-hosting    = [
-    "anyio",              # Event loop thread a test hosts servers on, and its clock on each received request
-    "hypercorn",          # HTTP/1.1 and h2c server answering from a function of the test on a loopback port
-    "msgspec",            # Request and answer records of a hosted server
-]
-sqlite     = [
-    "sqlite-vec",         # `vec0` extension loaded into each SQLite database
+sqlite  = [
+    "sqlite-vec", # `vec0` extension loaded into each SQLite database
 ]
 
 # --- [BUILD_SYSTEM] ---------------------------------------------------------------------

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Suite of Rasm.Testing: SQLite, a Testcontainers lifecycle, and settlement by test result</Description>
+        <Description>Suite of Rasm.Testing: SQLite and settlement by test result</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Core">
@@ -9,19 +9,13 @@
 
     <ItemGroup Label="Data Storage">
         <PackageReference Include="Microsoft.Data.Sqlite" />
-        <PackageReference Include="StackExchange.Redis" />
     </ItemGroup>
 
     <ItemGroup Label="Testing">
         <PackageReference Include="CsCheck" />
-        <PackageReference Include="Testcontainers.Redis" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../Rasm.Testing/Rasm.Testing.csproj" />
-    </ItemGroup>
-
-    <ItemGroup Label="Service Definition">
-        <AssemblyMetadata Include="Compose" Value="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '../../../../infra/compose.yaml'))" />
     </ItemGroup>
 </Project>

@@ -56,7 +56,7 @@
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, sgconfig.yml",
-        "package.json": "*.config.ts, biome.json, buf.gen.yaml, executors.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
+        "package.json": "*.config.ts, biome.json, executors.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig*.json",
         "Package.swift": "Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "hatch_build.py, pixi.lock, uv.lock",
         "README.md": "LICENSE, TODO*.md",

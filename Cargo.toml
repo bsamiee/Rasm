@@ -5,14 +5,9 @@
 [workspace]
 resolver = "3"
 members  = [
-    "apps/grpc/store",
-    "apps/grpc/store/proto",
-    "apps/grpc/tests/store",
     "apps/mcp/muxer",
     "apps/mcp/tests/muxer",
     "libs/rust/data/arrow",
-    "libs/rust/data/provisioning",
-    "libs/rust/data/tests/provisioning",
     "libs/rust/documents/pdf",
     "libs/rust/documents/typst",
     "libs/rust/documents/workbooks",
@@ -45,19 +40,15 @@ members  = [
     "libs/rust/runtime/cli",
     "libs/rust/runtime/process",
     "libs/rust/runtime/telemetry",
-    "libs/rust/services/grpc",
     "libs/rust/services/http",
     "libs/rust/services/ipc",
     "libs/rust/services/mcp",
-    "libs/rust/services/tests/grpc",
-    "libs/rust/services/tests/http",
     "libs/rust/services/tests/ipc",
     "libs/rust/services/tests/mcp",
     "libs/rust/terminal/console",
     "libs/rust/terminal/tui",
     "tools/dylint",
     "tools/dylint/auxiliary",
-    "tests/rust/integration/infra",
     "tests/rust/support",
 ]
 
@@ -358,7 +349,7 @@ prost               = "0.14.4"                                                  
 prost-types         = "0.14.4"                                                           # Protobuf well-known types and the descriptor set gRPC reflection serves
 protovalidate-buffa = { version = "0.7.4", features = ["json"] }                         # Protovalidate rules compiled into message validation
 rmcp                = "3.9.0"                                                            # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports
-tonic               = { version = "0.14.9", features = ["gzip"] }                        # gRPC servers and clients over HTTP/2 with deadlines, streaming, and the gzip messages Connect clients send by default, `GrpcTimeout` answers CANCELLED after calling and polling its inner service, the order `rasm-grpc` answers DEADLINE_EXCEEDED first by
+tonic               = { version = "0.14.9", features = ["gzip"] }                        # gRPC servers and clients over HTTP/2 with deadlines, streaming, and the gzip messages Connect clients send by default, `GrpcTimeout` answers CANCELLED after calling and polling its inner service
 tonic-health        = "0.14.9"                                                           # Standard `grpc.health.v1` service with a status reporter per served service
 tonic-prost         = "0.14.9"                                                           # prost codec that generated gRPC clients and servers encode messages with
 tonic-reflection    = "0.14.9"                                                           # gRPC server reflection over an encoded descriptor set, a failed request ends its stream with a status, `reflection.proto` states an `ErrorResponse`
@@ -759,7 +750,6 @@ rasm-process            = { path = "libs/rust/runtime/process" }
 rasm-telemetry          = { path = "libs/rust/runtime/telemetry" }
 rasm-console            = { path = "libs/rust/terminal/console" }
 rasm-tui                = { path = "libs/rust/terminal/tui" }
-rasm-grpc               = { path = "libs/rust/services/grpc" }
 rasm-http               = { path = "libs/rust/services/http" }
 rasm-ipc                = { path = "libs/rust/services/ipc" }
 rasm-mcp                = { path = "libs/rust/services/mcp" }
@@ -778,8 +768,6 @@ rasm-dependency-graph   = { path = "libs/rust/graphs/dependency-graph" }
 rasm-optimization       = { path = "libs/rust/numerics/optimization", default-features = false }
 rasm-signal-processing  = { path = "libs/rust/numerics/signal-processing" }
 rasm-arrow              = { path = "libs/rust/data/arrow" }
-rasm-store-proto        = { path = "apps/grpc/store/proto" }
-rasm-provisioning       = { path = "libs/rust/data/provisioning" }
 rasm-network-analysis   = { path = "libs/rust/graphs/network-analysis" }
 rasm-graph-layout       = { path = "libs/rust/graphs/graph-layout" }
 rasm-typst              = { path = "libs/rust/documents/typst" }
@@ -794,7 +782,6 @@ rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
 rasm-testing            = { path = "tests/rust/support" }
-rasm-infra-tests        = { path = "tests/rust/integration/infra" }
 rasm-mcp-tests          = { path = "libs/rust/services/tests/mcp" }
 mcp-muxer               = { path = "apps/mcp/muxer" }
 
@@ -981,7 +968,6 @@ sqlx             = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1d
 sqlx-core        = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`, one `sqlx-core` under `jiff-sqlx`, `pgvector`, `sea-schema`, and `oxtel-sql`
 sqlx-macros      = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
 sqlx-macros-core = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
-sqlx-postgres    = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
 sqlx-sqlite      = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`, its `libsqlite3-sys` bound below 0.40
 
 # --- [PROFILES] -------------------------------------------------------------------------

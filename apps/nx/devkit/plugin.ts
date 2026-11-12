@@ -102,10 +102,6 @@ const SOURCES = ['default', UPSTREAM] as const;
 const ALL_FILES = ['check', 'fix', 'test'];
 const NODE = { runtime: 'node --version' } as const;
 const MANIFESTS = '{package,project}.json';
-const COMPOSED = [
-    { dependencies: true, target: 'build--compose' },
-    { dependencies: true, target: 'serve--compose', waitFor: 'ready' },
-] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -195,7 +191,7 @@ const detached = <A extends object>(value: A) => parseJson<A>(JSON.stringify(val
 const targeted = (project: Project, plugin: Identity, sources: string, held: readonly Submodule[]): Readonly<Record<string, TargetConfiguration>> => {
     const technologies = [...project.technologies];
     const [clean, publish] = ['clean', 'nx-release-publish'] as const;
-    const defaults: Readonly<Record<string, TargetConfiguration>> = { [clean]: { executor: plugin.cleaner }, test: { dependsOn: [...COMPOSED] } };
+    const defaults: Readonly<Record<string, TargetConfiguration>> = { [clean]: { executor: plugin.cleaner } };
     const whole = Option.fromUndefinedOr(project.atoms);
     const split = Option.match(whole, { onNone: () => [], onSome: ({ name, verb, each }) => Record.collect(each, (key, target) => ({ verb, name: `${name}--${key}`, target })) });
     const attach: Members =
@@ -214,14 +210,13 @@ const targeted = (project: Project, plugin: Identity, sources: string, held: rea
         verb,
         name,
         target: { ...defaults[verb], ...target },
-        dependsOn: [...(target.dependsOn ?? []), ...(defaults[verb]?.dependsOn ?? [])],
     }));
     const renamed = (verb: string): Readonly<Record<string, string>> => ({ [UPSTREAM]: `^${sources}`, ...(ALL_FILES.includes(verb) ? {} : { default: sources }) });
-    const tools = stated.map(({ verb, name, target, dependsOn: waited }) => {
+    const tools = stated.map(({ verb, name, target }) => {
         const owned = [plugin.name, plugin.shared].some((owner) => target.executor?.startsWith(`${owner}:`) === true);
         const filled = (input: string) => held.filter(({ root }) => root !== project.root && (input === `{workspaceRoot}/${root}` || input.startsWith(`{workspaceRoot}/${root}/`)));
         const fills = Array.dedupe((target.inputs ?? []).filter(Predicate.isString).flatMap(filled));
-        const dependsOn = [...waited, ...fills.map(({ name: submodule }) => ({ projects: [submodule], target: 'build--git' }))];
+        const dependsOn = [...(target.dependsOn ?? []), ...fills.map(({ name: submodule }) => ({ projects: [submodule], target: 'build--git' }))];
         const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (Predicate.isString(input) ? (renamed(verb)[input] ?? input) : input)), ...(owned ? plugin.inputs : [])]);
         return {
             verb,

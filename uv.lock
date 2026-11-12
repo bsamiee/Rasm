@@ -26,7 +26,6 @@ members = [
     "rasm-records",
     "rasm-refurb",
     "rasm-refurb-tests",
-    "rasm-store-testing",
     "rasm-telemetry",
     "rasm-telemetry-tests",
     "rasm-testing",
@@ -2746,22 +2745,6 @@ dependencies = [
     { name = "numpy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/db/33/acd0ce6863b6c0d7735007df01815403f5589a21ff8c2e1ee2587a38f548/h5py-3.16.0.tar.gz", hash = "sha256:a0dbaad796840ccaa67a4c144a0d0c8080073c34c76d5a6941d6818678ef2738", size = 446526, upload-time = "2026-03-06T13:49:08.07Z" }
-
-[[package]]
-name = "hatchling"
-version = "1.33.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "packaging" },
-    { name = "pathspec" },
-    { name = "pluggy" },
-    { name = "tomlkit" },
-    { name = "trove-classifiers" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/7a/f1/e47b937226ae3b093bbd0132eb0b7ee5bfad12c2b5324afd10ae49946b05/hatchling-1.33.0.tar.gz", hash = "sha256:4c422bd4d554fcff5de5b73e9596f85e41e9f97f7e553d8f7595ecb31a627bef", size = 58079, upload-time = "2026-10-28T02:27:30.694Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/32/64/4afe5dd77b2939a93e8c9513f8082dbd049ecba9c1484a379a0f6ae29d6b/hatchling-1.33.0-py3-none-any.whl", hash = "sha256:415290b84f464d2884303fca8974d38e7b85579069fab02a15db0828fbb1446d", size = 78750, upload-time = "2026-10-28T02:27:29.033Z" },
-]
 
 [[package]]
 name = "heatshrink2"
@@ -7813,7 +7796,7 @@ test = [
     { name = "pytest-randomly" },
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
-    { name = "rasm-testing", extra = ["containers", "hosting", "sqlite"] },
+    { name = "rasm-testing", extra = ["hosting", "sqlite"] },
     { name = "testcontainers" },
 ]
 typography = [
@@ -8159,7 +8142,7 @@ test = [
     { name = "pytest-randomly" },
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
-    { name = "rasm-testing", extras = ["containers", "hosting", "sqlite"], editable = "tests/python/support" },
+    { name = "rasm-testing", extras = ["hosting", "sqlite"], editable = "tests/python/support" },
     { name = "testcontainers" },
 ]
 typography = [
@@ -8348,58 +8331,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "rasm-store-testing"
-version = "0.0.0"
-source = { editable = "tests/python/integration/store" }
-default-groups = "all"
-dependencies = [
-    { name = "clickhouse-connect" },
-    { name = "connectrpc" },
-    { name = "expression" },
-    { name = "msgspec" },
-    { name = "obstore" },
-    { name = "protobuf-py" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "psycopg-pool" },
-    { name = "pyqwest" },
-    { name = "pytest" },
-    { name = "pytest-socket" },
-    { name = "rasm-records" },
-    { name = "rasm-testing" },
-    { name = "redis", extra = ["hiredis"] },
-]
-
-[package.dev-dependencies]
-build = [
-    { name = "hatchling" },
-]
-suite = [
-    { name = "anyio" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "clickhouse-connect" },
-    { name = "connectrpc" },
-    { name = "expression" },
-    { name = "msgspec" },
-    { name = "obstore" },
-    { name = "protobuf-py" },
-    { name = "psycopg", extras = ["binary"] },
-    { name = "psycopg-pool" },
-    { name = "pyqwest" },
-    { name = "pytest" },
-    { name = "pytest-socket" },
-    { name = "rasm-records", editable = "libs/python/data/records" },
-    { name = "rasm-testing", editable = "tests/python/support" },
-    { name = "redis", extras = ["hiredis"] },
-]
-
-[package.metadata.requires-dev]
-build = [{ name = "hatchling" }]
-suite = [{ name = "anyio" }]
-
-[[package]]
 name = "rasm-telemetry"
 version = "0.0.0"
 source = { editable = "libs/python/runtime/telemetry" }
@@ -8516,16 +8447,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-containers = [
-    { name = "boto3" },
-    { name = "clickhouse-connect" },
-    { name = "msgspec" },
-    { name = "obstore" },
-    { name = "psycopg", extra = ["binary"] },
-    { name = "psycopg-pool" },
-    { name = "redis", extra = ["hiredis"] },
-    { name = "testcontainers" },
-]
 hosting = [
     { name = "anyio" },
     { name = "hypercorn" },
@@ -8538,23 +8459,15 @@ sqlite = [
 [package.metadata]
 requires-dist = [
     { name = "anyio", marker = "extra == 'hosting'" },
-    { name = "boto3", marker = "extra == 'containers'" },
-    { name = "clickhouse-connect", marker = "extra == 'containers'" },
     { name = "expression" },
     { name = "hypercorn", marker = "extra == 'hosting'" },
-    { name = "msgspec", marker = "extra == 'containers'" },
     { name = "msgspec", marker = "extra == 'hosting'" },
-    { name = "obstore", marker = "extra == 'containers'" },
-    { name = "psycopg", extras = ["binary"], marker = "extra == 'containers'" },
-    { name = "psycopg-pool", marker = "extra == 'containers'" },
     { name = "pytest" },
     { name = "pytest-socket" },
     { name = "rasm-records", editable = "libs/python/data/records" },
-    { name = "redis", extras = ["hiredis"], marker = "extra == 'containers'" },
     { name = "sqlite-vec", marker = "extra == 'sqlite'" },
-    { name = "testcontainers", marker = "extra == 'containers'" },
 ]
-provides-extras = ["containers", "hosting", "sqlite"]
+provides-extras = ["hosting", "sqlite"]
 
 [[package]]
 name = "rasm-typography"
@@ -9500,15 +9413,6 @@ wheels = [
 ]
 
 [[package]]
-name = "tomlkit"
-version = "0.15.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/08/72/fc01563df95c189a9f65850096bdc205bc2fe37da6c740cd64afaf18d07e/tomlkit-0.15.2.tar.gz", hash = "sha256:83e32755ba1d20d9340bd069ee97e9f6232ba2346b63ffcba425de01f7e327a6", size = 190522, upload-time = "2026-10-16T04:07:08.166Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/46/7d84138a60a8bd796825b2d38ebe92d0d16501ca57d501b7c5d677401bbc/tomlkit-0.15.2-py3-none-any.whl", hash = "sha256:05562412163a3037b94497385fb7f9204c637bc605af7a48199e41cf2272f437", size = 52225, upload-time = "2026-10-16T04:07:09.216Z" },
-]
-
-[[package]]
 name = "toolz"
 version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -9568,15 +9472,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/77/8a/0798e6cd28e2d1c6a7dfc97ba8eb27f7da5f392a5c81147d4f1e41ce0c1b/trimesh-5.2.0.tar.gz", hash = "sha256:d0a845d058e5a4ff145d0f0082d80c58d761687ce389c79d422dbe774966957b", size = 880133, upload-time = "2026-10-24T01:10:30.021Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/51/14/78624d9c89bab76c2a2e1e839c7641fa686828c2c1c8fb64aedf3b371a5d/trimesh-5.2.0-py3-none-any.whl", hash = "sha256:04db2c7ec62afdd7763fb04c82bb5f257ddd984993a19ee83697f475fc58fd29", size = 751459, upload-time = "2026-10-24T01:10:27.874Z" },
-]
-
-[[package]]
-name = "trove-classifiers"
-version = "2026.9.21.13"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bf/93/af436dfaa845cab5d96f0adbc1e4f3730532d37fa249e4eb796fb1d7fc82/trove_classifiers-2026.9.21.13.tar.gz", hash = "sha256:0a9ebc8d4e2f3e8a22848c5258033035bec17a3012ac3fea16dbaa764489eb71", size = 17085, upload-time = "2026-09-21T13:29:07.301Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/81/0da8afb52a71d0a4f2bd3152357b1a441e393b286374802b9d3addab4ab5/trove_classifiers-2026.9.21.13-py3-none-any.whl", hash = "sha256:8b1ff4f9c191b1040b71c37f1e445ab99732911e3cd91de52838453a854d7a17", size = 14232, upload-time = "2026-09-21T13:29:06.123Z" },
 ]
 
 [[package]]

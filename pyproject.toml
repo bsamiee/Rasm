@@ -43,7 +43,7 @@ test                  = [
     "pytest-randomly",                                                            # Random test order and seeds
     "pytest-socket",                                                              # Block unrequested network connections
     "pytest-timeout",                                                             # Per-test deadline
-    "rasm-testing[containers,hosting,sqlite]",                                    # SQLite, container, and hosted server fixtures, each loaded by pytest as a plugin
+    "rasm-testing[hosting,sqlite]",                                               # SQLite and hosted server fixtures, each loaded by pytest as a plugin
     "testcontainers",                                                             # Disposable service containers a test starts, stops, and restarts, with Postgres, ClickHouse, Valkey, MinIO, and Kafka modules in one distribution
 ]
 core                  = [
@@ -386,7 +386,6 @@ members = [
     "libs/python/runtime/cli",
     "libs/python/runtime/telemetry",
     "libs/python/runtime/tests/telemetry",
-    "tests/python/integration/store",
     "tests/python/support",
     "tools/refurb",
     "tools/tests/refurb",
@@ -489,7 +488,7 @@ CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
 cache-dir   = ".cache/ruff"
 preview     = true
 line-length = 200
-src         = ["apps/cli/*", "apps/cli/tests/*", "libs/python/*/*", "libs/python/*/tests/*", "tests/python/integration/*", "tests/python/support", "tools/refurb", "tools/tests/*"]
+src         = ["apps/cli/*", "apps/cli/tests/*", "libs/python/*/*", "libs/python/*/tests/*", "tests/python/support", "tools/refurb", "tools/tests/*"]
 format      = { exclude = ["*.md"], docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
@@ -805,13 +804,11 @@ addopts                   = [
     "-p",
     "randomly",
     "-p",
-    "rasm_testing.containers",                  # Testcontainers servers of `tests/python/support`
-    "-p",
     "rasm_testing.hosting",                     # Hosted HTTP servers of `tests/python/support`
     "-p",
     "rasm_testing.sqlite",                      # SQLite database of `tests/python/support`
     "-p",
-    "pytest_socket",                            # Named by its module, the entry point name `socket` being the standard library module the server plugins import first
+    "pytest_socket",                            # Named by its module, the entry point name `socket` being the standard library module the hosting plugin imports first
     "-p",
     "timeout",
     "--tb=short",
@@ -821,7 +818,7 @@ addopts                   = [
 ]
 filterwarnings            = ["error"]
 timeout                   = "30"
-tmp_path_retention_policy = "failed"            # Keeps the folders of failed tests alone, as a store is kept for its failed test
+tmp_path_retention_policy = "failed"            # Keeps the folders of failed tests alone, as the SQLite fixture keeps the file of a failed test
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 
