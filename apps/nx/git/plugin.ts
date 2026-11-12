@@ -18,12 +18,15 @@ const { createNodes } = inferred({
             members: {
                 build: {
                     git: {
-                        command: line(['git', 'submodule', 'update', '--init', '--checkout', root]),
+                        command: `${line(['git', 'submodule', 'update', '--init', '--rebase', root])} && ${line(['git', '-C', root, 'lfs', 'pull'])}`,
                         cache: false,
                         inputs: [path.join('{workspaceRoot}', path.dirname(file), root)],
                         outputs: ['{projectRoot}'],
                         options: { cwd: path.dirname(file), env: { GIT_TERMINAL_PROMPT: '0' } },
-                        metadata: { description: `Fills ${root} at the commit the repository records for it with git submodule update, cloning it on first use`, help: { command: 'git submodule update --help', example: { args: ['--depth', '1'] } } },
+                        metadata: {
+                            description: `Fills ${root} at the commit the repository records for it with git submodule update, cloning it on first use and rebasing its local commits onto that commit, then downloads its LFS files with git lfs pull`,
+                            help: { command: 'git submodule update --help', example: { args: ['--depth', '1'] } },
+                        },
                     },
                 },
             },

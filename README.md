@@ -120,6 +120,8 @@ flowchart LR
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
 - Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
 - `@rasm/nx-git` infers a project per `.gitmodules` path with a `build--git` target filling it at the recorded commit, which a target reading a file under it depends on
+- `build--git` rebases commits made inside a submodule onto the recorded commit and keeps uncommitted edits, so a build reads the folder as it stands
+- CI checks a submodule out with LFS pointers, and `build--git` downloads its LFS files, so they transfer only in a run where a task reads the submodule
 - `.nxignore` keeps submodule files out of the Nx file map, and targets read the ones they name from disk
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
 - Checkers report every finding as an error through their own configuration
@@ -163,7 +165,7 @@ flowchart LR
 - `clean` removes the outputs a project's targets declare and runs its tool's clean
 
 Other tasks run through their own commands:
-- `nx build assets` fills `assets/` at the commit the repository records, and a target reading a file under it runs that first
+- `nx build assets` fills `assets/` at the commit the repository records, keeping local commits and edits, and a target reading a file under it runs that first
 - `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
