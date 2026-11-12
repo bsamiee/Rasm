@@ -58,7 +58,7 @@ public sealed class AmbientClockAnalyzer : DiagnosticAnalyzer {
             ISymbol? system = start.Compilation.Options.OutputKind is OutputKind.ConsoleApplication or OutputKind.WindowsApplication or OutputKind.WindowsRuntimeApplication
                 ? null : Declared(start.Compilation, "P:System.TimeProvider.System").FirstOrDefault();
             Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.MethodReference, OperationKind.ObjectCreation], (operation, _) =>
-                (operation switch { IObjectCreationOperation creation => creation.Constructor, _ => Target(operation) }) is not { } member || Inside<INameOfOperation>(operation) ? []
+                Target(operation) is not { } member || Inside<INameOfOperation>(operation) ? []
                 : Same(member, system) ? [Diagnostic.Create(System, operation.Syntax.GetLocation(), operation.Syntax)]
                 : readings.FirstOrDefault(row => Same(row.Symbol, member) || Same(row.Symbol, member.ContainingType)) is { Symbol: not null } row
                     ? [Diagnostic.Create(Clock, operation.Syntax.GetLocation(), operation.Syntax, row.Remedy)]
@@ -98,6 +98,7 @@ public sealed class RuntimeBindingAnalyzer : DiagnosticAnalyzer {
         ("System.Reflection.TypeInfo", ["DeclaredConstructors"], Any, "lists non-public constructors", "call a declared factory or public constructor"),
         ("System.Runtime.CompilerServices.RuntimeHelpers", ["GetUninitializedObject"], Any, "creates an instance without running a constructor", "call a declared factory or public constructor"),
         ("System.Runtime.Serialization.FormatterServices", ["GetUninitializedObject", "GetSafeUninitializedObject"], Any, "creates an instance without running a constructor", "call a declared factory or public constructor"),
+        ("System.Linq.Expressions.LambdaExpression", ["Compile"], Any, "compiles an expression tree at run time", "take the delegate and its call text through `[CallerArgumentExpression]`"),
         ("System.Linq.Expressions.Expression`1", ["Compile"], Any, "compiles an expression tree at run time", "take the delegate and its call text through `[CallerArgumentExpression]`"),
     ];
 
@@ -142,12 +143,13 @@ public sealed class PlaceholderValueAnalyzer : DiagnosticAnalyzer {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start => {
-            WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
-            INamedTypeSymbol? empty = types.GetOrCreateTypeByMetadataName("Thinktecture.Empty");
-            ImmutableArray<ISymbol> disposables = Declared(start.Compilation, "P:System.Reactive.Disposables.Disposable.Empty");
-            if (empty is null && disposables.IsEmpty) return;
-            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.MethodReference], (operation, _) =>
-                Target(operation) is { } member && !Inside<INameOfOperation>(operation) && (Same(member.ContainingType, empty) || Among(member, disposables))
+            ImmutableArray<ISymbol> placeholders = [
+                .. Members(WellKnownTypeProvider.GetOrCreate(start.Compilation).GetOrCreateTypeByMetadataName("Thinktecture.Empty"), "Action", "Disposable", "AsyncDisposable"),
+                .. Declared(start.Compilation, "P:System.Reactive.Disposables.Disposable.Empty"),
+            ];
+            if (placeholders.IsEmpty) return;
+            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.MethodReference], (operation, _) =>
+                Target(operation) is { } member && !Inside<INameOfOperation>(operation) && Among(member, placeholders)
                     ? [Diagnostic.Create(Rule, operation.Syntax.GetLocation(), operation.Syntax)]
                     : []);
         });
@@ -208,7 +210,7 @@ public sealed class PlatformMemberAnalyzer : DiagnosticAnalyzer {
         Categories.CSharp,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "`Path.GetInvalidFileNameChars` and `GetInvalidPathChars` return NUL and `/` alone on macOS and Linux, so names they pass fail on Windows.",
+        "`Path.GetInvalidFileNameChars` returns NUL and `/` alone and `GetInvalidPathChars` NUL alone on macOS and Linux, so names they pass fail on Windows.",
         Link("RASM3111"));
 
     private static readonly DiagnosticDescriptor Lanes = new(

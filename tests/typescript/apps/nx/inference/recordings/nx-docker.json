@@ -19,26 +19,6 @@
         "stdout": "{}\n\n",
         "stderr": ""
     },
-    "14273771863038985835 a;touch pwned;$(id)$ docker compose config --format json --no-interpolate": {
-        "code": 0,
-        "stdout": "{\n  \"name\": \"pwned\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"pwned_default\"\n    }\n  },\n  \"services\": {\n    \"cache\": {\n      \"image\": \"valkey/valkey:8\",\n      \"networks\": {\n        \"default\": null\n      }\n    }\n  }\n}",
-        "stderr": ""
-    },
-    "14273771863038985835 a;touch pwned;$(id)$ docker compose config --variables --format json": {
-        "code": 0,
-        "stdout": "{}\n\n",
-        "stderr": ""
-    },
-    "14273771863038985835 my proj$ docker compose config --format json --no-interpolate": {
-        "code": 0,
-        "stdout": "{\n  \"name\": \"spaced\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"spaced_default\"\n    }\n  },\n  \"services\": {\n    \"app\": {\n      \"build\": {\n        \"context\": \"<root>/my proj\",\n        \"dockerfile\": \"Dockerfile\"\n      },\n      \"networks\": {\n        \"default\": null\n      }\n    }\n  }\n}",
-        "stderr": ""
-    },
-    "14273771863038985835 my proj$ docker compose config --variables --format json": {
-        "code": 0,
-        "stdout": "{}\n\n",
-        "stderr": ""
-    },
     "14299634551310500091 stack$ docker compose config --format json --no-interpolate": {
         "code": 0,
         "stdout": "{\n  \"name\": \"stack\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"stack_default\"\n    }\n  },\n  \"services\": {\n    \"api\": {\n      \"build\": {\n        \"context\": \"<root>/api\",\n        \"dockerfile\": \"Dockerfile\"\n      },\n      \"networks\": {\n        \"default\": null\n      },\n      \"profiles\": [\n        \"app\"\n      ]\n    },\n    \"cache\": {\n      \"image\": \"valkey/valkey:8\",\n      \"networks\": {\n        \"default\": null\n      }\n    },\n    \"site\": {\n      \"build\": {\n        \"context\": \"<root>/dist/web\",\n        \"dockerfile_inline\": \"FROM scratch\"\n      },\n      \"networks\": {\n        \"default\": null\n      },\n      \"profiles\": [\n        \"app\"\n      ]\n    }\n  }\n}",
@@ -53,6 +33,26 @@
         "code": 1,
         "stdout": "",
         "stderr": "go-yaml load error in parser (while parsing a flow sequence) at L4.C16-L5.C1: did not find expected ',' or ']'\n"
+    },
+    "15795385975738017872 a;touch pwned;$(id)$ docker compose config --format json --no-interpolate": {
+        "code": 0,
+        "stdout": "{\n  \"name\": \"pwned\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"pwned_default\"\n    }\n  },\n  \"services\": {\n    \"cache\": {\n      \"build\": {\n        \"context\": \"<root>/a;touch pwned;$(id)\",\n        \"dockerfile\": \"Dockerfile\"\n      },\n      \"networks\": {\n        \"default\": null\n      }\n    }\n  }\n}",
+        "stderr": ""
+    },
+    "15795385975738017872 a;touch pwned;$(id)$ docker compose config --variables --format json": {
+        "code": 0,
+        "stdout": "{}\n\n",
+        "stderr": ""
+    },
+    "15795385975738017872 my proj$ docker compose config --format json --no-interpolate": {
+        "code": 0,
+        "stdout": "{\n  \"name\": \"spaced\",\n  \"networks\": {\n    \"default\": {\n      \"name\": \"spaced_default\"\n    }\n  },\n  \"services\": {\n    \"app\": {\n      \"build\": {\n        \"context\": \"<root>/my proj\",\n        \"dockerfile\": \"Dockerfile\"\n      },\n      \"networks\": {\n        \"default\": null\n      }\n    }\n  }\n}",
+        "stderr": ""
+    },
+    "15795385975738017872 my proj$ docker compose config --variables --format json": {
+        "code": 0,
+        "stdout": "{}\n\n",
+        "stderr": ""
     },
     "16420136132546288466 stack$ docker compose config --format json --no-interpolate": {
         "code": 0,

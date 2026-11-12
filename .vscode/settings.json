@@ -50,7 +50,7 @@
         "clippy.toml": "nextest.toml, rustfmt.toml",
         "CMakeLists.txt": "*.cmake, CMakePresets.json",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "hk.pkl": ".globalconfig, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
+        "hk.pkl": ".globalconfig, jscpd.json, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
         "Info.plist": "*.entitlements",
         "mise.toml": "mise.lock, mise.*.toml, miserc.toml",
         "nx.json": ".editorconfig, sgconfig.yml",

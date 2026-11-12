@@ -3,7 +3,7 @@ import { platform } from 'node:process';
 import type { TargetConfiguration } from '@nx/devkit';
 import { ancestors, inferred, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { present } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, Function, Option, Path, Result, Schema, Struct } from 'effect';
+import { Array, Effect, FileSystem, Function, Option, Path, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type Fields, HOSTS, type Host } from '#/host-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -91,12 +91,16 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, placed
                 check: standalone === true && build !== undefined ? { [technology]: { executor: 'nx:noop', dependsOn: [`build--${technology}`], metadata: { description: 'Compiles the project as its check' } } } : {},
                 install: installs,
             },
-            ...(publish !== undefined && {
+            ...(archive !== undefined && {
                 publish: {
                     executor: `${plugin.name}:release-publish`,
-                    defaultConfiguration: 'release',
-                    configurations: { release: {} },
-                    metadata: { description: `Publishes the ${technology} packages build wrote in its release configuration to ${publish.store} through ${publish.command}` },
+                    dependsOn: [build === undefined ? 'build' : `build--${technology}`],
+                    metadata: {
+                        description: UndefinedOr.match(publish, {
+                            onUndefined: () => `Attaches the ${archive} packages build wrote to the project's GitHub release through gh release upload`,
+                            onDefined: ({ store, command }) => `Attaches the ${archive} packages build wrote to the project's GitHub release through gh release upload, then publishes them to ${store} through ${command}`,
+                        }),
+                    },
                 },
             }),
             ...(write !== undefined && { release: { manifest: path.relative(item.root, item.file) } }),

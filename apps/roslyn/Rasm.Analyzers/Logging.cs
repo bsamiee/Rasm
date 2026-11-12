@@ -158,11 +158,14 @@ public sealed class StaticSinkAnalyzer : DiagnosticAnalyzer {
             WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
             ImmutableArray<INamedTypeSymbol> sinks = [.. Sinks.Select(types.GetOrCreateTypeByMetadataName).OfType<INamedTypeSymbol>()];
             ImmutableArray<IMethodSymbol> logs = Members(types.GetOrCreateTypeByMetadataName("System.Diagnostics.Debugger"), "Log");
-            INamedTypeSymbol? console = start.Compilation.Options.OutputKind is OutputKind.ConsoleApplication or OutputKind.WindowsApplication or OutputKind.WindowsRuntimeApplication
-                ? null : types.GetOrCreateTypeByMetadataName("System.Console");
-            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.FieldReference, OperationKind.EventReference, OperationKind.MethodReference, OperationKind.ObjectCreation], (operation, _) =>
-                (operation switch { IObjectCreationOperation creation => creation.Constructor, _ => Target(operation) }) is not { } member || Inside<INameOfOperation>(operation) ? []
-                : Same(member.ContainingType, console) ? [Diagnostic.Create(Console, operation.Syntax.GetLocation(), operation.Syntax)]
+            ImmutableArray<ISymbol> console = start.Compilation.Options.OutputKind is OutputKind.ConsoleApplication or OutputKind.WindowsApplication or OutputKind.WindowsRuntimeApplication ? []
+                : [
+                    .. Members(types.GetOrCreateTypeByMetadataName("System.Console"), "Write", "WriteLine", "SetOut", "SetError", "OpenStandardOutput", "OpenStandardError"),
+                    .. Declared(start.Compilation, "P:System.Console.Out", "P:System.Console.Error"),
+                ];
+            Report<IOperation>(start, [OperationKind.Invocation, OperationKind.PropertyReference, OperationKind.MethodReference, OperationKind.ObjectCreation], (operation, _) =>
+                Target(operation) is not { } member || Inside<INameOfOperation>(operation) ? []
+                : Among(member, console) ? [Diagnostic.Create(Console, operation.Syntax.GetLocation(), operation.Syntax)]
                 : Among(member.ContainingType, sinks) || Among(member, logs) ? [Diagnostic.Create(Sink, operation.Syntax.GetLocation(), operation.Syntax, member.ContainingType.Name)]
                 : []);
         });
@@ -181,7 +184,7 @@ public sealed class LoggerCategoryAnalyzer : DiagnosticAnalyzer {
         Categories.Logging,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "Logger categories derive from the type that logs through `CreateLogger<T>()` or `CreateLogger(Type)`, a string category drifts from the type it names.",
+        "Logger categories derive from the type that logs through `ILoggerFactory` `CreateLogger<T>()` or `CreateLogger(Type)`, a string category drifts from the type it names.",
         Link("RASM1205"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];

@@ -1,9 +1,16 @@
-FROM rust AS build
+FROM chef AS toolchain
 WORKDIR /src
+ENV CARGO_TARGET_DIR=/src/target CARGO_BUILD_BUILD_DIR=/src/target
 COPY rust-toolchain.toml ./
 RUN rustup toolchain install
+FROM toolchain AS planner
 COPY --parents Cargo.toml Cargo.lock .cargo/config.toml apps/grpc apps/mcp libs/rust tests/rust tools/dylint ./
-RUN --mount=type=cache,target=/usr/local/cargo/registry --mount=type=cache,target=/usr/local/cargo/git --mount=type=cache,target=.cache/rust --mount=type=cache,target=.artifacts/rust cargo build --locked --profile dist --package rasm-store && cp .artifacts/rust/dist/rasm-store /
+RUN cargo chef prepare --recipe-path recipe.json
+FROM toolchain AS build
+COPY --from=planner /src/recipe.json ./
+RUN cargo chef cook --profile dist --package rasm-store --recipe-path recipe.json
+COPY --parents Cargo.toml Cargo.lock .cargo/config.toml apps/grpc apps/mcp libs/rust tests/rust tools/dylint ./
+RUN cargo build --locked --profile dist --package rasm-store
 FROM distroless
-COPY --from=build /rasm-store /
+COPY --from=build /src/target/dist/rasm-store /
 ENTRYPOINT ["/rasm-store"]

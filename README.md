@@ -149,15 +149,15 @@ Other tasks run through their own commands:
 - `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
-- Workflow `release.yml` runs `nx release --skip-publish`, a `-c release` build, tag uploads, then `nx release publish`, which takes no configuration
-- Tag uploads add a tag's `build--*` output files that name its version to its GitHub release, and a `.dmg` to its app's `SUFeedURL` Sparkle feed
-- Dispatch inputs of `release.yml` reach both `nx release` runs: `specifier` (empty reads conventional commits), `first-release`, and `dry-run`, on by default
+- Workflow `release.yml` runs `nx release --skip-publish` (versions, tags, a GitHub release per project), then `nx release publish`
+- Workflow `renovate.yml` runs Renovate daily: catalogs, manifests, locks, mise tools, and action pins move to their newest release and merge
+- Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, and `dry-run`, on by default
+- Publish targets depend on the target that packages their files, npm alone takes a `-c release` build step first, as Nx makes that publish target itself
 - `doppler run --config release --command 'nx build <app> -c release'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
 - `nx install @rasm/infra` starts local services of `infra/compose.yaml`, `-c <profile>` adds the services of one profile
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx deploy @rasm/infra` applies the repository and deployed-host stacks
-- Workflow `renovate.yml` runs Renovate daily, which moves catalogs, manifests, locks, mise tools, and workflow action pins to their newest release and merges each change once its checks pass
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
 - `nx sync` writes each executor's `schema.json` and `executors.json` description from its declared options schema, `nx sync:check` fails on a stale one
 - `mise deps` builds Python distributions against Pixi libraries when `pixi.lock`, `pyproject.toml`, or `uv.lock` changed, through `pixi run --locked uv sync`
@@ -165,14 +165,14 @@ Other tasks run through their own commands:
 
 ## [05]-[DELIVERY]
 
-Packaging turns a build into the one file its host or store takes, and every channel delivers that file:
+Packaging turns a build into the files its host, registry, or store takes, and install and publish each use those files:
 - Hosts and ecosystems decide package format (`.yak`, `.nupkg`, wheel, `.dmg`)
-- Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never its store
+- Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never where it publishes
 - Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
-- Releases version and tag a project, its GitHub release the direct-download channel
-- Release assets hold native files unwrapped, and a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`
-- Publishing pushes the same packaged file to its host's or ecosystem's official store
-- GitHub releases are a primary channel for host plugins and apps, for libraries the registry is canonical and release assets optional
+- Releases version and tag a project through `nx release`, and its GitHub release holds the packaged files `nx-release-publish` attaches
+- Publishing delivers those files by each destination's own command (`pnpm publish`, `dotnet nuget push`, `uv publish`, `yak push`), skipping what it holds
+- Release assets hold native files unwrapped, a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`, and a `.dmg` gets a Sparkle feed in R2
+- Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built
 
 ## [06]-[OWNERS]
 

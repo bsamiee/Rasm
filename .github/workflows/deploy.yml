@@ -8,10 +8,8 @@ on:
                 required: true
                 type: string
 
-permissions: {}
-
 concurrency:
-    group: deploy-${{ inputs.stack }}
+    group: ${{ github.workflow }}-${{ inputs.stack }}
     cancel-in-progress: false
 
 defaults:
@@ -28,10 +26,7 @@ jobs:
             id-token: write
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
-            - run: pnpm install
+            - uses: ./.github/actions/setup
             - if: vars.TAILSCALE_OAUTH_CLIENT_ID != ''
               uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4.4.0
               with:

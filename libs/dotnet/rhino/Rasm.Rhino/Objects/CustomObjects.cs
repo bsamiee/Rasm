@@ -55,9 +55,12 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
 
     // --- [DOCUMENTS]
 
-    internal IO<Guid> Added(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Func<TGeometry, IO<RhinoObject>> add) =>
+    internal IO<Guid> Added<TObject>(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Func<TGeometry, IO<TObject>> fresh, Action<TObject, TGeometry> add) where TObject : RhinoObject =>
         from built in IO.lift(() => Built(state))
-        from added in use(() => built).Bind(add).Map(static fresh => fresh.Id).Bracket()
+        from added in use(() => built).Bind(geometry => fresh(geometry).Map(made => {
+            add(made, geometry);
+            return made.Id;
+        })).Bracket()
         from id in IO.lift(Conversions.Required(Conversions.Present(added)))
         from written in attributes.Traverse(held => Products.Accepted(() => doc.Objects.ModifyAttributes(id, held, quiet: true))).As()
         select id;
@@ -127,10 +130,7 @@ public abstract class DefinedCurveObject<TSelf, TState> : CustomCurveObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Option<HistoryRecord> history) =>
-        new ObjectBody<TState, Curve>(TSelf.Definition).Added(doc, state, attributes, curve => Fresh(curve).Map(fresh => {
-            doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe());
-            return (RhinoObject)fresh;
-        }));
+        new ObjectBody<TState, Curve>(TSelf.Definition).Added(doc, state, attributes, Fresh, (fresh, _) => doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe()));
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
 
@@ -170,10 +170,7 @@ public abstract class DefinedMeshObject<TSelf, TState> : CustomMeshObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes, Option<HistoryRecord> history) =>
-        new ObjectBody<TState, Mesh>(TSelf.Definition).Added(doc, state, attributes, mesh => Fresh(mesh).Map(fresh => {
-            doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe());
-            return (RhinoObject)fresh;
-        }));
+        new ObjectBody<TState, Mesh>(TSelf.Definition).Added(doc, state, attributes, Fresh, (fresh, _) => doc.Objects.AddRhinoObject(fresh, history.ValueUnsafe()));
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
 
@@ -215,10 +212,7 @@ public abstract class DefinedBrepObject<TSelf, TState> : CustomBrepObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes) =>
-        new ObjectBody<TState, Brep>(TSelf.Definition).Added(doc, state, attributes, brep => use(static () => new TSelf()).Map(fresh => {
-            doc.Objects.AddRhinoObject(fresh, brep);
-            return (RhinoObject)fresh;
-        }));
+        new ObjectBody<TState, Brep>(TSelf.Definition).Added(doc, state, attributes, static _ => use(static () => new TSelf()), (fresh, brep) => doc.Objects.AddRhinoObject(fresh, brep));
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
 
@@ -252,10 +246,7 @@ public abstract class DefinedPointObject<TSelf, TState> : CustomPointObject
     // --- [DOCUMENTS]
 
     public static IO<Guid> Add(RhinoDoc doc, TState state, Option<ObjectAttributes> attributes) =>
-        new ObjectBody<TState, Point>(TSelf.Definition).Added(doc, state, attributes, point => use(static () => new TSelf()).Map(fresh => {
-            doc.Objects.AddRhinoObject(fresh, point);
-            return (RhinoObject)fresh;
-        }));
+        new ObjectBody<TState, Point>(TSelf.Definition).Added(doc, state, attributes, static _ => use(static () => new TSelf()), (fresh, point) => doc.Objects.AddRhinoObject(fresh, point));
 
     public IO<Unit> Edit(RhinoDoc doc, Func<TState, TState> change) => body.Edited(this, doc, change);
 

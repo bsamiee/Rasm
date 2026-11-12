@@ -14,11 +14,13 @@ namespace Rasm.Rhino.Document.Files;
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class InputPath {
-    public static Fin<InputPath> Of(string path) =>
+    public static Fin<InputPath> Of(string path) => Existing(path, File.Exists).Map(static held => new InputPath(held));
+
+    internal static Fin<string> Existing(string path, Func<string, bool> exists) =>
         path switch {
             _ when !Path.IsPathFullyQualified(path) => new RhinoFault(path, RhinoReason.Unqualified),
-            _ when !File.Exists(path) => new RhinoFault(path, RhinoReason.Missing),
-            _ => new InputPath(path),
+            _ when !exists(path) => new RhinoFault(path, RhinoReason.Missing),
+            _ => path,
         };
 }
 
@@ -26,12 +28,7 @@ public sealed partial class InputPath {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FolderPath {
-    public static Fin<FolderPath> Of(string path) =>
-        path switch {
-            _ when !Path.IsPathFullyQualified(path) => new RhinoFault(path, RhinoReason.Unqualified),
-            _ when !Directory.Exists(path) => new RhinoFault(path, RhinoReason.Missing),
-            _ => new FolderPath(path),
-        };
+    public static Fin<FolderPath> Of(string path) => InputPath.Existing(path, Directory.Exists).Map(static held => new FolderPath(held));
 
     public static Fin<FolderPath> Installed(Assembly assembly) =>
         Optional(Path.GetDirectoryName(assembly.Location)).ToFin(new RhinoFault(assembly.Location, RhinoReason.Missing)).Bind(Of);

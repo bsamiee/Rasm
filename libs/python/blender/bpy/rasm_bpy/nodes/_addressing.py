@@ -116,11 +116,13 @@ class OwnedNodes(msgspec.Struct, frozen=True, kw_only=True):
         own = interface.sockets
 
         def addressed(key: Key, node: bpy.types.Node) -> Mapping[str, str]:
-            match node:
-                case bpy.types.NodeGroupInput() | bpy.types.NodeGroupOutput():
+            match node, contents.get(key):
+                case (bpy.types.NodeGroupInput() | bpy.types.NodeGroupOutput(), _):
                     return own
+                case (_, ItemContent() as content):
+                    return content.sockets(node, identity)
                 case _:
-                    return Option.of_optional(try_downcast(ItemContent, contents.get(key))).map(lambda content: content.sockets(node, identity)).default_value(dict[str, str]())
+                    return dict[str, str]()
 
         return cls(interface=interface, nodes=nodes, sockets={key: addressed(key, node) for key, node in nodes.items()})
 

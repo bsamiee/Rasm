@@ -13,7 +13,7 @@ const Package = Schema.Struct({
 }).annotate({
     title: 'Package',
     description:
-        "Zips each archived app and each SwiftPM executable product's release build with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity, exports each archive under it into a disk image, signs it, notarizes it with that App Store Connect key, and staples the ticket",
+        'Zips each archived app and each SwiftPM executable product, built in release first, with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity, exports each archive under it into a disk image, signs it, notarizes it with that App Store Connect key, and staples the ticket',
 });
 const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schema.String, [SHORT_VERSION]: Schema.String }));
 
@@ -49,8 +49,11 @@ const execute = executor(
                 ],
             });
         });
-        const built = Array.zipWith(Array.zip(products, binaries), versions, ([{ product, folder }, bin], version): readonly [string, ...string[]] => ['ditto', '-c', '-k', path.join(bin.trim(), product), path.join(folder, `${product}-${version.trim()}.zip`), ...args]);
-        return yield* commands({ runs: [...archived, ...built] }, context.root);
+        const built = Array.zipWith(Array.zip(products, binaries), versions, ([{ package: root, product, folder }, bin], version): readonly (readonly [string, ...string[]])[] => [
+            ['swift', 'build', '--package-path', root, '--configuration', 'release', '--product', product, '--force-resolved-versions'],
+            ['ditto', '-c', '-k', path.join(bin.trim(), product), path.join(folder, `${product}-${version.trim()}.zip`), ...args],
+        ]);
+        return yield* commands({ runs: [...archived, ...built.flat()] }, context.root);
     }),
 );
 

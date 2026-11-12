@@ -1,11 +1,11 @@
 import { constants, openAsBlob } from 'node:fs';
-import { glob } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, join, matchesGlob } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
-import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
-import { getDependencyConfigs, globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
+import type { ExecutorContext } from '@nx/devkit';
+import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
+import { written } from '@rasm/nx-devkit/executor';
 import { PLATFORM } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
 import ast from '@xml-tools/ast';
@@ -138,49 +138,16 @@ const entry = (file: string, name: string) =>
 
 const located = Effect.fnUntraced(function* (context: ExecutorContext, start: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const project = yield* Effect.fromNullishOr(context.projectName);
-    const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
-    const targets = node.data.targets ?? {};
+    const { project, node, selected, outputs, files } = yield* written(context, start);
     const rows = HOSTS.filter(({ technology }) => node.data.metadata?.technologies?.includes(technology) === true);
-    const running = Record.fromIterableWith(
-        Object.values(context.taskGraph?.tasks ?? {}).filter(({ target }) => target.project === project),
-        ({ target }) => [target.target, target.configuration],
-    );
-    const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
-        const next = new Set([
-            ...names,
-            ...[...names]
-                .flatMap((name) => getDependencyConfigs({ project, target: name }, {}, context.projectGraph, Record.keys(targets)) ?? [])
-                .filter(({ projects }) => projects?.includes(project) === true)
-                .map(({ target }) => target),
-        ]);
-        return next.size === names.size ? names : reached(next);
-    };
-    const selected = [...reached(new Set([start]))].filter((target) => target !== start && target in targets);
-    const outputs = selected
-        .filter((target) => targets[target]?.outputs !== undefined)
-        .flatMap((target) => {
-            const configuration = running[target] ?? context.configurationName ?? targets[target]?.defaultConfiguration;
-            return getOutputsForTargetAndConfiguration({ project, target, ...(configuration === undefined ? {} : { configuration }) }, {}, node);
-        });
-    const listed = yield* Stream.runCollect(
-        Stream.fromAsyncIterable(
-            glob(
-                outputs.filter((output) => !output.startsWith('!')).flatMap((output) => [output, path.join(output, '**')]),
-                { cwd: context.root, exclude: outputs.filter((output) => output.startsWith('!')).map((output) => output.slice(1)), withFileTypes: true },
-            ),
-            ToolError.of(project, 'cannot list its build outputs'),
-        ),
-    );
-    const written = Array.dedupe(listed.filter((dirent) => dirent.isFile()).map((dirent) => path.resolve(context.root, dirent.parentPath, dirent.name)));
-    const sources = Array.isReadonlyArrayNonEmpty(selected) ? written : (yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(node.data.root, '**')]))).map((file) => path.join(context.root, file));
+    const sources = Array.isReadonlyArrayNonEmpty(selected) ? files : (yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(node.data.root, '**')]))).map((file) => path.join(context.root, file));
     const stated = (host: Host, at: string, text: string, file: string, names: readonly string[]) =>
         Effect.map(
             host.read(text, file),
             Option.flatMap(({ name, version, foreign = false }) => Option.map(Option.fromUndefinedOr(version), (known): Found => ({ host, at, name, version: known, foreign, text, names }))),
         );
     const packages = yield* Effect.forEach(
-        written.flatMap((file) => rows.filter(({ archive }) => archive !== undefined && file.endsWith(archive)).map((host) => ({ file, host }))),
+        files.flatMap((file) => rows.filter(({ archive }) => archive !== undefined && file.endsWith(archive)).map((host) => ({ file, host }))),
         ({ file, host }) => Effect.flatMap(entry(file, host.manifest), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),
     );
     const under = (folder: string) => sources.filter((other) => other.startsWith(`${folder}${path.sep}`)).map((other) => path.relative(folder, other));
@@ -232,7 +199,7 @@ const HOSTS: readonly Host[] = [
             push: Effect.fnUntraced(function* ({ at, name }, store) {
                 const [token, archive] = yield* Effect.all([Config.Redacted('BLENDER_EXTENSIONS_TOKEN'), Effect.tryPromise({ try: () => openAsBlob(at), catch: ToolError.of(at, 'does not open') })]);
                 const request = HttpClientRequest.post(`${store}/api/v1/extensions/${name}/versions/upload/`).pipe(HttpClientRequest.bearerToken(token), HttpClientRequest.bodyFormDataRecord({ version_file: new File([archive], basename(at)) }));
-                yield* Effect.flatMap(HttpClient.execute(request), HttpClientResponse.filterStatusOk);
+                yield* Effect.flatMap(HttpClient.execute(request), HttpClientResponse.matchStatus({ 404: () => Effect.fail(ToolError.make({ subject: name, detail: `is not listed on ${store}, upload its first version there once` })), orElse: HttpClientResponse.filterStatusOk }));
             }),
         },
     },

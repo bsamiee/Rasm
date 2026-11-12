@@ -20,52 +20,41 @@ defaults:
 
 env:
     UV_LOCKED: "true"
+    NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
 
 jobs:
     linux:
         runs-on: ubuntu-26.04
         timeout-minutes: 60
         steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - &checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
                   filter: tree:0
-                  persist-credentials: false
-            - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
-            - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
-            - run: pnpm install
+            - &shas
+              uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
+            - &setup
+              id: setup
+              uses: ./.github/actions/setup
+              with:
+                  cache-server: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx sync:check
             - run: playwright install --with-deps --only-shell chromium
             - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
-            - &cache
-              id: cache
-              run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health" && printf 'reachable=true\n' >> "${GITHUB_OUTPUT}" || printf '::warning::Nx remote cache is unreachable, tasks run without it\n'
-              env:
-                  SERVER: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx affected --targets=check,test,build
               env:
-                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.reachable == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
-                  NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
 
     macos:
         runs-on: xcode-27
         timeout-minutes: 60
-        env:
-            DEVELOPER_DIR: /Applications/Xcode_27.2.app/Contents/Developer
         steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  fetch-depth: 0
-                  filter: tree:0
-                  persist-credentials: false
-            - uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
-            - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
-            - run: pnpm install
-            - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
-            - *cache
+            - *checkout
+            - *shas
+            - *setup
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin'
               env:
-                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.reachable == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
-                  NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
+                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
                   APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
                   APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}

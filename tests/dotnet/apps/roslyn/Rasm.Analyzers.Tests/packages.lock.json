@@ -163,6 +163,16 @@
         "resolved": "5.0.1",
         "contentHash": "sCZ0Di4B937wKa9pwKbdsE6Njr8A/FdCLw28+yDKyMaDZ/f8JWxcFn6NOCukzKhCG/eA6M2DbXlKkrPi0g0lIA=="
       },
+      "SkiaSharp": {
+        "type": "Direct",
+        "requested": "[4.156.0-preview.1.26512.10, )",
+        "resolved": "4.156.0-preview.1.26512.10",
+        "contentHash": "pLjw+uN8V64rn5v+JOpF/CckO4++h4HjvFAU4OhkUgzRDDdOymt669PIrOozfDd+DR9zmeGnAREKXUbZhW+Zfw==",
+        "dependencies": {
+          "SkiaSharp.NativeAssets.Win32": "4.156.0-preview.1.26512.10",
+          "SkiaSharp.NativeAssets.macOS": "4.156.0-preview.1.26512.10"
+        }
+      },
       "System.Drawing.Common": {
         "type": "Direct",
         "requested": "[11.0.0-rc.3.26522.148, )",
@@ -171,6 +181,12 @@
         "dependencies": {
           "Microsoft.Win32.SystemEvents": "11.0.0-rc.3.26522.148"
         }
+      },
+      "System.Reactive": {
+        "type": "Direct",
+        "requested": "[7.0.0, )",
+        "resolved": "7.0.0",
+        "contentHash": "VYaSP2Kt+45GFnr3q7c/b4awT48VvueOJV4jPjdUXi5MxC9mSUy+HkJYtm8rGZ6fC3tNHG9gBu/YwNAR/FYqhg=="
       },
       "Thinktecture.Runtime.Extensions": {
         "type": "Direct",
@@ -476,6 +492,18 @@
         "requested": "[8.0.0, )",
         "resolved": "8.0.0",
         "contentHash": "BvQniE/cRs8wpEhR3iVWMab3LUgz7QStiVVzlOairH1a7VtqA8Wwsbf4HarVYq6gjoZ2max1U4XeaG/IAdAWIw=="
+      },
+      "SkiaSharp.NativeAssets.macOS": {
+        "type": "CentralTransitive",
+        "requested": "[4.156.0-preview.1.26512.10, )",
+        "resolved": "4.156.0-preview.1.26512.10",
+        "contentHash": "HGE5mvdVy39qvPubDKqcj2NHspWOB3ZhxMr4F+6tTNysTyUjwYYJ0f0PMmQNkp2RewGiHfpDtib1v1jdd1HS+Q=="
+      },
+      "SkiaSharp.NativeAssets.Win32": {
+        "type": "CentralTransitive",
+        "requested": "[4.156.0-preview.1.26512.10, )",
+        "resolved": "4.156.0-preview.1.26512.10",
+        "contentHash": "uztKI2iI36TljjzgS5ST9vxn6AY6u6TYpagkCHdY8hB1AdKf9ceWSc8Z8WoQ4ZgVQZfmFw1iVF8C81thGzo9xw=="
       },
       "System.Composition": {
         "type": "CentralTransitive",

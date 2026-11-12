@@ -7,7 +7,9 @@
         <PackageReference Include="LanguageExt.Core" AdditionalReference="true" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" IncludeAssets="compile" AdditionalReference="true" />
         <PackageReference Include="RhinoCommon" IncludeAssets="compile" AdditionalReference="true" />
+        <PackageReference Include="SkiaSharp" IncludeAssets="compile" AdditionalReference="true" />
         <PackageReference Include="System.Drawing.Common" IncludeAssets="compile" AdditionalReference="true" />
+        <PackageReference Include="System.Reactive" IncludeAssets="compile" AdditionalReference="true" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" AdditionalReference="true" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" PrivateAssets="all" ExcludeAssets="analyzers" GeneratePathProperty="true" />
         <Reference Include="$(PkgThinktecture_Runtime_Extensions_SourceGenerator)/analyzers/dotnet/cs/Thinktecture.Runtime.Extensions.SourceGenerator.dll" />

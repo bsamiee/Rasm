@@ -222,7 +222,7 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                 } satisfies TargetConfiguration,
             ] as const;
         });
-    const published = ['uv', 'publish', ...Option.toArray(distributions).map((folder) => path.join(folder, '*')), ...flagged('--index', member.index)];
+    const published = ['uv', 'publish', ...flagged('--index', member.index)];
     return {
         members: {
             check: {
@@ -282,7 +282,7 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                     executor: plugin.publisher,
                     options: { publish: published, preview: [...published, '--dry-run'] },
                     dependsOn: ['build--uv'],
-                    metadata: { description: 'Publishes the built distributions with uv publish', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
+                    metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
                 },
             }),
     };

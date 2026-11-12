@@ -51,7 +51,7 @@ impl Service for Greeter {
             GREETING
         };
         Router::new()
-            .route("/", get(async || GREETING).post(async || GREETING))
+            .route("/", get(async |_: Bytes| GREETING).post(async |_: Bytes| GREETING))
             .route("/quux", get(async || QUUX))
             .route("/foo", post(async |body: String| body))
             .route("/peer", get(async |ConnectInfo(peer): ConnectInfo<SocketAddr>| peer.to_string()))

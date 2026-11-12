@@ -689,7 +689,6 @@ public sealed class TextRoundTripAnalyzer : DiagnosticAnalyzer {
             WellKnownTypeProvider types = WellKnownTypeProvider.GetOrCreate(start.Compilation);
             ImmutableArray<IMethodSymbol> conversions = [
                 .. Members(types.GetOrCreateTypeByMetadataName("Rhino.Runtime.CommonObject"), "ToJSON", "FromJSON", "FromBase64String"),
-                .. Members(types.GetOrCreateTypeByMetadataName("Rhino.Geometry.SerializableExtensions"), "ToEncodedString", "FromEncodedString"),
                 .. Members(types.GetOrCreateTypeByMetadataName("Rhino.Geometry.MeshingParameters"), "ToEncodedString", "FromEncodedString"),
                 .. Members(types.GetOrCreateTypeByMetadataName("Rhino.Geometry.SubDDisplayParameters"), "ToEncodedString", "FromEncodedString"),
                 .. Members(types.GetOrCreateTypeByMetadataName("Rhino.FileIO.DracoCompression"), "ToBase64String", "DecompressBase64String"),

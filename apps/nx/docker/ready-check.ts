@@ -1,21 +1,30 @@
+import { runReadyCheck } from '@nx/devkit/internal';
 import { printed, runtime } from '@rasm/nx-devkit/process';
-import { Cause, Effect, Schedule, Schema, String } from 'effect';
+import { Array, Cause, Effect, Schedule, Schema, String } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Listed = Schema.Array(Schema.fromJsonString(Schema.Struct({ Service: Schema.String, State: Schema.String, Health: Schema.String }))).annotate({ description: 'The lines of docker compose ps --format json' });
+const Running = Schema.Array(Schema.fromJsonString(Schema.Struct({ Service: Schema.String, State: Schema.Literal('running'), Health: Schema.Literals(['', 'healthy']) }))).annotate({
+    description: 'The lines of docker compose ps --format json where every listed container runs and passes its healthcheck or states none',
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const waitForDevServer = (root: string, ...services: readonly string[]) =>
-    printed('docker', ['compose', '--project-directory', root, 'ps', '--format', 'json', ...services]).pipe(
-        Effect.flatMap((stdout) => Schema.decodeEffect(Listed)(stdout.split('\n').filter(String.isNonEmpty))),
-        Effect.filterOrFail(
-            (listed) => services.every((service) => listed.some(({ Service, State, Health }) => Service === service && State === 'running' && ['', 'healthy'].includes(Health))),
-            (listed) => new Cause.IllegalArgumentError(`Compose reports ${services.join(', ')} of ${root} as ${listed.map(({ Service, State, Health }) => [Service, State, Health].filter(String.isNonEmpty).join(' ')).join(', ')}`),
+const waitForDevServer = (...services: readonly string[]) =>
+    runReadyCheck(({ root }) =>
+        printed('docker', ['compose', 'ps', '--format', 'json', ...services], { cwd: root }).pipe(
+            Effect.flatMap((stdout) => Schema.decodeEffect(Running)(stdout.split('\n').filter(String.isNonEmpty))),
+            Effect.map((running) =>
+                Array.difference(
+                    services,
+                    Array.map(running, ({ Service }) => Service),
+                ),
+            ),
+            Effect.filterOrFail(Array.isReadonlyArrayEmpty, (absent) => new Cause.NoSuchElementError(`Compose lists no running container of ${absent.join(', ')} in ${root}`)),
+            Effect.retry(Schedule.spaced('250 millis')),
+            Effect.as(null),
+            runtime.runPromise,
         ),
-        Effect.retry(Schedule.spaced('250 millis')),
-        runtime.runPromise,
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

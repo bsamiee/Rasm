@@ -41,18 +41,6 @@ private struct BundleInfo: Decodable {
 }
 
 public struct Installation: Encodable, Hashable, Sendable {
-    private enum CodingKeys: CodingKey {
-        case url
-        case executable
-        case identifier
-        case name
-        case version
-        case build
-        case scriptable
-        case scriptingDefinitionFile
-        case activationPolicy
-    }
-
     public let url: URL
     public let executable: URL?
     public let identifier: String
@@ -62,22 +50,9 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
     public let activationPolicy: NSApplication.ActivationPolicy
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        try fields.encode(url, forKey: .url)
-        try fields.encodeIfPresent(executable, forKey: .executable)
-        try fields.encode(identifier, forKey: .identifier)
-        try fields.encode(name, forKey: .name)
-        try fields.encodeIfPresent(version, forKey: .version)
-        try fields.encodeIfPresent(build, forKey: .build)
-        try fields.encode(scriptable, forKey: .scriptable)
-        try fields.encodeIfPresent(scriptingDefinitionFile, forKey: .scriptingDefinitionFile)
-        try fields.encode(activationPolicy.name, forKey: .activationPolicy)
-    }
 }
 
-extension NSApplication.ActivationPolicy {
+extension NSApplication.ActivationPolicy: @retroactive Encodable {
     public var name: String {
         switch self {
             case .regular: "regular"
@@ -85,6 +60,11 @@ extension NSApplication.ActivationPolicy {
             case .prohibited: "prohibited"
             @unknown default: String(rawValue)
         }
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var label = encoder.singleValueContainer()
+        try label.encode(name)
     }
 }
 

@@ -8,7 +8,7 @@
         "publish": {
             "implementation": "./dist/executors/publish/executor#execute",
             "schema": "./executors/publish/schema.json",
-            "description": "Publishes a project through its tool's own publish command, skipping a project nx release left unversioned; runs through nx release publish",
+            "description": "Publishes the files a project's packaging targets wrote through its tool's own publish command, skipping a project nx release left unversioned; runs through nx release publish",
             "hidden": true
         }
     }

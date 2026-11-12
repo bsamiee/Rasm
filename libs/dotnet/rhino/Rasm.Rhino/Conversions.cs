@@ -145,4 +145,10 @@ public static class Conversions {
     public static RhinoFault? Rejection<T>(Fin<T> result) =>
         result.Match<RhinoFault?>(Succ: static _ => null, Fail: static error =>
             error.Filter<RhinoFault>().Head is RhinoFault failure && error.Count is 1 ? failure : new RhinoFault(typeof(T), RhinoReason.Invalid, Inner: error));
+
+    internal static RhinoFault? Validate<T>(string? value, Func<string, Fin<T>> validated, out T? item) where T : class {
+        Fin<Option<T>> parsed = Optional(value).Traverse(validated).As();
+        item = parsed.ToOption().Bind(static held => held).ValueUnsafe();
+        return Rejection(parsed);
+    }
 }

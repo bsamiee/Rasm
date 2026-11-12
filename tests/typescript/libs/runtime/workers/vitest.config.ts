@@ -4,4 +4,12 @@ import { defineConfig } from 'vitest/config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig({ plugins: [testPolicy(), cloudflareTest({ config: true })], test: { include: ['*.test.ts'] } });
+export default defineConfig({
+    plugins: [testPolicy()],
+    test: {
+        projects: [
+            { extends: true, test: { name: 'node', include: ['deploy.test.ts'] } },
+            { extends: true, plugins: [cloudflareTest({ config: true })], test: { name: 'workers', include: ['unit.test.ts', 'integration.test.ts'] } },
+        ],
+    },
+});

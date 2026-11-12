@@ -50,13 +50,13 @@ const execute = executor(
     Publish,
     Effect.fnUntraced(function* ({ cwd: root, package: named, ...stated }, context, project) {
         const { registry, firstRelease } = stated;
-        const [path, { dry, unversioned }] = yield* Effect.all([Path.Path, released(stated, project)]);
+        const [path, { dry, unreleased }] = yield* Effect.all([Path.Path, released(stated, project)]);
         const cwd = path.resolve(context.root, root);
         const { packages } = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps'], { cwd }), Schema.decodeEffect(Metadata));
         const crate = yield* Effect.fromOption(Array.findFirst(packages, ({ name }) => name === named));
         const unpublished = (member: typeof crate) => (registry === undefined && firstRelease !== true ? Effect.map(releases(member.name), ({ published }) => !published.some(({ vers }) => vers === member.version)) : Effect.succeed(true));
         const local = (member: typeof crate): readonly (typeof crate)[] => member.dependencies.flatMap(({ path: at }) => packages.filter(({ manifest_path }) => at !== undefined && path.dirname(manifest_path) === at)).flatMap((dependency) => [dependency, ...local(dependency)]);
-        const skipped = unversioned || !(yield* unpublished(crate));
+        const skipped = unreleased || !(yield* unpublished(crate));
         const overlay = dry ? yield* Effect.filter(Array.dedupeWith(local(crate), Equivalence.Struct({ name: Equivalence.String })), (member) => unpublished(member)) : [];
         return skipped
             ? yield* Effect.as(Effect.logInfo(`Skipped ${crate.name}@${crate.version}, the registry already holds it or nx release left it unchanged`), true)

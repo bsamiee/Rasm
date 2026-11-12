@@ -4,7 +4,7 @@ import process from 'node:process';
 import { type CreateDependenciesContext, DependencyType, logger, type PostTasksExecution, type PreTasksExecution, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { type Identity, inferred, type Project, produced, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { present, printed, runtime, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Combiner, Config, Effect, FileSystem, flow, Option, Path, Record, Redacted, Result, Schema } from 'effect';
+import { Array, Combiner, Config, Effect, FileSystem, flow, Option, Path, Record, Redacted, Result, Schema, Struct } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, type Settings, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
@@ -116,15 +116,17 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
     const conflicts = Record.filter(grouped, (group) => new Set(group.map((part) => part.name)).size > 1);
     const merged = Record.collect(
         Record.filter(grouped, (_, root) => !(root in conflicts)),
-        (_, group): Part => {
-            const [release] = Array.getSomes(group.map((part) => Option.fromUndefinedOr(part.release)));
-            return {
-                ...Array.headNonEmpty(group),
-                ...(release === undefined ? {} : { release }),
-                technologies: Array.dedupe(group.flatMap((part) => part.technologies)),
-                members: joined.combineAll(group.map((part) => part.members)),
-            };
-        },
+        (_, group): Part => ({
+            ...Array.headNonEmpty(group),
+            ...Option.getOrUndefined(
+                Option.map(
+                    Array.findFirst(group, (part) => part.release !== undefined),
+                    Struct.pick(['release', 'publish']),
+                ),
+            ),
+            technologies: Array.dedupe(group.flatMap((part) => part.technologies)),
+            members: joined.combineAll(group.map((part) => part.members)),
+        }),
     );
     const roots = new Map(merged.map((part) => [part.name, part.root] as const));
     const edges = packages
@@ -142,7 +144,9 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
                     technologies: part.technologies,
                     clean: part.clean,
                     members: part.members,
-                    configuration: { tags: [`os:${HOST}`], ...(part.release !== undefined && { release: part.release }) },
+                    ...(part.release !== undefined && { release: part.release }),
+                    ...(part.publish !== undefined && { publish: part.publish }),
+                    configuration: { tags: [`os:${HOST}`] },
                 }),
             ),
             edges: Array.dedupeWith(edges, (left, right) => left.source === right.source && left.target === right.target),

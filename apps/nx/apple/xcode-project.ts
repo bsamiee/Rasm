@@ -2,7 +2,7 @@ import type { TargetConfiguration } from '@nx/devkit';
 import type { Identity } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, Struct } from 'effect';
-import { type Part, type Settings, target, tokened } from '#/targets';
+import { PACKAGES, type Part, type Settings, target, tokened } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -97,9 +97,6 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: S
     return failures.length === 0 ? { inputs: Array.dedupe([...container.inputs, ...resolved]), archives } : yield* ToolError.make({ subject: container.path, detail: Array.dedupe(failures).join('\n  ') });
 });
 
-const released = (path: Path.Path, plugin: Identity, file: string): Pick<Part, 'release'> =>
-    path.extname(path.dirname(file)) === '.xcodeproj' ? { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { manifest: path.relative(path.dirname(path.dirname(file)), file) } } } } : {};
-
 const xcodeParts = (
     path: Path.Path,
     options: Settings,
@@ -117,19 +114,32 @@ const xcodeParts = (
     const invoke = (action: string, scheme: string, extra: readonly string[]) => ['xcodebuild', action, ...flags, '-onlyUsePackageVersionsFromResolvedFile', '-scheme', scheme, ...extra] as const;
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map((scheme) => ({ ...scheme, packages: scheme.containers.every(packaged) }));
     const output = (scheme: string) => Option.map(options.placed('xcode', name), (at) => path.join(at, scheme));
-    const releasing = Array.match(Array.getSomes(archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: path.join(folder, `${scheme}.xcarchive`) })))), {
+    const archived = Array.getSomes(archives.map(({ scheme, configuration }) => Option.map(output(scheme), (folder) => ({ configuration, folder, archive: path.join(folder, `${scheme}.xcarchive`) }))));
+    const released: Pick<Part, 'release' | 'publish'> =
+        path.extname(path.dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived)
+            ? {
+                  release: { manifest: path.relative(path.dirname(path.dirname(file)), file) },
+                  publish: {
+                      executor: `${plugin.name}:release-publish`,
+                      options: { manifest: file, exports: archived.map(({ archive, folder }) => ({ archive, folder })) },
+                      dependsOn: ['build--ditto'],
+                      metadata: {
+                          technologies: ['xcode'],
+                          description: "Attaches the disk image or zip build--ditto wrote for each archived app to the project's GitHub release through gh release upload, then signs and uploads the Sparkle feed of each disk image",
+                          help: { command: 'gh release upload --help', example: { options: { dryRun: true } } },
+                      },
+                  },
+              }
+            : {};
+    const releasing = Array.match(archived, {
         onEmpty: () => ({}),
         onNonEmpty: (exported) => ({
             ditto: {
                 executor: `${plugin.name}:package`,
                 dependsOn: ['build--xcodebuild'],
                 inputs: plugin.inputs,
-                options: { exports: [] },
-                configurations: Record.map(
-                    Array.groupBy(exported, ({ configuration }) => configuration.toLowerCase()),
-                    (group) => ({ exports: group.map(({ archive, folder }) => ({ archive, folder })) }),
-                ),
-                outputs: exported.flatMap(({ folder }) => ['*.zip', '*.dmg', '*.app'].map((pattern) => path.join('{workspaceRoot}', folder, pattern))),
+                options: { exports: exported.map(({ archive, folder }) => ({ archive, folder })) },
+                outputs: exported.flatMap(({ folder }) => PACKAGES.map((extension) => path.join('{workspaceRoot}', folder, `*${extension}`))),
                 metadata: {
                     technologies: ['xcode'],
                     description: 'Zips each archived app with ditto for a GitHub release, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity exports it under that identity into a disk image that is signed, notarized, and stapled',
@@ -157,7 +167,7 @@ const xcodeParts = (
     const builds = (configuration: Option.Option<string>): Runs => {
         const [archiving, building] = Array.partition(
             schemes,
-            Result.liftPredicate((scheme: (typeof schemes)[number]) => archives.some((archive) => archive.scheme === scheme.name && Option.contains(configuration, archive.configuration)), identity),
+            Result.liftPredicate((scheme: (typeof schemes)[number]) => archives.some((archive) => archive.scheme === scheme.name && Option.match(configuration, { onNone: () => true, onSome: (named) => named === archive.configuration })), identity),
         );
         return [
             ...archiving.map((scheme) => invoke('archive', scheme.name, Option.match(output(scheme.name), { onNone: () => [], onSome: (at) => ['-archivePath', path.join(at, `${scheme.name}.xcarchive`)] }))),
@@ -176,7 +186,7 @@ const xcodeParts = (
         file,
         technologies: ['xcode'],
         clean: 'xcodebuild',
-        ...released(path, plugin, file),
+        ...released,
         members: {
             build: {
                 ...(schemes.length === 0
@@ -185,8 +195,8 @@ const xcodeParts = (
                           xcodebuild: target(
                               plugin,
                               builds(Option.none()),
-                              { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
-                              { dependsOn: ['^build'], inputs: read, outputs: tokened(path, lock), ...modes(builds) },
+                              { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products unless a configuration other than its archive configuration is named', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
+                              { dependsOn: ['^build'], inputs: read, outputs: tokened(path, lock), ...(Array.isReadonlyArrayNonEmpty(archived) ? Struct.omit(modes(builds), ['defaultConfiguration']) : modes(builds)) },
                           ),
                       }),
                 ...releasing,

@@ -27,7 +27,16 @@ from rasm_records import accumulated, Fault, Nothing, Ok, Outcome, paired, Reaso
 # --- [TYPES] ----------------------------------------------------------------------------
 
 
-class Family(enum.Flag):
+class _PassFlag(enum.Flag):
+    """Persisted flag bit of a pass kind, displayed by its member name."""
+
+    @property
+    def label(self) -> str:
+        """Member name in words."""
+        return bpy.path.display_name(str(self.name).lower())
+
+
+class Family(_PassFlag):
     """Light pass family of direct, indirect, and color passes, each a term recombined beauty sums under its own gain, valued by its persisted flag bit."""
 
     DIFFUSE = 1
@@ -38,7 +47,7 @@ class Family(enum.Flag):
     @property
     def total(self) -> str:
         """Layer name of the family's summed lobes."""
-        return f"{bpy.path.display_name(str(self.name).lower())} Total"
+        return f"{self.label} Total"
 
 
 class LightSlot(enum.StrEnum):
@@ -49,7 +58,7 @@ class LightSlot(enum.StrEnum):
     COLOR = enum.auto()
 
 
-class Derived(enum.Flag):
+class Derived(_PassFlag):
     """Layer built from render passes, named by its member and valued by its persisted flag bit."""
 
     DIRECT_LIGHT = 1
@@ -57,23 +66,13 @@ class Derived(enum.Flag):
     DEPTH_MAP = 4
     INVERSE_DEPTH = 8
 
-    @property
-    def label(self) -> str:
-        """Display name of a derived pass."""
-        return bpy.path.display_name(str(self.name).lower())
 
-
-class CryptomatteKind(enum.Flag):
+class CryptomatteKind(_PassFlag):
     """Cryptomatte kind, valued by its persisted flag bit."""
 
     OBJECT = 1
     MATERIAL = 2
     ASSET = 4
-
-    @property
-    def label(self) -> str:
-        """Kind name in words."""
-        return bpy.path.display_name(str(self.name).lower())
 
     @property
     def pass_name(self) -> str:

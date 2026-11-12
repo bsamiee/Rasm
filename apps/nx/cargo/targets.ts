@@ -242,7 +242,7 @@ const released = (path: Path.Path, plugin: Identity, crate: Crate, cwd: string) 
     return crate.publish?.length === 0
         ? {}
         : {
-              release: { lock: path.join(cwd, LOCK), ...named },
+              release: { lock: path.join(cwd, LOCK) },
               publish: { executor: `${plugin.name}:release-publish`, options: { cwd, package: crate.name, ...named }, metadata: { description: `Publishes ${crate.name} with cargo publish` } },
           };
 };

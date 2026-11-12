@@ -121,6 +121,7 @@ jq                                                                           = "
 lima                                                                         = { os = ["macos"], version = "latest" }
 node                                                                         = "latest"
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
+"npm:cf"                                                                     = "latest"
 pitchfork                                                                    = { os = ["macos"], version = "latest" }
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"

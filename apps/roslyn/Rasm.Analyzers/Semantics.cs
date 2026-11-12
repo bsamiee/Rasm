@@ -280,6 +280,7 @@ internal static class Semantics {
         operation switch {
             IInvocationOperation call => call.TargetMethod,
             IMemberReferenceOperation reference => reference.Member,
+            IObjectCreationOperation creation => creation.Constructor,
             _ => null,
         };
 

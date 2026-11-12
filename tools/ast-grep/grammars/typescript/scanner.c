@@ -13,14 +13,9 @@ static inline bool is_space(int32_t character);
 
 enum { ADJACENT_TYPE_ARGUMENTS_OPEN = ERROR_RECOVERY + 1 };
 
-typedef struct {
-    int32_t min;
-    int32_t max;
-} Span;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-static const Span SPACES[] = {SPACE};
+static const TSCharacterRange SPACES[] = {SPACE};
 
 static const char TYPE_CONTINUATIONS[] = "`,.;*%>=?^|&/:";
 
@@ -28,14 +23,7 @@ static const char TYPE_CONTINUATIONS[] = "`,.;*%>=?^|&/:";
 
 // --- [CHARACTERS]
 
-static inline bool is_space(int32_t character) {
-    for (size_t index = 0; index < sizeof(SPACES) / sizeof(*SPACES); index++) {
-        if (character >= SPACES[index].min && character <= SPACES[index].max) {
-            return true;
-        }
-    }
-    return false;
-}
+static inline bool is_space(int32_t character) { return set_contains(SPACES, sizeof(SPACES) / sizeof(*SPACES), character); }
 
 static bool is_ascii_letter(int32_t character) { return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z'); }
 

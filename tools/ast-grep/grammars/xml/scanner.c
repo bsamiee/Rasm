@@ -12,38 +12,18 @@ static inline bool name_character(uint32_t code);
 
 #include "@tree-sitter-grammars/tree-sitter-xml/xml/src/scanner.c"
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-typedef struct {
-    uint32_t min;
-    uint32_t max;
-} Span;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-static const Span NAME_START[] = {WORD_START};
-static const Span NAME_CHARACTER[] = {WORD_CHARACTER};
+static const TSCharacterRange NAME_START[] = {WORD_START};
+static const TSCharacterRange NAME_CHARACTER[] = {WORD_CHARACTER};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [NAMES]
 
-static inline bool spanned(const Span *spans, uint32_t count, uint32_t code) {
-    for (uint32_t index = 0; index < count; index++) {
-        if (code >= spans[index].min && code <= spans[index].max) {
-            return true;
-        }
-    }
-    return false;
-}
+static inline bool name_start(uint32_t code) { return set_contains(NAME_START, sizeof(NAME_START) / sizeof(*NAME_START), (int32_t)code); }
 
-static inline bool name_start(uint32_t code) {
-    return spanned(NAME_START, sizeof(NAME_START) / sizeof(*NAME_START), code);
-}
-
-static inline bool name_character(uint32_t code) {
-    return spanned(NAME_CHARACTER, sizeof(NAME_CHARACTER) / sizeof(*NAME_CHARACTER), code);
-}
+static inline bool name_character(uint32_t code) { return set_contains(NAME_CHARACTER, sizeof(NAME_CHARACTER) / sizeof(*NAME_CHARACTER), (int32_t)code); }
 
 // --- [INSTRUCTIONS]
 

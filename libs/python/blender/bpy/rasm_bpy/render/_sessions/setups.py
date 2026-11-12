@@ -114,7 +114,6 @@ class _Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     key: Key
     form: TypeForm[_Locks[K]]
-    holder: Callable[[object], Option[tuple[bpy.types.Scene, str]]]
     text: Callable[[K], str]
     parsed: Callable[[str], Outcome[K]]
 
@@ -140,7 +139,7 @@ class _Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Toggles a key's lock on the holder its button drew, in the holder scene's lock store."""
         store, pointer = self.stored(call.identity), call.identity.identifier(self.owner)
         return (
-            paired(self.holder(getattr(call.context, pointer, None)).to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=pointer)), self.parsed(call.properties.key))
+            paired(_held(getattr(call.context, pointer, None)).to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=pointer)), self.parsed(call.properties.key))
             .bind(lambda parts: _locked(store, scene=parts[0][0]).bind(lambda locks: store.write(parts[0][0], locks.toggled(parts[0][1], parts[1]))))
             .map(lambda _: Done())
         )
@@ -157,7 +156,7 @@ class _Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 )
 
             layout.context_pointer_set(name, holder)
-            for found in self.holder(holder).to_list():
+            for found in _held(holder).to_list():
                 shown(*found)
 
         return partial(toggle, identity.identifier(self.owner), self.stored(identity))
@@ -371,21 +370,12 @@ def _locked[K](store: Stored[_Locks[K]], *, scene: bpy.types.Scene) -> Outcome[_
     return store.read(scene).map(lambda held: held.default_with(_Locks[K]))
 
 
-def _setting_holder(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
-    """Returns the scene of a drawn scene or view layer, with the layer's name, the empty name for the scene itself."""
+def _held(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
+    """Returns the scene of a drawn scene, view layer, or compositor entry with the holder's name, the empty name for the scene itself."""
     match holder:
         case bpy.types.Scene() as scene:
             return Some((scene, _SCENE_HOLDER))
-        case bpy.types.ViewLayer(id_data=bpy.types.Scene() as scene, name=name):
-            return Some((scene, name))
-        case _:
-            return Nothing
-
-
-def _entry_holder(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
-    """Returns the scene and name of a drawn compositor entry."""
-    match holder:
-        case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, name=name):
+        case bpy.types.ViewLayer(id_data=bpy.types.Scene() as scene, name=name) | bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, name=name):
             return Some((scene, name))
         case _:
             return Nothing
@@ -394,8 +384,8 @@ def _entry_holder(holder: object) -> Option[tuple[bpy.types.Scene, str]]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _CATEGORIES: Final = _Categories()
-SETTING_LOCKS: Final = _Locking[RnaPath](key="render_setup_locks", form=_Locks[RnaPath], holder=_setting_holder, text=rna, parsed=parsed_path)
-ENTRY_LOCKS: Final = _Locking[Key](key="entry_locks", form=_Locks[Key], holder=_entry_holder, text=str, parsed=Ok)
+SETTING_LOCKS: Final = _Locking[RnaPath](key="render_setup_locks", form=_Locks[RnaPath], text=rna, parsed=parsed_path)
+ENTRY_LOCKS: Final = _Locking[Key](key="entry_locks", form=_Locks[Key], text=str, parsed=Ok)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

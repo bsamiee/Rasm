@@ -18,7 +18,7 @@
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",
             "schema": "./executors/release-publish/schema.json",
-            "description": "Publishes each host package the project's build wrote to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned"
+            "description": "Attaches each host package the target's dependency targets wrote to the GitHub release of the version its manifest states through gh release upload, then publishes it to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned; runs through nx release publish"
         },
         "unreal-build": {
             "implementation": "./dist/executors/unreal-build/executor#execute",

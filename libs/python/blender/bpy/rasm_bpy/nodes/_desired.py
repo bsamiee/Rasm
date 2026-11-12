@@ -1,5 +1,6 @@
 """Desired node tree state: node content, menu items, link ends, links, nodes, frames, and graphs."""
 
+from abc import abstractmethod
 from collections.abc import Iterable, Iterator, Mapping
 from enum import Enum
 from functools import partial
@@ -45,33 +46,21 @@ class Content(msgspec.Struct, frozen=True, kw_only=True):
         """Builtin form the lowering digest reads."""
         return msgspec.to_builtins(self, enc_hook=str)
 
+    @abstractmethod
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
-        """Whether the live node holds this content.
+        """Whether the live node holds this content."""
 
-        Raises:
-            NotImplementedError: For a case declaring no read.
-        """
-        raise NotImplementedError(type(self).__name__)
-
+    @abstractmethod
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        """Writes this content onto the live node.
-
-        Raises:
-            NotImplementedError: For a case declaring no write.
-        """
-        raise NotImplementedError(type(self).__name__)
+        """Writes this content onto the live node."""
 
 
 class ItemContent(Content, frozen=True, kw_only=True):
     """Node content whose items add sockets that links and values address by item key or item name."""
 
+    @abstractmethod
     def sockets(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[str, str]:
-        """Socket identifiers by the item key or item name the content addresses them through.
-
-        Raises:
-            NotImplementedError: For a case declaring no addressing.
-        """
-        raise NotImplementedError(type(self).__name__)
+        """Socket identifiers by the item key or item name the content addresses them through."""
 
     def positions(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[bool, Mapping[int, str]]:
         """Native item identifiers the write retains, by enabled position per output side.

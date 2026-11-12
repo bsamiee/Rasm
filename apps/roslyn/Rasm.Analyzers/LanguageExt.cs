@@ -570,7 +570,7 @@ public sealed class LiftedContinuationAnalyzer : DiagnosticAnalyzer {
         Categories.LanguageExt,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true,
-        "`IO` `Bind` and `SelectMany` continuations return no `IO.lift` thunk or `IO.pure` value as their whole result, a body with no call or side effect becomes `Map` under `Bind` and `let` in a later `from` clause, a `Fin` or `Either` thunk lifts its value.",
+        "`IO` `Bind` and `SelectMany` continuations return no `IO.lift` thunk or `IO.pure` value as their whole result, a body with no call or side effect becomes `Map` under `Bind` and `let` in a later `from` clause, a body returning its parameter leaves the `Bind` receiver, a `Fin` or `Either` thunk lifts its value.",
         Link("RASM1011"));
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];

@@ -65,9 +65,12 @@ const Configurations = Schema.Struct({
     absent: Names,
     configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
 });
-class PgAttribute extends Schema.Class<PgAttribute, { readonly brand: unique symbol }>('PgAttribute')({
-    name: Schema.String,
-    comment: Schema.OptionFromNullOr(Schema.String),
+class PgObject extends Schema.Class<PgObject, { readonly brand: unique symbol }>('PgObject')({ name: Schema.String, comment: Schema.OptionFromNullOr(Schema.String) }) {
+    get identity() {
+        return Option.flatMap(this.comment, Schema.decodeOption(Stamp));
+    }
+}
+class PgAttribute extends PgObject.extend<PgAttribute>('PgAttribute')({
     type: Schema.String,
     textual: Schema.Boolean,
     expression: Schema.OptionFromNullOr(Schema.String),
@@ -75,9 +78,6 @@ class PgAttribute extends Schema.Class<PgAttribute, { readonly brand: unique sym
     required: Schema.Boolean,
     sources: Names,
 }) {
-    get identity() {
-        return Option.flatMap(this.comment, Schema.decodeOption(Stamp));
-    }
     derives(wants: PgAttribute) {
         return Option.isSome(Option.all([this.generated, wants.generated]));
     }
@@ -89,9 +89,7 @@ class PgAttribute extends Schema.Class<PgAttribute, { readonly brand: unique sym
         return [this.type, ...Option.toArray(derivation).map(([storage, expression]) => `GENERATED ALWAYS AS (${expression}) ${storage}`), ...(nullable ? [] : ['NOT NULL']), ...Option.toArray(preset).map((expression) => `DEFAULT ${expression}`)].join(' ');
     }
 }
-class PgTable extends Schema.Class<PgTable, { readonly brand: unique symbol }>('PgTable')({
-    name: Schema.String,
-    comment: Schema.OptionFromNullOr(Schema.String),
+class PgTable extends PgObject.extend<PgTable>('PgTable')({
     rls: Schema.Boolean,
     force: Schema.Boolean,
     grants: Schema.Record(Schema.String, Names),
@@ -113,9 +111,6 @@ class PgTable extends Schema.Class<PgTable, { readonly brand: unique symbol }>('
 }) {
     static readonly #reference: Node = { ColumnRef: { fields: [{ String: { sval: '$column' } }] } };
     static readonly #named = Function.memoize((table: PgTable) => Record.fromIterableBy(table.columns, Struct.get('name')));
-    get identity() {
-        return Option.flatMap(this.comment, Schema.decodeOption(Stamp));
-    }
     get named() {
         return PgTable.#named(this);
     }

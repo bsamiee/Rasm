@@ -14,27 +14,15 @@ static inline bool is_separator(int32_t character);
 
 enum { CONDITIONAL_ACCESS_QUESTION = LAMBDA_PAREN_OPEN + 1 };
 
-typedef struct {
-    int32_t min;
-    int32_t max;
-} Span;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-static const Span SEPARATORS[] = {SPACE};
+static const TSCharacterRange SEPARATORS[] = {SPACE};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [CHARACTERS]
 
-static inline bool is_separator(int32_t character) {
-    for (size_t index = 0; index < sizeof(SEPARATORS) / sizeof(*SEPARATORS); index++) {
-        if (character >= SEPARATORS[index].min && character <= SEPARATORS[index].max) {
-            return true;
-        }
-    }
-    return false;
-}
+static inline bool is_separator(int32_t character) { return set_contains(SEPARATORS, sizeof(SEPARATORS) / sizeof(*SEPARATORS), character); }
 
 static bool is_decimal_digit(int32_t character) { return character >= '0' && character <= '9'; }
 

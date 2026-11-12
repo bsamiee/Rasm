@@ -105,7 +105,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
 
 extension ApplicationFailure: Encodable {
     private enum Key: CodingKey {
-        case reason, subject, message, pid, error, attribute, reads, role, label, candidates, limit, status
+        case reason, subject, message, pid, error, attribute, candidates, limit, status
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -115,13 +115,9 @@ extension ApplicationFailure: Encodable {
         try fields.encodeIfPresent(errorDescription, forKey: .message)
         switch reason {
             case .foreign(let process): try fields.encode(process, forKey: .pid)
-            case .refused(.some(let error)): try fields.encode(error.rawValue, forKey: .error)
+            case .refused(.some(let error)): try fields.encode(error, forKey: .error)
             case .notSettable(let attribute): try fields.encode(attribute, forKey: .attribute)
-            case .unreadable(let read):
-                try fields.encode(read.reads, forKey: .reads)
-                try fields.encodeIfPresent(read.role, forKey: .role)
-                try fields.encodeIfPresent(read.label, forKey: .label)
-                try fields.encode(read.error.rawValue, forKey: .error)
+            case .unreadable(let read): try read.encode(to: encoder)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)
             case .unnamed(let candidates): try fields.encode(candidates, forKey: .candidates)
             case .noReport(let limit): try fields.encode(limit / .seconds(1), forKey: .limit)

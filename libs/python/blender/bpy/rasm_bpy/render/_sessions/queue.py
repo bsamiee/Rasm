@@ -118,23 +118,19 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
             draw=Some(partial(confirmed, self.bound, summary, ("scope",))),
         )(BoundBody(self.bound, dispatch))
 
+    def _stepped(self, *steps: tuple[Callable[[Dispatcher, Call[Empty]], Outcome[Done]], "rna_enums.IconItems"]) -> tuple[Operator[Empty], ...]:
+        """Commands running each step over the bound dispatcher under its icon, in step order."""
+        return tuple(Operator.of(Empty, icon=Some(icon), options=frozenset())(BoundBody(self.bound, step)) for step, icon in steps)
+
     @cached_property
     def controls(self) -> tuple[Operator[Empty], ...]:
         """Run control and packing commands in section order."""
-        steps: tuple[tuple[Callable[[Dispatcher, Call[Empty]], Outcome[Done]], rna_enums.IconItems], ...] = (
-            (resume, "PLAY"),
-            (stop, "CANCEL"),
-            (open_log, "TEXT"),
-            (cancel_shutdown, "QUIT"),
-            (pack, "PACKAGE"),
-        )
-        return tuple(Operator.of(Empty, icon=Some(icon), options=frozenset())(BoundBody(self.bound, step)) for step, icon in steps)
+        return self._stepped((resume, "PLAY"), (stop, "CANCEL"), (open_log, "TEXT"), (cancel_shutdown, "QUIT"), (pack, "PACKAGE"))
 
     @cached_property
     def setup(self) -> tuple[Operator[Empty], ...]:
         """Manager reads, job type install, and notice test in preferences order."""
-        steps: tuple[tuple[Callable[[Dispatcher, Call[Empty]], Outcome[Done]], rna_enums.IconItems], ...] = ((read_manager, "FILE_REFRESH"), (install_job_type, "IMPORT"), (post_test_notice, "INFO"))
-        return tuple(Operator.of(Empty, icon=Some(icon), options=frozenset())(BoundBody(self.bound, step)) for step, icon in steps)
+        return self._stepped((read_manager, "FILE_REFRESH"), (install_job_type, "IMPORT"), (post_test_notice, "INFO"))
 
     # --- [BINDING]
 

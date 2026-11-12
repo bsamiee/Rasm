@@ -1,6 +1,6 @@
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
-import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
+import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { local } from '@pulumi/command';
 import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, ActionsSecret, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryDeployKey, RepositoryEnvironment, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { interpolate, jsonStringify, type Output, secret } from '@pulumi/pulumi';
@@ -86,6 +86,14 @@ const access = (accountId: string, { name, authDomain }: Pick<GetZeroTrustOrgani
     identityProvider: new ZeroTrustAccessIdentityProvider(`${name}-onetimepin`, { accountId, name: 'One-time PIN', type: 'onetimepin', config: {} }, { protect: true }).id,
 });
 
+const feed = (accountId: string, hosts: typeof Account.Type.DEPLOYED_HOSTS, { name, repository, environment }: { readonly name: string; readonly repository: Output<string>; readonly environment: Output<string> }) => {
+    const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
+    return {
+        feedBucket: new ActionsEnvironmentVariable(`${name}-release-SPARKLE_FEED_BUCKET`, { repository, environment, variableName: 'SPARKLE_FEED_BUCKET', value: bucket.name }).variableName,
+        feedDomains: Array.dedupe(Object.values(hosts).map(({ domain }) => domain.name)).map((zone) => new R2CustomDomain(`updates.${zone}`, { accountId, bucketName: bucket.name, domain: `updates.${zone}`, enabled: true, zoneId: getZoneOutput({ filter: { name: zone } }).zoneId }).domain),
+    };
+};
+
 const assets = (repository: Output<string>, name: string) => {
     const held = new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true });
     const key = new PrivateKey(`${name}-assets-deploy`, { algorithm: 'ED25519' });
@@ -157,6 +165,7 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
                 configs,
                 tailnet: tailnet(hosts, { name, repository, fullName, environment: configs.deploy }),
                 access: access(accountId, organization),
+                ...feed(accountId, hosts, { name, repository, environment: configs.release }),
                 ...assets(repository, name),
                 ...guarded(repository, { name, fullName, forms, patterns: Array.dedupe(Record.collect(groups ?? {}, (_, { releaseTag }) => releaseTag.pattern)) }),
             };

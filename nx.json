@@ -28,6 +28,7 @@
         "projectsRelationship": "independent",
         "version": { "conventionalCommits": true, "fallbackCurrentVersionResolver": "disk" },
         "conventionalCommits": { "useCommitScope": false, "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
-        "changelog": { "automaticFromRef": true, "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } } }
+        "changelog": { "automaticFromRef": true, "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } } },
+        "git": { "commitMessage": "chore: publish" }
     }
 }

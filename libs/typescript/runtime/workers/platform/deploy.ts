@@ -76,11 +76,12 @@ const deployed = Effect.fnUntraced(function* ({ accountId, production, named, bi
             Match.when({ type: 'text' }, ({ value }) => Effect.succeed({ type: 'plain_text', text: value })),
             Match.when({ type: 'json' }, ({ type, value }) => Effect.succeed({ type, json: jsonStringify(value) })),
             Match.when({ type: 'secret' }, () => Effect.all({ type: Effect.succeed('secret_text'), text: Effect.map(Config.Redacted(variable), flow(Redacted.value, secret)) })),
+            Match.when({ type: 'd1', id: Predicate.isString }, ({ type, id }) => Effect.succeed({ type, id })),
             Match.when({ type: 'd1', name: Predicate.isString }, ({ type, name: database }) => Effect.succeed({ type, id: stores.d1[database]?.id })),
-            Match.when({ type: 'r2', name: Predicate.isString }, ({ name: bucket }) => Effect.succeed({ type: 'r2_bucket', bucketName: named(bucket) })),
+            Match.when({ type: 'r2', name: Predicate.isString }, ({ name: bucket, jurisdiction }) => Effect.succeed({ type: 'r2_bucket', bucketName: named(bucket), jurisdiction })),
             Match.when({ type: 'queue', name: Predicate.isString }, ({ type, name: queue }) => Effect.succeed({ type, queueName: named(queue) })),
             Match.when({ type: (type: string) => UNNAMED.has(type) }, ({ type }) => Effect.succeed({ type: String.kebabToSnake(type) })),
-            Match.orElse(({ type }) => Effect.fail(new Cause.IllegalArgumentError(`Binding ${variable} of Worker ${name} is ${type}, expected text, json, secret, a named d1, r2, or queue, or one of ${[...UNNAMED].join(', ')}`))),
+            Match.orElse(({ type }) => Effect.fail(new Cause.IllegalArgumentError(`Binding ${variable} of Worker ${name} is ${type}, expected text, json, secret, a d1 with an id or a name, a named r2 or queue, or one of ${[...UNNAMED].join(', ')}`))),
             Effect.map((fields) => ({ ...fields, name: variable })),
         ),
     );
@@ -124,13 +125,17 @@ const deployWorker = Effect.fn('deployWorker')(function* (deployment: Deployment
     const built = yield* Effect.tryPromise({ try: () => readBuildOutput(deployment.root), catch: (cause) => new Cause.UnknownError(cause, `${deployment.root} holds no Build Output tree`) });
     const configs = Object.values(built.workers).map(({ config }) => config);
     const bound = configs.flatMap(({ env = {} }) => Object.values(env));
-    const pointed = (type: keyof Stores) => Array.dedupe(bound.flatMap((binding) => (binding.type === type ? Array.fromNullishOr(binding.name) : [])));
+    const pointed = <B extends { readonly name?: string | undefined }>(held: readonly B[]) => Record.fromEntries(Array.filterMap(held, (binding) => (binding.name === undefined ? Result.failVoid : Result.succeed([binding.name, binding] as const))));
     const consumed = configs.flatMap(({ triggers = [] }) => triggers.filter((trigger) => trigger.type === 'queue').flatMap(({ name, deadLetterQueue }) => [name, ...Array.fromNullishOr(deadLetterQueue)]));
+    const produced = pointed(bound.filter((binding) => binding.type === 'queue'));
     const kept = { ...options, protect: production };
     const stores: Stores = {
-        d1: Record.fromIterableWith(pointed('d1'), (name) => [name, new D1Database(named(name), { accountId, name: named(name) }, kept)]),
-        r2: Record.fromIterableWith(pointed('r2'), (name) => [name, new R2Bucket(named(name), { accountId, name: named(name) }, kept)]),
-        queue: Record.fromIterableWith(Array.dedupe([...consumed, ...pointed('queue')]), (name) => [name, new Queue(named(name), { accountId, queueName: named(name) }, options)]),
+        d1: Record.map(
+            Record.filter(pointed(bound.filter((binding) => binding.type === 'd1')), ({ id }) => id === undefined),
+            ({ jurisdiction }, name) => new D1Database(named(name), { accountId, name: named(name), jurisdiction }, kept),
+        ),
+        r2: Record.map(pointed(bound.filter((binding) => binding.type === 'r2')), ({ jurisdiction }, name) => new R2Bucket(named(name), { accountId, name: named(name), jurisdiction }, kept)),
+        queue: Record.fromIterableWith(Array.dedupe([...consumed, ...Record.keys(produced)]), (name) => [name, new Queue(named(name), { accountId, queueName: named(name), settings: UndefinedOr.map(produced[name]?.deliveryDelay, (deliveryDelay) => ({ deliveryDelay })) }, options)]),
     };
     return { stores, workers: yield* Effect.all(Record.map(built.workers, (worker, directory) => deployed(deployment, stores, worker, directory))) };
 });

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-workers",
     "private": true,
-    "description": "Workers entry suite in workerd: fetch, scheduled, and queue events dispatched to the handlers and through the running Worker, one layer build per isolate, work a response leaves running, and per-message acknowledgement and retry",
+    "description": "Workers entry suite in workerd: fetch, scheduled, and queue events dispatched to the handlers and through the running Worker, one layer build per isolate, work a response leaves running, and per-message acknowledgement and retry; in Node, the Pulumi resources a Build Output tree deploys as",
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
@@ -9,7 +9,9 @@
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",
+        "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
+        "@pulumi/pulumi": "catalog:",
         "@rasm/testing": "workspace:*",
         "@rasm/workers": "workspace:*",
         "@types/node": "catalog:",

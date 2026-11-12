@@ -1,6 +1,6 @@
-import { executor, Released, released } from '@rasm/nx-devkit/executor';
+import { attached, executor, Released, released } from '@rasm/nx-devkit/executor';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, Match, UndefinedOr } from 'effect';
+import { Array, Effect, Match, Path, UndefinedOr } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { type Found, type Host, located } from '#/host-packages';
 
@@ -20,20 +20,27 @@ const published = (found: Found, { command, held, push }: NonNullable<Host['publ
 const execute = executor(
     Released.annotate({
         title: 'Release publish',
-        description: "Publishes each host package the project's build wrote to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned",
+        description:
+            "Attaches each host package the target's dependency targets wrote to the GitHub release of the version its manifest states through gh release upload, then publishes it to its host's store where one takes uploads, skipping a version the store holds and a project nx release left unversioned; runs through nx release publish",
     }),
     Effect.fnUntraced(function* (stated, context, project) {
-        const { dry, unversioned } = yield* released(stated, project);
-        if (unversioned) {
-            return yield* Effect.as(Effect.logInfo(`Skipped ${project}, nx release left it unversioned`), true);
+        const [path, { dry, unreleased }, target] = yield* Effect.all([Path.Path, released(stated, project), Effect.fromNullishOr(context.targetName)]);
+        if (unreleased) {
+            return true;
         }
-        const { outputs, packages } = yield* located(context, 'build');
-        const rebuild = UndefinedOr.match(context.configurationName, { onUndefined: () => `nx build ${project}`, onDefined: (name) => `nx build ${project} -c ${name}` });
-        yield* Array.match(packages, {
-            onEmpty: () => ToolError.make({ subject: project, detail: `no host package sits under ${Array.match(outputs, { onEmpty: () => 'its build outputs, which name no path', onNonEmpty: (paths) => paths.join(', ') })}; run ${rebuild} first` }),
-            onNonEmpty: () => Effect.void,
+        const { outputs, packages } = yield* located(context, target);
+        const built = yield* Array.match(packages, {
+            onEmpty: () => ToolError.make({ subject: project, detail: `no host package sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first` }),
+            onNonEmpty: Effect.succeed,
         });
-        yield* Effect.forEach(packages, (found) => UndefinedOr.match(found.host.publish, { onUndefined: () => Effect.void, onDefined: (channel) => published(found, channel, stated.registry ?? channel.store, dry) }), { discard: true });
+        yield* attached(
+            context,
+            project,
+            Array.headNonEmpty(built).version,
+            Array.map(built, ({ at }) => path.relative(context.root, at)),
+            dry,
+        );
+        yield* Effect.forEach(built, (found) => UndefinedOr.match(found.host.publish, { onUndefined: () => Effect.void, onDefined: (taking) => published(found, taking, stated.registry ?? taking.store, dry) }), { discard: true });
         return true;
     }),
 );

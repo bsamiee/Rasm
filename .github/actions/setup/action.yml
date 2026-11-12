@@ -1,0 +1,33 @@
+name: Setup
+description: Installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and reports whether the Nx remote cache server answers
+
+inputs:
+    cache-server:
+        description: Nx self-hosted remote cache server, empty runs tasks without one
+        default: ""
+
+outputs:
+    cache:
+        description: Holds true where the remote cache server answers
+        value: ${{ steps.cache.outputs.reachable }}
+
+runs:
+    using: composite
+    steps:
+        - if: runner.os == 'macOS'
+          run: printf 'DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer\n' >> "${GITHUB_ENV}"
+          shell: bash
+        - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        - run: pnpm install
+          shell: bash
+        - id: cache
+          if: inputs.cache-server != ''
+          run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health" && printf 'reachable=true\n' >> "${GITHUB_OUTPUT}" || printf '::warning::Nx remote cache is unreachable, tasks run without it\n'
+          shell: bash
+          env:
+              SERVER: ${{ inputs.cache-server }}
+        - if: runner.os == 'macOS'
+          run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
+          shell: bash
+          env:
+              NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.reachable == 'true' && inputs.cache-server || '' }}

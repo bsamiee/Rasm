@@ -303,10 +303,10 @@ prost               = "0.14.4"                                                  
 prost-types         = "0.14.4"                                                           # Protobuf well-known types and the descriptor set gRPC reflection serves
 protovalidate-buffa = { version = "0.7.4", features = ["json"] }                         # Protovalidate rules compiled into message validation
 rmcp                = "3.9.0"                                                            # MCP servers and clients over stdio, Unix sockets, child processes, and Streamable HTTP, each consumer naming its roles and transports
-tonic               = { version = "0.14.9", features = ["gzip"] }                        # gRPC servers and clients over HTTP/2 with deadlines, streaming, and the gzip messages Connect clients send by default
+tonic               = { version = "0.14.9", features = ["gzip"] }                        # gRPC servers and clients over HTTP/2 with deadlines, streaming, and the gzip messages Connect clients send by default, `GrpcTimeout` answers CANCELLED after calling and polling its inner service, the order `rasm-grpc` answers DEADLINE_EXCEEDED first by
 tonic-health        = "0.14.9"                                                           # Standard `grpc.health.v1` service with a status reporter per served service
 tonic-prost         = "0.14.9"                                                           # prost codec that generated gRPC clients and servers encode messages with
-tonic-reflection    = "0.14.9"                                                           # gRPC server reflection over an encoded descriptor set
+tonic-reflection    = "0.14.9"                                                           # gRPC server reflection over an encoded descriptor set, a failed request ends its stream with a status, `reflection.proto` states an `ErrorResponse`
 
 # --- [TRANSFER]
 
@@ -926,7 +926,6 @@ sqlx             = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1d
 sqlx-core        = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`, one `sqlx-core` under `jiff-sqlx`, `pgvector`, `sea-schema`, and `oxtel-sql`
 sqlx-macros      = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
 sqlx-macros-core = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
-sqlx-mysql       = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
 sqlx-postgres    = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`
 sqlx-sqlite      = { git = "https://github.com/launchbadge/sqlx", rev = "fd56e1dffe74d4b6f9e7ce710bac02dd9026258e" } # Same commit as `sqlx`, its `libsqlite3-sys` bound below 0.40
 

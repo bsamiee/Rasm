@@ -1,0 +1,67 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "nxReleaseVersionData": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "newVersion": {
+                        "anyOf": [
+                            {
+                                "type": "string"
+                            },
+                            {
+                                "type": "null"
+                            }
+                        ]
+                    }
+                },
+                "required": [ "newVersion" ],
+                "additionalProperties": true
+            },
+            "description": "Versions nx release set in this run, a project it left unversioned is skipped"
+        },
+        "registry": {
+            "type": "string",
+            "description": "Registry nx release publish passes as --registry, in the form the tool names one"
+        },
+        "firstRelease": {
+            "type": "boolean",
+            "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
+        },
+        "manifest": {
+            "type": "string",
+            "description": "Info.plist or Xcode project file stating the released version, relative to the workspace root"
+        },
+        "exports": {
+            "type": "array",
+            "description": "Archived apps whose disk image gets a Sparkle feed",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "archive": {
+                        "type": "string",
+                        "description": "The .xcarchive whose app states its Sparkle feed in SUFeedURL"
+                    },
+                    "folder": {
+                        "type": "string",
+                        "description": "Folder holding the disk image of that app"
+                    }
+                },
+                "required": [ "archive", "folder" ],
+                "additionalProperties": true
+            }
+        }
+    },
+    "required": [ "manifest" ],
+    "additionalProperties": true,
+    "title": "Release publish",
+    "description": "Attaches each disk image or zip the target's dependency targets wrote to the GitHub release of the version the manifest states through gh release upload, then for each disk image it uploaded signs a Sparkle feed with generate_appcast under SPARKLE_ED_PRIVATE_KEY and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put; skips a file that release holds and a project nx release left unversioned; runs through nx release publish"
+}

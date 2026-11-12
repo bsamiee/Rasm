@@ -33,17 +33,14 @@ public static class ViewCaptures {
 
     // --- [STEPS]
 
-    public static Step<ViewCaptureSettings> Window(Point2d first, Point2d second) =>
-        Steps.Of<ViewCaptureSettings>(settings => {
-            settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
-            settings.SetWindowRect(first, second);
-            return true;
-        });
+    public static Step<ViewCaptureSettings> Window(Point2d first, Point2d second) => Window(settings => settings.SetWindowRect(first, second));
 
-    public static Step<ViewCaptureSettings> Window(Point3d first, Point3d second) =>
+    public static Step<ViewCaptureSettings> Window(Point3d first, Point3d second) => Window(settings => settings.SetWindowRect(first, second));
+
+    private static Step<ViewCaptureSettings> Window(Action<ViewCaptureSettings> bound) =>
         Steps.Of<ViewCaptureSettings>(settings => {
             settings.ViewArea = ViewCaptureSettings.ViewAreaMapping.Window;
-            settings.SetWindowRect(first, second);
+            bound(settings);
             return true;
         });
 

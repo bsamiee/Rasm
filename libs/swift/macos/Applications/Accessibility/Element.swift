@@ -27,23 +27,13 @@ public struct Control: Encodable, Hashable, Sendable {
     public let items: [Self]?
 }
 
+extension AXError: @retroactive Encodable {}
+
 public struct FailedRead: Encodable, Hashable, Sendable {
     public let reads: [String]
     public let role: String?
     public let label: String?
     public let error: AXError
-
-    private enum CodingKeys: CodingKey {
-        case reads, role, label, error
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: CodingKeys.self)
-        try fields.encode(reads, forKey: .reads)
-        try fields.encodeIfPresent(role, forKey: .role)
-        try fields.encodeIfPresent(label, forKey: .label)
-        try fields.encode(error.rawValue, forKey: .error)
-    }
 }
 
 public struct Element: Encodable, Hashable, Sendable {

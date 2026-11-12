@@ -26,7 +26,7 @@ public struct RunningInstance: Encodable, Sendable {
         try fields.encode(instance.process, forKey: .instance)
         try fields.encode(identifier, forKey: .identifier)
         try fields.encode(url, forKey: .url)
-        try fields.encode(instance.application.activationPolicy.name, forKey: .activationPolicy)
+        try fields.encode(instance.application.activationPolicy, forKey: .activationPolicy)
         try fields.encode(state, forKey: .state)
     }
 }

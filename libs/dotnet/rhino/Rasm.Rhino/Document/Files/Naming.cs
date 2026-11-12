@@ -112,11 +112,7 @@ public abstract partial record OutputFolder : IConvertible<string> {
                 .Map(static segments => (OutputFolder)new BesideDocument(segments))
             : new Absolute(value);
 
-    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) {
-        Fin<Option<OutputFolder>> parsed = Optional(value).Traverse(Validated).As();
-        item = parsed.ToOption().Bind(static held => held).ValueUnsafe();
-        return Conversions.Rejection(parsed);
-    }
+    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out OutputFolder? item) => Conversions.Validate(value, Validated, out item);
 
     public string ToValue() => Switch(
         absolute: static absolute => absolute.Folder,
@@ -141,11 +137,7 @@ public abstract partial record Stem : IConvertible<string> {
             Some: static named => NamePart.Validated(named).Map(static part => (Stem)new Literal(part)),
             None: static () => new DocumentName());
 
-    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out Stem? item) {
-        Fin<Option<Stem>> parsed = Optional(value).Traverse(Validated).As();
-        item = parsed.ToOption().Bind(static held => held).ValueUnsafe();
-        return Conversions.Rejection(parsed);
-    }
+    public static RhinoFault? Validate(string? value, IFormatProvider? provider, out Stem? item) => Conversions.Validate(value, Validated, out item);
 
     public string ToValue() => Switch(
         documentName: static _ => "",

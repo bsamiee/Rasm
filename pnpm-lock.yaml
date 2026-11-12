@@ -2053,6 +2053,9 @@ importers:
       '@rasm/nx-cloudflare':
         specifier: workspace:*
         version: link:../../../../apps/nx/cloudflare
+      '@rasm/nx-devkit':
+        specifier: workspace:*
+        version: link:../../../../apps/nx/devkit
       '@rasm/nx-distribution':
         specifier: workspace:*
         version: link:../../../../apps/nx/distribution
@@ -2401,9 +2404,15 @@ importers:
       '@cloudflare/workers-types':
         specifier: 'catalog:'
         version: 5.20261110.1
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
+      '@pulumi/pulumi':
+        specifier: 3.275.0-alpha.xc9c1940
+        version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../support

@@ -131,11 +131,15 @@ const edges = (graph: ProjectGraph) =>
         .toSorted((left, right) => `${left.source} ${left.target}`.localeCompare(`${right.source} ${right.target}`));
 
 const written = (graph: ProjectGraph) =>
-    targeted(graph).flatMap(({ node, target, configuration, task }) => (configuration.outputs === undefined ? [] : getOutputsForTargetAndConfiguration({ project: node.name, target }, {}, node).map((output) => ({ task, cache: configuration.cache === true, folder: output.replace(PATTERN, '') }))));
+    targeted(graph).flatMap(({ node, target, configuration, task }) =>
+        configuration.outputs === undefined ? [] : getOutputsForTargetAndConfiguration({ project: node.name, target }, {}, node).map((output) => ({ task, cache: configuration.cache === true, folder: output.replace(PATTERN, ''), whole: !PATTERN.test(output) })),
+    );
 
 const shared = (outputs: ReturnType<typeof written>) =>
     Array.filterMap(Array.cartesian(outputs, outputs), ([left, right]) =>
-        left.task < right.task && (left.folder === right.folder || left.folder.startsWith(`${right.folder}/`) || right.folder.startsWith(`${left.folder}/`)) ? Result.succeed(`${left.task} and ${right.task} write ${left.folder.length < right.folder.length ? right.folder : left.folder}`) : Result.failVoid,
+        left.task < right.task && (left.folder === right.folder || (right.whole && left.folder.startsWith(`${right.folder}/`)) || (left.whole && right.folder.startsWith(`${left.folder}/`)))
+            ? Result.succeed(`${left.task} and ${right.task} write ${left.folder.length < right.folder.length ? right.folder : left.folder}`)
+            : Result.failVoid,
     );
 
 const restored = (outputs: ReturnType<typeof written>, state: readonly string[]) => outputs.filter(({ cache, folder }) => cache && Array.intersection(folder.split('/'), state).length > 0).map(({ task, folder }) => `${task} restores ${folder}`);

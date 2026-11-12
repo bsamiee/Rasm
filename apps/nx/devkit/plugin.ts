@@ -215,9 +215,15 @@ const targeted = (project: Project, plugin: Identity, sources: string): Readonly
 };
 
 const configured = (project: Project, plugin: Identity, sources: string): Omit<ProjectConfiguration, 'root'> => {
-    const release = project.release === undefined ? project.configuration?.release : { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { ...project.release } } };
-    const tags = [...(release === undefined ? [] : ['release']), ...(project.configuration?.tags ?? [])];
-    return { ...(project.name !== undefined && { name: project.name }), metadata: { technologies: [...project.technologies] }, targets: targeted(project, plugin, sources), ...project.configuration, ...(release !== undefined && { release }), ...(tags.length > 0 && { tags }) };
+    const tags = [...(project.release === undefined ? [] : ['release']), ...(project.configuration?.tags ?? [])];
+    return {
+        ...(project.name !== undefined && { name: project.name }),
+        metadata: { technologies: [...project.technologies] },
+        targets: targeted(project, plugin, sources),
+        ...project.configuration,
+        ...(project.release !== undefined && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { ...project.release } } } }),
+        ...(tags.length > 0 && { tags }),
+    };
 };
 
 const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, request: Request<O>, held: readonly (readonly [U, R])[]) {

@@ -23,7 +23,7 @@ ENABLE_HARDENED_RUNTIME = YES
 ENABLE_POINTER_AUTHENTICATION = NO
 
 // --- [SPARKLE] -------------------------------------------------------------------------
-SPARKLE_FEED_URL = https:/$()/github.com/bsamiee/Rasm/releases/download/$(PRODUCT_NAME)-updates/appcast.xml
+SPARKLE_FEED_URL = https:/$()/updates.parametric-arsenal.cloud/$(PRODUCT_NAME)/appcast.xml
 SPARKLE_PUBLIC_KEY = G+D8EhYh31mwjGKL88W2ft9PRIPMSgt6t8zV6lIBa3Y=
 
 // --- [SWIFT] ---------------------------------------------------------------------------

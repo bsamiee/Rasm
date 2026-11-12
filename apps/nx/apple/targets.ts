@@ -1,5 +1,5 @@
 import { extname } from 'node:path';
-import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
+import type { TargetConfiguration } from '@nx/devkit';
 import type { Identity, Members } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
 import { Effect, type Option, Path, Schema } from 'effect';
@@ -14,13 +14,15 @@ interface Part {
     readonly technologies: readonly string[];
     readonly clean: string;
     readonly members: Members;
-    readonly release?: NonNullable<ProjectConfiguration['release']>;
+    readonly release?: typeof VersionActionsOptions.Type;
+    readonly publish?: TargetConfiguration;
 }
 type Settings = typeof Options.Type & { readonly placed: (tool: string, name: string) => Option.Option<string> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SHORT_VERSION = 'CFBundleShortVersionString';
+const PACKAGES = ['.dmg', '.zip'] as const;
 const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', GIT_CONFIG_VALUE_0: 'false' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -66,4 +68,4 @@ const target = (plugin: Identity, runs: (typeof Run.Type)['runs'], metadata: Non
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { analyzer, GIT_STATUS, Options, type Part, type Settings, SHORT_VERSION, target, tokened, VersionActionsOptions, versioned };
+export { analyzer, GIT_STATUS, Options, PACKAGES, type Part, type Settings, SHORT_VERSION, target, tokened, VersionActionsOptions, versioned };

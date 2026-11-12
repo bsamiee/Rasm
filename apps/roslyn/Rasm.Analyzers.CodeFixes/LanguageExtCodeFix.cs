@@ -91,7 +91,8 @@ public sealed class LanguageExtCodeFix() : DocumentEditorCodeFix(
             InvocationExpressionSyntax mapped = call.ReplaceNode(step, Kept(step, Lifted(step)));
             MemberAccessExpressionSyntax access = (MemberAccessExpressionSyntax)mapped.Expression;
             SimpleNameSyntax member = diagnostic.Properties.TryGetValue(nameof(ITypeSymbol), out string? type) && type is not null
-                ? SyntaxFactory.GenericName(SyntaxFactory.Identifier(name), SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.ParseTypeName(type)))).WithAdditionalAnnotations(Simplifier.Annotation)
+                ? SyntaxFactory.GenericName(SyntaxFactory.Identifier(default, name, default), SyntaxFactory.TypeArgumentList(
+                    Punctuation(SyntaxKind.LessThanToken), SyntaxFactory.SingletonSeparatedList(SyntaxFactory.ParseTypeName(type)), Punctuation(SyntaxKind.GreaterThanToken))).WithAdditionalAnnotations(Simplifier.Annotation)
                 : Identifier(generator, name);
             return current.CopyAnnotationsTo(mapped.WithExpression(access.WithName(member.WithTriviaFrom(access.Name)))).WithAdditionalAnnotations(Formatter.Annotation);
         });

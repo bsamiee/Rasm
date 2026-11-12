@@ -17974,8 +17974,3 @@ checksum = "27bc9d5b815bc103f142aa054f561d9187d191692ec7c2d1e2b4737f8dbd7296"
 dependencies = [
  "zune-core",
 ]
-
-[[patch.unused]]
-name = "sqlx-mysql"
-version = "0.9.0"
-source = "git+https://github.com/launchbadge/sqlx?rev=fd56e1dffe74d4b6f9e7ce710bac02dd9026258e#fd56e1dffe74d4b6f9e7ce710bac02dd9026258e"

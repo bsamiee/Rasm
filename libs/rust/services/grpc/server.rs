@@ -4,8 +4,8 @@ use core::task::{Context, Poll};
 use core::time::Duration;
 use std::io;
 
-use axum::Router;
 use axum::middleware::{self, Next};
+use axum::{Extension, Router};
 use bytes::Bytes;
 use futures::Stream;
 use futures::future::join_all;
@@ -21,6 +21,7 @@ use tonic::transport::server::Connected;
 use tonic::{Code, Status};
 #[cfg(feature = "reflection")]
 use tonic_reflection::server::Builder;
+use tower::util::MapRequest;
 use tower::{BoxError, Layer};
 
 #[cfg(feature = "reflection")]
@@ -31,6 +32,9 @@ use crate::GrpcError;
 const EXPIRED: &str = "deadline expired before the server returned status";
 
 // --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy)]
+struct Arrived(Instant);
 
 pin_project! {
     struct Ending<B> {
@@ -52,12 +56,16 @@ where B: Body
 
     fn poll_frame(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Result<Frame<B::Data>, B::Error>>> {
         let this = self.project();
-        match if *this.ended { Poll::Ready(None) } else { this.body.poll_frame(cx) } {
+        let expired = !*this.ended && this.expiry.as_pin_mut().is_some_and(|expiry| expiry.poll(cx).is_ready());
+        match if *this.ended {
+            Poll::Ready(None)
+        } else if expired {
+            Poll::Pending
+        } else {
+            this.body.poll_frame(cx)
+        } {
             Poll::Pending => {
-                let ended = match this.expiry.as_pin_mut().map_or(Poll::Pending, |expiry| expiry.poll(cx)) {
-                    Poll::Ready(()) => Poll::Ready((Code::DeadlineExceeded, EXPIRED)),
-                    Poll::Pending => this.stopped.poll(cx).map(|()| (Code::Unavailable, "server is shutting down")),
-                };
+                let ended = if expired { Poll::Ready((Code::DeadlineExceeded, EXPIRED)) } else { this.stopped.poll(cx).map(|()| (Code::Unavailable, "server is shutting down")) };
                 ended.map(|(code, message)| {
                     *this.ended = true;
                     let status = [(Status::GRPC_STATUS, HeaderValue::from(i32::from(code))), (Status::GRPC_MESSAGE, HeaderValue::from_static(message))];
@@ -100,7 +108,7 @@ pub fn reflection<'set>(descriptors: impl IntoIterator<Item = &'set [u8]>) -> Re
 
 pub async fn accept<L, B, I, IO, IE>(server: Server<L>, incoming: impl IntoIterator<Item = I>, router: Router, limit: Option<Duration>, stopping: CancellationToken) -> Vec<io::Result<()>>
 where
-    L: Layer<Routes> + Clone,
+    L: Layer<MapRequest<Routes, fn(Request<tonic::body::Body>) -> Request<tonic::body::Body>>> + Clone,
     L::Service: tower::Service<Request<tonic::body::Body>, Response = Response<B>> + Clone + Send + 'static,
     <L::Service as tower::Service<Request<tonic::body::Body>>>::Future: Send,
     <L::Service as tower::Service<Request<tonic::body::Body>>>::Error: Into<BoxError> + Send + 'static,
@@ -111,9 +119,9 @@ where
     IE: Into<BoxError>,
 {
     let ending = stopping.clone();
-    let bounded = move |request: Request<axum::body::Body>, next: Next| {
-        let (allowed, started, stopped) = (timeout(request.headers()), Instant::now(), ending.clone().cancelled_owned());
-        let deadline = |allowed: Option<Duration>| allowed.and_then(|allowed| started.checked_add(allowed));
+    let bounded = move |Extension(Arrived(arrived)): Extension<Arrived>, request: Request<axum::body::Body>, next: Next| {
+        let (allowed, stopped) = (timeout(request.headers()), ending.clone().cancelled_owned());
+        let deadline = |allowed: Option<Duration>| allowed.and_then(|allowed| arrived.checked_add(allowed));
         let (whole, start) = (deadline(allowed), deadline(iter::chain(allowed, limit).min()));
         async move {
             let answered = match start {
@@ -126,7 +134,11 @@ where
             )
         }
     };
-    let services = Routes::from(router.layer(middleware::from_fn(bounded)));
+    let arriving: fn(_) -> _ = |mut request: Request<tonic::body::Body>| {
+        request.extensions_mut().insert(Arrived(Instant::now()));
+        request
+    };
+    let services = MapRequest::new(Routes::from(router.layer(middleware::from_fn(bounded))), arriving);
     let accepting = incoming.into_iter().map(|accepted| server.clone().serve_with_incoming_shutdown(services.clone(), accepted, stopping.clone().cancelled_owned()));
     join_all(accepting).await.into_iter().map(|closed| closed.map_err(io::Error::other)).collect()
 }

@@ -567,8 +567,8 @@ services:
         <<: *server
         build:
             additional_contexts:
+                chef: docker-image://lukemathwalker/cargo-chef:0.1.78-rust-1.99.1-trixie
                 distroless: docker-image://gcr.io/distroless/cc-debian13:nonroot
-                rust: docker-image://rust:1.99.1-trixie
             cache_from:
                 - type=gha,scope=rasm-store
             cache_to:
