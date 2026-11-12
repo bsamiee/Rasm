@@ -3,10 +3,6 @@
     "version": 2,
     "type": "object",
     "properties": {
-        "dryRun": {
-            "type": "boolean",
-            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
-        },
         "package": {
             "type": "string",
             "description": "Package folder the plugin infers, passed as --package-path"

@@ -177,7 +177,7 @@ const crateTargets = (plugin: Identity, path: Path.Path, workspace: Workspace, f
         },
         clean: {
             cargo: {
-                options: { commands: [['cargo', 'clean', '--package', crate.name, LOCKED]], cwd: workspace.root, previews: [['cargo', 'clean', '--package', crate.name, LOCKED, '--dry-run']] },
+                options: { commands: [['cargo', 'clean', '--package', crate.name, LOCKED]], cwd: workspace.root },
                 metadata: { description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean`, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
             },
         },

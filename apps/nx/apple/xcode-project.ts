@@ -204,7 +204,7 @@ const xcodeParts = (
                     ? {}
                     : {
                           xcodebuild: {
-                              options: { commands: schemes.map((scheme) => invoke('clean', scheme.name, [])), cwd: '.', previews: schemes.map((scheme) => invoke('clean', scheme.name, ['-dry-run'])) },
+                              options: { commands: schemes.map((scheme) => invoke('clean', scheme.name, [])), cwd: '.' },
                               metadata: { description: 'Removes the build products of each shared scheme with xcodebuild clean', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
                           },
                       },

@@ -3,9 +3,9 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
 import type { InlineProgramArgs, LocalWorkspaceOptions, Stack, UpOptions } from '@pulumi/pulumi/automation/index.js';
-import { Dry, dried, executor } from '@rasm/nx-devkit/executor';
+import { dried, executor } from '@rasm/nx-devkit/executor';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { Console, Data, Effect, FileSystem, Function, Match, Option, Path, Record, Schema, Struct } from 'effect';
+import { Console, Data, Effect, FileSystem, Function, Match, Option, Path, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,14 +19,13 @@ type Stacks = (request: StackRequest) => Promise<readonly (InlineProgramArgs & L
 // --- [MODELS] --------------------------------------------------------------------------
 
 const StackRequest = Data.taggedEnum<StackRequest>();
-const Options = Dry.mapFields(
-    Struct.assign({
-        programs: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Program packages, each resolved from the project and exporting stacks(request)' }),
-        request: Schema.Literals(['Install', 'Deploy', 'Release']).annotate({ description: "What the run asks each program's stacks for: a local install, a deploy, or the deploy of a released version", default: 'Deploy' }),
-        stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack a deploy applies, absent applies every stack' }),
-        destroy: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Destroys the stacks of a deploy and removes them' }),
-    }),
-).annotate({ title: 'Stacks', description: 'Applies the stacks a program package states for a project through the Pulumi Automation API, refreshing live state first, previewing a release under a dry run' });
+const Options = Schema.Struct({
+    dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Previews the stacks of a release and applies none, as NX_DRY_RUN=true does, an install or a deploy refuses it' }),
+    programs: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Program packages, each resolved from the project and exporting stacks(request)' }),
+    request: Schema.Literals(['Install', 'Deploy', 'Release']).annotate({ description: "What the run asks each program's stacks for: a local install, a deploy, or the deploy of a released version", default: 'Deploy' }),
+    stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack a deploy applies, absent applies every stack' }),
+    destroy: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Destroys the stacks of a deploy and removes them' }),
+}).annotate({ title: 'Stacks', description: 'Applies the stacks a program package states for a project through the Pulumi Automation API, refreshing live state first, previewing a release under a dry run' });
 const Line = Schema.fromJsonString(
     Schema.Struct({
         project: Schema.String,
@@ -94,7 +93,7 @@ const execute = executor(
     Effect.fnUntraced(function* ({ programs, request, stack, destroy, ...stated }, context, project) {
         const [path, dry] = yield* Effect.all([Path.Path, dried(stated)]);
         const { root } = yield* Effect.fromNullishOr(context.projectsConfigurations.projects[project]);
-        const operation = ({ Install: 'up', Deploy: destroy === true ? 'destroy' : 'up', Release: dry ? 'preview' : 'up' } as const)[request];
+        const operation = yield* dry && request !== 'Release' ? ToolError.make({ subject: project, detail: `${request} has no dry run, only a release previews its stacks` }) : Effect.succeed(({ Install: 'up', Deploy: destroy === true ? 'destroy' : 'up', Release: dry ? 'preview' : 'up' } as const)[request]);
         const asked = Match.value(request).pipe(
             Match.when('Install', () => StackRequest.Install({ context })),
             Match.when('Deploy', () => StackRequest.Deploy({ context, stack: Option.fromUndefinedOr(stack) })),

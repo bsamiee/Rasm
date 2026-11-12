@@ -3,10 +3,6 @@
     "version": 2,
     "type": "object",
     "properties": {
-        "dryRun": {
-            "type": "boolean",
-            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
-        },
         "targets": {
             "type": "array",
             "description": "Targets of the project, each declared output of every configuration is removed",
@@ -19,22 +15,6 @@
             "type": "array",
             "description": "The tool's own clean commands, each an argument list",
             "default": [],
-            "items": {
-                "type": "array",
-                "minItems": 1,
-                "items": [
-                    {
-                        "type": "string"
-                    }
-                ],
-                "additionalItems": {
-                    "type": "string"
-                }
-            }
-        },
-        "previews": {
-            "type": "array",
-            "description": "The tool's own dry-run forms, run in place of commands under a dry run",
             "items": {
                 "type": "array",
                 "minItems": 1,

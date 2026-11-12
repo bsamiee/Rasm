@@ -5,7 +5,7 @@
     "properties": {
         "dryRun": {
             "type": "boolean",
-            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+            "description": "Previews the stacks of a release and applies none, as NX_DRY_RUN=true does, an install or a deploy refuses it"
         },
         "programs": {
             "type": "array",

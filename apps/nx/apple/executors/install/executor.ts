@@ -1,27 +1,24 @@
 import { pid } from 'node:process';
-import { Dry, dried, executor } from '@rasm/nx-devkit/executor';
+import { executor } from '@rasm/nx-devkit/executor';
 import { printed } from '@rasm/nx-devkit/process';
-import { Config, Effect, FileSystem, Path, Schema, Struct } from 'effect';
-import { CommandLine } from 'effect/process';
+import { Config, Effect, FileSystem, Path, Schema } from 'effect';
 import { commands } from '#/executors/run/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Install = Dry.mapFields(
-    Struct.assign({
-        package: Schema.String.annotate({ description: 'Package folder the plugin infers, passed as --package-path' }),
-        product: Schema.String.annotate({ description: 'Executable product the plugin infers from swift package describe' }),
-        env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables every swift invocation runs with, over the caller's" }),
-        args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the release build and placed ahead of experimental-install' }),
-    }),
-).annotate({ title: 'Install', description: "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none" });
+const Install = Schema.Struct({
+    package: Schema.String.annotate({ description: 'Package folder the plugin infers, passed as --package-path' }),
+    product: Schema.String.annotate({ description: 'Executable product the plugin infers from swift package describe' }),
+    env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables every swift invocation runs with, over the caller's" }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the release build and placed ahead of experimental-install' }),
+}).annotate({ title: 'Install', description: "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none" });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(
     Install,
-    Effect.fnUntraced(function* ({ package: root, product, env = {}, args = [], ...stated }, context) {
-        const [fs, path, dry] = yield* Effect.all([FileSystem.FileSystem, Path.Path, dried(stated)]);
+    Effect.fnUntraced(function* ({ package: root, product, env = {}, args = [] }, context) {
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const swiftpm = yield* Config.String('XDG_CONFIG_HOME').pipe(
             Config.map((configuration) => path.join(configuration, 'swiftpm')),
             Config.orElse(() => Config.map(Config.String('HOME'), (home) => path.join(home, '.swiftpm'))),
@@ -29,9 +26,6 @@ const execute = executor(
         const at = path.join(swiftpm, 'bin', product);
         const build = ['build', '--package-path', root, '--configuration', 'release', '--product', product, ...args];
         const held = yield* fs.exists(at);
-        if (dry) {
-            return yield* Effect.as(Effect.logInfo([`Would run ${CommandLine.display(['swift', ...build])}, then`, held ? `rename the built ${product} over ${at}` : `install it to ${path.dirname(at)} through swift package experimental-install`].join(' ')), true);
-        }
         yield* commands({ runs: [['swift', ...build]], env }, context.root);
         return yield* held
             ? Effect.flatMap(printed('swift', [...build, '--show-bin-path'], { cwd: context.root, env }), (folder) =>
