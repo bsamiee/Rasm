@@ -1,24 +1,13 @@
 import { createServer } from 'node:http';
-import { resolve } from 'node:path';
 import process from 'node:process';
 import { layer, layerHttpServices } from '@effect/platform-node/NodeHttpServer';
 import { runMain } from '@effect/platform-node/NodeRuntime';
-import { Array, Cause, Console, Effect, FileSystem, Function, Layer, Option, Path, Predicate, Ref, Schedule, Schema } from 'effect';
+import { Cause, Console, Effect, FileSystem, Function, Layer, Path, Schedule, type Schema, Stream } from 'effect';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
-import { KeyValueStore } from 'effect/persistence';
-import { Decision, Request } from '#/decision';
-import { Host } from '#/host';
-import { Change, Instance, observed, quit, Watched, watched } from '#/instances';
-import { decide, live } from '#/policies/rules';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const SOURCES = ['.', 'shell', 'policies'];
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Routes = { decide: [Request, Decision], observe: [Schema.String, Change], quit: [Schema.Array(Instance), Change], watched: [Schema.String, Schema.Array(Watched)] } as const;
-type Routes = { readonly [Route in keyof typeof Routes]: { readonly [At in 0 | 1]: (typeof Routes)[Route][At]['Encoded'] } };
+import { observed, quit, watched } from '#/claude/instances';
+import { Routes } from '#/claude/routes';
+import manifest from '#/manifest' with { type: 'json' };
+import { decide, Engine } from '#/rules/decide';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -33,12 +22,12 @@ const answering = <I, O, E, R>(route: keyof Routes, [input, output]: readonly [S
         ),
     );
 
-const Router = Layer.mergeAll(answering('decide', Routes.decide, decide), answering('observe', Routes.observe, observed), answering('quit', Routes.quit, quit), answering('watched', Routes.watched, watched));
+const Router = Layer.mergeAll(answering('decide', Routes.decide, decide), answering('observe', Routes.observe, Function.flow(observed, Effect.succeed)), answering('quit', Routes.quit, quit), answering('watched', Routes.watched, Function.flow(watched, Effect.succeed)));
 
 const Server = Layer.unwrap(
     Effect.gen(function* () {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const socket = path.join(yield* fs.makeTempDirectoryScoped({ prefix: 'function-hooks-' }), 'decide.sock');
+        const socket = path.join(yield* fs.makeTempDirectoryScoped({ prefix: `${manifest.name}-` }), 'decide.sock');
         return HttpRouter.serve(Router, { disableListenLog: true, disableLogger: true }).pipe(
             Layer.provide(layer(createServer, { path: socket })),
             Layer.tap(() => Console.log(socket)),
@@ -46,33 +35,18 @@ const Server = Layer.unwrap(
     }),
 );
 
-const entries = ({ fs, path }: typeof Host.Service, folder: string) =>
-    Effect.map(
-        fs.readDirectory(path.join(import.meta.dirname, folder)),
-        Array.map((name) => path.join(import.meta.dirname, folder, name)),
+const changed = Effect.gen(function* () {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const root = path.join(import.meta.dirname, '..');
+    yield* Stream.runHead(Stream.merge(fs.watch(root, { recursive: true }), fs.watch(path.join(root, '../../.gitignore'))));
+});
+
+const orphaned = Effect.suspend(() => {
+    const parent = process.ppid;
+    return Effect.repeat(
+        Effect.sync(() => process.ppid),
+        { schedule: Schedule.spaced('2 seconds'), until: (now) => now !== parent },
     );
-
-const stamp = Effect.gen(function* () {
-    const host = yield* Host;
-    const files = yield* Effect.forEach(SOURCES, (folder) => entries(host, folder));
-    const stats = yield* Effect.forEach([...files.flat(), host.path.join(import.meta.dirname, '../../.gitignore')], (file) => Effect.option(host.fs.stat(file)));
-    return Array.getSomes(stats)
-        .map(({ mtime }) => `${Option.getOrUndefined(mtime)?.getTime()}`)
-        .join(' ');
 });
 
-const untilStale = Effect.gen(function* () {
-    const host = process.ppid;
-    const seen = yield* Ref.make(yield* stamp);
-    const stale = Effect.gen(function* () {
-        const now = yield* stamp;
-        return process.ppid !== host || now !== (yield* Ref.getAndSet(seen, now));
-    });
-    yield* Effect.repeat(stale, { schedule: Schedule.spaced('2 seconds'), until: Predicate.isTruthy });
-});
-
-Effect.raceAllFirst([Layer.launch(Server), untilStale]).pipe(Effect.provide(Layer.provideMerge(live(resolve(import.meta.dirname, '../..')), Layer.merge(layerHttpServices, KeyValueStore.layerMemory))), Effect.tapCause(Function.flow(Cause.pretty, Console.error)), runMain({ disableErrorReporting: true }));
-
-// --- [EXPORTS] -------------------------------------------------------------------------
-
-export { type Routes };
+Effect.raceAllFirst([Layer.launch(Server), changed, orphaned]).pipe(Effect.provide(Layer.provideMerge(Engine, layerHttpServices)), Effect.tapCause(Function.flow(Cause.pretty, Console.error)), runMain({ disableErrorReporting: true }));

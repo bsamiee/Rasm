@@ -1,55 +1,57 @@
-import { Array, Effect, Function, Option, Result, Schema, String } from 'effect';
-import { HookError, Host } from '#/host';
+import { Array, Effect, Option, Result, Schema, String } from 'effect';
+import { Host, HostError } from '#/host';
 import type { Program } from '#/shell/programs';
 import { slicedWord, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Spec {
+interface Flag {
     readonly name: string;
     readonly arity: number;
 }
-interface Grammar {
-    readonly options: ReadonlyMap<string, Spec>;
-    readonly commands: ReadonlyMap<string, Grammar>;
+interface Usage {
+    readonly flags: ReadonlyMap<string, Flag>;
+    readonly subcommands: ReadonlyMap<string, Usage>;
 }
-interface Item {
+interface Argument {
     readonly names: readonly string[];
     readonly words: readonly [Word, ...Word[]];
     readonly values: readonly Word[];
 }
-interface Parsed {
-    readonly items: readonly Item[];
+interface Arguments {
+    readonly args: readonly Argument[];
     readonly path: readonly string[];
     readonly tail: readonly Word[];
     readonly rest: readonly Word[];
     readonly separator: Option.Option<Word>;
+    readonly names: ReadonlySet<string>;
+    readonly operands: readonly Word[];
+    readonly leading: readonly Word[];
+    readonly inputs: readonly Word[];
+    readonly has: (...names: readonly string[]) => boolean;
+    readonly values: (...names: readonly string[]) => readonly string[];
+    readonly supplied: (...names: readonly string[]) => readonly Word[];
 }
-interface Exported {
+interface CarapaceCommand {
     readonly Name: string;
     readonly Aliases?: readonly string[];
-    readonly Commands?: readonly Exported[];
-    readonly LocalFlags?: readonly (typeof ExportedFlag.Type)[];
-    readonly PersistentFlags?: readonly (typeof ExportedFlag.Type)[];
+    readonly Commands?: readonly CarapaceCommand[];
+    readonly LocalFlags?: readonly (typeof CarapaceFlag.Type)[];
+    readonly PersistentFlags?: readonly (typeof CarapaceFlag.Type)[];
 }
-interface Dumped {
+interface CommandInfo {
     readonly commandName: string;
-    readonly arguments?: readonly (typeof DumpedArgument.Type)[];
-    readonly subcommands?: readonly Dumped[];
+    readonly arguments?: readonly (typeof ArgumentInfo.Type)[];
+    readonly subcommands?: readonly CommandInfo[];
 }
-interface Cursor {
+interface Scan {
     readonly at: number;
-    readonly grammar: Grammar;
-    readonly pending: readonly (readonly string[])[];
-    readonly operated: boolean;
+    readonly usage: Usage;
+    readonly wrapped: readonly (readonly string[])[];
+    readonly operand: boolean;
     readonly ended: boolean;
     readonly separated: boolean;
-    readonly subcommand: string;
-}
-type Step = readonly [Partial<Parsed>, Cursor];
-interface Reading {
-    readonly specs: readonly Spec[];
-    readonly attached: Option.Option<number>;
+    readonly subcommand: Option.Option<string>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -57,162 +59,179 @@ interface Reading {
 const OPTION = /^-./u;
 const CAMEL = /[A-Z]/gu;
 const NOTATION = /^(?:(?<short>-[^,]+), )?(?<long>-[^=]+)(?:=(?<arity>\d?))?$/u;
-const FLAG_TYPES: ReadonlySet<string> = new Set(['bool', 'boolSlice', 'count']);
-const NO_GRAMMAR: Grammar = { options: new Map(), commands: new Map() };
+const NO_USAGE: Usage = { flags: new Map(), subcommands: new Map() };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const ExportedFlag = Schema.Struct({ Longhand: Schema.optionalKey(Schema.String), Shorthand: Schema.optionalKey(Schema.String), Type: Schema.String, NoOptDefVal: Schema.optionalKey(Schema.String) });
-const ExportedCommand: Schema.Codec<Exported> = Schema.Struct({
+const CarapaceFlag = Schema.Struct({ Longhand: Schema.optionalKey(Schema.String), Shorthand: Schema.optionalKey(Schema.String), Type: Schema.String, NoOptDefVal: Schema.optionalKey(Schema.String) });
+const CarapaceCommand: Schema.Codec<CarapaceCommand> = Schema.Struct({
     Name: Schema.String,
     Aliases: Schema.optionalKey(Schema.Array(Schema.String)),
-    Commands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<Exported> => ExportedCommand))),
-    LocalFlags: Schema.optionalKey(Schema.Array(ExportedFlag)),
-    PersistentFlags: Schema.optionalKey(Schema.Array(ExportedFlag)),
+    Commands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<CarapaceCommand> => CarapaceCommand))),
+    LocalFlags: Schema.optionalKey(Schema.Array(CarapaceFlag)),
+    PersistentFlags: Schema.optionalKey(Schema.Array(CarapaceFlag)),
 });
-const Export = Schema.fromJsonString(ExportedCommand);
+const CarapaceExport = Schema.fromJsonString(CarapaceCommand);
 
-const DumpedArgument = Schema.Struct({ kind: Schema.String, names: Schema.optionalKey(Schema.Array(Schema.Struct({ kind: Schema.String, name: Schema.String }))) });
-const DumpedCommand: Schema.Codec<Dumped> = Schema.Struct({
+const ArgumentInfo = Schema.Struct({ kind: Schema.String, names: Schema.optionalKey(Schema.Array(Schema.Struct({ kind: Schema.String, name: Schema.String }))) });
+const CommandInfo: Schema.Codec<CommandInfo> = Schema.Struct({
     commandName: Schema.String,
-    arguments: Schema.optionalKey(Schema.Array(DumpedArgument)),
-    subcommands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<Dumped> => DumpedCommand))),
+    arguments: Schema.optionalKey(Schema.Array(ArgumentInfo)),
+    subcommands: Schema.optionalKey(Schema.Array(Schema.suspend((): Schema.Codec<CommandInfo> => CommandInfo))),
 });
-const Dump = Schema.fromJsonString(Schema.Struct({ command: DumpedCommand }));
+const ToolInfo = Schema.fromJsonString(Schema.Struct({ command: CommandInfo }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [SOURCES]
+// --- [USAGE]
 
-const spellings = (spelled: readonly string[], arity: number): readonly (readonly [string, Spec])[] => spelled.map((spelling) => [spelling, { name: spelled.find((other) => other.startsWith('--')) ?? spelling, arity }]);
+const flagsOf = (spellings: readonly string[], arity: number): readonly (readonly [string, Flag])[] => spellings.map((spelling) => [spelling, { name: spellings.find((other) => other.startsWith('--')) ?? spelling, arity }]);
 
-const flagEntries = ({ Longhand, Shorthand, Type, NoOptDefVal }: typeof ExportedFlag.Type) => spellings([...(Longhand === undefined ? [] : [`--${Longhand}`]), ...(Shorthand === undefined ? [] : [`-${Shorthand}`])], FLAG_TYPES.has(Type) || NoOptDefVal !== undefined ? 0 : 1);
+const carapaceFlags = ({ Longhand, Shorthand, Type, NoOptDefVal }: typeof CarapaceFlag.Type) => flagsOf([...(Longhand === undefined ? [] : [`--${Longhand}`]), ...(Shorthand === undefined ? [] : [`-${Shorthand}`])], ['bool', 'boolSlice', 'count'].includes(Type) || NoOptDefVal !== undefined ? 0 : 1);
 
-const notated = (flag: string) => {
-    const { short, long = flag, arity } = NOTATION.exec(flag)?.groups ?? {};
-    return spellings([long, ...(short === undefined ? [] : [short])], arity === undefined ? 0 : Number(arity || 1));
-};
-
-const exportedGrammar = (node: Exported, inherited: ReadonlyMap<string, Spec>, overlay: ReadonlyMap<string, Spec>): Grammar => {
-    const persistent = new Map([...inherited, ...(node.PersistentFlags ?? []).flatMap(flagEntries)]);
+const carapaceUsage = (command: CarapaceCommand, inherited: Usage['flags'], declared: Usage['flags']): Usage => {
+    const persistent = new Map([...inherited, ...(command.PersistentFlags ?? []).flatMap(carapaceFlags)]);
     return {
-        options: new Map([...persistent, ...(node.LocalFlags ?? []).flatMap(flagEntries), ...overlay]),
-        commands: new Map((node.Commands ?? []).flatMap((command) => [command.Name, ...(command.Aliases ?? [])].map((name) => [name, exportedGrammar(command, persistent, overlay)] as const))),
+        flags: new Map([...persistent, ...(command.LocalFlags ?? []).flatMap(carapaceFlags), ...declared]),
+        subcommands: new Map((command.Commands ?? []).flatMap((sub) => [sub.Name, ...(sub.Aliases ?? [])].map((name) => [name, carapaceUsage(sub, persistent, declared)] as const))),
     };
 };
 
-const dumpedGrammar = (node: Dumped): Grammar => ({
-    options: new Map(
-        (node.arguments ?? [])
+const infoUsage = (command: CommandInfo): Usage => ({
+    flags: new Map(
+        (command.arguments ?? [])
             .filter(({ kind }) => kind !== 'positional')
             .flatMap(({ kind, names = [] }) =>
-                spellings(
+                flagsOf(
                     names.map(({ kind: style, name }) => (style === 'long' ? `--${name}` : `-${name}`)),
                     kind === 'option' ? 1 : 0,
                 ),
             ),
     ),
-    commands: new Map((node.subcommands ?? []).map((command) => [command.commandName, dumpedGrammar(command)])),
+    subcommands: new Map((command.subcommands ?? []).map((sub) => [sub.commandName, infoUsage(sub)])),
 });
 
-const grammarOf = Effect.fnUntraced(function* (program: string, row: Program, primary: string) {
+const usageOf = Effect.fnUntraced(function* (program: string, row: Program, primary: string) {
     const host = yield* Host;
-    if (row.dump === true) {
-        if (!(yield* host.installed(program))) {
-            return NO_GRAMMAR;
+    if (row.dumpsHelp === true) {
+        if (!(yield* host.onPath(program))) {
+            return NO_USAGE;
         }
         const { stdout } = yield* host.run([program, '--experimental-dump-help']);
-        return dumpedGrammar((yield* Effect.mapError(Schema.decodeEffect(Dump)(stdout), HookError.of(program))).command);
+        return infoUsage((yield* Effect.mapError(Schema.decodeEffect(ToolInfo)(stdout), HostError.of(program))).command);
     }
     const exported = (name: string) => host.run(['carapace', name, 'export'], { env: { CARAPACE_BUILTINS: 'bash', CARAPACE_SHELL: 'bash', CARAPACE_BRIDGES: '', XDG_CONFIG_HOME: host.path.join(host.root, '.config') } });
     const own = yield* exported(row.completer ?? program);
     const { stdout } = row.completer === undefined && program !== primary && String.isEmpty(String.trim(own.stdout)) ? yield* exported(primary) : own;
-    const overlay = new Map([...(row.flags ?? []), ...[...(row.walks?.names ?? []), ...(row.code ?? [])].map((name) => `${name}=`)].flatMap(notated));
-    return String.isEmpty(String.trim(stdout)) ? { ...NO_GRAMMAR, options: overlay } : exportedGrammar(yield* Effect.mapError(Schema.decodeEffect(Export)(stdout), HookError.of('carapace')), new Map(), overlay);
+    const declared = new Map(
+        [...(row.flags ?? []), ...[...(row.recursive?.names ?? []), ...(row.code ?? [])].map((name) => `${name}=`)].flatMap((flag) => {
+            const { short, long = flag, arity } = NOTATION.exec(flag)?.groups ?? {};
+            return flagsOf([long, ...(short === undefined ? [] : [short])], arity === undefined ? 0 : Number(arity || 1));
+        }),
+    );
+    return String.isEmpty(String.trim(stdout)) ? { ...NO_USAGE, flags: declared } : carapaceUsage(yield* Effect.mapError(Schema.decodeEffect(CarapaceExport)(stdout), HostError.of('carapace')), new Map(), declared);
 });
 
-// --- [PARSING]
+// --- [ARGUMENTS]
 
-const optionOf = (word: Word, grammar: Grammar, row: Program): Option.Option<Reading> => {
-    const { text } = word;
+const optionOf = ({ text }: Word, usage: Usage, row: Program): Option.Option<readonly [flags: readonly Flag[], attached: Option.Option<number>]> => {
     const cut = text.indexOf('=');
     const given = cut < 0 ? text : text.slice(0, cut);
     const head = row.camelCase === true ? given.replaceAll(CAMEL, (letter) => `-${letter.toLowerCase()}`) : given;
     const attached = cut < 0 ? Option.none() : Option.some(cut + 1);
-    const exact = grammar.options.get(head);
+    const exact = usage.flags.get(head);
     if (exact !== undefined) {
-        return Option.some({ specs: [exact], attached });
+        return Option.some([[exact], attached]);
     }
-    if (!OPTION.test(text) || (row.closed === true && !given.startsWith('--') && [...given.slice(1)].some((letter) => !grammar.options.has(`-${letter}`)))) {
+    if (row.strict === true && !given.startsWith('--') && [...given.slice(1)].some((letter) => !usage.flags.has(`-${letter}`))) {
         return Option.none();
     }
-    if (given.startsWith('--') || ![...grammar.options.keys()].every((spelling) => spelling.startsWith('--') || spelling.length === 2)) {
-        return row.closed === true ? Option.none() : Option.some({ specs: [{ name: head, arity: 0 }], attached });
+    if (given.startsWith('--') || ![...usage.flags.keys()].every((spelling) => spelling.startsWith('--') || spelling.length === 2)) {
+        return row.strict === true ? Option.none() : Option.some([[{ name: head, arity: 0 }], attached]);
     }
     const letters = [...text.slice(1)];
-    const specs = letters.map((letter): Spec => grammar.options.get(`-${letter}`) ?? { name: `-${letter}`, arity: 0 });
-    const taking = specs.findIndex(({ arity }) => arity > 0);
-    return Option.some(taking < 0 ? { specs, attached: Option.none() } : { specs: specs.slice(0, taking + 1), attached: taking + 1 === letters.length ? Option.none() : Option.some(letters.slice(0, taking + 1).join('').length + 1) });
+    const flags = letters.map((letter): Flag => usage.flags.get(`-${letter}`) ?? { name: `-${letter}`, arity: 0 });
+    const taking = flags.findIndex(({ arity }) => arity > 0);
+    return Option.some(taking < 0 ? [flags, Option.none()] : [flags.slice(0, taking + 1), taking + 1 === letters.length ? Option.none() : Option.some(letters.slice(0, taking + 1).join('').length + 1)]);
 };
 
-const flagged = (word: Word, { specs, attached }: Reading, cursor: Cursor, words: readonly Word[], row: Program): Option.Option<Step> =>
-    Option.map(Option.match(attached, { onNone: () => Option.some(Option.none<Word>()), onSome: (at) => Option.map(slicedWord(word, at), Option.some) }), (value): Step => {
-        const spec = specs.at(-1);
-        const from = cursor.at + 1;
-        const taken = spec !== undefined && row.execs?.includes(spec.name) === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (spec?.arity ?? 0));
-        const supplied = Option.isSome(value) ? [] : taken;
-        const names = specs.map(({ name }) => name);
-        return [{ items: [{ names, words: [word, ...supplied], values: [...Option.toArray(value), ...supplied] }] }, { ...cursor, at: cursor.at + 1 + supplied.length, ended: names.some((name) => name === row.module || row.ends?.includes(name) === true) }];
-    });
-
-const operated = (word: Word, cursor: Cursor, words: readonly Word[], row: Program): Step => {
-    const deeper = Array.filterMap(cursor.pending, ([step, ...steps]) => (step === word.text ? Result.succeed(steps) : Result.failVoid));
-    const next = { ...cursor, at: cursor.at + 1 };
-    if (deeper.length > 0) {
-        return [{ path: [word.text] }, { ...next, pending: deeper, grammar: cursor.grammar.commands.get(word.text) ?? cursor.grammar }];
-    }
-    const descended = cursor.operated ? undefined : cursor.grammar.commands.get(word.text);
-    if (descended !== undefined) {
-        return [{ path: [word.text] }, { ...next, grammar: descended, subcommand: cursor.subcommand || word.text }];
-    }
-    if (cursor.pending.some((path) => path.length === 0) && (row.leading ?? 0) === 0) {
-        return [{ rest: words.slice(cursor.at) }, { ...cursor, at: words.length }];
-    }
-    return [{ items: [{ names: [], words: [word], values: [] }] }, { ...next, operated: true, ended: row.stops === true || (row.stops?.includes(cursor.subcommand) ?? false) || cursor.pending.some((path) => path.length === 0) }];
-};
-
-const advanced = (word: Word, cursor: Cursor, words: readonly Word[], row: Program): Step => {
-    const end = { ...cursor, at: words.length };
-    if (cursor.ended) {
-        return [{ rest: words.slice(cursor.at) }, end];
-    }
-    if (word.text === '--' && !cursor.separated) {
-        if (cursor.pending.some((path) => path.length === 0)) {
-            return [{}, { ...cursor, at: cursor.at + 1, separated: true }];
-        }
-        return [row.wraps === '--' ? { rest: words.slice(cursor.at + 1) } : { separator: Option.some(word), tail: words.slice(cursor.at + 1) }, end];
-    }
-    return Option.match(
-        Option.flatMap(OPTION.test(word.text) && !cursor.separated ? optionOf(word, cursor.grammar, row) : Option.none(), (reading) => flagged(word, reading, cursor, words, row)),
-        {
-            onNone: () => operated(word, cursor, words, row),
-            onSome: Function.identity,
-        },
+const optionStep = (word: Word, scan: Scan, words: readonly Word[], row: Program): Option.Option<readonly [Partial<Arguments>, Scan]> =>
+    Option.flatMap(optionOf(word, scan.usage, row), ([flags, attached]) =>
+        Option.map(Option.match(attached, { onNone: () => Option.some(Option.none<Word>()), onSome: (at) => Option.map(slicedWord(word, at), Option.some) }), (value) => {
+            const flag = flags.at(-1);
+            const from = scan.at + 1;
+            const taken = flag !== undefined && row.execs?.includes(flag.name) === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (flag?.arity ?? 0));
+            const supplied = Option.isSome(value) ? [] : taken;
+            const names = flags.map(({ name }) => name);
+            return [{ args: [{ names, words: [word, ...supplied], values: [...Option.toArray(value), ...supplied] }] }, { ...scan, at: from + supplied.length, ended: names.some((name) => name === row.module || row.restAfter?.includes(name) === true) }];
+        }),
     );
+
+const operandStep = (word: Word, scan: Scan, words: readonly Word[], row: Program): readonly [Partial<Arguments>, Scan] => {
+    const deeper = Array.filterMap(scan.wrapped, ([first, ...later]) => (first === word.text ? Result.succeed(later) : Result.failVoid));
+    const next = { ...scan, at: scan.at + 1 };
+    const direct = scan.wrapped.some((path) => path.length === 0);
+    const stops = row.stopsAtOperand;
+    if (deeper.length > 0) {
+        return [{ path: [word.text] }, { ...next, wrapped: deeper, usage: scan.usage.subcommands.get(word.text) ?? scan.usage }];
+    }
+    const descended = scan.operand ? undefined : scan.usage.subcommands.get(word.text);
+    if (descended !== undefined) {
+        return [{ path: [word.text] }, { ...next, usage: descended, subcommand: Option.orElse(scan.subcommand, () => Option.some(word.text)) }];
+    }
+    if (direct && (row.leading ?? 0) === 0) {
+        return [{ rest: words.slice(scan.at) }, { ...scan, at: words.length }];
+    }
+    return [{ args: [{ names: [], words: [word], values: [] }] }, { ...next, operand: true, ended: direct || stops === true || (stops !== undefined && Option.exists(scan.subcommand, (name) => stops.includes(name))) }];
 };
 
-const parseArguments = (words: readonly Word[], grammar: Grammar, row: Program): Parsed => {
-    const start: Cursor = { at: 0, grammar, pending: row.wraps === '--' ? [] : (row.wraps ?? []), operated: false, ended: false, separated: false, subcommand: '' };
-    const steps = Array.unfold(start, (cursor) => Option.map(Option.fromNullishOr(words[cursor.at]), (word) => advanced(word, cursor, words, row)));
+const step = (word: Word, scan: Scan, words: readonly Word[], row: Program): readonly [Partial<Arguments>, Scan] => {
+    const end = { ...scan, at: words.length };
+    if (scan.ended) {
+        return [{ rest: words.slice(scan.at) }, end];
+    }
+    if (word.text !== '--' || scan.separated) {
+        return Option.getOrElse(OPTION.test(word.text) && !scan.separated ? optionStep(word, scan, words, row) : Option.none(), () => operandStep(word, scan, words, row));
+    }
+    if (scan.wrapped.some((path) => path.length === 0)) {
+        return [{}, { ...scan, at: scan.at + 1, separated: true }];
+    }
+    return [row.wraps === word.text ? { rest: words.slice(scan.at + 1) } : { separator: Option.some(word), tail: words.slice(scan.at + 1) }, end];
+};
+
+const parseArguments = (words: readonly Word[], usage: Usage, row: Program): Arguments => {
+    const start: Scan = { at: 0, usage, wrapped: row.wraps === '--' ? [] : (row.wraps ?? []), operand: false, ended: false, separated: false, subcommand: Option.none() };
+    const steps = Array.unfold(start, (scan) => Option.map(Option.fromNullishOr(words[scan.at]), (word) => step(word, scan, words, row)));
+    const args = steps.flatMap(({ args: found = [] }) => found);
+    const path = steps.flatMap(({ path: found = [] }) => found);
+    const tail = steps.flatMap(({ tail: found = [] }) => found);
+    const rest = steps.flatMap(({ rest: found = [] }) => found);
+    const names = new Set(args.flatMap((argument) => argument.names));
+    const reached = path.reduce((deeper, name) => deeper.subcommands.get(name) ?? deeper, usage);
+    const canonical = (name: string): string => reached.flags.get(name)?.name ?? usage.flags.get(name)?.name ?? name;
+    const has = (...listed: readonly string[]): boolean => listed.some((name) => names.has(canonical(name)));
+    const supplied = (...listed: readonly string[]): readonly Word[] => {
+        const wanted = listed.map(canonical);
+        return args.filter((argument) => argument.names.some((name) => wanted.includes(name))).flatMap(({ values }) => values);
+    };
+    const operands = [...args.filter((argument) => argument.names.length === 0).flatMap((argument) => argument.words), ...tail, ...(row.wraps !== undefined || row.module !== undefined || row.restAfter !== undefined ? [] : rest)];
+    const count = has(...(row.leadingUnless ?? [])) ? 0 : (row.leading ?? 0);
     return {
-        items: steps.flatMap(({ items = [] }) => items),
-        path: steps.flatMap(({ path = [] }) => path),
-        tail: steps.flatMap(({ tail = [] }) => tail),
-        rest: steps.flatMap(({ rest = [] }) => rest),
+        args,
+        path,
+        tail,
+        rest,
         separator: Option.firstSomeOf(steps.map(({ separator = Option.none() }) => separator)),
+        names,
+        operands,
+        leading: operands.slice(0, count),
+        inputs: operands.slice(count),
+        has,
+        values: (...listed) => supplied(...listed).map(({ text }) => text),
+        supplied,
     };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Grammar, grammarOf, type Item, NO_GRAMMAR, type Parsed, parseArguments };
+export { type Argument, type Arguments, NO_USAGE, parseArguments, type Usage, usageOf };

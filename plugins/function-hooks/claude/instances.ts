@@ -1,22 +1,15 @@
 import { fileURLToPath } from 'node:url';
-import { Launched, ProcessInstance, State } from '@rasm/applications';
-import { Array, Effect, Match, Record, Schema, Struct } from 'effect';
+import { Launched, State } from '@rasm/applications';
+import { Array, Effect, Match, Option, Record, Schema } from 'effect';
+import { Instance } from '#/claude/routes';
 import { Host } from '#/host';
-import { installed, WATCHER } from '#/policies/apps';
+import { WATCH_APPS } from '#/shell/programs';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Said = readonly [condition: string, action?: string];
+type Note = readonly [condition: string, action?: string];
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-const Instance = Schema.Struct({ pid: Schema.Int, instance: ProcessInstance, bundle: Schema.String.check(Schema.isPattern(/^[\w.-]+$/u)) });
-type Instance = typeof Instance.Type;
-
-const Change = Schema.Struct({ created: Schema.Array(Instance), reused: Schema.Array(Instance), exited: Schema.Array(Instance.fields.instance) });
-type Change = typeof Change.Type;
-
-const Watched = Instance.mapFields(Struct.assign({ ended: Schema.Boolean, status: Schema.optionalKey(State.Running.schema.fields.status), asks: Schema.Boolean, conditions: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) }));
 
 const Outline = Schema.Struct({
     status: State.Running.schema.fields.status,
@@ -26,6 +19,7 @@ const Outline = Schema.Struct({
 const Printed = Schema.Struct({ instance: Instance.fields.instance, launched: Schema.optionalKey(Schema.Struct({ created: Schema.Boolean })), running: Schema.optionalKey(Outline), exited: Schema.optionalKey(State.Exited) });
 const Line = Schema.fromJsonString(Schema.Record(Instance.fields.bundle, Schema.Record(Schema.String.check(Schema.isPattern(/^\d+$/u)), Printed)));
 const Answer = Schema.fromJsonString(Schema.Union([Schema.Struct({ launched: Launched }), Launched]));
+const Missing = Schema.fromJsonString(Schema.Record(Instance.fields.instance, Schema.Record(Schema.String, Schema.Never)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -34,7 +28,7 @@ const statesOf = (text: string) => {
     return bundles.flatMap(([bundle, pids]) => Record.collect(pids, (pid, state) => ({ pid: Number(pid), instance: state.instance, bundle, state })));
 };
 
-const exitedOf = (text: string): Change['exited'] =>
+const exitedOf = (text: string) =>
     statesOf(text)
         .filter(({ state }) => state.exited !== undefined)
         .map(({ instance }) => instance);
@@ -43,24 +37,24 @@ const observed = (text: string) => {
     const answered = Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Answer)(line))).map((answer) => ('launched' in answer ? answer.launched : answer));
     const launched = statesOf(text).map(({ pid, instance, bundle, state }) => ({ pid, instance, bundle, created: state.launched?.created }));
     const claimed = [...launched, ...answered.map(({ pid, instance, identifier, created }) => ({ pid, instance, bundle: identifier, created }))];
-    const holding = (created: boolean) => claimed.filter((claim) => claim.created === created).map(({ pid, instance, bundle }): Instance => ({ pid, instance, bundle }));
-    return Effect.succeed({ created: holding(true), reused: holding(false), exited: exitedOf(text) } satisfies Change);
+    const holding = (created: boolean) => claimed.filter((claim) => claim.created === created).map(({ pid, instance, bundle }) => ({ pid, instance, bundle }));
+    return { created: holding(true), reused: holding(false), exited: exitedOf(text) };
 };
 
-const runningAs = ({ pid, instance }: Pick<Instance, 'pid' | 'instance'>, { process, asking }: typeof Outline.Type) => {
-    const asked = asking.map(({ kind, number, title }): Said => [title === undefined ? `shows ${kind} window` : `shows ${kind} window "${title}"`, `run ${WATCHER} ${kind === 'blocking' ? 'capture' : 'read'} ${instance} --window ${number}`]);
+const runningAs = ({ pid, instance }: Pick<typeof Instance.Type, 'pid' | 'instance'>, { process, asking }: typeof Outline.Type) => {
+    const asked = asking.map(({ kind, number, title }): Note => [title === undefined ? `shows ${kind} window` : `shows ${kind} window "${title}"`, `run ${WATCH_APPS} ${kind === 'blocking' ? 'capture' : 'read'} ${instance} --window ${number}`]);
     return Match.value({ process, asks: Array.isReadonlyArrayNonEmpty(asked) }).pipe(
-        Match.withReturnType<readonly Said[]>(),
+        Match.withReturnType<readonly Note[]>(),
         Match.when({ asks: true }, () => asked),
         Match.when({ process: 'stopped' }, () => [['is stopped', `run kill -CONT ${pid}`]]),
-        Match.when({ process: 'sleeping' }, () => [['is blocked', `run ${WATCHER} capture ${instance}`]]),
+        Match.when({ process: 'sleeping' }, () => [['is blocked', `run ${WATCH_APPS} capture ${instance}`]]),
         Match.when({ process: 'running' }, () => [['is busy']]),
         Match.orElse(() => []),
     );
 };
 
 const exitedAs = Match.type<typeof State.Exited.Type>().pipe(
-    Match.withReturnType<readonly Said[]>(),
+    Match.withReturnType<readonly Note[]>(),
     Match.when({ report: Match.defined }, ({ report: { url } }) => [['crashed', `read ${fileURLToPath(url)} before a launch`]]),
     Match.when({ reportFailure: Match.defined }, ({ reportFailure }) => [[`crashed with report failure ${reportFailure}`]]),
     Match.when({ reporting: true }, () => [['crashed', 'wait for its report before a launch']]),
@@ -72,31 +66,27 @@ const exitedAs = Match.type<typeof State.Exited.Type>().pipe(
 );
 
 const watched = (text: string) =>
-    Effect.succeed(
-        statesOf(text).map(({ pid, instance, bundle, state: { running, exited } }): typeof Watched.Type => {
-            const said = [...(running === undefined ? [] : runningAs({ pid, instance }, running)), ...(exited === undefined ? [] : exitedAs(exited))];
-            const ended = exited !== undefined && exited.reporting !== true;
-            return {
-                pid,
-                instance,
-                bundle,
-                ended,
-                ...(running !== undefined && { status: running.status }),
-                asks: running !== undefined && Array.isReadonlyArrayNonEmpty(running.asking),
-                conditions: ended ? [] : said.map(([condition]) => `${bundle} ${pid} ${condition}`),
-                notes: said.map((parts) => `${bundle} ${pid} ${parts.join(', ')}`),
-            };
-        }),
-    );
+    statesOf(text).map(({ pid, instance, bundle, state: { running, exited } }) => {
+        const notes = [...(running === undefined ? [] : runningAs({ pid, instance }, running)), ...(exited === undefined ? [] : exitedAs(exited))];
+        const ended = exited !== undefined && exited.reporting !== true;
+        return {
+            pid,
+            instance,
+            bundle,
+            ended,
+            ...(running !== undefined && { status: running.status }),
+            asks: running !== undefined && Array.isReadonlyArrayNonEmpty(running.asking),
+            conditions: ended ? [] : notes.map(([condition]) => `${bundle} ${pid} ${condition}`),
+            notes: notes.map((parts) => `${bundle} ${pid} ${parts.join(', ')}`),
+        };
+    });
 
-const quit = Effect.fnUntraced(function* (instances: readonly Instance[]) {
-    const host = yield* Host;
-    const running = yield* installed(instances.map(({ instance }) => instance));
-    const live = instances.filter(({ instance, bundle }) => (running[instance] ?? []).some(({ identifier }) => identifier === bundle));
-    const answers = yield* Effect.forEach(live, ({ instance }) => host.output([WATCHER, 'quit', instance]), { concurrency: 'unbounded' });
-    return { created: [], reused: [], exited: [...Array.difference(instances, live).map(({ instance }) => instance), ...exitedOf(answers.join('\n'))] } satisfies Change;
-});
+const quit = (instances: readonly (typeof Instance.Type)[]) =>
+    Effect.map(
+        Host.use((host) => host.output([WATCH_APPS, 'quit', ...instances.map(({ instance }) => instance)])),
+        (text) => [...text.split('\n').flatMap((line) => Option.match(Schema.decodeOption(Missing)(line), { onNone: () => [], onSome: Record.keys })), ...exitedOf(text)],
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Change, Instance, observed, quit, Watched, watched };
+export { observed, quit, watched };

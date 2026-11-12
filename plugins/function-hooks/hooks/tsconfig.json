@@ -5,7 +5,7 @@
         "noEmit": true,
         "rootDir": "..",
         "typeRoots": [ "../.claude-plugin/types", "../node_modules/@types" ],
-        "types": [ "claude-code", "claude-code-tools", "claude-code-mcp", "node" ]
+        "types": [ "claude-code", "claude-code-tools", "claude-code-mcp" ]
     },
     "include": [ "." ]
 }

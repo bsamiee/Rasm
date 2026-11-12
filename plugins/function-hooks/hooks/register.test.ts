@@ -1,6 +1,6 @@
 import type { AgentInfo, HttpResponse, On, ProcessSpawnChunk } from 'claude-code';
 import { expect, mock, test } from 'claude-code/testing';
-import type { Routes } from '#/server';
+import type { Routes } from '#/claude/routes';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -27,7 +27,6 @@ const SESSION = { cwd: '/work', surface: 'terminal', isInteractive: true } as co
 const ENDING = { reason: 'clear', sessionId: 'session', resume: { id: 'session' } } as const;
 const TURN = { turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'answer' } as const;
 const RAN = { result: { stdout: 'ran', stderr: '', interrupted: false }, text: 'ran' } as const;
-const NOTE_INTERVAL = 600_000;
 const UNJUDGED = 'function-hooks did not judge this command: ';
 const ALLOWED = { _tag: 'Allow', observes: false } as const satisfies Decision;
 const OBSERVED = { _tag: 'Allow', observes: true } as const satisfies Decision;
@@ -53,6 +52,7 @@ const agentOf = (status: AgentInfo['status']): AgentInfo => ({ id: 'a1', descrip
 const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) => {
     const seen: Seen = { sent: [], ran: [], spawned: [], runs: [], status: [], stopped: [] };
     const clock = mock.clock(on);
+    mock.store(on);
     const replies = new Map<string, unknown>(Object.entries({ observe: NONE, quit: NONE, watched: [], ...given }));
     const printed = new Map(Object.entries({ ...PRINTED, ...given.printed }));
     on('session.start', (_, e) => ({ cwd: e.cwd }));
@@ -101,7 +101,7 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
         { decision: ALLOWED, ran: [LIST], resolved: RAN },
         { decision: { _tag: 'Deny', reason: 'git stash hides work, commit it' }, ran: [], resolved: { deny: 'git stash hides work, commit it' } },
         {
-            decision: { _tag: 'Rewrite', command: 'rg -n x', observes: false, background: true, notice: 'grep became rg', timeout: 60_000 },
+            decision: { _tag: 'Rewrite', command: 'rg -n x', observes: false, background: true, note: 'grep became rg', timeout: 60_000 },
             ran: [{ tool: 'Bash', command: 'rg -n x', timeout: 60_000, run_in_background: true }],
             resolved: { ...RAN, context: ['grep became rg'] },
         },
@@ -136,18 +136,18 @@ test('Decide request states run kind, timeout, and calling agent, and both calls
     expect([world.spawned, world.stopped].map((streams) => streams.map(([program]) => program))).toEqual([['mise'], []]);
 });
 
-test('Command with a failed decision runs as written and notes each agent once per interval', async ($, on) => {
-    const world = worldOf(on, () => ({ status: 500, ok: false, headers: {}, text: 'TypeError: rule threw\n    at decide' }));
+test('Command with a failed decision runs as written and notes each agent once per cause', async ($, on) => {
+    const causes = ['TypeError: rule threw\n    at decide', 'TypeError: rule threw', 'TypeError: rule threw', 'RangeError: other'].values();
+    const world = worldOf(on, () => ({ status: 500, ok: false, headers: {}, text: String(causes.next().value) }));
     const noted = { ...RAN, context: [`${UNJUDGED}decide answered 500, TypeError: rule threw`] };
     await $.session.start(SESSION);
-    const early = [await $.tool.call({ ...LIST, agentId: 'a1' }), await $.tool.call({ ...LIST, agentId: 'a1' }), await $.tool.call({ ...LIST, agentId: 'a2' })];
-    await world.clock.advance(NOTE_INTERVAL);
-    expect([...early, await $.tool.call({ ...LIST, agentId: 'a1' })]).toEqual([noted, RAN, noted, noted]);
-    expect(world.ran).toHaveLength(early.length + 1);
+    const calls = [await $.tool.call({ ...LIST, agentId: 'a1' }), await $.tool.call({ ...LIST, agentId: 'a1' }), await $.tool.call({ ...LIST, agentId: 'a2' }), await $.tool.call({ ...LIST, agentId: 'a1' })];
+    expect(calls).toEqual([noted, RAN, noted, { ...RAN, context: [`${UNJUDGED}decide answered 500, RangeError: other`] }]);
+    expect(world.ran).toHaveLength(calls.length);
 });
 
 test('Command runs as written with crash cause noted when server exits before listening', async ($, on) => {
-    const world = worldOf(on, () => answered(ALLOWED), { printed: { mise: [{ stream: 'stderr', text: 'file:///work/policies/rules.ts:3\nSyntaxError: Unexpected token\n    at compile\n\nNode.js v26\n' }] } });
+    const world = worldOf(on, () => answered(ALLOWED), { printed: { mise: [{ stream: 'stderr', text: 'file:///work/rules/decide.ts:3\nSyntaxError: Unexpected token\n    at compile\n\nNode.js v26\n' }] } });
     await $.session.start(SESSION);
     expect(await $.tool.call(LIST)).toEqual({ ...RAN, context: [`${UNJUDGED}SyntaxError: Unexpected token`] });
     expect(world.sent).toEqual([]);
@@ -203,7 +203,7 @@ test('Note of an ended agent app reaches the next main-loop prompt', async ($, o
     ] as const
 ).forEach(([status, quits]) => {
     test(`Turn end posts ${quits.length} quit for apps of a ${status} agent over two turns`, async ($, on) => {
-        const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED, quit: { ...NONE, exited: [APP.instance] }, agents: [agentOf(status)] });
+        const world = worldOf(on, () => answered(OBSERVED), { observe: CREATED, quit: [APP.instance], agents: [agentOf(status)] });
         await $.session.start(SESSION);
         await $.tool.call(LAUNCH);
         await $.turn.complete(TURN);

@@ -1,5 +1,4 @@
-import { Array, Effect, Equal, Equivalence, Match, Option, Predicate, Result, Schema, Struct } from 'effect';
-import { HookError, Host } from '#/host';
+import { Array, Equal, Equivalence, Match, Option, Predicate, Result, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -34,14 +33,9 @@ interface Parameter {
     readonly length?: number;
 }
 type Part = Pick<Word, 'raw' | 'text' | 'known' | 'glob'> & { readonly quote?: readonly [string, string] } & ({ readonly spread: false; readonly parameter?: Parameter } | { readonly spread: true; readonly parameter: Parameter });
-interface Redirect extends Span {
-    readonly raw: string;
-    readonly op: string;
-    readonly descriptor: Option.Option<string>;
-    readonly target: Option.Option<Word>;
-}
-interface Surroundings {
+interface Context {
     readonly source: Uint8Array;
+    readonly origin: 'call' | 'body' | 'file';
     readonly fed: boolean;
     readonly pipes: boolean;
     readonly stage: Option.Option<{ readonly pipeline: object; readonly at: number }>;
@@ -49,38 +43,31 @@ interface Surroundings {
     readonly busy: boolean;
     readonly substituted: boolean;
     readonly captured: boolean;
-    readonly origin: 'call' | 'body' | 'file';
+    readonly dry: boolean;
+    readonly home: Option.Option<string>;
+    readonly environment: ReadonlyMap<string, Option.Option<string>>;
+    readonly resolve: (word: string, cwd: Option.Option<string>) => Option.Option<string>;
 }
-interface Command extends Span, Surroundings {
+interface Command extends Span, Omit<Context, 'dry' | 'home' | 'environment' | 'resolve'> {
     readonly words: readonly Word[];
-    readonly redirects: readonly Redirect[];
+    readonly redirects: readonly (Span & { readonly raw: string; readonly op: string; readonly descriptor: Option.Option<string>; readonly target: Option.Option<Word> })[];
     readonly cwd: Option.Option<string>;
-    readonly bound: ReadonlyMap<string, Option.Option<string>>;
+    readonly variables: ReadonlyMap<string, Option.Option<string>>;
     readonly input: Option.Option<string>;
 }
 interface Script {
     readonly commands: readonly Command[];
-    readonly jobs: readonly (Span & Pick<Surroundings, 'origin'>)[];
+    readonly jobs: readonly (Span & Pick<Command, 'origin'>)[];
 }
-interface Beginning extends Pick<Command, 'cwd' | 'origin'>, Partial<Pick<Surroundings, 'fed' | 'looping'>> {
-    readonly visited?: ReadonlySet<string>;
-}
-interface Frame {
-    readonly values: ReadonlyMap<string, Option.Option<string>>;
+interface Scope extends Pick<Command, 'variables'> {
     readonly opaque: boolean;
     readonly functions: ReadonlySet<string>;
 }
-interface Place extends Surroundings {
-    readonly read: (name: string) => Option.Option<string>;
-    readonly resolve: (typeof Host.Service)['place'];
-    readonly home: Option.Option<string>;
-    readonly dry: boolean;
-}
-type Walked = readonly [Frame, Script];
+type Walk = readonly [Scope, Script];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const DIRECTORY = 'PWD';
+const PWD = 'PWD';
 const REFERENCE = /(?<=\$\{?)[A-Za-z_]\w*/gu;
 const DECODER = new TextDecoder();
 const ANSI_ESCAPE = /\\(?:(?<code>[abeEfnrtv\\'"?])|(?<octal>[0-7]{1,3})|x(?<hex>[\da-fA-F]{1,2})|[uU](?<wide>[\da-fA-F]{1,8}))/gu;
@@ -117,15 +104,15 @@ const Tree = Schema.fromJsonString(Schema.Struct({ Stmts: Schema.optionalKey(Sch
 
 // --- [WORDS]
 
-const sliced = ({ Pos, End }: Pick<Node, 'Pos' | 'End'>, { source }: Place): string => DECODER.decode(source.subarray(Pos.Offset, End.Offset));
+const sliced = ({ Pos, End }: Pick<Node, 'Pos' | 'End'>, { source }: Context): string => DECODER.decode(source.subarray(Pos.Offset, End.Offset));
 
 const spanOf = ({ Pos, End }: Pick<Node, 'Pos' | 'End'>): Span => ({ start: Pos.Offset, end: End.Offset });
 
-const looked = (frame: Frame, name: string, place: Place): Option.Option<string> => frame.values.get(name) ?? (frame.opaque || SHIFTING.has(name) ? Option.none() : place.read(name));
+const lookup = (scope: Scope, name: string, context: Context): Option.Option<string> => scope.variables.get(name) ?? (scope.opaque || SHIFTING.has(name) ? Option.none() : (context.environment.get(name) ?? Option.none()));
 
 const ansiDecoded = (_all: string, code?: keyof typeof ANSI_CODES, octal?: string, hex?: string, wide?: string): string => (code === undefined ? String.fromCodePoint(Number(octal === undefined ? `0x${hex ?? wide}` : `0o${octal}`)) : ANSI_CODES[code]);
 
-const piecesOf = ({ Value = '', ...part }: Node, frame: Frame, place: Place, quote?: readonly [string, string]): readonly Part[] =>
+const piecesOf = ({ Value = '', ...part }: Node, scope: Scope, context: Context, quote?: readonly [string, string]): readonly Part[] =>
     Match.value(part.Type).pipe(
         Match.when('Lit', (): readonly Part[] =>
             [...Value.matchAll(new RegExp(`${(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE).source}|${CHARACTER.source}`, 'gu'))].map(([raw]) => ({
@@ -144,31 +131,31 @@ const piecesOf = ({ Value = '', ...part }: Node, frame: Frame, place: Place, quo
         }),
         Match.when('DblQuoted', (): readonly Part[] => {
             const quoted = [part.Dollar === true ? '$"' : '"', '"'] as const;
-            const held = (part.Parts ?? []).flatMap((child) => piecesOf(child, frame, place, quoted));
+            const held = (part.Parts ?? []).flatMap((child) => piecesOf(child, scope, context, quoted));
             return held.length === 0 ? [{ raw: '', text: '', known: true, glob: false, spread: false, quote: quoted }] : held;
         }),
         Match.when('ParamExp', (): readonly Part[] => {
             const parameter = new Set(Object.keys(part)).isSubsetOf(PLAIN_EXPANSION) ? part.Param?.Value : undefined;
-            const value = parameter === undefined ? Option.none() : looked(frame, parameter, place);
-            const raw = sliced(part, place);
+            const value = parameter === undefined ? Option.none() : lookup(scope, parameter, context);
+            const raw = sliced(part, context);
             const text = Option.getOrElse(value, () => raw);
             const splits = quote === undefined && Option.isSome(value);
             return parameter === undefined
                 ? [{ raw, text, known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]
                 : [{ raw, text, known: Option.isSome(value), glob: splits && GLOB.test(text), spread: splits && SPREADS.test(text), parameter: { name: parameter, offset: 0 }, ...(quote === undefined ? {} : { quote }) }];
         }),
-        Match.orElse((): readonly Part[] => [{ raw: sliced(part, place), text: sliced(part, place), known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]),
+        Match.orElse((): readonly Part[] => [{ raw: sliced(part, context), text: sliced(part, context), known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]),
     );
 
 const pieces = (parts: readonly Part[]): Pick<Word, 'text' | 'known' | 'glob' | 'spread'> =>
     parts.reduce<Pick<Word, 'text' | 'known' | 'glob' | 'spread'>>((all, part) => ({ text: `${all.text}${part.text}`, known: all.known && part.known, glob: all.glob || part.glob, spread: all.spread || part.spread }), { text: '', known: true, glob: false, spread: false });
 
-const worded = (node: Pick<Node, 'Pos' | 'End' | 'Parts'>, frame: Frame, place: Place): Word => {
-    const parts = (node.Parts ?? []).flatMap((part) => piecesOf(part, frame, place));
-    const raw = sliced(node, place);
+const worded = (node: Pick<Node, 'Pos' | 'End' | 'Parts'>, scope: Scope, context: Context): Word => {
+    const parts = (node.Parts ?? []).flatMap((part) => piecesOf(part, scope, context));
+    const raw = sliced(node, context);
     const piece = pieces(parts);
     const text = Option.match(
-        Option.filter(place.home, () => raw.startsWith('~')),
+        Option.filter(context.home, () => raw.startsWith('~')),
         { onNone: () => piece.text, onSome: (home) => piece.text.replace(TILDE, (_all, user: string) => (user === '' ? home : `${home.slice(0, home.lastIndexOf('/') + 1)}${user}`)) },
     );
     return { raw, ...spanOf(node), ...piece, parts, text, known: piece.known && (!piece.spread || parts.length === 1) };
@@ -228,200 +215,187 @@ const fields = (word: Word): readonly Word[] => {
     return parts.map((part, index) => ({ ...word, raw: part.raw, text: part.text, glob: part.glob, spread: matches.length > 1, parts: [part], field: { index, words } }));
 };
 
-const assignedValue = ({ Value, Array: list, Append }: Assign, frame: Frame, place: Place): Option.Option<string> => {
+const assignedValue = ({ Value, Array: list, Append }: Assign, scope: Scope, context: Context): Option.Option<string> => {
     if (list !== undefined || Append === true) {
         return Option.none();
     }
-    const word = Value === undefined ? { known: true, text: '' } : worded(Value, frame, place);
+    const word = Value === undefined ? { known: true, text: '' } : worded(Value, scope, context);
     return word.known ? Option.some(word.text) : Option.none();
 };
 
-const delivered = (redirects: readonly Node[], frame: Frame, place: Place): Option.Option<string> => {
+const delivered = (redirects: readonly Node[], scope: Scope, context: Context): Option.Option<string> => {
     const redirect = redirects.findLast(({ Op }) => HEREDOC.has(Op));
     const quoted = redirect?.Hdoc !== undefined && redirect.Word?.Parts?.every(({ Type }) => Type === 'Lit') === false;
-    return Option.map(Option.fromNullishOr(redirect?.Hdoc ?? redirect?.Word), (body) => (quoted ? (body.Parts ?? []).map(({ Value = '' }) => Value).join('') : pieces((body.Parts ?? []).flatMap((part) => piecesOf(part, frame, place, redirect?.Hdoc === undefined ? undefined : ['', '']))).text));
+    return Option.map(Option.fromNullishOr(redirect?.Hdoc ?? redirect?.Word), (body) => (quoted ? (body.Parts ?? []).map(({ Value = '' }) => Value).join('') : pieces((body.Parts ?? []).flatMap((part) => piecesOf(part, scope, context, redirect?.Hdoc === undefined ? undefined : ['', '']))).text));
 };
 
-// --- [FRAMES]
+// --- [SCOPES]
 
-const merged = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), jobs: scripts.flatMap(({ jobs }) => jobs) });
+const concat = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), jobs: scripts.flatMap(({ jobs }) => jobs) });
 
-const joined = (left: Frame, right: Frame): Frame => ({
-    values: new Map(Array.map([...left.values.keys(), ...right.values.keys()], (name) => [name, Equal.equals(left.values.get(name), right.values.get(name)) ? (left.values.get(name) ?? Option.none()) : Option.none<string>()] as const)),
+const joined = (left: Scope, right: Scope): Scope => ({
+    variables: new Map(Array.map([...left.variables.keys(), ...right.variables.keys()], (name) => [name, Equal.equals(left.variables.get(name), right.variables.get(name)) ? (left.variables.get(name) ?? Option.none()) : Option.none<string>()] as const)),
     opaque: left.opaque || right.opaque,
     functions: left.functions.union(right.functions),
 });
 
-const bound = (frame: Frame, entries: readonly (readonly [string, Option.Option<string>])[]): Frame => ({ ...frame, values: new Map([...frame.values, ...entries]) });
+const bound = (scope: Scope, entries: readonly (readonly [string, Option.Option<string>])[]): Scope => ({ ...scope, variables: new Map([...scope.variables, ...entries]) });
 
-const entered = (frame: Frame, [program, ...args]: readonly Word[], place: Place): Frame => {
+const entered = (scope: Scope, [program, ...args]: readonly Word[], context: Context): Scope => {
     const target = args.find(({ text }) => text === '-' || !text.startsWith('-'));
     const named = Option.fromNullishOr(target).pipe(
         Option.filter(({ known, text }) => known && text !== '-' && program?.text !== 'popd'),
         Option.map(({ text }) => text),
     );
-    const word = program?.text === 'cd' && target === undefined ? place.home : named;
-    return bound(frame, [[DIRECTORY, Option.flatMap(word, (given) => place.resolve(given, looked(frame, DIRECTORY, place)))]]);
+    const word = program?.text === 'cd' && target === undefined ? context.home : named;
+    return bound(scope, [[PWD, Option.flatMap(word, (given) => context.resolve(given, lookup(scope, PWD, context)))]]);
 };
 
-const effects = (frame: Frame, words: readonly Word[], place: Place): Frame => {
+const effects = (scope: Scope, words: readonly Word[], context: Context): Scope => {
     const peeled = Array.dropWhile(words, ({ text }) => PREFIXES.has(text));
     const head = peeled[0]?.text;
     if (head !== undefined && ENTERING.has(head)) {
-        return entered(frame, peeled, place);
+        return entered(scope, peeled, context);
     }
-    if (head !== undefined && (OPAQUE.has(head) || frame.functions.has(head))) {
-        return { ...frame, values: new Map(), opaque: true };
+    if (head !== undefined && (OPAQUE.has(head) || scope.functions.has(head))) {
+        return { ...scope, variables: new Map(), opaque: true };
     }
     return head !== undefined && ASSIGNING.has(head)
         ? bound(
-              frame,
+              scope,
               Array.filterMap(peeled.slice(1), ({ text }) => (NAME.test(text) ? Result.succeed([text, Option.none<string>()] as const) : Result.failVoid)),
           )
-        : frame;
+        : scope;
 };
 
-// --- [WALKS]
+// --- [SYNTAX]
 
-const chained = (frame: Frame, ...steps: readonly ((current: Frame) => Walked)[]): Walked => {
-    const [final, scripts] = Array.mapAccum(steps, frame, (current, step) => step(current));
-    return [final, merged(scripts)];
+const chained = (scope: Scope, ...steps: readonly ((current: Scope) => Walk)[]): Walk => {
+    const [final, scripts] = Array.mapAccum(steps, scope, (current, step) => step(current));
+    return [final, concat(scripts)];
 };
 
-const nested = (value: unknown, frame: Frame, place: Place): Walked => {
+const nested = (value: unknown, scope: Scope, context: Context): Walk => {
     if (isNode(value) && (value.Type === 'CmdSubst' || value.Type === 'ProcSubst')) {
-        const [inner, script] = nested(value.Stmts, frame, { ...place, fed: place.fed || value.Op === '>(', pipes: false, stage: Option.none(), substituted: place.substituted || value.Type === 'ProcSubst', captured: place.captured || value.Op !== '>(' });
-        return [value.TempFile === true || value.ReplyVar === true ? joined(frame, inner) : frame, script];
+        const [inner, script] = nested(value.Stmts, scope, { ...context, fed: context.fed || value.Op === '>(', pipes: false, stage: Option.none(), substituted: context.substituted || value.Type === 'ProcSubst', captured: context.captured || value.Op !== '>(' });
+        return [value.TempFile === true || value.ReplyVar === true ? joined(scope, inner) : scope, script];
     }
     if (isNode(value) && value.Cmd !== undefined) {
-        return statement(value, frame, place);
+        return statement(value, scope, context);
     }
-    return Predicate.isObjectOrArray(value) ? chained(frame, ...Object.values(value).map((child) => (current: Frame) => nested(child, current, place))) : [frame, NOTHING];
+    return Predicate.isObjectOrArray(value) ? chained(scope, ...Object.values(value).map((child) => (current: Scope) => nested(child, current, context))) : [scope, NOTHING];
 };
 
-const statement = (stmt: Node, frame: Frame, place: Place): Walked => {
+const statement = (stmt: Node, scope: Scope, context: Context): Walk => {
     const redirects = stmt.Redirs ?? [];
-    const own = { ...place, fed: place.fed || redirects.some(({ Op, N }) => INPUT.has(Op) && (N === undefined || N.Value === '0')) };
+    const own = { ...context, fed: context.fed || redirects.some(({ Op, N }) => INPUT.has(Op) && (N === undefined || N.Value === '0')) };
     const [after, script] = chained(
-        frame,
+        scope,
         (current) => nested(redirects, current, own),
         (current) => commanded(stmt, current, own),
     );
-    return stmt.Background === true && stmt.Semicolon !== undefined ? [frame, merged([script, { ...NOTHING, jobs: [{ start: stmt.Semicolon.Offset, end: stmt.Semicolon.Offset + 1, origin: place.origin }] }])] : [after, script];
+    return stmt.Background === true && stmt.Semicolon !== undefined ? [scope, concat([script, { ...NOTHING, jobs: [{ start: stmt.Semicolon.Offset, end: stmt.Semicolon.Offset + 1, origin: context.origin }] }])] : [after, script];
 };
 
-const commanded = (stmt: Node, frame: Frame, place: Place): Walked => {
-    const inner = { ...place, pipes: false, stage: Option.none() };
+const commanded = (stmt: Node, scope: Scope, context: Context): Walk => {
+    const inner = { ...context, pipes: false, stage: Option.none() };
     const node = stmt.Cmd;
     return node === undefined
-        ? [frame, NOTHING]
+        ? [scope, NOTHING]
         : Match.value(PIPING.has(node.Op) ? 'Pipeline' : node.Type).pipe(
-              Match.when('CallExpr', () => called(node, stmt, frame, place)),
-              Match.when('Pipeline', (): Walked => [frame, merged(stages(node).map((stage, at, all) => nested(stage, frame, { ...place, fed: place.fed || at > 0, pipes: at < all.length - 1, stage: Option.some({ pipeline: node, at }) })[1]))]),
-              Match.when('BinaryCmd', (): Walked => {
-                  const [flow, script] = flowed(node, frame, inner);
-                  return [node.Op === '&&' ? flow : joined(frame, flow), script];
+              Match.when('CallExpr', () => called(node, stmt, scope, context)),
+              Match.when('Pipeline', (): Walk => [scope, concat(pipelineStages(node).map((stage, at, all) => nested(stage, scope, { ...context, fed: context.fed || at > 0, pipes: at < all.length - 1, stage: Option.some({ pipeline: node, at }) })[1]))]),
+              Match.when('BinaryCmd', (): Walk => {
+                  const [flow, script] = flowed(node, scope, inner);
+                  return [node.Op === '&&' ? flow : joined(scope, flow), script];
               }),
-              Match.when('Subshell', (): Walked => [frame, nested(node.Stmts, frame, inner)[1]]),
-              Match.when('IfClause', () => branched(node, frame, inner)),
-              Match.when('WhileClause', () => looped([node.Cond, node.Do], frame, { ...inner, looping: true, busy: !place.fed && (node.Do ?? []).every(idle) }, Option.none())),
-              Match.when('ForClause', () => looped([node.Loop, node.Do], frame, { ...inner, looping: true }, Option.fromNullishOr(node.Loop?.Name?.Value))),
-              Match.when('CaseClause', (): Walked => {
-                  const [tested, testing] = nested(node.Word, frame, inner);
+              Match.when('Subshell', (): Walk => [scope, nested(node.Stmts, scope, inner)[1]]),
+              Match.when('IfClause', () => branched(node, scope, inner)),
+              Match.when('WhileClause', () => loop([node.Cond, node.Do], scope, { ...inner, looping: true, busy: !context.fed && (node.Do ?? []).every(idle) }, Option.none())),
+              Match.when('ForClause', () => loop([node.Loop, node.Do], scope, { ...inner, looping: true }, Option.fromNullishOr(node.Loop?.Name?.Value))),
+              Match.when('CaseClause', (): Walk => {
+                  const [tested, testing] = nested(node.Word, scope, inner);
                   const arms = (node.Items ?? []).map(({ Patterns, Stmts }) => nested([Patterns, Stmts], tested, inner));
-                  return [arms.reduce((all, [arm]) => joined(all, arm), tested), merged([testing, ...arms.map(([, script]) => script)])];
+                  return [arms.reduce((all, [arm]) => joined(all, arm), tested), concat([testing, ...arms.map(([, script]) => script)])];
               }),
-              Match.when('FuncDecl', (): Walked => {
-                  const functions = frame.functions.union(new Set(Option.toArray(Option.fromNullishOr(node.Name?.Value))));
-                  return [{ ...frame, functions }, nested(node.Body, { values: new Map(), opaque: true, functions }, { ...inner, fed: true })[1]];
+              Match.when('FuncDecl', (): Walk => {
+                  const functions = scope.functions.union(new Set(Option.toArray(Option.fromNullishOr(node.Name?.Value))));
+                  return [{ ...scope, functions }, nested(node.Body, { variables: new Map(), opaque: true, functions }, { ...inner, fed: true })[1]];
               }),
-              Match.when('DeclClause', () => exported(node.Args ?? [], frame, inner)),
-              Match.orElse(() => nested(node, frame, inner)),
+              Match.when('DeclClause', () => exported(node.Args ?? [], scope, inner)),
+              Match.orElse(() => nested(node, scope, inner)),
           );
 };
 
 const idle = ({ Cmd: cmd }: Node): boolean => cmd?.Type === 'CallExpr' && cmd.Args?.[0]?.Parts?.every((part) => part.Type === 'Lit' && IDLE.has(part.Value)) === true;
 
-const looped = (body: unknown, frame: Frame, place: Place, variable: Option.Option<string>): Walked => {
-    const entry = bound(frame, Option.toArray(Option.map(variable, (name) => [name, Option.none<string>()] as const)));
-    const widened = joined(entry, nested(body, entry, { ...place, dry: true })[0]);
-    return [widened, place.dry ? NOTHING : nested(body, widened, place)[1]];
+const loop = (body: unknown, scope: Scope, context: Context, variable: Option.Option<string>): Walk => {
+    const entry = bound(scope, Option.toArray(Option.map(variable, (name) => [name, Option.none<string>()] as const)));
+    const widened = joined(entry, nested(body, entry, { ...context, dry: true })[0]);
+    return [widened, context.dry ? NOTHING : nested(body, widened, context)[1]];
 };
 
-const branched = ({ Cond, Then, Else }: Node, frame: Frame, place: Place): Walked => {
-    const [tested, testing] = nested(Cond, frame, place);
-    const [taken, taking] = nested(Then, tested, place);
-    const [other, othering] = Else === undefined ? [tested, NOTHING] : branched(Else, tested, place);
-    return [joined(taken, other), merged([testing, taking, othering])];
+const branched = ({ Cond, Then, Else }: Node, scope: Scope, context: Context): Walk => {
+    const [tested, testing] = nested(Cond, scope, context);
+    const [taken, taking] = nested(Then, tested, context);
+    const [other, othering] = Else === undefined ? [tested, NOTHING] : branched(Else, tested, context);
+    return [joined(taken, other), concat([testing, taking, othering])];
 };
 
-const assigning = (args: readonly Assign[], frame: Frame, place: Place, dynamic: boolean): Frame =>
+const assigning = (args: readonly Assign[], scope: Scope, context: Context, dynamic: boolean): Scope =>
     bound(
-        frame,
-        Array.filterMap(args, (assign) => (assign.Name?.Value === undefined || assign.Naked === true ? Result.failVoid : Result.succeed([assign.Name.Value, dynamic ? Option.none<string>() : assignedValue(assign, frame, place)] as const))),
+        scope,
+        Array.filterMap(args, (assign) => (assign.Name?.Value === undefined || assign.Naked === true ? Result.failVoid : Result.succeed([assign.Name.Value, dynamic ? Option.none<string>() : assignedValue(assign, scope, context)] as const))),
     );
 
-const exported = (args: readonly Assign[], frame: Frame, place: Place): Walked => {
-    const [ready, early] = nested(args, frame, place);
+const exported = (args: readonly Assign[], scope: Scope, context: Context): Walk => {
+    const [ready, early] = nested(args, scope, context);
     const dynamic = args.some(({ Naked, Value }) => Naked === true && Value?.Parts?.some((part) => part.Type === 'Lit' && part.Value?.startsWith('-') === true) === true);
-    return [assigning(args, ready, place, dynamic), early];
+    return [assigning(args, ready, context, dynamic), early];
 };
 
-const flowed = ({ X, Y }: Node, frame: Frame, place: Place): Walked =>
+const flowed = ({ X, Y }: Node, scope: Scope, context: Context): Walk =>
     chained(
-        frame,
-        (current) => (X?.Cmd?.Type === 'BinaryCmd' && LISTING.has(X.Cmd.Op) ? flowed(X.Cmd, current, place) : nested(X, current, place)),
-        (current) => nested(Y, current, place),
+        scope,
+        (current) => (X?.Cmd?.Type === 'BinaryCmd' && LISTING.has(X.Cmd.Op) ? flowed(X.Cmd, current, context) : nested(X, current, context)),
+        (current) => nested(Y, current, context),
     );
 
-const stages = ({ X, Y, Op }: Node): readonly unknown[] => [...(X?.Cmd?.Type === 'BinaryCmd' && X.Cmd.Op === Op ? stages(X.Cmd) : [X]), Y];
+const pipelineStages = ({ X, Y, Op }: Node): readonly unknown[] => [...(X?.Cmd?.Type === 'BinaryCmd' && X.Cmd.Op === Op ? pipelineStages(X.Cmd) : [X]), Y];
 
-const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, frame: Frame, place: Place): Walked => {
-    const [ready, early] = nested([Assigns, Args], frame, place);
-    const words = Args.flatMap((node) => fields(worded(node, ready, place)));
+const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, scope: Scope, context: Context): Walk => {
+    const [ready, early] = nested([Assigns, Args], scope, context);
+    const words = Args.flatMap((node) => fields(worded(node, ready, context)));
     if (words.length === 0) {
-        return [assigning(Assigns, ready, place, false), early];
+        return [assigning(Assigns, ready, context, false), early];
     }
     const redirects = stmt.Redirs ?? [];
     const prefix = Assigns.map((assign): Word => {
-        const value = assignedValue(assign, ready, place);
-        const part: Part = { raw: sliced(assign, place), text: Option.match(value, { onNone: () => `${assign.Name?.Value}=`, onSome: (assigned) => `${assign.Name?.Value}=${assigned}` }), known: Option.isSome(value), glob: false, spread: false };
+        const value = assignedValue(assign, ready, context);
+        const part: Part = { raw: sliced(assign, context), text: Option.match(value, { onNone: () => `${assign.Name?.Value}=`, onSome: (assigned) => `${assign.Name?.Value}=${assigned}` }), known: Option.isSome(value), glob: false, spread: false };
         return { ...part, ...spanOf(assign), parts: [part] };
     });
     const command: Command = {
         start: stmt.Pos.Offset,
         end: stmt.Semicolon?.Offset ?? stmt.End.Offset,
-        ...Struct.omit(place, ['read', 'resolve', 'home', 'dry']),
+        ...Struct.omit(context, ['dry', 'home', 'environment', 'resolve']),
         words: [...prefix, ...words],
         redirects: redirects.map(({ Op = '', N, Word: target, Pos, End }) => {
             const span = { Pos, End: target?.End ?? End };
-            return { raw: sliced(span, place), op: Op, descriptor: Option.fromNullishOr(N?.Value), target: Option.map(Option.fromNullishOr(target), (node) => worded(node, ready, place)), ...spanOf(span) };
+            return { raw: sliced(span, context), op: Op, descriptor: Option.fromNullishOr(N?.Value), target: Option.map(Option.fromNullishOr(target), (node) => worded(node, ready, context)), ...spanOf(span) };
         }),
-        cwd: looked(ready, DIRECTORY, place),
-        bound: ready.values,
-        input: delivered(redirects, ready, place),
+        cwd: lookup(ready, PWD, context),
+        variables: ready.variables,
+        input: delivered(redirects, ready, context),
     };
-    return [effects(ready, words, place), merged([early, { ...NOTHING, commands: [command] }])];
+    return [effects(ready, words, context), concat([early, { ...NOTHING, commands: [command] }])];
 };
 
-const scripted = Effect.fnUntraced(function* (stmts: readonly Node[], text: string, { cwd, visited: _visited, ...beginning }: Beginning) {
-    const host = yield* Host;
-    const names = [...new Set(text.match(REFERENCE))];
-    const environment = new Map(Array.zip(names, yield* Effect.forEach(names, host.environment)));
-    return nested(
-        stmts,
-        { values: new Map([[DIRECTORY, cwd]]), opaque: false, functions: new Set() },
-        { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, ...beginning, source: new TextEncoder().encode(text), read: (name) => environment.get(name) ?? Option.none(), resolve: host.place, home: host.home, dry: false },
-    )[1];
-});
+const referenced = (text: string): readonly string[] => [...new Set(text.match(REFERENCE))];
 
-const tree = Effect.fnUntraced(function* (source: string, dialect: 'bash' | 'zsh') {
-    const host = yield* Host;
-    const { code, stdout, stderr } = yield* host.run(['shfmt', '--to-json', '-ln', dialect], { stdin: source });
-    const { Stmts = [] } = code === 0 ? yield* Effect.mapError(Schema.decodeEffect(Tree)(stdout), HookError.of('shfmt')) : yield* HookError.of('shfmt')(stderr);
-    return Stmts;
-});
+const scriptOf = (stmts: readonly Node[], text: string, { cwd, ...start }: Pick<Command, 'cwd'> & Pick<Context, 'origin' | 'home' | 'environment' | 'resolve'> & Partial<Pick<Context, 'fed' | 'looping'>>): Script =>
+    nested(stmts, { variables: new Map([[PWD, cwd]]), opaque: false, functions: new Set() }, { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, dry: false, ...start, source: new TextEncoder().encode(text) })[1];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Beginning, type Command, merged, type Script, type Span, scripted, slicedWord, tree, type Word };
+export { type Command, concat, referenced, type Script, type Span, scriptOf, slicedWord, Tree, type Word };

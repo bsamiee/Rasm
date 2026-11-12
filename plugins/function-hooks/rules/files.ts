@@ -1,8 +1,7 @@
-import { Array, Cache, Effect, Function, Option, Predicate, Record, String } from 'effect';
-import { absent, become, type Call, cut, dropped, edited, ensure, erased, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, type Respelling, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
-import { lockDeletes } from '#/policies/ghidra';
+import { Array, Effect, Function, Match, Option, Predicate, Record, String } from 'effect';
+import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule';
+import type { Invocation } from '#/shell/invocation';
 import type { Word } from '#/shell/script';
-import { Shell, type Site } from '#/shell/site';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -12,23 +11,22 @@ const IGNORED_PATH = /^[.*/]*node_modules[*/]*$/u;
 const NEGATED_IGNORED = new RegExp(`^!${ONLY_IGNORED.source.slice(1)}`, 'u');
 const BASIC_REGEX_SWAPS = /\\\\|\\(?<escaped>[(){}+?|])|(?<unescaped>^\*|[(){}+?|])/gu;
 const BACK_REFERENCE = /\\[1-9]/u;
-const GITIGNORE_READERS = new Set(['rg', 'fd', 'fdfind', 'tree']);
 const NO_IGNORE = ['--no-ignore', '--no-ignore-vcs', '--unrestricted'];
-const DEPTH = ['--max-depth', '-maxdepth', '-L', '--level'];
-const LEADING_OPTION = /^-[A-Za-z]$/u;
-const HIDDEN_EXCEPT_GIT = "--hidden --glob '!.git'";
+const HIDDEN_EXCEPT_GIT = ['--hidden', '--glob', "'!.git'"] as const;
 const GLOB_START = /[*?[{(]/u;
 const NAME_CHARACTER = /[\p{L}\p{N}]/u;
 const ASCENDS = /(?:^|\/)\.{1,2}(?:\/|$)/u;
 const EXPANSION = /[$`<]/u;
 const FLAG_SHAPED = /^--?[A-Za-z][\w-]*$/u;
 const ESCAPED_NEWLINE = /(?<!\\)(?:\\\\)*\\n/u;
+const SHELL_SYNTAX = /[$|&;<>()`]|^\w+=/u;
+const NEXT_COMMAND = /^(?:\s*(?:;|&&)\s*|\s*\n\s*)/u;
 const INLINE_LOOKUPS = [
     [/^(?:console\.log\()?require\(['"](?<name>[^'"./][^'"]*)\/package\.json['"]\)\.(?<field>\w+)\)?;?$/u, 'jq -r .$<field> node_modules/$<name>/package.json'],
     [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)?;?$/u, 'realpath node_modules/$<name>/package.json'],
     [/^(?:console\.log\()?require\(['"](?:node:)?path['"]\)\.dirname\(require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)\)?;?$/u, 'realpath node_modules/$<name>'],
 ] as const;
-const GREP_AS_RG: Required<Pick<Respelling, 'renames' | 'drops'>> = {
+const GREP_AS_RG: { readonly drops: readonly string[]; readonly renames: Record.ReadonlyRecord<string, string> } = {
     drops: ['--recursive', '--dereference-recursive', '--extended-regexp', '--with-filename', '--exclude-dir'],
     renames: {
         '--line-number': '-n',
@@ -47,269 +45,232 @@ const GREP_AS_RG: Required<Pick<Respelling, 'renames' | 'drops'>> = {
         '--include': '-g',
     },
 };
-const NEXT_STEP = /^(?:\s*(?:;|&&)\s*|\s*\n\s*)/u;
-const SHELL_SYNTAX = /[$|&;<>()`]|^\w+=/u;
-const FIND_RENAMES: Record.ReadonlyRecord<string, string> = { '-type': '-t', '-maxdepth': '-d', '-mindepth': '--min-depth', '-name': '-g', '-iname': '-i -g' };
-const FIND_DROPS: readonly string[] = ['-not', '-path'];
+const FIND_AS_FD: Record.ReadonlyRecord<string, string> = { '-type': '-t', '-maxdepth': '-d', '-mindepth': '--min-depth', '-name': '-g', '-iname': '-i -g' };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [ROOTS]
+// --- [TREE_WALKS]
 
-const walkRoots = (site: Site): readonly Word[] => {
-    const { walks } = site.row;
-    if (walks === undefined || (walks.when !== undefined && !site.has(...walks.when))) {
-        return [];
-    }
-    const { before, paths = [] } = walks;
-    const positional =
-        before === undefined
-            ? site.inputs
-            : Array.takeWhile(
-                  Array.dropWhile(site.words.slice(1), ({ text }) => LEADING_OPTION.test(text)),
-                  ({ text }) => !before.some((prefix) => text.startsWith(prefix)),
-              );
-    const places = [...site.supplied(...paths), ...positional];
-    return places.length === 0 && !site.command.fed ? [{ ...site.head, raw: '.', text: '.', known: true, glob: false }] : places;
+const rootFolders = (invocation: Invocation, { host }: Call): readonly string[] => {
+    const start = folderOf(host, invocation, ...(invocation.row.recursive?.base ?? []));
+    return Array.getSomes(invocation.roots.filter(({ known }) => known).map(({ text }) => host.resolve(text, start)));
 };
 
-const rootPlaces = (site: Site, { host }: Call): readonly string[] => {
-    const start = folderOf(host, site, ...(site.row.walks?.base ?? []));
-    return Array.getSomes(
-        walkRoots(site)
-            .filter(({ known }) => known)
-            .map(({ text }) => host.place(text, start)),
-    );
-};
-
-const tooWide: Fix = (site, call) => {
+const wideRoot: Rule = (invocation, call) => {
     const { host } = call;
-    const depth = site.values(...DEPTH);
-    return (depth.length > 0 && depth.every((levels) => levels === '1') && site.row.walks?.stats !== true ? [] : rootPlaces(site, call))
-        .filter((place) => host.path.dirname(place) === '/' || Option.exists(host.home, (home) => host.inside(home, place)) || (host.root !== place && host.inside(host.root, place)) || (site.row.walks?.stats !== true && place.endsWith('/node_modules/.pnpm')))
-        .flatMap((place) => refusal(`${site.program} root ${place} too wide, pass a package folder`));
+    const stats = invocation.row.recursive?.stats === true;
+    const depth = invocation.values('--max-depth', '-maxdepth', '-L', '--level');
+    return (depth.length > 0 && depth.every((levels) => levels === '1') && !stats ? [] : rootFolders(invocation, call))
+        .filter((folder) => host.path.dirname(folder) === '/' || Option.exists(host.home, (home) => host.inside(home, folder)) || (host.root !== folder && host.inside(host.root, folder)) || (!stats && folder.endsWith('/node_modules/.pnpm')))
+        .flatMap((folder) => refusal(`${invocation.program} root ${folder} too wide, pass a package folder`));
 };
-
-const rootIgnored = (site: Site, call: Call) => Effect.flatMap(Shell, ({ ignored }) => Cache.get(ignored, rootPlaces(site, call)));
 
 const unignored =
-    (named: Predicate.Predicate<Site>): Fix =>
-    (site, call) =>
-        Effect.map(rootIgnored(site, call), (ignored) => (ignored || named(site) ? ensure('--no-ignore', ...NO_IGNORE)(site) : []));
+    (named: Predicate.Predicate<Invocation>): Rule =>
+    (invocation, call) =>
+        Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => (ignored || named(invocation) ? ensure(['--no-ignore'], ...NO_IGNORE)(invocation) : []));
 
-// --- [DELETES]
+// --- [DELETIONS]
 
-const deletedPlace = Effect.fnUntraced(function* (site: Site, walker: Site | undefined, word: Word, start: Option.Option<string>, place: string, globbed: string, { host }: Call) {
-    const patterns = walker === undefined ? [] : [...walker.leading.map(({ text }) => text), ...walker.values(...(walker.row.walks?.names ?? []))];
-    if (![globbed, ...patterns].some((pattern) => NAME_CHARACTER.test(pattern)) && host.inside(host.root, place)) {
-        return refusal(walker === undefined ? `${subject(site)} ${word.text} covers root, name each folder` : `${subject(site)} deletes everything under ${word.text}, add a name pattern`);
-    }
-    const target = Option.getOrElse(host.place(word.text, start), () => place);
-    return yield* lockDeletes(site, host, patterns.length === 0 ? [target] : patterns.map((pattern) => host.path.join(target, pattern)));
-});
+const removes =
+    (...base: readonly string[]): Rule =>
+    (invocation, call) => {
+        const { host } = call;
+        const subject = commandOf(invocation);
+        const feeder = invocation.outer.find(({ row }) => row.wraps !== undefined && row.reads === true);
+        const { walker, words, start, patterns } = deleted(invocation, call, ...base);
+        return feeder === undefined
+            ? words.flatMap(({ raw, text, known, glob }) => {
+                  const wild = glob ? text.search(GLOB_START) : -1;
+                  const fixed = wild < 0 ? text.length : text.lastIndexOf('/', wild) + 1;
+                  const prefix = text.slice(0, text.lastIndexOf('/', text.search(EXPANSION)) + 1);
+                  const folder = host.resolve(text.slice(0, fixed), start);
+                  return Match.value({
+                      known,
+                      walks: walker !== undefined,
+                      skipped: invocation.command.origin === 'file' || (prefix !== '' && Option.exists(host.resolve(prefix, start), (outside) => !(host.inside(outside, host.root) || host.inside(host.root, outside)))),
+                      placed: Option.isSome(folder),
+                      covers: Option.exists(folder, (target) => host.inside(host.root, target)) && ![text.slice(fixed), ...patterns].some((pattern) => NAME_CHARACTER.test(pattern)),
+                      vague: ASCENDS.test(text) || !NAME_CHARACTER.test(text),
+                  }).pipe(
+                      Match.when({ known: false, skipped: false }, () => refusal(`${subject} ${raw} expands later, pass a literal path`)),
+                      Match.when({ known: true, covers: true, walks: false }, () => refusal(`${subject} ${text} covers root, name each folder`)),
+                      Match.when({ known: true, covers: true }, () => refusal(`${subject} deletes everything under ${text}, add a name pattern`)),
+                      Match.when({ known: true, placed: false, vague: true }, () => unresolved(invocation)),
+                      Match.orElse(() => []),
+                  );
+              })
+            : refusal(`${subject} reads ${feeder.program} paths, use fd -X ${invocation.program}`);
+    };
 
-const prefixOutside = ({ text }: Word, start: Option.Option<string>, { host }: Call): boolean => {
-    const folder = text.slice(0, text.lastIndexOf('/', text.search(EXPANSION)) + 1);
-    return folder !== '' && Option.exists(host.place(folder, start), (place) => !(host.inside(place, host.root) || host.inside(host.root, place)));
-};
+// --- [STDIN]
 
-const deletedWord = (site: Site, walker: Site | undefined, word: Word, call: Call) => {
-    const start = walker === undefined ? site.command.cwd : folderOf(call.host, walker, ...(walker.row.walks?.base ?? []));
-    const wild = word.glob ? word.text.search(GLOB_START) : -1;
-    const fixed = wild < 0 ? word.text.length : word.text.lastIndexOf('/', wild) + 1;
-    return word.known
-        ? Option.match(call.host.place(word.text.slice(0, fixed), start), {
-              onNone: () => Effect.succeed(ASCENDS.test(word.text) || !NAME_CHARACTER.test(word.text) ? unresolved(site) : []),
-              onSome: (place) => deletedPlace(site, walker, word, start, place, word.text.slice(fixed), call),
-          })
-        : Effect.succeed(site.command.origin === 'file' || prefixOutside(word, start, call) ? [] : refusal(`${subject(site)} ${word.raw} expands later, pass a literal path`));
-};
-
-const removed: Fix = (site, call) => {
-    const feeder = site.outer.find(({ row }) => row.reads === 'always');
-    if (feeder !== undefined) {
-        return refusal(`${subject(site)} reads ${feeder.program} paths, use fd -X ${site.program}`);
-    }
-    const walker = site.row.walks === undefined ? site.outer.findLast(({ row }) => row.walks !== undefined) : site;
-    return Effect.map(
-        Effect.forEach(walker === undefined ? site.inputs : walkRoots(walker), (word) => deletedWord(site, walker, word, call), { concurrency: 'unbounded' }),
-        (verdicts) => verdicts.flat(),
-    );
-};
-
-// --- [INPUT]
-
-const waitingOnInput = (site: Site): boolean => {
-    const { row, inputs, leading } = site;
-    const needsNothing = leading.some(({ text }) => row.readsNothing?.test(text) === true);
-    return row.reads !== undefined && !needsNothing && !site.has(...(row.readsUnless ?? []), ...(row.code ?? []), ...(row.shell ?? [])) && (row.reads === 'always' || (row.stops === true ? inputs.slice(0, 1) : inputs).some(({ text }) => text === '-') || (inputs.length === 0 && walkRoots(site).length === 0));
-};
-
-const struck = (site: Site): Verdicts => {
-    const { command, outer } = site;
-    const tail = new TextDecoder().decode(command.source.subarray(command.end));
-    const skipped = NEXT_STEP.exec(tail)?.[0].length ?? 0;
+const withoutCommand = (invocation: Invocation) => {
+    const { command, outer } = invocation;
+    const after = new TextDecoder().decode(command.source.subarray(command.end));
+    const skipped = NEXT_COMMAND.exec(after)?.[0].length ?? 0;
     const span = { start: 0, end: command.end + skipped };
-    const struckOut = tail.slice(skipped).trim() === '' ? edited(site, span, ':') : erased(site, span);
-    return command.start === 0 && outer.length === 0 && (skipped > 0 || tail.trim() === '') ? struckOut : [];
-};
-
-const unfed: Fix = (site, { request }) => {
-    if (site.command.fed || site.outer.some(({ row }) => row.execs !== undefined) || !waitingOnInput(site)) {
+    if (command.start > 0 || outer.length > 0 || (skipped === 0 && after.trim() !== '')) {
         return [];
     }
-    const discarded = (request.kind === 'foreground' || request.kind === 'background') && site.command.redirects.some(({ op, descriptor, target }) => op.startsWith('>') && !Option.contains(descriptor, '2') && Option.exists(target, ({ text }) => text === '/dev/null'));
+    return after.slice(skipped).trim() === '' ? edited(invocation, span, ':') : erased(invocation, span);
+};
+
+const emptyStdin: Rule = (invocation, { request }) => {
+    const { command } = invocation;
+    if (command.fed || invocation.outer.some(({ row }) => row.execs !== undefined) || !invocation.readsStdin) {
+        return [];
+    }
+    const discarded = (request.kind === 'foreground' || request.kind === 'background') && command.redirects.some(({ op, descriptor, target }) => op.startsWith('>') && !Option.contains(descriptor, '2') && Option.exists(target, ({ text }) => text === '/dev/null'));
     if (!discarded) {
-        return refusal(`${site.program} reads empty stdin, pass a file or pipe`);
+        return refusal(`${invocation.program} reads empty stdin, pass a file or pipe`);
     }
-    const removal = struck(site);
-    return removal.length > 0 ? removal : edited(site, site.command, ':');
+    const without = withoutCommand(invocation);
+    return without.length > 0 ? without : edited(invocation, command, ':');
 };
 
-const inlineCode: Fix = (site) => {
-    const flags = site.row.code ?? [];
-    const coded = site.has(...flags) || (site.command.fed && waitingOnInput(site));
-    if (site.row.code === undefined || !coded) {
+const inlineCode: Rule = (invocation) => {
+    const { code } = invocation.row;
+    if (code === undefined || !(invocation.has(...code) || (invocation.command.fed && invocation.readsStdin))) {
         return [];
     }
-    const code = site.values(...flags).join('\n');
-    const [lookup] = INLINE_LOOKUPS.filter(([pattern]) => pattern.test(code)).map(([pattern, answer]) => code.replace(pattern, answer));
-    return lookup === undefined ? refusal(`${site.program} runs inline code, use Edit or a tool`) : silent(whole(site, lookup, `${site.program} inline code`));
+    const source = invocation.values(...code).join('\n');
+    const [lookup] = INLINE_LOOKUPS.filter(([pattern]) => pattern.test(source)).map(([pattern, answer]) => source.replace(pattern, answer));
+    return lookup === undefined ? refusal(`${invocation.program} runs inline code, use Edit or a tool`) : silent(whole(invocation, lookup, `${invocation.program} inline code`));
 };
 
 // --- [REPLACEMENTS]
 
-const unseparated: Fix = (site) => {
-    const dashed = Option.isNone(site.separator) ? site.operands.find(({ text }) => text.startsWith('-')) : undefined;
+const dashedOperand: Rule = (invocation) => {
+    const dashed = Option.isNone(invocation.separator) ? invocation.operands.find(({ text }) => text.startsWith('-')) : undefined;
     if (dashed === undefined) {
         return [];
     }
-    return dashed === site.operands[0] && FLAG_SHAPED.test(dashed.text) ? refusal(`sd ${dashed.text} parses as option, add -- before it`) : inserted(site, dashed.start, '-- ');
+    return dashed === invocation.operands[0] && FLAG_SHAPED.test(dashed.text) ? refusal(`sd ${dashed.text} parses as option, add -- before it`) : inserted(invocation, dashed.start, '-- ');
 };
 
-const sameTexts: Fix = (site) => {
-    const [find, replaced] = site.leading;
-    return find !== undefined && find.text === replaced?.text && site.inputs.length > 0 && !site.has('--preview') ? dropped(site, 'sd replacing text with itself') : [];
+const sameTexts: Rule = (invocation) => {
+    const [find, replaced] = invocation.leading;
+    return find !== undefined && find.text === replaced?.text && invocation.inputs.length > 0 && !invocation.has('--preview') ? edited(invocation, invocation.command, ':', 'sd replacing text with itself') : [];
 };
 
-// --- [TRANSLATIONS]
+// --- [REWRITES]
 
-const grepsAsRg: Predicate.Predicate<Site> = (site) => {
-    const patterns = [...site.leading, ...site.supplied('--regexp')];
+const grepsAsRg: Predicate.Predicate<Invocation> = (invocation) => {
+    const patterns = [...invocation.leading, ...invocation.supplied('--regexp')];
     return (
-        site.program === 'grep' &&
+        invocation.program === 'grep' &&
         !patterns.some(({ text }) => BACK_REFERENCE.test(text)) &&
-        site.has('--recursive', '--dereference-recursive') &&
-        [...site.names].every((name) => Record.has(GREP_AS_RG.renames, name) || GREP_AS_RG.drops.includes(name)) &&
-        site.values('--exclude-dir').every((value) => IGNORED.test(value)) &&
-        site.items.every(({ names, words: [word] }) => names.length === 0 || word.known) &&
-        (site.has('--extended-regexp', '--fixed-strings') || (patterns.every(({ known }) => known) && site.values('--regexp').length === site.supplied('--regexp').length))
+        invocation.has('--recursive', '--dereference-recursive') &&
+        [...invocation.names].every((name) => Record.has(GREP_AS_RG.renames, name) || GREP_AS_RG.drops.includes(name)) &&
+        invocation.values('--exclude-dir').every((value) => IGNORED.test(value)) &&
+        invocation.args.every(({ names, words: [word] }) => names.length === 0 || word.known) &&
+        (invocation.has('--extended-regexp', '--fixed-strings') || (patterns.every(({ known }) => known) && invocation.values('--regexp').length === invocation.supplied('--regexp').length))
     );
 };
 
-const swappedEscape = (held: string, escaped?: string, unescaped?: string): string => escaped ?? (unescaped === undefined ? held : `\\${unescaped}`);
-
-const grepArguments: Fix = (site) => {
+const grepArguments: Rule = (invocation) => {
     const pattern = (word: Word): string => {
-        const extended = site.has('--extended-regexp', '--fixed-strings') ? word.text : word.text.replace(BASIC_REGEX_SWAPS, swappedEscape);
+        const extended = invocation.has('--extended-regexp', '--fixed-strings') ? word.text : word.text.replace(BASIC_REGEX_SWAPS, (held: string, escaped?: string, unescaped?: string) => escaped ?? (unescaped === undefined ? held : `\\${unescaped}`));
         return extended === word.text ? word.raw : quote(extended);
     };
     return [
-        ...respell({ ...GREP_AS_RG, values: (word, names) => (names.includes('--regexp') ? pattern(word) : word.raw) })(site),
-        ...site.leading.flatMap((word) => {
+        ...respell({ ...GREP_AS_RG, values: (word, names) => (names.includes('--regexp') ? pattern(word) : word.raw) })(invocation),
+        ...invocation.leading.flatMap((word) => {
             const raw = pattern(word);
-            return raw === word.raw ? [] : edited(site, word, raw);
+            return raw === word.raw ? [] : edited(invocation, word, raw);
         }),
     ];
 };
 
-const findsAsFd: Predicate.Predicate<Site> = ({ row, last, values, items, operands }) => {
-    const { before } = row.walks ?? {};
-    const excludesIgnored = items.every(({ names, values: held }, at) => (!names.includes('-not') || items[at + 1]?.names.includes('-path') === true) && (!names.includes('-path') || (items[at - 1]?.names.includes('-not') === true && held.every(({ text }) => IGNORED_PATH.test(text)))));
-    return before !== undefined && last && values('-name', '-iname').length <= 1 && excludesIgnored && items.every(({ names }) => names.every((name) => Record.has(FIND_RENAMES, name) || FIND_DROPS.includes(name))) && !operands.some(({ text }) => before.some((prefix) => text.startsWith(prefix)));
+const findsAsFd: Predicate.Predicate<Invocation> = ({ row, last, values, args, operands }) => {
+    const { until } = row.recursive ?? {};
+    const excludesIgnored = args.every(({ names, values: held }, at) => (!names.includes('-not') || args[at + 1]?.names.includes('-path') === true) && (!names.includes('-path') || (args[at - 1]?.names.includes('-not') === true && held.every(({ text }) => IGNORED_PATH.test(text)))));
+    return until !== undefined && last && values('-name', '-iname').length <= 1 && excludesIgnored && args.every(({ names }) => names.every((name) => Record.has(FIND_AS_FD, name) || name === '-not' || name === '-path')) && !operands.some(({ text }) => until.some((prefix) => text.startsWith(prefix)));
 };
 
-const skipsIgnored = (site: Site, call: Call) =>
-    (GITIGNORE_READERS.has(site.program) || grepsAsRg(site) || findsAsFd(site)) && !site.has(...NO_IGNORE) && walkRoots(site).every(({ known, text }) => known && Option.exists(call.host.place(text, site.command.cwd), (place) => call.host.inside(place, call.host.root)))
-        ? Effect.map(rootIgnored(site, call), (ignored) => !ignored)
+const skipsIgnored = (invocation: Invocation, call: Call) =>
+    (['rg', 'fd', 'fdfind', 'tree'].includes(invocation.program) || grepsAsRg(invocation) || findsAsFd(invocation)) &&
+    !invocation.has(...NO_IGNORE) &&
+    invocation.roots.every(({ known, text }) => known && Option.exists(call.host.resolve(text, invocation.command.cwd), (folder) => call.host.inside(folder, call.host.root)))
+        ? Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => !ignored)
         : Effect.succeed(false);
 
 const unfiltered =
-    (drops: readonly string[], only: RegExp): Fix =>
-    (site, call) => {
-        const edits = respell({ drops }, { only })(site);
-        return edits.length === 0 ? [] : Effect.map(skipsIgnored(site, call), (skips) => (skips ? edits : []));
+    (drops: readonly string[], only: RegExp): Rule =>
+    (invocation, call) => {
+        const edits = respell({ drops, only })(invocation);
+        return edits.length === 0 ? [] : Effect.map(skipsIgnored(invocation, call), (skips) => (skips ? edits : []));
     };
 
-const excludedStage: Fix = (site, call) => {
-    const { earlier } = stages(site, call);
+const excludedStage: Rule = (invocation, call) => {
+    const { earlier } = stages(invocation, call);
     const previous = earlier.at(-1)?.command;
-    return previous === undefined || site.names.size > 1 || !Option.exists(Array.head(site.leading), ({ text }) => ONLY_IGNORED.test(text))
+    return previous === undefined || invocation.names.size > 1 || !Option.exists(Array.head(invocation.leading), ({ text }) => ONLY_IGNORED.test(text))
         ? []
         : Effect.map(
               Effect.forEach(
                   earlier.filter(({ command }) => command === previous),
                   (stage) => skipsIgnored(stage, call),
               ),
-              (skipping) => (skipping.some(Boolean) ? erased(site, { start: previous.end, end: site.command.end }) : []),
+              (skipping) => (skipping.some(Boolean) ? erased(invocation, { start: previous.end, end: invocation.command.end }) : []),
           );
 };
 
-const findAsFd: Fix = Effect.fnUntraced(function* (site, call) {
+const findAsFd: Rule = Effect.fnUntraced(function* (invocation, call) {
     const options = Array.getSomes(
-        site.items.map(({ names: [name], values }) =>
+        invocation.args.map(({ names: [name], values }) =>
             Option.fromUndefinedOr(name).pipe(
-                Option.flatMap((flag) => Record.get(FIND_RENAMES, flag)),
-                Option.map((spelled) => `${spelled} ${spoken(values)}`),
+                Option.flatMap((flag) => Record.get(FIND_AS_FD, flag)),
+                Option.map((flag) => `${flag} ${spelled(values)}`),
             ),
         ),
     );
-    const roots = walkRoots(site)
-        .map(({ raw }) => raw)
-        .filter((raw) => raw !== '.');
-    if (site.has('-path') && !(yield* skipsIgnored(site, call))) {
+    const roots = invocation.roots.map(({ raw }) => raw).filter((raw) => raw !== '.');
+    if (invocation.has('-path') && !(yield* skipsIgnored(invocation, call))) {
         return [];
     }
-    return whole(site, ['fd --hidden', ...((yield* rootIgnored(site, call)) ? ['--no-ignore'] : []), ...options, ...(site.has('-name', '-iname') ? [] : ["-g '*'"]), ...roots].join(' '), 'find');
+    return whole(invocation, ['fd --hidden', ...((yield* call.host.ignored(rootFolders(invocation, call))) ? ['--no-ignore'] : []), ...options, ...(invocation.has('-name', '-iname') ? [] : ["-g '*'"]), ...roots].join(' '), 'find');
 });
 
-const grepAsRg: Fix = (site, call) => Effect.map(rootIgnored(site, call), (ignored) => become(ignored ? `rg ${HIDDEN_EXCEPT_GIT} --no-ignore` : `rg ${HIDDEN_EXCEPT_GIT}`)(site));
+const grepAsRg: Rule = (invocation, call) => Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => edited(invocation, invocation.head, ['rg', ...HIDDEN_EXCEPT_GIT, ...(ignored ? ['--no-ignore'] : [])].join(' '), invocation.head.raw));
 
-const treeOnly: Predicate.Predicate<Site> = Predicate.and(has('-R'), ({ names }) => names.size === 1);
+const treeOnly: Predicate.Predicate<Invocation> = ({ has, names }) => has('-R') && names.size === 1;
 
-const optionsFirst: Fix = (site) => {
-    const [first] = site.operands;
-    const late = first === undefined ? [] : site.items.filter(({ names, words: [word] }) => names.length > 0 && word.start > first.start);
-    return first === undefined || late.length === 0 ? [] : [...inserted(site, first.start, `${late.map(({ words }) => spoken(words)).join(' ')} `), ...late.flatMap(({ words }) => cut(site, words))];
+const optionsFirst: Rule = (invocation) => {
+    const [first] = invocation.operands;
+    const late = first === undefined ? [] : invocation.args.filter(({ names, words: [word] }) => names.length > 0 && word.start > first.start);
+    return first === undefined || late.length === 0 ? [] : [...inserted(invocation, first.start, `${late.map(({ words }) => spelled(words)).join(' ')} `), ...late.flatMap(({ words }) => cut(invocation, words))];
 };
 
-const silenced: Fix = (site) => {
-    const quieted = [...redirected(site, '&>'), ...redirected(site, '>', undefined, '/dev/null'), ...redirected(site, '>&', '2')];
-    return quieted.length >= 2 || quieted.some(({ op }) => op === '&>') ? [...ensure('--style none')(site), ...quieted.flatMap((redirect) => cut(site, [redirect]))] : [];
+const silenced: Rule = (invocation) => {
+    const quieted = [...redirected(invocation, '&>'), ...redirected(invocation, '>', undefined, '/dev/null'), ...redirected(invocation, '>&', '2')];
+    return quieted.length >= 2 || quieted.some(({ op }) => op === '&>') ? [...ensure(['--style', 'none'])(invocation), ...quieted.flatMap((redirect) => cut(invocation, [redirect]))] : [];
 };
 
-const mergedIntoJson: Fix = (site, call) => {
-    const merged = redirected(site, '>&', '2', '1');
-    return merged.length > 0 && feedsJq(site, call) ? merged.flatMap((redirect) => cut(site, [redirect])) : [];
+const mergedIntoJson: Rule = (invocation, call) => {
+    const merged = redirected(invocation, '>&', '2', '1');
+    return merged.length > 0 && feedsJq(invocation, call) ? merged.flatMap((redirect) => cut(invocation, [redirect])) : [];
 };
 
-const redundantCd: Fix = (site, { host }) => {
-    const [target] = site.operands;
-    return target?.known === true && Option.exists(host.place(target.text, site.command.cwd), (place) => Option.contains(site.command.cwd, place)) ? struck(site) : [];
+const redundantCd: Rule = (invocation, { host }) => {
+    const [target] = invocation.operands;
+    const { cwd } = invocation.command;
+    return target?.known === true && Option.exists(host.resolve(target.text, cwd), (folder) => Option.contains(cwd, folder)) ? withoutCommand(invocation) : [];
 };
 
-const stranding: Fix = Effect.fnUntraced(function* (site, { host, analysis }) {
-    const { installed } = yield* Shell;
-    const [target] = site.operands;
-    const outside = Option.filter((place: string) => !host.inside(place, host.root));
-    const left = target?.known === true && site.outer.length === 0 && site.command.origin === 'call' ? outside(host.place(target.text, site.command.cwd)) : Option.none();
-    const later = Array.dedupe(analysis.sites.filter(({ command }) => command.source === site.command.source && command.start > site.command.start && Option.isSome(outside(command.cwd))).map(({ program }) => program));
-    const found = yield* Effect.forEach(Array.cartesian(Option.toArray(left), later), ([place, program]) => Effect.all([Cache.get(installed, program), Effect.map(host.output(['mise', '-C', place, 'exec', '--', 'which', program]), String.isNonEmpty)]), { concurrency: 'unbounded' });
-    return found.some(([here, away]) => here && !away) && !found.some(([here, away]) => away && !here) ? become('builtin cd')(site) : [];
+const cdOutsideRoot: Rule = Effect.fnUntraced(function* (invocation, { host, analysis }) {
+    const [target] = invocation.operands;
+    const { command } = invocation;
+    const outside = Option.filter((folder: string) => !host.inside(folder, host.root));
+    const left = target?.known === true && invocation.outer.length === 0 && command.origin === 'call' ? outside(host.resolve(target.text, command.cwd)) : Option.none();
+    const later = Array.dedupe(analysis.invocations.filter((other) => other.command.source === command.source && other.command.start > command.start && Option.isSome(outside(other.command.cwd))).map(({ program }) => program));
+    const found = yield* Effect.forEach(Array.cartesian(Option.toArray(left), later), ([folder, program]) => Effect.all([host.onPath(program), Effect.map(host.output(['mise', '-C', folder, 'exec', '--', 'which', program]), String.isNonEmpty)]), { concurrency: 'unbounded' });
+    return found.some(([here, away]) => here && !away) && !found.some(([here, away]) => away && !here) ? edited(invocation, invocation.head, 'builtin cd', invocation.head.raw) : [];
 });
 
-const readsItsOwnFile: Fix = (site, call) => {
-    const [source, ...others] = stages(site, call).earlier;
+const readsItsOwnFile: Rule = (invocation, call) => {
+    const [source, ...others] = stages(invocation, call).earlier;
     const [file] = source?.operands ?? [];
     return others.length === 0 &&
         source?.program === 'cat' &&
@@ -317,94 +278,93 @@ const readsItsOwnFile: Fix = (site, call) => {
         source.operands.length === 1 &&
         source.command.redirects.length === 0 &&
         file !== undefined &&
-        (site.leading.length > 0 || site.has('--from-file')) &&
-        site.inputs.length === 0 &&
-        site.rest.length === 0 &&
-        site.outer.length === 0 &&
-        site.assigned.length === 0
-        ? edited(site, { start: source.command.start, end: Array.lastNonEmpty(site.words).end }, `${spoken(site.words)} ${file.raw}`)
+        (invocation.leading.length > 0 || invocation.has('--from-file')) &&
+        invocation.inputs.length === 0 &&
+        invocation.rest.length === 0 &&
+        invocation.outer.length === 0 &&
+        invocation.assigned.length === 0
+        ? edited(invocation, { start: source.command.start, end: Array.lastNonEmpty(invocation.words).end }, `${spelled(invocation.words)} ${file.raw}`)
         : [];
 };
 
-const shellBodies: Fix = (site) => {
-    const given = site.supplied('--shell');
-    const needed = !site.has('-N') && site.operands.some(({ text }) => SHELL_SYNTAX.test(text));
-    return [...given.filter(({ text }) => text === 'sh -c').flatMap((word) => edited(site, word, 'default')), ...(needed && given.length === 0 ? ensure('-S default')(site) : [])];
+const shellBodies: Rule = (invocation) => {
+    const given = invocation.supplied('--shell');
+    const needed = !invocation.has('-N') && invocation.operands.some(({ text }) => SHELL_SYNTAX.test(text));
+    return [...given.filter(({ text }) => text === 'sh -c').flatMap((word) => edited(invocation, word, 'default')), ...(needed && given.length === 0 ? ensure(['-S', 'default'])(invocation) : [])];
 };
 
-const shuffled: Fix = (site) => {
-    const [count] = site.values('-n');
-    return site.names.size > (count === undefined ? 0 : 1) ? [] : silent(whole(site, ['sort -R', ...(site.operands.length > 0 ? [spoken(site.operands)] : []), ...(count === undefined ? [] : [`| head -n ${count}`])].join(' '), 'shuf'));
+const shuffled: Rule = (invocation) => {
+    const [count] = invocation.values('-n');
+    return invocation.names.size > (count === undefined ? 0 : 1) ? [] : silent(whole(invocation, ['sort -R', ...(invocation.operands.length > 0 ? [spelled(invocation.operands)] : []), ...(count === undefined ? [] : [`| head -n ${count}`])].join(' '), 'shuf'));
 };
 
-const inputFlagged: Fix = (site) => {
-    const [file] = site.inputs;
-    return file === undefined || file.text === '-' || site.has('-i') ? [] : inserted(site, file.start, '-i ');
+const inputFlagged: Rule = (invocation) => {
+    const [file] = invocation.inputs;
+    return file === undefined || file.text === '-' || invocation.has('-i') ? [] : inserted(invocation, file.start, '-i ');
 };
 
-// --- [TABLES] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-const FILES: Policy = {
+const FILES: Ruleset = {
     programs: {
         fd: {
             aliases: ['fdfind'],
             leading: 1,
             execs: ['--exec', '--exec-batch'],
-            walks: { paths: ['--search-path'], base: ['--base-directory'], names: ['--extension'] },
-            fixes: [ensure('--hidden', '--no-hidden', '--unrestricted'), unfiltered(['--exclude'], ONLY_IGNORED), unignored(holds(IGNORED))],
+            recursive: { roots: ['--search-path'], base: ['--base-directory'], names: ['--extension'] },
+            rules: [ensure(['--hidden'], '--no-hidden', '--unrestricted'), unfiltered(['--exclude'], ONLY_IGNORED), unignored(holds(IGNORED))],
         },
         find: {
             aliases: ['gfind'],
             flags: ['-type=', '-maxdepth=', '-mindepth='],
             execs: ['-exec', '-execdir', '-ok', '-okdir'],
-            walks: { before: ['-', '(', '!'], names: ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'] },
-            fixes: [when(has('-delete'), removed), when(findsAsFd, findAsFd)],
+            recursive: { until: ['-', '(', '!'], names: ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'] },
+            rules: [when(({ has }) => has('-delete'), removes()), when(findsAsFd, findAsFd)],
         },
-        rm: { aliases: ['rimraf', 'trash', 'unlink', 'shred'], fixes: [removed] },
-        tree: { walks: {}, fixes: [respell({ drops: ['-a', '--all', '--noreport'], renames: { '--dirsfirst': '--group-directories-first', '-d': '-D' } }), unfiltered(['-I'], ONLY_IGNORED)] },
-        du: { flags: ['-I='], walks: { stats: true } },
+        rm: { aliases: ['rimraf', 'trash', 'unlink', 'shred'], rules: [removes()] },
+        git: { rules: [perSubcommand({ rm: [when(({ has }) => !has('--cached'), removes('-C'))] })] },
+        tree: { recursive: {}, rules: [respell({ drops: ['-a', '--all', '--noreport'], renames: { '--dirsfirst': '--group-directories-first', '-d': '-D' } }), unfiltered(['-I'], ONLY_IGNORED)] },
+        du: { flags: ['-I='], recursive: { stats: true } },
         grep: {
             flags: ['--include-dir='],
             leading: 1,
             leadingUnless: ['--regexp', '--file'],
-            reads: 'default',
-            walks: { when: ['--recursive', '--dereference-recursive'] },
-            closes: ['--quiet', '--silent', '--max-count', '--files-with-matches'],
-            fixes: [when(grepsAsRg, grepAsRg, grepArguments), when(has('--invert-match'), excludedStage)],
+            reads: true,
+            recursive: { when: ['--recursive', '--dereference-recursive'] },
+            rules: [when(grepsAsRg, grepAsRg, grepArguments), when(({ has }) => has('--invert-match'), excludedStage)],
         },
         rg: {
             leading: 1,
             leadingUnless: ['--regexp', '--file', '--files', '--type-list', '--generate'],
-            walks: {},
-            closes: ['--quiet', '--max-count', '--files-with-matches'],
-            fixes: [when((site) => walkRoots(site).length > 0, ensure(HIDDEN_EXCEPT_GIT, '--no-hidden', '--unrestricted', '--no-config')), unfiltered(['--glob', '--iglob'], NEGATED_IGNORED), unignored(Function.constFalse)],
+            recursive: {},
+            rules: [when(({ roots }) => roots.length > 0, ensure(HIDDEN_EXCEPT_GIT, '--no-hidden', '--unrestricted', '--no-config')), unfiltered(['--glob', '--iglob'], NEGATED_IGNORED), unignored(Function.constFalse)],
         },
-        cat: { reads: 'default', fixes: [respell({ renames: { '-A': '-vet' } })] },
-        ls: { fixes: [when(treeOnly, become('tree', false), respell({ drops: ['-R'] })), when(Predicate.not(treeOnly), optionsFirst)] },
+        cat: { reads: true, rules: [respell({ renames: { '-A': '-vet' } })] },
+        ls: { rules: [when(treeOnly, (invocation) => edited(invocation, invocation.head, 'tree'), respell({ drops: ['-R'] })), when(Predicate.not(treeOnly), optionsFirst)] },
         sd: {
-            closed: true,
+            strict: true,
             leading: 2,
-            reads: 'default',
-            fixes: [
-                unseparated,
+            reads: true,
+            rules: [
+                dashedOperand,
                 when(({ leading: [find] }) => find?.text === '', refuse('empty pattern matches everywhere', 'preview with sd -p')),
                 sameTexts,
-                when(({ leading: [find], has: holding }) => find !== undefined && (find.text.includes('\n') || (!holding('--fixed-strings') && ESCAPED_NEWLINE.test(find.text))), ensure('-A')),
+                when(({ leading: [find], has }) => find !== undefined && (find.text.includes('\n') || (!has('--fixed-strings') && ESCAPED_NEWLINE.test(find.text))), ensure(['-A'])),
             ],
         },
-        cd: { fixes: [redundantCd, stranding] },
-        jq: { flags: ['--arg=2', '--argjson=2', '--slurpfile=2', '--rawfile=2'], leading: 1, leadingUnless: ['--from-file'], ends: ['--args', '--jsonargs'], reads: 'default', readsUnless: ['--null-input'], fixes: [readsItsOwnFile] },
+        cd: { rules: [redundantCd, cdOutsideRoot] },
+        jq: { flags: ['--arg=2', '--argjson=2', '--slurpfile=2', '--rawfile=2'], leading: 1, leadingUnless: ['--from-file'], restAfter: ['--args', '--jsonargs'], reads: true, readsUnless: ['--null-input'], rules: [readsItsOwnFile] },
         hyperfine: {
             flags: ['-P, --parameter-scan=3', '-L, --parameter-list=2'],
-            fixes: [ensure('-i'), shellBodies, silenced, when(({ supplied }) => supplied('--input').some(({ raw }) => raw.startsWith('<(')), refuse('process substitution is read once', 'pass a file every run reads', '--input'))],
+            rules: [ensure(['-i']), shellBodies, silenced, when(({ supplied }) => supplied('--input').some(({ raw }) => raw.startsWith('<(')), refuse('process substitution is read once', 'pass a file every run reads', '--input'))],
         },
-        nproc: { fixes: [absent((site) => whole(site, 'sysctl -n hw.ncpu'))] },
-        shuf: { flags: ['-n='], fixes: [absent(shuffled)] },
-        base64: { flags: ['-i=', '-o=', '-b='], reads: 'default', readsUnless: ['-i'], fixes: [inputFlagged] },
+        nproc: { rules: [absent((invocation) => whole(invocation, 'sysctl -n hw.ncpu'))] },
+        shuf: { flags: ['-n='], rules: [absent(shuffled)] },
+        base64: { flags: ['-i=', '-o=', '-b='], reads: true, readsUnless: ['-i'], rules: [inputFlagged] },
     },
-    every: [mergedIntoJson, tooWide, unfed, inlineCode],
+    every: [mergedIntoJson, wideRoot, emptyStdin, inlineCode],
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { FILES, removed };
+export { FILES };

@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['**/main.ts', '**/main.tsx', 'plugins/function-hooks/server.ts', 'plugins/function-hooks/codex.ts']
+ignores: ['**/main.ts', '**/main.tsx', 'plugins/function-hooks/claude/server.ts', 'plugins/function-hooks/codex.ts']
 rule:
     any:
         - {pattern: runMain, not: {inside: {kind: import_specifier}}}

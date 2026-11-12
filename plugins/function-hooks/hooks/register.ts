@@ -1,32 +1,27 @@
 import { type AgentStatus, atom, type EngineInterface, type HookStream, type ProcessSpawnChunk, type ProcessSpawnResult, type Register, read, update } from 'claude-code';
+import type { Routes } from '#/claude/routes';
 import type { Row } from '#/hooks/state';
-import type { Routes } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Watched = Routes['watched'][1][number];
-type Noted = Watched & { readonly owner: string | undefined; readonly untold: readonly string[]; readonly launching: boolean };
-interface Session {
-    readonly served: () => Promise<string>;
-    readonly watched: (bundle: string, agent: string | undefined) => Promise<void>;
-}
+type Tracked = Watched & { readonly owner: string | undefined; readonly pending: readonly string[]; readonly launching: boolean };
 interface State {
-    readonly life: PromiseWithResolvers<Session>;
+    readonly session: PromiseWithResolvers<{ readonly served: () => Promise<string>; readonly watched: (bundle: string, agent: string | undefined) => Promise<void> }>;
     readonly servers: Map<Promise<string>, HookStream<ProcessSpawnChunk, ProcessSpawnResult>>;
     readonly watches: Set<string>;
-    readonly tracked: Map<string, Noted>;
-    readonly told: Map<string | undefined, number>;
+    readonly tracked: Map<string, Tracked>;
+    readonly unjudged: Map<string | undefined, string>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const WATCH_APPS = 'watch-apps' satisfies typeof import('#/shell/programs').WATCH_APPS;
 const ROWS = atom({ plugin: 'function-hooks', key: 'rows' } as const, [], { shape: 'rows-1' });
 const LAST_SEGMENT = /\/[^/]*$/u;
 const ERROR_LINE = /Error\b/u;
 const RHINO_TOOLS = /^mcp__rhino-mcp-platform__/u;
 const BLENDER_TOOLS = /^mcp__(?:mcp-for-)?blender__/u;
-const NOTE_INTERVAL = 600_000;
-const KINDS = { Bash: 'foreground', Monitor: 'monitor' } as const;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -35,7 +30,7 @@ const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed'
 
 const started = ($: EngineInterface, servers: State['servers']): Promise<string> => {
     const ready = Promise.withResolvers<string>();
-    const child = $.process.spawn({ argv: ['mise', 'exec', '--', 'node', `${$.plugin.root}/server.ts`], cwd: $.plugin.root });
+    const child = $.process.spawn({ argv: ['mise', 'exec', '--', 'node', `${$.plugin.root}/claude/server.ts`], cwd: $.plugin.root });
     const supervised = async (): Promise<void> => {
         const printed = { stdout: '', stderr: '', socket: '' };
         for await (const { stream, text } of child) {
@@ -63,9 +58,9 @@ const started = ($: EngineInterface, servers: State['servers']): Promise<string>
     return ready.promise;
 };
 
-const posted = <R extends keyof Routes>($: EngineInterface, { life, servers }: State, route: R, body: Routes[R][0], signal?: AbortSignal): Promise<Routes[R][1]> => {
+const posted = <R extends keyof Routes>($: EngineInterface, { session, servers }: State, route: R, body: Routes[R][0], signal?: AbortSignal): Promise<Routes[R][1]> => {
     const stopped = Promise.withResolvers<never>();
-    const served = () => life.promise.then((session) => session.served());
+    const served = () => session.promise.then((opened) => opened.served());
     const asked = (socketPath: string) => $.http.fetch(`http://${$.plugin.name}/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), socketPath });
     const answered = async (): Promise<Routes[R][1]> => {
         const [running = served()] = servers.keys();
@@ -83,8 +78,8 @@ const posted = <R extends keyof Routes>($: EngineInterface, { life, servers }: S
 
 // --- [NOTES]
 
-const held = (tracked: State['tracked'], state: Noted): void => {
-    if (state.ended && state.untold.length === 0) {
+const held = (tracked: State['tracked'], state: Tracked): void => {
+    if (state.ended && state.pending.length === 0) {
         tracked.delete(state.instance);
     } else {
         tracked.set(state.instance, state);
@@ -104,16 +99,16 @@ const noted = ($: EngineInterface, tracked: State['tracked'], own: readonly Watc
         const fresh = state.notes.filter((note) => before?.notes.includes(note) !== true);
         const row = rows.find(({ instance }) => instance === state.instance);
         (state.ended ? fresh : []).forEach((note) => $.ui.log(note));
-        held(tracked, { ...state, launching, owner: row === undefined ? agent : row.agent, untold: [...(before?.untold ?? []).filter((note) => state.notes.includes(note)), ...fresh] });
+        held(tracked, { ...state, launching, owner: row === undefined ? agent : row.agent, pending: [...(before?.pending ?? []).filter((note) => state.notes.includes(note)), ...fresh] });
     });
     shown($, tracked);
 };
 
-const taken = async ($: EngineInterface, tracked: State['tracked'], agent: string | undefined): Promise<readonly Noted[]> => {
-    const orphaned = agent === undefined && [...tracked.values()].some(({ owner, untold }) => owner !== undefined && untold.length > 0);
+const taken = async ($: EngineInterface, tracked: State['tracked'], agent: string | undefined): Promise<readonly Tracked[]> => {
+    const orphaned = agent === undefined && [...tracked.values()].some(({ owner, pending }) => owner !== undefined && pending.length > 0);
     const running = new Set(orphaned ? (await $.agent.list()).filter(({ status }) => !ENDED.has(status)).map(({ id }) => id) : []);
-    const owned = [...tracked.values()].filter(({ owner, untold }) => untold.length > 0 && (owner === agent || (agent === undefined && owner !== undefined && !running.has(owner))));
-    owned.forEach((state) => held(tracked, { ...state, untold: [] }));
+    const owned = [...tracked.values()].filter(({ owner, pending }) => pending.length > 0 && (owner === agent || (agent === undefined && owner !== undefined && !running.has(owner))));
+    owned.forEach((state) => held(tracked, { ...state, pending: [] }));
     return owned;
 };
 
@@ -122,7 +117,7 @@ const taken = async ($: EngineInterface, tracked: State['tracked'], agent: strin
 const recorded = async ($: EngineInterface, agent: string | undefined, { created, exited }: Pick<Routes['observe'][1], 'created' | 'exited'>): Promise<void> => {
     const replaced = new Set([...exited, ...created.map(({ instance }) => instance)]);
     if (replaced.size > 0) {
-        await update($, ROWS, (rows) => [...rows.filter(({ instance }) => !replaced.has(instance)), ...created.map((row) => ({ ...row, ...(agent !== undefined && { agent }) }))]);
+        await $.store.set(await $.session.id(), await update($, ROWS, (rows) => [...rows.filter(({ instance }) => !replaced.has(instance)), ...created.map((row) => ({ ...row, ...(agent !== undefined && { agent }) }))]));
     }
 };
 
@@ -140,7 +135,7 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
     state.watches.add(key);
     const seen = new Set<string>();
     const buffer = { partial: '' };
-    const child = $.process.spawn({ argv: ['watch-apps', 'watch', bundle] });
+    const child = $.process.spawn({ argv: [WATCH_APPS, 'watch', bundle] });
     try {
         for await (const { stream, text } of child) {
             const lines = stream === 'stdout' ? `${buffer.partial}${text}` : buffer.partial;
@@ -161,7 +156,7 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
         }
         const { code } = await child.result;
         if (code !== null && code !== 0) {
-            watchFailed($)(new Error(`watch-apps watch ${bundle} exited ${code}`));
+            watchFailed($)(new Error(`${WATCH_APPS} watch ${bundle} exited ${code}`));
         }
     } finally {
         state.watches.delete(key);
@@ -170,20 +165,13 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
     }
 };
 
-const rewatched = async ($: EngineInterface, state: State): Promise<void> => {
-    const rows = await read($, ROWS);
-    rows.forEach(({ bundle, agent }) => {
-        watching($, state, bundle, agent).catch(watchFailed($));
-    });
-};
-
 const observed = async ($: EngineInterface, state: State, agent: string | undefined, text: string | undefined, signal: AbortSignal): Promise<void> => {
     if (text === undefined) {
         return;
     }
     const change = await posted($, state, 'observe', text, signal);
     await recorded($, agent, change);
-    const { watched } = await state.life.promise;
+    const { watched } = await state.session.promise;
     [...change.created, ...change.reused].forEach(({ bundle }) => {
         watched(bundle, agent).catch(watchFailed($));
     });
@@ -192,22 +180,26 @@ const observed = async ($: EngineInterface, state: State, agent: string | undefi
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const register: Register = (on) => {
-    const state: State = { life: Promise.withResolvers(), servers: new Map(), watches: new Set(), tracked: new Map(), told: new Map() };
+    const state: State = { session: Promise.withResolvers(), servers: new Map(), watches: new Set(), tracked: new Map(), unjudged: new Map() };
     on('session.start', async ($, e, next) => {
         const answer = await next(e);
-        state.life.resolve({ served: () => started($, state.servers), watched: (bundle, agent) => watching($, state, bundle, agent) });
+        const stored = await $.store.get(await $.session.id());
+        const rows = await update($, ROWS, (current) => (current.length === 0 && Array.isArray(stored) ? stored : current));
+        state.session.resolve({ served: () => started($, state.servers), watched: (bundle, agent) => watching($, state, bundle, agent) });
         if (state.servers.size === 0) {
             started($, state.servers).catch(() => undefined);
         }
-        rewatched($, state).catch(watchFailed($));
+        rows.forEach(({ bundle, agent }) => {
+            watching($, state, bundle, agent).catch(watchFailed($));
+        });
         shown($, state.tracked);
         return answer;
     });
     on('prompt.submit', async ($, e, next) => {
         const owned = e.command === undefined && e.turnId === undefined ? await taken($, state.tracked, undefined) : [];
-        const answer = await next(owned.length === 0 ? e : { ...e, context: [...(e.context ?? []), ...owned.flatMap(({ untold }) => untold)] });
+        const answer = await next(owned.length === 0 ? e : { ...e, context: [...(e.context ?? []), ...owned.flatMap(({ pending }) => pending)] });
         if (answer.drop !== undefined) {
-            owned.forEach((dropped) => held(state.tracked, { ...(state.tracked.get(dropped.instance) ?? dropped), untold: [...dropped.untold, ...(state.tracked.get(dropped.instance)?.untold ?? [])] }));
+            owned.forEach((dropped) => held(state.tracked, { ...(state.tracked.get(dropped.instance) ?? dropped), pending: [...dropped.pending, ...(state.tracked.get(dropped.instance)?.pending ?? [])] }));
         }
         return answer;
     });
@@ -216,15 +208,15 @@ const register: Register = (on) => {
         if (answer.deny !== undefined) {
             return answer;
         }
-        const notes = (await taken($, state.tracked, e.agentId)).flatMap(({ untold }) => untold);
+        const notes = (await taken($, state.tracked, e.agentId)).flatMap(({ pending }) => pending);
         return notes.length === 0 ? answer : { ...answer, context: [...(answer.context ?? []), ...notes] };
     });
     on('tool.call', { tool: RHINO_TOOLS }, ($, e, next) => {
-        state.life.promise.then(({ watched }) => watched('com.mcneel.rhinoceros', e.agentId)).catch(watchFailed($));
+        state.session.promise.then(({ watched }) => watched('com.mcneel.rhinoceros', e.agentId)).catch(watchFailed($));
         return next(e);
     });
     on('tool.call', { tool: BLENDER_TOOLS }, ($, e, next) => {
-        state.life.promise.then(({ watched }) => watched('org.blenderfoundation.blender', e.agentId)).catch(watchFailed($));
+        state.session.promise.then(({ watched }) => watched('org.blenderfoundation.blender', e.agentId)).catch(watchFailed($));
         return next(e);
     });
     on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
@@ -246,28 +238,25 @@ const register: Register = (on) => {
             {
                 command: e.command,
                 cwd: await $.session.cwd(),
-                kind: bash?.run_in_background === true ? 'background' : KINDS[e.tool],
+                kind: bash?.run_in_background === true ? 'background' : ({ Bash: 'foreground', Monitor: 'monitor' } as const)[e.tool],
                 ...(bash?.timeout !== undefined && { timeout: bash.timeout }),
                 ...(e.agentId !== undefined && { agent: e.agentId }),
             },
             next.signal,
         );
-        const observing = async <A extends { readonly text?: string | undefined }>(answer: A, observes: boolean) => {
+        const settled = async <A extends { readonly text?: string | undefined; readonly deny?: unknown; readonly context?: readonly string[] | undefined }>(answer: A, observes: boolean, note?: string) => {
             if (observes && bash !== undefined) {
                 await observed($, state, e.agentId, answer.text, next.signal);
             }
-            return answer;
+            return note !== undefined && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), note] } : answer;
         };
         switch (decision._tag) {
             case 'Deny':
                 return { deny: decision.reason };
             case 'Allow':
-                return observing(await next(e), decision.observes);
-            case 'Rewrite': {
-                const rewritten = bash === undefined ? { ...e, command: decision.command } : { ...bash, command: decision.command, ...(decision.timeout !== undefined && { timeout: decision.timeout }), ...(decision.background && { run_in_background: true }) };
-                const answer = await observing(await next(rewritten), decision.observes);
-                return decision.notice !== undefined && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), decision.notice] } : answer;
-            }
+                return settled(await next(e), decision.observes);
+            case 'Rewrite':
+                return settled(await next(bash === undefined ? { ...e, command: decision.command } : { ...bash, command: decision.command, ...(decision.timeout !== undefined && { timeout: decision.timeout }), ...(decision.background && { run_in_background: true }) }), decision.observes, decision.note);
             default:
                 return decision satisfies never;
         }
@@ -276,36 +265,33 @@ const register: Register = (on) => {
             return next(e);
         }
         const line = `${$.plugin.name} did not judge this command: ${(next.error.message ?? next.error.kind).split('\n', 1).join('')}`;
-        const now = await $.clock.now();
-        const due = now - (state.told.get(e.agentId) ?? Number.NEGATIVE_INFINITY) >= NOTE_INTERVAL;
-        $.ui.log(line, { to: 'debug' });
-        if (due) {
-            state.told.set(e.agentId, now);
-        }
         const answer = await next(e);
-        if (due && answer.deny !== undefined) {
-            state.told.delete(e.agentId);
+        $.ui.log(line, { to: 'debug' });
+        if (answer.deny !== undefined || state.unjudged.get(e.agentId) === line) {
+            return answer;
         }
-        return due && answer.deny === undefined ? { ...answer, context: [...(answer.context ?? []), line] } : answer;
+        state.unjudged.set(e.agentId, line);
+        return { ...answer, context: [...(answer.context ?? []), line] };
     });
     on('turn.complete', async ($, e, next) => {
         const answer = await next(e);
         const ended = new Set((await $.agent.list()).filter(({ status }) => ENDED.has(status)).map(({ id }) => id));
         const owned = (await read($, ROWS)).filter(({ agent }) => agent !== undefined && ended.has(agent));
         if (owned.length > 0) {
-            await recorded($, undefined, await posted($, state, 'quit', owned, next.signal));
+            await recorded($, undefined, { created: [], exited: await posted($, state, 'quit', owned, next.signal) });
         }
         return answer;
     });
     on('session.end', async ($, e, next) => {
         const rows = await read($, ROWS);
         state.tracked.clear();
-        state.told.clear();
+        state.unjudged.clear();
         shown($, state.tracked);
         if (rows.length > 0) {
-            await $.process.run(['sh', '-c', 'watch-apps quit "$@" </dev/null >/dev/null 2>&1 &', 'sh', ...rows.map(({ instance }) => instance)], { stdin: '' });
+            await $.process.run(['sh', '-c', `${WATCH_APPS} quit "$@" </dev/null >/dev/null 2>&1 &`, 'sh', ...rows.map(({ instance }) => instance)], { stdin: '' });
         }
         await update($, ROWS, () => []);
+        await $.store.delete(e.sessionId);
         return next(e);
     });
 };

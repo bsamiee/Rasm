@@ -1,11 +1,9 @@
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Cause, Console, Effect, Function, Layer, Option, Schema, Stdio, Stream } from 'effect';
-import { KeyValueStore } from 'effect/persistence';
-import { Decision } from '#/decision';
-import { decide, live, Notes } from '#/policies/rules';
+import manifest from '#/manifest' with { type: 'json' };
+import { decide, due, Engine } from '#/rules/decide';
+import { Decision } from '#/rules/decision';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -18,43 +16,27 @@ const Output = Schema.fromJsonString(Schema.Unknown);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rendered: (decision: Decision) => Option.Option<object> = Decision.match({
+const rendered: (decision: typeof Decision.Type) => Option.Option<object> = Decision.match({
     Allow: () => Option.none(),
     Deny: ({ reason }) => Option.some({ hookSpecificOutput: { hookEventName: EVENT, permissionDecision: 'deny', permissionDecisionReason: reason } }),
-    Rewrite: ({ command, notice }) => Option.some({ systemMessage: notice, hookSpecificOutput: { hookEventName: EVENT, permissionDecision: 'allow', updatedInput: { command }, additionalContext: notice } }),
+    Rewrite: ({ command, note }) => Option.some({ systemMessage: note, hookSpecificOutput: { hookEventName: EVENT, permissionDecision: 'allow', updatedInput: { command }, additionalContext: note } }),
 });
-
-const noted: (additionalContext: string) => object = (additionalContext) => ({ hookSpecificOutput: { hookEventName: EVENT, additionalContext } });
-
-const unjudged = (cause: string) => `codex-hooks did not judge this command: ${cause.split('\n', 1).join('')}`;
-
-const told = (agent: string, line: string) =>
-    Notes.use((notes) => notes.due(agent, new Map([[EVENT, line]]))).pipe(
-        Effect.tap(() => Console.error(line)),
-        Effect.map(Function.flow(Array.head, Option.map(noted))),
-    );
-
-const judged = ({ session_id, cwd, tool_input: { command } }: (typeof Input)['Type']) =>
-    decide({ command, cwd, kind: 'plain', agent: session_id }).pipe(
-        Effect.timeout('25 seconds'),
-        Effect.map(rendered),
-        Effect.catchCause((cause) => told(session_id, unjudged(Cause.pretty(cause)))),
-    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Told = KeyValueStore.layerFileSystem(join(tmpdir(), 'codex-hooks')).pipe(Layer.catchCause(() => KeyValueStore.layerMemory));
-
-Stdio.Stdio.use(({ stdin }) => Stream.mkString(Stream.decodeText(stdin))).pipe(
-    Effect.flatMap(Schema.decodeEffect(Input)),
-    Effect.flatMap(judged),
-    Effect.provide(Layer.provideMerge(live(resolve(import.meta.dirname, '../..')), Layer.provideMerge(Told, layer))),
-    Effect.flatMap(
-        Option.match({
-            onNone: () => Effect.void,
-            onSome: (answer) => Effect.flatMap(Schema.encodeEffect(Output)(answer), Console.log),
-        }),
-    ),
-    Effect.catchCause(Function.flow(Cause.pretty, unjudged, Console.error)),
-    runMain({ disableErrorReporting: true }),
-);
+Effect.gen(function* () {
+    const { stdin } = yield* Stdio.Stdio;
+    const { session_id: agent, cwd, tool_input } = yield* Schema.decodeEffect(Input)(yield* Stream.mkString(Stream.decodeText(stdin)));
+    const answer = yield* decide({ command: tool_input.command, cwd, kind: 'plain', agent }).pipe(
+        Effect.timeout('25 seconds'),
+        Effect.map(rendered),
+        Effect.catchCause(
+            Effect.fnUntraced(function* (cause) {
+                const line = `${manifest.name} did not judge this command: ${Cause.pretty(cause).split('\n', 1).join('')}`;
+                yield* Console.error(line);
+                return Option.map(Array.head(yield* due({ agent }, new Map([[line, line]]))), (additionalContext) => ({ hookSpecificOutput: { hookEventName: EVENT, additionalContext } }));
+            }),
+        ),
+    );
+    yield* Option.match(answer, { onNone: () => Effect.void, onSome: (output) => Effect.flatMap(Schema.encodeEffect(Output)(output), Console.log) });
+}).pipe(Effect.provide(Layer.provideMerge(Engine, layer)), Effect.catchCause(Function.flow(Cause.pretty, Console.error)), runMain({ disableErrorReporting: true }));

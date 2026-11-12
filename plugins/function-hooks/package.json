@@ -5,12 +5,13 @@
     "type": "module",
     "imports": {
         "#/hooks/state": "./hooks/state.d.ts",
+        "#/manifest": "./.claude-plugin/plugin.json",
         "#/*": "./*.ts"
     },
     "exports": {
         "./register": "./hooks/register.ts",
         "./codex": "./codex.ts",
-        "./server": "./server.ts"
+        "./server": "./claude/server.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
