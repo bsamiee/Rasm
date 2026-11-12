@@ -69,17 +69,17 @@ const headlessPath = ([installation, ...others]: readonly Installation[], rest: 
 const launched = (named: readonly string[], waits: readonly string[], allowed: readonly string[]): Fix =>
     Effect.fnUntraced(function* (site, call) {
         const { program, rest } = site;
-        const loose = site.items.filter(({ names }) => names.length === 0).map(({ words: [word] }) => word);
-        const [app] = [...site.supplied('--app', '--bundle'), ...loose.filter(({ text }) => text.endsWith('.app'))];
+        const loose = site.operands;
+        const [app] = [...site.supplied('--app', '--bundle'), ...loose.filter(({ text }) => text.endsWith('.app') && !URL.canParse(text))];
         const place = Option.flatMap(Option.fromNullishOr(app), (word) => Option.filter(call.host.place(word.text, site.command.cwd), () => word.known && (word.text.includes('/') || loose.includes(word))));
         const subjects = [...named, ...Option.toArray(Option.orElse(Option.map(place, quote), () => Option.map(Option.fromNullishOr(app), ({ raw }) => raw)))];
         const target = subjects.join(' ') || '<app>';
-        const documents = loose.filter((word) => word !== app);
-        const [url] = [...site.supplied('--url'), ...documents.filter(({ text }) => URL.canParse(text))];
+        const documents = [...loose.filter((word) => word !== app), ...site.supplied('--url')];
+        const url = documents.find(({ text }) => WEB_URL.test(text));
         const [waited] = site.names.intersection(new Set(waits));
         const foreign = site.names.difference(new Set([...allowed, ...waits]));
         if (url !== undefined) {
-            return refusal(WEB_URL.test(url.text) ? `${program} ${url.raw} opens a browser, use playwright cli open ${url.raw}` : `${program} ${url.raw} opens its handler, use ${WATCHER} launch ${target}`);
+            return refusal(`${program} ${url.raw} opens a browser, use playwright cli open ${url.raw}`);
         }
         if (subjects.length + documents.length === 0) {
             return [];

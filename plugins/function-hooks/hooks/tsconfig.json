@@ -1,0 +1,11 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "declaration": false,
+        "noEmit": true,
+        "rootDir": "..",
+        "typeRoots": [ "../.claude-plugin/types", "../node_modules/@types" ],
+        "types": [ "claude-code", "claude-code-tools", "claude-code-mcp", "node" ]
+    },
+    "include": [ "." ]
+}

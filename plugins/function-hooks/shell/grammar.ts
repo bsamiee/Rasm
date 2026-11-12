@@ -1,4 +1,4 @@
-import { Array, Effect, Option, Result, Schema, String } from 'effect';
+import { Array, Effect, Function, Option, Result, Schema, String } from 'effect';
 import { HookError, Host } from '#/host';
 import type { Program } from '#/shell/programs';
 import { slicedWord, type Word } from '#/shell/script';
@@ -49,7 +49,7 @@ interface Cursor {
 type Step = readonly [Partial<Parsed>, Cursor];
 interface Reading {
     readonly specs: readonly Spec[];
-    readonly attached: Option.Option<Word>;
+    readonly attached: Option.Option<number>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -138,10 +138,7 @@ const optionOf = (word: Word, grammar: Grammar, row: Program): Option.Option<Rea
     const cut = text.indexOf('=');
     const given = cut < 0 ? text : text.slice(0, cut);
     const head = row.camelCase === true ? given.replaceAll(CAMEL, (letter) => `-${letter.toLowerCase()}`) : given;
-    const attached = cut < 0 ? Option.none() : slicedWord(word, cut + 1);
-    if (cut >= 0 && Option.isNone(attached)) {
-        return Option.none();
-    }
+    const attached = cut < 0 ? Option.none() : Option.some(cut + 1);
     const exact = grammar.options.get(head);
     if (exact !== undefined) {
         return Option.some({ specs: [exact], attached });
@@ -155,19 +152,18 @@ const optionOf = (word: Word, grammar: Grammar, row: Program): Option.Option<Rea
     const letters = [...text.slice(1)];
     const specs = letters.map((letter): Spec => grammar.options.get(`-${letter}`) ?? { name: `-${letter}`, arity: 0 });
     const taking = specs.findIndex(({ arity }) => arity > 0);
-    return taking < 0
-        ? Option.some({ specs, attached: Option.none() })
-        : Option.map(taking + 1 === letters.length ? Option.some(Option.none<Word>()) : Option.map(slicedWord(word, letters.slice(0, taking + 1).join('').length + 1), Option.some), (value) => ({ specs: specs.slice(0, taking + 1), attached: value }));
+    return Option.some(taking < 0 ? { specs, attached: Option.none() } : { specs: specs.slice(0, taking + 1), attached: taking + 1 === letters.length ? Option.none() : Option.some(letters.slice(0, taking + 1).join('').length + 1) });
 };
 
-const flagged = (word: Word, { specs, attached }: Reading, cursor: Cursor, words: readonly Word[], row: Program): Step => {
-    const spec = specs.at(-1);
-    const from = cursor.at + 1;
-    const taken = spec !== undefined && row.execs?.includes(spec.name) === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (spec?.arity ?? 0));
-    const supplied = Option.isSome(attached) ? [] : taken;
-    const names = specs.map(({ name }) => name);
-    return [{ items: [{ names, words: [word, ...supplied], values: [...Option.toArray(attached), ...supplied] }] }, { ...cursor, at: cursor.at + 1 + supplied.length, ended: names.some((name) => name === row.module || row.ends?.includes(name) === true) }];
-};
+const flagged = (word: Word, { specs, attached }: Reading, cursor: Cursor, words: readonly Word[], row: Program): Option.Option<Step> =>
+    Option.map(Option.match(attached, { onNone: () => Option.some(Option.none<Word>()), onSome: (at) => Option.map(slicedWord(word, at), Option.some) }), (value): Step => {
+        const spec = specs.at(-1);
+        const from = cursor.at + 1;
+        const taken = spec !== undefined && row.execs?.includes(spec.name) === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (spec?.arity ?? 0));
+        const supplied = Option.isSome(value) ? [] : taken;
+        const names = specs.map(({ name }) => name);
+        return [{ items: [{ names, words: [word, ...supplied], values: [...Option.toArray(value), ...supplied] }] }, { ...cursor, at: cursor.at + 1 + supplied.length, ended: names.some((name) => name === row.module || row.ends?.includes(name) === true) }];
+    });
 
 const operated = (word: Word, cursor: Cursor, words: readonly Word[], row: Program): Step => {
     const deeper = Array.filterMap(cursor.pending, ([step, ...steps]) => (step === word.text ? Result.succeed(steps) : Result.failVoid));
@@ -196,10 +192,13 @@ const advanced = (word: Word, cursor: Cursor, words: readonly Word[], row: Progr
         }
         return [row.wraps === '--' ? { rest: words.slice(cursor.at + 1) } : { separator: Option.some(word), tail: words.slice(cursor.at + 1) }, end];
     }
-    return Option.match(OPTION.test(word.text) && !cursor.separated ? optionOf(word, cursor.grammar, row) : Option.none(), {
-        onNone: () => operated(word, cursor, words, row),
-        onSome: (reading) => flagged(word, reading, cursor, words, row),
-    });
+    return Option.match(
+        Option.flatMap(OPTION.test(word.text) && !cursor.separated ? optionOf(word, cursor.grammar, row) : Option.none(), (reading) => flagged(word, reading, cursor, words, row)),
+        {
+            onNone: () => operated(word, cursor, words, row),
+            onSome: Function.identity,
+        },
+    );
 };
 
 const parseArguments = (words: readonly Word[], grammar: Grammar, row: Program): Parsed => {

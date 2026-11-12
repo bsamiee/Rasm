@@ -4,6 +4,7 @@
     "description": "Hooks that correct agent commands and track app instances each session owns",
     "type": "module",
     "imports": {
+        "#/hooks/state": "./hooks/state.d.ts",
         "#/*": "./*.ts"
     },
     "exports": {

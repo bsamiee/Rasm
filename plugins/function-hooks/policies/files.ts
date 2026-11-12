@@ -28,7 +28,7 @@ const INLINE_LOOKUPS = [
     [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)?;?$/u, 'realpath node_modules/$<name>/package.json'],
     [/^(?:console\.log\()?require\(['"](?:node:)?path['"]\)\.dirname\(require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)\)?;?$/u, 'realpath node_modules/$<name>'],
 ] as const;
-const GREP_AS_RG: Required<Respelling> = {
+const GREP_AS_RG: Required<Pick<Respelling, 'renames' | 'drops'>> = {
     drops: ['--recursive', '--dereference-recursive', '--extended-regexp', '--with-filename', '--exclude-dir'],
     renames: {
         '--line-number': '-n',
@@ -209,13 +209,19 @@ const grepsAsRg: Predicate.Predicate<Site> = (site) => {
 
 const swappedEscape = (held: string, escaped?: string, unescaped?: string): string => escaped ?? (unescaped === undefined ? held : `\\${unescaped}`);
 
-const extendedPatterns: Fix = (site) =>
-    site.has('--extended-regexp', '--fixed-strings')
-        ? []
-        : [...site.leading, ...site.supplied('--regexp')].flatMap((word) => {
-              const extended = word.text.replace(BASIC_REGEX_SWAPS, swappedEscape);
-              return extended === word.text ? [] : edited(site, word, quote(extended));
-          });
+const grepArguments: Fix = (site) => {
+    const pattern = (word: Word): string => {
+        const extended = site.has('--extended-regexp', '--fixed-strings') ? word.text : word.text.replace(BASIC_REGEX_SWAPS, swappedEscape);
+        return extended === word.text ? word.raw : quote(extended);
+    };
+    return [
+        ...respell({ ...GREP_AS_RG, values: (word, names) => (names.includes('--regexp') ? pattern(word) : word.raw) })(site),
+        ...site.leading.flatMap((word) => {
+            const raw = pattern(word);
+            return raw === word.raw ? [] : edited(site, word, raw);
+        }),
+    ];
+};
 
 const findsAsFd: Predicate.Predicate<Site> = ({ row, last, values, items, operands }) => {
     const { before } = row.walks ?? {};
@@ -364,7 +370,7 @@ const FILES: Policy = {
             reads: 'default',
             walks: { when: ['--recursive', '--dereference-recursive'] },
             closes: ['--quiet', '--silent', '--max-count', '--files-with-matches'],
-            fixes: [when(grepsAsRg, grepAsRg, respell(GREP_AS_RG), extendedPatterns), when(has('--invert-match'), excludedStage)],
+            fixes: [when(grepsAsRg, grepAsRg, grepArguments), when(has('--invert-match'), excludedStage)],
         },
         rg: {
             leading: 1,

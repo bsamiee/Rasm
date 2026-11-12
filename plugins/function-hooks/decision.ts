@@ -1,10 +1,11 @@
-import { Array, Data, Duration, Number, Option, Schema } from 'effect';
+import { Array, Data, Duration, Number, Option, Result, Schema } from 'effect';
+import type { Span } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Verdict = Data.TaggedEnum<{
     Refuse: { readonly reason: string };
-    Edit: { readonly start: number; readonly end: number; readonly text: Option.Option<string>; readonly subject: Option.Option<string>; readonly timeout: Option.Option<number> };
+    Edit: { readonly start: number; readonly end: number; readonly text: Option.Option<string>; readonly subject: Option.Option<string>; readonly timeout: Option.Option<number>; readonly field?: Span['field'] };
     Background: { readonly notice: string };
 }>;
 type Edit = Extract<Verdict, { readonly _tag: 'Edit' }>;
@@ -52,7 +53,20 @@ const applied = (source: Uint8Array, edits: readonly Edit[]): string => {
 
 const editsOf = (verdicts: readonly Verdict[]): readonly Edit[] => {
     const spans = verdicts.filter(Verdict.$is('Edit'));
-    return spans.filter(({ start, end }, at) => !spans.some((wider, other) => wider.start <= start && end <= wider.end && end > wider.start && (wider.end - wider.start > end - start || (end > start && wider.end - wider.start === end - start && other > at))));
+    const groups = Map.groupBy(spans, (span) => span.field?.words ?? span);
+    const merged = spans.flatMap((span) => {
+        const group = groups.get(span.field?.words ?? span) ?? [];
+        if (group.at(-1) !== span) {
+            return [];
+        }
+        if (span.field === undefined) {
+            return [span];
+        }
+        const { field: source, ...edit } = span;
+        const replacements = new Map(Array.filterMap(group, ({ field, text }) => (field === undefined ? Result.failVoid : Result.succeed([field.index, text] as const))));
+        return [{ ...edit, text: Option.some(Array.getSomes(source.words.map((raw, at) => replacements.get(at) ?? Option.some(raw))).join(' ')) }];
+    });
+    return merged.filter(({ start, end }, at) => !merged.some((wider, other) => wider.start <= start && end <= wider.end && end > wider.start && (wider.end - wider.start > end - start || (end > start && wider.end - wider.start === end - start && other > at))));
 };
 
 const notesOf = (edits: readonly Edit[]): ReadonlyMap<string, string> => {

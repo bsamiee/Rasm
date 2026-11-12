@@ -1,4 +1,4 @@
-import { Array, Effect, Equal, Match, Option, Predicate, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, Equivalence, Match, Option, Predicate, Result, Schema, Struct } from 'effect';
 import { HookError, Host } from '#/host';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -18,6 +18,7 @@ interface Span {
     readonly start: number;
     readonly end: number;
     readonly prefix?: string;
+    readonly field?: { readonly index: number; readonly words: readonly string[] };
 }
 interface Word extends Span {
     readonly raw: string;
@@ -27,9 +28,12 @@ interface Word extends Span {
     readonly spread: boolean;
     readonly parts: readonly Part[];
 }
-interface Part extends Pick<Word, 'raw' | 'text' | 'known' | 'glob' | 'spread'> {
-    readonly quote?: readonly [string, string];
+interface Parameter {
+    readonly name: string;
+    readonly offset: number;
+    readonly length?: number;
 }
+type Part = Pick<Word, 'raw' | 'text' | 'known' | 'glob'> & { readonly quote?: readonly [string, string] } & ({ readonly spread: false; readonly parameter?: Parameter } | { readonly spread: true; readonly parameter: Parameter });
 interface Redirect extends Span {
     readonly raw: string;
     readonly op: string;
@@ -73,7 +77,6 @@ interface Place extends Surroundings {
     readonly dry: boolean;
 }
 type Walked = readonly [Frame, Script];
-type Piece = Pick<Word, 'text' | 'known' | 'glob' | 'spread'>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -124,32 +127,41 @@ const ansiDecoded = (_all: string, code?: keyof typeof ANSI_CODES, octal?: strin
 
 const piecesOf = ({ Value = '', ...part }: Node, frame: Frame, place: Place, quote?: readonly [string, string]): readonly Part[] =>
     Match.value(part.Type).pipe(
-        Match.when('Lit', () => [...Value.matchAll(new RegExp(`${(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE).source}|${CHARACTER.source}`, 'gu'))].map(([raw]) => ({ raw, text: raw.replaceAll(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE, '$<code>'), known: true, glob: quote === undefined && GLOB.test(raw) && !raw.startsWith('\\'), spread: false, ...(quote === undefined ? {} : { quote }) }))),
-        Match.when('SglQuoted', () => {
+        Match.when('Lit', (): readonly Part[] =>
+            [...Value.matchAll(new RegExp(`${(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE).source}|${CHARACTER.source}`, 'gu'))].map(([raw]) => ({
+                raw,
+                text: raw.replaceAll(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE, '$<code>'),
+                known: true,
+                glob: quote === undefined && GLOB.test(raw) && !raw.startsWith('\\'),
+                spread: false,
+                ...(quote === undefined ? {} : { quote }),
+            })),
+        ),
+        Match.when('SglQuoted', (): readonly Part[] => {
             const quoted = [part.Dollar === true ? "$'" : "'", "'"] as const;
-            const characters = [...Value.matchAll(new RegExp(`${part.Dollar === true ? `${ANSI_ESCAPE.source}|` : ''}${CHARACTER.source}`, 'gu'))];
+            const characters = [...Value.matchAll(part.Dollar === true ? new RegExp(`${ANSI_ESCAPE.source}|${CHARACTER.source}`, 'gu') : CHARACTER)];
             return (characters.length === 0 ? [''] : characters.map(([raw]) => raw)).map((raw) => ({ raw, text: part.Dollar === true ? raw.replaceAll(ANSI_ESCAPE, ansiDecoded) : raw, known: true, glob: false, spread: false, quote: quoted }));
         }),
-        Match.when('DblQuoted', () => {
+        Match.when('DblQuoted', (): readonly Part[] => {
             const quoted = [part.Dollar === true ? '$"' : '"', '"'] as const;
             const held = (part.Parts ?? []).flatMap((child) => piecesOf(child, frame, place, quoted));
             return held.length === 0 ? [{ raw: '', text: '', known: true, glob: false, spread: false, quote: quoted }] : held;
         }),
-        Match.when('ParamExp', () => {
-            const value = new Set(Object.keys(part)).isSubsetOf(PLAIN_EXPANSION) && part.Param?.Value !== undefined ? looked(frame, part.Param.Value, place) : Option.none();
+        Match.when('ParamExp', (): readonly Part[] => {
+            const parameter = new Set(Object.keys(part)).isSubsetOf(PLAIN_EXPANSION) ? part.Param?.Value : undefined;
+            const value = parameter === undefined ? Option.none() : looked(frame, parameter, place);
             const raw = sliced(part, place);
             const text = Option.getOrElse(value, () => raw);
             const splits = quote === undefined && Option.isSome(value);
-            return [{ raw, text, known: Option.isSome(value), glob: splits && GLOB.test(text), spread: splits && SPREADS.test(text), ...(quote === undefined ? {} : { quote }) }];
+            return parameter === undefined
+                ? [{ raw, text, known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]
+                : [{ raw, text, known: Option.isSome(value), glob: splits && GLOB.test(text), spread: splits && SPREADS.test(text), parameter: { name: parameter, offset: 0 }, ...(quote === undefined ? {} : { quote }) }];
         }),
-        Match.orElse(() => [{ raw: sliced(part, place), text: sliced(part, place), known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]),
+        Match.orElse((): readonly Part[] => [{ raw: sliced(part, place), text: sliced(part, place), known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]),
     );
 
-const pieces = (parts: readonly Part[]): Piece =>
-    parts.reduce<Piece>(
-        (all, part) => ({ text: `${all.text}${part.text}`, known: all.known && part.known, glob: all.glob || part.glob, spread: all.spread || part.spread }),
-        { text: '', known: true, glob: false, spread: false },
-    );
+const pieces = (parts: readonly Part[]): Pick<Word, 'text' | 'known' | 'glob' | 'spread'> =>
+    parts.reduce<Pick<Word, 'text' | 'known' | 'glob' | 'spread'>>((all, part) => ({ text: `${all.text}${part.text}`, known: all.known && part.known, glob: all.glob || part.glob, spread: all.spread || part.spread }), { text: '', known: true, glob: false, spread: false });
 
 const worded = (node: Pick<Node, 'Pos' | 'End' | 'Parts'>, frame: Frame, place: Place): Word => {
     const parts = (node.Parts ?? []).flatMap((part) => piecesOf(part, frame, place));
@@ -163,23 +175,57 @@ const worded = (node: Pick<Node, 'Pos' | 'End' | 'Parts'>, frame: Frame, place: 
 };
 
 const spelled = (parts: readonly Part[]): string => {
-    const groups = Array.isReadonlyArrayNonEmpty(parts) ? Array.groupWith(parts, (left, right) => left.quote === right.quote) : [];
-    return groups.map((group) => `${group[0].quote?.[0] ?? ''}${group.map(({ raw }) => raw).join('')}${group[0].quote?.[1] ?? ''}`).join('');
+    const groups = Array.isReadonlyArrayNonEmpty(parts) ? Array.groupWith(parts, Equivalence.mapInput(Equivalence.strictEqual<Part['quote']>(), Struct.get('quote'))) : [];
+    return groups.map(([first, ...rest]) => [first.quote?.[0], first.raw, ...rest.map(({ raw }) => raw), first.quote?.[1]].join('')).join('');
 };
 
 const slicedWord = (word: Word, at: number): Option.Option<Word> => {
     const [remaining, positions] = Array.mapAccum(word.parts, at, (left, part) => [Math.max(0, left - part.text.length), { part, left }]);
-    if (remaining > 0 || positions.some(({ part, left }) => left > 0 && left < part.text.length)) {
+    if (remaining > 0 || positions.some(({ part, left }) => left > 0 && left < part.text.length && (!part.known || part.parameter === undefined))) {
         return Option.none();
     }
-    const parts = positions.filter(({ left }) => left === 0).map(({ part }) => part);
+    const divided = positions.map(({ part, left }): readonly [readonly Part[], readonly Part[]] => {
+        if (left > 0 && left < part.text.length && part.parameter !== undefined) {
+            const before = part.text.slice(0, left);
+            const after = part.text.slice(left);
+            const { name, offset, length } = part.parameter;
+            const consumed = [...before].length;
+            const next = offset + consumed;
+            return [
+                [{ ...part, raw: `\${${name}:${offset}:${consumed}}`, text: before, glob: part.quote === undefined && GLOB.test(before), spread: part.quote === undefined && SPREADS.test(before), parameter: { name, offset, length: consumed } }],
+                [
+                    {
+                        ...part,
+                        raw: length === undefined ? `\${${name}:${next}}` : `\${${name}:${next}:${length - consumed}}`,
+                        text: after,
+                        glob: part.quote === undefined && GLOB.test(after),
+                        spread: part.quote === undefined && SPREADS.test(after),
+                        parameter: { name, offset: next, ...(length === undefined ? {} : { length: length - consumed }) },
+                    },
+                ],
+            ];
+        }
+        return left > 0 ? [[part], []] : [[], [part]];
+    });
+    const parts = divided.flatMap(([, after]) => after);
     const piece = pieces(parts);
-    return Option.some({ ...word, ...piece, parts, prefix: `${word.prefix ?? ''}${spelled(positions.filter(({ left }) => left > 0).map(({ part }) => part))}`, raw: spelled(parts) || "''", known: piece.known && (!piece.spread || parts.length === 1) });
+    return Option.some({ ...word, ...piece, parts, prefix: [word.prefix, spelled(divided.flatMap(([before]) => before))].join(''), raw: spelled(parts) || "''", known: piece.known && (!piece.spread || word.known) });
 };
 
 const fields = (word: Word): readonly Word[] => {
-    const split = word.spread && word.known ? (word.text.match(FIELD) ?? []) : undefined;
-    return split === undefined ? [word] : split.map((text) => ({ ...word, raw: text, text, glob: GLOB.test(text), spread: split.length > 1, parts: [{ raw: text, text, known: true, glob: GLOB.test(text), spread: split.length > 1 }] }));
+    const splitting = word.known ? word.parts.find((part) => part.spread) : undefined;
+    if (splitting === undefined) {
+        return [word];
+    }
+    const matches = [...word.text.matchAll(FIELD)];
+    const parts = matches.map((match): Part => {
+        const [text] = match;
+        const parameter = { name: splitting.parameter.name, offset: splitting.parameter.offset + [...word.text.slice(0, match.index)].length, length: [...text].length };
+        const raw = `\${${parameter.name}:${parameter.offset}:${parameter.length}}`;
+        return { ...splitting, raw, text, glob: GLOB.test(text), spread: false, parameter };
+    });
+    const words = parts.map(({ raw }) => raw);
+    return parts.map((part, index) => ({ ...word, raw: part.raw, text: part.text, glob: part.glob, spread: matches.length > 1, parts: [part], field: { index, words } }));
 };
 
 const assignedValue = ({ Value, Array: list, Append }: Assign, frame: Frame, place: Place): Option.Option<string> => {
@@ -339,7 +385,7 @@ const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, frame: Frame, pla
     const redirects = stmt.Redirs ?? [];
     const prefix = Assigns.map((assign): Word => {
         const value = assignedValue(assign, ready, place);
-        const part = { raw: sliced(assign, place), text: Option.match(value, { onNone: () => `${assign.Name?.Value}=`, onSome: (assigned) => `${assign.Name?.Value}=${assigned}` }), known: Option.isSome(value), glob: false, spread: false };
+        const part: Part = { raw: sliced(assign, place), text: Option.match(value, { onNone: () => `${assign.Name?.Value}=`, onSome: (assigned) => `${assign.Name?.Value}=${assigned}` }), known: Option.isSome(value), glob: false, spread: false };
         return { ...part, ...spanOf(assign), parts: [part] };
     });
     const command: Command = {

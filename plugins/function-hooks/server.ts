@@ -18,11 +18,11 @@ const SOURCES = ['.', 'shell', 'policies'];
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Routes = { decide: [Request, Decision], observe: [Schema.String, Change], quit: [Schema.Array(Instance), Change], watched: [Schema.String, Schema.Array(Watched)] } as const;
-type Routes = { readonly [Route in keyof typeof Routes]: { readonly [At in 0 | 1]: (typeof Routes)[Route][At]['Type'] } };
+type Routes = { readonly [Route in keyof typeof Routes]: { readonly [At in 0 | 1]: (typeof Routes)[Route][At]['Encoded'] } };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const answering = <I, O, E, R>(route: keyof Routes, [input, output]: readonly [Schema.Codec<I>, Schema.Codec<O>], respond: (value: I) => Effect.Effect<O, E, R>) =>
+const answering = <I, O, E, R>(route: keyof Routes, [input, output]: readonly [Schema.Decoder<I>, Schema.Codec<O, unknown>], respond: (value: I) => Effect.Effect<O, E, R>) =>
     HttpRouter.add(
         'POST',
         `/${route}`,
