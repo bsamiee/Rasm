@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Store service sessions as xUnit v3 fixtures: per-test stores through their catalog drivers</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Remote Procedure Calls">
+        <PackageReference Include="Grpc.Core.Api" />
+        <PackageReference Include="Grpc.Net.Client" />
+        <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+        <Protobuf Include="../../../../../apps/grpc/store/proto/proto/rasm/store/store.proto" GrpcServices="Client" Access="Internal" />
+    </ItemGroup>
+
+    <ItemGroup Label="Serialization">
+        <PackageReference Include="Google.Protobuf" />
+    </ItemGroup>
+
+    <ItemGroup Label="Data Storage">
+        <PackageReference Include="AWSSDK.Core" />
+        <PackageReference Include="AWSSDK.S3" />
+        <PackageReference Include="ClickHouse.Driver" />
+        <PackageReference Include="Npgsql" />
+        <PackageReference Include="StackExchange.Redis" />
+    </ItemGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageReference Include="xunit.v3.extensibility.core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Projects">
+        <ProjectReference Include="../../../support/Rasm.Testing/Rasm.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Label="Task Graph">
+        <NxImplicitDependency Include="rasm-store" />
+    </ItemGroup>
+</Project>

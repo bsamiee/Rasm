@@ -4,7 +4,62 @@
 
 [workspace]
 resolver = "3"
-members  = ["apps/grpc/*", "apps/grpc/store/proto", "apps/mcp/*", "libs/rust/*/*", "tools/dylint", "tools/dylint/auxiliary", "tests/rust/libs/*/*", "tests/rust/apps/*/*", "tests/rust/infra", "tests/rust/support"]
+members  = [
+    "apps/grpc/store",
+    "apps/grpc/store/proto",
+    "apps/grpc/tests/store",
+    "apps/mcp/muxer",
+    "apps/mcp/tests/muxer",
+    "libs/rust/data/arrow",
+    "libs/rust/data/provisioning",
+    "libs/rust/data/tests/provisioning",
+    "libs/rust/documents/pdf",
+    "libs/rust/documents/typst",
+    "libs/rust/documents/workbooks",
+    "libs/rust/drawing/drafting",
+    "libs/rust/drawing/drawing",
+    "libs/rust/drawing/drawing-views",
+    "libs/rust/geometry/form-finding",
+    "libs/rust/geometry/implicit-modeling",
+    "libs/rust/geometry/mesh",
+    "libs/rust/geometry/planar-geometry",
+    "libs/rust/geometry/proximity",
+    "libs/rust/geospatial/site",
+    "libs/rust/geospatial/solar-geometry",
+    "libs/rust/geospatial/weather",
+    "libs/rust/geospatial/tests/solar-geometry",
+    "libs/rust/graphs/dependency-graph",
+    "libs/rust/graphs/graph-layout",
+    "libs/rust/graphs/network-analysis",
+    "libs/rust/graphs/tests/dependency-graph",
+    "libs/rust/interchange/bcf",
+    "libs/rust/interchange/dwg",
+    "libs/rust/interchange/ifc",
+    "libs/rust/numerics/dynamic-simulation",
+    "libs/rust/numerics/numerical-analysis",
+    "libs/rust/numerics/optimization",
+    "libs/rust/numerics/regression",
+    "libs/rust/numerics/signal-processing",
+    "libs/rust/numerics/stats",
+    "libs/rust/numerics/tests/numerical-analysis",
+    "libs/rust/runtime/cli",
+    "libs/rust/runtime/process",
+    "libs/rust/runtime/telemetry",
+    "libs/rust/services/grpc",
+    "libs/rust/services/http",
+    "libs/rust/services/ipc",
+    "libs/rust/services/mcp",
+    "libs/rust/services/tests/grpc",
+    "libs/rust/services/tests/http",
+    "libs/rust/services/tests/ipc",
+    "libs/rust/services/tests/mcp",
+    "libs/rust/terminal/console",
+    "libs/rust/terminal/tui",
+    "tools/dylint",
+    "tools/dylint/auxiliary",
+    "tests/rust/integration/infra",
+    "tests/rust/support",
+]
 
 # --- [IDENTITY]
 
@@ -739,8 +794,8 @@ rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
 rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
 rasm-testing            = { path = "tests/rust/support" }
-rasm-infra-tests        = { path = "tests/rust/infra" }
-rasm-mcp-tests          = { path = "tests/rust/libs/services/mcp" }
+rasm-infra-tests        = { path = "tests/rust/integration/infra" }
+rasm-mcp-tests          = { path = "libs/rust/services/tests/mcp" }
 mcp-muxer               = { path = "apps/mcp/muxer" }
 
 # --- [LINTS] ----------------------------------------------------------------------------

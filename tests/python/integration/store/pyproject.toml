@@ -1,0 +1,63 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-store-testing"
+version         = "0.0.0"
+description     = "Store fixtures for pytest: the session a test process holds on the store service and the stores a test makes, each through its catalog driver"
+classifiers     = ["Framework :: Pytest", "Private :: Do Not Upload", "Typing :: Typed"]
+requires-python = ">=3.15"
+
+dependencies = [
+    # --- [CORE]
+
+    "expression",         # Results of store service calls, their recovery by status code, and the session limit as an option
+    "msgspec",            # Kind, template, store, and session records
+    "pytest",             # Fixtures, stash keys, and report sections
+    "pytest-socket",      # `enable_socket` marker the plugin adds to each test reaching the store service
+    "rasm-records",       # Fault results and their report text
+    "rasm-testing",       # Outcome and time limit of each test, and the settled outcome of a test step
+
+    # --- [CONTRACT]
+
+    "connectrpc",         # gRPC protocol client the generated `StoreServiceClientSync` extends, `ConnectError` and its codes
+    "protobuf-py",        # Runtime of the generated store messages
+    "pyqwest",            # HTTP/2 transport of the client
+
+    # --- [DRIVERS]
+
+    "clickhouse-connect", # ClickHouse client opened on a `clickhouse` store
+    "obstore",            # Object store opened on a `bucket` store
+    "psycopg-pool",       # Connection pool opened on a `postgres` store
+    "psycopg[binary]",    # libpq build the pool connects through
+    "redis[hiredis]",     # Valkey client opened on a `cache` store
+]
+
+# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
+
+[dependency-groups]
+build = ["hatchling"] # Build hook interface `hatch_build.py` implements
+suite = ["anyio"]     # Threads the template suite clones one digest on at once
+
+# --- [BUILD_SYSTEM] ---------------------------------------------------------------------
+
+[build-system]
+requires      = ["grpcio-tools", "hatchling", "protoc-gen-connectrpc", "protoc-gen-py"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist.force-include]
+"../../../../apps/grpc/store/proto/proto" = "proto" # Contract the build hook generates the client from, read from the source tree or from this copy
+
+[tool.hatch.build.targets.wheel]
+packages = ["rasm_store_testing"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv]
+default-groups = "all"                                                                                                                       # Suite and build hook imports install with the package
+cache-keys     = [{ file = "pyproject.toml" }, { file = "hatch_build.py" }, { file = "../../../../apps/grpc/store/proto/proto/**/*.proto" }] # uv rebuilds the generated client when the contract changes
+
+# --- [NX] -------------------------------------------------------------------------------
+
+[tool.nx]
+implicitDependencies = ["rasm-store"] # Server the fixtures connect to, started by its `serve--compose` target before a test of a dependent runs

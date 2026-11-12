@@ -1,0 +1,8 @@
+version: v2
+clean: true
+inputs:
+    - directory: ../../../../apps/grpc/store/proto/proto
+plugins:
+    - local: ./node_modules/.bin/protoc-gen-es
+      out: .buf
+      opt: target=ts

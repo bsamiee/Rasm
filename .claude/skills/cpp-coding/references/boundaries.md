@@ -48,4 +48,4 @@ TEST_CASE("cents refuse a negative amount", "[ledger][cents]") {
 }
 ```
 
-Test executables link `Catch2::Catch2WithMain` and register through `catch_discover_tests(<target> ADD_TAGS_AS_LABELS)`, each tag becoming a CTest label. Tests sit at `tests/cpp/<path of the project under test>` as their own CMake project.
+Test executables link `Catch2::Catch2WithMain` and register through `catch_discover_tests(<target> ADD_TAGS_AS_LABELS)`, each tag becoming a CTest label. Tests sit at `libs/cpp/<category>/tests/<package>/` as their own CMake project, suites spanning packages at `tests/cpp/<kind>/<suite>/`.

@@ -15,8 +15,9 @@ file(
     RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "apps/*/*/CMakeLists.txt"
     "libs/cpp/*/*/CMakeLists.txt"
-    "tests/cpp/apps/*/*/CMakeLists.txt"
-    "tests/cpp/libs/*/*/CMakeLists.txt"
+    "apps/*/tests/*/CMakeLists.txt"
+    "libs/cpp/*/tests/*/CMakeLists.txt"
+    "tests/cpp/*/*/CMakeLists.txt"
 )
 foreach(manifest IN LISTS manifests)
     cmake_path(GET manifest PARENT_PATH member)

@@ -49,6 +49,19 @@
 
     <Import Project="libs/dotnet/rhino/Rasm.Rhino/buildTransitive/Rasm.Rhino.props" Condition="'$(RhinoHost)' != ''" />
 
+    <PropertyGroup Label="Test Applications" Condition="$(MSBuildProjectName.EndsWith('.Tests'))">
+        <IsTestProject>true</IsTestProject>
+        <OutputType>Exe</OutputType>
+        <TestingPlatformCommandLineArguments>--report-trx --hangdump --hangdump-type None --hangdump-timeout 10m --crash-report-if-supported</TestingPlatformCommandLineArguments>
+    </PropertyGroup>
+
+    <ItemGroup Label="Testing" Condition="'$(IsTestProject)' == 'true'">
+        <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" />
+        <PackageReference Include="Microsoft.Testing.Extensions.HangDump" />
+        <PackageReference Include="Microsoft.Testing.Extensions.TrxReport" />
+        <PackageReference Include="xunit.v3.mtp-v2" />
+    </ItemGroup>
+
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
         <RestoreLockedMode>true</RestoreLockedMode>

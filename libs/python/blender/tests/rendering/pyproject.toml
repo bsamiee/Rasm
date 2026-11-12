@@ -1,0 +1,112 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-rendering-tests"
+version         = "0.0.0"
+requires-python = "==3.13.*"
+
+dependencies = [
+    # --- [CORE]
+
+    "expression",            # Outcome each client scope and publish returns, read once per case
+    "msgspec",               # JSON bodies a Manager and an ntfy server exchange
+    "pytest",                # Fixtures, parameters, and raised refusals
+    "pytest-randomly",       # Random test order and seeds
+    "pytest-socket",         # Connections refused to every test hosting no server
+    "pytest-timeout",        # Per-test deadline
+    "rasm-records",          # Outcome a refused exchange holds its exception in
+    "rasm-rendering",        # Client scope, Manager reads, and notice publishing the cases send through
+    "rasm-testing[hosting]", # HTTP server a test hosts, its answers, the requests it received, and the exception a refused outcome raises
+
+    # --- [PROTOCOL]
+
+    "httpx2",                # Responses and the exception classes a refused exchange raises
+    "opentelemetry-sdk",     # Recording span whose trace a request header carries
+]
+
+# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
+
+[dependency-groups]
+blender = [
+    "attrs==25.3.0",
+    "autopep8==2.3.1",
+    "cattrs==25.1.1",
+    "certifi==2025.4.26",
+    "charset-normalizer==3.4.1",
+    "Cython==3.0.11",
+    "docutils==0.22.4",
+    "idna==3.10",
+    "numpy==2.3.4",
+    "opencolorio==2.5.0",
+    "openimageio==3.1.16.0",
+    "packaging==25.0",
+    "pip==26.0.1",
+    "pycodestyle==2.13.0",
+    "pyproject-metadata==0.9.1",
+    "requests==2.32.3",
+    "setuptools==80.9.0",
+    "tomli_w==1.2.0",
+    "typing_extensions==4.14.1",
+    "urllib3==2.4.0",
+    "zstandard==0.25.0",
+]                                # Versions Blender bundles, the lock holds each at it
+dev     = [
+    "mypy",                      # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "rasm-refurb",               # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
+    "refurb",                    # FURB checks Ruff lacks, over a mypy build
+    "ruff",                      # Linter and formatter hk runs from this root's environment
+    "ty",                        # Type checker of the suite
+    "vulture",                   # Private functions, classes, methods, and attributes nothing reads
+]
+
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv]
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+prerelease   = "allow"
+
+[tool.uv.sources]
+rasm-refurb    = { workspace = "../../../../.." }
+rasm-records   = { workspace = "../../../../.." }
+rasm-rendering = { workspace = "../.." }
+rasm-testing   = { workspace = "../../../../.." }
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../../../../pyproject.toml" # Ruff reads this manifest's `requires-python` through its own table
+
+# --- [TY] -------------------------------------------------------------------------------
+
+[tool.ty]
+environment = { python-platform = "all" }                              # ty merges no parent table and takes `requires-python` from the table holder, so each 3.13 root states its own
+rules       = { all = "error", unused-type-ignore-comment = "ignore" } # mypy `unused-ignore` owns unused `type: ignore` comments
+
+# --- [PYTEST] ---------------------------------------------------------------------------
+
+[tool.pytest]
+strict                 = true
+cache_dir              = "$PYTEST_CACHE_DIR"
+collect_imported_tests = false
+addopts                = [
+    "--disable-plugin-autoload",             # Loads the plugins named below alone, pytest reading this table as the nearest one above the suite
+    "-p",
+    "randomly",
+    "-p",
+    "rasm_testing.hosting",                  # Hosted HTTP servers of `tests/python/support`
+    "-p",
+    "pytest_socket",                         # Named by its module, the entry point name `socket` being the standard library module the server plugins import first
+    "-p",
+    "timeout",
+    "--tb=short",
+    "--import-mode=importlib",
+    "--disable-socket",
+    "--allow-unix-socket",
+]
+filterwarnings         = ["error"]
+timeout                = "30"

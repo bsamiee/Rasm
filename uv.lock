@@ -8248,7 +8248,7 @@ requires-dist = [
 [[package]]
 name = "rasm-foundry-tests"
 version = "0.0.0"
-source = { virtual = "tests/python/apps/cli/foundry" }
+source = { virtual = "apps/cli/tests/foundry" }
 dependencies = [
     { name = "anyio" },
     { name = "cyclopts" },
@@ -8321,7 +8321,7 @@ requires-dist = [
 [[package]]
 name = "rasm-refurb-tests"
 version = "0.0.0"
-source = { virtual = "tests/python/tools/refurb" }
+source = { virtual = "tools/tests/refurb" }
 dependencies = [
     { name = "expression" },
     { name = "fake-bpy-module-latest" },
@@ -8350,7 +8350,7 @@ requires-dist = [
 [[package]]
 name = "rasm-store-testing"
 version = "0.0.0"
-source = { editable = "tests/python/apps/grpc/store" }
+source = { editable = "tests/python/integration/store" }
 default-groups = "all"
 dependencies = [
     { name = "clickhouse-connect" },
@@ -8462,7 +8462,7 @@ provides-extras = ["export", "process", "otlp-http", "otlp-grpc", "configuration
 [[package]]
 name = "rasm-telemetry-tests"
 version = "0.0.0"
-source = { virtual = "tests/python/libs/runtime/telemetry" }
+source = { virtual = "libs/python/runtime/tests/telemetry" }
 dependencies = [
     { name = "concurrent-log-handler" },
     { name = "mocket" },

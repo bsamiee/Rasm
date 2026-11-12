@@ -127,18 +127,18 @@ let tests: [Target] = [
             "Encoding", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump"),
             .product(name: "PropertyBased", package: "swift-property-based"),
         ],
-        path: "tests/swift/libs/data/Encoding",
+        path: "libs/swift/data/tests/EncodingTests",
     ),
     .testTarget(
         name: "ResultsTests",
         dependencies: ["Results", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "PropertyBased", package: "swift-property-based")],
-        path: "tests/swift/libs/data/Results",
+        path: "libs/swift/data/tests/ResultsTests",
     ),
-    .testTarget(name: "JSONRPCTests", dependencies: ["Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")], path: "tests/swift/libs/rpc/JSONRPC"),
+    .testTarget(name: "JSONRPCTests", dependencies: ["Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump")], path: "libs/swift/rpc/tests/JSONRPCTests"),
     .testTarget(
         name: "EffectRPCTests",
         dependencies: ["EffectRPC", "Encoding", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "CustomDump", package: "swift-custom-dump")],
-        path: "tests/swift/libs/rpc/EffectRPC",
+        path: "libs/swift/rpc/tests/EffectRPCTests",
     ),
 ]
 

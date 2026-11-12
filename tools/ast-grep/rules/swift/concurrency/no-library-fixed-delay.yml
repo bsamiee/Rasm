@@ -2,6 +2,7 @@
 language: swiftlang
 severity: error
 files: ['libs/swift/**']
+ignores: ['**/tests/**']
 rule:
     kind: value_argument
     all:
