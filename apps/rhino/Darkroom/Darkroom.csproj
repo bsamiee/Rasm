@@ -4,7 +4,6 @@
         <Description>Post-production from raw render to finished image</Description>
         <TargetExt>.rhp</TargetExt>
         <PlugInId>b5bac151-510d-4dc3-9f2d-14526e39d793</PlugInId>
-        <PlugInIcon>../../../assets/marks/darkroom/mark.svg</PlugInIcon>
         <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
