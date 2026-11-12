@@ -76,9 +76,11 @@ public enum Launching: Encodable, Sendable {
 
 extension Installation {
     public init(opening document: URL) throws(ApplicationFailure) {
-        let path = document.path(percentEncoded: false)
-        do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: path, reason: .host(error as NSError)) }
-        guard let handler = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: path, reason: .noHandler) }
+        let subject = document.isFileURL ? document.path(percentEncoded: false) : document.absoluteString
+        if document.isFileURL {
+            do { _ = try document.checkResourceIsReachable() } catch { throw ApplicationFailure(subject: subject, reason: .host(error as NSError)) }
+        }
+        guard let handler = NSWorkspace.shared.urlForApplication(toOpen: document) else { throw ApplicationFailure(subject: subject, reason: .noHandler) }
         try self.init(at: handler)
     }
 }

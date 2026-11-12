@@ -182,7 +182,7 @@ struct Watch: AsyncParsableCommand {
 
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = .init(
-        abstract: "Opens applications or documents without activation, reusing a running instance. Prints states until each instance settles or asks, or until it exits with --wait"
+        abstract: "Opens applications, files, or URLs without activation, reusing a running instance. Prints states until each instance settles or asks, or until it exits with --wait"
     )
 
     @Argument(help: installedNames)
@@ -194,7 +194,13 @@ struct Launch: AsyncParsableCommand {
     @Flag(help: "Observes one named application until it exits and returns its exit status, or 128 plus its signal. Quits an instance it created when the run ends first")
     var wait: Bool = false
 
-    @Option(parsing: .upToNextOption, help: ArgumentHelp("Files to open", valueName: "path"), transform: { path in URL(filePath: path) })
+    @Option(
+        parsing: .upToNextOption,
+        help: ArgumentHelp("Files or URLs to open", valueName: "path-or-url"),
+        transform: { value in
+            URL(string: value).flatMap { url in url.scheme == nil || FileManager.default.fileExists(atPath: value) ? nil : url } ?? URL(filePath: value)
+        },
+    )
     var document: [URL] = []
 
     @Option(
@@ -227,7 +233,9 @@ struct Launch: AsyncParsableCommand {
             let variables = context.merging(environment) { _, stated in stated }
             let resolved: [(key: String, outcome: Result<(Installation, [URL]), ApplicationFailure>)] =
                 if names.isEmpty {
-                    document.map { file in (file.path(percentEncoded: false), Result { () throws(ApplicationFailure) in (try Installation(opening: file), [file]) }) }
+                    document.map { url in
+                        (url.isFileURL ? url.path(percentEncoded: false) : url.absoluteString, Result { () throws(ApplicationFailure) in (try Installation(opening: url), [url]) })
+                    }
                 } else {
                     await installed(names, run).map { name, found in (name, Result { () throws(ApplicationFailure) in (try Installation.preferred(of: name, among: found), document) }) }
                 }

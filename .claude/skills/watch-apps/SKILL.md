@@ -16,7 +16,7 @@ Run commands from a terminal or harness with Accessibility access, each prints t
 ```bash
 watch-apps find <app-or-pid>...
 watch-apps processes <app-or-pid-or-executable>... [--reports <count>]
-watch-apps launch [<app>...] [--new] [--wait] [--document <path>...] [--environment NAME=VALUE...] [--line-length <characters>] [--arguments <argument>...]
+watch-apps launch [<app>...] [--new] [--wait] [--document <path-or-url>...] [--environment NAME=VALUE...] [--line-length <characters>] [--arguments <argument>...]
 watch-apps quit <app-or-pid>... [--force]
 ```
 
@@ -61,7 +61,7 @@ Monitor {"command": "watch-apps watch <app> [<helper>]... --line-length 500",
 - `quit` stops printing when its quit event goes unanswered past the Apple Event default timeout while reads answer, and exits 1 unless each instance exited
 - `quit --force` kills the instance, for one no answer or quit frees, and the killed app asks about its previous session at the next launch
 - `watch-apps` quits, kills, closes a document, presses a button, or writes a preference only on an agent's command or early end of the creating `launch --wait` run
-- `--document` opens each file in the one named app, or with no app named in the file's default app, an unreachable file printing a `fail` line
+- `--document` opens files or URLs in the named app, or in each default handler when no app is named, an unreachable file printing a `fail` line
 - Without `--document`, AppKit apps open an untitled document or their open panel, Adobe apps their Home screen with no document
 - `--arguments` takes every input after it, and its values and `--environment` values reach only an instance `launch` creates, launchd's environment fills the rest
 - App switches pass after `--arguments`, `launch` adding none of its own
@@ -204,3 +204,12 @@ Actions go to the app's process through AX actions on its elements and leave the
 - One agent acts at a time, and no script or other `computer-use` call shares its block
 - Products never depend on `computer-use`
 - Tools named `app_*`, where a session lists them, act without the screen and replace the display tools above
+
+## [06]-[CUA_REPL]
+
+When `cua_repl` supplies native control, use its returned API documentation. Keep one native-control actor at a time and prefer `watch-apps` actions for background controls.
+
+- Close temporary documents immediately after their checks, before another app receives input
+- Finish each native-control block with `completion_summary` and reset its REPL before returning keyboard control
+- Once every native-control actor has released its session, the lead runs `watch-apps quit com.openai.sky.CUAService`; a REPL reset alone does not release the helper's native input filters
+- A typing or input-routing fault pauses native CUA control; preserve process identities and diagnostics before recovery, keep its helper closed until the cause is resolved, and continue through direct app APIs or Accessibility

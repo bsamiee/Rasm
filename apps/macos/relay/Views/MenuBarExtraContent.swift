@@ -113,7 +113,7 @@ struct MenuBarExtraContent: View {
                     ProgressView().controlSize(.small)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                case .failure: EmptyView()
+                case .failure(let error): ContentUnavailableView("Relay Could Not Start", systemImage: "exclamationmark.triangle", description: Text(error.localizedDescription))
             }
         }
     }

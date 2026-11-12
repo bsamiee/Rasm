@@ -36,7 +36,7 @@ struct RelayApp: App {
         Window("Settings", id: Self.settingsWindow) {
             switch delegate.store {
                 case .success(let store): SettingsView(store: store)
-                case .failure: EmptyView()
+                case .failure(let error): ContentUnavailableView("Relay Could Not Start", systemImage: "exclamationmark.triangle", description: Text(error.localizedDescription))
                 case .none: ProgressView().controlSize(.small)
             }
         }

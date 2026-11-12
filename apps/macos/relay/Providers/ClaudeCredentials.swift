@@ -207,7 +207,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     private func security(_ arguments: Arguments, input: some InputProtocol = .none) async throws(ClaudeFailure) -> String? {
-        func code(_ status: OSStatus) -> Int32 { Int32(UInt8(truncatingIfNeeded: status)) }
+        func code(_ status: OSStatus) -> Int32 { status & 0x00FF_FFFF }
         do throws(ProcessFailure) {
             return try await Configuration(
                 executable: .path("/usr/bin/security"),

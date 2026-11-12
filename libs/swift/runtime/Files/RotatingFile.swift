@@ -6,7 +6,7 @@ import System
 
 public struct RotatingFile: Sendable {
     private final class Held: Sendable {
-        let state: Mutex<(descriptor: FileDescriptor?, failure: FileFailure?)> = .init((nil, nil))
+        let state: Mutex<(handle: FileHandle?, failure: FileFailure?)> = .init((nil, nil))
     }
 
     public let url: URL
@@ -29,7 +29,7 @@ extension RotatingFile {
 
     private func open(_ path: FilePath, _ options: FileDescriptor.OpenOptions = []) throws -> FileDescriptor {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        return try FileDescriptor.open(path, .writeOnly, options: options.union([.append, .create]), permissions: .ownerReadWrite)
+        return try FileDescriptor.open(path, .writeOnly, options: options.union([.append, .create, .closeOnExec]), permissions: .ownerReadWrite)
     }
 
     private func spent(_ stat: Stat, before expiry: Duration) -> Bool { stat.size >= size || Duration(stat.st_birthtim) <= expiry }
@@ -54,20 +54,20 @@ extension RotatingFile {
         try held.state.withLock { held throws(FileFailure) in
             do {
                 let inode = try ifPresent { () throws(Errno) in try path.stat().inode }
-                if let stale = held.descriptor, try stale.stat().inode != inode {
-                    held.descriptor = nil
+                if let stale = held.handle, try FileDescriptor(rawValue: stale.fileDescriptor).stat().inode != inode {
+                    held.handle = nil
                     try stale.close()
                 }
-                let opened = try held.descriptor ?? open(path)
-                let full = try spent(opened.stat(), before: expiry)
+                let opened = try held.handle ?? FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true)
+                let full = try spent(FileDescriptor(rawValue: opened.fileDescriptor).stat(), before: expiry)
                 if full {
-                    held.descriptor = nil
+                    held.handle = nil
                     try opened.close()
                     try rotate(path, before: expiry)
                 }
-                let current = full ? try open(path) : opened
-                held.descriptor = current
-                try current.writeAll(data)
+                let current = full ? try FileHandle(fileDescriptor: open(path).rawValue, closeOnDealloc: true) : opened
+                held.handle = current
+                try current.write(contentsOf: data)
                 held.failure = nil
             } catch {
                 let failure = FileFailure(file: url, reason: .filesystem(error))
