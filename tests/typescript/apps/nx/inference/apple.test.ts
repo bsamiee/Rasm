@@ -12,6 +12,7 @@ const subject: Subject = {
     options: { trustPackages: true },
     tools: ['swift'],
     hosts: ['swift'],
+    platform: 'darwin',
     state: ['.build'],
     typed: true,
     compiled: ['Sources/Paper/Paper.swift', 'build--swift-build'],

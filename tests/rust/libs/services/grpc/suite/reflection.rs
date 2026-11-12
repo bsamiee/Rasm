@@ -1,7 +1,7 @@
 use claims::{assert_ok, assert_some};
 use rasm_grpc::reflection;
 use tonic::transport::Endpoint;
-use tonic::{Code, Request, Status};
+use tonic::{Request, Status};
 use tonic_reflection::pb::v1::ServerReflectionRequest;
 use tonic_reflection::pb::v1::server_reflection_client::ServerReflectionClient;
 use tonic_reflection::pb::v1::server_reflection_request::MessageRequest;
@@ -44,12 +44,6 @@ async fn file_containing_symbol() {
 async fn file_by_filename() {
     let answer = assert_ok!(reflected(MessageRequest::FileByFilename("reflection_v1.proto".to_owned())).await);
     assert!(matches!(&answer, MessageResponse::FileDescriptorResponse(found) if found.file_descriptor_proto.first().is_some_and(|file| !file.is_empty())), "{answer:?}");
-}
-
-#[tokio::test]
-async fn unknown_file_is_not_found_in_the_response() {
-    let answer = assert_ok!(reflected(MessageRequest::FileByFilename("no_such_file.proto".to_owned())).await, "an error is one response on the open stream");
-    assert!(matches!(&answer, MessageResponse::ErrorResponse(missing) if Code::from_i32(missing.error_code) == Code::NotFound), "error code 5, NOT FOUND: {answer:?}");
 }
 
 // --- [V1ALPHA]

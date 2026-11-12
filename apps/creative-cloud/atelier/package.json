@@ -28,6 +28,7 @@
         "@types/node": "catalog:",
         "vite": "catalog:"
     },
+    "os": [ "darwin" ],
     "nx": {
         "targets": {
             "build--vite": {

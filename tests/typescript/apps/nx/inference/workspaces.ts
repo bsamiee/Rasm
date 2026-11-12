@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { basename, delimiter, join, matchesGlob } from 'node:path';
-import { env } from 'node:process';
+import { env, platform } from 'node:process';
 import type { layer } from '@effect/platform-node/NodeServices';
 import type { Vitest } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
@@ -26,7 +26,7 @@ const FOLDERS = Option.match(Record.get(Record.filter(env, Predicate.isNotUndefi
 
 const row = ({ plugin, options }: Subject) => ({ plugin: plugin.name, ...(options === undefined ? {} : { options }) });
 
-const present = ({ tools = [] }: Subject) => tools.every((tool) => FOLDERS.some((folder) => existsSync(join(folder, tool))));
+const present = ({ tools = [], platform: limited = platform }: Subject) => limited === platform && tools.every((tool) => FOLDERS.some((folder) => existsSync(join(folder, tool))));
 
 const written = Effect.fnUntraced(function* (root: string, [manifest, tool, ...args]: NonNullable<Subject['locked']>[number]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);

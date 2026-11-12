@@ -170,7 +170,7 @@ statistics            = [
 ]
 analytics             = [
     "cubed",                                                                      # Bounded-memory distributed arrays
-    "daft",                                                                       # Distributed and streaming out-of-core query engine
+    "daft!=0.8.0rc1",                                                             # Distributed query engine, 0.8.0rc1 requires Python below 3.15
     "dask",                                                                       # Out-of-core arrays and dataframes
     "dataframely",                                                                # Declarative Polars column rules that partition failures
     "datafusion",                                                                 # Federation and streaming engine with Substrait plan interchange
@@ -368,7 +368,6 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-override-dependencies    = ["cachebox>=6", "pyarrow>=26"]        # CPython 3.15 wheels start above DeepDiff and Daft bounds
 no-build-package         = ["epdx"]                              # `epdx` sdist lacks `project.version`
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
@@ -402,8 +401,14 @@ rasm-telemetry  = { workspace = true }
 rasm-testing    = { workspace = true }
 rasm-typography = { workspace = true }
 
+[tool.uv.config-settings-package.cachebox]
+build-args = "--features=pyo3/abi3-py39"
+
 [tool.uv.config-settings-package.manifold3d]
 "cmake.define.MANIFOLD_USE_BUILTIN_TBB" = "ON"
+
+[tool.uv.config-settings-package.pyarrow]
+"cmake.define.PYARROW_GANDIVA" = "OFF" # PyPI wheels omit Gandiva, which Arrow's conda configuration enables
 
 # --- [PIXI] -----------------------------------------------------------------------------
 
@@ -415,16 +420,23 @@ platforms = [{ platform = "osx-arm64", macos = "27.0" }, "linux-64", "linux-aarc
 no-default-feature = true
 
 [tool.pixi.environments.default.dependencies]
-hdf5         = "2.2.*"
-icu          = "78.*"   # 79 fails the solve: every libxml2 build libpdal-core 2.10 requires links ICU below 79
-libpdal-core = "2.10.*"
-librdkafka   = "2.16.*" # Headers and library the `confluent-kafka` sdist builds against on CPython 3.15
-llvm-openmp  = "*"
-libmagic     = "*"
-libpango     = "*"
-libharfbuzz  = "*"
-fontconfig   = "*"
-libglib      = "*"
+hdf5               = "2.2.*"
+icu                = "78.*"   # 79 fails the solve: every libxml2 build libpdal-core 2.10 requires links ICU below 79
+libpdal-core       = "2.10.*"
+librdkafka         = "2.16.*" # Headers and library the `confluent-kafka` sdist builds against on CPython 3.15
+llvm-openmp        = "*"
+libmagic           = "*"
+libpango           = "*"
+libharfbuzz        = "*"
+fontconfig         = "*"
+libglib            = "*"
+libarrow           = "25.*"
+libarrow-acero     = "25.*"
+libarrow-compute   = "25.*"
+libarrow-dataset   = "25.*"
+libarrow-flight    = "25.*"
+libarrow-substrait = "25.*"
+libparquet         = "25.*"
 
 [tool.pixi.environments.default.target.unix.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"

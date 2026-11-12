@@ -1,10 +1,9 @@
-use core::sync::atomic::Ordering;
 use core::time::Duration;
 use std::path::PathBuf;
 
 use claims::assert_ok;
 use futures::future;
-use mcp_muxer_tests::{Agent, Ask, Isolated, Slow, call, modern, session, spawned, text};
+use mcp_muxer_tests::{Agent, Ask, Isolated, Slow, call, modern, reached, session, spawned, text};
 use rmcp::model::{CallToolRequest, ClientRequest};
 use rmcp::service::{ClientLifecycleMode, PeerRequestOptions};
 use tokio::time;
@@ -82,7 +81,7 @@ async fn sessions_of_either_era_reach_servers_of_either_era() {
             assert_eq!(text(&assert_ok!(legacy.call_tool(assert_ok!(asked())).await)), "old", "{served} server: the initialize session answers its own input request");
             assert_eq!(text(&assert_ok!(current.call_tool(assert_ok!(asked())).await)), "new", "{served} server: the discover session answers its own input request");
             assert_ok!(legacy.call_tool(assert_ok!(call("slow", &Slow { millis: 100, steps: 2 }))).await);
-            assert_eq!(old.progress.load(Ordering::Relaxed), 2, "{served} server: progress reaches the initialize session");
+            assert_eq!(assert_ok!(reached(&old.progress, 2).await), 2, "{served} server: progress reaches the initialize session");
             let eras = Vec::from_iter(servers(isolated, &[]).await.into_iter().filter_map(|held| held.era));
             assert!(eras.iter().any(|era| era == served), "the state report names a {served} server: {eras:?}");
             assert_eq!(whoami(&legacy, HOME).await.pid, whoami(&current, HOME).await.pid, "{served} server: sessions of both eras share one server process");
@@ -104,7 +103,7 @@ async fn server_requests_progress_and_cancellation_reach_the_calling_session() {
         assert_eq!(text(&assert_ok!(one.peer().call_tool(assert_ok!(asked())).await)), "left", "elicitation reaches the session whose call is in flight");
         assert_eq!(text(&assert_ok!(two.peer().call_tool(assert_ok!(asked())).await)), "right", "elicitation reaches the other session for its own call");
         assert_ok!(one.peer().call_tool(assert_ok!(call("slow", &Slow { millis: 200, steps: 4 }))).await);
-        assert_eq!((left.progress.load(Ordering::Relaxed), right.progress.load(Ordering::Relaxed)), (4, 0), "progress reaches the calling session alone");
+        assert_eq!((assert_ok!(reached(&left.progress, 4).await), *right.progress.borrow()), (4, 0), "progress reaches the calling session alone");
         let request = ClientRequest::CallToolRequest(CallToolRequest::new(assert_ok!(call("slow", &Slow { millis: 60_000, steps: 1 }))));
         let handle = assert_ok!(two.peer().send_cancellable_request(request, PeerRequestOptions::no_options()).await);
         time::sleep(Duration::from_millis(200)).await;

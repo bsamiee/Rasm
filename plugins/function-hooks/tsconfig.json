@@ -3,7 +3,7 @@
     "compilerOptions": {
         "declaration": false,
         "noEmit": true,
-        "typeRoots": [ ".claude-plugin/types", "node_modules/@types" ],
-        "types": [ "claude-code", "claude-code-tools", "node" ]
-    }
+        "types": [ "node" ]
+    },
+    "exclude": [ "hooks", "node_modules" ]
 }

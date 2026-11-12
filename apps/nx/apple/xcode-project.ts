@@ -54,7 +54,7 @@ const invocation = (path: Path.Path, options: Settings, built: string) => {
 const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: Settings, container: typeof Container.Type, built: string) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
     const { flags } = invocation(path, options, built);
-    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(printed('xcodebuild', ['build', 'archive', '-showBuildSettings', '-json', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
+    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(printed('xcodebuild', ['build', 'archive', '-showBuildSettings', '-json', '-IDEPackageEnablePrebuilts=NO', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map(({ name }) => name);
     const archived = Array.zip(schemes, yield* Effect.forEach(schemes, (scheme) => read(scheme, [])));
     const others = yield* Effect.forEach(
@@ -126,11 +126,11 @@ const xcodeParts = (
         path.extname(path.dirname(file)) === '.xcodeproj' && Array.isReadonlyArrayNonEmpty(archived)
             ? {
                   release: { manifest: path.relative(path.dirname(path.dirname(file)), file) },
-                  packaged: ['build--ditto'],
+                  packaged: ['pack--ditto'],
                   publish: {
                       executor: `${plugin.name}:release-publish`,
                       options: { exports: archived.map(({ archive, folder }) => ({ archive, folder })) },
-                      metadata: { technologies: ['xcode'], description: 'Signs the Sparkle feed of each disk image build--ditto wrote with generate_appcast and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names', help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } } },
+                      metadata: { technologies: ['xcode'], description: 'Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names', help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } } },
                   },
               }
             : {};
@@ -145,8 +145,7 @@ const xcodeParts = (
                 outputs: exported.flatMap(({ folder }) => PACKAGES.map((extension) => path.join('{workspaceRoot}', folder, `*${extension}`))),
                 metadata: {
                     technologies: ['xcode'],
-                    description:
-                        'Archives each app with installed products, then zips it with ditto, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled',
+                    description: 'Archives each app with installed products, then zips it with ditto, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled',
                     help: { command: 'man ditto', example: { args: ['--norsrc'] } },
                 },
             } satisfies TargetConfiguration,
@@ -198,8 +197,8 @@ const xcodeParts = (
                               { dependsOn: ['^build'], inputs: read, outputs: tokened(path, lock), ...modes(builds) },
                           ),
                       }),
-                ...releasing,
             },
+            pack: releasing,
             clean:
                 schemes.length === 0
                     ? {}

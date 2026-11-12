@@ -10,6 +10,7 @@ dotnet.cli_telemetry_optout         = true
 experimental                        = true
 idiomatic_version_file_enable_tools = ["dotnet", "rust"]
 java.shorthand_vendor               = "corretto"
+lockfile_platforms                  = ["linux-arm64", "linux-x64", "macos-arm64", "windows-x64"]
 minimum_release_age                 = "0s"
 prereleases                         = true
 python.uv_venv_auto                 = "source"
@@ -45,7 +46,7 @@ HK_PKL_CACHE_DIR                                          = "{{config_root}}/.ca
 HYPOTHESIS_STORAGE_DIRECTORY                              = "{{config_root}}/.cache/hypothesis"
 JAVAC_PLUGINS                                             = { tools = true, value = '{% for jar in ["dataflow-errorprone", "dataflow-nullaway", "error-prone", "jspecify", "nullaway"] %}{% set tool = tools["http:" ~ jar]?.path %}{% if tool %}{{ tool }}/{{ jar }}.jar{% if not loop.last %}:{% endif %}{% endif %}{% endfor %}' }
 NODE_COMPILE_CACHE                                        = "{{config_root}}/.cache/node"
-NODE_VERSION                                              = { tools = true, value = "{{ tools.node.version }}" }
+NODE_VERSION                                              = "26.13.0"
 NX_ISOLATE_PLUGINS                                        = "false"                                                                                                                                                                                                                                                                                                                 # In-process plugins load faster than plugin workers while the daemon is off
 NX_WORKSPACE_DATA_DIRECTORY                               = "{{config_root}}/.cache/nx/workspace-data"
 PLAYWRIGHT_CLI_SESSION                                    = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
@@ -70,7 +71,7 @@ WATCH_APPS_SESSION                                        = "{{ get_env(name='CL
 # --- [DEPS] -----------------------------------------------------------------------------
 
 [deps.uv]
-run     = "pixi run --locked uv sync"
+run     = "pixi run --locked uv sync --all-packages"
 sources = ["pixi.lock", "pyproject.toml", "uv.lock"]
 
 # --- [HOOKS] ----------------------------------------------------------------------------
@@ -91,6 +92,7 @@ cargo-insta                                                                  = "
 "cargo:cargo-edit"                                                           = "latest"
 cmake                                                                        = "latest"
 colima                                                                       = { os = ["macos"], version = "latest" }
+"conda:openssh"                                                              = { os = ["linux"], version = "latest" }
 crane                                                                        = { os = ["macos", "linux"], version = "latest" }
 difftastic                                                                   = "latest"
 docker-compose                                                               = { os = ["macos", "linux"], postinstall = { run = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-compose" "$plugins/docker-compose"', when = "always" }, version = "latest" }

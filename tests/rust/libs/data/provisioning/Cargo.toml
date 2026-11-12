@@ -4,6 +4,9 @@
 name              = "rasm-provisioning-tests"
 edition.workspace = true
 
+[package.metadata.nx]
+implicitDependencies = ["@rasm/infra"] # Compose file the suite reads the Postgres image from, built by its `build--compose` target before a test of a dependent runs
+
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]

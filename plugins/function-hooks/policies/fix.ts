@@ -80,7 +80,7 @@ const changed = (site: Site, { start, end }: Span, text: Option.Option<string>, 
     return before === undefined ? [] : refusal(`Nested ${before}, run ${Option.getOrElse(text, () => 'without it')}`);
 };
 
-const edited = (site: Site, span: Span, text: string, before?: string, timeout?: number) => changed(site, span, Option.some(text), before, timeout);
+const edited = (site: Site, span: Span, text: string, before?: string, timeout?: number) => changed(site, span, Option.some(`${span.prefix ?? ''}${text}`), before, timeout);
 
 const erased = (site: Site, span: Span, before?: string, timeout?: number) => changed(site, span, Option.none(), before, timeout);
 
@@ -177,14 +177,14 @@ const spelledFlags = (kept: readonly string[], attached: readonly string[]): str
 const respelled = (site: Site, { renames = {}, drops = [] }: Respelling, { names, words, values }: Item, before: string | undefined): Verdicts => {
     const kept = Array.difference(names, drops).map((name) => renames[name] ?? name);
     const valueGoes = Option.exists(Array.last(names), (name) => drops.includes(name));
-    return kept.length === 0 ? cut(site, words, before) : edited(site, valueGoes ? { start: words[0].start, end: Array.lastNonEmpty(words).end } : words[0], spelledFlags(kept, words.length === 1 && !valueGoes ? values.map(quote) : []), before);
+    return kept.length === 0 ? cut(site, words, before) : edited(site, valueGoes ? { start: words[0].start, end: Array.lastNonEmpty(words).end } : words[0], spelledFlags(kept, words.length === 1 && !valueGoes ? values.map(({ raw }) => raw) : []), before);
 };
 
 const respell =
     (respelling: Respelling, { only, notify = false }: { readonly only?: RegExp; readonly notify?: boolean } = {}) =>
     (site: Site): Verdicts =>
         site.items
-            .filter(({ names, words, values }) => names.some((name) => respelling.drops?.includes(name) === true || (respelling.renames?.[name] ?? name) !== name) && values.every((value) => only?.test(value) !== false) && (words.every(({ spread }) => !spread) || notify))
+            .filter(({ names, words, values }) => names.some((name) => respelling.drops?.includes(name) === true || (respelling.renames?.[name] ?? name) !== name) && values.every(({ text }) => only?.test(text) !== false) && (words.every(({ spread }) => !spread) || notify))
             .flatMap((item) => (item.words.some(({ spread }) => spread) ? refusal(`${subject(site)} ${item.words[0].text} expands later, pass it literally`) : respelled(site, respelling, item, notify ? `${subject(site)} ${item.words[0].raw}` : undefined)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------

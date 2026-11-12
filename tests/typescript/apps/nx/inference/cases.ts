@@ -1,8 +1,9 @@
 import { homedir, tmpdir } from 'node:os';
 import { matchesGlob } from 'node:path';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
-import { assert, describe, it, type Vitest, vi } from '@effect/vitest';
+import { afterEach, assert, beforeEach, describe, it, type Vitest, vi } from '@effect/vitest';
 import { type CreateNodes, type CreateNodesResult, getOutputsForTargetAndConfiguration, type NxPlugin, type ProjectGraph, type RawProjectGraphDependency, readProjectsConfigurationFromProjectGraph, validateDependency } from '@nx/devkit';
 import { graphed, workspace } from '@rasm/testing/nx/inference';
 import { replayed, spawned } from '@rasm/testing/nx/tools';
@@ -32,6 +33,7 @@ interface Subject {
     readonly packages?: readonly string[];
     readonly tools?: readonly string[];
     readonly hosts?: readonly string[];
+    readonly platform?: NodeJS.Platform;
     readonly state?: readonly string[];
     readonly locked?: ReadonlyArray<readonly [manifest: string, tool: string, ...args: string[]]>;
     readonly broken?: readonly [file: string, text: string];
@@ -323,7 +325,12 @@ const inferring =
     };
 
 const cases = (subject: Subject, stated: (methods: Vitest.MethodsNonLive<Layer.Success<typeof layer>>) => void = Function.constVoid): void => {
-    describe.skipIf(inject('driven'))(`${subject.plugin.name} in the Nx process`, () => it.layer(layer, { excludeTestServices: true })(inferring(subject, stated)));
+    describe.skipIf(inject('driven'))(`${subject.plugin.name} in the Nx process`, () => {
+        const held = Object.getOwnPropertyDescriptor(process, 'platform');
+        beforeEach(() => Object.defineProperty(process, 'platform', { ...held, value: subject.platform ?? held?.value }));
+        afterEach(() => Object.defineProperty(process, 'platform', { ...held }));
+        it.layer(layer, { excludeTestServices: true })(inferring(subject, stated));
+    });
     describe.runIf(inject('driven'))(`${subject.plugin.name} through the Nx CLI`, () => it.layer(layer, { excludeTestServices: true })((methods) => [loading, rereads, tasks, replay, location, restoredOutputs, affected, readiness].forEach((driven) => driven(subject, methods))));
 };
 

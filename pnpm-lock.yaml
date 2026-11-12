@@ -1320,6 +1320,9 @@ importers:
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../tests/typescript/support
+      '@storybook/addon-docs':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@types/react@19.3.0)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
       '@storybook/addon-vitest':
         specifier: 'catalog:'
         version: 11.0.0-beta.1(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vitest@5.1.0)
@@ -2507,6 +2510,9 @@ importers:
       '@rasm/ui':
         specifier: workspace:*
         version: link:../../../../../libs/typescript/web/ui
+      '@storybook/addon-docs':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@types/react@19.3.0)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
       '@storybook/addon-vitest':
         specifier: 'catalog:'
         version: 11.0.0-beta.1(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vitest@5.1.0)

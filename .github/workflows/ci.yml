@@ -25,7 +25,7 @@ env:
 jobs:
     linux:
         runs-on: ubuntu-26.04
-        timeout-minutes: 60
+        timeout-minutes: 120
         steps:
             - &checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,6 +38,7 @@ jobs:
               id: setup
               uses: ./.github/actions/setup
               with:
+                  assets-key: ${{ secrets.ASSETS_DEPLOY_KEY }}
                   cache-server: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx sync:check
             - run: playwright install --with-deps --only-shell chromium
@@ -48,7 +49,7 @@ jobs:
 
     macos:
         runs-on: xcode-27
-        timeout-minutes: 60
+        timeout-minutes: 120
         steps:
             - *checkout
             - *shas

@@ -5,6 +5,9 @@ name              = "rasm-infra-tests"
 edition.workspace = true
 description       = "Containers for tests: servers started from the images a Compose file states, each returned with its connected driver, and conformance tools built from a Dockerfile and run to their exit against a host port"
 
+[package.metadata.nx]
+implicitDependencies = ["@rasm/infra"] # Compose file the suite reads service images from, built by its `build--compose` target before a test of a dependent runs
+
 # --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]

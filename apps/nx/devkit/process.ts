@@ -10,6 +10,10 @@ interface Run extends ChildProcess.CommandOptions {
     readonly echo?: { readonly stdout: NodeJS.WritableStream; readonly stderr: NodeJS.WritableStream };
 }
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const PLAIN = { NO_COLOR: '1', FORCE_COLOR: undefined } as const;
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class ToolError extends Schema.TaggedError<ToolError, { readonly brand: unique symbol }>()('ToolError', { subject: Schema.String, detail: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
@@ -40,7 +44,7 @@ const spawned = Effect.fn('spawned')(function* (command: string, args: readonly 
 });
 
 const ran = Effect.fn('ran')(function* (command: string, args: readonly string[], { input, echo, ...options }: Run = {}) {
-    const handle = yield* spawned(command, args, input === undefined ? options : { ...options, stdin: Stream.encodeText(Stream.succeed(input)) });
+    const handle = yield* spawned(command, args, { ...options, ...(echo === undefined && { env: { ...PLAIN, ...options.env } }), ...(input !== undefined && { stdin: Stream.encodeText(Stream.succeed(input)) }) });
     const read = (stream: typeof handle.stdout, sink: NodeJS.WritableStream | undefined) => Stream.mkString(sink === undefined ? Stream.decodeText(stream) : Stream.tap(Stream.decodeText(stream), (chunk) => Effect.sync(() => sink.write(chunk))));
     const [stdout, stderr, code] = yield* Effect.all([read(handle.stdout, echo?.stdout), read(handle.stderr, echo?.stderr), handle.exitCode], { concurrency: 'unbounded' });
     return { code, stdout, stderr };

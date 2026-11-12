@@ -1,7 +1,7 @@
 import { Array, Effect, Option, Result, Schema, String } from 'effect';
 import { HookError, Host } from '#/host';
 import type { Program } from '#/shell/programs';
-import type { Word } from '#/shell/script';
+import { slicedWord, type Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ interface Grammar {
 interface Item {
     readonly names: readonly string[];
     readonly words: readonly [Word, ...Word[]];
-    readonly values: readonly string[];
+    readonly values: readonly Word[];
 }
 interface Parsed {
     readonly items: readonly Item[];
@@ -49,7 +49,7 @@ interface Cursor {
 type Step = readonly [Partial<Parsed>, Cursor];
 interface Reading {
     readonly specs: readonly Spec[];
-    readonly attached: Option.Option<string>;
+    readonly attached: Option.Option<Word>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -133,11 +133,15 @@ const grammarOf = Effect.fnUntraced(function* (program: string, row: Program, pr
 
 // --- [PARSING]
 
-const optionOf = (text: string, grammar: Grammar, row: Program): Option.Option<Reading> => {
+const optionOf = (word: Word, grammar: Grammar, row: Program): Option.Option<Reading> => {
+    const { text } = word;
     const cut = text.indexOf('=');
     const given = cut < 0 ? text : text.slice(0, cut);
     const head = row.camelCase === true ? given.replaceAll(CAMEL, (letter) => `-${letter.toLowerCase()}`) : given;
-    const attached = cut < 0 ? Option.none() : Option.some(text.slice(cut + 1));
+    const attached = cut < 0 ? Option.none() : slicedWord(word, cut + 1);
+    if (cut >= 0 && Option.isNone(attached)) {
+        return Option.none();
+    }
     const exact = grammar.options.get(head);
     if (exact !== undefined) {
         return Option.some({ specs: [exact], attached });
@@ -151,7 +155,9 @@ const optionOf = (text: string, grammar: Grammar, row: Program): Option.Option<R
     const letters = [...text.slice(1)];
     const specs = letters.map((letter): Spec => grammar.options.get(`-${letter}`) ?? { name: `-${letter}`, arity: 0 });
     const taking = specs.findIndex(({ arity }) => arity > 0);
-    return Option.some(taking < 0 ? { specs, attached: Option.none() } : { specs: specs.slice(0, taking + 1), attached: Option.liftPredicate(letters.slice(taking + 1).join(''), String.isNonEmpty) });
+    return taking < 0
+        ? Option.some({ specs, attached: Option.none() })
+        : Option.map(taking + 1 === letters.length ? Option.some(Option.none<Word>()) : Option.map(slicedWord(word, letters.slice(0, taking + 1).join('').length + 1), Option.some), (value) => ({ specs: specs.slice(0, taking + 1), attached: value }));
 };
 
 const flagged = (word: Word, { specs, attached }: Reading, cursor: Cursor, words: readonly Word[], row: Program): Step => {
@@ -160,7 +166,7 @@ const flagged = (word: Word, { specs, attached }: Reading, cursor: Cursor, words
     const taken = spec !== undefined && row.execs?.includes(spec.name) === true ? words.slice(from, words.findIndex(({ text }, index) => index >= from && (text === ';' || text === '+')) + 1 || words.length) : words.slice(from, from + (spec?.arity ?? 0));
     const supplied = Option.isSome(attached) ? [] : taken;
     const names = specs.map(({ name }) => name);
-    return [{ items: [{ names, words: [word, ...supplied], values: [...Option.toArray(attached), ...supplied.map(({ text }) => text)] }] }, { ...cursor, at: cursor.at + 1 + supplied.length, ended: names.some((name) => name === row.module || row.ends?.includes(name) === true) }];
+    return [{ items: [{ names, words: [word, ...supplied], values: [...Option.toArray(attached), ...supplied] }] }, { ...cursor, at: cursor.at + 1 + supplied.length, ended: names.some((name) => name === row.module || row.ends?.includes(name) === true) }];
 };
 
 const operated = (word: Word, cursor: Cursor, words: readonly Word[], row: Program): Step => {
@@ -190,7 +196,7 @@ const advanced = (word: Word, cursor: Cursor, words: readonly Word[], row: Progr
         }
         return [row.wraps === '--' ? { rest: words.slice(cursor.at + 1) } : { separator: Option.some(word), tail: words.slice(cursor.at + 1) }, end];
     }
-    return Option.match(OPTION.test(word.text) && !cursor.separated ? optionOf(word.text, cursor.grammar, row) : Option.none(), {
+    return Option.match(OPTION.test(word.text) && !cursor.separated ? optionOf(word, cursor.grammar, row) : Option.none(), {
         onNone: () => operated(word, cursor, words, row),
         onSome: (reading) => flagged(word, reading, cursor, words, row),
     });

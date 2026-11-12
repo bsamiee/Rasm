@@ -25,7 +25,7 @@ it('serves a docs page for every component and stories that break no WCAG A or A
             listed.filter(({ type }) => type === 'story'),
             ({ id }) =>
                 Effect.tryPromise(async () => {
-                    await page.goto(`iframe.html?viewMode=story&id=${id}`);
+                    await page.goto(`iframe.html?viewMode=story&id=${id}&globals=a11y.manual:!true`);
                     await expect(page.locator('#storybook-root > *, [role="dialog"]').first()).toBeAttached();
                     return { id, broken: (await axe.analyze()).violations };
                 }),

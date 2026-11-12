@@ -105,6 +105,8 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         } ?? "Claude Code-credentials"
     }
 
+    private var credentialFile: URL { directory.appending(path: ".credentials.json") }
+
     // --- [STORE_CONTENT]
 
     func read() async throws(ClaudeFailure) -> ClaudeStoreContent {
@@ -176,16 +178,13 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [KEYCHAIN_ITEM]
 
     func readItem() async throws(ClaudeFailure) -> JSONDocument<ClaudeCredentialItem>? {
-        guard let printed = try await security(["find-generic-password", "-a", username, "-s", service, "-g"]) else { return nil }
-        let password: Data? =
-            switch printed.firstMatch(of: #/^password: (?:0x(?<hex>[0-9A-F]*)|"(?<text>.*)")?/#.anchorsMatchLineEndings())?.output {
-                case .some((_, .some(let hex), _)): Data(hexEncoded: hex)
-                case .some((_, .none, .some(let text))): Data(text.utf8)
-                case .some((_, .none, .none)): Data()
-                case .none: nil
-            }
-        guard let password else { throw .invalidCredentials(nil) }
-        return try Self.decode(JSONDocument<ClaudeCredentialItem>.self, from: password)
+        let password: Data?
+        if let printed = try await security(["find-generic-password", "-a", username, "-s", service, "-w"]) {
+            password = Data(printed.utf8)
+        } else {
+            do { password = try ifPresent { try Data(contentsOf: credentialFile) } } catch { throw .filesystem(error) }
+        }
+        return try password.map { data throws(ClaudeFailure) in try Self.decode(JSONDocument<ClaudeCredentialItem>.self, from: data) }
     }
 
     func writeOAuth(
@@ -199,15 +198,16 @@ nonisolated struct ClaudeCredentialStore: Sendable {
         let arguments = ["add-generic-password", "-U", "-a", username, "-s", service, "-X", password]
         let line = arguments.map { argument in "\"" + argument.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\"" }.joined(separator: " ") + "\n"
         _ = if line.utf8.count <= 4032 { try await security(["-i"], input: .string(line)) } else { try await security(Arguments(arguments)) }
-        do { _ = try ifPresent { try FileManager.default.removeItem(at: directory.appending(path: ".credentials.json")) } } catch { throw .filesystem(error) }
+        do { _ = try ifPresent { try FileManager.default.removeItem(at: credentialFile) } } catch { throw .filesystem(error) }
     }
 
     func deleteItem() async throws(ClaudeFailure) {
         _ = try await security(["delete-generic-password", "-a", username, "-s", service])
+        do { _ = try ifPresent { try FileManager.default.removeItem(at: credentialFile) } } catch { throw .filesystem(error) }
     }
 
     private func security(_ arguments: Arguments, input: some InputProtocol = .none) async throws(ClaudeFailure) -> String? {
-        func code(_ status: OSStatus) -> Int32 { status & 0x00FF_FFFF }
+        func code(_ status: OSStatus) -> Int32 { Int32(UInt8(truncatingIfNeeded: status)) }
         do throws(ProcessFailure) {
             return try await Configuration(
                 executable: .path("/usr/bin/security"),
@@ -216,8 +216,8 @@ nonisolated struct ClaudeCredentialStore: Sendable {
                 workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
                 platformOptions: .session(),
             )
-            .run(output: .discarded, within: .seconds(15), input: input)
-            .standardError
+            .run(output: .string(limit: 1 << 20), within: .seconds(15), input: input)
+            .standardOutput
         } catch {
             return switch error.reason {
                 case .exit(.exited(code(errSecItemNotFound)), _): nil

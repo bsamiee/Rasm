@@ -17,6 +17,7 @@ interface Assign extends Pick<Node, 'Pos' | 'End' | 'Parts' | 'Name'> {
 interface Span {
     readonly start: number;
     readonly end: number;
+    readonly prefix?: string;
 }
 interface Word extends Span {
     readonly raw: string;
@@ -24,6 +25,10 @@ interface Word extends Span {
     readonly known: boolean;
     readonly glob: boolean;
     readonly spread: boolean;
+    readonly parts: readonly Part[];
+}
+interface Part extends Pick<Word, 'raw' | 'text' | 'known' | 'glob' | 'spread'> {
+    readonly quote?: readonly [string, string];
 }
 interface Redirect extends Span {
     readonly raw: string;
@@ -79,6 +84,7 @@ const ANSI_ESCAPE = /\\(?:(?<code>[abeEfnrtv\\'"?])|(?<octal>[0-7]{1,3})|x(?<hex
 const ANSI_CODES = { a: '\x07', b: '\b', e: '\x1B', E: '\x1B', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' } as const;
 const UNQUOTED_ESCAPE = /\\(?:\n|(?<code>[\s\S]))/gu;
 const QUOTED_ESCAPE = /\\(?:\n|(?<code>["\\$`]))/gu;
+const CHARACTER = /[\s\S]/gu;
 const GLOB = /[*?[{]/u;
 const SPREADS = /\s|^$/u;
 const FIELD = /\S+/gu;
@@ -116,43 +122,64 @@ const looked = (frame: Frame, name: string, place: Place): Option.Option<string>
 
 const ansiDecoded = (_all: string, code?: keyof typeof ANSI_CODES, octal?: string, hex?: string, wide?: string): string => (code === undefined ? String.fromCodePoint(Number(octal === undefined ? `0x${hex ?? wide}` : `0o${octal}`)) : ANSI_CODES[code]);
 
-const pieceOf = ({ Value = '', ...part }: Node, frame: Frame, place: Place, quoted: boolean): Piece =>
+const piecesOf = ({ Value = '', ...part }: Node, frame: Frame, place: Place, quote?: readonly [string, string]): readonly Part[] =>
     Match.value(part.Type).pipe(
-        Match.when('Lit', () => ({ text: Value.replaceAll(quoted ? QUOTED_ESCAPE : UNQUOTED_ESCAPE, '$<code>'), known: true, glob: !quoted && GLOB.test(Value), spread: false })),
-        Match.when('SglQuoted', () => ({ text: part.Dollar === true ? Value.replaceAll(ANSI_ESCAPE, ansiDecoded) : Value, known: true, glob: false, spread: false })),
-        Match.when('DblQuoted', () => pieces(part.Parts ?? [], frame, place, true)),
+        Match.when('Lit', () => [...Value.matchAll(new RegExp(`${(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE).source}|${CHARACTER.source}`, 'gu'))].map(([raw]) => ({ raw, text: raw.replaceAll(quote === undefined ? UNQUOTED_ESCAPE : QUOTED_ESCAPE, '$<code>'), known: true, glob: quote === undefined && GLOB.test(raw) && !raw.startsWith('\\'), spread: false, ...(quote === undefined ? {} : { quote }) }))),
+        Match.when('SglQuoted', () => {
+            const quoted = [part.Dollar === true ? "$'" : "'", "'"] as const;
+            const characters = [...Value.matchAll(new RegExp(`${part.Dollar === true ? `${ANSI_ESCAPE.source}|` : ''}${CHARACTER.source}`, 'gu'))];
+            return (characters.length === 0 ? [''] : characters.map(([raw]) => raw)).map((raw) => ({ raw, text: part.Dollar === true ? raw.replaceAll(ANSI_ESCAPE, ansiDecoded) : raw, known: true, glob: false, spread: false, quote: quoted }));
+        }),
+        Match.when('DblQuoted', () => {
+            const quoted = [part.Dollar === true ? '$"' : '"', '"'] as const;
+            const held = (part.Parts ?? []).flatMap((child) => piecesOf(child, frame, place, quoted));
+            return held.length === 0 ? [{ raw: '', text: '', known: true, glob: false, spread: false, quote: quoted }] : held;
+        }),
         Match.when('ParamExp', () => {
             const value = new Set(Object.keys(part)).isSubsetOf(PLAIN_EXPANSION) && part.Param?.Value !== undefined ? looked(frame, part.Param.Value, place) : Option.none();
-            const text = Option.getOrElse(value, () => sliced(part, place));
-            const splits = !quoted && Option.isSome(value);
-            return { text, known: Option.isSome(value), glob: splits && GLOB.test(text), spread: splits && SPREADS.test(text) };
+            const raw = sliced(part, place);
+            const text = Option.getOrElse(value, () => raw);
+            const splits = quote === undefined && Option.isSome(value);
+            return [{ raw, text, known: Option.isSome(value), glob: splits && GLOB.test(text), spread: splits && SPREADS.test(text), ...(quote === undefined ? {} : { quote }) }];
         }),
-        Match.orElse(() => ({ text: sliced(part, place), known: false, glob: false, spread: false })),
+        Match.orElse(() => [{ raw: sliced(part, place), text: sliced(part, place), known: false, glob: false, spread: false, ...(quote === undefined ? {} : { quote }) }]),
     );
 
-const pieces = (parts: readonly Node[], frame: Frame, place: Place, quoted: boolean): Piece =>
+const pieces = (parts: readonly Part[]): Piece =>
     parts.reduce<Piece>(
-        (all, part) => {
-            const piece = pieceOf(part, frame, place, quoted);
-            return { text: `${all.text}${piece.text}`, known: all.known && piece.known, glob: all.glob || piece.glob, spread: all.spread || piece.spread };
-        },
+        (all, part) => ({ text: `${all.text}${part.text}`, known: all.known && part.known, glob: all.glob || part.glob, spread: all.spread || part.spread }),
         { text: '', known: true, glob: false, spread: false },
     );
 
 const worded = (node: Pick<Node, 'Pos' | 'End' | 'Parts'>, frame: Frame, place: Place): Word => {
-    const parts = node.Parts ?? [];
+    const parts = (node.Parts ?? []).flatMap((part) => piecesOf(part, frame, place));
     const raw = sliced(node, place);
-    const piece = pieces(parts, frame, place, false);
+    const piece = pieces(parts);
     const text = Option.match(
         Option.filter(place.home, () => raw.startsWith('~')),
         { onNone: () => piece.text, onSome: (home) => piece.text.replace(TILDE, (_all, user: string) => (user === '' ? home : `${home.slice(0, home.lastIndexOf('/') + 1)}${user}`)) },
     );
-    return { raw, ...spanOf(node), ...piece, text, known: piece.known && (!piece.spread || parts.length === 1) };
+    return { raw, ...spanOf(node), ...piece, parts, text, known: piece.known && (!piece.spread || parts.length === 1) };
+};
+
+const spelled = (parts: readonly Part[]): string => {
+    const groups = Array.isReadonlyArrayNonEmpty(parts) ? Array.groupWith(parts, (left, right) => left.quote === right.quote) : [];
+    return groups.map((group) => `${group[0].quote?.[0] ?? ''}${group.map(({ raw }) => raw).join('')}${group[0].quote?.[1] ?? ''}`).join('');
+};
+
+const slicedWord = (word: Word, at: number): Option.Option<Word> => {
+    const [remaining, positions] = Array.mapAccum(word.parts, at, (left, part) => [Math.max(0, left - part.text.length), { part, left }]);
+    if (remaining > 0 || positions.some(({ part, left }) => left > 0 && left < part.text.length)) {
+        return Option.none();
+    }
+    const parts = positions.filter(({ left }) => left === 0).map(({ part }) => part);
+    const piece = pieces(parts);
+    return Option.some({ ...word, ...piece, parts, prefix: `${word.prefix ?? ''}${spelled(positions.filter(({ left }) => left > 0).map(({ part }) => part))}`, raw: spelled(parts) || "''", known: piece.known && (!piece.spread || parts.length === 1) });
 };
 
 const fields = (word: Word): readonly Word[] => {
     const split = word.spread && word.known ? (word.text.match(FIELD) ?? []) : undefined;
-    return split === undefined ? [word] : split.map((text) => ({ ...word, raw: text, text, glob: GLOB.test(text), spread: split.length > 1 }));
+    return split === undefined ? [word] : split.map((text) => ({ ...word, raw: text, text, glob: GLOB.test(text), spread: split.length > 1, parts: [{ raw: text, text, known: true, glob: GLOB.test(text), spread: split.length > 1 }] }));
 };
 
 const assignedValue = ({ Value, Array: list, Append }: Assign, frame: Frame, place: Place): Option.Option<string> => {
@@ -166,7 +193,7 @@ const assignedValue = ({ Value, Array: list, Append }: Assign, frame: Frame, pla
 const delivered = (redirects: readonly Node[], frame: Frame, place: Place): Option.Option<string> => {
     const redirect = redirects.findLast(({ Op }) => HEREDOC.has(Op));
     const quoted = redirect?.Hdoc !== undefined && redirect.Word?.Parts?.every(({ Type }) => Type === 'Lit') === false;
-    return Option.map(Option.fromNullishOr(redirect?.Hdoc ?? redirect?.Word), (body) => (quoted ? (body.Parts ?? []).map(({ Value = '' }) => Value).join('') : pieces(body.Parts ?? [], frame, place, redirect?.Hdoc !== undefined).text));
+    return Option.map(Option.fromNullishOr(redirect?.Hdoc ?? redirect?.Word), (body) => (quoted ? (body.Parts ?? []).map(({ Value = '' }) => Value).join('') : pieces((body.Parts ?? []).flatMap((part) => piecesOf(part, frame, place, redirect?.Hdoc === undefined ? undefined : ['', '']))).text));
 };
 
 // --- [FRAMES]
@@ -312,7 +339,8 @@ const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, frame: Frame, pla
     const redirects = stmt.Redirs ?? [];
     const prefix = Assigns.map((assign): Word => {
         const value = assignedValue(assign, ready, place);
-        return { raw: sliced(assign, place), text: Option.match(value, { onNone: () => `${assign.Name?.Value}=`, onSome: (assigned) => `${assign.Name?.Value}=${assigned}` }), ...spanOf(assign), known: Option.isSome(value), glob: false, spread: false };
+        const part = { raw: sliced(assign, place), text: Option.match(value, { onNone: () => `${assign.Name?.Value}=`, onSome: (assigned) => `${assign.Name?.Value}=${assigned}` }), known: Option.isSome(value), glob: false, spread: false };
+        return { ...part, ...spanOf(assign), parts: [part] };
     });
     const command: Command = {
         start: stmt.Pos.Offset,
@@ -350,4 +378,4 @@ const tree = Effect.fnUntraced(function* (source: string, dialect: 'bash' | 'zsh
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Beginning, type Command, merged, type Script, type Span, scripted, tree, type Word };
+export { type Beginning, type Command, merged, type Script, type Span, scripted, slicedWord, tree, type Word };

@@ -219,7 +219,7 @@ const extendedPatterns: Fix = (site) =>
 
 const findsAsFd: Predicate.Predicate<Site> = ({ row, last, values, items, operands }) => {
     const { before } = row.walks ?? {};
-    const excludesIgnored = items.every(({ names, values: held }, at) => (!names.includes('-not') || items[at + 1]?.names.includes('-path') === true) && (!names.includes('-path') || (items[at - 1]?.names.includes('-not') === true && held.every((value) => IGNORED_PATH.test(value)))));
+    const excludesIgnored = items.every(({ names, values: held }, at) => (!names.includes('-not') || items[at + 1]?.names.includes('-path') === true) && (!names.includes('-path') || (items[at - 1]?.names.includes('-not') === true && held.every(({ text }) => IGNORED_PATH.test(text)))));
     return before !== undefined && last && values('-name', '-iname').length <= 1 && excludesIgnored && items.every(({ names }) => names.every((name) => Record.has(FIND_RENAMES, name) || FIND_DROPS.includes(name))) && !operands.some(({ text }) => before.some((prefix) => text.startsWith(prefix)));
 };
 
@@ -251,7 +251,7 @@ const excludedStage: Fix = (site, call) => {
 
 const findAsFd: Fix = Effect.fnUntraced(function* (site, call) {
     const options = Array.getSomes(
-        site.items.map(({ names: [name], words: [, ...values] }) =>
+        site.items.map(({ names: [name], values }) =>
             Option.fromUndefinedOr(name).pipe(
                 Option.flatMap((flag) => Record.get(FIND_RENAMES, flag)),
                 Option.map((spelled) => `${spelled} ${spoken(values)}`),

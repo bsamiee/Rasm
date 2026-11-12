@@ -1,9 +1,8 @@
 use core::future::ready;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::time::Duration;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
-use std::sync::Arc;
 
 use rmcp::model::{
     CallToolRequestParams, CallToolResult, ClientCapabilities, ClientConfig, ElicitRequestParams, ElicitResult, ElicitationAction, Implementation, ProgressNotificationParam, ProtocolVersion,
@@ -17,7 +16,10 @@ use serde::{Deserialize, Serialize};
 use serde_path_to_error::Track;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, Signal, System, UpdateKind};
 use tokio::process::Command;
+use tokio::sync::watch;
 use tokio::task;
+use tokio::time::error::Elapsed;
+use tokio::time::{self};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -159,8 +161,8 @@ impl Isolated {
 #[derive(Debug, Clone, Default)]
 pub struct Agent {
     pub marker: String,
-    pub progress: Arc<AtomicUsize>,
-    pub changes: Arc<AtomicUsize>,
+    pub progress: watch::Sender<usize>,
+    pub changes: watch::Sender<usize>,
 }
 
 impl ClientHandler for Agent {
@@ -172,12 +174,12 @@ impl ClientHandler for Agent {
     }
 
     fn on_progress(&self, _: ProgressNotificationParam, _: NotificationContext<RoleClient>) -> impl Future<Output = ()> + Send + '_ {
-        self.progress.fetch_add(1, Ordering::Relaxed);
+        self.progress.send_modify(|seen| *seen = seen.strict_add(1));
         ready(())
     }
 
     fn on_tool_list_changed(&self, _: NotificationContext<RoleClient>) -> impl Future<Output = ()> + Send + '_ {
-        self.changes.fetch_add(1, Ordering::Relaxed);
+        self.changes.send_modify(|seen| *seen = seen.strict_add(1));
         ready(())
     }
 }
@@ -205,6 +207,11 @@ pub fn modern() -> ClientLifecycleMode { ClientLifecycleMode::Auto { preferred_v
 pub fn call(tool: &'static str, arguments: &impl Serialize) -> io::Result<CallToolRequestParams> {
     let arguments = serde_path_to_error::deserialize(serde_json::to_value(arguments).map_err(io::Error::other)?).map_err(io::Error::other)?;
     Ok(CallToolRequestParams::new(tool).with_arguments(arguments))
+}
+
+pub async fn reached(count: &watch::Sender<usize>, expected: usize) -> Result<usize, Elapsed> {
+    let mut seen = count.subscribe();
+    time::timeout(Duration::from_secs(5), seen.wait_for(|held| *held >= expected)).await.map(|_reached| *count.borrow())
 }
 
 #[must_use]

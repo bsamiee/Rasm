@@ -1,10 +1,9 @@
-use core::sync::atomic::Ordering;
 use core::time::Duration;
 use std::io;
 
 use claims::{assert_err, assert_ok, assert_some};
 use futures::future;
-use mcp_muxer_tests::{Agent, Isolated, Slow, call, exited, session};
+use mcp_muxer_tests::{Agent, Isolated, Slow, call, exited, reached, session};
 use rmcp::service::ClientInitializeError;
 use sysinfo::{Pid, ProcessesToUpdate, System};
 use tokio::time::{self, Instant};
@@ -44,7 +43,7 @@ async fn relay_survives_daemon_loss() {
         assert_err!(answered, "the call in flight is answered with an error under its own id");
         let after = whoami(&running, HOME).await;
         assert_ne!(before.pid, after.pid, "the next call reaches a server under a new daemon");
-        assert_eq!(agent.changes.load(Ordering::Relaxed), 1, "the session is told its tool list changed");
+        assert_eq!(assert_ok!(reached(&agent.changes, 1).await), 1, "the session is told its tool list changed");
     });
     assert_ok!(passed.await, "a failed test keeps its folder");
 }

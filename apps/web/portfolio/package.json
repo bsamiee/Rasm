@@ -51,6 +51,7 @@
         "@rasm/mark": "workspace:*",
         "@rasm/nx-vite": "workspace:*",
         "@rasm/testing": "workspace:*",
+        "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
         "@storybook/react-vite": "catalog:",
         "@tailwindcss/vite": "catalog:",

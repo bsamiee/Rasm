@@ -125,7 +125,7 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
         upgrade: { 'swift-package': upgrade },
         clean: { 'swift-package': { options: { commands: [['swift', 'package', '--package-path', root, 'clean']], cwd: '.' }, metadata: { description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } } } },
     };
-    return [{ name: manifest.name, at: root, own: owned }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own, own: { build: builds } }): Part => {
+    return [{ name: manifest.name, at: root, own: owned }, ...modules.map((module) => ({ name: module.name, at: path.join(root, module.path), own: forwarded(module.name) }))].map(({ name, at, own }): Part => {
         const part = { root: at, name, file, technologies: ['swift'], clean: 'swift-package' };
         return Option.match(
             Option.map(Option.fromUndefinedOr(products.get(name)), (product) => shipped(product, at)),
@@ -133,8 +133,8 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
                 onNone: () => ({ ...part, members: own }),
                 onSome: ({ install, zipped }) => ({
                     ...part,
-                    members: { ...own, build: { ...builds, ...Option.getOrUndefined(zipped) }, install: { 'swift-package': install } },
-                    ...Option.getOrUndefined(Option.map(zipped, () => ({ release: { manifest: INFO }, packaged: ['build--ditto'] }))),
+                    members: { ...own, pack: Option.getOrElse(zipped, () => ({})), install: { 'swift-package': install } },
+                    ...Option.getOrUndefined(Option.map(zipped, () => ({ release: { manifest: INFO }, packaged: ['pack--ditto'] }))),
                 }),
             },
         );

@@ -112,6 +112,7 @@ flowchart LR
 - Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json`, `targetDefaults`, or hand-written `namedInputs`
 - `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
 - Cargo, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
+- `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
 - Manifest `nx` tables state only a dependency or path no manifest row or tool reports (a service a client calls, a file a build reads unimported)
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-devkit`, and a row's own options win
 - Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
@@ -140,13 +141,14 @@ flowchart LR
 - Unreal plug-ins link a C++ package as a static library `cmake --install` puts under `Source/ThirdParty/<package>`, for the architectures Pixi builds
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
-- Plugins tag a project they give release configuration `release`, which `nx.json` `release.groups` select beside Nx's `npm:public`
+- Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
 
 ## [04]-[TASKS]
 
 `nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
 - `codegen` writes source code a project's tools derive from its schemas and configuration
 - `build` compiles or packages a project into its declared outputs
+- `pack` writes the files a release holds where they differ from the build (`.tgz`, `.nupkg`, CPack archive, app `.zip` or `.dmg`)
 - `check` reports findings of checkers reading the project model and changes no source file
 - `fix` applies fixes from checkers reading the project model
 - `test` runs a project's test runners
@@ -162,11 +164,11 @@ Other tasks run through their own commands:
 - `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
-- Workflow `release.yml` runs `nx release --skip-publish` (versions, tags, a GitHub release per project), then `nx release publish`
+- Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`
 - Workflow `renovate.yml` runs Renovate daily: catalogs, manifests, locks, mise tools, and action pins move to their newest release and merge
-- Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, and `dry-run`, on by default
-- Publish targets depend on the target that packages their files (`pack` for NuGet), npm alone takes a `-c release` build step first
-- `doppler run --config release --command 'nx build <app> -c release'` packages a Mac app as workflow `release.yml` does
+- Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, `dry-run`, on by default, and `publish`
+- Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet)
+- `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
 - `nx install @rasm/infra` starts local services of `infra/compose.yaml`, `-c <profile>` adds the services of one profile
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
@@ -184,8 +186,8 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 - Unreal plug-ins release per engine as the BuildPlugin package and a source archive with that `EngineVersion`, the form a Fab upload takes by hand
 - Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never where it publishes
 - Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
-- Releases version and tag a project through `nx release`, and its GitHub release holds the packaged files `nx-release-publish` attaches
-- Publishing delivers those files by each destination's own command (`pnpm publish`, `dotnet nuget push`, `uv publish`, `yak push`, `gh release upload`)
+- Releases give every project one version and tag through `nx release`, and the GitHub release holds the packaged files each `attach` target uploads
+- Publishing delivers those files by each destination's own command (`pnpm publish`, `dotnet nuget push`, `uv publish`, `yak push`)
 - Release assets hold native files unwrapped, a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`, and a `.dmg` gets a Sparkle feed in R2
 - Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built
 

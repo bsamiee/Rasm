@@ -107,8 +107,8 @@ const built = (command: Command, head: Word, assigned: readonly Word[], args: re
         repeated: command.looping || outer.some(({ row: wrapper }) => wrapper.reads === 'always'),
         last: !launching || reading.rest.length === 0,
         has,
-        values: (...listed) => holding(listed).flatMap(({ values }) => values),
-        supplied: (...listed) => holding(listed).flatMap(({ words: [, ...supplied] }) => supplied),
+        values: (...listed) => holding(listed).flatMap(({ values }) => values.map(({ text }) => text)),
+        supplied: (...listed) => holding(listed).flatMap(({ values }) => values),
         on: (role) => {
             const when = row[role];
             return when === true || (when !== undefined && has(...when));
@@ -117,8 +117,8 @@ const built = (command: Command, head: Word, assigned: readonly Word[], args: re
 };
 
 const innerWords = ({ row, items, rest, informational, last }: Site): readonly (readonly Word[])[] => {
-    const launched = items.filter(({ names }) => names.some((name) => row.execs?.includes(name) === true)).map(({ words: [, ...supplied] }) => supplied.filter(({ text }) => text !== ';' && text !== '+'));
-    const module = Array.filterMap(items, ({ names, words: [, value] }) => (value !== undefined && row.module !== undefined && names.includes(row.module) ? Result.succeed({ ...value, text: value.text.slice(value.text.lastIndexOf('.') + 1) }) : Result.failVoid));
+    const launched = items.filter(({ names }) => names.some((name) => row.execs?.includes(name) === true)).map(({ values }) => values.filter(({ text }) => text !== ';' && text !== '+'));
+    const module = Array.filterMap(items, ({ names, values: [value] }) => (value !== undefined && row.module !== undefined && names.includes(row.module) ? Result.succeed({ ...value, text: value.text.slice(value.text.lastIndexOf('.') + 1) }) : Result.failVoid));
     if (informational || (launched.length === 0 && last && module.length === 0)) {
         return [];
     }

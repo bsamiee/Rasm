@@ -1,7 +1,7 @@
 # --- [TOOLCHAIN] ------------------------------------------------------------------------
 
 [toolchain]
-channel    = "nightly-2026-10-30"
+channel    = "nightly-2026-10-30" # Nightly the rust-clippy commit of `clippy_utils` in Cargo.toml builds on, both move together
 profile    = "minimal"
 components = [
     "clippy",

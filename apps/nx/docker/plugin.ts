@@ -88,7 +88,7 @@ const served = ({ root }: Folder, project: Composed, services: Array.NonEmptyRea
             options: { cwd: root },
             dependsOn: ['build--buildx'],
             readyWhen: getReadyCheckReadyWhen(`${plugin}/ready-check`, undefined, ...services),
-            inputs: ['default', '^default', { runtime: line(['docker', 'compose', '--project-directory', root, 'config', '--format', 'json', ...services]) }, ...ENGINE],
+            inputs: ['default', '^default', ...project.read.map((file) => `{workspaceRoot}/${file}`), { runtime: line(['docker', 'compose', '--project-directory', root, 'config', '--format', 'json', ...services]) }, ...ENGINE],
             metadata: { description: `Starts ${services.join(', ')} of ${project.name} with the services each depends on from built images and follows their logs, the services staying up after the run`, help: { command: 'docker compose up --help', example: {} } },
         },
     },

@@ -253,7 +253,15 @@ const HOSTS: readonly Host[] = [
         technology: 'yak',
         archive: '.yak',
         read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version }))),
-        build: { executor: 'package', command: 'yak build', pack: ({ at }, file) => Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.andThen(fs.copy(at, dirname(file)), Effect.asVoid(printed('yak', ['build'], { cwd: dirname(file) })))) },
+        build: {
+            executor: 'package',
+            command: 'yak build',
+            pack: ({ at }, file) =>
+                Effect.andThen(
+                    Effect.flatMap(FileSystem.FileSystem, (fs) => fs.copy(at, dirname(file))),
+                    Effect.asVoid(printed('yak', ['build'], { cwd: dirname(file) })),
+                ),
+        },
         install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }) => Effect.asVoid(printed('yak', ['install', at])) },
         publish: {
             store: 'https://yak.rhino3d.com',

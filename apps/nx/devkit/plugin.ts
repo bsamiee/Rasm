@@ -1,5 +1,6 @@
 import { findPackageJSON } from 'node:module';
 import { matchesGlob } from 'node:path';
+import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import {
     AggregateCreateNodesError,
@@ -20,7 +21,7 @@ import {
     type TargetConfiguration,
 } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Effect, FileSystem, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
+import { Array, Deferred, Effect, FileSystem, type ManagedRuntime, Option, Path, Predicate, Record, Result, Schema, type Scope, UndefinedOr } from 'effect';
 import { hashMultiGlobWithWorkspaceContext } from 'nx/src/devkit-internals';
 import { runtime, ToolError } from '#/process';
 
@@ -30,6 +31,7 @@ type Members = Readonly<Record<string, Readonly<Record<string, TargetConfigurati
 type Services = ManagedRuntime.ManagedRuntime.Services<typeof runtime> | Scope.Scope;
 type Failure = readonly [file: string, error: Error];
 type Identity = Effect.Success<ReturnType<typeof identity>>;
+type Flights<R, E> = Map<string, Deferred.Deferred<readonly Result.Result<Reading<R>, Error>[], E>>;
 
 interface Project {
     readonly file: string;
@@ -95,12 +97,16 @@ const SOURCES = ['default', UPSTREAM] as const;
 const ALL_FILES = ['check', 'fix', 'test'];
 const NODE = { runtime: 'node --version' } as const;
 const MANIFESTS = '{package,project}.json';
-const SERVED = { dependencies: true, target: 'serve--compose', waitFor: 'ready' } as const;
+const COMPOSED = [
+    { dependencies: true, target: 'build--compose' },
+    { dependencies: true, target: 'serve--compose', waitFor: 'ready' },
+] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Dependencies = Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({})));
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.String, version: Schema.String, dependencies: Dependencies, optionalDependencies: Dependencies }));
+const Hosted = Schema.fromJsonString(Schema.Struct({ os: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }));
 const Common = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
     description: 'Options every plugin row reads, each defaulting to the value under the devkit package name in nx.json pluginsConfig. outputPath: workspace folder a target writes generated output under as <outputPath>/<tool>/<project name>, absent leaves each tool its own folder',
 });
@@ -160,10 +166,21 @@ const detached = <A extends object>(value: A) => parseJson<A>(JSON.stringify(val
 const targeted = (project: Project, plugin: Identity, sources: string): Readonly<Record<string, TargetConfiguration>> => {
     const technologies = [...project.technologies];
     const [clean, publish] = ['clean', 'nx-release-publish'] as const;
-    const defaults: Readonly<Record<string, TargetConfiguration>> = { [clean]: { executor: plugin.cleaner }, test: { dependsOn: [SERVED] } };
+    const defaults: Readonly<Record<string, TargetConfiguration>> = { [clean]: { executor: plugin.cleaner }, test: { dependsOn: [...COMPOSED] } };
     const whole = Option.fromUndefinedOr(project.atoms);
     const split = Option.match(whole, { onNone: () => [], onSome: ({ name, verb, each }) => Record.collect(each, (key, target) => ({ verb, name: `${name}--${key}`, target })) });
-    const attach: Members = project.packaged === undefined ? {} : { attach: { gh: { executor: `${plugin.shared}:attach`, dependsOn: [...project.packaged], metadata: { description: `Uploads the files ${project.packaged.join(', ')} wrote to the GitHub release of the version the project's manifest states through gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } } } } };
+    const attach: Members =
+        project.packaged === undefined
+            ? {}
+            : {
+                  attach: {
+                      gh: {
+                          executor: `${plugin.shared}:attach`,
+                          dependsOn: [...project.packaged],
+                          metadata: { description: `Uploads the files ${project.packaged.join(', ')} wrote to the GitHub release of the version the project's manifest states through gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                      },
+                  },
+              };
     const stated = [...Record.toEntries({ ...project.members, ...attach }).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, name: `${verb}--${tool}`, target }))), ...split].map(({ verb, name, target }) => ({
         verb,
         name,
@@ -216,12 +233,13 @@ const targeted = (project: Project, plugin: Identity, sources: string): Readonly
     };
 };
 
-const configured = (project: Project, plugin: Identity, sources: string): Omit<ProjectConfiguration, 'root'> => {
-    const tags = [...(project.release === undefined ? [] : ['release']), ...(project.configuration?.tags ?? [])];
+const configured = (project: Project, plugin: Identity, sources: string, os: readonly string[]): Omit<ProjectConfiguration, 'root'> => {
+    const allowed = os.filter((entry) => !entry.startsWith('!'));
+    const tags = [...(project.release === undefined ? [] : ['release']), ...allowed.map((held) => `os:${held}`), ...(project.configuration?.tags ?? [])];
     return {
         ...(project.name !== undefined && { name: project.name }),
         metadata: { technologies: [...project.technologies] },
-        targets: targeted(project, plugin, sources),
+        targets: os.includes(`!${platform}`) || !(allowed.length === 0 || allowed.includes(platform)) ? {} : targeted(project, plugin, sources),
         ...project.configuration,
         ...(project.release !== undefined && { release: { version: { versionActions: `${plugin.name}/release/version-actions`, versionActionsOptions: { ...project.release } } } }),
         ...(tags.length > 0 && { tags }),
@@ -247,7 +265,7 @@ const stamped = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaratio
     return Array.zipWith(Array.zip(held, tracked), untracked, ([[unit], content], files) => hashArray([base, unit.key, content, files, ...Option.toArray(Option.fromUndefinedOr(unit.salt))]));
 });
 
-const read = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, request: Request<O>, settings: object, units: readonly U[]) {
+const read = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, flights: Flights<R, E>, request: Request<O>, settings: object, units: readonly U[]) {
     const path = yield* Path.Path;
     const cache = new PluginCache<{ readonly report: R; readonly digest: string }>(path.join(workspaceDataDirectory, `${path.basename(request.plugin.name)}-${hashObject(settings)}.hash`));
     const stored = Array.filterMap(units, (unit) =>
@@ -263,7 +281,25 @@ const read = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: 
     );
     const valid = new Map(Array.filterMap(Array.zip(stored, now), ([[unit, entry], digest]) => (entry.digest === digest ? Result.succeed([unit.key, Result.succeed<Reading<R>>({ report: entry.report })] as const) : Result.failVoid)));
     const missing = units.filter((unit) => !valid.has(unit.key));
-    const fresh = Array.isReadonlyArrayNonEmpty(missing) ? Array.zip(missing, yield* declaration.read(missing, request)) : [];
+    const flight = hashArray([request.context.workspaceRoot, hashObject(settings), ...missing.flatMap((unit) => [unit.key, ...Option.toArray(Option.fromUndefinedOr(unit.salt))])]);
+    const fresh = Array.isReadonlyArrayNonEmpty(missing)
+        ? Array.zip(
+              missing,
+              yield* UndefinedOr.match(flights.get(flight), {
+                  onDefined: Deferred.await,
+                  onUndefined: () => {
+                      const landing = Deferred.makeUnsafe<readonly Result.Result<Reading<R>, Error>[], E>();
+                      flights.set(flight, landing);
+                      return Effect.onExit(declaration.read(missing, request), (exit) =>
+                          Effect.andThen(
+                              Effect.sync(() => flights.delete(flight)),
+                              Deferred.done(landing, exit),
+                          ),
+                      );
+                  },
+              }),
+          )
+        : [];
     const complete = Array.filterMap(fresh, ([unit, outcome]) => Result.flatMap(outcome, ({ report, failures = [], partial = false }) => (failures.length === 0 && !partial ? Result.succeed([unit, report] as const) : Result.failVoid)));
     const digests = yield* stamped(declaration, request, complete);
     yield* Effect.sync(() => Array.zip(complete, digests).forEach(([[unit, report], digest]) => cache.set(unit.key, { report, digest })));
@@ -274,8 +310,8 @@ const read = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: 
 
 const messaged = <E extends Error>(error: E) => Object.defineProperty(error, 'message', { value: error.message });
 
-const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, memo: Map<string, { readonly request: Request<O>; readonly reports: readonly (readonly [U, R])[] }>, files: readonly string[], options: unknown, context: CreateNodesContext) {
-    const path = yield* Path.Path;
+const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration: Declaration<O, U, R, E>, memo: Map<string, { readonly request: Request<O>; readonly reports: readonly (readonly [U, R])[] }>, flights: Flights<R, E>, files: readonly string[], options: unknown, context: CreateNodesContext) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const plugin = yield* identity(declaration.module, context.workspaceRoot);
     const settings = { ...context.nxJsonConfiguration.pluginsConfig?.[plugin.shared], ...(Predicate.isObject(options) ? options : {}) };
     const [common, own] = yield* Effect.all([Schema.decodeEffect(Common)(settings), Schema.decodeEffect(declaration.options)(settings)]);
@@ -291,19 +327,29 @@ const nodes = Effect.fnUntraced(function* <O, U extends Unit, R, E>(declaration:
         placed: (tool, name = '{projectName}') => Option.map(Option.fromUndefinedOr(common.outputPath), (at) => path.join(at, tool, name)),
         named: (root) => ('production' in getNamedInputs(root, context) ? 'production' : 'default'),
     };
-    const readings = yield* read(declaration, request, settings, yield* declaration.units(request));
+    const readings = yield* read(declaration, flights, request, settings, yield* declaration.units(request));
     const reports = Array.filterMap(readings, ([unit, outcome]) => Result.map(outcome, ({ report }) => [unit, report] as const));
     memo.set(hashArray([context.workspaceRoot, hashObject(options ?? {})]), { request, reports });
     const failures = readings.flatMap(([unit, outcome]) => Result.match(outcome, { onFailure: (error): readonly Failure[] => [[unit.file, error]], onSuccess: ({ failures: partial = [] }) => partial }));
+    const projects = reports.flatMap(([unit, report]) => declaration.projects(report, unit, request));
+    const hosts = new Map(
+        yield* Effect.forEach(
+            Array.dedupe(projects.map((project) => project.root)),
+            (root) =>
+                fs.readFileString(path.join(context.workspaceRoot, root, 'package.json')).pipe(
+                    Effect.flatMap(Schema.decodeEffect(Hosted)),
+                    Effect.map(({ os }) => [root, os] as const),
+                    Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([root, Array.empty<string>()] as const)),
+                ),
+            { concurrency: 'unbounded' },
+        ),
+    );
     const results: CreateNodesResultArray = Record.toEntries(
         detached(
             Record.map(
-                Array.groupBy(
-                    reports.flatMap(([unit, report]) => declaration.projects(report, unit, request)),
-                    (project) => project.file,
-                ),
+                Array.groupBy(projects, (project) => project.file),
                 (group) => ({
-                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin, request.named(project.root))] as const),
+                    projects: Record.fromIterableWith(group, (project) => [project.root, configured(project, plugin, request.named(project.root), hosts.get(project.root) ?? [])] as const),
                     externalNodes: Record.fromEntries(group.flatMap((project) => Record.toEntries(project.externalNodes ?? {}))),
                 }),
             ),
@@ -333,8 +379,9 @@ const dependencies = Effect.fnUntraced(function* <O, U extends Unit, R, E>(decla
 
 const inferred = <O, U extends Unit, R, E extends Error>(declaration: Declaration<O, U, R, E>): { readonly createNodes: CreateNodes; readonly createDependencies: CreateDependencies } => {
     const memo = new Map<string, { readonly request: Request<O>; readonly reports: readonly (readonly [U, R])[] }>();
+    const flights: Flights<R, E> = new Map();
     return {
-        createNodes: [combineGlobPatterns(declaration.files.map((file) => `**/${file}`)), (files, options, context) => runtime.runPromise(Effect.mapError(Effect.scoped(nodes(declaration, memo, files, options, context)), messaged))],
+        createNodes: [combineGlobPatterns(declaration.files.map((file) => `**/${file}`)), (files, options, context) => runtime.runPromise(Effect.mapError(Effect.scoped(nodes(declaration, memo, flights, files, options, context)), messaged))],
         createDependencies: (options, context) =>
             UndefinedOr.match(memo.get(hashArray([context.workspaceRoot, hashObject(options ?? {})])), {
                 onUndefined: () => [],

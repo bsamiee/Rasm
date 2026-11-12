@@ -181,6 +181,7 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                 ...row.run,
                 ...(path.relative(member.workspace, folder).startsWith('..') ? ['--project', path.relative(folder, member.workspace)] : []),
                 ...flagged('--package', member.name),
+                '--all-extras',
                 ...flagged('--group', checked.group),
                 ...row.command(
                     path.relative(folder, member.root) || '.',

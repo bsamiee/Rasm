@@ -1,7 +1,10 @@
 name: Setup
-description: Installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and reports whether the Nx remote cache server answers
+description: Fills the assets submodule at its recorded commit, installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and reports whether the Nx remote cache server answers
 
 inputs:
+    assets-key:
+        description: Deploy key reading the assets repository
+        required: true
     cache-server:
         description: Nx self-hosted remote cache server, empty runs tasks without one
         default: ""
@@ -14,6 +17,16 @@ outputs:
 runs:
     using: composite
     steps:
+        - id: assets
+          run: "{ printf 'ref=' && git rev-parse HEAD:assets; } >> \"${GITHUB_OUTPUT}\""
+          shell: bash
+        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+          with:
+              repository: ${{ github.repository }}-Assets
+              ref: ${{ steps.assets.outputs.ref }}
+              path: assets
+              ssh-key: ${{ inputs.assets-key }}
+              persist-credentials: false
         - if: runner.os == 'macOS'
           run: printf 'DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer\n' >> "${GITHUB_ENV}"
           shell: bash
