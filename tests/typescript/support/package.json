@@ -2,7 +2,7 @@
     "name": "@rasm/testing",
     "version": "0.0.0",
     "private": true,
-    "description": "Shared test logic by category: Vitest runner policy, Playwright base and served-task config, Storybook addons, Compose service lifecycles, and Nx plugin inference workspaces with recorded tool replies",
+    "description": "Shared test logic by category: Vitest runner policy, Playwright base and served-task config, Compose service lifecycles, and Nx plugin inference workspaces with recorded tool replies",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -21,17 +21,13 @@
         "./nx/setup": "./nx/setup.ts",
         "./nx/tools": "./nx/tools.ts",
         "./playwright": "./playwright.ts",
-        "./storybook": "./storybook/preview.ts",
-        "./storybook/preset": "./storybook/preset.ts",
+        "./storybook": "./storybook.ts",
         "./vitest": "./vitest.ts"
     },
     "files": [ "dist", "!dist/suite", "!dist/*.config.*" ],
     "dependencies": {
         "@axe-core/playwright": "catalog:",
         "@rasm/process": "workspace:*",
-        "@storybook/addon-a11y": "catalog:",
-        "@storybook/addon-docs": "catalog:",
-        "@storybook/addon-vitest": "catalog:",
         "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         "@vitest/ui": "catalog:",
@@ -42,20 +38,20 @@
         "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
+        "@storybook/addon-a11y": "catalog:",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "nx": "catalog:",
         "redis": "catalog:",
-        "storybook": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     },
     "peerDependencies": {
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:peers",
+        "@storybook/addon-a11y": "catalog:peers",
         "effect": "catalog:peers",
         "nx": "catalog:peers",
-        "storybook": "catalog:peers",
         "vite": "catalog:peers",
         "vitest": "catalog:peers"
     },
@@ -66,10 +62,10 @@
         "@playwright/test": {
             "optional": true
         },
-        "nx": {
+        "@storybook/addon-a11y": {
             "optional": true
         },
-        "storybook": {
+        "nx": {
             "optional": true
         },
         "vite": {
@@ -89,8 +85,7 @@
             "./nx/setup": "./dist/nx/setup.js",
             "./nx/tools": "./dist/nx/tools.js",
             "./playwright": "./dist/playwright.js",
-            "./storybook": "./dist/storybook/preview.js",
-            "./storybook/preset": "./dist/storybook/preset.js",
+            "./storybook": "./dist/storybook.js",
             "./vitest": "./dist/vitest.js"
         },
         "imports": {

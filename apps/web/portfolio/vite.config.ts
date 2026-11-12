@@ -12,7 +12,7 @@ import { defineConfig } from 'vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig(({ command, mode }) => ({
+export default defineConfig(({ command }) => ({
     build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true } } },
     plugins: [
         react({ compiler: { panicThreshold: 'all_errors' } }),
@@ -20,15 +20,11 @@ export default defineConfig(({ command, mode }) => ({
         pdfjs(),
         sites(),
         readySignal(),
-        ...(mode === 'test'
-            ? []
-            : [
-                  siteHead({ master: 'favicon.svg', stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' }),
-                  nodeServer({ entry: './server/main.ts' }),
-                  cloudflare({
-                      types: { generate: false },
-                      ...(command === 'serve' && { config: (loaded) => ({ ...loaded, worker: { ...loaded.worker, env: { ...loaded.worker.env, OWNER_EMAIL: bindings.text(Sites.local.email) } } }) }),
-                  }),
-              ]),
+        siteHead({ master: 'favicon.svg', stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' }),
+        nodeServer({ entry: './server/main.ts' }),
+        cloudflare({
+            types: { generate: false },
+            ...(command === 'serve' && { config: (loaded) => ({ ...loaded, worker: { ...loaded.worker, env: { ...loaded.worker.env, OWNER_EMAIL: bindings.text(Sites.local.email) } } }) }),
+        }),
     ],
 }));

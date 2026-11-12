@@ -7,7 +7,7 @@ import { Array, Effect, FileSystem, Option, Path, pipe, Schema } from 'effect';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Job = Schema.Struct({ root: Schema.String, file: Schema.String }).annotate({ description: 'One Storybook main config read' });
-const Report = Schema.Struct({ packages: Schema.Array(Schema.String), signals: Schema.Boolean }).annotate({ description: 'npm packages the main config names as its framework and addons, and whether its addons hold the preset reporting the development server address to Nx' });
+const Report = Schema.Struct({ packages: Schema.Array(Schema.String) }).annotate({ description: 'npm packages the main config names as its framework and addons' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -27,9 +27,7 @@ const read = Effect.fnUntraced(function* ({ root, file }: typeof Job.Type, works
         ),
     );
     const packages = located.filter(({ manifest }) => Option.match(manifest, { onNone: () => true, onSome: Option.exists(isInNodeModules) })).map(({ name }) => name);
-    const own = findPackageJSON(import.meta.url);
-    const signals = located.some(({ manifest }) => Option.exists(Option.flatten(manifest), (at) => at === own));
-    return { report: Report.make({ packages, signals }), sources: [] };
+    return { report: Report.make({ packages }), sources: [] };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

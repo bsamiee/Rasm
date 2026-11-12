@@ -3,5 +3,5 @@
     "compilerOptions": {
         "types": [ "vite/client" ]
     },
-    "include": [ "site", "editor", "media", "model", ".storybook/*.stories.ts" ]
+    "include": [ "site", "editor", "media", "model", ".storybook/preview.ts" ]
 }

@@ -55,7 +55,7 @@
                     "strictBooleanExpressions": "error",
                     "unnecessaryFailYieldableError": "error"
                 },
-                "overrides": [ { "include": [ "**/*.test.tsx", "**/*.spec.ts", "**/.storybook/*.stories.tsx", "plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
+                "overrides": [ { "include": [ "**/*.test.tsx", "**/*.spec.ts", "**/*.stories.tsx", "plugins/function-hooks/hooks/*.ts" ], "options": { "diagnosticSeverity": { "asyncFunction": "off" } } } ]
             }
         ],
         "rewriteRelativeImportExtensions": true,

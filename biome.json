@@ -183,7 +183,7 @@
                 }
             }
         },
-        { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
+        { "includes": [ "**/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
         { "includes": [ "plugins/function-hooks/hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
         { "includes": [ "biome.json", "nx.json", "package.json" ], "json": { "formatter": { "expand": "never" } } }
     ]

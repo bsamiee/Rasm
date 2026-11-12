@@ -1342,6 +1342,9 @@ importers:
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../tests/typescript/support
+      '@storybook/addon-a11y':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
       '@storybook/addon-docs':
         specifier: 'catalog:'
         version: 11.0.0-beta.1(@types/react@19.3.0)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
@@ -2280,27 +2283,12 @@ importers:
       '@effect/atom-react':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(react@19.3.1)(scheduler@0.28.0)
-      '@playwright/test':
-        specifier: 'catalog:'
-        version: 1.66.0-alpha-2026-11-10
-      '@rasm/nx-storybook':
-        specifier: workspace:*
-        version: link:../../../../../apps/nx/storybook
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../../tests/typescript/support
       '@rasm/ui':
         specifier: workspace:*
         version: link:../../ui
-      '@storybook/addon-docs':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react@19.3.0)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
-      '@storybook/addon-vitest':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vitest@5.1.0)
-      '@storybook/react-vite':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@typescript/typescript6@6.0.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2328,9 +2316,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.1(react@19.3.1)
-      storybook:
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
       vite:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -2350,6 +2335,21 @@ importers:
       '@effect/atom-react':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(react@19.3.1)(scheduler@0.28.0)
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
+      '@storybook/addon-a11y':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
+      '@storybook/addon-docs':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@types/react@19.3.0)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
+      '@storybook/addon-vitest':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vitest@5.1.0)
+      '@storybook/react-vite':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@typescript/typescript6@6.0.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2359,6 +2359,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 6.3.0(oxc-transform-react@0.158.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2371,9 +2374,15 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.1(react@19.3.1)
+      storybook:
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
       vite:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
   plugins/function-hooks:
     dependencies:
@@ -2589,15 +2598,6 @@ importers:
       '@rasm/process':
         specifier: workspace:*
         version: link:../../../libs/typescript/runtime/process
-      '@storybook/addon-a11y':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
-      '@storybook/addon-docs':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react@19.3.0)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
-      '@storybook/addon-vitest':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vitest@5.1.0)
       '@vitest/browser-playwright':
         specifier: 'catalog:'
         version: 5.1.0(playwright@1.66.0-alpha-2026-11-10)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
@@ -2623,6 +2623,9 @@ importers:
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.66.0-alpha-2026-11-10
+      '@storybook/addon-a11y':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2635,9 +2638,6 @@ importers:
       redis:
         specifier: 'catalog:'
         version: 6.4.0-beta.0(@opentelemetry/api@1.10.0)
-      storybook:
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
       vite:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)

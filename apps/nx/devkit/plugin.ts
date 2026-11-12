@@ -222,8 +222,7 @@ const targeted = (project: Project, plugin: Identity, sources: string, held: rea
         const filled = (input: string) => held.filter(({ root }) => root !== project.root && (input === `{workspaceRoot}/${root}` || input.startsWith(`{workspaceRoot}/${root}/`)));
         const fills = Array.dedupe((target.inputs ?? []).filter(Predicate.isString).flatMap(filled));
         const dependsOn = [...waited, ...fills.map(({ name: submodule }) => ({ projects: [submodule], target: 'build--git' }))];
-        const placed = (input: string) => (filled(input).length > 0 ? { fileset: input, includeIgnored: true } : (renamed(verb)[input] ?? input));
-        const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (Predicate.isString(input) ? placed(input) : input)), ...(owned ? plugin.inputs : [])]);
+        const read = UndefinedOr.map(target.inputs ?? (target.cache === true ? SOURCES : undefined), (inputs) => [...inputs.map((input) => (Predicate.isString(input) ? (renamed(verb)[input] ?? input) : input)), ...(owned ? plugin.inputs : [])]);
         return {
             verb,
             name,

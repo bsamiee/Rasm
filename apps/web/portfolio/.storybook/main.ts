@@ -1,12 +1,14 @@
+import { main } from '@rasm/testing/storybook';
 import { defineMain } from '@storybook/react-vite/node';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
 import { mergeConfig } from 'vite';
-import application from '#/vite.config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 export default defineMain({
+    ...main,
     framework: { name: '@storybook/react-vite', options: { builder: { viteConfigPath: null } } },
-    addons: ['@rasm/testing/storybook'],
-    stories: ['./*.stories.ts'],
-    viteFinal: (config, { configType }) => mergeConfig(config, application({ command: configType === 'PRODUCTION' ? 'build' : 'serve', mode: 'test' })),
+    stories: ['../site/*.stories.ts'],
+    viteFinal: (config) => mergeConfig(config, { plugins: [react({ compiler: { panicThreshold: 'all_errors' } }), tailwindcss()] }),
 });

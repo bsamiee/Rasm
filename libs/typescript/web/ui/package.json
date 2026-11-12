@@ -24,14 +24,22 @@
     },
     "devDependencies": {
         "@effect/atom-react": "catalog:",
+        "@rasm/testing": "workspace:*",
+        "@storybook/addon-a11y": "catalog:",
+        "@storybook/addon-docs": "catalog:",
+        "@storybook/addon-vitest": "catalog:",
+        "@storybook/react-vite": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
         "effect": "catalog:",
         "react": "catalog:",
         "react-aria-components": "catalog:",
         "react-dom": "catalog:",
-        "vite": "catalog:"
+        "storybook": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
     },
     "peerDependencies": {
         "@effect/atom-react": "catalog:peers",

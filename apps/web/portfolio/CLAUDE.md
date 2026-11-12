@@ -126,7 +126,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Worker `layerTelemetry` writes one JSON log record per console line, records each span in the Workers trace, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names at the end of each invocation
 - `server/main.ts` passes `Sites.identity` and an `env` callback to `serveNode`, then the HTTP server on `PORT` and the app name as `serviceName` to `layerNodeFromConfig` of `@rasm/telemetry/node` with target `stderr`
 - `layerNodeFromConfig` reads `<NAME>_LOG_{LEVEL,FILTER,TARGET,DIR,SIZE,AGE,FILES}`, writes one JSON log record per line to stderr, and exports each signal its `OTEL_<SIGNAL>_EXPORTER` variable names through the OpenTelemetry SDK
-- `vite.config.ts` adds `siteHead`, `nodeServer`, and `cloudflare` unless Vite mode is `test`, which Vitest sets and `.storybook/main.ts` passes
+- `.storybook/main.ts` sets `viteConfigPath: null` and states the React and Tailwind plugins its stories read, so no plugin of `vite.config.ts` runs in Storybook
 - `siteHead` takes `favicon.svg` and `site/theme.css` tokens, emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and `color-scheme`
 - `site/shell.tsx` states the whole content security policy of a production build, and `Template.render` sets no header without one
 

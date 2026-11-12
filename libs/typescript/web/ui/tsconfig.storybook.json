@@ -1,0 +1,8 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "declaration": false,
+        "noEmit": true
+    },
+    "include": [ ".storybook/*", "*.stories.ts", "*.stories.tsx", "vitest.config.ts" ]
+}

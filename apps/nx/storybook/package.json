@@ -1,7 +1,7 @@
 {
     "name": "@rasm/nx-storybook",
     "version": "0.0.0",
-    "description": "Nx plugin inferring Storybook builds from each Storybook main configuration, the file-server preview of each static build, and the development server of one naming its preset",
+    "description": "Nx plugin inferring a Storybook build, the file-server preview of that build, and the development server from each Storybook main configuration",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -14,7 +14,6 @@
     },
     "exports": {
         ".": "./plugin.ts",
-        "./preset": "./preset.ts",
         "./package.json": "./package.json"
     },
     "files": [ "dist" ],
@@ -39,7 +38,6 @@
         "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
-            "./preset": "./dist/preset.js",
             "./package.json": "./package.json"
         },
         "imports": {

@@ -584,6 +584,7 @@ catalogs:
         vite: ^8.0.0
         vitest: ^5.0.0
         storybook: ^11.0.0-0
+        '@storybook/addon-a11y': ^11.0.0-0
         react: ^19.0.0
         react-dom: ^19.0.0
         effect: ^4.0.0

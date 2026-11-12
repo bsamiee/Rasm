@@ -1,0 +1,5 @@
+{
+    "extends": "./tsconfig.json",
+    "include": [ "**/*" ],
+    "exclude": [ "dist", ".storybook", "*.stories.ts", "*.stories.tsx", "vitest.config.ts" ]
+}

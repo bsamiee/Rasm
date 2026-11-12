@@ -1,6 +1,6 @@
-import { Backdrop } from '@rasm/ui';
 import { Button, Dialog, DialogTrigger, Heading, Modal } from 'react-aria-components';
 import preview from '#/.storybook/preview';
+import { Backdrop } from '#/backdrop.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

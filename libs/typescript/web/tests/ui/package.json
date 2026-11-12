@@ -3,18 +3,10 @@
     "private": true,
     "description": "Interface control suites in the browser",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "devDependencies": {
         "@effect/atom-react": "catalog:",
-        "@playwright/test": "catalog:",
-        "@rasm/nx-storybook": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@rasm/ui": "workspace:*",
-        "@storybook/addon-docs": "catalog:",
-        "@storybook/addon-vitest": "catalog:",
-        "@storybook/react-vite": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
@@ -24,7 +16,6 @@
         "react": "catalog:",
         "react-aria-components": "catalog:",
         "react-dom": "catalog:",
-        "storybook": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:",
         "vitest-browser-react": "catalog:"

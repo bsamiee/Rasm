@@ -18,17 +18,18 @@ const subject: Subject = {
     plugin: { name: manifest.name, createNodes },
     packages: ['storybook', framework.name, manifest.name],
     files: {
-        'package.json': '{ "name": "root", "workspaces": ["signalled", "silent"] }\n',
-        'signalled/package.json': '{ "name": "signalled", "type": "module" }\n',
-        'signalled/.storybook/main.ts': main("'@rasm/nx-storybook/preset'"),
-        'signalled/sheet.stories.ts': STORY,
-        'silent/package.json': '{ "name": "silent", "type": "module" }\n',
-        'silent/.storybook/main.ts': main(''),
-        'silent/sheet.stories.ts': STORY,
+        'package.json': '{ "name": "root", "workspaces": ["buttons", "forms"] }\n',
+        'buttons/package.json': '{ "name": "buttons", "type": "module" }\n',
+        'buttons/.storybook/main.ts': main(''),
+        'buttons/sheet.stories.ts': STORY,
+        'forms/package.json': '{ "name": "forms", "type": "module" }\n',
+        'forms/.storybook/main.ts': main(''),
+        'forms/sheet.stories.ts': STORY,
     },
-    broken: ['silent/.storybook/main.ts', 'export default { framework:\n'],
+    broken: ['forms/.storybook/main.ts', 'export default { framework:\n'],
 };
 
+const DEVELOPMENT = { continuous: true, cache: false, readyWhen: { port: '{options.port ?? env.SBCONFIG_PORT ?? env.PORT ?? auto}', host: '{env.SBCONFIG_HOSTNAME ?? options.host ?? localhost}' } };
 const SPEC = 'nrwl/nx@2a424d3 packages/storybook/src/plugins';
 const ADDONS = [
     { label: 'a string entry', addons: "'@storybook/addon-vitest'", source: '"should infer test-storybook from a generated Vite config with addon-vitest"' },
@@ -86,7 +87,7 @@ const listing = Effect.fnUntraced(function* (addons: string, beside: boolean) {
 
 cases(subject, (it) => {
     it.effect('builds a Storybook whose config is main.js', () =>
-        inferred({ ...subject, files: { ...subject.files, 'package.json': '{ "name": "root", "workspaces": ["signalled", "silent", "plain"] }\n', 'plain/package.json': '{ "name": "plain", "type": "module" }\n', 'plain/.storybook/main.js': main(''), 'plain/sheet.stories.ts': STORY } }).pipe(
+        inferred({ ...subject, files: { ...subject.files, 'package.json': '{ "name": "root", "workspaces": ["buttons", "forms", "plain"] }\n', 'plain/package.json': '{ "name": "plain", "type": "module" }\n', 'plain/.storybook/main.js': main(''), 'plain/sheet.stories.ts': STORY } }).pipe(
             Effect.map(running('storybook build')),
             Effect.map(Array.map(({ project }) => project)),
             Effect.map((built) => assert.include(built, 'plain', 'nrwl/nx@2a424d3 packages/storybook/src/plugins/plugin.spec.ts "should support main.js"')),
@@ -99,18 +100,27 @@ cases(subject, (it) => {
             Effect.map(Array.map(({ project, cache, outputs }) => ({ project, cache, outputs }))),
             Effect.map((built) =>
                 assert.deepStrictEqual(built, [
-                    { project: 'signalled', cache: true, outputs: ['signalled/storybook-static'] },
-                    { project: 'silent', cache: true, outputs: ['silent/storybook-static'] },
+                    { project: 'buttons', cache: true, outputs: ['buttons/storybook-static'] },
+                    { project: 'forms', cache: true, outputs: ['forms/storybook-static'] },
                 ]),
             ),
         ),
     );
 
-    it.effect('serves the Storybook that loads the readiness preset as an uncached continuous task ready on its signal, and no Storybook that loads none', () =>
+    it.effect('serves each Storybook with storybook dev as an uncached continuous task, ready on the port a run sets and on start where Storybook picks one', () =>
         inferred(subject).pipe(
             Effect.map(running('storybook dev')),
             Effect.map(Array.map(({ project, continuous, cache, readyWhen }) => ({ project, continuous, cache, readyWhen }))),
-            Effect.map((served) => assert.deepStrictEqual(served, [{ project: 'signalled', continuous: true, cache: false, readyWhen: { signal: true } }])),
+            Effect.map((served) =>
+                assert.deepStrictEqual(
+                    served,
+                    [
+                        { project: 'buttons', ...DEVELOPMENT },
+                        { project: 'forms', ...DEVELOPMENT },
+                    ],
+                    `${SPEC}/plugin.ts:268-274,380-388 the storybook target of every config: storybook dev, continuous; nrwl/nx@7fca107 packages/storybook/src/utils/dev-server-ready-check.ts resolvePort flag, SBCONFIG_PORT, PORT, "Probes nothing when no port is set"`,
+                ),
+            ),
         ),
     );
 
@@ -125,8 +135,8 @@ cases(subject, (it) => {
             assert.deepStrictEqual(
                 found,
                 [
-                    { project: 'signalled', ...served, options: { buildTarget: 'build--storybook', staticFilePath: '.artifacts/storybook/signalled' } },
-                    { project: 'silent', ...served, options: { buildTarget: 'build--storybook', staticFilePath: '.artifacts/storybook/silent' } },
+                    { project: 'buttons', ...served, options: { buildTarget: 'build--storybook', staticFilePath: '.artifacts/storybook/buttons' } },
+                    { project: 'forms', ...served, options: { buildTarget: 'build--storybook', staticFilePath: '.artifacts/storybook/forms' } },
                 ],
                 'README [03] generated output under .artifacts/<tool>',
             );
