@@ -1,5 +1,4 @@
 use core::time::Duration;
-use std::path::Path;
 use std::sync::Arc;
 
 use claims::{assert_matches, assert_ok};
@@ -8,7 +7,7 @@ use rasm_provisioning::{Claim, Digest, ProvisioningError, Refusal, SessionName};
 use sqlx::Connection as _;
 use tokio::time;
 
-use crate::{COMPOSE, clickhouse, entered, postgres, queried, running, stopped};
+use crate::{clickhouse, entered, postgres, queried, running, stopped};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -20,7 +19,7 @@ fn digest() -> Digest { assert_ok!(Digest::try_new("0f3a")) }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn thirty_sessions_on_one_new_digest_run_one_build() {
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &["max_connections=200"]).await);
+    let (_container, port, server) = assert_ok!(postgres(&["max_connections=200"]).await);
     let service = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = Arc::new(assert_ok!(service.registry.serve(server).await));
     let callers = join_all((0..30).map(|caller| {
@@ -55,7 +54,7 @@ async fn thirty_sessions_on_one_new_digest_run_one_build() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn ended_builder_frees_the_next_opener() {
-    let (_container, _port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, _port, server) = assert_ok!(postgres(&[]).await);
     let service = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = Arc::new(assert_ok!(service.registry.serve(server).await));
     assert_ok!(stores.open(session("killed"), digest()).await);
@@ -74,7 +73,7 @@ async fn ended_builder_frees_the_next_opener() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn ready_clone_serves_the_next_caller_and_survives_a_restart() {
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, port, server) = assert_ok!(postgres(&[]).await);
     let first = running(Duration::from_secs(1), Duration::from_mins(1), 2);
     let stores = assert_ok!(first.registry.serve(server.clone()).await);
     let build = assert_ok!(stores.open(session("builder"), digest()).await);
@@ -96,7 +95,7 @@ async fn ready_clone_serves_the_next_caller_and_survives_a_restart() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clickhouse_clones_hold_tables_rows_and_views() {
-    let (_container, port, server) = assert_ok!(clickhouse(Path::new(COMPOSE)).await);
+    let (_container, port, server) = assert_ok!(clickhouse().await);
     let service = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = Arc::new(assert_ok!(service.registry.serve(server).await));
     let build = assert_ok!(stores.open(session("builder"), digest()).await);
@@ -126,7 +125,7 @@ async fn clickhouse_clones_hold_tables_rows_and_views() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clickhouse_ready_clone_serves_the_next_caller() {
-    let (_container, port, server) = assert_ok!(clickhouse(Path::new(COMPOSE)).await);
+    let (_container, port, server) = assert_ok!(clickhouse().await);
     let (admin, service) = (server.admin.clone(), running(Duration::from_secs(1), Duration::from_mins(1), 1));
     let stores = assert_ok!(service.registry.serve(server).await);
     let build = assert_ok!(stores.open(session("builder"), digest()).await);
@@ -149,7 +148,7 @@ async fn clickhouse_ready_clone_serves_the_next_caller() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sealed_templates_past_the_bound_leave_least_recently_used_first() {
-    let (_container, _port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, _port, server) = assert_ok!(postgres(&[]).await);
     let (admin, service) = (server.admin.clone(), running(Duration::from_secs(1), Duration::from_mins(1), 0));
     let stores = assert_ok!(service.registry.serve(server).await);
     let sealed = async |name: &str| {

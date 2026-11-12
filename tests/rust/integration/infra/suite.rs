@@ -1,5 +1,4 @@
 use core::time::Duration;
-use std::path::Path;
 
 use aws_sdk_s3::primitives::ByteStream;
 use backon::{ConstantBuilder, Retryable as _};
@@ -24,13 +23,11 @@ use testcontainers_modules::valkey::Valkey;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const COMPOSE: &str = "../../../../infra/compose.yaml";
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 #[tokio::test]
 async fn postgres_server_keeps_committed_rows_across_a_restart() {
-    let (server, before) = assert_ok!(PgPool::started(assert_ok!(defined(Path::new(COMPOSE), "postgres", Postgres::default()).await), PgPoolOptions::new()).await);
+    let (server, before) = assert_ok!(PgPool::started(assert_ok!(defined("postgres", Postgres::default()).await), PgPoolOptions::new()).await);
     assert_ok!(sqlx::raw_sql("create table own (value integer); insert into own values (42)").execute(&before).await);
     before.close().await;
     assert_ok!(server.stop().await);
@@ -46,7 +43,7 @@ async fn postgres_server_keeps_committed_rows_across_a_restart() {
 
 #[tokio::test]
 async fn clickhouse_server_runs_the_release_the_compose_file_states() {
-    let request: ContainerRequest<ClickHouse> = assert_ok!(defined(Path::new(COMPOSE), "clickhouse", ClickHouse::default()).await).with_env_var("CLICKHOUSE_PASSWORD", "suite");
+    let request: ContainerRequest<ClickHouse> = assert_ok!(defined("clickhouse", ClickHouse::default()).await).with_env_var("CLICKHOUSE_PASSWORD", "suite");
     let release = assert_some!(assert_ok!(request.descriptor().parse::<Reference>()).tag().map(str::to_owned));
     let (_server, client) = assert_ok!(clickhouse::Client::started(request, clickhouse::Client::default()).await);
     assert_eq!(assert_ok!(client.query("select version()").fetch_one::<String>().await), release, "the hosted server is the release the compose file states");
@@ -54,7 +51,7 @@ async fn clickhouse_server_runs_the_release_the_compose_file_states() {
 
 #[tokio::test]
 async fn valkey_server_answers_a_paused_command_once_it_resumes() {
-    let (server, client) = assert_ok!(redis::Client::started(assert_ok!(defined(Path::new(COMPOSE), "cache", Valkey::default()).await), RedisConnectionInfo::default()).await);
+    let (server, client) = assert_ok!(redis::Client::started(assert_ok!(defined("cache", Valkey::default()).await), RedisConnectionInfo::default()).await);
     let mut connection = assert_ok!(client.get_multiplexed_async_connection_with_config(&AsyncConnectionConfig::new().set_response_timeout(None)).await);
     assert_ok!(redis::cmd("SET").arg("key").arg(42).exec_async(&mut connection).await);
     assert_ok!(server.pause().await);
@@ -67,7 +64,7 @@ async fn valkey_server_answers_a_paused_command_once_it_resumes() {
 #[tokio::test]
 async fn storage_server_returns_the_object_it_stored() {
     let ready = WaitFor::http(HttpWaitStrategy::new("/health/ready").with_port(aws_sdk_s3::Client::PORT).with_expected_status_code(200_u16));
-    let request = assert_ok!(defined(Path::new(COMPOSE), "storage", RustFS::default()).await).with_ready_conditions(vec![ready]);
+    let request = assert_ok!(defined("storage", RustFS::default()).await).with_ready_conditions(vec![ready]);
     let request = request.with_env_var("RUSTFS_ACCESS_KEY", "suite").with_env_var("RUSTFS_SECRET_KEY", "suitesecret");
     let config = aws_sdk_s3::config::Builder::new().behavior_version_latest().region(aws_sdk_s3::config::Region::from_static("us-east-1"));
     let (_server, client) = assert_ok!(aws_sdk_s3::Client::started(request, config).await);

@@ -2,7 +2,6 @@ use core::iter;
 use core::num::NonZero;
 use core::time::Duration;
 use std::io;
-use std::path::Path;
 use std::sync::Arc;
 
 use backon::ExponentialBuilder;
@@ -19,8 +18,6 @@ use tokio_util::sync::CancellationToken;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-#[cfg(test)]
-pub const COMPOSE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../../../infra/compose.yaml");
 pub const LOCALHOST: &str = "127.0.0.1";
 pub const DISCONNECT_DELAY: Duration = Duration::from_millis(100);
 pub const DISCONNECT_TRIES: usize = 50;
@@ -54,10 +51,10 @@ pub async fn stopped(running: Running) -> io::Result<()> {
     running.lifetime.await.map_err(io::Error::other)
 }
 
-pub async fn postgres(compose: &Path, settings: &[&str]) -> Result<(ContainerAsync<postgres::Postgres>, u16, Postgres), ServerError> {
+pub async fn postgres(settings: &[&str]) -> Result<(ContainerAsync<postgres::Postgres>, u16, Postgres), ServerError> {
     const POSTGRES: &str = "postgres";
     let command = iter::chain([POSTGRES], settings.iter().flat_map(|setting| ["-c", setting]));
-    let request = defined(compose, POSTGRES, postgres::Postgres::default()).await?.with_cmd(command);
+    let request = defined(POSTGRES, postgres::Postgres::default()).await?.with_cmd(command);
     let (container, admin) = PgPool::started(request, PgPoolOptions::new().max_connections(1)).await?;
     let port = container.get_host_port_ipv4(PgPool::PORT).await?;
     Ok((container, port, Postgres { admin, connections: const { NonZero::new(3).unwrap() } }))
@@ -67,9 +64,9 @@ pub async fn entered(port: u16, login: &Login, database: &str) -> Result<PgConne
     PgConnectOptions::new().host(LOCALHOST).port(port).username(&login.id.to_string()).password(login.password.expose_secret()).database(database).connect().await
 }
 
-pub async fn clickhouse(compose: &Path) -> Result<(ContainerAsync<clickhouse::ClickHouse>, u16, Clickhouse), ServerError> {
+pub async fn clickhouse() -> Result<(ContainerAsync<clickhouse::ClickHouse>, u16, Clickhouse), ServerError> {
     const CLICKHOUSE: &str = "clickhouse";
-    let request = defined(compose, CLICKHOUSE, clickhouse::ClickHouse::default()).await?;
+    let request = defined(CLICKHOUSE, clickhouse::ClickHouse::default()).await?;
     let request = request.with_env_var("CLICKHOUSE_PASSWORD", CLICKHOUSE).with_env_var("CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT", "1");
     let (container, admin) = ::clickhouse::Client::started(request, ::clickhouse::Client::default()).await?;
     let port = container.get_host_port_ipv4(::clickhouse::Client::PORT).await?;

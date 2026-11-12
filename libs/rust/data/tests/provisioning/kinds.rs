@@ -1,6 +1,5 @@
 use core::time::Duration;
 use std::net::TcpListener;
-use std::path::Path;
 
 use aws_sdk_s3::config::{Credentials, Region};
 use aws_sdk_s3::primitives::ByteStream;
@@ -20,14 +19,14 @@ use testcontainers_modules::rustfs::RustFS;
 use testcontainers_modules::valkey::{VALKEY_PORT, Valkey};
 use tokio::time;
 
-use crate::{COMPOSE, LOCALHOST, clickhouse, entered, postgres, queried, running, stopped};
+use crate::{LOCALHOST, clickhouse, entered, postgres, queried, running, stopped};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn session(name: &str) -> SessionName { assert_ok!(SessionName::try_new(name)) }
 
 async fn valkey(published: Option<u16>) -> (ContainerAsync<Valkey>, ConnectionAddr, Cache) {
-    let request = assert_ok!(defined(Path::new(COMPOSE), "cache", Valkey::default().with_valkey_extra_flags("--databases 4")).await);
+    let request = assert_ok!(defined("cache", Valkey::default().with_valkey_extra_flags("--databases 4")).await);
     let request = published.into_iter().fold(request, |request, port| request.with_mapped_port(port, VALKEY_PORT));
     let (container, client) = assert_ok!(redis::Client::started(request, RedisConnectionInfo::default()).await);
     let server = assert_ok!(Cache::connect(&client, ConnectionManagerConfig::new()).await);
@@ -43,7 +42,7 @@ async fn connected(address: &ConnectionAddr, store: &Numbered) -> RedisResult<Mu
 
 #[tokio::test(flavor = "multi_thread")]
 async fn postgres_login_opens_its_own_store_alone() {
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, port, server) = assert_ok!(postgres(&[]).await);
     let first = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = assert_ok!(first.registry.serve(server.clone()).await);
     let (own, other) = (assert_ok!(stores.create(session("isolation")).await), assert_ok!(stores.create(session("isolation")).await));
@@ -71,7 +70,7 @@ async fn postgres_login_opens_its_own_store_alone() {
 async fn bucket_keys_reach_their_own_bucket_alone() {
     const ROOT: &str = "rustfsadmin";
     let ready = WaitFor::http(HttpWaitStrategy::new("/health/ready").with_port(aws_sdk_s3::Client::PORT).with_expected_status_code(200_u16));
-    let request = assert_ok!(defined(Path::new(COMPOSE), "storage", RustFS::default()).await).with_ready_conditions(vec![ready]);
+    let request = assert_ok!(defined("storage", RustFS::default()).await).with_ready_conditions(vec![ready]);
     let (request, region) = (request.with_env_var("RUSTFS_ACCESS_KEY", ROOT).with_env_var("RUSTFS_SECRET_KEY", ROOT), Region::new("us-east-1"));
     let (container, s3) = assert_ok!(aws_sdk_s3::Client::started(request, aws_sdk_s3::Config::builder().behavior_version_latest().region(region.clone())).await);
     let endpoint = format!("http://{LOCALHOST}:{}", assert_ok!(container.get_host_port_ipv4(aws_sdk_s3::Client::PORT).await));
@@ -104,7 +103,7 @@ async fn bucket_keys_reach_their_own_bucket_alone() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn clickhouse_user_reads_its_own_database_alone() {
-    let (_container, port, server) = assert_ok!(clickhouse(Path::new(COMPOSE)).await);
+    let (_container, port, server) = assert_ok!(clickhouse().await);
     let first = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = assert_ok!(first.registry.serve(server.clone()).await);
     let (own, other) = (assert_ok!(stores.create(session("isolation")).await), assert_ok!(stores.create(session("isolation")).await));

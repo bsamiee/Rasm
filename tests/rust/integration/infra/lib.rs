@@ -3,7 +3,6 @@
 use core::time::Duration;
 use std::collections::BTreeMap;
 use std::io;
-use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use aws_sdk_s3::config::Credentials;
@@ -25,6 +24,7 @@ use testcontainers_modules::kafka::apache::{KAFKA_PORT, Kafka};
 use testcontainers_modules::postgres::Postgres;
 use testcontainers_modules::rustfs::RustFS;
 use testcontainers_modules::valkey::{VALKEY_PORT, Valkey};
+use tokio::io::AsyncWriteExt as _;
 use tokio::process::Command;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -143,12 +143,12 @@ pub enum ServerError {
     Address(#[from] http::Error),
     #[error("server request states no `{variable}`")]
     Unstated { variable: &'static str },
-    #[error("docker compose resolved no model of {}", file.display())]
-    Compose { file: PathBuf, source: io::Error },
-    #[error("docker compose printed a model of {} this crate cannot read", file.display())]
-    Model { file: PathBuf, source: serde_path_to_error::Error<serde_json::Error> },
-    #[error("{} states no image for service {service}", file.display())]
-    Unlisted { file: PathBuf, service: String },
+    #[error("docker compose resolved no model of infra/compose.yaml")]
+    Compose { source: io::Error },
+    #[error("docker compose printed a model of infra/compose.yaml this crate cannot read")]
+    Model { source: serde_path_to_error::Error<serde_json::Error> },
+    #[error("infra/compose.yaml states no image for service {service}")]
+    Unlisted { service: String },
     #[error(transparent)]
     Image(#[from] oci_spec::distribution::ParseError),
     #[error(transparent)]
@@ -159,14 +159,22 @@ pub enum ServerError {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub async fn defined<I>(file: &Path, service: &str, image: I) -> Result<ContainerRequest<I>, ServerError>
+pub async fn defined<I>(service: &str, image: I) -> Result<ContainerRequest<I>, ServerError>
 where I: Image {
-    let resolved = Command::new("docker").args(["compose", "--file"]).arg(file).args(["--profile", "*", "config", "--format", "json"]).stderr(Stdio::inherit()).output().await;
-    let model = resolved.and_then(|output| output.status.exit_ok().map(|()| output.stdout).map_err(io::Error::other)).map_err(|source| ServerError::Compose { file: file.to_owned(), source })?;
+    let resolved = async {
+        let mut compose =
+            Command::new("docker").args(["compose", "--file", "-", "--profile", "*", "config", "--format", "json"]).stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::inherit()).spawn()?;
+        let mut input = compose.stdin.take().ok_or(io::ErrorKind::BrokenPipe)?;
+        input.write_all(include_bytes!("../../../../infra/compose.yaml")).await?;
+        drop(input);
+        let output = compose.wait_with_output().await?;
+        output.status.exit_ok().map(|()| output.stdout).map_err(io::Error::other)
+    };
+    let model = resolved.await.map_err(|source| ServerError::Compose { source })?;
     let mut reader = serde_json::Deserializer::from_slice(&model);
     let composed = serde_path_to_error::deserialize(&mut reader).and_then(|composed| reader.end().map(|()| composed).map_err(|source| serde_path_to_error::Error::new(Track::new().path(), source)));
-    let Compose { mut services } = composed.map_err(|source| ServerError::Model { file: file.to_owned(), source })?;
-    let unlisted = || ServerError::Unlisted { file: file.to_owned(), service: service.to_owned() };
+    let Compose { mut services } = composed.map_err(|source| ServerError::Model { source })?;
+    let unlisted = || ServerError::Unlisted { service: service.to_owned() };
     let Service { image: stated, command } = services.remove(service).ok_or_else(unlisted)?;
     let reference = stated.ok_or_else(unlisted)?.parse::<Reference>()?;
     let named = image.with_name(format!("{}/{}", reference.registry(), reference.repository()));

@@ -1,6 +1,5 @@
 use core::iter;
 use core::time::Duration;
-use std::path::Path;
 
 use claims::{assert_err, assert_matches, assert_ok, assert_some};
 use futures::future::join_all;
@@ -13,7 +12,7 @@ use sqlx::{AssertSqlSafe, Connection as _};
 use tokio::io::AsyncWriteExt as _;
 use tokio::time::{self, Instant};
 
-use crate::{COMPOSE, DISCONNECT_DELAY, DISCONNECT_TRIES, entered, postgres, running, stopped};
+use crate::{DISCONNECT_DELAY, DISCONNECT_TRIES, entered, postgres, running, stopped};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,7 +46,7 @@ fn session(name: &str) -> SessionName { assert_ok!(SessionName::try_new(name)) }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn killed_holder_ends_one_grace_later_and_renewed_session_stays() {
-    let (_container, _port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, _port, server) = assert_ok!(postgres(&[]).await);
     let (admin, service) = (server.admin.clone(), running(Duration::from_secs(1), Duration::from_secs(4), 0));
     let stores = assert_ok!(service.registry.serve(server).await);
     let (grace, stream) = service.registry.hold(session("held"));
@@ -68,7 +67,7 @@ async fn killed_holder_ends_one_grace_later_and_renewed_session_stays() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn open_connection_refuses_removal() {
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, port, server) = assert_ok!(postgres(&[]).await);
     let (admin, service) = (server.admin.clone(), running(Duration::from_secs(1), Duration::from_mins(1), 0));
     let stores = assert_ok!(service.registry.serve(server).await);
     let store = assert_ok!(stores.create(session("leak")).await);
@@ -85,7 +84,7 @@ async fn open_connection_refuses_removal() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn kept_store_outlives_its_session() {
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, port, server) = assert_ok!(postgres(&[]).await);
     let (admin, service) = (server.admin.clone(), running(Duration::from_secs(1), Duration::from_mins(1), 0));
     let stores = assert_ok!(service.registry.serve(server).await);
     let (kept, ended) = (assert_ok!(stores.create(session("failed")).await), assert_ok!(stores.create(session("failed")).await));
@@ -101,7 +100,7 @@ async fn kept_store_outlives_its_session() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn closed_connections_never_refuse_removal() {
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &["max_connections=200"]).await);
+    let (_container, port, server) = assert_ok!(postgres(&["max_connections=200"]).await);
     let service = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = assert_ok!(service.registry.serve(server).await);
     let closing = async || {
@@ -119,7 +118,7 @@ async fn closed_connections_never_refuse_removal() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn kept_store_ends_one_lease_after_the_call() {
-    let (_container, _port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, _port, server) = assert_ok!(postgres(&[]).await);
     let (admin, service) = (server.admin.clone(), running(Duration::from_secs(1), Duration::from_secs(2), 0));
     let stores = assert_ok!(service.registry.serve(server).await);
     let holder = tokio::spawn(service.registry.hold(session("held")).1);
@@ -136,7 +135,7 @@ async fn kept_store_ends_one_lease_after_the_call() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn restart_recovers_stores_and_drops_unsealed_builds() {
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &[]).await);
+    let (_container, port, server) = assert_ok!(postgres(&[]).await);
     let (admin, first) = (server.admin.clone(), running(Duration::from_secs(1), Duration::from_mins(1), 0));
     let stores = assert_ok!(first.registry.serve(server.clone()).await);
     let (held, build) = (assert_ok!(stores.create(session("survivor")).await), assert_ok!(stores.open(session("builder"), assert_ok!(Digest::try_new("digest"))).await));
@@ -165,7 +164,7 @@ async fn restart_recovers_stores_and_drops_unsealed_builds() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn create_past_the_limit_is_refused() {
-    let (container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &["max_connections=20"]).await);
+    let (container, port, server) = assert_ok!(postgres(&["max_connections=20"]).await);
     let service = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = assert_ok!(service.registry.serve(server).await);
     let mut live = Vec::from_iter(join_all(iter::repeat_with(|| stores.create(session("limit"))).take(5)).await.into_iter().map(|created| assert_ok!(created)));
@@ -191,7 +190,7 @@ async fn create_past_the_limit_is_refused() {
 #[ignore = "load measurement, run by name"]
 async fn one_hundred_fifty_sessions_create_and_drop() {
     const SESSIONS: usize = 150;
-    let (_container, port, server) = assert_ok!(postgres(Path::new(COMPOSE), &["max_connections=600"]).await);
+    let (_container, port, server) = assert_ok!(postgres(&["max_connections=600"]).await);
     let admin = assert_ok!(PgPoolOptions::new().max_connections(8).connect_with(server.admin.connect_options().as_ref().clone()).await);
     let service = running(Duration::from_secs(1), Duration::from_mins(1), 0);
     let stores = assert_ok!(service.registry.serve(Postgres { admin: admin.clone(), connections: server.connections }).await);
