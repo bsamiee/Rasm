@@ -39,7 +39,6 @@ Rasm/
 ├── .clangd                   # C++ language server compilation database folder
 ├── .gersemirc                # CMake formatting
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
-├── .nxignore                 # Paths Nx leaves out of its file map
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
@@ -122,7 +121,6 @@ flowchart LR
 - `@rasm/nx-git` infers a project per `.gitmodules` path with a `build--git` target filling it at the recorded commit, which a target reading a file under it depends on
 - `build--git` rebases commits made inside a submodule onto the recorded commit and keeps uncommitted edits, so a build reads the folder as it stands
 - CI checks a submodule out with LFS pointers, and `build--git` downloads its LFS files, so they transfer only in a run where a task reads the submodule
-- `.nxignore` keeps submodule files out of the Nx file map, and targets read the ones they name from disk
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
 - Checkers report every finding as an error through their own configuration
 - Checker configuration named by path sits in `.config/`, since tools run through hk and Nx alone, never directly
