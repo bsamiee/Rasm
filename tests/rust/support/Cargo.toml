@@ -35,9 +35,10 @@ sqlite-vec     = { workspace = true, optional = true }
 assert_fs      = { workspace = true }
 
 [dev-dependencies]
-tokio  = { workspace = true }
-claims = { workspace = true }
-fs-err = { workspace = true, features = ["tokio"] }
+rasm-testing = { workspace = true, features = ["sqlite"] } # Own `sqlite` feature for the suite, which `required-features` gates
+tokio        = { workspace = true }
+claims       = { workspace = true }
+fs-err       = { workspace = true, features = ["tokio"] }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

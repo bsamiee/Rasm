@@ -166,15 +166,15 @@ class Sqlite extends Schema.Class<Sqlite, { readonly brand: unique symbol }>('Sq
             execute: () =>
                 sql`WITH relations AS (SELECT l.name, l.type, l.strict, l.wr, m.sql FROM pragma_table_list l JOIN sqlite_schema m ON m.name = l.name WHERE l.schema = 'main' AND l.name NOT GLOB 'sqlite_*' AND (${sql.driver !== 'd1'} OR instr(l.name, '_cf_') <> 1))
                     SELECT json_object(
-                        'tables', (SELECT json_group_array(json_object('name', r.name, 'strict', r.strict, 'withoutRowid', r.wr, 'sql', r.sql,
-                            'columns', (SELECT json_group_array(json_object('name', x.name, 'type', nullif(x.type, ''), 'required', x."notnull", 'default', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(r.name) x),
-                            'references', (SELECT json_group_array(json_object('target', f."table", 'onDelete', f.on_delete, 'onUpdate', f.on_update,
-                                'columns', (SELECT json_group_array(k."from" ORDER BY k.seq) FROM pragma_foreign_key_list(r.name) k WHERE k.id = f.id),
-                                'to', (SELECT json_group_array(k."to" ORDER BY k.seq) FROM pragma_foreign_key_list(r.name) k WHERE k.id = f.id AND k."to" IS NOT NULL))) FROM pragma_foreign_key_list(r.name) f WHERE f.seq = 0),
-                            'indexes', (SELECT json_group_array(json_object('name', i.name, 'sql', m.sql, 'unique', i."unique", 'partial', i.partial,
-                                'keys', (SELECT json_group_array(json_object('name', k.name, 'collation', k.coll, 'descending', k."desc")) FROM pragma_index_xinfo(i.name) k WHERE k."key" = 1))) FROM pragma_index_list(r.name) i JOIN sqlite_schema m ON m.name = i.name AND m.type = 'index' WHERE i.origin = 'c'),
-                            'triggers', (SELECT json_group_array(json_object('name', m.name, 'sql', m.sql)) FROM sqlite_schema m WHERE m.type = 'trigger' AND m.tbl_name = r.name))) FROM relations r WHERE r.type = 'table'),
-                        'virtual', (SELECT json_group_array(json_object('name', r.name, 'sql', r.sql)) FROM relations r WHERE r.type = 'virtual')
+                        'tables', json((SELECT json_group_array(json_object('name', r.name, 'strict', r.strict, 'withoutRowid', r.wr, 'sql', r.sql,
+                            'columns', json((SELECT json_group_array(json_object('name', x.name, 'type', nullif(x.type, ''), 'required', x."notnull", 'default', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(r.name) x)),
+                            'references', json((SELECT json_group_array(json_object('target', f."table", 'onDelete', f.on_delete, 'onUpdate', f.on_update,
+                                'columns', json((SELECT json_group_array(k."from" ORDER BY k.seq) FROM pragma_foreign_key_list(r.name) k WHERE k.id = f.id)),
+                                'to', json((SELECT json_group_array(k."to" ORDER BY k.seq) FROM pragma_foreign_key_list(r.name) k WHERE k.id = f.id AND k."to" IS NOT NULL)))) FROM pragma_foreign_key_list(r.name) f WHERE f.seq = 0)),
+                            'indexes', json((SELECT json_group_array(json_object('name', i.name, 'sql', m.sql, 'unique', i."unique", 'partial', i.partial,
+                                'keys', json((SELECT json_group_array(json_object('name', k.name, 'collation', k.coll, 'descending', k."desc")) FROM pragma_index_xinfo(i.name) k WHERE k."key" = 1)))) FROM pragma_index_list(r.name) i JOIN sqlite_schema m ON m.name = i.name AND m.type = 'index' WHERE i.origin = 'c')),
+                            'triggers', json((SELECT json_group_array(json_object('name', m.name, 'sql', m.sql)) FROM sqlite_schema m WHERE m.type = 'trigger' AND m.tbl_name = r.name)))) FROM relations r WHERE r.type = 'table')),
+                        'virtual', json((SELECT json_group_array(json_object('name', r.name, 'sql', r.sql)) FROM relations r WHERE r.type = 'virtual'))
                     ) AS observed`,
         })();
         const resolved = diff(sql, Sqlite, catalog, yield* render(sql, Sqlite, catalog), live.tables.map(Sqlite.identities));

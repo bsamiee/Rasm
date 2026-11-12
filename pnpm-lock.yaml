@@ -537,6 +537,9 @@ importers:
       '@rasm/nx-dotnet':
         specifier: workspace:*
         version: link:apps/nx/dotnet
+      '@rasm/nx-git':
+        specifier: workspace:*
+        version: link:apps/nx/git
       '@rasm/nx-playwright':
         specifier: workspace:*
         version: link:apps/nx/playwright
@@ -995,6 +998,25 @@ importers:
       '@xml-tools/parser':
         specifier: 'catalog:'
         version: 1.0.12
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      nx:
+        specifier: 'catalog:'
+        version: 24.0.6
+
+  apps/nx/git:
+    dependencies:
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.0.6(nx@24.0.6)
+      '@rasm/nx-devkit':
+        specifier: workspace:*
+        version: link:../devkit
       effect:
         specifier: 'catalog:'
         version: 4.1.4

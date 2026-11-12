@@ -12233,6 +12233,7 @@ dependencies = [
  "fs-err",
  "futures",
  "libsqlite3-sys",
+ "rasm-testing",
  "sqlite-vec",
  "sqlx",
  "tokio",

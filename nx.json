@@ -16,6 +16,7 @@
         "@rasm/nx-docker",
         "@rasm/nx-pulumi",
         "@rasm/nx-buf",
+        "@rasm/nx-git",
         "@rasm/nx-typescript",
         "@rasm/nx-vite",
         "@rasm/nx-vitest",

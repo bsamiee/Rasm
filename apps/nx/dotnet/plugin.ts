@@ -1,6 +1,6 @@
 import { platform } from 'node:process';
 import { type CreateDependenciesContext, DependencyType, type ProjectGraphExternalNode, type RawProjectGraphDependency } from '@nx/devkit';
-import { inferred, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
+import { inferred, type Project, type Request, submodules, type Unit } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, Equivalence, Option, Path, Record, Schema, Struct } from 'effect';
 import { analyzer, Node, targets } from '#/targets';
@@ -10,6 +10,7 @@ import { analyzer, Node, targets } from '#/targets';
 type Report = typeof Report.Type;
 interface Evaluated extends Unit {
     readonly core: string;
+    readonly held: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -49,15 +50,16 @@ const { createNodes, createDependencies } = inferred({
     module: import.meta.url,
     files: FILES,
     options: Schema.Struct({}),
-    units: ({ files, path }: Request<unknown>) =>
-        Effect.map(analyzer, (core) =>
-            Array.take(
+    units: ({ files, path, context: { workspaceRoot } }: Request<unknown>) =>
+        Effect.map(Effect.all([analyzer, submodules(workspaceRoot)]), ([core, gitlinks]) => {
+            const held = gitlinks.map(({ root }) => root);
+            return Array.take(
                 files.filter((file) => PROJECTS.includes(path.extname(file).slice(1))),
                 1,
-            ).map((file): Evaluated => ({ key: 'msbuild', file, core, salt: files.join('\n') })),
-        ),
+            ).map((file): Evaluated => ({ key: 'msbuild', file, core, held, salt: [...files, ...held].join('\n') }));
+        }),
     read: Effect.fnUntraced(function* (missing: Array.NonEmptyReadonlyArray<Evaluated>, { files, context: { workspaceRoot } }: Request<unknown>) {
-        const reading = yield* printed('dotnet', [Array.headNonEmpty(missing).core, workspaceRoot], { cwd: workspaceRoot, input: files.join('\n') }).pipe(
+        const reading = yield* printed('dotnet', [Array.headNonEmpty(missing).core, workspaceRoot, ...Array.headNonEmpty(missing).held], { cwd: workspaceRoot, input: files.join('\n') }).pipe(
             Effect.flatMap(Schema.decodeEffect(Reported)),
             Effect.map((report) => ({ report, failures: report.failures.map(({ file, message }): readonly [string, Error] => [file, ToolError.make({ subject: file, detail: message })]) })),
             Effect.result,

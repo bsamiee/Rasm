@@ -3,8 +3,8 @@ description: Fills the assets submodule at its recorded commit, installs mise to
 
 inputs:
     assets-key:
-        description: Deploy key reading the assets repository
-        required: true
+        description: Deploy key reading the assets repository, empty leaves assets to the tasks that read it
+        default: ""
     cache-server:
         description: Nx self-hosted remote cache server, empty runs tasks without one
         default: ""
@@ -18,9 +18,11 @@ runs:
     using: composite
     steps:
         - id: assets
+          if: inputs.assets-key != ''
           run: "{ printf 'ref=' && git rev-parse HEAD:assets; } >> \"${GITHUB_OUTPUT}\""
           shell: bash
-        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        - if: inputs.assets-key != ''
+          uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
           with:
               repository: ${{ github.repository }}-Assets
               ref: ${{ steps.assets.outputs.ref }}

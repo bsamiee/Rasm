@@ -17,9 +17,8 @@ use serde_path_to_error::Track;
 use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, Signal, System, UpdateKind};
 use tokio::process::Command;
 use tokio::sync::watch;
-use tokio::task;
 use tokio::time::error::Elapsed;
-use tokio::time::{self};
+use tokio::{task, time};
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -39,6 +39,7 @@ Rasm/
 ├── .clangd                   # C++ language server compilation database folder
 ├── .gersemirc                # CMake formatting
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
+├── .nxignore                 # Paths Nx leaves out of its file map
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
@@ -117,7 +118,9 @@ flowchart LR
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-devkit`, and a row's own options win
 - Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
-- Verbs aggregate `<verb>--<tool>` targets, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
+- Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
+- `@rasm/nx-git` infers a project per `.gitmodules` path with a `build--git` target filling it at the recorded commit, which a target reading a file under it depends on
+- `.nxignore` keeps submodule files out of the Nx file map, and targets read the ones they name from disk
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
 - Checkers report every finding as an error through their own configuration
 - Checker configuration named by path sits in `.config/`, since tools run through hk and Nx alone, never directly
@@ -160,12 +163,12 @@ flowchart LR
 - `clean` removes the outputs a project's targets declare and runs its tool's clean
 
 Other tasks run through their own commands:
-- `git submodule update --init --checkout assets` fills `assets/` before a build that reads a shared asset
+- `nx build assets` fills `assets/` at the commit the repository records, and a target reading a file under it runs that first
 - `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
 - Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`
-- Workflow `renovate.yml` runs Renovate daily: catalogs, manifests, locks, mise tools, and action pins move to their newest release and merge
+- Workflow `renovate.yml` runs Renovate daily: catalogs, manifests, locks, mise tools, action pins, and the `assets` pin move to their newest release and merge
 - Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, `dry-run`, on by default, and `publish`
 - Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet)
 - `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does

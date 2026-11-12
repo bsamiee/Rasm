@@ -36,6 +36,9 @@ DOTNET_NOLOGO                                             = "1"
 DOTNET_ROLL_FORWARD                                       = "Major"
 FOUNDRY_CACHE_DIR                                         = "{{config_root}}/.cache/foundry"
 FOUNDRY_LOG_DIR                                           = "{{config_root}}/.artifacts/logs"
+GIT_CONFIG_COUNT                                          = "1"
+GIT_CONFIG_KEY_0                                          = "push.recurseSubmodules"
+GIT_CONFIG_VALUE_0                                        = "on-demand"
 GHIDRA_CLASSPATH                                          = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
 GHIDRA_INSTALL_DIR                                        = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
 GHIDRA_JAVA_OPTIONS                                       = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"

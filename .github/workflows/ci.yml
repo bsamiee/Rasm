@@ -46,6 +46,14 @@ jobs:
             - run: nx affected --targets=check,test,build
               env:
                   NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
+            - &reports
+              if: failure()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: ${{ github.job }}-reports
+                  path: |
+                      .artifacts/playwright
+                      .artifacts/vitest
 
     macos:
         runs-on: xcode-27
@@ -59,3 +67,4 @@ jobs:
                   NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
                   APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
                   APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+            - *reports
