@@ -4,7 +4,7 @@
     "minNodes": 210,
     "minLines": 1,
     "minTokens": 1,
-    "format": [ "typescript", "tsx", "javascript", "jsx", "python", "rust", "swift", "csharp", "c", "java" ],
+    "format": [ "typescript", "tsx", "javascript", "jsx", "python", "rust", "swift", "csharp", "c", "cpp", "cpp-header", "java" ],
     "absolute": true,
     "exitCode": 1,
     "reporters": [ "xcode" ],

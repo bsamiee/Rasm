@@ -58,6 +58,7 @@ blender = [
 dev     = [
     "fake-bpy-module-latest",    # Stubs for bpy, bmesh, mathutils, and gpu
     "mypy",                      # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "pydantic",                  # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
     "rasm-refurb",               # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
     "refurb",                    # FURB checks Ruff lacks, over a mypy build
     "ruff",                      # Linter and formatter hk runs from this root's environment

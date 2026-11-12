@@ -9,8 +9,10 @@
         "*.ghx": "xml",
         "*.globalconfig": "properties",
         "*.gltf": "json",
+        "*.cppm": "cpp",
         "*.idms": "xml",
         "*.ips": "jsonl",
+        "*.ixx": "cpp",
         "*.rhw": "xml",
         "*.rui": "xml",
         "*.uplugin": "json",
@@ -116,6 +118,11 @@
     "cmake.configureOnEdit": false,
     "cmake.configureOnOpen": false,
     "cmake.sourceDirectory": "${workspaceFolder}/tools/ast-grep/grammars",
+
+    // --- [CPP] -------------------------------------------------------------------------
+
+    "clangd.path": "${workspaceFolder}/.pixi/envs/cpp/bin/clangd",
+    "clangd.arguments": [ "--background-index", "--experimental-modules-support" ],
 
     // --- [DOTNET] ----------------------------------------------------------------------
 

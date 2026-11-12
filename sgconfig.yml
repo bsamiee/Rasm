@@ -11,6 +11,7 @@ languageGlobs:
 
 customLanguages:
     bashlang: {libraryPath: .artifacts/cmake/grammars/bash.so, languageSymbol: tree_sitter_bash, extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh], expandoChar: q, outlineRules: .artifacts/cmake/grammars/outline/bash.yml}
+    cpplang: {libraryPath: .artifacts/cmake/grammars/cpp.so, languageSymbol: tree_sitter_cpp, extensions: [cpp, cppm, ixx, cc, cxx, hpp, hh, hxx, h, ipp, inl, tpp], outlineRules: .artifacts/cmake/grammars/outline/cpp.yml}
     csharplang: {libraryPath: .artifacts/cmake/grammars/csharp.so, languageSymbol: tree_sitter_c_sharp, extensions: [cs], expandoChar: µ, outlineRules: .artifacts/cmake/grammars/outline/csharp.yml}
     javalang: {libraryPath: .artifacts/cmake/grammars/java.so, languageSymbol: tree_sitter_java, extensions: [java], outlineRules: .artifacts/cmake/grammars/outline/java.yml}
     pgsql: {libraryPath: .artifacts/cmake/grammars/pgsql.so, extensions: [pgsql], expandoChar: µ, outlineRules: .artifacts/cmake/grammars/outline/pgsql.yml}

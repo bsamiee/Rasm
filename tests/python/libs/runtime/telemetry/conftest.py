@@ -1,6 +1,7 @@
 """Fixtures every case runs under: the root logger, structlog's configuration, and the OpenTelemetry provider globals put back around each test."""
 
 from collections.abc import Iterator
+import io
 import logging
 
 from opentelemetry.test.globals_test import reset_logging_globals, reset_metrics_globals, reset_trace_globals
@@ -36,3 +37,23 @@ def reset_globals() -> Iterator[None]:
     reset_trace_globals()
     reset_metrics_globals()
     reset_logging_globals()
+
+
+@pytest.fixture
+def root_hdlr() -> Iterator[logging.StreamHandler[io.StringIO]]:
+    """Yields the stream handler `BaseTest.setUp` puts on the root logger at `DEBUG`, removed as `tearDown` removes it (CPython `Lib/test/test_logging.py:99-136,138-167`)."""
+    root_logger = logging.getLogger("")
+    original_logging_level = root_logger.getEffectiveLevel()
+    stream = io.StringIO()
+    root_logger.setLevel(logging.DEBUG)
+    hdlr = logging.StreamHandler(stream)
+    hdlr.setFormatter(logging.Formatter("%(name)s -> %(levelname)s: %(message)s"))
+    root_logger.addHandler(hdlr)
+    yield hdlr
+    stream.close()
+    root_logger.removeHandler(hdlr)
+    while root_logger.handlers:
+        h = root_logger.handlers[0]
+        root_logger.removeHandler(h)
+        h.close()
+    root_logger.setLevel(original_logging_level)

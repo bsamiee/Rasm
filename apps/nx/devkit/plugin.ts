@@ -41,6 +41,7 @@ interface Project {
     readonly targets?: Readonly<Record<string, TargetConfiguration>>;
     readonly atoms?: { readonly name: string; readonly verb: string; readonly tool: string; readonly each: Readonly<Record<string, TargetConfiguration>> };
     readonly release?: Readonly<Record<string, unknown>>;
+    readonly packaged?: readonly string[];
     readonly publish?: TargetConfiguration;
     readonly configuration?: Omit<ProjectConfiguration, 'root' | 'name' | 'targets' | 'metadata'>;
     readonly externalNodes?: Readonly<Record<string, ProjectGraphExternalNode>>;
@@ -162,7 +163,8 @@ const targeted = (project: Project, plugin: Identity, sources: string): Readonly
     const defaults: Readonly<Record<string, TargetConfiguration>> = { [clean]: { executor: plugin.cleaner }, test: { dependsOn: [SERVED] } };
     const whole = Option.fromUndefinedOr(project.atoms);
     const split = Option.match(whole, { onNone: () => [], onSome: ({ name, verb, each }) => Record.collect(each, (key, target) => ({ verb, name: `${name}--${key}`, target })) });
-    const stated = [...Record.toEntries(project.members).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, name: `${verb}--${tool}`, target }))), ...split].map(({ verb, name, target }) => ({
+    const attach: Members = project.packaged === undefined ? {} : { attach: { gh: { executor: `${plugin.shared}:attach`, dependsOn: [...project.packaged], metadata: { description: `Uploads the files ${project.packaged.join(', ')} wrote to the GitHub release of the version the project's manifest states through gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } } } } };
+    const stated = [...Record.toEntries({ ...project.members, ...attach }).flatMap(([verb, group]) => Record.collect(group, (tool, target) => ({ verb, name: `${verb}--${tool}`, target }))), ...split].map(({ verb, name, target }) => ({
         verb,
         name,
         target: { ...defaults[verb], ...target },
@@ -209,7 +211,7 @@ const targeted = (project: Project, plugin: Identity, sources: string): Readonly
             { executor: plugin.cleaner, ...named[name], options: { ...named[name]?.options, targets: written }, metadata: { technologies, description: `Removes the outputs ${written.join(', ')} declare`, ...named[name]?.metadata } },
         ]),
         ...Record.fromIterableWith(Array.dedupe([...tools.map(({ verb }) => verb), ...cleaning.map(() => clean)]), (verb): readonly [string, TargetConfiguration] => [verb, { executor: 'nx:noop', dependsOn: [`${verb}--*`], outputs: [], metadata: { technologies, description: `Runs every ${verb}--* target` } }]),
-        ...(project.publish !== undefined && { [publish]: { ...project.publish, dependsOn: [...(project.publish.dependsOn ?? []), `^${publish}`] } }),
+        ...(project.publish !== undefined && { [publish]: { ...project.publish, dependsOn: [...(project.packaged ?? []), `^${publish}`] } }),
         ...project.targets,
     };
 };

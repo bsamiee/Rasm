@@ -15,6 +15,7 @@
         "@rasm/nx-apple": "workspace:*",
         "@rasm/nx-buf": "workspace:*",
         "@rasm/nx-cargo": "workspace:*",
+        "@rasm/nx-cmake": "workspace:*",
         "@rasm/nx-cloudflare": "workspace:*",
         "@rasm/nx-devkit": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",

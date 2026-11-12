@@ -13,6 +13,7 @@ dev                   = [
     # --- [CHECKERS]
 
     "mypy",                                                                       # Type checker owning `exhaustive-match`, the `disallow_any_*` flags, `no-any-return`, unreachable code, and unused `type: ignore` comments
+    "pydantic",                                                                   # mypy plugin typing each pydantic model, whose replace signature holds explicit `Any` without it
     "rasm-refurb",                                                                # Refurb checks over mypy types Ruff lacks, loaded by refurb as a plugin
     "refurb",                                                                     # FURB checks Ruff lacks, over a mypy build
     "ruff",                                                                       # Linter and formatter of every project
@@ -445,6 +446,31 @@ INCLUDE                    = "%CONDA_PREFIX%\\Library\\include;%INCLUDE%"
 LIB                        = "%CONDA_PREFIX%\\Library\\lib;%LIB%"
 WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 
+[tool.pixi.environments.cpp]
+no-default-feature = true
+platforms          = ["osx-arm64-macos-27-0", "linux-64", "linux-aarch64"] # conda-forge holds no C++ standard library for win-64
+
+[tool.pixi.environments.cpp.dependencies]
+clangxx     = "23.*"
+clang-tools = "23.*"
+lld         = "23.*"
+compiler-rt = "23.*"
+ninja       = "*"
+catch2      = "3.*"
+python      = "*"
+fmt         = "*"
+
+[tool.pixi.environments.cpp.pypi-dependencies]
+gersemi = "*"
+
+[tool.pixi.environments.cpp.target.osx.dependencies]
+libcxx-devel = "23.*" # Headers and `std` module of the libc++ every conda-forge macOS library links, Linux libraries link the libstdc++ `clangxx` brings
+
+[tool.pixi.environments.cpp.activation.env]
+CC                = "$CONDA_PREFIX/bin/clang"
+CXX               = "$CONDA_PREFIX/bin/clang++"
+CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
+
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
@@ -523,20 +549,22 @@ pylint                    = { allow-dunder-method-names = ["__name__", "__versio
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**"                                                              = ["assert"]
-"tests/python/libs/runtime/telemetry/conftest.py"                       = ["banned-api", "pytest-fixture-autouse"]                                  # Copies structlog `tests/conftest.py:23-37,74-76`: autouse fixtures over `logging.getLogger()`
-"tests/python/libs/runtime/telemetry/suite/test_environment_carrier.py" = ["import-private-name"]                                                   # Copies opentelemetry-api `tests/propagators/test__envcarrier.py:14-16`: the environment setter lives in private `_envcarrier` alone
-"tests/python/libs/runtime/telemetry/suite/test_instrumented.py"        = ["hardcoded-temp-file", "import-private-name", "pytest-raises-too-broad"] # Copies `test_configurator_file_routing.py:47,57` path `/tmp/otel.yaml` and `test_proto_span_exporter.py:46,230,242`: a private variable name and `assertRaises(RuntimeError)` with no message
-"tests/python/libs/runtime/telemetry/suite/test_instrumented_logs.py"   = ["error-instead-of-exception", "import-private-name", "logging-exc-info"] # Copies opentelemetry-instrumentation-structlog `tests/test_structlog.py:12,17-21,164,188`: `logger.error(..., exc_info=...)` inside `except`, and the logs API and SDK in private modules alone
-"tests/python/libs/runtime/telemetry/suite/test_logger.py"              = ["banned-api"]                                                            # Copies structlog `tests/test_stdlib.py:247,273`: `logging.getLogger("Test")`
-"tests/python/libs/runtime/telemetry/suite/test_otlp_http.py"           = ["banned-api", "private-member-access"]                                   # Copies `test_proto_span_exporter.py:265,644,747`: `exporter._client._transport` and `time.sleep`
-"tests/python/libs/runtime/telemetry/suite/test_rotation.py"            = ["banned-api", "blind-except", "private-member-access"]                   # Copies concurrent-log-handler `tests/test_concurrent_rotation_multiprocess.py:43,46,62,98` and `tests/test_fork_deadlock.py:71,80,105`: `clh._do_lock`, `os._exit`, `except Exception`, and `logging.getLogger`
-"tests/python/libs/runtime/telemetry/suite/test_span_export.py"         = ["banned-api"]                                                            # Copies opentelemetry-sdk `tests/trace/export/test_export.py:49,301`: `time.sleep`
-"tests/python/libs/runtime/telemetry/suite/test_unhandled.py"           = ["banned-api"]                                                            # Copies opentelemetry-instrumentation-exceptions `tests/test_exceptions.py:6,328-332`: `asyncio.BaseEventLoop.call_exception_handler`
-"libs/python/runtime/telemetry/rasm_telemetry/_entries.py"              = ["banned-api"]                                                            # Holds the stdlib logger under each bound logger, the `logging.getLogger` call every other module leaves to it
-"libs/python/runtime/telemetry/rasm_telemetry/export.py"                = ["import-private-name"]                                                   # opentelemetry-api holds the entry point lookup the SDK caches in private `_importlib_metadata` alone
-"libs/python/runtime/telemetry/rasm_telemetry/process.py"               = ["banned-api", "import-private-name", "private-member-access"]            # Composition root the `logging` rows name, opentelemetry-api holds environment carriers and its cached entry point lookup, the SDK its exporter name resolution, and system-metrics its default table in private members alone
-"libs/python/blender/bpy/rasm_bpy/data/_extension/reports.py"           = ["import-private-name"]                                                   # opentelemetry-semantic-conventions holds `process.exit.code` in `_incubating` alone
-"libs/python/blender/rendering/rasm_rendering/_batch/supervision.py"    = ["import-private-name"]                                                   # opentelemetry-api holds `EnvironmentSetter` in private `_envcarrier` alone
+"tests/python/libs/runtime/telemetry/conftest.py"                       = ["banned-api", "pytest-fixture-autouse"]                                                # Copies structlog `tests/conftest.py:23,26,74` and CPython `Lib/test/test_logging.py:117`: autouse fixtures over `logging.getLogger()` and the root logger
+"tests/python/libs/runtime/telemetry/suite/test_environment_carrier.py" = ["import-private-name"]                                                                 # Copies opentelemetry-api `tests/propagators/test__envcarrier.py:14-16`: the environment setter lives in private `_envcarrier` alone
+"tests/python/libs/runtime/telemetry/suite/test_instrumented.py"        = ["banned-api", "hardcoded-temp-file", "import-private-name", "pytest-raises-too-broad"] # Copies `test_configurator_file_routing.py:47,57` path `/tmp/otel.yaml`, `test_proto_span_exporter.py:46,230,242`, and CPython `Lib/test/test_logging.py:3580`: a private variable name, `assertRaises(RuntimeError)` with no message, and `logging.getLogger`
+"tests/python/libs/runtime/telemetry/suite/test_instrumented_logs.py"   = ["error-instead-of-exception", "import-private-name", "logging-exc-info"]               # Copies opentelemetry-instrumentation-structlog `tests/test_structlog.py:12,17-21,164,188,209`: `logger.error(..., exc_info=...)` inside `except`, and the logs API and SDK in private modules alone
+"tests/python/libs/runtime/telemetry/suite/test_logger.py"              = ["banned-api"]                                                                          # Copies structlog `tests/test_stdlib.py:247,290,311,323` and CPython `Lib/test/test_logging.py:117`: `logging.getLogger("Test")` and the root logger
+"tests/python/libs/runtime/telemetry/suite/test_otlp_http.py"           = ["banned-api", "import-private-name", "private-member-access"]                          # Copies `test_proto_span_exporter.py:32-35,265,447-450,644,747`: `_DEFAULT_TIMEOUT` of private `_common`, `exporter._client._transport`, `_endpoint`, `_compression`, `_client._headers`, `_client._timeout`, and `time.sleep`
+"tests/python/libs/runtime/telemetry/suite/test_record.py"              = ["banned-api", "error-instead-of-exception", "import-private-name"]                     # Copies opentelemetry-instrumentation-logging `tests/test_handler.py:247,780` and opentelemetry-instrumentation `tests/test_log_utils.py:6`: `logging.getLogger("foo")`, `logger.error(..., exc_info=False)` inside `except`, and `SeverityNumber` in private `opentelemetry._logs` alone
+"tests/python/libs/runtime/telemetry/suite/test_rotation.py"            = ["banned-api", "blind-except", "private-member-access"]                                 # Copies concurrent-log-handler `tests/test_concurrent_rotation_multiprocess.py:43,46,62,98` and `tests/test_fork_deadlock.py:80,105`: `clh._do_lock`, `os._exit`, `except Exception`, and `logging.getLogger`
+"tests/python/libs/runtime/telemetry/suite/test_settings.py"            = ["banned-api"]                                                                          # Copies CPython `Lib/test/test_logging.py:198-202`: `logging.getLogger("ERR")` and `logging.LoggerAdapter`
+"tests/python/libs/runtime/telemetry/suite/test_span_export.py"         = ["banned-api"]                                                                          # Copies opentelemetry-sdk `tests/trace/export/test_export.py:49`: `time.sleep`
+"tests/python/libs/runtime/telemetry/suite/test_unhandled.py"           = ["banned-api", "import-private-name"]                                                   # Copies opentelemetry-instrumentation-exceptions `tests/test_exceptions.py:6,14-18,329-333`: `asyncio.BaseEventLoop` and `SeverityNumber` in private `opentelemetry._logs` alone
+"libs/python/runtime/telemetry/rasm_telemetry/_entries.py"              = ["banned-api"]                                                                          # Holds the stdlib logger under each bound logger, the `logging.getLogger` call every other module leaves to it
+"libs/python/runtime/telemetry/rasm_telemetry/export.py"                = ["import-private-name"]                                                                 # opentelemetry-api holds the entry point lookup the SDK caches in private `_importlib_metadata` alone
+"libs/python/runtime/telemetry/rasm_telemetry/process.py"               = ["banned-api", "import-private-name", "private-member-access"]                          # Composition root the `logging` rows name, opentelemetry-api holds environment carriers and its cached entry point lookup, the SDK its exporter name resolution, and system-metrics its default table in private members alone
+"libs/python/blender/bpy/rasm_bpy/data/_extension/reports.py"           = ["import-private-name"]                                                                 # opentelemetry-semantic-conventions holds `process.exit.code` in `_incubating` alone
+"libs/python/blender/rendering/rasm_rendering/_batch/supervision.py"    = ["import-private-name"]                                                                 # opentelemetry-api holds `EnvironmentSetter` in private `_envcarrier` alone
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-lazy             = ["abc", "os", "sys"] # Interpreter startup loads them before any module runs
@@ -657,6 +685,7 @@ exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
 strict_bytes            = true
+plugins                 = ["pydantic.mypy"]                                                                                                                                                                                                                                                                                                                                                                          # Typed `__init__` and `model_construct` of each pydantic model, frozen models under a settings base, and no explicit `Any` in a synthesized signature
 untyped_calls_exclude   = ["_skimage2.transform._geometric.ProjectiveTransform", "fontTools", "OpenImageIO.ColorConfig", "opentelemetry.distro", "opentelemetry.exporter.otlp.proto.http.trace_exporter", "opentelemetry.instrumentation.structlog", "opentelemetry.sdk._configuration", "opentelemetry.sdk._logs._internal.export.in_memory_log_exporter", "opentelemetry.test.mock_test_classes", "ots", "ufo2ft"] # Definitions these packages ship unannotated, OpenImageIO types `ColorConfig` methods from 3.2.2, after the release Blender bundles
 enable_error_code       = ["deprecated", "exhaustive-match", "explicit-override", "narrowed-type-not-subtype", "redundant-expr", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
 disable_error_code      = ["abstract", "arg-type", "assert-type", "assignment", "attr-defined", "call-arg", "call-overload", "import", "import-not-found", "index", "name-defined", "no-redef", "operator", "override", "redundant-cast", "return", "return-value", "type-arg", "union-attr", "unused-coroutine", "valid-type"]                                                                                      # ty owns each defect these codes report, ruff PGH003 owns suppressions without a code

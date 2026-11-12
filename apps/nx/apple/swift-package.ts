@@ -89,18 +89,12 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
         const zipped = pipe(
             options.placed('swiftpm', product),
             Option.map((folder) => ({
-                publish: {
-                    executor: `${plugin.name}:release-publish`,
-                    options: { manifest: path.join(at, INFO) },
-                    dependsOn: ['build--ditto'],
-                    metadata: { technologies: ['swift'], description: `Attaches the zip build--ditto wrote for ${product} to the project's GitHub release through gh release upload`, help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
-                },
                 ditto: {
                     executor: `${plugin.name}:package`,
                     dependsOn: ['build--swift-build'],
                     inputs: [path.join('{workspaceRoot}', at, INFO), ...plugin.inputs],
-                    options: { products: [{ package: root, product, folder, manifest: path.join(at, INFO) }] },
-                    outputs: [path.join('{workspaceRoot}', folder, `${product}-*.zip`)],
+                    options: { products: [{ package: root, product, folder }] },
+                    outputs: [path.join('{workspaceRoot}', folder, `${product}.zip`)],
                     metadata: { technologies: ['swift'], description: `Zips the release build of ${product} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
                 },
             })),
@@ -139,8 +133,8 @@ const packageParts = (path: Path.Path, options: Settings, plugin: Identity, loca
                 onNone: () => ({ ...part, members: own }),
                 onSome: ({ install, zipped }) => ({
                     ...part,
-                    members: { ...own, build: { ...builds, ...Option.getOrUndefined(Option.map(zipped, ({ ditto }) => ({ ditto }))) }, install: { 'swift-package': install } },
-                    ...Option.getOrUndefined(Option.map(zipped, ({ publish }) => ({ release: { manifest: INFO }, publish }))),
+                    members: { ...own, build: { ...builds, ...Option.getOrUndefined(zipped) }, install: { 'swift-package': install } },
+                    ...Option.getOrUndefined(Option.map(zipped, () => ({ release: { manifest: INFO }, packaged: ['build--ditto'] }))),
                 }),
             },
         );

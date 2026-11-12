@@ -8,6 +8,8 @@ fail_fast = false
 
 // --- [STEPS] ----------------------------------------------------------------------------
 
+local environment = List("pixi", "run", "--locked", "-e", "cpp")
+
 steps {
   ["grammars"] {
     check = new CommandSpec {
@@ -70,6 +72,10 @@ steps {
       }
     }
   }
+  ["clang-format"] = (Builtins.clang_format) {
+    glob = "**/*.{cpp,cppm,ixx,cc,cxx,hpp,hh,hxx,h,ipp,inl,tpp}"
+    prefix = environment
+  }
   ["compose"] {
     glob = "**/compose*.{yaml,yml}"
     check = new CommandSpec {
@@ -114,6 +120,19 @@ steps {
     }
     diagnostic_format = "gcc"
   }
+  ["gersemi"] {
+    glob = List("**/CMakeLists.txt", "**/*.cmake")
+    local gersemi = List("gersemi", "--warnings-as-errors", "--cache-dir", ".cache/gersemi")
+    prefix = environment
+    check = new CommandSpec {
+      command = new Command { argv = gersemi + List("--check", "{{files}}") }
+      effect = "read"
+    }
+    fix = new CommandSpec {
+      command = new Command { argv = gersemi + List("--in-place", "{{files}}") }
+      effect = "write"
+    }
+  }
   ["google-java-format"] = (Builtins.google_java_format) {
     check {
       command {
@@ -132,7 +151,8 @@ steps {
     }
   }
   ["jscpd"] {
-    glob = "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,pyi,rs,swift,cs,c,h,java}"
+    glob =
+      "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,pyi,rs,swift,cs,c,h,cpp,cppm,ixx,cc,cxx,hpp,hh,hxx,java}"
     check = new CommandSpec {
       command = new Command { argv = List("jscpd", "--config", ".config/jscpd.json", ".") }
       effect = "read"

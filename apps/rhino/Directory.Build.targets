@@ -54,35 +54,17 @@
         </ItemGroup>
     </Target>
 
-    <Target Name="PrepareYakPackage">
+    <Target Name="PrepareYakPackage" AfterTargets="Publish" Condition="'$(TargetExt)' == '.rhp'">
         <PropertyGroup>
             <_YakPublishDir>$([MSBuild]::NormalizeDirectory('$(PublishDir)'))</_YakPublishDir>
             <_YakArtifactsPublishDir>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', '$(ArtifactsPublishOutputName)', '$(ArtifactsProjectName)', '$(ArtifactsPivots)'))</_YakArtifactsPublishDir>
         </PropertyGroup>
         <ItemGroup>
             <_YakPublished Include="@(ResolvedFileToPublish->'$(_YakPublishDir)%(RelativePath)')" />
-            <_YakPrevious Include="$(_YakPublishDir)*.yak" />
-            <_YakExtra Include="$(_YakPublishDir)**/*" Exclude="@(_YakPublished);@(_YakPrevious)" />
-            <_YakForeign Include="$(_YakPublishDir)**/*" Exclude="@(_YakPublished);@(_YakPrevious)" Condition="'$(_YakPublishDir)' != '$(_YakArtifactsPublishDir)'" />
+            <_YakExtra Include="$(_YakPublishDir)**/*" Exclude="@(_YakPublished)" />
         </ItemGroup>
-        <Error Condition="'@(_YakForeign)' != ''" Text="Publish directory $(_YakPublishDir) holds files outside the current publish, which Yak packaging deletes or overwrites: @(_YakForeign). Publish to an empty directory." />
+        <Error Condition="'@(_YakExtra)' != '' and '$(_YakPublishDir)' != '$(_YakArtifactsPublishDir)'" Text="Publish directory $(_YakPublishDir) holds files outside the current publish, which Yak packaging would pack: @(_YakExtra). Publish to an empty directory." />
         <Delete Files="@(_YakExtra)" />
-        <PropertyGroup>
-            <_YakArchive>@(_YakPrevious)</_YakArchive>
-            <_YakArchive Condition="'$(_YakArchive)' == ''">$(_YakPublishDir).yak</_YakArchive>
-        </PropertyGroup>
-        <ItemGroup>
-            <_YakInput Include="@(_YakPublished);$(MSBuildAllProjects)" />
-        </ItemGroup>
-    </Target>
-
-    <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="PrepareYakPackage" Condition="'$(TargetExt)' == '.rhp'" Inputs="@(_YakInput)" Outputs="$(_YakArchive)">
-        <Delete Files="@(_YakPrevious)" />
-        <Exec Command="yak build" WorkingDirectory="$(PublishDir)" LogStandardErrorAsError="true" />
-        <ItemGroup>
-            <_YakBuilt Include="$(_YakPublishDir)*.yak" />
-        </ItemGroup>
-        <Error Condition="'@(_YakBuilt)' == ''" Text="yak build exited 0 without writing an archive in $(_YakPublishDir)." />
     </Target>
 
 </Project>

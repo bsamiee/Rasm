@@ -1,0 +1,49 @@
+# --- [CHECKS] ---------------------------------------------------------------------------
+
+# `bugprone-easily-swappable-parameters` reports every binary numeric operation, whose operands share one type by definition
+# `misc-include-cleaner` reads `#include` lines alone and reports each name `import std` supplies
+Checks: >-
+    -*,
+    bugprone-*,
+    cert-*,
+    clang-analyzer-*,
+    concurrency-*,
+    cppcoreguidelines-*,
+    misc-*,
+    modernize-*,
+    performance-*,
+    portability-*,
+    readability-*,
+    -bugprone-easily-swappable-parameters,
+    -misc-include-cleaner
+WarningsAsErrors: '*'
+
+# --- [SCOPE] ----------------------------------------------------------------------------
+
+HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: '/\.pixi/'
+SystemHeaders: false
+FormatStyle: file
+
+# --- [OPTIONS] --------------------------------------------------------------------------
+
+CheckOptions:
+    misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic: true
+    modernize-use-trailing-return-type.TransformLambdas: none
+    readability-identifier-length.MinimumVariableNameLength: 2
+    readability-identifier-length.MinimumParameterNameLength: 2
+    readability-identifier-naming.ClassCase: CamelCase
+    readability-identifier-naming.StructCase: CamelCase
+    readability-identifier-naming.UnionCase: CamelCase
+    readability-identifier-naming.EnumCase: CamelCase
+    readability-identifier-naming.EnumConstantCase: CamelCase
+    readability-identifier-naming.ConceptCase: CamelCase
+    readability-identifier-naming.TypeAliasCase: CamelCase
+    readability-identifier-naming.TemplateParameterCase: CamelCase
+    readability-identifier-naming.NamespaceCase: lower_case
+    readability-identifier-naming.FunctionCase: lower_case
+    readability-identifier-naming.VariableCase: lower_case
+    readability-identifier-naming.ParameterCase: lower_case
+    readability-identifier-naming.MemberCase: lower_case
+    readability-identifier-naming.PrivateMemberSuffix: _
+    readability-identifier-naming.MacroDefinitionCase: UPPER_CASE

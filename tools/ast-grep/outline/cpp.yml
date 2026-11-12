@@ -1,0 +1,151 @@
+utils:
+    exported: {any: [{inside: {kind: export_declaration, stopBy: end}}, {not: {inside: {kind: translation_unit, stopBy: end, has: {kind: module_declaration}}}}]}
+    nested: {inside: {kind: 'namespace_definition, field_declaration_list, compound_statement, enumerator_list', stopBy: end}}
+    scoped: {inside: {kind: 'declaration_list, field_declaration_list', stopBy: {kind: 'compound_statement, enumerator_list'}}}
+    callable: {has: {stopBy: {kind: 'compound_statement, parameter_list, field_declaration_list'}, kind: function_declarator, has: {field: declarator, pattern: $NAME}}}
+    record: {all: [{has: {field: name, pattern: $NAME}}, {has: {field: body, kind: 'field_declaration_list, enumerator_list'}}]}
+rewriters:
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: body, rule: {kind: 'compound_statement, field_declaration_list, enumerator_list, declaration_list, field_initializer_list', inside: {kind: 'function_definition, class_specifier, struct_specifier, union_specifier, enum_specifier, namespace_definition'}}, fix: ''}
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body, comment])
+    LINES: replace($HEADER, replace='(?:;|[\t-\r ])+$|[\t-\r ]+', by=' ')
+    SIGNATURE: replace($LINES, replace='^ | $', by='')
+---
+id: cpp-module
+role: item
+symbolType: module
+rule: {kind: 'module_declaration, global_module_fragment_declaration, private_module_fragment_declaration', pattern: $DECLARATION}
+name: $SIGNATURE
+signature: $SIGNATURE
+isExported: {has: {pattern: export}}
+---
+id: cpp-import
+role: item
+symbolType: module
+rule: {kind: 'import_declaration, preproc_include', pattern: $DECLARATION}
+name: $SIGNATURE
+signature: $SIGNATURE
+isImport: true
+isExported: {has: {pattern: export}}
+---
+id: cpp-namespace
+role: item
+symbolType: namespace
+rule: {kind: namespace_definition, all: [{has: {field: name, pattern: $NAME}}, {not: {matches: nested}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: exported}
+---
+id: cpp-class
+role: item
+symbolType: class
+rule: {kind: 'class_specifier, struct_specifier, union_specifier', all: [{matches: record}, {not: {matches: nested}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: exported}
+---
+id: cpp-enum
+role: item
+symbolType: enum
+rule: {kind: enum_specifier, all: [{matches: record}, {not: {matches: nested}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: exported}
+---
+id: cpp-concept
+role: item
+symbolType: interface
+rule: {kind: concept_definition, all: [{has: {field: name, pattern: $NAME}}, {not: {matches: nested}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: exported}
+---
+id: cpp-alias
+role: item
+symbolType: typeParameter
+rule: {kind: alias_declaration, all: [{has: {field: name, pattern: $NAME}}, {not: {matches: nested}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: exported}
+---
+id: cpp-function
+role: item
+symbolType: function
+rule: {kind: 'function_definition, declaration', all: [{matches: callable}, {not: {matches: nested}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+isExported: {matches: exported}
+---
+id: cpp-error
+role: item
+symbolType: 'null'
+rule: {kind: ERROR, not: {inside: {kind: ERROR, stopBy: end}}}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
+---
+id: cpp-member-namespace
+role: member
+parentRuleIds: [cpp-namespace]
+symbolType: namespace
+rule: {kind: namespace_definition, all: [{has: {field: name, pattern: $NAME}}, {matches: scoped}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+---
+id: cpp-member-class
+role: member
+parentRuleIds: [cpp-namespace, cpp-class]
+symbolType: class
+rule: {kind: 'class_specifier, struct_specifier, union_specifier', all: [{matches: record}, {matches: scoped}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+---
+id: cpp-member-enum
+role: member
+parentRuleIds: [cpp-namespace, cpp-class]
+symbolType: enum
+rule: {kind: enum_specifier, all: [{matches: record}, {matches: scoped}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+---
+id: cpp-member-concept
+role: member
+parentRuleIds: [cpp-namespace]
+symbolType: interface
+rule: {kind: concept_definition, all: [{has: {field: name, pattern: $NAME}}, {matches: scoped}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+---
+id: cpp-member-alias
+role: member
+parentRuleIds: [cpp-namespace, cpp-class]
+symbolType: typeParameter
+rule: {kind: alias_declaration, all: [{has: {field: name, pattern: $NAME}}, {matches: scoped}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+---
+id: cpp-member-function
+role: member
+parentRuleIds: [cpp-namespace, cpp-class]
+symbolType: method
+rule: {kind: 'function_definition, declaration, field_declaration', all: [{matches: callable}, {matches: scoped}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+---
+id: cpp-member-field
+role: member
+parentRuleIds: [cpp-class]
+symbolType: field
+rule: {kind: field_declaration, all: [{has: {field: declarator, kind: field_identifier, pattern: $NAME}}, {matches: scoped}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE
+---
+id: cpp-member-case
+role: member
+parentRuleIds: [cpp-namespace, cpp-class, cpp-enum]
+symbolType: enumMember
+rule: {kind: enumerator, all: [{has: {field: name, pattern: $NAME}}, {pattern: $DECLARATION}]}
+name: $NAME
+signature: $SIGNATURE

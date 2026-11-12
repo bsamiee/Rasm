@@ -1,52 +1,30 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "version": 2,
-    "type": "object",
-    "properties": {
-        "dryRun": {
-            "type": "boolean",
-            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
-        },
-        "nxReleaseVersionData": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "object",
-                "properties": {
-                    "newVersion": {
-                        "anyOf": [
-                            {
-                                "type": "string"
-                            },
-                            {
-                                "type": "null"
-                            }
-                        ]
-                    }
-                },
-                "required": [ "newVersion" ],
-                "additionalProperties": true
-            },
-            "description": "Versions nx release set in this run, a project it left unversioned is skipped"
-        },
-        "registry": {
-            "type": "string",
-            "description": "Registry nx release publish passes as --registry, in the form the tool names one"
-        },
-        "firstRelease": {
-            "type": "boolean",
-            "description": "Set by nx release publish --first-release, when the registry holds no earlier version"
-        },
-        "cwd": {
-            "type": "string",
-            "description": "Cargo workspace root, relative to the Nx workspace root"
-        },
-        "package": {
-            "type": "string",
-            "description": "Crate to publish"
-        }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": 2,
+  "type": "object",
+  "properties": {
+    "dryRun": {
+      "type": "boolean",
+      "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
     },
-    "required": [ "cwd", "package" ],
-    "additionalProperties": true,
-    "title": "Release publish",
-    "description": "Publishes a crate with cargo publish, skipping a version the registry already holds; runs through nx release publish"
+    "cwd": {
+      "type": "string",
+      "description": "Cargo workspace root, relative to the Nx workspace root"
+    },
+    "package": {
+      "type": "string",
+      "description": "Crate to publish"
+    },
+    "registry": {
+      "type": "string",
+      "description": "Registry the crate names in its publish list, passed as --registry"
+    }
+  },
+  "required": [
+    "cwd",
+    "package"
+  ],
+  "additionalProperties": true,
+  "title": "Release publish",
+  "description": "Publishes a crate with cargo publish, under a dry run with cargo publish --dry-run over the crate and its workspace dependencies; runs through nx release publish"
 }

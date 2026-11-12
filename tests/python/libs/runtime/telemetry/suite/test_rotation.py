@@ -95,6 +95,8 @@ def _start_paused_write(tmp_path: Path, name: str, monkeypatch: pytest.MonkeyPat
 
 def _fork_and_run(child: Callable[[], int]) -> int:
     """Forks, runs `child` in the forked process, which exits with its result, and returns its PID (`test_fork_deadlock.py:92-106`)."""
+    if not (hasattr(os, "fork") and hasattr(signal, "alarm")):
+        pytest.skip("os.fork() not available on Windows")
     if (pid := os.fork()) == 0:
         signal.alarm(TIMEOUT)
         exit_code = 1
@@ -203,6 +205,8 @@ def test_emit_does_not_stall_while_another_process_holds_lock(tmp_path: Path) ->
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_fork_while_another_thread_is_in_emit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A child forked while another thread is inside an emit logs without hanging (`test_fork_deadlock.py:109-130`)."""
+    if not (hasattr(os, "WIFSIGNALED") and hasattr(os, "WTERMSIG") and hasattr(os, "WEXITSTATUS")):
+        pytest.skip("os.WIFSIGNALED() not available on Windows")
     handler, logger, thread, resume = _start_paused_write(tmp_path, "clh.fork_deadlock", monkeypatch)
 
     def child() -> int:
@@ -226,6 +230,8 @@ def test_fork_while_another_thread_is_in_emit(tmp_path: Path, monkeypatch: pytes
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
 def test_child_close_keeps_parent_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A forked child closing the handler leaves the parent's file lock held (`test_fork_deadlock.py:133-166`)."""
+    if not (hasattr(os, "WIFSIGNALED") and hasattr(os, "WTERMSIG") and hasattr(os, "WEXITSTATUS")):
+        pytest.skip("os.WIFSIGNALED() not available on Windows")
     lock_was_released = 2
     handler, logger, thread, resume = _start_paused_write(tmp_path, "clh.fork_child_close", monkeypatch)
 
@@ -251,7 +257,7 @@ def test_child_close_keeps_parent_lock(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_timed_rollover_on_startup_after_downtime(tmp_path: Path) -> None:
-    """A handler opened after its file's rollover time passed rotates the stale file at once (`test_timed_rollover_downtime.py:10-78`)."""
+    """A handler opened after its file's rollover time passed rotates the stale file at once, the first record being the exemplar's, built with a message and no level, which the handler must write for the file to exist (`test_timed_rollover_downtime.py:10-78`)."""
     log_file = tmp_path / "test_startup_rollover.log"
     rollover_interval_seconds = 2
     with time_machine.travel(datetime.now(UTC), tick=False) as clock:

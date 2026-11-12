@@ -68,7 +68,7 @@ const { createNodes, createDependencies } = inferred({
         tracked: [...files, ...evaluated, ...nodes.flatMap(({ locks }) => locks)],
         untracked: [path.dirname(core), ...nodes.flatMap(({ restored }) => restored.map((folder) => path.join(workspaceRoot, folder)))],
     }),
-    projects: ({ nodes }: Report, _, { path, plugin, placed }) => {
+    projects: ({ nodes }: Report, _, { path, plugin }) => {
         const releasable = (node: Node) => node.packable || node.publishable;
         const folders = Record.fromIterableWith(nodes, (node) => [path.dirname(node.file), node] as const);
         const carried = (node: Node): readonly NonNullable<Node['releases']>[] => [
@@ -86,7 +86,7 @@ const { createNodes, createDependencies } = inferred({
                 root,
                 name: node.name,
                 technologies: ['dotnet', node.language],
-                ...targets(plugin, path, { ...node, test: limited ? supported.some((held) => held === platform) : node.test }, placed('nuget', node.name)),
+                ...targets(plugin, path, { ...node, test: limited ? supported.some((held) => held === platform) : node.test }),
                 ...(releasable(node) && { release: { projectFile: path.basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } }),
                 externalNodes: Record.fromIterableWith(node.packages, (reference): readonly [string, ProjectGraphExternalNode] => [external(reference), { type: 'nuget', name: external(reference), data: { version: reference.version, packageName: reference.id, hash: reference.hash } }]),
                 configuration: {

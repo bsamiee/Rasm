@@ -178,7 +178,15 @@ const inferring =
             }),
         );
 
-        methods.effect('writes each output path from one target alone and restores no cached output into a folder its tool keeps incremental state in', () => Effect.map(inferred(subject), (graph) => assert.deepStrictEqual([shared(written(graph)), restored(written(graph), subject.state ?? [])], [[], []])));
+        methods.effect('writes each output path from one target alone and restores no cached output into a folder its tool keeps incremental state in', () =>
+            Effect.map(inferred(subject), (graph) =>
+                assert.deepStrictEqual(
+                    [shared(written(graph)), restored(written(graph), subject.state ?? [])],
+                    [[], []],
+                    'release-assets/nrwl-nx/astro-docs/src/content/docs/reference/project-configuration.mdoc:328 targets writing one directory go to separate directories, :343 a glob output caches "a set of files rather than the whole directory"',
+                ),
+            ),
+        );
 
         methods.effect('runs every test target once the serve--compose services of its dependencies are ready', () => Effect.map(inferred(subject), (graph) => assert.deepStrictEqual(unserved(graph), [])));
 

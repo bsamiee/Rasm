@@ -1,8 +1,8 @@
 import { availableParallelism } from 'node:os';
 import type { TargetConfiguration } from '@nx/devkit';
-import { ancestors, inferred, line, listed, type Members, NODE, type Request, type Unit } from '@rasm/nx-devkit/plugin';
+import { ancestors, inferred, line, listed, type Members, NODE, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, Option, Path, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Effect, FileSystem, identity, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIG, configured, type Solution } from '#/configuration';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -12,12 +12,20 @@ interface Program {
     readonly outputs: readonly string[];
     readonly chain: readonly string[];
 }
+interface Packed {
+    readonly packed: boolean;
+}
 interface Read extends Unit {
     readonly tools: { readonly tsc: readonly string[]; readonly tsgo: readonly string[]; readonly publint: readonly string[] };
 }
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const MANIFEST = 'package.json';
+
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Manifest = Schema.fromJsonString(Schema.Struct({ private: Schema.optionalKey(Schema.Boolean) }));
 const Installed = Schema.fromJsonString(Schema.Struct({ name: Schema.String, bin: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Schema.String)])) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -132,7 +140,7 @@ const compiled = (path: Path.Path, exec: string, root: string, { commands, outpu
 
 const { createNodes } = inferred({
     module: import.meta.url,
-    files: [CONFIG],
+    files: [CONFIG, MANIFEST],
     options: Schema.Struct({}),
     units: Effect.fnUntraced(function* ({ files, context: { workspaceRoot } }: Request<unknown>) {
         const path = yield* Path.Path;
@@ -148,23 +156,46 @@ const { createNodes } = inferred({
         );
     }),
     read: Effect.fnUntraced(function* (missing: Array.NonEmptyReadonlyArray<Read>, { context: { workspaceRoot } }: Request<unknown>) {
-        const path = yield* Path.Path;
-        const solutions = new Map(
-            yield* configured(
-                workspaceRoot,
-                Array.headNonEmpty(missing),
-                missing.map(({ file }) => file),
-            ),
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+        const [manifests, programs] = Array.partition(
+            missing,
+            Result.liftPredicate(({ file }: Read) => path.basename(file) === MANIFEST, identity),
+        );
+        const solutions = new Map(yield* Array.match(programs, { onEmpty: () => Effect.succeed([]), onNonEmpty: (held) => configured(workspaceRoot, Array.headNonEmpty(held), Array.map(held, ({ file }) => file)) }));
+        const packed = new Map<string, Result.Result<Program | Packed, Error>>(
+            yield* Effect.forEach(manifests, ({ file }) => Effect.map(Effect.result(Effect.flatMap(fs.readFileString(path.join(workspaceRoot, file)), Schema.decodeEffect(Manifest))), (read) => [file, Result.map(read, (manifest) => ({ packed: manifest.private !== true }))] as const)),
         );
         return missing.map(({ file }) =>
             Result.map(
-                Result.flatMap(solutions.get(file) ?? Result.fail(ToolError.make({ subject: file, detail: 'opens no TypeScript project' })), (solved) => resolved(path, workspaceRoot, path.dirname(file), solved)),
+                packed.get(file) ?? Result.flatMap(solutions.get(file) ?? Result.fail(ToolError.make({ subject: file, detail: 'opens no TypeScript project' })), (solved) => resolved(path, workspaceRoot, path.dirname(file), solved)),
                 (report) => ({ report }),
             ),
         );
     }),
-    sources: ({ chain }: Program, { file }: Read) => ({ tracked: [file, ...chain] }),
-    projects: (program: Program, { file, tools }: Read, { path, exec }) => [{ file, root: path.dirname(file), technologies: ['typescript'], clean: 'tsc', members: compiled(path, exec, path.dirname(file), program, tools) }],
+    sources: (report: Program | Packed, { file }: Read) => ({ tracked: [file, ...('chain' in report ? report.chain : [])] }),
+    projects: (report: Program | Packed, { file, tools }: Read, { path, exec, placed }) => {
+        const root = path.dirname(file);
+        const folder = Option.getOrElse(placed('pnpm', root), () => root);
+        const tarball: Project = {
+            file,
+            root,
+            technologies: ['npm'],
+            members: {
+                pack: {
+                    pnpm: {
+                        command: line(['pnpm', 'pack', '--out', path.join(path.relative(root, folder), '%s.tgz')]),
+                        dependsOn: ['build'],
+                        cache: true,
+                        inputs: ['default', { dependentTasksOutputFiles: '**/*' }, NODE],
+                        outputs: [path.join('{workspaceRoot}', folder, '*.tgz')],
+                        metadata: { description: 'Packs the package into one tarball named for it with pnpm pack', help: { command: 'pnpm pack --help', example: { args: ['--json'] } } },
+                    },
+                },
+            },
+            packaged: ['pack--pnpm'],
+        };
+        return 'chain' in report ? [{ file, root, technologies: ['typescript'], clean: 'tsc', members: compiled(path, exec, root, report, tools) }] : report.packed ? [tarball] : [];
+    },
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

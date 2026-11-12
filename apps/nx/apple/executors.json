@@ -1,24 +1,24 @@
 {
-    "executors": {
-        "install": {
-            "implementation": "./dist/executors/install/executor#execute",
-            "schema": "./executors/install/schema.json",
-            "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"
-        },
-        "package": {
-            "implementation": "./dist/executors/package/executor#execute",
-            "schema": "./executors/package/schema.json",
-            "description": "Zips each archived app and each SwiftPM executable product, built in release first, with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity, exports each archive under it into a disk image, signs it, notarizes it with that App Store Connect key, and staples the ticket"
-        },
-        "run": {
-            "implementation": "./dist/executors/run/executor#execute",
-            "schema": "./executors/run/schema.json",
-            "description": "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed, stopping at the first failure"
-        },
-        "release-publish": {
-            "implementation": "./dist/executors/release-publish/executor#execute",
-            "schema": "./executors/release-publish/schema.json",
-            "description": "Attaches each disk image or zip the target's dependency targets wrote to the GitHub release of the version the manifest states through gh release upload, then for each disk image it uploaded signs a Sparkle feed with generate_appcast under SPARKLE_ED_PRIVATE_KEY and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put; skips a file that release holds and a project nx release left unversioned; runs through nx release publish"
-        }
+  "executors": {
+    "install": {
+      "implementation": "./dist/executors/install/executor#execute",
+      "schema": "./executors/install/schema.json",
+      "description": "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none"
+    },
+    "package": {
+      "implementation": "./dist/executors/package/executor#execute",
+      "schema": "./executors/package/schema.json",
+      "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
+    },
+    "run": {
+      "implementation": "./dist/executors/run/executor#execute",
+      "schema": "./executors/run/schema.json",
+      "description": "Runs swift and xcodebuild invocations in order with Nx's per-task environment removed, stopping at the first failure"
+    },
+    "release-publish": {
+      "implementation": "./dist/executors/release-publish/executor#execute",
+      "schema": "./executors/release-publish/schema.json",
+      "description": "Signs a Sparkle feed for each disk image the target's dependency targets wrote with generate_appcast under SPARKLE_ED_PRIVATE_KEY, pointing at the image's asset on the GitHub release of the project's version, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put; runs through nx release publish"
     }
+  }
 }

@@ -6,6 +6,10 @@
     },
     "plugins": [
         {
+            "name": "clangd",
+            "source": "./clangd"
+        },
+        {
             "name": "function-hooks",
             "source": "./function-hooks"
         }

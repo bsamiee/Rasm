@@ -8,24 +8,27 @@ requires-python = ">=3.15"
 dependencies = [
     # --- [CORE]
 
-    "mocket",                                                    # HTTP entries and recorded requests of the copied OTLP/HTTP exporter cases
-    "pytest",                                                    # Fixtures, parameters, captured logs, and patched members
-    "rasm-telemetry[configuration,otlp-grpc,otlp-http,process]", # Library under test with every extra its process scope and collector import
-    "time-machine",                                              # Clock moved past a rollover time
+    "mocket",                                          # HTTP entries and recorded requests of the copied OTLP/HTTP exporter cases
+    "msgspec",                                         # Decoding of the JSON line a record case reads
+    "pytest",                                          # Fixtures, parameters, captured logs, and patched members
+    "rasm-telemetry[configuration,otlp-http,process]", # Library under test with every extra its process scope and collector import
+    "time-machine",                                    # Clock moved past a rollover time
 
     # --- [LOGGING]
 
-    "concurrent-log-handler",                                    # Handler class and lock file name of the copied rotation cases
-    "portalocker",                                               # Lock a second process takes on a handler's lock file
-    "structlog",                                                 # Loggers of the copied log record cases and the configuration reset
+    "concurrent-log-handler",                          # Handler class and lock file name of the copied rotation cases
+    "portalocker",                                     # Lock a second process takes on a handler's lock file
+    "structlog",                                       # Loggers of the copied log record cases and the configuration reset
 
     # --- [OPENTELEMETRY]
 
-    "opentelemetry-api",                                         # Tracer and span context of the copied cases, propagator, and environment setter
-    "opentelemetry-configuration",                               # Error a refused configuration file raises
-    "opentelemetry-exporter-otlp-proto-common",                  # Encoding of spans an export request is compared with
-    "opentelemetry-proto",                                       # Export request message a posted body decodes to
-    "opentelemetry-sdk",                                         # Providers, processors, in-memory exporters, and `OTEL_*` variable names of the copied cases
-    "opentelemetry-semantic-conventions",                        # Exception attribute names
-    "opentelemetry-test-utils",                                  # Resets of the provider globals and the entry point stand-in
+    "opentelemetry-api",                               # Tracer and span context of the copied cases, propagator, and environment setter
+    "opentelemetry-configuration",                     # Error a refused configuration file raises
+    "opentelemetry-exporter-otlp-common",              # Compression values the copied precedence rows expect
+    "opentelemetry-exporter-otlp-proto-common",        # Encoding of spans an export request is compared with
+    "opentelemetry-exporter-otlp-proto-http",          # Default endpoint, export path, timeout, and version the copied precedence rows expect
+    "opentelemetry-proto",                             # Export request message a posted body decodes to
+    "opentelemetry-sdk",                               # Providers, processors, in-memory exporters, and `OTEL_*` variable names of the copied cases
+    "opentelemetry-semantic-conventions",              # Exception and exporter component attribute names
+    "opentelemetry-test-utils",                        # Resets of the provider globals and the entry point stand-in
 ]

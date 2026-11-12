@@ -1,11 +1,12 @@
 import { glob } from 'node:fs/promises';
 import { createProjectGraphAsync, type ExecutorContext, getOutputsForTargetAndConfiguration, joinPathFragments, type Tree } from '@nx/devkit';
 import { getDependencyConfigs } from '@nx/devkit/internal';
-import { Array, Config, Effect, FileSystem, type ManagedRuntime, Match, Option, Path, Record, Schema, type Scope, Stream, Struct } from 'effect';
-import { CommandLine } from 'effect/process';
+import { Array, Config, Effect, FileSystem, type ManagedRuntime, Option, Path, Record, Schema, type Scope, Stream } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
+import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { ReleaseVersion } from 'nx/src/command-line/release/utils/shared';
+import { FsTree } from 'nx/src/generators/tree';
 import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
 import { printed, runtime, ToolError } from '#/process';
 
@@ -16,15 +17,6 @@ type Services = ManagedRuntime.ManagedRuntime.Services<typeof runtime> | Scope.S
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Dry = Schema.Struct({ dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }) });
-const Released = Dry.mapFields(
-    Struct.assign({
-        nxReleaseVersionData: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ newVersion: Schema.NullOr(Schema.String) }))).annotate({
-            description: 'Versions nx release set in this run, a project it left unversioned is skipped',
-        }),
-        registry: Schema.optionalKey(Schema.String).annotate({ description: 'Registry nx release publish passes as --registry, in the form the tool names one' }),
-        firstRelease: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Set by nx release publish --first-release, when the registry holds no earlier version' }),
-    }),
-);
 const Locked = Schema.Struct({ lock: Schema.String });
 const Unlocked = Schema.Struct({ skipLockFileUpdate: Schema.optionalKey(Schema.Boolean) });
 const Stated = Schema.Struct({ manifest: Schema.String });
@@ -32,13 +24,6 @@ const Stated = Schema.Struct({ manifest: Schema.String });
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const dried = ({ dryRun }: typeof Dry.Type) => Effect.map(Config.Boolean('NX_DRY_RUN').pipe(Config.withDefault(false)), (stated) => dryRun === true || stated);
-
-const released = Effect.fnUntraced(function* (options: typeof Released.Type, project: string) {
-    const dry = yield* dried(options);
-    const unreleased = options.nxReleaseVersionData?.[project]?.newVersion === null;
-    yield* unreleased ? Effect.logInfo(`Skipped ${project}, nx release left it unversioned`) : Effect.void;
-    return { dry, unreleased };
-});
 
 const written = Effect.fnUntraced(function* (context: ExecutorContext, start: string) {
     const path = yield* Path.Path;
@@ -78,22 +63,29 @@ const written = Effect.fnUntraced(function* (context: ExecutorContext, start: st
     return { project, node, selected, outputs, files: Array.dedupe(listed.filter((dirent) => dirent.isFile()).map((dirent) => path.resolve(context.root, dirent.parentPath, dirent.name))).toSorted() };
 });
 
-const attached = Effect.fnUntraced(function* (context: ExecutorContext, project: string, version: string, files: Array.NonEmptyReadonlyArray<string>, dry: boolean) {
-    const path = yield* Path.Path;
+const packaged = Effect.fnUntraced(function* (context: ExecutorContext) {
+    const [path, target] = yield* Effect.all([Path.Path, Effect.fromNullishOr(context.targetName)]);
+    const { project, files, outputs } = yield* written(context, target);
+    return yield* Array.match(files, {
+        onEmpty: () => ToolError.make({ subject: project, detail: `no file sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first` }),
+        onNonEmpty: (found) => Effect.succeed(Array.map(found, (file) => path.relative(context.root, file))),
+    });
+});
+
+const tagged = Effect.fnUntraced(function* (context: ExecutorContext, project: string) {
+    const tree = new FsTree(context.root, context.isVerbose);
     const owned = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
-    const { nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release));
-    const [group, { releaseTag }] = yield* Effect.mapError(Effect.fromOption(Record.findFirst(nxReleaseConfig?.groups ?? {}, ({ projects }) => projects.includes(project))), ToolError.of(project, 'is in no release group of nx.json release'));
-    const { gitTag } = new ReleaseVersion({ version, releaseTagPattern: releaseTag.pattern, projectName: project, releaseGroupName: group });
-    const listed = yield* Effect.when(printed('gh', ['release', 'view', gitTag, '--json', 'assets', '--jq', '.assets[].name'], { cwd: context.root }), Effect.succeed(!dry));
-    const held = Option.match(listed, { onNone: Array.empty<string>, onSome: (names) => names.split('\n') });
-    const missing = files.filter((file) => !held.includes(path.basename(file)));
-    const upload = ['gh', 'release', 'upload', gitTag, ...missing] as const;
-    yield* Match.value({ dry, complete: missing.length === 0 }).pipe(
-        Match.when({ complete: true }, () => Effect.logInfo(`Skipped ${files.join(', ')}, GitHub release ${gitTag} holds each`)),
-        Match.when({ dry: true }, () => Effect.logInfo(`Would run ${CommandLine.display(upload)}`)),
-        Match.orElse(() => Effect.andThen(printed('gh', Array.tailNonEmpty(upload), { cwd: context.root }), Effect.logInfo(`Attached ${files.join(', ')} to GitHub release ${gitTag}`))),
+    const nxReleaseConfig = yield* Effect.flatMap(
+        Effect.promise(() => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release)),
+        (resolved) => Effect.fromNullishOr(resolved.nxReleaseConfig),
     );
-    return { tag: gitTag, uploaded: missing };
+    const graph = yield* Effect.promise(() => createReleaseGraph({ tree, projectGraph: context.projectGraph, nxReleaseConfig, filters: {}, firstRelease: false, verbose: context.isVerbose, skipVersionResolution: true }));
+    const [{ name, releaseTag }, actions] = yield* Effect.all([Effect.fromNullishOr(graph.projectToReleaseGroup.get(project)), Effect.fromNullishOr(graph.projectsToVersionActions.get(project))]);
+    const { currentVersion: version } = yield* Effect.flatMap(
+        Effect.promise(() => actions.readCurrentVersionFromSourceManifest(tree)),
+        Effect.fromNullishOr,
+    );
+    return new ReleaseVersion({ version, releaseTagPattern: releaseTag.pattern, projectName: project, releaseGroupName: name }).gitTag;
 });
 
 const relocked =
@@ -197,4 +189,4 @@ const executor = <A, E>(options: Schema.Decoder<A>, run: (options: A, context: E
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { attached, Dry, dried, executor, Manifested, Released, released, relocked, written };
+export { Dry, dried, executor, Manifested, packaged, relocked, tagged, written };

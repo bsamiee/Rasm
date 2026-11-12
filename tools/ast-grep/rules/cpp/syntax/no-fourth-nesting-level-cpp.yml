@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: cpplang
+severity: error
+utils:
+    control-flow:
+        any:
+            - kind: for_statement, for_range_loop, while_statement, do_statement, switch_statement, try_statement
+            - kind: if_statement
+              not: {inside: {kind: else_clause, inside: {kind: if_statement}}}
+            - kind: conditional_expression
+              not: {inside: {kind: conditional_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}
+    execution: {kind: 'function_definition, lambda_expression, field_declaration_list, translation_unit'}
+    level:
+        any:
+            - matches: control-flow
+            - kind: lambda_expression
+              inside: {matches: control-flow, stopBy: {matches: execution}}
+    boundary: {any: [{matches: level}, {matches: execution}]}
+rule:
+    kind: &levels 'for_statement, for_range_loop, while_statement, do_statement, switch_statement, try_statement, if_statement, conditional_expression, lambda_expression'
+    all:
+        - inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels}}}
+        - not: {inside: {kind: ERROR, stopBy: end}}
+        - matches: level
+        - inside:
+            matches: level
+            stopBy: {matches: boundary}
+            inside:
+                matches: level
+                stopBy: {matches: boundary}
+                inside:
+                    matches: level
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: level, stopBy: {matches: execution}}}
+        - pattern: $SCOPE
+transform:
+    HEAD: {replace: {source: $SCOPE, replace: '(?s)[\t-\r ]*\{?[\t-\r ]*\n.*$', by: ''}}
+labels:
+    SCOPE: {style: primary, message: Fourth nesting level}
+message: '`$HEAD` opens a fourth nesting level'
+note: 'Rebuild nested decisions, loops, or lambdas as a range pipeline, a `switch`, or one `std::visit` over their inputs'

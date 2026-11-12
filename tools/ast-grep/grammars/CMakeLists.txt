@@ -11,11 +11,21 @@ cmake_path(GET package_dir PARENT_PATH tools_dir)
 cmake_path(GET tools_dir PARENT_PATH workspace_dir)
 set(node_modules "${package_dir}/node_modules")
 set(sgconfig "${workspace_dir}/sgconfig.yml")
-file(GLOB upstream CONFIGURE_DEPENDS
-    "${node_modules}/tree-sitter-*/grammar.js" "${node_modules}/tree-sitter-*/*/grammar.js"
-    "${node_modules}/@tree-sitter-grammars/*/grammar.js" "${node_modules}/@tree-sitter-grammars/*/*/grammar.js"
+file(
+    GLOB upstream
+    CONFIGURE_DEPENDS
+    "${node_modules}/tree-sitter-*/grammar.js"
+    "${node_modules}/tree-sitter-*/*/grammar.js"
+    "${node_modules}/@tree-sitter-grammars/*/grammar.js"
+    "${node_modules}/@tree-sitter-grammars/*/*/grammar.js"
 )
-set(shared "${CMAKE_CURRENT_SOURCE_DIR}/derive.js" "${CMAKE_CURRENT_SOURCE_DIR}/compose.js" "${package_dir}/package.json" "${TREE_SITTER}" ${upstream})
+set(shared
+    "${CMAKE_CURRENT_SOURCE_DIR}/derive.js"
+    "${CMAKE_CURRENT_SOURCE_DIR}/compose.js"
+    "${package_dir}/package.json"
+    "${TREE_SITTER}"
+    ${upstream}
+)
 file(GLOB entries RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*/grammar.js")
 file(GLOB catalogs CONFIGURE_DEPENDS "${package_dir}/outline/*.yml")
 
@@ -25,18 +35,21 @@ foreach(entry IN LISTS entries)
     cmake_path(GET entry PARENT_PATH language)
     set(source "${CMAKE_CURRENT_SOURCE_DIR}/${language}")
     set(generated "${CMAKE_CURRENT_BINARY_DIR}/${language}")
-    add_custom_command(OUTPUT "${generated}/src/grammar.json" "${generated}/src/node-types.json"
+    add_custom_command(
+        OUTPUT "${generated}/src/grammar.json" "${generated}/src/node-types.json"
         COMMAND "${TREE_SITTER}" generate --no-parser --output "${generated}/src" "${source}/grammar.js"
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         DEPENDS "${source}/grammar.js" ${shared}
         VERBATIM
     )
-    add_custom_command(OUTPUT "${generated}/parser/parser.c"
+    add_custom_command(
+        OUTPUT "${generated}/parser/parser.c"
         COMMAND "${TREE_SITTER}" generate --output "${generated}/parser" "${generated}/src/grammar.json"
         DEPENDS "${generated}/src/grammar.json" "${TREE_SITTER}"
         VERBATIM
     )
-    add_custom_command(OUTPUT "${generated}/grammar.h"
+    add_custom_command(
+        OUTPUT "${generated}/grammar.h"
         COMMAND "${CMAKE_COMMAND}" "-DGRAMMAR=${generated}/src/grammar.json" "-DOUTPUT=${generated}/grammar.h" -P "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
         DEPENDS "${generated}/src/grammar.json" "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
         VERBATIM
@@ -46,13 +59,17 @@ foreach(entry IN LISTS entries)
     target_include_directories(${language} PRIVATE "${generated}/parser" "${node_modules}")
     target_compile_features(${language} PRIVATE c_std_11)
     target_compile_options(${language} PRIVATE "SHELL:-include ${generated}/grammar.h" "$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>")
-    set_target_properties(${language} PROPERTIES PREFIX "" C_VISIBILITY_PRESET hidden LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+    set_target_properties(
+        ${language}
+        PROPERTIES PREFIX "" C_VISIBILITY_PRESET hidden LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    )
 endforeach()
 
 foreach(catalog IN LISTS catalogs)
     cmake_path(GET catalog FILENAME name)
     set(outline "${CMAKE_CURRENT_BINARY_DIR}/outline/${name}")
-    add_custom_command(OUTPUT "${outline}"
+    add_custom_command(
+        OUTPUT "${outline}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${CMAKE_CURRENT_BINARY_DIR}/outline"
         COMMAND "${NODE}" "${package_dir}/outline/main.ts" "${sgconfig}" "${catalog}" "${outline}"
         DEPENDS "${catalog}" "${package_dir}/outline/main.ts" "${sgconfig}"

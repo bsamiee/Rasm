@@ -21,6 +21,7 @@
         "bgIsolation": "none"
     },
     "enabledPlugins": {
+        "clangd@rasm": true,
         "function-hooks@rasm": true,
         "astral@astral-sh": true,
         "rust-analyzer-lsp@claude-plugins-official": true,

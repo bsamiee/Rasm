@@ -5,7 +5,7 @@
     "properties": {
         "outputPath": {
             "type": "string",
-            "description": "Workspace-relative folder a plug-in's archives are written to"
+            "description": "Workspace-relative folder holding the BuildPlugin packages under package, their archives under archive, and automation reports under report"
         },
         "descriptor": {
             "type": "string",
@@ -13,7 +13,7 @@
         },
         "hosts": {
             "type": "array",
-            "description": ".uproject files building a plug-in, whose engine associations name each engine BuildPlugin runs on; empty for a plug-in no project builds, which takes its EngineVersion",
+            "description": ".uproject files loading a plug-in, whose engine associations name each engine it builds and tests on; empty for a plug-in no project loads, which takes its EngineVersion",
             "items": {
                 "type": "string"
             }
@@ -25,16 +25,30 @@
                 "type": "string"
             }
         },
+        "users": {
+            "type": "array",
+            "description": ".uproject files enabling a plug-in that sits outside their plug-in folders, each receiving the package on install",
+            "default": [],
+            "items": {
+                "type": "string"
+            }
+        },
+        "operation": {
+            "type": "string",
+            "enum": [ "build", "check", "test", "pack", "install" ],
+            "description": "What runs: the build, the build under UnrealBuildTool static analysis, the automation tests named after the plug-in, the archives, or the copy into each user project",
+            "default": "build"
+        },
         "args": {
             "type": "array",
-            "description": "Arguments appended to the UnrealBuildTool or AutomationTool command",
+            "description": "Arguments appended to the UnrealBuildTool, AutomationTool, or UnrealEditor-Cmd command",
             "items": {
                 "type": "string"
             }
         }
     },
-    "required": [ "outputPath", "descriptor", "hosts", "dependencies" ],
+    "required": [ "outputPath", "descriptor", "hosts", "dependencies", "users", "operation" ],
     "additionalProperties": true,
-    "title": "Unreal build",
-    "description": "Builds a .uproject's editor target through UnrealBuildTool, or packages a .uplugin through AutomationTool's BuildPlugin once per engine its hosts name and archives each package"
+    "title": "Unreal",
+    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host, zips each package and the tracked sources with the engine's EngineVersion, or copies the package into the Plugins folder of each user project"
 }

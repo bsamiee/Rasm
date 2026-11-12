@@ -7,6 +7,7 @@ from enum import StrEnum
 import functools
 from itertools import product
 import logging
+import os
 from pathlib import Path
 import subprocess
 from threading import Event, RLock
@@ -83,7 +84,7 @@ class Reports(AbstractContextManager["Reports"]):
     The log file is `logs/<extension id>.log` under the extension's user folder, JSON records every Blender session of the extension appends and rotates under one lock.
     The logger binds the stdlib logger named for the extension package and sets no process-wide logging state, so outside the scope its warnings and errors print through stdlib `logging` alone.
     The file opens under default settings and reopens under each `configured` call once preferences are readable.
-    Spans come from a tracer provider of the extension alone, so each carries the ids its records and the processes it starts continue, and they export only to the collector a preference names.
+    Spans come from a tracer provider of the extension alone, so each carries the ids its records and the processes it starts continue, and they export only to the collector a preference names, each send reading `bpy.app.online_access`.
     A background process running one command of the extension records as that command's own program through `commanded`, into `logs/<command>.log`.
     Host facts alone sit here: the extension folder, the preferences a `configured` call reads, `bpy.app.online_access`, and the save and render events that flush spans.
     Log records of a session are not exported: the SDK holds its logger provider and OTLP log exporter in private modules alone (`opentelemetry.sdk._logs`, `opentelemetry.exporter.otlp.proto.http._log_exporter`).
@@ -140,8 +141,8 @@ class Reports(AbstractContextManager["Reports"]):
                 self._logged.clear()
 
         def flushed(*_: object) -> None:
-            """Sends ended spans while the user's export preference holds a provider and the host allows online access."""
-            for held in self._export.filter(lambda _: bpy.app.online_access).to_list():
+            """Sends ended spans while the user's export preference holds a provider, its processor keeping them while the host refuses online access."""
+            for held in self._export.to_list():
                 held.force_flush()
 
         bpy.app.handlers.persistent(loaded)
@@ -179,6 +180,7 @@ class Reports(AbstractContextManager["Reports"]):
 
         Exceptions reaching a Python exception hook log where a frame of their traceback belongs to the extension package, the host's and every other extension's left out.
         Spans come from a provider of the extension alone and export on the thread that flushes, the host sharing its process-wide provider with every extension.
+        Each flush and the provider's shutdown send only while `bpy.app.online_access` holds at that call, a shutdown offline dropping the spans it holds.
         """
         self._telemetry.close()
         self.logger.setLevel(settings.severity)
@@ -187,7 +189,7 @@ class Reports(AbstractContextManager["Reports"]):
         self.logger.addHandler(handler)
         self._telemetry.callback(self.logger.removeHandler, handler)
         self._telemetry.enter_context(unhandled(self.logger, self._package))
-        held = provider(self._extension, self._version, *(ManualSpanProcessor(target.exporter()) for target in self._collector.to_list()))
+        held = provider(self._extension, self._version, *(ManualSpanProcessor(target.exporter(), allowed=lambda: bpy.app.online_access) for target in self._collector.to_list()))
         self.tracer, self._export = held.get_tracer(self._package), Some(held)
         self._telemetry.callback(held.shutdown)
         self._telemetry.callback(self._flushed)
@@ -201,25 +203,27 @@ class Reports(AbstractContextManager["Reports"]):
         return catch(self._opened, exception=OSError)(settings, collector).map_error(functools.partial(Fault.of, Reason.UNWRITABLE, str(self.path)))
 
     @contextmanager
-    def commanded(self, command: str, environ: Mapping[str, str], /) -> Generator[None]:
+    def commanded(self, command: str, /) -> Generator[None]:
         """Holds a background process running one command of the extension instrumented as the command's own program until the command ends.
 
         The process is the command's alone, so the process part of `rasm_telemetry` takes it whole in place of the extension log.
-        The root logger writes every record to `logs/<command>.log` under the command's name, spans continue the trace context the launcher wrote into the environment, and unhandled exceptions and fatal errors of any code record there.
-        Signals export as the `OTEL_*` variables of `environ` name while the host allows online access, spans also to the collector a preference names.
+        The root logger writes every record to `logs/<command>.log` under the command's name, spans continue the trace context the launcher wrote into the process environment, and unhandled exceptions and fatal errors of any code record there.
+        Signals export as the `OTEL_*` variables of the process environment name, spans also to the collector a preference names.
+        A host refusing online access sets `OTEL_SDK_DISABLED=true` for the process and each process it starts, so no signal records or sends.
 
         Yields:
             Nothing, while the process records as the command.
         """
         self._telemetry.close()
         self._service = command
+        if not bpy.app.online_access:
+            os.environ[OTEL_SDK_DISABLED] = "true"
         with instrumented(
             self.path,
             service=command,
             version=self._version,
             settings=self.settings,
             scopes=(self._package,),
-            environ=environ if bpy.app.online_access else {**environ, OTEL_SDK_DISABLED: "true"},
             span_processors=tuple(BatchSpanProcessor(target.exporter()) for target in self._collector.to_list()),
         ):
             self.tracer, self._export = trace.get_tracer(self._package), Nothing

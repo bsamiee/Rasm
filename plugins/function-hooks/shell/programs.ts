@@ -57,7 +57,7 @@ const PROGRAMS: Policy['programs'] = {
     swift: { completer: 'swift@common', flags: ['--configuration='], reports: true },
     uv: { wraps: [['run'], ['tool', 'run']], reports: true },
     poetry: { aliases: ['hatch'], wraps: [['run']] },
-    pixi: { wraps: [['run'], ['exec']] },
+    pixi: { flags: ['-e, --environment=', '--manifest-path=', '--locked', '--frozen'], wraps: [['run'], ['exec']] },
     mise: { wraps: '--', launcher: true },
     doppler: { aliases: ['op'], wraps: '--' },
     head: { reads: 'default', closes: true },

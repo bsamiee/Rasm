@@ -10,6 +10,7 @@
         "@rasm/nx-distribution",
         { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true } },
         "@rasm/nx-cargo",
+        { "plugin": "@rasm/nx-cmake", "exclude": [ "tools/ast-grep/grammars/**" ], "options": { "launcher": [ "pixi", "run", "--locked", "-e", "cpp" ], "locks": [ "pixi.lock" ] } },
         { "plugin": "@rasm/nx-uv", "exclude": [ ".config/mise/locks/**" ] },
         "@rasm/nx-dotnet",
         "@rasm/nx-docker",
@@ -23,12 +24,5 @@
         "@rasm/nx-playwright"
     ],
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" }, "@rasm/nx-devkit": { "outputPath": ".artifacts" } },
-    "release": {
-        "projects": [ "tag:npm:public", "tag:release" ],
-        "projectsRelationship": "independent",
-        "version": { "conventionalCommits": true, "fallbackCurrentVersionResolver": "disk" },
-        "conventionalCommits": { "useCommitScope": false, "types": { "refactor": { "semverBump": "patch" }, "perf": { "semverBump": "patch" } } },
-        "changelog": { "automaticFromRef": true, "projectChangelogs": { "file": false, "createRelease": "github", "entryWhenNoChanges": "{projectName} release with no new commits", "renderOptions": { "authors": false } } },
-        "git": { "commitMessage": "chore: publish" }
-    }
+    "release": { "projects": [ "tag:npm:public", "tag:release" ], "version": { "conventionalCommits": true }, "changelog": { "workspaceChangelog": { "createRelease": "github", "file": false } }, "git": { "commitMessage": "chore: publish {version}" } }
 }

@@ -1,0 +1,28 @@
+{
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "0.1.0",
+    "FriendlyName": "Rasm Probe",
+    "Description": "Temporary plug-in proving the Unreal delivery path",
+    "Category": "Other",
+    "CreatedBy": "Bardia Samiee",
+    "CreatedByURL": "https://github.com/bsamiee/Rasm",
+    "DocsURL": "",
+    "MarketplaceURL": "",
+    "FabURL": "com.epicgames.launcher://ue/Fab/product/00000000-0000-0000-0000-000000000000",
+    "SupportURL": "",
+    "EngineVersion": "5.8.0",
+    "CanContainContent": false,
+    "IsBetaVersion": false,
+    "IsExperimentalVersion": false,
+    "Installed": false,
+    "nx": { "implicitDependencies": [ "rasm-tolerance" ] },
+    "Modules": [
+        {
+            "Name": "RasmProbe",
+            "Type": "Runtime",
+            "LoadingPhase": "Default",
+            "PlatformAllowList": [ "Mac", "Linux", "Win64" ]
+        }
+    ]
+}

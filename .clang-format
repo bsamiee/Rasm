@@ -1,0 +1,44 @@
+# --- [BASE] -----------------------------------------------------------------------------
+
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: Latest
+ColumnLimit: 200
+IndentWidth: 4
+ContinuationIndentWidth: 4
+InsertNewlineAtEOF: true
+LineEnding: LF
+
+# --- [DECLARATIONS] ---------------------------------------------------------------------
+
+AccessModifierOffset: -4
+BreakTemplateDeclarations: Yes
+EmptyLineBeforeAccessModifier: Always
+EnumTrailingComma: Insert
+FixNamespaceComments: false
+IndentExportBlock: false
+PointerAlignment: Left
+QualifierAlignment: Custom
+QualifierOrder: [friend, static, inline, constexpr, const, volatile, type]
+SeparateDefinitionBlocks: Always
+WrapNamespaceBodyWithEmptyLines: Always
+
+# --- [STATEMENTS] -----------------------------------------------------------------------
+
+AllowShortEnumsOnASingleLine: false
+BreakBeforeBinaryOperators: NonAssignment
+InsertBraces: true
+PackArguments: {BinPack: OnePerLine}
+PackConstructorInitializers: NextLineOnly
+PackParameters: {BinPack: OnePerLine}
+RemoveSemicolon: true
+
+# --- [INCLUDES] -------------------------------------------------------------------------
+
+IncludeBlocks: Regroup
+IncludeCategories:
+    - {Regex: '^<.*\.h(pp)?>$', Priority: 1}
+    - {Regex: '^<.*>$', Priority: 2}
+    - {Regex: '.*', Priority: 3}
+SortIncludes: {Enabled: true, IgnoreCase: false}
+SortUsingDeclarations: LexicographicNumeric

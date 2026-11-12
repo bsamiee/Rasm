@@ -99,11 +99,8 @@ const execute = executor(
         const document = yield* toml(text, EXTENSION);
         const declared = yield* Schema.decodeUnknownEffect(Manifest)(document);
         const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
+        yield* fs.remove(path.join(context.root, folder), { recursive: true, force: true });
         yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
-        yield* Effect.forEach(
-            (yield* fs.readDirectory(path.join(context.root, folder))).filter((file) => file.startsWith(`${declared.id}-`) && path.extname(file) === '.zip'),
-            (file) => fs.remove(path.join(context.root, folder, file)),
-        );
         const source = bundle ? yield* staged(context, root, text, document, declared) : root;
         yield* printed('uv', [...BUILDER, 'build', ...(declared.platforms === undefined ? [] : ['--split-platforms']), '--source-dir', source, '--output-dir', folder], { cwd: context.root });
         return true;

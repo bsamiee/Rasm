@@ -1,6 +1,6 @@
 """Invocations of a command-line tool: the settings every tool reads from flags and its own variables, its per-user folders, and one command line run inside the process telemetry scope."""
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 from dataclasses import dataclass, field
 from enum import auto, StrEnum
@@ -42,10 +42,10 @@ class Folder(StrEnum):
 @Parameter(name="*", group=Group.create_ordered("Process"))
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Settings:
-    """Settings every tool reads before its command, each a flag and the variable `<TOOL>_<FLAG>` a `cyclopts.config.Env` source of the tool's meta app names.
+    """Settings every tool reads before its command, each a flag and the variable `<TOOL>_<FLAG>` a `cyclopts.config.Env` source of the tool's meta app names, a log field left unset by both reading `LOG_<FIELD>`.
 
     Attributes:
-        log: Levels and rotation of the log, each field the flag `--log-<field>`.
+        log: Levels and rotation of the log, each field the flag `--log-<field>`, one logger's level `--log-filter.<logger>`, a size, age, or count outside its bounds refused as a usage error.
         log_target: Destination of the log: `file` for the rotated file `<log folder>/<tool>.log`, `stderr` for the standard error a container collects.
         log_dir: Folder of the log file, the per-user log folder when omitted.
         cache_dir: Folder of files the tool can make again, the per-user cache folder when omitted.
@@ -115,13 +115,14 @@ class Invocation:
 
 
 @contextmanager
-def invoked(app: App, tokens: tuple[str, ...], settings: Settings, environ: Mapping[str, str], /) -> Generator[Invocation]:
+def invoked(app: App, tokens: tuple[str, ...], settings: Settings, /) -> Generator[Invocation]:
     """Holds the telemetry scope of one command line: the process instrumented under the app's name, and one span named by the tool and its command.
 
     The log is the file `<log folder>/<tool>.log` or the process's standard error, as the log target names, and the service version is the app's `version` string, empty where the app states none.
     The log level applies to the loggers named for the tool and for the root package of its meta command, the log filter to the loggers it names, every other logger passing warnings and above.
-    Each log setting outside its accepted values leaves its default in effect and logs one warning naming its variable, its value, and the accepted values.
+    A log target or level name outside its accepted values logs one warning naming its variable, its value, and the accepted values, the target leaving its default in effect and the level name reading as `NOTSET`.
     The tool's meta command awaits `Invocation.run` or hands a result to `Invocation.ended`.
+    The SDK reads the `OTEL_*` variables of the process environment, and the span continues the trace context a parent wrote there.
     A log folder refusing creation exits with its `UNWRITABLE` fault, and an exporter, protocol, or configuration file the SDK refuses with its `INVALID` fault, before the scope opens.
 
     Yields:
@@ -139,7 +140,6 @@ def invoked(app: App, tokens: tuple[str, ...], settings: Settings, environ: Mapp
                     version=app.version if isinstance(app.version, str) else "",
                     settings=settings.log,
                     scopes=(tool, *((module.__name__.partition(".")[0],) if module else ())),
-                    environ=environ,
                 )
             )
         except OSError as error:

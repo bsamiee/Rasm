@@ -9,7 +9,6 @@ from functools import partial, reduce
 import graphlib
 import inspect
 from itertools import chain
-import os
 import sys
 from threading import Event
 from types import MappingProxyType
@@ -283,7 +282,7 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
 
     def traced(self, identity: Identity, command: str, arguments: list[str], /) -> int:
         """Runs the command as the program of its process: recorded under the command's name, inside one span continuing the trace its launcher wrote into the environment, its faults and the one `INFO` entry of the run logged, returning its exit code."""
-        with identity.reports.commanded(command, os.environ):
+        with identity.reports.commanded(command):
             answer = identity.reports.spanned(command, partial(self.executed, command, arguments))
             identity.reports.faulted(answer)
             status = answer.default_with(_refused)

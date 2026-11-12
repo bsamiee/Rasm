@@ -1,95 +1,73 @@
-import { homedir } from 'node:os';
-import { platform, stderr, stdout } from 'node:process';
+import { stderr, stdout } from 'node:process';
+import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { executor } from '@rasm/nx-devkit/executor';
-import { printed, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, Equivalence, FileSystem, Option, Path, Record, Schema, String, Struct, UndefinedOr } from 'effect';
-import { Ini } from 'effect/encoding';
-import { UNREAL, zipped } from '#/host-packages';
+import { printed } from '@rasm/nx-devkit/process';
+import { Array, Effect, Equivalence, FileSystem, Path, Schema, Struct } from 'effect';
+import { applyEdits, modify } from 'jsonc-parser';
+import { engine, zipped } from '#/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SETTINGS: Partial<Record<NodeJS.Platform, readonly string[]>> = { darwin: ['Library', 'Application Support', 'Epic'], linux: ['.config', 'Epic'] };
-const SEPARATOR = /[/\\]/u;
+const ANALYSIS = ['-StaticAnalyzer=Default', '-StaticAnalyzerProjectOnly', '-DisableUnity'] as const;
+const FOLDERS = { package: 'package', archive: 'archive', report: 'report' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Build = Schema.Struct({
-    outputPath: Schema.String.annotate({ description: "Workspace-relative folder a plug-in's archives are written to" }),
+const Unreal = Schema.Struct({
+    outputPath: Schema.String.annotate({ description: 'Workspace-relative folder holding the BuildPlugin packages under package, their archives under archive, and automation reports under report' }),
     descriptor: Schema.String.annotate({ description: 'Project .uproject or .uplugin, relative to the workspace root' }),
-    hosts: Schema.Array(Schema.String).annotate({ description: '.uproject files building a plug-in, whose engine associations name each engine BuildPlugin runs on; empty for a plug-in no project builds, which takes its EngineVersion' }),
+    hosts: Schema.Array(Schema.String).annotate({ description: '.uproject files loading a plug-in, whose engine associations name each engine it builds and tests on; empty for a plug-in no project loads, which takes its EngineVersion' }),
     dependencies: Schema.Array(Schema.String).annotate({ description: 'Workspace plug-ins a .uplugin names, passed to BuildPlugin as -Dependencies' }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the UnrealBuildTool or AutomationTool command' }),
-}).annotate({ title: 'Unreal build', description: "Builds a .uproject's editor target through UnrealBuildTool, or packages a .uplugin through AutomationTool's BuildPlugin once per engine its hosts name and archives each package" });
-const Descriptor = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String), EngineVersion: Schema.optionalKey(Schema.String), VersionName: Schema.optionalKey(Schema.String) }));
-const Launcher = Schema.fromJsonString(Schema.Struct({ InstallationList: Schema.Array(Schema.Struct({ AppName: Schema.String, InstallLocation: Schema.String })) }));
-const Registered = Schema.Struct({ Installations: Schema.Record(Schema.String, Schema.String) });
-const Built = Schema.fromJsonString(Schema.Struct({ MajorVersion: Schema.Int, MinorVersion: Schema.Int }));
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const engine = Effect.fnUntraced(function* (descriptor: string) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const settings = path.join(homedir(), ...(SETTINGS[platform] ?? []));
-    const declared = yield* Effect.flatMap(fs.readFileString(descriptor), Schema.decodeEffect(Descriptor));
-    const named = descriptor.endsWith('.uproject') ? Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty) : Option.map(Option.fromUndefinedOr(declared.EngineVersion), (engineVersion) => Array.take(String.split(engineVersion, '.'), 2).join('.'));
-    const read = (at: readonly string[]) => Effect.option(fs.readFileString(path.join(settings, ...at)));
-    const [registered, launched] = yield* Effect.all([read(['UnrealEngine', 'Install.ini']), read(['UnrealEngineLauncher', 'LauncherInstalled.dat'])]);
-    const ancestors = Array.unfold(path.dirname(descriptor), (at) => (path.dirname(at) === at ? Option.none() : Option.some([at, path.dirname(at)] as const)));
-    const native = yield* Effect.filter(ancestors, (at) => fs.exists(path.join(at, 'Engine', 'Build', 'Build.version')));
-    const root = yield* Effect.fromOption(
-        Option.firstSomeOf([
-            Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => SEPARATOR.test(key))),
-            Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
-            Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Record.get(Installations, key)),
-            Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Schema.decodeOption(Launcher)(text))]), ([key, { InstallationList }]) =>
-                Option.map(
-                    Array.findFirst(InstallationList, ({ AppName }) => AppName === `UE_${key}`),
-                    ({ InstallLocation }) => InstallLocation,
-                ),
-            ),
-        ]),
-        () =>
-            ToolError.make({
-                subject: descriptor,
-                detail: Option.match(named, { onNone: () => 'names no engine, and no engine tree encloses it', onSome: (key) => `names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` }),
-            }),
-    );
-    const version = yield* Effect.flatMap(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), Schema.decodeEffect(Built));
-    return { root, version: `${version.MajorVersion}.${version.MinorVersion}` };
+    users: Schema.Array(Schema.String).annotate({ description: '.uproject files enabling a plug-in that sits outside their plug-in folders, each receiving the package on install', default: [] }),
+    operation: Schema.Literals(['build', 'check', 'test', 'pack', 'install']).annotate({ description: 'What runs: the build, the build under UnrealBuildTool static analysis, the automation tests named after the plug-in, the archives, or the copy into each user project', default: 'build' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the UnrealBuildTool, AutomationTool, or UnrealEditor-Cmd command' }),
+}).annotate({
+    title: 'Unreal',
+    description:
+        "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host, zips each package and the tracked sources with the engine's EngineVersion, or copies the package into the Plugins folder of each user project",
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = executor(
-    Build,
-    Effect.fnUntraced(function* (options, { root: workspaceRoot }) {
+    Unreal,
+    Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, dependencies, users, operation, args = [] }, { root: workspaceRoot }) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), ToolError.of(platform, `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
         const absolute = (at: string) => path.resolve(workspaceRoot, at);
-        const script = (at: string, file: string) => path.join(at, 'Engine', 'Build', 'BatchFiles', file);
-        const run = (command: string, args: readonly string[]) => printed(command, [...args, ...(options.args ?? [])], { cwd: workspaceRoot, echo: { stdout, stderr } });
-        if (options.descriptor.endsWith('.uproject')) {
-            const { root } = yield* engine(absolute(options.descriptor));
-            yield* run(script(root, 'RunUBT.sh'), ['-TargetType=Editor', host, 'Development', `-Project=${absolute(options.descriptor)}`, '-WaitMutex']);
-            return true;
-        }
-        const name = path.basename(options.descriptor, path.extname(options.descriptor));
-        const declared = yield* Effect.flatMap(fs.readFileString(absolute(options.descriptor)), Schema.decodeEffect(Descriptor));
-        const engines = Array.dedupeWith(yield* Effect.forEach(options.hosts.length === 0 ? [options.descriptor] : options.hosts, (descriptor) => engine(absolute(descriptor))), Equivalence.mapInput(Equivalence.String, Struct.get('root')));
-        const folder = absolute(options.outputPath);
-        yield* fs.makeDirectory(folder, { recursive: true });
-        yield* Effect.forEach(
-            (yield* fs.readDirectory(folder)).filter((file) => file.startsWith(`${name}-`) && path.extname(file) === '.zip'),
-            (file) => fs.remove(path.join(folder, file)),
-        );
-        yield* Effect.forEach(
-            engines,
-            Effect.fnUntraced(function* ({ root, version }) {
-                const staged = yield* fs.makeTempDirectoryScoped();
-                yield* run(script(root, 'RunUAT.sh'), ['BuildPlugin', `-Package=${staged}`, `-Plugin=${absolute(options.descriptor)}`, ...options.dependencies.map((at) => `-Dependencies=${absolute(at)}`)]);
-                yield* zipped(staged, yield* fs.readDirectory(staged, { recursive: true }), path.join(folder, UndefinedOr.match(declared.VersionName, { onUndefined: () => `${name}-${version}-${host}.zip`, onDefined: (versionName) => `${name}-${versionName}-${version}-${host}.zip` })));
-            }, Effect.scoped),
-        );
+        const name = path.basename(descriptor, path.extname(descriptor));
+        const placed = (folder: keyof typeof FOLDERS, ...rest: readonly string[]) => path.join(absolute(outputPath), FOLDERS[folder], ...rest);
+        const run = (command: string, given: readonly string[]) => printed(command, [...given, ...args], { cwd: workspaceRoot, echo: { stdout, stderr } });
+        const located = (at: string) => Effect.map(engine(absolute(at)), (found) => ({ ...found, project: absolute(at) }));
+        const loading = yield* Effect.forEach(hosts.length === 0 ? [descriptor] : hosts, located);
+        const engines = Array.dedupeWith(loading, Equivalence.mapInput(Equivalence.String, Struct.get('root')));
+        type Loading = (typeof loading)[number];
+        const edited = ({ scripts, platform, project }: Loading, analysis: readonly string[]) => run(path.join(scripts, 'RunUBT.sh'), ['-TargetType=Editor', platform, 'Development', `-Project=${project}`, '-WaitMutex', ...analysis]);
+        const packaged = ({ scripts, version }: Loading) => run(path.join(scripts, 'RunUAT.sh'), ['BuildPlugin', `-Plugin=${absolute(descriptor)}`, `-Package=${placed('package', version, name)}`, ...dependencies.map((at) => `-Dependencies=${absolute(at)}`)]);
+        const tested = (each: Loading) =>
+            Effect.andThen(edited(each, []), run(path.join(each.binaries, 'UnrealEditor-Cmd'), [each.project, `-ExecCmds=Automation RunTests ${name};Quit`, '-nullrhi', '-unattended', '-nosplash', `-ReportExportPath=${placed('report', path.basename(each.project, path.extname(each.project)))}`]));
+        const archived = Effect.fnUntraced(function* ({ version, platform }: Loading) {
+            const [stage, text, tracked] = yield* Effect.all([fs.makeTempDirectoryScoped(), fs.readFileString(absolute(descriptor)), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.join(path.dirname(descriptor), '**')]))]);
+            const sources = tracked.map((file) => path.join(name, path.relative(path.dirname(descriptor), file)));
+            yield* Effect.forEach(Array.zip(tracked, sources), ([file, to]) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(stage, to)), { recursive: true }), fs.copyFile(absolute(file), path.join(stage, to))), { discard: true });
+            yield* fs.writeFileString(path.join(stage, name, path.basename(descriptor)), applyEdits(text, modify(text, ['EngineVersion'], `${version}.0`, {})));
+            yield* zipped(stage, sources, placed('archive', `${name}-${version}.zip`));
+            yield* zipped(placed('package', version), yield* fs.readDirectory(placed('package', version), { recursive: true }), placed('archive', `${name}-${version}-${platform}.zip`));
+        }, Effect.scoped);
+        const installed = Effect.fnUntraced(function* (at: string) {
+            const { version, project } = yield* located(at);
+            const target = path.join(path.dirname(project), 'Plugins', name);
+            yield* fs.remove(target, { recursive: true, force: true });
+            yield* fs.copy(placed('package', version, name), target);
+        });
+        const compiled = (analysis: readonly string[]) => (path.extname(descriptor) === '.uproject' ? Effect.forEach(loading, (each) => edited(each, analysis), { discard: true }) : Effect.forEach(engines, packaged, { discard: true }));
+        const cleared = Effect.andThen(fs.remove(placed('archive'), { recursive: true, force: true }), fs.makeDirectory(placed('archive'), { recursive: true }));
+        yield* {
+            build: compiled([]),
+            check: compiled(ANALYSIS),
+            test: Effect.forEach(loading, tested, { discard: true }),
+            pack: Effect.andThen(cleared, Effect.forEach(engines, archived, { discard: true })),
+            install: Effect.forEach(users, installed, { discard: true }),
+        }[operation];
         return true;
     }),
 );

@@ -1,55 +1,73 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "version": 2,
-    "type": "object",
-    "properties": {
-        "exports": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "version": 2,
+  "type": "object",
+  "properties": {
+    "exports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "archive": {
+            "type": "string"
+          },
+          "folder": {
+            "type": "string"
+          },
+          "run": {
             "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "archive": {
-                        "type": "string"
-                    },
-                    "folder": {
-                        "type": "string"
-                    }
-                },
-                "required": [ "archive", "folder" ],
-                "additionalProperties": true
-            }
-        },
-        "products": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "package": {
-                        "type": "string"
-                    },
-                    "product": {
-                        "type": "string"
-                    },
-                    "folder": {
-                        "type": "string"
-                    },
-                    "manifest": {
-                        "type": "string"
-                    }
-                },
-                "required": [ "package", "product", "folder", "manifest" ],
-                "additionalProperties": true
-            }
-        },
-        "args": {
-            "type": "array",
-            "description": "Arguments appended to each ditto invocation that writes a zip",
-            "items": {
+            "minItems": 1,
+            "description": "The xcodebuild archive invocation that writes the archive",
+            "items": [
+              {
                 "type": "string"
+              }
+            ],
+            "additionalItems": {
+              "type": "string"
             }
-        }
+          }
+        },
+        "required": [
+          "archive",
+          "folder",
+          "run"
+        ],
+        "additionalProperties": true
+      }
     },
-    "additionalProperties": true,
-    "title": "Package",
-    "description": "Zips each archived app and each SwiftPM executable product, built in release first, with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set and a keychain holds a Developer ID Application identity, exports each archive under it into a disk image, signs it, notarizes it with that App Store Connect key, and staples the ticket"
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "package": {
+            "type": "string"
+          },
+          "product": {
+            "type": "string"
+          },
+          "folder": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "package",
+          "product",
+          "folder"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "args": {
+      "type": "array",
+      "description": "Arguments appended to each ditto invocation that writes a zip",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true,
+  "title": "Package",
+  "description": "Archives each app with its xcodebuild invocation and builds each SwiftPM executable product in release, then zips each under its bundle or product name with ditto; where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set, exports each archive under the Developer ID Application identity into a disk image in place of the zip, signs it, notarizes it with that App Store Connect key, and staples the ticket"
 }

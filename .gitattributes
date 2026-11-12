@@ -3,6 +3,11 @@
 # --- [DIFF] -----------------------------------------------------------------------------
 
 *.c diff=cpp
+*.h diff=cpp
+*.cpp diff=cpp
+*.hpp diff=cpp
+*.cppm diff=cpp
+*.ixx diff=cpp
 *.cs diff=csharp
 *.rs diff=rust
 *.py diff=python

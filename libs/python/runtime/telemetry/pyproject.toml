@@ -13,13 +13,15 @@ dependencies = [
     # --- [ENTRIES]
 
     "concurrent-log-handler",             # Size and time rotation with retention under one lock file every appending process takes
-    "structlog",                          # Bound loggers over stdlib loggers, context-local fields, the formatter of stdlib handlers, and its timestamp, call site, exception, and JSON processors
+    "pydantic",                           # Field bounds and the level name form of the log settings
+    "pydantic-settings",                  # Log settings read from arguments and `LOG_*` variables, validated at construction
+    "structlog",                          # Bound loggers over stdlib loggers, context-local fields, the formatter of stdlib handlers, and its call site, exception, and JSON processors
 
     # --- [TRACES]
 
     "opentelemetry-api",                  # Current span ids of each entry, a no-op without the SDK
     "opentelemetry-instrumentation",      # Stdlib level to OpenTelemetry severity number of each record
-    "opentelemetry-semantic-conventions", # Code, exception, and service attribute names of each record
+    "opentelemetry-semantic-conventions", # Code, exception, event, and service attribute names of each record
 ]
 
 [project.optional-dependencies]
@@ -29,9 +31,10 @@ export        = [
 process       = [
     "opentelemetry-distro",                         # Configurator installing tracer, meter, and logger providers over the exporters `OTEL_*` variables name
     "opentelemetry-instrumentation-structlog",      # Processor emitting each entry of the log as an OpenTelemetry log record
-    "rasm-telemetry[export]",                       # Providers the scope shuts down, the resource of each exported signal, and the tracer provider giving spans their ids
+    "rasm-telemetry[export]",                       # Providers the scope shuts down and the resource of each exported signal
 ]
 otlp-http     = [
+    "opentelemetry-exporter-otlp-common",           # Compression values a collector takes beside the HTTP exporter's own
     "opentelemetry-exporter-otlp-proto-http",       # OTLP exporters over HTTP, `otlp_proto_http` and `otlp` under the `http/protobuf` protocol, and the collector of a host plug-in
     "rasm-telemetry[export]",                       # Span processor and provider a collector's exporter joins
 ]
@@ -42,7 +45,7 @@ configuration = [
     "opentelemetry-configuration",                  # Declarative SDK configuration `OTEL_CONFIG_FILE` names
 ]
 metrics       = [
-    "opentelemetry-instrumentation-system-metrics", # Process and CPython metrics over psutil, registered while metrics export
+    "opentelemetry-instrumentation-system-metrics", # Process and CPython metrics over psutil, registered by the process scope
 ]
 
 [project.urls]

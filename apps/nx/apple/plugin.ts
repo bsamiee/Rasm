@@ -89,7 +89,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
         const owners = workspaces.filter((workspace) => workspace.projects.includes(at)).map((workspace) => workspace.path);
         return Option.getOrElse(Array.head(owners.length === 1 ? owners : []), () => at);
     };
-    const evaluatedResults = yield* Effect.forEach(analyzed.containers, (container) => Effect.result(evaluated(workspaceRoot, options, container, built(container.path))), { concurrency: 'unbounded' });
+    const evaluatedResults = yield* Effect.forEach(analyzed.containers, (container) => Effect.result(evaluated(workspaceRoot, options, container, built(container.path))));
     const xcode = Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(result, (success) => ({ container, ...success })));
     const unread = [...(Option.isNone(info) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []), ...(Option.isNone(reader) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : [])];
     const broken: readonly (readonly [string, Error])[] = [
@@ -121,7 +121,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
             ...Option.getOrUndefined(
                 Option.map(
                     Array.findFirst(group, (part) => part.release !== undefined),
-                    Struct.pick(['release', 'publish']),
+                    Struct.pick(['release', 'packaged', 'publish']),
                 ),
             ),
             technologies: Array.dedupe(group.flatMap((part) => part.technologies)),
@@ -145,6 +145,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: Set
                     clean: part.clean,
                     members: part.members,
                     ...(part.release !== undefined && { release: part.release }),
+                    ...(part.packaged !== undefined && { packaged: part.packaged }),
                     ...(part.publish !== undefined && { publish: part.publish }),
                     configuration: { tags: [`os:${HOST}`] },
                 }),

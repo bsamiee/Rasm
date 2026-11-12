@@ -1,6 +1,6 @@
 import { constants, openAsBlob } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, join, matchesGlob } from 'node:path';
+import { basename, dirname, join, matchesGlob } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
@@ -10,8 +10,8 @@ import { PLATFORM } from '@rasm/nx-devkit/plugin';
 import { printed, ToolError } from '@rasm/nx-devkit/process';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
-import { Array, Config, Effect, FileSystem, Option, Path, type PlatformError, pipe, Record, Result, Schema, SemVer, Stream } from 'effect';
-import { Toml, Yaml, Zip } from 'effect/encoding';
+import { Array, Config, Effect, FileSystem, flow, Option, Path, type PlatformError, pipe, Record, Result, Schema, SemVer, Stream, String } from 'effect';
+import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import type { ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
@@ -29,6 +29,7 @@ interface Fields {
     readonly folders?: readonly string[];
     readonly references?: readonly { readonly name: string; readonly enabled: boolean }[];
     readonly installed?: boolean;
+    readonly implicit?: readonly string[];
 }
 
 interface Found {
@@ -47,6 +48,8 @@ interface Host {
     readonly archive?: string;
     readonly platforms?: readonly string[];
     readonly standalone?: true;
+    readonly held?: (descriptor: string) => Effect.Effect<boolean, never, Services>;
+    readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
     readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, ToolError>;
     readonly write?: (text: string, version: string) => Effect.Effect<string, ToolError>;
     readonly build?: { readonly executor: string; readonly command: string; readonly lock?: string; readonly runtime?: readonly string[]; readonly pack?: (folder: Found, file: string, timestampAuthority: string) => Step };
@@ -62,7 +65,11 @@ const PYTHON = ['run', '--no-project', 'python', '-c'] as const;
 const LOCATED = "shutil.which('blender_ext.py', os.F_OK)";
 const BUILDER = [...PYTHON, `import os, runpy, shutil, sys; sys.argv[0] = ${LOCATED}; runpy.run_path(sys.argv[0], run_name='__main__')`] as const;
 const BLENDER: Partial<Record<NodeJS.Platform, string>> = { darwin: 'macos', linux: 'linux', win32: 'windows' };
-const UNREAL: Partial<Record<NodeJS.Platform, string>> = { darwin: 'Mac', linux: 'Linux' };
+const UNREAL: Partial<Record<NodeJS.Platform, { readonly name: string; readonly settings: readonly string[] }>> = {
+    darwin: { name: 'Mac', settings: ['Library', 'Application Support', 'Epic'] },
+    linux: { name: 'Linux', settings: ['.config', 'Epic'] },
+};
+const ENGINE_PATH = /[/\\]/u;
 const ADOBE: Partial<Record<NodeJS.Platform, Config.Config<string>>> = {
     darwin: Config.succeed(join(homedir(), 'Library', 'Application Support', 'Adobe')),
     win32: Config.map(Config.String('APPDATA'), (roaming) => join(roaming, 'Adobe')),
@@ -80,7 +87,13 @@ const Registry = Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Sch
 const Cep = Schema.Struct({ ExtensionBundleId: Schema.String, ExtensionBundleVersion: Schema.String });
 const References = Schema.optionalKey(Schema.Array(Schema.Struct({ Name: Schema.String, Enabled: Schema.optionalKey(Schema.Boolean) })));
 const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
-const Plugin = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.String, Installed: Schema.optionalKey(Schema.Boolean), Plugins: References }));
+const Plugin = Schema.fromJsonString(
+    Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.Array(Schema.String) })) }),
+);
+const Engined = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String), EngineVersion: Schema.optionalKey(Schema.String) }));
+const Launcher = Schema.fromJsonString(Schema.Struct({ InstallationList: Schema.Array(Schema.Struct({ AppName: Schema.String, InstallLocation: Schema.String })) }));
+const Registered = Schema.Struct({ Installations: Schema.Record(Schema.String, Schema.String) });
+const Built = Schema.fromJsonString(Schema.Struct({ MajorVersion: Schema.Int, MinorVersion: Schema.Int }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -136,6 +149,38 @@ const entry = (file: string, name: string) =>
         ),
     );
 
+const engine = Effect.fnUntraced(function* (descriptor: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), ToolError.of(platform, `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
+    const settings = path.join(homedir(), ...host.settings);
+    const declared = yield* Effect.flatMap(fs.readFileString(descriptor), Schema.decodeEffect(Engined));
+    const named = path.extname(descriptor) === '.uproject' ? Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty) : Option.map(Option.fromUndefinedOr(declared.EngineVersion), (stated) => Array.take(String.split(stated, '.'), 2).join('.'));
+    const read = (at: readonly string[]) => Effect.option(fs.readFileString(path.join(settings, ...at)));
+    const [registered, launched] = yield* Effect.all([read(['UnrealEngine', 'Install.ini']), read(['UnrealEngineLauncher', 'LauncherInstalled.dat'])]);
+    const above = Array.unfold(path.dirname(descriptor), (at) => (path.dirname(at) === at ? Option.none() : Option.some([at, path.dirname(at)] as const)));
+    const native = yield* Effect.filter(above, (at) => fs.exists(path.join(at, 'Engine', 'Build', 'Build.version')));
+    const root = yield* Effect.fromOption(
+        Option.firstSomeOf([
+            Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => ENGINE_PATH.test(key))),
+            Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
+            Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Record.get(Installations, key)),
+            Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Schema.decodeOption(Launcher)(text))]), ([key, { InstallationList }]) =>
+                Option.map(
+                    Array.findFirst(InstallationList, ({ AppName }) => AppName === `UE_${key}`),
+                    ({ InstallLocation }) => InstallLocation,
+                ),
+            ),
+        ]),
+        () =>
+            ToolError.make({
+                subject: descriptor,
+                detail: Option.match(named, { onNone: () => 'names no engine, and no engine tree encloses it', onSome: (key) => `names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` }),
+            }),
+    );
+    const { MajorVersion, MinorVersion } = yield* Effect.flatMap(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), Schema.decodeEffect(Built));
+    return { root, platform: host.name, version: `${MajorVersion}.${MinorVersion}`, binaries: path.join(root, 'Engine', 'Binaries', host.name), scripts: path.join(root, 'Engine', 'Build', 'BatchFiles') };
+});
+
 const located = Effect.fnUntraced(function* (context: ExecutorContext, start: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { project, node, selected, outputs, files } = yield* written(context, start);
@@ -148,7 +193,7 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext, start: st
         );
     const packages = yield* Effect.forEach(
         files.flatMap((file) => rows.filter(({ archive }) => archive !== undefined && file.endsWith(archive)).map((host) => ({ file, host }))),
-        ({ file, host }) => Effect.flatMap(entry(file, host.manifest), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),
+        ({ file, host }) => Effect.flatMap(entry(file, `{,*/}${host.manifest}`), Option.match({ onNone: () => Effect.succeedNone, onSome: ({ at, text }) => stated(host, file, text, path.join(file, at), []) })),
     );
     const under = (folder: string) => sources.filter((other) => other.startsWith(`${folder}${path.sep}`)).map((other) => path.relative(folder, other));
     const folders = yield* Effect.forEach(
@@ -208,6 +253,7 @@ const HOSTS: readonly Host[] = [
         technology: 'yak',
         archive: '.yak',
         read: (text) => Effect.succeed(Option.map(Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Yak)), ({ name, version }) => ({ name, version }))),
+        build: { executor: 'package', command: 'yak build', pack: ({ at }, file) => Effect.flatMap(FileSystem.FileSystem, (fs) => Effect.andThen(fs.copy(at, dirname(file)), Effect.asVoid(printed('yak', ['build'], { cwd: dirname(file) })))) },
         install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }) => Effect.asVoid(printed('yak', ['install', at])) },
         publish: {
             store: 'https://yak.rhino3d.com',
@@ -311,7 +357,9 @@ const HOSTS: readonly Host[] = [
                 onFailure: ToolError.of(file, 'does not decode'),
                 onSuccess: ({ Plugins, AdditionalPluginDirectories }) => Option.some({ name: basename(file, '.uproject'), folders: ['Plugins', ...(AdditionalPluginDirectories ?? [])], references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })) }),
             }),
+        held: flow(engine, Effect.isSuccess),
         build: { executor: 'unreal-build', command: 'UnrealBuildTool' },
+        operations: { check: { command: 'UnrealBuildTool -StaticAnalyzer=Default -StaticAnalyzerProjectOnly -DisableUnity', options: { operation: 'check' } } },
     },
     {
         manifest: '*.uplugin',
@@ -322,17 +370,30 @@ const HOSTS: readonly Host[] = [
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
                 onFailure: ToolError.of(file, 'does not decode'),
-                onSuccess: ({ VersionName, Installed, Plugins }) => Option.some({ name: basename(file, '.uplugin'), version: VersionName, installed: Installed === true, references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })) }),
+                onSuccess: ({ VersionName, Installed, Plugins, nx }) =>
+                    Option.some({
+                        name: basename(file, '.uplugin'),
+                        ...(VersionName !== undefined && { version: VersionName }),
+                        ...(nx !== undefined && { implicit: nx.implicitDependencies }),
+                        installed: Installed === true,
+                        references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })),
+                    }),
             }),
         write: (text, version) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
                 onFailure: ToolError.of('uplugin', 'does not decode'),
                 onSuccess: ({ Version }) => applyEdits(text, [...modify(text, ['VersionName'], version, {}), ...modify(text, ['Version'], (Version ?? 0) + 1, {})]),
             }),
+        held: flow(engine, Effect.isSuccess),
         build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin', runtime: [PLATFORM.runtime] },
+        operations: {
+            test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests <plug-in name>;Quit" -nullrhi -unattended in each project loading the plug-in', options: { operation: 'test' } },
+            pack: { command: 'a zip of each BuildPlugin package and a zip of the tracked sources per engine, the form Fab takes', options: { operation: 'pack' } },
+            install: { command: 'a copy of the BuildPlugin package into the Plugins folder of each project enabling the plug-in outside its folders', options: { operation: 'install' } },
+        },
     },
 ];
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { BUILDER, EXTENSION, type Fields, type Found, HOSTS, type Host, located, UNREAL, zipped };
+export { BUILDER, EXTENSION, engine, type Fields, type Found, HOSTS, type Host, located, zipped };

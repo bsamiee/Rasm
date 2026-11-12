@@ -1,0 +1,28 @@
+{
+    "name": "clangd",
+    "version": "1.0.0",
+    "description": "C++ language server from the Pixi `cpp` environment, reading named modules through its own module builds",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "lspServers": {
+        "clangd": {
+            "command": "pixi",
+            "args": [ "run", "--locked", "-e", "cpp", "clangd", "--background-index", "--experimental-modules-support" ],
+            "extensionToLanguage": {
+                ".h": "cpp",
+                ".hh": "cpp",
+                ".hpp": "cpp",
+                ".hxx": "cpp",
+                ".cc": "cpp",
+                ".cpp": "cpp",
+                ".cxx": "cpp",
+                ".cppm": "cpp",
+                ".ixx": "cpp",
+                ".ipp": "cpp",
+                ".inl": "cpp",
+                ".tpp": "cpp"
+            }
+        }
+    }
+}

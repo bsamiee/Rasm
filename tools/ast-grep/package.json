@@ -19,6 +19,7 @@
         "refa": "catalog:",
         "tree-sitter-bash": "catalog:",
         "tree-sitter-c-sharp": "catalog:",
+        "tree-sitter-cpp": "catalog:",
         "tree-sitter-java": "catalog:",
         "tree-sitter-javascript": "catalog:",
         "tree-sitter-postgres": "catalog:",

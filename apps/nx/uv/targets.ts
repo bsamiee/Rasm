@@ -1,5 +1,5 @@
 import type { TargetConfiguration } from '@nx/devkit';
-import { ancestors, type Identity, line, type Members } from '@rasm/nx-devkit/plugin';
+import { ancestors, type Identity, line, type Project } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
 import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
@@ -147,7 +147,7 @@ const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, roo
     };
 };
 
-const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (tool: string, name: string) => Option.Option<string>): { readonly members: Members; readonly publish?: TargetConfiguration } => {
+const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (tool: string, name: string) => Option.Option<string>): Pick<Project, 'members' | 'packaged' | 'publish'> => {
     const root = member.root === member.workspace;
     const named = Option.fromUndefinedOr(member.name);
     const distributions = Option.map(named, (name) => Option.getOrElse(placed('uv', name), () => path.join(member.workspace, 'dist', name)));
@@ -278,10 +278,10 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
         },
         ...(member.published &&
             Option.isSome(distributions) && {
+                packaged: ['build--uv'],
                 publish: {
                     executor: plugin.publisher,
                     options: { publish: published, preview: [...published, '--dry-run'] },
-                    dependsOn: ['build--uv'],
                     metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
                 },
             }),

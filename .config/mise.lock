@@ -5989,15 +5989,6 @@ specifiers = ["0.2.0-alpha.12"]
 [tools."npm:@modelcontextprotocol/conformance".provenance]
 repository = "github.com/modelcontextprotocol/conformance"
 
-[[tools."npm:cf"]]
-version = "1.0.0-beta.28"
-aube = { path = "mise/locks/npm-cf/1.0.0-beta.28", digest = "sha256:de27c22b63d747fe4ce2668c8052d892105d15ca801be27a938607f2a6d05bfe" }
-backend = "npm:cf"
-specifiers = ["latest"]
-
-[tools."npm:cf".provenance]
-repository = "github.com/cloudflare/cf"
-
 [[tools.pitchfork]]
 version = "2.34.0"
 backend = "packslip:github.com/jdx/pitchfork"

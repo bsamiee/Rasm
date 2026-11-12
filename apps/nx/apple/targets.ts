@@ -15,6 +15,7 @@ interface Part {
     readonly clean: string;
     readonly members: Members;
     readonly release?: typeof VersionActionsOptions.Type;
+    readonly packaged?: readonly string[];
     readonly publish?: TargetConfiguration;
 }
 type Settings = typeof Options.Type & { readonly placed: (tool: string, name: string) => Option.Option<string> };

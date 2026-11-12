@@ -1,17 +1,17 @@
 {
-    "executors": {
-        "cargo": {
-            "implementation": "./dist/executors/cargo/executor#execute",
-            "batchImplementation": "./dist/executors/cargo/executor#batch",
-            "schema": "./executors/cargo/schema.json",
-            "preferBatch": true,
-            "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report"
-        },
-        "release-publish": {
-            "implementation": "./dist/executors/release-publish/executor#execute",
-            "schema": "./executors/release-publish/schema.json",
-            "description": "Publishes a crate with cargo publish, skipping a version the registry already holds; runs through nx release publish",
-            "hidden": true
-        }
+  "executors": {
+    "cargo": {
+      "implementation": "./dist/executors/cargo/executor#execute",
+      "batchImplementation": "./dist/executors/cargo/executor#batch",
+      "schema": "./executors/cargo/schema.json",
+      "preferBatch": true,
+      "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report"
+    },
+    "release-publish": {
+      "implementation": "./dist/executors/release-publish/executor#execute",
+      "schema": "./executors/release-publish/schema.json",
+      "description": "Publishes a crate with cargo publish, under a dry run with cargo publish --dry-run over the crate and its workspace dependencies; runs through nx release publish",
+      "hidden": true
     }
+  }
 }

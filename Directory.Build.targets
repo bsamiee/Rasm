@@ -29,6 +29,10 @@
         <CentralPackageTransitivePinningEnabled Condition="'$(IsRoslynComponent)' != 'true' and '$(IsPackable)' != 'true'">true</CentralPackageTransitivePinningEnabled>
     </PropertyGroup>
 
+    <PropertyGroup Label="Package Output">
+        <PackageOutputPath>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'package', '$(MSBuildProjectName)', '$(Version)'))</PackageOutputPath>
+    </PropertyGroup>
+
     <PropertyGroup Label="Compiler Report">
         <ErrorLog>$(IntermediateOutputPath)$(MSBuildProjectName).sarif,version=2.1</ErrorLog>
     </PropertyGroup>

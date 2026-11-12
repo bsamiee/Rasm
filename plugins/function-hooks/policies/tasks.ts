@@ -351,6 +351,12 @@ const TASKS: Policy = {
             routes: { selects: ['--project'], ignores: ['--noEmit', '--pretty', '--incremental'] },
         },
         cargo: { flags: ['-p, --package=', '--profile='], routes: { selects: ['--package'], modes: { '--fix': 'fix' } } },
+        cmake: { flags: ['--build=', '--install=', '--preset=', '-S=', '-B=', '--target='], informational: ['--version', '--help', '--list-presets', '-E', '-P'], routes: { modes: { '--build': 'build', '--install': 'install' }, ignores: ['--preset'] } },
+        ctest: { flags: ['--preset=', '--test-dir=', '--output-junit='], informational: ['--version', '--help', '--list-presets', '--show-only'], routes: { ignores: ['--preset', '--test-dir', '--output-junit'] } },
+        cpack: { flags: ['--preset=', '--config=', '-G=', '-B='], informational: ['--version', '--help', '--list-presets'], routes: { ignores: ['--preset', '--config'] } },
+        'clang-tidy': { flags: ['-p=', '--config-file=', '--checks=', '--fix'], informational: ['--version', '--list-checks', '--dump-config', '--verify-config'], routes: { modes: { '--fix': 'fix' }, ignores: ['-p'] } },
+        'clang-format': { flags: ['-i', '--dry-run', '-Werror', '--style='], informational: ['--version', '--dump-config'] },
+        gersemi: { flags: ['-c, --check', '-i, --in-place', '--warnings-as-errors', '--cache-dir=', '--config='], informational: ['--version', '--print-config'] },
         uv: {
             flags: ['--package=', '--script=', '--all-packages', '-U, --upgrade', '--check', '--locked'],
             routes: { selects: ['--package'], modes: { '--check': 'check', '--upgrade': 'upgrade' }, ignores: ['--locked'] },

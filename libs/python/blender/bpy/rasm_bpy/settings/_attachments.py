@@ -193,11 +193,8 @@ class LogPreferences(bpy.types.PropertyGroup):
     age: Annotated[float, bpy.props.FloatProperty(name="Age", description="Days log file reaches before rotating", min=1.0 / 24.0, max=365.0, default=LogSettings().age / datetime.timedelta(days=1))]
     files: Annotated[int, bpy.props.IntProperty(name="Files", description="Rotated log files kept", min=1, max=100, default=LogSettings().files)]
     use_export: Annotated[bool, bpy.props.BoolProperty(name="Export", description="Send operator and command spans to OpenTelemetry collector while online access is allowed")]
-    endpoint: Annotated[str, bpy.props.StringProperty(name="Collector", description="OTLP HTTP address of collector", default=Collector().endpoint)]
-    timeout: Annotated[
-        float,
-        bpy.props.FloatProperty(name="Export Timeout", description="Seconds one export holds interface at most", unit="TIME_ABSOLUTE", min=0.1, max=60.0, default=Collector().timeout.total_seconds()),
-    ]
+    endpoint: Annotated[str, bpy.props.StringProperty(name="Collector", description="OTLP HTTP traces URL of collector, empty for the OTEL_EXPORTER_OTLP variables and their default")]
+    timeout: Annotated[float, bpy.props.FloatProperty(name="Export Timeout", description="Seconds one export holds interface at most", unit="TIME_ABSOLUTE", min=0.1, max=60.0, default=1.0)]
 
     @property
     def settings(self) -> LogSettings:
@@ -207,7 +204,7 @@ class LogPreferences(bpy.types.PropertyGroup):
     @property
     def collector(self) -> Option[Collector]:
         """Collector record while export is on, `Nothing` while off."""
-        return Some(Collector(endpoint=self.endpoint, timeout=datetime.timedelta(seconds=self.timeout))).filter(lambda _: self.use_export)
+        return Some(Collector(endpoint=self.endpoint, timeout=self.timeout)).filter(lambda _: self.use_export)
 
 
 class RetentionSettings(bpy.types.PropertyGroup):

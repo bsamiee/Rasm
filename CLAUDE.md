@@ -31,7 +31,7 @@
 - ALWAYS use `github` MCP for any GitHub fact or action, `gh` for work on the local checkout
 - ALWAYS use `clean-prose` skill for any English a change writes, names and agent-facing text included
 - ALWAYS use `dotnet-roslyn-codelens` skill to read, trace, or change any file in a .NET solution
-- ALWAYS use `LSP` tool for references, implementations, call hierarchy, and type of a Python, Rust, or Swift symbol before changing or removing it
+- ALWAYS use `LSP` tool for references, implementations, call hierarchy, and type of a Python, Rust, Swift, or C++ symbol before changing or removing it
 - ALWAYS use `xcode` MCP for any Apple platform fact or Xcode build, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
 - ALWAYS use `use-rhino` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
@@ -143,6 +143,9 @@ Source files group declarations into sections and a type's members into groups n
 - Rust: traits and unit enums are `[TYPES]`, payload enums `[MODELS]`, error enums `[ERRORS]`
 - Rust: `impl` blocks sit in the section of their type, a lint pass `impl` in `[COMPOSITION]`
 - Rust: `mod` lines are `[COMPOSITION]`, `pub use` lists `[EXPORTS]`
+- C++: concepts and unit enumerations are `[TYPES]`, classes and aggregates `[MODELS]`, refusal enumerations `[ERRORS]`
+- C++: module declarations, the global module fragment, imports, and includes join the preamble, `export import` lines are `[EXPORTS]`
+- CMake: `find_package` calls are `[DEPENDENCIES]`, targets with their sources and links `[TARGETS]`, `install` calls `[INSTALL]`
 - Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
 - SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
 - Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)

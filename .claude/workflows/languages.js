@@ -24,6 +24,7 @@ return {
     ['creative-cloud', ['uxp-coding'], ['typescript']],
     ['blender', ['blender-coding', 'blender-coding-extensions', 'blender-coding-interface', 'blender-coding-nodes', 'blender-coding-render', 'use-blender'], ['python']],
     ['rhino', ['use-rhino'], ['dotnet', 'typescript']],
+    ['unreal', [], ['cpp']],
   ],
   languages: {
     typescript: owned({
@@ -82,6 +83,24 @@ return {
       owners: [
         { name: 'clippy', paths: ['Cargo.toml', '.config/clippy.toml'], decides: 'a rustc or Clippy lint row of `[workspace.lints.*]` or a clippy.toml option', skills: [] },
         { name: 'dylint', paths: ['tools/dylint'], decides: 'a form that needs types and resolved paths rustc holds, as a lint', skills: ['rust-coding'] },
+      ],
+    }),
+    cpp: owned({
+      libs: 'libs/cpp',
+      skills: ['cpp-coding'],
+      families: [],
+      companion: null,
+      catalog: 'pyproject.toml',
+      sources: '.pixi/envs/cpp/include',
+      release: 'CMakeLists.txt `cmake_minimum_required`, the `cxx_std_26` feature of each target, and each package at the build pixi.lock pins for the `cpp` environment',
+      outlines: ['cpp'],
+      metadata: [],
+      pathspec: ["'*.cpp'", "'*.cppm'", "'*.ixx'", "'*.hpp'", "'*.h'", "'*CMakeLists.txt'", "'*.cmake'", "'CMakePresets.json'", "'.clang-format'", "'.clang-tidy'", "'.clangd'", "'.gersemirc'"],
+      unit: 'folder holding the nearest CMakeLists.txt with a project() call',
+      owners: [
+        { name: 'clang-tidy', paths: ['.clang-tidy', 'tests/cpp/.clang-tidy'], decides: 'a clang-tidy check or option row', skills: [] },
+        { name: 'clang-format', paths: ['.clang-format'], decides: 'a clang-format style option row', skills: [] },
+        { name: 'compiler', paths: ['CMakePresets.json'], decides: 'a Clang warning flag or hardening define of the `policy` configure preset', skills: [] },
       ],
     }),
     swift: owned({

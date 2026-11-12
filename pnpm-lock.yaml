@@ -423,6 +423,9 @@ catalogs:
     tree-sitter-c-sharp:
       specifier: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5
       version: https://codeload.github.com/tree-sitter/tree-sitter-c-sharp/tar.gz/8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5
+    tree-sitter-cpp:
+      specifier: github:tree-sitter/tree-sitter-cpp#c009222808634c1014f82438d4883753516a2c24
+      version: https://codeload.github.com/tree-sitter/tree-sitter-cpp/tar.gz/c009222808634c1014f82438d4883753516a2c24
     tree-sitter-java:
       specifier: 0.23.5
       version: 0.23.5
@@ -804,6 +807,9 @@ importers:
       '@rasm/nx-devkit':
         specifier: workspace:*
         version: link:../devkit
+      cf:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.29(@types/node@26.6.6)
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -863,6 +869,25 @@ importers:
         version: 24.0.6
 
   apps/nx/cloudflare:
+    dependencies:
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.0.6(nx@24.0.6)
+      '@rasm/nx-devkit':
+        specifier: workspace:*
+        version: link:../devkit
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      nx:
+        specifier: 'catalog:'
+        version: 24.0.6
+
+  apps/nx/cmake:
     dependencies:
       '@nx/devkit':
         specifier: 'catalog:'
@@ -2053,6 +2078,9 @@ importers:
       '@rasm/nx-cloudflare':
         specifier: workspace:*
         version: link:../../../../apps/nx/cloudflare
+      '@rasm/nx-cmake':
+        specifier: workspace:*
+        version: link:../../../../apps/nx/cmake
       '@rasm/nx-devkit':
         specifier: workspace:*
         version: link:../../../../apps/nx/devkit
@@ -2615,6 +2643,9 @@ importers:
       tree-sitter-c-sharp:
         specifier: 'catalog:'
         version: https://codeload.github.com/tree-sitter/tree-sitter-c-sharp/tar.gz/8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5
+      tree-sitter-cpp:
+        specifier: 'catalog:'
+        version: https://codeload.github.com/tree-sitter/tree-sitter-cpp/tar.gz/c009222808634c1014f82438d4883753516a2c24
       tree-sitter-java:
         specifier: 'catalog:'
         version: 0.23.5
@@ -7839,6 +7870,13 @@ packages:
   tree-sitter-c-sharp@https://codeload.github.com/tree-sitter/tree-sitter-c-sharp/tar.gz/8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5:
     resolution: {gitHosted: true, integrity: sha512-a1hSW+0oq6pCkJpEfGYraE+FwerTtY26717R5VvQmrcu6/EGEnMcf9SQqf4nSUkLX+qnTt1ENYPWb4STIpUdhw==, tarball: https://codeload.github.com/tree-sitter/tree-sitter-c-sharp/tar.gz/8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5}
     version: 0.23.5
+
+  tree-sitter-c@0.24.1:
+    resolution: {integrity: sha512-lkYwWN3SRecpvaeqmFKkuPNR3ZbtnvHU+4XAEEkJdrp3JfSp2pBrhXOtvfsENUneye76g889Y0ddF2DM0gEDpA==}
+
+  tree-sitter-cpp@https://codeload.github.com/tree-sitter/tree-sitter-cpp/tar.gz/c009222808634c1014f82438d4883753516a2c24:
+    resolution: {gitHosted: true, integrity: sha512-PM2nz8EbWsJNEziy6HOwqI1WGDgA9uJxArULuL897XuVmcpki/c0ftUDSpKp7sgLuq7l7QKtwBWJhlvNGCKg/w==, tarball: https://codeload.github.com/tree-sitter/tree-sitter-cpp/tar.gz/c009222808634c1014f82438d4883753516a2c24}
+    version: 0.23.4
 
   tree-sitter-java@0.23.5:
     resolution: {integrity: sha512-Yju7oQ0Xx7GcUT01mUglPP+bYfvqjNCGdxqigTnew9nLGoII42PNVP3bHrYeMxswiCRM0yubWmN5qk+zsg0zMA==}
@@ -13491,6 +13529,17 @@ snapshots:
     dependencies:
       node-addon-api: 8.9.2
       node-gyp-build: 4.8.4
+
+  tree-sitter-c@0.24.1:
+    dependencies:
+      node-addon-api: 8.9.2
+      node-gyp-build: 4.8.4
+
+  tree-sitter-cpp@https://codeload.github.com/tree-sitter/tree-sitter-cpp/tar.gz/c009222808634c1014f82438d4883753516a2c24:
+    dependencies:
+      node-addon-api: 8.9.2
+      node-gyp-build: 4.8.4
+      tree-sitter-c: 0.24.1
 
   tree-sitter-java@0.23.5:
     dependencies:

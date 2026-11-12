@@ -32,6 +32,7 @@
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <NoWarn>$(NoWarn);NU5104</NoWarn> <!-- Stable packages pin prerelease dependencies such as LanguageExt.Core -->
     </PropertyGroup>
 
     <ItemGroup Label="Analyzer Configuration">

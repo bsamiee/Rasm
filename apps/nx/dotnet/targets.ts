@@ -1,5 +1,5 @@
 import type { TargetConfiguration } from '@nx/devkit';
-import { type Identity, line, type Members } from '@rasm/nx-devkit/plugin';
+import { type Identity, line, type Members, type Project } from '@rasm/nx-devkit/plugin';
 import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -37,7 +37,7 @@ const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(im
 
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
-const targets = (plugin: Identity, path: Path.Path, node: Node, packages: Option.Option<string>): { readonly members: Members; readonly publish?: TargetConfiguration } => {
+const targets = (plugin: Identity, path: Path.Path, node: Node): Pick<Project, 'members' | 'packaged' | 'publish'> => {
     const root = path.dirname(node.file);
     const project = path.join('{projectRoot}', path.basename(node.file));
     const inputs: NonNullable<TargetConfiguration['inputs']> = [
@@ -63,7 +63,6 @@ const targets = (plugin: Identity, path: Path.Path, node: Node, packages: Option
         options: Option.getOrElse(Option.map(Array.findFirst(modes, Struct.get('primary')), each), (): Partial<A> => ({})),
         configurations: Record.fromIterableWith(modes, (mode) => [mode.name, each(mode)] as const),
     });
-    const packed = Option.getOrElse(packages, () => node.packed);
     const built = moded(({ verb, args, outputs }) => ({ command: [verb, ...args], outputs }));
     const checked = moded(({ reports }) => ({ reports }));
     const tested = moded(({ args, restored }) => ({ commands: [{ command: line(['dotnet', 'restore', ...restored]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', ...args])] }));
@@ -75,15 +74,16 @@ const targets = (plugin: Identity, path: Path.Path, node: Node, packages: Option
         inputs,
         metadata: metadata(Array.headNonEmpty(Array.headNonEmpty(commands)), description),
     });
-    const packing: Members['build'] = node.packable
+    const packing: Members['pack'] = node.packable
         ? {
-              'dotnet-pack': {
-                  command: line(['dotnet', 'pack', node.file, '--output', packed]),
+              dotnet: {
+                  command: line(['dotnet', 'pack', node.file]),
                   options: { cwd: '.' },
                   dependsOn: ['build--dotnet'],
+                  cache: true,
                   inputs,
-                  outputs: [path.join('{workspaceRoot}', packed, '*.nupkg')],
-                  metadata: metadata('pack', `Builds ${node.name} in Release and packs it with dotnet pack, which names the package`),
+                  outputs: [path.join('{workspaceRoot}', node.packed, '*.nupkg')],
+                  metadata: metadata('pack', `Builds ${node.name} in Release and packs it into its PackageOutputPath with dotnet pack`),
               },
           }
         : {};
@@ -100,8 +100,8 @@ const targets = (plugin: Identity, path: Path.Path, node: Node, packages: Option
                     inputs,
                     metadata: metadata(node.publishable ? 'publish' : 'build', node.publishable ? `Builds ${node.name} with its references in one MSBuild run, publishing it in every configuration, Release unless a configuration is named` : `Builds ${node.name} with its references in one MSBuild run`),
                 },
-                ...packing,
             },
+            pack: packing,
             check: {
                 'dotnet-build': {
                     executor: `${plugin.name}:check`,
@@ -139,11 +139,11 @@ const targets = (plugin: Identity, path: Path.Path, node: Node, packages: Option
             },
         },
         ...(node.packable && {
+            packaged: ['pack--dotnet'],
             publish: {
                 executor: plugin.publisher,
                 options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'] },
-                dependsOn: ['build--dotnet-pack'],
-                metadata: { description: `Pushes the package build--dotnet-pack wrote for ${node.name} with dotnet nuget push, which reads NUGET_API_KEY and skips a version nuget.org holds`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
+                metadata: { description: `Pushes the package pack--dotnet wrote for ${node.name} with dotnet nuget push, which reads NUGET_API_KEY and skips a version nuget.org holds`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
             },
         }),
     };

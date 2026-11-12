@@ -2,7 +2,6 @@
 
 from functools import partial
 from importlib import metadata
-import os
 import sys
 from typing import Annotated, NoReturn
 
@@ -46,7 +45,7 @@ app.command(f"{__name__}:publish", help="Publish each selected face's verified b
 @app.meta.default
 async def main(*tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)], settings: Settings = DEFAULTS) -> NoReturn:
     """Runs one command line inside the process telemetry scope, every module logger writing to its log."""
-    with invoked(app, tokens, settings, os.environ) as invocation:
+    with invoked(app, tokens, settings) as invocation:
         await invocation.run()
 
 

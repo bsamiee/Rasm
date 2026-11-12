@@ -7,13 +7,17 @@ on:
                 description: Version or semver keyword every released project takes, empty reads conventional commits
                 type: string
             first-release:
-                description: No released project has an earlier tag or registry version
+                description: No release tag exists yet
                 type: boolean
                 default: false
             dry-run:
-                description: Builds and previews the release, pushes and publishes nothing
+                description: Previews the version, tag, and GitHub release, changes nothing and skips attach and publish
                 type: boolean
                 default: true
+            publish:
+                description: Publishes every package to its registry or store after the release
+                type: boolean
+                default: false
 
 concurrency:
     group: ${{ github.workflow }}
@@ -34,6 +38,13 @@ jobs:
             GH_TOKEN: ${{ github.token }}
             UV_LOCKED: "true"
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ secrets.NX_CACHE_WRITE_TOKEN }}
+            APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
+            APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+            DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
+            DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+            ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+            ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+            ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -50,10 +61,12 @@ jobs:
                   GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
                   GIT_COMMITTER_NAME: github-actions[bot]
                   GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
-            - run: nx run-many --targets=build --configuration=release --projects=tag:npm:public
+            - if: ${{ !inputs.dry-run }}
+              run: nx run-many --targets=attach --configuration=release
               env:
                   NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache == 'true' && secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER || '' }}
-            - run: nx release publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
+            - if: ${{ inputs.publish && !inputs.dry-run }}
+              run: nx release publish --first-release=${{ inputs.first-release }}
               env:
                   NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
                   PNPM_CONFIG_NPMRC_AUTH_FILE: ${{ github.workspace }}/.config/npmrc
@@ -66,10 +79,3 @@ jobs:
                   SPARKLE_FEED_BUCKET: ${{ vars.SPARKLE_FEED_BUCKET }}
                   CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
                   CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-                  APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
-                  APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
-                  DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
-                  DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
-                  ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-                  ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
-                  ASC_API_ISSUER_ID: ${{ secrets.ASC_API_ISSUER_ID }}

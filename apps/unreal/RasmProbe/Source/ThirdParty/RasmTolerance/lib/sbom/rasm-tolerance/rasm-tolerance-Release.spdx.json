@@ -1,0 +1,104 @@
+{
+  "@context" : "https://spdx.org/rdf/3.0.1/spdx-context.jsonld",
+  "@graph" : 
+  [
+    {
+      "@id" : "_:Build#CreationInfo",
+      "comment" : "This SBOM was generated from the CMakeLists.txt File",
+      "created" : "2026-11-11T21:41:55Z",
+      "createdBy" : 
+      [
+        "https://gitlab.kitware.com/cmake/cmake"
+      ],
+      "specVersion" : "3.0.1",
+      "type" : "CreationInfo"
+    },
+    {
+      "creationInfo" : "_:Build#CreationInfo",
+      "dataLicense" : 
+      {
+        "creationInfo" : "_:Build#CreationInfo",
+        "simplelicensing_licenseExpression" : "MIT",
+        "spdxId" : "urn:rasm-tolerance#DataLicenseExpression",
+        "type" : "simplelicensing_LicenseExpression"
+      },
+      "description" : "Floating-point comparison by units in the last place",
+      "element" : 
+      [
+        {
+          "builtTime" : "2026-11-11T21:41:55Z",
+          "creationInfo" : "_:Build#CreationInfo",
+          "externalRef" : 
+          [
+            {
+              "externalRefType" : "buildSystem",
+              "locator" : "cmake:find_package(fmt)",
+              "type" : "ExternalRef"
+            }
+          ],
+          "name" : "fmt:fmt",
+          "originatedBy" : 
+          [
+            {
+              "creationInfo" : "_:Build#CreationInfo",
+              "name" : "fmt",
+              "spdxId" : "urn:fmt#Organization",
+              "type" : "Organization"
+            }
+          ],
+          "software_packageVersion" : "12.2.1",
+          "spdxId" : "urn:fmt:fmt#Package",
+          "type" : "software_Package"
+        }
+      ],
+      "name" : "rasm-tolerance",
+      "profileConformance" : 
+      [
+        "core",
+        "software"
+      ],
+      "rootElement" : 
+      [
+        {
+          "creationInfo" : "_:Build#CreationInfo",
+          "name" : "rasm-tolerance",
+          "software_homePage" : "https://github.com/bsamiee/Rasm",
+          "software_packageVersion" : "0.1.0",
+          "software_primaryPurpose" : "library",
+          "spdxId" : "urn:rasm-tolerance#Package",
+          "type" : "software_Package"
+        }
+      ],
+      "spdxId" : "urn:rasm-tolerance#SPDXDocument",
+      "type" : "SpdxDocument"
+    },
+    {
+      "creationInfo" : "_:Build#CreationInfo",
+      "description" : "Required Run-Time Libraries",
+      "from" : "urn:rasm-tolerance#Package",
+      "relationshipType" : "dependsOn",
+      "spdxId" : "urn:rasm-tolerance#SharedRelationship",
+      "to" : 
+      [
+        "urn:fmt:fmt#Package"
+      ],
+      "type" : "Relationship"
+    },
+    {
+      "creationInfo" : "_:Build#CreationInfo",
+      "from" : "urn:rasm-tolerance#Package",
+      "relationshipType" : "hasDeclaredLicense",
+      "spdxId" : "urn:rasm-tolerance#DeclaredLicenseRelationship",
+      "to" : 
+      [
+        {
+          "creationInfo" : "_:Build#CreationInfo",
+          "simplelicensing_licenseExpression" : "MIT",
+          "spdxId" : "urn:rasm-tolerance#LicenseExpression",
+          "type" : "simplelicensing_LicenseExpression"
+        }
+      ],
+      "type" : "Relationship"
+    }
+  ]
+}

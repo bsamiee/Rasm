@@ -1,15 +1,20 @@
 {
-    "executors": {
-        "clean": {
-            "implementation": "./dist/executors/clean/executor#execute",
-            "schema": "./executors/clean/schema.json",
-            "description": "Removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and runs the tool's own clean commands when given"
-        },
-        "publish": {
-            "implementation": "./dist/executors/publish/executor#execute",
-            "schema": "./executors/publish/schema.json",
-            "description": "Publishes the files a project's packaging targets wrote through its tool's own publish command, skipping a project nx release left unversioned; runs through nx release publish",
-            "hidden": true
-        }
+  "executors": {
+    "clean": {
+      "implementation": "./dist/executors/clean/executor#execute",
+      "schema": "./executors/clean/schema.json",
+      "description": "Removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and runs the tool's own clean commands when given"
+    },
+    "publish": {
+      "implementation": "./dist/executors/publish/executor#execute",
+      "schema": "./executors/publish/schema.json",
+      "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command; runs through nx release publish",
+      "hidden": true
+    },
+    "attach": {
+      "implementation": "./dist/executors/attach/executor#execute",
+      "schema": "./executors/attach/schema.json",
+      "description": "Uploads the files a project's packaging targets wrote to the GitHub release whose tag nx release gives the version its manifest states, through gh release upload --clobber"
     }
+  }
 }

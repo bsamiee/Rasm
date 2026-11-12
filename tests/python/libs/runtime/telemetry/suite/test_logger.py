@@ -1,6 +1,6 @@
 """Stdlib members a bound logger of `rasm_telemetry.logger` passes through, copied from `TestBoundLogger` of structlog `tests/test_stdlib.py` (26.1.0), and its output with no handler configured, copied from `LastResortTest` of CPython `Lib/test/test_logging.py` (3.15.2)."""
 
-from collections.abc import Iterator
+import contextlib
 import io
 import logging
 
@@ -57,50 +57,49 @@ def test_stdlib_passthrough_methods(method_name: str, method_args: list[object] 
         assert called_stdlib_method == [True]
 
 
-@pytest.fixture
-def root_hdlr() -> Iterator[logging.Handler]:
-    """Yields the stream handler `BaseTest.setUp` puts on the root logger at `DEBUG`, removed as `tearDown` removes it (CPython `Lib/test/test_logging.py:99-144`)."""
-    root_logger = logging.getLogger("")
-    original_logging_level = root_logger.getEffectiveLevel()
-    stream = io.StringIO()
-    root_logger.handlers.clear()
-    root_logger.setLevel(logging.DEBUG)
-    hdlr = logging.StreamHandler(stream)
-    hdlr.setFormatter(logging.Formatter("%(name)s -> %(levelname)s: %(message)s"))
-    root_logger.addHandler(hdlr)
-    yield hdlr
-    stream.close()
-    root_logger.removeHandler(hdlr)
-    while root_logger.handlers:
-        h = root_logger.handlers[0]
-        root_logger.removeHandler(h)
-        h.close()
-    root_logger.setLevel(original_logging_level)
+def test_is_enabled_for() -> None:
+    """`is_enabled_for` answers from the wrapped logger's level, set from a settings record (`test_stdlib.py:306-316`)."""
+    stdlib_logger = logging.getLogger("test_is_enabled_for")
+    stdlib_logger.setLevel(rasm_telemetry.LogSettings(level="warning").severity)
+    bl = rasm_telemetry.logger("test_is_enabled_for")
+    assert (bl.is_enabled_for(logging.WARNING), bl.is_enabled_for(logging.DEBUG)) == (True, False)
 
 
-def test_last_resort(root_hdlr: logging.Handler, capsys: pytest.CaptureFixture[str]) -> None:
-    """With no handler anywhere, a warning of the bound logger goes to standard error through `logging.lastResort` (CPython `Lib/test/test_logging.py:5041-5077`)."""
+def test_get_effective_level() -> None:
+    """`get_effective_level` answers the wrapped logger's level, set from a settings record (`test_stdlib.py:318-328`)."""
+    stdlib_logger = logging.getLogger("test_get_effective_level")
+    stdlib_logger.setLevel(rasm_telemetry.LogSettings(level="warning").severity)
+    bl = rasm_telemetry.logger("test_get_effective_level")
+    assert bl.get_effective_level() == logging.WARNING
+
+
+def test_last_resort(root_hdlr: logging.Handler) -> None:
+    """With no handler anywhere, a warning of the bound logger goes to standard error through `logging.lastResort` (CPython `Lib/test/test_logging.py:5042-5077`)."""
     root = logging.getLogger("")
     log = rasm_telemetry.logger("root")
+    root.handlers = [root_hdlr]
     root.removeHandler(root_hdlr)
     old_lastresort = logging.lastResort
     old_raise_exceptions = logging.raiseExceptions
     try:
-        capsys.readouterr()
-        log.debug("This should not appear")
-        assert capsys.readouterr().err == ""
-        log.warning("Final chance!")
-        assert capsys.readouterr().err == "Final chance!\n"
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            log.debug("This should not appear")
+            assert not stderr.getvalue()
+            log.warning("Final chance!")
+            assert stderr.getvalue() == "Final chance!\n"
         logging.lastResort = None
-        log.warning("Final chance!")
-        msg = 'No handlers could be found for logger "root"\n'
-        assert capsys.readouterr().err == msg
-        log.warning("Final chance!")
-        assert capsys.readouterr().err == ""
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            log.warning("Final chance!")
+            msg = 'No handlers could be found for logger "root"\n'
+            assert stderr.getvalue() == msg
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            log.warning("Final chance!")
+            assert not stderr.getvalue()
         root.manager.emittedNoHandlerWarning = False
         logging.raiseExceptions = False
-        log.warning("Final chance!")
-        assert capsys.readouterr().err == ""
+        with contextlib.redirect_stderr(io.StringIO()) as stderr:
+            log.warning("Final chance!")
+            assert not stderr.getvalue()
     finally:
         root.addHandler(root_hdlr)
         logging.lastResort = old_lastresort

@@ -36,6 +36,11 @@ storybook-static/
 *.blend@
 xcuserdata/
 __pycache__/
+/apps/unreal/**/Binaries/
+/apps/unreal/**/DerivedDataCache/
+/apps/unreal/**/Intermediate/
+/apps/unreal/**/Plugins/
+/apps/unreal/**/Saved/
 
 # --- [SECRETS] --------------------------------------------------------------------------
 
@@ -61,6 +66,7 @@ credentials.json
 # --- [MACHINE] --------------------------------------------------------------------------
 
 .miserc.local.toml
+CMakeUserPresets.json
 mise.local.toml
 mise.local.lock
 *.user

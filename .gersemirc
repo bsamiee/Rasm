@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/BlankSpruce/gersemi/0.29.2/gersemi/configuration.schema.json
+# --- [COMMANDS] -------------------------------------------------------------------------
+
+definitions: [.pixi/envs/cpp/lib/cmake/Catch2/Catch.cmake]
+
+# --- [LAYOUT] ---------------------------------------------------------------------------
+
+line_length: 200

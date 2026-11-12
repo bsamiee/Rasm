@@ -1,0 +1,65 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "cwd": {
+            "type": "string",
+            "description": "Folder holding CMakePresets.json, relative to the workspace root, every invocation runs in it"
+        },
+        "configure": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The cmake invocation that configures the build tree of the packaging workflow",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "build": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The cmake --build invocation of the project's targets in that tree",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "pack": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The cpack invocation naming the package preset and the CPack configuration file of the project, without a package directory",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "outputPath": {
+            "type": "string",
+            "description": "Folder, relative to the workspace root, receiving the package files alone"
+        },
+        "args": {
+            "type": "array",
+            "description": "Arguments appended to the cpack invocation",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [ "cwd", "configure", "build", "pack", "outputPath" ],
+    "additionalProperties": true,
+    "title": "Package",
+    "description": "Configures the packaging workflow's build tree, builds the project's targets from its manifest as it stands, and packs the project's install tree with CPack into a staging folder, then replaces the output folder with the package files CPack named from the project name, version, system, and processor"
+}

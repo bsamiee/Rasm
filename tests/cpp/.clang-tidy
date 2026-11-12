@@ -1,0 +1,7 @@
+# --- [CHECKS] ---------------------------------------------------------------------------
+
+# Expected values of a test case are literals by purpose
+InheritParentConfig: true
+Checks: >-
+    -cppcoreguidelines-avoid-magic-numbers,
+    -readability-magic-numbers
