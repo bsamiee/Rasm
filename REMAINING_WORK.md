@@ -42,7 +42,7 @@ and the Unreal executor reading test results from the exported report.
 Research for this pass is under `docs/research/remaining-work/finalize/` (`a-cicd-vps.md`, `b-release-distribution.md`, `c-unreal.md`).
 
 - **Package and plug-in.** `libs/cpp/numerics/tolerance` (CMake project `rasm-tolerance`) and `apps/unreal/Tolerance` with host project `apps/unreal/Sandbox` are the first consumers.
-- **The plug-in to package edge.** `.uplugin` table `nx.packages` maps a folder to the Nx target installing a package there. The plug-in build runs it with prefix `<folder>/<Mac|Linux>`, and `install--cmake` builds what it installs.
+- **The plug-in to package edge.** `.uplugin` table `nx.packages` maps a folder to the Nx target installing a package there. The plug-in build runs it with prefix `<folder>/<Mac|Linux>` and its own engine as `UNREAL_ENGINE_ROOT`, and `install--cmake` builds what it installs.
 - **Release rows.** The package states `install(PACKAGE_INFO)` and `install(SBOM)`, so the CPack archive holds the CPS file and the SBOM. No plugin change was needed.
 - **Unreal on Linux.** `.config/cmake/toolchains/unreal-Linux.cmake`, job `unreal` of `ci.yml` and of `release.yml` in Epic's `dev-slim-<EngineAssociation>` image, and the `UE_<version>` row lookup of `Install.ini`.
 
@@ -58,6 +58,9 @@ Proven on this Mac with Unreal Engine 5.8.4:
 2. **Runner.** Job `unreal` runs on hosted `ubuntu-26.04` and pulls the 22 GiB image on each run. `derby` (8 vCPU, 31 GiB memory, 385 GB free, no service) can hold a self-hosted runner that keeps the image; `a-cicd-vps.md` `WORK` rows 1 to 4 state that form and its fork-approval setting.
 3. **Fab.** Fab takes no upload from a tool, and no Fab publisher profile exists. After a release holds `Tolerance-<engine>.zip`, the owner creates the profile and a draft listing from that link, where Fab's upload scan answers. "Submit for review" then has Fab's build farm compile it, and "Cancel submission" stops it before a human review.
 4. **One platform per source archive.** A pack on a Mac holds the `Mac` library and one on Linux the `Linux` library. An archive holding both needs the installed folders of both jobs.
+5. **Fab rules the source archive can fail.** The installed `rasm/tolerance.hpp` holds no copyright notice (Fab rule 4.3.6.1.b names every header), the plug-in holds no `Content` folder and no `Resources/Icon128.png`, and its modules allow `Mac` and `Linux` alone. The draft listing and the cancelled submission of item 3 answer each.
+6. **Toolchain and triplet files of presets other than `default` are no Nx input.** `@rasm/nx-cmake` reads inputs from the file API reply of its first workflow, so an edit to `unreal-Darwin.cmake`, `unreal-Linux.cmake`, or `triplets/unreal.cmake` leaves `Tolerance:build--unreal` cached. Choice not made: configure every workflow at graph creation, or another source for those files.
+7. **`prose.py fix` deletes the Fab notice.** The clean-prose script reports the `// Copyright` line of each `.Build.cs` as a comment to remove, and `pack--unreal` then fails its store check. No predicate for a notice a host requires exists.
 
 ## 2. Node 27 alignment pass
 

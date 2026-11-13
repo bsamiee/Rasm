@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, matchesGlob } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
-import type { ExecutorContext, Target } from '@nx/devkit';
+import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
 import { written } from '@rasm/nx-devkit/executor';
 import { PLATFORM } from '@rasm/nx-devkit/plugin';
@@ -29,7 +29,7 @@ interface Fields {
     readonly folders?: readonly string[];
     readonly references?: readonly { readonly name: string; readonly enabled: boolean }[];
     readonly installed?: boolean;
-    readonly packages?: Readonly<Record<string, Target>>;
+    readonly packages?: typeof Linked.Type;
 }
 
 interface Found {

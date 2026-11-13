@@ -35,7 +35,8 @@ jobs:
         permissions:
             contents: write
         outputs:
-            engines: ${{ steps.engines.outputs.list }}
+            commit: ${{ steps.released.outputs.commit }}
+            engines: ${{ steps.released.outputs.engines }}
         env:
             GH_TOKEN: ${{ github.token }}
             UV_LOCKED: "true"
@@ -52,10 +53,6 @@ jobs:
                   fetch-depth: 0
                   filter: blob:none
             - uses: ./.github/actions/setup
-            - id: engines
-              run: |
-                  named="$(git ls-files -z -- "*.uproject" | xargs -0 jq --slurp --compact-output "map(.EngineAssociation) | unique")"
-                  printf "list=%s\n" "${named}" >> "${GITHUB_OUTPUT}"
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}
@@ -63,6 +60,11 @@ jobs:
                   GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
                   GIT_COMMITTER_NAME: github-actions[bot]
                   GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+            - id: released
+              run: |
+                  commit="$(git rev-parse HEAD)"
+                  engines="$(git ls-files -z -- "*.uproject" | xargs -0 cat | jq --slurp --compact-output 'map(.EngineAssociation | strings | select(test("^[0-9.]+$"))) | unique')"
+                  printf "commit=%s\nengines=%s\n" "${commit}" "${engines}" >> "${GITHUB_OUTPUT}"
             - if: ${{ !inputs.dry-run }}
               run: nx run-many --targets=attach --configuration=release
             - if: ${{ inputs.publish && !inputs.dry-run }}
@@ -105,9 +107,11 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
-                  ref: ${{ github.ref }}
+                  ref: ${{ needs.release.outputs.commit }}
                   fetch-depth: 0
                   filter: blob:none
             - uses: ./.github/actions/setup
-            - run: find "${HOME}" "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 ! -path "${UNREAL_ENGINE_ROOT}" -exec chown -R ue4:ue4 {} +
+            - run: |
+                  chown -R ue4:ue4 "${GITHUB_WORKSPACE}"
+                  find "${HOME}" -mindepth 1 -maxdepth 1 ! -path "${UNREAL_ENGINE_ROOT}" -exec chown -R ue4:ue4 {} +
             - run: setpriv --reuid=ue4 --regid=ue4 --init-groups nx run-many --targets=attach --configuration=release --projects=tag:os:linux

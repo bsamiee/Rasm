@@ -45,7 +45,7 @@ jobs:
             - id: engines
               run: |
                   affected="$(nx show projects --affected --projects=tag:os:linux --json)"
-                  named="$(git ls-files -z -- "*.uproject" | xargs -0 jq --slurp --compact-output --argjson affected "${affected}" "if \$affected == [] then [] else map(.EngineAssociation) | unique end")"
+                  named="$(git ls-files -z -- "*.uproject" | xargs -0 cat | jq --slurp --compact-output --argjson affected "${affected}" 'if $affected == [] then [] else map(.EngineAssociation | strings | select(test("^[0-9.]+$"))) | unique end')"
                   printf "list=%s\n" "${named}" >> "${GITHUB_OUTPUT}"
             - run: playwright install --with-deps --only-shell chromium
             - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
@@ -78,7 +78,7 @@ jobs:
 
     unreal:
         needs: linux
-        if: ${{ needs.linux.outputs.engines != '[]' }}
+        if: ${{ !cancelled() && needs.linux.outputs.engines != '' && needs.linux.outputs.engines != '[]' }}
         strategy:
             fail-fast: false
             matrix:
@@ -98,7 +98,9 @@ jobs:
             - *checkout
             - *shas
             - *setup
-            - run: find "${HOME}" "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 ! -path "${UNREAL_ENGINE_ROOT}" -exec chown -R ue4:ue4 {} +
+            - run: |
+                  chown -R ue4:ue4 "${GITHUB_WORKSPACE}"
+                  find "${HOME}" -mindepth 1 -maxdepth 1 ! -path "${UNREAL_ENGINE_ROOT}" -exec chown -R ue4:ue4 {} +
             - run: setpriv --reuid=ue4 --regid=ue4 --init-groups nx affected --targets=check,test,build --exclude='*,!tag:os:linux'
               env:
                   NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server

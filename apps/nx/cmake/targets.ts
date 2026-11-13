@@ -3,7 +3,7 @@ import { ancestors, type Identity, line, type Members, type Project, type Reques
 import { Array, Option, type Path } from 'effect';
 import type { Cmake } from '#/executors/cmake/executor';
 import type { Package } from '#/executors/package/executor';
-import { configured, invoked, MANIFEST, PACKAGING, planted, type Tree } from '#/workspace';
+import { configured, invoked, MANIFEST, PACKAGING, PRESETS, planted, type Tree } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ const memberInputs = (path: Path.Path, tree: Tree, member: Member, { launcher, l
     ...stated,
     ...tree.inputs.filter((file) => !tree.members.some(({ root }) => root !== tree.root && !path.relative(root, file).startsWith('..'))).map((file) => tokened(path, file)),
     ...locks.map((file) => tokened(path, file)),
-    ...(member.root === tree.root ? [] : [tokened(path, path.join(tree.root, MANIFEST))]),
+    ...(member.root === tree.root ? [] : [tokened(path, path.join(tree.root, PRESETS))]),
     ...tree.toolchains.map(({ compiler }) => ({ runtime: line(invoked(launcher, [compiler, '--version'])) })),
 ];
 

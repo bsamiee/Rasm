@@ -55,14 +55,15 @@ const execute = executor(
         type Loading = (typeof loading)[number];
         const edited = ({ scripts, platform, project }: Loading, analysis: readonly string[]) => run(path.join(scripts, 'RunUBT.sh'), ['-TargetType=Editor', platform, 'Development', `-Project=${project}`, '-WaitMutex', ...analysis]);
         const packaged = ({ scripts, version }: Loading) => run(path.join(scripts, 'RunUAT.sh'), ['BuildPlugin', `-Plugin=${absolute(descriptor)}`, `-Package=${placed('package', version, name)}`, '-StrictIncludes', ...dependencies.map((at) => `-Dependencies=${absolute(at)}`)]);
-        const linked = ({ platform }: Loading) =>
+        const linked = ({ platform, root }: Loading) =>
             Effect.forEach(
                 Record.toEntries(packages),
-                ([folder, target]) =>
-                    Effect.tryPromise({ try: () => runExecutor<{ readonly success: boolean }>(target, { args: ['--prefix', path.join(absolute(path.dirname(descriptor)), folder, platform)] }, context), catch: ToolError.of(target.project, `does not run ${target.target}`) }).pipe(
-                        Effect.flatMap((results) => Stream.runCollect(Stream.fromAsyncIterable(results, ToolError.of(target.project, `fails ${target.target}`)))),
-                        Effect.filterOrFail(Array.every(Struct.get('success')), () => ToolError.make({ subject: target.project, detail: `installs nothing under ${folder}` })),
-                    ),
+                Effect.fnUntraced(function* ([folder, target]) {
+                    const prefix = path.join(absolute(path.dirname(descriptor)), folder, platform);
+                    yield* fs.remove(prefix, { recursive: true, force: true });
+                    const results = yield* Effect.tryPromise({ try: () => runExecutor<{ readonly success: boolean }>(target, { args: ['--prefix', prefix], env: { UNREAL_ENGINE_ROOT: root } }, context), catch: ToolError.of(target.project, `does not run ${target.target}`) });
+                    yield* Effect.filterOrFail(Stream.runCollect(Stream.fromAsyncIterable(results, ToolError.of(target.project, `fails ${target.target}`))), Array.every(Struct.get('success')), () => ToolError.make({ subject: target.project, detail: `${target.target} ended without success` }));
+                }),
                 { discard: true },
             );
         const tested = Effect.fnUntraced(function* (each: Loading) {

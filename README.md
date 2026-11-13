@@ -143,7 +143,7 @@ flowchart LR
 - Unreal plug-ins build through `RunUAT BuildPlugin -StrictIncludes`, and a project builds its editor target through UnrealBuildTool
 - Unreal plug-ins test by the automation tests under their own name, each test state read from the report the editor exports
 - Unreal plug-ins map a folder to the Nx target installing a C++ package there in `.uplugin` table `nx.packages`, and their build runs it first
-- Preset `unreal` builds such a package with the engine compiler and flags, installed in a folder named for the engine platform (`Mac`, `Linux`)
+- Preset `unreal` builds such a package with the compiler and flags of the plug-in's engine, into a folder named for the engine platform (`Mac`, `Linux`)
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
 - CI job `unreal` runs the affected `os:linux` projects as user `ue4` in Epic's `dev-slim` image of each `EngineAssociation` a `.uproject` names

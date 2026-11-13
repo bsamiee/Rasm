@@ -43,6 +43,13 @@
                 "type": "string"
             }
         },
+        "env": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            },
+            "description": "Environment variables every invocation runs with, over the caller's"
+        },
         "outputs": {
             "type": "array",
             "description": "Files the invocations write, which the target's outputs name through {options.outputs.<n>}, each folder created before the run",

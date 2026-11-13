@@ -3,7 +3,7 @@
 #include "Misc/AutomationTest.h"
 #include "ToleranceLibrary.h"
 
-#if WITH_AUTOMATION_WORKER
+#if WITH_DEV_AUTOMATION_TESTS
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FToleranceWithinTest, "Tolerance.Within", EAutomationTestFlags_ApplicationContextMask | EAutomationTestFlags::EngineFilter)
 
