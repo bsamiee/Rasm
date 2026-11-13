@@ -25,7 +25,7 @@ env:
 
 jobs:
     deploy:
-        if: ${{ github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.event != 'pull_request' }}
+        if: ${{ github.event_name == 'repository_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.event != 'pull_request' && github.event.workflow_run.head_sha == github.sha) }}
         runs-on: ubuntu-26.04
         timeout-minutes: 30
         environment: deploy
