@@ -1,14 +1,14 @@
 name: Setup
-description: Installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and returns the Nx remote cache server where it answers
+description: Installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and returns the Nx remote cache server where it accepts the job's token
 
 inputs:
     cache-server:
-        description: Nx self-hosted remote cache server, empty runs tasks without one
+        description: Nx self-hosted remote cache server, read with NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN of the job, empty runs tasks without one
         default: ""
 
 outputs:
     cache-server:
-        description: Holds the remote cache server where it answers, empty otherwise
+        description: Holds the remote cache server where it answers 200 or 404 to a read with the job's token, empty otherwise
         value: ${{ steps.cache.outputs.server }}
 
 runs:
@@ -22,7 +22,12 @@ runs:
           shell: bash
         - id: cache
           if: inputs.cache-server != ''
-          run: curl --fail --silent --show-error --max-time 10 "${SERVER}/health" && printf 'server=%s\n' "${SERVER}" >> "${GITHUB_OUTPUT}" || printf '::warning::Nx remote cache is unreachable, tasks run without it\n'
+          run: |
+              answer="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' --header "Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN}" "${SERVER}/v1/cache/0")" || true
+              case "${answer}" in
+                  200 | 404) printf 'server=%s\n' "${SERVER}" >> "${GITHUB_OUTPUT}" ;;
+                  *) printf '::warning::Nx remote cache answered %s to a read with the job token, tasks run without it\n' "${answer}" ;;
+              esac
           shell: bash
           env:
               SERVER: ${{ inputs.cache-server }}
