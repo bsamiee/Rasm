@@ -1,6 +1,6 @@
 {
     "name": "@rasm/workers",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Cloudflare Workers entry module of an Effect program: one layer built once per isolate and projected into fetch, scheduled, and queue handlers, with the Worker's configuration row and Pulumi deployment",
     "repository": {

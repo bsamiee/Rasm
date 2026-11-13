@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>0.1.0-beta.0</Version>
+        <Version>0.1.0</Version>
         <Description>Eto host for Rasm.UI scenes: one drawable surface, placed native controls, popups, input, and host theme</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

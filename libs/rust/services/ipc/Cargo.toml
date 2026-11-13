@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-ipc"
+version.workspace = true
 edition.workspace = true
 description       = "Per-user single-instance service over a local socket: instance lock, listen, connect or start, and a typed opening exchange with protocol and build identity"
 

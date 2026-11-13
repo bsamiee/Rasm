@@ -8164,7 +8164,7 @@ visualization = [
 
 [[package]]
 name = "rasm-cli"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "libs/python/runtime/cli" }
 dependencies = [
     { name = "cyclopts" },
@@ -8197,7 +8197,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-foundry"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "apps/cli/foundry" }
 dependencies = [
     { name = "anyio" },
@@ -8230,7 +8230,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-foundry-tests"
-version = "0.0.0"
+version = "0.1.0"
 source = { virtual = "apps/cli/tests/foundry" }
 dependencies = [
     { name = "anyio" },
@@ -8259,7 +8259,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-records"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "libs/python/data/records" }
 dependencies = [
     { name = "cbor2" },
@@ -8280,7 +8280,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-refurb"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "tools/refurb" }
 dependencies = [
     { name = "expression" },
@@ -8303,7 +8303,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-refurb-tests"
-version = "0.0.0"
+version = "0.1.0"
 source = { virtual = "tools/tests/refurb" }
 dependencies = [
     { name = "expression" },
@@ -8332,7 +8332,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-telemetry"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "libs/python/runtime/telemetry" }
 dependencies = [
     { name = "concurrent-log-handler" },
@@ -8392,7 +8392,7 @@ provides-extras = ["export", "process", "otlp-http", "otlp-grpc", "configuration
 
 [[package]]
 name = "rasm-telemetry-tests"
-version = "0.0.0"
+version = "0.1.0"
 source = { virtual = "libs/python/runtime/tests/telemetry" }
 dependencies = [
     { name = "concurrent-log-handler" },
@@ -8437,7 +8437,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-testing"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "tests/python/support" }
 dependencies = [
     { name = "expression" },
@@ -8471,7 +8471,7 @@ provides-extras = ["hosting", "sqlite"]
 
 [[package]]
 name = "rasm-typography"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "libs/python/graphics/typography" }
 dependencies = [
     { name = "expression" },

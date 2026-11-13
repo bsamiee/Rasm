@@ -1,6 +1,6 @@
 {
     "name": "@rasm/telemetry",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Logs, traces, and metrics of an Effect program: log records in the OpenTelemetry log data model, failures reported as log records, OTLP export over the caller's HTTP client, and for Node a rotated log file, trace context through process environments, crash capture, and OpenTelemetry SDK export with runtime and host metrics",
     "repository": {

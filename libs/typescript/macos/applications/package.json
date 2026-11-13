@@ -1,6 +1,6 @@
 {
     "name": "@rasm/applications",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Mac application server wire contract and watch-apps process table, the Node client of that server, and the build of a Node helper a Mac application embeds",
     "repository": {

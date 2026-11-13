@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-mesh"
+version.workspace = true
 edition.workspace = true
 description       = "Mesh solids: import with repair, extrusion, hulls, booleans, sections, reduction, and measures"
 

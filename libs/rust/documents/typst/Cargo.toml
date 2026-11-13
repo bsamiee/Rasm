@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-typst"
+version.workspace = true
 edition.workspace = true
 description       = "Typst documents compiled in process to PDF, SVG, PNG, HTML, and bundles"
 

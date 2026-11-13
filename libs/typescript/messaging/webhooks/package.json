@@ -1,6 +1,6 @@
 {
     "name": "@rasm/webhooks",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Webhook receiving and sending over Effect HTTP: signature schemes as rows (Standard Webhooks, Svix, Tailscale, Stripe, GitHub), raw-body verification, timestamp tolerance, queued deliveries keyed by delivery id, signed delivery with retry, and an in-memory test transport",
     "repository": {

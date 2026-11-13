@@ -2,7 +2,7 @@
 
 schema_version      = "1.0.0"
 id                  = "darkroom"
-version             = "0.0.0"
+version             = "0.1.0"
 name                = "Darkroom"
 tagline             = "Post-production from raw render to finished image"
 maintainer          = "Bardia Samiee"

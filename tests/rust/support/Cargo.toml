@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-testing"
+version.workspace = true
 edition.workspace = true
 description       = "Test fixtures kept after a failed test: folders and SQLite files"
 

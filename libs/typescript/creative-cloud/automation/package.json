@@ -1,6 +1,6 @@
 {
     "name": "@rasm/automation",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "What every Adobe host plugin shares: the error a host call reports, the object model and specifier reference a host describes, and the Vite bundle layout of a plugin build",
     "repository": {

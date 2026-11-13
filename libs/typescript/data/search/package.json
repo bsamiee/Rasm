@@ -1,6 +1,6 @@
 {
     "name": "@rasm/search",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Name lookup with fuzzy-ranked near matches across numbering systems",
     "repository": {

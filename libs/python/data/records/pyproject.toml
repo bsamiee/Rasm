@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-records"
-version         = "0.0.0"
+version         = "0.1.0"
 description     = "Fault records and results, record field domains, record files and stores, and keyed record trees"
 license         = "MIT"
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]

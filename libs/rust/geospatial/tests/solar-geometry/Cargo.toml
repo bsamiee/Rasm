@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-solar-geometry-tests"
+version.workspace = true
 edition.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 {
     "name": "@rasm/hooks",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Webhook receiver of the platform: one route per sender, each delivery verified, queued by delivery id, and recorded as telemetry",
     "type": "module",

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>0.1.0-beta.0</Version>
+        <Version>0.1.0</Version>
         <Description>Geometry as pure mathematics, independent of any CAD host</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

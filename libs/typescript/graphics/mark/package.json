@@ -1,6 +1,6 @@
 {
     "name": "@rasm/mark",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "One SVG master painted with a fill color and opacity, and rastered per size, through resvg",
     "repository": {

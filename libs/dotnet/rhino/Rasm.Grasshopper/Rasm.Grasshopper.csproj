@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Version>0.1.0-beta.0</Version>
+        <Version>0.1.0</Version>
         <Description>Grasshopper 2 as typed effects, with plug-ins declared as data</Description>
         <IsPackable>true</IsPackable>
     </PropertyGroup>

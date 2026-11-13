@@ -1110,7 +1110,7 @@ dev = [
 
 [[package]]
 name = "rasm-bpy"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "bpy" }
 dependencies = [
     { name = "blender-asset-tracer" },
@@ -1165,7 +1165,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-imaging"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "imaging" }
 dependencies = [
     { name = "colour-science" },
@@ -1204,7 +1204,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-opencolorio-stubs"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "opencolorio-stubs" }
 
 [package.dev-dependencies]
@@ -1219,7 +1219,7 @@ dev = [{ name = "hatchling" }]
 
 [[package]]
 name = "rasm-records"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../data/records" }
 dependencies = [
     { name = "cbor2" },
@@ -1240,7 +1240,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-refurb"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../tools/refurb" }
 dependencies = [
     { name = "expression" },
@@ -1263,7 +1263,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-rendering"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "rendering" }
 dependencies = [
     { name = "expression" },
@@ -1308,7 +1308,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-telemetry"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../runtime/telemetry" }
 dependencies = [
     { name = "concurrent-log-handler" },

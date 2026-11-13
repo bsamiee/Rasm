@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-arrow"
+version.workspace = true
 edition.workspace = true
 description       = "Typed records over Arrow record batches and Parquet storage"
 

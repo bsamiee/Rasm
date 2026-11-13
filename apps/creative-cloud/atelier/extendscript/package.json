@@ -1,6 +1,6 @@
 {
     "name": "@rasm/atelier-extendscript",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "ExtendScript side of Atelier's CEP wire: the reply encoder the server inlines into unlinked scripts and the request dispatcher each CEP plugin's host script serves",
     "repository": {

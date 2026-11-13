@@ -1,6 +1,6 @@
 {
     "name": "@rasm/cep",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "CEP extension manifest, the panel runtime following the host skin and launching a caller link, the swc lowering of ExtendScript, and the Vite builders of CEP extensions and ExtendScript engines",
     "repository": {

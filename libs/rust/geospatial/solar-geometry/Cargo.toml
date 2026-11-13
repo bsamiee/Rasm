@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-solar-geometry"
+version.workspace = true
 edition.workspace = true
 description       = "Solar geometry at a site: sun positions, rises and sets, sky patches, incidence, exposure, and solar envelopes"
 

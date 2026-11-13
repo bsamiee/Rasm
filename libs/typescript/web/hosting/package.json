@@ -1,6 +1,6 @@
 {
     "name": "@rasm/hosting",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "One web app declared once and hosted by any provider: its bindings, sign-in source, Node bundle and server, Cloudflare projection and deployment, and server-rendered page",
     "repository": {

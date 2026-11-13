@@ -466,11 +466,12 @@ catalog:
 
     # --- [NX]
 
-    nx: 24.0.6
-    '@nx/devkit': 24.0.6
-    '@nx/js': 24.0.6 # tsconfig `extends` chains the config-reading plugins hash
-    '@nx/web': 24.0.6 # `file-server` executor serving a built Storybook
-    '@nx/plugin': 24.0.6 # `@nx/plugin/testing` end-to-end helpers for Nx plugins
+    nx: 24.1.0-beta.0
+    '@nx/devkit': 24.1.0-beta.0
+    '@nx/js': 24.1.0-beta.0 # tsconfig `extends` chains the config-reading plugins hash
+    '@nx/web': 24.1.0-beta.0 # `file-server` executor serving a built Storybook
+    '@nx/plugin': 24.1.0-beta.0 # Generators and checks for plugins, executors, generators, and migrations
+    '@nx/workspace': 24.1.0-beta.0 # `move`, `remove`, and `infer-targets` generators
 
     # --- [BUILD]
 
@@ -516,16 +517,16 @@ catalog:
     '@biomejs/biome': 2.6.6
     publint: 0.3.25 # Published package layout checked over the tarball its package manager packs
     knip: 6.45.0 # Unused files, internal exports, and dependencies per package, catalog rows never reported
-    refa: 0.12.1    # Regular expression character classes the ast-grep catalogs compare
+    refa: 0.12.1 # Regular expression character classes the ast-grep catalogs compare
 
     # --- [GRAMMARS]
 
     '@tree-sitter-grammars/tree-sitter-toml': 0.7.0
     '@tree-sitter-grammars/tree-sitter-xml': github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
-    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2                           # Release ast-grep 0.51.1 bundles, npm stops at 0.7.1
+    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2 # Release ast-grep 0.51.1 bundles, npm stops at 0.7.1
     tree-sitter-bash: 0.25.1
-    tree-sitter-cpp: github:tree-sitter/tree-sitter-cpp#c009222808634c1014f82438d4883753516a2c24                          # Master commit holding C++20 module, import, and export declarations, release 0.23.4 stops before them
-    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5                  # Master commit holding C# 14 `extension` declarations, release 0.23.5 stops at C# 13
+    tree-sitter-cpp: github:tree-sitter/tree-sitter-cpp#c009222808634c1014f82438d4883753516a2c24 # Master commit holding C++20 module, import, and export declarations, release 0.23.4 stops before them
+    tree-sitter-c-sharp: github:tree-sitter/tree-sitter-c-sharp#8c0abe0b84a3681d3e6852ce2e2a1eecb4f731c5 # Master commit holding C# 14 `extension` declarations, release 0.23.5 stops at C# 13
     tree-sitter-java: 0.23.5
     tree-sitter-javascript: 0.25.0
     tree-sitter-postgres: 19.0.0-beta.4.1
@@ -655,7 +656,7 @@ overrides:
     '@opentelemetry/api': 'catalog:' # OpenTelemetry 2 under `@pulumi/pulumi` peers below 1.10, a second copy splits every `vitest` snapshot
     cloudevents>uuid: 14.0.3 # `cloudevents` 10.0.0 names `uuid` 8, a release line npm marks unsupported
     '@axe-core/playwright>playwright-core': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version
-    tree-sitter: '-'     # Node bindings the grammar packages name as peers, the build compiles their C sources alone
+    tree-sitter: '-' # Node bindings the grammar packages name as peers, the build compiles their C sources alone
     tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
 
 # --- [BUILDS] ---------------------------------------------------------------------------

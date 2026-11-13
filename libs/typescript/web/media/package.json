@@ -1,6 +1,6 @@
 {
     "name": "@rasm/media",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Media inspection, Uppy upload preprocessing, and pdf.js document viewing in the browser, with the Vite copy of pdf.js assets",
     "repository": {

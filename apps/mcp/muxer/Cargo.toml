@@ -2,6 +2,7 @@
 
 [package]
 name              = "mcp-muxer"
+version.workspace = true
 edition.workspace = true
 description       = "Shares one stdio MCP server process across every agent session that configures the same server"
 publish           = false

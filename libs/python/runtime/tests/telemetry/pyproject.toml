@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-telemetry-tests"
-version         = "0.0.0"
+version         = "0.1.0"
 requires-python = ">=3.15"
 
 dependencies = [

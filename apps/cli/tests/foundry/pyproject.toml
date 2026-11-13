@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-foundry-tests"
-version         = "0.0.0"
+version         = "0.1.0"
 requires-python = ">=3.15"
 
 dependencies = ["anyio", "cyclopts", "expression", "msgspec", "pytest", "rasm-cli", "rasm-foundry", "rasm-records", "sysexits"]

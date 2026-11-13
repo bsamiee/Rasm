@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-foundry"
-version         = "0.0.0"
+version         = "0.1.0"
 description     = "Builds, checks, approves, and publishes a declared set of Persian and Arabic font faces from their originals with rasm-typography"
 license         = "MIT"
 authors         = [{ name = "Bardia Samiee", email = "b.samiee93@gmail.com" }]

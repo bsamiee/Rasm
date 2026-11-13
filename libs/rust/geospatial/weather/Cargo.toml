@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-weather"
+version.workspace = true
 edition.workspace = true
 description       = "Weather at a site: EPW and GRIB2 series, design conditions, psychrometrics, comfort, and sky matrices"
 

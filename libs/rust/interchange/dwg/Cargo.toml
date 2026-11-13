@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-dwg"
+version.workspace = true
 edition.workspace = true
 description       = "DWG and DXF reading and writing under a caller audit policy, with conversion to and from the rasm-drawing model"
 

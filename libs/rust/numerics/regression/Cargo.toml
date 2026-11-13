@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-regression"
+version.workspace = true
 edition.workspace = true
 description       = "Regression over weighted observations: polynomial, nonlinear, and separable fits with estimators, uncertainty, influence, and prediction bands"
 

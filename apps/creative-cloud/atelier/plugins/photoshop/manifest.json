@@ -2,7 +2,7 @@
     "manifestVersion": 5,
     "id": "app.rasm.atelier.photoshop",
     "name": "Atelier Photoshop",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "main": "main.js",
     "host": { "app": "PS", "minVersion": "24.2.0", "data": { "loadEvent": "startup" } },
     "icons": [ { "width": 24, "height": 24, "path": "icons/plugin-light.svg", "scale": [ 1 ], "theme": [ "lightest", "light" ], "species": [ "pluginList" ] }, { "width": 24, "height": 24, "path": "icons/plugin-dark.svg", "scale": [ 1 ], "theme": [ "medium", "dark", "darkest" ], "species": [ "pluginList" ] } ],

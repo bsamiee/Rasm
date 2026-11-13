@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-site"
+version.workspace = true
 edition.workspace = true
 description       = "Located site: coordinates, time zones, parcels, CRS transformations, and grid frames"
 

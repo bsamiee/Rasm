@@ -1000,7 +1000,7 @@ wheels = [
 
 [[package]]
 name = "rasm-bpy"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../libs/python/blender/bpy" }
 dependencies = [
     { name = "blender-asset-tracer" },
@@ -1055,7 +1055,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-darkroom"
-version = "0.0.0"
+version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "colour-science" },
@@ -1164,7 +1164,7 @@ dev = [
 
 [[package]]
 name = "rasm-imaging"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../libs/python/blender/imaging" }
 dependencies = [
     { name = "colour-science" },
@@ -1203,7 +1203,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-opencolorio-stubs"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../libs/python/blender/opencolorio-stubs" }
 
 [package.metadata]
@@ -1213,7 +1213,7 @@ dev = [{ name = "hatchling" }]
 
 [[package]]
 name = "rasm-records"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../libs/python/data/records" }
 dependencies = [
     { name = "cbor2" },
@@ -1234,7 +1234,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-refurb"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../tools/refurb" }
 dependencies = [
     { name = "expression" },
@@ -1257,7 +1257,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-rendering"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../libs/python/blender/rendering" }
 dependencies = [
     { name = "expression" },
@@ -1302,7 +1302,7 @@ requires-dist = [
 
 [[package]]
 name = "rasm-telemetry"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "../../../libs/python/runtime/telemetry" }
 dependencies = [
     { name = "concurrent-log-handler" },

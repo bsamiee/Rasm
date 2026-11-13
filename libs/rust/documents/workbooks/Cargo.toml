@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-workbooks"
+version.workspace = true
 edition.workspace = true
 description       = "Spreadsheet workbooks read and written as XLS, XLSX, XLSB, and ODS"
 

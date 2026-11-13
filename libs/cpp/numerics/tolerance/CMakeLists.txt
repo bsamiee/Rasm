@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 4.5)
 
 project(
     rasm-tolerance
-    VERSION 0.0.0
-    COMPAT_VERSION 0.0.0
+    VERSION 0.1.0
+    COMPAT_VERSION 0.1.0
     SPDX_LICENSE MIT
     DESCRIPTION "Floating-point comparison by units in the last place"
     HOMEPAGE_URL "https://github.com/bsamiee/Rasm"

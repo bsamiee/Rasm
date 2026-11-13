@@ -1,6 +1,6 @@
 {
     "name": "@rasm/ssh",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "OpenSSH hosts by config: a preferred dial taken when a login answers, connections shared across processes, commands, copies, and forwards",
     "repository": {

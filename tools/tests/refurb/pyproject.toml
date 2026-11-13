@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-refurb-tests"
-version         = "0.0.0"
+version         = "0.1.0"
 requires-python = ">=3.15"
 
 dependencies = ["expression", "fake-bpy-module-latest", "msgspec", "mypy", "pydantic", "pytest", "rasm-refurb", "refurb", "structlog"]

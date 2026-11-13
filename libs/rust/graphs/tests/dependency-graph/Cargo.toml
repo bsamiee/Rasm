@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-dependency-graph-tests"
+version.workspace = true
 edition.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------

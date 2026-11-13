@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-implicit-modeling"
+version.workspace = true
 edition.workspace = true
 description       = "Implicit field solids: field trees, lattices, shell walls, and octree meshing"
 

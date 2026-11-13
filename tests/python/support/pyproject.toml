@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-testing"
-version         = "0.0.0"
+version         = "0.1.0"
 description     = "Fixtures for pytest, each behind an extra: a private SQLite database and HTTP servers a test hosts on a loopback port"
 classifiers     = ["Framework :: Pytest", "Private :: Do Not Upload", "Typing :: Typed"]
 requires-python = ">=3.13"

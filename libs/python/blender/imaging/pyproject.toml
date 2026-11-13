@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-imaging"
-version         = "0.0.0"
+version         = "0.1.0"
 description     = "Image science: OCIO color, film formation, OIIO and EXR files, lenses and panoramas, sampling, and metering"
 requires-python = ">=3.13"
 

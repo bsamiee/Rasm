@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-pdf"
+version.workspace = true
 edition.workspace = true
 description       = "PDF documents authored, edited, read, signed, validated, and soft-proofed"
 

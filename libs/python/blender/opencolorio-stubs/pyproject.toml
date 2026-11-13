@@ -2,7 +2,7 @@
 
 [project]
 name            = "rasm-opencolorio-stubs"
-version         = "0.0.0"
+version         = "0.1.0"
 description     = "PyOpenColorIO stubs pybind11-stubgen generates at build time from the OpenColorIO release Blender bundles"
 classifiers     = ["Private :: Do Not Upload", "Typing :: Stubs Only"]
 requires-python = ">=3.13"

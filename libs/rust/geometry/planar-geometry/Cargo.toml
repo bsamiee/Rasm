@@ -2,6 +2,7 @@
 
 [package]
 name              = "rasm-planar-geometry"
+version.workspace = true
 edition.workspace = true
 description       = "Planar polylines with arcs and regions: offsets, booleans, clipping, and triangulation"
 

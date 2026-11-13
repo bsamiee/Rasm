@@ -1,6 +1,6 @@
 {
     "name": "@rasm/process",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Child processes over Effect commands: a finished command's exit code, stdout, and stderr read in one scope, its stdout or an error on a non-zero exit, and launchd login agent control",
     "repository": {

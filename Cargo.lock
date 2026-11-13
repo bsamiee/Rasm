@@ -7162,7 +7162,7 @@ dependencies = [
 
 [[package]]
 name = "mcp-muxer"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "backon",
  "camino",
@@ -7201,7 +7201,7 @@ dependencies = [
 
 [[package]]
 name = "mcp-muxer-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "backon",
  "claims",
@@ -9999,7 +9999,7 @@ checksum = "a611d15b50743feb4c76b7d03edcb0e64f399c26961e4efe6975bc398be6aa3d"
 
 [[package]]
 name = "rasm-arrow"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arrow",
  "arrow-schema",
@@ -10020,7 +10020,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-bcf"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "color",
  "data-encoding",
@@ -10050,7 +10050,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-cli"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "annotate-snippets",
  "camino",
@@ -10080,7 +10080,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-console"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -10109,7 +10109,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-dependency-graph"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive-where",
  "derive_more",
@@ -10125,7 +10125,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-dependency-graph-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "claims",
  "enum-map",
@@ -10137,7 +10137,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-drafting"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "color",
  "colorgrad",
@@ -10167,7 +10167,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-drawing"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "color",
  "derive_more",
@@ -10191,7 +10191,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-drawing-views"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "enum-map",
@@ -10213,7 +10213,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-dwg"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "acadrust",
  "color",
@@ -10234,7 +10234,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-dynamic-simulation"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "diffsol",
@@ -10255,7 +10255,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-form-finding"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "faer",
@@ -10272,7 +10272,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-graph-layout"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "dugong",
@@ -10289,7 +10289,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-http"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "axum",
  "derive_more",
@@ -10310,7 +10310,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-ifc"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "blocking",
  "bytes",
@@ -10347,7 +10347,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-implicit-modeling"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive-where",
  "fidget",
@@ -10361,7 +10361,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-ipc"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "backon",
  "derive_more",
@@ -10377,7 +10377,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-ipc-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "backon",
  "claims",
@@ -10396,7 +10396,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-lints"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "camino",
@@ -10440,7 +10440,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-mcp"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arc-swap",
  "backon",
@@ -10478,7 +10478,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-mcp-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "axum",
  "backon",
@@ -10508,7 +10508,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-mesh"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bounded-integer",
  "derive_more",
@@ -10524,7 +10524,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-network-analysis"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "indexmap 2.14.2",
@@ -10544,7 +10544,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-numerical-analysis"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "almost",
  "basin",
@@ -10573,7 +10573,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-numerical-analysis-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "claims",
@@ -10585,7 +10585,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-optimization"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bounded-integer",
  "clarabel",
@@ -10605,7 +10605,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-pdf"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bytemuck",
  "color",
@@ -10650,7 +10650,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-planar-geometry"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cavalier_contours",
  "derive_more",
@@ -10666,7 +10666,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-process"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "itertools 0.15.0",
@@ -10684,7 +10684,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-proximity"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bytemuck",
  "derive-where",
@@ -10703,7 +10703,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-regression"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "almost",
  "basin",
@@ -10723,7 +10723,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-signal-processing"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "apodize",
  "biquad",
@@ -10745,7 +10745,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-site"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "geo",
@@ -10769,7 +10769,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-solar-geometry"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "derive_more",
  "gauss-quad",
@@ -10790,7 +10790,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-solar-geometry-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "approx 0.6.0-rc2",
  "claims",
@@ -10805,7 +10805,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-stats"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "average",
@@ -10831,7 +10831,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-telemetry"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anstream",
  "bytesize",
@@ -10869,7 +10869,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-testing"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "assert_fs",
  "claims",
@@ -10886,7 +10886,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-tui"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "anstream",
  "anstyle",
@@ -10916,7 +10916,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-typst"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "cap-std",
  "derive_more",
@@ -10949,7 +10949,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-weather"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "basin",
  "bounded-integer",
@@ -10980,7 +10980,7 @@ dependencies = [
 
 [[package]]
 name = "rasm-workbooks"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "calamine",
  "chrono",

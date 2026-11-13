@@ -1,6 +1,6 @@
 {
     "name": "@rasm/object-storage",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Objects in an R2 or S3 bucket served with ranges and preconditions and written through whole-body and resumable uploads",
     "repository": {

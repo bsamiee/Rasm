@@ -1,6 +1,6 @@
 {
     "name": "@rasm/atelier-protocol",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
     "description": "Atelier's request contracts, the link its plugins dial, the CEP wire to their ExtendScript, the CEP panel serving that link, and the Vite plugin compiling the link into a plugin build",
     "repository": {
