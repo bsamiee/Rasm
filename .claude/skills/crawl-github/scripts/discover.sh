@@ -42,19 +42,32 @@ slate() {
     shift
     sort -t$'\t' -k2,2nr -k1,1 "$@" | awk -F'\t' -v bar="${bar}" '
         seen[tolower($1)]++ { next }
-        { print ++rank, ($2 < bar ? "below" : $3 == "-" ? "keep" : "near"), $2, $1, $4, $3, $5 }' OFS='\t'
+        { print ++rank, ($2 + 0 < bar + 0 ? "below" : $3 == "-" ? "keep" : "near"), $2, $1, $4, $3, $5 }' OFS='\t'
 }
 
 code() {
-    local query=$1 max=$2 page rows pause lines
+    local query=$1 max=$2 page reply status pause now items
     for ((page = 1; page <= 10 && (page - 1) * 100 < max; page++)); do
-        until rows=$(gh api -X GET search/code -f q="${query}" -F per_page=100 -F page="${page}" --jq '.items[] | [.repository.full_name, .path] | @tsv'); do
-            pause=$(gh api rate_limit --jq '.resources.code_search | if .remaining == 0 then .reset - now + 2 | floor else error("search/code refused the query") end')
+        while :; do
+            reply=$(gh api --include -X GET search/code -f q="${query}" -F per_page=100 -F page="${page}" 2>/dev/null | tr -d '\r') || true
+            status=$(awk 'NR == 1 { print $2 }' <<<"${reply}")
+            [[ ${status} == 403 || ${status} == 429 ]] || break
+            now=$(date +%s)
+            pause=$(awk -F': ' -v now="${now}" '
+                /^$/ { exit }
+                { field[tolower($1)] = $2 }
+                END { print "retry-after" in field ? field["retry-after"] : field["x-ratelimit-remaining"] == "0" ? field["x-ratelimit-reset"] - now + 2 : 20 }' <<<"${reply}")
+            echo "code search quota spent, next request in ${pause}s" >&2
             sleep "${pause}"
         done
-        [[ -z ${rows} ]] || printf '%s\n' "${rows}"
-        lines=$(wc -l <<<"${rows}")
-        ((lines == 100)) || break
+        reply=$(awk 'body { print } /^$/ { body = 1 }' <<<"${reply}")
+        [[ ${status} == 200 ]] || {
+            echo "search/code answered HTTP ${status:-none}: ${reply}" >&2
+            exit 1
+        }
+        jq -c --arg query "${query}" '.items[] | {repo: .repository.full_name, path, sha, query: $query}' <<<"${reply}"
+        items=$(jq '.items | length' <<<"${reply}")
+        ((items == 100)) || break
     done | awk -v max="${max}" 'NR <= max'
 }
 

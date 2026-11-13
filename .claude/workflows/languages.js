@@ -88,7 +88,7 @@ return {
     cpp: owned({
       libs: 'libs/cpp',
       skills: ['cpp-coding'],
-      families: [],
+      families: ['cpp-coding-testing'],
       companion: null,
       catalog: 'pyproject.toml',
       sources: '.pixi/envs/cpp/include',

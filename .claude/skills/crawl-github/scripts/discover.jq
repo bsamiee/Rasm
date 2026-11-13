@@ -17,7 +17,9 @@ def facts:
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 def names:
-    reduce (inputs | scan("github\\.com/([A-Za-z0-9-]+/[\\w.-]+?)(?:\\.git)?(?:[^\\w.-]|\\.?$)|^([A-Za-z0-9-]+/[\\w.-]+)(?:\\t.*)?$") | map(values)[0]) as $name
+    reduce (inputs
+        | (try (fromjson | .repo | strings) catch null)
+            // (scan("github\\.com/([A-Za-z0-9-]+/[\\w.-]+?)(?:\\.git)?(?:[^\\w.-]|\\.?$)|^([A-Za-z0-9-]+/[\\w.-]+)(?:(?:/[^\\t]*)?\\t.*)?$") | map(values)[0])) as $name
         ({seen: {}, kept: []}; ($name | ascii_downcase) as $key | if .seen[$key] then . else .seen[$key] = true | .kept += [$name] end)
     | .kept;
 
@@ -51,20 +53,24 @@ def rows($probes):
         });
 
 def baseline:
-    length as $total
+    unique_by([.repo, .path])
+    | length as $total
     | (.[0].paths // {} | keys | map("probe\t" + .)) as $probes
-    | map((.root | map("root\t" + .))
-        + (.paths | to_entries | map(select(.value != null) | "probe\t" + .key))
-        + (if .ci then ["fact\tchecks on head commit"] else [] end)
-        + (if .releases > 0 then ["fact\trelease"] else [] end)
-        + (if .submodules == [] then [] else ["fact\tsubmodules"] end)
-        | unique)
+    | (map(select(.sha) | {key: .sha, value: "\(.repo)/\(.path)"}) | reverse | from_entries) as $first
+    | map(if has("root")
+        then (.root | map("root\t" + .))
+            + (.paths | to_entries | map(select(.value != null) | "probe\t" + .key))
+            + (if .ci then ["fact\tchecks on head commit"] else [] end)
+            + (if .releases > 0 then ["fact\trelease"] else [] end)
+            + (if .submodules == [] then [] else ["fact\tsubmodules"] end)
+            | unique
+        else (.path / "/") as $part | ["name\t" + $part[-1], "folder\t" + ($part[-2] // "."), "content\t" + $first[.sha]] end)
     | (add // []) + $probes
     | group_by(.)
     | map({name: .[0], count: (length - (if .[0] | IN($probes[]) then 1 else 0 end))})
     | sort_by(-.count, .name)
     | .[]
-    | select(.count > 1 or (.name | startswith("root") | not))
+    | select(.count > 1 or (.name | test("^(probe|fact)\t")))
     | "\(.count * 100 / $total | round)%\t\(.count)/\($total)\t\(.name)";
 
 def distinct:
