@@ -1,8 +1,8 @@
 {
     "name": "@rasm/testing",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "private": true,
-    "description": "Shared test logic by category: Vitest runner policy, Playwright base and served-task config, and Nx plugin inference workspaces with recorded tool replies",
+    "description": "Shared test logic by category: Vitest runner policy, Playwright base and served-task config, and temporary Nx workspaces with packed plugins installed",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -14,11 +14,9 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./nx/cli": "./nx/cli.ts",
-        "./nx/hashes": "./nx/hashes.ts",
-        "./nx/inference": "./nx/inference.ts",
-        "./nx/setup": "./nx/setup.ts",
-        "./nx/tools": "./nx/tools.ts",
+        "./nx/consumer": "./nx/consumer.ts",
+        "./nx/exemplars": "./nx/exemplars.ts",
+        "./nx/projects": "./nx/projects.ts",
         "./playwright": "./playwright.ts",
         "./storybook": "./storybook.ts",
         "./vitest": "./vitest.ts"
@@ -32,7 +30,6 @@
         "@vitest/ui": "catalog:"
     },
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@playwright/test": "catalog:",
         "@storybook/addon-a11y": "catalog:",
@@ -74,11 +71,9 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            "./nx/cli": "./dist/nx/cli.js",
-            "./nx/hashes": "./dist/nx/hashes.js",
-            "./nx/inference": "./dist/nx/inference.js",
-            "./nx/setup": "./dist/nx/setup.js",
-            "./nx/tools": "./dist/nx/tools.js",
+            "./nx/consumer": "./dist/nx/consumer.js",
+            "./nx/exemplars": "./dist/nx/exemplars.js",
+            "./nx/projects": "./dist/nx/projects.js",
             "./playwright": "./dist/playwright.js",
             "./storybook": "./dist/storybook.js",
             "./vitest": "./dist/vitest.js"

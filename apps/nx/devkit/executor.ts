@@ -1,18 +1,16 @@
 import { glob } from 'node:fs/promises';
-import { createProjectGraphAsync, type ExecutorContext, getOutputsForTargetAndConfiguration, joinPathFragments, type Tree } from '@nx/devkit';
-import { getDependencyConfigs } from '@nx/devkit/internal';
+import { createProjectFileMapUsingProjectGraph, createProjectGraphAsync, type ExecutorContext, getOutputsForTargetAndConfiguration, type Tree } from '@nx/devkit';
+import { FsTree, getDependencyConfigs } from '@nx/devkit/internal';
 import { Array, Config, Effect, FileSystem, type ManagedRuntime, Option, Path, Record, Schema, type Scope, Stream } from 'effect';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { ReleaseVersion } from 'nx/src/command-line/release/utils/shared';
-import { FsTree } from 'nx/src/generators/tree';
-import { createProjectFileMapUsingProjectGraph } from 'nx/src/project-graph/file-map-utils';
-import { printed, runtime, ToolError } from '#/process';
+import { printed, promised, type runtime, ToolError } from '#/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Services = ManagedRuntime.ManagedRuntime.Services<typeof runtime> | Scope.Scope;
+type Services = ManagedRuntime.ManagedRuntime.Services<typeof runtime>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -74,24 +72,20 @@ const packaged = Effect.fnUntraced(function* (context: ExecutorContext) {
 
 const tagged = Effect.fnUntraced(function* (context: ExecutorContext, project: string) {
     const tree = new FsTree(context.root, context.isVerbose);
-    const owned = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
-    const nxReleaseConfig = yield* Effect.flatMap(
-        Effect.promise(() => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release)),
-        (resolved) => Effect.fromNullishOr(resolved.nxReleaseConfig),
-    );
-    const graph = yield* Effect.promise(() => createReleaseGraph({ tree, projectGraph: context.projectGraph, nxReleaseConfig, filters: {}, firstRelease: false, verbose: context.isVerbose, skipVersionResolution: true }));
-    const [{ name, releaseTag }, actions] = yield* Effect.all([Effect.fromNullishOr(graph.projectToReleaseGroup.get(project)), Effect.fromNullishOr(graph.projectsToVersionActions.get(project))]);
-    const { currentVersion: version } = yield* Effect.flatMap(
-        Effect.promise(() => actions.readCurrentVersionFromSourceManifest(tree)),
-        Effect.fromNullishOr,
-    );
-    return new ReleaseVersion({ version, releaseTagPattern: releaseTag.pattern, projectName: project, releaseGroupName: name }).gitTag;
+    const failed = ToolError.of(project, 'has no git tag: nx.json release does not resolve');
+    const owned = yield* Effect.tryPromise({ try: () => createProjectFileMapUsingProjectGraph(context.projectGraph), catch: failed });
+    const { error, nxReleaseConfig } = yield* Effect.tryPromise({ try: () => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release), catch: failed });
+    const resolved = yield* Effect.mapError(Effect.fromNullishOr(nxReleaseConfig), () => failed(error?.code));
+    const graph = yield* Effect.tryPromise({ try: () => createReleaseGraph({ tree, projectGraph: context.projectGraph, nxReleaseConfig: resolved, filters: {}, firstRelease: false, verbose: context.isVerbose, skipVersionResolution: true }), catch: failed });
+    const [{ name, releaseTag }, actions] = yield* Effect.mapError(Effect.all([Effect.fromNullishOr(graph.projectToReleaseGroup.get(project)), Effect.fromNullishOr(graph.projectsToVersionActions.get(project))]), ToolError.of(project, 'has no git tag: no release group of nx.json release holds it'));
+    const { currentVersion } = yield* Effect.tryPromise({ try: () => actions.readCurrentVersionFromSourceManifest(tree), catch: ToolError.of(project, 'has no git tag: its manifest states no version') }).pipe(Effect.flatMap(Effect.fromNullishOr));
+    return new ReleaseVersion({ version: currentVersion, releaseTagPattern: releaseTag.pattern, projectName: project, releaseGroupName: name }).gitTag;
 });
 
 const relocked =
     (lock: string, command: Array.NonEmptyReadonlyArray<string>): AfterAllProjectsVersioned =>
     (cwd, { dryRun, rootVersionActionsOptions }) =>
-        runtime.runPromise(
+        promised(
             Effect.gen(function* () {
                 const [path, fs, { skipLockFileUpdate }] = yield* Effect.all([Path.Path, FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
                 const locks =
@@ -113,12 +107,7 @@ const relocked =
             }),
         );
 
-const edited = Effect.fnUntraced(function* ({ projectGraphNode: { name, data }, validManifestFilenames }: Manifested, tree: Tree, edit: (text: string, at: string) => Effect.Effect<string, Error, Services>) {
-    const file = yield* Effect.mapError(Effect.fromOption(Array.head(validManifestFilenames)), ToolError.of(name, 'names no manifest in its versionActionsOptions'));
-    const at = joinPathFragments(data.root, file);
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), ToolError.of(at, 'is missing'));
-    return { at, result: yield* edit(text, at) };
-});
+const edited = (tree: Tree, at: string, edit: (text: string) => Effect.Effect<string, Error, Services>) => Effect.flatMap(Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), ToolError.of(at, 'is missing')), edit);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -134,49 +123,49 @@ abstract class Manifested extends VersionActions {
     }
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
-        return runtime.runPromise(
-            Effect.scoped(
-                Effect.map(
-                    edited(this, tree, (text, at) => this.stated(text, at)),
-                    ({ at, result }) => ({ currentVersion: result, manifestPath: at }),
-                ),
-            ),
+        const reading = (text: string, at: string) => this.stated(text, at);
+        const [manifests, name] = [this.manifestsToUpdate, this.projectGraphNode.name];
+        return promised(
+            Effect.gen(function* () {
+                const { manifestPath } = yield* Effect.mapError(Effect.fromOption(Array.head(manifests)), ToolError.of(name, 'names no manifest in its versionActionsOptions'));
+                return { currentVersion: yield* edited(tree, manifestPath, (text) => reading(text, manifestPath)), manifestPath };
+            }),
         );
     }
 
-    override readCurrentVersionFromRegistry() {
-        return runtime.runPromise(Effect.succeed(null));
+    override readCurrentVersionFromRegistry(): ReturnType<VersionActions['readCurrentVersionFromRegistry']> {
+        return promised(Effect.succeed(null));
     }
 
-    override readCurrentVersionOfDependency() {
-        return runtime.runPromise(Effect.succeed({ currentVersion: null, dependencyCollection: null }));
+    override readCurrentVersionOfDependency(..._: Parameters<VersionActions['readCurrentVersionOfDependency']>): ReturnType<VersionActions['readCurrentVersionOfDependency']> {
+        return promised(Effect.succeed({ currentVersion: null, dependencyCollection: null }));
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        return runtime.runPromise(
-            Effect.scoped(
+        return promised(
+            Effect.forEach(this.manifestsToUpdate, ({ manifestPath }) =>
                 Effect.map(
-                    edited(this, tree, (text, at) => this.restated(text, newVersion, at)),
-                    ({ at, result }) => {
-                        tree.write(at, result);
-                        return [`New version ${newVersion} written to manifest: ${at}`];
+                    edited(tree, manifestPath, (text) => this.restated(text, newVersion, manifestPath)),
+                    (text) => {
+                        tree.write(manifestPath, text);
+                        return `New version ${newVersion} written to manifest: ${manifestPath}`;
                     },
                 ),
             ),
         );
     }
 
-    override updateProjectDependencies() {
-        return runtime.runPromise(Effect.succeed(Array.empty<string>()));
+    override updateProjectDependencies(..._: Parameters<VersionActions['updateProjectDependencies']>): ReturnType<VersionActions['updateProjectDependencies']> {
+        return promised(Effect.succeed(Array.empty<string>()));
     }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const executor = <A, E>(options: Schema.Decoder<A>, run: (options: A, context: ExecutorContext, project: string) => Effect.Effect<boolean, E, Services>) =>
+const executor = <A, E>(options: Schema.Decoder<A>, run: (options: A, context: ExecutorContext, project: string) => Effect.Effect<boolean, E, Services | Scope.Scope>) =>
     Object.assign(
         (raw: unknown, context: ExecutorContext) =>
-            runtime.runPromise(
+            promised(
                 Effect.scoped(
                     Effect.gen(function* () {
                         const [decoded, project] = yield* Effect.all([Schema.decodeUnknownEffect(options)(raw), Effect.fromNullishOr(context.projectName)]);

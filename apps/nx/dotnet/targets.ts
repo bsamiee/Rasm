@@ -1,10 +1,15 @@
+import { basename, dirname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { type Identity, line, type Members, type Project } from '@rasm/nx-devkit/plugin';
-import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
+import { line, type Members, type Stated } from '@rasm/nx-devkit/project';
+import { Array, Option, Record, Schema, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Node = typeof Node.Type;
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const PLUGIN = '@rasm/nx-dotnet';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -27,34 +32,26 @@ const Node = Schema.Struct({
     platforms: Schema.Array(Schema.String),
     implicit: Schema.Array(Schema.String),
     packed: Schema.String,
-    central: Schema.NullOr(Schema.String),
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const analyzer = Effect.flatMap(Path.Path, (path) => path.fromFileUrl(new URL(import.meta.resolve('#analyzer'))));
-
 const metadata = (verb: string, description: string) => ({ description, help: { command: `dotnet ${verb} --help`, example: { args: ['--verbosity', 'detailed'] } } });
 
-const targets = (plugin: Identity, path: Path.Path, node: Node): Pick<Project, 'members' | 'packaged' | 'publish'> => {
-    const root = path.dirname(node.file);
-    const project = path.join('{projectRoot}', path.basename(node.file));
-    const inputs: NonNullable<TargetConfiguration['inputs']> = [
-        'default',
-        '^default',
-        ...node.inputs.map((input) => path.join('{workspaceRoot}', input)),
-        ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${path.join('{projectRoot}', path.relative(root, base), '**')}`),
-        { env: 'NUGET_PACKAGES' },
-    ];
+const targets = (node: Node): Pick<Stated, 'packaged' | 'publish'> & { readonly members: Members } => {
+    const root = dirname(node.file);
+    const project = join('{projectRoot}', basename(node.file));
+    const inputs: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', ...node.inputs.map((input) => join('{workspaceRoot}', input)), ...node.bases.filter((base) => base.startsWith(`${root}/`)).map((base) => `!${join('{projectRoot}', relative(root, base), '**')}`), { env: 'NUGET_PACKAGES' }];
     const modes = node.modes.map((mode) => {
         const runtime = mode.runtime === null ? [] : ['--runtime', mode.runtime];
         return {
             name: [mode.configuration.toLowerCase(), ...Array.fromNullishOr(mode.runtime)].join('_'),
+            configuration: mode.configuration,
             args: ['--configuration', mode.configuration, ...runtime],
             restored: [...runtime, `-p:Configuration=${mode.configuration}`],
             verb: Array.isReadonlyArrayNonEmpty(mode.published) ? 'publish' : 'build',
-            outputs: [...mode.outputs, ...mode.published, ...mode.reports],
+            outputs: [...mode.outputs, ...mode.published, ...mode.reports, ...node.restored],
             reports: mode.reports,
             primary: mode.configuration === (node.publishable ? 'Release' : node.configuration) && mode.runtime === null,
         };
@@ -67,31 +64,22 @@ const targets = (plugin: Identity, path: Path.Path, node: Node): Pick<Project, '
     const checked = moded(({ reports }) => ({ reports }));
     const tested = moded(({ args, restored }) => ({ commands: [{ command: line(['dotnet', 'restore', ...restored]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', ...args])] }));
     const cleaned = moded(({ args }) => ({ commands: [['dotnet', 'clean', node.file, ...args]] }));
+    const released = Option.orElse(
+        Array.findFirst(modes, ({ configuration, name }) => configuration === 'Release' && name === 'release'),
+        () => Array.findFirst(modes, Struct.get('primary')),
+    );
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
-        executor: `${plugin.name}:format`,
+        executor: `${PLUGIN}:format`,
         options: { commands, project },
         dependsOn: ['build--dotnet'],
         inputs,
         metadata: metadata(Array.headNonEmpty(Array.headNonEmpty(commands)), description),
     });
-    const packing: Members['pack'] = node.packable
-        ? {
-              dotnet: {
-                  command: line(['dotnet', 'pack', node.file]),
-                  options: { cwd: '.' },
-                  dependsOn: ['build--dotnet'],
-                  cache: true,
-                  inputs,
-                  outputs: [path.join('{workspaceRoot}', node.packed, '*.nupkg')],
-                  metadata: metadata('pack', `Builds ${node.name} in Release and packs it into its PackageOutputPath with dotnet pack`),
-              },
-          }
-        : {};
     return {
         members: {
             build: {
                 dotnet: {
-                    executor: `${plugin.name}:build`,
+                    executor: `${PLUGIN}:build`,
                     options: { project, ...built.options },
                     configurations: built.configurations,
                     outputs: Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`),
@@ -101,10 +89,28 @@ const targets = (plugin: Identity, path: Path.Path, node: Node): Pick<Project, '
                     metadata: metadata(node.publishable ? 'publish' : 'build', node.publishable ? `Builds ${node.name} with its references in one MSBuild run, publishing it in every configuration, Release unless a configuration is named` : `Builds ${node.name} with its references in one MSBuild run`),
                 },
             },
-            pack: packing,
+            pack: Option.match(
+                Option.filter(released, () => node.packable),
+                {
+                    onNone: () => ({}),
+                    onSome: ({ name, args }) => ({
+                        dotnet: {
+                            command: line(['dotnet', 'pack', node.file, '--no-build', ...args]),
+                            options: { cwd: '.' },
+                            configurations: { [name]: {} },
+                            defaultConfiguration: name,
+                            dependsOn: ['build--dotnet'],
+                            cache: true,
+                            inputs,
+                            outputs: [join('{workspaceRoot}', node.packed, '*.nupkg')],
+                            metadata: metadata('pack', `Packs the ${name} build of ${node.name} into its PackageOutputPath with dotnet pack --no-build`),
+                        },
+                    }),
+                },
+            ),
             check: {
                 'dotnet-build': {
-                    executor: `${plugin.name}:check`,
+                    executor: `${PLUGIN}:check`,
                     ...checked,
                     dependsOn: ['build--dotnet'],
                     cache: true,
@@ -122,7 +128,7 @@ const targets = (plugin: Identity, path: Path.Path, node: Node): Pick<Project, '
                           dependsOn: ['build--dotnet'],
                           cache: true,
                           inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
-                          outputs: node.results.map((results) => path.join('{workspaceRoot}', results)),
+                          outputs: node.results.map((results) => join('{workspaceRoot}', results)),
                           metadata: metadata('test', `Restores ${node.name} and tests the build with dotnet test`),
                       },
                   }
@@ -141,7 +147,6 @@ const targets = (plugin: Identity, path: Path.Path, node: Node): Pick<Project, '
         ...(node.packable && {
             packaged: ['pack--dotnet'],
             publish: {
-                executor: plugin.publisher,
                 options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'] },
                 metadata: { description: `Pushes the package pack--dotnet wrote for ${node.name} with dotnet nuget push, which reads NUGET_API_KEY and skips a version nuget.org holds`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
             },
@@ -151,4 +156,4 @@ const targets = (plugin: Identity, path: Path.Path, node: Node): Pick<Project, '
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { analyzer, Node, targets };
+export { Node, PLUGIN, targets };

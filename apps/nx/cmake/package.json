@@ -1,6 +1,7 @@
 {
     "name": "@rasm/nx-cmake",
-    "version": "0.0.0",
+    "version": "0.1.0",
+    "private": true,
     "description": "Nx plugin inferring CMake projects, targets, and dependency edges from the file API reply of one configured build tree per workflow preset, with clang-tidy checks, CTest runs, and CPack archives",
     "repository": {
         "type": "git",
@@ -20,8 +21,9 @@
     },
     "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
+        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/nx-devkit": "workspace:*",
+        "@rasm/process": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
@@ -32,7 +34,6 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
-        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",

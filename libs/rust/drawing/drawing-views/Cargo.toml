@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-drawing-views"
-version.workspace = true
-edition.workspace = true
-description       = "Hidden-line drawing views of solids: parallel and perspective frames, classified edges, sections, and shadows"
+name                 = "rasm-drawing-views"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["hidden-line", "drawing", "projection", "cad"]
+categories           = ["graphics", "rendering"]
+description          = "Hidden-line drawing views of solids: parallel and perspective frames, classified edges, sections, and shadows"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

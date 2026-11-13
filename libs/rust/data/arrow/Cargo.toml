@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-arrow"
-version.workspace = true
-edition.workspace = true
-description       = "Typed records over Arrow record batches and Parquet storage"
+name                 = "rasm-arrow"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["arrow", "parquet", "records"]
+categories           = ["data-structures", "encoding"]
+description          = "Typed records over Arrow record batches and Parquet storage"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

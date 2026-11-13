@@ -1,5 +1,5 @@
-import process from 'node:process';
-import { Boolean, Effect, Formatter, Layer, ManagedRuntime, Option, pipe, Schema, Stream } from 'effect';
+import process, { env } from 'node:process';
+import { Boolean, Effect, Formatter, Layer, ManagedRuntime, Option, Predicate, pipe, Schema, Semaphore, Stream } from 'effect';
 import { ChildProcess, CommandLine } from 'effect/process';
 import { onExit } from 'signal-exit';
 
@@ -24,9 +24,35 @@ class ToolError extends Schema.TaggedError<ToolError, { readonly brand: unique s
     }
 }
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
+const alone = Semaphore.makeUnsafe(1);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const spawned = Effect.fn('spawned')(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions = {}) {
+const secluded =
+    (variables: Readonly<Record<string, string>>) =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        Semaphore.withPermit(
+            alone,
+            Effect.acquireUseRelease(
+                Effect.sync(() => {
+                    const before = { ...env };
+                    Object.assign(env, variables);
+                    return before;
+                }),
+                () => effect,
+                (before) =>
+                    Effect.sync(() => {
+                        Object.keys(env)
+                            .filter((key) => !(key in before))
+                            .forEach((key) => Reflect.deleteProperty(env, key));
+                        Object.assign(env, before);
+                    }),
+            ),
+        );
+
+const spawned = Effect.fnUntraced(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions = {}) {
     const handle = yield* ChildProcess.make(command, args, { extendEnv: true, stdin: 'ignore', ...options });
     const succeeded = Effect.map(
         Effect.when(handle.exitCode, Effect.map(handle.isRunning, Boolean.not)),
@@ -43,7 +69,7 @@ const spawned = Effect.fn('spawned')(function* (command: string, args: readonly 
     return handle;
 });
 
-const ran = Effect.fn('ran')(function* (command: string, args: readonly string[], { input, echo, ...options }: Run = {}) {
+const ran = Effect.fnUntraced(function* (command: string, args: readonly string[], { input, echo, ...options }: Run = {}) {
     const handle = yield* spawned(command, args, { ...options, ...(echo === undefined && { env: { ...PLAIN, ...options.env } }), ...(input !== undefined && { stdin: Stream.encodeText(Stream.succeed(input)) }) });
     const read = (stream: typeof handle.stdout, sink: NodeJS.WritableStream | undefined) => Stream.mkString(sink === undefined ? Stream.decodeText(stream) : Stream.tap(Stream.decodeText(stream), (chunk) => Effect.sync(() => sink.write(chunk))));
     const [stdout, stderr, code] = yield* Effect.all([read(handle.stdout, echo?.stdout), read(handle.stderr, echo?.stderr), handle.exitCode], { concurrency: 'unbounded' });
@@ -66,12 +92,22 @@ const present = (command: string, args: readonly string[], options: Run = {}) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = pipe(
+const platform = pipe(
     Effect.promise(() => import('@effect/platform-node/NodeServices')),
     Effect.map(({ layer }) => layer),
     Layer.unwrap,
-    ManagedRuntime.make,
 );
+
+const runtime = ManagedRuntime.make(platform);
+
+const messaged = <E>(error: E): E => (Predicate.isError(error) ? Object.defineProperty(error, 'message', { value: error.message }) : error);
+
+const promised = <A, E>(effect: Effect.Effect<A, E, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>) => runtime.runPromise(Effect.mapError(effect, messaged));
+
+const provided = <R, F>(layer: Layer.Layer<R, F, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>) => {
+    const managed = ManagedRuntime.make(Layer.provideMerge(layer, platform));
+    return <A, E>(effect: Effect.Effect<A, E, R | ManagedRuntime.ManagedRuntime.Services<typeof runtime>>) => managed.runPromise(Effect.mapError(effect, messaged));
+};
 
 const iterated =
     <Args extends readonly unknown[], A, E>(results: (...args: Args) => Stream.Stream<A, E, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>) =>
@@ -83,4 +119,4 @@ const iterated =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { iterated, present, printed, ran, runtime, spawned, ToolError };
+export { iterated, present, printed, promised, provided, ran, runtime, secluded, spawned, ToolError };

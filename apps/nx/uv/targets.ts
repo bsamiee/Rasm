@@ -1,7 +1,8 @@
+import { dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { ancestors, type Identity, line, type Project } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, identity, Option, Path, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
+import { ancestors, line, type Members, type Stated } from '@rasm/nx-devkit/project';
+import { Array, Effect, FileSystem, identity, Option, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
 import type { Member } from '#/workspace';
 
@@ -91,7 +92,6 @@ const CHECKERS = {
 const PIXI = 'pixi.toml';
 const CONFIGS = Array.dedupe([...Object.values(CHECKERS).flatMap(({ files }) => files.map(([file]) => file)), PIXI]);
 const SEPARATOR = /\s+/u;
-const TOOL = { runtime: 'uv --version' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -108,21 +108,17 @@ const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optional
 const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
 
 const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: readonly string[]) {
-    const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const present = yield* Effect.filter(
-        Array.cartesianWith(Array.dedupe(roots.flatMap((root) => ancestors(path, root))), CONFIGS, (folder, file) => path.join(folder, file)),
-        (at) => fs.exists(path.join(workspaceRoot, at)),
-        { concurrency: 'unbounded' },
-    );
-    const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(path.join(workspaceRoot, at)), (text) => [at, path.extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
+    const fs = yield* FileSystem.FileSystem;
+    const present = yield* Effect.filter(Array.cartesianWith(Array.dedupe(roots.flatMap((root) => ancestors(root))), CONFIGS, join), (at) => fs.exists(join(workspaceRoot, at)), { concurrency: 'unbounded' });
+    const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
     return {
         documented: new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const)),
         unparsed: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), (cause) => [at, ToolError.of(at, 'does not parse')(cause)] as const)),
     };
 });
 
-const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, root: string, checker: Checker) => {
-    const candidates = ancestors(path, root).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [path.join(folder, file), keys] as const));
+const declared = (documented: ReadonlyMap<string, unknown>, root: string, checker: Checker) => {
+    const candidates = ancestors(root).flatMap((folder) => CHECKERS[checker].files.map(([file, ...keys]) => [join(folder, file), keys] as const));
     const found = Array.findFirstWithIndex(candidates, ([at, keys]) =>
         Option.flatMap(
             keys.reduce<Option.Option<unknown>>((table, key) => table.pipe(Option.flatMap(Schema.decodeUnknownOption(Table)), Option.flatMap(Record.get(key))), Option.fromUndefinedOr(documented.get(at))),
@@ -140,21 +136,21 @@ const declared = (path: Path.Path, documented: ReadonlyMap<string, unknown>, roo
                     candidates
                         .slice(0, index + 1)
                         .filter(([at]) => documented.has(at))
-                        .map(([at]) => path.join('{workspaceRoot}', at)),
+                        .map(([at]) => join('{workspaceRoot}', at)),
                 ),
         }),
-        patterns: (settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => path.join(root, '**', pattern)),
+        patterns: (settings?.python_files ?? settings?.ini_options?.python_files ?? settings?.pytest?.python_files ?? CHECKERS[checker].matches).map((pattern) => join(root, '**', pattern)),
     };
 };
 
-const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (tool: string, name: string) => Option.Option<string>): Pick<Project, 'members' | 'packaged' | 'publish'> => {
+const targets = (member: Member, placed: (tool: string, name: string) => Option.Option<string>): Pick<Stated, 'packaged' | 'publish'> & { readonly members: Members } => {
     const root = member.root === member.workspace;
     const named = Option.fromUndefinedOr(member.name);
-    const distributions = Option.map(named, (name) => Option.getOrElse(placed('uv', name), () => path.join(member.workspace, 'dist', name)));
+    const distributions = Option.map(named, (name) => Option.getOrElse(placed('uv', name), () => join(member.workspace, 'dist', name)));
     const built = Option.toArray(distributions)
-        .map((folder) => path.relative(member.root, folder))
+        .map((folder) => relative(member.root, folder))
         .filter((folder) => !folder.startsWith('..'))
-        .map((folder) => `!${path.join('{projectRoot}', folder, '**', '*')}`);
+        .map((folder) => `!${join('{projectRoot}', folder, '**', '*')}`);
     const coverage = Option.flatMap(named, (name) => placed('coverage', name));
     const checkers = Array.groupBy(
         member.nested
@@ -165,7 +161,7 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                           const checked = yield* Option.filter(Option.fromUndefinedOr(member.checks[key]), ({ locked }) => locked);
                           const folder = row.folder(member.workspace, yield* Option.fromUndefinedOr(checked.base));
                           const { cache: stated = '.mypy_cache', config } = Option.getOrElse(Record.get(member.checks, 'mypy'), () => checked);
-                          const cache = path.join(stated.replace('$MYPY_CONFIG_FILE_DIR', path.relative(folder, config === undefined ? folder : path.dirname(config)) || '.'), member.root, key);
+                          const cache = join(stated.replace('$MYPY_CONFIG_FILE_DIR', relative(folder, config === undefined ? folder : dirname(config)) || '.'), member.root, key);
                           return { key, row, checked, folder, cache };
                       }),
                   ),
@@ -180,13 +176,13 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                 '--no-active',
                 '--locked',
                 ...row.run,
-                ...(path.relative(member.workspace, folder).startsWith('..') ? ['--project', path.relative(folder, member.workspace)] : []),
+                ...(relative(member.workspace, folder).startsWith('..') ? ['--project', relative(folder, member.workspace)] : []),
                 ...flagged('--package', member.name),
                 '--all-extras',
                 ...flagged('--group', checked.group),
                 ...row.command(
-                    path.relative(folder, member.root) || '.',
-                    UndefinedOr.map(checked.config, (file) => path.relative(folder, file)),
+                    relative(folder, member.root) || '.',
+                    UndefinedOr.map(checked.config, (file) => relative(folder, file)),
                 ),
                 ...(row.mypy === undefined ? [] : [...row.mypy, '--cache-dir', cache]),
             ];
@@ -197,14 +193,13 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                     options: { cwd: folder },
                     cache: true,
                     inputs: [
-                        ...row.sources.map((glob) => path.join('{projectRoot}', '**', glob)),
+                        ...row.sources.map((glob) => join('{projectRoot}', '**', glob)),
                         ...built,
                         ...checked.inputs,
                         ...row.variables.map((env) => ({ env })),
-                        TOOL,
                         '^default',
-                        path.join('{workspaceRoot}', member.workspace, '.python-version'),
-                        path.join('{workspaceRoot}', member.lock),
+                        join('{workspaceRoot}', member.workspace, '.python-version'),
+                        join('{workspaceRoot}', member.lock),
                         ...Array.match(
                             checked.projects.filter((name) => name !== member.name),
                             { onEmpty: () => [], onNonEmpty: (projects) => [{ input: 'default', projects }] },
@@ -215,8 +210,8 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                         {
                             onNone: () => ({}),
                             onSome: (at) => ({
-                                outputs: [path.join('{workspaceRoot}', at)],
-                                configurations: { coverage: { command: line([...argv, '--cov', `--cov-report=lcov:${path.join(path.relative(folder, at), 'coverage.lcov')}`]), env: { COVERAGE_FILE: path.join(path.relative(folder, at), '.coverage') } } },
+                                outputs: [join('{workspaceRoot}', at)],
+                                configurations: { coverage: { command: line([...argv, '--cov', `--cov-report=lcov:${join(relative(folder, at), 'coverage.lcov')}`]), env: { COVERAGE_FILE: join(relative(folder, at), '.coverage') } } },
                             }),
                         },
                     ),
@@ -233,7 +228,7 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                     uv: {
                         command: line(['uv', 'lock', '--check']),
                         cache: true,
-                        inputs: [...member.manifests.map((file) => path.join('{workspaceRoot}', file)), path.join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => path.join('{projectRoot}', file)), TOOL],
+                        inputs: [...member.manifests.map((file) => join('{workspaceRoot}', file)), join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => join('{projectRoot}', file))],
                         metadata: { description: 'Resolves the workspace and fails where uv.lock lacks a change the manifests state, without writing it', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
                     },
                 }),
@@ -259,11 +254,11 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
                     onNone: () => ({}),
                     onSome: ({ name, folder }) => ({
                         uv: {
-                            command: line(['uv', 'build', '--package', name, '--no-sources', '--out-dir', path.relative(member.workspace, folder), '--clear']),
+                            command: line(['uv', 'build', '--package', name, '--no-sources', '--out-dir', relative(member.workspace, folder), '--clear']),
                             options: { cwd: member.workspace },
                             cache: true,
-                            inputs: ['{projectRoot}/**/*', ...built, TOOL],
-                            outputs: [path.join('{workspaceRoot}', folder)],
+                            inputs: ['{projectRoot}/**/*', ...built],
+                            outputs: [join('{workspaceRoot}', folder)],
                             metadata: { description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
                         },
                     }),
@@ -282,7 +277,6 @@ const targets = (path: Path.Path, member: Member, plugin: Identity, placed: (too
             Option.isSome(distributions) && {
                 packaged: ['build--uv'],
                 publish: {
-                    executor: plugin.publisher,
                     options: { publish: published, preview: [...published, '--dry-run'] },
                     metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
                 },

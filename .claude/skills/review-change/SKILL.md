@@ -5,17 +5,17 @@ description: "Use when judging, challenging, or codifying a change to code, cove
 
 # [REVIEW_CHANGE]
 
-Reviews judge each hunk of a change against its file whole, its consumers, package and host source at the pinned release, and every check the language's owners list, rebuild each wrong hunk in place, and leave each settled fact at the skill or checker owning it. Code, configuration, build, rule, and checker files take the same review. Use `refactor-code` for the rework, its removal and structure tables, and its adversary passes, `<language>-coding` skills for language form, `.claude/workflows/languages.js` for check owners, `use-ast-grep` for rule shape and cost, `clean-prose` for guidance text.
+Reviews judge each hunk of a change against its file whole, its consumers, package and host source at the pinned release, and every check the language's owners list, rebuild each wrong hunk in place, and leave each settled fact at the skill or checker owning it. Code, configuration, build, rule, and checker files take the same review. Use `refactor-code` for the rework, its removal and structure tables, and its adversary passes, `<language>-coding` skills for language form, `use-ast-grep` for rule shape and cost, `clean-prose` for guidance text.
 
 Scope names how the roles of `[04]` run:
 
-| [INDEX] | [SCOPE]  | [RUN]                                                                                                                 |
-| :-----: | :------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | File     | `refactor-code` adversary passes where the change had none, then one judge holding every `[04]` role in order         |
-|  [02]   | Folder   | `deepen` with `args.mode` `reduce` or `deepen`: reader, editor, adversaries, and verdict per file group               |
-|  [03]   | Range    | `tune` over `<base>..HEAD`: a reader per unit, a writer per checker and rule folder, per skill a writer and adversary |
-|  [04]   | Pass     | One reader per tool-call log in order, naming each wasted round and skipped check with the step catching it earlier   |
-|  [05]   | Guidance | Guidance adversary of `[04]` over `git diff HEAD -- <folder>` hunk by hunk with its passage, then its prose pass      |
+| [INDEX] | [SCOPE]  | [RUN]                                                                                                               |
+| :-----: | :------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | File     | `refactor-code` adversary passes where the change had none, then one judge holding every `[04]` role in order       |
+|  [02]   | Folder   | `refactor-code` folder scope: reader, editor, adversaries, and verdict per file group                               |
+|  [03]   | Range    | `<base>..HEAD`: a reader per unit, a writer per checker and rule folder, per skill a writer and adversary           |
+|  [04]   | Pass     | One reader per tool-call log in order, naming each wasted round and skipped check with the step catching it earlier |
+|  [05]   | Guidance | Guidance adversary of `[04]` over `git diff HEAD -- <folder>` hunk by hunk with its passage, then its prose pass    |
 
 ## [01]-[READING]
 
@@ -24,14 +24,14 @@ Verdicts rest on the file whole, each consumer, and the checks at base, one draf
 | [INDEX] | [READ]         | [COMMAND]                                                                                                              |
 | :-----: | :------------- | :--------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | Base and tree  | `git log -5 --stat`, `git status --short`, base is the named or last clean commit, the live tree is the subject        |
-|  [02]   | Standards      | `CLAUDE.md` standards, the language skill and its workflow companion, memory entries, cited research sheets            |
-|  [03]   | Checks at base | Every owner `languages.js` lists (`nx run <project>:check`, `hk check <paths>`), before an edit                        |
+|  [02]   | Standards      | `CLAUDE.md` standards, the language skill, memory entries                                                              |
+|  [03]   | Checks at base | Every checker `[03]` names (`nx run <project>:check`, `hk check <paths>`), before an edit                              |
 |  [04]   | Rules and rows | Rule folders, utils, lint rows, and the `tools/` lint list of the language, before a stronger form is proposed         |
 |  [05]   | File           | `ast-grep outline <path>` to choose, each file whole, consumers by `--items exports`, `rg -F '<name>'`, `ast-grep run` |
 |  [06]   | Diff           | `GIT_EXTERNAL_DIFF=difft git diff <base> -- <paths>` for reshaped against moved code, `git diff --numstat <base>`      |
 |  [07]   | Counts         | `loc` and `ast-grep outline` at `HEAD` and in the tree, the counts `refactor-code` reading lists                       |
 |  [08]   | Cause          | `git log -S '<literal>' -- <path>` for each guard, flag, or form a hunk removes or keeps                               |
-|  [09]   | Sources        | `search-code` at the release `languages.js` names, generated files found by `fd <name> .cache/<tool>` before a read    |
+|  [09]   | Sources        | `search-code` at the installed release, generated files found by `fd <name> .cache/<tool>` before a read               |
 |  [10]   | Entry points   | Each entry point `refactor-code` reading lists, run once on repository input at base and new                           |
 |  [11]   | Input          | Repository files per entry point covering each site a hunk changes, run at base and new                                |
 |  [12]   | Timing         | `hyperfine -r <runs> '<command>'` on the real command or binary at base and after, the build profile stated            |
@@ -69,16 +69,16 @@ Judges fix what they judge: each wrong, naive, and shuffle verdict is applied in
 
 ## [03]-[ROUTING]
 
-Each fact a review settles has one owner, read before a verdict states it and edited by the review changing it, `.claude/workflows/languages.js` lists them per language with the fact each decides:
+Each fact a review settles has one owner, read before a verdict states it and edited by the review changing it:
 
 | [INDEX] | [FACT]                                               | [OWNER]                                                                           |
 | :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | Level, option, threshold, or ban of an included rule | Checker configuration `languages.js` names, its ban rows included                 |
+|  [01]   | Level, option, threshold, or ban of an included rule | Language's checker configuration, its ban rows included                           |
 |  [02]   | Form syntax decides alone, in any parsed language    | `tools/ast-grep/rules/<language>`, a capture in `utils/<language>`, outline row   |
 |  [03]   | Form resolved names, types, or attributes decide     | `tools/dylint`, `apps/roslyn`, `tools/refurb`, a `tsconfig.base.json` row         |
 |  [04]   | Fact a checker computes from a grammar or engine     | That checker's code under `tools/`, consumers rebuilt to its finding              |
 |  [05]   | Fact no checker decides soundly for every instance   | Language skill section whose heading covers it, else the family skill covering it |
-|  [06]   | Placement, target, entry point, or catalog feature   | README `[OWNERS]` row, the catalog or manifest row |
+|  [06]   | Placement, target, entry point, or catalog feature   | README `[OWNERS]` row, the catalog or manifest row                                |
 |  [07]   | Divider, section order, or wording                   | `clean-prose` and `prose.py`                                                      |
 
 Owner criteria:

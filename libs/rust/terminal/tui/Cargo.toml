@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-tui"
-version.workspace = true
-edition.workspace = true
-description       = "Terminal user interface session with suspend, keymap rows, and a log pane"
+name                 = "rasm-tui"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["tui", "terminal", "keymap"]
+categories           = ["command-line-interface"]
+description          = "Terminal user interface session with suspend, keymap rows, and a log pane"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

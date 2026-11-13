@@ -53,7 +53,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Parallel: Processes share the settings, cache, and temp folders `.config/mise.toml` names
 - Parallel: Ghidra serializes bundle builds and loads across processes under `osgi/parallel.lock`
 - Parallel: Each process pays a JVM start, bundle load, and project open, a worker runs one process over its whole share of inputs
-- Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<main>/docs/research/<area>/<subject>/decompiled/<program>/` alone
+- Files: `<out>`, `<stubs>`, `<catalog>`, and `<report>` go under `<subject>/decompiled/<program>/` of the folder the caller names alone
 - Files: `<macros>`, `<plan>`, and `<rows>` go under `<main>/.artifacts/ghidra/<name>/`
 - Files: `<main>` is the repository root
 - Files: Scripts and `-log` create their file's folder, `lipo` and redirects need `mkdir -p`

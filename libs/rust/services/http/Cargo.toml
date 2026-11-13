@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-http"
-version.workspace = true
-edition.workspace = true
-description       = "HTTP server for an axum service: listeners on every resolved address of each host, and staged graceful shutdown under a grace deadline"
+name                 = "rasm-http"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["http", "axum", "server"]
+categories           = ["web-programming::http-server", "network-programming"]
+description          = "HTTP server for an axum service: listeners on every resolved address of each host, and staged graceful shutdown under a grace deadline"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-dependency-graph"
-version.workspace = true
-edition.workspace = true
-description       = "Acyclic evaluation graph: dependency order, propagation, cycles, tearing, and critical paths"
+name                 = "rasm-dependency-graph"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["graph", "dag", "dependency", "evaluation"]
+categories           = ["data-structures", "algorithms"]
+description          = "Acyclic evaluation graph: dependency order, propagation, cycles, tearing, and critical paths"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

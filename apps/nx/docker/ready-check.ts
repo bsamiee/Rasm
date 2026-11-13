@@ -1,6 +1,8 @@
+import { layer } from '@effect/platform-node/NodeServices';
 import { runReadyCheck } from '@nx/devkit/internal';
-import { printed, runtime } from '@rasm/nx-devkit/process';
+import { Completed } from '@rasm/process';
 import { Array, Cause, Effect, Schedule, Schema, String } from 'effect';
+import { ChildProcess } from 'effect/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -12,7 +14,7 @@ const Running = Schema.Array(Schema.fromJsonString(Schema.Struct({ Service: Sche
 
 const waitForDevServer = (...services: readonly string[]) =>
     runReadyCheck(({ root }) =>
-        printed('docker', ['compose', 'ps', '--format', 'json', ...services], { cwd: root }).pipe(
+        Completed.output(ChildProcess.make('docker', ['compose', 'ps', '--format', 'json', ...services], { cwd: root, stdin: 'ignore' })).pipe(
             Effect.flatMap((stdout) => Schema.decodeEffect(Running)(stdout.split('\n').filter(String.isNonEmpty))),
             Effect.map((running) =>
                 Array.difference(
@@ -23,7 +25,8 @@ const waitForDevServer = (...services: readonly string[]) =>
             Effect.filterOrFail(Array.isReadonlyArrayEmpty, (absent) => new Cause.NoSuchElementError(`Compose lists no running container of ${absent.join(', ')} in ${root}`)),
             Effect.retry(Schedule.spaced('250 millis')),
             Effect.as(null),
-            runtime.runPromise,
+            Effect.provide(layer),
+            Effect.runPromise,
         ),
     );
 

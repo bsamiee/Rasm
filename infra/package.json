@@ -1,7 +1,7 @@
 {
     "name": "@rasm/infra",
     "private": true,
-    "description": "IaC programs for repository and app hosting resources",
+    "description": "IaC programs for the repository, its machines, and app hosting",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
@@ -11,24 +11,19 @@
         ".": "./stacks.ts"
     },
     "dependencies": {
-        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@pulumi/aws": "catalog:",
         "@pulumi/cloudflare": "catalog:",
         "@pulumi/command": "catalog:",
+        "@pulumi/docker": "catalog:",
+        "@pulumi/docker-build": "catalog:",
         "@pulumi/github": "catalog:",
         "@pulumi/minio": "catalog:",
-        "@pulumi/postgresql": "catalog:",
         "@pulumi/pulumi": "catalog:",
         "@pulumi/random": "catalog:",
         "@pulumi/tailscale": "catalog:",
-        "@pulumi/tls": "catalog:",
         "@pulumiverse/doppler": "catalog:",
-        "@rasm/hooks": "workspace:*",
         "@rasm/hosting": "workspace:*",
         "@rasm/process": "workspace:*",
-        "@rasm/ssh": "workspace:*",
-        "@rasm/webhooks": "workspace:*",
         "effect": "catalog:",
         "vite": "catalog:"
     },

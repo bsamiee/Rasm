@@ -15,8 +15,8 @@
 Owner ruling, verbatim: "remove the handtyped 2nd version - just fully align to alpha? but keep this as last so we fix all other things - but we can deep mine all new things it enables + allows us to do and other tools to move with it and their capabilities to fully land on that + ensur no mixed paradimgs we rebuild things to that".
 
 Done on 2026-11-12, uncommitted:
-- `.config/mise.lock` holds Node `27.0.0-alpha.0.1.0`, and `NODE_VERSION` in `.config/mise.toml` derives from `tools.node.version`.
-- Compose Node images install that version through mise in a build stage of `infra/compose.yaml` and copy `node` and `libatomic.so.1` onto the distroless nonroot base, so Mac, CI, the Atelier helper, and containers run one nodejs.org build.
+- `.config/mise.lock` holds Node `27.0.0-alpha.0.1.0`.
+- App images install the version of the Node applying their stack through mise in a build stage of the Dockerfile `infra/hosting-stack.ts` states inline and copy `node` and `libatomic.so.1` onto the distroless nonroot base, so Mac, CI, the Atelier helper, and containers run one nodejs.org build.
 - `infra/platform-stack.ts` holds no `dhi.io` login, `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` stay in Doppler unread.
 - Atelier's helper builds with `useCodeCache`, which under `useVfs` caches every module of its virtual file system.
 - `Math.sumPrecise` sums in typography shaping and the portfolio grid, and `Iterator.zip` replaces the four nested zips in `apps/nx/devkit`, `apps/nx/distribution`, `tests/typescript/support/nx`, and `libs/typescript/data/database`.

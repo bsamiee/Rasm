@@ -1,27 +1,23 @@
-import { layerUndici } from '@effect/platform-node/NodeHttpClient';
-import type { ExecutorContext } from '@nx/devkit';
-import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
-import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
-import { interpolate, jsonStringify, type Output, secret } from '@pulumi/pulumi';
+import { getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
+import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, IssueLabels, Repository, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
+import { interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { Acl, DnsPreferences, TailnetSettings } from '@pulumi/tailscale';
-import { Environment, Project, Provider, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
-import { Array, Cause, Config, Effect, FileSystem, flow, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Environment, Project, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
+import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
-import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
-import { run } from '#/command';
-import { Deployed, hosts } from '#/platform-stack';
+import { hosts } from '#/platform-stack';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const palette = { bug: 'd73a4a', enhancement: 'a2eeef' };
-const api = new URL('https://api.doppler.com');
+const feed = { setting: 'SPARKLE_FEED_URL', variable: 'SPARKLE_FEED_BUCKET' } as const;
+const configs = ['dev', 'ci', 'release', 'deploy'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Account = Deployed.mapFields(flow(Struct.pick(['CLOUDFLARE_ACCOUNT_ID']), Struct.assign(Struct.Record(['GITHUB_TOKEN', 'DOPPLER_IAC_TOKEN'], Schema.NonEmptyString))));
-const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, description: Schema.NonEmptyString }));
-const Origin = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, owner: Schema.Struct({ login: Schema.NonEmptyString }) }));
-const Integrations = Schema.Struct({ integrations: Schema.Array(Schema.Struct({ slug: Schema.String, name: Schema.String, type: Schema.String })) });
+const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, description: Schema.NonEmptyString, repository: Schema.Struct({ url: Schema.TemplateLiteralParser(['git+https://github.com/', Schema.NonEmptyString, '/', Schema.NonEmptyString, '.git']) }) }));
+const Uproject = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.NonEmptyString }));
+const Feed = Schema.TemplateLiteralParser([`${feed.setting} = `, Schema.URLFromString]);
 const Form = Schema.String.pipe(
     Schema.decodeTo(Schema.Unknown, {
         decode: SchemaGetter.transformEffect((text: string, options) => Effect.try({ try: () => Yaml.parse(text), catch: (cause) => new SchemaIssue.InvalidValue({ expected: 'YAML', cause }, text, options) })),
@@ -32,119 +28,79 @@ const Form = Schema.String.pipe(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const delivered = Effect.fnUntraced(function* (
-    repository: Output<string>,
-    { name, fullName, owner, project, description, operator, token }: { readonly name: string; readonly fullName: Output<string>; readonly owner: string; readonly project: string; readonly description: string; readonly operator: string; readonly token: string },
-) {
-    const { integrations } = yield* HttpClient.execute(HttpClientRequest.bearerToken(HttpClientRequest.get(new URL('/v3/integrations', api)), operator)).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk), Effect.flatMap(HttpClientResponse.schemaBodyJson(Integrations)));
-    const { slug: integration } = yield* Effect.fromOption(
-        Array.findFirst(integrations, (row) => row.type === 'github-actions' && row.name === owner),
-        () => new Cause.NoSuchElementError(`Doppler holds no github-actions integration named ${owner}`),
-    );
-    const provider = new Provider('doppler', { dopplerToken: secret(operator), host: api.origin });
-    const doppler = new Project(project, { name: project, description }, { provider, protect: true });
-    const held = Record.map(Struct.Record(['dev', 'ci', 'release', 'deploy'], undefined), (_, config) => new Environment(`${project}-${config}`, { project: doppler.name, slug: config, name: config }, { provider, protect: true }).slug);
-    const synced = { integration, project: doppler.name, syncTarget: 'repo', repoName: repository, deleteBehavior: 'delete_from_target' };
-    const value = new ServiceToken(`${project}-deploy`, { project: doppler.name, config: held.deploy, name, access: 'read' }, { provider }).key;
-    const deploying = Record.map(
-        Struct.Record(['release', 'deploy'], undefined),
-        (_, environment) => new ActionsEnvironmentSecret(`${name}-${environment}-doppler`, { repository, environment: new RepositoryEnvironment(`${name}-${environment}`, { repository, environment }).environment, secretName: 'DOPPLER_TOKEN', value }).environment,
-    );
-    return {
-        dev: held.dev,
-        ci: new secretssync.GithubActions(`${project}-ci`, { ...synced, config: held.ci }, { provider }).config,
-        release: new secretssync.GithubActions(`${project}-release`, { ...synced, config: held.release, environmentName: deploying.release }, { provider }).config,
-        deploy: deploying.deploy,
-        dispatch: new Webhook(`${project}-deploy`, { project: doppler.name, url: interpolate`https://api.github.com/repos/${fullName}/dispatches`, authentication: { type: 'Bearer', token: secret(token) }, payload: '{"event_type":"deploy"}', enabledConfigs: [held.deploy] }, { provider }).slug,
-    };
-}, Effect.provide(layerUndici));
-
-const tailnet = () => {
-    const owned = Array.dedupe(Object.values(hosts).flatMap(({ tags }) => tags));
-    const served = Array.dedupe(
-        Object.values(hosts)
-            .filter(({ tailnet: { ssh } }) => ssh)
-            .flatMap(({ tags }) => tags),
-    );
-    const policy = {
-        tagOwners: Record.fromIterableWith(owned, (tag) => [tag, ['autogroup:admin']]),
-        grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }],
-        ssh: Array.match(served, { onEmpty: Array.empty, onNonEmpty: (dst) => [{ action: 'accept', src: ['autogroup:member'], dst, users: ['autogroup:nonroot', 'root'], acceptEnv: ['*'] }] }),
-    };
-    return {
-        policy: new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true }).id,
-        settings: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true }).id,
-        magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
-    };
-};
-
-const access = (accountId: string, { name, authDomain }: Pick<GetZeroTrustOrganizationResult, 'name' | 'authDomain'>) => ({
-    domain: new ZeroTrustOrganization(name, { accountId, name, authDomain, strictServiceTokenAuth: true }, { protect: true }).authDomain,
-    identityProvider: new ZeroTrustAccessIdentityProvider(`${name}-onetimepin`, { accountId, name: 'One-time PIN', type: 'onetimepin', config: {} }, { protect: true }).id,
-});
-
-const feed = (accountId: string, { name, repository, environment }: { readonly name: string; readonly repository: Output<string>; readonly environment: Output<string> }) => {
-    const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
-    return {
-        feedBucket: new ActionsEnvironmentVariable(`${name}-release-SPARKLE_FEED_BUCKET`, { repository, environment, variableName: 'SPARKLE_FEED_BUCKET', value: bucket.name }).variableName,
-        feedDomains: Array.dedupe(Object.values(hosts).map(({ domain }) => domain.name)).map((zone) => new R2CustomDomain(`updates.${zone}`, { accountId, bucketName: bucket.name, domain: `updates.${zone}`, enabled: true, zoneId: getZoneOutput({ filter: { name: zone } }).zoneId }).domain),
-    };
-};
-
-const guarded = (repository: Output<string>, { name, fullName, forms }: { readonly name: string; readonly fullName: Output<string>; readonly forms: readonly (typeof Form.Type)[] }) => ({
-    securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
-    allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
-    workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read' }).defaultWorkflowPermissions,
-    labels: new IssueLabels(`${name}-labels`, { repository, labels: forms.flatMap(({ description, labels }) => labels.map((label) => ({ name: label, color: palette[label], description }))) }).labels,
+const identified = Effect.fnUntraced(function* (root: string) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const [manifest, settings, engines] = yield* Effect.all([
+        Effect.flatMap(fs.readFileString(path.join(root, 'package.json')), Schema.decodeEffect(Manifest)),
+        fs.readFileString(path.join(root, 'Xcode.xcconfig')),
+        Effect.flatMap(
+            fs.glob('apps/unreal/**/*.uproject', { root }),
+            Effect.forEach((project) => Effect.flatMap(fs.readFileString(path.join(root, project)), Schema.decodeEffect(Uproject))),
+        ),
+    ]);
+    const [, { hostname }] = yield* Effect.flatMap(Effect.fromNullishOr(settings.split('\n').find((line) => line.startsWith(feed.setting))), (line) => Schema.decodeUnknownEffect(Feed)(line.replace('/$()/', '//')));
+    const [, owner, , repository] = manifest.repository.url;
+    return { project: manifest.name, description: manifest.description, owner, repository, feed: { domain: hostname, zone: hostname.split('.').slice(1).join('.') }, engines: Array.dedupe(engines.map(Struct.get('EngineAssociation'))).toSorted() };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, deployed: Readonly<Record<string, string>>) {
-    const [fs, path, { CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN, DOPPLER_IAC_TOKEN: operator }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Account)(deployed)]);
-    const { name: stackName, description } = yield* Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest));
+const repositoryStack = Effect.fnUntraced(function* (root: string, { repository: name, project, description, feed: updates }: Effect.Success<ReturnType<typeof identified>>, { CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN: token }: { readonly CLOUDFLARE_ACCOUNT_ID: string; readonly GITHUB_TOKEN: string }) {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const [forms, organization] = yield* Effect.all([
+        Effect.flatMap(
+            fs.glob('.github/ISSUE_TEMPLATE/*.yml', { root, exclude: ['**/config.yml'] }),
+            Effect.forEach((form) => Effect.flatMap(fs.readFileString(path.join(root, form)), Schema.decodeEffect(Form))),
+        ),
+        Effect.tryPromise({ try: () => getZeroTrustOrganization({ accountId }), catch: (cause) => new Cause.UnknownError(cause, `Cloudflare account ${accountId} holds no Zero Trust organization`) }),
+    ]);
+    const { name: repository, fullName } = new Repository(
+        name,
+        {
+            name,
+            description,
+            visibility: 'public',
+            hasIssues: true,
+            allowMergeCommit: false,
+            allowUpdateBranch: true,
+            deleteBranchOnMerge: true,
+            squashMergeCommitTitle: 'PR_TITLE',
+            squashMergeCommitMessage: 'PR_BODY',
+            securityAndAnalysis: { secretScanning: { status: 'disabled' }, secretScanningPushProtection: { status: 'disabled' } },
+        },
+        { protect: true },
+    );
+    const doppler = new Project(project, { name: project, description }, { protect: true });
+    const held = Record.map(Struct.Record(configs, undefined), (_, config) => new Environment(`${project}-${config}`, { project: doppler.name, slug: config, name: config }, { protect: true }).slug);
+    const environments = Record.map(Struct.pick(held, ['release', 'deploy']), (_, environment) => new RepositoryEnvironment(`${name}-${environment}`, { repository, environment }).environment);
+    const synced = { integration: '51df65fc-7097-4d4d-a4ca-308ce2a5918a', project: doppler.name, syncTarget: 'repo', repoName: repository, deleteBehavior: 'delete_from_target' };
+    const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
+    const tags = Array.dedupe(Object.values(hosts).flatMap((row) => row.tags));
+    const policy = { tagOwners: Record.fromIterableWith(tags, (tag) => [tag, ['autogroup:admin']]), grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }], ssh: [{ action: 'accept', src: ['autogroup:member'], dst: tags, users: ['autogroup:nonroot', 'root'] }] };
     return {
-        stackName,
-        program: Effect.gen(function* () {
-            const [{ name, owner }, project, forms, organization] = yield* Effect.all([
-                Effect.flatMap(run('gh', ['repo', 'view', '--json', 'name,owner'], { GH_TOKEN: GITHUB_TOKEN }), Schema.decodeEffect(Origin)),
-                Config.String('DOPPLER_PROJECT'),
-                Effect.flatMap(
-                    fs.glob('.github/ISSUE_TEMPLATE/*.yml', { root: context.root, exclude: ['**/config.yml'] }),
-                    Effect.forEach((form) => Effect.flatMap(fs.readFileString(path.join(context.root, form)), Schema.decodeEffect(Form))),
-                ),
-                Effect.tryPromise(() => getZeroTrustOrganization({ accountId })),
-            ]);
-            const { name: repository, fullName } = new Repository(
-                name,
-                {
-                    name,
-                    description,
-                    visibility: 'public',
-                    hasIssues: true,
-                    allowMergeCommit: false,
-                    allowUpdateBranch: true,
-                    deleteBranchOnMerge: true,
-                    squashMergeCommitTitle: 'PR_TITLE',
-                    squashMergeCommitMessage: 'PR_BODY',
-                    securityAndAnalysis: { secretScanning: { status: 'disabled' }, secretScanningPushProtection: { status: 'disabled' } },
-                },
-                { protect: true },
-            );
-            const configs = yield* delivered(repository, { name, fullName, owner: owner.login, project, description, operator, token: GITHUB_TOKEN });
-            return {
-                repository: fullName,
-                configs,
-                tailnet: tailnet(),
-                access: access(accountId, organization),
-                ...feed(accountId, { name, repository, environment: configs.release }),
-                assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
-                ...guarded(repository, { name, fullName, forms }),
-            };
-        }),
+        repository: fullName,
+        configs: {
+            ci: new secretssync.GithubActions(`${project}-ci`, { ...synced, config: held.ci }).config,
+            release: new secretssync.GithubActions(`${project}-release`, { ...synced, config: held.release, environmentName: environments.release }).config,
+            deploy: new ActionsEnvironmentSecret(`${name}-deploy-doppler`, { repository, environment: environments.deploy, secretName: 'DOPPLER_TOKEN', value: new ServiceToken(`${project}-deploy`, { project: doppler.name, config: held.deploy, name, access: 'read' }).key }).environment,
+            dispatch: new Webhook(`${project}-deploy`, { project: doppler.name, url: interpolate`https://api.github.com/repos/${fullName}/dispatches`, authentication: { type: 'Bearer', token: secret(token) }, payload: '{"event_type":"deploy"}', enabledConfigs: [held.deploy] }).slug,
+        },
+        feed: {
+            bucket: new ActionsEnvironmentVariable(`${name}-release-${feed.variable}`, { repository, environment: environments.release, variableName: feed.variable, value: bucket.name }).value,
+            domain: new R2CustomDomain(updates.domain, { accountId, bucketName: bucket.name, domain: updates.domain, enabled: true, zoneId: getZoneOutput({ filter: { name: updates.zone } }).zoneId }).domain,
+        },
+        alerts: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository, enabled: false }).enabled,
+        workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'write', canApprovePullRequestReviews: true }).defaultWorkflowPermissions,
+        labels: new IssueLabels(`${name}-labels`, { repository, labels: forms.flatMap(({ description: stated, labels }) => labels.map((label) => ({ name: label, color: palette[label], description: stated }))) }).labels,
+        tailnet: new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true }).id,
+        updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true }).devicesAutoUpdatesOn,
+        magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
+        assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
+        access: new ZeroTrustOrganization(organization.name, { accountId, name: organization.name, authDomain: organization.authDomain, strictServiceTokenAuth: true }, { protect: true }).authDomain,
+        identityProvider: new ZeroTrustAccessIdentityProvider(`${organization.name}-onetimepin`, { accountId, name: 'One-time PIN', type: 'onetimepin', config: {} }, { protect: true }).id,
     };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { repositoryStack };
+export { configs, identified, repositoryStack };

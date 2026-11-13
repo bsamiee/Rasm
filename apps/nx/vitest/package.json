@@ -1,7 +1,8 @@
 {
     "name": "@rasm/nx-vitest",
-    "version": "0.0.0",
-    "description": "Nx plugin inferring Vitest suites from each Vitest configuration, and from a Vite configuration stating test, through Vitest's own resolved configuration",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Nx plugin inferring one Vitest target per package holding a project a Vitest configuration resolves, a root configuration listing projects included, and per Vite configuration stating test",
     "repository": {
         "type": "git",
         "url": "git+https://github.com/bsamiee/Rasm.git",
@@ -9,15 +10,13 @@
     },
     "license": "MIT",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "exports": {
         ".": "./plugin.ts",
         "./package.json": "./package.json"
     },
     "files": [ "dist" ],
     "dependencies": {
+        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
         "@rasm/nx-devkit": "workspace:*",
@@ -26,7 +25,6 @@
     "devDependencies": {
         "@types/node": "catalog:",
         "nx": "catalog:",
-        "tinyglobby": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
     },
@@ -36,13 +34,9 @@
         "vitest": "catalog:peers"
     },
     "publishConfig": {
-        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./package.json": "./package.json"
-        },
-        "imports": {
-            "#/*": "./dist/*.js"
         }
     }
 }

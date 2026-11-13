@@ -1,6 +1,7 @@
 {
     "name": "@rasm/nx-apple",
-    "version": "0.0.0",
+    "version": "0.1.0",
+    "private": true,
     "description": "Nx plugin inferring SwiftPM packages, Xcode projects, and Xcode workspaces from the toolchain's own output",
     "repository": {
         "type": "git",
@@ -16,6 +17,7 @@
     "exports": {
         ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
+        "./release/xcode-version-actions": "./xcode-version-actions.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
@@ -37,10 +39,10 @@
         "@rasm/nx-apple-darwin-arm64": "workspace:*"
     },
     "publishConfig": {
-        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
+            "./release/xcode-version-actions": "./dist/xcode-version-actions.js",
             "./package.json": "./package.json",
             "./executors.json": "./executors.json"
         },

@@ -1,6 +1,9 @@
-import { executor } from '@rasm/nx-devkit/executor';
-import { ran, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, Path, Schema } from 'effect';
+import { dirname, resolve } from 'node:path';
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
+import type { ExecutorContext } from '@nx/devkit';
+import { Completed } from '@rasm/process';
+import { Array, Effect, FileSystem, Schema, type Scope } from 'effect';
+import { ChildProcess } from 'effect/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,29 +20,19 @@ const Cmake = Schema.Struct({
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sequenced = (cwd: string, invocations: readonly (typeof Invocation.Type)[], env: Readonly<Record<string, string>> = {}) =>
-    Effect.forEach(
-        invocations,
-        ([command, ...args]) =>
-            Effect.filterOrFail(
-                ran(command, args, { cwd, env, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }),
-                ({ code }) => code === 0,
-                ({ code }) => ToolError.make({ subject: command, detail: `exited ${code}` }),
-            ),
-        { discard: true },
-    );
+    Effect.forEach(invocations, ([command, ...args]) => Completed.output(ChildProcess.make(command, args, { cwd, env, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })), { discard: true });
+
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => Effect.runPromise(Effect.provide(Effect.scoped(effect), layer));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Cmake,
-    Effect.fnUntraced(function* ({ cwd, configure, commands, args = [], env, outputs = [] }, context) {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        yield* Effect.forEach(outputs, (file) => fs.makeDirectory(path.dirname(path.resolve(context.root, file)), { recursive: true }), { discard: true });
-        yield* sequenced(path.resolve(context.root, cwd), [configure, ...Array.matchRight(commands, { onEmpty: () => commands, onNonEmpty: (leading, last) => [...leading, Array.appendAll(last, args)] })], env);
-        return true;
-    }),
-);
+const execute = Effect.fnUntraced(function* ({ cwd, configure, commands, args = [], env, outputs = [] }: typeof Cmake.Type, context: ExecutorContext) {
+    const fs = yield* FileSystem.FileSystem;
+    yield* Effect.forEach(outputs, (file) => fs.makeDirectory(dirname(resolve(context.root, file)), { recursive: true }), { discard: true });
+    yield* sequenced(resolve(context.root, cwd), [configure, ...Array.matchRight(commands, { onEmpty: () => commands, onNonEmpty: (leading, last) => [...leading, Array.appendAll(last, args)] })], env);
+    return { success: true };
+}, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Cmake, execute, sequenced };
+export { Cmake, execute, run, sequenced };

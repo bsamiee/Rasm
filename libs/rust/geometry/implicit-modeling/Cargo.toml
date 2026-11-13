@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-implicit-modeling"
-version.workspace = true
-edition.workspace = true
-description       = "Implicit field solids: field trees, lattices, shell walls, and octree meshing"
+name                 = "rasm-implicit-modeling"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["implicit", "sdf", "lattice", "solids"]
+categories           = ["graphics", "mathematics"]
+description          = "Implicit field solids: field trees, lattices, shell walls, and octree meshing"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

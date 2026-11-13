@@ -26,8 +26,6 @@ Problems of present practice that it removes:
 |  [08]   | Background work is tangled | Daemons and workers are set up per operating system and per vendor, inside infra code |
 |  [09]   | Remote work is hard        | Reaching a machine takes knowledge of keys, addresses, and file paths                 |
 
-`current-state.md` records each row as it occurred in one repository.
-
 ## [03]-[GOALS]
 
 - Declare, never assemble: consumer code holds declarations and values, and no person writes a container build file, a service file, or YAML
@@ -258,14 +256,13 @@ Further open questions of design sit in section 15 of `target-architecture.md`.
 
 ## [12]-[DOCUMENTS]
 
-| [INDEX] | [FILE]                   | [HOLDS]                                                       | [STANDING]               |
-| :-----: | :----------------------- | :------------------------------------------------------------ | :----------------------- |
-|  [01]   | `BRIEF.md`               | This brief                                                    | Governs every other file |
-|  [02]   | `target-architecture.md` | Design: packages, levels, declarations, lifetimes, costs      | One reviewer's proposal  |
-|  [03]   | `backend-map.md`         | Every area and category of a backend, with candidates         | Reference                |
-|  [04]   | `iac-tools.md`           | Tools packages could stand on, with recommendations           | One reviewer's proposal  |
-|  [05]   | `current-state.md`       | Audit of Rasm's present infrastructure, which stays with Rasm | Evidence for section 02  |
-|  [06]   | `ORIGIN.md`              | Owner's words that started this work                          | Record, binds nothing    |
+| [INDEX] | [FILE]                   | [HOLDS]                                                  | [STANDING]               |
+| :-----: | :----------------------- | :------------------------------------------------------- | :----------------------- |
+|  [01]   | `BRIEF.md`               | This brief                                               | Governs every other file |
+|  [02]   | `target-architecture.md` | Design: packages, levels, declarations, lifetimes, costs | One reviewer's proposal  |
+|  [03]   | `backend-map.md`         | Every area and category of a backend, with candidates    | Reference                |
+|  [04]   | `iac-tools.md`           | Tools packages could stand on, with recommendations      | One reviewer's proposal  |
+|  [05]   | `ORIGIN.md`              | Owner's words that started this work                     | Record, binds nothing    |
 
 Limits of those files:
 - Each proposal and reference is one independent reviewer's work

@@ -14,11 +14,10 @@ Compositions hold app content and pass it to a library as arguments:
 - Tool prose, tool names, link paths, bundle identifiers, and body targets
 
 Capability mined from host products enters as general logic at its level:
-- `docs/research/applications/<host>/distilled` shows product logic to rebuild in repository shape at its strongest form where products overlap, a product's `rebuilt` folder where it has no distilled one
+- Distilled host product logic rebuilds in repository shape at its strongest form where products overlap
 - Fixed product names, widths and styles become their host mechanism (a numbering style on InDesign's GREP styling), values entering as caller data
 - Capability products share (alignment behind many commands) is one relation at its level, their functions its uses
 - Code targets the newest host releases, and an older release loads only products built for it
-- `docs/research/typescript-extension` notes hold domain principles, its `studies/` what one product does, `packages.md` package choice and `ARCHITECTURE.md` the capability matrix
 
 ## [02]-[WIRE]
 

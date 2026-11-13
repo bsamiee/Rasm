@@ -1,23 +1,21 @@
-import { matchesGlob } from 'node:path';
-import { type CreateDependenciesContext, DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { getReadyCheckReadyWhen } from '@nx/devkit/internal';
-import { inferred, line, produced, type Request, type Unit } from '@rasm/nx-devkit/plugin';
-import { printed } from '@rasm/nx-devkit/process';
-import { Array, Effect, Option, Order, Path, Record, Schema } from 'effect';
+import { dirname, isAbsolute, join, matchesGlob, relative } from 'node:path';
+import { layer } from '@effect/platform-node/NodeServices';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { getReadyCheckReadyWhen, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { Completed } from '@rasm/process';
+import { Array, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Order, Predicate, Record, Schema } from 'effect';
+import { Yaml } from 'effect/encoding';
+import { ChildProcess } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Composed = Effect.Success<ReturnType<typeof analyzed>>;
-interface Folder extends Unit {
-    readonly root: string;
-    readonly files: Array.NonEmptyReadonlyArray<string>;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const EVERY_PROFILE = { COMPOSE_PROFILES: '*' };
 const PRODUCERS = ['build--!(compose|buildx)', '^build'];
-const ENGINE = [{ runtime: 'docker compose version' }, { runtime: 'docker buildx version' }];
+const DOWN = ['down', '--rmi', 'local', '--remove-orphans'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -34,18 +32,38 @@ const Report = Schema.fromJsonString(
         ),
     }),
 );
-const Variables = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown));
+const Including = Schema.Struct({ include: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ path: Schema.Union([Schema.String, Schema.Array(Schema.String)]) })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).annotate({
+    description: 'The include element of a Compose file, each row a path or a path list relative to the file, which docker compose config merges without naming',
+});
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Analyses extends Context.Service<Analyses, Map<string, Composed>>()('@rasm/nx-docker/plugin/Analyses') {
+    static readonly layer = Layer.sync(Analyses, () => new Map());
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, { root, files }: Folder) {
-    const path = yield* Path.Path;
-    const cwd = path.join(workspaceRoot, root);
-    const [report, variables] = yield* Effect.all(
-        [Effect.flatMap(printed('docker', ['compose', 'config', '--format', 'json', '--no-interpolate'], { cwd, env: EVERY_PROFILE }), Schema.decodeEffect(Report)), Effect.flatMap(printed('docker', ['compose', 'config', '--variables', '--format', 'json'], { cwd, env: EVERY_PROFILE }), Schema.decodeEffect(Variables))],
-        { concurrency: 'unbounded' },
+const merged = Effect.fnUntraced(function* (workspaceRoot: string, file: string, seen: ReadonlySet<string>): Effect.fn.Return<ReadonlySet<string>, never, FileSystem.FileSystem> {
+    const fs = yield* FileSystem.FileSystem;
+    const stated = Option.flatMap(yield* Effect.option(fs.readFileString(join(workspaceRoot, file))), (text) => Option.flatMap(Option.liftThrowable(Yaml.parse)(text), Schema.decodeUnknownOption(Including)));
+    const rows = Option.match(stated, { onNone: () => [], onSome: ({ include }) => include.flatMap((row) => Array.ensure(Predicate.isString(row) ? row : row.path)) });
+    return yield* Effect.reduce(
+        rows.map((to) => join(dirname(file), to)),
+        (): ReadonlySet<string> => new Set([...seen, file]),
+        (held, to) => (held.has(to) ? Effect.succeed(held) : merged(workspaceRoot, to, held)),
     );
-    const local = (at: string) => Option.liftPredicate(path.relative(workspaceRoot, at), (relative) => path.isAbsolute(at) && !(relative.startsWith('..') || path.isAbsolute(relative)));
+});
+
+const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, files: Array.NonEmptyReadonlyArray<string>) {
+    const config = ChildProcess.make('docker', ['compose', 'config', '--format', 'json', '--no-interpolate'], { cwd: join(workspaceRoot, root), env: EVERY_PROFILE, extendEnv: true, stdin: 'ignore' });
+    const report = yield* Effect.flatMap(Completed.output(config), Schema.decodeEffect(Report));
+    const sources = yield* Effect.reduce(
+        files,
+        (): ReadonlySet<string> => new Set(),
+        (held, file) => merged(workspaceRoot, file, held),
+    );
+    const local = (at: string) => Option.liftPredicate(relative(workspaceRoot, at), (to) => isAbsolute(at) && !(to.startsWith('..') || isAbsolute(to)));
     const services = Object.values(report.services);
     const builds = Array.getSomes(services.map(({ build }) => Option.fromUndefinedOr(build)));
     const recipes = Array.getSomes(
@@ -53,90 +71,115 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, { root, fil
             Option.gen(function* () {
                 const { context, dockerfile } = yield* Option.fromUndefinedOr(build);
                 const file = yield* Option.fromUndefinedOr(dockerfile);
-                return { service, recipe: yield* local(path.isAbsolute(file) ? file : path.join(context, file)) };
+                return { service, recipe: yield* local(isAbsolute(file) ? file : join(context, file)) };
             }),
         ),
     );
     return {
         name: report.name,
-        read: Array.sort(Array.dedupe([...files, path.join(root, '.env'), ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))), ...recipes.map(({ recipe }) => recipe)]), Order.String),
-        variables: Array.sort(Record.keys(variables), Order.String),
+        file: Array.min(files, Order.String),
+        read: Array.sort(Array.dedupe([...[...sources].filter((file) => !file.startsWith('..')), join(root, '.env'), ...services.flatMap(({ env_file = [] }) => Array.getSomes(env_file.map((file) => local(file.path)))), ...recipes.map(({ recipe }) => recipe)]), Order.String),
         profiles: Array.sort(Array.dedupe(services.flatMap(({ profiles = [] }) => profiles)), Order.String),
         built: builds.length > 0,
         servers: Record.map(
-            Array.groupBy(recipes, ({ recipe }) => path.dirname(recipe)),
+            Array.groupBy(recipes, ({ recipe }) => dirname(recipe)),
             Array.map(({ service }) => service),
         ),
         contexts: Array.dedupe(builds.flatMap(({ context, additional_contexts = {} }) => Array.getSomes([context, ...Object.values(additional_contexts)].map(local)))),
     };
 });
 
-const compose = (args: Array.NonEmptyReadonlyArray<string>, description: string, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
+const compose = (root: string, args: Array.NonEmptyReadonlyArray<string>, description: string, extra: Partial<TargetConfiguration> = {}): TargetConfiguration => ({
     ...extra,
-    command: line(['docker', 'compose', ...args]),
-    metadata: { description, help: { command: `docker compose ${args[0]} --help`, example: {} } },
+    command: ['docker', 'compose', ...args].map(quoteShellArg).join(' '),
+    options: { cwd: root, ...extra.options },
+    metadata: { technologies: ['compose'], description, help: { command: `docker compose ${args[0]} --help`, example: {} } },
 });
 
-const served = ({ root }: Folder, project: Composed, services: Array.NonEmptyReadonlyArray<string>, plugin: string) => ({
-    build: {
-        buildx: compose(['build', '--with-dependencies', ...services], `Builds the images of ${services.join(', ')} of ${project.name} and of the services each depends on into the engine`, { dependsOn: PRODUCERS, options: { cwd: root } }),
-    },
-    serve: {
-        compose: {
-            command: `${line(['docker', 'compose', 'up', '--wait', '--no-build', ...services])} && ${line(['docker', 'compose', 'logs', '--follow', ...services])}`,
-            continuous: true,
-            options: { cwd: root },
-            dependsOn: ['build--buildx'],
-            readyWhen: getReadyCheckReadyWhen(`${plugin}/ready-check`, undefined, ...services),
-            inputs: ['default', '^default', ...project.read.map((file) => `{workspaceRoot}/${file}`), { runtime: line(['docker', 'compose', '--project-directory', root, 'config', '--format', 'json', ...services]) }, ...ENGINE],
-            metadata: { description: `Starts ${services.join(', ')} of ${project.name} with the services each depends on from built images and follows their logs, the services staying up after the run`, help: { command: 'docker compose up --help', example: {} } },
-        },
-    },
-});
-
-const targets = ({ root }: Folder, project: Composed) => {
-    const inputs = [...project.read.map((file) => `{workspaceRoot}/${file}`), { runtime: line(['docker', 'compose', '--project-directory', root, '--profile', '*', 'config', '--format', 'json', '--no-interpolate', '--no-path-resolution']) }, ...project.variables.map((env) => ({ env })), ...ENGINE];
-    const configurations = Record.fromIterableWith(project.profiles, (profile) => [profile, { env: { COMPOSE_PROFILES: profile } }] as const);
+const served = (root: string, project: Composed, services: Array.NonEmptyReadonlyArray<string>): Record<string, TargetConfiguration> => {
+    const up = compose(root, ['up', '--wait', '--no-build', ...services], `Starts ${services.join(', ')} of ${project.name} with the services each depends on from built images and follows their logs, the services staying up after the run`, {
+        continuous: true,
+        dependsOn: ['build--buildx'],
+        readyWhen: getReadyCheckReadyWhen('@rasm/nx-docker/ready-check', undefined, ...services),
+        inputs: ['default', '^default', ...project.read.map((file) => `{workspaceRoot}/${file}`), { externalDependencies: [] }],
+    });
     return {
-        check: {
-            compose: compose(['config', '--quiet'], `Validates every Compose service of ${project.name}, interpolation and env files included`, { cache: true, inputs, options: { env: EVERY_PROFILE } }),
-            ...(project.built && { buildx: compose(['build', '--check'], `Lints every image ${project.name} builds through BuildKit, failing on any warning`, { cache: true, inputs, dependsOn: PRODUCERS, options: { env: EVERY_PROFILE } }) }),
-        },
-        build: project.built ? { compose: compose(['build'], `Builds the images of ${project.name} into the engine`, { dependsOn: PRODUCERS, configurations }) } : {},
-        install: { compose: compose(['up', '--wait', '--no-build', '--remove-orphans'], `Starts the services of ${project.name} from built images and waits until each is healthy`, { dependsOn: ['build--*'], configurations }) },
+        'build--buildx': compose(root, ['build', '--with-dependencies', ...services], `Builds the images of ${services.join(', ')} of ${project.name} and of the services each depends on into the engine`, { dependsOn: PRODUCERS }),
+        'serve--compose': { ...up, command: `${up.command} && ${['docker', 'compose', 'logs', '--follow', ...services].map(quoteShellArg).join(' ')}` },
+        'clean--compose': compose(root, [...DOWN, ...services], `Stops ${services.join(', ')} of ${project.name} and removes their containers and the images Compose built for them with docker compose down`),
     };
 };
 
-const edges = (reports: readonly (readonly [Folder, Composed])[], { projects }: CreateDependenciesContext) => {
-    const outputs = produced(projects);
-    const builders = (at: string) => outputs.filter(({ output }) => matchesGlob(at, output) || matchesGlob(at, `${output}/**`)).map(({ root }) => root);
-    return Effect.succeed(reports.flatMap(([{ root, file }, { contexts }]) => Array.dedupe(contexts.flatMap(builders)).map((target): RawProjectGraphDependency => ({ source: root, target, type: DependencyType.static, sourceFile: file }))));
+const targets = (root: string, project: Composed): Record<string, TargetConfiguration> => {
+    const config = ['docker', 'compose', '--project-directory', root, '--profile', '*', 'config', '--format', 'json', '--no-interpolate', '--no-env-resolution', '--no-path-resolution'];
+    const checked = { cache: true, inputs: [...project.read.map((file) => `{workspaceRoot}/${file}`), { runtime: config.map(quoteShellArg).join(' ') }, { externalDependencies: [] }], options: { env: EVERY_PROFILE } };
+    const configurations = Record.fromIterableWith(project.profiles, (profile) => [profile, { env: { COMPOSE_PROFILES: profile } }] as const);
+    return {
+        'check--compose': compose(root, ['config', '--quiet'], `Validates every Compose service of ${project.name}, interpolation and env files included`, checked),
+        ...(project.built && {
+            'check--buildx': compose(root, ['build', '--check'], `Lints every image ${project.name} builds through BuildKit, failing on any warning`, { ...checked, dependsOn: PRODUCERS }),
+            'build--compose': compose(root, ['build'], `Builds the images of ${project.name} into the engine`, { dependsOn: PRODUCERS, configurations }),
+        }),
+        'install--compose': compose(root, ['up', '--wait', '--no-build', '--remove-orphans'], `Starts the services of ${project.name} from built images and waits until each is healthy`, { dependsOn: ['build--*'], configurations }),
+        'clean--compose': compose(root, DOWN, `Stops the services of ${project.name} and removes their containers, networks, and the images Compose built with docker compose down`, { options: { env: EVERY_PROFILE } }),
+    };
+};
+
+const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly project: Composed; readonly digest: string }>, context: CreateNodesContext, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
+    const stamped = (read: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...matched, ...read]));
+    const stored = Option.fromUndefinedOr(cache.get(root));
+    const current = yield* stamped(Option.match(stored, { onNone: () => [], onSome: (entry) => entry.project.read }));
+    const project = yield* Option.match(
+        Option.filter(stored, (entry) => entry.digest === current),
+        { onSome: (entry) => Effect.succeed(entry.project), onNone: () => analyzed(context.workspaceRoot, root, matched) },
+    );
+    cache.set(root, { project, digest: yield* stamped(project.read) });
+    (yield* Analyses).set(join(context.workspaceRoot, root), project);
+    const serving = Record.map(project.servers, (services) => served(root, project, services));
+    const projects = Record.map(
+        { ...serving, [root]: { ...serving[root], ...targets(root, project) } },
+        (tools, at): ProjectConfiguration => ({
+            root: at,
+            ...(at === root && { name: project.name }),
+            metadata: { technologies: ['compose'] },
+            targets: { ...tools, ...Record.fromIterableWith(Array.dedupe(Record.keys(tools).map((name) => name.slice(0, name.indexOf('--')))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) },
+        }),
+    );
+    return { projects };
+});
+
+const edges = (analyses: ReadonlyMap<string, Composed>, { projects, workspaceRoot }: CreateDependenciesContext) => {
+    const selections = Record.collect(projects, (name, data) =>
+        Record.collect(
+            Record.filter(data.targets ?? {}, (stated) => stated.outputs !== undefined),
+            (target, { configurations = {} }) => [{}, ...Record.keys(configurations).map((configuration) => ({ configuration }))].map((selected) => ({ name, data, target, selected })),
+        ),
+    ).flat(2);
+    const outputs = selections.flatMap(({ name, data, target, selected }) => getOutputsForTargetAndConfiguration({ project: name, target, ...selected }, {}, { name, type: 'lib', data }).map((output) => ({ name, output })));
+    const built = Record.collect(projects, (name, { root }) => Array.fromNullishOr(analyses.get(join(workspaceRoot, root))).flatMap(({ file, contexts }) => contexts.map((at) => ({ name, file, at })))).flat();
+    return built.flatMap(({ name, file, at }) => outputs.filter(({ output }) => !output.startsWith('!') && (matchesGlob(at, output) || matchesGlob(at, `${output}/**`))).map((made): RawProjectGraphDependency => ({ source: name, target: made.name, type: DependencyType.static, sourceFile: file })));
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const { createNodes, createDependencies } = inferred({
-    module: import.meta.url,
-    files: ['{compose,docker-compose}{,.override}.{yaml,yml}'],
-    options: Schema.Struct({}),
-    units: ({ files, path }: Request<unknown>) =>
-        Effect.succeed(
-            Record.collect(
-                Array.groupBy(files, (file) => path.dirname(file)),
-                (root, matched): Folder => ({ key: root, root, file: Array.min(matched, Order.String), files: Array.sort(matched, Order.String) }),
+const runtime = ManagedRuntime.make(Layer.merge(Analyses.layer, layer));
+
+const createNodes: CreateNodes = [
+    '**/{compose,docker-compose}{,.override}.{yaml,yml}',
+    (files, options, context) => {
+        const folders = new Map(Record.collect(Array.groupBy(files, dirname), (root, matched) => [Array.min(matched, Order.String), { root, matched }] as const));
+        const cache = new PluginCache<{ readonly project: Composed; readonly digest: string }>(join(workspaceDataDirectory, `docker-${hashObject(options ?? {})}.hash`));
+        const read = (file: string) => runtime.runPromise(Effect.flatMap(Effect.fromNullishOr(folders.get(file)), ({ root, matched }) => inferred(cache, context, root, matched)));
+        return runtime.runPromise(
+            Effect.ensuring(
+                Effect.promise(() => createNodesFromFiles(read, [...folders.keys()], options, context)),
+                Effect.sync(() => cache.writeToDisk()),
             ),
-        ),
-    read: (missing: Array.NonEmptyReadonlyArray<Folder>, { context }: Request<unknown>) => Effect.forEach(missing, (folder) => Effect.result(Effect.map(analyzed(context.workspaceRoot, folder), (report) => ({ report }))), { concurrency: 'unbounded' }),
-    sources: (project: Composed) => ({ tracked: project.read }),
-    projects: (project: Composed, folder, { plugin }) => {
-        const [own, serving] = [targets(folder, project), Record.map(project.servers, (services) => served(folder, project, services, plugin.name))];
-        return [
-            { file: folder.file, root: folder.root, name: project.name, technologies: ['compose'], members: { ...own, ...serving[folder.root], build: { ...own.build, ...serving[folder.root]?.build } } },
-            ...Record.collect(Record.remove(serving, folder.root), (root, members) => ({ file: folder.file, root, technologies: ['compose'], members })),
-        ];
+        );
     },
-    edges,
-});
+];
+
+const createDependencies: CreateDependencies = (_, context) => runtime.runPromise(Effect.map(Analyses, (analyses) => edges(analyses, context)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

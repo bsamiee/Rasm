@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-mesh"
-version.workspace = true
-edition.workspace = true
-description       = "Mesh solids: import with repair, extrusion, hulls, booleans, sections, reduction, and measures"
+name                 = "rasm-mesh"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["mesh", "geometry", "solids", "cad"]
+categories           = ["graphics", "mathematics", "algorithms"]
+description          = "Mesh solids: import with repair, extrusion, hulls, booleans, sections, reduction, and measures"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

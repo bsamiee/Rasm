@@ -1,0 +1,142 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "cwd": {
+            "type": "string",
+            "description": "Cargo workspace root, relative to the Nx workspace root"
+        },
+        "commands": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Cargo invocations in order, a task stopping at its first failure",
+            "items": [
+                {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "minItems": 1,
+                            "description": "Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package",
+                            "items": [
+                                {
+                                    "type": "string"
+                                }
+                            ],
+                            "additionalItems": {
+                                "type": "string"
+                            }
+                        },
+                        "trailing": {
+                            "type": "array",
+                            "description": "Arguments after --",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "env": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "description": "Environment variables the command runs with, over the caller's"
+                        },
+                        "packages": {
+                            "type": "array",
+                            "description": "Further packages the command selects",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "root": {
+                                        "type": "string"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [ "root", "name" ],
+                                "additionalProperties": true
+                            }
+                        }
+                    },
+                    "required": [ "args" ],
+                    "additionalProperties": true
+                }
+            ],
+            "additionalItems": {
+                "type": "object",
+                "properties": {
+                    "args": {
+                        "type": "array",
+                        "minItems": 1,
+                        "description": "Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package",
+                        "items": [
+                            {
+                                "type": "string"
+                            }
+                        ],
+                        "additionalItems": {
+                            "type": "string"
+                        }
+                    },
+                    "trailing": {
+                        "type": "array",
+                        "description": "Arguments after --",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "env": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Environment variables the command runs with, over the caller's"
+                    },
+                    "packages": {
+                        "type": "array",
+                        "description": "Further packages the command selects",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "root": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [ "root", "name" ],
+                            "additionalProperties": true
+                        }
+                    }
+                },
+                "required": [ "args" ],
+                "additionalProperties": true
+            }
+        },
+        "package": {
+            "type": "string",
+            "description": "Package the task selects, passed to cargo as a package ID spec"
+        },
+        "args": {
+            "type": "array",
+            "description": "Arguments appended to every command",
+            "items": {
+                "type": "string"
+            }
+        },
+        "outputs": {
+            "type": "array",
+            "description": "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [ "cwd", "commands" ],
+    "additionalProperties": true,
+    "title": "Nextest",
+    "description": "Runs cargo nextest commands from a workspace root, one process per command for every selected package, each task decided by the suite events of its own package and failing where a package that built holds no test"
+}

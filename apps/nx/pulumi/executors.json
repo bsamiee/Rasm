@@ -1,9 +1,14 @@
 {
     "executors": {
-        "stacks": {
-            "implementation": "./dist/executors/stacks/executor#execute",
-            "schema": "./executors/stacks/schema.json",
-            "description": "Applies the stacks a program package states for a project through the Pulumi Automation API, refreshing live state first, previewing a release under a dry run"
+        "deploy": {
+            "implementation": "./dist/executors/deploy/executor#execute",
+            "schema": "./executors/deploy/schema.json",
+            "description": "Applies the stacks a program package states for a project through the Pulumi Automation API, group after group in dependency order, refreshing live state first"
+        },
+        "install": {
+            "implementation": "./dist/executors/install/executor#execute",
+            "schema": "./executors/install/schema.json",
+            "description": "Applies the stacks a program package states for a project's install on this machine through the Pulumi Automation API, refreshing live state first"
         }
     }
 }

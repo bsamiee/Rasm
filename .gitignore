@@ -35,6 +35,7 @@ storybook-static/
 *.blend@
 xcuserdata/
 __pycache__/
+/apps/unreal/Sandbox/Config/
 /apps/unreal/**/Binaries/
 /apps/unreal/**/DerivedDataCache/
 /apps/unreal/**/Intermediate/
@@ -83,4 +84,3 @@ Thumbs.db
 
 .claude/agent-memory-local/
 .claude/settings.local.json
-docs/research

@@ -121,7 +121,7 @@ const sources = (paths) => [
 const basis = (paths, target = paths.join(', ')) => {
   const hosted = hosts.filter(([folder, , held]) => held.includes(args.language) && paths.some((path) => path.split('/').includes(folder))).flatMap(([, skills]) => skills)
   const skills = [...new Set([...row.skills, ...hosted])].map((skill) => `Skill(${skill})`).join(', ')
-  const evidence = [...(row.companion ? [`companion ${row.companion}`] : []), ...(inputs.length > 0 ? [`evidence ${inputs.join(', ')}`] : []), `catalog ${row.catalog}`, ...sources(paths), `recorded findings in ${WORKFLOWS} and docs/research`]
+  const evidence = [...(row.companion ? [`companion ${row.companion}`] : []), ...(inputs.length > 0 ? [`evidence ${inputs.join(', ')}`] : []), `catalog ${row.catalog}`, ...sources(paths), `recorded findings in ${WORKFLOWS}`]
   return [
     `Target: ${target} in ${REPO}, base commit ${args.base}.`,
     `Load ${row.families.length > 0 ? `${skills}, each of ${row.families.map((skill) => `Skill(${skill})`).join(', ')} whose description covers your files` : skills}, Skill(clean-prose) and Skill(search-code).`,

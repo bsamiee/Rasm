@@ -1,10 +1,10 @@
 import { cloudflare } from '@cloudflare/vite-plugin';
+import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
 import { sites } from '@openai/sites-vite-plugin';
 import { siteHead } from '@rasm/hosting/head';
 import { Sites } from '@rasm/hosting/openai-sites';
 import { nodeServer } from '@rasm/hosting/vite';
 import { pdfjs } from '@rasm/media/vite';
-import { readySignal } from '@rasm/nx-vite/ready-signal';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { bindings } from 'cf/config';
@@ -19,7 +19,7 @@ export default defineConfig(({ command }) => ({
         tailwindcss(),
         pdfjs(),
         sites(),
-        readySignal(),
+        nxReadySignal(),
         siteHead({ master: 'favicon.svg', stylesheet: 'site/theme.css', fill: '--color-accent', background: '--color-background' }),
         nodeServer({ entry: './server/main.ts' }),
         cloudflare({

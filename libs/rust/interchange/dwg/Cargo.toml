@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-dwg"
-version.workspace = true
-edition.workspace = true
-description       = "DWG and DXF reading and writing under a caller audit policy, with conversion to and from the rasm-drawing model"
+name                 = "rasm-dwg"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["dwg", "dxf", "cad"]
+categories           = ["parser-implementations", "encoding"]
+description          = "DWG and DXF reading and writing under a caller audit policy, with conversion to and from the rasm-drawing model"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

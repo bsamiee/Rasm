@@ -1,7 +1,8 @@
-import { executor } from '@rasm/nx-devkit/executor';
-import { ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, Path, Schema } from 'effect';
-import { sequenced } from '#/executors/cmake/executor';
+import { join, resolve } from 'node:path';
+import type { ExecutorContext } from '@nx/devkit';
+import { Array, Effect, FileSystem, Schema } from 'effect';
+import { run, sequenced } from '#/executors/cmake/executor';
+import { refused } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -21,19 +22,17 @@ const Package = Schema.Struct({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Package,
-    Effect.fnUntraced(function* ({ cwd, configure, build, pack, config, outputPath, args = [] }, context, project) {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const [staging, folder] = [yield* fs.makeTempDirectoryScoped(), path.resolve(context.root, outputPath)];
-        yield* sequenced(path.resolve(context.root, cwd), [configure, build, Array.appendAll(pack, ['--config', path.resolve(context.root, config), '-B', staging, ...args])]);
-        const packages = yield* Effect.filter(yield* fs.readDirectory(staging), (name) => Effect.map(fs.stat(path.join(staging, name)), ({ type }) => type === 'File'));
-        yield* fs.remove(folder, { recursive: true, force: true });
-        yield* fs.makeDirectory(folder, { recursive: true });
-        yield* Effect.forEach(packages, (name) => fs.copyFile(path.join(staging, name), path.join(folder, name)), { discard: true });
-        return yield* Array.match(packages, { onEmpty: () => ToolError.make({ subject: project, detail: 'cpack wrote no package file' }), onNonEmpty: () => Effect.succeed(true) });
-    }),
-);
+const execute = Effect.fnUntraced(function* ({ cwd, configure, build, pack, config, outputPath, args = [] }: typeof Package.Type, context: ExecutorContext) {
+    const fs = yield* FileSystem.FileSystem;
+    const [staging, folder] = [yield* fs.makeTempDirectoryScoped(), resolve(context.root, outputPath)];
+    yield* sequenced(resolve(context.root, cwd), [configure, build, Array.appendAll(pack, ['--config', resolve(context.root, config), '-B', staging, ...args])]);
+    const packages = yield* Effect.filter(yield* fs.readDirectory(staging), (name) => Effect.map(fs.stat(join(staging, name)), ({ type }) => type === 'File'));
+    yield* fs.remove(folder, { recursive: true, force: true });
+    yield* fs.makeDirectory(folder, { recursive: true });
+    yield* Effect.forEach(packages, (name) => fs.copyFile(join(staging, name), join(folder, name)), { discard: true });
+    yield* Array.match(packages, { onEmpty: () => Effect.fail(refused(outputPath, 'receives no package file from cpack')()), onNonEmpty: () => Effect.void });
+    return { success: true };
+}, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

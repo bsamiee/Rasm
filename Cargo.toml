@@ -55,8 +55,10 @@ members  = [
 # --- [IDENTITY]
 
 [workspace.package]
-version = "0.1.0"
-edition = "2024"
+version    = "0.1.0"
+edition    = "2024"
+license    = "MIT"
+repository = "https://github.com/bsamiee/Rasm"
 
 # --- [DYLINT]
 
@@ -746,44 +748,44 @@ wiremock               = "0.6.5"                                                
 
 # --- [MEMBERS]
 
-rasm-cli                = { path = "libs/rust/runtime/cli" }
-rasm-process            = { path = "libs/rust/runtime/process" }
-rasm-telemetry          = { path = "libs/rust/runtime/telemetry" }
-rasm-console            = { path = "libs/rust/terminal/console" }
-rasm-tui                = { path = "libs/rust/terminal/tui" }
-rasm-http               = { path = "libs/rust/services/http" }
-rasm-ipc                = { path = "libs/rust/services/ipc" }
-rasm-mcp                = { path = "libs/rust/services/mcp" }
-rasm-mesh               = { path = "libs/rust/geometry/mesh" }
-rasm-proximity          = { path = "libs/rust/geometry/proximity" }
-rasm-planar-geometry    = { path = "libs/rust/geometry/planar-geometry" }
-rasm-implicit-modeling  = { path = "libs/rust/geometry/implicit-modeling" }
-rasm-stats              = { path = "libs/rust/numerics/stats" }
-rasm-drawing            = { path = "libs/rust/drawing/drawing" }
-rasm-drawing-views      = { path = "libs/rust/drawing/drawing-views" }
-rasm-drafting           = { path = "libs/rust/drawing/drafting" }
-rasm-pdf                = { path = "libs/rust/documents/pdf" }
-rasm-site               = { path = "libs/rust/geospatial/site" }
-rasm-solar-geometry     = { path = "libs/rust/geospatial/solar-geometry", default-features = false }
-rasm-dependency-graph   = { path = "libs/rust/graphs/dependency-graph" }
-rasm-optimization       = { path = "libs/rust/numerics/optimization", default-features = false }
-rasm-signal-processing  = { path = "libs/rust/numerics/signal-processing" }
-rasm-arrow              = { path = "libs/rust/data/arrow" }
-rasm-network-analysis   = { path = "libs/rust/graphs/network-analysis" }
-rasm-graph-layout       = { path = "libs/rust/graphs/graph-layout" }
-rasm-typst              = { path = "libs/rust/documents/typst" }
-rasm-workbooks          = { path = "libs/rust/documents/workbooks" }
-rasm-ifc                = { path = "libs/rust/interchange/ifc" }
-rasm-bcf                = { path = "libs/rust/interchange/bcf" }
-rasm-dwg                = { path = "libs/rust/interchange/dwg" }
-rasm-numerical-analysis = { path = "libs/rust/numerics/numerical-analysis" }
-rasm-regression         = { path = "libs/rust/numerics/regression" }
-rasm-weather            = { path = "libs/rust/geospatial/weather" }
-rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation" }
-rasm-form-finding       = { path = "libs/rust/geometry/form-finding" }
+rasm-cli                = { path = "libs/rust/runtime/cli", version = "0.1.0" }
+rasm-process            = { path = "libs/rust/runtime/process", version = "0.1.0" }
+rasm-telemetry          = { path = "libs/rust/runtime/telemetry", version = "0.1.0" }
+rasm-console            = { path = "libs/rust/terminal/console", version = "0.1.0" }
+rasm-tui                = { path = "libs/rust/terminal/tui", version = "0.1.0" }
+rasm-http               = { path = "libs/rust/services/http", version = "0.1.0" }
+rasm-ipc                = { path = "libs/rust/services/ipc", version = "0.1.0" }
+rasm-mcp                = { path = "libs/rust/services/mcp", version = "0.1.0" }
+rasm-mesh               = { path = "libs/rust/geometry/mesh", version = "0.1.0" }
+rasm-proximity          = { path = "libs/rust/geometry/proximity", version = "0.1.0" }
+rasm-planar-geometry    = { path = "libs/rust/geometry/planar-geometry", version = "0.1.0" }
+rasm-implicit-modeling  = { path = "libs/rust/geometry/implicit-modeling", version = "0.1.0" }
+rasm-stats              = { path = "libs/rust/numerics/stats", version = "0.1.0" }
+rasm-drawing            = { path = "libs/rust/drawing/drawing", version = "0.1.0" }
+rasm-drawing-views      = { path = "libs/rust/drawing/drawing-views", version = "0.1.0" }
+rasm-drafting           = { path = "libs/rust/drawing/drafting", version = "0.1.0" }
+rasm-pdf                = { path = "libs/rust/documents/pdf", version = "0.1.0" }
+rasm-site               = { path = "libs/rust/geospatial/site", version = "0.1.0" }
+rasm-solar-geometry     = { path = "libs/rust/geospatial/solar-geometry", version = "0.1.0", default-features = false }
+rasm-dependency-graph   = { path = "libs/rust/graphs/dependency-graph", version = "0.1.0" }
+rasm-optimization       = { path = "libs/rust/numerics/optimization", version = "0.1.0", default-features = false }
+rasm-signal-processing  = { path = "libs/rust/numerics/signal-processing", version = "0.1.0" }
+rasm-arrow              = { path = "libs/rust/data/arrow", version = "0.1.0" }
+rasm-network-analysis   = { path = "libs/rust/graphs/network-analysis", version = "0.1.0" }
+rasm-graph-layout       = { path = "libs/rust/graphs/graph-layout", version = "0.1.0" }
+rasm-typst              = { path = "libs/rust/documents/typst", version = "0.1.0" }
+rasm-workbooks          = { path = "libs/rust/documents/workbooks", version = "0.1.0" }
+rasm-ifc                = { path = "libs/rust/interchange/ifc", version = "0.1.0" }
+rasm-bcf                = { path = "libs/rust/interchange/bcf", version = "0.1.0" }
+rasm-dwg                = { path = "libs/rust/interchange/dwg", version = "0.1.0" }
+rasm-numerical-analysis = { path = "libs/rust/numerics/numerical-analysis", version = "0.1.0" }
+rasm-regression         = { path = "libs/rust/numerics/regression", version = "0.1.0" }
+rasm-weather            = { path = "libs/rust/geospatial/weather", version = "0.1.0" }
+rasm-dynamic-simulation = { path = "libs/rust/numerics/dynamic-simulation", version = "0.1.0" }
+rasm-form-finding       = { path = "libs/rust/geometry/form-finding", version = "0.1.0" }
 rasm-lints-auxiliary    = { path = "tools/dylint/auxiliary" }
 rasm-testing            = { path = "tests/rust/support" }
-rasm-mcp-tests          = { path = "libs/rust/services/tests/mcp" }
+rasm-mcp-tests          = { path = "libs/rust/services/tests/mcp", version = "0.1.0" }
 mcp-muxer               = { path = "apps/mcp/muxer" }
 
 # --- [LINTS] ----------------------------------------------------------------------------

@@ -1,0 +1,20 @@
+{
+    "name": "@rasm/test-nx-typescript",
+    "private": true,
+    "description": "@rasm/nx-typescript suites over temporary workspaces: Nx's own TypeScript plugin specs ported to the project graph Nx builds, checked against the configuration tsc shows, the files it lists, and the files a build writes",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@rasm/nx-typescript": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "@typescript/native": "catalog:",
+        "cf": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

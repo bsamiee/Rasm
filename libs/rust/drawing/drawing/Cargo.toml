@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-drawing"
-version.workspace = true
-edition.workspace = true
-description       = "Vector drawing model: colors, pens, linetypes, hatches, regions, text, glyph runs, elements, and pages in a stated unit"
+name                 = "rasm-drawing"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["drawing", "vector", "cad"]
+categories           = ["graphics", "data-structures"]
+description          = "Vector drawing model: colors, pens, linetypes, hatches, regions, text, glyph runs, elements, and pages in a stated unit"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

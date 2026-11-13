@@ -1,6 +1,7 @@
 {
     "name": "@rasm/nx-dotnet",
-    "version": "0.0.0",
+    "version": "0.1.0",
+    "private": true,
     "description": "Nx plugin inferring MSBuild projects, their restores, builds, checks, tests, fixes, and NuGet releases from one MSBuild evaluation of the workspace",
     "repository": {
         "type": "git",
@@ -38,7 +39,6 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
-        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",

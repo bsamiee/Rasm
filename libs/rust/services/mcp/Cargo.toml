@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-mcp"
-version.workspace = true
-edition.workspace = true
-description       = "MCP service parts over rmcp: one service shared by many connections, a stdio proxy forwarding message envelopes to one upstream server, request tracing, and a routed server framework with elicitation"
+name                 = "rasm-mcp"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["mcp", "rmcp", "server"]
+categories           = ["network-programming", "artificial-intelligence"]
+description          = "MCP service parts over rmcp: one service shared by many connections, a stdio proxy forwarding message envelopes to one upstream server, request tracing, and a routed server framework with elicitation"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

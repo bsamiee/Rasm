@@ -71,7 +71,6 @@
         ".cargo/rustc-source": true,
         ".nx": true,
         ".pixi": true,
-        "docs/research": true,
         "**/.build/**": true,
         "**/.cloudflare/**": true,
         "**/.swiftpm/**": true,
@@ -167,7 +166,7 @@
 
     // --- [SHELL] -----------------------------------------------------------------------
 
-    "bashIde.backgroundAnalysisIgnore": [ "**/.artifacts/**", "**/.cache/**", "**/.git/**", "**/.pixi/**", "**/.venv/**", "**/node_modules/**", "assets/**", "docs/research/**" ],
+    "bashIde.backgroundAnalysisIgnore": [ "**/.artifacts/**", "**/.cache/**", "**/.git/**", "**/.pixi/**", "**/.venv/**", "**/node_modules/**", "assets/**" ],
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
 

@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-form-finding"
-version.workspace = true
-edition.workspace = true
-description       = "Form finding of tension and compression nets: force density, dynamic relaxation, and inverse form finding"
+name                 = "rasm-form-finding"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["form-finding", "force-density", "structures"]
+categories           = ["mathematics", "science", "simulation"]
+description          = "Form finding of tension and compression nets: force density, dynamic relaxation, and inverse form finding"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

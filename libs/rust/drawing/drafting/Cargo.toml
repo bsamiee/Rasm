@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-drafting"
-version.workspace = true
-edition.workspace = true
-description       = "Drafting annotation and sheet sets: text, notation, dimensions, tolerances, leaders, marks, symbols, legends, tables, viewports, and layer tables"
+name                 = "rasm-drafting"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["drafting", "annotation", "cad", "sheets"]
+categories           = ["graphics"]
+description          = "Drafting annotation and sheet sets: text, notation, dimensions, tolerances, leaders, marks, symbols, legends, tables, viewports, and layer tables"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

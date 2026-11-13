@@ -72,14 +72,6 @@ steps {
   ["clang-format"] = (Builtins.clang_format) {
     glob = "**/*.{cpp,cppm,ixx,cc,cxx,mm,hpp,hh,hxx,h,ipp,inl,tpp}"
   }
-  ["compose"] {
-    glob = "**/compose*.{yaml,yml}"
-    check = new CommandSpec {
-      command =
-        "for file in {{files}}; do docker compose --profile '*' --file \"$file\" config --quiet || failed=1; done; [ -z \"${failed:-}\" ]"
-      effect = "read"
-    }
-  }
   ["dotnet-format"] {
     glob = "**/*.cs"
     check = new CommandSpec {

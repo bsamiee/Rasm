@@ -1,13 +1,13 @@
 import type { Tree } from '@nx/devkit';
 import { Manifested } from '@rasm/nx-devkit/executor';
-import { runtime, ToolError } from '@rasm/nx-devkit/process';
+import { promised, ToolError } from '@rasm/nx-devkit/process';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Effect, identity, Option, Result, Schema, SemVer, String } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ projectFile: Schema.String, releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) });
+const Options = Schema.Struct({ releases: Schema.Array(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files:
     const [recorded, pending, release] = yield* Effect.all([read(tree, files.shipped), read(tree, files.unshipped), Effect.mapError(Effect.fromResult(SemVer.parse(version)), ToolError.of(version, 'is no semantic version'))]);
     const [rows, comments] = Array.partition(
         pending.split('\n'),
-        Result.liftPredicate((line: string) => !line.trimStart().startsWith(';'), identity),
+        Result.liftPredicate((row: string) => !row.trimStart().startsWith(';'), identity),
     );
     const moved = Option.filter(Option.liftPredicate(rows.join('\n').trim(), String.isNonEmpty), () => !SemVer.isPrerelease(release));
     return yield* Option.match(moved, {
@@ -37,7 +37,7 @@ const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files:
             Effect.sync(() => {
                 const section = `## Release ${SemVer.format(SemVer.release(release))}\n\n${lines}\n`;
                 tree.write(files.shipped, Option.match(Option.liftPredicate(recorded.trimEnd(), String.isNonEmpty), { onNone: () => section, onSome: (existing) => `${existing}\n\n${section}` }));
-                tree.write(files.unshipped, comments.map((line) => `${line}\n`).join(''));
+                tree.write(files.unshipped, comments.map((comment) => `${comment}\n`).join(''));
                 return [`Unshipped rules of ${files.unshipped} moved to ${files.shipped} under release ${version}`];
             }),
     });
@@ -46,10 +46,6 @@ const shipped = Effect.fnUntraced(function* (tree: Tree, version: string, files:
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class DotnetVersionActions extends Manifested {
-    override get validManifestFilenames() {
-        return Option.toArray(Option.map(Schema.decodeUnknownOption(Options)(this.finalConfigForProject.versionActionsOptions), ({ projectFile }) => projectFile));
-    }
-
     override stated(text: string, at: string) {
         return Effect.map(versioned(text, at), ({ version }) => version);
     }
@@ -59,9 +55,8 @@ class DotnetVersionActions extends Manifested {
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        const written = Effect.promise(() => super.updateProjectVersion(tree, newVersion));
         const tracked = Effect.flatMap(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ releases }) => Effect.forEach(releases, (files) => shipped(tree, newVersion, files)));
-        return runtime.runPromise(Effect.zipWith(written, tracked, (logs, moved) => [...logs, ...moved.flat()]));
+        return super.updateProjectVersion(tree, newVersion).then((logs) => promised(Effect.map(tracked, (moved) => [...logs, ...moved.flat()])));
     }
 }
 

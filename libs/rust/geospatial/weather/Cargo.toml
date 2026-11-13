@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-weather"
-version.workspace = true
-edition.workspace = true
-description       = "Weather at a site: EPW and GRIB2 series, design conditions, psychrometrics, comfort, and sky matrices"
+name                 = "rasm-weather"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["weather", "epw", "grib2", "climate"]
+categories           = ["science::geo", "parser-implementations"]
+description          = "Weather at a site: EPW and GRIB2 series, design conditions, psychrometrics, comfort, and sky matrices"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

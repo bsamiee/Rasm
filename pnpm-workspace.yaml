@@ -429,31 +429,31 @@ catalog:
 
     # --- [INFRASTRUCTURE]
 
-    '@pulumi/pulumi': "3.275.0-alpha.xc9c1940"
-    '@pulumi/kubernetes': "4.35.0-alpha.1794164200"
-    '@pulumi/aws': 7.54.0
-    '@pulumi/awsx': "3.13.0-alpha.1794231037"
-    '@pulumi/gcp': "10.3.0-alpha.1794230945"
-    '@pulumi/postgresql': "3.19.0-alpha.1793836452"
-    '@pulumi/tls': "5.7.0-alpha.1793836799"
-    '@pulumi/random': "4.22.0-alpha.1793836591"
-    '@pulumi/docker': "5.3.0-alpha.1793426566"
-    '@pulumi/docker-build': "0.1.0-alpha.1794232428"
+    '@pulumi/pulumi': "3.277.0-alpha.xba20e30"
+    '@pulumi/kubernetes': "4.35.0-alpha.1794380153"
+    '@pulumi/aws': "7.55.0-alpha.1794552106"
+    '@pulumi/awsx': "3.14.0-alpha.1794550163"
+    '@pulumi/gcp': 10.3.0
+    '@pulumi/postgresql': "3.19.0-alpha.1794552961"
+    '@pulumi/tls': "5.7.0-alpha.1794554477"
+    '@pulumi/random': "4.22.0-alpha.1794553339"
+    '@pulumi/docker': "5.4.0-alpha.1794549571"
+    '@pulumi/docker-build': "0.1.0-alpha.1794549978"
     '@pulumi/minio': "1.0.0-alpha.1789107308"
     '@pulumi/policy': "1.22.0-alpha.1787747072"
-    '@pulumi/github': "6.16.0-alpha.1793835936"
+    '@pulumi/github': "6.16.0-alpha.1794550154"
     '@pulumi/synced-folder': 0.13.0
     '@pulumi/esc-sdk': 0.14.0
-    '@pulumi/pulumiservice': "1.8.0-alpha.1794256563"
+    '@pulumi/pulumiservice': "1.8.0-alpha.1794523008"
     '@pulumiverse/acme': "0.20.0-alpha.1794232718"
-    '@pulumi/cloudflare': "6.24.0-alpha.1793839704"
-    '@pulumi/command': "1.4.0-alpha.1794116294"
-    '@pulumi/tailscale': "1.0.0-alpha.1793836665"
+    '@pulumi/cloudflare': "6.25.0-alpha.1794552096"
+    '@pulumi/command': "1.4.0-alpha.1794375652"
+    '@pulumi/tailscale': "1.0.0-alpha.1794554155"
     '@pulumiverse/doppler': "0.9.0" # Newest published Doppler SDK, `@dopplerhq/pulumi-doppler` replaces it once on npm
     '@pulumiverse/grafana': 2.45.0
     '@grafana/grafana-foundation-sdk': 0.0.22
-    '@pulumi/eks': "4.6.0-alpha.1793517416"
-    '@pulumi/cloudinit': "1.7.0-alpha.1793835586"
+    '@pulumi/eks': "4.7.0-alpha.1794553920"
+    '@pulumi/cloudinit': "1.7.0-alpha.1794548170"
 
     # --- [COMPILERS]
 
@@ -470,6 +470,8 @@ catalog:
     '@nx/devkit': 24.1.0-beta.0
     '@nx/js': 24.1.0-beta.0 # tsconfig `extends` chains the config-reading plugins hash
     '@nx/web': 24.1.0-beta.0 # `file-server` executor serving a built Storybook
+    '@nx/vite': 24.1.0-beta.0 # `nxReadySignal` Vite plugin a served config holds
+    '@nx/playwright': 24.1.0-beta.0 # Playwright suite inference `@rasm/nx-playwright` maps onto the verbs
     '@nx/plugin': 24.1.0-beta.0 # Generators and checks for plugins, executors, generators, and migrations
     '@nx/workspace': 24.1.0-beta.0 # `move`, `remove`, and `infer-targets` generators
     nx-mcp: 0.25.3 # Nx MCP server answering workspace, project, and task questions for agents
@@ -484,7 +486,6 @@ catalog:
     '@cloudflare/config': 0.31.1 # `cloudflare.config.ts` uncached loader and parser for hosting programs
     cf: 1.0.0-beta.29 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
     signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
-    tinyglobby: 0.2.17 # Types of the file lister Vitest lists test files through
     vite-plugin-static-copy: 4.1.1
     vite: 8.3.7
     '@vitejs/plugin-react': 6.3.0

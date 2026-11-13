@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-typst"
-version.workspace = true
-edition.workspace = true
-description       = "Typst documents compiled in process to PDF, SVG, PNG, HTML, and bundles"
+name                 = "rasm-typst"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["typst", "pdf", "svg", "typesetting"]
+categories           = ["text-processing"]
+description          = "Typst documents compiled in process to PDF, SVG, PNG, HTML, and bundles"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

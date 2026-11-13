@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-graph-layout"
-version.workspace = true
-edition.workspace = true
-description       = "Graph layout: layered and force-directed layouts with routed edges, GraphML, and DOT export"
+name                 = "rasm-graph-layout"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["graph", "layout", "layered", "force-directed"]
+categories           = ["algorithms", "visualization"]
+description          = "Graph layout: layered and force-directed layouts with routed edges, GraphML, and DOT export"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

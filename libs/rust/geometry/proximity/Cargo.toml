@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-proximity"
-version.workspace = true
-edition.workspace = true
-description       = "Proximity queries over placed shapes: clashes, separations, rays, neighbors, and registration"
+name                 = "rasm-proximity"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["collision", "distance", "geometry", "clash"]
+categories           = ["mathematics", "algorithms"]
+description          = "Proximity queries over placed shapes: clashes, separations, rays, neighbors, and registration"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

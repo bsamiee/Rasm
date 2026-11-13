@@ -3,7 +3,6 @@
 @README.md
 
 - Commits, pushes, and writing or running tests happen on user request only
-- Facts in repo, docs, tools, or session prompts are acted on, never asked; guidance and briefs never mandate asking the user
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one

@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "programs": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Program packages, each resolved from the project and exporting stacks(request)",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "destroy": {
+            "type": "boolean",
+            "description": "Destroys the local stacks and removes them"
+        }
+    },
+    "required": [ "programs" ],
+    "additionalProperties": true,
+    "title": "Install",
+    "description": "Applies the stacks a program package states for a project's install on this machine through the Pulumi Automation API, refreshing live state first"
+}

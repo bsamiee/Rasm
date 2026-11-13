@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-optimization"
-version.workspace = true
-edition.workspace = true
-description       = "Optimization: bounded nonlinear solves, conic programs, allocation models, and Pareto ranking"
+name                 = "rasm-optimization"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["optimization", "solver", "nonlinear", "conic"]
+categories           = ["mathematics", "science", "algorithms"]
+description          = "Optimization: bounded nonlinear solves, conic programs, allocation models, and Pareto ranking"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

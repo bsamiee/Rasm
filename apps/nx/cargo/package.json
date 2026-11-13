@@ -1,6 +1,7 @@
 {
     "name": "@rasm/nx-cargo",
-    "version": "0.0.0",
+    "version": "0.1.0",
+    "private": true,
     "description": "Nx plugin inferring Cargo workspaces, crates, checks, and releases from cargo's own output",
     "repository": {
         "type": "git",
@@ -33,7 +34,6 @@
         "nx": "catalog:peers"
     },
     "publishConfig": {
-        "access": "public",
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",

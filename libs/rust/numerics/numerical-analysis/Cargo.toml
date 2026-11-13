@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-numerical-analysis"
-version.workspace = true
-edition.workspace = true
-description       = "Numerical analysis: interpolation, splines, roots, quadrature, and scattered data"
+name                 = "rasm-numerical-analysis"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["interpolation", "splines", "quadrature", "numerics"]
+categories           = ["mathematics", "algorithms", "science"]
+description          = "Numerical analysis: interpolation, splines, roots, quadrature, and scattered data"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

@@ -40,7 +40,12 @@ const execute = executor(
     Publish,
     Effect.fnUntraced(function* ({ exports, ...stated }, context, project) {
         const [path, dry, files, tag] = yield* Effect.all([Path.Path, dried(stated), packaged(context), tagged(context, project)]);
-        const feeds = exports.flatMap((exported) => Array.match(files.filter((file) => path.extname(file) === '.dmg' && path.dirname(file) === exported.folder), { onEmpty: () => [], onNonEmpty: (images) => [{ exported, images }] }));
+        const feeds = exports.flatMap((exported) =>
+            Array.match(
+                files.filter((file) => path.extname(file) === '.dmg' && path.dirname(file) === exported.folder),
+                { onEmpty: () => [], onNonEmpty: (images) => [{ exported, images }] },
+            ),
+        );
         yield* Effect.forEach(feeds, ({ exported, images }) => (dry ? Effect.logInfo(`Would publish the Sparkle feed of ${images.join(', ')} for ${tag} through generate_appcast and cf r2 objects put`) : fed(context, exported, images, tag)), { discard: true });
         return true;
     }),

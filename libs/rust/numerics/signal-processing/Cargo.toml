@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-signal-processing"
-version.workspace = true
-edition.workspace = true
-description       = "Signal processing: transforms, convolution, spectral estimates, filters, octave bands, and room-acoustic decay"
+name                 = "rasm-signal-processing"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["dsp", "fft", "filter", "spectrum"]
+categories           = ["mathematics", "science", "algorithms"]
+description          = "Signal processing: transforms, convolution, spectral estimates, filters, octave bands, and room-acoustic decay"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

@@ -1,0 +1,19 @@
+{
+    "name": "@rasm/test-nx-distribution",
+    "private": true,
+    "description": "@rasm/nx-distribution suites over temporary workspaces: host manifests in each vendor format discovered, packaged, and versioned through nx against README delivery rules",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@rasm/nx-distribution": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "ajv": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

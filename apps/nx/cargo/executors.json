@@ -5,7 +5,14 @@
             "batchImplementation": "./dist/executors/cargo/executor#batch",
             "schema": "./executors/cargo/schema.json",
             "preferBatch": true,
-            "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report"
+            "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none"
+        },
+        "nextest": {
+            "implementation": "./dist/executors/nextest/executor#execute",
+            "batchImplementation": "./dist/executors/nextest/executor#batch",
+            "schema": "./executors/nextest/schema.json",
+            "preferBatch": true,
+            "description": "Runs cargo nextest commands from a workspace root, one process per command for every selected package, each task decided by the suite events of its own package and failing where a package that built holds no test"
         },
         "release-publish": {
             "implementation": "./dist/executors/release-publish/executor#execute",

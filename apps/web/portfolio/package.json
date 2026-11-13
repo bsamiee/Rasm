@@ -47,9 +47,9 @@
     },
     "devDependencies": {
         "@cloudflare/vite-plugin": "catalog:",
+        "@nx/vite": "catalog:",
         "@openai/sites-vite-plugin": "catalog:",
         "@rasm/mark": "workspace:*",
-        "@rasm/nx-vite": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",

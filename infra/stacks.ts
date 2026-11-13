@@ -1,82 +1,40 @@
-import { layer } from '@effect/platform-node/NodeServices';
-import type { ExecutorContext } from '@nx/devkit';
-import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-import type { StackRequest, Stacks } from '@rasm/nx-pulumi/stacks';
-import { Array, Cause, Effect, FileSystem, type Layer, Match, Option, Record, Struct } from 'effect';
-import { deployed } from '#/command';
-import { hostingRows, hostingStack, hostingValues } from '#/hosting-stack';
+import type { Stacks } from '@rasm/nx-pulumi/stacks';
+import { Completed } from '@rasm/process';
+import { Effect, type FileSystem, Match, Option, type Path, Record, Schema, Struct } from 'effect';
+import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+import { hostingStacks } from '#/hosting-stack';
 import manifest from '#/package.json' with { type: 'json' };
-import { platformStacks } from '#/platform-stack';
-import { repositoryStack } from '#/repository-stack';
+import { hosts, installed, local, provisioned } from '#/platform-stack';
+import { type configs, identified, repositoryStack } from '#/repository-stack';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-const project = manifest.name.replace('@', '').replace('/', '-');
+const Deployed = Schema.fromJsonString(Schema.Struct(Struct.Record(['CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_API_TOKEN', 'DOPPLER_IAC_TOKEN', 'EPIC_GHCR_TOKEN', 'GITHUB_TOKEN', 'PULUMI_ACCESS_TOKEN', 'TAILSCALE_OAUTH_CLIENT_ID', 'TAILSCALE_OAUTH_CLIENT_SECRET'], Schema.NonEmptyString)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const held = Effect.fnUntraced(function* (context: ExecutorContext, rows: ReturnType<typeof hostingRows>, production: boolean, envVars: Readonly<Record<string, string>>) {
-    const workDir = yield* Effect.flatMap(FileSystem.FileSystem, (fs) => fs.makeTempDirectoryScoped());
-    const [candidates, listed] = yield* Effect.all([
-        Effect.forEach(Record.keys(rows), (value) => hostingStack(context, rows, value, production)),
-        Effect.flatMap(
-            Effect.tryPromise(() => LocalWorkspace.create({ workDir, envVars, projectSettings: { name: project, runtime: 'nodejs' } })),
-            (workspace) => Effect.tryPromise(() => workspace.listStacks()),
-        ),
-    ]);
-    const names = new Set(listed.map(({ name }) => name));
-    return candidates.filter(({ stackName }) => names.has(stackName));
-}, Effect.scoped);
-
-const inline = <E>({ program, ...args }: { readonly stackName: string; readonly envVars?: Readonly<Record<string, string>>; readonly program: Effect.Effect<Readonly<Record<string, unknown>>, E, Layer.Success<typeof layer>> }): InlineProgramArgs => ({
-    ...args,
-    projectName: project,
-    program: () => Effect.runPromise(Effect.provide(program, layer)),
-});
-
-const owned = Effect.fnUntraced(function* (request: StackRequest) {
-    const named = Match.valueTags(request, { Install: () => Option.none<string>(), Deploy: Struct.get('stack') });
-    const envVars = yield* deployed;
-    const repository = inline({ ...(yield* repositoryStack(request.context, envVars)), envVars });
-    const platform = Effect.map(
-        platformStacks(envVars),
-        Array.map((stack) => inline({ ...stack, envVars })),
-    );
-    const declared = Option.contains(named, repository.stackName) ? [repository] : [repository, ...(yield* platform)];
-    return yield* Option.match(named, {
-        onNone: () => Effect.succeed(declared),
-        onSome: (name) =>
-            Effect.map(
-                Effect.fromOption(
-                    Array.findFirst(declared, ({ stackName }) => stackName === name),
-                    () => new Cause.NoSuchElementError(`${manifest.name} holds no stack named ${name}`),
-                ),
-                Array.of,
-            ),
-    });
-});
-
-const hosted = Match.typeTags<StackRequest>()({
-    Install: ({ context }) => Effect.map(hostingStack(context, hostingValues, 'local', false), Array.of),
-    Deploy: Effect.fnUntraced(function* ({ context, stack, production }) {
-        const envVars = yield* deployed;
-        const rows = hostingRows(envVars);
-        const selected = yield* Option.match(stack, { onNone: () => held(context, rows, production, envVars), onSome: (value) => Effect.map(hostingStack(context, rows, value, production), Array.of) });
-        return selected.map((each) => ({ ...each, envVars }));
-    }),
-});
+const deployed = Effect.flatMap(Completed.output(ChildProcess.make('doppler', ['secrets', 'download', '--no-file', '--format', 'json', '--config', 'deploy' satisfies (typeof configs)[number]], { stdin: 'ignore', extendEnv: true })), Schema.decodeEffect(Deployed));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const stacks: Stacks = (request) =>
-    Effect.runPromise(
-        Effect.provide(
-            Effect.gen(function* () {
-                return request.context.projectName === manifest.name ? yield* owned(request) : Array.map(yield* hosted(request), inline);
-            }),
-            layer,
-        ),
-    );
+const stacks: Stacks = Effect.fnUntraced(function* (request) {
+    const [{ context }, services] = [request, yield* Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()];
+    const { envVars, deploy } = yield* Match.valueTags(request, {
+        Install: () => Effect.succeed({ envVars: { PULUMI_BACKEND_URL: 'file://~', PULUMI_CONFIG_PASSPHRASE: '' }, deploy: Option.none() }),
+        Deploy: ({ production }) => Effect.map(deployed, (rows) => ({ envVars: { ...rows, DOPPLER_TOKEN: rows.DOPPLER_IAC_TOKEN }, deploy: Option.some({ production, rows }) })),
+    });
+    const groups =
+        context.projectName === manifest.name
+            ? yield* Option.match(deploy, {
+                  onNone: () => Effect.succeed([[{ stackName: local.host, program: installed }]]),
+                  onSome: Effect.fnUntraced(function* ({ rows }) {
+                      const identity = yield* identified(context.root);
+                      return [[{ stackName: identity.project, program: repositoryStack(context.root, identity, rows) }], Record.collect(hosts, (host) => ({ stackName: host, program: provisioned(host, { ...identity, registry: rows.EPIC_GHCR_TOKEN }) }))];
+                  }),
+              })
+            : [yield* hostingStacks(context, deploy)];
+    return groups.map((group) => group.map(({ stackName, program }) => ({ stackName, envVars, projectName: manifest.name.replace('@', '').replace('/', '-'), program: () => Effect.runPromiseWith(services)<Readonly<Record<string, unknown>>, Effect.Error<typeof program>>(program) })));
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

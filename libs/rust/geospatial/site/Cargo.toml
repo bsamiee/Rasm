@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-site"
-version.workspace = true
-edition.workspace = true
-description       = "Located site: coordinates, time zones, parcels, CRS transformations, and grid frames"
+name                 = "rasm-site"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["gis", "crs", "site", "time-zone"]
+categories           = ["science::geo"]
+description          = "Located site: coordinates, time zones, parcels, CRS transformations, and grid frames"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

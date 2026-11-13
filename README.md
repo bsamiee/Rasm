@@ -11,7 +11,7 @@ Rasm/
 ├── tests/                    # Suites per language, at the path of the project they test
 ├── tools/                    # Checks and grammars other checkers lack, by the tool that runs them
 ├── assets/                   # Reusable assets no one app or plugin owns, each app or plugin keeps its own assets in its folder
-├── infra/                    # Pulumi programs for repository and hosting resources, Compose services
+├── infra/                    # Pulumi programs for the repository, its machines, and app hosting
 ├── plugins/                  # Agent harness marketplace
 ├── docs/
 ├── nx.json                   # One row per Nx plugin and the release policy
@@ -109,7 +109,8 @@ flowchart LR
 ## [03]-[PRINCIPLES]
 
 - Each fact sits once in the file its tool reads, and every other use derives it
-- Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json`, `targetDefaults`, or hand-written `namedInputs`
+- Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json` or hand-written `namedInputs`
+- `nx.json` `targetDefaults` holds one row, `@nx/js:release-publish` depending on `pack--pnpm`, since Nx core infers that target after every plugin
 - `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
 - Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
 - `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
@@ -117,18 +118,20 @@ flowchart LR
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-devkit`, and a row's own options win
 - Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
-- Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
+- Verbs aggregate `<verb>--<tool>` targets, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
 - Commits run no pre-commit hook: hk checks a commit's message alone, and file checks run when a shell or agent calls hk
 - Checkers report every finding as an error through their own configuration
 - Checker configuration named by path sits in `.config/`, since tools run through hk and Nx alone, never directly
 - Libraries take paths, names, and policies from their caller and hold no repository convention
-- Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`, `dist` and editor-shared folders stay where their tool puts them
+- Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`, `dist`, `.cloudflare/output`, and editor-shared folders stay where their tool puts them
 - Published apps read their identity from the host API (`Bundle.main`, `process.execPath`) and keep settings in their own preferences
 - Apps and tools made here default cache, log, and runtime folders to per-user locations, one documented setting moves each, each bounds its logs
 - `.config/mise.toml` `[env]` rows move the folders: caches to `.cache/<tool>`, logs under `.artifacts/logs` in a file or folder per tool
 - Tool behavior comes from its source and docs at the installed version, a plugin never restates what a tool, host, package, or Nx already does
 - Tools with their own incremental state keep it, Nx caches results around it and restores an intermediate folder only with the outputs built from it
+- Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input
+- Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner
 - Host SDKs and tools come from packages and mise rows, and building, checking, and packaging a host project needs no host installed
 - Hosts run wherever their vendor releases and licenses them for a machine, CI runners included, as Blender does through its `bpy` wheel
 - Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`
@@ -147,12 +150,13 @@ flowchart LR
 - Unreal plug-ins map a folder to the Nx target installing a C++ package there in `.uplugin` table `nx.packages`, and their build runs it first
 - Preset `unreal` builds such a package with the compiler and flags of the plug-in's engine, into a folder named for the engine platform (`Mac`, `Linux`)
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
-- CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
+- CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone
 - CI job `unreal` runs the affected `os:linux` projects as user `ue4` in Epic's `dev-slim` image of each `EngineAssociation` a `.uproject` names
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
-- Unchanged stack inputs apply nothing, and a machine runs the Compose services its `hosts` row names in `services` with their dependencies
-- Machine names state no role, provider, or location: roles sit in host row `services`, DNS aliases, and tailnet tags
-- Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
+- Unchanged stack inputs apply nothing, and a machine runs the containers and services field `role` of its `hosts` row states
+- Machine names state no role, provider, or location: roles sit in host row `role`, DNS aliases, and tailnet tags
+- Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`
+- `package.json` projects stating a `version` are release projects with `pack--pnpm` and `attach--gh`, and `private` stops the registry upload alone
 
 ## [04]-[TASKS]
 
@@ -164,7 +168,7 @@ flowchart LR
 - `check` reports findings of checkers reading the project model and changes no source file
 - `fix` applies fixes from checkers reading the project model
 - `test` runs a project's test runners
-- `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports or a Vite config states `server`, and starts the Compose services whose Dockerfile it holds, which stay up
+- `serve` runs a project's development servers until the run ends, where a Vite config holds `nxReadySignal()` of `@nx/vite` or states `server`, and starts the Compose services whose Dockerfile it holds, which stay up
 - `preview` builds a project, then serves its build output as `serve` does
 - `install` puts a local build into its host or starts local services
 - `deploy` applies a project's infrastructure stacks, `-c release` those of a released version, and `nx run <project>:deploy--pulumi --stack=<name>` one of them
@@ -181,7 +185,7 @@ Other tasks run through their own commands:
 - Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet)
 - `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
-- `nx install @rasm/infra` starts local services of `infra/compose.yaml`, `-c <profile>` adds the services of one profile
+- `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
 - `nx deploy @rasm/infra` applies the repository and machine stacks, as workflow `Deploy` does
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
@@ -217,7 +221,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [08]   | File-level check               | `.config/hk.pkl` step                                                                                  |
 |  [09]   | Secret                         | Doppler `rasm` project and 1Password, read through the `secrets` skill                                 |
 |  [10]   | Resource or repository setting | Typed row of an `infra/` program, applied by workflow `Deploy`                                         |
-|  [11]   | Service definition             | `infra/compose.yaml`                                                                                   |
+|  [11]   | Service definition             | Role of a `hosts` row in `infra/platform-stack.ts`, rows of an app's `hosting.config.ts`               |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                          |
 |  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports   |
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                            |
@@ -226,16 +230,15 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [17]   | Container runtime              | Mise clients, Colima on macOS                                                                          |
 |  [18]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows, `PLAYWRIGHT_CLI_SESSION` per agent session        |
 |  [19]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |
-|  [20]   | Backup target                  | Doppler `rasm/deploy` `BACKUP_*` rows a host serving `backup` reads, absent `BACKUP_KIND` runs none    |
-|  [21]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml`, started with the first shell or agent session             |
-|  [22]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
-|  [23]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`    |
-|  [24]   | Registry token                 | Doppler `rasm/release` `NODE_AUTH_TOKEN`, `UV_PUBLISH_TOKEN`, `NUGET_API_KEY` rows its tool reads      |
-|  [25]   | C++ toolchain and packages     | `github:llvm/llvm-project` row of `.config/mise.toml`, `vcpkg.json` rows and `builtin-baseline`        |
-|  [26]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |
-|  [27]   | Deploy credential              | Doppler `rasm/deploy` `DOPPLER_IAC_TOKEN` and `GITHUB_TOKEN` rows Doppler and GitHub providers read    |
-|  [28]   | Machine                        | Row of table `hosts` in `infra/platform-stack.ts`, its Doppler secrets named `<MACHINE>_<CREDENTIAL>`  |
-|  [29]   | Public service name            | Traefik `Host` rule of a service in `infra/compose.yaml`, a CNAME to each machine naming it            |
+|  [20]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml`, started with the first shell or agent session             |
+|  [21]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
+|  [22]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`    |
+|  [23]   | Registry token                 | Doppler `rasm/release` `NODE_AUTH_TOKEN`, `UV_PUBLISH_TOKEN`, `NUGET_API_KEY` rows its tool reads      |
+|  [24]   | C++ toolchain and packages     | `github:llvm/llvm-project` row of `.config/mise.toml`, `vcpkg.json` rows and `builtin-baseline`        |
+|  [25]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |
+|  [26]   | Deploy credential              | Doppler `rasm/deploy` rows named as the variable each provider reads, `DOPPLER_IAC_TOKEN` as its token |
+|  [27]   | Machine                        | Row of table `hosts` in `infra/platform-stack.ts`, reached by its tailnet name over Tailscale SSH      |
+|  [28]   | Public service name            | `<service>.<zone>` of the machine running it, a CNAME to that machine                                  |
 
 - Tool rows stay at `latest` where their backend lists releases, a `version_regex` over release tags excludes a development build `latest` resolves
 

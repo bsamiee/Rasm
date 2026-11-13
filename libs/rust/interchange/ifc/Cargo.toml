@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-ifc"
-version.workspace = true
-edition.workspace = true
-description       = "IFC5 models: IFCX layers and imports, composition, schema validation, spatial and systems graphs, alignments, geometry, and BCF viewpoint presentation"
+name                 = "rasm-ifc"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["ifc", "ifcx", "bim", "aec"]
+categories           = ["parser-implementations", "data-structures"]
+description          = "IFC5 models: IFCX layers and imports, composition, schema validation, spatial and systems graphs, alignments, geometry, and BCF viewpoint presentation"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

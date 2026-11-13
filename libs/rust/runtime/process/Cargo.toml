@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-process"
-version.workspace = true
-edition.workspace = true
-description       = "Child process ownership: process groups and job objects that end with their owner, detached service processes, and a run to completion under a deadline, a stop token, and a release grace"
+name                 = "rasm-process"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["process", "child-process", "job-object"]
+categories           = ["os"]
+description          = "Child process ownership: process groups and job objects that end with their owner, detached service processes, and a run to completion under a deadline, a stop token, and a release grace"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

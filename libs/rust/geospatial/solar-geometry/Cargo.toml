@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-solar-geometry"
-version.workspace = true
-edition.workspace = true
-description       = "Solar geometry at a site: sun positions, rises and sets, sky patches, incidence, exposure, and solar envelopes"
+name                 = "rasm-solar-geometry"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["solar", "sun-position", "daylight"]
+categories           = ["science::geo", "science"]
+description          = "Solar geometry at a site: sun positions, rises and sets, sky patches, incidence, exposure, and solar envelopes"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

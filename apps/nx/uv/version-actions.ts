@@ -1,9 +1,10 @@
+import { dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { joinPathFragments, type ProjectGraph, type Tree } from '@nx/devkit';
 import { relocked } from '@rasm/nx-devkit/executor';
-import { runtime, ToolError } from '@rasm/nx-devkit/process';
+import { promised, ran, ToolError } from '@rasm/nx-devkit/process';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
-import { Array, Effect, Option, Predicate, Record, Schema, SemVer, String } from 'effect';
+import { Array, Effect, FileSystem, Option, Predicate, Record, Schema, SemVer, String } from 'effect';
 import { VersionActions } from 'nx/release';
 import { LOCK, normalized } from '#/workspace';
 
@@ -14,9 +15,11 @@ const PRERELEASES = { a: 'alpha', b: 'beta', rc: 'rc' } as const;
 const REQUIREMENT = /^\s*(?<name>[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?)\s*(?:\[[^\]]*\])?(?<specifier>[^;]*)/iu;
 const RANGE = new RegExp(RANGE_PATTERN, 'giu');
 const RAISED = new Set(['==', '===', '~=', '>=']);
+const INSTALLED = /^ \+ (?<name>\S+)==(?<version>\S+)$/gmu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Options = Schema.Struct({ lock: Schema.String });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Project = Schema.Struct({
     project: Schema.Struct({
@@ -71,14 +74,9 @@ const raised = (floors: ReadonlyMap<string, string>, row: string) =>
         },
     );
 
-const document = Effect.fnUntraced(function* (tree: Tree, at: string) {
-    const text = yield* Effect.fromNullishOr(tree.read(at, 'utf-8')).pipe(Effect.mapError(() => ToolError.make({ subject: at, detail: 'is missing' })));
-    const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: (cause) => ToolError.make({ subject: at, detail: 'does not parse as TOML', cause }) }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
-    return { text, parsed };
-});
-
-const project = Effect.fnUntraced(function* (tree: Tree, root: string) {
-    const { text, parsed } = yield* document(tree, joinPathFragments(root, PYPROJECT));
+const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), ToolError.of(at, 'is missing'));
+    const parsed = yield* Effect.try({ try: (): unknown => parse(text), catch: ToolError.of(at, 'does not parse as TOML') }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Table)));
     const [decoded, raw] = yield* Effect.all([Schema.decodeUnknownEffect(Project)(parsed), Schema.decodeUnknownEffect(Raw)(parsed)]);
     return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project };
 });
@@ -89,79 +87,94 @@ class UvVersionActions extends VersionActions {
     override readonly validManifestFilenames = [PYPROJECT];
     override readonly excludeManifestsFromFormatting = true;
 
-    override readDependencies(_tree: Tree, projectGraph: ProjectGraph) {
-        return Promise.resolve((projectGraph.dependencies[this.projectGraphNode.name] ?? []).filter(({ target }) => target in projectGraph.nodes));
+    get manifest() {
+        return joinPathFragments(this.projectGraphNode.data.root, PYPROJECT);
     }
 
     override readCurrentVersionFromSourceManifest(tree: Tree) {
-        const { root } = this.projectGraphNode.data;
-        return runtime.runPromise(
-            project(tree, root).pipe(
-                Effect.flatMap((manifest) => semver(manifest.project.version)),
-                Effect.map((currentVersion) => ({ currentVersion, manifestPath: joinPathFragments(root, PYPROJECT) })),
+        const manifestPath = this.manifest;
+        return promised(
+            project(tree, manifestPath).pipe(
+                Effect.flatMap((held) => semver(held.project.version)),
+                Effect.map((currentVersion) => ({ currentVersion, manifestPath })),
             ),
         );
     }
 
-    override readCurrentVersionFromRegistry() {
-        return Promise.resolve(null);
+    override readCurrentVersionFromRegistry(tree: Tree) {
+        return promised(
+            Effect.gen({ self: this }, function* () {
+                const fs = yield* FileSystem.FileSystem;
+                const [{ lock }, { project: stated }, target] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), project(tree, this.manifest), fs.makeTempDirectoryScoped()]);
+                const install = ['pip', 'install', '--dry-run', '--no-deps', '--target', target, stated.name];
+                const { stdout, stderr } = yield* ran('uv', install, { cwd: join(tree.root, dirname(lock)) });
+                const found = Array.findFirst([...`${stdout}${stderr}`.matchAll(INSTALLED)], ({ groups }) => (groups?.['name'] !== undefined && normalized(groups['name']) === normalized(stated.name) ? Option.fromUndefinedOr(groups['version']) : Option.none()));
+                const latest = yield* Effect.mapError(Effect.fromOption(found), ToolError.of(stated.name, `is absent from the output of uv ${install.join(' ')}`));
+                return { currentVersion: yield* semver(latest), logText: `uv ${install.join(' ')}` };
+            }).pipe(Effect.scoped),
+        );
     }
 
     override readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
-        const { root } = this.projectGraphNode.data;
-        return runtime.runPromise(
+        const manifest = this.manifest;
+        return promised(
             Effect.gen(function* () {
                 const node = yield* Effect.fromNullishOr(projectGraph.nodes[dependencyProjectName]);
-                const [{ project: dependent, groups }, { project: dependency }] = yield* Effect.all([project(tree, root), project(tree, node.data.root)]);
+                const [{ project: dependent, groups }, { project: dependency }] = yield* Effect.all([project(tree, manifest), project(tree, joinPathFragments(node.data.root, PYPROJECT))]);
                 const collections = [
                     ['dependencies', dependent.dependencies] as const,
                     ...Record.collect(dependent['optional-dependencies'], (extra, rows) => [`optional-dependencies.${extra}`, rows] as const),
                     ...Record.collect(groups, (group, rows) => [`dependency-groups.${group}`, rows.filter(Predicate.isString)] as const),
                 ];
                 const floors = (row: string) => Option.exists(required(row), ({ name, specifier }) => String.isNonEmpty(specifier) && name === normalized(dependency.name));
-                const stated = Array.findFirst(collections, ([, rows]) => rows.some(floors));
-                return yield* Option.match(stated, {
-                    onNone: () => Effect.succeed<{ readonly currentVersion: string | null; readonly dependencyCollection: string | null }>({ currentVersion: null, dependencyCollection: null }),
-                    onSome: ([dependencyCollection]) => Effect.map(semver(dependency.version), (currentVersion) => ({ currentVersion, dependencyCollection })),
-                });
+                return yield* Option.match(
+                    Array.findFirst(collections, ([, rows]) => rows.some(floors)),
+                    {
+                        onNone: () => Effect.succeed<{ readonly currentVersion: string | null; readonly dependencyCollection: string | null }>({ currentVersion: null, dependencyCollection: null }),
+                        onSome: ([dependencyCollection]) => Effect.map(semver(dependency.version), (currentVersion) => ({ currentVersion, dependencyCollection })),
+                    },
+                );
             }),
         );
     }
 
     override updateProjectVersion(tree: Tree, newVersion: string) {
-        const { root } = this.projectGraphNode.data;
-        const at = joinPathFragments(root, PYPROJECT);
-        return runtime.runPromise(
-            Effect.gen(function* () {
-                const [{ text, parsed, table }, version] = yield* Effect.all([project(tree, root), pep440(newVersion)]);
-                tree.write(at, patch(text, { ...parsed, project: { ...table, version } }));
-                return [`New version ${version} written to manifest: ${at}`];
-            }),
+        return promised(
+            Effect.forEach(
+                this.manifestsToUpdate,
+                Effect.fnUntraced(function* ({ manifestPath }) {
+                    const [{ text, parsed, table }, version] = yield* Effect.all([project(tree, manifestPath), pep440(newVersion)]);
+                    tree.write(manifestPath, patch(text, { ...parsed, project: { ...table, version } }));
+                    return `New version ${version} written to manifest: ${manifestPath}`;
+                }),
+            ),
         );
     }
 
     override updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
-        const { root } = this.projectGraphNode.data;
-        const at = joinPathFragments(root, PYPROJECT);
-        return runtime.runPromise(
+        const manifests = Record.isEmptyRecord(dependenciesToUpdate) ? [] : this.manifestsToUpdate;
+        return promised(
             Effect.gen(function* () {
-                const released = yield* Effect.forEach(Record.toEntries(dependenciesToUpdate), ([dependency, version]) => Effect.all([Effect.flatMap(Effect.fromNullishOr(projectGraph.nodes[dependency]), (node) => project(tree, node.data.root)), pep440(version)]));
-                const floors = new Map(released.map(([manifest, version]) => [normalized(manifest.project.name), version] as const));
-                if (floors.size === 0) {
-                    return [];
-                }
-                const { text, parsed, table, project: dependent, groups } = yield* project(tree, root);
+                const released = yield* Effect.forEach(Record.toEntries(dependenciesToUpdate), ([dependency, version]) => Effect.all([Effect.flatMap(Effect.fromNullishOr(projectGraph.nodes[dependency]), (node) => project(tree, joinPathFragments(node.data.root, PYPROJECT))), pep440(version)]));
+                const floors = new Map(released.map(([held, version]) => [normalized(held.project.name), version] as const));
                 const moved = (row: unknown) => (Predicate.isString(row) ? raised(floors, row) : Effect.succeed(row));
-                const [dependencies, optional, grouped] = yield* Effect.all([Effect.forEach(dependent.dependencies, moved), Effect.all(Record.map(dependent['optional-dependencies'], Effect.forEach(moved))), Effect.all(Record.map(groups, Effect.forEach(moved)))]);
-                tree.write(
-                    at,
-                    patch(text, {
-                        ...parsed,
-                        project: { ...table, ...('dependencies' in table ? { dependencies } : {}), ...(Record.isEmptyRecord(optional) ? {} : { 'optional-dependencies': optional }) },
-                        ...(Record.isEmptyRecord(grouped) ? {} : { 'dependency-groups': grouped }),
+                const logs = yield* Effect.forEach(
+                    manifests,
+                    Effect.fnUntraced(function* ({ manifestPath }) {
+                        const { text, parsed, table, project: dependent, groups } = yield* project(tree, manifestPath);
+                        const [dependencies, optional, grouped] = yield* Effect.all([Effect.forEach(dependent.dependencies, moved), Effect.all(Record.map(dependent['optional-dependencies'], Effect.forEach(moved))), Effect.all(Record.map(groups, Effect.forEach(moved)))]);
+                        tree.write(
+                            manifestPath,
+                            patch(text, {
+                                ...parsed,
+                                project: { ...table, ...('dependencies' in table ? { dependencies } : {}), ...(Record.isEmptyRecord(optional) ? {} : { 'optional-dependencies': optional }) },
+                                ...(Record.isEmptyRecord(grouped) ? {} : { 'dependency-groups': grouped }),
+                            }),
+                        );
+                        return [...floors].map(([name, floor]) => `Lower bound of ${name} moved to ${floor} in ${manifestPath}`);
                     }),
                 );
-                return [...floors].map(([name, floor]) => `Lower bound of ${name} moved to ${floor} in ${at}`);
+                return logs.flat();
             }),
         );
     }

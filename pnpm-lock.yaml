@@ -78,6 +78,9 @@ catalogs:
     '@nx/plugin':
       specifier: 24.1.0-beta.0
       version: 24.1.0-beta.0
+    '@nx/vite':
+      specifier: 24.1.0-beta.0
+      version: 24.1.0-beta.0
     '@nx/web':
       specifier: 24.1.0-beta.0
       version: 24.1.0-beta.0
@@ -141,33 +144,30 @@ catalogs:
     '@playwright/test':
       specifier: 1.66.0-alpha-2026-11-10
       version: 1.66.0-alpha-2026-11-10
-    '@pulumi/aws':
-      specifier: 7.54.0
-      version: 7.54.0
     '@pulumi/cloudflare':
-      specifier: 6.24.0-alpha.1793839704
-      version: 6.24.0-alpha.1793839704
+      specifier: 6.25.0-alpha.1794552096
+      version: 6.25.0-alpha.1794552096
     '@pulumi/command':
-      specifier: 1.4.0-alpha.1794116294
-      version: 1.4.0-alpha.1794116294
+      specifier: 1.4.0-alpha.1794375652
+      version: 1.4.0-alpha.1794375652
+    '@pulumi/docker':
+      specifier: 5.4.0-alpha.1794549571
+      version: 5.4.0-alpha.1794549571
+    '@pulumi/docker-build':
+      specifier: 0.1.0-alpha.1794549978
+      version: 0.1.0-alpha.1794549978
     '@pulumi/github':
-      specifier: 6.16.0-alpha.1793835936
-      version: 6.16.0-alpha.1793835936
+      specifier: 6.16.0-alpha.1794550154
+      version: 6.16.0-alpha.1794550154
     '@pulumi/minio':
       specifier: 1.0.0-alpha.1789107308
       version: 1.0.0-alpha.1789107308
-    '@pulumi/postgresql':
-      specifier: 3.19.0-alpha.1793836452
-      version: 3.19.0-alpha.1793836452
     '@pulumi/random':
-      specifier: 4.22.0-alpha.1793836591
-      version: 4.22.0-alpha.1793836591
+      specifier: 4.22.0-alpha.1794553339
+      version: 4.22.0-alpha.1794553339
     '@pulumi/tailscale':
-      specifier: 1.0.0-alpha.1793836665
-      version: 1.0.0-alpha.1793836665
-    '@pulumi/tls':
-      specifier: 5.7.0-alpha.1793836799
-      version: 5.7.0-alpha.1793836799
+      specifier: 1.0.0-alpha.1794554155
+      version: 1.0.0-alpha.1794554155
     '@pulumiverse/doppler':
       specifier: 0.9.0
       version: 0.9.0
@@ -411,9 +411,6 @@ catalogs:
     testcontainers:
       specifier: 12.2.1
       version: 12.2.1
-    tinyglobby:
-      specifier: 0.2.17
-      version: 0.2.17
     tree-sitter-bash:
       specifier: 0.25.1
       version: 0.25.1
@@ -473,7 +470,7 @@ catalogs:
       version: 3.0.0-2
 
 overrides:
-  '@pulumi/pulumi': 3.275.0-alpha.xc9c1940
+  '@pulumi/pulumi': 3.277.0-alpha.xba20e30
   '@use-gesture/react>react': 19.3.1
   '@effect/atom-react>scheduler': 0.28.0
   vite>yaml: 3.0.0-2
@@ -515,10 +512,10 @@ importers:
         version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/plugin':
         specifier: 'catalog:'
-        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+        version: 24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)
       '@nx/workspace':
         specifier: 'catalog:'
         version: 24.1.0-beta.0
@@ -531,9 +528,6 @@ importers:
       '@rasm/nx-cargo':
         specifier: workspace:*
         version: link:apps/nx/cargo
-      '@rasm/nx-cloudflare':
-        specifier: workspace:*
-        version: link:apps/nx/cloudflare
       '@rasm/nx-cmake':
         specifier: workspace:*
         version: link:apps/nx/cmake
@@ -549,9 +543,6 @@ importers:
       '@rasm/nx-dotnet':
         specifier: workspace:*
         version: link:apps/nx/dotnet
-      '@rasm/nx-playwright':
-        specifier: workspace:*
-        version: link:apps/nx/playwright
       '@rasm/nx-pulumi':
         specifier: workspace:*
         version: link:apps/nx/pulumi
@@ -894,33 +885,17 @@ importers:
         specifier: 'catalog:'
         version: 24.1.0-beta.0
 
-  apps/nx/cloudflare:
-    dependencies:
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-devkit':
-        specifier: workspace:*
-        version: link:../devkit
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-    devDependencies:
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      nx:
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0
-
   apps/nx/cmake:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-devkit':
+      '@rasm/process':
         specifier: workspace:*
-        version: link:../devkit
+        version: link:../../../libs/typescript/runtime/process
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -940,6 +915,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@nx/js':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -947,9 +925,6 @@ importers:
         specifier: 'catalog:'
         version: 4.1.0
     devDependencies:
-      '@nx/js':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -990,12 +965,15 @@ importers:
 
   apps/nx/docker:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-devkit':
+      '@rasm/process':
         specifier: workspace:*
-        version: link:../devkit
+        version: link:../../../libs/typescript/runtime/process
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1032,31 +1010,6 @@ importers:
         specifier: 'catalog:'
         version: 24.1.0-beta.0
 
-  apps/nx/playwright:
-    dependencies:
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@nx/js':
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
-      '@rasm/nx-devkit':
-        specifier: workspace:*
-        version: link:../devkit
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-    devDependencies:
-      '@playwright/test':
-        specifier: 'catalog:'
-        version: 1.66.0-alpha-2026-11-10
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      nx:
-        specifier: 'catalog:'
-        version: 24.1.0-beta.0
-
   apps/nx/pulumi:
     dependencies:
       '@nx/devkit':
@@ -1070,8 +1023,8 @@ importers:
         version: 4.1.4
     devDependencies:
       '@pulumi/pulumi':
-        specifier: 3.275.0-alpha.xc9c1940
-        version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        specifier: 3.277.0-alpha.xba20e30
+        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1081,6 +1034,9 @@ importers:
 
   apps/nx/storybook:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
@@ -1096,7 +1052,7 @@ importers:
     devDependencies:
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+        version: 24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1107,7 +1063,7 @@ importers:
         specifier: 'catalog:'
         version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
 
-  apps/nx/tests/cargo:
+  apps/nx/tests/apple:
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -1118,9 +1074,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-cargo':
+      '@rasm/nx-apple':
         specifier: workspace:*
-        version: link:../../cargo
+        version: link:../../apple
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../tests/typescript/support
@@ -1140,7 +1096,7 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
-  apps/nx/tests/cloudflare:
+  apps/nx/tests/cargo:
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -1151,18 +1107,123 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-cloudflare':
+      '@rasm/nx-cargo':
         specifier: workspace:*
-        version: link:../../cloudflare
+        version: link:../../cargo
+      '@rasm/nx-uv':
+        specifier: workspace:*
+        version: link:../../uv
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      cf:
+      effect:
         specifier: 'catalog:'
-        version: 1.0.0-beta.29(@types/node@26.6.6)
+        version: 4.1.4
+      nx:
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+
+  apps/nx/tests/cmake:
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@rasm/nx-cmake':
+        specifier: workspace:*
+        version: link:../../cmake
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+      nx:
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+
+  apps/nx/tests/devkit:
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@rasm/nx-devkit':
+        specifier: workspace:*
+        version: link:../../devkit
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      ajv:
+        specifier: 'catalog:'
+        version: 8.20.0
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
+      nx:
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+
+  apps/nx/tests/distribution:
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@rasm/nx-distribution':
+        specifier: workspace:*
+        version: link:../../distribution
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:../../../../tests/typescript/support
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      ajv:
+        specifier: 'catalog:'
+        version: 8.20.0
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1209,7 +1270,7 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
-  apps/nx/tests/playwright:
+  apps/nx/tests/dotnet:
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
@@ -1220,12 +1281,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@playwright/test':
-        specifier: 'catalog:'
-        version: 1.66.0-alpha-2026-11-10
-      '@rasm/nx-playwright':
+      '@rasm/nx-dotnet':
         specifier: workspace:*
-        version: link:../../playwright
+        version: link:../../dotnet
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../../tests/typescript/support
@@ -1257,8 +1315,8 @@ importers:
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@pulumi/pulumi':
-        specifier: 3.275.0-alpha.xc9c1940
-        version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        specifier: 3.277.0-alpha.xba20e30
+        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@rasm/nx-pulumi':
         specifier: workspace:*
         version: link:../../pulumi
@@ -1297,7 +1355,7 @@ importers:
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+        version: 24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)
       '@rasm/nx-storybook':
         specifier: workspace:*
         version: link:../../storybook
@@ -1355,6 +1413,9 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.1.0-dev.20261109.1
+      cf:
+        specifier: 'catalog:'
+        version: 1.0.0-beta.29(@types/node@26.6.6)
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1412,6 +1473,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@nx/vite':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       '@rasm/nx-vite':
         specifier: workspace:*
         version: link:../../vite
@@ -1469,6 +1533,9 @@ importers:
 
   apps/nx/typescript:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
@@ -1516,12 +1583,18 @@ importers:
 
   apps/nx/vite:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/js':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@nx/vite':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       '@rasm/nx-devkit':
         specifier: workspace:*
         version: link:../devkit
@@ -1541,6 +1614,9 @@ importers:
 
   apps/nx/vitest:
     dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
@@ -1560,9 +1636,6 @@ importers:
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.0
-      tinyglobby:
-        specifier: 'catalog:'
-        version: 0.2.17
       vite:
         specifier: 'catalog:'
         version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
@@ -1694,15 +1767,15 @@ importers:
       '@cloudflare/vite-plugin':
         specifier: 'catalog:'
         version: 2.0.0-beta.v.14(@types/node@26.6.6)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(workerd@1.20261110.1)
+      '@nx/vite':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       '@openai/sites-vite-plugin':
         specifier: 'catalog:'
         version: 0.2.0(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../../libs/typescript/graphics/mark
-      '@rasm/nx-vite':
-        specifier: workspace:*
-        version: link:../../nx/vite
       '@rasm/testing':
         specifier: workspace:*
         version: link:../../../tests/typescript/support
@@ -1787,60 +1860,45 @@ importers:
 
   infra:
     dependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@pulumi/aws':
-        specifier: 'catalog:'
-        version: 7.54.0(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/cloudflare':
         specifier: 'catalog:'
-        version: 6.24.0-alpha.1793839704(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 6.25.0-alpha.1794552096(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/command':
         specifier: 'catalog:'
-        version: 1.4.0-alpha.1794116294(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 1.4.0-alpha.1794375652(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/docker':
+        specifier: 'catalog:'
+        version: 5.4.0-alpha.1794549571(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/docker-build':
+        specifier: 'catalog:'
+        version: 0.1.0-alpha.1794549978(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/github':
         specifier: 'catalog:'
-        version: 6.16.0-alpha.1793835936(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 6.16.0-alpha.1794550154(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/minio':
         specifier: 'catalog:'
         version: 1.0.0-alpha.1789107308(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      '@pulumi/postgresql':
-        specifier: 'catalog:'
-        version: 3.19.0-alpha.1793836452(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/pulumi':
-        specifier: 3.275.0-alpha.xc9c1940
-        version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        specifier: 3.277.0-alpha.xba20e30
+        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/random':
         specifier: 'catalog:'
-        version: 4.22.0-alpha.1793836591(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 4.22.0-alpha.1794553339(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/tailscale':
         specifier: 'catalog:'
-        version: 1.0.0-alpha.1793836665(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      '@pulumi/tls':
-        specifier: 'catalog:'
-        version: 5.7.0-alpha.1793836799(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 1.0.0-alpha.1794554155(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumiverse/doppler':
         specifier: 'catalog:'
         version: 0.9.0(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      '@rasm/hooks':
-        specifier: workspace:*
-        version: link:../apps/web/hooks
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../libs/typescript/web/hosting
       '@rasm/process':
         specifier: workspace:*
         version: link:../libs/typescript/runtime/process
-      '@rasm/ssh':
-        specifier: workspace:*
-        version: link:../libs/typescript/network/ssh
-      '@rasm/webhooks':
-        specifier: workspace:*
-        version: link:../libs/typescript/messaging/webhooks
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2435,8 +2493,8 @@ importers:
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
       '@pulumi/pulumi':
-        specifier: 3.275.0-alpha.xc9c1940
-        version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        specifier: 3.277.0-alpha.xba20e30
+        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@rasm/workers':
         specifier: workspace:*
         version: link:../../workers
@@ -2470,10 +2528,10 @@ importers:
         version: 5.20261110.1
       '@pulumi/cloudflare':
         specifier: 'catalog:'
-        version: 6.24.0-alpha.1793839704(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 6.25.0-alpha.1794552096(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/pulumi':
-        specifier: 3.275.0-alpha.xc9c1940
-        version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        specifier: 3.277.0-alpha.xba20e30
+        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2495,13 +2553,13 @@ importers:
         version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@pulumi/cloudflare':
         specifier: 'catalog:'
-        version: 6.24.0-alpha.1793839704(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 6.25.0-alpha.1794552096(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/command':
         specifier: 'catalog:'
-        version: 1.4.0-alpha.1794116294(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        version: 1.4.0-alpha.1794375652(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@pulumi/pulumi':
-        specifier: 3.275.0-alpha.xc9c1940
-        version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+        specifier: 3.277.0-alpha.xba20e30
+        version: 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
       '@rasm/mark':
         specifier: workspace:*
         version: link:../../graphics/mark
@@ -2754,9 +2812,6 @@ importers:
       '@rasm/nx-cargo':
         specifier: workspace:*
         version: link:../../../apps/nx/cargo
-      '@rasm/nx-cloudflare':
-        specifier: workspace:*
-        version: link:../../../apps/nx/cloudflare
       '@rasm/nx-cmake':
         specifier: workspace:*
         version: link:../../../apps/nx/cmake
@@ -2772,9 +2827,6 @@ importers:
       '@rasm/nx-dotnet':
         specifier: workspace:*
         version: link:../../../apps/nx/dotnet
-      '@rasm/nx-playwright':
-        specifier: workspace:*
-        version: link:../../../apps/nx/playwright
       '@rasm/nx-pulumi':
         specifier: workspace:*
         version: link:../../../apps/nx/pulumi
@@ -2839,9 +2891,6 @@ importers:
         specifier: 'catalog:'
         version: 5.1.0(vitest@5.1.0)
     devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
@@ -4665,12 +4714,39 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@nx/playwright@24.1.0-beta.0':
+    resolution: {integrity: sha512-Uh5xlFcMnJjd2KeKDFnAe5fl+s1oZOdwYOtcHYu85fLxcc9MCXlV9TvPsL9/tE/HFCnXcPostvIHepC3s3UwfQ==}
+    peerDependencies:
+      '@playwright/test': ^1.36.0
+    peerDependenciesMeta:
+      '@playwright/test':
+        optional: true
+
   '@nx/plugin@24.1.0-beta.0':
     resolution: {integrity: sha512-yzyqgn41aegAcIxyteLwi669Rr6gYL6cfwkB2R8tTvumcrapK5oOn7T1S9dosv9jvcs/OpZAE6g6nmA19lgN+Q==}
     peerDependencies:
       '@nx/vitest': 24.1.0-beta.0
     peerDependenciesMeta:
       '@nx/vitest':
+        optional: true
+
+  '@nx/vite@24.1.0-beta.0':
+    resolution: {integrity: sha512-njr3asjSV8oU3gtgnW4ILB/Raab6t/Mb76QUr1wt2uFesj3ASyq0tTuE1w6Wk3ZYuLmfJZsdrx9FZt3wsuiSOA==}
+    peerDependencies:
+      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
+
+  '@nx/vitest@24.1.0-beta.0':
+    resolution: {integrity: sha512-XdTgZk9L5o1BMY5lDNoJP/eP6e1QD+liT513IsEC8ADOxl6z6vSrsoBDKMI8uuexKji9+pkSri9ns+1E6yXo8g==}
+    peerDependencies:
+      '@nx/eslint': 24.1.0-beta.0
+      vite: ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
+      vitest: ^3.0.0 || ^4.0.0 || ^5.0.0
+    peerDependenciesMeta:
+      '@nx/eslint':
+        optional: true
+      vite:
+        optional: true
+      vitest:
         optional: true
 
   '@nx/web@24.1.0-beta.0':
@@ -5725,26 +5801,26 @@ packages:
     resolution: {integrity: sha512-4EDEmvxWtgsCnnVeBvtFIFZtUhPPt1+bA9JrSwU4Sa//6oKtzCSlGGXYJr44OD9aGISymbieJ4mCKHUygUDU+g==}
     engines: {node: '>=18'}
 
-  '@pulumi/aws@7.54.0':
-    resolution: {integrity: sha512-0asX0tYqnQFztv8k3kylli5ejXXXdttY0aVlVJ5CznEhecnQmE9Nt/XZjs/+4z5MXR7OYIdtomwwjPMt1+J8mw==}
+  '@pulumi/cloudflare@6.25.0-alpha.1794552096':
+    resolution: {integrity: sha512-oIksbsojDFckSGmFCRhsObQ1V/pafp7oYhFx2m+uuvEuZYjHSfRVS+Ik0veRRbbwS2rzEu07KofxDAoyz87xAw==}
 
-  '@pulumi/cloudflare@6.24.0-alpha.1793839704':
-    resolution: {integrity: sha512-VWIljcg3jMsIee8gvT9XxwCeewAFuN9egmyRGkgGw+p5EbwDw1sz/IYeDsFOmpW4IakwqsB6JxnfRFSq4dS/aQ==}
+  '@pulumi/command@1.4.0-alpha.1794375652':
+    resolution: {integrity: sha512-N6SuI9Y1xvwzLrdHyDhUm0JWF9feldj6F6KvP3wpOp6sP0SXjjNQf/PPxUlNC9Xth+Y/3pbgEj7GuoL39r/EZw==}
 
-  '@pulumi/command@1.4.0-alpha.1794116294':
-    resolution: {integrity: sha512-wtXFPEXjOA700BlEskhniGbGKeDB2IjwOm///Vd7xsLEcbg7C9NoMFgSTs5439uQY5teCxFBBd/aDjSMLDz4YQ==}
+  '@pulumi/docker-build@0.1.0-alpha.1794549978':
+    resolution: {integrity: sha512-d9F32Iv/uR9eayKs4u+Zw+HpWUhq/z6jPRnag9RzuAQysJ+eXHG0UzMbiQxUFrgmYXFQLZ6ER5Zm8GfulusX/w==}
 
-  '@pulumi/github@6.16.0-alpha.1793835936':
-    resolution: {integrity: sha512-5A/Pt6xNJsMMmC0isrpqbTdLC+PC5YDOQk6MR1DDsU91lfRdyAKWjYkDZHyoMGdP+i8cnQkTbQOaIA44ihtvxQ==}
+  '@pulumi/docker@5.4.0-alpha.1794549571':
+    resolution: {integrity: sha512-kYibWk9bl+X4/sgWe99z0nmRxYiXbAcDvBzj77Uk/Z6vw1RgeuNVDsRFhYpVLYq3VQ5gKLeeuOv3UfUK4Nysog==}
+
+  '@pulumi/github@6.16.0-alpha.1794550154':
+    resolution: {integrity: sha512-VVl/g6NI0e5pg3cyBJcJi3NGItmtRtZqpjx6BtYp5IhmV/mJCf+AzXVpoCAMEVEQqs4ruoEwlxzVnlaaDXXVJw==}
 
   '@pulumi/minio@1.0.0-alpha.1789107308':
     resolution: {integrity: sha512-C+ClmNkI59FW3LAtScBGwBghgvwe3CekxvETi10J6y+T5p2lQxKH5qDOJipacYNrhxj1tqbROr5PP8BtIeVt3A==}
 
-  '@pulumi/postgresql@3.19.0-alpha.1793836452':
-    resolution: {integrity: sha512-PCjmikFob+C+6huY1K8Iy2QDFnYy01698Zvo9PomYYBxsHV2aez50h1FXj7RUbK8GBDWmWDJO53OxHoaZ2bf5A==}
-
-  '@pulumi/pulumi@3.275.0-alpha.xc9c1940':
-    resolution: {integrity: sha512-u59HJBvr/AHl7XUIAggoAy4ifYZkYIDIVokTnZoSu8q3mfZkYkzibVH5E1APrZabn0UdIZRd+5QXtKbTx76OSw==}
+  '@pulumi/pulumi@3.277.0-alpha.xba20e30':
+    resolution: {integrity: sha512-qkDJR3an3RDIoE4UQix/gBqKk6HPJEVGw9drmFTq+8I1Ls0z8YNSdYPOx1NGn0knCXeqg8kMc1Nr2DkHIDmpqw==}
     engines: {node: '>=22'}
     peerDependencies:
       ts-node: '>= 7.0.1 < 12'
@@ -5755,14 +5831,11 @@ packages:
       typescript:
         optional: true
 
-  '@pulumi/random@4.22.0-alpha.1793836591':
-    resolution: {integrity: sha512-Q7sNmhWvmlF8QZ7FB64yQ10svU2vvIeiWhdTqQFNAW04+hZaHo9uc1N+X8eZyck35tGNVr3rDhzF/oeuD4lhuQ==}
+  '@pulumi/random@4.22.0-alpha.1794553339':
+    resolution: {integrity: sha512-ySR4gc/f9lVnFsFs0mBzMqh1XW+IUPLFxz9LjioZiymDJyqMWmasIDBVdnlOB2hT5PLNBUi0d1Uvh02gORJ8kQ==}
 
-  '@pulumi/tailscale@1.0.0-alpha.1793836665':
-    resolution: {integrity: sha512-8RAKyCrJFGiwYgXzAMiPNOTxP6QKVBA+YX5Z96BQYXiqtq+U4z961lX8mpEIHNQO3z25J/7Od5TId2Lz+8v0rw==}
-
-  '@pulumi/tls@5.7.0-alpha.1793836799':
-    resolution: {integrity: sha512-U/FRakw+T9PHS9t3MV1BNxScSSozz+PNuGo+02Cyfagrqegg1AJvqIeUosiqiXuk/EIU2nweoqbpRIpOelfY6Q==}
+  '@pulumi/tailscale@1.0.0-alpha.1794554155':
+    resolution: {integrity: sha512-XJyixFigND4WQQjcTpwEJvG7NnqcMYBcHW0UfaT0Xk1lWQsIrTYnd6Hkax/9jeG0OstbRyIAzpNnhGohpwHeeQ==}
 
   '@pulumiverse/doppler@0.9.0':
     resolution: {integrity: sha512-xPBYujdP41N3p/fpZwjtsHcTNBN8DZoAYQ+2mNpIg6hx/sJVaqDJuvpZdoIqvlLEMeuq3SXICUoU/9G4eXemHg==}
@@ -6705,6 +6778,10 @@ packages:
   address@2.0.3:
     resolution: {integrity: sha512-XNAb/a6TCqou+TufU8/u11HCu9x1gYvOoxLwtlXgIqmkrYQADVv6ljyW2zwiPhHz9R1gItAWpuDrdJMmrOBFEA==}
     engines: {node: '>= 16.0.0'}
+
+  agent-base@7.1.4:
+    resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
+    engines: {node: '>= 14'}
 
   ajv@6.15.0:
     resolution: {integrity: sha512-fgFx7Hfoq60ytK2c7DhnF8jIvzYgOMxfugjLOSMHjLIPgenqa7S7oaagATUq99mV6IYvN2tRmC0wnTYX6iPbMw==}
@@ -7686,6 +7763,10 @@ packages:
     engines: {node: '>=12'}
     hasBin: true
 
+  https-proxy-agent@7.0.6:
+    resolution: {integrity: sha512-vK9P5/iUfdl95AI+JVyUuIcVtd4ofvtrOr3HNtM2yxC9bnMbEdp3x01OhQNnjb8IJYi38VlTE3mBXwcfvywuSw==}
+    engines: {node: '>= 14'}
+
   human-signals@2.1.0:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
     engines: {node: '>=10.17.0'}
@@ -8129,11 +8210,6 @@ packages:
   mime@1.6.0:
     resolution: {integrity: sha512-x0Vn8spI+wuJ1O6S7gnbaQg8Pxh4NNHb7KSINmEWKiPE4RKOplvijn+NkmYmmRgP68mc70j2EbeTFRsrswaQeg==}
     engines: {node: '>=4'}
-    hasBin: true
-
-  mime@2.6.0:
-    resolution: {integrity: sha512-USPkMeET31rOMiarsBNIHZKLGgvKc/LrjofAnBlOttf5ajRvqiRA8QsenbcooctK6d6Ts6aqZXBA+XbkKthiQg==}
-    engines: {node: '>=4.0.0'}
     hasBin: true
 
   mimic-fn@2.1.0:
@@ -11422,13 +11498,39 @@ snapshots:
   '@nx/nx-win32-x64-msvc@24.1.0-beta.0':
     optional: true
 
-  '@nx/plugin@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
+  '@nx/playwright@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-10)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
+    dependencies:
+      '@nx/devkit': 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@nx/eslint': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@nx/js': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      https-proxy-agent: 7.0.6(supports-color@10.2.2)
+      minimatch: 10.2.5
+      semver: 7.8.6
+      tslib: 2.9.1
+    optionalDependencies:
+      '@playwright/test': 1.66.0-alpha-2026-11-10
+    transitivePeerDependencies:
+      - '@babel/traverse'
+      - '@nx/jest'
+      - '@swc-node/register'
+      - '@swc/cli'
+      - '@swc/core'
+      - '@zkochan/js-yaml'
+      - eslint
+      - nx
+      - supports-color
+      - verdaccio
+    optional: true
+
+  '@nx/plugin@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
     dependencies:
       '@nx/devkit': 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/eslint': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/jest': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/js': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       tslib: 2.9.1
+    optionalDependencies:
+      '@nx/vitest': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
     transitivePeerDependencies:
       - '@babel/traverse'
       - '@swc-node/register'
@@ -11447,7 +11549,51 @@ snapshots:
       - typescript
       - verdaccio
 
-  '@nx/web@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(debug@4.4.3(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
+  '@nx/vite@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)':
+    dependencies:
+      '@nx/devkit': 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@nx/js': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@nx/vitest': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
+      '@phenomnomnominal/tsquery': 6.2.0(@typescript/typescript6@6.0.2)
+      ajv: 8.20.0
+      picomatch: 4.0.7
+      semver: 7.8.6
+      tslib: 2.9.1
+      vite: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+    transitivePeerDependencies:
+      - '@babel/traverse'
+      - '@nx/eslint'
+      - '@swc-node/register'
+      - '@swc/cli'
+      - '@swc/core'
+      - nx
+      - supports-color
+      - typescript
+      - verdaccio
+      - vitest
+
+  '@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)':
+    dependencies:
+      '@nx/devkit': 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@nx/js': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@phenomnomnominal/tsquery': 6.2.0(@typescript/typescript6@6.0.2)
+      semver: 7.8.6
+      tslib: 2.9.1
+    optionalDependencies:
+      '@nx/eslint': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      vite: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+    transitivePeerDependencies:
+      - '@babel/traverse'
+      - '@swc-node/register'
+      - '@swc/cli'
+      - '@swc/core'
+      - nx
+      - supports-color
+      - typescript
+      - verdaccio
+
+  '@nx/web@24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)':
     dependencies:
       '@nx/devkit': 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/js': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
@@ -11458,6 +11604,8 @@ snapshots:
     optionalDependencies:
       '@nx/eslint': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/jest': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@nx/playwright': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-10)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@nx/vite': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
     transitivePeerDependencies:
       - '@babel/traverse'
       - '@swc-node/register'
@@ -12249,34 +12397,42 @@ snapshots:
     dependencies:
       tinyexec: 1.3.1
 
-  '@pulumi/aws@7.54.0(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+  '@pulumi/cloudflare@6.25.0-alpha.1794552096(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      mime: 2.6.0
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/cloudflare@6.24.0-alpha.1793839704(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+  '@pulumi/command@1.4.0-alpha.1794375652(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/command@1.4.0-alpha.1794116294(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+  '@pulumi/docker-build@0.1.0-alpha.1794549978(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/github@6.16.0-alpha.1793835936(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+  '@pulumi/docker@5.4.0-alpha.1794549571(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      semver: 7.8.6
+    transitivePeerDependencies:
+      - supports-color
+      - ts-node
+      - typescript
+
+  '@pulumi/github@6.16.0-alpha.1794550154(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+    dependencies:
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
@@ -12284,21 +12440,13 @@ snapshots:
 
   '@pulumi/minio@1.0.0-alpha.1789107308(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/postgresql@3.19.0-alpha.1793836452(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
-    dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - supports-color
-      - ts-node
-      - typescript
-
-  '@pulumi/pulumi@3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+  '@pulumi/pulumi@3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
       '@grpc/grpc-js': 1.14.7
       '@logdna/tail-file': 2.2.0
@@ -12329,25 +12477,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@pulumi/random@4.22.0-alpha.1793836591(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+  '@pulumi/random@4.22.0-alpha.1794553339(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
       - typescript
 
-  '@pulumi/tailscale@1.0.0-alpha.1793836665(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
+  '@pulumi/tailscale@1.0.0-alpha.1794554155(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-    transitivePeerDependencies:
-      - supports-color
-      - ts-node
-      - typescript
-
-  '@pulumi/tls@5.7.0-alpha.1793836799(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
-    dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
@@ -12355,7 +12495,7 @@ snapshots:
 
   '@pulumiverse/doppler@0.9.0(@typescript/typescript6@6.0.2)(supports-color@10.2.2)':
     dependencies:
-      '@pulumi/pulumi': 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
+      '@pulumi/pulumi': 3.277.0-alpha.xba20e30(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
     transitivePeerDependencies:
       - supports-color
       - ts-node
@@ -13134,6 +13274,9 @@ snapshots:
   acorn@8.19.0: {}
 
   address@2.0.3: {}
+
+  agent-base@7.1.4:
+    optional: true
 
   ajv@6.15.0:
     dependencies:
@@ -14208,6 +14351,14 @@ snapshots:
       - debug
       - supports-color
 
+  https-proxy-agent@7.0.6(supports-color@10.2.2):
+    dependencies:
+      agent-base: 7.1.4
+      debug: 4.4.3(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
+
   human-signals@2.1.0: {}
 
   ico-endec@0.1.6: {}
@@ -14747,8 +14898,6 @@ snapshots:
       wildcard: 1.1.2
 
   mime@1.6.0: {}
-
-  mime@2.6.0: {}
 
   mimic-fn@2.1.0: {}
 

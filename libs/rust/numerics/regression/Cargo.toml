@@ -1,10 +1,14 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name              = "rasm-regression"
-version.workspace = true
-edition.workspace = true
-description       = "Regression over weighted observations: polynomial, nonlinear, and separable fits with estimators, uncertainty, influence, and prediction bands"
+name                 = "rasm-regression"
+version.workspace    = true
+edition.workspace    = true
+license.workspace    = true
+repository.workspace = true
+keywords             = ["regression", "least-squares", "fitting"]
+categories           = ["mathematics", "science"]
+description          = "Regression over weighted observations: polynomial, nonlinear, and separable fits with estimators, uncertainty, influence, and prediction bands"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

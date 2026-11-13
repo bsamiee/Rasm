@@ -5,14 +5,14 @@ description: "Use when refactoring, reducing, or rebuilding code or configuratio
 
 # [REFACTOR_CODE]
 
-Refactors read a file whole with its consumers, hosts, and packages, call each behavior and value at its owner in rank (a language feature or standard member, then a package or host member at its installed release, then a declaration in the tree, then code), delete each declaration stating no fact of its own, rebuild each remaining member into one structure, deepen through packages and hosts as hard as they reduce, and end smaller, growth stands for a capability the base lacked alone, in its smallest form, after a smaller form was searched. Code, configuration, build, rule, and checker files take the same passes. Use `<language>-coding` skills for language form, `review-change` for judging and codifying a finished change, `.claude/workflows/languages.js` for check owners.
+Refactors read a file whole with its consumers, hosts, and packages, call each behavior and value at its owner in rank (a language feature or standard member, then a package or host member at its installed release, then a declaration in the tree, then code), delete each declaration stating no fact of its own, rebuild each remaining member into one structure, deepen through packages and hosts as hard as they reduce, and end smaller, growth stands for a capability the base lacked alone, in its smallest form, after a smaller form was searched. Code, configuration, build, rule, and checker files take the same passes. Use `<language>-coding` skills for language form.
 
 Scope names what one pass edits:
 
 | [INDEX] | [SCOPE]      | [RUN]                                                                                     |
 | :-----: | :----------- | :---------------------------------------------------------------------------------------- |
 |  [01]   | File         | One agent reads it whole with every consumer and edits, then adversaries of `[06]` follow |
-|  [02]   | Folder       | `deepen` workflow with `args.mode` `reduce`, readers, editors, adversaries per file group |
+|  [02]   | Folder       | One agent per file group reads and edits, then adversaries of `[06]` follow per group     |
 |  [03]   | Consumer set | Owner file first, each consumer rebuilt in the same change, no old path kept              |
 
 ## [01]-[READING]
@@ -25,10 +25,9 @@ Read before one line changes, a change from memory of an API, a summary, or an o
 5. Run each entry point once on repository input for its normal output
 6. Read dependency and host source at installed release through `search-code` per member called, job hand-written, and behavior performed
 7. Read `git log -S '<literal>'` for why a guard, flag, or form exists, a form with no cause in history, source, or a repository input goes
-8. Read the language skill, its `.claude/workflows/` companion, and memory entries as rules, `docs/research` as inputs changing on a new fact alone
-9. Count lines and code lines (`loc`), declared types, exports, parameters, flags, files, dependency rows, nesting depth, and branches per member
+8. Count lines and code lines (`loc`), declared types, exports, parameters, flags, files, dependency rows, nesting depth, and branches per member
 
-Reading ends in a statement of purpose: what the file is for, who calls it, how it runs, the advanced input it serves, each behavior with the host or package member performing it, and the fact each declaration states, a declaration stating none is the first removal of `[04]`.
+Reading ends in a statement of purpose: what the file is for, who calls it, how it runs, the input it serves, each behavior with the host or package member performing it, and the fact each declaration states, a declaration stating none is the first removal of `[04]`.
 
 Decisions come from facts read: an instruction is followed for the problem it names over its word, an objection carries a fact from the read, a question is settled by the read, a source, or one run and decided in the pass with the fact reported, never asked, and a finding is fixed in the pass that found it, never deferred or handed on as a list.
 
@@ -154,7 +153,7 @@ Every member gets faster through logic, the language skill's hot-path line holds
 
 ## [06]-[ADVERSARY]
 
-Fresh agents with no prior context follow each pass over the same scope under the same instruction, edit in place, and lean further toward removal and depth: the first removes what the pass kept, calls hosts and packages where the pass hand-wrote, and builds what the depth criterion of `[03]` names, the second collapses what remains into one structure per member, deepens again, and restores each regression of the first, then `review-change` judges the result hunk by hunk. File scopes run each as a delegated agent, folders run them through `deepen`.
+Fresh agents with no prior context follow each pass over the same scope under the same instruction, edit in place, and lean further toward removal and depth: the first removes what the pass kept, calls hosts and packages where the pass hand-wrote, and builds what the depth criterion of `[03]` names, the second collapses what remains into one structure per member, deepens again, and restores each regression of the first, then `review-change` judges the result hunk by hunk. Each runs as a delegated agent, one per file group in a folder scope.
 
 Brief contents:
 - What the file is for, who calls it, how it runs, and every entry point of `[01]` step 4

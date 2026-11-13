@@ -1,18 +1,20 @@
+import { dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
 import type { ProjectGraph, Tree } from '@nx/devkit';
 import { relocked } from '@rasm/nx-devkit/executor';
-import { printed, runtime, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, Option, Path, Record, Schema, String } from 'effect';
+import { printed, promised, ToolError } from '@rasm/nx-devkit/process';
+import { Array, Effect, flow, Option, Record, Schema } from 'effect';
+import { Toml } from 'effect/encoding';
 import { VersionActions } from 'nx/release';
 import { LOCK, MANIFEST } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TABLES = ['dependencies', 'dev-dependencies', 'build-dependencies'];
-const OPERATOR = /^[\^=~<>]+/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Options = Schema.Struct({ lock: Schema.String, registry: Schema.optionalKey(Schema.String) });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Requirement = Schema.Union([Schema.String, Schema.Struct({ version: Schema.optionalKey(Schema.String), package: Schema.optionalKey(Schema.String), workspace: Schema.optionalKey(Schema.Boolean) })]);
 const Dependencies = Schema.Record(Schema.String, Requirement);
@@ -20,27 +22,24 @@ const Manifest = Schema.Struct({
     package: Schema.optionalKey(Schema.Struct({ name: Schema.String, version: Schema.optionalKey(Schema.Union([Schema.String, Schema.Struct({ workspace: Schema.Literal(true) })])) })),
     workspace: Schema.optionalKey(Schema.Struct({ package: Schema.optionalKey(Schema.Struct({ version: Schema.optionalKey(Schema.String) })) })),
 });
-const Located = Schema.fromJsonString(Schema.Struct({ root: Schema.String }));
+const Found = Schema.Record(Schema.String, Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const text = yield* Effect.fromOption(Option.fromNullishOr(tree.read(file, 'utf-8')), () => ToolError.make({ subject: file, detail: 'is missing' }));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), ToolError.of(file, 'is missing'));
     const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: ToolError.of(file, 'does not parse as TOML') }));
-    return { text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
+    return { file, text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });
 
-const located = (tree: Tree, manifest: string) => Effect.map(Effect.all([Path.Path, Effect.flatMap(printed('cargo', ['locate-project', '--workspace', '--manifest-path', manifest], { cwd: tree.root }), Schema.decodeEffect(Located))]), ([path, { root }]) => path.relative(tree.root, root));
-
-const versioned = Effect.fnUntraced(function* (tree: Tree, manifest: string) {
+const versioned = Effect.fnUntraced(function* (tree: Tree, manifest: string, shared: string) {
     const own = yield* read(tree, manifest);
     const version = own.manifest.package?.version;
     const inherited = typeof version === 'object';
-    const file = inherited ? yield* located(tree, manifest) : manifest;
-    const owner = file === manifest ? own : yield* read(tree, file);
-    return { ...owner, file, inherited, field: inherited ? ['workspace', 'package', 'version'] : ['package', 'version'], current: (inherited ? owner.manifest.workspace?.package?.version : version) ?? '0.0.0' };
+    const owner = inherited && shared !== manifest ? yield* read(tree, shared) : own;
+    return { ...owner, inherited, field: inherited ? ['workspace', 'package', 'version'] : ['package', 'version'], current: (inherited ? owner.manifest.workspace?.package?.version : version) ?? '0.0.0' };
 });
 
 const crated = (tree: Tree, projectGraph: ProjectGraph, project: string) => {
@@ -49,8 +48,6 @@ const crated = (tree: Tree, projectGraph: ProjectGraph, project: string) => {
 };
 
 const assigned = (value: Record<string, unknown>, [key, ...rest]: readonly string[], next: unknown): Record<string, unknown> => (key === undefined ? value : { ...value, [key]: rest.length === 0 ? next : assigned(table(value[key]), rest, next) });
-
-const bumped = (requirement: string, version: string) => (OPERATOR.test(version) ? version : Option.match(String.match(OPERATOR)(requirement), { onNone: () => version, onSome: ([operator]) => `${operator}${version}` }));
 
 const requirements = (raw: Readonly<Record<string, unknown>>, crates: ReadonlySet<string>) =>
     [...TABLES.map((kind) => [kind]), ...Record.keys(table(Option.getOrUndefined(Record.get(raw, 'target')))).flatMap((platform) => TABLES.map((kind) => ['target', platform, kind])), ['workspace', 'dependencies']].flatMap((at) =>
@@ -66,49 +63,64 @@ class CargoVersionActions extends VersionActions {
     override readonly validManifestFilenames = [MANIFEST];
     override readonly excludeManifestsFromFormatting = true;
 
-    override validate(tree: Tree) {
-        const [{ name }, { name: group, projectsRelationship }, manifests] = [this.projectGraphNode, this.releaseGroup, this.manifestsToUpdate];
-        return super
-            .validate(tree)
-            .then(() =>
-                runtime.runPromise(
-                    Effect.forEach(
-                        manifests,
-                        ({ manifestPath }) =>
-                            Effect.flatMap(versioned(tree, manifestPath), ({ file, inherited }) =>
-                                inherited && projectsRelationship === 'independent' ? ToolError.make({ subject: manifestPath, detail: `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}` }) : Effect.void,
-                            ),
-                        { discard: true },
-                    ),
-                ),
-            );
+    get stated() {
+        const manifest = `${this.projectGraphNode.data.root}/${MANIFEST}`;
+        return Effect.map(Schema.decodeUnknownEffect(Options)(this.finalConfigForProject.versionActionsOptions), ({ lock, registry }) => ({ manifest, registry, shared: join(dirname(lock), MANIFEST) }));
     }
 
-    override readDependencies(_tree: Tree, projectGraph: ProjectGraph) {
-        return Promise.resolve((projectGraph.dependencies[this.projectGraphNode.name] ?? []).filter(({ target }) => target in projectGraph.nodes));
+    override validate(tree: Tree) {
+        const [{ name }, { name: group, projectsRelationship }, manifests, stated] = [this.projectGraphNode, this.releaseGroup, this.manifestsToUpdate, this.stated];
+        const refused = Effect.flatMap(stated, ({ shared }) =>
+            Effect.forEach(
+                manifests,
+                ({ manifestPath }) =>
+                    Effect.flatMap(versioned(tree, manifestPath, shared), ({ file, inherited }) =>
+                        inherited && projectsRelationship === 'independent' ? ToolError.make({ subject: manifestPath, detail: `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}` }) : Effect.void,
+                    ),
+                { discard: true },
+            ),
+        );
+        return super.validate(tree).then(() => promised(refused));
     }
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
-        return runtime.runPromise(Effect.map(versioned(tree, `${this.projectGraphNode.data.root}/${MANIFEST}`), ({ file, current }) => ({ manifestPath: file, currentVersion: current })));
+        return promised(
+            Effect.gen({ self: this }, function* () {
+                const { manifest, shared } = yield* this.stated;
+                const { file, current } = yield* versioned(tree, manifest, shared);
+                return { manifestPath: file, currentVersion: current };
+            }),
+        );
     }
 
-    override readCurrentVersionFromRegistry() {
-        return Promise.resolve(null);
+    readCurrentVersionFromRegistry(tree: Tree) {
+        return promised(
+            Effect.gen({ self: this }, function* () {
+                const { manifest, registry } = yield* this.stated;
+                const { manifest: held } = yield* read(tree, manifest);
+                const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), ToolError.of(manifest, 'names no package'));
+                const search = ['search', crate, '--limit', '1', ...Array.fromNullishOr(registry).flatMap((named) => ['--registry', named])];
+                const listed = yield* printed('cargo', search, { cwd: tree.root });
+                const found = yield* Effect.flatMap(Effect.fromResult(Toml.parse(listed)), flow(Schema.decodeUnknownEffect(Found), Effect.map(Record.get(crate))));
+                const currentVersion = yield* Effect.mapError(Effect.fromOption(found), ToolError.of(crate, `is absent from the output of cargo ${search.join(' ')}`));
+                return { currentVersion, logText: `cargo ${search.join(' ')}` };
+            }),
+        );
     }
 
     readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
-        const manifest = `${this.projectGraphNode.data.root}/${MANIFEST}`;
-        return runtime.runPromise(
-            Effect.gen(function* () {
+        return promised(
+            Effect.gen({ self: this }, function* () {
+                const { manifest, shared } = yield* this.stated;
                 const crates = new Set([yield* crated(tree, projectGraph, dependencyProjectName)]);
                 const declared = Array.head(requirements((yield* read(tree, manifest)).raw, crates));
-                const source = Option.exists(declared, ({ inherited }) => inherited) ? Array.head(requirements((yield* read(tree, yield* located(tree, manifest))).raw, crates)) : declared;
-                const stated = Option.flatMap(source, ({ current }) => Option.fromUndefinedOr(current));
+                const source = Option.exists(declared, ({ inherited }) => inherited) ? Array.head(requirements((yield* read(tree, shared)).raw, crates)) : declared;
+                const current = Option.flatMap(source, (requirement) => Option.fromUndefinedOr(requirement.current));
                 return {
-                    currentVersion: Option.getOrNull(stated),
+                    currentVersion: Option.getOrNull(current),
                     dependencyCollection: Option.getOrNull(
                         Option.andThen(
-                            stated,
+                            current,
                             Option.map(declared, ({ at }) => at.join('.')),
                         ),
                     ),
@@ -118,36 +130,30 @@ class CargoVersionActions extends VersionActions {
     }
 
     updateProjectVersion(tree: Tree, newVersion: string) {
-        return runtime.runPromise(
-            Effect.forEach(this.manifestsToUpdate, ({ manifestPath }) =>
-                Effect.map(versioned(tree, manifestPath), ({ file, text, raw, field }) => {
-                    tree.write(file, patch(text, assigned(raw, field, newVersion)));
-                    return `New version ${newVersion} written to ${file}`;
-                }),
+        const manifests = this.manifestsToUpdate;
+        return promised(
+            Effect.flatMap(this.stated, ({ shared }) =>
+                Effect.forEach(manifests, ({ manifestPath }) =>
+                    Effect.map(versioned(tree, manifestPath, shared), ({ file, text, raw, field }) => {
+                        tree.write(file, patch(text, assigned(raw, field, newVersion)));
+                        return `New version ${newVersion} written to ${file}`;
+                    }),
+                ),
             ),
         );
     }
 
     updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
         const manifests = this.manifestsToUpdate;
-        return runtime.runPromise(
-            Effect.gen(function* () {
+        return promised(
+            Effect.gen({ self: this }, function* () {
+                const { shared } = yield* this.stated;
                 const versions = new Map(yield* Effect.forEach(Record.toEntries(dependenciesToUpdate), ([project, version]) => Effect.map(crated(tree, projectGraph, project), (crate) => [crate, version] as const)));
                 const crates = new Set(versions.keys());
-                const own = yield* Effect.forEach(manifests, ({ manifestPath }) => Effect.map(read(tree, manifestPath), (manifest) => ({ file: manifestPath, ...manifest })));
-                const roots = yield* Effect.forEach(
-                    own.filter(({ raw }) => requirements(raw, crates).some(({ inherited }) => inherited)),
-                    ({ file }) => located(tree, file),
-                );
-                const shared = yield* Effect.forEach(
-                    Array.difference(
-                        Array.dedupe(roots),
-                        own.map(({ file }) => file),
-                    ),
-                    (file) => Effect.map(read(tree, file), (manifest) => ({ file, ...manifest })),
-                );
-                const rows = [...own, ...shared].flatMap((manifest) => requirements(manifest.raw, crates).map((requirement) => ({ ...manifest, ...requirement })));
-                const edits = Array.getSomes(rows.map(({ crate, current, ...row }) => Option.map(Option.zipWith(Option.fromUndefinedOr(current), Option.fromUndefinedOr(versions.get(crate)), bumped), (value) => ({ ...row, value }))));
+                const own = yield* Effect.forEach(manifests, ({ manifestPath }) => read(tree, manifestPath));
+                const inherits = own.some(({ file, raw }) => file !== shared && requirements(raw, crates).some(({ inherited }) => inherited));
+                const rows = [...own, ...(inherits ? [yield* read(tree, shared)] : [])].flatMap((held) => requirements(held.raw, crates).map((requirement) => ({ ...held, ...requirement })));
+                const edits = Array.getSomes(rows.map(({ crate, current, ...row }) => Option.map(Option.all([Option.fromUndefinedOr(current), Option.fromUndefinedOr(versions.get(crate))]), ([, value]) => ({ ...row, value }))));
                 return Record.collect(
                     Array.groupBy(edits, ({ file }) => file),
                     (file, [first, ...rest]) => {

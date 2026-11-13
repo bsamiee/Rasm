@@ -11,5 +11,6 @@ export default new App({
     name: 'portfolio',
     env: { DB: App.Binding.sqlite(), BUCKET: App.Binding.bucket({ abort: Duration.weeks(1), expire: { production: {}, disposable: { '': Duration.weeks(1) } }, infrequentAccess: {}, cors: [] }), OWNER_EMAIL: App.Binding.text({ value: OWNER }) },
     allowed: [OWNER],
+    targets: [App.Target.Cloudflare()],
     limits: { cpus: 1, memory: ByteSize.gibibytes(1) },
 });

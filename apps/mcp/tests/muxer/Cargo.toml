@@ -4,6 +4,7 @@
 name              = "mcp-muxer-tests"
 version.workspace = true
 edition.workspace = true
+publish           = false
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

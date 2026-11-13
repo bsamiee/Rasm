@@ -1,368 +1,274 @@
-import { dirname, join, relative } from 'node:path';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
-import { local } from '@pulumi/command';
-import { all, asset, type Input, interpolate, type Output, output, type Resource, runtime, secret, unsecret } from '@pulumi/pulumi';
-import { getDevicesOutput, TailnetKey, Webhook } from '@pulumi/tailscale';
-import { PrivateKey } from '@pulumi/tls';
-import { paths } from '@rasm/hooks/senders';
-import { Host, Ssh } from '@rasm/ssh';
-import { TailscaleEvent } from '@rasm/webhooks/tailscale';
-import { Array, ByteSize, Cause, Config, Data, Effect, FileSystem, flow, Option, Path, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
-import { type ChildProcessSpawner, CommandLine } from 'effect/process';
-import { run } from '#/command';
+import { remote } from '@pulumi/command';
+import { Container, type ContainerArgs, Network, Provider, type ProviderArgs, RemoteImage, Volume } from '@pulumi/docker';
+import dockerBuild from '@pulumi/docker-build';
+import { getActionsRegistrationTokenOutput } from '@pulumi/github';
+import minio from '@pulumi/minio';
+import { all, type CustomResourceOptions, getOrganization, getProject, type Input, interpolate, jsonStringify, type Output, output, StackReference, secret } from '@pulumi/pulumi';
+import { RandomPassword } from '@pulumi/random';
+import { Secret } from '@pulumiverse/doppler';
+import { Access } from '@rasm/hosting';
+import { Sites } from '@rasm/hosting/openai-sites';
+import { Array, Data, Duration, Effect, Option, Record, Schema, Struct } from 'effect';
+import type { configs } from '#/repository-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Target {
-    readonly profiles: readonly string[];
-    readonly replica: (path: string) => string;
-    readonly environment: Record.ReadonlyRecord<string, string>;
-}
-type Route = Data.TaggedEnum<{ Address: { readonly port?: number }; Tailnet: { readonly host: string; readonly port?: number } }>;
+type Role = Data.TaggedEnum<{
+    Cache: { readonly name: string; readonly kept: Duration.Duration };
+    Runner: Record.ReadonlyRecord<never, never>;
+    Apps: { readonly owner: string };
+}>;
 interface Row {
-    readonly hostKey: string;
-    readonly machine: keyof typeof machines;
-    readonly id: number;
-    readonly domain: { readonly name: string; readonly dns: keyof typeof records };
+    readonly address: string;
     readonly tags: readonly `tag:${string}`[];
-    readonly routes: Array.NonEmptyReadonlyArray<Route>;
-    readonly tailnet: { readonly ssh: boolean };
-    readonly services: readonly string[];
+    readonly role: Role;
 }
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const sessions = 100;
-const root = dirname(import.meta.dirname);
-const connections = join(root, '.cache', 'ssh');
-const definition = join(import.meta.dirname, 'compose.yaml');
-const dialing = { alive: { interval: 5000, count: 3 }, persist: 60_000, within: 2000 };
-const settings = { TRAEFIK_CERTRESOLVER: 'acme', POSTGRES_AUDIT_LOG: 'ddl' };
-const archived = { POSTGRES_ARCHIVE_MODE: 'on', POSTGRES_ARCHIVE_TIMEOUT: '1min' };
-const allocation = {
-    divisors: { POSTGRES_SHARED_BUFFERS: 4, POSTGRES_EFFECTIVE_CACHE_SIZE: 2, POSTGRES_MAINTENANCE_WORK_MEM: 32 },
-    server: 4,
-    parts: { CLICKHOUSE_MAX_SERVER_MEMORY_USAGE_TO_RAM_RATIO: 1, CLICKHOUSE_MERGES_MUTATIONS_MEMORY_USAGE_TO_RAM_RATIO: 2, CLICKHOUSE_CACHE_SIZE_TO_RAM_MAX_RATIO: 5 },
-};
-const packages = ['docker-ce', 'docker-buildx-plugin', 'docker-compose-plugin', 'systemd-zram-generator'];
 
 // --- [TABLES] --------------------------------------------------------------------------
 
-const files = {
-    '/etc/docker/daemon.json': { content: '{"live-restore": true}\n', reload: [['systemctl', 'reload', 'docker']] },
-    '/etc/sysctl.d/90-platform.conf': { content: 'vm.overcommit_memory = 1\nnet.ipv4.tcp_congestion_control = bbr\n', reload: [['sysctl', '--system']] },
-    '/etc/systemd/zram-generator.conf': {
-        content: '[zram0]\nzram-size = ram / 4\ncompression-algorithm = zstd\n',
-        reload: [
-            ['systemctl', 'daemon-reload'],
-            ['systemctl', 'restart', 'systemd-zram-setup@zram0.service'],
-        ],
-    },
-    '/etc/ssh/sshd_config.d/00-platform.conf': { content: `PasswordAuthentication no\nAcceptEnv *\nMaxSessions ${sessions}\nMaxStartups ${sessions}\n`, reload: [['systemctl', 'reload', 'ssh']] },
-    '/etc/systemd/journald.conf.d/90-platform.conf': { content: '[Journal]\nSystemMaxUse=1G\n', reload: [['systemctl', 'restart', 'systemd-journald']] },
-    '/etc/systemd/system.conf.d/90-platform.conf': { content: '[Manager]\nDefaultTimeoutStopSec=150s\n', reload: [['systemctl', 'daemon-reexec']] },
-    '/etc/apt/apt.conf.d/52unattended-upgrades-local': { content: 'Unattended-Upgrade::Origins-Pattern { "origin=Ubuntu,archive=*-updates"; "origin=Docker"; };\nUnattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "10:30";\n', reload: [] },
-};
-const machines = {
-    hostinger: {
-        user: 'root',
-        listed: flow(
-            Schema.decodeUnknownEffect(Schema.Struct({ HOSTINGER_API_TOKEN: Schema.NonEmptyString })),
-            Effect.flatMap((credentials) => run('hostinger', ['vps', 'virtual-machines', 'list', '--no-input', '--format', 'json'], credentials)),
-            Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ id: Schema.Int, memory: Schema.Int, ipv4: Schema.NonEmptyArray(Schema.Struct({ id: Schema.Int, address: Schema.NonEmptyString })) }))))),
-            Effect.map(Record.fromIterableBy(({ id }) => `${id}`)),
-            Effect.map(
-                Record.map(({ id, memory, ipv4: [{ id: pointed, address }] }) => ({
-                    address,
-                    memory: ByteSize.mebibytes(memory),
-                    named: (host: string) => ({ pointer: `hostinger vps ptr create ${id} ${pointed} --domain ${host} --no-input --wait`, hostname: `hostinger vps virtual-machines set-hostname ${id} --hostname ${host} --no-input --wait` }),
-                    authorized: (key: Output<string>) => ({ create: interpolate`hostinger vps ssh-keys add-virtual-machine ${id} --keys '${key}' --no-input`, delete: interpolate`hostinger vps ssh-keys remove-virtual-machine ${id} --keys '${key}' --no-input --yes` }),
-                })),
-            ),
-        ),
-    },
-};
-const records = {
-    cloudflare: (zone: string, type: 'A' | 'CNAME', names: readonly string[], content: string) => {
-        const { zoneId } = getZoneOutput({ filter: { name: zone } });
-        return names.map((name) => new DnsRecord(name, { zoneId, name, type, content, ttl: 1, proxied: false }));
-    },
-};
-const backups = {
-    s3: flow(
-        Schema.decodeUnknownEffect(Schema.Struct({ BACKUP_ENDPOINT: Schema.URLFromString, BACKUP_REGION: Schema.NonEmptyString, BACKUP_ACCESS_KEY_ID: Schema.NonEmptyString, BACKUP_SECRET_ACCESS_KEY: Schema.NonEmptyString })),
-        Effect.map(
-            ({ BACKUP_ENDPOINT: { host, origin }, BACKUP_REGION: region, BACKUP_ACCESS_KEY_ID: id, BACKUP_SECRET_ACCESS_KEY: key }) =>
-                (bucket: string): Target => ({
-                    profiles: ['backup', 'backup-s3'],
-                    replica: (path) => `s3://${bucket}/${path}`,
-                    environment: {
-                        PGBACKREST_REPO1_TYPE: 's3',
-                        PGBACKREST_REPO1_S3_BUCKET: bucket,
-                        PGBACKREST_REPO1_S3_ENDPOINT: host,
-                        PGBACKREST_REPO1_S3_REGION: region,
-                        PGBACKREST_REPO1_S3_KEY: id,
-                        PGBACKREST_REPO1_S3_KEY_SECRET: key,
-                        AWS_ENDPOINT: host,
-                        AWS_ENDPOINT_URL: origin,
-                        AWS_REGION: region,
-                        AWS_S3_BUCKET_NAME: bucket,
-                        AWS_ACCESS_KEY_ID: id,
-                        AWS_SECRET_ACCESS_KEY: key,
-                        REMOTE_STORAGE: 's3',
-                        S3_BUCKET: bucket,
-                        S3_ENDPOINT: origin,
-                        S3_REGION: region,
-                        S3_ACCESS_KEY: id,
-                        S3_SECRET_KEY: key,
-                        LITESTREAM_ACCESS_KEY_ID: id,
-                        LITESTREAM_SECRET_ACCESS_KEY: key,
-                        LITESTREAM_ENDPOINT: origin,
-                        LITESTREAM_REGION: region,
-                    },
-                }),
-        ),
-    ),
-    azure: flow(
-        Schema.decodeUnknownEffect(Schema.Struct({ BACKUP_ENDPOINT: Schema.TemplateLiteralParser([Schema.Literals(['http', 'https']), '://', Schema.NonEmptyString, '.blob.', Schema.NonEmptyString]), BACKUP_SECRET_ACCESS_KEY: Schema.NonEmptyString })),
-        Effect.map(
-            ({ BACKUP_ENDPOINT: [scheme, , account, , suffix], BACKUP_SECRET_ACCESS_KEY: key }) =>
-                (bucket: string): Target => ({
-                    profiles: ['backup'],
-                    replica: (path) => `abs://${account}@${bucket}/${path}`,
-                    environment: {
-                        PGBACKREST_REPO1_TYPE: 'azure',
-                        PGBACKREST_REPO1_AZURE_ACCOUNT: account,
-                        PGBACKREST_REPO1_AZURE_CONTAINER: bucket,
-                        PGBACKREST_REPO1_AZURE_KEY: key,
-                        PGBACKREST_REPO1_AZURE_ENDPOINT: `blob.${suffix}`,
-                        AZURE_STORAGE_ACCOUNT_NAME: account,
-                        AZURE_STORAGE_PRIMARY_ACCOUNT_KEY: key,
-                        AZURE_STORAGE_CONTAINER_NAME: bucket,
-                        AZURE_STORAGE_ENDPOINT: `${scheme}://${account}.blob.${suffix}/`,
-                        REMOTE_STORAGE: 'azblob',
-                        AZBLOB_ACCOUNT_NAME: account,
-                        AZBLOB_ACCOUNT_KEY: key,
-                        AZBLOB_CONTAINER: bucket,
-                        AZBLOB_ENDPOINT_SUFFIX: suffix,
-                        AZBLOB_ENDPOINT_SCHEMA: scheme,
-                        LITESTREAM_AZURE_ACCOUNT_KEY: key,
-                    },
-                }),
-        ),
-    ),
-};
-const hosts: Readonly<Record<string, Row>> = {
-    'lucky.parametric-arsenal.cloud': {
-        hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINlDfldE2RJfij8rEZq4BzWRHTqKzMY29yMxlQnYNRMT',
-        machine: 'hostinger',
-        id: 1_196_440,
-        domain: { name: 'parametric-arsenal.cloud', dns: 'cloudflare' },
-        tags: ['tag:server'],
-        routes: [{ _tag: 'Tailnet', host: 'lucky' }, { _tag: 'Address' }],
-        tailnet: { ssh: true },
-        services: ['traefik', 'nx-cache'],
-    },
-    'derby.parametric-arsenal.cloud': {
-        hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHr7FBBzD95xszk/XqYUzpU4MluwbodswlO2yqnI8Ljx',
-        machine: 'hostinger',
-        id: 2_138_272,
-        domain: { name: 'parametric-arsenal.cloud', dns: 'cloudflare' },
-        tags: ['tag:server'],
-        routes: [{ _tag: 'Tailnet', host: 'derby' }, { _tag: 'Address' }],
-        tailnet: { ssh: true },
-        services: [],
-    },
-};
+const hosts = {
+    'lucky.parametric-arsenal.cloud': { address: '31.97.131.41', tags: ['tag:server'], role: { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1) } },
+    'derby.parametric-arsenal.cloud': { address: '45.90.223.193', tags: ['tag:server'], role: { _tag: 'Runner' } },
+} as const satisfies Record.ReadonlyRecord<string, Row>;
+const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Route = Data.taggedEnum<Route>();
-const Deployed = Schema.Struct({
-    BACKUP_KIND: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(backups))),
-    ...Struct.Record(
-        ['CLOUDFLARE_ACCOUNT_ID', 'POSTGRES_PASSWORD', 'CLICKHOUSE_PASSWORD', 'CLICKHOUSE_READER_PASSWORD', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY', 'AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'AUTHELIA_OWNER_PASSWORD_HASH', 'NX_CACHE_WRITE_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN'],
-        Schema.NonEmptyString,
-    ),
-});
-const Kind = Deployed.mapFields(Struct.pick(['BACKUP_KIND']));
-const Entries = Schema.Record(Schema.String, Schema.Unknown);
-const Composed = Schema.fromJsonString(
-    Schema.Struct({
-        services: Schema.Record(
-            Schema.String,
-            Schema.Struct({
-                build: Schema.optionalKey(Schema.Struct({ context: Schema.String })),
-                configs: Schema.optionalKey(Schema.Array(Schema.Struct({ source: Schema.String }))),
-                environment: Schema.optionalKey(Entries),
-                labels: Schema.optionalKey(Schema.Record(Schema.TemplateLiteral(['traefik.http.routers.', Schema.String, '.rule']), Schema.TemplateLiteralParser(['Host(`', Schema.DomainNameFromString, '`)']))),
-            }),
-        ),
-    }),
-);
-const Model = Schema.fromJsonString(Schema.Struct({ name: Schema.String, networks: Entries, volumes: Entries, services: Schema.Record(Schema.String, Schema.StructWithRest(Schema.Struct({ labels: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) }), [Entries])), configs: Entries }));
-const Variables = Schema.fromJsonString(Entries);
+const Role = Data.taggedEnum<Role>();
+const Stored = Schema.Struct(Struct.Record(['server', 'within', 'region', 'user', 'key'], Schema.String));
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Machine extends Data.Class<{
+    readonly name: string;
+    readonly zone: string;
+    readonly provider: Provider;
+    readonly builder: dockerBuild.Provider;
+    readonly network: Input<string>;
+    readonly remote: Option.Option<{ readonly address: string; readonly zoneId: Output<string> }>;
+}> {
+    // --- [CONSTRUCTION]
+
+    static readonly on = (host: string, network: Option.Option<Input<string>>, registries: Pick<ProviderArgs, 'registryAuth'> = {}) => {
+        const [name = host, ...labels] = host.split('.');
+        const zone = labels.join('.');
+        const reached = Option.map(Record.get<string, Row>(hosts, host), ({ address }) => ({ address, zoneId: getZoneOutput({ filter: { name: zone } }).zoneId }));
+        const dialed = Option.getOrUndefined(Option.map(reached, () => ({ host: `ssh://root@${name}` })));
+        const provider = new Provider(host, { ...dialed, ...registries, sshOpts: ['-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null'] });
+        return new Machine({ name, zone, provider, builder: new dockerBuild.Provider(host, { ...dialed }), network: Option.getOrElse(network, () => new Network(host, { name: getProject() }, { provider }).name), remote: reached });
+    };
+
+    static readonly joined = (host: string) => {
+        const reference = new StackReference(`${getOrganization()}/${getProject()}/${host}`);
+        return { machine: Machine.on(host, Option.some(reference.requireOutput('network'))), storage: reference.requireOutput('storage').apply(Schema.decodeUnknownPromise(Stored)) };
+    };
+
+    // --- [ROUTING]
+
+    static readonly entrypoint = 'websecure';
+    static readonly guard = 'auth';
+    static readonly forwarded = { id: 'Remote-User', email: 'Remote-Email' } as const;
+
+    get access() {
+        return Access.make({ source: { _tag: 'Forwarded', ...Machine.forwarded }, logout: `https://${Machine.guard}.${this.zone}/logout` });
+    }
+
+    named(name: string, type: 'A' | 'CNAME', content: string) {
+        return Option.toArray(Option.map(this.remote, ({ zoneId }) => new DnsRecord(name, { zoneId, name, type, content, ttl: 1, proxied: false })));
+    }
+
+    routed(service: string, port: number, extra: Readonly<Record<string, string>> = {}) {
+        const address = `${service}.${this.zone}`;
+        const stated = { 'traefik.enable': 'true', [`traefik.http.routers.${service}.rule`]: `Host(\`${address}\`)`, [`traefik.http.routers.${service}.entrypoints`]: Machine.entrypoint, [`traefik.http.services.${service}.loadbalancer.server.port`]: `${port}`, ...extra };
+        return { address, named: this.named(address, 'CNAME', `${this.name}.${this.zone}`), labels: Record.collect(stated, (label, value) => ({ label, value })) };
+    }
+
+    // --- [CONTAINERS]
+
+    pulled(image: string, options: CustomResourceOptions = {}) {
+        return new RemoteImage(image, { name: image }, { provider: this.provider, ...options }).repoDigest;
+    }
+
+    imaged(image: string, inline: string, args: Pick<dockerBuild.ImageArgs, 'context' | 'buildArgs'> = {}) {
+        return new dockerBuild.Image(image, { dockerfile: { inline }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).ref;
+    }
+
+    kept(volume: string) {
+        return new Volume(volume, { name: volume }, { provider: this.provider }).name;
+    }
+
+    contained(service: string, tests: readonly string[], args: Omit<ContainerArgs, 'name' | 'networksAdvanced' | 'restart' | 'logDriver' | 'wait' | 'healthcheck'>, options: CustomResourceOptions = {}) {
+        return new Container(service, { name: service, networksAdvanced: [{ name: this.network }], restart: 'unless-stopped', logDriver: 'local', wait: true, waitTimeout: 300, destroyGraceSeconds: 120, healthcheck: { tests: [...tests], interval: '10s' }, ...args }, { provider: this.provider, ...options });
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rooted = (line: string) => `cd "$NX_WORKSPACE_ROOT" && ${line}`;
-const remote = (path: Path.Path, host: Host, words: Array.NonEmptyReadonlyArray<string>, sent: readonly string[] = []) => Result.flatMap(host.command(path, relative(root, connections), words, sent), CommandLine.join);
-const identified = (host: string) => join(connections, host, `${host}.key`);
-const backupTarget = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>, domain: string) {
-    const { BACKUP_KIND: kind } = yield* Schema.decodeEffect(Kind)(deployed);
-    const bucket = `${domain.replaceAll('.', '-')}-backup`;
-    return yield* Effect.transposeOption(Option.map(kind, (stated) => Effect.map(backups[stated](deployed), (row) => row(bucket))));
-});
-const uploaded = Effect.fnUntraced(function* (host: Host, name: string, bundle: string, dependsOn: readonly Resource[]) {
-    const path = yield* Path.Path;
-    const [source, folder] = [join(root, bundle), dirname(bundle)];
-    const steps = yield* Effect.fromResult(Result.all([...Array.make(['rm', '-rf', bundle] as const, ['mkdir', '-p', folder] as const).map((words) => remote(path, host, words)), CommandLine.join(host.copy(path, relative(root, connections), bundle, folder))]));
-    return new local.Command(`${name}-${bundle}`, { create: rooted(steps.join(' && ')), triggers: [new asset.FileArchive(source)], addPreviousOutputInEnv: false }, { dependsOn: [...dependsOn], replacementTrigger: host.trust.keys });
-});
-const prepared = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>) {
-    yield* Schema.decodeUnknownEffect(Deployed)(deployed);
-    const listings = yield* Effect.all(Record.map(machines, (row) => Effect.cached(row.listed(deployed))));
-    const enrolled = new Set(Object.values(hosts).flatMap(({ routes }) => routes.filter(Route.$is('Tailnet')).map(Struct.get('host'))));
-    return { deployed, listings, enrolled };
-});
+const proxied = (machine: Machine) => {
+    const secure = Machine.entrypoint.toUpperCase();
+    const listened = { WEB: 80, [secure]: 443 };
+    return machine.contained('traefik', ['CMD', 'traefik', 'healthcheck'], {
+        image: machine.pulled('traefik:v3.8.0-rc.2'),
+        envs: [
+            ...Record.collect(listened, (name, port) => `TRAEFIK_ENTRYPOINTS_${name}_ADDRESS=:${port}`),
+            `TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO=${Machine.entrypoint}`,
+            `TRAEFIK_ENTRYPOINTS_${secure}_HTTP_TLS=true`,
+            `TRAEFIK_ENTRYPOINTS_${secure}_TRANSPORT_RESPONDINGTIMEOUTS_READTIMEOUT=30m`,
+            'TRAEFIK_PING=true',
+            'TRAEFIK_PROVIDERS_DOCKER=true',
+            'TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false',
+            ...Option.match(machine.remote, {
+                onNone: () => [],
+                onSome: () => ['TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_STORAGE=/var/lib/traefik/acme.json', 'TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_TLSCHALLENGE=true', `TRAEFIK_ENTRYPOINTS_${secure}_HTTP_TLS_CERTRESOLVER=acme`],
+            }),
+        ],
+        ports: Object.values(listened).map((port) => ({ internal: port, external: port })),
+        mounts: [
+            { type: 'bind', source: '/var/run/docker.sock', target: '/var/run/docker.sock', readOnly: true },
+            { type: 'volume', source: machine.kept('traefik'), target: '/var/lib/traefik' },
+        ],
+    });
+};
 
-const allotted = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>, domain: string, installed: ByteSize.ByteSize) {
-    const [target, node] = yield* Effect.all([backupTarget(deployed, domain), Config.String('NODE_VERSION')]);
-    const backup = Option.map(target, ({ profiles: added, environment: projected }) => ({ profiles: added, environment: { ...projected, ...archived } }));
-    const sizes = Record.getSomes(Record.map(allocation.divisors, (share) => Option.map(ByteSize.divide(installed, share), (size) => `${ByteSize.toUnit(size, 'MiB')}MB`)));
-    const candidates = {
-        ...deployed,
-        ...settings,
-        ...sizes,
-        ...Record.map(allocation.parts, (part) => String(1 / (allocation.server * part))),
-        PLATFORM_DOMAIN: domain,
-        NODE_VERSION: node,
-        COMPOSE_PROFILES: Option.match(backup, { onNone: () => [], onSome: Struct.get('profiles') }).join(','),
-    };
-    return { backup, candidates };
-});
+const stored = (machine: Machine) => {
+    const ports = { internal: 9000, external: 7412 };
+    const { user, key } = Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(name, { length: 32, special: false }).result);
+    const published = Option.match(machine.remote, { onNone: () => ({ ip: '127.0.0.1', address: '127.0.0.1' }), onSome: ({ address }) => ({ ip: '0.0.0.0', address }) });
+    const serving = machine.contained('storage', ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}/health/ready`], {
+        image: machine.pulled('rustfs/rustfs:1.0.5'),
+        envs: [interpolate`RUSTFS_ACCESS_KEY=${user}`, interpolate`RUSTFS_SECRET_KEY=${key}`, 'RUSTFS_CONSOLE_ENABLE=false', 'RUSTFS_OBS_LOG_DIRECTORY='],
+        ports: [{ ...ports, ip: published.ip }],
+        ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
+        mounts: [{ type: 'volume', source: machine.kept('storage'), target: '/data' }],
+    });
+    return output({ server: serving.id.apply(() => `${published.address}:${ports.external}`), within: `http://storage:${ports.internal}`, region: 'us-east-1', user, key });
+};
 
-const accessed = Effect.fnUntraced(function* (host: string, address: string, { hostKey, machine, routes }: Row, deploy: PrivateKey) {
-    const [path, context] = yield* Effect.all([Path.Path, Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()]);
-    const mesh = Array.findFirst(routes, Route.$is('Tailnet'));
-    const stated = { ...Struct.omit(dialing, ['within']), host: address, ...Option.match(Array.findFirst(routes, Route.$is('Address')), { onNone: () => ({}), onSome: Struct.omit(['_tag']) }), user: machines[machine].user, identity: { _tag: 'Key', file: identified(host) }, trust: { _tag: 'HostKeys', keys: [hostKey] } };
-    const [direct, meshed] = yield* Effect.all([
-        Schema.decodeUnknownEffect(Host)({ ...stated, name: host, path: { _tag: 'Direct', preferred: [] } }),
-        Effect.transposeOption(Option.map(mesh, (machined) => Schema.decodeUnknownEffect(Host)({ ...stated, name: machined.host, path: { _tag: 'Direct', preferred: [{ ...Struct.omit(machined, ['_tag']), within: dialing.within }] } }))),
-    ]);
-    const placed = Effect.fnUntraced(
-        function* (material: string) {
-            const ssh = yield* Ssh;
-            yield* Effect.all([ssh.written(direct, { [identified(host)]: material }), ...Option.toArray(Option.map(meshed, (each) => ssh.written(each)))], { discard: true });
-            return connections;
+const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Readonly<Record<string, { readonly kept: boolean; readonly expire: Readonly<Record<string, Duration.Duration>> }>>) => {
+    const provider = new minio.Provider(name, { minioServer: storage.server, minioUser: storage.user, minioPassword: storage.key });
+    const created = Record.collect(buckets, (bucket, { kept, expire }) => {
+        const made = new minio.S3Bucket(bucket, { bucket, forceDestroy: !kept }, { provider, protect: kept });
+        const rules = Record.collect(expire, (filter, age) => ({ id: `expire ${filter}*`, filter, expiration: `${Math.ceil(Duration.toDays(age))}d` }));
+        return { arn: made.arn, expiry: new minio.IlmPolicy(bucket, { bucket: made.bucket, rules }, { provider }).id };
+    });
+    const policy = jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: created.flatMap(({ arn }) => [arn, interpolate`${arn}/*`]) }] });
+    const account = new minio.IamServiceAccount(name, { targetUser: storage.user, policy }, { provider });
+    return { AWS_ENDPOINT_URL_S3: storage.within, AWS_REGION: storage.region, AWS_ACCESS_KEY_ID: all([account.accessKey, ...created.map(({ expiry }) => expiry)]).apply(([id]) => id), AWS_SECRET_ACCESS_KEY: account.secretKey };
+};
+
+const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, project: string) => {
+    const port = 3000;
+    const [proxy, scoped] = [proxied(machine), bucketed(name, stored(machine), { [name]: { kept: false, expire: { '': kept } } })];
+    const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(row, { length: 48, special: false }).result }));
+    const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: '/health' });
+    const image = machine.imaged(
+        name,
+        `# syntax=docker/dockerfile:1
+FROM scratch AS amd64
+ADD --checksum=sha256:18fa55033d5f0d1b18fc192b75ca35f39d2cb81938bbc559f7a9f5b686f4046f --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.4.5/nx-cache-aws-v1.4.5-linux-x86_64 /nx-cache-aws
+FROM scratch AS arm64
+ADD --checksum=sha256:a20a6bdee0b869d7e8ade7319030f94b72c69358b47f08fbc3bd331d9dc66e5c --chmod=755 https://github.com/nxcite/nx-cache-server/releases/download/v1.4.5/nx-cache-aws-v1.4.5-linux-arm64 /nx-cache-aws
+FROM \${TARGETARCH}
+FROM gcr.io/distroless/cc-debian13:debug-nonroot
+COPY --from=2 /nx-cache-aws /
+ENTRYPOINT ["/nx-cache-aws"]
+`,
+    );
+    const variables = { S3_BUCKET_NAME: name, S3_ENDPOINT_URL: scoped.AWS_ENDPOINT_URL_S3, ...scoped, ...Record.mapEntries(tokens, ({ variable, value }) => [variable, value]) };
+    const envs = Record.collect(variables, (variable, value) => interpolate`${variable}=${value}`);
+    const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}/health`], { image, init: true, envs, labels }, { dependsOn: [proxy, ...named] });
+    const held = { ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: serving.id.apply(() => `https://${address}`) };
+    return Record.map(held, (value, row) => new Secret(row, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }).name);
+};
+
+const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>) => {
+    const port = 9091;
+    const [{ guard, forwarded }, wildcard] = [Machine, `*.${machine.zone}`];
+    const [proxy, password] = [proxied(machine), new RandomPassword('owner', { length: 32, special: false })];
+    const { address, named, labels } = machine.routed(guard, port, {
+        [`traefik.http.middlewares.${guard}-check.forwardauth.address`]: `http://${guard}:${port}/api/authz/forward-auth`,
+        [`traefik.http.middlewares.${guard}-check.forwardauth.authResponseHeaders`]: Object.values(forwarded).join(','),
+        ...Record.mapEntries(forwarded, (header) => [`traefik.http.middlewares.${guard}-strip.headers.customrequestheaders.${header}`, '']),
+        [`traefik.http.middlewares.${guard}.chain.middlewares`]: `${guard}-strip,${guard}-check`,
+    });
+    const configuration = {
+        access_control: {
+            default_policy: 'one_factor',
+            rules: [
+                { domain: wildcard, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
+                { domain: wildcard, resources: [`^${RegExp.escape(Sites.identity.paths.signin)}([?].*)?$`], policy: 'one_factor' },
+                { domain: wildcard, policy: 'bypass' },
+            ],
         },
-        Effect.provide(Ssh.layer(connections)),
-    );
-    const ready = unsecret(output(deploy.privateKeyOpenssh).apply((material) => (runtime.isDryRun() ? connections : placed(material).pipe(Effect.runPromiseWith(context)))));
-    const over = (through: Host, words: Array.NonEmptyReadonlyArray<string>, sent: readonly string[] = []) => Effect.map(Effect.fromResult(remote(path, through, words, sent)), (line) => ready.apply(() => rooted(line)));
-    return { mesh, direct, reached: Option.getOrElse(meshed, () => direct), over };
-});
-
-const equipped = Effect.fnUntraced(function* (host: string, { tags, tailnet }: Row, { mesh, direct, over }: Effect.Success<ReturnType<typeof accessed>>, key: local.Command, script: string) {
-    const engine = new local.Command(host, { create: yield* over(direct, ['bash', '-s', '--', ...packages, ...Option.toArray(Option.as(mesh, 'tailscale'))]), stdin: script, addPreviousOutputInEnv: false }, { dependsOn: key, replacementTrigger: direct.trust.keys });
-    const configured = yield* Effect.reduce(
-        Record.toEntries(files),
-        () => Array.of(engine),
-        (chained, [file, { content, reload }]) =>
-            Effect.fromResult(Result.all([CommandLine.join(['install', '-D', '-m', '0644', '/dev/stdin', file]), ...reload.map((words) => CommandLine.join(words))])).pipe(
-                Effect.flatMap((chain) => over(direct, ['sh', '-c', chain.join(' && ')])),
-                Effect.map((create) => Array.append(chained, new local.Command(`${host}-${file}`, { create, stdin: content, addPreviousOutputInEnv: false }, { dependsOn: Array.lastNonEmpty(chained), replacementTrigger: direct.trust.keys }))),
-            ),
-    );
-    const joined = yield* Effect.transposeOption(
-        Option.map(mesh, ({ host: name }) =>
-            Effect.map(
-                over(direct, ['tailscale', 'up', '--auth-key=file:/dev/stdin', `--hostname=${name}`, `--ssh=${tailnet.ssh}`]),
-                (create) => new local.Command(`${host}-mesh`, { create, stdin: new TailnetKey(`${host}-mesh`, { tags: [...tags], preauthorized: true, recreateIfInvalid: 'always' }).key, addPreviousOutputInEnv: false }, { dependsOn: configured, replacementTrigger: direct.trust.keys }),
-            ),
-        ),
-    );
-    return Option.match(joined, { onNone: () => configured, onSome: Array.of });
-});
-
-const served = Effect.fnUntraced(function* (host: string, { domain }: Row, services: Array.NonEmptyReadonlyArray<string>, { deployed, enrolled }: Effect.Success<ReturnType<typeof prepared>>, installed: ByteSize.ByteSize, access: Effect.Success<ReturnType<typeof accessed>>, reachable: readonly Resource[]) {
-    const project = import.meta.dirname;
-    const { backup, candidates } = yield* allotted(deployed, domain.name, installed);
-    const [{ services: composed }, model] = yield* Effect.all([
-        Effect.flatMap(run('docker', ['compose', '--file', definition, 'config', '--format', 'json', ...services], candidates), Schema.decodeEffect(Composed)),
-        Effect.flatMap(run('docker', ['compose', '--file', definition, '--profile', '*', 'config', '--no-interpolate', '--no-path-resolution', '--format', 'json']), Schema.decodeEffect(Model)),
-    ]);
-    const [published, mounted] = [new Set<string>(services), new Set(Object.values(composed).flatMap(({ configs = [] }) => configs.map(Struct.get('source'))))];
-    const reduced = yield* Schema.encodeEffect(Model)({
-        ...model,
-        services: Record.map(
-            Record.filter(model.services, (_, name) => Record.has(composed, name)),
-            (service, name) => (published.has(name) ? service : { ...service, labels: { ...service.labels, 'traefik.enable': 'false' } }),
-        ),
-        configs: Record.filter(model.configs, (_, name) => mounted.has(name)),
-    });
-    const variables = yield* Effect.flatMap(run('docker', ['compose', '--file', '-', 'config', '--variables', '--format', 'json'], {}, Stream.encodeText(Stream.make(reduced))), Schema.decodeEffect(Variables));
-    const bundles = yield* Effect.forEach(
-        Array.dedupe(Object.values(composed).flatMap(({ build }) => Array.fromNullishOr(build?.context))).filter((built) => built !== project),
-        (bundle) => uploaded(access.reached, host, relative(root, bundle), reachable),
-    );
-    const named = records[domain.dns](domain.name, 'CNAME', Array.dedupe(Object.values(Record.filter(composed, (_, name) => published.has(name))).flatMap(({ labels = {} }) => Object.values(labels).map(([, name]) => name))), host);
-    const read = new Set([...Record.keys(variables), ...Object.values(composed).flatMap(({ environment = {} }) => Record.keys(Record.filter(environment, Predicate.isNull)))]);
-    const computed: Readonly<Record<string, () => Output<string>>> = Option.match(access.mesh, {
-        onNone: () => ({}),
-        onSome: () => ({
-            TAILSCALE_WEBHOOK_SECRET: () => new Webhook(`${host}-mesh`, { endpointUrl: `https://hooks.${domain.name}${paths.tailscale}`, subscriptions: [...TailscaleEvent.Kind.literals] }).secret,
-            TAILSCALE_HOSTS: () =>
-                getDevicesOutput({}, { dependsOn: [...reachable] }).apply(({ devices: found = [] }) =>
-                    found
-                        .filter(({ hostname }) => enrolled.has(hostname))
-                        .map(({ name }) => name)
-                        .join(','),
-                ),
-        }),
-    });
-    const supplied: Readonly<Record<string, Input<string>>> = {
-        ...Record.filter<string, string>({ ...candidates, ...Option.match(backup, { onNone: () => ({}), onSome: Struct.get('environment') }) }, (_, name) => read.has(name)),
-        ...Record.map(
-            Record.filter(computed, (_, name) => read.has(name)),
-            (made) => made(),
-        ),
-        ...Array.match(bundles, { onEmpty: () => ({}), onNonEmpty: (uploads) => ({ PLATFORM_BUNDLES: all(uploads.map(({ id }) => id)).apply((ids) => ids.join(',')) }) }),
-        COMPOSE_PROFILES: candidates.COMPOSE_PROFILES,
+        authentication_backend: { file: { path: '/config/users.yml' }, password_reset: { disable: true } },
+        notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
+        ntp: { disable_startup_check: true },
+        session: { cookies: [{ domain: machine.zone, authelia_url: `https://${address}` }] },
+        storage: { local: { path: '/var/lib/authelia/db.sqlite3' } },
     };
-    const composing = (...words: Array.NonEmptyReadonlyArray<string>) =>
-        Effect.flatMap(Effect.fromResult(Result.all([CommandLine.join(['mkdir', '-p', relative(root, project)]), CommandLine.join(['docker', 'compose', '--project-directory', relative(root, project), '--file', '-', ...words])])), (chain) =>
-            access.over(access.reached, ['sh', '-c', chain.join(' && ')], Record.keys(supplied)),
-        );
-    const running = new local.Command(
-        `${host}-services`,
-        { create: yield* composing('up', '--build', '--detach', '--wait', '--remove-orphans', ...services), delete: yield* composing('--profile', '*', 'down'), stdin: reduced, triggers: [services], addPreviousOutputInEnv: false, environment: secret(supplied) },
-        { dependsOn: [...reachable, ...named, ...bundles], deleteBeforeReplace: true, replacementTrigger: access.reached.trust.keys },
+    machine.contained(
+        guard,
+        ['CMD', '/app/healthcheck.sh'],
+        {
+            image: machine.pulled('authelia/authelia:4.39.28'),
+            envs: Array.map(['AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY'], (row) => interpolate`${row}=${new RandomPassword(row, { length: 64, special: false }).result}`),
+            uploads: [
+                { file: '/config/configuration.yml', content: jsonStringify(configuration) },
+                { file: '/config/users.yml', content: jsonStringify({ users: { owner: { displayname: 'Owner', email: owner, password: password.bcryptHash } } }) },
+            ],
+            mounts: [{ type: 'volume', source: machine.kept(guard), target: '/var/lib/authelia' }],
+            labels,
+        },
+        { dependsOn: [proxy, ...named] },
     );
-    return [{ domain: domain.name, records: named.map(({ name }) => name), services: running.id }, [running]] as const;
-});
-
-const provisioned = Effect.fnUntraced(function* (shared: Effect.Success<ReturnType<typeof prepared>>, host: string, stated: Row) {
-    const fs = yield* FileSystem.FileSystem;
-    const { address, memory: installed, authorized, named } = yield* Effect.flatMap(shared.listings[stated.machine], (listed) => Effect.fromOption(Record.get(listed, `${stated.id}`), () => new Cause.NoSuchElementError(`${stated.machine} lists no machine ${stated.id}`)));
-    const script = yield* fs.readFileString(join(import.meta.dirname, 'host.sh'));
-    const deploy = new PrivateKey(host, { algorithm: 'ED25519' });
-    const key = new local.Command(`${host}-key`, { ...authorized(deploy.publicKeyOpenssh.apply((openssh) => openssh.trim())), triggers: [deploy.publicKeyOpenssh] });
-    const access = yield* accessed(host, address, stated, deploy);
-    const reachable = yield* equipped(host, stated, access, key, script);
-    const located = records[stated.domain.dns](stated.domain.name, 'A', [host], address);
-    const [project, ran] = yield* Array.match(stated.services, { onEmpty: () => Effect.succeed([{}, reachable] as const), onNonEmpty: (services) => served(host, stated, services, shared, installed, access, reachable) });
-    const titled = Record.map(named(host), (create, part) => new local.Command(`${host}-${part}`, { create, addPreviousOutputInEnv: false }, { dependsOn: [...ran], replacementTrigger: access.direct.trust.keys }).id);
-    return { host, named: titled, address: located.map(({ content }) => content), ...project, connection: Struct.omit(yield* Schema.encodeEffect(Host)(access.reached), ['identity']), identity: deploy.privateKeyOpenssh };
-});
+    return { network: output(machine.network), owner: { name: 'owner', password: password.result }, storage: stored(machine) };
+};
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const platformStacks = flow(
-    prepared,
-    Effect.map((shared) => Record.collect(hosts, (stackName, row) => ({ stackName, program: provisioned(shared, stackName, row) }))),
-);
+const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none()), local));
+
+const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines, registry }: { readonly owner: string; readonly repository: string; readonly project: string; readonly engines: readonly string[]; readonly registry: Input<string> }) =>
+    Effect.sync(() => {
+        const [{ address, role }, machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] })];
+        const located = machine.named(host, 'A', address).map(({ content }) => content);
+        const served = Role.$match(role, {
+            Cache: (settings) => cached(machine, settings, project),
+            Apps: (settings) => hosted(machine, settings),
+            Runner: () => {
+                const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', uid: 1000 } as const;
+                const folder = `/home/${runner.user}/actions-runner`;
+                const registered = new remote.Command(
+                    'runner',
+                    {
+                        connection: { host: machine.name },
+                        addPreviousOutputInEnv: false,
+                        create: [
+                            'set -eu',
+                            'token=$(cat)',
+                            `id ${runner.user} >/dev/null 2>&1 || useradd --create-home --uid ${runner.uid} --shell /bin/bash --groups docker ${runner.user}`,
+                            `echo '${runner.user} ALL=(ALL) NOPASSWD:ALL' >/etc/sudoers.d/${runner.user}`,
+                            `install -d -o ${runner.user} -g ${runner.user} ${folder} && cd ${folder}`,
+                            `curl -fsSL -o /tmp/runner.tar.gz https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
+                            `echo '${runner.sha256}  /tmp/runner.tar.gz' | sha256sum --check --quiet`,
+                            `sudo -u ${runner.user} tar xzf /tmp/runner.tar.gz && rm /tmp/runner.tar.gz`,
+                            './bin/installdependencies.sh',
+                            `sudo -u ${runner.user} ./config.sh --unattended --replace --url https://github.com/${owner}/${repository} --name ${machine.name} --token "$token"`,
+                            `./svc.sh install ${runner.user} && ./svc.sh start`,
+                        ].join('\n'),
+                        delete: `cd ${folder} && ./svc.sh stop; ./svc.sh uninstall; cd / && userdel --remove ${runner.user}; rm -f /etc/sudoers.d/${runner.user}`,
+                        stdin: secret(getActionsRegistrationTokenOutput({ repository }).token),
+                        logging: 'stderr',
+                    },
+                    { ignoreChanges: ['stdin'], deleteBeforeReplace: true },
+                );
+                return { runner: registered.id, engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })) };
+            },
+        });
+        return { located, ...served };
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { backupTarget, connections, Deployed, definition, hosts, identified, platformStacks, records, remote, rooted, uploaded };
+export { bucketed, hosts, installed, local, Machine, provisioned, Role };

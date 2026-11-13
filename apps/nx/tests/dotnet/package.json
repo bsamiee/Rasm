@@ -1,0 +1,21 @@
+{
+    "name": "@rasm/test-nx-dotnet",
+    "private": true,
+    "description": "@rasm/nx-dotnet suites over temporary workspaces with the packed plugin installed: Nx's own .NET, Gradle, and release specs ported to MSBuild, each expectation read from the properties and items dotnet msbuild evaluates for each project",
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@rasm/nx-dotnet": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

@@ -1,0 +1,18 @@
+{
+    "name": "@rasm/test-nx-docker",
+    "private": true,
+    "description": "@rasm/nx-docker suites over temporary workspaces: Nx own Docker plugin spec ported to Compose projects, checked against the model docker compose config prints",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@rasm/nx-docker": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

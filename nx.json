@@ -15,13 +15,13 @@
         "@rasm/nx-dotnet",
         "@rasm/nx-docker",
         "@rasm/nx-pulumi",
-        "@rasm/nx-typescript",
+        { "plugin": "@rasm/nx-typescript", "options": { "compilerPackages": [ "@typescript/native", "@effect/tsgo" ] } },
         "@rasm/nx-vite",
         "@rasm/nx-vitest",
         "@rasm/nx-storybook",
-        "@rasm/nx-cloudflare",
-        "@rasm/nx-playwright"
+        "@rasm/nx-devkit"
     ],
+    "targetDefaults": { "@nx/js:release-publish": { "dependsOn": [ "pack--pnpm" ] } },
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" }, "@rasm/nx-devkit": { "outputPath": ".artifacts" } },
-    "release": { "projects": [ "tag:npm:public", "tag:release" ], "version": { "conventionalCommits": true }, "changelog": { "workspaceChangelog": { "createRelease": "github", "file": false } }, "git": { "commitMessage": "chore: publish {version}" } }
+    "release": { "projects": [ "tag:release" ], "version": { "conventionalCommits": true }, "changelog": { "workspaceChangelog": { "createRelease": "github", "file": false } }, "git": { "commitMessage": "chore: publish {version}" } }
 }

@@ -33,11 +33,14 @@ const written = Effect.fnUntraced(function* (tree: Tree) {
         Effect.fnUntraced(function* ({ root, name, collection, executor, at, implementation }) {
             const [file, member = 'default'] = implementation.split('#');
             const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file ?? implementation, path.join(tree.root, root), name, projects)), catch: ToolError.of(`${name}:${executor}`, `does not load ${implementation}`) });
-            const stated = Option.liftPredicate(loaded, Predicate.hasProperty(member)).pipe(
+            const attached = Option.liftPredicate(loaded, Predicate.hasProperty(member)).pipe(
                 Option.map((module) => module[member]),
                 Option.filter(Predicate.hasProperty('options')),
                 Option.map((held) => held.options),
                 Option.filter(Schema.isSchema),
+            );
+            const exported = Option.flatMap(Option.liftPredicate(loaded, Predicate.isObject), (module) => Array.findFirst(Object.values(module), Schema.isSchema));
+            const stated = Option.orElse(attached, () => exported).pipe(
                 Option.map(Schema.toJsonSchemaDocument),
                 Option.map(JsonSchema.toDocumentDraft07),
                 Option.map(({ schema, schema: { description }, definitions }) => ({ description, schema: { $schema: JsonSchema.META_SCHEMA_URI_DRAFT_07, version: 2, ...schema, ...(Record.isEmptyRecord(definitions) ? {} : { definitions }) } })),

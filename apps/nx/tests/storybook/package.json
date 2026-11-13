@@ -1,0 +1,23 @@
+{
+    "name": "@rasm/test-nx-storybook",
+    "private": true,
+    "description": "@rasm/nx-storybook suites over temporary workspaces: Nx own Storybook plugin spec ported to the project graph Nx builds, checked against the files storybook build writes",
+    "type": "module",
+    "devDependencies": {
+        "@effect/platform-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
+        "@nx/web": "catalog:",
+        "@rasm/nx-storybook": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@storybook/react-vite": "catalog:",
+        "@types/node": "catalog:",
+        "effect": "catalog:",
+        "nx": "catalog:",
+        "react": "catalog:",
+        "react-dom": "catalog:",
+        "storybook": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
+    }
+}

@@ -12,7 +12,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 - Agents run commands in foreground and checks once at the end, editing only their own files; messages to agents inside a running workflow go nowhere
 - Desktop apps run through watch-apps, Ghidra through use-ghidra; function-hooks rewrites or refuses the rest
 - Defects are fixed at cause in the pass finding them, in every layer holding them (tool, hook, skill, library); nothing found is deferred or unacted
-- Distilled products evidence logic, not scripts to copy; findings in `~/.claude/rasm/workflows/` and `docs/research` are acted on, not rediscovered
+- Distilled products evidence logic, not scripts to copy; findings in `~/.claude/rasm/workflows/` are acted on, not rediscovered
 - Prose (skills, rules, messages, guidance) changes through clean-prose by replacing the line owning a fact, with no appended clause
 - Owner reports hold results and decisions in few words; runs stopped by a usage limit resume, workflows with `args.finished` built from their journal
 - Each change commits locally; pushes come before each InPage package run and the first extension run, and after each font library round
@@ -30,11 +30,8 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 
 ### [01.3]-[RESEARCH]
 
-- `docs/research/applications/<host>/`: `products/`, per product `decompiled/`, `internals/` with proofs, `distilled/` runnable TypeScript, `facts/`
-- `docs/research/typescript-extension/`: domain notes, `studies/`, `packages.md` alone choosing packages, `ARCHITECTURE.md` capability matrix, levels
 - `~/.claude/rasm/workflows/typescript-extension/`: `inpage/PLAN.md` rows citing distilled sources, `base/` pre-clean notes, `review/` plan reviews
 - `~/.claude/rasm/workflows/fonts/`: font library's `DECISION.md`, `ARCHITECTURE.md`, `INTERFACES.md` and `deepen-brief.md`
-- `docs/research` is ignored by git: runs rewriting a note snapshot it first and judge its diff against the snapshot
 
 ### [01.4]-[STATE]
 
@@ -111,7 +108,7 @@ Extension is the repository's central deliverable, held to one standard:
 
 ### [02.3]-[PHASES]
 
-1. Acquire: done, products in `docs/research/applications/<host>/products/<domain>/<key>/`, distilled code in `<host>/distilled/<domain>/<key>/`
+1. Acquire: done, products and distilled code per host, domain, and key
 2. Decompile: binary proofs through Ghidra's emulator
    - Host proofs run in InDesign 2027 Beta, or 2026 where a product loads only there
 3. Distill: one distiller per algorithm family rewrites `rebuilt/` into `distilled/`, held identical by its A/B harness
@@ -135,11 +132,11 @@ Extension is the repository's central deliverable, held to one standard:
 
 - InPage: `~/.claude/rasm/workflows/typescript-extension/inpage/PLAN.md` holds 31 open rows grouped by owning package, each citing distilled sources
   - Goal: universal Perso-Arabic typesetting on any installed font, real InDesign logic shaped by neither Atelier nor MCP, packages fully used
-  - Oracle `proof/ab.ts` in `docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool`, exiting 0 against current libraries
+  - Oracle `proof/ab.ts` of product `inpage-typesetting-tool`, exiting 0 against current libraries
 - InPage proofs: 164 functions binary-proven over 1494 cases, host proof impossible for the Windows-only plug-in
 - InPage distill: Persian and Arabic typesetting over any installed font, read from what each font states, Urdu-only forms out:
   - Nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, Quran glossary
-- Color: no further distill, evidence in the color research and in `docs/research/applications/indesign/`:
+- Color: no further distill, evidence in the color research and the InDesign host research:
   - `distilled/internals/adobe-indesign-color`
   - `internals/adobe-indesign-color` README locating each rebuilt family
 - Research notes: cleaned to principles at their owners, pre-clean copies in `~/.claude/rasm/workflows/typescript-extension/base/`
@@ -184,14 +181,14 @@ Darkroom gets its own window in Rhino, built from the ground up, that replaces t
 
 ### [03.3]-[ALREADY_ESTABLISHED_READ_BEFORE_STARTING]
 
-- Host facts: `docs/research/darkroom/window/GUI-INVESTIGATION.md` §1.1, "What a plug-in can and cannot extend". It covers Rhino 9 Mac with decompile citations:
+- Host facts: Darkroom window research `GUI-INVESTIGATION.md` §1.1, "What a plug-in can and cannot extend". It covers Rhino 9 Mac with decompile citations:
   - Render window: its command toolbar and status bar are closed to plug-ins
   - Stage tabs and side panes: extra tabs and side panes need a RenderPlugIn (`RenderTabs.RegisterTab`, `RenderPanels.RegisterPanel`)
   - Rendering panel sections: these belong to the current renderer alone
   - Native containers: no API changes them
   - What a plug-in can add: its own panel, Options page, Document Properties page, Snapshots client and View properties page
-- Darkroom inventory and extension points: `docs/research/darkroom/window/DARKROOM-PLAN.md` §2, the old Darkroom surfaces, and "Rhino rendering extension points"
-- UI research: `docs/research/darkroom/window/ui-research/` (pro image apps, Rhino renderer UIs, modern Rhino plug-in UIs, Rhino UI techniques)
+- Darkroom inventory and extension points: `DARKROOM-PLAN.md` §2 of the same research, the old Darkroom surfaces, and "Rhino rendering extension points"
+- UI research: its `ui-research/` (pro image apps, Rhino renderer UIs, modern Rhino plug-in UIs, Rhino UI techniques)
 - Current state: Darkroom has no UI, and only restoring a stored chain creates chain edits. Rasm.Rhino's `UI/` folder (namespace Rasm.Rhino.UI) holds windows, panels, containers, toolbars, rows, inputs and Skia surfaces. Nothing in the tree hosts a Rasm.UI scene in Rhino yet
 
 ### [03.4]-[QUESTIONS_TO_ANSWER]
@@ -217,6 +214,6 @@ Darkroom gets its own window in Rhino, built from the ground up, that replaces t
 
 ### [03.5]-[METHOD_WHEN_PICKED_UP]
 
-- Facts: take them from Rhino 9 itself, its decompiles in `docs/research/darkroom/window/gui-inv/` and `docs/research/darkroom/window/ui-research/rc/`, RhinoCommon docs, the forum and live probes through the use-rhino and watch-apps skills. Do not guess
+- Facts: take them from Rhino 9 itself, its decompiles in `gui-inv/` and `ui-research/rc/` of the Darkroom window research, RhinoCommon docs, the forum and live probes through the use-rhino and watch-apps skills. Do not guess
 - Order: answer questions 1 to 5 before any design, because they decide what is possible. Then design the window. Then land the library capabilities first and Darkroom's content after
 - Done means: a live check in Rhino with screenshots, every native rendering capability reachable from Darkroom, and zero findings

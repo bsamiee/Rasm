@@ -1,6 +1,8 @@
+import { dirname, join, relative, resolve } from 'node:path';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { present, printed, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, SemVer } from 'effect';
+import { Completed } from '@rasm/process';
+import { Array, Cause, Effect, FileSystem, Function, Option, pipe, Record, Result, Schema, SemVer } from 'effect';
+import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -43,7 +45,7 @@ const Reference = Schema.Struct({ jsonFile: Schema.String });
 const Index = Schema.fromJsonString(
     Schema.Struct({
         cmake: Schema.Struct({ paths: Schema.Struct({ ctest: Schema.String }) }),
-        reply: Schema.Struct({ [CLIENT]: Schema.Struct({ [QUERY]: Schema.Struct({ responses: Schema.Tuple([Reference, Reference, Reference]) }) }) }),
+        reply: Schema.Struct({ [CLIENT]: Schema.Struct({ [QUERY]: Schema.Struct({ responses: Schema.Tuple([Reference, Reference]) }) }) }),
     }),
 );
 const Codemodel = Schema.fromJsonString(
@@ -71,7 +73,6 @@ const Target = Schema.fromJsonString(
     }),
 );
 const Inputs = Schema.fromJsonString(Schema.Struct({ inputs: Schema.Array(Schema.Struct({ path: Schema.String, isGenerated: Schema.optionalKey(Schema.Boolean) })) }));
-const Toolchains = Schema.fromJsonString(Schema.Struct({ toolchains: Schema.Array(Schema.Struct({ language: Schema.String, compiler: Schema.Struct({ path: Schema.optionalKey(Schema.String) }) })) }));
 const Listing = Schema.fromJsonString(Schema.Struct({ tests: Schema.Array(Schema.Unknown) }));
 const Tree = Schema.Struct({
     root: Schema.String,
@@ -90,12 +91,13 @@ const Tree = Schema.Struct({
         }),
     ),
     inputs: Schema.Array(Schema.String),
-    toolchains: Schema.Array(Schema.Struct({ language: Schema.String, compiler: Schema.String })),
 });
 
 type Tree = typeof Tree.Type;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const refused = (subject: string, detail: string) => (cause?: unknown) => new Cause.UnknownError(cause, `${subject}: ${detail}`);
 
 const versioned = (text: string, at: string) => {
     const from = Option.map(Option.fromNullOr(CALL.exec(text)), (call) => call.index + call[0].length);
@@ -109,39 +111,44 @@ const versioned = (text: string, at: string) => {
             return { version: token.slice(quote, token.length - quote), start: start + index + quote, end: start + index + token.length - quote };
         });
     });
-    return Effect.mapError(Effect.fromOption(stated), ToolError.of(at, 'states no VERSION in a project() call, which nx release reads and writes'));
+    return Effect.mapError(Effect.fromOption(stated), refused(at, 'states no VERSION in a project() call, which nx release reads and writes'));
 };
 
 const restated = Effect.fnUntraced(function* (text: string, version: string, at: string) {
     yield* Effect.fromResult(SemVer.parse(version)).pipe(
         Effect.filterOrFail((parsed) => !(SemVer.isPrerelease(parsed) || SemVer.hasBuild(parsed))),
-        Effect.mapError(ToolError.of(at, `takes a major.minor.patch version alone in project(VERSION), which ${version} is not`)),
+        Effect.mapError(refused(at, `takes a major.minor.patch version alone in project(VERSION), which ${version} is not`)),
     );
     const { start, end } = yield* versioned(text, at);
     return `${text.slice(0, start)}${version}${text.slice(end)}`;
 });
 
-const planted = (path: Path.Path, placed: (tool: string, name: string) => Option.Option<string>, root: string, tool: string, name: string) => Option.getOrElse(placed(tool, path.join(root, name)), () => path.join(root, 'build', tool, name));
+const planted = (outputPath: Option.Option<string>, root: string, tool: string, name: string) => Option.match(outputPath, { onNone: () => join(root, 'build', tool, name), onSome: (at) => join(at, tool, root, name) });
 
-const invoked = (launcher: readonly string[], command: Array.NonEmptyReadonlyArray<string>): Array.NonEmptyReadonlyArray<string> => Array.prependAll(command, launcher);
+const configured = (root: string, { configure, stated }: Pick<typeof Workflow.Type, 'configure' | 'stated'>, tree: string, defines: Readonly<Record<string, string>> = {}): Array.NonEmptyReadonlyArray<string> => [
+    'cmake',
+    '--preset',
+    configure,
+    '-S',
+    root,
+    ...(stated ? [] : ['-B', tree]),
+    ...Record.collect(defines, (name, value) => `-D${name}=${value}`),
+];
 
-const configured = (launcher: readonly string[], root: string, { configure, stated }: Pick<typeof Workflow.Type, 'configure' | 'stated'>, tree: string, defines: Readonly<Record<string, string>> = {}) =>
-    invoked(launcher, ['cmake', '--preset', configure, '-S', root, ...(stated ? [] : ['-B', tree]), ...Record.collect(defines, (name, value) => `-D${name}=${value}`)]);
-
-const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, launcher: readonly string[], workflow: typeof Workflow.Type) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const inside = (at: string) => path.relative(workspaceRoot, path.resolve(workspaceRoot, root, at)) || '.';
-    const tree = path.join(workspaceRoot, workflow.tree);
-    const [query, reply] = [path.join(tree, ...API, 'query', CLIENT), path.join(tree, ...API, 'reply')];
-    const read = <S extends Schema.Decoder<unknown>>(schema: S, file: string) => Effect.flatMap(fs.readFileString(path.join(reply, file)), Schema.decodeEffect(schema));
+const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, workflow: typeof Workflow.Type) {
+    const fs = yield* FileSystem.FileSystem;
+    const inside = (at: string) => relative(workspaceRoot, resolve(workspaceRoot, root, at)) || '.';
+    const tree = join(workspaceRoot, workflow.tree);
+    const [query, reply] = [join(tree, ...API, 'query', CLIENT), join(tree, ...API, 'reply')];
+    const read = <S extends Schema.Decoder<unknown>>(schema: S, file: string) => Effect.flatMap(fs.readFileString(join(reply, file)), Schema.decodeEffect(schema));
     yield* fs.makeDirectory(query, { recursive: true });
-    yield* fs.writeFileString(path.join(query, QUERY), '{"requests":[{"kind":"codemodel","version":2},{"kind":"cmakeFiles","version":1},{"kind":"toolchains","version":1}]}');
-    const [configure, ...configuring] = configured(launcher, root, workflow, tree);
-    yield* printed(configure, configuring, { cwd: workspaceRoot });
+    yield* fs.writeFileString(join(query, QUERY), '{"requests":[{"kind":"codemodel","version":2},{"kind":"cmakeFiles","version":1}]}');
+    const [configure, ...configuring] = configured(root, workflow, tree);
+    yield* Completed.output(ChildProcess.make(configure, configuring, { cwd: workspaceRoot, stdin: 'ignore' }));
     const newest = yield* Effect.flatMap(fs.readDirectory(reply), (names) => Effect.fromOption(Array.last(names.filter((name) => name.startsWith('index-')).toSorted())));
     const index = yield* read(Index, newest);
-    const [modelled, filed, compiled] = index.reply[CLIENT][QUERY].responses;
-    const [codemodel, { inputs }, { toolchains }] = yield* Effect.all([read(Codemodel, modelled.jsonFile), read(Inputs, filed.jsonFile), read(Toolchains, compiled.jsonFile)], { concurrency: 'unbounded' });
+    const [modelled, filed] = index.reply[CLIENT][QUERY].responses;
+    const [codemodel, { inputs }] = yield* Effect.all([read(Codemodel, modelled.jsonFile), read(Inputs, filed.jsonFile)], { concurrency: 'unbounded' });
     const { directories, projects, targets } = Array.headNonEmpty(codemodel.configurations);
     const loaded = yield* Effect.forEach(targets, ({ projectIndex, jsonFile }) => Effect.map(read(Target, jsonFile), (target) => ({ projectIndex, ...target })), { concurrency: 'unbounded' });
     const owners = new Map(loaded.map(({ projectIndex, id }) => [id, projectIndex] as const));
@@ -149,9 +156,12 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
         projects,
         Effect.fnUntraced(function* ({ name, parentIndex, directoryIndexes }) {
             const { source, build, jsonFile } = yield* Effect.fromOption(Array.get(directories, Array.headNonEmpty(directoryIndexes)));
-            const [{ installers }, { tests }, packaging] = yield* Effect.all([read(Directory, jsonFile), Effect.flatMap(printed(index.cmake.paths.ctest, ['--test-dir', path.join(tree, build), '--show-only=json-v1'], { cwd: workspaceRoot }), Schema.decodeEffect(Listing)), fs.exists(path.join(tree, build, PACKAGING))], {
-                concurrency: 'unbounded',
-            });
+            const [{ installers }, { tests }, packaging] = yield* Effect.all(
+                [read(Directory, jsonFile), Effect.flatMap(Completed.output(ChildProcess.make(index.cmake.paths.ctest, ['--test-dir', join(tree, build), '--show-only=json-v1'], { cwd: workspaceRoot, stdin: 'ignore' })), Schema.decodeEffect(Listing)), fs.exists(join(tree, build, PACKAGING))],
+                {
+                    concurrency: 'unbounded',
+                },
+            );
             return { name, parentIndex, root: inside(source), build, installs: installers.length > 0, packaged: installers.length > 0 && packaging, tests: tests.length };
         }),
     );
@@ -191,14 +201,14 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
             inputs.filter(({ isGenerated }) => isGenerated !== true).map(({ path: at }) => inside(at)),
         ),
     );
-    return { members, inputs: tracked, toolchains: Array.getSomes(toolchains.map(({ language, compiler }) => Option.map(Option.fromUndefinedOr(compiler.path), (at) => ({ language, compiler: path.relative(workspaceRoot, at) })))) };
+    return { members, inputs: tracked };
 });
 
 const resolved = Effect.fnUntraced(
-    function* (workspaceRoot: string, presets: string, launcher: readonly string[], placed: (preset: string) => string) {
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const root = path.dirname(presets);
-        const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(path.join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
+    function* (workspaceRoot: string, presets: string, placed: (preset: string) => string) {
+        const fs = yield* FileSystem.FileSystem;
+        const root = dirname(presets);
+        const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
         type Steps = (typeof workflowPresets)[number]['steps'];
         const chain = (name: string): readonly (typeof configurePresets)[number][] => configurePresets.filter((preset) => preset.name === name).flatMap((preset) => [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)]);
         const stepped = (listed: Steps, type: string) =>
@@ -213,9 +223,9 @@ const resolved = Effect.fnUntraced(
                 {
                     onNone: () => ({ tree: placed(configure), stated: false }),
                     onSome: (folder) => ({
-                        tree: path.relative(
+                        tree: relative(
                             workspaceRoot,
-                            folder.replaceAll(SOURCE_DIR, () => path.join(workspaceRoot, root)).replaceAll(PRESET_NAME, () => configure),
+                            folder.replaceAll(SOURCE_DIR, () => join(workspaceRoot, root)).replaceAll(PRESET_NAME, () => configure),
                         ),
                         stated: true,
                     }),
@@ -236,19 +246,18 @@ const resolved = Effect.fnUntraced(
         const workflows = Array.getSomes(
             workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure): typeof Workflow.Type => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), ...rooted(configure), name, configure, tidy: launchers(configure) }))),
         );
-        const [probe, ...probed] = invoked(launcher, ['cmake', '--version']);
-        const held = Option.isSome(yield* present(probe, probed, { cwd: workspaceRoot }));
+        const held = Option.isSome(yield* Effect.option(Completed.output(ChildProcess.make('cmake', ['--version'], { stdin: 'ignore' }))));
         return yield* Option.match(
             Option.filter(Array.head(workflows), () => held),
             {
-                onNone: () => Effect.succeed({ tree: { root, workflows, packages, members: [], inputs: [], toolchains: [] } satisfies Tree, partial: workflows.length > 0 }),
-                onSome: (workflow) => Effect.map(replied(workspaceRoot, root, launcher, workflow), (reply) => ({ tree: { root, workflows, packages, ...reply } satisfies Tree, partial: false })),
+                onNone: () => Effect.succeed({ tree: { root, workflows, packages, members: [], inputs: [] } satisfies Tree, partial: workflows.length > 0 }),
+                onSome: (workflow) => Effect.map(replied(workspaceRoot, root, workflow), (reply) => ({ tree: { root, workflows, packages, ...reply } satisfies Tree, partial: false })),
             },
         );
     },
-    (effect, _, presets) => Effect.mapError(effect, ToolError.of(presets, 'does not resolve as a CMake build tree')),
+    (effect, _, presets) => Effect.catchTag(effect, 'NoSuchElementError', (cause) => Effect.fail(refused(presets, 'writes no CMake file API reply naming its projects')(cause))),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { configured, invoked, MANIFEST, PACKAGING, PRESETS, planted, resolved, restated, type Tree, versioned };
+export { configured, MANIFEST, PACKAGING, PRESETS, planted, refused, resolved, restated, type Tree, versioned };

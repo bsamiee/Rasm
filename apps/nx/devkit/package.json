@@ -1,6 +1,7 @@
 {
     "name": "@rasm/nx-devkit",
-    "version": "0.0.0",
+    "version": "0.1.0",
+    "private": true,
     "description": "Model every @rasm/nx-* plugin declares itself on: a plugin states its files, options, cached reads, and projects, and gets createNodes, createDependencies, verb targets, executors, and release steps built over Nx's own members",
     "repository": {
         "type": "git",
@@ -13,9 +14,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./plugin": "./plugin.ts",
-        "./reader": "./reader.ts",
-        "./reply": "./reply.ts",
+        ".": "./plugin.ts",
+        "./project": "./project.ts",
         "./executor": "./executor.ts",
         "./process": "./process.ts",
         "./package.json": "./package.json",
@@ -26,29 +26,21 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
+        "@nx/js": "catalog:",
         "effect": "catalog:",
         "signal-exit": "catalog:"
     },
     "devDependencies": {
-        "@nx/js": "catalog:",
         "@types/node": "catalog:",
         "nx": "catalog:"
     },
     "peerDependencies": {
-        "@nx/js": "catalog:peers",
         "nx": "catalog:peers"
     },
-    "peerDependenciesMeta": {
-        "@nx/js": {
-            "optional": true
-        }
-    },
     "publishConfig": {
-        "access": "public",
         "exports": {
-            "./plugin": "./dist/plugin.js",
-            "./reader": "./dist/reader.js",
-            "./reply": "./dist/reply.js",
+            ".": "./dist/plugin.js",
+            "./project": "./dist/project.js",
             "./executor": "./dist/executor.js",
             "./process": "./dist/process.js",
             "./package.json": "./package.json",

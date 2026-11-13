@@ -18,7 +18,7 @@
                         "args": {
                             "type": "array",
                             "minItems": 1,
-                            "description": "Subcommand and its arguments",
+                            "description": "Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package",
                             "items": [
                                 {
                                     "type": "string"
@@ -30,15 +30,17 @@
                         },
                         "trailing": {
                             "type": "array",
-                            "description": "Arguments after --, before the report flags",
+                            "description": "Arguments after --",
                             "items": {
                                 "type": "string"
                             }
                         },
-                        "report": {
-                            "type": "string",
-                            "enum": [ "messages", "tests", "status" ],
-                            "description": "Output each task is decided from: compiler messages, nextest suite events, or the exit status"
+                        "env": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "description": "Environment variables the command runs with, over the caller's"
                         },
                         "packages": {
                             "type": "array",
@@ -58,7 +60,7 @@
                             }
                         }
                     },
-                    "required": [ "args", "report" ],
+                    "required": [ "args" ],
                     "additionalProperties": true
                 }
             ],
@@ -68,7 +70,7 @@
                     "args": {
                         "type": "array",
                         "minItems": 1,
-                        "description": "Subcommand and its arguments",
+                        "description": "Subcommand and its arguments, a JSON message format among them where each task is decided from the messages of its own package",
                         "items": [
                             {
                                 "type": "string"
@@ -80,15 +82,17 @@
                     },
                     "trailing": {
                         "type": "array",
-                        "description": "Arguments after --, before the report flags",
+                        "description": "Arguments after --",
                         "items": {
                             "type": "string"
                         }
                     },
-                    "report": {
-                        "type": "string",
-                        "enum": [ "messages", "tests", "status" ],
-                        "description": "Output each task is decided from: compiler messages, nextest suite events, or the exit status"
+                    "env": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "string"
+                        },
+                        "description": "Environment variables the command runs with, over the caller's"
                     },
                     "packages": {
                         "type": "array",
@@ -108,7 +112,7 @@
                         }
                     }
                 },
-                "required": [ "args", "report" ],
+                "required": [ "args" ],
                 "additionalProperties": true
             }
         },
@@ -125,7 +129,7 @@
         },
         "outputs": {
             "type": "array",
-            "description": "Files the commands write, each folder created before the run",
+            "description": "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run",
             "items": {
                 "type": "string"
             }
@@ -134,5 +138,5 @@
     "required": [ "cwd", "commands" ],
     "additionalProperties": true,
     "title": "Cargo",
-    "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by its own package's report"
+    "description": "Runs cargo commands from a workspace root, one process per command for every selected package, each task decided by the compiler messages of its own package, or by the exit status where the command prints none"
 }
