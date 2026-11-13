@@ -1,8 +1,16 @@
 {
     $schema: 'https://docs.renovatebot.com/renovate-schema.json',
     extends: ['config:best-practices'],
+    // Token RENOVATE_TOKEN reads no account email, so Renovate discovers no author of its own
+    gitAuthor: 'Renovate <renovate@parametric-arsenal.cloud>',
     lockFileMaintenance: { enabled: true, schedule: ['* 0-3 * * *'] },
     automerge: true,
     // The repository requires no status checks, so Renovate merges after every check passes in place of GitHub auto-merge
     platformAutomerge: false,
+    packageRules: [
+        // mise installs conda rows from channel conda-forge, which the conda datasource reads from its registry URL
+        { matchManagers: ['mise'], matchDatasources: ['conda'], registryUrls: ['https://api.anaconda.org/package/conda-forge/'] },
+        // Renovate keeps the #subdirectory fragment of a pypi git row in the repository address it lists refs of
+        { matchManagers: ['mise'], matchPackageNames: ['https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp'], overridePackageName: 'https://projects.blender.org/lab/blender_mcp.git' },
+    ],
 }
