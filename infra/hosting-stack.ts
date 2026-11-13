@@ -138,14 +138,14 @@ const tunneled = Effect.fnUntraced(function* (
     return { postgres: { host: folder, port: postgres.published }, storage: { endpoint: new URL(`https://${Array.headNonEmpty(traefik.networks.default.aliases)}`), tls: true } };
 });
 
-const copied = Effect.fnUntraced(function* (host: Host, root: string, project: string, { create, delete: removed, stdin, environment }: Operation, bundles: readonly string[], { protect, dependsOn }: Applied) {
+const copied = Effect.fnUntraced(function* (host: Host, project: string, { create, delete: removed, stdin, environment }: Operation, bundles: readonly string[], { protect, dependsOn }: Applied) {
     const paths = yield* Path.Path;
     const over = (words: Array.NonEmptyReadonlyArray<string>) => Effect.fromResult(Result.flatMap(host.command(paths, connections, words, Record.keys(environment)), CommandLine.join));
-    const [placed, up, down] = yield* Effect.all([Effect.forEach(bundles, (bundle) => uploaded(host, project, root, bundle, [])), over(create), over(removed)]);
+    const [placed, up, down] = yield* Effect.all([Effect.forEach(bundles, (bundle) => uploaded(host, project, bundle, [])), over(create), over(removed)]);
     return new local.Command(project, { create: up, delete: down, stdin, environment: secret(environment), addPreviousOutputInEnv: false }, { protect, dependsOn: [...dependsOn, ...placed] });
 });
 
-const hosted = Effect.fnUntraced(function* (root: string, { name, domain, values }: Data.TaggedEnum.Value<Engine, 'Host'>) {
+const hosted = Effect.fnUntraced(function* ({ name, domain, values }: Data.TaggedEnum.Value<Engine, 'Host'>) {
     const reference = new StackReference(`${getOrganization()}/${getProject()}/${name}`);
     const read = (member: keyof Effect.Success<Effect.Success<ReturnType<typeof platformStacks>>[number]['program']>) => Effect.tryPromise({ try: () => reference.getOutputDetails(member), catch: (cause) => new Cause.UnknownError(cause, `stack ${name} holds no ${member} output`) });
     const [connection, identity, backup] = yield* Effect.all([read('connection'), read('identity'), backupTarget(values, domain)]);
@@ -158,11 +158,11 @@ const hosted = Effect.fnUntraced(function* (root: string, { name, domain, values
         settings: ConfigProvider.fromUnknown(values),
         backup,
         reach: (services: (typeof Platform.Type)['services']) => held(tunneled(host, services)),
-        apply: (project: string, operation: Operation, bundles: readonly string[], options: Applied) => copied(host, root, project, operation, bundles, options),
+        apply: (project: string, operation: Operation, bundles: readonly string[], options: Applied) => copied(host, project, operation, bundles, options),
     };
 });
 
-const engaged = (engine: Engine, root: string) => Engine.$match(engine, { Machine: () => Effect.succeed(machine(root)), Host: (fields) => hosted(root, fields) });
+const engaged = (engine: Engine, root: string) => Engine.$match(engine, { Machine: () => Effect.succeed(machine(root)), Host: hosted });
 
 const bucketed =
     ({ app, mode }: Stack, providers: { readonly storage: aws.Provider; readonly admin: Provider }) =>

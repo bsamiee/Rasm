@@ -4,9 +4,9 @@ import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, getZoneO
 import { local } from '@pulumi/command';
 import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryEnvironment, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { interpolate, jsonStringify, type Output, secret } from '@pulumi/pulumi';
-import { Acl, DnsPreferences, FederatedIdentity, TailnetSettings } from '@pulumi/tailscale';
-import { Environment, Project, Provider, ServiceToken, secretssync } from '@pulumiverse/doppler';
-import { Array, Cause, Config, Effect, FileSystem, Path, Record, Redacted, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Acl, DnsPreferences, TailnetSettings } from '@pulumi/tailscale';
+import { Environment, Project, Provider, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
+import { Array, Cause, Config, Effect, FileSystem, flow, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
@@ -17,13 +17,13 @@ import { Deployed } from '#/platform-stack';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const palette = { bug: 'd73a4a', enhancement: 'a2eeef' };
+const api = new URL('https://api.doppler.com');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Account = Deployed.mapFields(Struct.pick(['DEPLOYED_HOSTS', 'CLOUDFLARE_ACCOUNT_ID']));
+const Account = Deployed.mapFields(flow(Struct.pick(['DEPLOYED_HOSTS', 'CLOUDFLARE_ACCOUNT_ID']), Struct.assign(Struct.Record(['GITHUB_TOKEN', 'DOPPLER_IAC_TOKEN'], Schema.NonEmptyString))));
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, description: Schema.NonEmptyString }));
 const Origin = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, owner: Schema.Struct({ login: Schema.NonEmptyString }) }));
-const Login = Schema.fromJsonString(Schema.Struct({ token: Schema.RedactedFromValue(Schema.NonEmptyString), 'api-host': Schema.URLFromString }));
 const Integrations = Schema.Struct({ integrations: Schema.Array(Schema.Struct({ slug: Schema.String, name: Schema.String, type: Schema.String })) });
 const Form = Schema.String.pipe(
     Schema.decodeTo(Schema.Unknown, {
@@ -35,13 +35,16 @@ const Form = Schema.String.pipe(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const delivered = Effect.fnUntraced(function* (repository: Output<string>, { name, owner, project, description, login: { token, 'api-host': host } }: { readonly name: string; readonly owner: string; readonly project: string; readonly description: string; readonly login: typeof Login.Type }) {
-    const { integrations } = yield* HttpClient.execute(HttpClientRequest.bearerToken(HttpClientRequest.get(new URL('/v3/integrations', host)), token)).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk), Effect.flatMap(HttpClientResponse.schemaBodyJson(Integrations)));
+const delivered = Effect.fnUntraced(function* (
+    repository: Output<string>,
+    { name, fullName, owner, project, description, operator, token }: { readonly name: string; readonly fullName: Output<string>; readonly owner: string; readonly project: string; readonly description: string; readonly operator: string; readonly token: string },
+) {
+    const { integrations } = yield* HttpClient.execute(HttpClientRequest.bearerToken(HttpClientRequest.get(new URL('/v3/integrations', api)), operator)).pipe(Effect.flatMap(HttpClientResponse.filterStatusOk), Effect.flatMap(HttpClientResponse.schemaBodyJson(Integrations)));
     const { slug: integration } = yield* Effect.fromOption(
         Array.findFirst(integrations, (row) => row.type === 'github-actions' && row.name === owner),
         () => new Cause.NoSuchElementError(`Doppler holds no github-actions integration named ${owner}`),
     );
-    const provider = new Provider('doppler', { dopplerToken: secret(Redacted.value(token)), host: host.origin });
+    const provider = new Provider('doppler', { dopplerToken: secret(operator), host: api.origin });
     const doppler = new Project(project, { name: project, description }, { provider, protect: true });
     const held = Record.map(Struct.Record(['dev', 'ci', 'release', 'deploy'], undefined), (_, config) => new Environment(`${project}-${config}`, { project: doppler.name, slug: config, name: config }, { provider, protect: true }).slug);
     const synced = { integration, project: doppler.name, syncTarget: 'repo', repoName: repository, deleteBehavior: 'delete_from_target' };
@@ -55,28 +58,26 @@ const delivered = Effect.fnUntraced(function* (repository: Output<string>, { nam
         ci: new secretssync.GithubActions(`${project}-ci`, { ...synced, config: held.ci }, { provider }).config,
         release: new secretssync.GithubActions(`${project}-release`, { ...synced, config: held.release, environmentName: deploying.release }, { provider }).config,
         deploy: deploying.deploy,
+        dispatch: new Webhook(`${project}-deploy`, { project: doppler.name, url: interpolate`https://api.github.com/repos/${fullName}/dispatches`, authentication: { type: 'Bearer', token: secret(token) }, payload: '{"event_type":"deploy"}', enabledConfigs: [held.deploy] }, { provider }).slug,
     };
 }, Effect.provide(layerUndici));
 
-const tailnet = (hosts: typeof Account.Type.DEPLOYED_HOSTS, { name, repository, fullName, environment }: { readonly name: string; readonly repository: Output<string>; readonly fullName: Output<string>; readonly environment: Output<string> }) => {
-    const runner = 'tag:ci' satisfies (typeof hosts)[string]['tags'][number];
-    const owned = Array.dedupe([...Object.values(hosts).flatMap(({ tags }) => tags), runner]);
+const tailnet = (hosts: typeof Account.Type.DEPLOYED_HOSTS) => {
+    const owned = Array.dedupe(Object.values(hosts).flatMap(({ tags }) => tags));
     const served = Array.dedupe(
         Object.values(hosts)
             .filter(({ tailnet: { ssh } }) => ssh)
             .flatMap(({ tags }) => tags),
     );
-    const identity = new FederatedIdentity(`${name}-deploy`, { issuer: 'https://token.actions.githubusercontent.com', subject: interpolate`repo:${fullName}:environment:${environment}`, scopes: ['all'], tags: [runner] });
     const policy = {
         tagOwners: Record.fromIterableWith(owned, (tag) => [tag, ['autogroup:admin']]),
         grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }],
-        ssh: Array.match(served, { onEmpty: Array.empty, onNonEmpty: (dst) => [{ action: 'accept', src: ['autogroup:member', runner], dst, users: ['autogroup:nonroot', 'root'], acceptEnv: ['*'] }] }),
+        ssh: Array.match(served, { onEmpty: Array.empty, onNonEmpty: (dst) => [{ action: 'accept', src: ['autogroup:member'], dst, users: ['autogroup:nonroot', 'root'], acceptEnv: ['*'] }] }),
     };
     return {
         policy: new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true }).id,
         settings: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true }).id,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
-        identity: Record.map({ TAILSCALE_OAUTH_CLIENT_ID: identity.id, TAILSCALE_AUDIENCE: identity.audience, TAILSCALE_TAGS: runner }, (value, variableName) => new ActionsEnvironmentVariable(`${name}-deploy-${variableName}`, { repository, environment, variableName, value }).variableName),
     };
 };
 
@@ -112,7 +113,7 @@ const guarded = (repository: Output<string>, { name, fullName, forms, patterns }
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, deployed: Readonly<Record<string, string>>) {
-    const [fs, path, { DEPLOYED_HOSTS: hosts, CLOUDFLARE_ACCOUNT_ID: accountId }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Account)(deployed)]);
+    const [fs, path, { DEPLOYED_HOSTS: hosts, CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN, DOPPLER_IAC_TOKEN: operator }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Account)(deployed)]);
     const { name: stackName, description } = yield* Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest));
     const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
     const { groups } = yield* Effect.flatMap(
@@ -122,10 +123,9 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
     return {
         stackName,
         program: Effect.gen(function* () {
-            const [{ name, owner }, project, login, forms, organization] = yield* Effect.all([
-                Effect.flatMap(run('gh', ['repo', 'view', '--json', 'name,owner']), Schema.decodeEffect(Origin)),
+            const [{ name, owner }, project, forms, organization] = yield* Effect.all([
+                Effect.flatMap(run('gh', ['repo', 'view', '--json', 'name,owner'], { GH_TOKEN: GITHUB_TOKEN }), Schema.decodeEffect(Origin)),
                 Config.String('DOPPLER_PROJECT'),
-                Effect.flatMap(run('doppler', ['configure', 'get', 'token', 'api-host', '--json']), Schema.decodeEffect(Login)),
                 Effect.flatMap(
                     fs.glob('.github/ISSUE_TEMPLATE/*.yml', { root: context.root, exclude: ['**/config.yml'] }),
                     Effect.forEach((form) => Effect.flatMap(fs.readFileString(path.join(context.root, form)), Schema.decodeEffect(Form))),
@@ -148,11 +148,11 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
                 },
                 { protect: true },
             );
-            const configs = yield* delivered(repository, { name, owner: owner.login, project, description, login });
+            const configs = yield* delivered(repository, { name, fullName, owner: owner.login, project, description, operator, token: GITHUB_TOKEN });
             return {
                 repository: fullName,
                 configs,
-                tailnet: tailnet(hosts, { name, repository, fullName, environment: configs.deploy }),
+                tailnet: tailnet(hosts),
                 access: access(accountId, organization),
                 ...feed(accountId, hosts, { name, repository, environment: configs.release }),
                 assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,

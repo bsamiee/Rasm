@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 import type { StackRequest, Stacks } from '@rasm/nx-pulumi/stacks';
-import { Array, Cause, Config, Effect, FileSystem, type Layer, Match, Option, Record } from 'effect';
+import { Array, Cause, Effect, FileSystem, type Layer, Match, Option, Record } from 'effect';
 import { deployed } from '#/command';
 import { hostingRows, hostingStack, hostingValues } from '#/hosting-stack';
 import manifest from '#/package.json' with { type: 'json' };
@@ -40,11 +40,10 @@ const inline = <E>({ program, ...args }: { readonly stackName: string; readonly 
 
 const owned = Effect.fnUntraced(function* (request: StackRequest) {
     const named = Match.valueTags(request, { Install: () => Option.none<string>(), Deploy: ({ stack }) => stack, Release: () => Option.none<string>() });
-    const [values, identity] = yield* Effect.all([deployed, Config.option(Config.all(Record.fromIterableWith(['TAILSCALE_OAUTH_CLIENT_ID', 'TAILSCALE_AUDIENCE'], (name) => [name, Config.NonEmptyString(name)])))]);
-    const envVars = Option.match(identity, { onNone: () => values, onSome: (federated) => ({ ...Record.remove(values, 'TAILSCALE_OAUTH_CLIENT_SECRET'), ...federated }) });
-    const repository = inline({ ...(yield* repositoryStack(request.context, values)), envVars });
+    const envVars = yield* deployed;
+    const repository = inline({ ...(yield* repositoryStack(request.context, envVars)), envVars });
     const platform = Effect.map(
-        platformStacks(values),
+        platformStacks(envVars),
         Array.map((stack) => inline({ ...stack, envVars })),
     );
     const declared = Option.contains(named, repository.stackName) ? [repository] : [repository, ...(yield* platform)];
