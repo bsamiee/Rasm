@@ -61,7 +61,7 @@ const files = {
     '/etc/ssh/sshd_config.d/00-platform.conf': { content: `PasswordAuthentication no\nAcceptEnv *\nMaxSessions ${sessions}\nMaxStartups ${sessions}\n`, reload: [['systemctl', 'reload', 'ssh']] },
     '/etc/systemd/journald.conf.d/90-platform.conf': { content: '[Journal]\nSystemMaxUse=1G\n', reload: [['systemctl', 'restart', 'systemd-journald']] },
     '/etc/systemd/system.conf.d/90-platform.conf': { content: '[Manager]\nDefaultTimeoutStopSec=150s\n', reload: [['systemctl', 'daemon-reexec']] },
-    '/etc/apt/apt.conf.d/52unattended-upgrades-local': { content: 'Unattended-Upgrade::Origins-Pattern { "origin=Ubuntu,archive=*-updates"; "origin=Docker"; };\nUnattended-Upgrade::Automatic-Reboot "true";\n', reload: [] },
+    '/etc/apt/apt.conf.d/52unattended-upgrades-local': { content: 'Unattended-Upgrade::Origins-Pattern { "origin=Ubuntu,archive=*-updates"; "origin=Docker"; };\nUnattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "10:30";\n', reload: [] },
 };
 const machines = {
     hostinger: {
