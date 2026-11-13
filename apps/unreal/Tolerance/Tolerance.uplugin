@@ -1,0 +1,15 @@
+{
+    "FileVersion": 3,
+    "Version": 1,
+    "VersionName": "0.0.0",
+    "FriendlyName": "Tolerance",
+    "Description": "Compares floating-point values by units in the last place from Blueprints and C++",
+    "Category": "Math",
+    "CreatedBy": "Bardia Samiee",
+    "CreatedByURL": "https://github.com/bsamiee/Rasm",
+    "DocsURL": "https://github.com/bsamiee/Rasm/tree/main/apps/unreal/Tolerance",
+    "SupportURL": "https://github.com/bsamiee/Rasm/issues",
+    "CanContainContent": false,
+    "nx": { "packages": { "Source/ThirdParty/RasmTolerance": { "project": "rasm-tolerance", "target": "install--cmake", "configuration": "unreal" } } },
+    "Modules": [ { "Name": "Tolerance", "Type": "Runtime", "LoadingPhase": "Default", "PlatformAllowList": [ "Mac", "Linux" ] } ]
+}
