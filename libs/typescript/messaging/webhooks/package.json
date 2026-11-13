@@ -21,6 +21,7 @@
     },
     "files": [ "dist" ],
     "devDependencies": {
+        "@types/node": "catalog:",
         "effect": "catalog:"
     },
     "peerDependencies": {

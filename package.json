@@ -9,6 +9,7 @@
     "scripts": { "prepare": "effect-tsgo patch" },
     "devDependencies": {
         "@biomejs/biome": "catalog:",
+        "@cloudflare/vitest-plugin": "catalog:",
         "@effect/tsgo": "catalog:",
         "@nx/js": "catalog:",
         "@nx/web": "catalog:",
@@ -16,6 +17,8 @@
         "@rasm/nx-apple": "workspace:*",
         "@rasm/nx-cargo": "workspace:*",
         "@rasm/nx-cloudflare": "workspace:*",
+        "@rasm/nx-cmake": "workspace:*",
+        "@rasm/nx-devkit": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",
         "@rasm/nx-docker": "workspace:*",
         "@rasm/nx-dotnet": "workspace:*",
@@ -26,13 +29,23 @@
         "@rasm/nx-uv": "workspace:*",
         "@rasm/nx-vite": "workspace:*",
         "@rasm/nx-vitest": "workspace:*",
+        "@rasm/testing": "workspace:*",
+        "@storybook/addon-vitest": "catalog:",
         "@types/node": "catalog:",
         "@typescript/native": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
+        "@vitest/browser-playwright": "catalog:",
+        "@vitest/coverage-v8": "catalog:",
+        "@vitest/ui": "catalog:",
         "bootstrap-icons": "catalog:",
         "knip": "catalog:",
         "nx": "catalog:",
+        "oxc-transform-react": "catalog:",
         "publint": "catalog:",
-        "typescript": "catalog:"
+        "storybook": "catalog:",
+        "typescript": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:"
     },
     "nx": { "includedScripts": [] }
 }

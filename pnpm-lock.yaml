@@ -489,6 +489,9 @@ importers:
       '@biomejs/biome':
         specifier: 'catalog:'
         version: 2.6.6
+      '@cloudflare/vitest-plugin':
+        specifier: 'catalog:'
+        version: 1.7.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6)(vitest@5.1.0)
       '@effect/tsgo':
         specifier: 'catalog:'
         version: 0.67.7
@@ -510,6 +513,12 @@ importers:
       '@rasm/nx-cloudflare':
         specifier: workspace:*
         version: link:apps/nx/cloudflare
+      '@rasm/nx-cmake':
+        specifier: workspace:*
+        version: link:apps/nx/cmake
+      '@rasm/nx-devkit':
+        specifier: workspace:*
+        version: link:apps/nx/devkit
       '@rasm/nx-distribution':
         specifier: workspace:*
         version: link:apps/nx/distribution
@@ -540,12 +549,30 @@ importers:
       '@rasm/nx-vitest':
         specifier: workspace:*
         version: link:apps/nx/vitest
+      '@rasm/testing':
+        specifier: workspace:*
+        version: link:tests/typescript/support
+      '@storybook/addon-vitest':
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vitest@5.1.0)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.1.0-dev.20261109.1
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 6.3.0(oxc-transform-react@0.158.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+      '@vitest/browser-playwright':
+        specifier: 'catalog:'
+        version: 5.1.0(playwright@1.66.0-alpha-2026-11-10)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.1.0(@vitest/browser@5.1.0)(vitest@5.1.0)
+      '@vitest/ui':
+        specifier: 'catalog:'
+        version: 5.1.0(vitest@5.1.0)
       bootstrap-icons:
         specifier: 'catalog:'
         version: 1.13.2
@@ -555,12 +582,24 @@ importers:
       nx:
         specifier: 'catalog:'
         version: 24.0.6
+      oxc-transform-react:
+        specifier: 'catalog:'
+        version: 0.158.0
       publint:
         specifier: 'catalog:'
         version: 0.3.25
+      storybook:
+        specifier: 'catalog:'
+        version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
   apps/creative-cloud/atelier:
     dependencies:
@@ -1349,9 +1388,6 @@ importers:
       '@rasm/hooks':
         specifier: workspace:*
         version: link:../../hooks
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1468,9 +1504,6 @@ importers:
       '@rasm/mcp':
         specifier: workspace:*
         version: link:../../mcp
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1707,9 +1740,6 @@ importers:
       '@rasm/database':
         specifier: workspace:*
         version: link:../../database
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1740,9 +1770,6 @@ importers:
       '@rasm/object-storage':
         specifier: workspace:*
         version: link:../../object-storage
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1833,9 +1860,6 @@ importers:
       '@rasm/applications':
         specifier: workspace:*
         version: link:../../applications
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1863,9 +1887,6 @@ importers:
       '@octokit/webhooks-methods':
         specifier: 'catalog:'
         version: 6.0.0
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@rasm/webhooks':
         specifier: workspace:*
         version: link:../../webhooks
@@ -1896,6 +1917,9 @@ importers:
 
   libs/typescript/messaging/webhooks:
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1927,9 +1951,6 @@ importers:
       '@rasm/ssh':
         specifier: workspace:*
         version: link:../../ssh
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2035,9 +2056,6 @@ importers:
       '@pulumi/pulumi':
         specifier: 3.275.0-alpha.xc9c1940
         version: 3.275.0-alpha.xc9c1940(@typescript/typescript6@6.0.2)(supports-color@10.2.2)
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@rasm/workers':
         specifier: workspace:*
         version: link:../../workers
@@ -2191,9 +2209,6 @@ importers:
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../hosting
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -2212,9 +2227,6 @@ importers:
       '@effect/atom-react':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(react@19.3.1)(scheduler@0.28.0)
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../../../../tests/typescript/support
       '@rasm/ui':
         specifier: workspace:*
         version: link:../../ui
@@ -2227,15 +2239,9 @@ importers:
       '@types/react-dom':
         specifier: 'catalog:'
         version: 19.3.0(@types/react@19.3.0)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 6.3.0(oxc-transform-react@0.158.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
       effect:
         specifier: 'catalog:'
         version: 4.1.4
-      oxc-transform-react:
-        specifier: 'catalog:'
-        version: 0.158.0
       react:
         specifier: 'catalog:'
         version: 19.3.1

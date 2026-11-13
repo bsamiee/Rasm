@@ -4,7 +4,7 @@
     "treatConfigHintsAsErrors": true,
     "ignoreDependencies": [ "@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "@storybook/addon-vitest", "adobe", "claude-code", "indesign-uxp-types" ],
     "ignoreIssues": { "package.json": [ "dependencies", "devDependencies", "optionalPeerDependencies" ] },
-    "wrangler": { "config": [ "cloudflare.config.ts" ] },
+    "wrangler": { "entry": [ "cloudflare.config.ts" ] },
     "workspaces": {
         ".": { "entry": [], "project": [] },
         "apps/nx/*": { "entry": [ "executors/*/executor.ts", "generators/*/generator.ts" ] }

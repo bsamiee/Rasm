@@ -49,8 +49,7 @@ const { createNodes } = inferred({
                 file,
                 root: path.dirname(file),
                 technologies: TECHNOLOGIES,
-                members: hosted ? { install: { pulumi: stacks('Install', "Applies the stacks a program package states for a project's local install, refreshing live state first", ['^install']) } } : {},
-                targets: { deploy },
+                members: { ...(hosted && { install: { pulumi: stacks('Install', "Applies the stacks a program package states for a project's local install, refreshing live state first", ['^install']) } }), deploy: { pulumi: deploy } },
             };
         }),
 });

@@ -1,0 +1,4 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": { "module": "preserve", "types": [ "node", "@cloudflare/workers-types/experimental", "@cloudflare/vitest-plugin/types" ] }
+}

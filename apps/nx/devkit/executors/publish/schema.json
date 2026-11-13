@@ -1,43 +1,41 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": 2,
-  "type": "object",
-  "properties": {
-    "dryRun": {
-      "type": "boolean",
-      "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
-    },
-    "publish": {
-      "type": "array",
-      "minItems": 1,
-      "description": "The tool's publish argument list, followed by each file the target's dependency targets declare as outputs",
-      "items": [
-        {
-          "type": "string"
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "publish": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The tool's publish argument list, followed by each file the target's dependency targets declare as outputs",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
+        },
+        "preview": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The tool's own dry-run form, run in place of publish under a dry run, absent prints publish and runs nothing",
+            "items": [
+                {
+                    "type": "string"
+                }
+            ],
+            "additionalItems": {
+                "type": "string"
+            }
         }
-      ],
-      "additionalItems": {
-        "type": "string"
-      }
     },
-    "preview": {
-      "type": "array",
-      "minItems": 1,
-      "description": "The tool's own dry-run form, run in place of publish under a dry run, absent prints publish and runs nothing",
-      "items": [
-        {
-          "type": "string"
-        }
-      ],
-      "additionalItems": {
-        "type": "string"
-      }
-    }
-  },
-  "required": [
-    "publish"
-  ],
-  "additionalProperties": true,
-  "title": "Publish",
-  "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command; runs through nx release publish"
+    "required": [ "publish" ],
+    "additionalProperties": true,
+    "title": "Publish",
+    "description": "Delivers the files a project's packaging targets wrote to its registry or store through its tool's own publish command; runs through nx release publish"
 }

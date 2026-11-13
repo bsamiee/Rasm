@@ -1,7 +1,7 @@
 import { createExecutionContext, createMessageBatch, createScheduledController, getQueueResult, type MessageBatchMessage, waitOnExecutionContext } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { assert, it } from '@effect/vitest';
-import { Array, DateTime, Duration, Effect, Record } from 'effect';
+import { Array, DateTime, Duration, Effect } from 'effect';
 import worker, { answers, type Job, keys, refused } from '#/server/worker';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -18,12 +18,11 @@ const fetched = Effect.fnUntraced(function* (path: string) {
     const response = yield* Effect.promise(() => Promise.resolve(fetch(new IncomingRequest(`http://example.com${path}`), env, ctx)));
     return { ctx, status: response.status, text: yield* Effect.promise(() => response.text()) };
 });
-const read = (key: string) => Effect.flatMap(Effect.fromOption(Record.get(env, 'RESULTS')), (results: KVNamespace) => Effect.promise(() => results.get(key)));
+const read = (key: string) => Effect.promise(() => env.RESULTS.get(key));
 const consumed = Effect.fnUntraced(function* (...bodies: Array.NonEmptyReadonlyArray<typeof Job.Type>) {
     const sent: MessageBatchMessage<typeof Job.Type>[] = Array.map(bodies, (body, index) => ({ id: `${body.key}-${index}`, timestamp: DateTime.toDateUtc(DateTime.makeUnsafe(interval * (index + 1))), attempts: 1, body }));
     const [consume, ctx] = [yield* Effect.fromNullishOr(worker.queue), createExecutionContext()];
-    const name: string = yield* Effect.fromOption(Record.get(env, 'QUEUE'));
-    const batch = createMessageBatch(name, sent);
+    const batch = createMessageBatch(env.QUEUE, sent);
     yield* Effect.promise(() => Promise.resolve(consume(batch, env, ctx)));
     const { outcome, retryBatch, ackAll, retryMessages, explicitAcks } = yield* Effect.promise(() => getQueueResult(batch, ctx));
     return { outcome, retryBatch: retryBatch.retry, ackAll, retryMessages: Array.map(retryMessages, ({ msgId }) => msgId), explicitAcks };

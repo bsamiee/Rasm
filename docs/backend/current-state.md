@@ -69,7 +69,7 @@ Host workload today is repository tooling: an Nx remote cache, a receiver of Tai
 12. Command `<host>-services` runs `docker compose --file - up --build --detach --wait --remove-orphans` over SSH with secrets as `SendEnv` variables
 13. Executor calls `stack.up({ refresh: true })` for every stack at once and prints one JSON line per stack
 
-`nx deploy @rasm/portfolio --stack=<row>` follows `hosting-stack.ts`: it resolves the Vite config, runs `docker compose config` on `compose.yaml` to read ports and credentials, opens an SSH forward to Postgres, declares roles, databases, and buckets through providers, writes 2 temporary Compose documents, and pipes a third to `docker compose up --build` on its target.
+`nx run @rasm/portfolio:deploy--pulumi --stack=<row>` follows `hosting-stack.ts`: it resolves the Vite config, runs `docker compose config` on `compose.yaml` to read ports and credentials, opens an SSH forward to Postgres, declares roles, databases, and buckets through providers, writes 2 temporary Compose documents, and pipes a third to `docker compose up --build` on its target.
 
 ## [04]-[HOST_SH]
 

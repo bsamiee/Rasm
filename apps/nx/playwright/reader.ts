@@ -15,7 +15,7 @@ const REPORTERS: Record.ReadonlyRecord<string, readonly [name: string, defaulted
     coverage: ['coverage', true],
     perfetto: ['test-results', true],
 };
-const TASK = /(?:^|\s)nx (?:run (?<project>[^\s:]+):(?<target>[^\s:]+)(?::\S*)?|(?<target>\S+) (?<project>\S+))$/u;
+const TASK = /^(?:(?:npx|yarn|bun|bunx|bun x|pnpm|pnpm exec|pnpx) )?nx (?:run (?<project>[^\s:]+):(?<target>[^\s:]+)(?::[^\s:]*)?|(?<target>\S+) (?<project>\S+))$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -54,8 +54,7 @@ const read = Effect.fnUntraced(function* ({ root, file, flags, directed }: typeo
         ([at]) => at,
     );
     const stated = (Predicate.isString(reporter) ? [[reporter, {}] as const] : reporter).map(([name, options]) => [name, Option.flatMap(Schema.decodeUnknownOption(Reported)(options), ({ outputFile, outputDir, outputFolder }) => Option.fromUndefinedOr(outputFile ?? outputDir ?? outputFolder))] as const);
-    const undirected = Record.filter(defaults, (_, name) => !directed.includes(name));
-    const reports = Array.getSomes(stated.map(([name, at]) => Option.orElse(at, () => Record.get(undirected, name))));
+    const reports = Array.getSomes(stated.filter(([name]) => !directed.includes(name)).map(([name, at]) => Option.orElse(at, () => Record.get(defaults, name))));
     const written = stated.map(
         ([name, at]) =>
             [

@@ -8,6 +8,7 @@
         "directory": "apps/nx/apple/analyzer"
     },
     "license": "MIT",
+    "type": "module",
     "exports": {
         "./nx-apple-analyzer": "./.build/out/Products/Release/nx-apple-analyzer",
         "./package.json": "./package.json"

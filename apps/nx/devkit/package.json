@@ -35,7 +35,7 @@
         "nx": "catalog:"
     },
     "peerDependencies": {
-        "@nx/js": "catalog:",
+        "@nx/js": "catalog:peers",
         "nx": "catalog:peers"
     },
     "peerDependenciesMeta": {

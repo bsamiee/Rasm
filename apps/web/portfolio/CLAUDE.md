@@ -117,7 +117,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - `tsconfig.json` references one program per runtime: `tsconfig.app.json` browser code, `tsconfig.node.json` Node entry and tool configs, `tsconfig.worker.json` Worker entry with `cloudflare.config.ts` and `.cloudflare/types`
 - `.openai/hosting.json` names the D1 and R2 bindings OpenAI Sites supplies, written by hand, and the host assigns `project_id`
-- `nx install @rasm/portfolio` applies the app on the local engine, `nx deploy @rasm/portfolio --stack=<row>` on one hosting row
+- `nx install @rasm/portfolio` applies the app on the local engine, `nx run @rasm/portfolio:deploy--pulumi --stack=<row>` on one hosting row
 - `-c release --stack=<row>` applies the production stack of that row, and no `--stack` applies every stack that exists
 - Row `cloudflare` deploys the built Worker with every binding its Build Output states, creating each D1 database and R2 bucket a binding names, bucket lifecycle rules, and an Access application on the sign-in path
 - `--destroy` on a disposable row empties its bucket and removes every resource, reading the Build Output `build--vite` wrote

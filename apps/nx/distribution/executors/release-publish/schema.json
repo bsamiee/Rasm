@@ -1,14 +1,14 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": 2,
-  "type": "object",
-  "properties": {
-    "dryRun": {
-      "type": "boolean",
-      "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
-    }
-  },
-  "additionalProperties": true,
-  "title": "Release publish",
-  "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload; runs through nx release publish"
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        }
+    },
+    "additionalProperties": true,
+    "title": "Release publish",
+    "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload; runs through nx release publish"
 }

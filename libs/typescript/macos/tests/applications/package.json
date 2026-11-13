@@ -6,7 +6,6 @@
     "devDependencies": {
         "@effect/vitest": "catalog:",
         "@rasm/applications": "workspace:*",
-        "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "vitest": "catalog:"

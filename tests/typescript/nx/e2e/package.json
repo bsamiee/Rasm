@@ -13,7 +13,8 @@
         "implicitDependencies": [ "@rasm/test-nx" ],
         "targets": {
             "test--vitest": {
-                "dependsOn": [ "...", "^build" ]
+                "dependsOn": [ "...", "^pack" ],
+                "inputs": [ "...", { "input": "default", "projects": [ "*" ] } ]
             }
         }
     }

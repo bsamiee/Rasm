@@ -4,5 +4,5 @@
         "declaration": false,
         "noEmit": true
     },
-    "include": [ ".storybook/*", "*.stories.ts", "*.stories.tsx", "vitest.config.ts" ]
+    "include": [ ".storybook/*", "*.stories.ts", "*.stories.tsx" ]
 }

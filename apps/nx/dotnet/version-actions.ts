@@ -17,7 +17,7 @@ const versioned = Effect.fnUntraced(function* (text: string, at: string) {
     const groups = Array.fromNullishOr(ast.buildAst(document, tokenVector).rootElement).flatMap(({ subElements }) => subElements.filter(({ name }) => name === 'PropertyGroup'));
     const stated = Array.findLast(
         groups.flatMap(({ subElements }) => subElements.filter(({ name }) => name === 'Version')),
-        ({ textContents }) => Array.findFirst(textContents, ({ text, position }) => Option.map(Option.fromNullOr(text), (version) => ({ version, position }))),
+        ({ textContents }) => Array.findFirst(textContents, ({ text: version, position }) => Option.all({ version: Option.fromNullOr(version), position: Option.some(position) })),
     );
     return yield* Effect.mapError(Effect.fromOption(stated), ToolError.of(at, 'states no Version property, which nx release reads and writes in the project file'));
 });

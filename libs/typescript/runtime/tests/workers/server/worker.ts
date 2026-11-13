@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { Worker } from '@rasm/workers';
 import { Execution } from '@rasm/workers/execution';
-import { Context, Effect, Layer, Record, Schema } from 'effect';
+import { Context, Effect, Layer, Schema } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
 
@@ -21,11 +21,7 @@ const Keyed = Schema.Struct({ key: Schema.String });
 class Isolate extends Context.Service<Isolate, { readonly built: string; readonly results: KVNamespace; readonly producer: Queue<typeof Job.Type> }>()('@rasm/test-workers/server/worker/Isolate') {
     static readonly layer = Layer.effect(
         this,
-        Effect.all({
-            built: SecureRandom.SecureRandom.use(({ uuidV7 }) => uuidV7()),
-            results: Effect.fromOption(Record.get(env, 'RESULTS')),
-            producer: Effect.fromOption(Record.get(env, 'PRODUCER')),
-        }),
+        SecureRandom.SecureRandom.use(({ uuidV7 }) => Effect.map(uuidV7(), (built) => ({ built, results: env.RESULTS, producer: env.PRODUCER }))),
     ).pipe(Layer.provide(SecureRandom.layerWebCrypto));
 }
 

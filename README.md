@@ -7,18 +7,19 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 ```text
 Rasm/
 ├── apps/                     # Products by host or interface
-├── libs/                     # Published packages by language
+├── libs/                     # Packages by language
 ├── tests/                    # Suites per language, at the path of the project they test
 ├── tools/                    # Checks and grammars other checkers lack, by the tool that runs them
 ├── assets/                   # Reusable assets no one app or plugin owns, each app or plugin keeps its own assets in its folder
 ├── infra/                    # Pulumi programs for repository and hosting resources, Compose services
 ├── plugins/                  # Agent harness marketplace
-├── docs/                     # Research sheets, ignored under docs/research
+├── docs/
 ├── nx.json                   # One row per Nx plugin and the release policy
 ├── package.json              # Workspace root package
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── tsconfig.base.json        # TypeScript options every package compiles and emits with
 ├── tsconfig.web.json         # TypeScript options for bundled browser code
+├── tsconfig.worker.json      # TypeScript options for test suites running in workerd
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pyproject.toml            # Python workspace root, catalog groups, and checker settings
 ├── Workspace.slnx            # .NET solution listing every project
@@ -118,9 +119,10 @@ flowchart LR
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
 - Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
+- Commits run no pre-commit hook: hk checks a commit's message alone, and file checks run when a shell or agent calls hk
 - Checkers report every finding as an error through their own configuration
 - Checker configuration named by path sits in `.config/`, since tools run through hk and Nx alone, never directly
-- Libraries are published packages: they take paths, names, and policies from their caller and hold no repository convention
+- Libraries take paths, names, and policies from their caller and hold no repository convention
 - Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`, `dist` and editor-shared folders stay where their tool puts them
 - Published apps read their identity from the host API (`Bundle.main`, `process.execPath`) and keep settings in their own preferences
 - Apps and tools made here default cache, log, and runtime folders to per-user locations, one documented setting moves each, each bounds its logs
@@ -158,13 +160,14 @@ flowchart LR
 - `codegen` writes source code a project's tools derive from its schemas and configuration
 - `build` compiles or packages a project into its declared outputs
 - `pack` writes the files a release holds where they differ from the build (`.tgz`, `.nupkg`, CPack archive, app `.zip` or `.dmg`)
+- `attach` uploads the files a project's packaging targets wrote to the GitHub release of its version
 - `check` reports findings of checkers reading the project model and changes no source file
 - `fix` applies fixes from checkers reading the project model
 - `test` runs a project's test runners
 - `serve` runs a project's development servers until the run ends, where its config holds the ready signal its Nx plugin exports or a Vite config states `server`, and starts the Compose services whose Dockerfile it holds, which stay up
 - `preview` builds a project, then serves its build output as `serve` does
 - `install` puts a local build into its host or starts local services
-- `deploy` applies a project's infrastructure stacks, `--stack=<name>` one of them, `-c release` those of a released version
+- `deploy` applies a project's infrastructure stacks, `-c release` those of a released version, and `nx run <project>:deploy--pulumi --stack=<name>` one of them
 - `upgrade` moves an ecosystem root's dependency requirements and locks to newer releases through its own tool
 - `clean` removes the outputs a project's targets declare and runs its tool's clean
 

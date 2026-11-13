@@ -4,7 +4,7 @@ import { env } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import type { ProjectGraph } from '@nx/devkit';
 import { Completed } from '@rasm/process';
-import { Array, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, identity, Path, Predicate, Record, Result, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
 import { checkout } from '#/nx/inference';
@@ -75,7 +75,7 @@ const closure = Effect.fnUntraced(function* (seeds: ReadonlyArray<readonly [name
     return yield* Record.isEmptyRecord(found) ? Effect.succeed(held) : closure(required, { ...held, ...found });
 });
 
-const installed = Effect.fn('installed')(function* (files: Record.ReadonlyRecord<string, string>, packages: readonly string[], resolved: string | URL, nxJson: NxJsonConfiguration, ignored: readonly string[] = []) {
+const installed = Effect.fn('installed')(function* (files: Record.ReadonlyRecord<string, string>, packages: readonly string[], resolved: string | URL, nxJson: NxJsonConfiguration, packed: (source: string) => string, ignored: readonly string[] = []) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const linked = Array.dedupe(['nx', ...packages]);
     const held = yield* closure(
@@ -90,7 +90,23 @@ const installed = Effect.fn('installed')(function* (files: Record.ReadonlyRecord
         packages: { '': { name: 'root' }, ...Record.mapEntries(held, ({ manifest: { version = '0.0.0' } }, name) => [`node_modules/${name}`, { version, resolved: `https://registry.npmjs.org/${name}/-/${path.basename(name)}-${version}.tgz`, integrity: 'sha512-0' }]) },
     };
     const [settings, locked] = yield* Effect.all([Schema.encodeUnknownEffect(Json)(nxJson), Schema.encodeUnknownEffect(Json)(lock)]);
-    const root = yield* checkout({ '.gitignore': ['.nx', 'node_modules', ...ignored, ''].join('\n'), 'nx.json': settings, 'package-lock.json': locked, ...files }, linked, resolved);
+    const root = yield* checkout({ '.gitignore': ['.nx', 'node_modules', ...ignored, ''].join('\n'), 'nx.json': settings, 'package-lock.json': locked, ...files }, [], resolved);
+    const [sourced, stored] = Record.partition(
+        held,
+        Result.liftPredicate(({ file }: Held) => file.split(path.sep).includes('node_modules'), identity),
+    );
+    yield* Effect.forEach(Record.toEntries(stored), ([name, { file }]) => Effect.andThen(fs.makeDirectory(path.join(root, 'node_modules', path.dirname(name)), { recursive: true }), fs.symlink(path.dirname(file), path.join(root, 'node_modules', name))), { discard: true });
+    yield* Effect.forEach(
+        Record.toEntries(sourced),
+        Effect.fnUntraced(function* ([name, { file }]) {
+            const [folder, to] = [packed(path.dirname(file)), path.join(root, 'node_modules', name)];
+            const names = yield* fs.readDirectory(folder);
+            const tarball = yield* Effect.fromNullishOr(names.find((entry) => path.extname(entry) === '.tgz'));
+            yield* fs.makeDirectory(to, { recursive: true });
+            yield* Completed.output(ChildProcess.make('tar', ['-xzf', path.join(folder, tarball), '--strip-components=1', '-C', to], { stdin: 'ignore' }));
+        }),
+        { discard: true },
+    );
     yield* fs.makeDirectory(path.join(root, 'node_modules/.bin'));
     yield* Effect.forEach(
         Array.zip(linked, manifests).flatMap(([name, { bin = {} }]) => Record.collect(Predicate.isString(bin) ? { [path.basename(name)]: bin } : bin, (command, file) => [command, path.join(root, 'node_modules', name, file)] as const)),

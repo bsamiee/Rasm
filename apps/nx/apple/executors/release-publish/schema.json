@@ -1,39 +1,34 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "version": 2,
-  "type": "object",
-  "properties": {
-    "dryRun": {
-      "type": "boolean",
-      "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
-    },
-    "exports": {
-      "type": "array",
-      "description": "Archived apps whose disk image gets a Sparkle feed",
-      "items": {
-        "type": "object",
-        "properties": {
-          "archive": {
-            "type": "string",
-            "description": "The .xcarchive whose app states its Sparkle feed in SUFeedURL"
-          },
-          "folder": {
-            "type": "string",
-            "description": "Folder holding the disk image of that app"
-          }
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "version": 2,
+    "type": "object",
+    "properties": {
+        "dryRun": {
+            "type": "boolean",
+            "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
         },
-        "required": [
-          "archive",
-          "folder"
-        ],
-        "additionalProperties": true
-      }
-    }
-  },
-  "required": [
-    "exports"
-  ],
-  "additionalProperties": true,
-  "title": "Release publish",
-  "description": "Signs a Sparkle feed for each disk image the target's dependency targets wrote with generate_appcast under SPARKLE_ED_PRIVATE_KEY, pointing at the image's asset on the GitHub release of the project's version, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put; runs through nx release publish"
+        "exports": {
+            "type": "array",
+            "description": "Archived apps whose disk image gets a Sparkle feed",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "archive": {
+                        "type": "string",
+                        "description": "The .xcarchive whose app states its Sparkle feed in SUFeedURL"
+                    },
+                    "folder": {
+                        "type": "string",
+                        "description": "Folder holding the disk image of that app"
+                    }
+                },
+                "required": [ "archive", "folder" ],
+                "additionalProperties": true
+            }
+        }
+    },
+    "required": [ "exports" ],
+    "additionalProperties": true,
+    "title": "Release publish",
+    "description": "Signs a Sparkle feed for each disk image the target's dependency targets wrote with generate_appcast under SPARKLE_ED_PRIVATE_KEY, pointing at the image's asset on the GitHub release of the project's version, and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names at the path of the app's SUFeedURL through cf r2 objects put; runs through nx release publish"
 }

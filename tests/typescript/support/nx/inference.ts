@@ -9,6 +9,14 @@ import { getOnlyDefaultPlugins } from 'nx/src/project-graph/plugins/get-plugins'
 import type { LoadedNxPlugin } from 'nx/src/project-graph/plugins/loaded-nx-plugin';
 import { retrieveProjectConfigurations, retrieveWorkspaceFiles } from 'nx/src/project-graph/utils/retrieve-workspace-files';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+declare module 'vitest' {
+    interface ProvidedContext {
+        readonly driven: boolean;
+    }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const checkout = Effect.fn('checkout')(function* (files: Record.ReadonlyRecord<string, string>, packages: readonly string[], resolved: string | URL) {

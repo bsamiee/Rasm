@@ -386,7 +386,7 @@ const TASKS: Ruleset = {
                 perSubcommand({
                     up: [refuse('skips stack programs', 'run nx deploy <project>')],
                     refresh: [refuse('skips stack programs', 'run nx deploy <project>')],
-                    destroy: [refuse('skips stack programs', 'run nx deploy <project> --destroy')],
+                    destroy: [refuse('skips stack programs', 'run nx run <project>:deploy--pulumi --destroy')],
                     preview: [refuse('skips stack programs', 'run nx release --dry-run')],
                 }),
             ],

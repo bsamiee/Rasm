@@ -159,4 +159,4 @@ const consulted = <J extends Job, A, O extends typeof Timed.Type>({
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Answer, type Asked, consulted, Timed };
+export { type Answer, type Asked, chained, consulted, Timed };

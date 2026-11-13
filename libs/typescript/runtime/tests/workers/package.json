@@ -12,7 +12,6 @@
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@pulumi/pulumi": "catalog:",
-        "@rasm/testing": "workspace:*",
         "@rasm/workers": "workspace:*",
         "@types/node": "catalog:",
         "cf": "catalog:",

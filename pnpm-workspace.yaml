@@ -470,6 +470,7 @@ catalog:
     '@nx/devkit': 24.0.6
     '@nx/js': 24.0.6 # tsconfig `extends` chains the config-reading plugins hash
     '@nx/web': 24.0.6 # `file-server` executor serving a built Storybook
+    '@nx/plugin': 24.0.6 # `@nx/plugin/testing` end-to-end helpers for Nx plugins
 
     # --- [BUILD]
 
@@ -598,6 +599,8 @@ catalogs:
         '@playwright/test': ^1.66.0-0
         pdfjs-dist: ^6.0.0
         nx: ^24.0.0
+        '@nx/devkit': ^24.0.0
+        '@nx/js': ^24.0.0
         '@nx/web': ^24.0.0 # Nx resolves the executor from the workspace's own `@nx/web`, released in step with its `nx`
         '@pulumi/pulumi': ^3.274.0-0
         '@pulumi/cloudflare': ^6.0.0-0
@@ -654,14 +657,6 @@ overrides:
     '@axe-core/playwright>playwright-core': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version, Renovate's pnpm parser refuses a `:peer` suffix
     tree-sitter: '-'     # Node bindings the grammar packages name as peers, the build compiles their C sources alone
     tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
-
-# --- [UPDATE] ---------------------------------------------------------------------------
-
-# `nx upgrade rasm` runs `pnpm update --recursive --latest`: each row moves to tag `latest`, a row already ahead of it (a prerelease) stays, Nx rows included
-update:
-    ignoreDeps:
-        - '@typescript/native' # Held at the native TypeScript release `@effect/tsgo` supports
-        - '@duckdb/duckdb-wasm' # Held at tag `next`, SemVer orders `dev57` of tag `latest` above the later `dev114`
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 

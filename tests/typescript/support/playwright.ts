@@ -1,10 +1,18 @@
 import AxeBuilder from '@axe-core/playwright';
 import { getPackageManagerCommand, getReadyUrl } from '@nx/devkit';
+import { isCI } from '@nx/devkit/internal';
 import { defineConfig, test } from '@playwright/test';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const config = defineConfig({ reporter: [['junit'], ['html', { open: 'never' }]], use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' } });
+const config = defineConfig({
+    forbidOnly: isCI(),
+    reporter: [
+        ['junit', { outputFile: 'test-results/junit.xml' }],
+        ['html', { open: 'never' }],
+    ],
+    use: { trace: 'retain-on-failure', screenshot: 'only-on-failure' },
+});
 
 const served = (task: string, address: string) => {
     const url = getReadyUrl(address);

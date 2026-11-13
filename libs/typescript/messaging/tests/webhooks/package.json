@@ -12,7 +12,6 @@
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@octokit/webhooks-methods": "catalog:",
-        "@rasm/testing": "workspace:*",
         "@rasm/webhooks": "workspace:*",
         "@types/node": "catalog:",
         "cf": "catalog:",

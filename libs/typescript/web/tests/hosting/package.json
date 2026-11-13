@@ -7,7 +7,6 @@
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/hosting": "workspace:*",
-        "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
         "effect": "catalog:",
         "vite": "catalog:",

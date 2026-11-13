@@ -2,7 +2,7 @@ import { availableParallelism } from 'node:os';
 import type { TargetConfiguration } from '@nx/devkit';
 import { ancestors, inferred, line, listed, type Members, NODE, type Project, type Request, type Unit } from '@rasm/nx-devkit/plugin';
 import { ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, identity, Option, Path, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Effect, FileSystem, identity, Match, Option, Path, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIG, configured, type Solution } from '#/configuration';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -11,9 +11,6 @@ interface Program {
     readonly commands: readonly string[];
     readonly outputs: readonly string[];
     readonly chain: readonly string[];
-}
-interface Packed {
-    readonly packed: boolean;
 }
 interface Read extends Unit {
     readonly tools: { readonly tsc: readonly string[]; readonly tsgo: readonly string[]; readonly publint: readonly string[] };
@@ -107,18 +104,18 @@ const held = Effect.fnUntraced(
 
 const compiled = (path: Path.Path, exec: string, root: string, { commands, outputs, chain }: Program, tools: Read['tools']): Members => {
     const metadata = (description: string, example: readonly string[]) => ({ description, help: { command: `${exec} tsc --help`, example: { args: [...example] } } });
-    const tsc: TargetConfiguration = {
+    const tsc = {
         executor: 'nx:run-commands',
         options: { commands, cwd: root },
         dependsOn: ['codegen--*', '^codegen'],
         cache: true,
         inputs: ['default', '^default', ...chain.filter((at) => !at.startsWith(`${root}/`)).map((at) => path.join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { externalDependencies: [...tools.tsc, ...tools.tsgo] }],
         outputs: [],
-    };
+    } satisfies TargetConfiguration;
     return Array.match(outputs, {
         onEmpty: () => ({ check: { tsc: { ...tsc, metadata: metadata('Type-checks every program of the project with tsc', ['--extendedDiagnostics']) } } }),
         onNonEmpty: (written) => ({
-            build: { tsc: { ...tsc, dependsOn: ['codegen--*', '^codegen', '^build'], outputs: written.map((at) => path.join('{workspaceRoot}', at)), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } },
+            build: { tsc: { ...tsc, dependsOn: ['clean--tsc', ...tsc.dependsOn], outputs: written.map((at) => path.join('{workspaceRoot}', at)), metadata: metadata('Emits JavaScript and declarations with tsc, type-checking every program it builds', ['--listEmittedFiles']) } },
             check: {
                 tsc: { executor: 'nx:noop', dependsOn: ['build--tsc'], metadata: metadata('Type-checks through the build--tsc compile', ['--extendedDiagnostics']) },
                 ...(Array.isReadonlyArrayNonEmpty(tools.publint) && {
@@ -161,19 +158,20 @@ const { createNodes } = inferred({
             missing,
             Result.liftPredicate(({ file }: Read) => path.basename(file) === MANIFEST, identity),
         );
-        const solutions = new Map(yield* Array.match(programs, { onEmpty: () => Effect.succeed([]), onNonEmpty: (held) => configured(workspaceRoot, Array.headNonEmpty(held), Array.map(held, ({ file }) => file)) }));
-        const packed = new Map<string, Result.Result<Program | Packed, Error>>(
-            yield* Effect.forEach(manifests, ({ file }) => Effect.map(Effect.result(Effect.flatMap(fs.readFileString(path.join(workspaceRoot, file)), Schema.decodeEffect(Manifest))), (read) => [file, Result.map(read, (manifest) => ({ packed: manifest.private !== true }))] as const)),
+        const solutions = new Map(
+            yield* Array.isReadonlyArrayNonEmpty(programs)
+                ? configured(
+                      workspaceRoot,
+                      Array.headNonEmpty(programs),
+                      Array.map(programs, ({ file }) => file),
+                  )
+                : Effect.succeed([]),
         );
-        return missing.map(({ file }) =>
-            Result.map(
-                packed.get(file) ?? Result.flatMap(solutions.get(file) ?? Result.fail(ToolError.make({ subject: file, detail: 'opens no TypeScript project' })), (solved) => resolved(path, workspaceRoot, path.dirname(file), solved)),
-                (report) => ({ report }),
-            ),
-        );
+        const packed = new Map<string, Result.Result<Program | typeof Manifest.Type, Error>>(yield* Effect.forEach(manifests, ({ file }) => Effect.map(Effect.result(Effect.flatMap(fs.readFileString(path.join(workspaceRoot, file)), Schema.decodeEffect(Manifest))), (read) => [file, read] as const)));
+        return missing.map(({ file }) => Result.map(packed.get(file) ?? Result.flatMap(solutions.get(file) ?? Result.fail(ToolError.make({ subject: file, detail: 'opens no TypeScript project' })), (solved) => resolved(path, workspaceRoot, path.dirname(file), solved)), (report) => ({ report })));
     }),
-    sources: (report: Program | Packed, { file }: Read) => ({ tracked: [file, ...('chain' in report ? report.chain : [])] }),
-    projects: (report: Program | Packed, { file, tools }: Read, { path, exec, placed }) => {
+    sources: (report: Program | typeof Manifest.Type, { file }: Read) => ({ tracked: [file, ...('chain' in report ? report.chain : [])] }),
+    projects: (report: Program | typeof Manifest.Type, { file, tools }: Read, { path, exec, placed }) => {
         const root = path.dirname(file);
         const folder = Option.getOrElse(placed('pnpm', root), () => root);
         const tarball: Project = {
@@ -194,7 +192,11 @@ const { createNodes } = inferred({
             },
             packaged: ['pack--pnpm'],
         };
-        return 'chain' in report ? [{ file, root, technologies: ['typescript'], clean: 'tsc', members: compiled(path, exec, root, report, tools) }] : report.packed ? [tarball] : [];
+        return Match.value(report).pipe(
+            Match.when({ chain: Match.any }, (program): readonly Project[] => [{ file, root, technologies: ['typescript'], clean: 'tsc', members: compiled(path, exec, root, program, tools) }]),
+            Match.when({ private: true }, () => []),
+            Match.orElse(() => [tarball]),
+        );
     },
 });
 

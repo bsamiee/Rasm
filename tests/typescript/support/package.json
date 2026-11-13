@@ -43,7 +43,7 @@
         "vitest": "catalog:"
     },
     "peerDependencies": {
-        "@nx/devkit": "catalog:",
+        "@nx/devkit": "catalog:peers",
         "@playwright/test": "catalog:peers",
         "@storybook/addon-a11y": "catalog:peers",
         "effect": "catalog:peers",

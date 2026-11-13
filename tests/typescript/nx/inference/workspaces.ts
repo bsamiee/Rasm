@@ -3,11 +3,12 @@ import { basename, delimiter, join, matchesGlob } from 'node:path';
 import { env, platform } from 'node:process';
 import type { layer } from '@effect/platform-node/NodeServices';
 import type { Vitest } from '@effect/vitest';
-import type { ProjectGraph } from '@nx/devkit';
+import { type ProjectGraph, workspaceRoot } from '@nx/devkit';
+import devkit from '@rasm/nx-devkit/package.json' with { type: 'json' };
 import { called, graph, installed } from '@rasm/testing/nx/cli';
 import { checkout } from '@rasm/testing/nx/inference';
-import { Array, Cause, DateTime, Effect, FileSystem, type Layer, Option, Path, Predicate, Record } from 'effect';
-import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
+import { Array, Cause, DateTime, Effect, FileSystem, type Layer, Option, Path, Predicate, Record, Schema } from 'effect';
+import { type NxJsonConfiguration, readNxJson } from 'nx/src/config/nx-json';
 import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import type { Subject } from '#/inference/cases';
 
@@ -21,6 +22,10 @@ const SLOW = { timeout: 300_000 } as const;
 const PATTERN = /\/?[*{].*$/u;
 const MANIFESTS = ['package.json', 'project.json'];
 const FOLDERS = Option.match(Record.get(Record.filter(env, Predicate.isNotUndefined), 'PATH'), { onNone: () => [], onSome: (folders) => folders.split(delimiter) });
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Placed = Schema.Struct({ outputPath: Schema.String }).annotate({ description: 'The outputPath this workspace gives every plugin row: pack--pnpm writes each package tarball under <outputPath>/pnpm/<package folder>' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -55,8 +60,8 @@ const locks = ({ files, locked = [] }: Subject) =>
     );
 
 const placed = Effect.fnUntraced(function* (subject: Subject, files: Record.ReadonlyRecord<string, string> = {}, nxJson: NxJsonConfiguration = { plugins: [row(subject)] }) {
-    const held = yield* locks(subject);
-    return yield* installed({ ...subject.files, ...held, ...files }, [subject.plugin.name, ...(subject.packages ?? [])], import.meta.url, nxJson, subject.state);
+    const [held, path, { outputPath }] = yield* Effect.all([locks(subject), Path.Path, Schema.decodeUnknownEffect(Placed)(readNxJson(workspaceRoot).pluginsConfig?.[devkit.name])]);
+    return yield* installed({ ...subject.files, ...held, ...files }, [subject.plugin.name, ...(subject.packages ?? [])], import.meta.url, nxJson, (source) => path.join(workspaceRoot, outputPath, 'pnpm', path.relative(workspaceRoot, source)), subject.state);
 });
 
 const amended = Effect.fnUntraced(function* (root: string, file: string, text: string) {

@@ -14,5 +14,9 @@
         { matchManagers: ['mise'], matchDatasources: ['conda'], registryUrls: ['https://api.anaconda.org/package/conda-forge/'] },
         // Renovate keeps the #subdirectory fragment of a pypi git row in the repository address it lists refs of
         { matchManagers: ['mise'], matchPackageNames: ['https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp'], overridePackageName: 'https://projects.blender.org/lab/blender_mcp.git' },
+        // Alias @typescript/native pins the native TypeScript build @effect/tsgo supports, which an @effect/tsgo release alone moves
+        { matchDepNames: ['@typescript/native'], enabled: false },
+        // SemVer orders build dev57 under tag latest of @duckdb/duckdb-wasm above the later dev114 under tag next, so the row follows next
+        { matchDepNames: ['@duckdb/duckdb-wasm'], followTag: 'next' },
     ],
 }

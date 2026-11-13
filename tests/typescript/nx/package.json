@@ -39,5 +39,12 @@
         "vite": "catalog:",
         "vitest": "catalog:",
         "yaml": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "test--vitest": {
+                "inputs": [ "...", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/renovate.json5", "{workspaceRoot}/.github/dependabot.yml", "{workspaceRoot}/.config/mise.lock" ]
+            }
+        }
     }
 }

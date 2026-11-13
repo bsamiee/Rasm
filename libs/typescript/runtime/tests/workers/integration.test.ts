@@ -1,6 +1,6 @@
 import { env, exports } from 'cloudflare:workers';
 import { assert, it } from '@effect/vitest';
-import { Array, type Cause, DateTime, Duration, Effect, Record, Schedule } from 'effect';
+import { Array, DateTime, Duration, Effect, Schedule } from 'effect';
 import { answers, type Job, refused } from '#/server/worker';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -9,7 +9,7 @@ const interval = Duration.toMillis('1 second');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const running: Effect.Effect<Fetcher, Cause.NoSuchElementError> = Effect.fromOption(Record.get(exports, 'default'));
+const running = Effect.fromNullishOr(exports.default);
 const fetched = Effect.fnUntraced(function* (path: string, init?: RequestInit) {
     const self = yield* running;
     const response = yield* Effect.promise(() => self.fetch(`https://example.com${path}`, init));
@@ -39,13 +39,12 @@ it.effect(
     'consumes queue messages sent to the running Worker, retrying the message of failed work alone',
     Effect.fnUntraced(function* () {
         const self = yield* running;
-        const name: string = yield* Effect.fromOption(Record.get(env, 'QUEUE'));
         const bodies: Array.NonEmptyReadonlyArray<typeof Job.Type> = [
             { key: '/6', value: 'six' },
             { key: '/7', value: refused },
         ];
         const messages: ServiceBindingQueueMessage<typeof Job.Type>[] = Array.map(bodies, (body, index) => ({ id: `${body.key}-${index}`, timestamp: DateTime.toDateUtc(DateTime.makeUnsafe(interval * (index + 1))), attempts: 1, body }));
-        const { outcome, retryBatch, ackAll, retryMessages, explicitAcks } = yield* Effect.promise(() => self.queue(name, messages));
+        const { outcome, retryBatch, ackAll, retryMessages, explicitAcks } = yield* Effect.promise(() => self.queue(env.QUEUE, messages));
         assert.deepStrictEqual({ outcome, retryBatch: retryBatch.retry, ackAll, retryMessages: Array.map(retryMessages, ({ msgId }) => msgId), explicitAcks }, { outcome: 'ok', retryBatch: false, ackAll: false, retryMessages: ['/7-1'], explicitAcks: ['/6-0'] });
     }),
 );
