@@ -59,10 +59,12 @@ New or reinstalled machines take these steps once:
 ## [04]-[CACHE]
 
 - Nx hashes a task's inputs (source files, dependency files, config, lock file package versions) and replays the stored result of an equal hash
-- CI setup action probes the cache server, pushes to `main` then read and write it, and pull requests read it
+- Workflow `CI` gives every job the cache server, pushes to `main` read and write it, and pull requests read it
 - Workflow `Release` uses no remote cache, so its run builds every file it attaches or publishes
 - This Mac uses its local cache alone: no remote cache variable is set here and Doppler `dev` holds none
-- Nx 24 stops a whole run on any cache server answer it does not expect, or none, with no setting to continue without the server
+- Nx 24 stops a run on a failed cache read and on a failed write of a batched task (cargo, dotnet), with no setting to continue without the server
+- Failed writes of any other task fail that task and each task depending on it, after retries over about 20 seconds
+- CI jobs fail at their first cache read while the server is down or refuses their token, and workflow `Deploy` still runs after that CI run
 - Cache variables set on this Mac would make every local `nx` command stop the same way while the cache machine is unreachable
 - `lucky` runs the cache alone, so no work on `derby` reaches it
 - Deploys recreate a cache container only on its changed definition, after the CI run of the newest push finishes every task
