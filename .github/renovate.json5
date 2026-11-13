@@ -8,6 +8,8 @@
     // The repository requires no status checks, so Renovate merges after every check passes in place of GitHub auto-merge
     platformAutomerge: false,
     packageRules: [
+        // Group blender of a Blender root pins the versions Blender bundles, which a Blender release alone moves
+        { matchManagers: ['pep621'], matchJsonata: ["managerData.depGroup = 'blender'"], enabled: false },
         // mise installs conda rows from channel conda-forge, which the conda datasource reads from its registry URL
         { matchManagers: ['mise'], matchDatasources: ['conda'], registryUrls: ['https://api.anaconda.org/package/conda-forge/'] },
         // Renovate keeps the #subdirectory fragment of a pypi git row in the repository address it lists refs of
