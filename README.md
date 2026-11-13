@@ -225,7 +225,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [26]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, `EngineVersion` of a `.uplugin`, found in Epic install lists     |
 |  [27]   | Deploy credential              | Doppler `rasm/deploy` `DOPPLER_IAC_TOKEN` and `GITHUB_TOKEN` rows Doppler and GitHub providers read    |
 |  [28]   | Machine                        | Doppler `rasm/deploy` `DEPLOYED_HOSTS` row, its secrets named `<MACHINE>_<CREDENTIAL>`                 |
-|  [29]   | Public service name            | Traefik `Host` rule of a service in `infra/compose.yaml`, a CNAME to each machine running it           |
+|  [29]   | Public service name            | Traefik `Host` rule of a service in `infra/compose.yaml`, a CNAME to each machine naming it            |
 
 - Tool rows stay at `latest` where their backend lists releases, a `version_regex` over release tags excludes a development build `latest` resolves
 

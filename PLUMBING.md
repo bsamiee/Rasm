@@ -35,11 +35,12 @@ Places holding state, each updated by one action:
 - Stacks dial the address Hostinger lists, and route `Address` of a row states a port alone
 - Machine names are words drawn at random from the mnemonic word list, and state no role, provider, or location
 - Roles sit in host row field `services`, in DNS aliases (`nx-cache.parametric-arsenal.cloud`), and in tailnet tags
-- Machines hold one CNAME to their DNS record per Traefik `Host` rule of the services they run
+- Machines hold one CNAME to their DNS record per Traefik `Host` rule of the services their row names, and a service Compose starts as a dependency gets no public route
 - Each machine holds DNS record `<name>.parametric-arsenal.cloud`, a matching reverse record, tailnet name `<name>`, and a stack named by its DNS name
 - Machine secrets are `<NAME>_SSH_PRIVATE_KEY`, `<NAME>_SSH_PUBLIC_KEY`, and `<NAME>_ROOT_PASSWORD`, in Doppler `deploy` and 1Password
 - `HOSTINGER_API_TOKEN` covers the account and keeps its name
 - Every machine gets Ubuntu 26.10, Docker, the files of table `files` in `infra/platform-stack.ts`, and a tailnet login
+- Machines install Ubuntu and Docker package updates daily through `unattended-upgrades` and reboot when an update requires it, and Tailscale updates itself
 - Field `services` names Compose services of `infra/compose.yaml`, Compose starts the services they depend on, and a machine receives the definitions and variables of those services alone
 - Machines with an empty `services` list run no container
 - Changed `services` lists stop the machine's Compose project, then start the new list
