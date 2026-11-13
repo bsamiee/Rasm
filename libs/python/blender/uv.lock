@@ -573,15 +573,15 @@ wheels = [
 
 [[package]]
 name = "opencolorio"
-version = "2.5.0"
+version = "2.5.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/63/79/d197a3a86ad16dcffac117a01866e35f160adad5ab25f8af097d90f74d59/opencolorio-2.5.0.tar.gz", hash = "sha256:f9efb2bccff83c0dc18b87a6947aa2f3e8fdec98a483c5433d24f09f56f1d8fd", size = 13884655, upload-time = "2025-10-01T07:01:05.282Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/25/15eece486a3911fb0d68126c523b52a3970f382fbe57cb224a107ff56710/opencolorio-2.5.1.tar.gz", hash = "sha256:5d9a63ffa92e3442dea811d3d0aa445c4cdf70a8e4d038057d53f7576c235c97", size = 13941789, upload-time = "2026-01-13T06:06:00.638Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/58/a8/06445d2c792a22a19861f5fb6729f2ba9b9ec957d8940e68d152793b4aeb/opencolorio-2.5.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:ff161077cb547dd06c71b8829ef775ec064f12b4c9b4c61cfa80ba080e9352ff", size = 5756737, upload-time = "2025-10-01T07:00:49.003Z" },
-    { url = "https://files.pythonhosted.org/packages/99/53/65fb1fb12a841318dc8a57c52197dca3817e8513554a1009db0b24f8863c/opencolorio-2.5.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:8d7c2e0ba47ef0a427e0b22165e105a80f2907a4ac5b618bcb8239b1ce8d9f8f", size = 6291792, upload-time = "2025-10-01T07:00:50.76Z" },
-    { url = "https://files.pythonhosted.org/packages/fa/ed/0b2b17225a3a60b202ab76b54a9951d71ef290004738e797e6e950ef02ac/opencolorio-2.5.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:669a08e2e352646a737f3e334d6e589ee8050ef68e7ca9d769ec73f291862280", size = 6863514, upload-time = "2025-10-01T07:00:52.267Z" },
-    { url = "https://files.pythonhosted.org/packages/54/9c/b09c1c07e5f8fa83afc6d81cd98b99cba789b26d97181b17236a34decfdb/opencolorio-2.5.0-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:42d86e6a737004ddaf7a9e995245643d87396ea13f2c41d4c65c30f7b29eb9d1", size = 6973325, upload-time = "2025-10-01T07:00:53.91Z" },
-    { url = "https://files.pythonhosted.org/packages/a0/e5/e3e9accef887ab1c9f042fa7becb523a7d76a6b85c482aaf417ec9956020/opencolorio-2.5.0-cp313-cp313-win_amd64.whl", hash = "sha256:33a49de0860e113d675d115a5b0f4ac3d7f048ecd3492143fd290188a74f215e", size = 3903216, upload-time = "2025-10-01T07:00:55.119Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/89/205f1f16af8855411fcc3972e3abc0a2411fe734c51733bb1c69e4446090/opencolorio-2.5.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:860d8347b522ee4fd9ef9c197425823b1ef5b5186407d7da0f72016d19edac43", size = 5757642, upload-time = "2026-01-13T06:05:37.263Z" },
+    { url = "https://files.pythonhosted.org/packages/77/b9/7fe33b3432909ea17b260ce2477c71f1ffbc2e98129a758117734248f3e4/opencolorio-2.5.1-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:3eb100be74b67a1da154808d6a9b83526e950dc439b82f60ab9061a3d45fdfa9", size = 6292894, upload-time = "2026-01-13T06:05:38.724Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/62/0db9e44eef886155ec36a1fa454630bee1487660925cb2050e599a38534e/opencolorio-2.5.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:08f89b079305e14ec73685158cf89e4a086473d55761a3a37ed1ffe1914f8828", size = 6864522, upload-time = "2026-01-13T06:05:39.975Z" },
+    { url = "https://files.pythonhosted.org/packages/89/22/547212a9a2b97ecbc8f727efe75bf45210365ad2fa6de925dfe5558b6e5f/opencolorio-2.5.1-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:3b21b6eeb395c244245e8d521c816da8e467020d010a076fb3fb5c8afd6a3a61", size = 6975536, upload-time = "2026-01-13T06:05:41.279Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/75/88180e216a14ca6d3556e485b0adf73277a3293c609ea85d11f7ff24e16a/opencolorio-2.5.1-cp313-cp313-win_amd64.whl", hash = "sha256:a0d8f2c76cd8aeb94348b75fd9208be4610b48623be63200a4278c271e635ff5", size = 3905408, upload-time = "2026-01-13T06:05:42.561Z" },
 ]
 
 [[package]]
@@ -1081,7 +1081,7 @@ blender = [
     { name = "docutils", specifier = "==0.22.4" },
     { name = "idna", specifier = "==3.10" },
     { name = "numpy", specifier = "==2.3.4" },
-    { name = "opencolorio", specifier = "==2.5.0" },
+    { name = "opencolorio", specifier = "==2.5.1" },
     { name = "openimageio", specifier = "==3.1.16.0" },
     { name = "packaging", specifier = "==25.0" },
     { name = "pip", specifier = "==26.0.1" },
