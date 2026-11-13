@@ -1,5 +1,15 @@
 name: Setup
-description: Installs mise tools and workspace packages, and on macOS selects the newest installed Xcode and builds the nx-apple core
+description: Installs mise tools and workspace packages, selects the newest installed Xcode and builds the nx-apple core on macOS, and returns the Nx remote cache server where it accepts the job's token
+
+inputs:
+    cache-server:
+        description: Nx self-hosted remote cache server, read with NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN of the job, empty runs tasks without one
+        default: ""
+
+outputs:
+    cache-server:
+        description: Holds the remote cache server where it answers 200 or 404 to a read with the job's token, empty otherwise
+        value: ${{ steps.cache.outputs.server }}
 
 runs:
     using: composite
@@ -12,6 +22,19 @@ runs:
         - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         - run: pnpm install
           shell: bash
+        - id: cache
+          if: inputs.cache-server != ''
+          run: |
+              answer="$(curl --silent --show-error --max-time 10 --output /dev/null --write-out '%{http_code}' --header "Authorization: Bearer ${NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN}" "${SERVER}/v1/cache/0")" || true
+              case "${answer}" in
+                  200 | 404) printf 'server=%s\n' "${SERVER}" >> "${GITHUB_OUTPUT}" ;;
+                  *) printf '::warning::Nx remote cache answered %s to a read with the job token, tasks run without it\n' "${answer}" ;;
+              esac
+          shell: bash
+          env:
+              SERVER: ${{ inputs.cache-server }}
         - if: runner.os == 'macOS'
           run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
           shell: bash
+          env:
+              NX_SELF_HOSTED_REMOTE_CACHE_SERVER: ${{ steps.cache.outputs.server }}
