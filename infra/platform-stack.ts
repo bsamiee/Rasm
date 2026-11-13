@@ -50,6 +50,7 @@ const files = {
     '/etc/ssh/sshd_config.d/00-platform.conf': { content: `PasswordAuthentication no\nAcceptEnv *\nMaxSessions ${sessions}\nMaxStartups ${sessions}\n`, reload: [['systemctl', 'reload', 'ssh']] },
     '/etc/systemd/journald.conf.d/90-platform.conf': { content: '[Journal]\nSystemMaxUse=1G\n', reload: [['systemctl', 'restart', 'systemd-journald']] },
     '/etc/systemd/system.conf.d/90-platform.conf': { content: '[Manager]\nDefaultTimeoutStopSec=150s\n', reload: [['systemctl', 'daemon-reexec']] },
+    '/etc/apt/apt.conf.d/52unattended-upgrades-local': { content: 'Unattended-Upgrade::Origins-Pattern { "origin=Ubuntu,archive=*-updates"; "origin=Docker"; };\nUnattended-Upgrade::Automatic-Reboot "true";\n', reload: [] },
 };
 const machines = {
     hostinger: {
@@ -184,7 +185,7 @@ const Composed = Schema.fromJsonString(
         ),
     }),
 );
-const Model = Schema.fromJsonString(Schema.Struct({ name: Schema.String, networks: Entries, volumes: Entries, services: Entries, configs: Entries }));
+const Model = Schema.fromJsonString(Schema.Struct({ name: Schema.String, networks: Entries, volumes: Entries, services: Schema.Record(Schema.String, Schema.StructWithRest(Schema.Struct({ labels: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)) }), [Entries])), configs: Entries }));
 const Variables = Schema.fromJsonString(Entries);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -283,14 +284,21 @@ const served = Effect.fnUntraced(function* (
         Effect.flatMap(run('docker', ['compose', '--file', definition, 'config', '--format', 'json', ...services], candidates), Schema.decodeEffect(Composed)),
         Effect.flatMap(run('docker', ['compose', '--file', definition, '--profile', '*', 'config', '--no-interpolate', '--no-path-resolution', '--format', 'json']), Schema.decodeEffect(Model)),
     ]);
-    const mounted = new Set(Object.values(composed).flatMap(({ configs = [] }) => configs.map(Struct.get('source'))));
-    const reduced = yield* Schema.encodeEffect(Model)({ ...model, services: Record.filter(model.services, (_, name) => Record.has(composed, name)), configs: Record.filter(model.configs, (_, name) => mounted.has(name)) });
+    const [published, mounted] = [new Set<string>(services), new Set(Object.values(composed).flatMap(({ configs = [] }) => configs.map(Struct.get('source'))))];
+    const reduced = yield* Schema.encodeEffect(Model)({
+        ...model,
+        services: Record.map(
+            Record.filter(model.services, (_, name) => Record.has(composed, name)),
+            (service, name) => (published.has(name) ? service : { ...service, labels: { ...service.labels, 'traefik.enable': 'false' } }),
+        ),
+        configs: Record.filter(model.configs, (_, name) => mounted.has(name)),
+    });
     const variables = yield* Effect.flatMap(run('docker', ['compose', '--file', '-', 'config', '--variables', '--format', 'json'], {}, Stream.encodeText(Stream.make(reduced))), Schema.decodeEffect(Variables));
     const bundles = yield* Effect.forEach(
         Array.dedupe(Object.values(composed).flatMap(({ build }) => Array.fromNullishOr(build?.context))).filter((built) => built !== project),
         (bundle) => uploaded(access.reached, host, relative(root, bundle), reachable),
     );
-    const named = records[domain.dns](domain.name, 'CNAME', Array.dedupe(Object.values(composed).flatMap(({ labels = {} }) => Object.values(labels).map(([, name]) => name))), host);
+    const named = records[domain.dns](domain.name, 'CNAME', Array.dedupe(Object.values(Record.filter(composed, (_, name) => published.has(name))).flatMap(({ labels = {} }) => Object.values(labels).map(([, name]) => name))), host);
     const read = new Set([...Record.keys(variables), ...Object.values(composed).flatMap(({ environment = {} }) => Record.keys(Record.filter(environment, Predicate.isNull)))]);
     const computed: Readonly<Record<string, () => Output<string>>> = Option.match(access.mesh, {
         onNone: () => ({}),
