@@ -25,6 +25,26 @@
                 "type": "string"
             }
         },
+        "packages": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "project": {
+                        "type": "string"
+                    },
+                    "target": {
+                        "type": "string"
+                    },
+                    "configuration": {
+                        "type": "string"
+                    }
+                },
+                "required": [ "project", "target" ],
+                "additionalProperties": true
+            },
+            "description": "Folders of a .uplugin, each mapped to the Nx target that installs a package under it in a folder named for the engine platform"
+        },
         "users": {
             "type": "array",
             "description": ".uproject files enabling a plug-in that sits outside their plug-in folders, each receiving the package on install",
@@ -47,8 +67,8 @@
             }
         }
     },
-    "required": [ "outputPath", "descriptor", "hosts", "dependencies", "users", "operation" ],
+    "required": [ "outputPath", "descriptor", "hosts", "dependencies", "packages", "users", "operation" ],
     "additionalProperties": true,
     "title": "Unreal",
-    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
+    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine its hosts name after each package its descriptor maps to a folder installs there, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with those installed packages and the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
 }

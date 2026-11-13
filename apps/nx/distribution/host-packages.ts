@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, join, matchesGlob } from 'node:path';
 import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
-import type { ExecutorContext } from '@nx/devkit';
+import type { ExecutorContext, Target } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
 import { written } from '@rasm/nx-devkit/executor';
 import { PLATFORM } from '@rasm/nx-devkit/plugin';
@@ -29,7 +29,7 @@ interface Fields {
     readonly folders?: readonly string[];
     readonly references?: readonly { readonly name: string; readonly enabled: boolean }[];
     readonly installed?: boolean;
-    readonly implicit?: readonly string[];
+    readonly packages?: Readonly<Record<string, Target>>;
 }
 
 interface Found {
@@ -87,9 +87,10 @@ const Registry = Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Sch
 const Cep = Schema.Struct({ ExtensionBundleId: Schema.String, ExtensionBundleVersion: Schema.String });
 const References = Schema.optionalKey(Schema.Array(Schema.Struct({ Name: Schema.String, Enabled: Schema.optionalKey(Schema.Boolean) })));
 const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Plugins: References, AdditionalPluginDirectories: Schema.optionalKey(Schema.Array(Schema.String)) }));
-const Plugin = Schema.fromJsonString(
-    Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.Array(Schema.String) })) }),
-);
+const Linked = Schema.Record(Schema.String, Schema.Struct({ project: Schema.String, target: Schema.String, configuration: Schema.optionalKey(Schema.String) })).annotate({
+    description: 'Folders of a .uplugin, each mapped to the Nx target that installs a package under it in a folder named for the engine platform',
+});
+const Plugin = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ packages: Linked })) }));
 const Engined = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String) }));
 const Launcher = Schema.fromJsonString(Schema.Struct({ InstallationList: Schema.Array(Schema.Struct({ AppName: Schema.String, InstallLocation: Schema.String })) }));
 const Registered = Schema.Struct({ Installations: Schema.Record(Schema.String, Schema.String) });
@@ -163,7 +164,7 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
         Option.firstSomeOf([
             Option.flatMap(named, (key) => Option.liftPredicate(path.resolve(path.dirname(descriptor), key), () => ENGINE_PATH.test(key))),
             Option.match(named, { onNone: () => Array.head(native), onSome: () => Option.none() }),
-            Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Record.get(Installations, key)),
+            Option.flatMap(Option.all([named, Option.flatMap(registered, (text) => Schema.decodeUnknownOption(Registered)(Ini.parse(text)))]), ([key, { Installations }]) => Option.orElse(Record.get(Installations, key), () => Record.get(Installations, `UE_${key}`))),
             Option.flatMap(Option.all([named, Option.flatMap(launched, (text) => Schema.decodeOption(Launcher)(text))]), ([key, { InstallationList }]) =>
                 Option.map(
                     Array.findFirst(InstallationList, ({ AppName }) => AppName === `UE_${key}`),
@@ -382,7 +383,7 @@ const HOSTS: readonly Host[] = [
                     Option.some({
                         name: basename(file, '.uplugin'),
                         ...(VersionName !== undefined && { version: VersionName }),
-                        ...(nx !== undefined && { implicit: nx.implicitDependencies }),
+                        ...(nx !== undefined && { packages: nx.packages }),
                         installed: Installed === true,
                         references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })),
                     }),
@@ -394,8 +395,8 @@ const HOSTS: readonly Host[] = [
             }),
         build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: [PLATFORM.runtime] },
         operations: {
-            test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests <plug-in name>;Quit" -nullrhi -unattended in each project loading the plug-in, then a read of each test state from the exported report', options: { operation: 'test' } },
-            pack: { command: 'the store checks, then a zip of each BuildPlugin package and a zip of the tracked sources per engine, the form Fab takes', options: { operation: 'pack' } },
+            test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests ^<plug-in name>.;Quit" -nullrhi -unattended in each project loading the plug-in, then a read of each test state from the exported report', options: { operation: 'test' } },
+            pack: { command: 'the store checks, then a zip of each BuildPlugin package and a zip of the tracked sources with each installed package per engine, the form Fab takes', options: { operation: 'pack' } },
             install: { command: 'a copy of the BuildPlugin package into the Plugins folder of each project enabling the plug-in outside its folders', options: { operation: 'install' } },
         },
     },
@@ -403,4 +404,4 @@ const HOSTS: readonly Host[] = [
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { BUILDER, EXTENSION, engine, type Fields, type Found, HOSTS, type Host, located, zipped };
+export { BUILDER, EXTENSION, engine, type Fields, type Found, HOSTS, type Host, Linked, located, zipped };

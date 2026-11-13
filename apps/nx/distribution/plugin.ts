@@ -46,9 +46,9 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, placed
         const loading = Array.dedupe([...hosts(item), ...users(item)]);
         const offered = engined(item, loading);
         const { technology, archive, platforms, standalone, build, operations, install, publish, write, manifest } = offered;
-        const linked = Array.dedupe([...[...discovered.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Array.fromNullishOr(item.fields.implicit).flat()]);
+        const linked = Array.dedupe([...[...discovered.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Object.values({ ...item.fields.packages }).map(({ project }) => project)]);
         const outputPath = Option.getOrElse(placed(technology), () => path.join('dist', item.root));
-        const settings = standalone === true ? { outputPath, descriptor: item.file, hosts: loading.map((other) => other.file), dependencies: uses(item).map((other) => other.file) } : { outputPath };
+        const settings = standalone === true ? { outputPath, descriptor: item.file, hosts: loading.map((other) => other.file), dependencies: uses(item).map((other) => other.file), packages: { ...item.fields.packages } } : { outputPath };
         const inputs: NonNullable<TargetConfiguration['inputs']> = [
             '{projectRoot}/**/*',
             '^default',

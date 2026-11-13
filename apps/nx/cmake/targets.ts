@@ -82,8 +82,8 @@ const memberTargets = (plugin: Identity, path: Path.Path, tree: Tree, member: Me
         } satisfies typeof Cmake.Encoded;
     };
     const installs = (workflow: Workflow) => {
-        const { folder, shared } = planned(workflow);
-        return { ...shared, commands: [invoked(launcher, ['cmake', '--install', within(folder)])] } satisfies typeof Cmake.Encoded;
+        const { at, folder, shared } = planned(workflow);
+        return { ...shared, commands: [...Option.toArray(Option.map(targets, (names) => compiled(workflow, at, names))), invoked(launcher, ['cmake', '--install', within(folder)])] } satisfies typeof Cmake.Encoded;
     };
     const checks = (workflow: Workflow, names: Array.NonEmptyReadonlyArray<string>) => {
         const { at, shared } = planned(workflow, Object.fromEntries(workflow.tidy.map(({ variable }) => [`${variable}_EXPORT_FIXES_DIR`, ''] as const)));
@@ -142,7 +142,7 @@ const memberTargets = (plugin: Identity, path: Path.Path, tree: Tree, member: Me
                   onNone: () => ({}),
                   onSome: ({ names, workflow }) => ({ [CHECKER]: target(FIXER, `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines`, fixes(workflow, names), {}) }),
               }),
-              install: member.installs ? { cmake: target('cmake --install', `Installs what ${member.name} built under the install prefix its configure preset states`, installs(head), { ...waits, ...varied(installs) }) } : {},
+              install: member.installs ? { cmake: target('cmake --install', `Builds ${member.name}, then installs it under the install prefix its configure preset states`, installs(head), varied(installs)) } : {},
           } satisfies Members);
 };
 

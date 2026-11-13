@@ -40,6 +40,7 @@ __pycache__/
 /apps/unreal/**/Intermediate/
 /apps/unreal/**/Plugins/
 /apps/unreal/**/Saved/
+/apps/unreal/**/Source/ThirdParty/*/*/
 
 # --- [SECRETS] --------------------------------------------------------------------------
 

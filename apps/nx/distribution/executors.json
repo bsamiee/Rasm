@@ -23,7 +23,7 @@
         "unreal-build": {
             "implementation": "./dist/executors/unreal-build/executor#execute",
             "schema": "./executors/unreal-build/schema.json",
-            "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
+            "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine its hosts name after each package its descriptor maps to a folder installs there, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with those installed packages and the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
         }
     }
 }
