@@ -1,15 +1,13 @@
 import { join, resolve } from 'node:path';
 import { cloudflareTest } from '@cloudflare/vitest-plugin';
-import type {} from '@rasm/testing/nx/inference';
 import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
 import react from '@vitejs/plugin-react';
 import { playwright } from '@vitest/browser-playwright';
-import { configDefaults, defineConfig, type Plugin, type UserWorkspaceConfig } from 'vitest/config';
+import { configDefaults, defineConfig, type Plugin } from 'vitest/config';
 import type { BrowserConfigOptions } from 'vitest/node';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const NX = { setupFiles: '@rasm/testing/nx/setup', unstubEnvs: true } as const satisfies UserWorkspaceConfig['test'];
 const TRACE = { mode: 'retain-on-failure' } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -51,8 +49,6 @@ export default defineConfig({
             { root: 'libs/typescript/web/tests/hosting', test: { name: '@rasm/test-hosting' } },
             { root: 'libs/typescript/web/tests/ui', plugins: [react({ compiler: { panicThreshold: 'all_errors' } })], test: { name: '@rasm/test-ui', browser: browser() } },
             stories('@rasm/ui', 'libs/typescript/web/ui'),
-            { root: 'tests/typescript/nx', test: { name: '@rasm/test-nx', ...NX, include: ['inference/*.test.ts', 'delivery/*.test.ts', '*.test.ts'], provide: { driven: false }, testTimeout: 60_000 } },
-            { root: 'tests/typescript/nx/e2e', test: { name: '@rasm/test-nx-e2e', ...NX, dir: join(import.meta.dirname, 'tests/typescript/nx'), include: ['inference/*.test.ts', 'workspace/*.test.ts'], provide: { driven: true }, testTimeout: 300_000 } },
         ],
     },
 });

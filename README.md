@@ -177,7 +177,6 @@ Other tasks run through their own commands:
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
 - Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`
 - Job `unreal` of `release.yml` then attaches the `os:linux` projects from the same image at the released commit
-- Workflow `renovate.yml` runs Renovate daily: catalogs, manifests, locks, mise tools, and action pins move to their newest release and merge
 - Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, `dry-run`, on by default, and `publish`
 - Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet)
 - `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does

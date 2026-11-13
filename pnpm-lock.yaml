@@ -267,9 +267,6 @@ catalogs:
     acorn-walk:
       specifier: 8.3.5
       version: 8.3.5
-    ajv:
-      specifier: 8.20.0
-      version: 8.20.0
     bootstrap-icons:
       specifier: 1.13.2
       version: 1.13.2
@@ -2355,120 +2352,6 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-
-  tests/typescript/nx:
-    devDependencies:
-      '@cloudflare/workers-types':
-        specifier: 'catalog:'
-        version: 5.20261110.1
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
-      '@nx/devkit':
-        specifier: 'catalog:'
-        version: 24.0.6(nx@24.0.6)
-      '@playwright/test':
-        specifier: 'catalog:'
-        version: 1.66.0-alpha-2026-11-10
-      '@rasm/nx-apple':
-        specifier: workspace:*
-        version: link:../../../apps/nx/apple
-      '@rasm/nx-cargo':
-        specifier: workspace:*
-        version: link:../../../apps/nx/cargo
-      '@rasm/nx-cloudflare':
-        specifier: workspace:*
-        version: link:../../../apps/nx/cloudflare
-      '@rasm/nx-cmake':
-        specifier: workspace:*
-        version: link:../../../apps/nx/cmake
-      '@rasm/nx-devkit':
-        specifier: workspace:*
-        version: link:../../../apps/nx/devkit
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../../../apps/nx/distribution
-      '@rasm/nx-docker':
-        specifier: workspace:*
-        version: link:../../../apps/nx/docker
-      '@rasm/nx-dotnet':
-        specifier: workspace:*
-        version: link:../../../apps/nx/dotnet
-      '@rasm/nx-playwright':
-        specifier: workspace:*
-        version: link:../../../apps/nx/playwright
-      '@rasm/nx-pulumi':
-        specifier: workspace:*
-        version: link:../../../apps/nx/pulumi
-      '@rasm/nx-storybook':
-        specifier: workspace:*
-        version: link:../../../apps/nx/storybook
-      '@rasm/nx-typescript':
-        specifier: workspace:*
-        version: link:../../../apps/nx/typescript
-      '@rasm/nx-uv':
-        specifier: workspace:*
-        version: link:../../../apps/nx/uv
-      '@rasm/nx-vite':
-        specifier: workspace:*
-        version: link:../../../apps/nx/vite
-      '@rasm/nx-vitest':
-        specifier: workspace:*
-        version: link:../../../apps/nx/vitest
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../support
-      '@storybook/addon-vitest':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@vitest/browser-playwright@5.1.0)(@vitest/browser@5.1.0)(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vitest@5.1.0)
-      '@storybook/react-vite':
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@typescript/typescript6@6.0.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      ajv:
-        specifier: 'catalog:'
-        version: 8.20.0
-      cf:
-        specifier: 'catalog:'
-        version: 1.0.0-beta.29(@types/node@26.6.6)
-      effect:
-        specifier: 'catalog:'
-        version: 4.1.4
-      nx:
-        specifier: 'catalog:'
-        version: 24.0.6
-      storybook:
-        specifier: 'catalog:'
-        version: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
-      yaml:
-        specifier: 'catalog:'
-        version: 3.0.0-2
-
-  tests/typescript/nx/e2e:
-    devDependencies:
-      '@rasm/testing':
-        specifier: workspace:*
-        version: link:../../support
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.6
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
 
   tests/typescript/support:
     dependencies:
@@ -5853,9 +5736,6 @@ packages:
     resolution: {integrity: sha512-XNAb/a6TCqou+TufU8/u11HCu9x1gYvOoxLwtlXgIqmkrYQADVv6ljyW2zwiPhHz9R1gItAWpuDrdJMmrOBFEA==}
     engines: {node: '>= 16.0.0'}
 
-  ajv@8.20.0:
-    resolution: {integrity: sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==}
-
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
     engines: {node: '>=8'}
@@ -6461,9 +6341,6 @@ packages:
   fast-string-width@3.0.2:
     resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
 
-  fast-uri@3.1.9:
-    resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
-
   fast-wrap-ansi@0.2.0:
     resolution: {integrity: sha512-rLV8JHxTyhVmFYhBJuMujcrHqOT2cnO5Zxj37qROj23CP39GXubJRBUFF0z8KFK77Uc0SukZUf7JZhsVEQ6n8w==}
 
@@ -6765,9 +6642,6 @@ packages:
 
   json-parse-even-better-errors@2.3.1:
     resolution: {integrity: sha512-xyFwyhro/JEof6Ghe2iz2NcXoj2sloNsWr/XsERDK/oiPCfaNhl5ONfp+jQdAZRQQ0IJWNzH9zIZF7li91kh2w==}
-
-  json-schema-traverse@1.0.0:
-    resolution: {integrity: sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==}
 
   json5@2.2.3:
     resolution: {integrity: sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg==}
@@ -11252,13 +11126,6 @@ snapshots:
 
   address@2.0.3: {}
 
-  ajv@8.20.0:
-    dependencies:
-      fast-deep-equal: 3.1.3
-      fast-uri: 3.1.9
-      json-schema-traverse: 1.0.0
-      require-from-string: 2.0.2
-
   ansi-regex@5.0.1: {}
 
   ansi-regex@6.6.0: {}
@@ -11901,8 +11768,6 @@ snapshots:
     dependencies:
       fast-string-truncated-width: 3.0.3
 
-  fast-uri@3.1.9: {}
-
   fast-wrap-ansi@0.2.0:
     dependencies:
       fast-string-width: 3.0.2
@@ -12181,8 +12046,6 @@ snapshots:
   jsesc@3.1.0: {}
 
   json-parse-even-better-errors@2.3.1: {}
-
-  json-schema-traverse@1.0.0: {}
 
   json5@2.2.3: {}
 

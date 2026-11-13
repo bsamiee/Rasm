@@ -654,7 +654,7 @@ overrides:
     '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
     '@opentelemetry/api': 'catalog:' # OpenTelemetry 2 under `@pulumi/pulumi` peers below 1.10, a second copy splits every `vitest` snapshot
     cloudevents>uuid: 14.0.3 # `cloudevents` 10.0.0 names `uuid` 8, a release line npm marks unsupported
-    '@axe-core/playwright>playwright-core': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version, Renovate's pnpm parser refuses a `:peer` suffix
+    '@axe-core/playwright>playwright-core': '>=1.0.0' # Declared `>= 1.0.0`, pnpm's prerelease peer check reads a spaced operator as an exact version
     tree-sitter: '-'     # Node bindings the grammar packages name as peers, the build compiles their C sources alone
     tree-sitter-cli: '-' # The CLI comes from mise, pinned in `.config/mise.lock`
 

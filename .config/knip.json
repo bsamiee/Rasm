@@ -2,7 +2,7 @@
     "$schema": "../node_modules/knip/schema.json",
     "exclude": [ "catalog" ],
     "treatConfigHintsAsErrors": true,
-    "ignoreDependencies": [ "@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "@storybook/addon-vitest", "adobe", "claude-code", "indesign-uxp-types" ],
+    "ignoreDependencies": [ "@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "adobe", "claude-code", "indesign-uxp-types" ],
     "ignoreIssues": { "package.json": [ "dependencies", "devDependencies", "optionalPeerDependencies" ] },
     "wrangler": { "entry": [ "cloudflare.config.ts" ] },
     "workspaces": {
