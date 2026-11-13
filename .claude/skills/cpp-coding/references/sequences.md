@@ -27,7 +27,7 @@ Views transform a sequence and one `std::ranges::to` collects it:
 }
 ```
 
-`std::ranges::next` with a bound stops at the end of a shorter sequence, and `partial_sort` orders the kept elements alone.
+`std::ranges::next` with a bound stops where a shorter sequence ends, and `partial_sort` orders kept elements alone.
 
 ## [03]-[POSITIONS]
 
@@ -55,4 +55,4 @@ Elements leave an owned sequence through `std::views::as_rvalue`:
 [[nodiscard]] constexpr auto names(std::vector<Tile> tiles) -> std::vector<std::string> { return tiles | std::views::transform(&Tile::name) | std::views::as_rvalue | std::ranges::to<std::vector>(); }
 ```
 
-`names(std::move(tiles))` moves each name out of its tile, and `names(tiles)` copies the sequence once at the call.
+`names(std::move(tiles))` moves each name out of its tile, and `names(tiles)` copies its argument once at that call.

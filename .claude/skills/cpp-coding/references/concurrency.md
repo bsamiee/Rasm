@@ -43,7 +43,7 @@ private:
 };
 ```
 
-`with` refuses a step returning a reference. Steps return a copy or a moved value, a view or pointer into the guarded value outlives the lock.
+`with` refuses a step returning a reference. Steps return a copy or a moved value, a view or pointer into guarded state outlives its lock.
 
 ## [03]-[WAITS]
 

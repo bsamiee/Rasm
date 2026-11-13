@@ -101,7 +101,9 @@ auto main(int count, char** values) -> int {
         std::span{values, static_cast<std::size_t>(count)} | std::views::drop(1) | std::views::transform([](const char* value) { return std::string_view{value}; }) | std::ranges::to<std::vector>();
     const auto parsed = raster::extents_of(texts, 1'000'000);
     if (!parsed) {
-        std::ranges::for_each(parsed.error(), [](raster::Defect defect) { std::println(std::cerr, "argument {}: {}", defect.position + 1, defect.refusal); });
+        for (const auto defect : parsed.error()) {
+            std::println(std::cerr, "argument {}: {}", defect.position + 1, defect.refusal);
+        }
         return 2;
     }
     std::println("{} extents", parsed->size());

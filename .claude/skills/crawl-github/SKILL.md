@@ -62,8 +62,8 @@ Scale, unless the request sets one:
 |  [05]   | Under 5.0  | Nothing the request wants learned                                       |
 
 - Grades place a candidate by criteria met, a listed weakness outside every criterion moves no grade
-- Criteria no candidate of a slice's baseline meets and its ecosystem offers no means for are `n/a` there and leave its grades
-- Use `search-web` for what a slice's ecosystem offers for a criterion, before that criterion counts against its candidates
+- Criteria no candidate of a slice meets are `n/a` there, leave its grades, and go in the report as what that slice lacks
+- Use `search-web` for what a slice's ecosystem offers for such a criterion, where means exist a pool widens through another source first
 
 `<work>` folders hold one repository's tree and fetched objects each, under a scratch folder named for one agent's role and slice or batch, outside every project tree: build tools read manifests they find, and agents sharing a folder read each other's trees.
 

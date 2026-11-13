@@ -5,7 +5,7 @@ description: "Use when writing or reviewing C++ or Objective-C++, covering type 
 
 # [CPP_CODING]
 
-Translation units take the standard library as their first package, and a member it lacks comes from the package implementing its proposal.
+Translation units take the standard library as their first package, and a member it lacks comes from a package implementing its proposal.
 
 [PRINCIPLES]:
 - Properties a compiler can decide are types, constraints, and constant evaluation, run time decides what input alone decides
@@ -77,6 +77,7 @@ Each state a consumer inspects is one alternative, and a constructor or factory 
 - Move operations of a hand-written owner empty their source through `std::exchange`
 - Types other objects point into (registered, intrusive, self-referential) delete copy and move
 - Members are declared in lifetime order, an owner before each member borrowing from it
+- Work every exit of a scope owes (a rollback, a notification) is a destructor's, of an owner declared where that work becomes owed
 - Options are one aggregate with a default member initializer per field, set by designated initializers at its call
 - `struct` holds fields no rule relates, `class` holds an invariant its private fields keep
 - Flags with companion fields that mean something in one state become one alternative per state
@@ -147,6 +148,7 @@ Dependent steps bind and stop at their first failure, independent checks all run
 - `noexcept` states a fact about every callee, an exception leaving a `noexcept` function ends the process
 - Refusals inside constant evaluation call a declared, undefined function, `throw` fails to compile where exceptions are off
 - Operations that can refuse run each check before their first write, a refusal leaving its subject as it was
+- Recursion depth and loop counts an untrusted input drives hold a bound
 - Use `references/failure.md` for pipelines, accumulation, and the entry point
 
 ## [05]-[COMPILE_TIME]
@@ -179,6 +181,7 @@ Containers follow their most frequent operation:
 - Positions come from `std::views::enumerate`, parallel sequences from `zip`, neighbors from `pairwise` or `adjacent`
 - Views borrow their range: a pipeline over a temporary or a local returns collected values
 - Views compute on each pass, a result more than one consumer reads is collected once
+- Order a consumer reads never comes from iterating an unordered container
 - Elements leave an owned sequence through `std::views::as_rvalue`
 - `for` over a range stays where its body performs an effect per element
 - Use `references/sequences.md` for projections, pipelines, and positions
@@ -193,6 +196,7 @@ Hot paths change in order: remove work, copies, and allocations, densify layout,
 - Strings a C call or a formatter fills grow through `resize_and_overwrite`, which writes no zero fill
 - Queues, caches, and buffers kept across calls hold a bound their owner passes
 - Text on a hot path is formatted by `std::format_to_n` into caller storage and parsed by `std::from_chars`
+- Cold branches of a hot loop (a refusal, a log line, first-use work) are `[[unlikely]]` and call a `[[gnu::noinline]]` function
 - Run-time dispatch takes a batch: a virtual member or stored callable receives a `std::span`, never one element per call
 - Values written by different threads are `alignas(std::hardware_destructive_interference_size)`
 - Sizes and offsets multiply in their wide type, each operand widened before its operation
@@ -209,6 +213,7 @@ Shared state has one owner, and work has a scope that joins it:
 - Work loops read a `std::stop_token`, and a stop request flows from an owner to each worker it started
 - Waits take a predicate and a stop token (`std::condition_variable_any::wait`), a sleep or a poll standing for one hides a race
 - Elements disjoint by index need no lock, a shared counter is a `std::atomic`
+- Values another thread can change are loaded once into a local, then tested and used from it
 - Atomic orders are `relaxed` where a value publishes no other data, `release` with `acquire` where it does, `seq_cst` where threads agree on one order
 - Reviews of a coroutine list each suspension point, what can run while it is suspended, and each value read before it and used after
 - Use `references/concurrency.md` for scoped workers, guarded state, and waits

@@ -2,7 +2,7 @@
 
 ## [01]-[UNITS]
 
-Test units include framework headers, import the module under test, and register each enumeration their assertions compare:
+Test units include framework headers, import one module, and register each enumeration their assertions compare:
 
 ```cpp
 #include <catch2/catch_template_test_macros.hpp>
@@ -34,7 +34,7 @@ TEST_CASE("extent text outside its grammar or bounds is refused with its reason"
         {"4294967296x1", raster::Refusal::Malformed},
         {"0x480", raster::Refusal::Empty},
         {"640x0", raster::Refusal::Empty},
-        {"1001x1000", raster::Refusal::Oversized},
+        {"1000001x1", raster::Refusal::Oversized},
     }));
     CAPTURE(text);
 
@@ -49,21 +49,26 @@ TEST_CASE("extent text outside its grammar or bounds is refused with its reason"
 
 ## [03]-[BOUNDS]
 
-Accepted inputs include each bound a contract states:
+Accepted inputs sit on each bound a contract states, their outcome unwrapped behind a fatal assertion:
 
 ```cpp
-TEST_CASE("extent text at its bounds parses", "[raster][extent]") {
-    const auto [text, cells] = GENERATE(table<std::string_view, std::uint64_t>({
+TEST_CASE("extent text at each bound of its sides and its limit parses", "[raster][extent]") {
+    const auto [text, limit] = GENERATE(table<std::string_view, std::uint64_t>({
         {"1x1", 1},
         {"1000x1000", 1'000'000},
         {"4294967295x1", 4'294'967'295},
-        {"0640x480", 307'200},
+        {"1x4294967295", 4'294'967'295},
     }));
-    CAPTURE(text);
+    CAPTURE(text, limit);
 
-    CHECK(raster::extent_of(text, 4'294'967'295).transform(&raster::Extent::cells) == cells);
+    const auto parsed = raster::extent_of(text, limit);
+
+    REQUIRE(parsed.has_value());
+    CHECK(parsed->cells() == limit);
 }
 ```
+
+Rows hold the smallest extent, a product equal to `limit`, and each side at its largest value. `CHECK` on `parsed->cells()` prints both numbers, where a comparison of `std::expected` values prints `{?}`.
 
 ## [04]-[TYPE_CLASSES]
 

@@ -31,7 +31,7 @@ export namespace raster {
 
 ## [03]-[GLOBAL_MODULE_FRAGMENT]
 
-Headers supplying macros or C declarations enter through the global module fragment of the one partition calling them:
+Headers supplying macros or C declarations enter through a global module fragment of the one partition calling them:
 
 ```cpp
 module;

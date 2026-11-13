@@ -5,40 +5,39 @@ description: "Use when writing or reviewing C++ tests, covering sources of truth
 
 # [CPP_CODING_TESTING]
 
-Tests state what code must do, from a source that code did not write. Snippets use Catch2 members, and each rule holds under any framework.
+Tests state what code must do, from a source that code did not write. Snippets use Catch2 members.
 
 [PRINCIPLES]:
-- Expected values come from a contract, an analytic result, a second implementation, or an exemplar project, never from code under test or its output
+- Expected values come from a contract, an analytic result, a second implementation, or an exemplar suite, never from code under test or its output
 - Tests count once seen failing against code lacking their behavior, for the reason they state
-- Failing tests are right until evidence shows otherwise, and no assertion, tolerance, case, or input class changes to pass
-- Facts a compiler decides are asserted at compile time, behavior at run time, and `constexpr` behavior at both
-- Surfaces get an accept direction and a reject direction, and one assertion pins what a result means beyond its being well formed
-- Tests give one result on every run: time, randomness, and I/O enter through parameters, seeds are literals, and waits end on an event
-- Failure output names its input, expected value, and actual value, locating a defect without a rerun
+- Failing tests are findings: no assertion, tolerance, case, or input class changes to pass, and no case is skipped
+- Facts a compiler decides are asserted at compile time, behavior at run time
+- Inputs get an accept direction and a reject direction
+- Tests give one result on every run and every standard library
+- Failure output names its input, expected value, and actual value
 - Tests reach code through its public declarations, a test needing a private member shows a missing parameter or type
+- Cases stand directly over a package's own types: no shared helper module, fixture base, or mock layer sits between a case and its subject
 
 [REFERENCES]:
-- [01]-[COMPILE_TIME](references/compile-time.md): Static twins, compiler facts, negative probes, and rejection sources
+- [01]-[COMPILE_TIME](references/compile-time.md): Assertions in both phases, compiler facts, and paired probes
 - [02]-[CASES](references/cases.md): Test units, reject tables, bounds, type classes, and whole-value matchers
-- [03]-[PROPERTIES](references/properties.md): Seeded round trips, reference paths, and fuzz targets
-- [04]-[SEAMS](references/seams.md): Counted allocations, concurrent waits, and benchmarks
+- [03]-[PROPERTIES](references/properties.md): Round trips over bounds and seeded draws, reference paths, and fuzz targets
+- [04]-[SEAMS](references/seams.md): Counted storage, order on one thread, and blocking waits
 
 ## [01]-[SOURCES]
 
 Each behavior takes its expected value from the source stating it:
 
-| [INDEX] | [BEHAVIOR]                         | [SOURCE]                                                      |
-| :-----: | :--------------------------------- | :------------------------------------------------------------ |
-|  [01]   | Value with a closed form           | Result worked from its formula, written as a literal          |
-|  [02]   | Named value (zero, empty, a bound) | Documented sentence about it, as an equation                  |
-|  [03]   | Encode and decode pair             | Round trip to its starting value                              |
-|  [04]   | Optimized path                     | Plain reference written in the test, over the same inputs     |
-|  [05]   | Paths documented as equivalent     | Agreement between them                                        |
-|  [06]   | Reported defect                    | Reported input and reported symptom                           |
-|  [07]   | Behavior a refactor keeps          | Case recorded before the change, named as recorded            |
-|  [08]   | Recorded output                    | Earlier output, each difference reviewed as a behavior change |
+| [INDEX] | [BEHAVIOR]                         | [SOURCE]                                                    |
+| :-----: | :--------------------------------- | :---------------------------------------------------------- |
+|  [01]   | Value with a closed form           | Result worked from its formula, written as a literal        |
+|  [02]   | Named value (zero, empty, a bound) | Documented sentence about it, as an equation                |
+|  [03]   | Behavior a specification states    | Its section, each stated case as a row                      |
+|  [04]   | Behavior an exemplar suite checks  | That suite's case, its expectation unchanged                |
+|  [05]   | Optimized path                     | Plain reference written in its test, over one set of inputs |
+|  [06]   | Reported defect                    | Reported input and reported symptom                         |
 
-- Recorded outputs detect change and prove no correctness, one regenerated to pass is a weakened test
+- Expectations name their source where a failure shows it: a contract sentence as the case name, a specification section or exemplar file as a tag
 - Tolerances are values a contract states, and an exact contract (equality, ordering, a round trip) takes none
 - Checks leave with the property they verify: a deleted `static_assert`, rejection, or case has a replacement or holds by construction
 - Tests of a removed feature go with it, a case asserting absence pins nothing
@@ -57,7 +56,7 @@ Each kind of test proves one class of fact:
 |  [06]   | Benchmark       | Cost of one operation on representative input                           |
 
 - Cases prove memory and race facts under a sanitizer alone, and a defect one sanitizer reports is seen failing under that sanitizer
-- Properties and fuzz targets asserting validity alone prove survival, each surface takes one assertion pinning a value
+- Properties and fuzz targets asserting validity alone prove survival, each takes one oracle comparing a value
 
 ## [03]-[COMPILE_TIME]
 
@@ -67,15 +66,15 @@ Constant evaluation refuses core-language undefined behavior, and a `static_asse
 - Probes pass arguments of a parameter's own type, a converted argument adds its conversion to the fact
 - Negative probes sit in a concept over a dependent type, a `requires` expression over concrete types is ill-formed in place of `false`
 - Negative probes stand beside a positive probe differing in the refused property alone
-- Refusals by a `consteval` call or a `static_assert` in a body read as valid to `requires`
-- Rejection sources hold one refused statement per guard, after the accepted statement differing in its refused part
-- Rejections expect their diagnostic at the guarded statement, a failure of another kind is no pass
+- `requires` cannot read a refusal by a `consteval` call or a `static_assert` in a body: it reads valid, or fails hard where a return type is deduced
+- Refusals `requires` cannot read, and diagnostics a caller reads, are rejections: one refused statement beside an accepted one differing in its refused part
+- Rejections expect their diagnostic at the refused statement, a failure of another kind is no pass
 - Templates run per class of type argument their contract separates (trivially copyable, move-only, padded, floating)
-- Use `references/compile-time.md` for twins, probes, and rejection sources
+- Use `references/compile-time.md` for both phases, compiler facts, and probes
 
 ## [04]-[CASES]
 
-One case states one behavior of one public entity, named as a sentence a failure report stands on:
+One case states one behavior of one public entity, named as the contract sentence it checks:
 
 | [INDEX] | [INPUT]  | [CLASSES]                                                                       |
 | :-----: | :------- | :------------------------------------------------------------------------------ |
@@ -85,13 +84,14 @@ One case states one behavior of one public entity, named as a sentence a failure
 |  [04]   | Sequence | Empty, one element, duplicates, sorted, reversed, longer than a fixed buffer    |
 |  [05]   | State    | Each state, each refused transition                                             |
 
-- Cases differing in a value are rows of one table, sections share setup of one behavior, and independent behaviors are separate cases
+- Test units cover one module or one partition of it
+- Cases differing in a value are rows of one table, and independent behaviors are separate cases
 - Fatal assertions guard values later lines read, non-fatal assertions state independent facts
+- Assertions compare values their framework prints: an outcome is unwrapped behind a fatal assertion, and enumerations print by name
 - Refusal cases assert the documented reason and that their subject kept its value
-- Collections and records compare whole through a matcher, enumerations and package types print by name
+- Collections compare whole through a matcher
 - Generated and tabled inputs are captured, so a failure prints the row that failed
-- Runs count when they list a case as executed, a filter matching none passes nothing
-- Skips state their reason
+- Runs count when their report lists the case as executed
 - Use `references/cases.md` for test units, tables, and matchers
 
 ## [05]-[PROPERTIES]
@@ -101,30 +101,31 @@ Properties state an equation every input of a domain satisfies:
 | [INDEX] | [PROPERTY]  | [EQUATION]                                                 |
 | :-----: | :---------- | :--------------------------------------------------------- |
 |  [01]   | Round trip  | Decode of an encoded value equals that value               |
-|  [02]   | Reference   | Optimized path equals a plain path over the same input     |
-|  [03]   | Invariant   | Stated relation holds after every operation                |
-|  [04]   | Metamorphic | Reordered, rescaled, or split input gives a related output |
-|  [05]   | Rejection   | Input outside a grammar is refused with its reason         |
+|  [02]   | Invariant   | Stated relation holds after every operation                |
+|  [03]   | Metamorphic | Reordered, rescaled, or split input gives a related output |
+|  [04]   | Rejection   | Input outside a grammar is refused with its reason         |
 
-- Generators draw a parameter's whole documented domain, bounds and hostile values included, from an engine seeded by a literal
-- Cases hold one property each
-- Fuzz targets enter at the function taking untrusted bytes, call it within its contract, and end the process when an oracle fails
-- Inputs that fail a fuzz target join its corpus and fail there before their fix
-- Use `references/properties.md` for seeded properties and fuzz targets
+- Domains are visited at each bound and hostile value by name, then by draws from an engine seeded by a literal
+- Draws read an engine's own output, a standard distribution maps it differently on each standard library
+- Fuzz targets enter at a function taking untrusted bytes, view their input buffer in place, and end their process when an oracle fails
+- Fuzz oracles restate a contract without calling its implementation
+- Inputs that fail a fuzz target become a row of a case and a corpus entry, failing in both before their fix
+- Use `references/properties.md` for round trips, reference paths, and fuzz targets
 
 ## [06]-[ORDER]
 
 New behavior:
 1. Write one case from its contract
 2. Run it, its failure names the missing behavior
-3. Make the smallest change that passes it
-4. Run every case of its package
+3. Change code until it passes
+4. Rebuild what that change left (a constant standing for a rule, a branch per case) with every case passing
+5. Run every case of its package
 
 Reported defect:
 1. Write a case from the reported input and symptom
 2. Run it against unfixed code, its failure matches the reported symptom
 3. Fix the cause
-4. Run it again, then search sibling entry points for the same pattern and add a case for each
+4. Run it again, then search other entry points for that pattern and add a case for each
 
 - Cases written after their fix run once with that fix reverted
 - Cases failing for another reason than their own are corrected before any code changes
@@ -142,13 +143,14 @@ Tests supply each dependency through the parameter code under test takes:
 |  [04]   | Output       | `std::ostream&` or `std::span` over test storage    |
 |  [05]   | Collaborator | Lambda or value of the concept a function accepts   |
 
-- Doubles are values passed through existing parameters, a declaration added to reach private state goes
-- Concurrent cases end on a stop request, a latch, or a join, and assert state their own thread owns
+- Contracts about order are cases on one thread, a second thread enters where a contract states blocking
+- Waiting threads count down a latch before their wait, and the awaited event follows that latch
+- Concurrent cases end on a join and assert state their own thread owns
 - Cases share no state and pass in any order
-- Use `references/seams.md` for counted allocations and concurrent waits
+- Use `references/seams.md` for counted storage, order on one thread, and waits
 
 ## [08]-[COST]
 
-Counts a machine does not change (allocations, passes, rebuilds) are asserted in cases, and durations are reported by benchmarks:
+Counts a contract states (storage through a passed resource, passes, rebuilds) are asserted in cases, and durations are reported by benchmarks:
 - Benchmarks assert their result before timing it, on input shaped as production input is
-- Optimized paths keep a plain reference, compared at small, boundary, and large sizes
+- Optimized paths are compared with their reference at small, boundary, and large sizes

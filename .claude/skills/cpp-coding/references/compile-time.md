@@ -54,7 +54,7 @@ template <typename Pixel>
 }
 ```
 
-`bytes_of` accepts a trivially copyable type with one object representation per value, so a type with padding or a floating-point member has no overload. A `static_assert` in its body would reject the same types as a hard error no `requires` expression can read.
+`bytes_of` accepts a trivially copyable type with one object representation per value, so a type with padding or a floating-point member has no overload. A `static_assert` in its body would reject the same types where no `requires` expression reads that refusal.
 
 ## [04]-[PACKS]
 
