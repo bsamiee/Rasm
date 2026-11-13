@@ -142,7 +142,7 @@ flowchart LR
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once CI jobs on `main` finish, passed or failed, and when Doppler config `deploy` changes
-- Unchanged stack inputs apply nothing, and a host runs the Compose services its `DEPLOYED_HOSTS` row names in `services` with their dependencies
+- Unchanged stack inputs apply nothing, and a machine runs the Compose services its `hosts` row names in `services` with their dependencies
 - Machine names state no role, provider, or location: roles sit in host row `services`, DNS aliases, and tailnet tags
 - Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
 
@@ -224,7 +224,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [25]   | C++ toolchain and packages     | Pixi `cpp` environment in `pyproject.toml`, exact builds in `pixi.lock`                                |
 |  [26]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, `EngineVersion` of a `.uplugin`, found in Epic install lists     |
 |  [27]   | Deploy credential              | Doppler `rasm/deploy` `DOPPLER_IAC_TOKEN` and `GITHUB_TOKEN` rows Doppler and GitHub providers read    |
-|  [28]   | Machine                        | Doppler `rasm/deploy` `DEPLOYED_HOSTS` row, its secrets named `<MACHINE>_<CREDENTIAL>`                 |
+|  [28]   | Machine                        | Row of table `hosts` in `infra/platform-stack.ts`, its Doppler secrets named `<MACHINE>_<CREDENTIAL>`  |
 |  [29]   | Public service name            | Traefik `Host` rule of a service in `infra/compose.yaml`, a CNAME to each machine naming it            |
 
 - Tool rows stay at `latest` where their backend lists releases, a `version_regex` over release tags excludes a development build `latest` resolves
