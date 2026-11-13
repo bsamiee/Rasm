@@ -141,6 +141,9 @@ flowchart LR
 - Unreal plug-ins link a C++ package as a static library `cmake --install` puts under `Source/ThirdParty/<package>`, for the architectures Pixi builds
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
+- Workflow `Deploy` runs `nx deploy @rasm/infra` once CI jobs on `main` finish, passed or failed, and when Doppler config `deploy` changes
+- Unchanged stack inputs apply nothing, and a host runs the Compose services its `DEPLOYED_HOSTS` row names in `services` with their dependencies
+- Machine names state no role, provider, or location: roles sit in host row `services`, DNS aliases, and tailnet tags
 - Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
 
 ## [04]-[TASKS]
@@ -171,7 +174,7 @@ Other tasks run through their own commands:
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
 - `nx install @rasm/infra` starts local services of `infra/compose.yaml`, `-c <profile>` adds the services of one profile
 - `mise daemons stop docker` stops the container engine until a session enters, `mise daemons start docker` starts it and waits until Docker answers
-- `nx deploy @rasm/infra` applies the repository and deployed-host stacks
+- `nx deploy @rasm/infra` applies the repository and machine stacks, as workflow `Deploy` does
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
 - `nx sync` writes each executor's `schema.json` and `executors.json` description from its declared options schema, `nx sync:check` fails on a stale one
 - `mise deps` builds Python distributions against Pixi libraries when `pixi.lock`, `pyproject.toml`, or `uv.lock` changed, through `pixi run --locked uv sync`
@@ -203,7 +206,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [07]   | Checker configuration          | Tool's own file, in `.config/` where a path names it, `pyproject.toml` `[tool.*]` for Python tools     |
 |  [08]   | File-level check               | `.config/hk.pkl` step                                                                                  |
 |  [09]   | Secret                         | Doppler `rasm` project and 1Password, read through the `secrets` skill                                 |
-|  [10]   | Resource or repository setting | Typed row of an `infra/` program, applied by `nx deploy`                                               |
+|  [10]   | Resource or repository setting | Typed row of an `infra/` program, applied by workflow `Deploy`                                         |
 |  [11]   | Service definition             | `infra/compose.yaml`                                                                                   |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                          |
 |  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package only an app imports   |
@@ -213,13 +216,16 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [17]   | Container runtime              | Mise clients, Colima on macOS                                                                          |
 |  [18]   | Agent browser options          | `.config/mise.toml` `[env]` `PLAYWRIGHT_MCP_*` rows, `PLAYWRIGHT_CLI_SESSION` per agent session        |
 |  [19]   | Reusable asset                 | `assets/<kind>/<name>/` in `bsamiee/Rasm-Assets`, with native relative dependencies                    |
-|  [20]   | Backup target                  | Doppler `rasm/deploy` `BACKUP_*` rows, absent `BACKUP_KIND` runs no backup                             |
+|  [20]   | Backup target                  | Doppler `rasm/deploy` `BACKUP_*` rows a host serving `backup` reads, absent `BACKUP_KIND` runs none    |
 |  [21]   | Local daemon                   | `[daemons]` row in `.config/mise.<os>.toml`, started with the first shell or agent session             |
 |  [22]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
 |  [23]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`    |
 |  [24]   | Registry token                 | Doppler `rasm/release` `NODE_AUTH_TOKEN`, `UV_PUBLISH_TOKEN`, `NUGET_API_KEY` rows its tool reads      |
 |  [25]   | C++ toolchain and packages     | Pixi `cpp` environment in `pyproject.toml`, exact builds in `pixi.lock`                                |
 |  [26]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, `EngineVersion` of a `.uplugin`, found in Epic install lists     |
+|  [27]   | Deploy credential              | Doppler `rasm/deploy` `DOPPLER_IAC_TOKEN` and `GITHUB_TOKEN` rows Doppler and GitHub providers read    |
+|  [28]   | Machine                        | Doppler `rasm/deploy` `DEPLOYED_HOSTS` row, its secrets named `<MACHINE>_<CREDENTIAL>`                 |
+|  [29]   | Public service name            | Traefik `Host` rule of a service in `infra/compose.yaml`, a CNAME to each machine running it           |
 
 - Tool rows stay at `latest` where their backend lists releases, a `version_regex` over release tags excludes a development build `latest` resolves
 

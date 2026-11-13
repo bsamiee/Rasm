@@ -30,7 +30,11 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, 
 - Config `dev` holds values local processes read, `ci` syncs to repository Actions secrets, `release` to GitHub environment `release`
 - CI steps read synced Actions secrets, each named in the step `env`
 - `nx deploy` reads config `deploy` through the Doppler CLI inside `infra/stacks.ts`, with no prefix
-- Operator's Doppler login authorizes local deploys, `DOPPLER_TOKEN` in GitHub environment `deploy` authorizes CI deploys
+- Operator's Doppler login reads config `deploy` for local deploys, `DOPPLER_TOKEN` in GitHub environment `deploy` for workflow `Deploy`
+- GitHub environments `release` and `deploy` hold one read-only service token of config `deploy` as `DOPPLER_TOKEN`
+- `deploy` row `DOPPLER_IAC_TOKEN` authorizes the Doppler provider
+- Machine secrets take the machine name as prefix (`LUCKY_SSH_PRIVATE_KEY`, `DERBY_ROOT_PASSWORD`), account secrets the vendor name (`HOSTINGER_API_TOKEN`)
+- `deploy` row `GITHUB_TOKEN` authorizes the GitHub provider, `gh` calls of the repository stack, and the Doppler webhook starting workflow `Deploy`
 - Values a stack generates stay in Pulumi state, `pulumi stack output <name> --show-secrets` reads them
 - Pulumi reads its backend login from `pulumi login`
 - New job values go in through `doppler secrets set <NAME> --config <job>`, new configs and syncs are rows of `infra/repository-stack.ts`

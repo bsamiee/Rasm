@@ -157,7 +157,6 @@ Every member gets faster through logic, the language skill's hot-path line holds
 Fresh agents with no prior context follow each pass over the same scope under the same instruction, edit in place, and lean further toward removal and depth: the first removes what the pass kept, calls hosts and packages where the pass hand-wrote, and builds what the depth criterion of `[03]` names, the second collapses what remains into one structure per member, deepens again, and restores each regression of the first, then `review-change` judges the result hunk by hunk. File scopes run each as a delegated agent, folders run them through `deepen`.
 
 Brief contents:
-- Owner's instruction verbatim
 - What the file is for, who calls it, how it runs, and every entry point of `[01]` step 4
 - Verified facts with sources (installed releases, source paths, host members, measured limits), challengeable with evidence alone
 - Previous pass's mistakes as facts: checker conflicts met, build errors, logic defects a live run caught, host facts a proving run corrected

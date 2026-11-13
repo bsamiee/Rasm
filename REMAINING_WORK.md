@@ -98,7 +98,6 @@ Facts:
 - No tool in the serve-and-test path runs its own CI on Node 27 except `ws` (`node-27-toolchain-audit.md`).
 
 Not done:
-- The VPS and local Compose services still run the previous images until the owner asks for an install or deploy.
 - No test ran on `27.0.0-alpha.0.1.0`.
 - Not measured: Node 26 against Node 27 timing, and helper start time with and without the code cache.
 
