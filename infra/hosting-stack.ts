@@ -17,7 +17,7 @@ import { Array, ByteSize, Cause, Clock, Config, ConfigProvider, Data, Duration, 
 import { Yaml } from 'effect/encoding';
 import { CommandLine } from 'effect/process';
 import { deployed, run } from '#/command';
-import { backupTarget, connections, Deployed, definition, identified, type platformStacks, uploaded } from '#/platform-stack';
+import { backupTarget, connections, definition, hosts, identified, type platformStacks, records, remote, rooted, uploaded } from '#/platform-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -28,6 +28,7 @@ interface Stack {
     readonly context: ExecutorContext;
 }
 interface Operation {
+    readonly host: string;
     readonly create: Array.NonEmptyReadonlyArray<string>;
     readonly delete: Array.NonEmptyReadonlyArray<string>;
     readonly stdin: NonNullable<local.CommandArgs['stdin']>;
@@ -38,7 +39,7 @@ interface Applied {
     readonly dependsOn: readonly Resource[];
 }
 type Row = (stack: Stack) => Effect.Effect<Readonly<Record<string, unknown>>, Error, Layer.Success<typeof layer>>;
-type Engine = Data.TaggedEnum<{ Machine: Record.ReadonlyRecord<never, never>; Host: { readonly name: string; readonly domain: string; readonly values: Readonly<Record<string, string>> } }>;
+type Engine = Data.TaggedEnum<{ Machine: Record.ReadonlyRecord<never, never>; Host: { readonly name: string; readonly domain: (typeof hosts)[string]['domain']; readonly values: Readonly<Record<string, string>> } }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -120,7 +121,10 @@ const machine = (root: string) => ({
         },
     }: (typeof Platform.Type)['services']) => Effect.succeed({ postgres: { host: postgres.host_ip, port: postgres.published }, storage: { endpoint: new URL(`${storage.app_protocol}://${storage.host_ip}:${storage.published}`), tls: false } }),
     apply: (project: string, { create, delete: removed, stdin, environment }: Operation, _: readonly string[], { protect, dependsOn }: Applied) =>
-        Effect.map(Effect.fromResult(Result.all({ create: CommandLine.join(create), delete: CommandLine.join(removed) })), (lines) => new local.Command(project, { ...lines, stdin, environment: secret(environment), dir: root, addPreviousOutputInEnv: false }, { protect, dependsOn: [...dependsOn] })),
+        Effect.map(
+            Effect.all([Effect.fromResult(Result.all({ create: CommandLine.join(create), delete: CommandLine.join(removed) })), Clock.currentTimeMillis]),
+            ([lines, applied]) => new local.Command(project, { ...lines, stdin, environment: secret({ ...environment, APPLIED: `${applied}` }), dir: root, addPreviousOutputInEnv: false }, { protect, dependsOn: [...dependsOn] }),
+        ),
 });
 
 const tunneled = Effect.fnUntraced(function* (
@@ -138,27 +142,30 @@ const tunneled = Effect.fnUntraced(function* (
     return { postgres: { host: folder, port: postgres.published }, storage: { endpoint: new URL(`https://${Array.headNonEmpty(traefik.networks.default.aliases)}`), tls: true } };
 });
 
-const copied = Effect.fnUntraced(function* (host: Host, project: string, { create, delete: removed, stdin, environment }: Operation, bundles: readonly string[], { protect, dependsOn }: Applied) {
+const copied = Effect.fnUntraced(function* (host: Host, { name, domain }: Data.TaggedEnum.Value<Engine, 'Host'>, project: string, { host: published, create, delete: removed, stdin, environment }: Operation, bundles: readonly string[], { protect, dependsOn }: Applied) {
     const paths = yield* Path.Path;
-    const over = (words: Array.NonEmptyReadonlyArray<string>) => Effect.fromResult(Result.flatMap(host.command(paths, connections, words, Record.keys(environment)), CommandLine.join));
-    const [placed, up, down] = yield* Effect.all([Effect.forEach(bundles, (bundle) => uploaded(host, project, bundle, [])), over(create), over(removed)]);
-    return new local.Command(project, { create: up, delete: down, stdin, environment: secret(environment), addPreviousOutputInEnv: false }, { protect, dependsOn: [...dependsOn, ...placed] });
+    const placed = yield* Effect.forEach(bundles, (bundle) => uploaded(host, project, bundle, []));
+    const supplied = { ...environment, PLATFORM_BUNDLES: all(placed.map(({ id }) => id)).apply((ids) => ids.join(',')) };
+    const over = (words: Array.NonEmptyReadonlyArray<string>) => Effect.fromResult(Result.map(remote(paths, host, words, Record.keys(supplied)), rooted));
+    const [up, down] = yield* Effect.all([over(create), over(removed)]);
+    return new local.Command(project, { create: up, delete: down, stdin, environment: secret(supplied), addPreviousOutputInEnv: false }, { protect, dependsOn: [...dependsOn, ...placed, ...records[domain.dns](domain.name, 'CNAME', [published], name)] });
 });
 
-const hosted = Effect.fnUntraced(function* ({ name, domain, values }: Data.TaggedEnum.Value<Engine, 'Host'>) {
+const hosted = Effect.fnUntraced(function* (engine: Data.TaggedEnum.Value<Engine, 'Host'>) {
+    const { name, domain, values } = engine;
     const reference = new StackReference(`${getOrganization()}/${getProject()}/${name}`);
     const read = (member: keyof Effect.Success<Effect.Success<ReturnType<typeof platformStacks>>[number]['program']>) => Effect.tryPromise({ try: () => reference.getOutputDetails(member), catch: (cause) => new Cause.UnknownError(cause, `stack ${name} holds no ${member} output`) });
-    const [connection, identity, backup] = yield* Effect.all([read('connection'), read('identity'), backupTarget(values, domain)]);
+    const [connection, identity, backup] = yield* Effect.all([read('connection'), read('identity'), backupTarget(values, domain.name)]);
     const file = identified(name);
     const [stated, material] = yield* Effect.all([Schema.decodeUnknownEffect(Stated)(connection.value), Schema.decodeUnknownEffect(Schema.NonEmptyString)(identity.secretValue)]);
     const host = yield* Schema.decodeUnknownEffect(Host)({ ...stated, identity: { _tag: 'Key', file } });
     yield* runtime.isDryRun() ? Effect.void : held(Ssh.use((ssh) => ssh.written(host, { [file]: material })));
     return {
-        variables: { ...values, PLATFORM_DOMAIN: domain },
+        variables: { ...values, PLATFORM_DOMAIN: domain.name },
         settings: ConfigProvider.fromUnknown(values),
         backup,
         reach: (services: (typeof Platform.Type)['services']) => held(tunneled(host, services)),
-        apply: (project: string, operation: Operation, bundles: readonly string[], options: Applied) => copied(host, project, operation, bundles, options),
+        apply: (project: string, operation: Operation, bundles: readonly string[], options: Applied) => copied(host, engine, project, operation, bundles, options),
     };
 });
 
@@ -272,7 +279,7 @@ const documented = Effect.fnUntraced(function* ({ app, mode }: Stack, { networks
 
 const served = (engine: Engine): Row =>
     Effect.fnUntraced(function* (stack) {
-        const [bundle, row, applied, commands] = yield* Effect.all([bundled(stack), engaged(engine, stack.context.root), Clock.currentTimeMillis, Effect.succeed({ create: Array.appendAll(compose, ['up', '--build', '--detach', '--wait', '--remove-orphans']), delete: Array.appendAll(compose, ['down', '--volumes']) })]);
+        const [bundle, row, commands] = yield* Effect.all([bundled(stack), engaged(engine, stack.context.root), Effect.succeed({ create: Array.appendAll(compose, ['up', '--build', '--detach', '--wait', '--remove-orphans']), delete: Array.appendAll(compose, ['down', '--volumes']) })]);
         const platform = yield* Effect.flatMap(run('docker', ['compose', '--file', definition, 'config', '--format', 'json'], row.variables), Schema.decodeEffect(Platform));
         const [{ environment, resources }, access] = yield* Effect.all([
             Effect.flatMap(row.reach(platform.services), (reached) => stores(stack, platform, reached)).pipe(Effect.provide(ConfigProvider.layer(row.settings))),
@@ -281,7 +288,7 @@ const served = (engine: Engine): Row =>
         const variables = { ...environment, [Access.variable]: access };
         const { host, stdin } = yield* documented(stack, platform, bundle, Record.keys(variables), row.backup);
         const replicated = Option.match(row.backup, { onNone: () => ({}), onSome: Struct.get('environment') });
-        const project = yield* row.apply(App.resource(stack.app, stack.mode), { ...commands, stdin, environment: { ...replicated, ...variables, APPLIED: `${applied}` } }, Object.values(bundle), { protect: App.modes[stack.mode].kept, dependsOn: resources });
+        const project = yield* row.apply(App.resource(stack.app, stack.mode), { ...commands, host, stdin, environment: { ...replicated, ...variables } }, Object.values(bundle), { protect: App.modes[stack.mode].kept, dependsOn: resources });
         return { url: `https://${host}`, project: project.id };
     });
 
@@ -291,11 +298,7 @@ const hostingValues = {
     local: served(Engine.Machine()),
     cloudflare: ({ app, mode, directory }: Stack) => deployApp({ app, mode, identity: Sites.identity, root: directory }).pipe(Effect.provide(Layer.unwrap(Effect.map(deployed, flow(ConfigProvider.fromUnknown, ConfigProvider.layer))))),
 };
-const hostingRows = Effect.gen(function* () {
-    const values = yield* deployed;
-    const { DEPLOYED_HOSTS } = yield* Schema.decodeUnknownEffect(Deployed)(values);
-    return { ...hostingValues, ...Record.map(DEPLOYED_HOSTS, ({ domain }, name) => served(Engine.Host({ name, domain: domain.name, values }))) } satisfies Readonly<Record<string, Row>>;
-});
+const hostingRows = (values: Readonly<Record<string, string>>) => ({ ...hostingValues, ...Record.map(hosts, ({ domain }, name) => served(Engine.Host({ name, domain, values }))) }) satisfies Readonly<Record<string, Row>>;
 const hostingStack = Effect.fn('hostingStack')(function* (context: ExecutorContext, rows: Readonly<Record<string, Row>>, value: string, production: boolean) {
     const project = yield* Effect.fromNullishOr(context.projectName);
     const directory = join(context.root, (yield* Effect.fromNullishOr(context.projectGraph.nodes[project])).data.root);

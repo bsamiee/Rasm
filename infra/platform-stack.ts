@@ -7,7 +7,7 @@ import { PrivateKey } from '@pulumi/tls';
 import { paths } from '@rasm/hooks/senders';
 import { Host, Ssh } from '@rasm/ssh';
 import { TailscaleEvent } from '@rasm/webhooks/tailscale';
-import { Array, ByteSize, Cause, Config, Effect, FileSystem, flow, Option, Path, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
+import { Array, ByteSize, Cause, Config, Data, Effect, FileSystem, flow, Option, Path, Predicate, Record, Result, Schema, Stream, Struct } from 'effect';
 import { type ChildProcessSpawner, CommandLine } from 'effect/process';
 import { run } from '#/command';
 
@@ -17,6 +17,17 @@ interface Target {
     readonly profiles: readonly string[];
     readonly replica: (path: string) => string;
     readonly environment: Record.ReadonlyRecord<string, string>;
+}
+type Route = Data.TaggedEnum<{ Address: { readonly port?: number }; Tailnet: { readonly host: string; readonly port?: number } }>;
+interface Row {
+    readonly hostKey: string;
+    readonly machine: keyof typeof machines;
+    readonly id: number;
+    readonly domain: { readonly name: string; readonly dns: keyof typeof records };
+    readonly tags: readonly `tag:${string}`[];
+    readonly routes: Array.NonEmptyReadonlyArray<Route>;
+    readonly tailnet: { readonly ssh: boolean };
+    readonly services: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -58,12 +69,13 @@ const machines = {
         listed: flow(
             Schema.decodeUnknownEffect(Schema.Struct({ HOSTINGER_API_TOKEN: Schema.NonEmptyString })),
             Effect.flatMap((credentials) => run('hostinger', ['vps', 'virtual-machines', 'list', '--no-input', '--format', 'json'], credentials)),
-            Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ id: Schema.Int, hostname: Schema.String, memory: Schema.Int, ipv4: Schema.NonEmptyArray(Schema.Struct({ address: Schema.NonEmptyString })) }))))),
-            Effect.map(Record.fromIterableBy(Struct.get('hostname'))),
+            Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ id: Schema.Int, memory: Schema.Int, ipv4: Schema.NonEmptyArray(Schema.Struct({ id: Schema.Int, address: Schema.NonEmptyString })) }))))),
+            Effect.map(Record.fromIterableBy(({ id }) => `${id}`)),
             Effect.map(
-                Record.map(({ id, memory, ipv4: [{ address }] }) => ({
+                Record.map(({ id, memory, ipv4: [{ id: pointed, address }] }) => ({
                     address,
                     memory: ByteSize.mebibytes(memory),
+                    named: (host: string) => ({ pointer: `hostinger vps ptr create ${id} ${pointed} --domain ${host} --no-input --wait`, hostname: `hostinger vps virtual-machines set-hostname ${id} --hostname ${host} --no-input --wait` }),
                     authorized: (key: Output<string>) => ({ create: interpolate`hostinger vps ssh-keys add-virtual-machine ${id} --keys '${key}' --no-input`, delete: interpolate`hostinger vps ssh-keys remove-virtual-machine ${id} --keys '${key}' --no-input --yes` }),
                 })),
             ),
@@ -140,36 +152,39 @@ const backups = {
         ),
     ),
 };
+const hosts: Readonly<Record<string, Row>> = {
+    'lucky.parametric-arsenal.cloud': {
+        hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINlDfldE2RJfij8rEZq4BzWRHTqKzMY29yMxlQnYNRMT',
+        machine: 'hostinger',
+        id: 1_196_440,
+        domain: { name: 'parametric-arsenal.cloud', dns: 'cloudflare' },
+        tags: ['tag:server'],
+        routes: [{ _tag: 'Tailnet', host: 'lucky' }, { _tag: 'Address' }],
+        tailnet: { ssh: true },
+        services: ['traefik', 'nx-cache'],
+    },
+    'derby.parametric-arsenal.cloud': {
+        hostKey: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHr7FBBzD95xszk/XqYUzpU4MluwbodswlO2yqnI8Ljx',
+        machine: 'hostinger',
+        id: 2_138_272,
+        domain: { name: 'parametric-arsenal.cloud', dns: 'cloudflare' },
+        tags: ['tag:server'],
+        routes: [{ _tag: 'Tailnet', host: 'derby' }, { _tag: 'Address' }],
+        tailnet: { ssh: true },
+        services: [],
+    },
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const ported = { port: Schema.optionalKey(Schema.Port) };
-const Route = Schema.TaggedUnion({ Address: ported, Tailnet: { host: Schema.NonEmptyString, ...ported } });
-const Hosts = Schema.Struct({
-    DEPLOYED_HOSTS: Schema.fromJsonString(
-        Schema.Record(
-            Schema.NonEmptyString,
-            Schema.Struct({
-                hostKey: Schema.NonEmptyString,
-                machine: Schema.Literals(Struct.keys(machines)),
-                domain: Schema.Struct({ name: Schema.NonEmptyString, dns: Schema.Literals(Struct.keys(records)) }),
-                tags: Schema.Array(Schema.TemplateLiteral(['tag:', Schema.NonEmptyString])),
-                routes: Schema.NonEmptyArray(Route),
-                tailnet: Schema.Struct({ ssh: Schema.Boolean }),
-                services: Schema.Array(Schema.NonEmptyString),
-            }),
-        ),
+const Route = Data.taggedEnum<Route>();
+const Deployed = Schema.Struct({
+    BACKUP_KIND: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(backups))),
+    ...Struct.Record(
+        ['CLOUDFLARE_ACCOUNT_ID', 'POSTGRES_PASSWORD', 'CLICKHOUSE_PASSWORD', 'CLICKHOUSE_READER_PASSWORD', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY', 'AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'AUTHELIA_OWNER_PASSWORD_HASH', 'NX_CACHE_WRITE_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN'],
+        Schema.NonEmptyString,
     ),
 });
-const Deployed = Hosts.mapFields(
-    Struct.assign({
-        BACKUP_KIND: Schema.OptionFromOptionalKey(Schema.Literals(Struct.keys(backups))),
-        ...Struct.Record(
-            ['CLOUDFLARE_ACCOUNT_ID', 'POSTGRES_PASSWORD', 'CLICKHOUSE_PASSWORD', 'CLICKHOUSE_READER_PASSWORD', 'RUSTFS_ACCESS_KEY', 'RUSTFS_SECRET_KEY', 'AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY', 'AUTHELIA_OWNER_PASSWORD_HASH', 'NX_CACHE_WRITE_TOKEN', 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN'],
-            Schema.NonEmptyString,
-        ),
-    }),
-);
 const Kind = Deployed.mapFields(Struct.pick(['BACKUP_KIND']));
 const Entries = Schema.Record(Schema.String, Schema.Unknown);
 const Composed = Schema.fromJsonString(
@@ -191,6 +206,7 @@ const Variables = Schema.fromJsonString(Entries);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const rooted = (line: string) => `cd "$NX_WORKSPACE_ROOT" && ${line}`;
+const remote = (path: Path.Path, host: Host, words: Array.NonEmptyReadonlyArray<string>, sent: readonly string[] = []) => Result.flatMap(host.command(path, relative(root, connections), words, sent), CommandLine.join);
 const identified = (host: string) => join(connections, host, `${host}.key`);
 const backupTarget = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>, domain: string) {
     const { BACKUP_KIND: kind } = yield* Schema.decodeEffect(Kind)(deployed);
@@ -199,15 +215,15 @@ const backupTarget = Effect.fnUntraced(function* (deployed: Readonly<Record<stri
 });
 const uploaded = Effect.fnUntraced(function* (host: Host, name: string, bundle: string, dependsOn: readonly Resource[]) {
     const path = yield* Path.Path;
-    const [source, folder, held] = [join(root, bundle), dirname(bundle), relative(root, connections)];
-    const steps = yield* Effect.fromResult(Result.all([...Array.make(['rm', '-rf', bundle] as const, ['mkdir', '-p', folder] as const).map((words) => Result.flatMap(host.command(path, held, words), CommandLine.join)), CommandLine.join(host.copy(path, held, bundle, folder))]));
+    const [source, folder] = [join(root, bundle), dirname(bundle)];
+    const steps = yield* Effect.fromResult(Result.all([...Array.make(['rm', '-rf', bundle] as const, ['mkdir', '-p', folder] as const).map((words) => remote(path, host, words)), CommandLine.join(host.copy(path, relative(root, connections), bundle, folder))]));
     return new local.Command(`${name}-${bundle}`, { create: rooted(steps.join(' && ')), triggers: [new asset.FileArchive(source)], addPreviousOutputInEnv: false }, { dependsOn: [...dependsOn], replacementTrigger: host.trust.keys });
 });
 const prepared = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>) {
-    const decoded = yield* Schema.decodeUnknownEffect(Deployed)(deployed);
+    yield* Schema.decodeUnknownEffect(Deployed)(deployed);
     const listings = yield* Effect.all(Record.map(machines, (row) => Effect.cached(row.listed(deployed))));
-    const enrolled = new Set(Object.values(decoded.DEPLOYED_HOSTS).flatMap(({ routes }) => routes.filter(Route.guards.Tailnet).map(Struct.get('host'))));
-    return { deployed, decoded, listings, enrolled };
+    const enrolled = new Set(Object.values(hosts).flatMap(({ routes }) => routes.filter(Route.$is('Tailnet')).map(Struct.get('host'))));
+    return { deployed, listings, enrolled };
 });
 
 const allotted = Effect.fnUntraced(function* (deployed: Readonly<Record<string, string>>, domain: string, installed: ByteSize.ByteSize) {
@@ -226,10 +242,10 @@ const allotted = Effect.fnUntraced(function* (deployed: Readonly<Record<string, 
     return { backup, candidates };
 });
 
-const accessed = Effect.fnUntraced(function* (host: string, address: string, { hostKey, machine, routes }: (typeof Hosts.Type)['DEPLOYED_HOSTS'][string], deploy: PrivateKey) {
+const accessed = Effect.fnUntraced(function* (host: string, address: string, { hostKey, machine, routes }: Row, deploy: PrivateKey) {
     const [path, context] = yield* Effect.all([Path.Path, Effect.context<FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner>()]);
-    const mesh = Array.findFirst(routes, Route.guards.Tailnet);
-    const stated = { ...Struct.omit(dialing, ['within']), host: address, ...Option.match(Array.findFirst(routes, Route.guards.Address), { onNone: () => ({}), onSome: Struct.omit(['_tag']) }), user: machines[machine].user, identity: { _tag: 'Key', file: identified(host) }, trust: { _tag: 'HostKeys', keys: [hostKey] } };
+    const mesh = Array.findFirst(routes, Route.$is('Tailnet'));
+    const stated = { ...Struct.omit(dialing, ['within']), host: address, ...Option.match(Array.findFirst(routes, Route.$is('Address')), { onNone: () => ({}), onSome: Struct.omit(['_tag']) }), user: machines[machine].user, identity: { _tag: 'Key', file: identified(host) }, trust: { _tag: 'HostKeys', keys: [hostKey] } };
     const [direct, meshed] = yield* Effect.all([
         Schema.decodeUnknownEffect(Host)({ ...stated, name: host, path: { _tag: 'Direct', preferred: [] } }),
         Effect.transposeOption(Option.map(mesh, (machined) => Schema.decodeUnknownEffect(Host)({ ...stated, name: machined.host, path: { _tag: 'Direct', preferred: [{ ...Struct.omit(machined, ['_tag']), within: dialing.within }] } }))),
@@ -243,11 +259,11 @@ const accessed = Effect.fnUntraced(function* (host: string, address: string, { h
         Effect.provide(Ssh.layer(connections)),
     );
     const ready = unsecret(output(deploy.privateKeyOpenssh).apply((material) => (runtime.isDryRun() ? connections : placed(material).pipe(Effect.runPromiseWith(context)))));
-    const over = (through: Host, words: Array.NonEmptyReadonlyArray<string>, sent: readonly string[] = []) => Effect.map(Effect.fromResult(Result.flatMap(through.command(path, relative(root, connections), words, sent), CommandLine.join)), (line) => ready.apply(() => rooted(line)));
+    const over = (through: Host, words: Array.NonEmptyReadonlyArray<string>, sent: readonly string[] = []) => Effect.map(Effect.fromResult(remote(path, through, words, sent)), (line) => ready.apply(() => rooted(line)));
     return { mesh, direct, reached: Option.getOrElse(meshed, () => direct), over };
 });
 
-const equipped = Effect.fnUntraced(function* (host: string, { tags, tailnet }: (typeof Hosts.Type)['DEPLOYED_HOSTS'][string], { mesh, direct, over }: Effect.Success<ReturnType<typeof accessed>>, key: local.Command, script: string) {
+const equipped = Effect.fnUntraced(function* (host: string, { tags, tailnet }: Row, { mesh, direct, over }: Effect.Success<ReturnType<typeof accessed>>, key: local.Command, script: string) {
     const engine = new local.Command(host, { create: yield* over(direct, ['bash', '-s', '--', ...packages, ...Option.toArray(Option.as(mesh, 'tailscale'))]), stdin: script, addPreviousOutputInEnv: false }, { dependsOn: key, replacementTrigger: direct.trust.keys });
     const configured = yield* Effect.reduce(
         Record.toEntries(files),
@@ -269,15 +285,7 @@ const equipped = Effect.fnUntraced(function* (host: string, { tags, tailnet }: (
     return Option.match(joined, { onNone: () => configured, onSome: Array.of });
 });
 
-const served = Effect.fnUntraced(function* (
-    host: string,
-    { domain }: (typeof Hosts.Type)['DEPLOYED_HOSTS'][string],
-    services: Array.NonEmptyReadonlyArray<string>,
-    { deployed, enrolled }: Effect.Success<ReturnType<typeof prepared>>,
-    installed: ByteSize.ByteSize,
-    access: Effect.Success<ReturnType<typeof accessed>>,
-    reachable: readonly Resource[],
-) {
+const served = Effect.fnUntraced(function* (host: string, { domain }: Row, services: Array.NonEmptyReadonlyArray<string>, { deployed, enrolled }: Effect.Success<ReturnType<typeof prepared>>, installed: ByteSize.ByteSize, access: Effect.Success<ReturnType<typeof accessed>>, reachable: readonly Resource[]) {
     const project = import.meta.dirname;
     const { backup, candidates } = yield* allotted(deployed, domain.name, installed);
     const [{ services: composed }, model] = yield* Effect.all([
@@ -331,30 +339,30 @@ const served = Effect.fnUntraced(function* (
         { create: yield* composing('up', '--build', '--detach', '--wait', '--remove-orphans', ...services), delete: yield* composing('--profile', '*', 'down'), stdin: reduced, triggers: [services], addPreviousOutputInEnv: false, environment: secret(supplied) },
         { dependsOn: [...reachable, ...named, ...bundles], deleteBeforeReplace: true, replacementTrigger: access.reached.trust.keys },
     );
-    return { domain: domain.name, records: named.map(({ name }) => name), services: running.id };
+    return [{ domain: domain.name, records: named.map(({ name }) => name), services: running.id }, [running]] as const;
 });
 
-const provisioned = Effect.fnUntraced(function* (shared: Effect.Success<ReturnType<typeof prepared>>, host: string) {
+const provisioned = Effect.fnUntraced(function* (shared: Effect.Success<ReturnType<typeof prepared>>, host: string, stated: Row) {
     const fs = yield* FileSystem.FileSystem;
-    const stated = yield* Effect.fromOption(Record.get(shared.decoded.DEPLOYED_HOSTS, host));
-    const { address, memory: installed, authorized } = yield* Effect.flatMap(shared.listings[stated.machine], (listed) => Effect.fromOption(Record.get(listed, host), () => new Cause.NoSuchElementError(`${stated.machine} lists no machine named ${host}`)));
+    const { address, memory: installed, authorized, named } = yield* Effect.flatMap(shared.listings[stated.machine], (listed) => Effect.fromOption(Record.get(listed, `${stated.id}`), () => new Cause.NoSuchElementError(`${stated.machine} lists no machine ${stated.id}`)));
     const script = yield* fs.readFileString(join(import.meta.dirname, 'host.sh'));
     const deploy = new PrivateKey(host, { algorithm: 'ED25519' });
     const key = new local.Command(`${host}-key`, { ...authorized(deploy.publicKeyOpenssh.apply((openssh) => openssh.trim())), triggers: [deploy.publicKeyOpenssh] });
     const access = yield* accessed(host, address, stated, deploy);
     const reachable = yield* equipped(host, stated, access, key, script);
     const located = records[stated.domain.dns](stated.domain.name, 'A', [host], address);
-    const project = yield* Array.match(stated.services, { onEmpty: () => Effect.succeed({}), onNonEmpty: (services) => served(host, stated, services, shared, installed, access, reachable) });
-    return { host, address: located.map(({ content }) => content), ...project, connection: Struct.omit(yield* Schema.encodeEffect(Host)(access.reached), ['identity']), identity: deploy.privateKeyOpenssh };
+    const [project, ran] = yield* Array.match(stated.services, { onEmpty: () => Effect.succeed([{}, reachable] as const), onNonEmpty: (services) => served(host, stated, services, shared, installed, access, reachable) });
+    const titled = Record.map(named(host), (create, part) => new local.Command(`${host}-${part}`, { create, addPreviousOutputInEnv: false }, { dependsOn: [...ran], replacementTrigger: access.direct.trust.keys }).id);
+    return { host, named: titled, address: located.map(({ content }) => content), ...project, connection: Struct.omit(yield* Schema.encodeEffect(Host)(access.reached), ['identity']), identity: deploy.privateKeyOpenssh };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const platformStacks = flow(
     prepared,
-    Effect.map((shared) => Object.keys(shared.decoded.DEPLOYED_HOSTS).map((stackName) => ({ stackName, program: provisioned(shared, stackName) }))),
+    Effect.map((shared) => Record.collect(hosts, (stackName, row) => ({ stackName, program: provisioned(shared, stackName, row) }))),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { backupTarget, connections, Deployed, definition, identified, platformStacks, uploaded };
+export { backupTarget, connections, Deployed, definition, hosts, identified, platformStacks, records, remote, rooted, uploaded };

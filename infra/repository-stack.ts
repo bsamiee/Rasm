@@ -12,7 +12,7 @@ import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { interpolateReleaseConfig } from 'nx/src/command-line/release/utils/interpolate-release-config';
 import { run } from '#/command';
-import { Deployed } from '#/platform-stack';
+import { Deployed, hosts } from '#/platform-stack';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -21,7 +21,7 @@ const api = new URL('https://api.doppler.com');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Account = Deployed.mapFields(flow(Struct.pick(['DEPLOYED_HOSTS', 'CLOUDFLARE_ACCOUNT_ID']), Struct.assign(Struct.Record(['GITHUB_TOKEN', 'DOPPLER_IAC_TOKEN'], Schema.NonEmptyString))));
+const Account = Deployed.mapFields(flow(Struct.pick(['CLOUDFLARE_ACCOUNT_ID']), Struct.assign(Struct.Record(['GITHUB_TOKEN', 'DOPPLER_IAC_TOKEN'], Schema.NonEmptyString))));
 const Manifest = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, description: Schema.NonEmptyString }));
 const Origin = Schema.fromJsonString(Schema.Struct({ name: Schema.NonEmptyString, owner: Schema.Struct({ login: Schema.NonEmptyString }) }));
 const Integrations = Schema.Struct({ integrations: Schema.Array(Schema.Struct({ slug: Schema.String, name: Schema.String, type: Schema.String })) });
@@ -62,7 +62,7 @@ const delivered = Effect.fnUntraced(function* (
     };
 }, Effect.provide(layerUndici));
 
-const tailnet = (hosts: typeof Account.Type.DEPLOYED_HOSTS) => {
+const tailnet = () => {
     const owned = Array.dedupe(Object.values(hosts).flatMap(({ tags }) => tags));
     const served = Array.dedupe(
         Object.values(hosts)
@@ -86,7 +86,7 @@ const access = (accountId: string, { name, authDomain }: Pick<GetZeroTrustOrgani
     identityProvider: new ZeroTrustAccessIdentityProvider(`${name}-onetimepin`, { accountId, name: 'One-time PIN', type: 'onetimepin', config: {} }, { protect: true }).id,
 });
 
-const feed = (accountId: string, hosts: typeof Account.Type.DEPLOYED_HOSTS, { name, repository, environment }: { readonly name: string; readonly repository: Output<string>; readonly environment: Output<string> }) => {
+const feed = (accountId: string, { name, repository, environment }: { readonly name: string; readonly repository: Output<string>; readonly environment: Output<string> }) => {
     const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
     return {
         feedBucket: new ActionsEnvironmentVariable(`${name}-release-SPARKLE_FEED_BUCKET`, { repository, environment, variableName: 'SPARKLE_FEED_BUCKET', value: bucket.name }).variableName,
@@ -113,7 +113,7 @@ const guarded = (repository: Output<string>, { name, fullName, forms, patterns }
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, deployed: Readonly<Record<string, string>>) {
-    const [fs, path, { DEPLOYED_HOSTS: hosts, CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN, DOPPLER_IAC_TOKEN: operator }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Account)(deployed)]);
+    const [fs, path, { CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN, DOPPLER_IAC_TOKEN: operator }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Account)(deployed)]);
     const { name: stackName, description } = yield* Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest));
     const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
     const { groups } = yield* Effect.flatMap(
@@ -152,9 +152,9 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
             return {
                 repository: fullName,
                 configs,
-                tailnet: tailnet(hosts),
+                tailnet: tailnet(),
                 access: access(accountId, organization),
-                ...feed(accountId, hosts, { name, repository, environment: configs.release }),
+                ...feed(accountId, { name, repository, environment: configs.release }),
                 assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
                 ...guarded(repository, { name, fullName, forms, patterns: Array.dedupe(Record.collect(groups ?? {}, (_, { releaseTag }) => releaseTag.pattern)) }),
             };

@@ -28,7 +28,7 @@
         },
         "stack": {
             "type": "string",
-            "description": "Name of the one stack a deploy applies, absent applies every stack"
+            "description": "Name of the one stack a deploy or a release applies, absent applies every stack"
         },
         "destroy": {
             "type": "boolean",

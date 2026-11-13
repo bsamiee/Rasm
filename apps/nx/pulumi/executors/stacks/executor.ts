@@ -11,8 +11,7 @@ import { Console, Data, Effect, FileSystem, Function, Match, Option, Path, Recor
 
 type StackRequest = Data.TaggedEnum<{
     Install: { readonly context: ExecutorContext };
-    Deploy: { readonly context: ExecutorContext; readonly stack: Option.Option<string> };
-    Release: { readonly context: ExecutorContext };
+    Deploy: { readonly context: ExecutorContext; readonly stack: Option.Option<string>; readonly production: boolean };
 }>;
 type Stacks = (request: StackRequest) => Promise<readonly (InlineProgramArgs & LocalWorkspaceOptions)[]>;
 
@@ -23,7 +22,7 @@ const Options = Schema.Struct({
     dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Previews the stacks of a release and applies none, as NX_DRY_RUN=true does, an install or a deploy refuses it' }),
     programs: Schema.NonEmptyArray(Schema.String).annotate({ description: 'Program packages, each resolved from the project and exporting stacks(request)' }),
     request: Schema.Literals(['Install', 'Deploy', 'Release']).annotate({ description: "What the run asks each program's stacks for: a local install, a deploy, or the deploy of a released version", default: 'Deploy' }),
-    stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack a deploy applies, absent applies every stack' }),
+    stack: Schema.optionalKey(Schema.String).annotate({ description: 'Name of the one stack a deploy or a release applies, absent applies every stack' }),
     destroy: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Destroys the stacks of a deploy and removes them' }),
 }).annotate({ title: 'Stacks', description: 'Applies the stacks a program package states for a project through the Pulumi Automation API, refreshing live state first, previewing a release under a dry run' });
 const Line = Schema.fromJsonString(
@@ -96,8 +95,8 @@ const execute = executor(
         const operation = yield* dry && request !== 'Release' ? ToolError.make({ subject: project, detail: `${request} has no dry run, only a release previews its stacks` }) : Effect.succeed(({ Install: 'up', Deploy: destroy === true ? 'destroy' : 'up', Release: dry ? 'preview' : 'up' } as const)[request]);
         const asked = Match.value(request).pipe(
             Match.when('Install', () => StackRequest.Install({ context })),
-            Match.when('Deploy', () => StackRequest.Deploy({ context, stack: Option.fromUndefinedOr(stack) })),
-            Match.when('Release', () => StackRequest.Release({ context })),
+            Match.when('Deploy', () => StackRequest.Deploy({ context, stack: Option.fromUndefinedOr(stack), production: false })),
+            Match.when('Release', () => StackRequest.Deploy({ context, stack: Option.fromUndefinedOr(stack), production: true })),
             Match.exhaustive,
         );
         const [reports, failures] = yield* Effect.partition(programs, (program) => programmed(path.join(context.root, root, 'package.json'), program, asked, operation), { concurrency: 'unbounded' });

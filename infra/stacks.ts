@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { type InlineProgramArgs, LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
 import type { StackRequest, Stacks } from '@rasm/nx-pulumi/stacks';
-import { Array, Cause, Effect, FileSystem, type Layer, Match, Option, Record } from 'effect';
+import { Array, Cause, Effect, FileSystem, type Layer, Match, Option, Record, Struct } from 'effect';
 import { deployed } from '#/command';
 import { hostingRows, hostingStack, hostingValues } from '#/hosting-stack';
 import manifest from '#/package.json' with { type: 'json' };
@@ -15,21 +15,17 @@ const project = manifest.name.replace('@', '').replace('/', '-');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const held = Effect.fnUntraced(function* (context: ExecutorContext, production: boolean) {
-    const [fs, rows] = yield* Effect.all([FileSystem.FileSystem, hostingRows]);
-    const workDir = yield* fs.makeTempDirectoryScoped();
+const held = Effect.fnUntraced(function* (context: ExecutorContext, rows: ReturnType<typeof hostingRows>, production: boolean, envVars: Readonly<Record<string, string>>) {
+    const workDir = yield* Effect.flatMap(FileSystem.FileSystem, (fs) => fs.makeTempDirectoryScoped());
     const [candidates, listed] = yield* Effect.all([
         Effect.forEach(Record.keys(rows), (value) => hostingStack(context, rows, value, production)),
         Effect.flatMap(
-            Effect.tryPromise(() => LocalWorkspace.create({ workDir, projectSettings: { name: project, runtime: 'nodejs' } })),
+            Effect.tryPromise(() => LocalWorkspace.create({ workDir, envVars, projectSettings: { name: project, runtime: 'nodejs' } })),
             (workspace) => Effect.tryPromise(() => workspace.listStacks()),
         ),
     ]);
     const names = new Set(listed.map(({ name }) => name));
-    return yield* Array.match(
-        candidates.filter(({ stackName }) => names.has(stackName)),
-        { onEmpty: () => Effect.map(hostingStack(context, rows, 'local', production), Array.of), onNonEmpty: Effect.succeed },
-    );
+    return candidates.filter(({ stackName }) => names.has(stackName));
 }, Effect.scoped);
 
 const inline = <E>({ program, ...args }: { readonly stackName: string; readonly envVars?: Readonly<Record<string, string>>; readonly program: Effect.Effect<Readonly<Record<string, unknown>>, E, Layer.Success<typeof layer>> }): InlineProgramArgs => ({
@@ -39,7 +35,7 @@ const inline = <E>({ program, ...args }: { readonly stackName: string; readonly 
 });
 
 const owned = Effect.fnUntraced(function* (request: StackRequest) {
-    const named = Match.valueTags(request, { Install: () => Option.none<string>(), Deploy: ({ stack }) => stack, Release: () => Option.none<string>() });
+    const named = Match.valueTags(request, { Install: () => Option.none<string>(), Deploy: Struct.get('stack') });
     const envVars = yield* deployed;
     const repository = inline({ ...(yield* repositoryStack(request.context, envVars)), envVars });
     const platform = Effect.map(
@@ -62,16 +58,12 @@ const owned = Effect.fnUntraced(function* (request: StackRequest) {
 
 const hosted = Match.typeTags<StackRequest>()({
     Install: ({ context }) => Effect.map(hostingStack(context, hostingValues, 'local', false), Array.of),
-    Deploy: ({ context, stack }) =>
-        Option.match(stack, {
-            onNone: () => held(context, false),
-            onSome: (value) =>
-                hostingRows.pipe(
-                    Effect.flatMap((rows) => hostingStack(context, rows, value, false)),
-                    Effect.map(Array.of),
-                ),
-        }),
-    Release: ({ context }) => held(context, true),
+    Deploy: Effect.fnUntraced(function* ({ context, stack, production }) {
+        const envVars = yield* deployed;
+        const rows = hostingRows(envVars);
+        const selected = yield* Option.match(stack, { onNone: () => held(context, rows, production, envVars), onSome: (value) => Effect.map(hostingStack(context, rows, value, production), Array.of) });
+        return selected.map((each) => ({ ...each, envVars }));
+    }),
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
