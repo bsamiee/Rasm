@@ -17,6 +17,7 @@ Places holding state, each updated by one action:
 
 - Workflow `Deploy` applies every stack through `nx deploy @rasm/infra`
 - `Deploy` starts on `workflow_run` once a CI run on `main` completes, passed or failed, so a failing test never blocks an infrastructure fix
+- `Deploy` applies only when that CI run tested the tip of `main`, so no deploy restarts a service under the CI run of a later push
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - Pull requests, other branches, and cancelled CI runs start no deploy, and each deploy checks out `main`
 - Target `deploy` runs target `check` of the same project first
@@ -62,7 +63,7 @@ New or reinstalled machines take these steps once:
 - Nx 24 stops a whole run on any cache server answer it does not expect, or none, with no setting to continue without the server
 - Cache variables set on this Mac would make every local `nx` command stop the same way while the cache machine is unreachable
 - `lucky` runs the cache alone, so no work on `derby` reaches it
-- Deploys recreate a cache container only on its changed definition, and `Deploy` starts after its CI run finishes every task
+- Deploys recreate a cache container only on its changed definition, after the CI run of the newest push finishes every task
 - Recreating a cache container takes about a second: a request in flight fails its run, and one sent meanwhile waits and answers
 - Lock files are hash inputs: a changed lock reruns every task depending on its packages, and never needs a machine update
 - Plugin source is an input of its tasks, so an edit under `apps/nx` invalidates every task of that plugin

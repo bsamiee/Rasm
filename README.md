@@ -141,7 +141,7 @@ flowchart LR
 - Unreal plug-ins link a C++ package as a static library `cmake --install` puts under `Source/ThirdParty/<package>`, for the architectures Pixi builds
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
-- Workflow `Deploy` runs `nx deploy @rasm/infra` once CI jobs on `main` finish, passed or failed, and when Doppler config `deploy` changes
+- Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
 - Unchanged stack inputs apply nothing, and a machine runs the Compose services its `hosts` row names in `services` with their dependencies
 - Machine names state no role, provider, or location: roles sit in host row `services`, DNS aliases, and tailnet tags
 - Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`
