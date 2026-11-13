@@ -34,10 +34,10 @@ Rasm/
 ├── rust-toolchain.toml       # Rust toolchain channel and components
 ├── CMakeLists.txt            # C++ root project finding each package by its CMakeLists.txt
 ├── CMakePresets.json         # C++ configure, build, test, package, and workflow presets
-├── .clang-format             # C++ formatting
-├── .clang-tidy               # C++ checks, each finding an error
+├── vcpkg.json                # C++ library versions, registry baseline, and overlay triplets
+├── .clang-format             # C++ and Objective-C++ formatting
+├── .clang-tidy               # C++ checks and house rules, each finding an error
 ├── .clangd                   # C++ language server compilation database folder
-├── .gersemirc                # CMake formatting
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor, formatting, and analyzer settings by file path
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
@@ -132,13 +132,18 @@ flowchart LR
 - Hosts run wherever their vendor releases and licenses them for a machine, CI runners included, as Blender does through its `bpy` wheel
 - Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`
 - Tests of code calling a host run where the host runs, and logic needing no host sits in projects tested on every platform
-- `@rasm/nx-cmake` configures one build tree per workflow preset under `.artifacts/cmake/<configure preset>` and infers projects, targets, and edges from its file API reply
-- CMake workflow presets name the configure, build, test, and package presets of one Nx configuration, and no preset states a build folder
-- C++ tools (Clang, clang-tidy, clang-format, Ninja, gersemi) and libraries come from the Pixi `cpp` environment, entered by the `launcher` option of the plugin row
+- `@rasm/nx-cmake` configures the build folder each configure preset states and infers projects, targets, and edges from its file API reply
+- CMake workflow presets name the configure, build, and test presets of one Nx configuration, and a build step after the test step runs last
+- `check` builds the workflow whose configure preset names a clang-tidy launcher, `pack` the first package preset a workflow configures
+- C++ compilers, clang tools, and libc++ with its `std` module come from the mise LLVM row, CMake, Ninja, gersemi, vcpkg, and pkgconf from theirs
+- C++ libraries come from `vcpkg.json` through an overlay triplet, which builds each library with the toolchain file of the preset
+- C++ executables link the LLVM release libc++ statically, its symbols hidden on macOS, where a second libc++ beside the system one corrupts streams
+- C++ warnings, hardening, sanitizer, and coverage flags sit in the root `CMakeLists.txt`, presets state a build type, a build folder, and switches
 - C++ packages export a named module, and one a host or another toolchain reads declares that part in `FILE_SET HEADERS`
-- Unreal targets exist where the engine a `.uproject` or `.uplugin` names resolves, a plug-in builds once per engine its projects name
-- Unreal plug-ins build through `RunUAT BuildPlugin`, test by the automation tests under their own name, and a project builds its editor target through UnrealBuildTool
-- Unreal plug-ins link a C++ package as a static library `cmake --install` puts under `Source/ThirdParty/<package>`, for the architectures Pixi builds
+- Unreal targets exist where the engine a `.uproject` names resolves, a plug-in builds once per engine the projects loading it name
+- Unreal plug-ins build through `RunUAT BuildPlugin -StrictIncludes`, and a project builds its editor target through UnrealBuildTool
+- Unreal plug-ins test by the automation tests under their own name, each test state read from the report the editor exports
+- Unreal plug-ins link a C++ package the `unreal` preset builds with the engine compiler, put under `Source/ThirdParty` by `cmake --install --prefix`
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
@@ -185,7 +190,7 @@ Other tasks run through their own commands:
 Packaging turns a build into the files its host, registry, or store takes, and install and publish each use those files:
 - Hosts and ecosystems decide package format (`.yak`, `.nupkg`, wheel, `.dmg`, CPack `.tar.xz`)
 - C++ packages release as a CPack archive of their install tree with a CPS file and an SPDX SBOM, CPack naming it from project, version, and system
-- Unreal plug-ins release per engine as the BuildPlugin package and a source archive with that `EngineVersion`, the form a Fab upload takes by hand
+- Unreal plug-ins release per engine as the BuildPlugin package and a source archive stamped with that `EngineVersion` after the store checks pass
 - Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never where it publishes
 - Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
 - Releases give every project one version and tag through `nx release`, and the GitHub release holds the packaged files each `attach` target uploads
@@ -221,8 +226,8 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 |  [22]   | Host application in CI         | Host vendor's setup action in the job needing it, its version read from the project manifest           |
 |  [23]   | Mac app release form           | Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`    |
 |  [24]   | Registry token                 | Doppler `rasm/release` `NODE_AUTH_TOKEN`, `UV_PUBLISH_TOKEN`, `NUGET_API_KEY` rows its tool reads      |
-|  [25]   | C++ toolchain and packages     | Pixi `cpp` environment in `pyproject.toml`, exact builds in `pixi.lock`                                |
-|  [26]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, `EngineVersion` of a `.uplugin`, found in Epic install lists     |
+|  [25]   | C++ toolchain and packages     | `github:llvm/llvm-project` row of `.config/mise.toml`, `vcpkg.json` rows and `builtin-baseline`        |
+|  [26]   | Unreal Engine                  | `EngineAssociation` of a `.uproject`, found in Epic install lists                                      |
 |  [27]   | Deploy credential              | Doppler `rasm/deploy` `DOPPLER_IAC_TOKEN` and `GITHUB_TOKEN` rows Doppler and GitHub providers read    |
 |  [28]   | Machine                        | Row of table `hosts` in `infra/platform-stack.ts`, its Doppler secrets named `<MACHINE>_<CREDENTIAL>`  |
 |  [29]   | Public service name            | Traefik `Host` rule of a service in `infra/compose.yaml`, a CNAME to each machine naming it            |
@@ -237,7 +242,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 - Packages are named by the term practitioners use for that concern
 - Projects a host loads target the runtime and libraries their host bundles, and build output holds none of them
 - Each uv root resolves one Python range: projects on a host's Python get their own root, and a package shared across roots declares the lower bound
-- C++ packages sit at `libs/cpp/<category>/<package>/` with their own `project()` call, building alone or under the root, tests at `tests/cpp/` beside the same path
+- C++ packages sit at `libs/cpp/<category>/<package>/` with their own `project()` call, tests at `libs/cpp/<category>/tests/<package>/`
 - Unreal projects and plug-ins sit under `apps/unreal/`, a plug-in beside the project enabling it or inside its `Plugins` folder
 - Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<category>/`, executables under `apps/macos/`
 - SQL schemas reconcile the live database to owning types, with no migration, history table, or versioned file or folder

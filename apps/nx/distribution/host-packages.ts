@@ -90,7 +90,7 @@ const Project = Schema.fromJsonString(Schema.Struct({ FileVersion: Schema.Int, P
 const Plugin = Schema.fromJsonString(
     Schema.Struct({ FileVersion: Schema.Int, Version: Schema.optionalKey(Schema.Int), VersionName: Schema.optionalKey(Schema.String), Installed: Schema.optionalKey(Schema.Boolean), Plugins: References, nx: Schema.optionalKey(Schema.Struct({ implicitDependencies: Schema.Array(Schema.String) })) }),
 );
-const Engined = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String), EngineVersion: Schema.optionalKey(Schema.String) }));
+const Engined = Schema.fromJsonString(Schema.Struct({ EngineAssociation: Schema.optionalKey(Schema.String) }));
 const Launcher = Schema.fromJsonString(Schema.Struct({ InstallationList: Schema.Array(Schema.Struct({ AppName: Schema.String, InstallLocation: Schema.String })) }));
 const Registered = Schema.Struct({ Installations: Schema.Record(Schema.String, Schema.String) });
 const Built = Schema.fromJsonString(Schema.Struct({ MajorVersion: Schema.Int, MinorVersion: Schema.Int }));
@@ -154,7 +154,7 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
     const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), ToolError.of(platform, `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
     const settings = path.join(homedir(), ...host.settings);
     const declared = yield* Effect.flatMap(fs.readFileString(descriptor), Schema.decodeEffect(Engined));
-    const named = path.extname(descriptor) === '.uproject' ? Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty) : Option.map(Option.fromUndefinedOr(declared.EngineVersion), (stated) => Array.take(String.split(stated, '.'), 2).join('.'));
+    const named = Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty);
     const read = (at: readonly string[]) => Effect.option(fs.readFileString(path.join(settings, ...at)));
     const [registered, launched] = yield* Effect.all([read(['UnrealEngine', 'Install.ini']), read(['UnrealEngineLauncher', 'LauncherInstalled.dat'])]);
     const above = Array.unfold(path.dirname(descriptor), (at) => (path.dirname(at) === at ? Option.none() : Option.some([at, path.dirname(at)] as const)));
@@ -367,7 +367,7 @@ const HOSTS: readonly Host[] = [
             }),
         held: flow(engine, Effect.isSuccess),
         build: { executor: 'unreal-build', command: 'UnrealBuildTool' },
-        operations: { check: { command: 'UnrealBuildTool -StaticAnalyzer=Default -StaticAnalyzerProjectOnly -DisableUnity', options: { operation: 'check' } } },
+        operations: { check: { command: 'UnrealBuildTool -StaticAnalyzer=Default -StaticAnalyzerProjectOnly -DisableUnity -NoPCH', options: { operation: 'check' } } },
     },
     {
         manifest: '*.uplugin',
@@ -392,11 +392,10 @@ const HOSTS: readonly Host[] = [
                 onFailure: ToolError.of('uplugin', 'does not decode'),
                 onSuccess: ({ Version }) => applyEdits(text, [...modify(text, ['VersionName'], version, {}), ...modify(text, ['Version'], (Version ?? 0) + 1, {})]),
             }),
-        held: flow(engine, Effect.isSuccess),
-        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin', runtime: [PLATFORM.runtime] },
+        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: [PLATFORM.runtime] },
         operations: {
-            test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests <plug-in name>;Quit" -nullrhi -unattended in each project loading the plug-in', options: { operation: 'test' } },
-            pack: { command: 'a zip of each BuildPlugin package and a zip of the tracked sources per engine, the form Fab takes', options: { operation: 'pack' } },
+            test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests <plug-in name>;Quit" -nullrhi -unattended in each project loading the plug-in, then a read of each test state from the exported report', options: { operation: 'test' } },
+            pack: { command: 'the store checks, then a zip of each BuildPlugin package and a zip of the tracked sources per engine, the form Fab takes', options: { operation: 'pack' } },
             install: { command: 'a copy of the BuildPlugin package into the Plugins folder of each project enabling the plug-in outside its folders', options: { operation: 'install' } },
         },
     },

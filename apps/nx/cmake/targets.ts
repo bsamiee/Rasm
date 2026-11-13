@@ -21,7 +21,6 @@ const SOURCES = ['default', '^default'] as const;
 const CHECKER = 'clang-tidy';
 const FIXER = 'clang-apply-replacements';
 const CONFIG = '.clang-tidy';
-const CHECKED = ['C', 'CXX', 'OBJC', 'OBJCXX'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -43,23 +42,23 @@ const memberTargets = (plugin: Identity, path: Path.Path, tree: Tree, member: Me
         member.targets.map(({ name }) => name),
         Array.isArrayNonEmpty,
     );
-    const languages = Array.intersection(
-        tree.toolchains.map(({ language }) => language),
-        CHECKED,
-    );
-    const checked = Option.filter(targets, () => languages.length > 0);
-    const packing = Array.findFirst(tree.workflows, (workflow) =>
+    const checked = Option.all({ names: targets, workflow: Array.findFirst(tree.workflows, ({ tidy }) => tidy.length > 0) });
+    const packing = Array.findFirst(tree.packages, ({ name: stated, configurePreset }) =>
         Option.map(
-            Option.filter(Option.fromUndefinedOr(workflow.package), () => member.packaged),
-            (stated) => ({ workflow, stated }),
+            Option.filter(
+                Array.findFirst(tree.workflows, ({ configure }) => configure === configurePreset),
+                () => member.packaged,
+            ),
+            (workflow) => ({ workflow, stated }),
         ),
     );
     const tidied = [...files].filter((file) => path.basename(file) === CONFIG && path.dirname(file) !== member.root && ancestors(path, member.root).includes(path.dirname(file))).map((file) => tokened(path, file));
     const waits = Option.match(targets, { onNone: () => ({}), onSome: () => ({ dependsOn: ['build--cmake'] }) });
-    const planned = (workflow: Workflow, tool: string, defines: Readonly<Record<string, string>> = {}) => {
-        const at = planted(path, placed, tree.root, tool, workflow.configure);
-        return { at, folder: path.join(at, member.build), shared: { cwd: tree.root, configure: configured(launcher, '.', workflow.configure, within(at), defines) } };
-    };
+    const planned = (workflow: Workflow, defines: Readonly<Record<string, string>> = {}) => ({
+        at: workflow.tree,
+        folder: path.join(workflow.tree, member.build),
+        shared: { cwd: tree.root, configure: configured(launcher, '.', workflow, within(workflow.tree), defines) },
+    });
     const compiled = (workflow: Workflow, at: string, names: Array.NonEmptyReadonlyArray<string>) => invoked(launcher, ['cmake', '--build', within(at), ...preset(workflow.build), '--target', ...names]);
     const varied = (each: (workflow: Workflow) => typeof Cmake.Encoded) => ({ configurations: Object.fromEntries(others.map((workflow) => [workflow.name, each(workflow)] as const)) });
     const target = (help: string, description: string, options: typeof Cmake.Encoded, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
@@ -70,33 +69,38 @@ const memberTargets = (plugin: Identity, path: Path.Path, tree: Tree, member: Me
         ...extra,
     });
     const builds = (names: Array.NonEmptyReadonlyArray<string>) => (workflow: Workflow) => {
-        const { at, shared } = planned(workflow, 'cmake');
+        const { at, shared } = planned(workflow);
         return { ...shared, commands: [compiled(workflow, at, names)], outputs: member.targets.flatMap(({ artifacts }) => artifacts.map((artifact) => tokened(path, path.join(at, artifact.path)))) } satisfies typeof Cmake.Encoded;
     };
     const tests = (workflow: Workflow) => {
-        const { folder, shared } = planned(workflow, 'cmake');
+        const { at, folder, shared } = planned(workflow);
         const report = path.join(planted(path, placed, tree.root, 'ctest', member.name), `${workflow.name}.xml`);
-        return { ...shared, commands: [invoked(launcher, ['ctest', ...preset(workflow.test), '--test-dir', within(folder), '--output-junit', path.relative(folder, report)])], outputs: [tokened(path, report)] } satisfies typeof Cmake.Encoded;
+        return {
+            ...shared,
+            commands: [invoked(launcher, ['ctest', ...preset(workflow.test), '--test-dir', within(folder), '--output-junit', path.relative(folder, report)]), ...Array.fromNullishOr(workflow.after).map((stated) => invoked(launcher, ['cmake', '--build', within(at), '--preset', stated]))],
+            outputs: [tokened(path, report)],
+        } satisfies typeof Cmake.Encoded;
     };
     const installs = (workflow: Workflow) => {
-        const { folder, shared } = planned(workflow, 'cmake');
+        const { folder, shared } = planned(workflow);
         return { ...shared, commands: [invoked(launcher, ['cmake', '--install', within(folder)])] } satisfies typeof Cmake.Encoded;
     };
     const checks = (workflow: Workflow, names: Array.NonEmptyReadonlyArray<string>) => {
-        const { at, shared } = planned(workflow, CHECKER, Object.fromEntries(languages.map((language) => [`CMAKE_${language}_CLANG_TIDY`, CHECKER] as const)));
+        const { at, shared } = planned(workflow, Object.fromEntries(workflow.tidy.map(({ variable }) => [`${variable}_EXPORT_FIXES_DIR`, ''] as const)));
         return { ...shared, commands: [compiled(workflow, at, names)] } satisfies typeof Cmake.Encoded;
     };
     const fixes = (workflow: Workflow, names: Array.NonEmptyReadonlyArray<string>) => {
-        const defines = languages.flatMap((language) => [[`CMAKE_${language}_CLANG_TIDY`, `${CHECKER};--warnings-as-errors=-*`] as const, [`CMAKE_${language}_CLANG_TIDY_EXPORT_FIXES_DIR`, FIXER] as const]);
-        const { at, folder, shared } = planned(workflow, FIXER, Object.fromEntries(defines));
+        const defines = workflow.tidy.flatMap(({ variable, launcher: stated }) => [[variable, `${stated};--warnings-as-errors=-*`] as const, [`${variable}_EXPORT_FIXES_DIR`, FIXER] as const]);
+        const { at, folder, shared } = planned(workflow, Object.fromEntries(defines));
         return { ...shared, commands: [compiled(workflow, at, names), invoked(launcher, [FIXER, '--format', '--style=file', within(path.join(folder, FIXER))])] } satisfies typeof Cmake.Encoded;
     };
     const packs = (workflow: Workflow, stated: string, names: Array.NonEmptyReadonlyArray<string>) => {
-        const { at, folder, shared } = planned(workflow, 'cmake');
+        const { at, folder, shared } = planned(workflow);
         return {
             ...shared,
             build: compiled(workflow, at, names),
-            pack: invoked(launcher, ['cpack', '--preset', stated, '--config', within(path.join(folder, PACKAGING))]),
+            pack: invoked(launcher, ['cpack', '--preset', stated]),
+            config: path.join(folder, PACKAGING),
             outputPath: planted(path, placed, tree.root, 'cpack', member.name),
         } satisfies typeof Package.Encoded;
     };
@@ -130,17 +134,20 @@ const memberTargets = (plugin: Identity, path: Path.Path, tree: Tree, member: Me
               test: member.tested ? { ctest: target('ctest', `Runs the tests CTest lists under ${member.name}`, tests(head), { cache: true, ...waits, inputs: [...SOURCES], outputs: ['{options.outputs.0}'], ...varied(tests) }) } : {},
               check: Option.match(checked, {
                   onNone: () => ({}),
-                  onSome: (names) => ({ [CHECKER]: target(CHECKER, `Reports clang-tidy findings and failed header-set verification for ${member.name}, each as an error`, checks(head, names), { cache: true, inputs: [...SOURCES, ...tidied] }) }),
+                  onSome: ({ names, workflow }) => ({
+                      [CHECKER]: target(CHECKER, `Reports clang-tidy findings and failed header-set verification for ${member.name} in workflow ${workflow.name}, each as an error`, checks(workflow, names), { cache: true, inputs: [...SOURCES, ...tidied] }),
+                  }),
               }),
               fix: Option.match(checked, {
                   onNone: () => ({}),
-                  onSome: (names) => ({ [CHECKER]: target(FIXER, `Applies the replacements clang-tidy exports for ${member.name}, then formats the changed lines`, fixes(head, names), {}) }),
+                  onSome: ({ names, workflow }) => ({ [CHECKER]: target(FIXER, `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines`, fixes(workflow, names), {}) }),
               }),
               install: member.installs ? { cmake: target('cmake --install', `Installs what ${member.name} built under the install prefix its configure preset states`, installs(head), { ...waits, ...varied(installs) }) } : {},
           } satisfies Members);
 };
 
-const released = (tree: Tree, member: Member): Pick<Project, 'release' | 'packaged'> => (member.packaged && member.targets.length > 0 && tree.workflows.some((workflow) => workflow.package !== undefined) ? { release: { manifest: MANIFEST }, packaged: ['pack--cpack'] } : {});
+const released = (tree: Tree, member: Member): Pick<Project, 'release' | 'packaged'> =>
+    member.packaged && member.targets.length > 0 && tree.packages.some(({ configurePreset }) => tree.workflows.some(({ configure }) => configure === configurePreset)) ? { release: { manifest: MANIFEST }, packaged: ['pack--cpack'] } : {};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

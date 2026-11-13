@@ -1,14 +1,14 @@
 {
     "name": "clangd",
     "version": "1.0.0",
-    "description": "C++ language server from the Pixi `cpp` environment, reading named modules through its own module builds",
+    "description": "C++ and Objective-C++ language server of the LLVM release mise installs, reading named modules through its own module builds",
     "author": {
         "name": "Bardia Samiee"
     },
     "lspServers": {
         "clangd": {
-            "command": "pixi",
-            "args": [ "run", "--locked", "-e", "cpp", "clangd", "--background-index", "--experimental-modules-support" ],
+            "command": "clangd",
+            "args": [ "--background-index", "--experimental-modules-support" ],
             "extensionToLanguage": {
                 ".h": "cpp",
                 ".hh": "cpp",
@@ -18,6 +18,7 @@
                 ".cpp": "cpp",
                 ".cxx": "cpp",
                 ".cppm": "cpp",
+                ".mm": "objective-cpp",
                 ".ixx": "cpp",
                 ".ipp": "cpp",
                 ".inl": "cpp",

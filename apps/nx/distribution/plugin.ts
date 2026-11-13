@@ -41,9 +41,11 @@ const projects = (declared: readonly Declared[], _: Unit, { path, plugin, placed
     const hosts = Function.memoize((item: Discovered) => (item.fields.folders === undefined ? discovered.filter((other) => holds(other, item)) : [item]));
     const uses = (item: Discovered) => discovered.filter((other) => other !== item && (item.fields.references ?? []).some((reference) => reference.enabled && reference.name === other.fields.name));
     const users = (item: Discovered) => discovered.filter((other) => !hosts(item).includes(other) && uses(other).includes(item));
+    const engined = (item: Discovered, loading: readonly Discovered[]): Host => (item.fields.folders !== undefined || item.host.standalone !== true || loading.some((other) => other !== item && other.host.build !== undefined) ? item.host : Struct.omit(item.host, ['archive', 'build', 'operations', 'publish']));
     return discovered.map((item): Project => {
-        const { technology, archive, platforms, standalone, build, operations, install, publish, write, manifest } = item.host;
         const loading = Array.dedupe([...hosts(item), ...users(item)]);
+        const offered = engined(item, loading);
+        const { technology, archive, platforms, standalone, build, operations, install, publish, write, manifest } = offered;
         const linked = Array.dedupe([...[...discovered.filter((other) => other !== item && hosts(other).includes(item)), ...uses(item)].map((other) => other.fields.name), ...Array.fromNullishOr(item.fields.implicit).flat()]);
         const outputPath = Option.getOrElse(placed(technology), () => path.join('dist', item.root));
         const settings = standalone === true ? { outputPath, descriptor: item.file, hosts: loading.map((other) => other.file), dependencies: uses(item).map((other) => other.file) } : { outputPath };

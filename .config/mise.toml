@@ -57,6 +57,11 @@ RUSTUP_TOOLCHAIN                              = false
 SHELLCHECK_OPTS                               = "--rcfile={{config_root}}/.config/shellcheckrc"
 TOMBI_CACHE_HOME                              = "{{config_root}}/.cache/tombi"
 TY_UV                                         = "1"
+VCPKG_BINARY_SOURCES                          = "clear;files,{{config_root}}/.cache/vcpkg/archives,readwrite"
+VCPKG_DISABLE_METRICS                         = "1"
+VCPKG_DOWNLOADS                               = "{{config_root}}/.cache/vcpkg/downloads"
+VCPKG_FORCE_SYSTEM_BINARIES                   = "1"
+VCPKG_ROOT                                    = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
 WATCH_APPS_LOG_DIR                            = "{{config_root}}/.artifacts/logs"
 WATCH_APPS_SESSION                            = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
 
@@ -84,6 +89,7 @@ cargo-insta                                                                  = "
 cmake                                                                        = "latest"
 colima                                                                       = { os = ["macos"], version = "latest" }
 "conda:openssh"                                                              = { os = ["linux"], version = "latest" }
+"conda:pkgconf"                                                              = "latest"
 crane                                                                        = { os = ["macos", "linux"], version = "latest" }
 difftastic                                                                   = "latest"
 docker-compose                                                               = { os = ["macos", "linux"], postinstall = { run = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-compose" "$plugins/docker-compose"', when = "always" }, version = "latest" }
@@ -112,6 +118,7 @@ jactionlint                                                                  = "
 java                                                                         = "latest"
 jq                                                                           = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
+ninja                                                                        = "latest"
 node                                                                         = "latest"
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
 pitchfork                                                                    = { os = ["macos"], version = "latest" }
@@ -120,6 +127,7 @@ pkl                                                                          = "
 pnpm                                                                         = "latest"
 pulumi                                                                       = "latest"
 "pypi:ast-grep/ast-grep-mcp"                                                 = "latest"
+"pypi:gersemi"                                                               = "latest"
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
 "pypi:mcp-for-blender"                                                       = "latest"
 "pypi:tavily-cli"                                                            = "latest"
@@ -146,6 +154,31 @@ format   = "raw"
 matching = "docker-credential-osxkeychain"
 os       = ["macos"]
 version  = "latest"
+
+[tools."github:llvm/llvm-project"]
+bin_path         = "bin"
+os               = ["macos", "linux"]
+strip_components = 1
+version          = "latest"
+version_prefix   = "llvmorg-"
+
+[tools."github:llvm/llvm-project".platforms]
+linux-arm64 = { asset_pattern = "LLVM-*-Linux-ARM64.tar.zst" }
+linux-x64   = { asset_pattern = "LLVM-*-Linux-X64.tar.zst" }
+macos-arm64 = { asset_pattern = "LLVM-*-macOS-ARM64.tar.zst" }
+
+[tools."github:microsoft/vcpkg-tool"]
+additional_asset_patterns = ["vcpkg-standalone-bundle.tar.gz"]
+bin                       = "vcpkg"
+format                    = "raw"
+version                   = "latest"
+version_prefix            = ""
+
+[tools."github:microsoft/vcpkg-tool".platforms]
+linux-arm64 = { asset_pattern = "vcpkg-glibc-arm64" }
+linux-x64   = { asset_pattern = "vcpkg-glibc" }
+macos-arm64 = { asset_pattern = "vcpkg-macos" }
+windows-x64 = { asset_pattern = "vcpkg.exe" }
 
 [tools."github:NationalSecurityAgency/ghidra"]
 asset_pattern    = "ghidra_*_PUBLIC_*.zip"

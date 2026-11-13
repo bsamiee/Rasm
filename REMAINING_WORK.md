@@ -31,51 +31,20 @@ The temporary C++ packages and Unreal projects that were built and then removed 
 The ledger records it as: C++ "registered in every place Rust is", proven with temporary packages, then Unreal delivery through Epic's own
 tools on Unreal Engine 5.8, then a fresh review. The owner's original wording of the request is not in this session's context; ask the owner if the goal needs restating.
 
-### Decisions made (2026-11-11, by the main session from the surveys)
+### Rebuilt on 2026-11-13
 
-1. Toolchain: upstream LLVM 23 (`clangxx`, `libcxx`, `lld`, `clang-tools`) and Ninja in a Pixi `cpp` environment, locked in `pixi.lock`; CMake stays a mise tool. Unreal builds with Xcode's clang through UnrealBuildTool.
-2. Language: C++26, named modules, `import std`, extensions off. CMake 4.5 needs no experimental gate for `import std`.
-3. Dependencies: conda-forge through the same Pixi environment. No vcpkg, Conan, CPM, or FetchContent.
-4. Shape: one root CMake build; each package states its own `project(VERSION)` and builds alone or under the root; the root finds members by a manifest glob, with no member list.
-5. Nx: our own `@rasm/nx-cmake`, inferring projects, targets and link edges from the CMake file API, never from `CMakeLists.txt` text.
-6. Tests: Catch2 v3 from conda-forge.
-7. Checker files `.clang-format`, `.clang-tidy`, `.clangd` at the root; warnings and clang-tidy findings are errors.
-8. Delivery: a CPack archive per package with a CPS file and an SBOM on the GitHub release; no registry until the owner picks one.
-9. Unreal: targets only where an engine exists; Epic's `RunUAT BuildPlugin`; automation tests through `UnrealEditor-Cmd`; a source archive for Fab and a binary package for GitHub.
-
-Builder notes accepted along the way: libc++ on macOS only, Linux uses the libstdc++ that `clangxx` brings, Windows is out of the Pixi environment
-(conda-forge holds no C++ standard library for win-64); `catch_discover_tests` instead of CMake `discover_tests` (it cannot escape Catch2 test names);
-presets hold no build folder and the plugin passes `-B` under `.artifacts/cmake/<preset>`; clang-tidy runs through `CMAKE_CXX_CLANG_TIDY` in its own build tree.
-
-### What exists in the tree
-
-- Pixi `cpp` environment in `pyproject.toml` (`[tool.pixi.environments.cpp]`: clangxx 23, clang-tools, lld, compiler-rt, ninja, catch2, fmt, gersemi), locked in `pixi.lock`
-- Root `CMakeLists.txt`, `CMakePresets.json`, `.config/cpack.cmake`, `.clang-format`, `.clang-tidy`, `.clangd`, `.gersemirc`, `tests/cpp/.clang-tidy`
-- `apps/nx/cmake/` (`plugin.ts`, `targets.ts`, `workspace.ts`, `version-actions.ts`, executors `cmake` and `package`) and its row in `nx.json` with the Pixi launcher
-- Inference test `tests/typescript/apps/nx/inference/cmake.test.ts`
-- Unreal support inside `apps/nx/distribution/` (`host-packages.ts` finds the installed engine; `executors/unreal-build/`)
-- File-level check steps for clang-format and gersemi in `.config/hk.pkl`; the `cpp-coding` skill; README lines 35–40, 140–146, 190–191, 227–228, 240–241
-- No C++ package and no Unreal project. Everything above is tooling without a consumer.
-
-### What was proven (this Mac only, with the temporary projects)
-
-- Two temporary C++ packages (`libs/cpp/numerics/tolerance`, `libs/cpp/geometry/extent`) with Catch2 tests built and ran through Nx.
-- `RunUAT BuildPlugin` of a temporary plug-in `RasmProbe` on UE 5.8: "BUILD SUCCESSFUL", exit 0 (`buildplugin.log`).
-- A project build through UnrealBuildTool succeeded (`ubt-project.log`).
-- `RasmProbe:test--unreal` passed through Nx (`nx-test-pass.log`), and a deliberately failing run failed (`nx-test-fail.log`).
-- The plug-in linking a C++ package as a static library under `Source/ThirdParty`: the first run exited 1 (`nx-test-library.log`), the arm64 run passed (`nx-test-library-arm64.log`). Proven for arm64 on macOS only.
-- The plug-in package zip was produced (`pack-lists.txt`).
+The C++ and Unreal tooling was deleted and rebuilt from the reading of 68 repositories in `.tmp/TOOLING.md`. README `[03]-[PRINCIPLES]`, `[06]-[OWNERS]` rows 25 and 26,
+and `[07]-[STRUCTURE]` state the result: LLVM from a mise row, libraries from `vcpkg.json`, flags in the root `CMakeLists.txt`, a build folder per preset,
+and the Unreal executor reading test results from the exported report.
 
 ### Not done
 
-1. **Linux proof.** C++ has never been built or tested off this Mac. CI has never run a C++ target, because no C++ project exists.
+1. **Unreal on Linux CI.** Doppler `ci` and 1Password hold `EPIC_GHCR_TOKEN`, which reads `ghcr.io/epicgames/unreal-engine`. No workflow job and no `unreal-Linux.cmake`
+   toolchain file exist: the image is x64 alone and 24 GB, so its proof is a workflow run on a hosted runner.
 2. **Release rows.** The archive, CPS file and SBOM per package on the GitHub release, and agreement of archive name, CPS version and tag in a dry run. The builder was told to do this last and was stopped before it.
-3. **Two follow-ups asked of the builder and never verified:** one owner for the compile-database path, and presets read only as typed JSON.
-4. **Unreal consuming a C++ library beyond arm64 macOS,** and the standard-library question behind it (LLVM 23 libc++ against Apple's).
-5. **No adversarial review** of any of the C++ or Unreal work.
-6. **Gap list status.** `scout-cpp-unreal.md` Part 5 lists rows R01–R37 and U01–U10. Its "repository holds" column predates the builder; each row has to be checked against the tree.
-7. **Paths under the new test layout.** `CMakeLists.txt` globs `tests/cpp/apps/*/*` and `tests/cpp/libs/*/*`, and README line 240 says tests sit "at `tests/cpp/` beside the same path". Under `TEST_LAYOUT.md` a C++ package's tests sit at `libs/cpp/<category>/tests/<package>/`. This belongs to the test-layout session if it reaches it first.
-8. **A first real consumer.** A decision for the owner: which C++ package or Unreal plug-in is built first.
+3. **The plug-in to package edge.** `nx run <package>:install--cmake:unreal --args=--prefix=<plug-in>/Source/ThirdParty/<Name>` installs a package into a plug-in by argument;
+   no manifest row states that prefix yet.
+4. **A first real consumer.** A decision for the owner: which C++ package or Unreal plug-in is built first.
 
 ## 2. Node 27 alignment pass
 

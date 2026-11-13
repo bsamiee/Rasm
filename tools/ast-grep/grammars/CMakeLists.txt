@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.4)
+cmake_minimum_required(VERSION 4.5)
 
 project(grammars LANGUAGES C)
 
@@ -36,27 +36,21 @@ foreach(entry IN LISTS entries)
     set(source "${CMAKE_CURRENT_SOURCE_DIR}/${language}")
     set(generated "${CMAKE_CURRENT_BINARY_DIR}/${language}")
     add_custom_command(
-        OUTPUT "${generated}/src/grammar.json" "${generated}/src/node-types.json"
-        COMMAND "${TREE_SITTER}" generate --no-parser --output "${generated}/src" "${source}/grammar.js"
+        OUTPUT "${generated}/grammar.json" "${generated}/node-types.json" "${generated}/parser.c"
+        COMMAND "${TREE_SITTER}" generate --output "${generated}" "${source}/grammar.js"
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         DEPENDS "${source}/grammar.js" ${shared}
         VERBATIM
     )
     add_custom_command(
-        OUTPUT "${generated}/parser/parser.c"
-        COMMAND "${TREE_SITTER}" generate --output "${generated}/parser" "${generated}/src/grammar.json"
-        DEPENDS "${generated}/src/grammar.json" "${TREE_SITTER}"
-        VERBATIM
-    )
-    add_custom_command(
         OUTPUT "${generated}/grammar.h"
-        COMMAND "${CMAKE_COMMAND}" "-DGRAMMAR=${generated}/src/grammar.json" "-DOUTPUT=${generated}/grammar.h" -P "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
-        DEPENDS "${generated}/src/grammar.json" "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
+        COMMAND "${CMAKE_COMMAND}" "-DGRAMMAR=${generated}/grammar.json" "-DOUTPUT=${generated}/grammar.h" -P "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
+        DEPENDS "${generated}/grammar.json" "${CMAKE_CURRENT_SOURCE_DIR}/header.cmake"
         VERBATIM
     )
     file(GLOB scanner "${source}/scanner.c")
-    add_library(${language} MODULE "${generated}/parser/parser.c" "${generated}/grammar.h" "${CMAKE_CURRENT_SOURCE_DIR}/compose.c" ${scanner})
-    target_include_directories(${language} PRIVATE "${generated}/parser" "${node_modules}")
+    add_library(${language} MODULE "${generated}/parser.c" "${generated}/grammar.h" "${CMAKE_CURRENT_SOURCE_DIR}/compose.c" ${scanner})
+    target_include_directories(${language} PRIVATE "${generated}" "${node_modules}")
     target_compile_features(${language} PRIVATE c_std_11)
     target_compile_options(${language} PRIVATE "SHELL:-include ${generated}/grammar.h" "$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>")
     set_target_properties(

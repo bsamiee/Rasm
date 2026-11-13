@@ -1,0 +1,6 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "builtin-baseline": "5d4a3dc90c0b3773f3bac81bf41297b54328f471",
+    "features": { "tests": { "description": "Libraries test executables link", "dependencies": [ "catch2" ] } },
+    "vcpkg-configuration": { "overlay-triplets": [ ".config/cmake/triplets" ] }
+}

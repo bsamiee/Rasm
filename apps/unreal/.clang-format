@@ -1,0 +1,27 @@
+# --- [BASE] -----------------------------------------------------------------------------
+
+Language: Cpp
+BasedOnStyle: LLVM
+ColumnLimit: 0
+IndentWidth: 4
+TabWidth: 4
+UseTab: Always
+InsertNewlineAtEOF: true
+LineEnding: LF
+
+# --- [DECLARATIONS] ---------------------------------------------------------------------
+
+AccessModifierOffset: -4
+AllowShortEnumsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: Inline
+BreakBeforeBraces: Allman
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: AfterColon
+EmptyLineBeforeAccessModifier: LogicalBlock
+NamespaceIndentation: All
+PointerAlignment: Left
+StatementMacros: [UCLASS, UENUM, UFUNCTION, UINTERFACE, UPROPERTY, USTRUCT, GENERATED_BODY]
+
+# --- [INCLUDES] -------------------------------------------------------------------------
+
+SortIncludes: Never

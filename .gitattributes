@@ -8,6 +8,7 @@
 *.hpp diff=cpp
 *.cppm diff=cpp
 *.ixx diff=cpp
+*.mm diff=objc
 *.cs diff=csharp
 *.rs diff=rust
 *.py diff=python

@@ -1,6 +1,6 @@
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { present, printed, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, FileSystem, Option, Path, pipe, Record, Schema, SemVer } from 'effect';
+import { Array, Effect, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, SemVer } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -11,12 +11,34 @@ const CLIENT = 'client-nx-cmake';
 const QUERY = 'query.json';
 const API = ['.cmake', 'api', 'v1'] as const;
 const CALL = /^[ \t]*project[ \t]*\(/imu;
+const TIDY = /^CMAKE_[A-Z]+_CLANG_TIDY$/u;
+const SOURCE_DIR = /\$\{sourceDir\}/gu;
+const PRESET_NAME = /\$\{presetName\}/gu;
 const ARGUMENT = /#\[(?<comment>=*)\[[\s\S]*?\]\k<comment>\]|#[^\n]*|\[(?<bracket>=*)\[[\s\S]*?\]\k<bracket>\]|"(?:\\[\s\S]|[^"\\])*"|[^\s()#"]+|\)/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Workflow = Schema.Struct({ name: Schema.String, configure: Schema.String, build: Schema.optionalKey(Schema.String), test: Schema.optionalKey(Schema.String), package: Schema.optionalKey(Schema.String) });
-const Presets = Schema.fromJsonString(Schema.Struct({ workflowPresets: Schema.Array(Schema.Struct({ name: Schema.String, steps: Schema.Array(Schema.Struct({ type: Schema.String, name: Schema.String })) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }));
+const Workflow = Schema.Struct({
+    name: Schema.String,
+    configure: Schema.String,
+    tree: Schema.String,
+    stated: Schema.Boolean,
+    build: Schema.optionalKey(Schema.String),
+    test: Schema.optionalKey(Schema.String),
+    after: Schema.optionalKey(Schema.String),
+    tidy: Schema.Array(Schema.Struct({ variable: Schema.String, launcher: Schema.String })),
+});
+const Packaging = Schema.Struct({ name: Schema.String, configurePreset: Schema.String });
+const Launcher = Schema.Union([Schema.String, Schema.Struct({ value: Schema.String })]);
+const Presets = Schema.fromJsonString(
+    Schema.Struct({
+        configurePresets: Schema.Array(Schema.Struct({ name: Schema.String, inherits: Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])), binaryDir: Schema.optionalKey(Schema.String), cacheVariables: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)) })).pipe(
+            Schema.withDecodingDefaultKey(Effect.succeed([])),
+        ),
+        packagePresets: Schema.Array(Packaging).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        workflowPresets: Schema.Array(Schema.Struct({ name: Schema.String, steps: Schema.Array(Schema.Struct({ type: Schema.String, name: Schema.String })) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+    }),
+);
 const Reference = Schema.Struct({ jsonFile: Schema.String });
 const Index = Schema.fromJsonString(
     Schema.Struct({
@@ -54,6 +76,7 @@ const Listing = Schema.fromJsonString(Schema.Struct({ tests: Schema.Array(Schema
 const Tree = Schema.Struct({
     root: Schema.String,
     workflows: Schema.Array(Workflow),
+    packages: Schema.Array(Packaging),
     members: Schema.Array(
         Schema.Struct({
             name: Schema.String,
@@ -102,16 +125,18 @@ const planted = (path: Path.Path, placed: (tool: string, name: string) => Option
 
 const invoked = (launcher: readonly string[], command: Array.NonEmptyReadonlyArray<string>): Array.NonEmptyReadonlyArray<string> => Array.prependAll(command, launcher);
 
-const configured = (launcher: readonly string[], root: string, preset: string, tree: string, defines: Readonly<Record<string, string>> = {}) => invoked(launcher, ['cmake', '--preset', preset, '-S', root, '-B', tree, ...Record.collect(defines, (name, value) => `-D${name}=${value}`)]);
+const configured = (launcher: readonly string[], root: string, { configure, stated }: Pick<typeof Workflow.Type, 'configure' | 'stated'>, tree: string, defines: Readonly<Record<string, string>> = {}) =>
+    invoked(launcher, ['cmake', '--preset', configure, '-S', root, ...(stated ? [] : ['-B', tree]), ...Record.collect(defines, (name, value) => `-D${name}=${value}`)]);
 
-const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, launcher: readonly string[], preset: string, tree: string) {
+const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string, launcher: readonly string[], workflow: typeof Workflow.Type) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const inside = (at: string) => path.relative(workspaceRoot, path.resolve(workspaceRoot, root, at)) || '.';
+    const tree = path.join(workspaceRoot, workflow.tree);
     const [query, reply] = [path.join(tree, ...API, 'query', CLIENT), path.join(tree, ...API, 'reply')];
     const read = <S extends Schema.Decoder<unknown>>(schema: S, file: string) => Effect.flatMap(fs.readFileString(path.join(reply, file)), Schema.decodeEffect(schema));
     yield* fs.makeDirectory(query, { recursive: true });
     yield* fs.writeFileString(path.join(query, QUERY), '{"requests":[{"kind":"codemodel","version":2},{"kind":"cmakeFiles","version":1},{"kind":"toolchains","version":1}]}');
-    const [configure, ...configuring] = configured(launcher, root, preset, tree);
+    const [configure, ...configuring] = configured(launcher, root, workflow, tree);
     yield* printed(configure, configuring, { cwd: workspaceRoot });
     const newest = yield* Effect.flatMap(fs.readDirectory(reply), (names) => Effect.fromOption(Array.last(names.filter((name) => name.startsWith('index-')).toSorted())));
     const index = yield* read(Index, newest);
@@ -173,15 +198,51 @@ const resolved = Effect.fnUntraced(
     function* (workspaceRoot: string, presets: string, launcher: readonly string[], placed: (preset: string) => string) {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const root = path.dirname(presets);
-        const { workflowPresets } = yield* Effect.flatMap(fs.readFileString(path.join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
-        const workflows = Array.getSomes(workflowPresets.map(({ name, steps }) => Schema.decodeUnknownOption(Workflow)({ ...Record.fromIterableWith(steps.toReversed(), (step) => [step.type, step.name]), name })));
+        const { configurePresets, packagePresets: packages, workflowPresets } = yield* Effect.flatMap(fs.readFileString(path.join(workspaceRoot, presets)), Schema.decodeEffect(Presets));
+        type Steps = (typeof workflowPresets)[number]['steps'];
+        const chain = (name: string): readonly (typeof configurePresets)[number][] => configurePresets.filter((preset) => preset.name === name).flatMap((preset) => [preset, ...Array.ensure(preset.inherits ?? []).flatMap(chain)]);
+        const stepped = (listed: Steps, type: string) =>
+            Option.map(
+                Array.findFirst(listed, (each) => each.type === type),
+                (each) => each.name,
+            );
+        const followed = (listed: Steps) => stepped(listed.slice(listed.findIndex(({ type }) => type === 'test') + 1 || listed.length), 'build');
+        const rooted = (configure: string) =>
+            Option.match(
+                Array.findFirst(chain(configure), ({ binaryDir }) => Option.fromUndefinedOr(binaryDir)),
+                {
+                    onNone: () => ({ tree: placed(configure), stated: false }),
+                    onSome: (folder) => ({
+                        tree: path.relative(
+                            workspaceRoot,
+                            folder.replaceAll(SOURCE_DIR, () => path.join(workspaceRoot, root)).replaceAll(PRESET_NAME, () => configure),
+                        ),
+                        stated: true,
+                    }),
+                },
+            );
+        const launchers = (configure: string) =>
+            Record.collect(
+                Record.filterMap(
+                    Record.fromEntries(
+                        chain(configure)
+                            .toReversed()
+                            .flatMap(({ cacheVariables = {} }) => Record.toEntries(cacheVariables)),
+                    ),
+                    (stated, variable) => (TIDY.test(variable) ? Result.fromOption(Schema.decodeUnknownOption(Launcher)(stated), Function.constVoid) : Result.failVoid),
+                ),
+                (variable, named) => ({ variable, launcher: typeof named === 'string' ? named : named.value }),
+            );
+        const workflows = Array.getSomes(
+            workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure): typeof Workflow.Type => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), ...rooted(configure), name, configure, tidy: launchers(configure) }))),
+        );
         const [probe, ...probed] = invoked(launcher, ['cmake', '--version']);
         const held = Option.isSome(yield* present(probe, probed, { cwd: workspaceRoot }));
         return yield* Option.match(
             Option.filter(Array.head(workflows), () => held),
             {
-                onNone: () => Effect.succeed({ tree: { root, workflows, members: [], inputs: [], toolchains: [] } satisfies Tree, partial: workflows.length > 0 }),
-                onSome: ({ configure }) => Effect.map(replied(workspaceRoot, root, launcher, configure, path.join(workspaceRoot, placed(configure))), (reply) => ({ tree: { root, workflows, ...reply } satisfies Tree, partial: false })),
+                onNone: () => Effect.succeed({ tree: { root, workflows, packages, members: [], inputs: [], toolchains: [] } satisfies Tree, partial: workflows.length > 0 }),
+                onSome: (workflow) => Effect.map(replied(workspaceRoot, root, launcher, workflow), (reply) => ({ tree: { root, workflows, packages, ...reply } satisfies Tree, partial: false })),
             },
         );
     },

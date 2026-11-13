@@ -10,7 +10,7 @@
         "@rasm/nx-distribution",
         { "plugin": "@rasm/nx-apple", "options": { "trustPackages": true } },
         "@rasm/nx-cargo",
-        { "plugin": "@rasm/nx-cmake", "exclude": [ "tools/ast-grep/grammars/**" ], "options": { "launcher": [ "pixi", "run", "--locked", "-e", "cpp" ], "locks": [ "pixi.lock" ] } },
+        { "plugin": "@rasm/nx-cmake", "exclude": [ "tools/ast-grep/grammars/**" ] },
         { "plugin": "@rasm/nx-uv", "exclude": [ ".config/mise/locks/**" ] },
         "@rasm/nx-dotnet",
         "@rasm/nx-docker",

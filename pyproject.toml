@@ -457,31 +457,6 @@ INCLUDE                    = "%CONDA_PREFIX%\\Library\\include;%INCLUDE%"
 LIB                        = "%CONDA_PREFIX%\\Library\\lib;%LIB%"
 WEASYPRINT_DLL_DIRECTORIES = "%CONDA_PREFIX%\\Library\\bin"
 
-[tool.pixi.environments.cpp]
-no-default-feature = true
-platforms          = ["osx-arm64-macos-27-0", "linux-64", "linux-aarch64"] # conda-forge holds no C++ standard library for win-64
-
-[tool.pixi.environments.cpp.dependencies]
-clangxx     = "23.*"
-clang-tools = "23.*"
-lld         = "23.*"
-compiler-rt = "23.*"
-ninja       = "*"
-catch2      = "3.*"
-python      = "*"
-fmt         = "*"
-
-[tool.pixi.environments.cpp.pypi-dependencies]
-gersemi = "*"
-
-[tool.pixi.environments.cpp.target.osx.dependencies]
-libcxx-devel = "23.*" # Headers and `std` module of the libc++ every conda-forge macOS library links, Linux libraries link the libstdc++ `clangxx` brings
-
-[tool.pixi.environments.cpp.activation.env]
-CC                = "$CONDA_PREFIX/bin/clang"
-CXX               = "$CONDA_PREFIX/bin/clang++"
-CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
-
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]

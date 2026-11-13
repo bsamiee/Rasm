@@ -13,7 +13,7 @@
         },
         "hosts": {
             "type": "array",
-            "description": ".uproject files loading a plug-in, whose engine associations name each engine it builds and tests on; empty for a plug-in no project loads, which takes its EngineVersion",
+            "description": ".uproject files loading a plug-in, whose engine associations name each engine it builds, tests, and packs on",
             "items": {
                 "type": "string"
             }
@@ -50,5 +50,5 @@
     "required": [ "outputPath", "descriptor", "hosts", "dependencies", "users", "operation" ],
     "additionalProperties": true,
     "title": "Unreal",
-    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host, zips each package and the tracked sources with the engine's EngineVersion, or copies the package into the Plugins folder of each user project"
+    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
 }

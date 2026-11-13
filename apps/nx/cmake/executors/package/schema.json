@@ -36,7 +36,7 @@
         "pack": {
             "type": "array",
             "minItems": 1,
-            "description": "The cpack invocation naming the package preset and the CPack configuration file of the project, without a package directory",
+            "description": "The cpack invocation naming the package preset, without a configuration file or a package directory",
             "items": [
                 {
                     "type": "string"
@@ -45,6 +45,10 @@
             "additionalItems": {
                 "type": "string"
             }
+        },
+        "config": {
+            "type": "string",
+            "description": "The project's CPack configuration file, relative to the workspace root"
         },
         "outputPath": {
             "type": "string",
@@ -58,7 +62,7 @@
             }
         }
     },
-    "required": [ "cwd", "configure", "build", "pack", "outputPath" ],
+    "required": [ "cwd", "configure", "build", "pack", "config", "outputPath" ],
     "additionalProperties": true,
     "title": "Package",
     "description": "Configures the packaging workflow's build tree, builds the project's targets from its manifest as it stands, and packs the project's install tree with CPack into a staging folder, then replaces the output folder with the package files CPack named from the project name, version, system, and processor"

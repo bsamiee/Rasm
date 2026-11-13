@@ -1786,9 +1786,21 @@ checksum = "sha256:3005729dce6f3d3f5ec91dfc49fc75a0095f9cd23bab49efb899657297ac9
 url = "https://conda.anaconda.org/conda-forge/win-64/vc-14.5-ha367084_42.conda"
 checksum = "sha256:0598ca1ce913618cff9bd90391bcf75cd9edb22057c85dd6784dd762b7a888e2"
 
+[conda-packages.windows-x64."vc-14.5-hda273ae_43"]
+url = "https://conda.anaconda.org/conda-forge/win-64/vc-14.5-hda273ae_43.conda"
+checksum = "sha256:b021e65bf2240a3256639913aef12f14e63c396170a103285adecfbff9bb01ac"
+
+[conda-packages.windows-x64."vc14_runtime-14.51.36247-h072b54c_43"]
+url = "https://conda.anaconda.org/conda-forge/win-64/vc14_runtime-14.51.36247-h072b54c_43.conda"
+checksum = "sha256:02e21ff2ff06c7e45e10b72953cb2b1739e8dad7a4a8a49c814897cfabefaada"
+
 [conda-packages.windows-x64."vc14_runtime-14.51.36247-habf1de7_42"]
 url = "https://conda.anaconda.org/conda-forge/win-64/vc14_runtime-14.51.36247-habf1de7_42.conda"
 checksum = "sha256:8dfbfd68ebf53249d11e528cbb80ad5a2460b0c5b4636eed82ee0d3950827a3d"
+
+[conda-packages.windows-x64."vcomp14-14.51.36247-h1c3f1cb_43"]
+url = "https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.51.36247-h1c3f1cb_43.conda"
+checksum = "sha256:159fe1bb304d6a8e82a0e4b71762c05325cff3d472e4a1d49465c9def61a785e"
 
 [conda-packages.windows-x64."vcomp14-14.51.36247-habf1de7_42"]
 url = "https://conda.anaconda.org/conda-forge/win-64/vcomp14-14.51.36247-habf1de7_42.conda"
@@ -2012,33 +2024,32 @@ backend = "cargo:cargo-edit"
 specifiers = ["latest"]
 
 [[tools.cmake]]
-version = "4.5.0-rc3"
+version = "4.5.0"
 backend = "aqua:Kitware/CMake"
 specifiers = ["latest"]
 
 [tools.cmake."platforms.linux-arm64"]
-checksum = "sha256:22756c50cdf850076a58702dc39903e769d971388cb90c362facc5957b4df957"
+checksum = "sha256:0c8447e7bba9701467b5ac6155d157aa9e309e71af4981f78bd4b9176107f553"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-linux-aarch64.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709905559"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-linux-aarch64.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/740685187"
 
 [tools.cmake."platforms.linux-x64"]
-checksum = "sha256:320bf7b1c2e625270d36d8bf19aa7e72d3a0c576846a6cf68743b9e35ec14706"
+checksum = "sha256:81f0d5b0960fb6adc8197030ffc827fba937640d51e73e39e0e9e40d88c66f6f"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-linux-x86_64.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709906071"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-linux-x86_64.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/740686519"
 
 [tools.cmake."platforms.macos-arm64"]
-checksum = "sha256:5d242a43b02617fa2a5d11e1ab7f15c5e9f092c89afb24903ee1889e862befac"
-checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-macos-universal.tar.gz"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709906409"
+checksum = "sha256:a645d69fd21e521759cc0c64e7c60462d43faf0c7214ac05f75c80f7c5037dde"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-macos-universal.tar.gz"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/740688616"
 
 [tools.cmake."platforms.windows-x64"]
-checksum = "sha256:94655f78b5195bc61fb4dea54754b4729bd19bffae7aeb498c23c403c8eb25a9"
+checksum = "sha256:301b1728317ccd84e984b02e366a8293735bc5ac618757d3d8f58b578f062411"
 checksum_source = "mise-versions"
-url = "https://github.com/Kitware/CMake/releases/download/v4.5.0-rc3/cmake-4.5.0-rc3-windows-x86_64.zip"
-url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/709908529"
+url = "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0-windows-x86_64.zip"
+url_api = "https://api.github.com/repos/Kitware/CMake/releases/assets/740697317"
 
 [[tools.colima]]
 version = "0.10.3"
@@ -2105,6 +2116,47 @@ conda_deps = [
     "libudev1-262.2-h26e0ef7_1",
     "ncurses-6.6-hdb14827_1",
     "libcap-2.78-h084b8d7_1",
+]
+
+[[tools."conda:pkgconf"]]
+version = "3.0.10"
+backend = "conda:pkgconf"
+specifiers = ["latest"]
+
+[tools."conda:pkgconf".options]
+channel = "conda-forge"
+
+[tools."conda:pkgconf"."platforms.linux-arm64"]
+checksum = "sha256:2c8fabbcd3b04c14166fc08f604b640beb9cbc019058c33b49829c40e3e140b9"
+url = "https://conda.anaconda.org/conda-forge/linux-aarch64/pkgconf-3.0.10-pkg_config_hd4f8cd5_1.conda"
+conda_deps = [
+    "libgcc-16.2.0-h205dda4_7",
+    "_openmp_mutex-4.5-20_gnu",
+    "libgomp-16.2.0-h8acb6b2_7",
+]
+
+[tools."conda:pkgconf"."platforms.linux-x64"]
+checksum = "sha256:c2a8c6127a5f5a998a7fac8063a146db1726f55bdeaacbbb0fcc877c5f9dcae9"
+url = "https://conda.anaconda.org/conda-forge/linux-64/pkgconf-3.0.10-pkg_config_hf2a7378_1.conda"
+conda_deps = [
+    "libgcc-16.2.0-ha9f2e26_7",
+    "_openmp_mutex-4.5-20_gnu",
+    "libgomp-16.2.0-he0feb66_7",
+]
+
+[tools."conda:pkgconf"."platforms.macos-arm64"]
+checksum = "sha256:4a5cfc7e6ba03edb38edc2394955afd66520254ceb12664019ef1418e76265f6"
+url = "https://conda.anaconda.org/conda-forge/osx-arm64/pkgconf-3.0.10-pkg_config_hf9333ed_1.conda"
+conda_deps = []
+
+[tools."conda:pkgconf"."platforms.windows-x64"]
+checksum = "sha256:1fc786466d23a053fcd5969b86f174c7b2998a5855832d4ab5265863b25c0c41"
+url = "https://conda.anaconda.org/conda-forge/win-64/pkgconf-3.0.10-pkg_config_hb996661_1.conda"
+conda_deps = [
+    "vc-14.5-hda273ae_43",
+    "vc14_runtime-14.51.36247-h072b54c_43",
+    "vcomp14-14.51.36247-h1c3f1cb_43",
+    "ucrt-10.0.26100.0-h57928b3_0",
 ]
 
 [[tools.crane]]
@@ -2597,6 +2649,139 @@ checksum = "sha256:f0caa55fe05fc21e1b9c81d3520173e66ebb1609c06fc6a3537729d2ba9bf
 checksum_source = "mise-versions"
 url = "https://github.com/linebender/resvg/releases/download/v0.50.0/usvg-win-x86_64.zip"
 url_api = "https://api.github.com/repos/linebender/resvg/releases/assets/736382707"
+
+[[tools."github:llvm/llvm-project"]]
+version = "23.1.5"
+backend = "github:llvm/llvm-project"
+specifiers = ["latest"]
+
+[tools."github:llvm/llvm-project".options]
+asset_pattern = "LLVM-*-Linux-ARM64.tar.zst"
+version_prefix = "llvmorg-"
+
+[tools."github:llvm/llvm-project"."platforms.linux-arm64"]
+checksum = "sha256:830ceb70edf63849ce66e97bf85310a3bf2bdd04c860a9f2fa4ef1560e290cef"
+url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLVM-23.1.5-Linux-ARM64.tar.zst"
+url_api = "https://api.github.com/repos/llvm/llvm-project/releases/assets/705827461"
+provenance = "github-attestations"
+
+[[tools."github:llvm/llvm-project"]]
+version = "23.1.5"
+backend = "github:llvm/llvm-project"
+specifiers = ["latest"]
+
+[tools."github:llvm/llvm-project".options]
+asset_pattern = "LLVM-*-Linux-X64.tar.zst"
+version_prefix = "llvmorg-"
+
+[tools."github:llvm/llvm-project"."platforms.linux-x64"]
+checksum = "sha256:c3107384835f788768f614db610e87fba7077f125ca950eb02a78bab0a308065"
+url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLVM-23.1.5-Linux-X64.tar.zst"
+url_api = "https://api.github.com/repos/llvm/llvm-project/releases/assets/705660944"
+provenance = "github-attestations"
+
+[[tools."github:llvm/llvm-project"]]
+version = "23.1.5"
+backend = "github:llvm/llvm-project"
+specifiers = ["latest"]
+
+[tools."github:llvm/llvm-project".options]
+asset_pattern = "LLVM-*-macOS-ARM64.tar.zst"
+version_prefix = "llvmorg-"
+
+[tools."github:llvm/llvm-project"."platforms.macos-arm64"]
+checksum = "sha256:503de30ef90311e0b143623801b19af2250adac6d69faed65ad0051170202e3b"
+url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLVM-23.1.5-macOS-ARM64.tar.zst"
+url_api = "https://api.github.com/repos/llvm/llvm-project/releases/assets/705801926"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"]]
+version = "2026-10-29"
+backend = "github:microsoft/vcpkg-tool"
+specifiers = ["latest"]
+
+[tools."github:microsoft/vcpkg-tool".options]
+additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
+asset_pattern = "vcpkg-glibc-arm64"
+version_prefix = ""
+
+[tools."github:microsoft/vcpkg-tool"."platforms.linux-arm64"]
+checksum = "sha256:e59a1f42de574dbceec05e4f90630898a33150f27c5a999e0f2d9b80a17001e3"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-glibc-arm64"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264305"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"."platforms.linux-arm64".additional_artifacts]]
+checksum = "sha256:3e128d4e44dfb0400bfef92d00e259a7095db2a2ca218e0c483145aa16e41b62"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-standalone-bundle.tar.gz"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"]]
+version = "2026-10-29"
+backend = "github:microsoft/vcpkg-tool"
+specifiers = ["latest"]
+
+[tools."github:microsoft/vcpkg-tool".options]
+additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
+asset_pattern = "vcpkg-glibc"
+version_prefix = ""
+
+[tools."github:microsoft/vcpkg-tool"."platforms.linux-x64"]
+checksum = "sha256:8b10d43c1392a2d51622b1e439cb952289dcf56cbb595eb935847e79fe00d303"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-glibc"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264152"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"."platforms.linux-x64".additional_artifacts]]
+checksum = "sha256:3e128d4e44dfb0400bfef92d00e259a7095db2a2ca218e0c483145aa16e41b62"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-standalone-bundle.tar.gz"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"]]
+version = "2026-10-29"
+backend = "github:microsoft/vcpkg-tool"
+specifiers = ["latest"]
+
+[tools."github:microsoft/vcpkg-tool".options]
+additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
+asset_pattern = "vcpkg-macos"
+version_prefix = ""
+
+[tools."github:microsoft/vcpkg-tool"."platforms.macos-arm64"]
+checksum = "sha256:754638ffd0d4c85ee194a2a215d4a6727b1d33829944667d74e7397459e54005"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-macos"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264531"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"."platforms.macos-arm64".additional_artifacts]]
+checksum = "sha256:3e128d4e44dfb0400bfef92d00e259a7095db2a2ca218e0c483145aa16e41b62"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-standalone-bundle.tar.gz"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"]]
+version = "2026-10-29"
+backend = "github:microsoft/vcpkg-tool"
+specifiers = ["latest"]
+
+[tools."github:microsoft/vcpkg-tool".options]
+additional_asset_patterns = "vcpkg-standalone-bundle.tar.gz"
+asset_pattern = "vcpkg.exe"
+version_prefix = ""
+
+[tools."github:microsoft/vcpkg-tool"."platforms.windows-x64"]
+checksum = "sha256:191ee64b0887af80aad3eff6c5e888ab733d3ef2182885ed4747b4574c201834"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg.exe"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264732"
+provenance = "github-attestations"
+
+[[tools."github:microsoft/vcpkg-tool"."platforms.windows-x64".additional_artifacts]]
+checksum = "sha256:3e128d4e44dfb0400bfef92d00e259a7095db2a2ca218e0c483145aa16e41b62"
+url = "https://github.com/microsoft/vcpkg-tool/releases/download/2026-10-29/vcpkg-standalone-bundle.tar.gz"
+url_api = "https://api.github.com/repos/microsoft/vcpkg-tool/releases/assets/690264684"
+provenance = "github-attestations"
 
 [[tools."github:pmd/pmd"]]
 version = "7.29.0"
@@ -3573,6 +3758,35 @@ url = "https://github.com/lima-vm/lima/releases/download/v2.3.0/lima-2.3.0-Darwi
 url_api = "https://api.github.com/repos/lima-vm/lima/releases/assets/717479690"
 provenance = "github-attestations"
 
+[[tools.ninja]]
+version = "1.13.2"
+backend = "aqua:ninja-build/ninja"
+specifiers = ["latest"]
+
+[tools.ninja."platforms.linux-arm64"]
+checksum = "sha256:fd2cacc8050a7f12a16a2e48f9e06fca5c14fc4c2bee2babb67b58be17a607fc"
+checksum_source = "mise-versions"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux-aarch64.zip"
+url_api = "https://api.github.com/repos/ninja-build/ninja/releases/assets/318864579"
+
+[tools.ninja."platforms.linux-x64"]
+checksum = "sha256:5749cbc4e668273514150a80e387a957f933c6ed3f5f11e03fb30955e2bbead6"
+checksum_source = "mise-versions"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-linux.zip"
+url_api = "https://api.github.com/repos/ninja-build/ninja/releases/assets/318865358"
+
+[tools.ninja."platforms.macos-arm64"]
+checksum = "sha256:c99048673aa765960a99cf10c6ddb9f1fad506099ff0a0e137ad8960a88f321b"
+checksum_source = "mise-versions"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-mac.zip"
+url_api = "https://api.github.com/repos/ninja-build/ninja/releases/assets/318863524"
+
+[tools.ninja."platforms.windows-x64"]
+checksum = "sha256:07fc8261b42b20e71d1720b39068c2e14ffcee6396b76fb7a795fb460b78dc65"
+checksum_source = "mise-versions"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.2/ninja-win.zip"
+url_api = "https://api.github.com/repos/ninja-build/ninja/releases/assets/318863577"
+
 [[tools.node]]
 version = "27.0.0-alpha.0.1.0"
 backend = "core:node"
@@ -3733,6 +3947,11 @@ provenance = "cosign"
 [[tools."pypi:ast-grep/ast-grep-mcp"]]
 version = "latest"
 backend = "pypi:ast-grep/ast-grep-mcp"
+specifiers = ["latest"]
+
+[[tools."pypi:gersemi"]]
+version = "0.29.2"
+backend = "pypi:gersemi"
 specifiers = ["latest"]
 
 [[tools."pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"]]

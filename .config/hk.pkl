@@ -8,13 +8,10 @@ fail_fast = false
 
 // --- [STEPS] ----------------------------------------------------------------------------
 
-local environment = List("pixi", "run", "--locked", "-e", "cpp")
-
 steps {
   ["grammars"] {
     check = new CommandSpec {
-      command =
-        "cmake -S tools/ast-grep/grammars --preset default && cmake --build --presets-file tools/ast-grep/grammars/CMakePresets.json --preset default"
+      command = "cd tools/ast-grep/grammars && cmake --workflow --preset default"
       effect = "write"
     }
     stomp = true
@@ -73,8 +70,7 @@ steps {
     }
   }
   ["clang-format"] = (Builtins.clang_format) {
-    glob = "**/*.{cpp,cppm,ixx,cc,cxx,hpp,hh,hxx,h,ipp,inl,tpp}"
-    prefix = environment
+    glob = "**/*.{cpp,cppm,ixx,cc,cxx,mm,hpp,hh,hxx,h,ipp,inl,tpp}"
   }
   ["compose"] {
     glob = "**/compose*.{yaml,yml}"
@@ -122,8 +118,15 @@ steps {
   }
   ["gersemi"] {
     glob = List("**/CMakeLists.txt", "**/*.cmake")
-    local gersemi = List("gersemi", "--warnings-as-errors", "--cache-dir", ".cache/gersemi")
-    prefix = environment
+    local gersemi =
+      List(
+        "gersemi",
+        "--config",
+        ".config/gersemi.yaml",
+        "--warnings-as-errors",
+        "--cache-dir",
+        ".cache/gersemi",
+      )
     check = new CommandSpec {
       command = new Command { argv = gersemi + List("--check", "{{files}}") }
       effect = "read"

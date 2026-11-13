@@ -1,29 +1,29 @@
 {
-  "executors": {
-    "extension-build": {
-      "implementation": "./dist/executors/extension-build/executor#execute",
-      "schema": "./executors/extension-build/schema.json",
-      "description": "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles"
-    },
-    "package": {
-      "implementation": "./dist/executors/package/executor#execute",
-      "schema": "./executors/package/schema.json",
-      "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its tracked source folder: a .ccx zip for a manifest.json, a .zxp ZXPSignCmd signs with a certificate it creates for the build for a CSXS/manifest.xml"
-    },
-    "install": {
-      "implementation": "./dist/executors/install/executor#execute",
-      "schema": "./executors/install/schema.json",
-      "description": "Installs what the project's build wrote in the run's configuration where its host loads it: each package built for this platform through the host's own installer, or the unpacked build folder for a host loading one"
-    },
-    "release-publish": {
-      "implementation": "./dist/executors/release-publish/executor#execute",
-      "schema": "./executors/release-publish/schema.json",
-      "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload; runs through nx release publish"
-    },
-    "unreal-build": {
-      "implementation": "./dist/executors/unreal-build/executor#execute",
-      "schema": "./executors/unreal-build/schema.json",
-      "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host, zips each package and the tracked sources with the engine's EngineVersion, or copies the package into the Plugins folder of each user project"
+    "executors": {
+        "extension-build": {
+            "implementation": "./dist/executors/extension-build/executor#execute",
+            "schema": "./executors/extension-build/schema.json",
+            "description": "Builds the Blender extension archives the project's blender_manifest.toml declares through Blender's blender_ext.py, with no Blender installed, one archive per platform the manifest lists and one for every platform where it lists none; a project holding pyproject.toml builds from a staged copy that bundles its local dependencies as subpackages and its locked registry dependencies as the wheels uv selects per platform at the one Python minor its requires-python pins as ==<major>.<minor>.*, leaving out each package its blender dependency group pins as one Blender bundles"
+        },
+        "package": {
+            "implementation": "./dist/executors/package/executor#execute",
+            "schema": "./executors/package/schema.json",
+            "description": "Packs the Adobe UXP plugin or CEP extension the project's other builds wrote, else its tracked source folder: a .ccx zip for a manifest.json, a .zxp ZXPSignCmd signs with a certificate it creates for the build for a CSXS/manifest.xml"
+        },
+        "install": {
+            "implementation": "./dist/executors/install/executor#execute",
+            "schema": "./executors/install/schema.json",
+            "description": "Installs what the project's build wrote in the run's configuration where its host loads it: each package built for this platform through the host's own installer, or the unpacked build folder for a host loading one"
+        },
+        "release-publish": {
+            "implementation": "./dist/executors/release-publish/executor#execute",
+            "schema": "./executors/release-publish/schema.json",
+            "description": "Publishes each host package the target's dependency targets wrote to its host's store through the store's own upload; runs through nx release publish"
+        },
+        "unreal-build": {
+            "implementation": "./dist/executors/unreal-build/executor#execute",
+            "schema": "./executors/unreal-build/schema.json",
+            "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine its hosts name, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
+        }
     }
-  }
 }

@@ -50,7 +50,7 @@
         "Cargo.toml": "build.rs, Cargo.lock, rust-toolchain.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "clippy.toml": "nextest.toml, rustfmt.toml",
-        "CMakeLists.txt": "*.cmake, CMakePresets.json",
+        "CMakeLists.txt": "*.cmake, CMakePresets.json, vcpkg.json",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
         "hk.pkl": ".globalconfig, jscpd.json, pmd.xml, shellcheckrc, squawk.toml, yamllint.yaml",
         "Info.plist": "*.entitlements",
@@ -121,7 +121,6 @@
 
     // --- [CPP] -------------------------------------------------------------------------
 
-    "clangd.path": "${workspaceFolder}/.pixi/envs/cpp/bin/clangd",
     "clangd.arguments": [ "--background-index", "--experimental-modules-support" ],
 
     // --- [DOTNET] ----------------------------------------------------------------------

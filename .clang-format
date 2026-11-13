@@ -1,44 +1,46 @@
 # --- [BASE] -----------------------------------------------------------------------------
 
-Language: Cpp
 BasedOnStyle: LLVM
-Standard: Latest
 ColumnLimit: 200
 IndentWidth: 4
 ContinuationIndentWidth: 4
 InsertNewlineAtEOF: true
 LineEnding: LF
-
-# --- [DECLARATIONS] ---------------------------------------------------------------------
-
 AccessModifierOffset: -4
+AllowShortEnumsOnASingleLine: false
+BreakBeforeBinaryOperators: NonAssignment
 BreakTemplateDeclarations: Yes
 EmptyLineBeforeAccessModifier: Always
 EnumTrailingComma: Insert
 FixNamespaceComments: false
-IndentExportBlock: false
-PointerAlignment: Left
-QualifierAlignment: Custom
-QualifierOrder: [friend, static, inline, constexpr, const, volatile, type]
-SeparateDefinitionBlocks: Always
-WrapNamespaceBodyWithEmptyLines: Always
-
-# --- [STATEMENTS] -----------------------------------------------------------------------
-
-AllowShortEnumsOnASingleLine: false
-BreakBeforeBinaryOperators: NonAssignment
-InsertBraces: true
-PackArguments: {BinPack: OnePerLine}
-PackConstructorInitializers: NextLineOnly
-PackParameters: {BinPack: OnePerLine}
-RemoveSemicolon: true
-
-# --- [INCLUDES] -------------------------------------------------------------------------
-
 IncludeBlocks: Regroup
 IncludeCategories:
     - {Regex: '^<.*\.h(pp)?>$', Priority: 1}
     - {Regex: '^<.*>$', Priority: 2}
     - {Regex: '.*', Priority: 3}
+InsertBraces: true
+PackArguments: {BinPack: OnePerLine}
+PackConstructorInitializers: NextLineOnly
+PackParameters: {BinPack: OnePerLine}
+PointerAlignment: Left
+QualifierAlignment: Custom
+QualifierOrder: [friend, static, inline, constexpr, const, volatile, type]
+SeparateDefinitionBlocks: Always
 SortIncludes: {Enabled: true, IgnoreCase: false}
 SortUsingDeclarations: LexicographicNumeric
+WrapNamespaceBodyWithEmptyLines: Always
+---
+# --- [CPP] ------------------------------------------------------------------------------
+
+Language: Cpp
+Standard: Latest
+IndentExportBlock: false
+---
+# --- [OBJC] -----------------------------------------------------------------------------
+
+Language: ObjC
+ObjCBinPackProtocolList: Never
+ObjCBlockIndentWidth: 4
+ObjCBreakBeforeNestedBlockParam: true
+ObjCSpaceAfterProperty: true
+ObjCSpaceBeforeProtocolList: true
