@@ -127,7 +127,6 @@ pkl                                                                          = "
 pnpm                                                                         = "latest"
 pulumi                                                                       = "latest"
 "pypi:ast-grep/ast-grep-mcp"                                                 = "latest"
-"pypi:gersemi"                                                               = "latest"
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
 "pypi:mcp-for-blender"                                                       = "latest"
 "pypi:tavily-cli"                                                            = "latest"
@@ -147,6 +146,17 @@ asset_pattern = "pkl-vscode-*.vsix"
 bin           = "pkl-vscode.vsix"
 format        = "raw"
 version       = "latest"
+
+[tools."github:BlankSpruce/gersemi"]
+bin     = "gersemi"
+format  = "raw"
+version = "latest"
+
+[tools."github:BlankSpruce/gersemi".platforms]
+linux-arm64 = { asset_pattern = "gersemi-linux-arm" }
+linux-x64   = { asset_pattern = "gersemi-linux" }
+macos-arm64 = { asset_pattern = "gersemi-macos-arm" }
+windows-x64 = { asset_pattern = "gersemi-windows.exe" }
 
 [tools."github:docker/docker-credential-helpers"]
 bin      = "docker-credential-osxkeychain"

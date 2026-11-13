@@ -2432,6 +2432,62 @@ checksum_source = "mise-versions"
 url = "https://github.com/git-lfs/git-lfs/releases/download/v3.8.1/git-lfs-windows-amd64-v3.8.1.zip"
 url_api = "https://api.github.com/repos/git-lfs/git-lfs/releases/assets/666389255"
 
+[[tools."github:BlankSpruce/gersemi"]]
+version = "0.29.2"
+backend = "github:BlankSpruce/gersemi"
+specifiers = ["latest"]
+
+[tools."github:BlankSpruce/gersemi".options]
+asset_pattern = "gersemi-linux-arm"
+
+[tools."github:BlankSpruce/gersemi"."platforms.linux-arm64"]
+checksum = "sha256:6aafd13b0363359fb56f8c8a96b34c4f72aef21ff2a3859cb3156294e86decf1"
+checksum_source = "mise-versions"
+url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-linux-arm"
+url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603551968"
+
+[[tools."github:BlankSpruce/gersemi"]]
+version = "0.29.2"
+backend = "github:BlankSpruce/gersemi"
+specifiers = ["latest"]
+
+[tools."github:BlankSpruce/gersemi".options]
+asset_pattern = "gersemi-linux"
+
+[tools."github:BlankSpruce/gersemi"."platforms.linux-x64"]
+checksum = "sha256:34ae3c8e32f65ca64361149c5e97dbb523f446b837588784b5e98e29a1c93af9"
+checksum_source = "mise-versions"
+url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-linux"
+url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603552886"
+
+[[tools."github:BlankSpruce/gersemi"]]
+version = "0.29.2"
+backend = "github:BlankSpruce/gersemi"
+specifiers = ["latest"]
+
+[tools."github:BlankSpruce/gersemi".options]
+asset_pattern = "gersemi-macos-arm"
+
+[tools."github:BlankSpruce/gersemi"."platforms.macos-arm64"]
+checksum = "sha256:1ac64b46c06c5d57ac3c8691d6640043c6f2b113e3d3d19a9f7ba080e1163486"
+checksum_source = "mise-versions"
+url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-macos-arm"
+url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603552024"
+
+[[tools."github:BlankSpruce/gersemi"]]
+version = "0.29.2"
+backend = "github:BlankSpruce/gersemi"
+specifiers = ["latest"]
+
+[tools."github:BlankSpruce/gersemi".options]
+asset_pattern = "gersemi-windows.exe"
+
+[tools."github:BlankSpruce/gersemi"."platforms.windows-x64"]
+checksum = "sha256:ff2e6d6335110c71e4a16d4138c5bafdbf22cc3af7f4b2ece4c5d03f66ad021a"
+checksum_source = "mise-versions"
+url = "https://github.com/BlankSpruce/gersemi/releases/download/0.29.2/gersemi-windows.exe"
+url_api = "https://api.github.com/repos/BlankSpruce/gersemi/releases/assets/603554690"
+
 [[tools."github:NationalSecurityAgency/ghidra"]]
 version = "12.2_build"
 backend = "github:NationalSecurityAgency/ghidra"
@@ -3947,11 +4003,6 @@ provenance = "cosign"
 [[tools."pypi:ast-grep/ast-grep-mcp"]]
 version = "latest"
 backend = "pypi:ast-grep/ast-grep-mcp"
-specifiers = ["latest"]
-
-[[tools."pypi:gersemi"]]
-version = "0.29.2"
-backend = "pypi:gersemi"
 specifiers = ["latest"]
 
 [[tools."pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"]]
