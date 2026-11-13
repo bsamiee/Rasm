@@ -40,7 +40,7 @@ Places holding state, each updated by one action:
 - Machine secrets are `<NAME>_SSH_PRIVATE_KEY`, `<NAME>_SSH_PUBLIC_KEY`, and `<NAME>_ROOT_PASSWORD`, in Doppler `deploy` and 1Password
 - `HOSTINGER_API_TOKEN` covers the account and keeps its name
 - Every machine gets Ubuntu 26.10, Docker, the files of table `files` in `infra/platform-stack.ts`, and a tailnet login
-- Field `services` names Compose services of `infra/compose.yaml`, and Compose starts the services they depend on
+- Field `services` names Compose services of `infra/compose.yaml`, Compose starts the services they depend on, and a machine receives the definitions and variables of those services alone
 - Machines with an empty `services` list run no container
 - Changed `services` lists stop the machine's Compose project, then start the new list
 - Both machines are KVM guests without nested virtualization, so another need is a service name in a row and never a VM
