@@ -472,6 +472,7 @@ catalog:
     '@nx/web': 24.1.0-beta.0 # `file-server` executor serving a built Storybook
     '@nx/plugin': 24.1.0-beta.0 # Generators and checks for plugins, executors, generators, and migrations
     '@nx/workspace': 24.1.0-beta.0 # `move`, `remove`, and `infer-targets` generators
+    nx-mcp: 0.25.3 # Nx MCP server answering workspace, project, and task questions for agents
 
     # --- [BUILD]
 

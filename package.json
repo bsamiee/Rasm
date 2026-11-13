@@ -43,6 +43,7 @@
         "bootstrap-icons": "catalog:",
         "knip": "catalog:",
         "nx": "catalog:",
+        "nx-mcp": "catalog:",
         "oxc-transform-react": "catalog:",
         "publint": "catalog:",
         "storybook": "catalog:",

@@ -91,6 +91,11 @@
             "command": "mcp-muxer",
             "args": [ "--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml" ]
         },
+        "nx": {
+            "type": "stdio",
+            "command": "mcp-muxer",
+            "args": [ "--", "nx-mcp", "--disableTelemetry" ]
+        },
         "rhino-mcp-platform": {
             "type": "stdio",
             "command": "mcp-muxer",

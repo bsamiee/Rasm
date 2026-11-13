@@ -10,6 +10,7 @@ const OVERWRITES = ['overwrites edits', 'use Edit'] as const;
 const REMOTE = ['rewrites remote history', 'push plain refs'] as const;
 const ALIASES = ['aliases hide subcommands', 'run them directly'] as const;
 const HISTORY = /^[+:]/u;
+const TAG = /^[+:]?refs\/tags\//u;
 const ALIAS = /^alias\./u;
 const REVISION_PATH = /^[^:]+:.+/u;
 const BRANCH_WRITES = ['--delete', '-D', '-M', '--force', '--copy', '-C', '--move'];
@@ -81,7 +82,7 @@ const GIT: Ruleset = {
                         checkout: [UNFORCED, refuse(...OVERWRITES, '-B', '--patch', '--ours', '--theirs'), refuse(...BRANCHES, '-b', '--orphan', '--track'), checkoutPaths],
                         clean: [when(({ has }) => !has('--dry-run'), refuse('deletes untracked files', 'rm each by name'))],
                         config: [when(({ operands }) => operands.slice(0, -1).some(({ text }) => ALIAS.test(text)), refuse(...ALIASES))],
-                        push: [UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), when(holds(HISTORY), refuse(...REMOTE))],
+                        push: [when(Predicate.not(holds(TAG)), UNFORCED, refuse(...REMOTE, '--delete', '--mirror', '--prune'), when(holds(HISTORY), refuse(...REMOTE)))],
                         rebase: [when(({ has }) => !has(...UNWINDS), refuse('rewrites shared commits', 'merge or commit forward'))],
                         reflog: [when(nested('delete', 'drop', 'expire'), refuse('deletes entries', 'leave the reflog intact'))],
                         reset: [refuse(...OVERWRITES, ...RESET_DISCARDS), when(({ has }) => !has(...RESET_DISCARDS), resetTarget)],

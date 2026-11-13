@@ -49,6 +49,12 @@ command                      = "mcp-muxer"
 args                         = ["--env", "AST_GREP_PATH=ast-grep --custom-languages allow", "--", "ast-grep-server", "--config", "sgconfig.yml"]
 supports_parallel_tool_calls = true
 
+[mcp_servers.nx]
+default_tools_approval_mode  = "approve"
+command                      = "mcp-muxer"
+args                         = ["--", "nx-mcp", "--disableTelemetry"]
+supports_parallel_tool_calls = true
+
 [mcp_servers.github]
 default_tools_approval_mode = "approve"
 url                         = "https://api.githubcopilot.com/mcp/"
