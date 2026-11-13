@@ -16,7 +16,7 @@ runs:
     steps:
         - if: runner.os == 'macOS'
           run: |
-              newest="$(printf '%s\n' /Applications/Xcode_*.app | sort --version-sort | tail -n 1)"
+              newest="$(printf '%s\n' /Applications/Xcode_*.app | grep --extended-regexp '/Xcode_[0-9.]+\.app$' | sort --version-sort | tail -n 1)"
               sudo xcode-select --switch "${newest}"
           shell: bash
         - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
