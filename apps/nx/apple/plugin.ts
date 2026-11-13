@@ -220,7 +220,7 @@ const { createNodes, createDependencies } = inferred({
         return Array.take(process.platform === HOST ? files : [], 1).map((file): Unit => ({ key: MANIFEST, file, salt: [String(built), ...files].join('\n') }));
     }),
     read: (missing: Array.NonEmptyReadonlyArray<Unit>, { files, context, plugin, options, placed }: Request<typeof Options.Type>) =>
-        Effect.map(analyze(context.workspaceRoot, { ...options, placed }, { ...plugin, inputs: [{ env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, ...plugin.inputs] }, files), (reading) => missing.map(() => reading)),
+        Effect.map(analyze(context.workspaceRoot, { ...options, placed }, { ...plugin, inputs: [{ runtime: 'xcodebuild -version' }, { env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, ...plugin.inputs] }, files), (reading) => missing.map(() => reading)),
     sources: () => ({ tracked: READ.map((file) => `**/${file}`) }),
     projects: ({ projects }: Graph) => projects,
     edges,
