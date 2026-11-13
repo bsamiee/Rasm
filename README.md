@@ -138,13 +138,15 @@ flowchart LR
 - C++ libraries come from `vcpkg.json` through an overlay triplet, which builds each library with the toolchain file of the preset
 - C++ executables link the LLVM release libc++ statically, its symbols hidden on macOS, where a second libc++ beside the system one corrupts streams
 - C++ warnings, hardening, sanitizer, and coverage flags sit in the root `CMakeLists.txt`, presets state a build type, a build folder, and switches
-- C++ packages export a named module, and one a host or another toolchain reads declares that part in `FILE_SET HEADERS`
+- C++ packages export a named module where `CMAKE_CXX_SCAN_FOR_MODULES` is on, and declare the part a host toolchain reads in `FILE_SET HEADERS`
 - Unreal targets exist where the engine a `.uproject` names resolves, a plug-in builds once per engine the projects loading it name
 - Unreal plug-ins build through `RunUAT BuildPlugin -StrictIncludes`, and a project builds its editor target through UnrealBuildTool
 - Unreal plug-ins test by the automation tests under their own name, each test state read from the report the editor exports
-- Unreal plug-ins link a C++ package the `unreal` preset builds with the engine compiler, put under `Source/ThirdParty` by `cmake --install --prefix`
+- Unreal plug-ins map a folder to the Nx target installing a C++ package there in `.uplugin` table `nx.packages`, and their build runs it first
+- Preset `unreal` builds such a package with the engine compiler and flags, installed in a folder named for the engine platform (`Mac`, `Linux`)
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - CI job `linux` runs every affected target of its graph, job `macos` the `os:darwin` projects alone, as its runner starts no Compose service
+- CI job `unreal` runs the affected `os:linux` projects as user `ue4` in Epic's `dev-slim` image of each `EngineAssociation` a `.uproject` names
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
 - Unchanged stack inputs apply nothing, and a machine runs the Compose services its `hosts` row names in `services` with their dependencies
 - Machine names state no role, provider, or location: roles sit in host row `services`, DNS aliases, and tailnet tags
@@ -171,6 +173,7 @@ Other tasks run through their own commands:
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
 - Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`
+- Job `unreal` of `release.yml` then attaches the `os:linux` projects from the same image at the released commit
 - Workflow `renovate.yml` runs Renovate daily: catalogs, manifests, locks, mise tools, and action pins move to their newest release and merge
 - Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, `dry-run`, on by default, and `publish`
 - Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet)
@@ -189,7 +192,8 @@ Other tasks run through their own commands:
 Packaging turns a build into the files its host, registry, or store takes, and install and publish each use those files:
 - Hosts and ecosystems decide package format (`.yak`, `.nupkg`, wheel, `.dmg`, CPack `.tar.xz`)
 - C++ packages release as a CPack archive of their install tree with a CPS file and an SPDX SBOM, CPack naming it from project, version, and system
-- Unreal plug-ins release per engine as the BuildPlugin package and a source archive stamped with that `EngineVersion` after the store checks pass
+- Unreal plug-ins release per engine as the BuildPlugin package and a source archive with its installed packages and that `EngineVersion`
+- Fab takes no upload from a tool: its publishing portal takes the source archive of a GitHub release by link, after the store checks pass
 - Plugin technology decides a host's package and install form (UXP `.ccx`, CEP `.zxp`), never where it publishes
 - Installs serve development alone, replacing a previous build where its host loads it and skipping packaging where the host allows
 - Releases give every project one version and tag through `nx release`, and the GitHub release holds the packaged files each `attach` target uploads
@@ -242,7 +246,7 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 - Projects a host loads target the runtime and libraries their host bundles, and build output holds none of them
 - Each uv root resolves one Python range: projects on a host's Python get their own root, and a package shared across roots declares the lower bound
 - C++ packages sit at `libs/cpp/<category>/<package>/` with their own `project()` call, tests at `libs/cpp/<category>/tests/<package>/`
-- Unreal projects and plug-ins sit under `apps/unreal/`, a plug-in beside the project enabling it or inside its `Plugins` folder
+- Unreal projects and plug-ins sit under `apps/unreal/`, a plug-in beside the project enabling it, whose `Plugins` folder takes its installed package
 - Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<category>/`, executables under `apps/macos/`
 - SQL schemas reconcile the live database to owning types, with no migration, history table, or versioned file or folder
 - Reconciles drop or retype only what owning types declare retired or retyped

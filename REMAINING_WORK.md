@@ -37,14 +37,27 @@ The C++ and Unreal tooling was deleted and rebuilt from the reading of 68 reposi
 and `[07]-[STRUCTURE]` state the result: LLVM from a mise row, libraries from `vcpkg.json`, flags in the root `CMakeLists.txt`, a build folder per preset,
 and the Unreal executor reading test results from the exported report.
 
+### Built on 2026-11-13
+
+Research for this pass is under `docs/research/remaining-work/finalize/` (`a-cicd-vps.md`, `b-release-distribution.md`, `c-unreal.md`).
+
+- **Package and plug-in.** `libs/cpp/numerics/tolerance` (CMake project `rasm-tolerance`) and `apps/unreal/Tolerance` with host project `apps/unreal/Sandbox` are the first consumers.
+- **The plug-in to package edge.** `.uplugin` table `nx.packages` maps a folder to the Nx target installing a package there. The plug-in build runs it with prefix `<folder>/<Mac|Linux>`, and `install--cmake` builds what it installs.
+- **Release rows.** The package states `install(PACKAGE_INFO)` and `install(SBOM)`, so the CPack archive holds the CPS file and the SBOM. No plugin change was needed.
+- **Unreal on Linux.** `.config/cmake/toolchains/unreal-Linux.cmake`, job `unreal` of `ci.yml` and of `release.yml` in Epic's `dev-slim-<EngineAssociation>` image, and the `UE_<version>` row lookup of `Install.ini`.
+
+Proven on this Mac with Unreal Engine 5.8.4:
+- `nx run-many -t check,build,test,pack` over `rasm-tolerance`, `Tolerance`, and `Sandbox` passed, and the report lists `Tolerance.Within` alone with state `Success`.
+- `NX_DRY_RUN=true nx run rasm-tolerance:attach` printed `gh release upload v0.0.0 .artifacts/cpack/rasm-tolerance/rasm-tolerance-0.0.0-Darwin-arm64.tar.xz`, and the CPS file in that archive states version `0.0.0`.
+- `nx release 0.1.0 --skip-publish --first-release --dry-run` wrote `VERSION 0.1.0` in the package's `project()` call and `VersionName` `0.1.0` in the `.uplugin`.
+- `Tolerance-5.8.zip` holds the tracked sources, `EngineVersion` `5.8.0`, and the installed header, archive, CPS files, and SBOM under `Source/ThirdParty/RasmTolerance/Mac`.
+
 ### Not done
 
-1. **Unreal on Linux CI.** Doppler `ci` and 1Password hold `EPIC_GHCR_TOKEN`, which reads `ghcr.io/epicgames/unreal-engine`. No workflow job and no `unreal-Linux.cmake`
-   toolchain file exist: the image is x64 alone and 24 GB, so its proof is a workflow run on a hosted runner.
-2. **Release rows.** The archive, CPS file and SBOM per package on the GitHub release, and agreement of archive name, CPS version and tag in a dry run. The builder was told to do this last and was stopped before it.
-3. **The plug-in to package edge.** `nx run <package>:install--cmake:unreal --args=--prefix=<plug-in>/Source/ThirdParty/<Name>` installs a package into a plug-in by argument;
-   no manifest row states that prefix yet.
-4. **A first real consumer.** A decision for the owner: which C++ package or Unreal plug-in is built first.
+1. **Linux proof.** Nothing of the Linux side ran on this Mac: the toolchain file, the mise tools on the image's Ubuntu 22.04, and job `unreal`. Its proof is the first CI run holding the job.
+2. **Runner.** Job `unreal` runs on hosted `ubuntu-26.04` and pulls the 22 GiB image on each run. `derby` (8 vCPU, 31 GiB memory, 385 GB free, no service) can hold a self-hosted runner that keeps the image; `a-cicd-vps.md` `WORK` rows 1 to 4 state that form and its fork-approval setting.
+3. **Fab.** Fab takes no upload from a tool, and no Fab publisher profile exists. After a release holds `Tolerance-<engine>.zip`, the owner creates the profile and a draft listing from that link, where Fab's upload scan answers. "Submit for review" then has Fab's build farm compile it, and "Cancel submission" stops it before a human review.
+4. **One platform per source archive.** A pack on a Mac holds the `Mac` library and one on Linux the `Linux` library. An archive holding both needs the installed folders of both jobs.
 
 ## 2. Node 27 alignment pass
 
@@ -76,14 +89,14 @@ Acceptance set with the owner: one real `release.yml` run produces tag `v0.1.0` 
 
 Facts:
 - 0 git tags, 0 GitHub releases, 0 runs of `release.yml` ever.
-- `nx release 0.1.0 --skip-publish --first-release --dry-run` exits 0 locally and writes 0.1.0 into all 49 manifests through each plugin's version actions. No manual baseline step is needed.
+- `nx release 0.1.0 --skip-publish --first-release --dry-run` exits 0 locally and writes 0.1.0 into all 47 manifests through each plugin's version actions. No manual baseline step is needed.
 - The workflow runs `nx release --skip-publish`, then `nx run-many -t attach -c release`, then `nx release publish`. Dispatch inputs: `specifier`, `first-release`, `dry-run` (on by default), `publish`.
-- The live tag ruleset on GitHub still matches the old `**@**` pattern until `nx deploy @rasm/infra` runs.
+- The live tag ruleset on GitHub matches `refs/tags/v**`.
 - Tokens in Doppler `release`: `NUGET_API_KEY` is present (expires 2026-12-12). `NODE_AUTH_TOKEN` and `UV_PUBLISH_TOKEN` are absent; the npm and PyPI accounts exist, the publish tokens were not made. Apple notarization rows are absent until the owner's enrollment finishes, so Mac apps release as a `.zip`.
 - Not exercised: the Sparkle feed against a real `.dmg`, and the infra row.
 - The second release review (`release/review-release-2.md`) was written before the release shape changed to one version and one tag; its findings have to be read against the current shape.
 
-Not done: no dispatch of `release.yml`, dry or real. It waits on a green CI run on `main`, which is red for reasons in the test-layout session's work.
+Not done: no dispatch of `release.yml`, dry or real. It waits on a green CI run on `main` holding job `unreal`.
 
 ## 4. Smaller open items
 

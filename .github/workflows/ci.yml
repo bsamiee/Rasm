@@ -26,6 +26,8 @@ jobs:
     linux:
         runs-on: ubuntu-26.04
         timeout-minutes: 120
+        outputs:
+            engines: ${{ steps.engines.outputs.list }}
         steps:
             - &checkout
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,6 +42,11 @@ jobs:
               with:
                   cache-server: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             - run: nx sync:check
+            - id: engines
+              run: |
+                  affected="$(nx show projects --affected --projects=tag:os:linux --json)"
+                  named="$(git ls-files -z -- "*.uproject" | xargs -0 jq --slurp --compact-output --argjson affected "${affected}" "if \$affected == [] then [] else map(.EngineAssociation) | unique end")"
+                  printf "list=%s\n" "${named}" >> "${GITHUB_OUTPUT}"
             - run: playwright install --with-deps --only-shell chromium
             - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
             - run: nx affected --targets=check,test,build
@@ -68,3 +75,30 @@ jobs:
                   APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
                   APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
             - *reports
+
+    unreal:
+        needs: linux
+        if: ${{ needs.linux.outputs.engines != '[]' }}
+        strategy:
+            fail-fast: false
+            matrix:
+                engine: ${{ fromJSON(needs.linux.outputs.engines) }}
+        runs-on: ubuntu-26.04
+        timeout-minutes: 120
+        container:
+            image: ghcr.io/epicgames/unreal-engine:dev-slim-${{ matrix.engine }}
+            credentials:
+                username: ${{ github.actor }}
+                password: ${{ secrets.EPIC_GHCR_TOKEN }}
+            options: --user root
+        env:
+            HOME: /home/ue4
+            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
+        steps:
+            - *checkout
+            - *shas
+            - *setup
+            - run: find "${HOME}" "${GITHUB_WORKSPACE}" -mindepth 1 -maxdepth 1 ! -path "${UNREAL_ENGINE_ROOT}" -exec chown -R ue4:ue4 {} +
+            - run: setpriv --reuid=ue4 --regid=ue4 --init-groups nx affected --targets=check,test,build --exclude='*,!tag:os:linux'
+              env:
+                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
