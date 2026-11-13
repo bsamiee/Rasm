@@ -1,7 +1,6 @@
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
 import type { ExecutorContext } from '@nx/devkit';
 import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
-import { local } from '@pulumi/command';
 import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { interpolate, jsonStringify, type Output, secret } from '@pulumi/pulumi';
 import { Acl, DnsPreferences, TailnetSettings } from '@pulumi/tailscale';
@@ -96,7 +95,6 @@ const guarded = (repository: Output<string>, { name, fullName, forms }: { readon
     securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
     allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
     workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read' }).defaultWorkflowPermissions,
-    codeScanning: new local.Command(`${name}-code-scanning`, { interpreter: ['gh', 'api', '--method', 'PATCH', '--raw-field', 'state=configured'], create: interpolate`repos/${fullName}/code-scanning/default-setup` }).stdout,
     labels: new IssueLabels(`${name}-labels`, { repository, labels: forms.flatMap(({ description, labels }) => labels.map((label) => ({ name: label, color: palette[label], description }))) }).labels,
 });
 
@@ -129,7 +127,7 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
                     deleteBranchOnMerge: true,
                     squashMergeCommitTitle: 'PR_TITLE',
                     squashMergeCommitMessage: 'PR_BODY',
-                    securityAndAnalysis: { secretScanning: { status: 'enabled' }, secretScanningPushProtection: { status: 'enabled' } },
+                    securityAndAnalysis: { secretScanning: { status: 'disabled' }, secretScanningPushProtection: { status: 'disabled' } },
                 },
                 { protect: true },
             );

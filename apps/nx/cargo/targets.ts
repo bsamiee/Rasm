@@ -226,6 +226,12 @@ const workspaceTargets = (plugin: Identity, path: Path.Path, workspace: Workspac
                     ),
                 ),
         }),
+        clean: {
+            cargo: {
+                options: { commands: [['cargo', 'clean']], cwd: workspace.root },
+                metadata: { description: 'Removes the build folder of the workspace with cargo clean', help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
+            },
+        },
         upgrade: {
             cargo: {
                 executor: 'nx:run-commands',

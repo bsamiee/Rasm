@@ -47,7 +47,7 @@ const analyzed = Effect.fnUntraced(function* ({ files: matched, context, plugin,
         });
         const own = crates[workspace.root];
         const rooted = workspaceTargets(plugin, path, workspace);
-        const top = own === undefined && !marked.includes(workspace.root) ? {} : { [workspace.root]: { ...own, members: { ...own?.members, check: { ...own?.members.check, ...rooted.check }, upgrade: rooted.upgrade } } };
+        const top = own === undefined && !marked.includes(workspace.root) ? {} : { [workspace.root]: { ...own, members: { ...own?.members, check: { ...own?.members.check, ...rooted.check }, clean: rooted.clean, upgrade: rooted.upgrade } } };
         return Record.collect({ ...crates, ...top }, (root, project): Project => ({ file: path.join(workspace.root, MANIFEST), root, technologies: TECHNOLOGIES, clean: 'cargo', ...project }));
     });
     return Result.succeed({ report: { projects, edges: resolved.flatMap((workspace) => workspace.edges) } satisfies Graph, failures });
