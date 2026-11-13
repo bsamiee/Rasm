@@ -277,12 +277,11 @@ const served = Effect.fnUntraced(function* (
     access: Effect.Success<ReturnType<typeof accessed>>,
     reachable: readonly Resource[],
 ) {
-    const [fs, project] = [yield* FileSystem.FileSystem, import.meta.dirname];
+    const project = import.meta.dirname;
     const { backup, candidates } = yield* allotted(deployed, domain.name, installed);
-    const [text, { services: composed }, model] = yield* Effect.all([
-        fs.readFileString(definition),
+    const [{ services: composed }, model] = yield* Effect.all([
         Effect.flatMap(run('docker', ['compose', '--file', definition, 'config', '--format', 'json', ...services], candidates), Schema.decodeEffect(Composed)),
-        Effect.flatMap(run('docker', ['compose', '--file', definition, '--profile', '*', 'config', '--no-interpolate', '--format', 'json']), Schema.decodeEffect(Model)),
+        Effect.flatMap(run('docker', ['compose', '--file', definition, '--profile', '*', 'config', '--no-interpolate', '--no-path-resolution', '--format', 'json']), Schema.decodeEffect(Model)),
     ]);
     const mounted = new Set(Object.values(composed).flatMap(({ configs = [] }) => configs.map(Struct.get('source'))));
     const reduced = yield* Schema.encodeEffect(Model)({ ...model, services: Record.filter(model.services, (_, name) => Record.has(composed, name)), configs: Record.filter(model.configs, (_, name) => mounted.has(name)) });
@@ -321,7 +320,7 @@ const served = Effect.fnUntraced(function* (
         );
     const running = new local.Command(
         `${host}-services`,
-        { create: yield* composing('up', '--build', '--detach', '--wait', '--remove-orphans', ...services), delete: yield* composing('--profile', '*', 'down'), stdin: text, triggers: [services], addPreviousOutputInEnv: false, environment: secret(supplied) },
+        { create: yield* composing('up', '--build', '--detach', '--wait', '--remove-orphans', ...services), delete: yield* composing('--profile', '*', 'down'), stdin: reduced, triggers: [services], addPreviousOutputInEnv: false, environment: secret(supplied) },
         { dependsOn: [...reachable, ...named, ...bundles], deleteBeforeReplace: true, replacementTrigger: access.reached.trust.keys },
     );
     return { domain: domain.name, records: named.map(({ name }) => name), services: running.id };
