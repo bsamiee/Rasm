@@ -42,7 +42,8 @@ Places holding state, each updated by one action:
 - Machine secrets are `<NAME>_SSH_PRIVATE_KEY`, `<NAME>_SSH_PUBLIC_KEY`, and `<NAME>_ROOT_PASSWORD`, in Doppler `deploy` and 1Password
 - `HOSTINGER_API_TOKEN` covers the account and keeps its name
 - Every machine gets Ubuntu 26.10, Docker, the files of table `files` in `infra/platform-stack.ts`, and a tailnet login
-- Machines install Ubuntu and Docker package updates daily through `unattended-upgrades` and reboot when an update requires it, and Tailscale updates itself
+- Machines install Ubuntu and Docker package updates daily through `unattended-upgrades`, and Tailscale updates itself
+- Machines reboot at 10:30 UTC on a day an update requires it, and a CI run reading the cache at that minute stops
 - Field `services` names Compose services of `infra/compose.yaml`, and Compose starts the services they depend on
 - Machines receive the definitions and variables of the services they run alone
 - Machines with an empty `services` list run no container
@@ -58,7 +59,7 @@ New or reinstalled machines take these steps once:
 ## [04]-[CACHE]
 
 - Nx hashes a task's inputs (source files, dependency files, config, lock file package versions) and replays the stored result of an equal hash
-- CI setup action probes the cache server, pushes to `main` then read and write it, and pull requests read it
+- CI setup action probes the cache server, pushes to `main` then read and write it, and pull requests and workflow `Release` read it
 - This Mac uses its local cache alone: no remote cache variable is set here and Doppler `dev` holds none
 - Nx 24 stops a whole run on any cache server answer it does not expect, or none, with no setting to continue without the server
 - Cache variables set on this Mac would make every local `nx` command stop the same way while the cache machine is unreachable
