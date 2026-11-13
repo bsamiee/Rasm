@@ -37,7 +37,6 @@ jobs:
         env:
             GH_TOKEN: ${{ github.token }}
             UV_LOCKED: "true"
-            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
             APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
             DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
@@ -50,10 +49,7 @@ jobs:
               with:
                   fetch-depth: 0
                   filter: blob:none
-            - id: setup
-              uses: ./.github/actions/setup
-              with:
-                  cache-server: ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+            - uses: ./.github/actions/setup
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}
@@ -63,12 +59,9 @@ jobs:
                   GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
             - if: ${{ !inputs.dry-run }}
               run: nx run-many --targets=attach --configuration=release
-              env:
-                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ steps.setup.outputs.cache-server }}
             - if: ${{ inputs.publish && !inputs.dry-run }}
               run: nx release publish --first-release=${{ inputs.first-release }}
               env:
-                  NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
                   PNPM_CONFIG_NPMRC_AUTH_FILE: ${{ github.workspace }}/.config/npmrc
                   NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
                   UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
