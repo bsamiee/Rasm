@@ -44,7 +44,7 @@ const { createNodes } = inferred({
     projects: (report: readonly Hosted[], _, { path, plugin }) =>
         report.map(({ file, programs, hosted }) => {
             const stacks = (request: string, description: string, dependsOn: readonly string[]): TargetConfiguration => ({ executor: `${plugin.name}:stacks`, options: { programs, request }, dependsOn: [hosted ? 'build--*' : '^build', ...dependsOn], metadata: { description } });
-            const deploy = { ...stacks('Deploy', 'Applies or destroys the stacks a program package states for a project, refreshing live state first; configuration release applies the stacks of a released version, previewing them under a dry run', []), configurations: { release: { request: 'Release' } } };
+            const deploy = { ...stacks('Deploy', 'Applies or destroys the stacks a program package states for a project, refreshing live state first; configuration release applies the stacks of a released version, previewing them under a dry run', ['check']), configurations: { release: { request: 'Release' } } };
             return {
                 file,
                 root: path.dirname(file),
