@@ -88,7 +88,7 @@ x-telemetry-client: &telemetry-client
 x-bucket: &bucket
     <<: *oneshot
     entrypoint: [sh, -c, '{ aws s3api head-bucket --bucket "$$0" 2>/dev/null || aws s3 mb "s3://$$0"; } && aws s3api put-bucket-lifecycle-configuration --bucket "$$0" --lifecycle-configuration "$$1"']
-    image: amazon/aws-cli:2.40.0
+    image: amazon/aws-cli:2.40.2
 x-node: &node
     <<: *server
     build: &node-build
@@ -273,6 +273,7 @@ services:
         environment:
             RUSTFS_ACCESS_KEY: "${RUSTFS_ACCESS_KEY:-rustfsadmin}"
             RUSTFS_CONSOLE_ENABLE: "false"
+            RUSTFS_OBS_LOG_DIRECTORY: ""
             RUSTFS_REGION: *region
             RUSTFS_SECRET_KEY: "${RUSTFS_SECRET_KEY:-rustfsadmin}"
         healthcheck:
@@ -289,6 +290,8 @@ services:
               host_ip: *loopback
               published: "${STORAGE_PORT:-7412}"
               target: 9000
+        ulimits:
+            nofile: 1048576
         volumes:
             - storage:/data
     cache:
@@ -323,7 +326,7 @@ services:
         healthcheck:
             <<: *probe
             test: [CMD, traefik, healthcheck]
-        image: traefik:v3.8.0-rc.1
+        image: traefik:v3.8.0-rc.2
         networks:
             default:
                 aliases:
