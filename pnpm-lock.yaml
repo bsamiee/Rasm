@@ -478,7 +478,7 @@ overrides:
   '@effect/opentelemetry>@opentelemetry/sdk-metrics': 3.1.1
   '@opentelemetry/api': 1.10.0
   cloudevents>uuid: 14.0.3
-  '@axe-core/playwright>playwright-core:peer': '>=1.0.0'
+  '@axe-core/playwright>playwright-core': '>=1.0.0'
   tree-sitter: '-'
   tree-sitter-cli: '-'
 
