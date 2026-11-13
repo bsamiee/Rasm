@@ -20,7 +20,6 @@ Rasm/
 ├── tsconfig.base.json        # TypeScript options every package compiles and emits with
 ├── tsconfig.web.json         # TypeScript options for bundled browser code
 ├── biome.json                # TypeScript and JSON formatting and lint
-├── knip.json                 # Unused files, internal exports, and dependencies per TypeScript package
 ├── pyproject.toml            # Python workspace root, catalog groups, and checker settings
 ├── Workspace.slnx            # .NET solution listing every project
 ├── global.json               # .NET SDK and test runner

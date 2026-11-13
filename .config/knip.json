@@ -1,5 +1,5 @@
 {
-    "$schema": "./node_modules/knip/schema.json",
+    "$schema": "../node_modules/knip/schema.json",
     "exclude": [ "catalog" ],
     "treatConfigHintsAsErrors": true,
     "ignoreDependencies": [ "@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "@storybook/addon-vitest", "adobe", "claude-code", "indesign-uxp-types" ],

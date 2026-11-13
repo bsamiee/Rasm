@@ -193,12 +193,12 @@ steps {
       List(
         "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}",
         "**/package.json",
-        "knip.json",
+        ".config/knip.json",
         "pnpm-workspace.yaml",
       )
     types = List()
     workspace_indicator = null
-    check { command = "knip --no-progress" }
+    check { command = "knip --no-progress --config .config/knip.json" }
     fix = null
   }
   ["pkl-format"] = Builtins.pkl_format
