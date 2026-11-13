@@ -35,7 +35,7 @@ lazy from wcwidth import width
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LINE_COMMENT = regex.compile(r"(?P<marker>\p{P}+) (?P<body>--- (?P<label>\[[^\]]+\])(?P<fill> -+)?|\S.*)")
-_DIRECTIVE = regex.compile(r"@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b|<(?:reference|amd-module)\b")
+_DIRECTIVE = regex.compile(r"@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b|<(?:reference|amd-module)\b|Copyright \S|SPDX-License-Identifier:")
 _LEADER = regex.compile(r"(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) ")
 _LABEL = regex.compile(r"\[[^\]]*\]")
 _NONWORD = regex.compile(r"\W+")

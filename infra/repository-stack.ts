@@ -1,16 +1,14 @@
 import { layerUndici } from '@effect/platform-node/NodeHttpClient';
-import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
+import type { ExecutorContext } from '@nx/devkit';
 import { type GetZeroTrustOrganizationResult, getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { local } from '@pulumi/command';
-import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryEnvironment, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
+import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, ActionsRepositoryPermissions, IssueLabels, Repository, RepositoryDependabotSecurityUpdates, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { interpolate, jsonStringify, type Output, secret } from '@pulumi/pulumi';
 import { Acl, DnsPreferences, TailnetSettings } from '@pulumi/tailscale';
 import { Environment, Project, Provider, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
 import { Array, Cause, Config, Effect, FileSystem, flow, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
-import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
-import { interpolateReleaseConfig } from 'nx/src/command-line/release/utils/interpolate-release-config';
 import { run } from '#/command';
 import { Deployed, hosts } from '#/platform-stack';
 
@@ -94,20 +92,12 @@ const feed = (accountId: string, { name, repository, environment }: { readonly n
     };
 };
 
-const guarded = (repository: Output<string>, { name, fullName, forms, patterns }: { readonly name: string; readonly fullName: Output<string>; readonly forms: readonly (typeof Form.Type)[]; readonly patterns: readonly string[] }) => ({
+const guarded = (repository: Output<string>, { name, fullName, forms }: { readonly name: string; readonly fullName: Output<string>; readonly forms: readonly (typeof Form.Type)[] }) => ({
     securityUpdates: new RepositoryDependabotSecurityUpdates(`${name}-security-updates`, { repository: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository }).repository, enabled: false }).enabled,
     allowedActions: new ActionsRepositoryPermissions(`${name}-actions-permissions`, { repository, allowedActions: 'all' }).allowedActions,
     workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'read' }).defaultWorkflowPermissions,
     codeScanning: new local.Command(`${name}-code-scanning`, { interpreter: ['gh', 'api', '--method', 'PATCH', '--raw-field', 'state=configured'], create: interpolate`repos/${fullName}/code-scanning/default-setup` }).stdout,
     labels: new IssueLabels(`${name}-labels`, { repository, labels: forms.flatMap(({ description, labels }) => labels.map((label) => ({ name: label, color: palette[label], description }))) }).labels,
-    releaseTags: new RepositoryRuleset(`${name}-release-tags`, {
-        repository,
-        name: 'release tags',
-        target: 'tag',
-        enforcement: 'active',
-        conditions: { refName: { includes: patterns.map((pattern) => `refs/tags/${interpolateReleaseConfig(pattern, { projectName: '**', version: '**', releaseGroupName: '**' })}`), excludes: [] } },
-        rules: { update: true, deletion: true, nonFastForward: true },
-    }).rulesetId,
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -115,11 +105,6 @@ const guarded = (repository: Output<string>, { name, fullName, forms, patterns }
 const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, deployed: Readonly<Record<string, string>>) {
     const [fs, path, { CLOUDFLARE_ACCOUNT_ID: accountId, GITHUB_TOKEN, DOPPLER_IAC_TOKEN: operator }] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Schema.decodeUnknownEffect(Account)(deployed)]);
     const { name: stackName, description } = yield* Effect.flatMap(fs.readFileString(path.join(context.root, 'package.json')), Schema.decodeEffect(Manifest));
-    const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
-    const { groups } = yield* Effect.flatMap(
-        Effect.promise(() => createNxReleaseConfig(context.projectGraph, files, context.nxJsonConfiguration.release)),
-        ({ nxReleaseConfig }) => Effect.fromNullishOr(nxReleaseConfig),
-    );
     return {
         stackName,
         program: Effect.gen(function* () {
@@ -156,7 +141,7 @@ const repositoryStack = Effect.fnUntraced(function* (context: ExecutorContext, d
                 access: access(accountId, organization),
                 ...feed(accountId, { name, repository, environment: configs.release }),
                 assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
-                ...guarded(repository, { name, fullName, forms, patterns: Array.dedupe(Record.collect(groups ?? {}, (_, { releaseTag }) => releaseTag.pattern)) }),
+                ...guarded(repository, { name, fullName, forms }),
             };
         }),
     };

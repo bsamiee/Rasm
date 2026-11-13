@@ -56,7 +56,8 @@ endif()
 # --- [PACKAGING] ------------------------------------------------------------------------
 
 set(CMAKE_PROJECT_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/.config/cmake/package.cmake")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/.config/cmake/triplets/${VCPKG_TARGET_TRIPLET}.cmake")
+file(GLOB environments CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/.config/cmake/toolchains/*.cmake" "${CMAKE_CURRENT_SOURCE_DIR}/.config/cmake/triplets/*.cmake")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${environments})
 
 # --- [MEMBERS] --------------------------------------------------------------------------
 

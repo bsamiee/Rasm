@@ -30,7 +30,6 @@
         "@rasm/ssh": "workspace:*",
         "@rasm/webhooks": "workspace:*",
         "effect": "catalog:",
-        "nx": "catalog:",
         "vite": "catalog:"
     },
     "devDependencies": {

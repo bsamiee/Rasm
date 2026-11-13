@@ -194,7 +194,7 @@ Code files hold section dividers and tool directives alone, laid out by `CLAUDE.
 - Consecutive full-line comments merge into one, a comment that repeats its content goes
 - Inline comments stay and get the same removals
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
-- Structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
+- Structured doc comments with one element per line, commented-out configuration templates, tool directives, and a copyright or SPDX notice a store reads keep their form
 - Doc summaries state returns or behavior without repeating member names; remarks keep one fact per sentence
 - Messages and output fields derive event details and known causes from values, then give agents one available action after a comma
 - Commit subjects open `<type>(<project>): ` with an imperative subject, `!` before the colon marks a breaking change

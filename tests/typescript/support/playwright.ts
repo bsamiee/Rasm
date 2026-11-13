@@ -6,7 +6,7 @@ import { defineConfig, test } from '@playwright/test';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const config = defineConfig({
-    forbidOnly: isCI(),
+    forbidOnly: Boolean(isCI()),
     reporter: [
         ['junit', { outputFile: 'test-results/junit.xml' }],
         ['html', { open: 'never' }],
