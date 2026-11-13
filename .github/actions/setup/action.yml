@@ -1,5 +1,5 @@
 name: Setup
-description: Installs mise tools and workspace packages, selects Xcode and builds the nx-apple core on macOS, and returns the Nx remote cache server where it accepts the job's token
+description: Installs mise tools and workspace packages, selects the newest installed Xcode and builds the nx-apple core on macOS, and returns the Nx remote cache server where it accepts the job's token
 
 inputs:
     cache-server:
@@ -15,7 +15,9 @@ runs:
     using: composite
     steps:
         - if: runner.os == 'macOS'
-          run: printf 'DEVELOPER_DIR=/Applications/Xcode_27.2.app/Contents/Developer\n' >> "${GITHUB_ENV}"
+          run: |
+              newest="$(printf '%s\n' /Applications/Xcode_*.app | sort --version-sort | tail -n 1)"
+              sudo xcode-select --switch "${newest}"
           shell: bash
         - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         - run: pnpm install
