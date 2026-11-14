@@ -3,21 +3,22 @@ use core::mem;
 use std::borrow::Cow;
 use std::error::Report;
 use std::io;
+use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
 use futures::{Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, sink, stream};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::handler::client::progress::ProgressDispatcher;
 use rmcp::model::{
-    ClientCapabilities, ClientConfig, ClientJsonRpcMessage, ClientNotification, ClientRequest, DEFAULT_MRTR_MAX_ROUNDS, GetMeta as _, InputRequest, InputRequiredResult, InputResponses,
-    NotificationMetaObject, ProgressNotificationParam, ProtocolVersion, RequestMetaObject, ServerConfig, ServerJsonRpcMessage, ServerNotification, ServerPeerInfo, ServerRequest, ServerResult,
-    SubscriptionFilter,
+    ClientCapabilities, ClientConfig, ClientJsonRpcMessage, ClientNotification, ClientRequest, DEFAULT_MRTR_MAX_ROUNDS, GetExtensions as _, GetMeta as _, InputRequest, InputRequiredResult,
+    InputResponses, JsonRpcNotification, JsonRpcRequest, NotificationMetaObject, ProtocolVersion, RequestMetaObject, ServerConfig, ServerJsonRpcMessage, ServerNotification, ServerPeerInfo,
+    ServerRequest, ServerResult, SubscriptionFilter,
 };
 use rmcp::service::{ClientLifecycleMode, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct, serve_server_with_ct};
-use rmcp::{ClientHandler, ErrorData, Peer, RoleClient, RoleServer, Service, ServiceError};
+use rmcp::{ErrorData, Peer, RoleClient, RoleServer, Service, ServiceError};
 use serde::de::DeserializeOwned;
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{Notify, broadcast, mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -26,21 +27,9 @@ use super::actor::Event;
 use super::jsonrpc::{Line, decode, encoded};
 use crate::error::internal;
 use crate::shared::{Shared, Subscriptions, list_changes, resynced};
-use crate::{McpError, Progress, Subscribe};
+use crate::{McpError, Subscribe};
 
 // --- [SERVICES] ------------------------------------------------------------------------
-
-#[derive(Debug)]
-struct Client {
-    config: ClientConfig,
-    progress: ProgressDispatcher,
-}
-
-impl ClientHandler for Client {
-    fn get_info(&self) -> ClientConfig { self.config.clone() }
-
-    fn on_progress(&self, params: ProgressNotificationParam, _: NotificationContext<RoleClient>) -> impl Future<Output = ()> + Send + '_ { self.progress.handle_notification(params) }
-}
 
 #[derive(Debug)]
 struct Forward {
@@ -53,18 +42,31 @@ struct Forward {
 }
 
 impl Forward {
-    async fn sent(&self, request: ClientRequest, context: &RequestContext<RoleServer>, progress: &Progress) -> Result<ServerResult, ErrorData> {
+    async fn sent(&self, mut request: ClientRequest, context: &RequestContext<RoleServer>, reached: &mut Option<f64>) -> Result<ServerResult, ErrorData> {
         let options = context
             .client_info()
             .zip(context.client_capabilities())
             .into_iter()
             .fold(PeerRequestOptions::no_options(), |options, (client, capabilities)| options.with_meta(RequestMetaObject::with_client_context(self.version.clone(), client, capabilities)));
+        let subscribed = Arc::new(Notify::new());
+        request.extensions_mut().insert(Arc::clone(&subscribed));
         let mut handle = self.peer.send_cancellable_request(request, options).await.map_err(fault)?;
-        let mut updates = self.progress.subscribe(handle.progress_token.clone()).await;
+        let reported = self.progress.subscribe(handle.progress_token.clone()).await;
+        subscribed.notify_one();
+        let stated = context.meta.get_progress_token();
+        let mut updates = reported.filter_map(|mut update| {
+            ready(stated.clone().filter(|_| reached.is_none_or(|reached| update.progress > reached)).map(|token| {
+                (*reached, update.progress_token) = (Some(update.progress), token);
+                update
+            }))
+        });
         loop {
             tokio::select! {
                 biased;
-                Some(update) = updates.next() => progress.report(update),
+                Some(update) = updates.next() => {
+                    let relayed = context.peer.notify_progress(update).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "progress relay failed"));
+                    let (Some(()) | None) = context.ct.run_until_cancelled(relayed).await;
+                }
                 received = &mut handle.rx => break received.map_err(|oneshot::error::RecvError { .. }| ServiceError::TransportClosed).flatten().map_err(fault),
                 () = context.ct.cancelled() => break handle.cancel(None).await.map_err(fault).and(Err(fault(ServiceError::Cancelled { reason: None }))),
             }
@@ -98,17 +100,14 @@ impl Forward {
 impl Service<RoleServer> for Forward {
     async fn handle_request(&self, mut request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
         *request.get_meta_mut() = context.meta.clone();
-        let progress = Progress::default();
-        let forwarded = async {
-            for _round in 0..DEFAULT_MRTR_MAX_ROUNDS {
-                match self.sent(request.clone(), &context, &progress).await? {
-                    ServerResult::InputRequiredResult(required) => Self::answered(&mut request, required, &context).await?,
-                    answer => return Ok(answer),
-                }
+        let mut reached = None;
+        for _round in 0..DEFAULT_MRTR_MAX_ROUNDS {
+            match self.sent(request.clone(), &context, &mut reached).await? {
+                ServerResult::InputRequiredResult(required) => Self::answered(&mut request, required, &context).await?,
+                answer => return Ok(answer),
             }
-            Err(fault(ServiceError::InputRequiredRoundsExceeded { max_rounds: DEFAULT_MRTR_MAX_ROUNDS }))
-        };
-        progress.relay(&context, forwarded).await
+        }
+        Err(fault(ServiceError::InputRequiredRoundsExceeded { max_rounds: DEFAULT_MRTR_MAX_ROUNDS }))
     }
 
     fn handle_notification(&self, _: ClientNotification, _: NotificationContext<RoleServer>) -> impl Future<Output = Result<(), ErrorData>> + Send + '_ { ready(Ok(())) }
@@ -198,17 +197,24 @@ where
     let stop = CancellationToken::new();
     let _stopped = stop.clone().drop_guard();
     let requests = sink::unfold((proxy.events.clone(), session), async |(events, session): (mpsc::Sender<Event>, u64), message: ClientJsonRpcMessage| {
+        if let ClientJsonRpcMessage::Request(JsonRpcRequest { request, .. }) = &message
+            && let Some(subscribed) = request.extensions().get::<Arc<Notify>>()
+        {
+            subscribed.notified().await;
+        }
         let sent = events.send(Event::Line { session, line: Line::Whole(encoded(&message)?) }).await;
         sent.map(|()| (events, session)).map_err(|mpsc::error::SendError(_)| io::Error::from(io::ErrorKind::ConnectionAborted))
     });
-    let answers = stream::unfold((outbound, BytesMut::new()), async |(mut outbound, mut held)| {
+    let progress = ProgressDispatcher::new();
+    let answers = stream::unfold((outbound, BytesMut::new(), progress.clone()), async |(mut outbound, mut held, progress)| {
         loop {
             let chunk = outbound.recv().await?;
             held.extend_from_slice(&chunk);
-            if chunk.ends_with(b"\n")
-                && let Some(message) = typed::<ServerJsonRpcMessage>(&mem::take(&mut held))
-            {
-                break Some((message, (outbound, held)));
+            match chunk.ends_with(b"\n").then(|| typed::<ServerJsonRpcMessage>(&mem::take(&mut held))).flatten() {
+                Some(ServerJsonRpcMessage::Notification(JsonRpcNotification { notification: ServerNotification::ProgressNotification(reported), .. })) =>
+                    progress.handle_notification(reported.params).await,
+                Some(message) => break Some((message, (outbound, held, progress))),
+                None => {}
             }
         }
     });
@@ -224,8 +230,7 @@ where
         writer.write_all(&encoded(&message)?).await?;
         writer.flush().await.map(|()| writer)
     });
-    let progress = ProgressDispatcher::new();
-    let client = Client { config: ClientConfig::new(ClientCapabilities::default(), proxy.client.clone()), progress: progress.clone() };
+    let client = ClientConfig::new(ClientCapabilities::default(), proxy.client.clone());
     let lifecycle = ClientLifecycleMode::Discover { preferred_versions: vec![ProtocolVersion::LATEST] };
     let transport = (Box::pin(requests), Box::pin(answers.take_until(cut.cancelled_owned())));
     let upstream = serve_client_with_lifecycle_and_ct(client, transport, lifecycle, stop.clone()).await.map_err(io::Error::other)?;

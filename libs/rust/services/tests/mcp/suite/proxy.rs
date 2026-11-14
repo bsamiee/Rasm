@@ -1,4 +1,5 @@
 use core::future::ready;
+use core::ops::RangeInclusive;
 use core::time::Duration;
 use std::io;
 
@@ -7,8 +8,9 @@ use claims::{assert_err, assert_none, assert_ok, assert_some};
 use futures::FutureExt as _;
 use futures::future::{self, BoxFuture};
 use rasm_mcp::{History, Line, Lines, Link, Liveness, Policy, Proxy, Retention, decode, identity};
-use rmcp::model::{ClientCapabilities, Implementation, InitializeRequestParams, JsonRpcVersion2_0};
+use rmcp::model::{ClientCapabilities, DiscoverResult, Implementation, InitializeRequestParams, JsonRpcVersion2_0, ProtocolVersion, ServerCapabilities};
 use serde::{Deserialize, Serialize};
+use serde_json::Number;
 use serde_json::value::RawValue;
 use tokio::io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader, DuplexStream, ReadHalf, WriteHalf};
 use tokio::sync::{mpsc, oneshot};
@@ -57,6 +59,7 @@ struct Fields {
     #[serde(rename = "_meta")]
     meta: Option<Tagged>,
     progress_token: Option<Id>,
+    progress: Option<Number>,
     uri: Option<String>,
     level: Option<String>,
     data: Option<String>,
@@ -135,6 +138,14 @@ impl Served {
         assert_eq!(self.wire.next().await.method.as_deref(), Some("notifications/initialized"), "an answered initialize is followed by notifications/initialized");
         self
     }
+
+    async fn discovered(mut self) -> Self {
+        let asked = self.wire.next().await;
+        assert_eq!(asked.method.as_deref(), Some("server/discover"), "an unknown server is asked server/discover first");
+        let served = DiscoverResult::new(vec![ProtocolVersion::LATEST], ServerCapabilities::builder().enable_tools().build()).with_server_info(Implementation::new("s", "0"));
+        self.wire.send(&asked.answered(&assert_ok!(serde_json::to_string(&served)))).await;
+        self
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -178,6 +189,42 @@ async fn joined(proxy: &Proxy) -> Wire {
     assert_eq!(wire.next().await.result.server_info.map(|info| info.name).as_deref(), Some("s"), "initialize is answered from the server handshake");
     wire.send(INITIALIZED).await;
     wire
+}
+
+#[cfg(test)]
+fn asking(id: u64) -> String { format!(r#"{{"jsonrpc":"2.0","id":{id},"method":"tools/call","params":{{"name":"slow","_meta":{{"progressToken":"p"}}}}}}"#) }
+
+#[cfg(test)]
+fn reporting(call: &Seen, steps: RangeInclusive<u32>, result: &str) -> String {
+    let token = assert_ok!(serde_json::to_string(&assert_some!(call.params.meta.clone().and_then(|meta| meta.progress_token))));
+    let progress = steps.map(|done| format!(r#"{{"jsonrpc":"2.0","method":"notifications/progress","params":{{"progressToken":{token},"progress":{done}}}}}"#));
+    Vec::from_iter(progress.chain([call.answered(result)])).join("\n")
+}
+
+async fn reported(caller: &mut Wire, id: u64) -> Vec<f64> {
+    let mut steps = Vec::new();
+    loop {
+        let seen = caller.next().await;
+        match seen.params.progress.as_ref().and_then(Number::as_f64) {
+            Some(done) if seen.params.progress_token == Some(Id::Text("p".to_owned())) => steps.push(done),
+            Some(_) | None => {
+                assert_eq!((seen.id.clone(), seen.error.message.clone()), (Some(Id::Number(id)), None), "the call is answered after its progress: {seen:?}");
+                break steps;
+            }
+        }
+    }
+}
+
+async fn answered_at_once(calls: RangeInclusive<u64>, steps: u32) {
+    let (proxy, mut starts, _actor) = proxy(256, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).discovered().await;
+    let mut caller = joined(&proxy).await;
+    for id in calls {
+        caller.send(&asking(id)).await;
+        let call = server.wire.next().await;
+        server.wire.send(&reporting(&call, 1..=steps, "{}")).await;
+        assert_eq!(reported(&mut caller, id).await, Vec::from_iter((1..=steps).map(f64::from)), "call {id}: each progress value written with a result is read before it, in the order written");
+    }
 }
 
 // --- [HANDSHAKE]
@@ -621,6 +668,52 @@ async fn progress_reaches_its_request_and_stops_with_it() {
     server.wire.send(&progress(2)).await;
     tokened.silent(Duration::from_millis(100)).await;
     plain.silent(Duration::from_millis(100)).await;
+}
+
+// --- [TRANSLATION]
+
+#[tokio::test(start_paused = true)]
+async fn initialize_session_reads_progress_a_discover_server_wrote_with_its_result_first_and_in_order() { answered_at_once(7..=7, 40).await; }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn initialize_session_reads_progress_of_calls_a_discover_server_answers_at_once() { answered_at_once(1..=256, 4).await; }
+
+#[tokio::test(start_paused = true)]
+async fn progress_of_an_initialize_session_increases_across_the_rounds_of_one_call() {
+    let (proxy, mut starts, _actor) = proxy(256, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).discovered().await;
+    let mut caller = joined(&proxy).await;
+    caller.send(&asking(7)).await;
+    let first = server.wire.next().await;
+    server.wire.send(&reporting(&first, 1..=2, r#"{"resultType":"input_required","requestState":"held"}"#)).await;
+    let retried = server.wire.next().await;
+    assert_ne!(retried.id, first.id, "the retry is a request of its own, and its progress starts again");
+    server.wire.send(&reporting(&retried, 1..=3, "{}")).await;
+    assert_eq!(reported(&mut caller, 7).await, [1.0, 2.0, 3.0], "progress under the session's one token only increases");
+}
+
+#[tokio::test(start_paused = true)]
+async fn initialize_session_that_stops_reading_progress_is_disconnected_alone() {
+    let (proxy, mut starts, _actor) = proxy(16, 1 << 20);
+    let mut server = assert_some!(starts.recv().await).discovered().await;
+    let (mut reader, (mut stalled, serving)) = (joined(&proxy).await, session(&proxy));
+    stalled.send(INITIALIZE).await;
+    assert_eq!(stalled.next().await.id, Some(Id::Number(0)));
+    stalled.send(INITIALIZED).await;
+    stalled.send(&asking(7)).await;
+    let held = server.wire.next().await;
+    let token = assert_ok!(serde_json::to_string(&assert_some!(held.params.meta.and_then(|meta| meta.progress_token))));
+    let padding = "x".repeat(32 << 10);
+    for done in 1..=32 {
+        server.wire.send(&format!(r#"{{"jsonrpc":"2.0","method":"notifications/progress","params":{{"progressToken":{token},"progress":{done},"message":"{padding}"}}}}"#)).await;
+    }
+    assert_ok!(assert_ok!(assert_ok!(time::timeout(Duration::from_secs(1), serving).await, "a session that stops reading its progress is disconnected")));
+    assert_eq!(server.wire.next().await.method.as_deref(), Some("notifications/cancelled"), "the disconnected session's call is cancelled at the server");
+    reader.send(&asking(8)).await;
+    let call = server.wire.next().await;
+    server.wire.send(&reporting(&call, 1..=1, "{}")).await;
+    assert_eq!(reported(&mut reader, 8).await, [1.0], "a session that reads keeps its calls and their progress");
+    assert!(!server.stop.is_cancelled(), "the server stays");
 }
 
 // --- [LINE_LENGTH]

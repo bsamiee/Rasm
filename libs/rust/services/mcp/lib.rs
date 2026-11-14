@@ -5,12 +5,12 @@ use core::future::{Ready, ready};
 use core::pin::pin;
 use std::error::Report;
 
-use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
+use futures::{FutureExt as _, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rmcp::model::{ProgressNotificationParam, ProgressToken};
 use rmcp::service::RequestContext;
-use rmcp::{RoleServer, Service};
-use tokio::sync::watch;
+use rmcp::{RoleServer, Service, ServiceError};
+use tokio::sync::{oneshot, watch};
 use tokio_stream::wrappers::WatchStream;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -41,9 +41,10 @@ impl Progress {
 
     pub fn relay<F>(&self, context: &RequestContext<RoleServer>, call: F) -> impl Future<Output = F::Output> + Send
     where F: Future<Output: Send> + Send {
-        let peer = context.peer.clone();
+        let (peer, cancelled, (ended, ending)) = (context.peer.clone(), context.ct.clone(), oneshot::channel::<()>());
         let stamped = |token: ProgressToken| {
-            WatchStream::new(self.0.subscribe()).map(move |latest| {
+            let latest = self.0.subscribe();
+            WatchStream::new(latest.clone()).take_until(ending).chain(stream::once(async move { latest.borrow().clone() })).map(move |latest| {
                 latest.map(|mut held| {
                     held.progress_token = token.clone();
                     held
@@ -55,9 +56,16 @@ impl Progress {
             .scan(None, |sent, latest| ready(Some(latest.filter(|held| sent.is_none_or(|sent| held.progress > sent)).inspect(|held| *sent = Some(held.progress)))))
             .filter_map(ready);
         async move {
-            let relayed = updates.map(Ok).try_for_each(|held| peer.notify_progress(held)).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed"));
+            let relayed = updates
+                .map(Ok)
+                .try_for_each(|held| cancelled.run_until_cancelled(peer.notify_progress(held)).map(|sent| sent.unwrap_or(Err(ServiceError::Cancelled { reason: None }))))
+                .unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(error), "progress relay failed"));
             match future::select(pin!(call), pin!(relayed)).await {
-                future::Either::Left((output, _)) => output,
+                future::Either::Left((output, relayed)) => {
+                    drop(ended);
+                    relayed.await;
+                    output
+                }
                 future::Either::Right(((), call)) => call.await,
             }
         }

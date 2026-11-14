@@ -23,7 +23,7 @@ use rmcp::transport::{StreamableHttpServerConfig, StreamableHttpService};
 use rmcp::{ClientHandler, ErrorData, RoleClient, RoleServer, ServerHandler, Service, prompt, prompt_router, tool, tool_router};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{Map, Number, Value};
 use tokio::io::{AsyncBufReadExt as _, AsyncRead, AsyncWrite, AsyncWriteExt as _, BufReader, DuplexStream, Lines, ReadHalf, WriteHalf};
 use tokio::net::TcpListener;
 use tokio::process::Command;
@@ -161,6 +161,12 @@ pub struct Structured {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(default)]
+pub struct Reported {
+    pub progress: Option<Number>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Answered {
     pub protocol_version: Option<String>,
@@ -179,6 +185,8 @@ pub struct Message {
     pub id: Option<Id>,
     #[serde(default)]
     pub method: Option<String>,
+    #[serde(default)]
+    pub params: Option<Reported>,
     #[serde(default)]
     pub result: Option<Answered>,
     #[serde(default)]
@@ -327,8 +335,8 @@ impl Everything {
         const TOTAL: f64 = 100.0;
         if let Some(token) = context.meta.get_progress_token() {
             for (done, message) in [(0.0, "Starting"), (50.0, "Halfway"), (TOTAL, "Complete")] {
-                progress.report(ProgressNotificationParam::new(token.clone(), done).with_total(TOTAL).with_message(message));
                 time::sleep(Duration::from_millis(50)).await;
+                progress.report(ProgressNotificationParam::new(token.clone(), done).with_total(TOTAL).with_message(message));
             }
         }
         "Progress complete".to_owned()
