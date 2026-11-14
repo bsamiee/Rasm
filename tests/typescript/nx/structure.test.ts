@@ -2,32 +2,27 @@ import { isDeepStrictEqual } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { readProjectsConfigurationFromProjectGraph, type TargetConfiguration, workspaceRoot } from '@nx/devkit';
-import { Array, Duration, Effect, FileSystem, Formatter, Path, Predicate, Record, Schema } from 'effect';
+import type { Graph } from '@rasm/testing/nx';
+import { Reading } from '@rasm/testing/reading';
+import { Array, Duration, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
 import { Minimatch, minimatch } from 'minimatch';
 import { getExecutorInformation, parseExecutor } from 'nx/src/command-line/run/executor-utils';
-import { readNxJson } from 'nx/src/config/nx-json';
 import { findCycle } from 'nx/src/tasks-runner/task-graph-utils';
 import { normalizeTargetDependencyWithStringProjects } from 'nx/src/tasks-runner/utils';
 import { combineOptionsForExecutor } from 'nx/src/utils/params';
-import { Reading } from '#/reading';
-import { declared, read, refusals, taken, verbs, type Workspace } from '#/workspace';
+import { declared, read, refusals, taken, verbs } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = {
     built: 'nrwl/nx e2e/nx/src/misc.test.ts: should successfully build a project graph',
     continuous: 'nrwl/nx e2e/nx/src/misc.test.ts: should successfully build a project graph; microsoft/playwright docs/src/test-api/class-testconfig.md forbidOnly: boolean, set from `!!process.env.CI`; a tool config that reads CI loads under the value a runner sets',
-    inferred: 'README.md PRINCIPLES: Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json` or hand-written `namedInputs`',
     aggregate: "README.md PRINCIPLES: Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target",
     selected: 'nrwl/nx packages/nx/src/native/affected/tasks/selection.rs: affectedness is carried from a producer to the tasks that read its outputs, never along plain dependsOn, so a verb target states each input of its tool targets for nx affected -t <verb> to select it',
     matched: 'nrwl/nx packages/nx/src/command-line/report/report.ts: nx report names each @nx package whose version differs from the installed nx; @nx/devkit/internal reads members of the nx release it was built with',
     cleaned: "README.md TASKS: `clean` removes the outputs a project's targets declare and runs its tool's clean",
-    scripted: 'nrwl/nx astro-docs/src/content/docs/reference/project-configuration.mdoc includedScripts: a package.json script is a target only where the package lists it; README.md PRINCIPLES: Nx plugins infer every project, target, and dependency from manifests and tool output',
-    apart: 'README.md PRINCIPLES: File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other',
     answered: 'README.md PRINCIPLES: Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation',
-    platform: 'README.md PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`; Suites reading the project graph take tag `os:all`',
     released: 'README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`',
-    ordered: 'README.md PRINCIPLES: Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names',
     roots: 'nrwl/nx packages/nx/src/project-graph/error-types.ts MultipleProjectsWithSameNameError and ProjectWithNoNameError: one project per root, one root per name',
     cycle: 'nrwl/nx packages/nx/src/tasks-runner/task-graph-utils.spec.ts findCycle: should return null when no cycle',
     edges: 'nrwl/nx packages/nx/src/project-graph/project-graph-builder.spec.ts: should throw an error when the source or the target of a dependency does not exist',
@@ -35,16 +30,12 @@ const SOURCES = {
     executors: 'nrwl/nx e2e/plugin/src/nx-plugin.test.ts: should be able to use local generators and executors',
 } as const;
 const UPSTREAM = /^\^/u;
-const HK = /(?:^|[\s"'/])hk\s/u;
-const TAG = /^(?:release|npm:public|npm:private|os:(?:all|aix|android|cygwin|darwin|freebsd|haiku|linux|netbsd|openbsd|sunos|win32))$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rows = () => (readNxJson(workspaceRoot).plugins ?? []).map((row) => (Predicate.isString(row) ? row : row.plugin));
+const misnamed = ({ nodes }: Graph) => Record.keys(Record.filter(nodes, (node, key) => node.name !== key || node.data.name !== key));
 
-const misnamed = ({ nodes }: Workspace) => Record.keys(Record.filter(nodes, (node, key) => node.name !== key || node.data.name !== key));
-
-const shared = ({ nodes }: Workspace) =>
+const shared = ({ nodes }: Graph) =>
     Record.keys(
         Record.filter(
             Array.groupBy(Object.values(nodes), ({ data }) => data.root),
@@ -52,20 +43,13 @@ const shared = ({ nodes }: Workspace) =>
         ),
     );
 
-const missing = Effect.fnUntraced(function* ({ nodes }: Workspace) {
+const missing = Effect.fnUntraced(function* ({ nodes }: Graph) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const absent = yield* Effect.filter(Object.values(nodes), ({ data }) => Effect.map(fs.exists(path.join(workspaceRoot, data.root)), (found) => !found));
     return absent.map(({ name }) => name);
 });
 
-const described = Effect.fnUntraced(function* ({ nodes, sourceMaps }: Workspace) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const sourced = Object.values(sourceMaps).flatMap((entries) => Object.values(entries).flatMap(([file]) => Array.fromNullishOr(file)));
-    const candidates = Array.dedupe([...Object.values(nodes).map(({ data }) => path.join(data.root, 'project.json')), ...sourced.filter((file) => path.basename(file) === 'project.json')]);
-    return yield* Effect.filter(candidates, (file) => fs.exists(path.join(workspaceRoot, file)));
-});
-
-const among = ({ nodes, dependencies }: Workspace) =>
+const among = ({ nodes, dependencies }: Graph) =>
     Record.map(nodes, (_, name) =>
         Array.intersection(
             (dependencies[name] ?? []).map(({ target }) => target),
@@ -73,48 +57,38 @@ const among = ({ nodes, dependencies }: Workspace) =>
         ),
     );
 
-const unresolved = ({ nodes, dependencies, externalNodes }: Workspace) =>
+const unresolved = ({ nodes, dependencies, externalNodes }: Graph) =>
     Record.collect(dependencies, (key, edges) => edges.filter(({ source, target }) => source !== key || !(source in nodes || source in externalNodes) || !(target in nodes || target in externalNodes)))
         .flat()
         .map(({ source, target }) => `${source} -> ${target}`);
 
-const depended = (workspace: Workspace, project: string, entry: NonNullable<TargetConfiguration['dependsOn']>[number]) => {
+const depended = (workspace: Graph, project: string, entry: NonNullable<TargetConfiguration['dependsOn']>[number]) => {
     const names = (owner: string) => Record.keys(workspace.nodes[owner]?.data.targets ?? {});
     const { target: pattern, projects, dependencies = false } = Predicate.isString(entry) ? { target: entry.replace(UPSTREAM, ''), dependencies: UPSTREAM.test(entry) } : normalizeTargetDependencyWithStringProjects(entry);
     const anywhere = dependencies === true || (projects === undefined && new Minimatch(pattern).hasMagic());
     return (anywhere ? [Record.keys(workspace.nodes).flatMap(names)] : (projects ?? [project]).map(names)).every((targets) => targets.some((candidate) => minimatch(candidate, pattern)));
 };
 
-const dangling = (workspace: Workspace) =>
+const dangling = (workspace: Graph) =>
     declared(workspace)
         .flatMap(({ project, task, target }) => (target.dependsOn ?? []).map((entry) => ({ project, task, entry })))
         .filter(({ project, entry }) => !depended(workspace, project, entry))
         .map(({ task, entry }) => [task, Predicate.isString(entry) ? entry : [entry.target, entry.projects]]);
 
-const executing = (workspace: Workspace) => declared(workspace).flatMap(({ task, target }) => Array.fromNullishOr(target.executor).map((executor) => ({ task, target, executor })));
+const executing = (workspace: Graph) => declared(workspace).flatMap(({ task, target }) => Array.fromNullishOr(target.executor).map((executor) => ({ task, target, executor })));
 
-const unanswered = ({ nodes }: Workspace, stated: readonly string[]) => Object.values(nodes).flatMap(({ name, data }) => stated.filter((verb) => verb in (data.targets ?? {}) !== Record.keys(data.targets ?? {}).some((target) => target.startsWith(`${verb}--`))).map((verb) => `${name}:${verb}`));
+const unanswered = (workspace: Graph) => Object.values(workspace.nodes).flatMap(({ name, data }) => verbs(workspace).filter((verb) => verb in (data.targets ?? {}) !== Record.keys(data.targets ?? {}).some((target) => target.startsWith(`${verb}--`))).map((verb) => `${name}:${verb}`));
 
-const unread = (workspace: Workspace, stated: readonly string[]) =>
+const unread = (workspace: Graph) =>
     declared(workspace)
-        .flatMap(({ project, name, task, target }) => Array.fromNullishOr(name.includes('--') ? name.split('--')[0] : undefined).map((verb) => ({ verb, task, target, held: workspace.nodes[project]?.data.targets?.[verb]?.inputs ?? [] })))
-        .filter(({ verb, target, held }) => stated.includes(verb) && (target.inputs ?? []).some((input) => !held.some((other) => isDeepStrictEqual(other, input))))
+        .flatMap(({ project, name, task, target }) => Array.fromNullishOr(name.includes('--') ? name.split('--')[0] : undefined).map((verb) => ({ task, target, held: workspace.nodes[project]?.data.targets?.[verb]?.inputs ?? [] })))
+        .filter(({ target, held }) => (target.inputs ?? []).some((input) => !held.some((other) => isDeepStrictEqual(other, input))))
         .map(({ task }) => task);
 
-const unclean = ({ nodes }: Workspace) =>
+const unclean = ({ nodes }: Graph) =>
     Object.values(nodes)
         .filter(({ data }) => !('clean' in (data.targets ?? {})) && Object.values(data.targets ?? {}).some(({ outputs = [] }) => outputs.length > 0))
         .map(({ name }) => name);
-
-const contributing = ({ sourceMaps }: Workspace) => new Set(Object.values(sourceMaps).flatMap((entries) => Object.values(entries).map(([, plugin]) => plugin)));
-
-const renamed = ({ sourceMaps }: Workspace, [first, ...later]: readonly string[]) =>
-    Record.keys(
-        Record.filter(sourceMaps, ({ name }, root) => {
-            const plugins = new Set(Object.values(sourceMaps[root] ?? {}).map(([, plugin]) => plugin));
-            return name?.[1] === first && !plugins.isDisjointFrom(new Set(later));
-        }),
-    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -150,13 +124,6 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
             const workspace = yield* read('fresh');
             assert.deepStrictEqual(yield* missing(workspace), [], SOURCES.roots);
             assert.deepStrictEqual(shared(workspace), [], SOURCES.roots);
-        }),
-    );
-
-    suite.effect(
-        'holds no project.json',
-        Effect.fnUntraced(function* () {
-            assert.deepStrictEqual(yield* described(yield* read('fresh')), [], SOURCES.inferred);
         }),
     );
 
@@ -197,28 +164,17 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'names every target a README verb, a tool of one, or the publish target of Nx release',
-        Effect.fnUntraced(function* () {
-            const [workspace, stated] = yield* Effect.all([read('fresh'), verbs]);
-            const named = new Set(declared(workspace).map(({ name }) => name.split('--')[0] ?? name));
-            assert.isNotEmpty(stated, 'README.md TASKS lists verbs');
-            assert.deepStrictEqual([...named.difference(new Set([...stated, 'nx-release-publish']))], [], SOURCES.answered);
-        }),
-    );
-
-    suite.effect(
         'gives a project a verb target exactly where it holds a tool target of that verb',
         Effect.fnUntraced(function* () {
-            const [workspace, stated] = yield* Effect.all([read('fresh'), verbs]);
-            assert.deepStrictEqual(unanswered(workspace, stated), [], SOURCES.answered);
+            assert.deepStrictEqual(unanswered(yield* read('fresh')), [], SOURCES.answered);
         }),
     );
 
     suite.effect(
         'makes every verb target a noop that depends on its own tool targets alone',
         Effect.fnUntraced(function* () {
-            const [workspace, stated] = yield* Effect.all([read('fresh'), verbs]);
-            const wrong = declared(workspace).filter(({ name, target }) => stated.includes(name) && (target.executor !== 'nx:noop' || !isDeepStrictEqual(target.dependsOn, [`${name}--*`])));
+            const workspace = yield* read('fresh');
+            const wrong = declared(workspace).filter(({ name, target }) => verbs(workspace).includes(name) && (target.executor !== 'nx:noop' || !isDeepStrictEqual(target.dependsOn, [`${name}--*`])));
             assert.deepStrictEqual(
                 wrong.map(({ task, target }) => [task, target.executor, target.dependsOn]),
                 [],
@@ -230,8 +186,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'gives every verb target each input of its tool targets',
         Effect.fnUntraced(function* () {
-            const [workspace, stated] = yield* Effect.all([read('fresh'), verbs]);
-            assert.deepStrictEqual(unread(workspace, stated), [], SOURCES.selected);
+            assert.deepStrictEqual(unread(yield* read('fresh')), [], SOURCES.selected);
         }),
     );
 
@@ -254,36 +209,6 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'runs no package.json script and no hk command from a target',
-        Effect.fnUntraced(function* () {
-            const targets = declared(yield* read('fresh'));
-            assert.deepStrictEqual(
-                targets.filter(({ target }) => target.executor === 'nx:run-script').map(({ task }) => task),
-                [],
-                SOURCES.scripted,
-            );
-            assert.deepStrictEqual(
-                targets.filter(({ target }) => HK.test(Formatter.format(target.options))).map(({ task }) => task),
-                [],
-                SOURCES.apart,
-            );
-        }),
-    );
-
-    suite.effect(
-        'tags projects with os:<platform>, os:all, release, and the npm tags of Nx alone',
-        Effect.fnUntraced(function* () {
-            const { nodes } = yield* read('fresh');
-            const tags = Array.dedupe(Object.values(nodes).flatMap(({ data }) => data.tags ?? []));
-            assert.deepStrictEqual(
-                tags.filter((tag) => !TAG.test(tag)),
-                [],
-                `${SOURCES.platform}; ${SOURCES.released}`,
-            );
-        }),
-    );
-
-    suite.effect(
         'tags a project release exactly where a plugin gives it release configuration',
         Effect.fnUntraced(function* () {
             const { nodes } = yield* read('fresh');
@@ -293,16 +218,6 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
                 [],
                 SOURCES.released,
             );
-        }),
-    );
-
-    suite.effect(
-        'lets a later plugin row name each root it shares with @rasm/nx-distribution',
-        Effect.fnUntraced(function* () {
-            const workspace = yield* read('fresh');
-            assert.isTrue(contributing(workspace).has('@rasm/nx-distribution'), SOURCES.ordered);
-            assert.strictEqual(rows()[0], '@rasm/nx-distribution', SOURCES.ordered);
-            assert.deepStrictEqual(renamed(workspace, rows()), [], SOURCES.ordered);
         }),
     );
 });

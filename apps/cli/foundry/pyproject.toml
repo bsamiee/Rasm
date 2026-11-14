@@ -28,7 +28,7 @@ dependencies = [
 
     "fonttools>=4.66.0",               # UFO reader of an ornament face's mapped code points, Python 3.15 from 4.66.0
     "opentype-sanitizer>=8.1.4.post3", # OTS acceptance of a built binary, macOS arm64 wheels from 8.1.4.post3
-    "ufoLib2>=0.18.0",                 # Width classes a declared face table names, free of the `fs` package from 0.18.0
+    "ufoLib2>=0.18.0",                 # Width classes a declared face table names and the UFO source a family alignment rewrites, free of the `fs` package from 0.18.0
 ]
 
 [project.urls]

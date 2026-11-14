@@ -35,14 +35,11 @@ storybook-static/
 *.blend@
 xcuserdata/
 __pycache__/
-/apps/unreal/Sandbox/Config/
 /apps/unreal/**/Binaries/
 /apps/unreal/**/DerivedDataCache/
 /apps/unreal/**/Intermediate/
 /apps/unreal/**/Plugins/
 /apps/unreal/**/Saved/
-/apps/unreal/**/Source/ThirdParty/*/Linux/
-/apps/unreal/**/Source/ThirdParty/*/Mac/
 
 # --- [SECRETS] --------------------------------------------------------------------------
 

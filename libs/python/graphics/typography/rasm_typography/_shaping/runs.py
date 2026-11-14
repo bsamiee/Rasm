@@ -239,6 +239,17 @@ class Binary[T: bytes | TTFont = bytes]:
         return measured
 
     @cached_property
+    def pieces(self) -> Callable[[str], tuple[tuple[float, tuple[tuple[Point, ...], ...]], ...]]:
+        """Glyph drawings split into `paths.groups` with each group's filled area, largest first, memoized for this binary."""
+        outlines = self.outline
+
+        @cache
+        def split(glyph: str, /) -> tuple[tuple[float, tuple[tuple[Point, ...], ...]], ...]:
+            return tuple(sorted(((paths.area(group), group) for group in paths.groups(outlines(glyph))), key=lambda held: held[0], reverse=True))
+
+        return split
+
+    @cached_property
     def placed_extents(self) -> Callable[[str, str | None], tuple[tuple[_Placed, paths.Box], ...]]:
         """Shaped glyphs with their curve extents at their positions, memoized for this binary."""
 

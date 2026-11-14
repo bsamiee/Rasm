@@ -1,7 +1,7 @@
 """Face design records: scripts, genres, treatments, value overrides, and the text and ornament faces they describe."""
 
 from enum import auto, StrEnum
-from typing import Annotated
+from typing import Annotated, ClassVar
 lazy from itertools import batched
 lazy import math
 lazy import unicodedata
@@ -199,7 +199,6 @@ class Genre(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str
     alif: Em | None = 0.70
     word_ratio: Ratio = 3.4
     word_band: Band = (0.213, 0.411)
-    join_overlap: Em = 11 / 1024
     nuqta_floor: Em = 1 / 24
     stack_gap: Em = 0.03
     clearance: Em = 0.03
@@ -255,7 +254,10 @@ type Genres = TextNaskh | BlackNaskh | Thuluth | Kufi | DotMatrix | Ruqah | Diwa
 
 
 class Treatment(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower):
-    """Effect a face applies over its planned outlines."""
+    """Effect a face applies over its planned outlines, `filled` where letters stay solid fills and `pieced` where it draws them in pieces no dot stands apart from."""
+
+    filled: ClassVar[bool] = True
+    pieced: ClassVar[bool] = False
 
 
 class Sheared(Treatment, frozen=True, kw_only=True):
@@ -267,17 +269,28 @@ class Sheared(Treatment, frozen=True, kw_only=True):
 class Ringed(Treatment, frozen=True, kw_only=True):
     """Outline face, each glyph drawn as a ring."""
 
+    filled: ClassVar[bool] = False
+
 
 class Contour(Treatment, frozen=True, kw_only=True):
     """Contour face, each glyph drawn as a ring and a channel around a core."""
+
+    filled: ClassVar[bool] = False
+    pieced: ClassVar[bool] = True
 
 
 class Shadow(Treatment, frozen=True, kw_only=True):
     """Ringed face drawn with a cast shadow."""
 
+    filled: ClassVar[bool] = False
+    pieced: ClassVar[bool] = True
+
 
 class Segmented(Treatment, frozen=True, kw_only=True):
     """Face built of separate segments, each letter several fills."""
+
+    filled: ClassVar[bool] = False
+    pieced: ClassVar[bool] = True
 
 
 type Treatments = Sheared | Ringed | Contour | Shadow | Segmented
@@ -331,11 +344,6 @@ class Face(_Named, frozen=True, kw_only=True):
     treatments: tuple[Treatments, ...] = ()
     values: Values = Values()
     genre: Genres = TextNaskh()
-
-    @property
-    def dotted(self) -> bool:
-        """Whether letters carry their dots apart from their drawing, false for a dot-matrix genre and a contour, shadow, or segmented treatment drawing letters in pieces."""
-        return not isinstance(self.genre, DotMatrix) and not any(isinstance(treatment, Contour | Shadow | Segmented) for treatment in self.treatments)
 
 
 class OrnamentFace(_Named, frozen=True, kw_only=True):

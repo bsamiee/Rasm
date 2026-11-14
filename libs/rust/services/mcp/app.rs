@@ -1,9 +1,9 @@
 use core::error::Error;
 use core::future::ready;
+use core::mem;
 use core::num::NonZero;
 use core::pin::pin;
 use core::time::Duration;
-use core::{iter, mem};
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -13,7 +13,7 @@ use arc_swap::ArcSwapOption;
 use derive_where::derive_where;
 use futures::future::{self, BoxFuture};
 use futures::{FutureExt as _, StreamExt as _, TryFuture, TryFutureExt as _};
-use itertools::{Either, Itertools as _};
+use itertools::Itertools as _;
 use rmcp::handler::server::prompt::PromptContext;
 use rmcp::handler::server::router::prompt::PromptRouter;
 use rmcp::handler::server::tool::ToolRouter;
@@ -256,7 +256,9 @@ where A: Server
     async fn call_tool(&self, request: CallToolRequestParams, context: RequestContext<RoleServer>) -> Result<CallToolResponse, ErrorData> { tools::call(self, request, context).await }
 
     fn list_tools(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send {
-        let (tools, next_cursor) = listed(self.routers.tools.load().as_deref().map_or_default(ToolRouter::list_all), request, self.page, |tool| &tool.name);
+        let router = self.routers.tools.load();
+        let tools = router.as_deref().into_iter().flat_map(|router| router.map.keys().filter_map(|name| router.get(name)));
+        let (tools, next_cursor) = paged(tools, request.and_then(|params| params.cursor).as_deref(), self.page, |tool| &tool.name);
         ready(Ok(ListToolsResult { next_cursor, ..ListToolsResult::with_all_items(tools) }))
     }
 
@@ -266,7 +268,9 @@ where A: Server
     }
 
     fn list_prompts(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListPromptsResult, ErrorData>> + Send {
-        let (prompts, next_cursor) = listed(self.routers.prompts.load().as_deref().map_or_default(PromptRouter::list_all), request, self.page, |prompt| &prompt.name);
+        let router = self.routers.prompts.load();
+        let prompts = router.as_deref().into_iter().flat_map(|router| router.map.values().map(|route| &route.attr));
+        let (prompts, next_cursor) = paged(prompts, request.and_then(|params| params.cursor).as_deref(), self.page, |prompt| &prompt.name);
         ready(Ok(ListPromptsResult { next_cursor, ..ListPromptsResult::with_all_items(prompts) }))
     }
 
@@ -276,25 +280,16 @@ where A: Server
         let listed =
             future::join_all(registered.iter().flat_map(|resources| &resources.lists).map(|list| list(self.app.clone(), after.clone(), limit))).await.into_iter().collect::<Validated<Vec<_>, _>>();
         let listed = listed.ok().map_err(|errors| serde_json::to_value(&errors).map_or_else(internal, |data| ErrorData { data: Some(data), ..errors.first().clone() }))?;
-        let declared = registered
-            .as_deref()
-            .into_iter()
-            .flat_map(|resources| resources.declared.iter().skip(following(&resources.declared, after.as_deref(), |(resource, _)| &resource.uri)).map(|(resource, _)| resource.clone()));
-        let rows = iter::once(Either::Left(declared))
-            .chain(listed.into_iter().map(|rows| {
-                Either::Right(rows.into_iter().filter(|resource| after.as_deref().is_none_or(|after| resource.uri.as_str() > after)).sorted_unstable_by(|left, right| left.uri.cmp(&right.uri)))
-            }))
-            .kmerge_by(|left, right| left.uri < right.uri)
-            .dedup_by(|left, right| left.uri == right.uri);
-        let (resources, next_cursor) = paged(rows, self.page, |resource| &resource.uri);
+        let declared = registered.as_deref().into_iter().flat_map(|resources| resources.declared.iter().map(|(resource, _)| resource));
+        let rows = declared.chain(listed.iter().flatten()).unique_by(|resource| resource.uri.as_str());
+        let (resources, next_cursor) = paged(rows, after.as_deref(), self.page, |resource| &resource.uri);
         Ok(ListResourcesResult { next_cursor, ..ListResourcesResult::with_all_items(resources) })
     }
 
     fn list_resource_templates(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListResourceTemplatesResult, ErrorData>> + Send {
         let registered = self.routers.resources.load();
-        let templates = registered.as_deref().map_or(&[][..], |resources| &resources.templates);
-        let skipped = following(templates, request.and_then(|params| params.cursor).as_deref(), |(template, _)| &template.uri_template);
-        let (templates, next_cursor) = paged(templates.iter().skip(skipped).map(|(template, _)| template.clone()), self.page, |template| &template.uri_template);
+        let templates = registered.as_deref().into_iter().flat_map(|resources| resources.templates.iter().map(|(template, _)| template));
+        let (templates, next_cursor) = paged(templates, request.and_then(|params| params.cursor).as_deref(), self.page, |template| &template.uri_template);
         ready(Ok(ListResourceTemplatesResult { next_cursor, ..ListResourceTemplatesResult::with_all_items(templates) }))
     }
 
@@ -333,16 +328,10 @@ where Q: TryFuture<Ok = Vec<String>, Error: Into<ErrorData>> + Send + 'static {
     Box::new(move |app, argument, context| complete(app, argument, context).map_err(Into::into).boxed())
 }
 
-fn following<T>(rows: &[T], cursor: Option<&str>, key: impl Fn(&T) -> &str) -> usize { cursor.map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor)) }
-
-fn listed<T>(rows: Vec<T>, request: Option<PaginatedRequestParams>, page: NonZero<usize>, key: impl Fn(&T) -> &str) -> (Vec<T>, Option<Cursor>) {
-    let skipped = following(&rows, request.and_then(|params| params.cursor).as_deref(), &key);
-    paged(rows.into_iter().skip(skipped), page, key)
-}
-
-fn paged<T>(rows: impl IntoIterator<Item = T>, page: NonZero<usize>, key: impl Fn(&T) -> &str) -> (Vec<T>, Option<Cursor>) {
-    let mut rows = rows.into_iter().peekable();
-    let kept = rows.by_ref().take(page.get()).collect_vec();
+fn paged<'rows, T>(rows: impl IntoIterator<Item = &'rows T>, cursor: Option<&str>, page: NonZero<usize>, key: impl Fn(&T) -> &str) -> (Vec<T>, Option<Cursor>)
+where T: Clone + 'rows {
+    let mut rows = rows.into_iter().filter(|row| cursor.is_none_or(|cursor| key(row) > cursor)).k_smallest_by(page.get().saturating_add(1), |left, right| key(left).cmp(key(right))).peekable();
+    let kept = rows.by_ref().take(page.get()).cloned().collect_vec();
     let next_cursor = rows.peek().and_then(|_| kept.last()).map(|row| key(row).to_owned());
     (kept, next_cursor)
 }

@@ -1,12 +1,12 @@
 """Stroke width, perimeter, counter width, moments, signed gap, strip coverage and stroke-targeted offsets over quadratic outlines."""
 
-lazy from itertools import pairwise
 lazy import math
 
 import msgspec
-lazy from fontTools.misc.bezierTools import segmentPointAtT
 lazy from fontTools.pens.perimeterPen import PerimeterPen
 lazy from fontTools.pens.statisticsPen import StatisticsPen
+lazy import numpy as np
+lazy import numpy.typing as npt
 lazy from pathops import Path, PathOp
 lazy from scipy.optimize import minimize_scalar
 lazy from shapely import build_area, linestrings, maximum_inscribed_circle, MultiLineString, multilinestrings, MultiPolygon, node, Polygon
@@ -79,28 +79,33 @@ def moments(outline: tuple[tuple[Point, ...], ...], /) -> _Moments:
 # --- [DISTANCES]
 
 
-def _flattened(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[float, float], ...], tuple[tuple[tuple[float, float], tuple[float, float]], ...]]:
-    """Vertices and edges of the union flattened within a quarter unit, each quadratic cut into as many steps as the square root of its second difference length."""
-    runs = tuple(
-        tuple((float(x), float(y)) for step in range(steps + 1) for x, y in (segmentPointAtT(segment, step / steps),))
-        for segment in paths.segments(outline)
-        for steps in (max(1, math.ceil(math.sqrt(math.hypot(*(a - 2 * b + c for a, b, c in zip(*segment, strict=True)))))) if len(segment) == 3 else 1,)
-    )
-    return (tuple(*run for run in runs), tuple(*pairwise(run) for run in runs))
+def _flattened(outline: tuple[tuple[Point, ...], ...], /) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.intp]]:
+    """Points of the outline's lines and quadratics flattened within a quarter unit with the segment each lies on, a quadratic cut into as many steps as the square root of its second difference length, a line held as a quadratic with its middle as control."""
+    held = np.array(
+        tuple(segment if len(segment) == 3 else (segment[0], ((segment[0][0] + segment[1][0]) / 2, (segment[0][1] + segment[1][1]) / 2), segment[1]) for segment in paths.segments(outline)),
+        dtype=np.float64,
+    ).reshape(-1, 3, 2)
+    steps = np.maximum(1, np.ceil(np.sqrt(np.hypot(*(held[:, 0] - 2 * held[:, 1] + held[:, 2]).T)))).astype(np.intp)
+    runs = np.repeat(np.arange(len(held)), steps + 1)
+    t = ((np.arange(len(runs)) - np.repeat(np.cumsum(steps + 1) - steps - 1, steps + 1)) / np.repeat(steps, steps + 1))[:, None]
+    start, control, end = held[runs].transpose(1, 0, 2)
+    return ((1 - t) ** 2 * start + 2 * t * (1 - t) * control + t**2 * end, runs)
 
 
-def _strung(edges: tuple[tuple[tuple[float, float], tuple[float, float]], ...], /) -> MultiLineString:
-    """Edges as one geometry through the array constructors, an empty one for none, `TypeError` for an array the constructors return in its place."""
-    match multilinestrings(linestrings(edges)) if edges else MultiLineString():
-        case MultiLineString() as strung:
+def _strung(points: npt.NDArray[np.float64], runs: npt.NDArray[np.intp], /) -> MultiLineString:
+    """Flattened segments as one geometry through the array constructors, an empty one for none, `TypeError` for a geometry the constructors return in place of an array or a multi line."""
+    match linestrings(points, indices=runs) if len(points) else None:
+        case None:
+            return MultiLineString()
+        case np.ndarray() as lines if isinstance(strung := multilinestrings(lines), MultiLineString):
             return strung
         case other:
             raise TypeError(other)
 
 
 def inradius(outline: tuple[tuple[Point, ...], ...], /) -> float:
-    """Returns the largest inscribed circle's radius, 0 for edges enclosing no area, retaining holes and islands, the edges noded where flattening crosses them."""
-    match build_area(node(_strung(_flattened(outline)[1]))):
+    """Returns the largest inscribed circle's radius, 0 for edges enclosing no area, retaining holes and islands, the union's edges noded where flattening crosses them."""
+    match build_area(node(_strung(*_flattened(paths.union(outline))))):
         case Polygon() | MultiPolygon() as filled:
             return float(maximum_inscribed_circle(filled, tolerance=0.25).length)
         case _:
@@ -116,24 +121,29 @@ def gap(a: tuple[tuple[Point, ...], ...], b: tuple[tuple[Point, ...], ...], /, a
         axis: Axis the distance runs along, `None` for the nearest separation in any direction.
 
     Returns:
-        The separation for disjoint outlines, else the negative radius of the largest circle inside their intersection.
+        The separation for disjoint outlines, the boolean intersection run only where their flattened extents meet within the flattening tolerance, else the negative radius of the largest circle inside their intersection.
     """
-    match paths.combined(a, b, PathOp.INTERSECTION):
+    (points, runs), (others, sides) = (_flattened(paths.transformed(outline, (0.0, 1.0, 1.0, 0.0, 0.0, 0.0)) if axis == "x" else outline) for outline in (a, b))
+    facing = len(points) > 0 and len(others) > 0
+    match paths.combined(a, b, PathOp.INTERSECTION) if facing and (points.min(axis=0) <= others.max(axis=0) + 0.25).all() and (others.min(axis=0) <= points.max(axis=0) + 0.25).all() else ():
+        case () if not facing:
+            return math.inf
+        case () if axis is None:
+            return float(_strung(points, runs).distance(_strung(others, sides)))
         case ():
-            (points, lines), (others, edges) = (_flattened(paths.transformed(outline, (0.0, 1.0, 1.0, 0.0, 0.0, 0.0)) if axis == "x" else outline) for outline in (a, b))
-            return (
-                (float(_strung(lines).distance(_strung(edges))) if lines and edges else math.inf)
-                if axis is None
-                else min(
-                    (
-                        abs(py - sy - (px - sx) * (ey - sy) / (ex - sx))
-                        for vertices, spans in ((points, edges), (others, lines))
-                        for px, py in vertices
-                        for (sx, sy), (ex, ey) in spans
-                        if ex != sx and min(sx, ex) <= px <= max(sx, ex)
-                    ),
-                    default=math.inf,
-                )
+            return min(
+                (
+                    float(np.min(np.abs(vertices[:, None, 1] - start[None, :, 1] - (vertices[:, None, 0] - start[None, :, 0]) * slope[None, :]), initial=math.inf, where=inside))
+                    for vertices, spans, ids in ((points, others, sides), (others, points, runs))
+                    for start, end in ((spans[:-1][ids[1:] == ids[:-1]], spans[1:][ids[1:] == ids[:-1]]),)
+                    for slope in (np.divide(end[:, 1] - start[:, 1], end[:, 0] - start[:, 0], out=np.zeros(len(start)), where=end[:, 0] != start[:, 0]),)
+                    for inside in (
+                        (end[None, :, 0] != start[None, :, 0])
+                        & (np.minimum(start[None, :, 0], end[None, :, 0]) <= vertices[:, None, 0])
+                        & (vertices[:, None, 0] <= np.maximum(start[None, :, 0], end[None, :, 0])),
+                    )
+                ),
+                default=math.inf,
             )
         case overlaps:
             return -inradius(overlaps)

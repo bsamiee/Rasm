@@ -11,6 +11,18 @@
             "type": "string",
             "description": "Timestamp server ZXPSignCmd -tsa signs against, so a CEP package outlives its certificate",
             "default": "http://timestamp.digicert.com"
+        },
+        "__unparsed__": {
+            "type": "array",
+            "description": "Words after -- of the run, appended after the configured arguments",
+            "$default": {
+                "$source": "unparsed"
+            },
+            "hidden": true,
+            "x-priority": "internal",
+            "items": {
+                "type": "string"
+            }
         }
     },
     "required": [ "outputPath", "timestampAuthority" ],

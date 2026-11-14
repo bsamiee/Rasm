@@ -6,12 +6,12 @@ Nx Core runs alone: `nx.json` sets `neverConnectToCloud: true`, every plugin is 
 
 Places holding state, each updated by one action:
 
-| [INDEX] | [PLACE]                  | [DECIDED_BY]                                | [UPDATED_BY]                                |
-| :-----: | :----------------------- | :------------------------------------------ | :------------------------------------------ |
-|  [01]   | This Mac                 | Tool versions, lock files, local Nx cache   | `mise install`, `pnpm install`, `mise deps` |
-|  [02]   | CI runner                | Pushed commit                               | `git push`                                  |
-|  [03]   | GitHub, Doppler, tailnet | `infra/repository-stack.ts`, Doppler's sync | Workflow `Deploy`                           |
-|  [04]   | Machines                 | Table `hosts` of `infra/platform-stack.ts`  | Workflow `Deploy`                           |
+| [INDEX] | [PLACE]                              | [DECIDED_BY]                                | [UPDATED_BY]                                |
+| :-----: | :----------------------------------- | :------------------------------------------ | :------------------------------------------ |
+|  [01]   | This Mac                             | Tool versions, lock files, local Nx cache   | `mise install`, `pnpm install`, `mise deps` |
+|  [02]   | CI runner                            | Pushed commit                               | `git push`                                  |
+|  [03]   | GitHub, Doppler, Cloudflare, tailnet | `infra/repository-stack.ts`, Doppler's sync | Workflow `Deploy`                           |
+|  [04]   | Machines                             | Table `hosts` of `infra/platform-stack.ts`  | Workflow `Deploy`                           |
 
 ## [02]-[DELIVERY]
 
@@ -30,6 +30,7 @@ Places holding state, each updated by one action:
 - `nx deploy @rasm/infra` on this Mac applies the same stacks, and no step needs it
 - Machine and app stacks dial a Docker engine by tailnet name, so they apply only from a computer on the tailnet
 - Job `deploy` runs on a GitHub-hosted runner that joins the tailnet as `tag:deploy` through `tailscale/github-action`
+- Job `deploy` writes `StrictHostKeyChecking accept-new` for every host to its `~/.ssh/config`, which the `ssh` of both Docker providers reads, as this Mac's own config does
 - Stack `rasm` writes that tag's OAuth client and the machine names to GitHub environment `deploy`, and its tailnet policy grants the tag SSH
 - Tailnet settings mark that policy externally managed with a link to its stack file, so the admin console warns before an edit Deploy reverts
 
@@ -38,9 +39,9 @@ Places holding state, each updated by one action:
 - Table `hosts` of `infra/platform-stack.ts` holds one row per machine, keyed by its DNS name, stating `address`, `tags`, and `roles`
 - Machines are rented at Hostinger, and no code names it
 - Machine names are words drawn at random from the mnemonic word list, and state no role, provider, or location
-- Roles sit in host row field `roles`, in DNS aliases (`nx-cache.parametric-arsenal.cloud`), and in tailnet tags
+- Roles sit in host row field `roles` and in DNS aliases (`nx-cache.parametric-arsenal.cloud`), and every machine takes tailnet tag `tag:server`
 - Each machine holds DNS record `<name>.<zone>`, tailnet name `<name>`, and a stack of its DNS name
-- Stacks reach a machine's Docker engine and shell as `root@<name>` over Tailscale SSH, with no key
+- Stacks reach a machine's Docker engine and shell as `root@<name>` over Tailscale SSH, with no key, and command steps check no host key
 - New machines get Docker and a tailnet login with Tailscale SSH under a tag of their row by hand, and no stack installs either
 - Machine secrets are `<NAME>_SSH_PRIVATE_KEY`, `<NAME>_SSH_PUBLIC_KEY`, and `<NAME>_ROOT_PASSWORD`, in Doppler `deploy` and 1Password
 - `HOSTINGER_API_TOKEN` covers the account and keeps its name
@@ -51,25 +52,24 @@ Places holding state, each updated by one action:
 - Updates install between 05:00 and 06:00 `America/Chicago`, and a machine reboots at once when one requires it
 - Reboots and Docker package updates stop a job running then: a runner service has no setting that finishes its job first
 - Reboots of `lucky` stop a CI run reading the cache in that minute
-- `ufw` drops incoming traffic on every interface except `tailscale0`, so `sshd` answers no public address
-- Ports the proxy publishes (80, 443) stay public: Docker forwards a published port before `ufw` reads a packet
-- Ports Docker publishes answer the tailnet and the machine's own containers alone: `/etc/ufw/after.rules` drops every other forwarded connection in `DOCKER-USER`
-- Proxy ports 80 and 443 stay public on a machine holding a routed role, and `ufw` itself covers only ports the machine's own processes open
-- That rule matches a port Docker forwards to a container (`--ctstate DNAT`), so a container still dials the same port on another machine
-- Stacks dial object storage by tailnet name, and `ufw` loads that rule at boot before Docker starts, which keeps `DOCKER-USER` rules
+- Machines run no firewall: the proxy publishes ports 80 and 443 on every address, every other port binds the tailnet IPv4 address
+- Tailnet addresses come from the Tailscale device of the machine's name, and this Mac binds `127.0.0.1` in their place
+- Docker binds a tailnet address before `tailscaled` sets it at boot, as `net.ipv4.ip_nonlocal_bind` allows
+- Stacks dial object storage by tailnet name, and containers dial it inside their Docker network
 - Machines losing the tailnet are reached through the provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
 - Role `Cache` runs the Nx cache server with its proxy and object storage, and `Runner` the GitHub Actions runner services and each Unreal image
 - Role `Runner` field `instances` names each runner service by its label, with the systemd resource limits of its unit
 - Runner `<machine>-<label>` holds folder `actions-runner-<label>`, its own work folder, and label `<label>` beside the default labels
-- Instance `host` runs jobs on the machine and `container` runs jobs in a container, so each kind keeps ignored files at one path
-- CI jobs set `TMPDIR` to `RUNNER_TEMP`, which the runner empties at the start and end of each job, so no job leaves files in `/tmp`
+- Instance `host` runs jobs on the machine and `container` runs jobs in a container, so CI jobs `linux` and `unreal` run at once
+- Runner version, label, or repository changes install a runner again, with a registration token `gh api` creates
+- Runner `instances` limits alone apply in place
 - Host jobs take at most 20 GB (`MemoryMax`, slowed from 18 GB by `MemoryHigh`) and a job container 10 GB (`container.options` `--memory`)
 - Both instances share every core by equal CPU weight, and a job running alone uses all of them
 - `needrestart` leaves `actions.runner.*` services running after a library update, as GitHub documents
 - Workflow `Maintenance` runs each Sunday at 09:00 UTC (03:00 or 04:00 `America/Chicago`), before the update hour, on both instances and by dispatch
 - Job `container` checks out clean, removing every ignored file of that work folder, the container tools and package store included
 - Job `host` checks out clean, installs tools and packages, then prunes the pnpm store, uv cache, mise tool versions, and Docker leftovers
-- Docker pruning removes stopped containers made over an hour ago, unused anonymous volumes, build cache, and dangling images, never a tagged image
+- Docker pruning removes stopped containers made over an hour ago, unused anonymous volumes, dangling build cache, and dangling images
 - GitHub can delay or drop a scheduled run, runs it from `main` alone, and disables it after 60 days without repository activity
 - Role `Apps` runs the proxy, sign-in, and object storage of hosted apps
 - Stacks declare containers, volumes, networks, and images through the Docker provider, and an engine builds its images from inline Dockerfiles
@@ -84,7 +84,7 @@ Places holding state, each updated by one action:
 - Pushes to `main` read and write the cache server, and pull requests read it
 - Plugin row `@rasm/nx-distribution` of `nx.json` sends the server one read before the tasks of a run that sets `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
 - Runs answered other than 200 or 404, or not within 5 seconds, print one warning (an Actions annotation) and use the local cache alone
-- Workflow `Release` uses no remote cache, so its run builds every file it attaches or publishes
+- Workflow `Release` reads the cache server with the read-only token pull requests use and writes none
 - This Mac uses its local cache alone: no remote cache variable is set here and Doppler `dev` holds none
 - Nx 24 stops a run on a failed cache read or a failed write of a batched task (cargo, dotnet): a server failing after its first answer
 - `--skip-remote-cache` runs without the server, and no Nx setting uses the server and continues on its error

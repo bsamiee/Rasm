@@ -1,11 +1,9 @@
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import consumers from 'node:stream/consumers';
 import type { ExecutorContext } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { grouped, run, streamed } from '#/executors/build/executor';
+import { grouped } from '#/executors/build/executor';
+import { ran, run, streamed } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,7 +18,7 @@ const UNFORMATTED = 2;
 const Format = Schema.Struct({
     commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
     project: Schema.String.annotate({ description: 'Project file the commands run on' }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to every command', $default: { $source: 'unparsed' } }),
+    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 }).annotate({ title: 'Format', description: 'Runs dotnet format commands in order on one project, or once each over a solution of every batched project' });
 const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Schema.String }))).annotate({ description: 'The file dotnet format --report writes, one entry per document it changed or would change' });
 
@@ -38,7 +36,7 @@ const solution = (projects: readonly string[]) =>
 
 const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const [[, { commands, args }], ...rest] = group;
+    const [[, { commands, __unparsed__: words = [] }], ...rest] = group;
     const members = Array.map(group, ([task, { project }]) => ({ task, project: path.resolve(root, project), folder: `${path.dirname(path.resolve(root, project))}${path.sep}` }));
     const nested = Array.sort(
         members,
@@ -52,17 +50,14 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
         commands,
         Effect.fnUntraced(function* (command, index) {
             const report = path.join(folder, `${index}.json`);
-            const argv = [...command, target, '--report', report, ...(args ?? [])];
-            const child = spawn('dotnet', argv, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-            const [out, err] = yield* Effect.all([Effect.fromNullishOr(child.stdout), Effect.fromNullishOr(child.stderr)]);
-            const [stdout, stderr, [code]] = yield* Effect.tryPromise(() => Promise.all([consumers.text(out), consumers.text(err), once(child, 'close')]));
+            const { invoked, stdout, said: stderr, code } = yield* ran('dotnet', [...command, target, '--report', report, ...words], { cwd: root });
             const changed = yield* Effect.option(Effect.flatMap(fs.readFileString(report), Schema.decodeEffect(Report)));
             const owners = Option.flatMap(
                 Option.filter(changed, () => code === UNFORMATTED),
                 flow(Array.map(owner), Option.all),
             );
             const blamed = code === 0 ? Option.some(new Set<string>()) : Option.map(owners, (found) => new Set(found.map(Struct.get('task'))));
-            return { command: child.spawnargs.join(' '), lines: [stdout, stderr].join('').split('\n'), blamed };
+            return { command: invoked, lines: [stdout, stderr].join('').split('\n'), blamed };
         }),
     );
     const said = (project: string, { command, lines }: (typeof runs)[number]) => {

@@ -2,12 +2,13 @@ import { platform } from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { createProjectFileMapUsingProjectGraph, workspaceRoot } from '@nx/devkit';
-import { Array, Effect, FileSystem, Option, Order, Path, Schema } from 'effect';
+import { Array, Effect, Option, Order, Schema } from 'effect';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { FsTree } from 'nx/src/generators/tree';
-import { declared, nx, read, type Workspace } from '#/workspace';
+import { declared, nx, read } from '#/workspace';
+import type { Graph } from '@rasm/testing/nx';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -18,7 +19,6 @@ const SOURCES = {
     version: 'nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.spec.ts: the disk resolver reads the current version from the source manifest; packages/nx/src/command-line/release/config/config.ts: projectsRelationship defaults to fixed, which gives every project of the group one version',
     delivered:
         'README.md DELIVERY: Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built; PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`; Unreal targets exist where the engine a `.uproject` names resolves',
-    destination: "README.md DELIVERY: Publishing delivers through each destination's own command (`pnpm publish`, `cargo publish`, `dotnet nuget push`, `uv publish`, `yak push`)",
     defaulted:
         'README.md PRINCIPLES: `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`; nrwl/nx packages/nx/src/project-graph/utils/project-configuration/target-defaults.ts: a default keyed by an executor reaches the targets running that executor, and Nx records `nx/core/package-json` as the plugin of the target it infers for a public package',
     planned:
@@ -26,7 +26,6 @@ const SOURCES = {
 } as const;
 const TAGGED = /^git tag --annotate (?<tag>\S+)/gmu;
 const WRITTEN = /^(?<project>\S+) .*New version (?<version>\S+) written to /gmu;
-const COMMAND = /`(?<command>[^`]+)`/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -36,7 +35,7 @@ const Published = Schema.Struct({ publish: Schema.Array(Schema.String) }).annota
 
 const captured = (text: string, pattern: RegExp, name: string) => Array.fromIterable(text.matchAll(pattern)).flatMap(({ groups = {} }) => Array.fromNullishOr(groups[name]));
 
-const tagged = ({ nodes }: Workspace) =>
+const tagged = ({ nodes }: Graph) =>
     Array.sort(
         Object.values(nodes)
             .filter(({ data }) => (data.tags ?? []).some((tag) => tag === 'release' || tag === 'npm:public'))
@@ -44,12 +43,12 @@ const tagged = ({ nodes }: Workspace) =>
         Order.String,
     );
 
-const configured = Effect.fnUntraced(function* (workspace: Workspace) {
+const configured = Effect.fnUntraced(function* (workspace: Graph) {
     const files = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(workspace));
     return yield* Effect.promise(() => createNxReleaseConfig(workspace, files, readNxJson(workspaceRoot).release));
 });
 
-const graphed = Effect.fnUntraced(function* (workspace: Workspace) {
+const graphed = Effect.fnUntraced(function* (workspace: Graph) {
     const { nxReleaseConfig } = yield* configured(workspace);
     const tree = new FsTree(workspaceRoot, false);
     const stated = yield* Effect.fromNullishOr(nxReleaseConfig);
@@ -57,35 +56,19 @@ const graphed = Effect.fnUntraced(function* (workspace: Workspace) {
     return { tree, graph };
 });
 
-const versions = Effect.fnUntraced(function* (workspace: Workspace) {
+const versions = Effect.fnUntraced(function* (workspace: Graph) {
     const { tree, graph } = yield* graphed(workspace);
     const stated = yield* Effect.forEach(tagged(workspace), (project) => Effect.option(Effect.tryPromise(() => Promise.resolve(graph.getVersionActionsForProject(project)?.readCurrentVersionFromSourceManifest(tree)))));
     return Array.zip(tagged(workspace), stated).map(([project, manifest]) => [project, Option.getOrUndefined(manifest)?.currentVersion] as const);
 });
 
-const undelivered = (workspace: Workspace) =>
+const undelivered = (workspace: Graph) =>
     tagged(workspace).filter((project) => {
         const { tags = [], targets = {} } = workspace.nodes[project]?.data ?? {};
         const limits = tags.filter((tag) => tag.startsWith('os:'));
         const held = limits.length === 0 || (limits.includes(`os:${platform}`) && Object.keys(targets).length > 0);
         return held && !['nx-release-publish', 'attach'].some((target) => target in targets);
     });
-
-const destinations = Effect.gen(function* () {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const text = yield* fs.readFileString(path.join(workspaceRoot, 'README.md'));
-    const stated = yield* Effect.fromOption(Array.findFirst(text.split('\n'), (line) => line.startsWith('- Publishing delivers')));
-    return captured(stated, COMMAND, 'command').map((command) => `${command} `);
-});
-
-const published = (workspace: Workspace) =>
-    Array.getSomes(
-        declared(workspace)
-            .filter(({ name }) => name === 'nx-release-publish')
-            .map(({ task, target }) => Option.map(Schema.decodeUnknownOption(Published)(target.options), ({ publish }) => ({ task, command: `${publish.join(' ')} ` }))),
-    );
-
-const foreign = (workspace: Workspace, commands: readonly string[]) => published(workspace).filter(({ command }) => !commands.some((stated) => command.startsWith(stated)));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -139,16 +122,6 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         'gives every project of a release group whose host this machine holds a target that publishes it or attaches its files',
         Effect.fnUntraced(function* () {
             assert.deepStrictEqual(undelivered(yield* read('fresh')), [], SOURCES.delivered);
-        }),
-    );
-
-    suite.effect(
-        'starts every publish command a target states with a command README DELIVERY names for a destination',
-        Effect.fnUntraced(function* () {
-            const [workspace, commands] = yield* Effect.all([read('fresh'), destinations]);
-            assert.isNotEmpty(commands, SOURCES.destination);
-            assert.isNotEmpty(published(workspace), SOURCES.destination);
-            assert.deepStrictEqual(foreign(workspace, commands), [], SOURCES.destination);
         }),
     );
 

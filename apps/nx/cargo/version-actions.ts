@@ -1,12 +1,10 @@
-import { execFile } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
-import { promisify } from 'node:util';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { createProjectGraphAsync, type ProjectGraph, type Tree } from '@nx/devkit';
 import { Array, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { Toml } from 'effect/encoding';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
-import { LOCK, MANIFEST, refused, run } from '#/workspace';
+import { CargoError, LOCK, MANIFEST, printed, run } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -30,8 +28,8 @@ const Found = Schema.Record(Schema.String, Schema.String);
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), refused(file, 'is missing'));
-    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: refused(file, 'does not parse as TOML') }));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), CargoError.of({ _tag: 'Missing', what: 'file' }, file));
+    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: CargoError.of({ _tag: 'Undecoded', form: 'TOML' }, file) }));
     return { file, text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });
 
@@ -58,7 +56,7 @@ const requirements = (raw: Readonly<Record<string, unknown>>, crates: ReadonlySe
         ).filter(({ crate }) => crates.has(crate)),
     );
 
-// --- [SERVICES] ------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 class CargoVersionActions extends VersionActions {
     override readonly validManifestFilenames = [MANIFEST];
@@ -76,7 +74,7 @@ class CargoVersionActions extends VersionActions {
                 manifests,
                 ({ manifestPath }) =>
                     Effect.flatMap(versioned(tree, manifestPath, shared), ({ file, inherited }) =>
-                        inherited && projectsRelationship === 'independent' ? Effect.fail(refused(manifestPath, `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}`)()) : Effect.void,
+                        inherited && projectsRelationship === 'independent' ? Effect.fail(CargoError.of({ _tag: 'Refused', rule: `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}` }, manifestPath)()) : Effect.void,
                     ),
                 { discard: true },
             ),
@@ -101,11 +99,11 @@ class CargoVersionActions extends VersionActions {
             Effect.gen(function* () {
                 const { manifest, registry } = yield* stated;
                 const { manifest: held } = yield* read(tree, manifest);
-                const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), refused(manifest, 'names no package'));
+                const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), CargoError.of({ _tag: 'Missing', what: 'package' }, manifest));
                 const search = ['search', crate, '--limit', '1', '--color', 'never', ...Array.fromNullishOr(registry).flatMap((named) => ['--registry', named])];
-                const { stdout } = yield* Effect.tryPromise({ try: (signal) => promisify(execFile)('cargo', search, { encoding: 'utf8', cwd: tree.root, signal }), catch: refused(crate, 'cargo search does not exit 0') });
+                const stdout = yield* printed('cargo', search, { cwd: tree.root, stdin: 'ignore' });
                 const found = yield* Effect.flatMap(Effect.fromResult(Toml.parse(stdout.slice(0, stdout.indexOf('\n')))), flow(Schema.decodeUnknownEffect(Found), Effect.map(Record.get(crate))));
-                const currentVersion = yield* Effect.mapError(Effect.fromOption(found), refused(crate, `is absent from the output of cargo ${search.join(' ')}`));
+                const currentVersion = yield* Effect.mapError(Effect.fromOption(found), CargoError.of({ _tag: 'Missing', what: `row in the output of cargo ${search.join(' ')}` }, crate));
                 return { currentVersion, logText: `cargo ${search.join(' ')}` };
             }),
         );
@@ -177,13 +175,11 @@ class CargoVersionActions extends VersionActions {
     }
 }
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
 const afterAllProjectsVersioned = Effect.fnUntraced(function* (cwd: string, { dryRun, rootVersionActionsOptions }: Parameters<AfterAllProjectsVersioned>[1]) {
     const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
     const stated = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.promise(() => createProjectGraphAsync())).nodes).map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions));
     const locks = Array.dedupe(Array.getSomes(stated).map(({ lock }) => lock)).filter((lock) => basename(lock) === LOCK);
-    const refresh = (lock: string) => Effect.tryPromise({ try: (signal) => promisify(execFile)('cargo', ['update', '--workspace'], { cwd: join(cwd, dirname(lock)), signal }), catch: refused(lock, 'cargo update does not exit 0') });
+    const refresh = (lock: string) => printed('cargo', ['update', '--workspace'], { cwd: join(cwd, dirname(lock)), stdin: 'ignore' });
     const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(refresh(lock), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
     return { changedFiles, deletedFiles: [] };
 }, run) satisfies AfterAllProjectsVersioned;

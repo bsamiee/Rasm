@@ -1,15 +1,11 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-console"
-version.workspace    = true
-edition.workspace    = true
-license.workspace    = true
-repository.workspace = true
-publish              = false
-keywords             = ["terminal", "table", "csv", "json"]
-categories           = ["command-line-interface", "value-formatting"]
-description          = "Line-mode terminal output: grid, CSV, and JSON writers, pager, prompts, and progress bars"
+name              = "rasm-console"
+version.workspace = true
+edition.workspace = true
+publish           = false
+description       = "Line-mode terminal output: grid, CSV, and JSON writers, pager, prompts, and progress bars"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

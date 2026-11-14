@@ -2,7 +2,6 @@
 # --- [COMMANDS] -------------------------------------------------------------------------
 
 definitions: [cmake]
-warn_about_unknown_commands: false # Commands of a vcpkg package module (`catch_discover_tests`) have no definition file at a fixed path
 
 # --- [LAYOUT] ---------------------------------------------------------------------------
 

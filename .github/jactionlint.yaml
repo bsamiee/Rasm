@@ -1,5 +1,7 @@
 # --- [JACTIONLINT] ----------------------------------------------------------------------
 
+profile: correctness
+
 rules:
     require-shell: error
 

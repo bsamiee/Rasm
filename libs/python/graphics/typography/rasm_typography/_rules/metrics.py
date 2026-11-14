@@ -93,8 +93,12 @@ class Records(measures.Rule, frozen=True, kw_only=True):
 
 
 def _reach(binary: Binary[TTFont], texts: tuple[tuple[str, str | None], ...], /) -> tuple[float, float]:
-    """Baseline and actual outline extrema after native substitutions and positioning under each run's language."""
-    return reduce(lambda held, box: (max(held[0], box.ymax), min(held[1], box.ymin)), (box for text, language in texts for _, box in binary.placed_extents(text, language)), (0.0, 0.0))
+    """Baseline and actual outline extrema after native substitutions and positioning under each run's language, a run shaping to glyph 0 left out as text the face does not draw, the runs `LineMetrics` reads."""
+    return reduce(
+        lambda held, box: (max(held[0], box.ymax), min(held[1], box.ymin)),
+        (box for text, language in texts for extents in (binary.placed_extents(text, language),) if all(placed.glyph != binary.order[0] for placed, _ in extents) for _, box in extents),
+        (0.0, 0.0),
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

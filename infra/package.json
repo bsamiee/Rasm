@@ -23,6 +23,7 @@
         "@pulumi/tailscale": "catalog:",
         "@pulumiverse/doppler": "catalog:",
         "@rasm/hosting": "workspace:*",
+        "@rasm/process": "workspace:*",
         "effect": "catalog:",
         "vite": "catalog:"
     },

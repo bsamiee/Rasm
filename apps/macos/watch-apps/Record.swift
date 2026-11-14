@@ -15,7 +15,6 @@ import UniformTypeIdentifiers
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let framesPerSecond: CMTimeScale = 10
-private let logFields: Set<String> = ["processID", "messageType", "subsystem", "category", "eventMessage", "senderImagePath"]
 private let logTime: Date.ISO8601FormatStyle = .init(includingFractionalSeconds: true).year().month().day().dateTimeSeparator(.space).time(includingFractionalSeconds: true)
     .timeZone(separator: .omitted)
 private let fileTime: Date.ISO8601FormatStyle = .init(includingFractionalSeconds: true).dateSeparator(.omitted).timeSeparator(.omitted)
@@ -23,18 +22,49 @@ private let fileTime: Date.ISO8601FormatStyle = .init(includingFractionalSeconds
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct Moment: Encodable {
-    enum Key: CodingKey {
-        case at, line, log, host, movie, clip, frame, fail
+    enum Event: CaseKeyed {
+        case line(any Encodable)
+        case log(LogEvent.Fields)
+        case host(HostLine)
+        case movie(Footage)
+        case clip(Footage)
+        case frame(Footage)
+        case fail(ApplicationFailure)
+    }
+
+    private enum CodingKeys: CodingKey {
+        case at
     }
 
     let at: Date
-    let key: Key
-    let value: any Encodable
+    let event: Event
 
     func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: Key.self)
+        var fields = encoder.container(keyedBy: CodingKeys.self)
         try fields.encode(at, forKey: .at)
-        try fields.encode(value, forKey: key)
+        try event.encode(to: encoder)
+    }
+}
+
+struct LogEvent: Decodable {
+    struct Fields: Codable {
+        let processID: pid_t?
+        let messageType: String?
+        let subsystem: String?
+        let category: String?
+        let eventMessage: String?
+        let senderImagePath: String?
+    }
+
+    private enum CodingKeys: CodingKey {
+        case timestamp
+    }
+
+    let timestamp: Date
+    let fields: Fields
+
+    init(from decoder: any Decoder) throws {
+        (timestamp, fields) = (try Date(decoder.container(keyedBy: CodingKeys.self).decode(String.self, forKey: .timestamp), strategy: logTime), try Fields(from: decoder))
     }
 }
 
@@ -77,8 +107,8 @@ actor Recorder {
         }
     }
 
-    nonisolated func append(_ key: Moment.Key, _ value: any Encodable, at: Date = .now) {
-        do { try timeline.writeAll(encoder.encodeLine(Moment(at: at, key: key, value: value))) } catch { WatchApps.exit(withError: error) }
+    nonisolated func append(_ event: Moment.Event, at: Date = .now) {
+        do { try timeline.writeAll(encoder.encodeLine(Moment(at: at, event: event))) } catch { WatchApps.exit(withError: error) }
     }
 
     private func file(_ window: CGWindowID, _ type: UTType) -> URL {
@@ -107,9 +137,9 @@ actor Recorder {
                 do throws(ApplicationFailure) {
                     let clip = file(window, .quickTimeMovie)
                     try await recording.clip(to: clip)
-                    append(.clip, Footage(file: clip.lastPathComponent, pid: pid, window: window))
+                    append(.clip(Footage(file: clip.lastPathComponent, pid: pid, window: window)))
                 } catch {
-                    append(.fail, error)
+                    append(.fail(error))
                 }
             }
             let shown = (now?.windows ?? []).filter { window in window.asking || window.description[case: \.element]?.subrole == kAXStandardWindowSubrole }
@@ -118,18 +148,18 @@ actor Recorder {
             let shots = await Result { () async throws(ApplicationFailure) in
                 try await framed.isEmpty ? [:] : instance.screenshots(of: Array(framed), longestSide: longestSide)
             }
-            if case .failure(let failure) = shots { append(.fail, failure) }
+            if case .failure(let failure) = shots { append(.fail(failure)) }
             for (window, shot) in shots[case: \.success] ?? [:] {
                 do throws(ApplicationFailure) {
                     let frame = file(window, .png)
                     try shot.get().write(to: frame)
-                    append(.frame, Footage(file: frame.lastPathComponent, pid: pid, window: window))
+                    append(.frame(Footage(file: frame.lastPathComponent, pid: pid, window: window)))
                 } catch {
-                    append(.fail, error)
+                    append(.fail(error))
                 }
             }
             for window in Set(recordings.keys).subtracting(windows) {
-                do throws(ApplicationFailure) { try await recordings.removeValue(forKey: window)?[case: \.success]?.finish() } catch { append(.fail, error) }
+                do throws(ApplicationFailure) { try await recordings.removeValue(forKey: window)?[case: \.success]?.finish() } catch { append(.fail(error)) }
             }
             for window in windows.subtracting(recordings.keys) {
                 let movie = file(window, .quickTimeMovie)
@@ -142,8 +172,8 @@ actor Recorder {
                 }
                 recordings[window] = started
                 switch started {
-                    case .success: append(.movie, Footage(file: movie.lastPathComponent, pid: pid, window: window))
-                    case .failure(let failure): append(.fail, failure)
+                    case .success: append(.movie(Footage(file: movie.lastPathComponent, pid: pid, window: window)))
+                    case .failure(let failure): append(.fail(failure))
                 }
             }
             held[instance] = (recordings, held[instance]?.logging ?? Task { await logging(pid) })
@@ -155,7 +185,7 @@ actor Recorder {
         guard let left = held.removeValue(forKey: instance) else { return }
         left.logging.cancel()
         for case .success(let recording) in left.recordings.values {
-            do throws(ApplicationFailure) { try await recording.finish() } catch { append(.fail, error) }
+            do throws(ApplicationFailure) { try await recording.finish() } catch { append(.fail(error)) }
         }
         _ = await left.logging.value
     }
@@ -173,13 +203,16 @@ actor Recorder {
             let stream = Configuration(executable: .name("log"), arguments: ["stream", "--process", String(pid), "--style", "ndjson"], platformOptions: .session())
             _ = try await Subprocess.run(stream, input: .none, output: .sequence, error: .discarded) { execution in
                 for try await line in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"])) where line.hasPrefix("{") {
-                    let event = try decoder.decode([String: JSONValue].self, from: Data(line.utf8))
-                    guard case .string(let stamp)? = event["timestamp"] else { continue }
-                    append(.log, event.filter { field in logFields.contains(field.key) }, at: try Date(stamp, strategy: logTime))
+                    do {
+                        let event = try decoder.decode(LogEvent.self, from: Data(line.utf8))
+                        append(.log(event.fields), at: event.timestamp)
+                    } catch {
+                        append(.fail(ApplicationFailure(subject: line, reason: .host(error as NSError))))
+                    }
                 }
             }
         } catch  where !Task.isCancelled {
-            append(.fail, ApplicationFailure(subject: "log stream --process \(pid)", reason: .host(error as NSError)))
+            append(.fail(ApplicationFailure(subject: "log stream --process \(pid)", reason: .host(error as NSError))))
         } catch {}
     }
 
@@ -189,10 +222,10 @@ actor Recorder {
                 (file.lastPathComponent, try file.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0)
             }
         }
-        if case .failure(let error) = present { append(.fail, ApplicationFailure(subject: hostLogs.path(percentEncoded: false), reason: .host(error as NSError))) }
+        if case .failure(let error) = present { append(.fail(ApplicationFailure(subject: hostLogs.path(percentEncoded: false), reason: .host(error as NSError)))) }
         var read = Dictionary(present[case: \.success] ?? []) { _, size in size }
         for await batch in FileEvent.events(of: hostLogs) {
-            if case .failure(let failure) = batch { append(.fail, ApplicationFailure(subject: hostLogs.path(percentEncoded: false), reason: .unwatched(failure))) }
+            if case .failure(let failure) = batch { append(.fail(ApplicationFailure(subject: hostLogs.path(percentEncoded: false), reason: .unwatched(failure)))) }
             for file in Set(batch[case: \.success]?.map(\.url) ?? []) where file.pathExtension == "log" {
                 let name = file.lastPathComponent
                 do {
@@ -204,11 +237,11 @@ actor Recorder {
                     let start = offset > text.count ? 0 : offset
                     let fresh = text.dropFirst(start)
                     let whole = fresh.lastIndex(of: UInt8(ascii: "\n")).map { end in fresh[...end] } ?? Data()
-                    read[name] = start + whole.count
                     guard let lines = String(bytes: whole, encoding: .utf8) else { throw CocoaError(.fileReadInapplicableStringEncoding, userInfo: [NSURLErrorKey: file]) }
-                    for line in lines.split(whereSeparator: \.isNewline) { append(.host, HostLine(file: name, text: String(line))) }
+                    read[name] = start + whole.count
+                    for line in lines.split(whereSeparator: \.isNewline) { append(.host(HostLine(file: name, text: String(line)))) }
                 } catch {
-                    append(.fail, ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError)))
+                    append(.fail(ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError))))
                 }
             }
         }

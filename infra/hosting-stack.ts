@@ -60,21 +60,15 @@ const placed = Effect.fnUntraced(function* (context: ExecutorContext, directory:
     const image = machine.imaged(
         name,
         `# syntax=docker/dockerfile:1
-FROM jdxcode/mise:2026.11.7-debian AS node
-ARG NODE_VERSION
-ENV MISE_DATA_DIR=/mise MISE_NODE_VERSION=\${NODE_VERSION}
-RUN ["mise", "install", "node"]
-FROM gcr.io/distroless/cc-debian13:nonroot
-ARG NODE_VERSION
-COPY --from=node /usr/lib/*-linux-gnu/libatomic.so.1 /usr/lib/
-COPY --from=node /mise/installs/node/\${NODE_VERSION}/bin/node /usr/local/bin/node
+FROM node:${process.versions.node}-slim
+USER node
 WORKDIR /app
 COPY --from=client / ./${App.bundle.assets}
 COPY . .
 ENTRYPOINT ["node"]
 CMD ["${App.bundle.entry}.js"]
 `,
-        { context: { location: bundle.server, named: { client: { location: bundle.client } } }, buildArgs: { NODE_VERSION: process.versions.node } },
+        { context: { location: bundle.server, named: { client: { location: bundle.client } } } },
     );
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.routers.${name}.middlewares`]: Machine.guard });
     const serving = machine.contained(

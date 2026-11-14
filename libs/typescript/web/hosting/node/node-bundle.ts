@@ -25,6 +25,7 @@ const nodeServer = ({ entry }: { readonly entry: string }): Plugin => ({
                     emptyOutDir: true,
                     copyPublicDir: false,
                     sourcemap: true,
+                    target: 'esnext',
                     rolldownOptions: { input: { [App.bundle.entry]: START }, platform: 'node' },
                 },
             },

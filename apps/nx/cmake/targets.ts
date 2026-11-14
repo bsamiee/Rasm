@@ -1,10 +1,9 @@
 import { basename, dirname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { quoteShellArg } from '@nx/devkit/internal';
-import { aggregated } from '@rasm/nx-distribution';
+import { mergeTargetConfigurations, quoteShellArg } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record } from 'effect';
-import { configured, PACKAGING, PRESETS, planted, type Tree } from '#/workspace';
+import { configured, ENVIRONMENT, PACKAGING, PRESETS, planted, type Tree } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,10 +15,19 @@ type Workflow = Tree['workflows'][number];
 const CONFIG = '.clang-tidy';
 const PLUGIN = '@rasm/nx-cmake';
 const SHARED = distribution.name;
+const SHELL = /[\\"`$]/gu;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const tokened = (file: string) => join('{workspaceRoot}', file);
+
+const shelled = (word: string) =>
+    word.includes('$env{')
+        ? `"${word
+              .split(ENVIRONMENT)
+              .map((part, at) => (at % 2 === 0 ? part.replaceAll(SHELL, String.raw`\$&`) : `\${${part}}`))
+              .join('')}"`
+        : quoteShellArg(word);
 
 const memberInputs = (tree: Tree, member: Member, stated: TargetConfiguration['inputs']): NonNullable<TargetConfiguration['inputs']> => [
     ...(stated ?? (member.folders.includes(member.root) ? ['{projectRoot}/**/*'] : member.folders.map((folder) => tokened(join(folder, '**/*'))))),
@@ -28,7 +36,7 @@ const memberInputs = (tree: Tree, member: Member, stated: TargetConfiguration['i
     { runtime: 'node -p process.platform+process.arch' },
 ];
 
-const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<string>, files: ReadonlySet<string>, head: Workflow): Record<string, TargetConfiguration> => {
+const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<string>, files: ReadonlySet<string>, head: Workflow, declared: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
     const others = tree.workflows.filter((workflow) => workflow !== head);
     const within = (at: string) => relative(tree.root, at) || '.';
     const preset = (name: string | undefined) => Array.fromNullishOr(name).flatMap((stated) => ['--preset', stated]);
@@ -54,7 +62,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
         const ran = (commands: readonly (readonly string[])[], outputs: readonly string[] = []) => ({
             cwd: shared.cwd,
             parallel: false,
-            commands: [shared.configure, ...commands].map((argv, at, all) => ({ command: argv.map(quoteShellArg).join(' '), forwardAllArgs: at === all.length - 1 })),
+            commands: [shared.configure, ...commands].map((argv, at, all) => ({ command: argv.map(shelled).join(' '), forwardAllArgs: at === all.length - 1 })),
             ...(outputs.length > 0 && { outputs }),
         });
         return { at: workflow.tree, folder: join(workflow.tree, member.build), shared, ran };
@@ -80,7 +88,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
     const tests = (workflow: Workflow) => {
         const { at, folder, ran } = planned(workflow);
         const report = join(planted(outputPath, tree.root, 'ctest', member.name), `${workflow.name}.xml`);
-        return ran([['ctest', ...preset(workflow.test), '--test-dir', within(folder), '--output-junit', relative(folder, report)], ...Array.fromNullishOr(workflow.after).map((stated) => ['cmake', '--build', within(at), '--preset', stated])], [tokened(report)]);
+        return ran([['ctest', ...preset(workflow.test), '--test-dir', within(folder), ...(workflow === head ? ['--no-tests=error'] : []), '--output-junit', tokened(report)], ...Array.fromNullishOr(workflow.after).map((stated) => ['cmake', '--build', within(at), '--preset', stated])], [tokened(report)]);
     };
     const installs = (workflow: Workflow) => {
         const { at, folder, ran } = planned(workflow);
@@ -101,7 +109,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
     };
     const cleans = (workflow: Workflow) => {
         const { at, shared } = planned(workflow);
-        return { cwd: shared.cwd, commands: [shared.configure, Array.make('cmake', '--build', within(at), '--target', 'clean')] };
+        return { cwd: shared.cwd, commands: [shared.configure, ['cmake', '--build', ...(workflow.stated && workflow.build !== undefined ? ['--preset', workflow.build] : [within(at)]), '--target', 'clean']] };
     };
     const packs = (workflow: Workflow, stated: string, names: Array.NonEmptyReadonlyArray<string>) => {
         const { at, folder, ran } = planned(workflow);
@@ -109,38 +117,48 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
         const packed = ['cpack', '--preset', stated, '--config', run(join(folder, PACKAGING)), '-B', run(folder), '-D', `CPACK_OUTPUT_FILE_PREFIX=${run(archives)}`];
         return { archives, options: ran([compiled(workflow, at, names), ['cmake', '-E', 'rm', '-rf', within(archives)], packed]) };
     };
-    const built = Record.getSomes<string, TargetConfiguration>({
-        'build--cmake': Option.map(targets, (names) => target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { cache: true, outputs: products.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) })),
-        'pack--cpack': Option.map(Option.all({ packed: packing, names: targets }), ({ packed: { workflow, stated }, names }) => {
-            const { archives, options } = packs(workflow, stated, names);
-            return target('cpack', `Builds ${member.name} in workflow ${workflow.name}, empties its package folder, and packs its install tree with CPack, which names the archive`, options, { cache: true, outputs: [tokened(archives)] });
-        }),
-        'check--clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-tidy', `Reports clang-tidy findings and failed header-set verification for ${member.name} in workflow ${workflow.name}, each as an error`, checks(workflow, names), { cache: true, inputs: [...sources, ...tidied] })),
-        'fix--clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-apply-replacements', `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines`, fixes(workflow, names), {})),
+    const cpack = Option.map(Option.all({ packed: packing, names: targets }), ({ packed: { workflow, stated }, names }) => {
+        const { archives, options } = packs(workflow, stated, names);
+        return target('cpack', `Builds ${member.name} in workflow ${workflow.name}, empties its package folder, and packs its install tree with CPack, which names the archive`, options, { cache: true, outputs: [tokened(archives)] });
     });
-    const tools: Record<string, TargetConfiguration> = {
-        ...built,
-        ...(member.tested && { 'test--ctest': target('ctest', `Runs the tests CTest lists under ${member.name}`, tests(head), { cache: true, ...waits, outputs: ['{options.outputs.0}'], ...varied(tests) }) }),
-        ...(member.installs && { 'install--cmake': target('cmake --install', `Builds ${member.name}, then installs it under the install prefix its configure preset states`, installs(head), varied(installs)) }),
+    const tools: Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>> = {
+        build: Record.getSomes({ cmake: Option.map(targets, (names) => target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { cache: true, outputs: products.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) })) }),
+        pack: Record.getSomes({ cpack }),
+        check: Record.getSomes({
+            'clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-tidy', `Reports clang-tidy findings and failed header-set verification for ${member.name} in workflow ${workflow.name}, each as an error`, checks(workflow, names), { cache: true, inputs: [...sources, ...tidied] })),
+        }),
+        fix: Record.getSomes({ 'clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-apply-replacements', `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines`, fixes(workflow, names), {})) }),
+        test: { ...(member.tested && { ctest: target('ctest', `Runs the tests CTest lists under ${member.name}`, tests(head), { cache: true, ...waits, outputs: ['{options.outputs.0}'], ...varied(tests) }) }) },
+        install: { ...(member.installs && { cmake: target('cmake --install', `Builds ${member.name}, then installs it under the install prefix its configure preset states`, installs(head), varied(installs)) }) },
     };
-    const written = Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0));
+    const written = Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
     const cleaning: TargetConfiguration = Option.match(targets, {
         onNone: () => ({ metadata: { description: `Removes the outputs ${written.join(', ')} declare` } }),
         onSome: () => ({ options: cleans(head), parallelism: false, ...varied(cleans), metadata: { description: `Removes the build products of ${member.name} with the clean target of its configured tree`, help: { command: 'cmake --build', example: { args: ['--verbose'] } } } }),
     });
-    const delivered: Record<string, TargetConfiguration> = {
+    const verbs: typeof tools = {
         ...tools,
-        ...((Option.isSome(targets) || written.length > 0) && { 'clean--cmake': { executor: `${SHARED}:clean`, inputs: sources, ...cleaning, options: { ...cleaning.options, targets: written } } }),
-        ...('pack--cpack' in tools && {
-            'attach--gh': {
-                executor: `${SHARED}:attach`,
-                dependsOn: ['pack--cpack'],
-                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
-                metadata: { description: "Uploads the files pack--cpack wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
-            },
-        }),
+        clean: { ...((Option.isSome(targets) || written.length > 0) && { cmake: { executor: `${SHARED}:clean`, inputs: sources, ...cleaning, options: { ...cleaning.options, targets: written } } }) },
+        attach: {
+            ...(Option.isSome(cpack) && {
+                gh: {
+                    executor: `${SHARED}:attach`,
+                    dependsOn: ['pack--cpack'],
+                    inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                    metadata: { description: "Uploads the files pack--cpack wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+                },
+            }),
+        },
     };
-    return aggregated(Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['cmake'], ...tool.metadata } })));
+    return Record.fromEntries(
+        Record.collect(
+            Record.filter(verbs, (held) => !Record.isEmptyRecord(held)),
+            (verb, held): readonly (readonly [string, TargetConfiguration])[] => [
+                ...Record.collect(held, (tool, row): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...row, metadata: { technologies: ['cmake'], ...row.metadata } }]),
+                [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(held, (tool, row) => mergeTargetConfigurations(declared[`${verb}--${tool}`] ?? {}, row, undefined, undefined, undefined, false).inputs ?? ['default', '^default']).flat())] }],
+            ],
+        ).flat(),
+    );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

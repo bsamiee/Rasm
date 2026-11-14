@@ -1,26 +1,19 @@
-import { execFile } from 'node:child_process';
-import { readdirSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
-import { promisify } from 'node:util';
-import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { findPackageJSON } from 'node:module';
+import { basename, dirname, join, relative } from 'node:path';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Context, Effect, Formatter, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
-import { CONFIGS, documents, refused, SHARED, targets } from '#/targets';
+import { Array, Effect, Option, Predicate, Record, Result, Schema, UndefinedOr } from 'effect';
+import { CONFIGS, documents, Linked, manifested, printed, run, SHARED, targets, UvError } from '#/targets';
 import { folders, LOCK, located, Metadata, report } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Read = PluginCache<{ readonly digest: string; readonly metadata: typeof Metadata.Type }>;
+type Read = PluginCache<{ readonly digest: string; readonly reply: string }>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const FILES = combineGlobPatterns([LOCK, 'uv.toml', '.python-version', ...CONFIGS].map((file) => `**/${file}`));
-const CODE = hashArray(
-    readdirSync(import.meta.dirname, { withFileTypes: true })
-        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
-        .toSorted(),
-);
+const ROOT = '{workspaceRoot}';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,33 +21,31 @@ const Placed = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).
     description: 'outputPath: workspace folder holding distributions as <outputPath>/uv/<member> and coverage reports as <outputPath>/coverage/<member>, absent writes distributions under dist in each uv workspace and no coverage report',
 });
 
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Links extends Context.Service<Links, Map<string, readonly RawProjectGraphDependency[]>>()('@rasm/nx-uv/plugin/Links') {
-    static readonly layer = Layer.sync(Links, () => new Map());
-}
+const Quoted = Schema.fromJsonString(Schema.String);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, outputPath: Option.Option<string>, digest: string, lock: string) {
-    const current = Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest);
-    const metadata = yield* Option.match(current, {
-        onSome: (held) => Effect.succeed(held.metadata),
-        onNone: () =>
-            Effect.tryPromise({
-                try: (signal) => promisify(execFile)('uv', ['workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { encoding: 'utf8', cwd: join(workspaceRoot, dirname(lock)), maxBuffer: Number.POSITIVE_INFINITY, signal }),
-                catch: refused(lock, 'uv does not exit 0'),
-            }).pipe(
-                Effect.flatMap(({ stdout }) => Schema.decodeEffect(Metadata)(stdout)),
-                Effect.tap((read) => Effect.sync(() => cache.set(lock, { digest, metadata: read }))),
-            ),
-    });
+    const placed = (yield* Schema.encodeEffect(Quoted)(workspaceRoot)).slice(1, -1);
+    const reply = yield* Option.match(
+        Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest),
+        {
+            onSome: (held) => Effect.succeed(held.reply.replaceAll(ROOT, placed)),
+            onNone: () =>
+                Effect.tap(
+                    Effect.map(printed('uv', ['workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: join(workspaceRoot, dirname(lock)) }), ({ stdout }) => stdout),
+                    (stdout) => Effect.sync(() => cache.set(lock, { digest, reply: stdout.replaceAll(placed, ROOT) })),
+                ),
+        },
+    );
+    const metadata = yield* Schema.decodeEffect(Metadata)(reply);
     const { documented, unparsed } = yield* documents(workspaceRoot, folders(workspaceRoot, metadata));
     const { members, edges, failures } = yield* located(workspaceRoot, report(workspaceRoot, lock, metadata, documented));
-    yield* Array.match([...unparsed, ...failures], { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, errors.map(({ message }) => message).join('; '))) });
-    const links = yield* Links;
+    yield* Array.match([...unparsed, ...failures], { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(UvError.of({ _tag: 'Refused', rule: errors.map(({ message }) => message).join('; ') }, lock)(errors)) });
+    const links = yield* Linked;
     links.set(workspaceRoot, [...(links.get(workspaceRoot) ?? []), ...edges]);
-    const projects = Record.fromIterableWith(members, (member): [string, ProjectConfiguration] => [
+    const manifests = yield* Effect.forEach(members, (member) => manifested(workspaceRoot, member.root));
+    const projects = Record.fromIterableWith(Array.zip(members, manifests), ([member, manifest]): [string, ProjectConfiguration] => [
         member.root,
         {
             root: member.root,
@@ -62,7 +53,7 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
             metadata: { technologies: ['python'] },
             ...(member.packaged && { tags: ['release'], release: { version: { versionActions: '@rasm/nx-uv/release/version-actions', versionActionsOptions: { lock } } } }),
             ...(member.implicit !== undefined && { implicitDependencies: [...member.implicit] }),
-            targets: targets(member, outputPath),
+            targets: targets(member, outputPath, manifest),
         },
     ]);
     return { projects };
@@ -70,20 +61,18 @@ const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: Cr
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const runtime = ManagedRuntime.make(Layer.merge(Links.layer, layer));
-
 const createNodes: CreateNodes = [
     FILES,
     (matched, options, context) => {
         const cache: Read = new PluginCache(join(workspaceDataDirectory, 'uv.hash'));
         const outputPath = Option.flatMap(Schema.decodeOption(Placed)({ ...context.nxJsonConfiguration.pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) }), (placed) => Option.fromUndefinedOr(placed.outputPath));
         const locks = matched.filter((file) => basename(file) === LOCK);
-        return runtime.runPromise(
+        return run(
             Effect.gen(function* () {
-                const digest = hashArray([CODE, yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES]))]);
-                (yield* Links).delete(context.workspaceRoot);
+                const digest = hashArray([...Array.fromNullishOr(UndefinedOr.map(findPackageJSON(import.meta.url), hashFile)), yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES, join(relative(context.workspaceRoot, import.meta.dirname), '**')]))]);
+                (yield* Linked).delete(context.workspaceRoot);
                 const read = Array.zip(locks, yield* Effect.forEach(locks, (lock) => Effect.result(inferred(cache, context, outputPath, digest, lock)), { concurrency: 'unbounded' }));
-                const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, refused(lock, Formatter.format(error))(error)]));
+                const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, error]));
                 const results = Array.filterMap(read, ([lock, result]) => Result.map(result, (held) => [lock, held] as const));
                 return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
             }).pipe(Effect.ensuring(Effect.sync(() => cache.writeToDisk()))),
@@ -92,8 +81,8 @@ const createNodes: CreateNodes = [
 ];
 
 const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) =>
-    runtime.runPromise(
-        Effect.map(Links, (links) => {
+    run(
+        Effect.map(Linked, (links) => {
             const names = createProjectRootMappingsFromProjectConfigurations(projects);
             return Array.getSomes((links.get(workspaceRoot) ?? []).map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(names.get(edge.source)), target: Option.fromUndefinedOr(names.get(edge.target)) }), (named) => ({ ...edge, ...named }))));
         }),

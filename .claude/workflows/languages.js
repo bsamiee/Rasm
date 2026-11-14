@@ -95,7 +95,7 @@ return {
       release: 'CMakeLists.txt `cmake_minimum_required`, the `cxx_std_26` feature of each target, the LLVM release .config/mise.lock pins, and each library at the vcpkg.json `builtin-baseline`',
       outlines: ['cpp'],
       metadata: [],
-      pathspec: ["'*.cpp'", "'*.cppm'", "'*.ixx'", "'*.hpp'", "'*.h'", "'*CMakeLists.txt'", "'*.cmake'", "'CMakePresets.json'", "'*.mm'", "'vcpkg.json'", "'.clang-format'", "'.clang-tidy'", "'.clangd'", "'.config/gersemi.yaml'"],
+      pathspec: ["'*.cpp'", "'*.cppm'", "'*.ixx'", "'*.hpp'", "'*.h'", "'*CMakeLists.txt'", "'*.cmake'", "'CMakePresets.json'", "'*.mm'", "'vcpkg.json'", "'.clang-format'", "'.clang-tidy'", "'.config/gersemi.yaml'"],
       unit: 'folder holding the nearest CMakeLists.txt with a project() call',
       owners: [
         { name: 'clang-tidy', paths: ['.clang-tidy'], decides: 'a clang-tidy check, option row, or query-based house rule', skills: [] },

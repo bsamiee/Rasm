@@ -1,17 +1,13 @@
 {
-    "name": "rasm",
-    "description": "Claude Code plugins of Rasm monorepo",
-    "owner": {
-        "name": "Bardia Samiee"
-    },
-    "plugins": [
-        {
-            "name": "clangd",
-            "source": "./clangd"
-        },
-        {
-            "name": "function-hooks",
-            "source": "./function-hooks"
-        }
-    ]
+  "name": "rasm",
+  "description": "Claude Code plugins of Rasm monorepo",
+  "owner": {
+    "name": "Bardia Samiee"
+  },
+  "plugins": [
+    {
+      "name": "function-hooks",
+      "source": "./function-hooks"
+    }
+  ]
 }

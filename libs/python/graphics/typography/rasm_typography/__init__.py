@@ -1,6 +1,6 @@
 """Font engineering over bytes and design records: face import, glyph roles, outlines, HarfBuzz shaping, Perso-Arabic rules as data, ufo2ft compilation, and requirement checks."""
 
-lazy from rasm_typography._builds import compressed, constructed, Construction
+lazy from rasm_typography._builds import compressed, constructed, Construction, metered
 lazy from rasm_typography._faces.coverage import Coverage, Excluded
 lazy from rasm_typography._faces.declaration import (
     Advance,
@@ -36,11 +36,12 @@ lazy from rasm_typography._faces.declaration import (
     Values,
     Weight,
 )
-lazy from rasm_typography._faces.glyphs import Anchor, Component, Control, Digit, Glyph, Info, Letter, Ligature, Mark, Ornament, Point, recorded, Sign, Source, Space, VerticalMetrics
+lazy from rasm_typography._faces.glyphs import Anchor, Component, Control, Digit, Glyph, Info, Joining, Letter, Ligature, Mark, Ornament, Point, recorded, Sign, Source, Space, VerticalMetrics
 lazy from rasm_typography._faces.importing import imported
 lazy from rasm_typography._faces.layout import Contextual, Lifts, Ligatures, Lookups, Pairs, Positions, Single, Tag
 lazy from rasm_typography._outlines.measure import perimeter
 lazy from rasm_typography._outlines.nib import extruded, monoline, swept
+lazy from rasm_typography._outlines.paths import area, offset, pieces, union
 lazy from rasm_typography._requirements import (
     Covered,
     Distinct,
@@ -116,6 +117,7 @@ __all__ = [
     "Identity",
     "Info",
     "JoinParity",
+    "Joining",
     "Joins",
     "Kufi",
     "Letter",
@@ -173,16 +175,21 @@ __all__ = [
     "VerticalMetrics",
     "Weight",
     "WordSigns",
+    "area",
     "bounded_glyph",
     "compressed",
     "constructed",
     "extruded",
     "imported",
+    "metered",
     "monoline",
+    "offset",
     "perimeter",
+    "pieces",
     "planned",
     "recorded",
     "requirements",
     "swept",
+    "union",
     "verified",
 ]

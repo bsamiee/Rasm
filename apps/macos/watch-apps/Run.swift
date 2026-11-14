@@ -102,7 +102,7 @@ final class Run: Sendable {
 
     private func emit(_ line: Data, logging shown: some Encodable, as key: String) {
         let record = encoded(Record(line: shown))
-        recorder?.append(.line, shown)
+        recorder?.append(.line(shown))
         let open = held.withLock { held in
             do {
                 try held.journal?.append(record, replacing: key)

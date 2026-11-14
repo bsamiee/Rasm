@@ -106,6 +106,7 @@ gh                                                                           = "
 git-lfs                                                                      = "latest"
 "github:docker/buildx"                                                       = { bin = "docker-buildx", os = ["macos", "linux"], postinstall = { run = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$plugins/docker-buildx"', when = "always" }, version = "latest" }
 "github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
+"github:harehare/mq"                                                         = "latest"
 "github:kucherenko/jscpd"                                                    = "latest"
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
 "github:sbdchd/squawk"                                                       = "latest"
@@ -119,7 +120,7 @@ java                                                                         = "
 jq                                                                           = "latest"
 lima                                                                         = { os = ["macos"], version = "latest" }
 ninja                                                                        = "latest"
-node                                                                         = "latest"
+node                                                                         = "26"
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
 "npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
 pitchfork                                                                    = { os = ["macos"], version = "latest" }
@@ -139,6 +140,7 @@ swiftlint                                                                    = {
 tombi                                                                        = "latest"
 tree-sitter                                                                  = "latest"
 uv                                                                           = "latest"
+xh                                                                           = "latest"
 yq                                                                           = "latest"
 
 [tools."github:apple/pkl-vscode"]

@@ -1,9 +1,8 @@
-import { spawnSync } from 'node:child_process';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema } from 'effect';
 import { getFilesForOutputsBatch } from 'nx/src/native/index';
-import { run } from '#/executor';
+import { run, spawned, Words } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -11,6 +10,7 @@ const Clean = Schema.Struct({
     targets: Schema.Array(Schema.String).annotate({ description: 'Targets of the project, each declared output of every configuration is removed', default: [] }),
     commands: Schema.Array(Schema.NonEmptyArray(Schema.String)).annotate({ description: "The tool's own clean commands, each an argument list", default: [] }),
     cwd: Schema.String.annotate({ description: 'Folder the commands run in, relative to the workspace root', default: '.' }),
+    __unparsed__: Words,
 }).annotate({ title: 'Clean', description: "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source" });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -32,7 +32,7 @@ const cleared = Effect.fnUntraced(function* (root: string, output: string, negat
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ targets, commands, cwd }: typeof Clean.Type, context: ExecutorContext) {
+const execute = Effect.fnUntraced(function* ({ targets, commands, cwd, __unparsed__: words = [] }: typeof Clean.Type, context: ExecutorContext) {
     const [path, project] = yield* Effect.all([Path.Path, Effect.fromNullishOr(context.projectName)]);
     const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
     const selections = targets.flatMap((target) => [{ target }, ...Record.keys(node.data.targets?.[target]?.configurations ?? {}).map((configuration) => ({ target, configuration }))]);
@@ -40,9 +40,9 @@ const execute = Effect.fnUntraced(function* ({ targets, commands, cwd }: typeof 
         Array.dedupe(selections.flatMap((selected) => getOutputsForTargetAndConfiguration({ project, ...selected }, {}, node))),
         Result.liftPredicate((output: string) => !output.startsWith('!'), Function.identity),
     );
-    const success = yield* Effect.sync(() => commands.every(([command, ...args]) => spawnSync(command, args, { cwd: path.join(context.root, cwd), stdio: 'inherit' }).status === 0));
-    yield* Effect.forEach(success ? outputs : [], (output) => cleared(context.root, output, negated), { discard: true });
-    return { success };
+    yield* Effect.forEach(commands, (command) => spawned(Array.appendAll(command, words), { cwd: path.join(context.root, cwd) }), { discard: true });
+    yield* Effect.forEach(outputs, (output) => cleared(context.root, output, negated), { discard: true });
+    return { success: true };
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

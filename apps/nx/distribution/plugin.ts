@@ -1,13 +1,11 @@
-import { execFile } from 'node:child_process';
 import { constants } from 'node:http2';
 import { basename, join, matchesGlob, relative } from 'node:path';
 import process, { platform } from 'node:process';
-import { promisify } from 'node:util';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, hashArray, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns } from '@nx/devkit/internal';
+import { combineGlobPatterns, mergeTargetConfigurations, quoteShellArg } from '@nx/devkit/internal';
 import { Array, Cause, Config, Console, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
-import { run } from '#/executor';
+import { run, spawned } from '#/executor';
 import { type Fields, HOSTS, type Host } from '#/host-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -17,6 +15,8 @@ interface Declared {
     readonly root: string;
     readonly fields: Fields;
     readonly lock?: string;
+    readonly engines: readonly string[];
+    readonly stated: Readonly<Record<string, TargetConfiguration>>;
     readonly host: Host;
 }
 
@@ -30,6 +30,10 @@ const CACHE = { server: 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER', token: 'NX_SELF_HO
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Placed = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({ description: 'outputPath: workspace folder each host package is written under as <outputPath>/<technology>/<project name>, absent writes to dist/<project root>' });
+const Input = Schema.declare((input: unknown): input is NonNullable<TargetConfiguration['inputs']>[number] => Predicate.isString(input) || Predicate.isObject(input));
+const Overrides = Schema.fromJsonString(Schema.Struct({ nx: Schema.optionalKey(Schema.Struct({ targets: Schema.optionalKey(Schema.Record(Schema.String, Schema.Struct({ inputs: Schema.optionalKey(Schema.mutable(Schema.Array(Input))) }))) })) })).annotate({
+    description: "The nx.targets rows of a project's package.json, whose inputs Nx merges over the inferred targets after every plugin",
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -42,28 +46,35 @@ const read = Effect.fnUntraced(function* (files: readonly string[], { workspaceR
         ),
     );
     const local = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms = [platform] }) => platforms.includes(platform));
-    const installing = yield* Effect.filter(local, ({ install }) => UndefinedOr.match(install?.probe, { onUndefined: () => Effect.succeed(true), onDefined: ([command, ...args]) => Effect.map(Effect.option(Effect.tryPromise((signal) => promisify(execFile)(command, args, { signal }))), Option.isSome) }));
+    const installing = yield* Effect.filter(local, ({ install }) => UndefinedOr.match(install?.probe, { onUndefined: () => Effect.succeed(true), onDefined: (probe) => Effect.isSuccess(spawned(probe, { stdout: 'ignore', stderr: 'ignore' })) }));
     const one = Effect.fnUntraced(function* ({ file, host, root }: (typeof matched)[number]) {
         const segments = root.split('/');
         const above = Array.makeBy(segments.length + 1, (up) => join(...segments.slice(0, segments.length - up)));
         const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(above, Array.fromNullishOr(host.build?.lock), join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
-        const engined = local.includes(host) && (host.held === undefined || (yield* host.held(join(workspaceRoot, file))));
+        const stamp = local.includes(host) && host.engine !== undefined ? yield* host.engine(join(workspaceRoot, file)) : Option.none<string>();
+        const engined = local.includes(host) && (host.engine === undefined || Option.isSome(stamp));
         const fields = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), (text) => host.read(text, file));
+        const manifest = yield* Effect.option(
+            fs.readFileString(join(workspaceRoot, root, 'package.json')).pipe(
+                Effect.flatMap(Schema.decodeEffect(Overrides)),
+                Effect.map(({ nx }) => ({ ...nx?.targets })),
+            ),
+        );
         const withheld: readonly ((typeof WITHHELD)[number] | 'install')[] = [...(engined ? [] : WITHHELD), ...(installing.includes(host) ? [] : (['install'] as const))];
-        return Option.map(fields, (stated): Declared => ({ file, root, fields: stated, host: Struct.omit(host, withheld), ...Option.getOrUndefined(lock) }));
+        return Option.map(
+            fields,
+            (stated): Declared => ({
+                file,
+                root,
+                fields: stated,
+                host: Struct.omit(host, withheld),
+                engines: Option.toArray(stamp),
+                stated: Option.getOrElse(manifest, Record.empty),
+                ...Option.getOrUndefined(lock),
+            }),
+        );
     });
     return yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
-});
-
-const aggregated = (tools: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => ({
-    ...tools,
-    ...Record.map(
-        Array.groupBy(
-            Object.entries(tools).filter(([label]) => label.includes('--')),
-            ([label]) => label.slice(0, label.indexOf('--')),
-        ),
-        (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs = [] }]) => inputs)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-    ),
 });
 
 const projects = (declared: readonly Declared[], placed: Option.Option<string>) => {
@@ -85,6 +96,7 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             ...Array.fromNullishOr(build?.pack).map(() => ({ dependentTasksOutputFiles: '**/*' })),
             ...Array.fromNullishOr(item.lock).map((lock) => `{workspaceRoot}/${lock}`),
             ...Array.fromNullishOr(build?.runtime).flatMap((runtimes) => runtimes.map((runtime) => ({ runtime }))),
+            ...Array.dedupe(loading.flatMap((other) => other.engines)).map((stamp) => ({ runtime: ['cat', stamp].map(quoteShellArg).join(' ') })),
             ...loading.filter((other) => other !== item).map((other) => `{workspaceRoot}/${other.file}`),
             { externalDependencies: [] },
         ];
@@ -99,62 +111,77 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             { onEmpty: () => [], onNonEmpty: (holders) => [{ projects: holders.map((other) => other.fields.name), target: 'build' }] },
         );
         const operated = (verb: keyof NonNullable<Host['operations']>, extra: TargetConfiguration) =>
-            Array.fromNullishOr(build).flatMap(({ executor }) =>
-                Array.fromNullishOr(operations[verb]).map(({ command, options }): readonly [string, TargetConfiguration] => [
-                    verb,
-                    { executor: `${PLUGIN}:${executor}`, parallelism: false, ...extra, options: { ...settings, ...options, ...extra.options }, metadata: { description: `Runs ${command} for the ${technology} project its ${manifest} declares` } },
-                ]),
+            Option.flatMap(Option.fromUndefinedOr(build), ({ executor }) =>
+                Option.map(
+                    Option.fromUndefinedOr(operations[verb]),
+                    ({ command, options }): TargetConfiguration => ({
+                        executor: `${PLUGIN}:${executor}`,
+                        parallelism: false,
+                        ...extra,
+                        options: { ...settings, ...options, ...extra.options },
+                        metadata: { description: `Runs ${command} for the ${technology} project its ${manifest} declares` },
+                    }),
+                ),
             );
-        const installs = Option.match(
+        const written = UndefinedOr.match(operations.pack, {
+            onUndefined: () => [...Array.fromNullishOr(archive).map((extension) => `{options.outputPath}/*${extension}`), ...(build?.outputs?.(item.fields) ?? []).map((at) => join('{projectRoot}', at))],
+            onDefined: () => ['{options.outputPath}/package'],
+        });
+        const installed = Option.match(
             Option.filter(Option.fromUndefinedOr(install), ({ platforms: on = [platform] }) => on.includes(platform)),
             {
-                onSome: ({ command, unpacked = false }): readonly (readonly [string, TargetConfiguration])[] => [
-                    ['install', { executor: `${PLUGIN}:install`, dependsOn: [unpacked ? `build--!(${technology})` : 'build'], metadata: { description: `Installs what build wrote in the run's configuration where its host loads it, through ${command}` } }],
-                ],
-                onNone: () => [
-                    ...held.map((host): readonly [string, TargetConfiguration] => ['install', { executor: 'nx:noop', dependsOn: [host], metadata: { description: `Builds ${host.projects.join(', ')}, the host the result loads in` } }]),
-                    ...(users(item).length > 0 ? operated('install', { dependsOn: [builder, ...held], options: { users: users(item).map((other) => other.file) } }) : []),
-                ],
+                onSome: ({ command, unpacked = false }) => Option.some<TargetConfiguration>({ executor: `${PLUGIN}:install`, dependsOn: [unpacked ? `build--!(${technology})` : 'build'], metadata: { description: `Installs what build wrote in the run's configuration where its host loads it, through ${command}` } }),
+                onNone: () =>
+                    Option.orElse(
+                        Option.flatMap(Option.liftPredicate(users(item), Array.isReadonlyArrayNonEmpty), (loaded) => operated('install', { dependsOn: [builder, ...held], options: { users: loaded.map((other) => other.file) } })),
+                        () => Option.map(Array.head(held), (host): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [host], metadata: { description: `Builds ${host.projects.join(', ')}, the host the result loads in` } })),
+                    ),
             },
         );
-        const verbs: readonly (readonly [string, TargetConfiguration])[] = [
-            ...Array.fromNullishOr(build).map(({ executor, command, pack }): readonly [string, TargetConfiguration] => [
-                'build',
-                {
-                    executor: `${PLUGIN}:${executor}`,
-                    dependsOn: [...Array.fromNullishOr(pack).map(() => 'build--*'), ...required],
-                    options: settings,
-                    parallelism: !standalone,
-                    cache: archive !== undefined,
-                    inputs,
-                    outputs: UndefinedOr.match(operations.pack, { onUndefined: () => Array.fromNullishOr(archive).map((extension) => `{options.outputPath}/*${extension}`), onDefined: () => ['{options.outputPath}/package'] }),
-                    metadata: { description: `Builds the ${technology} project its ${manifest} declares through ${command}` },
-                },
-            ]),
-            ...Array.fromNullishOr(build)
-                .filter(() => standalone)
-                .map((): readonly [string, TargetConfiguration] => ['check', { executor: 'nx:noop', dependsOn: [builder], inputs, metadata: { description: 'Compiles the project as its check' } }]),
-            ...operated('check', { cache: true, inputs, dependsOn: required }),
-            ...(loading.some((other) => other !== item) ? operated('test', { cache: true, inputs, dependsOn: [`install--${technology}`], outputs: ['{options.outputPath}/report'] }) : []),
-            ...operated('pack', { cache: true, inputs, dependsOn: [builder], outputs: ['{options.outputPath}/archive'] }),
-            ...installs,
-        ];
-        const tools = Record.fromIterableWith(verbs, ([verb, target]): [string, TargetConfiguration] => [`${verb}--${technology}`, { ...target, metadata: { technologies: [technology], ...target.metadata } }]);
-        const delivered: Record<string, TargetConfiguration> = {
-            ...tools,
-            ...Array.match(Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)), {
-                onEmpty: () => ({}),
-                onNonEmpty: (written) => ({ [`clean--${technology}`]: { executor: `${PLUGIN}:clean`, options: { targets: written }, metadata: { technologies: [technology], description: `Removes the outputs ${written.join(', ')} declare` } } }),
+        const own = Record.map(
+            Record.getSomes({
+                build: Option.map(
+                    Option.fromUndefinedOr(build),
+                    ({ executor, command, pack }): TargetConfiguration => ({
+                        executor: `${PLUGIN}:${executor}`,
+                        dependsOn: [...Array.fromNullishOr(pack).map(() => 'build--*'), ...required],
+                        options: settings,
+                        parallelism: !standalone,
+                        cache: written.length > 0,
+                        inputs,
+                        outputs: written,
+                        metadata: { description: `Builds the ${technology} project its ${manifest} declares through ${command}` },
+                    }),
+                ),
+                check: Option.orElse(operated('check', { cache: true, inputs, dependsOn: required }), () =>
+                    Option.filter(
+                        Option.map(Option.fromUndefinedOr(build), (): TargetConfiguration => ({ executor: 'nx:noop', dependsOn: [builder], inputs, metadata: { description: 'Compiles the project as its check' } })),
+                        () => standalone,
+                    ),
+                ),
+                test: Option.flatMap(
+                    Option.liftPredicate(loading, (all) => all.some((other) => other !== item)),
+                    () => operated('test', { cache: true, inputs, dependsOn: [`install--${technology}`], outputs: ['{options.outputPath}/report'] }),
+                ),
+                pack: operated('pack', { cache: true, inputs, dependsOn: [builder], outputs: ['{options.outputPath}/archive'] }),
+                install: installed,
             }),
-            ...Record.fromIterableWith(Array.fromNullishOr(archive), (): [string, TargetConfiguration] => [
-                'attach--gh',
-                {
-                    executor: `${PLUGIN}:attach`,
-                    dependsOn: [packer],
-                    inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
-                    metadata: { technologies: [technology], description: `Uploads the files ${packer} wrote to the GitHub release of the version the project's manifest states through gh release upload` },
+            (target): Record<string, TargetConfiguration> => ({ [technology]: { ...target, metadata: { technologies: [technology], ...target.metadata } } }),
+        );
+        const removed = Record.collect(own, (verb, tools) => Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat();
+        const nested: Record<string, Record<string, TargetConfiguration>> = {
+            ...own,
+            ...Array.match(removed, { onEmpty: () => ({}), onNonEmpty: (labels) => ({ clean: { [technology]: { executor: `${PLUGIN}:clean`, options: { targets: labels }, metadata: { technologies: [technology], description: `Removes the outputs ${labels.join(', ')} declare` } } } }) }),
+            ...(archive !== undefined && {
+                attach: {
+                    gh: {
+                        executor: `${PLUGIN}:attach`,
+                        dependsOn: [packer],
+                        inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                        metadata: { technologies: [technology], description: `Uploads the files ${packer} wrote to the GitHub release of the version the project's manifest states through gh release upload` },
+                    },
                 },
-            ]),
+            }),
         };
         const released = Option.filter(Option.fromUndefinedOr(write), () => item.fields.version !== undefined);
         const configuration: ProjectConfiguration = {
@@ -165,7 +192,12 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
             ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(item.root, item.file) } } } }))),
             targets: {
-                ...aggregated(delivered),
+                ...Record.fromEntries(
+                    Record.collect(nested, (verb, tools): readonly (readonly [string, TargetConfiguration])[] => [
+                        [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(tools, (tool, target) => mergeTargetConfigurations(item.stated[`${verb}--${tool}`] ?? {}, { ...target, inputs: target.inputs ?? ['default', '^default'] }).inputs ?? []).flat())] }],
+                        ...Record.collect(tools, (tool, target) => [`${verb}--${tool}`, target] as const),
+                    ]).flat(),
+                ),
                 ...Record.fromIterableWith(Array.fromNullishOr(publish), ({ store, command }): [string, TargetConfiguration] => [
                     'nx-release-publish',
                     { executor: `${PLUGIN}:release-publish`, dependsOn: [packer, '^nx-release-publish'], metadata: { description: `Publishes the ${archive} packages of the project to ${store} through ${command}` } },
@@ -225,4 +257,4 @@ const preTasksExecution: PreTasksExecution = (_, { id }) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { aggregated, createNodes, preTasksExecution };
+export { createNodes, preTasksExecution };

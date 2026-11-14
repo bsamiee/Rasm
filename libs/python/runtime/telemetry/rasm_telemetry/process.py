@@ -5,10 +5,13 @@ from collections.abc import Callable, Generator, Sequence
 from contextlib import closing, contextmanager, ExitStack
 from datetime import timedelta
 import faulthandler
+import glob
 from importlib import import_module
+from io import BufferedWriter
 import logging
 import os
 from pathlib import Path
+import re
 import sys
 import threading
 import time
@@ -23,6 +26,7 @@ from opentelemetry.sdk._logs import LoggerProvider, LogRecordProcessor
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.util._importlib_metadata import entry_points
+import portalocker
 import structlog
 from structlog.dev import ConsoleRenderer
 from structlog.stdlib import add_log_level, BoundLogger, ExtraAdder, LoggerFactory, ProcessorFormatter
@@ -36,6 +40,12 @@ from rasm_telemetry.export import detected
 _SDK: Final = logging.Filter(trace.__name__.partition(".")[0])
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _held(path: Path, /) -> BufferedWriter:
+    held = path.open("ab")
+    portalocker.lock(held, portalocker.LockFlags.EXCLUSIVE)
+    return held
 
 
 @contextmanager
@@ -65,7 +75,8 @@ def instrumented(
     Process and runtime metrics of `SystemMetricsInstrumentor` register where its distribution is installed, without its `system.*` instruments, and `OTEL_PYTHON_SYSTEM_METRICS_EXCLUDED_METRICS` drops more.
     Records of the SDK's own loggers reach the log once per call site and are never exported, and never reach the interactive standard error.
     Scope exit shuts the three providers down together, each flushing on its own daemon thread, and waits `release` for them, a collector that is down, slow, or refusing costing the exit no more: a flush still running then ends with the process.
-    The trace context a parent wrote into the process environment is current, unhandled exceptions log under the service's logger, and fatal errors dump every thread's stack to `<path stem>.<pid>.crash.log`, a file the process alone writes and removes while empty, or to a stream sink.
+    The trace context a parent wrote into the process environment is current, unhandled exceptions log under the service's logger, and fatal errors dump every thread's stack to `<path stem>.<pid>.crash.log`, a file the process alone writes, locks, and removes while empty, or to a stream sink.
+    Entry removes the crash logs no running process locks, keeping the newest `settings.files` holding a dump, and a child forked inside the scope dumps to a crash log of its own pid.
     A log folder refusing creation raises `OSError`, an exporter, protocol, or setting the SDK refuses and `OTEL_CONFIG_FILE` without `opentelemetry-configuration` raise `RuntimeError`, and a refused configuration file raises `opentelemetry.configuration.ConfigurationError`.
 
     Args:
@@ -89,6 +100,14 @@ def instrumented(
         fresh = (site := (record.name, record.lineno)) not in sites
         sites.add(site)
         return fresh
+
+    def abandoned(path: Path, /) -> os.stat_result | None:
+        try:
+            with path.open("rb") as probe:
+                portalocker.lock(probe, portalocker.LockFlags.EXCLUSIVE | portalocker.LockFlags.NON_BLOCKING)
+                return os.fstat(probe.fileno())
+        except (portalocker.AlreadyLocked, FileNotFoundError):
+            return None
 
     def released() -> None:
         owned = tuple(held for held in (trace.get_tracer_provider(), metrics.get_meter_provider(), get_logger_provider()) if isinstance(held, TracerProvider | MeterProvider | LoggerProvider))
@@ -151,15 +170,31 @@ def instrumented(
         stack.callback(context.detach, context.attach(propagate.extract(os.environ, context.get_current(), getter=EnvironmentGetter())))
         armed, dumped = not faulthandler.is_enabled(), sink
         if armed and isinstance(dumped, Path):
-            crash = dumped.with_suffix(f".{os.getpid()}.crash.log")
+            log, live = dumped, threading.Event()
+            own = log.with_suffix(f".{os.getpid()}.crash.log")
+            ended = {
+                path: held
+                for path in log.parent.glob(f"{glob.escape(log.stem)}.*.crash.log")
+                if path != own and re.fullmatch(rf"{re.escape(log.stem)}\.\d+\.crash\.log", path.name) and (held := abandoned(path))
+            }
+            dumps = sorted((path for path, held in ended.items() if held.st_size), key=lambda path: ended[path].st_mtime_ns, reverse=True)
+            for path in ended.keys() - set(dumps[: settings.files]):
+                path.unlink(missing_ok=True)
 
             def emptied() -> None:
-                if not crash.stat().st_size:
+                if not (crash := log.with_suffix(f".{os.getpid()}.crash.log")).stat().st_size:
                     crash.unlink()
 
+            def forked() -> None:
+                if live.is_set():
+                    faulthandler.enable(file=_held(log.with_suffix(f".{os.getpid()}.crash.log")), all_threads=True)
+
             stack.callback(emptied)
-            dumped = stack.enter_context(crash.open("ab"))
-            dumped.truncate(0 if dumped.tell() >= settings.size else None)
+            dumped = stack.enter_context(_held(own))
+            live.set()
+            stack.callback(live.clear)
+            if hasattr(os, "register_at_fork"):
+                os.register_at_fork(after_in_child=forked)
         if armed and not isinstance(dumped, Path):
             stack.callback(faulthandler.disable)
             faulthandler.enable(file=dumped, all_threads=True)

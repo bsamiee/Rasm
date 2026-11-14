@@ -2,7 +2,7 @@ import { matchesGlob } from 'node:path';
 import { joinPathFragments, type ProjectGraphProjectNode, type Tree } from '@nx/devkit';
 import { Array, Effect, Option, Schema } from 'effect';
 import { VersionActions } from 'nx/release';
-import { refused, run } from '#/executor';
+import { DistributionError, run } from '#/executor';
 import { HOSTS } from '#/host-packages';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -12,12 +12,12 @@ const Options = Schema.Struct({ manifest: Schema.String });
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const located = Effect.fnUntraced(function* (tree: Tree, { name, data: { root } }: ProjectGraphProjectNode, manifests: readonly string[]) {
-    const manifest = yield* Effect.mapError(Effect.fromOption(Array.head(manifests)), refused(name, 'names no manifest in its versionActionsOptions'));
+    const manifest = yield* Effect.mapError(Effect.fromOption(Array.head(manifests)), DistributionError.refused(name, 'names no manifest in its versionActionsOptions'));
     const at = joinPathFragments(root, manifest);
-    const { read, write } = yield* Effect.mapError(Effect.fromOption(Array.findFirst(HOSTS, (host) => matchesGlob(manifest, host.manifest))), refused(at, 'is no host manifest'));
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), refused(at, 'is missing'));
+    const { read, write } = yield* Effect.mapError(Effect.fromOption(Array.findFirst(HOSTS, (host) => matchesGlob(manifest, host.manifest))), DistributionError.refused(at, 'is no host manifest'));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(at, 'utf-8')), DistributionError.refused(at, 'is missing'));
     const stated = Option.flatMap(yield* read(text, at), ({ version }) => Option.fromUndefinedOr(version));
-    return { at, text, version: yield* Effect.mapError(Effect.fromOption(stated), refused(at, 'states no version')), write: yield* Effect.mapError(Effect.fromNullishOr(write), refused(at, 'takes its version from its build, not from nx release')) };
+    return { at, text, version: yield* Effect.mapError(Effect.fromOption(stated), DistributionError.refused(at, 'states no version')), write: yield* Effect.mapError(Effect.fromNullishOr(write), DistributionError.refused(at, 'takes its version from its build, not from nx release')) };
 });
 
 const written = Effect.fnUntraced(function* (tree: Tree, node: ProjectGraphProjectNode, manifests: readonly string[], version: string) {

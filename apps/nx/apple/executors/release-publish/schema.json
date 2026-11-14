@@ -25,6 +25,18 @@
         "dryRun": {
             "type": "boolean",
             "description": "Prints each change and makes none, as NX_DRY_RUN=true does"
+        },
+        "__unparsed__": {
+            "type": "array",
+            "description": "Words after -- of the run, appended after the configured arguments",
+            "$default": {
+                "$source": "unparsed"
+            },
+            "hidden": true,
+            "x-priority": "internal",
+            "items": {
+                "type": "string"
+            }
         }
     },
     "required": [ "exports" ],

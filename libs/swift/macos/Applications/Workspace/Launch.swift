@@ -1,4 +1,5 @@
 public import AppKit
+public import Encoding
 import Files
 import Processes
 import System
@@ -51,25 +52,11 @@ public struct Launched: Encodable, Sendable {
     }
 }
 
-public enum Launching: Encodable, Sendable {
-    private enum Key: CodingKey {
-        case launched, state, prompts, failed
-    }
-
+public enum Launching: CaseKeyed, Sendable {
     case launched(Launched)
     case state(RunningInstance)
     case prompts([RunningInstance])
     case failed(ApplicationFailure)
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields = encoder.container(keyedBy: Key.self)
-        switch self {
-            case .launched(let launched): try fields.encode(launched, forKey: .launched)
-            case .state(let state): try fields.encode(state, forKey: .state)
-            case .prompts(let prompts): try fields.encode(prompts, forKey: .prompts)
-            case .failed(let failure): try fields.encode(failure, forKey: .failed)
-        }
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

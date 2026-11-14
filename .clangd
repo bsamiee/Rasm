@@ -1,4 +1,0 @@
-# --- [COMPILE_FLAGS] --------------------------------------------------------------------
-
-CompileFlags:
-    CompilationDatabase: .artifacts/cmake/default

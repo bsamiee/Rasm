@@ -18,6 +18,18 @@
         "registry": {
             "type": "string",
             "description": "Registry the crate names in its publish list, passed as --registry"
+        },
+        "__unparsed__": {
+            "type": "array",
+            "description": "Words after -- of the run, appended after the configured arguments",
+            "$default": {
+                "$source": "unparsed"
+            },
+            "hidden": true,
+            "x-priority": "internal",
+            "items": {
+                "type": "string"
+            }
         }
     },
     "required": [ "cwd", "package" ],

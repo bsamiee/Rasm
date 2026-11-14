@@ -1,6 +1,7 @@
 """Joins: one join band with its foot on the baseline, every joining edge extending the band into its neighbor, and the kashida drawn as the band."""
 
 lazy from graphlib import TopologicalSorter
+lazy import math
 
 import msgspec
 lazy from fontTools.misc.transform import Identity, Offset, Transform
@@ -15,7 +16,7 @@ lazy from rasm_typography._outlines import paths
 
 
 class Joins(measures.Rule, frozen=True, kw_only=True):
-    """One join band with its foot on the baseline, each joining edge reaching the overlap into its neighbor, and the joining glyph drawn as the band at its length."""
+    """One join band with its foot on the baseline, each joining edge bridged at band height from the ink nearest it, within a band's width, to the overlap in whole units into its neighbor, and the joining glyph drawn as the band at its length."""
 
     overlap: Em
     kashida: int | None
@@ -29,7 +30,7 @@ class Joins(measures.Rule, frozen=True, kw_only=True):
         """
         match measures.band(source):
             case (low, high):
-                thickness, reach, length, kashida = high - low, self.overlap * source.upm, self.length * source.upm, self.kashida
+                thickness, reach, length, kashida = high - low, math.ceil(self.overlap * source.upm), self.length * source.upm, self.kashida
                 matrices: dict[str, Transform] = {}
                 for name in TopologicalSorter({name: tuple(part.name for part in glyph.components) for name, glyph in source.named.items()}).static_order():
                     glyph = source.named[name]
@@ -48,15 +49,12 @@ class Joins(measures.Rule, frozen=True, kw_only=True):
                     if isinstance(glyph.role, Letter | Ligature) and glyph.name.codes != (kashida,)
                     for bars in (
                         tuple(
-                            (box.contour,)
-                            for drawn, box in (
-                                (
-                                    glyph.name.form.right and paths.strip(glyph.contours, glyph.advance - thickness, glyph.advance),
-                                    paths.Box(xmin=glyph.advance - thickness, ymin=0.0, xmax=glyph.advance + reach, ymax=thickness),
-                                ),
-                                (glyph.name.form.left and paths.strip(glyph.contours, 0.0, thickness), paths.Box(xmin=-reach, ymin=0.0, xmax=thickness, ymax=thickness)),
-                            )
-                            if drawn
+                            (paths.Box(xmin=min(inner, edge) - reach, ymin=0.0, xmax=max(inner, edge) + reach, ymax=thickness).contour,)
+                            for joined, edge, low in ((glyph.name.form.right, glyph.advance, glyph.advance - thickness), (glyph.name.form.left, 0.0, 0.0))
+                            if joined
+                            for ink in (paths.bounds(paths.strip(glyph.contours, low, low + thickness)),)
+                            if ink
+                            for inner in (min(ink.xmin, ink.xmax, key=lambda x: abs(x - edge)),)
                         ),
                     )
                 )

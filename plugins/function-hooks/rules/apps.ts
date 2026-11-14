@@ -247,7 +247,7 @@ const APPS: Ruleset = {
         xed: { flags: ['-l, --line='], informational: ['-v'], rules: [opens(['com.apple.dt.Xcode'], ['-w', '--wait'], ['-x', '--launch', '-b', '--background'])] },
         osascript: { rules: [appleScript] },
         qlmanage: { rules: [refuse('opens a preview window', 'use qlmanage -t', '-p')] },
-        screencapture: { rules: [when(({ has }) => !has('-l'), refuse("captures the owner's screen", `use ${WATCH_APPS} capture <app>`))] },
+        screencapture: { rules: [refuse("opens UI on the owner's screen", 'drop it and capture to a file', '-i', '-s', '-w', '-W', '-J', '-U', '-u', '-P', '-M', '-B', '-p', '-d'), refuse("replaces the owner's clipboard", 'pass a file', '-c')] },
         killall: { flags: ['-s', '-c=', '-t='], informational: ['-s', '-l'], rules: [when(({ has }) => !has('-0'), killsByName)] },
         pkill: { rules: [when(({ has }) => !has('-0'), killsByName)] },
         kill: { flags: ['-n='], rules: [killsFound] },

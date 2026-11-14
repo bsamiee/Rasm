@@ -38,12 +38,14 @@
             "type": "string",
             "description": "Project file the commands run on"
         },
-        "args": {
+        "__unparsed__": {
             "type": "array",
-            "description": "Words after -- of the run, appended to every command",
+            "description": "Words after -- of the run, appended after the configured arguments",
             "$default": {
                 "$source": "unparsed"
             },
+            "hidden": true,
+            "x-priority": "internal",
             "items": {
                 "type": "string"
             }

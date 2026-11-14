@@ -1,11 +1,12 @@
+import { isIPv4 } from 'node:net';
 import { DnsRecord, getZoneOutput } from '@pulumi/cloudflare';
-import { remote } from '@pulumi/command';
+import command, { remote } from '@pulumi/command';
 import { Container, type ContainerArgs, Network, Provider, type ProviderArgs, RemoteImage, Volume } from '@pulumi/docker';
 import dockerBuild from '@pulumi/docker-build';
-import { getActionsRegistrationTokenOutput } from '@pulumi/github';
 import minio from '@pulumi/minio';
-import { all, type CustomResourceOptions, getOrganization, getProject, type Input, interpolate, jsonStringify, type Output, output, type Resource, StackReference, secret } from '@pulumi/pulumi';
+import { all, type CustomResourceOptions, getOrganization, getProject, type Input, interpolate, jsonStringify, type Output, output, StackReference } from '@pulumi/pulumi';
 import { RandomPassword } from '@pulumi/random';
+import { getDeviceOutput } from '@pulumi/tailscale';
 import { Secret } from '@pulumiverse/doppler';
 import { Access } from '@rasm/hosting';
 import { Sites } from '@rasm/hosting/openai-sites';
@@ -43,8 +44,6 @@ const hosts = {
         roles: [{ _tag: 'Runner', packages: ['build-essential', 'libsqlite3-dev', 'pkg-config', 'sqlite3', 'unzip', 'zip'], instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {} } }],
     },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
-const tailnet = 'tailscale0';
-const routed = { Cache: { port: 3000, health: '/health' } } as const;
 const files = {
     '/etc/docker/daemon.json': { content: `${JSON.stringify({ 'live-restore': true, 'log-driver': 'local' })}\n`, applied: ['systemctl restart docker'] },
     '/etc/systemd/zram-generator.conf': {
@@ -52,12 +51,11 @@ const files = {
         applied: ['DEBIAN_FRONTEND=noninteractive apt-get install --quiet --yes systemd-zram-generator', 'systemctl daemon-reload', 'systemctl start dev-zram0.swap'],
     },
     '/etc/systemd/journald.conf.d/90-platform.conf': { content: '[Journal]\nSystemMaxUse=1G\n', applied: ['systemctl restart systemd-journald'] },
-    '/etc/ssh/sshd_config.d/00-platform.conf': { content: 'PasswordAuthentication no\n', applied: ['systemctl try-reload-or-restart ssh'] },
+    '/etc/sysctl.d/90-platform.conf': { content: 'net.ipv4.ip_nonlocal_bind = 1\n', applied: ['sysctl --system'] },
     '/etc/apt/apt.conf.d/52unattended-upgrades-local': { content: 'Unattended-Upgrade::Origins-Pattern { "origin=Ubuntu,archive=*-updates"; "origin=Docker"; };\nUnattended-Upgrade::Automatic-Reboot "true";\n', applied: [] },
     '/etc/systemd/system/apt-daily-upgrade.timer.d/90-platform.conf': { content: '[Timer]\nOnCalendar=\nOnCalendar=*-*-* 05:00 America/Chicago\n', applied: ['systemctl daemon-reload', 'systemctl restart apt-daily-upgrade.timer'] },
 } as const satisfies Record.ReadonlyRecord<string, Setting>;
 const entrypoints = { web: 80, websecure: 443 } as const;
-const firewall = [`ufw allow in on ${tailnet}`, 'ufw default deny incoming', 'ufw default allow outgoing', 'ufw --force enable'] as const;
 const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -74,7 +72,6 @@ class Machine extends Data.Class<{
     readonly builder: dockerBuild.Provider;
     readonly shared: Option.Option<Input<string>>;
     readonly remote: Option.Option<{ readonly address: string; readonly zoneId: Output<string> }>;
-    readonly settled: readonly Resource[];
 }> {
     // --- [CONSTRUCTION]
 
@@ -84,9 +81,9 @@ class Machine extends Data.Class<{
         const reached = Option.map(Record.get<string, Row>(hosts, host), ({ address }) => ({ address, zoneId: getZoneOutput({ filter: { name: zone } }).zoneId }));
         const dialed = Option.getOrUndefined(Option.map(reached, () => ({ host: `ssh://root@${name}` })));
         const settled = Record.collect(settings, (file, setting) => Machine.written(name, file, setting));
-        const provider = new Provider(host, { ...dialed, ...registries, sshOpts: ['-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null'] }, { dependsOn: settled });
+        const provider = new Provider(host, { ...dialed, ...registries }, { dependsOn: settled });
         const builder = new dockerBuild.Provider(host, { ...dialed }, { dependsOn: settled });
-        return new Machine({ name, zone, provider, builder, shared: network, remote: reached, settled });
+        return new Machine({ name, zone, provider, builder, shared: network, remote: reached });
     };
 
     static readonly joined = (host: string) => {
@@ -126,7 +123,7 @@ class Machine extends Data.Class<{
         return new RemoteImage(`${this.name}-${image}`, { name: image }, { provider: this.provider, ...options }).repoDigest;
     }
 
-    imaged(image: string, inline: string, args: Pick<dockerBuild.ImageArgs, 'context' | 'buildArgs'> = {}) {
+    imaged(image: string, inline: string, args: Pick<dockerBuild.ImageArgs, 'context'> = {}) {
         return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).ref;
     }
 
@@ -154,22 +151,6 @@ class Machine extends Data.Class<{
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const filtered = (open: readonly number[]): Setting => ({
-    content: [
-        '*filter',
-        ':ufw-after-input - [0:0]',
-        ':ufw-after-output - [0:0]',
-        ':ufw-after-forward - [0:0]',
-        ':DOCKER-USER - [0:0]',
-        ...[tailnet, 'docker0', 'br-+'].map((inside) => `-A DOCKER-USER -i ${inside} -j RETURN`),
-        ...open.map((port) => `-A DOCKER-USER -p tcp -m conntrack --ctstate DNAT --ctorigdstport ${port} --ctdir ORIGINAL -j RETURN`),
-        '-A DOCKER-USER -m conntrack --ctstate DNAT --ctdir ORIGINAL -j DROP',
-        'COMMIT',
-        '',
-    ].join('\n'),
-    applied: ['ufw reload'],
-});
 
 const proxied = Function.memoize((machine: Machine) => {
     const secure = Machine.entrypoint.toUpperCase();
@@ -199,11 +180,14 @@ const proxied = Function.memoize((machine: Machine) => {
 const stored = (machine: Machine) => {
     const ports = { internal: 9000, external: 7412, health: '/health/ready' } as const;
     const { user, key } = Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(`${machine.name}-${name}`, { length: 32, special: false }).result);
-    const published = Option.match(machine.remote, { onNone: () => ({ ip: '127.0.0.1', address: '127.0.0.1' }), onSome: () => ({ ip: '0.0.0.0', address: machine.name }) });
+    const published = Option.match(machine.remote, {
+        onNone: () => ({ ips: output(['127.0.0.1']), address: '127.0.0.1' }),
+        onSome: () => ({ ips: getDeviceOutput({ hostname: machine.name }).addresses.apply(Array.filter(isIPv4)), address: machine.name }),
+    });
     const serving = machine.contained('storage', ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`], {
         image: machine.pulled('rustfs/rustfs:1.0.5'),
         envs: [interpolate`RUSTFS_ACCESS_KEY=${user}`, interpolate`RUSTFS_SECRET_KEY=${key}`, 'RUSTFS_CONSOLE_ENABLE=false', 'RUSTFS_OBS_LOG_DIRECTORY='],
-        ports: [{ internal: ports.internal, external: ports.external, ip: published.ip }],
+        ports: published.ips.apply(Array.map((ip) => ({ internal: ports.internal, external: ports.external, ip }))),
         ulimits: [{ name: 'nofile', soft: 1_048_576, hard: 1_048_576 }],
         mounts: [{ type: 'volume', source: machine.kept('storage'), target: '/data' }],
     });
@@ -223,7 +207,7 @@ const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Re
 };
 
 const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, project: string) => {
-    const { port, health } = routed.Cache;
+    const { port, health } = { port: 3000, health: '/health' };
     const [proxy, scoped] = [proxied(machine), bucketed(name, stored(machine), { [name]: { kept: false, expire: { '': kept } } })];
     const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(`${machine.name}-${row}`, { length: 48, special: false }).result }));
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: health });
@@ -296,10 +280,7 @@ const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none())
 
 const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines, registry }: { readonly owner: string; readonly repository: string; readonly project: string; readonly engines: readonly string[]; readonly registry: Input<string> }) =>
     Effect.sync(() => {
-        const [{ address, roles }, machine]: readonly [Row, Machine] = [
-            hosts[host],
-            Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] }, { ...files, '/etc/ufw/after.rules': filtered(hosts[host].roles.some((role) => role._tag in routed || Role.$is('Apps')(role)) ? Object.values(entrypoints) : []) }),
-        ];
+        const [{ address, roles }, machine]: readonly [Row, Machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] }, files)];
         const located = machine.named(host, 'A', address).map(({ content }) => content);
         const served = roles.map(
             Role.$match({
@@ -307,7 +288,6 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                 Apps: (settings) => hosted(machine, settings),
                 Runner: ({ packages, instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', uid: 1000 } as const;
-                    const token = secret(getActionsRegistrationTokenOutput({ repository }).token);
                     const prepared = [
                         Machine.ran(machine.name, 'packages', { create: `apt-get update --quiet && DEBIAN_FRONTEND=noninteractive apt-get install --quiet --yes ${packages.join(' ')}` }),
                         Machine.ran(machine.name, 'user', { create: `id ${runner.user} >/dev/null 2>&1 || useradd --create-home --uid ${runner.uid} --shell /bin/bash --groups docker ${runner.user}`, delete: `userdel --remove ${runner.user}` }),
@@ -318,45 +298,37 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                         const folder = `/home/${runner.user}/actions-runner-${label}`;
                         const archive = `/tmp/actions-runner-${label}.tar.gz`;
                         const unit = `"$(cat ${folder}/.service)"`;
-                        const removed = `if cd ${folder} 2>/dev/null; then systemctl revert ${unit}; ./svc.sh stop; ./svc.sh uninstall; fi; rm -rf ${folder}`;
+                        const reverted = `systemctl revert ${unit}`;
+                        const removed = `if cd ${folder} 2>/dev/null; then ${reverted}; ./svc.sh stop; ./svc.sh uninstall; fi; rm -rf ${folder}`;
+                        const installation = [
+                            'token=$(cat)',
+                            removed,
+                            'set -eu',
+                            `install -d -o ${runner.user} -g ${runner.user} ${folder} && cd ${folder}`,
+                            `curl -fsSL -o ${archive} https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
+                            `echo '${runner.sha256}  ${archive}' | sha256sum --check --quiet`,
+                            `sudo -u ${runner.user} tar xzf ${archive} && rm ${archive}`,
+                            './bin/installdependencies.sh',
+                            `sudo -u ${runner.user} ./config.sh --unattended --replace --url https://github.com/${owner}/${repository} --name ${machine.name}-${label} --labels ${label} --token "$token"`,
+                            `./svc.sh install ${runner.user}`,
+                            './svc.sh start',
+                        ].join('\n');
+                        const token = new command.local.Command(`${machine.name}-runner-${label}-token`, { create: `gh api --method POST repos/${owner}/${repository}/actions/runners/registration-token --jq .token`, triggers: [installation], logging: 'none' }, { additionalSecretOutputs: ['stdout'] });
+                        const instance = Machine.ran(machine.name, `runner-${label}`, { create: installation, delete: removed, stdin: token.stdout }, { dependsOn: before });
                         const limited = [
-                            `systemctl revert ${unit}`,
+                            reverted,
                             ...Array.match(
                                 Record.collect(limits, (option, value) => [option, value].join('=')),
                                 { onEmpty: () => [], onNonEmpty: (options) => [`systemctl set-property ${unit} ${options.join(' ')}`] },
                             ),
-                        ];
-                        const instance = Machine.ran(
-                            machine.name,
-                            `runner-${label}`,
-                            {
-                                create: [
-                                    'token=$(cat)',
-                                    removed,
-                                    'set -eu',
-                                    `install -d -o ${runner.user} -g ${runner.user} ${folder} && cd ${folder}`,
-                                    `curl -fsSL -o ${archive} https://github.com/actions/runner/releases/download/v${runner.version}/actions-runner-linux-x64-${runner.version}.tar.gz`,
-                                    `echo '${runner.sha256}  ${archive}' | sha256sum --check --quiet`,
-                                    `sudo -u ${runner.user} tar xzf ${archive} && rm ${archive}`,
-                                    './bin/installdependencies.sh',
-                                    `sudo -u ${runner.user} ./config.sh --unattended --replace --url https://github.com/${owner}/${repository} --name ${machine.name}-${label} --labels ${label} --token "$token"`,
-                                    `./svc.sh install ${runner.user}`,
-                                    ...limited,
-                                    './svc.sh start',
-                                ].join('\n'),
-                                update: limited.join('\n'),
-                                delete: removed,
-                                stdin: token,
-                            },
-                            { ignoreChanges: ['stdin'], dependsOn: before },
-                        );
-                        return [[instance], [label, instance.id] as const];
+                        ].join('\n');
+                        const applied = Machine.ran(machine.name, `runner-${label}-limits`, { create: limited, update: limited, delete: reverted, triggers: [installation] }, { dependsOn: instance });
+                        return [[instance, applied], [label, instance.id] as const];
                     });
                     return { runners: Record.fromEntries(registered), engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })) };
                 },
             }),
         );
-        Machine.ran(machine.name, 'firewall', { create: firewall.join(' && '), delete: 'ufw disable' }, { dependsOn: [...machine.settled] });
         return { located, ...Record.fromEntries(served.flatMap(Record.toEntries)) };
     });
 

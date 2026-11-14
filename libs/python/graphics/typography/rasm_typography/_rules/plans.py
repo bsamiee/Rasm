@@ -13,7 +13,8 @@ from rasm_typography._rules.ornaments import Ornaments
 from rasm_typography._rules.scale import Scale
 from rasm_typography._rules.spacing import Spacing
 from rasm_typography._rules.tails import Tails
-lazy from rasm_typography._faces.declaration import Advance, Face, Faces, OrnamentFace, Sheared
+lazy from rasm_typography._faces.declaration import Advance, DotMatrix, Face, Faces, OrnamentFace, Sheared
+lazy from rasm_typography._requirements import Seam
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -23,15 +24,16 @@ type Rules = Ornaments | Locale | Digits | Tails | Outlines | Marks | QuranicMar
 
 
 def planned(face: Faces, /) -> tuple[Rules | Metrics, ...]:
-    """Returns a face's plan, each value the face's override or its genre's, each code point its script's, its slant from its shear."""
+    """Returns a face's plan, each value the face's override or its genre's, each code point its script's, its slant from its shear, and its dotted letter where letters carry dots apart from their drawing, none for a dot-matrix genre or a pieced treatment."""
     match face:
         case Face(genre=genre, values=values, treatments=treatments):
             script, stack = genre.script, values.stack_gap if values.stack_gap is not None else genre.stack_gap
+            dot = None if isinstance(genre, DotMatrix) or any(treatment.pieced for treatment in treatments) else script.dotted
             return (
-                Locale(script=script, coverage=genre.coverage),
+                Locale(script=script, coverage=genre.coverage, dot=dot),
                 Digits(script=script, zero=values.zero, advance=values.digit_advance or Advance.TABULAR, bearing=values.digit_bearing),
-                *((Tails(script=script, length=values.tail),) if values.tail is not None else ()),
-                Outlines(floor=values.nuqta_floor if values.nuqta_floor is not None else genre.nuqta_floor, spurs=genre.spurs, opened=values.counter, letters=script.counters, dot=script.dotted),
+                *((Tails(script=script, length=values.tail, dot=dot),) if values.tail is not None else ()),
+                Outlines(floor=values.nuqta_floor if values.nuqta_floor is not None else genre.nuqta_floor, spurs=genre.spurs, opened=values.counter, letters=script.counters, dot=dot),
                 Marks(
                     script=script,
                     band=genre.mark,
@@ -44,9 +46,9 @@ def planned(face: Faces, /) -> tuple[Rules | Metrics, ...]:
                     open=values.ring_open,
                 ),
                 QuranicMarks(codes=frozenset(code for code in genre.coverage.required if unicodedata.category(chr(code)) == "Mn" and code not in script.recipes), script=script),
-                Joins(overlap=genre.join_overlap, kashida=script.kashida),
+                Joins(overlap=Seam().overlap, kashida=script.kashida),
                 Scale(script=script, height=values.alif if values.alif is not None else genre.alif, cap=genre.pitch[1]),
-                Anchors(script=script, stack=stack, clearance=genre.clearance),
+                Anchors(script=script, stack=stack, clearance=genre.clearance, dot=dot),
                 Spacing(script=script, ratio=values.word_ratio or genre.word_ratio, band=genre.word_band, floor=genre.clearance),
                 WordSigns(script=script, stack=stack),
                 Metrics(pitch=genre.pitch),

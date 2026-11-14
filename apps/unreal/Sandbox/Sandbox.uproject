@@ -1,5 +1,0 @@
-{
-    "FileVersion": 3,
-    "EngineAssociation": "5.8",
-    "Plugins": [ { "Name": "Tolerance", "Enabled": true } ]
-}

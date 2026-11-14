@@ -2,13 +2,13 @@ import { join } from 'node:path';
 import type { Tree } from '@nx/devkit';
 import { Effect } from 'effect';
 import { VersionActions } from 'nx/release';
-import { MANIFEST, refused, restated, versioned } from '#/workspace';
+import { CMakeError, MANIFEST, restated, run, versioned } from '#/workspace';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), refused(file, 'is missing'));
+const read = (tree: Tree, file: string) => Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), CMakeError.of({ _tag: 'Missing', what: 'file' }, file));
 
-// --- [SERVICES] ------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 class CmakeVersionActions extends VersionActions {
     override readonly validManifestFilenames = [MANIFEST];
@@ -16,7 +16,7 @@ class CmakeVersionActions extends VersionActions {
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
         const manifestPath = join(this.projectGraphNode.data.root, MANIFEST);
-        return Effect.runPromise(
+        return run(
             Effect.map(
                 Effect.flatMap(read(tree, manifestPath), (text) => versioned(text, manifestPath)),
                 ({ version }) => ({ currentVersion: version, manifestPath }),
@@ -33,7 +33,7 @@ class CmakeVersionActions extends VersionActions {
     }
 
     updateProjectVersion(tree: Tree, newVersion: string) {
-        return Effect.runPromise(
+        return run(
             Effect.forEach(this.manifestsToUpdate, ({ manifestPath }) =>
                 Effect.map(
                     Effect.flatMap(read(tree, manifestPath), (text) => restated(text, newVersion, manifestPath)),

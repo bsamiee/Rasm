@@ -59,12 +59,14 @@
             "description": "What runs: the build, the build under UnrealBuildTool static analysis, the automation tests named after the plug-in, the archives, or the copy into each user project",
             "default": "build"
         },
-        "args": {
+        "__unparsed__": {
             "type": "array",
-            "description": "Words after -- of the run, appended to the UnrealBuildTool, AutomationTool, or UnrealEditor-Cmd command",
+            "description": "Words after -- of the run, appended after the configured arguments",
             "$default": {
                 "$source": "unparsed"
             },
+            "hidden": true,
+            "x-priority": "internal",
             "items": {
                 "type": "string"
             }
@@ -73,5 +75,5 @@
     "required": [ "outputPath", "descriptor", "hosts", "dependencies", "packages", "users", "operation" ],
     "additionalProperties": true,
     "title": "Unreal",
-    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine its hosts name after each package its descriptor maps to a folder installs there, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with those installed packages and the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
+    "description": "Builds a .uproject's editor target through UnrealBuildTool, with its Clang static analyzer, unity builds off, and no precompiled headers for a check, or for a .uplugin packages it through AutomationTool's BuildPlugin with strict includes once per engine on this machine its hosts name, skipping a host whose engine is absent, after each package its descriptor maps to a folder installs there under a .gitignore holding *, runs the automation tests named after it through UnrealEditor-Cmd in each host and reads their result from the exported report, zips each package and the tracked sources with those installed packages and the engine's EngineVersion after the store checks pass, or copies the package into the Plugins folder of each user project"
 }

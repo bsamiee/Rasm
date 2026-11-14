@@ -79,56 +79,72 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
     def outline(name: str, /) -> tuple[tuple[Point, ...], ...]:
         return traced(lambda pen: glyphs[name].draw(DecomposingFilterPen(pen, glyphs)))
 
-    def chains(sub: BaseTable, /) -> tuple[tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], tuple[tuple[int, int], ...]], ...]:
-        """Rules of a contextual or chaining substitution as backtrack in reading order, input, and lookahead glyph classes with each nested lookup's sequence index, every format expanded to classes."""
+    def classes(definition: BaseTable | None, /) -> dict[int, tuple[str, ...]]:
+        held = definition.classDefs if definition is not None else {}
+        return {klass: tuple(members) for klass, members in groupby(sorted(order, key=lambda glyph: held.get(glyph, 0)), key=lambda glyph: held.get(glyph, 0))}
 
-        def members(definition: BaseTable | None, klass: int, /, among: tuple[str, ...] = tuple(order)) -> tuple[str, ...]:
-            held = definition.classDefs if definition is not None else {}
-            return tuple(glyph for glyph in among if held.get(glyph, 0) == klass)
-
+    def chains(sub: BaseTable, /) -> tuple[_Rule, ...]:
+        """Rules of a contextual or chaining substitution of any format as backtrack in reading order, input, and lookahead glyph classes with each nested lookup's sequence index, class formats mapped class to class through each class definition inverted once."""
         match sub:
-            case BaseTable(Format=3, BacktrackCoverage=back, InputCoverage=inputs, LookAheadCoverage=ahead, SubstLookupRecord=records):
-                return (
-                    (
-                        tuple(tuple(map(str, cover.glyphs)) for cover in reversed(back)),
-                        tuple(tuple(map(str, cover.glyphs)) for cover in inputs),
-                        tuple(tuple(map(str, cover.glyphs)) for cover in ahead),
-                        tuple((int(record.SequenceIndex), int(record.LookupListIndex)) for record in records),
-                    ),
+            case ContextSubst(Format=1, Coverage=Coverage(glyphs=firsts), SubRuleSet=sets):
+                return tuple(((), ((first,), *((glyph,) for glyph in rule.Input)), (), _records(rule)) for first, held in zip(firsts, sets, strict=True) if held for rule in held.SubRule)
+            case ContextSubst(Format=2, Coverage=Coverage(glyphs=covered), ClassDef=definition, SubClassSet=sets):
+                inputs, cover = classes(definition), frozenset(covered)
+                return tuple(
+                    ((), (tuple(glyph for glyph in inputs.get(first, ()) if glyph in cover), *(inputs.get(klass, ()) for klass in rule.Class)), (), _records(rule))
+                    for first, held in enumerate(sets or ())
+                    if held
+                    for rule in held.SubClassRule
                 )
-            case BaseTable(Format=3, Coverage=inputs, SubstLookupRecord=records):
-                return (((), tuple(tuple(map(str, cover.glyphs)) for cover in inputs), (), tuple((int(record.SequenceIndex), int(record.LookupListIndex)) for record in records)),)
-            case BaseTable(Format=2, Coverage=cover, BacktrackClassDef=back, InputClassDef=inputs, LookAheadClassDef=ahead, ChainSubClassSet=sets):
+            case ContextSubst(Format=3, Coverage=covers):
+                return (((), tuple(tuple(cover.glyphs) for cover in covers), (), _records(sub)),)
+            case ChainContextSubst(Format=1, Coverage=Coverage(glyphs=firsts), ChainSubRuleSet=sets):
+                return tuple(
+                    (tuple((glyph,) for glyph in reversed(rule.Backtrack)), ((first,), *((glyph,) for glyph in rule.Input)), tuple((glyph,) for glyph in rule.LookAhead), _records(rule))
+                    for first, held in zip(firsts, sets, strict=True)
+                    if held
+                    for rule in held.ChainSubRule
+                )
+            case ChainContextSubst(Format=2, Coverage=Coverage(glyphs=covered), BacktrackClassDef=back, InputClassDef=inputs, LookAheadClassDef=ahead, ChainSubClassSet=sets):
+                (before, within, after), cover = map(classes, (back, inputs, ahead)), frozenset(covered)
                 return tuple(
                     (
-                        tuple(members(back, klass) for klass in reversed(rule.Backtrack)),
-                        (members(inputs, first, tuple(map(str, cover.glyphs))), *(members(inputs, klass) for klass in rule.Input)),
-                        tuple(members(ahead, klass) for klass in rule.LookAhead),
-                        tuple((int(record.SequenceIndex), int(record.LookupListIndex)) for record in rule.SubstLookupRecord),
+                        tuple(before.get(klass, ()) for klass in reversed(rule.Backtrack)),
+                        (tuple(glyph for glyph in within.get(first, ()) if glyph in cover), *(within.get(klass, ()) for klass in rule.Input)),
+                        tuple(after.get(klass, ()) for klass in rule.LookAhead),
+                        _records(rule),
                     )
                     for first, held in enumerate(sets or ())
-                    if held is not None
+                    if held
                     for rule in held.ChainSubClassRule
                 )
+            case ChainContextSubst(Format=3, BacktrackCoverage=back, InputCoverage=inputs, LookAheadCoverage=ahead):
+                return ((tuple(tuple(cover.glyphs) for cover in reversed(back)), tuple(tuple(cover.glyphs) for cover in inputs), tuple(tuple(cover.glyphs) for cover in ahead), _records(sub)),)
             case _:
                 return ()
 
     native = _lookups(font, "GSUB") if isinstance(face, Face) else ()
+    table = font["GSUB"].table.LookupList.Lookup if native else []
     features = {index: features for index, features, _ in native}
     grouped = {index: tuple(subtables(lookup)) for index, _, lookup in native}
-    singles = {key: dict(ChainMap(*(sub.mapping for sub in group if isinstance(sub, SingleSubst)))) for key, group in grouped.items() if any(isinstance(sub, SingleSubst) for sub in group)}
+    contexts = {key: tuple(*chains(sub) for sub in group) for key, group in grouped.items() if any(isinstance(sub, ContextSubst | ChainContextSubst) for sub in group)}
+    inherited = {inner: features[key] for key, found in contexts.items() for *_, records in found for _, inner in records}
+    every = grouped | {inner: tuple(subtables(table[inner])) for inner in inherited.keys() - grouped.keys()}
+    singles = {key: dict(ChainMap(*(sub.mapping for sub in group if isinstance(sub, SingleSubst)))) for key, group in every.items() if any(isinstance(sub, SingleSubst) for sub in group)}
     ligatures = {
         key: tuple(((first, *entry.Component), entry.LigGlyph) for sub in group if isinstance(sub, LigatureSubst) for first, rows in sub.ligatures.items() for entry in rows)
-        for key, group in grouped.items()
+        for key, group in every.items()
         if any(isinstance(sub, LigatureSubst) for sub in group)
     }
     rules = tuple(*entries for entries in ligatures.values())
-    nested: dict[int, dict[str, str]] = {
-        index: dict(ChainMap(*(sub.mapping for sub in subtables(lookup) if isinstance(sub, SingleSubst))))
-        for index, lookup in enumerate(font["GSUB"].table.LookupList.Lookup if native else ())
-        if isinstance(lookup, BaseTable)
-    }
-    contexts = {key: found for key, group in grouped.items() if (found := tuple(*chains(sub) for sub in group))}
+    refused = tuple(
+        dict.fromkeys(
+            f"lookup {key} {type(sub).__name__} format {sub.Format}"
+            for key, group in every.items()
+            for sub in group
+            if not (isinstance(sub, SingleSubst | LigatureSubst) or (key in contexts and isinstance(sub, ContextSubst | ChainContextSubst) and sub.Format in {1, 2, 3}))
+        )
+    )
     match face:
         case Face(genre=genre):
             kept = {code: glyph for code, glyph in cmap.items() if genre.coverage.exclusion(code).is_none()}

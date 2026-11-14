@@ -3,7 +3,6 @@ use core::mem;
 use std::borrow::Cow;
 use std::error::Report;
 use std::io;
-use std::sync::Arc;
 
 use bytes::{Bytes, BytesMut};
 use futures::{Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, sink, stream};
@@ -18,7 +17,7 @@ use rmcp::service::{ClientLifecycleMode, NotificationContext, PeerRequestOptions
 use rmcp::{ErrorData, Peer, RoleClient, RoleServer, Service, ServiceError};
 use serde::de::DeserializeOwned;
 use tokio::io::{AsyncWrite, AsyncWriteExt as _};
-use tokio::sync::{Notify, broadcast, mpsc, oneshot};
+use tokio::sync::{broadcast, mpsc, oneshot};
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -48,11 +47,12 @@ impl Forward {
             .zip(context.client_capabilities())
             .into_iter()
             .fold(PeerRequestOptions::no_options(), |options, (client, capabilities)| options.with_meta(RequestMetaObject::with_client_context(self.version.clone(), client, capabilities)));
-        let subscribed = Arc::new(Notify::new());
-        request.extensions_mut().insert(Arc::clone(&subscribed));
+        let subscribed = CancellationToken::new();
+        request.extensions_mut().insert(subscribed.clone());
+        let released = subscribed.drop_guard();
         let mut handle = self.peer.send_cancellable_request(request, options).await.map_err(fault)?;
         let reported = self.progress.subscribe(handle.progress_token.clone()).await;
-        subscribed.notify_one();
+        drop(released);
         let stated = context.meta.get_progress_token();
         let mut updates = reported.filter_map(|mut update| {
             ready(stated.clone().filter(|_| reached.is_none_or(|reached| update.progress > reached)).map(|token| {
@@ -65,7 +65,7 @@ impl Forward {
                 biased;
                 Some(update) = updates.next() => {
                     let relayed = context.peer.notify_progress(update).unwrap_or_else(|error| tracing::debug!({ EXCEPTION_MESSAGE } = %Report::new(&error), "progress relay failed"));
-                    let (Some(()) | None) = context.ct.run_until_cancelled(relayed).await;
+                    let _: Option<()> = context.ct.run_until_cancelled(relayed).await;
                 }
                 received = &mut handle.rx => break received.map_err(|oneshot::error::RecvError { .. }| ServiceError::TransportClosed).flatten().map_err(fault),
                 () = context.ct.cancelled() => break handle.cancel(None).await.map_err(fault).and(Err(fault(ServiceError::Cancelled { reason: None }))),
@@ -198,9 +198,9 @@ where
     let _stopped = stop.clone().drop_guard();
     let requests = sink::unfold((proxy.events.clone(), session), async |(events, session): (mpsc::Sender<Event>, u64), message: ClientJsonRpcMessage| {
         if let ClientJsonRpcMessage::Request(JsonRpcRequest { request, .. }) = &message
-            && let Some(subscribed) = request.extensions().get::<Arc<Notify>>()
+            && let Some(subscribed) = request.extensions().get::<CancellationToken>()
         {
-            subscribed.notified().await;
+            subscribed.cancelled().await;
         }
         let sent = events.send(Event::Line { session, line: Line::Whole(encoded(&message)?) }).await;
         sent.map(|()| (events, session)).map_err(|mpsc::error::SendError(_)| io::Error::from(io::ErrorKind::ConnectionAborted))

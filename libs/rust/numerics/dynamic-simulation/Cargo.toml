@@ -1,15 +1,11 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 [package]
-name                 = "rasm-dynamic-simulation"
-version.workspace    = true
-edition.workspace    = true
-license.workspace    = true
-repository.workspace = true
-publish              = false
-keywords             = ["ode", "dae", "simulation", "solver"]
-categories           = ["simulation", "mathematics", "science"]
-description          = "Dynamic simulation: ODE and DAE solves with sensitivities, lumped networks, and FMI co-simulation"
+name              = "rasm-dynamic-simulation"
+version.workspace = true
+edition.workspace = true
+publish           = false
+description       = "Dynamic simulation: ODE and DAE solves with sensitivities, lumped networks, and FMI co-simulation"
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

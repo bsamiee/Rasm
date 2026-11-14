@@ -175,6 +175,10 @@ private enum Part {
         guard let read = failure.reason[case: \.unreadable] else { throw failure }
         self = .unreadable(read)
     }
+
+    static func read<T>(_ body: () throws(ApplicationFailure) -> T) throws(ApplicationFailure) -> (value: T?, unread: Self?) {
+        do throws(ApplicationFailure) { return (try body(), nil) } catch { return (nil, try Self(error)) }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -235,22 +239,19 @@ extension AXUIElement {
 
     private func parts(_ read: Attributes, id: Data, attribute: String?, items: [Control]) throws(ApplicationFailure) -> [Part] {
         guard let role = read.values[kAXRoleAttribute] as? String, role != kAXMenuRole else { return read.failed.map(Part.unreadable) }
-        let valued = Result { () throws(ApplicationFailure) -> CFTypeRef? in
+        let valued = try Part.read { () throws(ApplicationFailure) -> CFTypeRef? in
             switch role {
                 case kAXTextAreaRole: try visibleText().map { text in text as CFString }
                 case kAXStaticTextRole, kAXTextFieldRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole: try value(kAXValueAttribute)
                 case _: nil
             }
         }
-        let unvalued = try valued[case: \.failure].map { failure throws(ApplicationFailure) in try Part(failure) }
-        let acted = Result { () throws(ApplicationFailure) in try role == kAXStaticTextRole ? [] : actionNames() }
-        let unacted = try acted[case: \.failure].map { failure throws(ApplicationFailure) in try Part(failure) }
-        let (held, names): (CFTypeRef?, [String]) = (valued[case: \.success], acted[case: \.success] ?? [])
-        let controlled = role != kAXStaticTextRole && (held != nil || names.contains(kAXPressAction) || valued.is(\.failure))
-        let labeled = Result { () throws(ApplicationFailure) in try controlled ? label(read) : nil }
-        let unlabeled = try labeled[case: \.failure].map { failure throws(ApplicationFailure) in try Part(failure) }
-        let name: String? = labeled[case: \.success]
-        let unread = read.failed.map(Part.unreadable) + [unvalued, unacted, unlabeled].compactMap(\.self)
+        let acted = try Part.read { () throws(ApplicationFailure) in try role == kAXStaticTextRole ? [] : actionNames() }
+        let (held, names) = (valued.value.flatMap(\.self), acted.value ?? [])
+        let controlled = role != kAXStaticTextRole && (held != nil || names.contains(kAXPressAction) || valued.unread != nil)
+        let labeled = try Part.read { () throws(ApplicationFailure) in try controlled ? label(read) : nil }
+        let name = labeled.value.flatMap(\.self)
+        let unread = read.failed.map(Part.unreadable) + [valued.unread, acted.unread, labeled.unread].compactMap(\.self)
         let own: Part? =
             switch role {
                 case kAXStaticTextRole:

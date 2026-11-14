@@ -28,6 +28,8 @@
         {
             "name": "unreal",
             "inherits": "tree",
+            "binaryDir": "${sourceDir}/.artifacts/cmake/${presetName}$env{UNREAL_ENGINE_ROOT}",
+            "installDir": "${sourceDir}/.artifacts/cmake/${presetName}$env{UNREAL_ENGINE_ROOT}/prefix",
             "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_CXX_SCAN_FOR_MODULES": false, "BUILD_TESTING": false, "VCPKG_TARGET_TRIPLET": "unreal", "VCPKG_HOST_TRIPLET": "unreal", "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/.config/cmake/toolchains/unreal-${hostSystemName}.cmake" }
         }
     ],
@@ -43,22 +45,23 @@
         { "name": "unreal", "configurePreset": "unreal" }
     ],
     "testPresets": [
-        { "name": "report", "hidden": true, "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "error" }, "filter": { "exclude": { "label": "benchmark" } } },
-        { "name": "default", "inherits": "report", "configurePreset": "default" },
-        { "name": "release", "inherits": "report", "configurePreset": "release" },
+        { "name": "report", "hidden": true, "output": { "outputOnFailure": true }, "execution": { "noTestsAction": "ignore" } },
+        { "name": "suite", "hidden": true, "inherits": "report", "filter": { "exclude": { "label": "benchmark" } } },
+        { "name": "default", "inherits": "suite", "configurePreset": "default" },
+        { "name": "release", "inherits": "suite", "configurePreset": "release" },
         {
             "name": "asan",
-            "inherits": "report",
+            "inherits": "suite",
             "configurePreset": "asan",
             "environment": {
                 "ASAN_OPTIONS": "detect_leaks=1:strict_string_checks=1:check_initialization_order=1:strict_init_order=1:detect_stack_use_after_return=1:$penv{ASAN_OPTIONS}",
                 "UBSAN_OPTIONS": "print_stacktrace=1:print_summary=1:halt_on_error=1:$penv{UBSAN_OPTIONS}"
             }
         },
-        { "name": "tsan", "inherits": "report", "configurePreset": "tsan", "environment": { "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1:$penv{TSAN_OPTIONS}" } },
-        { "name": "fuzz", "configurePreset": "fuzz", "output": { "outputOnFailure": true }, "filter": { "include": { "label": "fuzz" } } },
-        { "name": "coverage", "inherits": "report", "configurePreset": "coverage" },
-        { "name": "bench", "configurePreset": "release", "output": { "verbosity": "verbose" }, "filter": { "include": { "label": "benchmark" } } }
+        { "name": "tsan", "inherits": "suite", "configurePreset": "tsan", "environment": { "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1:$penv{TSAN_OPTIONS}" } },
+        { "name": "fuzz", "inherits": "report", "configurePreset": "fuzz", "filter": { "include": { "label": "fuzz" } } },
+        { "name": "coverage", "inherits": "suite", "configurePreset": "coverage" },
+        { "name": "bench", "inherits": "report", "configurePreset": "release", "output": { "verbosity": "verbose" }, "filter": { "include": { "label": "benchmark" } } }
     ],
     "packagePresets": [ { "name": "release", "configurePreset": "release", "generators": [ "TXZ" ] } ],
     "workflowPresets": [

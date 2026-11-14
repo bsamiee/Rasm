@@ -5,8 +5,9 @@ import { workspaceRoot } from '@nx/devkit';
 import { Array, Effect, Order, Path, Predicate, Record, Schema } from 'effect';
 import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
-import { Reading } from '#/reading';
-import { declared, read, taken, type Workspace } from '#/workspace';
+import { declared, read, taken } from '#/workspace';
+import type { Graph } from '@rasm/testing/nx';
+import { Reading } from '@rasm/testing/reading';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,7 +24,7 @@ const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const graphed = ({ nodes, dependencies, externalNodes, sourceMaps, failures }: Workspace) => ({
+const graphed = ({ nodes, dependencies, externalNodes, sourceMaps, failures }: Graph) => ({
     nodes,
     externalNodes,
     sourceMaps,
@@ -39,7 +40,7 @@ const reordered = (left: unknown, right: unknown, at: string): readonly string[]
 
 const strings = (value: unknown, at: string): readonly (readonly [at: string, text: string])[] => (Predicate.isObjectOrArray(value) ? Object.entries(value).flatMap(([key, held]) => strings(held, `${at}.${key}`)) : Array.fromNullishOr(Predicate.isString(value) ? value : undefined).map((text) => [at, text] as const));
 
-const local = ({ nodes, hashes }: Workspace) => {
+const local = ({ nodes, hashes }: Graph) => {
     const [folders, names] = [
         [workspaceRoot, homedir(), tmpdir()],
         [userInfo().username, hostname()],
@@ -54,17 +55,17 @@ const outside = (path: Path.Path, bases: readonly string[], held: unknown, task:
         .filter(({ word }) => (word.split('/').includes('..') || path.isAbsolute(word)) && bases.every((base) => path.relative(workspaceRoot, path.resolve(base, word)).startsWith('..')))
         .map(({ at, word }) => `${at}: ${word}`);
 
-const escaping = (path: Path.Path, workspace: Workspace) =>
+const escaping = (path: Path.Path, workspace: Graph) =>
     declared(workspace)
         .filter(({ target }) => target.cache === true)
         .flatMap(({ root, task, target }) => [...outside(path, [workspaceRoot], { inputs: target.inputs, outputs: target.outputs }, task), ...outside(path, [workspaceRoot, path.join(workspaceRoot, root)], { options: target.options, configurations: target.configurations }, task)]);
 
-const settled = (workspace: Workspace) => {
+const settled = (workspace: Graph) => {
     const outputs = new Set(declared(workspace).flatMap(({ project, name }) => Array.fromNullishOr(workspace.nodes[project]).map((node) => getOutputsForTargetAndConfiguration({ project, target: name }, {}, node).join(','))));
-    return Record.map(workspace.hashes, ({ inputs }) => Record.filter(inputs, (_, input) => !outputs.has(input.slice(input.indexOf(':') + 1))));
+    return Record.map(workspace.hashes, ({ inputs }) => ({ named: Array.sort(Record.keys(inputs), Order.String), hashed: Record.filter(inputs, (_, input) => !outputs.has(input.slice(input.indexOf(':') + 1))) }));
 };
 
-const rehashed = (left: Workspace, right: Workspace) => Record.keys(Record.filter(left.hashes, ({ value, inputs }, task) => unequal(inputs, right.hashes[task]?.inputs, task).length === 0 && value !== right.hashes[task]?.value));
+const rehashed = (left: Graph, right: Graph) => Record.keys(Record.filter(left.hashes, ({ value, inputs }, task) => unequal(inputs, right.hashes[task]?.inputs, task).length === 0 && value !== right.hashes[task]?.value));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -88,7 +89,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'gives every task the same inputs but the outputs of tasks it depends on, and the same hash for the same inputs, in two processes that share no stored state',
+        'gives every task the same inputs, the outputs of tasks it depends on included, the same hash of each input but those outputs, and the same hash for the same inputs, in two processes that share no stored state',
         Effect.fnUntraced(function* () {
             const [fresh, again] = yield* Effect.all([read('fresh'), read('again')]);
             assert.deepStrictEqual(Array.take(unequal(settled(fresh), settled(again), 'inputs'), LISTED), [], SOURCES.hashed);
@@ -128,7 +129,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         Effect.fnUntraced(function* () {
             const taking = Effect.gen(function* () {
                 const { checked } = yield* taken(inject('readings').data);
-                const reading: Workspace = yield* Schema.decodeEffect(Reading)(yield* checked);
+                const reading: Graph = yield* Schema.decodeEffect(Reading)(yield* checked);
                 return reading;
             });
             const alone = yield* taking;

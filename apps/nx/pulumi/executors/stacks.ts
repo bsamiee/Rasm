@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import type { InlineProgramArgs, LocalWorkspaceOptions } from '@pulumi/pulumi/automation/index.js';
-import { Array, Cause, Data, Effect, Exit, FileSystem, flow, Path, Schema, type Scope, Struct, UndefinedOr } from 'effect';
+import { Array, Data, Effect, Exit, FileSystem, Formatter, flow, Path, Schema, type Scope, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -24,10 +24,21 @@ const OPERATIONS = { up: 'was not applied', preview: 'was not previewed', destro
 
 const StackRequest = Data.taggedEnum<StackRequest>();
 const Operation = Schema.Literals(Struct.keys(OPERATIONS)).annotate({ description: 'What runs on each stack: up applies it, preview prints the changes an apply makes and makes none, destroy destroys and removes it', default: 'up' });
+const Reason = Schema.TaggedUnion({ Refused: { detail: Schema.String } });
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class PulumiError extends Schema.TaggedError<PulumiError, { readonly brand: unique symbol }>()('PulumiError', { reason: Reason, subject: Schema.String, cause: Schema.optionalKey(Schema.Defect()) }) {
+    static readonly of = (reason: PulumiError['reason'], subject: string) => (cause?: unknown) => PulumiError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
+
+    override get message() {
+        return [`${this.subject}: ${Reason.match(this.reason, { Refused: ({ detail }) => detail })}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const refused = (subject: string, detail: string) => (cause?: unknown) => new Cause.UnknownError(cause, `${subject}: ${detail}`);
+const refused = (subject: string, detail: string) => PulumiError.of({ _tag: 'Refused', detail }, subject);
 
 const applied = Effect.fnUntraced(function* (programs: readonly string[], request: StackRequest, { stack: named, operation }: { readonly stack?: string | undefined; readonly operation: keyof typeof OPERATIONS }) {
     const [fs, path, project] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.fromNullishOr(request.context.projectName)]);
@@ -75,8 +86,8 @@ const applied = Effect.fnUntraced(function* (programs: readonly string[], reques
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => Effect.runPromise(Effect.provide(Effect.scoped(effect), layer));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => effect.pipe(Effect.scoped, Effect.provide(layer), Effect.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { applied, Operation, run, StackRequest, type Stacks, type Stated };
+export { applied, Operation, PulumiError, refused, run, StackRequest, type Stacks, type Stated };

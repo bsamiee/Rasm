@@ -31,6 +31,7 @@ export        = [
 process       = [
     "opentelemetry-distro",                         # Configurator installing tracer, meter, and logger providers over the exporters `OTEL_*` variables name
     "opentelemetry-instrumentation-structlog",      # Processor emitting each entry of the log as an OpenTelemetry log record
+    "portalocker",                                  # Lock each running process holds on its crash log, which entry pruning tests
     "rasm-telemetry[export]",                       # Providers the scope shuts down and the resource of each exported signal
 ]
 otlp-http     = [

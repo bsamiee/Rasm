@@ -6,7 +6,8 @@ import { createTaskGraph } from 'nx/src/tasks-runner/create-task-graph';
 import { assertTaskGraphDoesNotContainInvalidTargets, findCycle } from 'nx/src/tasks-runner/task-graph-utils';
 import { type Batch, TasksSchedule } from 'nx/src/tasks-runner/tasks-schedule';
 import { getExecutorForTask } from 'nx/src/tasks-runner/utils';
-import { declared, read, verbs, type Workspace } from '#/workspace';
+import { declared, read } from '#/workspace';
+import type { Graph } from '@rasm/testing/nx';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -33,7 +34,7 @@ const CHECKED = ['check', 'test', 'build'] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const planned = (workspace: Workspace, targets: readonly string[]) =>
+const planned = (workspace: Graph, targets: readonly string[]) =>
     createTaskGraph(
         workspace,
         {},
@@ -45,11 +46,9 @@ const planned = (workspace: Workspace, targets: readonly string[]) =>
         {},
     );
 
-const cyclic = (workspace: Workspace, stated: readonly string[]) => stated.flatMap((verb) => Array.fromNullishOr(findCycle(planned(workspace, [verb]))).map((cycle) => [verb, ...cycle]));
-
 const unscheduled = ({ tasks }: TaskGraph, slots: readonly Slot[]) => [...new Set(Record.keys(tasks)).difference(new Set(slots.flatMap(({ ran }) => ran.map((task) => task.id))))];
 
-const every = (workspace: Workspace) => planned(workspace, Array.dedupe(declared(workspace).map(({ name }) => name)));
+const every = (workspace: Graph) => planned(workspace, Array.dedupe(declared(workspace).map(({ name }) => name)));
 
 const reached = ({ dependencies, continuousDependencies }: Pick<TaskGraph, 'dependencies' | 'continuousDependencies'>, from: string, seen: ReadonlySet<string> = new Set()): ReadonlySet<string> =>
     [...(dependencies[from] ?? []), ...(continuousDependencies[from] ?? [])].reduce((held, { id }) => (held.has(id) ? held : reached({ dependencies, continuousDependencies }, id, held.union(new Set([id])))), seen);
@@ -64,7 +63,7 @@ const cleaning = (tasks: TaskGraph) =>
         .filter((task) => task.cache === true && [...reached(tasks, task.id)].some((id) => tasks.tasks[id]?.target.target.split('--')[0] === 'clean'))
         .map(({ id }) => id);
 
-const unsignalled = (workspace: Workspace, { tasks, continuousDependencies }: TaskGraph) => {
+const unsignalled = (workspace: Graph, { tasks, continuousDependencies }: TaskGraph) => {
     const configured = (task: string) => Array.fromNullishOr(tasks[task]?.target).flatMap(({ project, target }) => Array.fromNullishOr(workspace.nodes[project]?.data.targets?.[target]));
     return Record.collect(continuousDependencies, (dependent, edges) =>
         edges.filter(({ id, waitFor }) => configured(id).some(({ readyWhen }) => (readyWhen ?? undefined) === undefined) || (waitFor !== 'ready' && configured(dependent).some(({ executor }) => executor !== 'nx:noop'))).map(({ id, waitFor = 'started' }) => `${dependent} waits for ${id} to be ${waitFor}`),
@@ -73,7 +72,7 @@ const unsignalled = (workspace: Workspace, { tasks, continuousDependencies }: Ta
 
 const awaited = ({ continuousDependencies }: TaskGraph, incomplete: readonly Task[]) => new Set(incomplete.flatMap((task) => (continuousDependencies[task.id] ?? []).map(({ id }) => id)));
 
-const scheduled = Effect.fnUntraced(function* (workspace: Workspace, tasks: TaskGraph) {
+const scheduled = Effect.fnUntraced(function* (workspace: Graph, tasks: TaskGraph) {
     const schedule = new TasksSchedule(workspace, readProjectsConfigurationFromProjectGraph(workspace).projects, tasks, { lifeCycle: { scheduleTask: () => undefined, startTask: () => undefined, endTask: () => undefined } });
     const drained = <A>(next: () => A | null): readonly A[] => Array.unfold(next(), (item) => Option.map(Option.fromNullOr(item), (held) => [held, next()] as const));
     const slotted = Effect.fnUntraced(function* (slots: readonly Slot[], serving: readonly string[]): Effect.fn.Return<readonly Slot[]> {
@@ -97,7 +96,7 @@ const scheduled = Effect.fnUntraced(function* (workspace: Workspace, tasks: Task
 
 const beside = (slots: readonly Slot[]) => slots.filter(({ ran }) => ran.length > 1).flatMap(({ ran }) => ran.filter((task) => task.parallelism === false).map((task) => `${task.id} beside ${ran.length - 1} tasks`));
 
-const mixed = (workspace: Workspace, slots: readonly Slot[]) => {
+const mixed = (workspace: Graph, slots: readonly Slot[]) => {
     const { projects } = readProjectsConfigurationFromProjectGraph(workspace);
     return slots.flatMap(({ batches }) =>
         batches.flatMap((batch) =>
@@ -108,7 +107,7 @@ const mixed = (workspace: Workspace, slots: readonly Slot[]) => {
     );
 };
 
-const preferring = (workspace: Workspace, tasks: readonly Task[]) => {
+const preferring = (workspace: Graph, tasks: readonly Task[]) => {
     const { projects } = readProjectsConfigurationFromProjectGraph(workspace);
     return tasks.filter((task) => task.parallelism !== false && task.continuous !== true && getExecutorForTask(task, projects).preferBatch === true).map((task) => task.id);
 };
@@ -117,17 +116,9 @@ const preferring = (workspace: Workspace, tasks: readonly Task[]) => {
 
 it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
-        'plans check, test, and build over every project without a cycle',
+        'plans every target over every project without a cycle',
         Effect.fnUntraced(function* () {
-            assert.isNull(findCycle(planned(yield* read('fresh'), CHECKED)), SOURCES.cycle);
-        }),
-    );
-
-    suite.effect(
-        'plans every README verb over every project without a cycle',
-        Effect.fnUntraced(function* () {
-            const [workspace, stated] = yield* Effect.all([read('fresh'), verbs]);
-            assert.deepStrictEqual(cyclic(workspace, stated), [], SOURCES.cycle);
+            assert.isNull(findCycle(every(yield* read('fresh'))), SOURCES.cycle);
         }),
     );
 

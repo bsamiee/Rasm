@@ -3,13 +3,15 @@ import { createServer } from 'node:http';
 import { constants } from 'node:http2';
 import { findPackageJSON } from 'node:module';
 import { devNull } from 'node:os';
-import { delimiter } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { env } from 'node:process';
-import { pathToFileURL } from 'node:url';
-import { createProjectGraphAsync, type ProjectGraph, workspaceRoot } from '@nx/devkit';
-import { Array, Cause, Context, Effect, FileSystem, Function, Layer, Match, Option, Path, Predicate, Record, Schema, Stream } from 'effect';
-import { ChildProcess, ChildProcessSpawner } from 'effect/process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createProjectGraphAsync, type ExpandedPluginConfiguration, type ProjectGraph, workspaceRoot } from '@nx/devkit';
+import { run } from '@rasm/process';
+import { Array, Context, Effect, FileSystem, Function, Layer, Match, Option, Path, Predicate, Record, Schema } from 'effect';
+import type { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
+import { Reading } from '#/reading';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -26,6 +28,12 @@ interface Asked {
     readonly held: Buffer | undefined;
 }
 
+interface Graph extends Required<Pick<ProjectGraph, 'nodes' | 'dependencies' | 'externalNodes'>> {
+    readonly sourceMaps: (typeof Reading.Type)['sourceMaps'];
+    readonly hashes: (typeof Reading.Type)['hashes'];
+    readonly failures: (typeof Reading.Type)['failures'];
+}
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const inherited = Record.filter(env, (value, name): value is string => Predicate.isString(value) && !['NX_', 'VITEST', 'npm_'].some((prefix) => name.startsWith(prefix)) && !['NODE_ENV', 'NO_COLOR', 'VIRTUAL_ENV', 'UV_LOCKED', 'GITHUB_ACTIONS'].includes(name));
@@ -35,13 +43,6 @@ const inherited = Record.filter(env, (value, name): value is string => Predicate
 const Json = Schema.fromJsonString(Schema.Unknown, { space: 4 });
 const Version = Schema.fromJsonString(Schema.Struct({ version: Schema.String }));
 
-const Read = Schema.fromJsonString(
-    Schema.Struct({
-        nodes: Schema.Record(Schema.String, Schema.Any),
-        dependencies: Schema.Record(Schema.String, Schema.Any),
-        failures: Schema.Array(Schema.Struct({ name: Schema.String, message: Schema.String, files: Schema.Array(Schema.Struct({ file: Schema.NullOr(Schema.String), message: Schema.String })) })),
-    }),
-).annotate({ description: 'Project graph createProjectGraphAsync built inside the workspace, the partial graph where a plugin failed, and each failure with the files its plugin named' });
 const Planned = Schema.fromJsonString(
     Schema.Struct({
         tasks: Schema.Struct({
@@ -62,6 +63,9 @@ const Inputs = Schema.fromJsonString(
 const Outputs = Schema.fromJsonString(Schema.Struct({ outputPaths: Schema.optionalKey(Schema.Array(Schema.String)), expandedOutputs: Schema.optionalKey(Schema.Array(Schema.String)) })).annotate({
     description: 'JSON nx show target outputs prints: the paths one task declares where it declares any, and once files exist the paths on disk they expand to',
 });
+const Run = Schema.fromJsonString(Schema.Struct({ tasks: Schema.Array(Schema.Struct({ taskId: Schema.String, hash: Schema.String, cacheStatus: Schema.Literals(['local-cache-hit', 'remote-cache-hit', 'cache-miss']), status: Schema.Int })) })).annotate({
+    description: 'run.json Nx writes into its cache folder at the end of each task run: the hash, cache status, and exit code of every task the run held',
+});
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -70,7 +74,7 @@ class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, strin
         Layer.effect(
             Packed,
             Effect.gen(function* () {
-                const [path, spawner] = yield* Effect.all([Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+                const path = yield* Path.Path;
                 const { nodes, dependencies } = yield* Effect.promise(() => createProjectGraphAsync());
                 const archives = Record.map(nodes, ({ data }) => archived(path, data.targets ?? {}));
                 const reached = (names: readonly string[], held: ReadonlySet<string>): ReadonlySet<string> => {
@@ -86,8 +90,7 @@ class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, strin
                         : held;
                 };
                 const packages = [...reached(plugins, new Set())];
-                const pack = ChildProcess.make('nx', ['run-many', '--targets=pack', `--projects=${packages.join(',')}`], { cwd: workspaceRoot, stdin: 'ignore', stdout: 'inherit', stderr: 'inherit', extendEnv: true, env: { NX_TUI: 'false' } });
-                yield* Effect.filterOrFail(spawner.exitCode(pack), (code) => code === 0);
+                yield* run(['nx', 'run-many', '--targets=pack', `--projects=${packages.join(',')}`], { cwd: workspaceRoot, extendEnv: true, env: { NX_TUI: 'false' } });
                 return yield* Effect.all(Record.fromIterableWith(packages, (name) => [name, tarball(archives[name] ?? [])]));
             }).pipe(Effect.orDie),
         );
@@ -97,10 +100,12 @@ class Consumer extends Context.Service<
     Consumer,
     {
         readonly root: string;
+        readonly plugins: readonly string[];
         readonly called: (command: string, args: readonly string[], folder?: string) => Effect.Effect<Effect.Success<ReturnType<typeof exited>>>;
         readonly nx: (...args: readonly string[]) => Effect.Effect<Effect.Success<ReturnType<typeof exited>>>;
+        readonly ran: (args: readonly string[], set?: Record.ReadonlyRecord<string, string>) => Effect.Effect<Effect.Success<ReturnType<typeof exited>> & { readonly tasks: Record.ReadonlyRecord<string, (typeof Run.Type)['tasks'][number]['cacheStatus']> }>;
         readonly evaluated: (script: string, args?: readonly string[], folder?: string, variables?: Record.ReadonlyRecord<string, string>) => Effect.Effect<string>;
-        readonly read: Effect.Effect<ProjectGraph & Pick<typeof Read.Type, 'failures'>>;
+        readonly read: Effect.Effect<Graph>;
         readonly planned: (...args: readonly string[]) => Effect.Effect<(typeof Planned.Type)['tasks']>;
         readonly inputs: (task: string) => Effect.Effect<typeof Inputs.Type>;
         readonly outputs: (task: string) => Effect.Effect<Required<typeof Outputs.Type>>;
@@ -116,30 +121,28 @@ class Consumer extends Context.Service<
         Layer.effect(
             Consumer,
             Effect.gen(function* () {
-                const [fs, path, spawner, packed] = yield* Effect.all([FileSystem.FileSystem, Path.Path, ChildProcessSpawner.ChildProcessSpawner, Packed]);
+                const [fs, path, packed, services] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Packed, Effect.context<ChildProcessSpawner.ChildProcessSpawner>()]);
                 const root = yield* Effect.flatMap(fs.makeTempDirectoryScoped({ prefix: 'nx-consumer-' }), fs.realPath);
-                const plugins = (settings.plugins ?? []).map((row) => (Predicate.isString(row) ? row : row.plugin));
+                const plugins = rows(settings).map(({ plugin }) => plugin);
                 const versions = yield* Effect.all(Record.fromIterableWith(Array.dedupe(['nx', ...packages]), (name) => [name, installed(name, resolved)]));
                 const sources = Record.map(packed, (archive) => pathToFileURL(archive).href);
-                const variables = {
-                    ...inherited,
-                    NX_DAEMON: 'false',
-                    NX_TUI: 'false',
-                    NX_CACHE_DIRECTORY: path.join(root, '.nx/cache'),
+                const [cache, store] = [path.join(root, '.nx/cache'), yield* Effect.map(run(['pnpm', 'store', 'path'], { cwd: workspaceRoot }), ({ stdout }) => stdout.trim())];
+                const variables = environment(root, {
+                    NX_CACHE_DIRECTORY: cache,
                     NX_WORKSPACE_DATA_DIRECTORY: path.join(root, '.nx/workspace-data'),
-                    FORCE_COLOR: '0',
+                    NX_NATIVE_FILE_CACHE_DIRECTORY: path.join(root, '.nx/native'),
                     GIT_CONFIG_GLOBAL: devNull,
                     GIT_CONFIG_NOSYSTEM: '1',
                     GIT_AUTHOR_NAME: 'suite',
                     GIT_AUTHOR_EMAIL: 'suite@example.com',
                     GIT_COMMITTER_NAME: 'suite',
                     GIT_COMMITTER_EMAIL: 'suite@example.com',
-                    PATH: [path.join(root, 'node_modules/.bin'), ...Option.toArray(Record.get(inherited, 'PATH'))].join(delimiter),
-                };
-                const called = (command: string, args: readonly string[], folder = '.') => exited(ChildProcess.make(command, args, { cwd: path.join(root, folder), stdin: 'ignore', extendEnv: false, env: variables })).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner), Effect.orDie);
+                });
+                const spawned = (argv: Array.NonEmptyReadonlyArray<string>, folder = '.', set: Record.ReadonlyRecord<string, string> = {}) => exited(argv, { cwd: path.join(root, folder), extendEnv: false, env: { ...variables, ...set } }).pipe(Effect.provide(services), Effect.orDie);
+                const called = (command: string, args: readonly string[], folder = '.') => spawned([command, ...args], folder);
                 const done = (command: string, ...args: readonly string[]) => Effect.orDie(Effect.flatMap(called(command, args), ({ checked }) => checked));
                 const evaluated = Effect.fnUntraced(function* (script: string, args: readonly string[] = [], folder = '.', stated: Record.ReadonlyRecord<string, string> = {}) {
-                    const { checked } = yield* called('env', [...Record.collect(stated, (name, value) => `${name}=${value}`), 'node', '--input-type=module', '--eval', script, ...args], folder);
+                    const { checked } = yield* spawned(['node', '--input-type=module', '--eval', script, ...args], folder, stated);
                     const printed = yield* checked;
                     return yield* Effect.fromOption(Array.last(printed.trimEnd().split('\n')));
                 }, Effect.orDie);
@@ -152,36 +155,23 @@ class Consumer extends Context.Service<
                     Schema.encodeEffect(Json)({ overrides: sources }),
                 ]);
                 yield* wrote({ '.gitignore': ['node_modules', '.nx', ...ignored, ''].join('\n'), 'nx.json': nxJson, 'package.json': manifest, 'pnpm-workspace.yaml': overrides, ...files });
-                yield* done('pnpm', 'install', '--prefer-offline', '--ignore-scripts');
+                yield* done('pnpm', 'install', '--prefer-offline', '--ignore-scripts', `--store-dir=${store}`);
                 yield* done('git', 'init', '--quiet', '--initial-branch=main');
                 yield* committed('base');
                 return {
                     root,
+                    plugins,
                     called,
                     nx: (...args: readonly string[]) => called('nx', args),
+                    ran: Effect.fnUntraced(function* (args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) {
+                        const folder = set['NX_CACHE_DIRECTORY'] ?? cache;
+                        yield* Effect.orDie(fs.remove(path.join(folder, 'run.json'), { force: true }));
+                        const outcome = yield* spawned(['nx', ...args], '.', set);
+                        const tasks = yield* Effect.orDie(Effect.provideService(recorded(folder), FileSystem.FileSystem, fs));
+                        return { ...outcome, tasks: Record.fromIterableWith(tasks, ({ taskId, cacheStatus }) => [taskId, cacheStatus]) };
+                    }),
                     evaluated,
-                    read: Effect.orDie(
-                        Effect.flatMap(
-                            evaluated(
-                                `import { createProjectGraphAsync } from 'nx/src/devkit-exports';
-import { isAggregateCreateNodesError, ProjectGraphError } from 'nx/src/project-graph/error-types';
-const read = await createProjectGraphAsync().then(
-    ({ nodes, dependencies }) => ({ nodes, dependencies, failures: [] }),
-    (cause) => {
-        if (!(cause instanceof ProjectGraphError)) throw cause;
-        const { nodes, dependencies } = cause.getPartialProjectGraph();
-        const failures = cause.getErrors().map((error) => ({ name: error.name, message: error.message, files: isAggregateCreateNodesError(error) ? error.errors.map(([file, { message }]) => ({ file, message })) : [] }));
-        return { nodes, dependencies, failures };
-    },
-);
-process.stdout.write(JSON.stringify(read), () => process.exit(0));`,
-                                [],
-                                '.',
-                                { NX_CACHE_PROJECT_GRAPH: 'false' },
-                            ),
-                            Schema.decodeEffect(Read),
-                        ),
-                    ),
+                    read: Effect.orDie(Effect.flatMap(Effect.flatMap(spawned(['node', fileURLToPath(import.meta.resolve('#/reading'))], '.', { NX_CACHE_PROJECT_GRAPH: 'false' }), ({ checked }) => checked), Schema.decodeEffect(Reading))),
                     planned: Effect.fnUntraced(
                         function* (...args: readonly string[]) {
                             const file = path.join(yield* fs.makeTempDirectoryScoped({ prefix: 'nx-planned-' }), 'tasks.json');
@@ -215,14 +205,36 @@ process.stdout.write(JSON.stringify(read), () => process.exit(0));`,
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const exited = Effect.fnUntraced(function* (command: ChildProcess.Command) {
-    const handle = yield* command;
-    const exit = yield* Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), code: handle.exitCode }, { concurrency: 'unbounded' });
-    const checked = Effect.gen(function* () {
-        return exit.code === 0 ? exit.stdout : yield* new Cause.UnknownError(exit.stderr, `exited ${exit.code}: ${exit.stderr}`);
-    });
-    return { ...exit, checked };
-}, Effect.scoped);
+const kept = Effect.gen(function* () {
+    const { nx, written, absent } = yield* Consumer;
+    const [built, created] = yield* written(nx('run-many', '--targets=build', '--output-style=static'));
+    yield* nx('reset');
+    const shown = yield* nx('show', 'projects');
+    return { built, shown, created, removed: yield* absent(created) };
+});
+
+const exited = (argv: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) =>
+    run(argv, options).pipe(
+        Effect.map(({ stdout, stderr }) => ({ code: 0, stdout, stderr, checked: Effect.succeed(stdout) })),
+        Effect.catchTag('ExitError', (error) => Effect.succeed({ code: error.code, stdout: error.stdout, stderr: error.stderr, checked: Effect.fail(error) })),
+    );
+
+const environment = (root: string, set: Record.ReadonlyRecord<string, string> = {}) => ({
+    ...inherited,
+    NX_DAEMON: 'false',
+    NX_TUI: 'false',
+    FORCE_COLOR: '0',
+    PATH: [join(root, 'node_modules/.bin'), ...Option.toArray(Record.get(inherited, 'PATH'))].join(delimiter),
+    ...set,
+});
+
+const rows = ({ plugins = [] }: NxJsonConfiguration): readonly ExpandedPluginConfiguration[] => plugins.map((row) => (Predicate.isString(row) ? { plugin: row } : row));
+
+const recorded = Effect.fnUntraced(function* (folder: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const { tasks } = yield* Effect.flatMap(fs.readFileString(join(folder, 'run.json')), Schema.decodeEffect(Run));
+    return tasks;
+});
 
 const archived = (path: Path.Path, targets: NonNullable<ProjectGraph['nodes'][string]['data']['targets']>) =>
     Object.values(targets)
@@ -287,8 +299,6 @@ const remote = (token: string, answer: (asked: Asked) => Option.Option<number>) 
         },
     );
 
-const fromCache = (task: string) => new RegExp(`${RegExp.escape(task)}.*\\[(local cache|remote cache|existing outputs match)`, 'u');
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answered, Consumer, exited, fromCache, inherited, Packed, remote };
+export { answered, Consumer, environment, exited, type Graph, kept, Packed, recorded, remote, rows };

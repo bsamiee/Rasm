@@ -2,7 +2,7 @@ import { basename, dirname, join, normalize, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
 import { Array, Effect, Equivalence, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
-import { CHECKERS, declared, PIXI, refused } from '#/targets';
+import { CHECKERS, declared, PIXI, UvError } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -118,7 +118,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
     const index = Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined));
     const manifests = [...documented.keys()].filter((file) => basename(file) === MANIFEST);
     return {
-        failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), refused(file, 'does not decode'))),
+        failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), UvError.of({ _tag: 'Undecoded', form: 'the nx table of tool' }, file))),
         members: Array.zipWith(members, tables, (member, [, table]) => {
             const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], workspaceGroups, Equivalence.Struct({ name: Equivalence.String }));
             const packaged = 'editable' in (resolution[member.id]?.source ?? {});

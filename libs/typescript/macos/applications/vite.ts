@@ -1,8 +1,9 @@
 import { globSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
-import { Array, Cause, Effect, Record, Schema, Stream } from 'effect';
-import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+import { run } from '@rasm/process';
+import { Array, Effect, Record, Schema } from 'effect';
+import type { ChildProcessSpawner } from 'effect/process';
 import { build, type PlistValue, parse } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
 
@@ -13,12 +14,6 @@ const Settings = Schema.fromJsonString(Schema.NonEmptyArray(Schema.Struct({ buil
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const ran = Effect.fnUntraced(function* (command: string, args: readonly string[]) {
-    const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore' });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return code === 0 ? stdout : yield* new Cause.UnknownError(stderr, `${command} exited ${code}: ${stderr}`);
-}, Effect.scoped);
 
 const helper = Effect.fnUntraced(function* (
     entry: string,
@@ -73,8 +68,8 @@ const helper = Effect.fnUntraced(function* (
     const name = basename(dirname(entry));
     const context = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
     const signing = yield* Effect.cached(
-        ran('xcodebuild', ['-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target]).pipe(
-            Effect.flatMap(Schema.decodeEffect(Settings)),
+        run(['xcodebuild', '-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target]).pipe(
+            Effect.flatMap(({ stdout }) => Schema.decodeEffect(Settings)(stdout)),
             Effect.map(([{ buildSettings }]) => ({ ...buildSettings, label: `${buildSettings.PRODUCT_BUNDLE_IDENTIFIER}.${service}` })),
         ),
     );
@@ -91,7 +86,7 @@ const helper = Effect.fnUntraced(function* (
                 Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder, withFileTypes: true })),
                 ({ name: file, parentPath }) => [file, join(parentPath, file)],
             );
-            const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, useCodeCache: true, disableExperimentalSEAWarning: true, assets });
+            const sea = JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets });
             return signing.pipe(
                 Effect.map(({ CODE_SIGN_ENTITLEMENTS, DEVELOPMENT_TEAM, PROJECT_DIR, label }): readonly Rolldown.EmittedAsset[] => {
                     const entitlements = parse(readFileSync(resolve(PROJECT_DIR, CODE_SIGN_ENTITLEMENTS), 'utf8'));
@@ -114,7 +109,7 @@ const helper = Effect.fnUntraced(function* (
                             [process.execPath, '--build-sea', join(outDir, 'sea.json')],
                             ['codesign', '--force', '--sign', '-', '--identifier', label, '--options', 'runtime', '--entitlements', join(outDir, 'sea.entitlements'), join(outDir, name)],
                         ] as const,
-                        ([command, ...args]) => ran(command, args),
+                        (argv) => run(argv),
                         { discard: true },
                     ),
                 ),

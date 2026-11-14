@@ -481,6 +481,7 @@ overrides:
   '@qualithm/arrow-flight-client>apache-arrow': 21.2.0
   '@google/model-viewer>three': 0.187.0
   '@effect/docgen>typescript': npm:@typescript/typescript6@6.0.2
+  '@types/ssh2>@types/node': 26.6.6
   '@modelcontextprotocol/inspector>yaml': 3.0.0-2
   '@effect/opentelemetry>@opentelemetry/resources': 3.1.1
   '@effect/opentelemetry>@opentelemetry/sdk-logs': 3.1.1
@@ -585,6 +586,9 @@ importers:
       bootstrap-icons:
         specifier: 'catalog:'
         version: 1.13.2
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
       knip:
         specifier: 'catalog:'
         version: 6.45.0
@@ -952,9 +956,6 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1002,9 +1003,6 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -1793,6 +1791,9 @@ importers:
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../libs/typescript/web/hosting
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../libs/typescript/runtime/process
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -2165,6 +2166,9 @@ importers:
 
   libs/typescript/macos/applications:
     dependencies:
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../runtime/process
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
@@ -2256,6 +2260,9 @@ importers:
 
   libs/typescript/network/ssh:
     dependencies:
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../runtime/process
       ssh-config:
         specifier: 'catalog:'
         version: 5.3.0
@@ -2293,6 +2300,15 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
+
+  libs/typescript/runtime/process:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      effect:
+        specifier: 'catalog:'
+        version: 4.1.4
 
   libs/typescript/runtime/telemetry:
     devDependencies:
@@ -2682,51 +2698,12 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
-      '@rasm/nx-apple':
-        specifier: workspace:*
-        version: link:../../../apps/nx/apple
-      '@rasm/nx-cargo':
-        specifier: workspace:*
-        version: link:../../../apps/nx/cargo
-      '@rasm/nx-cmake':
-        specifier: workspace:*
-        version: link:../../../apps/nx/cmake
-      '@rasm/nx-distribution':
-        specifier: workspace:*
-        version: link:../../../apps/nx/distribution
-      '@rasm/nx-docker':
-        specifier: workspace:*
-        version: link:../../../apps/nx/docker
-      '@rasm/nx-dotnet':
-        specifier: workspace:*
-        version: link:../../../apps/nx/dotnet
-      '@rasm/nx-pulumi':
-        specifier: workspace:*
-        version: link:../../../apps/nx/pulumi
-      '@rasm/nx-storybook':
-        specifier: workspace:*
-        version: link:../../../apps/nx/storybook
-      '@rasm/nx-typescript':
-        specifier: workspace:*
-        version: link:../../../apps/nx/typescript
-      '@rasm/nx-uv':
-        specifier: workspace:*
-        version: link:../../../apps/nx/uv
-      '@rasm/nx-vite':
-        specifier: workspace:*
-        version: link:../../../apps/nx/vite
-      '@rasm/nx-vitest':
-        specifier: workspace:*
-        version: link:../../../apps/nx/vitest
       '@rasm/testing':
         specifier: workspace:*
         version: link:../support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.1.0-dev.20261109.1
       ajv:
         specifier: 'catalog:'
         version: 8.20.0
@@ -2739,9 +2716,6 @@ importers:
       nx:
         specifier: 'catalog:'
         version: 24.1.0-beta.0
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2)
       vitest:
         specifier: 'catalog:'
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
@@ -2751,18 +2725,15 @@ importers:
       '@axe-core/playwright':
         specifier: 'catalog:'
         version: 4.14.1-d1531a9.0.sha-d1531a9(playwright-core@1.66.0-alpha-2026-11-14)
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.1.4(effect@4.1.4)(redis@6.4.0-beta.0(@opentelemetry/api@1.10.0))
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
-      '@vitest/browser-playwright':
-        specifier: 'catalog:'
-        version: 5.1.0(playwright@1.66.0-alpha-2026-11-14)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
-      '@vitest/coverage-v8':
-        specifier: 'catalog:'
-        version: 5.1.0(@vitest/browser@5.1.0)(vitest@5.1.0)
-      '@vitest/ui':
-        specifier: 'catalog:'
-        version: 5.1.0(vitest@5.1.0)
+      '@rasm/process':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/runtime/process
     devDependencies:
       '@nx/devkit':
         specifier: 'catalog:'
@@ -6291,9 +6262,6 @@ packages:
   '@types/mdx@2.0.14':
     resolution: {integrity: sha512-T48PeuJtvLosNTPVhfnIp3i/n3a4g4Bad7YCq5k64D4u7NwDrAotikQ+5+sjtUvBmxCMlbo3dVL+C2dP0rWHzg==}
 
-  '@types/node@18.19.130':
-    resolution: {integrity: sha512-GRaXQx6jGfL8sKfaIDD6OupbIHBr9jv7Jnaml9tB7l4v068PAOXqfcujMMo5PhbIs6ggR1XODELqahT2R8v0fg==}
-
   '@types/node@26.6.6':
     resolution: {integrity: sha512-MzQj+8Kx3XI40OmUAE6Qoh58ZMNstNNMwn2nfd3qWsfe7nDNSqJNzes4njhz6AHwrSHOffSLwXU6yb474Q4aog==}
 
@@ -9152,9 +9120,6 @@ packages:
 
   unconfig@7.5.0:
     resolution: {integrity: sha512-oi8Qy2JV4D3UQ0PsopR28CzdQ3S/5A1zwsUwp/rosSbfhJ5z7b90bIyTwi/F7hCLD4SGcZVjDzd4XoUQcEanvA==}
-
-  undici-types@5.26.5:
-    resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
 
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
@@ -12870,10 +12835,6 @@ snapshots:
 
   '@types/mdx@2.0.14': {}
 
-  '@types/node@18.19.130':
-    dependencies:
-      undici-types: 5.26.5
-
   '@types/node@26.6.6':
     dependencies:
       undici-types: 8.9.0
@@ -12901,7 +12862,7 @@ snapshots:
 
   '@types/ssh2@1.15.6':
     dependencies:
-      '@types/node': 18.19.130
+      '@types/node': 26.6.6
 
   '@types/stack-utils@2.0.3': {}
 
@@ -16131,8 +16092,6 @@ snapshots:
       jiti: 2.7.0
       quansync: 1.0.0
       unconfig-core: 7.5.0
-
-  undici-types@5.26.5: {}
 
   undici-types@8.9.0: {}
 

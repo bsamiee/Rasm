@@ -8367,6 +8367,7 @@ process = [
     { name = "opentelemetry-distro" },
     { name = "opentelemetry-instrumentation-structlog" },
     { name = "opentelemetry-sdk" },
+    { name = "portalocker" },
 ]
 
 [package.metadata]
@@ -8383,6 +8384,7 @@ requires-dist = [
     { name = "opentelemetry-instrumentation-system-metrics", marker = "extra == 'metrics'" },
     { name = "opentelemetry-sdk", marker = "extra == 'export'" },
     { name = "opentelemetry-semantic-conventions" },
+    { name = "portalocker", marker = "extra == 'process'" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "rasm-telemetry", extras = ["export"], marker = "extra == 'otlp-http'", editable = "libs/python/runtime/telemetry" },
@@ -8513,6 +8515,7 @@ version = "0.1.0"
 source = { virtual = "libs/python/graphics/tests/typography" }
 dependencies = [
     { name = "fonttools" },
+    { name = "msgspec" },
     { name = "pytest" },
     { name = "rasm-testing" },
     { name = "rasm-typography" },
@@ -8522,6 +8525,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "fonttools" },
+    { name = "msgspec" },
     { name = "pytest" },
     { name = "rasm-testing", editable = "tests/python/support" },
     { name = "rasm-typography", editable = "libs/python/graphics/typography" },

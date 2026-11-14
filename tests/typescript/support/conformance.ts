@@ -1,8 +1,8 @@
 import { dirname, join } from 'node:path';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
-import { Array, Duration, Effect, Function, type Layer, Option, Predicate, Record, Result, Schema } from 'effect';
-import { answered, Consumer, fromCache, remote } from '#/nx';
+import { Array, Duration, Effect, Function, type Layer, Option, Record, Result, Schema } from 'effect';
+import { answered, Consumer, kept, remote } from '#/nx';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -52,7 +52,6 @@ const NOOP = 'nx:noop';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Names = Schema.fromJsonString(Schema.Array(Schema.String));
-const Plugins = Schema.fromJsonString(Schema.Struct({ plugins: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ plugin: Schema.String })])) }));
 const Entry = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.String }) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -99,9 +98,9 @@ const tooled = Effect.fnUntraced(function* (name: string, verb: string) {
     const [{ planned }, { idle }] = yield* Effect.all([Consumer, placed]);
     const { dependencies } = yield* planned('run', `${name}:${verb}`);
     const run = (id: string): readonly string[] => (dependencies[id] ?? []).flatMap((task) => (idle.has(task.id) ? run(task.id) : [task.id]));
-    const hits = run(`${name}:${verb}`).map(fromCache);
-    assert.isNotEmpty(hits, 'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"; nrwl/nx packages/nx/src/project-graph/utils/project-configuration/target-normalization.ts: a target with no executor and no command is nx:noop, which runs no tool');
-    return (printed: string) => hits.filter((hit) => !hit.test(printed)).map(String);
+    const tools = run(`${name}:${verb}`);
+    assert.isNotEmpty(tools, 'README.md PRINCIPLES "Verbs aggregate <verb>--<tool> targets"; nrwl/nx packages/nx/src/project-graph/utils/project-configuration/target-normalization.ts: a target with no executor and no command is nx:noop, which runs no tool');
+    return (tasks: Record.ReadonlyRecord<string, string>) => tools.filter((id) => !Option.exists(Record.get(tasks, id), (status) => status !== 'cache-miss'));
 });
 
 const counted = Effect.fnUntraced(function* (tools: readonly string[], reset: string) {
@@ -264,12 +263,10 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         methods.effect(
             `runs ${tools.join(' and ')} again for a graph read once the files of an installed plugin change`,
             Effect.fnUntraced(function* () {
-                const { text, wrote } = yield* Consumer;
+                const { text, wrote, plugins } = yield* Consumer;
                 yield* counted(tools, '');
-                const { plugins } = yield* Schema.decodeEffect(Plugins)(yield* text('nx.json'));
-                const named = plugins.map((row) => (Predicate.isString(row) ? row : row.plugin));
-                const entries = yield* Effect.forEach(named, (plugin) => Effect.flatMap(text(join('node_modules', plugin, 'package.json')), Schema.decodeEffect(Entry)));
-                const released = Array.zipWith(named, entries, (plugin, { exports }) => join('node_modules', plugin, dirname(exports['.']), 'released.js'));
+                const entries = yield* Effect.forEach(plugins, (plugin) => Effect.flatMap(text(join('node_modules', plugin, 'package.json')), Schema.decodeEffect(Entry)));
+                const released = Array.zipWith(plugins, entries,(plugin, { exports }) => join('node_modules', plugin, dirname(exports['.']), 'released.js'));
                 yield* wrote(Record.fromIterableWith(released, (file) => [file, 'export {};\n']));
                 const { code, stderr, runs } = yield* counted(tools, '');
                 assert.strictEqual(code, 0, stderr);
@@ -366,9 +363,9 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         methods.effect(
             'removes with clean every file the tool reports for a build, and restores each from the cache on the next build',
             Effect.fnUntraced(function* () {
-                const [{ nx, absent }, stated] = yield* Effect.all([Consumer, member(edits.dependent)]);
+                const [{ ran, absent }, stated] = yield* Effect.all([Consumer, member(edits.dependent)]);
                 const missed = yield* tooled(stated.name, 'build');
-                const run = (verb: string) => nx(verb, stated.name, '--output-style=static');
+                const run = (verb: string) => ran([verb, stated.name, '--output-style=static']);
                 const first = yield* run('build');
                 assert.strictEqual(first.code, 0, `${first.stdout}${first.stderr}`);
                 const files = yield* built(stated);
@@ -378,24 +375,20 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                 assert.strictEqual(cleaned.code, 0, `${cleaned.stdout}${cleaned.stderr}`);
                 assert.sameMembers([...(yield* absent(files))], [...files], 'README.md TASKS "clean removes the outputs a project\'s targets declare and runs its tool\'s clean"');
                 const again = yield* run('build');
-                assert.deepStrictEqual(missed(again.stdout), [], 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should rebuild after clean even with cache available"');
+                assert.deepStrictEqual(missed(again.tasks), [], 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should rebuild after clean even with cache available"');
                 assert.deepStrictEqual(yield* absent(files), [], 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
             }),
             bound,
         );
 
         methods.effect(
-            'keeps every file a build wrote through a graph read holding no stored plugin result',
+            'keeps every file the builds of every member wrote through a graph read holding no stored plugin result',
             Effect.fnUntraced(function* () {
-                const [{ nx, absent }, stated] = yield* Effect.all([Consumer, member(edits.dependent)]);
-                const run = yield* nx('build', stated.name, '--output-style=static');
+                const { built: run, shown, created, removed } = yield* kept;
                 assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
-                const files = yield* built(stated);
-                assert.isNotEmpty(files, report);
-                yield* nx('reset');
-                const shown = yield* nx('show', 'projects');
+                assert.isNotEmpty(created, report);
                 assert.strictEqual(shown.code, 0, shown.stderr);
-                assert.deepStrictEqual(yield* absent(files), [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
+                assert.deepStrictEqual(removed, [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
             }),
             bound,
         );
@@ -424,16 +417,16 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         methods.effect.each(edits.verbs)(
             'misses the %s cache of a member after a source edit in a member it depends on, and hits it after an edit to files the tool reads for neither',
             Effect.fnUntraced(function* (verb) {
-                const [{ nx, wrote }, { name }] = yield* Effect.all([Consumer, member(edits.dependent)]);
-                const [run, missed] = [nx(verb, name, '--output-style=static'), yield* tooled(name, verb)];
+                const [{ ran, wrote }, { name }] = yield* Effect.all([Consumer, member(edits.dependent)]);
+                const [run, missed] = [ran([verb, name, '--output-style=static']), yield* tooled(name, verb)];
                 yield* run;
-                assert.deepStrictEqual(missed((yield* run).stdout), [], 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
+                assert.deepStrictEqual(missed((yield* run).tasks), [],'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should store and use local cache for builds"');
                 yield* wrote(edits.upstream(verb));
                 const edited = yield* run;
                 assert.strictEqual(edited.code, 0, `${edited.stdout}${edited.stderr}`);
-                assert.isNotEmpty(missed(edited.stdout), 'nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should not serve a cache hit after the dependency changes"');
+                assert.isNotEmpty(missed(edited.tasks),'nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should not serve a cache hit after the dependency changes"');
                 yield* wrote(edits.outside(verb));
-                assert.deepStrictEqual(missed((yield* run).stdout), [], `${report}; nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should still hit cache when an unrelated file changes"; e2e/gradle/src/gradle-cache.test.ts "should rebuild on source and resource changes and hit cache otherwise"`);
+                assert.deepStrictEqual(missed((yield* run).tasks), [], `${report}; nrwl/nx e2e/gradle/src/gradle-task-dependencies.test.ts "should still hit cache when an unrelated file changes"; e2e/gradle/src/gradle-cache.test.ts "should rebuild on source and resource changes and hit cache otherwise"`);
             }),
             bound,
         );
@@ -441,11 +434,11 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         methods.effect(
             'passes the tests of a member, replays a rerun from the cache, and fails once a test fails',
             Effect.fnUntraced(function* () {
-                const [{ nx, called, wrote }, { name }] = yield* Effect.all([Consumer, member(edits.tested)]);
-                const [run, missed] = [nx('test', name, '--output-style=static'), yield* tooled(name, 'test')];
+                const [{ ran, called, wrote }, { name }] = yield* Effect.all([Consumer, member(edits.tested)]);
+                const [run, missed] = [ran(['test', name, '--output-style=static']), yield* tooled(name, 'test')];
                 const first = yield* run;
                 assert.strictEqual(first.code, 0, `${first.stdout}${first.stderr}`);
-                assert.deepStrictEqual(missed((yield* run).stdout), [], 'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should handle test execution with fully cached dependency chain"');
+                assert.deepStrictEqual(missed((yield* run).tasks), [],'nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should handle test execution with fully cached dependency chain"');
                 yield* wrote(edits.failing);
                 const failing = yield* run;
                 yield* called('git', ['checkout', '--', ...Record.keys(edits.failing)]);
@@ -467,9 +460,9 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         methods.effect(
             'stores the build of a member in a remote cache server and replays it from there into an empty local cache',
             Effect.fnUntraced(function* () {
-                const [{ root, called }, { name }, { address, requests }] = yield* Effect.all([Consumer, member(edits.dependent), remote(token, Function.flow(answered, Option.some))]);
+                const [{ root, ran }, { name }, { address, requests }] = yield* Effect.all([Consumer, member(edits.dependent), remote(token, Function.flow(answered, Option.some))]);
                 const missed = yield* tooled(name, 'build');
-                const run = (folder: string) => called('env', [`NX_SELF_HOSTED_REMOTE_CACHE_SERVER=${address}`, `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=${token}`, `NX_CACHE_DIRECTORY=${root}/.nx/${folder}`, 'nx', 'build', name, '--output-style=static']);
+                const run = (folder: string) => ran(['build', name, '--output-style=static'], { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: address, NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: token, NX_CACHE_DIRECTORY: join(root, '.nx', folder) });
                 const first = yield* run('stored');
                 const stored = requests.filter((request) => request.startsWith('PUT '));
                 const second = yield* run('emptied');
@@ -484,7 +477,7 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                     [],
                     source,
                 );
-                assert.deepStrictEqual(missed(second.stdout), [], `${source}: ${second.stdout}${second.stderr}`);
+                assert.deepStrictEqual(missed(second.tasks), [],`${source}: ${second.stdout}${second.stderr}`);
             }, Effect.scoped),
             bound,
         );
@@ -556,8 +549,8 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                     [],
                     `${report}; nrwl/nx packages/nx/src/command-line/release/version/test-utils.ts ExampleRustVersionActions updateProjectVersion`,
                 );
-                const kept = manifests(next);
-                assert.deepStrictEqual(yield* Effect.forEach(Record.keys(kept), text), Object.values(kept), 'nrwl/nx packages/js/src/release/version-actions.spec.ts "updateProjectVersion": formatting and other fields kept');
+                const unchanged = manifests(next);
+                assert.deepStrictEqual(yield* Effect.forEach(Record.keys(unchanged), text), Object.values(unchanged), 'nrwl/nx packages/js/src/release/version-actions.spec.ts "updateProjectVersion": formatting and other fields kept');
             }),
             bound,
         );

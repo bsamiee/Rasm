@@ -1,0 +1,19 @@
+name: Tools
+description: Removes untracked files, then installs the mise tools and pnpm packages, inside a job container the Unreal rows alone under .cache of the checkout
+
+runs:
+    using: composite
+    steps:
+        - shell: bash
+          run: git clean -ffd
+        - if: ${{ job.container.id != '' }}
+          shell: bash
+          run: |
+              kept="${GITHUB_WORKSPACE}/.cache"
+              tools="cmake,conda:pkgconf,dotnet,gh,github:llvm/llvm-project,github:microsoft/vcpkg-tool,hk,ninja,node,pnpm,rust,uv"
+              printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "RUSTUP_HOME=${kept}/mise/rustup" "CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" "MISE_ENABLE_TOOLS=${tools}" >> "${GITHUB_ENV}"
+        - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+          with:
+              cache: ${{ runner.environment == 'github-hosted' }}
+        - shell: bash
+          run: pnpm install

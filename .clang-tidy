@@ -17,10 +17,6 @@ Checks:
     - -bugprone-easily-swappable-parameters
     # Reads `#include` lines alone and reports each name `import std` supplies
     - -misc-include-cleaner
-    # Engines of a test take a literal seed so each run draws one sequence
-    - -bugprone-random-generator-seed
-    - -cert-msc32-c
-    - -cert-msc51-cpp
     # Expected values of a case and coefficients of a formula are literals
     - -cppcoreguidelines-avoid-magic-numbers
     - -readability-magic-numbers
@@ -30,8 +26,6 @@ Checks:
     - -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access
     # `std::errc{}` is the value `std::from_chars` and `std::to_chars` report success with
     - -bugprone-invalid-enum-default-initialization
-    # Fuzz targets view their input bytes in place as text
-    - -cppcoreguidelines-pro-type-reinterpret-cast
 WarningsAsErrors: '*'
 
 # --- [SCOPE] ----------------------------------------------------------------------------
@@ -59,7 +53,6 @@ CheckOptions:
     readability-identifier-naming.TemplateParameterCase: CamelCase
     readability-identifier-naming.NamespaceCase: lower_case
     readability-identifier-naming.FunctionCase: lower_case
-    readability-identifier-naming.FunctionIgnoredRegexp: '^LLVMFuzzerTestOneInput$'
     readability-identifier-naming.VariableCase: lower_case
     readability-identifier-naming.ParameterCase: lower_case
     readability-identifier-naming.MemberCase: lower_case

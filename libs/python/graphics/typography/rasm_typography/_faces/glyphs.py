@@ -181,15 +181,15 @@ class Glyph(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def category(self) -> Category:
-        """OpenType category for `public.openTypeCategories`, spaces and controls left unassigned."""
+        """OpenType category for `public.openTypeCategories`, controls left unassigned and spaces bases a mark can attach to."""
         match self.role:
             case Mark():
                 return Category.MARK
             case Ligature():
                 return Category.LIGATURE
-            case Space() | Control():
+            case Control():
                 return Category.UNASSIGNED
-            case Letter() | Digit() | Sign() | Ornament():
+            case Letter() | Digit() | Sign() | Ornament() | Space():
                 return Category.BASE
 
     def anchor(self, name: str, /) -> Option[Anchor]:

@@ -1,0 +1,31 @@
+{
+    "name": "@rasm/process",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Child process runs over Effect commands: stdout and stderr of a command that exits 0, an ExitError holding its code and output otherwise, its descendants left running",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/bsamiee/Rasm.git",
+        "directory": "libs/typescript/runtime/process"
+    },
+    "license": "MIT",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./index.ts"
+    },
+    "files": [ "dist" ],
+    "devDependencies": {
+        "@types/node": "catalog:",
+        "effect": "catalog:"
+    },
+    "peerDependencies": {
+        "effect": "catalog:peers"
+    },
+    "publishConfig": {
+        "access": "public",
+        "exports": {
+            ".": "./dist/index.js"
+        }
+    }
+}

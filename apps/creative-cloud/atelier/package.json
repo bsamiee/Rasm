@@ -33,9 +33,6 @@
         "targets": {
             "build--vite": {
                 "inputs": [ "...", "{projectRoot}/macos/Atelier.xcodeproj/project.xcproj", "{projectRoot}/macos/Atelier.entitlements", "{workspaceRoot}/Xcode.xcconfig" ]
-            },
-            "build": {
-                "inputs": [ "...", "{projectRoot}/macos/Atelier.xcodeproj/project.xcproj", "{projectRoot}/macos/Atelier.entitlements", "{workspaceRoot}/Xcode.xcconfig" ]
             }
         }
     }

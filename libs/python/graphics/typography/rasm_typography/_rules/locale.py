@@ -13,7 +13,7 @@ lazy from pathops import PathOp
 lazy from scipy.special import cosdg, sindg
 
 from rasm_typography._faces.coverage import Coverage
-from rasm_typography._faces.declaration import Arrangement, Foot, Script
+from rasm_typography._faces.declaration import Arrangement, Code, Foot, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Ok, Outcome
 lazy from rasm_typography._faces.glyphs import Component, Glyph, Joining, Joinings, Mark, Point, Side, Source
@@ -29,6 +29,7 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
 
     script: Script
     coverage: Coverage
+    dot: Code | None = None
 
     def applied(self, source: Source, /, *, joinings: Joinings, **_: object) -> Outcome[Source]:
         """Draws the derived signs, seats a stem letter's drawn above mark over the stem where it strays, composes every required and kept-block code point the face lacks from its own glyphs, blanks the format controls at zero advance, and lays out their lookups."""
@@ -92,7 +93,8 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
             for base, marks in ((tuple(piece for box, piece in split if box and box.ymin < limit), tuple(piece for box, piece in split if box and box.ymin >= limit)),)
             if base
             and marks
-            and (under := paths.bounds(tuple(*piece for piece in base)))
+            and (whole := paths.bounds(tuple(*piece for piece in base)))
+            and (under := paths.bounds(paths.strip(tuple(*piece for piece in base), whole.ymax - stem.width, whole.ymax, axis="y")))
             and (over := paths.bounds(tuple(*piece for piece in marks)))
             and abs(over.middle[0] - under.middle[0]) > stem.width / 2
         )
@@ -105,7 +107,7 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
         )
         bases = {int(parts[0], 16) for code in wanted if (parts := unicodedata.decomposition(chr(code)).split()) and not parts[0].startswith("<")}
         groups = {code: group for code in drawn.encoded if (group := joinings.get(code, (Joining.NONE, "No_Joining_Group"))[1]) != "No_Joining_Group"}
-        nuqta = paths.area(measures.nuqta(drawn, script.dotted))
+        nuqta = paths.area(measures.nuqta(drawn, self.dot))
         based = drawn.replaced(
             *(
                 measures.made(joinings, GlyphName(stem=(code,), form=form), model.advance, contours=measures.dotted(model, nuqta)[0])

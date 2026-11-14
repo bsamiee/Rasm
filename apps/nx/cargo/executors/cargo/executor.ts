@@ -24,7 +24,7 @@ const Cargo = Schema.Struct({
     cwd: Schema.String.annotate({ description: 'Cargo workspace root, relative to the Nx workspace root' }),
     commands: Schema.NonEmptyArray(Command).annotate({ description: 'Cargo invocations in order, a task stopping at its first failure' }),
     package: Schema.optionalKey(Schema.String).annotate({ description: 'Package the task selects, passed to cargo as a package ID spec' }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to every command', $default: { $source: 'unparsed' } }),
+    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
     outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Paths the commands write, which the target's outputs name through {options.outputs.<n>}, each parent folder created before the run" }),
 }).annotate({
     title: 'Cargo',
@@ -86,7 +86,7 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
             ...tasks.flatMap(({ id, target: { project } }) => Option.toArray(Option.fromUndefinedOr(inputs[id]?.package)).flatMap((name) => selected(root(project), name))),
             ...(command.packages ?? []).flatMap(({ root: at, name }) => selected(at, name)),
             ...(command.trailing === undefined ? [] : ['--', ...command.trailing]),
-            ...(options?.args ?? []),
+            ...(options?.__unparsed__ ?? []),
         ],
         command.env,
     );
@@ -112,7 +112,7 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
 });
 
 const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Record<string, typeof Cargo.Type>>, tasks: readonly Planned[]) => {
-    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.args] as const;
+    const keyed = ({ id }: Pick<Task, 'id'>) => [inputs[id]?.cwd, inputs[id]?.commands ?? [], inputs[id]?.__unparsed__] as const;
     const steps = Array.dedupe(tasks.map(keyed)).flatMap((key) => key[1].map((command, index) => ({ group: tasks.filter((task) => Equal.equals(keyed(task), key)), command, last: index === key[1].length - 1 })));
     return Stream.fromIterable(steps).pipe(
         Stream.mapAccumEffect(

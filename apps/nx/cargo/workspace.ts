@@ -1,9 +1,10 @@
-import { execFile } from 'node:child_process';
-import { dirname, isAbsolute, join, relative } from 'node:path';
-import { promisify } from 'node:util';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { Array, Cause, Effect, FileSystem, flow, Option, Record, Result, Schema, UndefinedOr } from 'effect';
+import { readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import type { PackageJson } from '@nx/devkit/internal';
+import { Array, Context, Effect, FileSystem, Formatter, flow, Layer, ManagedRuntime, Option, Record, Result, Schema, type Scope, Stream, UndefinedOr } from 'effect';
 import { Toml } from 'effect/encoding';
+import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -42,12 +43,42 @@ const Metadata = Schema.fromJsonString(
 );
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.Struct({ inherits: Schema.optionalKey(Schema.String), panic: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
+const Reason = Schema.TaggedUnion({ Exited: { code: Schema.Int, said: Schema.String }, Undecoded: { form: Schema.String }, Missing: { what: Schema.String }, Refused: { rule: Schema.String } });
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class CargoError extends Schema.TaggedError<CargoError, { readonly brand: unique symbol }>()('CargoError', {
+    reason: Reason,
+    subject: Schema.String,
+    cause: Schema.optionalKey(Schema.Defect()),
+}) {
+    static readonly of = (reason: CargoError['reason'], subject: string) => (cause?: unknown) => CargoError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
+
+    override get message() {
+        const reason = Reason.match(this.reason, { Exited: ({ code, said }) => [`exits ${code}`, ...(said === '' ? [] : [said])].join('\n'), Undecoded: ({ form }) => `does not read as ${form}`, Missing: ({ what }) => `states no ${what}`, Refused: ({ rule }) => rule });
+        return [`${this.subject}: ${reason}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
+    }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Links extends Context.Service<Links, Map<string, Member>>()('@rasm/nx-cargo/workspace/Links') {
+    static readonly layer = Layer.sync(Links, () => new Map());
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const refused = (subject: string, detail: string) => (cause?: unknown) => new Cause.UnknownError(cause, `${subject}: ${detail}`);
+const printed = Effect.fnUntraced(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions) {
+    const handle = yield* ChildProcess.make(command, args, { extendEnv: true, detached: false, ...options });
+    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* CargoError.of({ _tag: 'Exited', code, said }, CommandLine.display([command, ...args]))();
+}, Effect.scoped);
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => effect.pipe(Effect.tapCause(Effect.logError), Effect.provide(layer), Effect.runPromise);
+const manifested = (workspaceRoot: string, root: string) =>
+    Effect.map(
+        Effect.flatMap(FileSystem.FileSystem, (fs) => fs.exists(join(workspaceRoot, root, 'package.json'))),
+        (held): Readonly<Record<string, TargetConfiguration>> => (held ? (readJsonFile<PackageJson>(join(workspaceRoot, root, 'package.json')).nx?.targets ?? {}) : {}),
+    );
 
 const ancestors = (folder: string): readonly string[] =>
     Array.unfold(
@@ -62,33 +93,40 @@ const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
         Effect.flatMap((fs) => fs.readFileString(file)),
         Effect.flatMap(flow(Toml.parse, Effect.fromResult)),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-        Effect.mapError(refused(file, 'does not read as the TOML table it declares')),
+        Effect.mapError(CargoError.of({ _tag: 'Undecoded', form: 'the TOML table it declares' }, file)),
     );
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
-    const metadata = yield* Effect.tryPromise({
-        try: (signal) => promisify(execFile)('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal }),
-        catch: refused(manifest, 'cargo metadata does not exit 0'),
-    }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Metadata)(stdout)));
+    const metadata = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot, stdin: 'ignore' }), Schema.decodeEffect(Metadata));
     const root = relative(workspaceRoot, metadata.workspace_root) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const [{ profile }, names, denied] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
-            Effect.tryPromise({
-                try: (signal) => {
-                    const running = promisify(execFile)('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { encoding: 'utf8', cwd: metadata.workspace_root, signal });
-                    running.child.stdin?.end();
-                    return running;
-                },
-                catch: refused('rustc', 'does not exit 0'),
-            }).pipe(Effect.map(({ stdout }) => stdout.split('\n'))),
+            Effect.map(printed('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root, stdin: 'ignore' }), (stdout) => stdout.split('\n')),
             Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
         ],
         { concurrency: 'unbounded' },
     );
     return { metadata, profile, uplifted: Record.fromEntries(Array.zip(types, names)), deny: Option.toArray(denied) };
 });
+
+const moved = ({ metadata, ...reading }: Reading, to: (at: string) => string): Reading => ({
+    ...reading,
+    metadata: {
+        ...metadata,
+        workspace_root: to(metadata.workspace_root),
+        target_directory: to(metadata.target_directory),
+        packages: metadata.packages.map((crate) => ({
+            ...crate,
+            manifest_path: to(crate.manifest_path),
+            targets: crate.targets.map((target) => ({ ...target, src_path: to(target.src_path) })),
+            dependencies: crate.dependencies.map((dependency) => (dependency.path === undefined ? dependency : { ...dependency, path: to(dependency.path) })),
+        })),
+    },
+});
+
+const placed = (workspaceRoot: string) => ({ stored: (reading: Reading) => moved(reading, (at) => relative(workspaceRoot, at)), loaded: (reading: Reading) => moved(reading, (at) => resolve(workspaceRoot, at)) });
 
 const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: Reading) => {
     const within = (at: string) => relative(workspaceRoot, at) || '.';
@@ -118,6 +156,12 @@ const workspaces = (workspaceRoot: string, manifests: readonly string[], files: 
                 : Effect.map(Effect.result(read(workspaceRoot, manifest, files)), (reading) => [...done, [manifest, reading] as const]),
     );
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const runtime = ManagedRuntime.make(Layer.merge(Links.layer, layer));
+
+const run = <A, E>(effect: Effect.Effect<A, E, Links | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(effect));
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ancestors, LOCK, MANIFEST, type Member, Metadata, type Reading, refused, resolved, run, type Workspace, workspaces };
+export { ancestors, CargoError, Links, LOCK, MANIFEST, type Member, Metadata, manifested, placed, printed, type Reading, resolved, run, type Workspace, workspaces };

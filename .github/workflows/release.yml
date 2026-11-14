@@ -32,14 +32,14 @@ jobs:
         runs-on: xcode-27
         timeout-minutes: 120
         environment: release
-        permissions:
-            contents: write
         outputs:
             commit: ${{ steps.released.outputs.commit }}
-            engines: ${{ steps.released.outputs.engines }}
+            engines: ${{ steps.engines.outputs.engines }}
         env:
-            GH_TOKEN: ${{ github.token }}
+            GH_TOKEN: &github ${{ github.token }}
             UV_LOCKED: "true"
+            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
             APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
             APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
             DEVELOPER_ID_P12: ${{ secrets.DEVELOPER_ID_P12 }}
@@ -55,11 +55,7 @@ jobs:
               with:
                   xcode-version: latest
             - &tools
-              uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
-              with:
-                  cache: ${{ runner.environment == 'github-hosted' }}
-            - &packages
-              run: pnpm install
+              uses: ./.github/actions/tools
             - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
               env:
@@ -71,14 +67,15 @@ jobs:
             - id: released
               run: |
                   commit="$(git rev-parse HEAD)"
-                  engines="$(git ls-files -z -- "*.uproject" | xargs -0 cat | jq --slurp --compact-output 'map(.EngineAssociation | strings | select(test("^[0-9.]+$"))) | unique')"
-                  printf "commit=%s\nengines=%s\n" "${commit}" "${engines}" >> "${GITHUB_OUTPUT}"
+                  printf "commit=%s\n" "${commit}" >> "${GITHUB_OUTPUT}"
+            - id: engines
+              uses: ./.github/actions/engines
             - if: ${{ !inputs.dry-run }}
               run: nx run-many --targets=attach --configuration=release
             - if: ${{ inputs.publish && !inputs.dry-run }}
               run: nx release publish --first-release=${{ inputs.first-release }}
               env:
-                  PNPM_CONFIG_NPMRC_AUTH_FILE: ${{ github.workspace }}/.config/npmrc
+                  PNPM_CONFIG__AUTH: '{"https://registry.npmjs.org":{"@":{"authToken":"${NODE_AUTH_TOKEN}"}}}'
                   NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
                   UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
                   NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
@@ -100,8 +97,6 @@ jobs:
         runs-on: [self-hosted, container]
         timeout-minutes: 120
         environment: release
-        permissions:
-            contents: write
         container:
             image: ghcr.io/epicgames/unreal-engine:dev-slim-${{ matrix.engine }}
             credentials:
@@ -109,8 +104,10 @@ jobs:
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
             options: --memory=10g
         env:
-            GH_TOKEN: ${{ github.token }}
+            GH_TOKEN: *github
             UV_LOCKED: "true"
+            NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
+            NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: *token
             HOME: /home/ue4
             UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         steps:
@@ -118,6 +115,6 @@ jobs:
               with:
                   ref: ${{ needs.release.outputs.commit }}
                   fetch-depth: 0
+                  clean: false
             - *tools
-            - *packages
             - run: nx run-many --targets=attach --configuration=release --projects=tag:os:linux

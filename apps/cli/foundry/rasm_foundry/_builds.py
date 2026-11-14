@@ -11,6 +11,8 @@ lazy from functools import partial
 lazy import hashlib
 lazy from importlib import metadata
 lazy from io import BytesIO
+lazy from itertools import groupby
+lazy from operator import itemgetter
 lazy import time
 
 from cyclopts import Parameter
@@ -18,12 +20,13 @@ from expression.extra.result import catch
 import msgspec
 lazy from anyio import amap, to_process, to_thread
 lazy from expression import Option, Result
-lazy from fontTools.ttLib import TTFont
+lazy from fontTools.ttLib import TTFont, TTLibError
 lazy from fontTools.ufoLib import UFOReader
 lazy from fontTools.ufoLib.errors import UFOLibError
 lazy import ots
 lazy from packaging.requirements import Requirement
 lazy from packaging.utils import canonicalize_name
+lazy import ufoLib2
 
 from rasm_foundry._checks import Check, inspected, ran, Severity
 from rasm_foundry._declaration import Declared, Faces, FontSet
@@ -49,20 +52,18 @@ class Action(StrEnum):
         return self in {Action.BUILD, Action.RUN}
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_VERTICAL: Final = (("hhea", "ascent"), ("hhea", "descent"), ("OS/2", "sTypoAscender"), ("OS/2", "sTypoDescender"), ("OS/2", "usWinAscent"), ("OS/2", "usWinDescent"))
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Built(msgspec.Struct, frozen=True, kw_only=True):
-    """Built face binary with the inputs hash it read and the hash of the bytes it wrote."""
+    """Built face binary with the inputs hash it read, the hash of the bytes it wrote, the vertical metrics its own drawing measures, and the ones its typographic family sets it to."""
 
     face: Faces
     path: Path
     inputs: str
     hash: str
+    own: rasm_typography.VerticalMetrics
+    metrics: rasm_typography.VerticalMetrics
 
 
 class Report(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
@@ -95,6 +96,7 @@ class _Verdict(msgspec.Struct, frozen=True, kw_only=True):
 _EXPECTED_DECODER: Final = msgspec.json.Decoder(rasm_typography.Expected)
 _FONT_SET_DECODER: Final = msgspec.json.Decoder(FontSet)
 _CORPUS_DECODER: Final = msgspec.json.Decoder(rasm_typography.Corpus)
+_STAMP_DECODER: Final = msgspec.json.Decoder(tuple[str, str, rasm_typography.VerticalMetrics, rasm_typography.VerticalMetrics])
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
@@ -140,14 +142,14 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         return _hashed(b"".join((self.shared, hashlib.sha256(original.data).digest(), *map(_digest, (face, plan, selected)))))
 
     def current(self, face: Faces, original: rasm_typography.Binary, /) -> Option[Built]:
-        """Reads a build whose recorded hashes still match its inputs and stored binary."""
+        """Reads a build whose recorded hashes still match its inputs and stored binary, with the vertical metrics its stamp records."""
         path = self.declaration.binary(face)
         return (
             read(self.declaration.stamp(face))
             .to_option()
-            .bind(lambda raw: catch(lambda: msgspec.json.decode(raw, type=tuple[str, str]), exception=msgspec.DecodeError)().to_option())
+            .bind(lambda raw: catch(_STAMP_DECODER.decode, exception=msgspec.DecodeError)(raw).to_option())
             .filter(lambda found: self.inputs(original, face) == found[0] and read(path).map(_hashed) == Ok(found[1]))
-            .map(lambda found: Built(face=face, path=path, inputs=found[0], hash=found[1]))
+            .map(lambda found: Built(face=face, path=path, inputs=found[0], hash=found[1], own=found[2], metrics=found[3]))
         )
 
     # --- [BUILD]
@@ -160,55 +162,62 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def built(self, face: Faces, original: rasm_typography.Binary, /) -> Outcome[Built]:
-        """Constructs a face, writes its binary, and records the build's inputs and bytes hashes beside it."""
-        return self.made(face, original).bind(rasm_typography.Construction.compiled).bind(partial(self.stored, face, self.inputs(original, face)))
+        """Constructs a face, writes its binary at the vertical metrics its own drawing measures, and records the build beside it."""
+        return self.made(face, original).bind(lambda made: made.compiled().bind(partial(self.stored, face, self.inputs(original, face), made.source.metrics, made.source.metrics)))
 
-    def stored(self, face: Faces, inputs: str, data: bytes, /) -> Outcome[Built]:
-        """Writes a face's binary and records the build's inputs and bytes hashes beside it."""
+    def stored(self, face: Faces, inputs: str, own: rasm_typography.VerticalMetrics, metrics: rasm_typography.VerticalMetrics, data: bytes, /) -> Outcome[Built]:
+        """Writes a face's binary and records beside it the build's inputs and bytes hashes, its own vertical metrics, and the ones the binary holds."""
         return (
             committed(self.declaration.binary(face), data)
-            .map(lambda path: Built(face=face, path=path, inputs=inputs, hash=_hashed(data)))
-            .bind(lambda done: committed(self.declaration.stamp(face), msgspec.json.encode((done.inputs, done.hash))).map(lambda _: done))
+            .map(lambda path: Built(face=face, path=path, inputs=inputs, hash=_hashed(data), own=own, metrics=metrics))
+            .bind(lambda done: committed(self.declaration.stamp(face), msgspec.json.encode((done.inputs, done.hash, done.own, done.metrics))).map(lambda _: done))
         )
 
-    def aligned(self, kept: tuple[Built, ...], /) -> Outcome[tuple[Built, ...]]:
-        """Sets the builds of each typographic family, with its other faces' current builds, to the line metrics of its tallest face and its farthest win metrics, the form family checks read, rewriting each build they change.
+    def aligned(self, members: tuple[Built, ...], /) -> Outcome[tuple[Built, ...]]:
+        """Sets the builds of one typographic family and its other faces' current builds to the line metrics of the face whose own drawing reaches tallest and the farthest own win metrics, rewriting each build they move.
+
+        Args:
+            members: Current builds of one typographic family, at least one.
 
         Returns:
-            Ok(builds) in input order with their written hashes, the faults of a failed read or write.
+            Ok(the members' builds) in input order with their written hashes, the faults of a failed read or write.
         """
-        families = {done.face.typographic for done in kept}
-        held = {done.face.postscript for done in kept}
-        others = tuple(
-            done
-            for face in self.declaration.set.faces
-            if face.typographic in families and face.postscript not in held
-            for done in read(self.declaration.original(face)).bind(rasm_typography.Binary.of).to_option().bind(partial(self.current, face)).to_list()
+        held = {done.face.postscript for done in members}
+        builds = (
+            *members,
+            *(
+                done
+                for face in self.declaration.set.faces
+                if face.typographic == members[0].face.typographic and face.postscript not in held
+                for done in read(self.declaration.original(face)).bind(rasm_typography.Binary.of).to_option().bind(partial(self.current, face)).to_list()
+            ),
         )
+        tallest = max((done.own for done in builds), key=lambda own: own.ascender - own.descender)
+        reach = (max(done.own.win_ascent for done in builds), max(done.own.win_descent for done in builds))
+        return accumulated(
+            Ok(done) if done.metrics == metrics else self.realigned(done, metrics)
+            for done in builds
+            for metrics in (msgspec.structs.replace(done.own, ascender=tallest.ascender, descender=tallest.descender, win_ascent=reach[0], win_descent=reach[1]),)
+        ).map(lambda done: done[: len(members)])
 
-        def saved(font: TTFont, /) -> bytes:
-            buffer = BytesIO()
-            font.save(buffer)
-            return buffer.getvalue()
-
-        def written(opened: tuple[tuple[Built, TTFont], ...], /) -> Outcome[tuple[Built, ...]]:
-            tallest = {family: max((font for done, font in opened if done.face.typographic == family), key=lambda font: font["hhea"].ascent - font["hhea"].descent) for family in families}
-            farthest = {
-                (family, tag, field): max((getattr(font[tag], field) for done, font in opened if done.face.typographic == family), key=abs)
-                if tag == "OS/2" and field.startswith("usWin")
-                else getattr(tallest[family][tag], field)
-                for family in families
-                for tag, field in _VERTICAL
-            }
-            moved = tuple((done, font) for done, font in opened if any(getattr(font[tag], field) != farthest[done.face.typographic, tag, field] for tag, field in _VERTICAL))
-            for done, font in moved:
-                for tag, field in _VERTICAL:
-                    setattr(font[tag], field, farthest[done.face.typographic, tag, field])
-            return accumulated(self.stored(done.face, done.inputs, saved(font)) for done, font in moved).map(
-                lambda rewritten: tuple({done.path: done for done in rewritten}.get(done.path, done) for done in kept)
-            )
-
-        return accumulated(paired(Ok(done), read(done.path).map(lambda data: TTFont(BytesIO(data), recalcTimestamp=False))) for done in (*kept, *others)).bind(written)
+    def realigned(self, done: Built, metrics: rasm_typography.VerticalMetrics, /) -> Outcome[Built]:
+        """Writes a build's UFO source and then its binary at a family's vertical metrics, and records the build, `UNREADABLE` for a stored binary or source fontTools refuses."""
+        source, buffer = self.declaration.source(done.face), BytesIO()
+        opened = paired(
+            read(done.path).bind(
+                lambda data: catch(partial(TTFont, lazy=True, recalcBBoxes=False, recalcTimestamp=False), exception=TTLibError)(BytesIO(data)).map_error(partial(Fault.of, Reason.UNREADABLE, str(done.path)))
+            ),
+            catch(partial(ufoLib2.Font.open, lazy=False), exception=UFOLibError)(source).map_error(partial(Fault.of, Reason.UNREADABLE, str(source))),
+        )
+        match opened:
+            case Result(tag="ok", ok=(font, ufo)):
+                rasm_typography.metered(font, ufo.info, metrics)
+                font.save(buffer)
+                return committed(source, lambda stage: catch(ufo.save, exception=OSError)(stage).map_error(partial(Fault.of, Reason.UNWRITABLE, str(source)))).bind(
+                    lambda _: self.stored(done.face, done.inputs, done.own, metrics, buffer.getvalue())
+                )
+            case Result(error=faults):
+                return Error(faults)
 
     def staged(self, action: Action, face: Faces, /) -> Outcome[tuple[Built, Report]]:
         """Reads a face's current build, compiling one where none is current and the action builds, and reports the time and whether a current build was kept.
@@ -320,10 +329,13 @@ class _Builds(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     async def settled(self, action: Action, faces: tuple[Faces, ...], /) -> list[Outcome[tuple[Built, Report]]]:
-        """Stages every face across worker processes, then aligns each typographic family's vertical metrics, an alignment fault answering for every staged face."""
+        """Stages every face across worker processes, then, where the action builds, aligns each typographic family's vertical metrics in a worker process per family, a family's alignment fault answering for each of its staged faces."""
         held = await _across(partial(self.staged, action), faces)
-        aligned = self.aligned(tuple(*outcome.to_option().map(lambda pair: pair[0]).to_list() for outcome in held)).map(lambda kept: {done.path: done for done in kept})
-        return [outcome.bind(lambda pair: aligned.map(lambda found: (found[pair[0].path], msgspec.structs.replace(pair[1], hash=found[pair[0].path].hash)))) for outcome in held]
+        kept = sorted((pair[0] for outcome in held for pair in outcome.to_option().to_list()), key=lambda done: done.face.typographic) if action.building else ()
+        families = tuple(tuple(members) for _, members in groupby(kept, key=lambda done: done.face.typographic))
+        aligned = await amap(lambda members: to_process.run_sync(self.aligned, members), families)
+        moved = {member.path: outcome.map(itemgetter(index)) for members, outcome in zip(families, aligned, strict=True) for index, member in enumerate(members)}
+        return [outcome.bind(lambda pair: moved.get(pair[0].path, Ok(pair[0])).map(lambda done: (done, msgspec.structs.replace(pair[1], hash=done.hash)))) for outcome in held]
 
     async def verified(self, action: Action, faces: tuple[Faces, ...], /) -> Outcome[tuple[Report, ...]]:
         """Stages every face in parallel, measures in parallel each face whose check identity moved, and runs fontspector once before them over every face of each folder holding one.

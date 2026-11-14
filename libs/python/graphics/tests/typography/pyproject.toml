@@ -8,6 +8,7 @@ requires-python = ">=3.15"
 dependencies = [
     # --- [CORE]
 
+    "msgspec",         # Probe glyphs given anchors through `structs.replace`
     "pytest",          # Parameters and assertions over each original face
     "rasm-testing",    # Outcome unwrapping that fails a test with its faults' text
     "rasm-typography", # Library under test: outlines, rules, and requirements over the set's originals

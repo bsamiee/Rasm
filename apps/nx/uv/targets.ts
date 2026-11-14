@@ -1,10 +1,11 @@
 import { dirname, extname, join, relative } from 'node:path';
-import type { TargetConfiguration } from '@nx/devkit';
-import { quoteShellArg } from '@nx/devkit/internal';
-import { aggregated } from '@rasm/nx-distribution';
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
+import { type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { mergeTargetConfigurations, type PackageJson, quoteShellArg } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, identity, Option, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
+import { Array, Context, Effect, FileSystem, Formatter, identity, Layer, ManagedRuntime, Option, pipe, Record, Result, Schema, SchemaTransformation, type Scope, Stream, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
+import { ChildProcess, CommandLine } from 'effect/process';
 import type { Member } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -104,12 +105,44 @@ const Patterns = Schema.Struct({
     ),
 });
 const Settings = Patterns.mapFields(Struct.assign({ ini_options: Schema.optionalKey(Patterns), pytest: Schema.optionalKey(Patterns), cache_dir: Schema.optionalKey(Schema.String) }));
+const Reason = Schema.TaggedUnion({ Exited: { code: Schema.Int, said: Schema.String }, Undecoded: { form: Schema.String }, Missing: { what: Schema.String }, Refused: { rule: Schema.String } });
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class UvError extends Schema.TaggedError<UvError, { readonly brand: unique symbol }>()('UvError', {
+    reason: Reason,
+    subject: Schema.String,
+    cause: Schema.optionalKey(Schema.Defect()),
+}) {
+    static readonly of = (reason: UvError['reason'], subject: string) => (cause?: unknown) => UvError.make({ reason, subject, ...(cause === undefined ? {} : { cause }) });
+
+    override get message() {
+        const reason = Reason.match(this.reason, { Exited: ({ code, said }) => [`exits ${code}`, ...(said === '' ? [] : [said])].join('\n'), Undecoded: ({ form }) => `does not read as ${form}`, Missing: ({ what }) => `states no ${what}`, Refused: ({ rule }) => rule });
+        return [`${this.subject}: ${reason}`, ...(this.cause === undefined ? [] : [Formatter.format(this.cause)])].join(': ');
+    }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Linked extends Context.Service<Linked, Map<string, readonly RawProjectGraphDependency[]>>()('@rasm/nx-uv/targets/Linked') {
+    static readonly layer = Layer.sync(Linked, () => new Map());
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
+const printed = Effect.fnUntraced(function* (command: string, args: readonly string[], options: ChildProcess.CommandOptions) {
+    const handle = yield* ChildProcess.make(command, args, { extendEnv: true, detached: false, stdin: 'ignore', ...options });
+    const [stdout, said, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? { stdout, said } : yield* UvError.of({ _tag: 'Exited', code, said }, CommandLine.display([command, ...args]))();
+}, Effect.scoped);
 
-const refused = (subject: string, detail: string) => (cause?: unknown) => new Cause.UnknownError(cause, `${subject}: ${detail}`);
+const manifested = (workspaceRoot: string, root: string) =>
+    Effect.map(
+        Effect.flatMap(FileSystem.FileSystem, (fs) => fs.exists(join(workspaceRoot, root, 'package.json'))),
+        (held): Readonly<Record<string, TargetConfiguration>> => (held ? (readJsonFile<PackageJson>(join(workspaceRoot, root, 'package.json')).nx?.targets ?? {}) : {}),
+    );
+
+const flagged = (flag: string, value: string | undefined): readonly string[] => (value === undefined ? [] : [flag, value]);
 
 const ancestors = (folder: string): readonly string[] => (folder === '.' ? [folder] : [folder, ...ancestors(dirname(folder))]);
 
@@ -119,7 +152,7 @@ const documents = Effect.fnUntraced(function* (workspaceRoot: string, roots: rea
     const read = yield* Effect.forEach(present, (at) => Effect.map(fs.readFileString(join(workspaceRoot, at)), (text) => [at, extname(at) === '.toml' ? Toml.parse(text) : Result.succeed<unknown>(Ini.parse(text))] as const), { concurrency: 'unbounded' });
     return {
         documented: new Map(read.map(([at, parsed]) => [at, Result.getOrElse(parsed, Record.empty)] as const)),
-        unparsed: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), refused(at, 'does not parse'))),
+        unparsed: Array.filterMap(read, ([at, parsed]) => Result.map(Result.flip(parsed), UvError.of({ _tag: 'Undecoded', form: 'TOML or INI' }, at))),
     };
 });
 
@@ -149,7 +182,7 @@ const declared = (documented: ReadonlyMap<string, unknown>, root: string, checke
     };
 };
 
-const targets = (member: Member, outputPath: Option.Option<string>): Record<string, TargetConfiguration> => {
+const targets = (member: Member, outputPath: Option.Option<string>, manifest: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
     const line = (argv: readonly string[]) => argv.map(quoteShellArg).join(' ');
     const root = member.root === member.workspace;
     const distributions = Option.match(outputPath, { onNone: () => join(member.workspace, 'dist', member.name), onSome: (at) => join(at, 'uv', member.name) });
@@ -209,84 +242,125 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
                     ),
                     metadata: { description: row.description, help: { command: `uv run ${row.help}`, example: { args: [...row.example] } } },
                 };
-                return [`${row.verb}--${key}`, target] as const;
+                return { verb: row.verb, key, target };
             }),
         ),
     );
     const published = ['uv', 'publish', ...flagged('--index', member.index)];
     const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests.map((file) => join('{workspaceRoot}', file)), join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }];
-    const tools: Record<string, TargetConfiguration> = {
-        ...Record.fromEntries(checked),
-        ...(root && {
-            'check--uv': {
-                command: 'uv lock --check',
-                options: { cwd: member.root },
-                cache: true,
-                inputs: locking,
-                metadata: { description: 'Resolves the workspace and fails where uv.lock lacks a change the manifests state, without writing it', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
+    const rooted: Readonly<Record<string, Readonly<Record<string, TargetConfiguration>>>> = root
+        ? {
+              check: {
+                  uv: {
+                      command: 'uv lock --check',
+                      options: { cwd: member.root },
+                      cache: true,
+                      inputs: locking,
+                      metadata: { description: 'Resolves the workspace and fails where uv.lock lacks a change the manifests state, without writing it', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
+                  },
+              },
+              upgrade: {
+                  uv: {
+                      command: 'uv lock --upgrade',
+                      options: { cwd: member.root },
+                      inputs: locking,
+                      metadata: { description: 'Moves every locked package to its newest allowed release', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
+                  },
+                  ...(member.pixi && {
+                      pixi: {
+                          command: 'pixi update',
+                          options: { cwd: member.root },
+                          inputs: [PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)),
+                          metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
+                      },
+                  }),
+              },
+          }
+        : {};
+    const joined = (held: Readonly<Record<string, TargetConfiguration>>, added: Readonly<Record<string, TargetConfiguration>>) => ({ ...held, ...added });
+    const tools: typeof rooted = pipe(
+        Array.groupBy(checked, ({ verb }): string => verb),
+        Record.map(Record.fromIterableWith(({ key, target }) => [key, target] as const)),
+        Record.union(rooted, joined),
+        Record.union(
+            {
+                build: {
+                    ...(member.packaged && {
+                        uv: {
+                            command: line(['uv', 'build', '--package', member.name, '--no-sources', '--out-dir', relative(member.workspace, distributions), '--clear', '--no-create-gitignore']),
+                            options: { cwd: member.workspace },
+                            cache: true,
+                            inputs: [...member.sources, join('{workspaceRoot}', member.lock), ...built, { externalDependencies: [] }],
+                            outputs: [join('{workspaceRoot}', distributions)],
+                            metadata: { description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
+                        },
+                    }),
+                },
+                install: {
+                    ...(member.scripted && {
+                        uv: {
+                            command: line(['uv', 'tool', 'install', '--reinstall', ...flagged('--python', member.python), '.']),
+                            options: { cwd: member.root },
+                            inputs: [...member.sources, ...built, { externalDependencies: [] }],
+                            metadata: { description: "Builds the member from the checkout and installs its scripts into uv's tool folder, on an interpreter its requires-python accepts", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
+                        },
+                    }),
+                },
             },
-            'upgrade--uv': {
-                command: 'uv lock --upgrade',
-                options: { cwd: member.root },
-                inputs: locking,
-                metadata: { description: 'Moves every locked package to its newest allowed release', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
-            },
+            joined,
+        ),
+    );
+    const writing = Record.collect(tools, (verb, held) =>
+        Record.collect(
+            Record.filter(held, ({ outputs = [] }) => outputs.length > 0),
+            (tool, row) => ({ label: `${verb}--${tool}`, row }),
+        ),
+    ).flat();
+    const verbs: typeof tools = {
+        ...tools,
+        clean: Array.match(writing, {
+            onEmpty: () => ({}),
+            onNonEmpty: (written) => ({ uv: { executor: `${SHARED}:clean`, inputs: Array.dedupe(written.flatMap(({ row }) => row.inputs ?? [])), options: { targets: written.map(({ label }) => label) }, metadata: { description: `Removes the outputs ${written.map(({ label }) => label).join(', ')} declare` } } }),
         }),
-        ...(root &&
-            member.pixi && {
-                'upgrade--pixi': {
-                    command: 'pixi update',
-                    options: { cwd: member.root },
-                    inputs: [PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)),
-                    metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
+        attach: {
+            ...(member.packaged && {
+                gh: {
+                    executor: `${SHARED}:attach`,
+                    dependsOn: ['build--uv'],
+                    inputs: [{ dependentTasksOutputFiles: '**/*' }],
+                    metadata: { description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
                 },
             }),
-        ...(member.packaged && {
-            'build--uv': {
-                command: line(['uv', 'build', '--package', member.name, '--no-sources', '--out-dir', relative(member.workspace, distributions), '--clear', '--no-create-gitignore']),
-                options: { cwd: member.workspace },
-                cache: true,
-                inputs: [...member.sources, join('{workspaceRoot}', member.lock), ...built, { externalDependencies: [] }],
-                outputs: [join('{workspaceRoot}', distributions)],
-                metadata: { description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
-            },
-        }),
-        ...(member.scripted && {
-            'install--uv': {
-                command: line(['uv', 'tool', 'install', '--reinstall', ...flagged('--python', member.python), '.']),
-                options: { cwd: member.root },
-                inputs: [...member.sources, ...built, { externalDependencies: [] }],
-                metadata: { description: "Builds the member from the checkout and installs its scripts into uv's tool folder, on an interpreter its requires-python accepts", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
-            },
-        }),
-    };
-    const written = Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0));
-    const delivered: Record<string, TargetConfiguration> = {
-        ...tools,
-        ...(written.length > 0 && { 'clean--uv': { executor: `${SHARED}:clean`, inputs: Array.dedupe(written.flatMap((name) => tools[name]?.inputs ?? [])), options: { targets: written }, metadata: { description: `Removes the outputs ${written.join(', ')} declare` } } }),
-        ...(member.packaged && {
-            'attach--gh': {
-                executor: `${SHARED}:attach`,
-                dependsOn: ['build--uv'],
-                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
-                metadata: { description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
-            },
-        }),
+        },
     };
     return {
-        ...aggregated(Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['python'], ...tool.metadata } }))),
+        ...Record.fromEntries(
+            Record.collect(
+                Record.filter(verbs, (held) => !Record.isEmptyRecord(held)),
+                (verb, held): readonly (readonly [string, TargetConfiguration])[] => [
+                    ...Record.collect(held, (tool, row): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, { ...row, metadata: { technologies: ['python'], ...row.metadata } }]),
+                    [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(held, (tool, row) => mergeTargetConfigurations(manifest[`${verb}--${tool}`] ?? {}, row, undefined, undefined, undefined, false).inputs ?? ['default', '^default']).flat())] }],
+                ],
+            ).flat(),
+        ),
         ...(member.published && {
             'nx-release-publish': {
                 executor: `${SHARED}:publish`,
-                options: { publish: published, preview: [...published, '--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
+                options: { publish: published, preview: ['--dry-run'], credential: 'UV_PUBLISH_TOKEN' },
                 dependsOn: ['build--uv', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
+                inputs: [{ dependentTasksOutputFiles: '**/*' }],
                 metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
             },
         }),
     };
 };
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const runtime = ManagedRuntime.make(Layer.merge(Linked.layer, layer));
+
+const run = <A, E>(effect: Effect.Effect<A, E, Linked | NodeServices | Scope.Scope>) => runtime.runPromise(Effect.scoped(effect));
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CHECKERS, CONFIGS, declared, documents, PIXI, refused, SHARED, targets };
+export { CHECKERS, CONFIGS, declared, documents, Linked, manifested, PIXI, printed, run, SHARED, targets, UvError };

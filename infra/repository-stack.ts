@@ -77,9 +77,9 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
     const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
     const tags = Array.dedupe(Object.values(hosts).flatMap((row) => row.tags));
     const deployer = 'tag:deploy';
-    const policy = { tagOwners: Record.fromIterableWith([...tags, deployer], (tag) => [tag, ['autogroup:admin']]), grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }], ssh: [{ action: 'accept', src: ['autogroup:member', deployer], dst: tags, users: ['autogroup:nonroot', 'root'] }] };
+    const policy = { tagOwners: Record.fromIterableWith([...tags, deployer], (tag) => [tag, ['autogroup:admin']]), grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }], ssh: [{ action: 'accept', src: ['autogroup:member', deployer], dst: tags, users: ['autogroup:nonroot', 'root'] }], nodeAttrs: [{ target: ['autogroup:member'], attr: ['funnel'] }] };
     const tailnet = new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true });
-    const joining = new OauthClient(`${name}-deploy`, { scopes: ['auth_keys'], tags: [deployer] }, { dependsOn: tailnet });
+    const joining = new OauthClient(`${name}-deploy`, { description: 'Deploy', scopes: ['auth_keys'], tags: [deployer] }, { dependsOn: tailnet });
     const machines = Record.keys(hosts).map((host) => host.split('.', 1).join(''));
     return {
         repository: fullName,
@@ -101,7 +101,7 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
             secret: new ActionsEnvironmentSecret(`${name}-deploy-tailscale`, { repository, environment: environments.deploy, secretName: 'TAILSCALE_OAUTH_SECRET', value: joining.key }).secretName,
             ...Record.map({ TAILSCALE_CLIENT_ID: joining.id, TAILSCALE_MACHINES: machines.join(',') }, (value, variableName) => new ActionsEnvironmentVariable(`${name}-deploy-${variableName}`, { repository, environment: environments.deploy, variableName, value }).value),
         },
-        updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true, aclsExternallyManagedOn: true, aclsExternalLink: interpolate`https://github.com/${fullName}/blob/HEAD/${path.relative(root, import.meta.filename)}` }).devicesAutoUpdatesOn,
+        updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true, httpsEnabled: true, usersApprovalOn: false, aclsExternallyManagedOn: true, aclsExternalLink: interpolate`https://github.com/${fullName}/blob/HEAD/${path.relative(root, import.meta.filename)}` }).devicesAutoUpdatesOn,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
         assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
         access: new ZeroTrustOrganization(organization.name, { accountId, name: organization.name, authDomain: organization.authDomain, strictServiceTokenAuth: true }, { protect: true }).authDomain,

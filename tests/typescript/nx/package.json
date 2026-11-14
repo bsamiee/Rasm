@@ -10,42 +10,37 @@
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/nx-apple": "workspace:*",
-        "@rasm/nx-cargo": "workspace:*",
-        "@rasm/nx-cmake": "workspace:*",
-        "@rasm/nx-distribution": "workspace:*",
-        "@rasm/nx-docker": "workspace:*",
-        "@rasm/nx-dotnet": "workspace:*",
-        "@rasm/nx-pulumi": "workspace:*",
-        "@rasm/nx-storybook": "workspace:*",
-        "@rasm/nx-typescript": "workspace:*",
-        "@rasm/nx-uv": "workspace:*",
-        "@rasm/nx-vite": "workspace:*",
-        "@rasm/nx-vitest": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
-        "@typescript/native": "catalog:",
         "ajv": "catalog:",
         "effect": "catalog:",
         "minimatch": "catalog:",
         "nx": "catalog:",
-        "vite": "catalog:",
         "vitest": "catalog:"
     },
     "nx": {
         "tags": [ "os:all" ],
+        "implicitDependencies": [ "@rasm/nx-*" ],
         "targets": {
             "test--vitest": {
                 "inputs": [
                     "...",
-                    {
-                        "runtime": "node -p process.platform+process.arch"
-                    }
-                ]
-            },
-            "test": {
-                "inputs": [
-                    "...",
+                    "{workspaceRoot}/.config/mise.toml",
+                    "{workspaceRoot}/.config/mise.*.toml",
+                    "{workspaceRoot}/pnpm-lock.yaml",
+                    "{workspaceRoot}/pnpm-workspace.yaml",
+                    "{workspaceRoot}/**/Cargo.lock",
+                    "{workspaceRoot}/**/Package.resolved",
+                    "{workspaceRoot}/{**/blender_manifest.toml,**/manifest.yml,**/manifest.json,**/manifest.xml,**/*.uproject,**/*.uplugin}",
+                    "{workspaceRoot}/{**/Package.swift,**/Info.plist,**/Package@swift-*.swift,**/*.xcodeproj/project.xcproj,**/*.xcworkspace/contents.xcworkspacedata,**/*.xcscheme,**/*.xcconfig,**/*.xcodeproj/project.pbxproj,**/*.xctestplan,**/*.entitlements,**/*.plist}",
+                    "{workspaceRoot}/{**/Cargo.toml,**/.cargo/config.toml,**/.cargo/config,**/rust-toolchain.toml,**/rust-toolchain,**/clippy.toml,**/.clippy.toml,**/.config/nextest.toml,**/{,.}deny{,.exceptions}.toml}",
+                    "{workspaceRoot}/{**/CMakePresets.json,**/CMakeLists.txt,**/.clang-tidy}",
+                    "{workspaceRoot}/{**/uv.lock,**/uv.toml,**/.python-version,**/ty.toml,**/pyproject.toml,**/mypy.ini,**/.mypy.ini,**/setup.cfg,**/pytest.toml,**/.pytest.toml,**/pytest.ini,**/.pytest.ini,**/tox.ini,**/pixi.toml}",
+                    "{workspaceRoot}/{**/*{.csproj,.fsproj,.vbproj,.slnx,.sln,.props,.targets,.globalconfig},**/global.json,**/Directory.Build.rsp,**/nuget.config,**/NuGet.config,**/NuGet.Config,**/.editorconfig}",
+                    "{workspaceRoot}/**/{compose,docker-compose}{,.override}.{yaml,yml}",
+                    "{workspaceRoot}/**/{tsconfig.json,package.json,cloudflare.config.ts}",
+                    "{workspaceRoot}/**/{vite,vitest}.config.{js,mjs,ts,cjs,mts,cts}",
+                    "{workspaceRoot}/**/.storybook/main.{js,ts,jsx,tsx,mjs,mts,cjs,cts}",
                     {
                         "runtime": "node -p process.platform+process.arch"
                     }

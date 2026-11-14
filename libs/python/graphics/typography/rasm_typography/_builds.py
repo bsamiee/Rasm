@@ -21,7 +21,7 @@ lazy from ufo2ft import compileTTF
 lazy from ufo2ft.constants import OPENTYPE_CATEGORIES_KEY, OPENTYPE_META_KEY, TRUETYPE_INSTRUCTIONS_KEY
 lazy from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 
-from rasm_typography._faces.glyphs import Category, fetched, Source
+from rasm_typography._faces.glyphs import Category, fetched, Source, VerticalMetrics
 lazy from rasm_records import Error, Fault, Faults, Ok, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces
 lazy from rasm_typography._faces.importing import imported
@@ -30,6 +30,10 @@ lazy from rasm_typography._rules.metrics import Metrics
 lazy from rasm_typography._rules.plans import planned
 lazy from rasm_typography._shaping.corpus import Corpus
 lazy from rasm_typography._shaping.runs import Binary
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_LINKED = (400, 700)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -71,20 +75,21 @@ def _named(rule: str, faults: Faults, /) -> Faults:
 
 
 def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
-    """Constructs a source's UFO and ufo2ft font, fields an ornament face lacks left to ufo2ft fallbacks, with vertical metrics measured on the font's own layout."""
+    """Constructs a source's UFO and ufo2ft font with vertical metrics measured on the font's own layout, its style map and `STAT` values read from its weight class and italic angle, an ornament face at the regular weight class and its other absent fields left to ufo2ft fallbacks."""
     face = source.face
     writer = FeatureWriter(source=source)
     info, metrics, languages = source.info, source.metrics, list(source.scripts)
     categories = {glyph.name.text: glyph.category for glyph in source.glyphs}
-    words = face.style.split()
-    italic, bold, weighted = "Italic" in words, "Bold" in words and {*words} <= {"Bold", "Italic"}, tuple(word for word in words if word != "Italic")
+    weight, italic = face.weight if isinstance(face, Face) else _LINKED[0], metrics.italic_angle != 0
+    slope = "Italic" if italic else "Roman"
+    upright = face.style.removesuffix(slope).strip() or "Regular"
     ufo = ufoLib2.Font(
         features=ufoLib2.objects.Features(writer.substitutions),
         info=ufoLib2.objects.Info(
             familyName=face.typographic,
             styleName=face.style,
-            styleMapFamilyName=" ".join((face.typographic, *(word for word in weighted if not bold and word != "Regular"))),
-            styleMapStyleName=" ".join((*(("bold",) if bold else ()), *(("italic",) if italic else ()))) or "regular",
+            styleMapFamilyName=face.typographic if weight in _LINKED else f"{face.typographic} {upright}",
+            styleMapStyleName=" ".join((*(("bold",) if weight == _LINKED[1] else ()), *(("italic",) if italic else ()))) or "regular",
             versionMajor=info.version[0],
             versionMinor=info.version[1],
             copyright=info.copyright,
@@ -100,7 +105,7 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
             openTypeOS2TypoLineGap=0,
             openTypeOS2WinAscent=metrics.win_ascent,
             openTypeOS2WinDescent=metrics.win_descent,
-            openTypeOS2WeightClass=face.weight if isinstance(face, Face) else None,
+            openTypeOS2WeightClass=weight,
             openTypeOS2Selection=[7, 8],
             openTypeOS2Type=[2],
             openTypeHeadCreated=f"{info.created.astimezone(UTC):%Y/%m/%d %H:%M:%S}",
@@ -123,23 +128,25 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     ufo.glyphOrder = [glyph.name.text for glyph in source.glyphs]
     font = compileTTF(ufo, featureWriters=[writer], removeOverlaps=True, overlapsBackend="pathops", reverseDirection=True, useProductionNames=False, ftConfig={COMPRESSION_LEVEL: 9})
     vertical = rule.measured(source, corpus=corpus, binary=Binary(data=font))
-    ufo.info.ascender, ufo.info.descender = vertical.ascender, vertical.descender
-    ufo.info.openTypeOS2WinAscent, ufo.info.openTypeOS2WinDescent = vertical.win_ascent, vertical.win_descent
-    font["hhea"].ascent, font["hhea"].descent = vertical.ascender, vertical.descender
-    font["OS/2"].sTypoAscender, font["OS/2"].sTypoDescender = vertical.ascender, vertical.descender
-    font["OS/2"].usWinAscent, font["OS/2"].usWinDescent = vertical.win_ascent, vertical.win_descent
-    named = " ".join(weighted) or "Regular"
+    metered(font, ufo.info, vertical)
     buildStatTable(
         font,
         [
-            {"tag": "wght", "name": "Weight", "values": [{"value": font["OS/2"].usWeightClass, "name": named, "flags": ELIDABLE_AXIS_VALUE_NAME * (named == "Regular")}]},
-            {"tag": "ital", "name": "Italic", "values": [{"value": int(italic), "name": "Italic" if italic else "Roman", "flags": ELIDABLE_AXIS_VALUE_NAME * (not italic)}]},
+            {"tag": "wght", "name": "Weight", "values": [{"value": weight, "name": upright, "flags": ELIDABLE_AXIS_VALUE_NAME * (weight == _LINKED[0])}]},
+            {"tag": "ital", "name": "Italic", "values": [{"value": int(italic), "name": slope, "flags": ELIDABLE_AXIS_VALUE_NAME * (not italic)}]},
         ],
         macNames=False,
     )
     font["head"].modified = font["head"].created
     font.recalcTimestamp = False
     return Construction(source=msgspec.structs.replace(source, metrics=vertical), ufo=ufo, font=font)
+
+
+def metered(font: TTFont, info: ufoLib2.objects.Info, metrics: VerticalMetrics, /) -> None:
+    """Writes the line and win metrics of a record into a compiled font's `hhea` and `OS/2` tables and the UFO info it compiles from, so source and binary agree."""
+    info.ascender, info.descender, info.openTypeOS2WinAscent, info.openTypeOS2WinDescent = metrics.ascender, metrics.descender, metrics.win_ascent, metrics.win_descent
+    font["hhea"].ascent, font["hhea"].descent = metrics.ascender, metrics.descender
+    vars(font["OS/2"]).update(sTypoAscender=metrics.ascender, sTypoDescender=metrics.descender, usWinAscent=metrics.win_ascent, usWinDescent=metrics.win_descent)
 
 
 def constructed(original: Binary, face: Faces, corpus: Corpus, /, *, cache: Path) -> Outcome[Construction]:
@@ -177,4 +184,4 @@ def compressed(data: bytes, /) -> bytes:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Construction", "compressed", "constructed"]
+__all__ = ["Construction", "compressed", "constructed", "metered"]

@@ -32,6 +32,18 @@
             "type": "string",
             "description": "Folder the commands run in, relative to the workspace root",
             "default": "."
+        },
+        "__unparsed__": {
+            "type": "array",
+            "description": "Words after -- of the run, appended after the configured arguments",
+            "$default": {
+                "$source": "unparsed"
+            },
+            "hidden": true,
+            "x-priority": "internal",
+            "items": {
+                "type": "string"
+            }
         }
     },
     "required": [ "targets", "commands", "cwd" ],

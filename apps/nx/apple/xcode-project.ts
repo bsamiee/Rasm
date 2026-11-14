@@ -1,9 +1,7 @@
-import { execFile } from 'node:child_process';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
-import { promisify } from 'node:util';
 import type { TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, FileSystem, identity, Option, Record, Result, Schema, Struct } from 'effect';
-import { ATTACH, INPUTS, type Options, type Part, PLUGIN, refused, SHARED, target, tokened } from '#/targets';
+import { ATTACH, INPUTS, type Options, type Part, PLUGIN, printed, refused, SHARED, type Tools, target, tokened } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -55,11 +53,7 @@ const invocation = (options: typeof Options.Type, built: string) => {
 const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof Options.Type, container: typeof Container.Type, built: string) {
     const fs = yield* FileSystem.FileSystem;
     const { flags } = invocation(options, built);
-    const read = (scheme: string, selected: readonly string[]) =>
-        Effect.tryPromise({
-            try: (signal) => promisify(execFile)('xcodebuild', ['build', 'archive', '-showBuildSettings', '-json', '-IDEPackageEnablePrebuilts=NO', ...flags, '-scheme', scheme, ...selected], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal }),
-            catch: refused(`scheme ${scheme}`, 'xcodebuild -showBuildSettings does not exit 0'),
-        }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Evaluated)(stdout)));
+    const read = (scheme: string, selected: readonly string[]) => Effect.flatMap(printed(['xcodebuild', 'build', 'archive', '-showBuildSettings', '-json', '-IDEPackageEnablePrebuilts=NO', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot }), Schema.decodeEffect(Evaluated));
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map(({ name }) => name);
     const archived = Array.zip(schemes, yield* Effect.forEach(schemes, (scheme) => read(scheme, [])));
     const others = yield* Effect.forEach(
@@ -143,75 +137,89 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
         configurations: Record.fromIterableWith(container.configurations, (configuration) => [configuration.toLowerCase(), { runs: planned(Option.some(configuration)).map((run) => [...run, '-configuration', configuration]) }]),
         ...(launches.length === 1 ? Record.fromIterableWith(launches, (launch) => ['defaultConfiguration', launch.toLowerCase()] as const) : {}),
     });
-    const tools: Record<string, TargetConfiguration> = {
+    const tools: Tools = {
         ...(schemes.length > 0 && {
-            'build--xcodebuild': target(
-                builds(Option.none()),
-                { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
-                { cache: true, dependsOn: ['^build'], inputs: read, ...modes(builds) },
-            ),
-            'check--xcodebuild': { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } },
+            build: {
+                xcodebuild: target(
+                    builds(Option.none()),
+                    { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
+                    { cache: true, dependsOn: ['^build'], inputs: read, ...modes(builds) },
+                ),
+            },
+            check: { xcodebuild: { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } } },
         }),
         ...(Array.isReadonlyArrayNonEmpty(archived) && {
-            'pack--ditto': {
-                executor: `${PLUGIN}:package`,
-                cache: true,
-                inputs: [...read, { env: 'ASC_API_KEY_ID' }],
-                options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
-                outputs: archived.flatMap(({ folder }) => ['.dmg', '.zip'].map((extension) => join('{workspaceRoot}', folder, `*${extension}`))),
-                metadata: {
-                    technologies: ['xcode'],
-                    description: 'Archives each app with installed products, then zips it with ditto, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled',
-                    help: { command: 'man ditto', example: { args: ['--norsrc'] } },
+            pack: {
+                ditto: {
+                    executor: `${PLUGIN}:package`,
+                    cache: true,
+                    inputs: [...read, { env: 'ASC_API_KEY_ID' }],
+                    options: { exports: archived.map(({ archive, folder, run }) => ({ archive, folder, run })) },
+                    outputs: archived.flatMap(({ folder }) => ['.dmg', '.zip'].map((extension) => join('{workspaceRoot}', folder, `*${extension}`))),
+                    metadata: {
+                        technologies: ['xcode'],
+                        description: 'Archives each app with installed products, then zips it with ditto, or where ASC_API_KEY_P8, ASC_API_KEY_ID, and ASC_API_ISSUER_ID are set exports it under the Developer ID Application identity into a disk image that is signed, notarized, and stapled',
+                        help: { command: 'man ditto', example: { args: ['--norsrc'] } },
+                    },
                 },
             },
         }),
         ...(runs.length > 0 && {
-            'test--xcodebuild': target(
-                runs,
-                { technologies: ['xcode'], description: 'Tests each test plan of a shared scheme with xcodebuild', help: { command: 'xcodebuild -help', example: { args: ['-parallel-testing-enabled', 'YES'] } } },
-                { cache: true, dependsOn: ['build--xcodebuild'], inputs: read, ...modes(() => runs) },
-            ),
-        }),
-        ...(installs.length > 0 && {
-            'install--xcodebuild': target(
-                installs,
-                {
-                    technologies: ['xcode'],
-                    description: "Builds each shared scheme whose targets install, under -configuration set to the scheme's archive configuration, and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action",
-                    help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
-                },
-                { dependsOn: ['^build'], inputs: read, options: { applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => join(Array.headNonEmpty(places), bundle))) } },
-            ),
-        }),
-        ...(released && {
-            'attach--gh': ATTACH,
-            'nx-release-publish': {
-                executor: `${PLUGIN}:release-publish`,
-                dependsOn: ['pack--ditto', '^nx-release-publish'],
-                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
-                options: { exports: archived.map(({ archive, folder }) => ({ archive, folder })) },
-                metadata: { technologies: ['xcode'], description: 'Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names', help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } } },
+            test: {
+                xcodebuild: target(
+                    runs,
+                    { technologies: ['xcode'], description: 'Tests each test plan of a shared scheme with xcodebuild', help: { command: 'xcodebuild -help', example: { args: ['-parallel-testing-enabled', 'YES'] } } },
+                    { cache: true, dependsOn: ['build--xcodebuild'], inputs: read, ...modes(() => runs) },
+                ),
             },
         }),
+        ...(installs.length > 0 && {
+            install: {
+                xcodebuild: target(
+                    installs,
+                    {
+                        technologies: ['xcode'],
+                        description: "Builds each shared scheme whose targets install, under -configuration set to the scheme's archive configuration, and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action",
+                        help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
+                    },
+                    { dependsOn: ['^build'], inputs: read, options: { applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => join(Array.headNonEmpty(places), bundle))) } },
+                ),
+            },
+        }),
+        ...(released && { attach: { gh: ATTACH } }),
     };
     return {
         root: dirname(container.path),
         name,
         file,
         technologies: ['xcode'],
-        targets: {
+        tools: {
             ...tools,
             ...(schemes.length > 0 && {
-                'clean--xcodebuild': {
-                    executor: `${SHARED}:clean`,
-                    inputs: read,
-                    options: { commands: [...schemes.map((scheme) => invoke('clean', scheme.name, [])), ...archived.map(({ archive }) => ['rm', '-rf', archive])], cwd: '.', targets: Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)) },
-                    metadata: { technologies: ['xcode'], description: 'Removes the build products of each shared scheme with xcodebuild clean, then each archive', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
+                clean: {
+                    xcodebuild: {
+                        executor: `${SHARED}:clean`,
+                        inputs: read,
+                        options: {
+                            commands: [...schemes.map((scheme) => invoke('clean', scheme.name, [])), ...archived.map(({ archive }) => ['rm', '-rf', archive])],
+                            cwd: '.',
+                            targets: Record.collect(tools, (verb, held) => Record.keys(Record.filter(held, ({ outputs = [] }) => outputs.length > 0)).map((tool) => `${verb}--${tool}`)).flat(),
+                        },
+                        metadata: { technologies: ['xcode'], description: 'Removes the build products of each shared scheme with xcodebuild clean, then each archive', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
+                    },
                 },
             }),
         },
-        ...(released && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(dirname(dirname(file)), file) } } } }),
+        ...(released && {
+            published: {
+                executor: `${PLUGIN}:release-publish`,
+                dependsOn: ['pack--ditto', '^nx-release-publish'],
+                inputs: [{ dependentTasksOutputFiles: '**/*.dmg' }],
+                options: { exports: archived.map(({ archive, folder }) => ({ archive, folder })) },
+                metadata: { technologies: ['xcode'], description: 'Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names', help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } } },
+            },
+            release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(dirname(dirname(file)), file) } } },
+        }),
     };
 };
 

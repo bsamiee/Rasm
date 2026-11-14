@@ -1,22 +1,19 @@
-import { execFile } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { findPackageJSON } from 'node:module';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
 import process from 'node:process';
-import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { aggregated } from '@rasm/nx-distribution';
-import { Array, Config, Context, Effect, FileSystem, Formatter, Function, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema } from 'effect';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency, readJsonFile, type TargetConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, type PackageJson, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { Array, Config, Context, Effect, FileSystem, Formatter, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema, UndefinedOr } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
-import { analyzer, Options, type Part, refused, SHARED, tokened } from '#/targets';
+import { analyzer, Options, type Part, printed, refused, SHARED, type Tools, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface Graph {
-    readonly projects: Readonly<Record<string, Readonly<Record<string, ProjectConfiguration>>>>;
+    readonly projects: readonly { readonly file: string; readonly project: ProjectConfiguration; readonly tools: Tools }[];
     readonly edges: readonly RawProjectGraphDependency[];
     readonly buildFiles: Readonly<Record<string, readonly string[]>>;
 }
@@ -28,11 +25,6 @@ const FILES = combineGlobPatterns([...READ, ...['*.xcodeproj/project.pbxproj', '
 const HOST: NodeJS.Platform = 'darwin';
 const IDENTITIES = ['APPLE_DEVELOPMENT_P12', 'DEVELOPER_ID_P12'] as const;
 const KEYCHAINS = join(tmpdir(), 'nx-apple');
-const CODE = hashArray(
-    readdirSync(import.meta.dirname, { withFileTypes: true })
-        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
-        .toSorted(),
-);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,7 +39,21 @@ class Graphs extends Context.Service<Graphs, Map<string, Graph>>()('@rasm/nx-app
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const joined = (left: Part['targets'], right: Part['targets']) => Record.union(left, right, (base, stated) => mergeTargetConfigurations(stated, base));
+const joined = (left: Tools, right: Tools): Tools => Record.union(left, right, (base, stated) => Record.union(base, stated, (held, over) => mergeTargetConfigurations(over, held)));
+
+const flattened = (tools: Tools, stated: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> =>
+    Record.fromEntries(
+        Record.collect(Record.filter(tools, Predicate.not(Record.isEmptyRecord)), (verb, held): readonly (readonly [string, TargetConfiguration])[] => [
+            ...Record.collect(held, (tool, target): readonly [string, TargetConfiguration] => [`${verb}--${tool}`, target]),
+            [verb, { dependsOn: [`${verb}--*`], inputs: ['...', ...Array.dedupe(Record.collect(held, (tool, target) => UndefinedOr.match(stated[`${verb}--${tool}`], { onUndefined: () => target, onDefined: (row) => mergeTargetConfigurations(row, target) }).inputs ?? ['default', '^default']).flat())] }],
+        ]).flat(),
+    );
+
+const overrides = Effect.fnUntraced(function* (workspaceRoot: string, root: string) {
+    const fs = yield* FileSystem.FileSystem;
+    const manifest = join(workspaceRoot, root, 'package.json');
+    return (yield* fs.exists(manifest)) ? ((yield* Effect.try({ try: () => readJsonFile<PackageJson>(manifest), catch: refused(manifest, 'does not read as JSON') })).nx?.targets ?? {}) : {};
+});
 
 const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typeof Options.Type, files: readonly string[]) {
     const fs = yield* FileSystem.FileSystem;
@@ -56,31 +62,22 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const containers = files.filter((file) => basename(file) === 'project.xcproj' || (basename(file) === 'contents.xcworkspacedata' && extname(dirname(dirname(file))) !== '.xcodeproj'));
     const unsupported = files.filter((file) => basename(file) === 'project.pbxproj' && !paths.has(join(dirname(file), 'project.xcproj')));
     const marker = (container: string) => containers.find((file) => dirname(file) === container) ?? container;
-    const printed = (command: string, args: readonly string[], input?: string) =>
-        Effect.tryPromise({
-            try: (signal) => {
-                const running = promisify(execFile)(command, args, { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal });
-                running.child.stdin?.on('error', Function.constVoid).end(input);
-                return running;
-            },
-            catch: refused(command, 'does not exit 0'),
-        }).pipe(Effect.map(({ stdout }) => stdout));
     const [info, xcodebuild, compiled] = yield* Effect.all([
-        Effect.option(printed('swift', ['-print-target-info'])),
-        containers.length === 0 ? Effect.succeedNone : Effect.option(printed('xcodebuild', ['-version'])),
+        Effect.option(printed(['swift', '-print-target-info'], { cwd: workspaceRoot })),
+        containers.length === 0 ? Effect.succeedNone : Effect.option(printed(['xcodebuild', '-version'], { cwd: workspaceRoot })),
         containers.length === 0 ? Effect.succeedNone : Effect.option(Effect.tap(analyzer, (at) => fs.stat(at))),
     ]);
     const host = yield* Effect.transposeOption(Option.map(info, (text) => Effect.map(Schema.decodeEffect(Host)(text), ({ target: { platform } }) => platform)));
     const reader = Option.map(Option.all({ xcodebuild, compiled }), ({ compiled: at }) => at);
     const readable = Option.isSome(info) ? manifests : [];
     const absent = [...(Option.isNone(info) ? ['swift'] : []), ...(containers.length > 0 && Option.isNone(xcodebuild) ? ['xcodebuild'] : []), ...(containers.length > 0 && Option.isNone(compiled) ? ['the #analyzer core'] : [])];
-    const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(printed('swift', ['package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json']), Schema.decodeEffect(Described))), { concurrency: 'unbounded' });
+    const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(printed(['swift', 'package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json'], { cwd: workspaceRoot }), Schema.decodeEffect(Described))), { concurrency: 'unbounded' });
     const packages = yield* Effect.forEach(
         Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: dirname(file), manifest }))),
         Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists'>) {
             const listed = yield* Effect.filter(swiftPackage.manifest.targets, (module) => fs.exists(join(workspaceRoot, swiftPackage.root, module.path, INFO)));
             const { products, targets } = swiftPackage.manifest;
-            const shown = (configuration: string) => Effect.map(printed('swift', ['build', '--package-path', swiftPackage.root, '--configuration', configuration, '--show-bin-path']), (at) => relative(workspaceRoot, at.trim()));
+            const shown = (configuration: string) => Effect.map(printed(['swift', 'build', '--package-path', swiftPackage.root, '--configuration', configuration, '--show-bin-path'], { cwd: workspaceRoot }), (at) => relative(workspaceRoot, at.trim()));
             const whole = Array.isReadonlyArrayNonEmpty(products) && products.every(({ type }) => 'executable' in type) && targets.every(({ resources }) => resources.length === 0);
             const bins = whole ? { bins: yield* Effect.all({ debug: shown('debug'), release: shown('release') }, { concurrency: 'unbounded' }) } : {};
             return { ...swiftPackage, ...bins, plists: new Set(listed.map(({ name }) => name)) } satisfies Package;
@@ -90,7 +87,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const local = (at: string) => Option.fromUndefinedOr(described.get(resolve(workspaceRoot, at)));
     const analysis = yield* Option.match(reader, {
         onNone: () => Effect.succeed(Result.succeed<typeof Analyzed.Type>({ containers: [], failures: {} })),
-        onSome: (at) => Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => printed(at, [], input)).pipe(Effect.flatMap(Schema.decodeEffect(Analyzed)), Effect.result),
+        onSome: (at) => Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => printed([at], { cwd: workspaceRoot, input })).pipe(Effect.flatMap(Schema.decodeEffect(Analyzed)), Effect.result),
     });
     const analyzed = Result.getOrElse(analysis, (): typeof Analyzed.Type => ({ containers: [], failures: {} }));
     const workspaces = analyzed.containers.filter((container) => basename(marker(container.path)) === 'contents.xcworkspacedata');
@@ -132,18 +129,15 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
                 metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)) },
                 tags: [...Option.toArray(Option.as(release, 'release')), `os:${HOST}`],
                 ...Option.getOrUndefined(Option.map(release, (held) => ({ release: held }))),
-                targets: aggregated(Array.map(group, (part) => part.targets).reduce(joined)),
+                targets: Record.getSomes({ 'nx-release-publish': Array.findFirst(group, (part) => Option.fromUndefinedOr(part.published)) }),
             };
-            return { file, project };
+            return { file, project, tools: Array.map(group, (part) => part.tools).reduce(joined) };
         },
     );
     const roots = new Map(merged.map(({ project }) => [project.name, project.root] as const));
     return {
         graph: {
-            projects: Record.map(
-                Array.groupBy(merged, ({ file }) => file),
-                Record.fromIterableWith(({ project }: (typeof merged)[number]): [string, ProjectConfiguration] => [project.root, project]),
-            ),
+            projects: merged,
             edges: Array.getSomes(packages.flatMap((swiftPackage) => packageEdges(swiftPackage, described)).map((edge) => Option.map(Option.all({ source: Option.fromUndefinedOr(roots.get(edge.source)), target: Option.fromUndefinedOr(roots.get(edge.target)) }), (at) => ({ ...edge, ...at })))),
             buildFiles: Record.fromIterableWith(xcode, ({ container }) => [dirname(container.path), container.buildFiles]),
         } satisfies Graph,
@@ -152,7 +146,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     };
 });
 
-const security = (...args: readonly string[]) => Effect.tryPromise({ try: (signal) => promisify(execFile)('security', args, { encoding: 'utf8', signal }), catch: refused('security', 'does not exit 0') });
+const security = (...args: readonly string[]) => printed(['security', ...args], {});
 
 const keychain = (id: string) => join(KEYCHAINS, `${process.pid}-${id}.keychain-db`);
 
@@ -168,7 +162,7 @@ const identified = Effect.fnUntraced(function* (id: string) {
     }
     const [at, folder] = [keychain(id), yield* fs.makeTempDirectoryScoped()];
     const listed = yield* Effect.filter(
-        [...(yield* security('list-keychains', '-d', 'user')).stdout.matchAll(/(?<=")[^"\n]+(?=")/gu)].map(([held]) => held),
+        [...(yield* security('list-keychains', '-d', 'user')).matchAll(/(?<=")[^"\n]+(?=")/gu)].map(([held]) => held),
         fs.exists,
     );
     yield* fs.makeDirectory(KEYCHAINS, { recursive: true });
@@ -201,12 +195,16 @@ const createNodes: CreateNodes = [
                 const cache = new PluginCache<Graph>(join(workspaceDataDirectory, `apple-${hashObject(settings)}.hash`));
                 const built = yield* Effect.option(Effect.flatMap(analyzer, fs.stat));
                 const stamp = Option.flatMap(built, (stat) => stat.mtime).pipe(Option.match({ onNone: () => 0, onSome: (at) => at.valueOf() }));
-                const key = hashArray([CODE, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), String(stamp), ...files]);
+                const key = hashArray([...Array.fromNullishOr(UndefinedOr.map(findPackageJSON(import.meta.url), hashFile)), yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...READ, join(relative(workspaceRoot, import.meta.dirname), '**')])), String(stamp), ...files]);
                 const read = yield* Option.match(Option.fromNullishOr(cache.get(key)), { onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }), onNone: () => analyze(workspaceRoot, settings, files) });
                 yield* Effect.sync(() => (read.failures.length === 0 && !read.partial ? cache.set(key, read.graph) : undefined));
                 yield* Effect.sync(() => cache.writeToDisk());
                 (yield* Graphs).set(workspaceRoot, read.graph);
-                const results = Record.collect(read.graph.projects, (file, projects) => [file, { projects }] as const);
+                const placed = yield* Effect.forEach(read.graph.projects, ({ file, project, tools }) => Effect.map(overrides(workspaceRoot, project.root), (stated) => ({ file, project: { ...project, targets: { ...flattened(tools, stated), ...project.targets } } })));
+                const results = Record.collect(
+                    Array.groupBy(placed, ({ file }) => file),
+                    (file, group) => [file, { projects: Record.fromIterableWith(group, ({ project }) => [project.root, project] as const) }] as const,
+                );
                 return yield* read.failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError([...read.failures], results));
             }),
         ),

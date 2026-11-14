@@ -1,3 +1,4 @@
+import { type ExitError, run } from '@rasm/process';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Forward } from '#/forward';
@@ -30,12 +31,16 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
         const [spawner, fs, path, root] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Line)(folder)]);
         const commanded = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { extendEnv: true, ...options });
         const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => spawner.spawn(commanded(words, options));
-        const exchanged = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) =>
-            Effect.scoped(Effect.flatMap(started(words, { stdin: 'ignore', ...options }), (handle) => Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), code: handle.exitCode }, { concurrency: 'unbounded' })));
+        const captured = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(run(words, { extendEnv: true, ...options }), ChildProcessSpawner.ChildProcessSpawner, spawner);
+        const checked = (host: Host) =>
+            captured(host.request(host.control(path, root), 'check')).pipe(
+                Effect.as(true),
+                Effect.catchTag('ExitError', () => Effect.succeed(false)),
+            );
         const settled = (host: Host) =>
-            Effect.fnUntraced(function* ({ stdout, stderr, code }: Effect.Success<ReturnType<typeof exchanged>>) {
-                const reached = code !== errored || (yield* exchanged(host.request(host.control(path, root), 'check'))).code === 0;
-                return yield* code === 0 ? Effect.succeed(stdout) : SshError.make({ reason: reached ? { _tag: 'Exit', code, stdout, stderr } : { _tag: 'Unreachable', stderr }, subject: host.name });
+            Effect.fnUntraced(function* ({ code, stdout, stderr }: ExitError) {
+                const reached = code !== errored || (yield* checked(host));
+                return yield* SshError.make({ reason: reached ? { _tag: 'Exit', code, stdout, stderr } : { _tag: 'Unreachable', stderr }, subject: host.name });
             });
         const written = Effect.fnUntraced(function* (host: Host, beside: Readonly<Record<string, string>> = {}) {
             const files = Record.toEntries({ ...(yield* Effect.fromResult(host.files(path, root))), ...beside });
@@ -48,8 +53,7 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
         const shared = yield* Cache.makeWith(
             Effect.fnUntraced(function* (host: Host) {
                 yield* Cache.get(placed, host);
-                const { code } = yield* exchanged(host.request(host.control(path, root), 'check'));
-                return yield* code === 0 ? Effect.void : pipe(Effect.fromResult(host.command(path, root, ['true'])), Effect.flatMap(exchanged), Effect.flatMap(settled(host)), Effect.asVoid);
+                return yield* (yield* checked(host)) ? Effect.void : pipe(Effect.fromResult(host.command(path, root, ['true'])), Effect.flatMap(captured), Effect.catchTag('ExitError', settled(host)), Effect.asVoid);
             }),
             { capacity: Number.POSITIVE_INFINITY, timeToLive: () => Duration.zero },
         );
@@ -64,11 +68,14 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 return yield* started(yield* called(host, remote, options), options);
             }),
             run: Effect.fn('Ssh.run')(function* (host: Host, remote: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) {
-                return yield* Effect.flatMap(exchanged(yield* called(host, remote, options), options), settled(host));
+                return yield* captured(yield* called(host, remote, options), options).pipe(
+                    Effect.map(({ stdout }) => stdout),
+                    Effect.catchTag('ExitError', settled(host)),
+                );
             }),
             copy: Effect.fn('Ssh.copy')(function* (host: Host, source: string, target: string) {
                 yield* Cache.get(shared, host);
-                return yield* Effect.asVoid(Effect.flatMap(exchanged(host.copy(path, root, source, target)), settled(host)));
+                return yield* captured(host.copy(path, root, source, target)).pipe(Effect.catchTag('ExitError', settled(host)), Effect.asVoid);
             }),
             forward: Effect.fn('Ssh.forward')(function* (host: Host, wanted: typeof Forward.Type) {
                 yield* Cache.get(placed, host);
@@ -76,8 +83,8 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
                 const holder = yield* started(yield* Effect.fromResult(host.command(path, root, ['sh', '-c', 'echo && exec cat'], [], Option.some(socket))), { stdin: 'pipe' });
                 const refused = Effect.flatMap(Stream.mkString(Stream.decodeText(holder.stderr)), (printed) => SshError.make({ reason: { _tag: 'Unreachable', stderr: printed }, subject: host.name }));
                 yield* Effect.flatMap(Stream.runHead(holder.stdout), Option.match({ onSome: () => Effect.void, onNone: () => refused }));
-                const { stdout, stderr, code } = yield* exchanged(host.request(socket, 'forward', ...Forward.argv(wanted)));
-                return code === 0 ? yield* Forward.bound(wanted, stdout) : yield* SshError.make({ reason: { _tag: 'Refused', stderr }, subject: host.name });
+                const { stdout } = yield* captured(host.request(socket, 'forward', ...Forward.argv(wanted))).pipe(Effect.catchTag('ExitError', ({ stderr }) => SshError.make({ reason: { _tag: 'Refused', stderr }, subject: host.name })));
+                return yield* Forward.bound(wanted, stdout);
             }),
         };
     }),

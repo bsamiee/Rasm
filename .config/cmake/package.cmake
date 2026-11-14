@@ -1,3 +1,9 @@
+# --- [LANGUAGES] ------------------------------------------------------------------------
+
+if(CMAKE_OBJCXX_COMPILER_LOADED)
+    string(APPEND CMAKE_OBJCXX_FLAGS " ${flags} -fobjc-arc")
+endif()
+
 # --- [PACKAGE] --------------------------------------------------------------------------
 
 set(CPACK_PACKAGE_NAME "${PROJECT_NAME}")

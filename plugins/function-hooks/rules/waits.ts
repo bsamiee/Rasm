@@ -1,6 +1,6 @@
 import { Array, Effect, Option, Record } from 'effect';
 import { Verdict } from '#/rules/decision';
-import { absent, type Call, edited, erased, inserted, quote, type Rule, type Ruleset, refusal, silent, spelled, stages, when, whole, within } from '#/rules/rule';
+import { type Call, edited, erased, inserted, quote, type Rule, type Ruleset, refusal, silent, spelled, stages, when, whole, within } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
 import { WATCH_APPS } from '#/shell/programs';
 import type { Word } from '#/shell/script';
@@ -114,11 +114,7 @@ const sleep: Rule = (invocation, call) => {
     return instant ? [] : timer(invocation, call);
 };
 
-const prefixedTimeout: Rule = (invocation, { host }) => Effect.map(host.onPath('gtimeout'), (found) => (found ? edited(invocation, invocation.head, 'gtimeout', invocation.head.raw) : []));
-
-const TIMEOUT: Ruleset['programs'][string] = { aliases: ['gtimeout'], leading: 1, wraps: [[]], rules: [absent(prefixedTimeout)] };
-
-const neverExits: Rule = (invocation, call) => (call.request.kind === 'foreground' && invocation.last && !invocation.outer.some(({ row }) => row === TIMEOUT) && !stages(invocation, call).later.some(closesInput) ? refusal(`${invocation.program} never exits, run it in Monitor`) : []);
+const neverExits: Rule = (invocation, call) => (call.request.kind === 'foreground' && invocation.last && !invocation.outer.some(({ program }) => program === 'timeout') && !stages(invocation, call).later.some(closesInput) ? refusal(`${invocation.program} never exits, run it in Monitor`) : []);
 
 const unwrap = (invocation: Invocation) => Option.match(Array.head(invocation.rest), { onNone: () => [], onSome: ({ start }) => erased(invocation, { start: invocation.head.start, end: start }, spelled(invocation.words)) });
 
@@ -200,7 +196,7 @@ const WAITS: Ruleset = {
     programs: {
         sleep: { rules: [sleep] },
         wait4path: { aliases: ['watch'], rules: [neverExits] },
-        timeout: TIMEOUT,
+        timeout: { leading: 1, wraps: [[]] },
         caffeinate: { wraps: [[]], rules: [unwrap, when(({ has }) => has('-t'), timer), when(({ has }) => !has('-t'), neverExits)] },
         read: { leading: Number.POSITIVE_INFINITY, reads: true, readsUnless: ['-u'], rules: [leakingRead, when(({ has }) => has('-t'), timer)] },
         pgrep: { rules: [(invocation) => (invocation.has('--full') ? selfMatch(invocation, invocation.operands[0]) : [])] },

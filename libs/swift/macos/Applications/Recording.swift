@@ -14,15 +14,17 @@ public final class WindowRecording {
 
         init(path: String) { self.path = path }
 
-        func stream(_: SCStream, didStopWithError _: any Error) { stopped.store(true, ordering: .relaxed) }
-
-        func recordingOutputDidFinishRecording(_: SCRecordingOutput) {
-            outcomes.continuation.yield(.success(()))
-            outcomes.continuation.finish()
+        func stream(_: SCStream, didStopWithError error: any Error) {
+            stopped.store(true, ordering: .relaxed)
+            ended(.failure(ApplicationFailure(subject: path, reason: .host(error as NSError))))
         }
 
-        func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) {
-            outcomes.continuation.yield(.failure(ApplicationFailure(subject: path, reason: .host(error as NSError))))
+        func recordingOutputDidFinishRecording(_: SCRecordingOutput) { ended(.success(())) }
+
+        func recordingOutput(_: SCRecordingOutput, didFailWithError error: any Error) { ended(.failure(ApplicationFailure(subject: path, reason: .host(error as NSError)))) }
+
+        private func ended(_ outcome: Result<Void, ApplicationFailure>) {
+            outcomes.continuation.yield(outcome)
             outcomes.continuation.finish()
         }
     }
@@ -70,7 +72,7 @@ public final class WindowRecording {
                 buffer.exportClip(to: file, duration: seconds) { error in exported.resume(returning: error) }
             }
             guard let failed else { return }
-            if live { throw ApplicationFailure(subject: path, reason: .host(failed as NSError)) }
+            throw ApplicationFailure(subject: path, reason: .host(failed as NSError))
         }
         try await written.value.get()
         let asset = AVURLAsset(url: self.file)
@@ -87,15 +89,15 @@ public final class WindowRecording {
     }
 
     public func finish() async throws(ApplicationFailure) {
-        do {
-            if live {
+        if live {
+            do {
                 try stream.removeRecordingOutput(output)
                 _ = await written.value
                 try await stream.stopCapture()
+            } catch {
+                throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError))
             }
-        } catch  where live {
-            throw ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError))
-        } catch {}
+        }
         try await written.value.get()
     }
 }

@@ -9,15 +9,12 @@ set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 set(CMAKE_LINK_LIBRARIES_ONLY_TARGETS ON)
 set(CMAKE_VERIFY_INTERFACE_HEADER_SETS ON)
 set(CMAKE_VERIFY_PRIVATE_HEADER_SETS ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_COLOR_DIAGNOSTICS ON)
 set(flags
     -Wall
     -Wextra
     -Wpedantic
     -Wshadow
     -Wconversion
-    -Wsign-conversion
     -Wdouble-promotion
     -Wold-style-cast
     -Wcast-align
@@ -46,18 +43,11 @@ endif()
 
 list(JOIN flags " " flags)
 string(APPEND CMAKE_CXX_FLAGS " ${flags}")
-if(APPLE)
-    enable_language(OBJCXX)
-    set(CMAKE_OBJCXX_STANDARD 26)
-    set(CMAKE_OBJCXX_STANDARD_REQUIRED ON)
-    string(APPEND CMAKE_OBJCXX_FLAGS " ${flags} -fobjc-arc")
-endif()
 
 # --- [PACKAGING] ------------------------------------------------------------------------
 
 set(CMAKE_PROJECT_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/.config/cmake/package.cmake")
-file(GLOB environments CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/.config/cmake/toolchains/*.cmake" "${CMAKE_CURRENT_SOURCE_DIR}/.config/cmake/triplets/*.cmake")
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${environments})
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ".config/cmake/triplets/${VCPKG_TARGET_TRIPLET}.cmake" ".config/cmake/triplets/${VCPKG_HOST_TRIPLET}.cmake")
 
 # --- [MEMBERS] --------------------------------------------------------------------------
 
@@ -84,8 +74,12 @@ endforeach()
 # --- [COVERAGE] -------------------------------------------------------------------------
 
 if(RASM_COVERAGE)
-    add_custom_target(
-        coverage
+    add_custom_target(coverage)
+endif()
+if(RASM_COVERAGE AND instrumented)
+    add_custom_command(
+        TARGET coverage
+        POST_BUILD
         COMMAND llvm-profdata merge --sparse --output=coverage.profdata profiles
         COMMAND "${CMAKE_COMMAND}" -E rm -rf profiles
         COMMAND llvm-cov show --instr-profile=coverage.profdata --format=html --output-dir=coverage ${instrumented}

@@ -1,6 +1,7 @@
 import type { Stacks } from '@rasm/nx-pulumi/stacks';
-import { Cause, Effect, type FileSystem, Match, Option, type Path, Record, Schema, Stream, Struct } from 'effect';
-import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+import { run } from '@rasm/process';
+import { Effect, type FileSystem, Match, Option, type Path, Record, Schema, Struct } from 'effect';
+import type { ChildProcessSpawner } from 'effect/process';
 import { hostingStacks } from '#/hosting-stack';
 import manifest from '#/package.json' with { type: 'json' };
 import { hosts, installed, local, provisioned } from '#/platform-stack';
@@ -12,11 +13,7 @@ const Deployed = Schema.fromJsonString(Schema.Struct(Struct.Record(['CLOUDFLARE_
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const deployed = Effect.gen(function* () {
-    const handle = yield* ChildProcess.make('doppler', ['secrets', 'download', '--no-file', '--format', 'json', '--config', 'deploy' satisfies (typeof configs)[number]], { stdin: 'ignore' });
-    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
-    return yield* code === 0 ? Schema.decodeEffect(Deployed)(stdout) : new Cause.UnknownError(stderr, `doppler exited ${code}: ${stderr}`);
-}).pipe(Effect.scoped);
+const deployed = run(['doppler', 'secrets', 'download', '--no-file', '--format', 'json', '--config', 'deploy' satisfies (typeof configs)[number]]).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Deployed)(stdout)));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

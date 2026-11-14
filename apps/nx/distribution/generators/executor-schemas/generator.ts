@@ -1,11 +1,9 @@
-import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { execPath } from 'node:process';
-import { promisify } from 'node:util';
 import { formatFiles, getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
 import { loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
-import { Array, Effect, Function, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema } from 'effect';
-import { refused, run } from '#/executor';
+import { Array, Effect, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema, Stream } from 'effect';
+import { DistributionError, run, spawned } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -34,11 +32,11 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
         rows.flat(),
         Effect.fnUntraced(function* ({ root, name, collection, executor, at, implementation }) {
             const [file = implementation] = implementation.split('#');
-            const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file, path.join(tree.root, root), name, projects)), catch: refused(`${name}:${executor}`, `does not load ${implementation}`) });
+            const loaded = yield* Effect.try({ try: (): unknown => loadTsFile(resolveImplementation(file, path.join(tree.root, root), name, projects)), catch: DistributionError.refused(`${name}:${executor}`, `does not load ${implementation}`) });
             const stated = pipe(
                 Option.liftPredicate(loaded, Predicate.isObject),
                 Option.flatMap((module) => Array.findFirst(Object.values(module), Schema.isSchema)),
-                Option.map((schema) => Schema.toJsonSchemaDocument(schema, { includeAnnotationKey: (key) => key.startsWith('$') })),
+                Option.map((schema) => Schema.toJsonSchemaDocument(schema, { includeAnnotationKey: (key) => key.startsWith('$') || key.startsWith('x-') || key === 'hidden' })),
                 Option.map(JsonSchema.toDocumentDraft07),
                 Option.map(({ schema, schema: { description }, definitions }) => ({ description, schema: { $schema: JsonSchema.META_SCHEMA_URI_DRAFT_07, version: 2, ...schema, ...(Record.isEmptyRecord(definitions) ? {} : { definitions }) } })),
             );
@@ -57,15 +55,7 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
         Option.match(biome, { onNone: () => [], onSome: (bin) => [...own].map((to) => ({ bin, to })) }),
         Effect.fnUntraced(function* ({ bin, to }) {
             const input = yield* Effect.fromNullishOr(tree.read(to, 'utf-8'));
-            const { stdout } = yield* Effect.tryPromise({
-                try: (signal) => {
-                    const running = promisify(execFile)(execPath, [bin, 'format', `--stdin-file-path=${to}`], { encoding: 'utf8', cwd: tree.root, signal });
-                    running.child.stdin?.on('error', Function.constVoid).end(input);
-                    return running;
-                },
-                catch: refused(to, 'biome format does not exit 0'),
-            });
-            tree.write(to, stdout);
+            tree.write(to, yield* spawned([execPath, bin, 'format', `--stdin-file-path=${to}`], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(input)), stdout: 'pipe' }));
         }),
         { concurrency: 'unbounded' },
     );

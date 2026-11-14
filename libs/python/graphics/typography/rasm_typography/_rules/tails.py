@@ -6,7 +6,7 @@ import msgspec
 lazy from fontTools.misc.bezierTools import segmentSegmentIntersections
 lazy from fontTools.misc.transform import Offset, Transform
 
-from rasm_typography._faces.declaration import Em, Ratio, Script
+from rasm_typography._faces.declaration import Code, Em, Ratio, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Ok, Outcome
 lazy from rasm_typography._faces.glyphs import Glyph, Joinings, Letter, Source
@@ -20,6 +20,7 @@ class Tails(measures.Rule, frozen=True, kw_only=True):
 
     script: Script
     length: Ratio
+    dot: Code | None = None
     groups: frozenset[str] = frozenset({"BEH", "NOON", "YEH", "FARSI YEH", "KAF", "GAF"})
     step: Em = 0.004
     margin: Em = 0.02
@@ -29,7 +30,7 @@ class Tails(measures.Rule, frozen=True, kw_only=True):
     def applied(self, source: Source, /, *, joinings: Joinings, **_: object) -> Outcome[Source]:
         """Compresses each long tail along its flattest single stroke, the outline right of the stroke moved left by the cut with the advance, dots and anchors moved with the outline under them."""
         step, margin = self.step * source.upm, self.margin * source.upm
-        nuqta, stem = paths.area(measures.nuqta(source, self.script.dotted)), source.bounds(source.key(self.script.stem))
+        nuqta, stem = paths.area(measures.nuqta(source, self.dot)), source.bounds(source.key(self.script.stem))
 
         def shortened(own: Glyph, /) -> Glyph:
             glyph = source.drawn(own.name.text)

@@ -18,12 +18,14 @@
             },
             "description": "Environment variables every swift invocation runs with, over the caller's"
         },
-        "args": {
+        "__unparsed__": {
             "type": "array",
-            "description": "Words after -- of the run, appended to the release build and placed ahead of experimental-install",
+            "description": "Words after -- of the run, appended after the configured arguments",
             "$default": {
                 "$source": "unparsed"
             },
+            "hidden": true,
+            "x-priority": "internal",
             "items": {
                 "type": "string"
             }

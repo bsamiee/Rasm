@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Cause, Console, Effect, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
-import { run, streamed } from '#/executors/build/executor';
+import { run, streamed } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

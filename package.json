@@ -38,6 +38,7 @@
         "@vitest/coverage-v8": "catalog:",
         "@vitest/ui": "catalog:",
         "bootstrap-icons": "catalog:",
+        "effect": "catalog:",
         "knip": "catalog:",
         "nx": "catalog:",
         "nx-mcp": "catalog:",

@@ -1,11 +1,8 @@
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import consumers from 'node:stream/consumers';
-import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
+import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, Record, Schema, Stream, String, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
+import { ran, run, streamed } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,7 +20,7 @@ const Build = Schema.Struct({
     project: Schema.String.annotate({ description: 'Project file to build' }),
     command: Schema.NonEmptyArray(Schema.String).annotate({ description: 'dotnet verb and its switches for the configuration, which the plugin infers' }),
     outputs: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: "Folders and files the configuration writes, which the target's outputs name through {options.outputs.<n>}" }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to the dotnet command', $default: { $source: 'unparsed' } }),
+    __unparsed__: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended after the configured arguments', $default: { $source: 'unparsed' }, hidden: true, 'x-priority': 'internal' }),
 }).annotate({
     title: 'Build',
     description: "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result",
@@ -64,21 +61,18 @@ const traversal = (projects: readonly string[], target: string) => {
 
 const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyReadonlyArray<Planned>) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const [[, { command, args }]] = group;
+    const [[, { command, __unparsed__: words = [] }]] = group;
     const projects = Array.map(group, ([, { project }]) => path.resolve(root, project));
     const folder = yield* fs.makeTempDirectoryScoped();
     const file = path.join(folder, 'batch.proj');
     yield* fs.writeFileString(file, yield* traversal(projects, String.capitalize(Array.headNonEmpty(command))));
-    const argv = [Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...(args ?? [])];
-    const child = spawn('dotnet', argv, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
-    const [out, err] = yield* Effect.all([Effect.fromNullishOr(child.stdout), Effect.fromNullishOr(child.stderr)]);
-    const [stdout, stderr] = yield* Effect.tryPromise(() => Promise.all([consumers.text(out), consumers.text(err), once(child, 'close')]));
+    const { invoked, stdout, said: stderr } = yield* ran('dotnet', [Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), ...words], { cwd: root });
     const succeeded = Option.map(yield* Effect.option(fs.readFileString(path.join(folder, BUILT))), (text) => new Set(text.split('\n')));
     const lines = stdout.split('\n');
     return Array.map(Array.zip(group, projects), ([[task], project]) => {
         const success = Option.exists(succeeded, (set) => set.has(project));
         const own = lines.filter((text) => text.includes(` [${project}`));
-        const result: TaskResult = { success, terminalOutput: (success ? own : [child.spawnargs.join(' '), ...(own.length > 0 ? own : [stderr, stdout])]).join('\n') };
+        const result: TaskResult = { success, terminalOutput: (success ? own : [invoked, ...(own.length > 0 ? own : [stderr, stdout])]).join('\n') };
         return { task, result };
     });
 });
@@ -108,10 +102,6 @@ const grouped = <A extends { readonly project: string; readonly outputs?: readon
     );
 };
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => Effect.runPromise(Effect.provide(Effect.scoped(effect), layer));
-
-const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.toReadableStream(Stream.provide(results, layer)).values();
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const execute = Effect.fnUntraced(function* (build: typeof Build.Type, context: ExecutorContext) {
@@ -124,4 +114,4 @@ const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Build.Ty
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Build, batch, execute, grouped, run, streamed };
+export { Build, batch, execute, grouped };

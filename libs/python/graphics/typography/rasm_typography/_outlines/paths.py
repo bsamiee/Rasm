@@ -7,15 +7,13 @@ lazy from itertools import pairwise
 import msgspec
 lazy from fontTools.misc.arrayTools import insetRect, offsetRect, sectRect, unionRect
 lazy from fontTools.misc.transform import Offset, Transform
-lazy from fontTools.pens.basePen import AbstractPen
+lazy from fontTools.pens.basePen import AbstractPen, decomposeQuadraticSegment
 lazy from fontTools.pens.boundsPen import BoundsPen
-lazy from fontTools.pens.pointPen import PointToSegmentPen, ReverseContourPointPen
-lazy from fontTools.pens.recordingPen import RecordingPointPen
+lazy from fontTools.pens.pointPen import PointToSegmentPen
 lazy from fontTools.pens.roundingPen import RoundingPen
-lazy from fontTools.pens.transformPen import TransformPointPen
 lazy import pathops
 
-lazy from rasm_typography._faces.glyphs import draw_points, Point, recorded, traced
+lazy from rasm_typography._faces.glyphs import draw_points, Point, traced
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -24,6 +22,7 @@ type Axis = Literal["x", "y"]
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _FILL = frozendict(fix_winding=True, keep_starting_points=False, clockwise=False)
+_GRID = 64
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -102,8 +101,8 @@ class Box(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def trace(pen: AbstractPen, outline: tuple[tuple[Point, ...], ...], /, *, closed: bool = True) -> None:
-    """Draws contours into a segment pen as given, an open contour starting at its first point."""
-    draw_points(PointToSegmentPen(pen), outline, closed=closed)
+    """Draws contours into a segment pen on a 1/64-unit grid, an open contour starting at its first point, edges nearer than the grid coinciding, which skia-pathops booleans resolve where near-coincident ones return wrong fills."""
+    draw_points(PointToSegmentPen(RoundingPen(pen, roundFunc=lambda value: round(value * _GRID) / _GRID)), outline, closed=closed)
 
 
 def draw(pen: AbstractPen, /, *outlines: tuple[tuple[Point, ...], ...]) -> None:
@@ -115,14 +114,20 @@ def draw(pen: AbstractPen, /, *outlines: tuple[tuple[Point, ...], ...]) -> None:
 
 
 def segments(outline: tuple[tuple[Point, ...], ...], /, *, closed: bool = True) -> tuple[tuple[tuple[float, float], ...], ...]:
-    """Returns every line as two points and every quadratic as three, implied on-curve points explicit, closed contours read from their union with each closing line."""
-    path = pathops.Path()
-    trace(path.getPen(), outline, closed=closed)
+    """Returns every line as two points and every quadratic as three as the contours are drawn, implied on-curve points explicit, a closed contour ending at its start, one of off-curve points alone starting between its last and first."""
     return tuple(
-        (before[-1], *step)
-        for contour in (pathops.simplify(path, **_FILL) if closed else path).contours
-        for steps in (tuple(tuple((float(x), float(y)) for x, y in points) for _, points in contour if points),)
-        for before, step in pairwise((*steps, *(((steps[0][0],),) if closed and steps[-1][-1] != steps[0][0] else ())))
+        (start, *step)
+        for contour in outline
+        if contour
+        for first, implied in ((next((index for index, point in enumerate(contour) if point.on), None), Point(x=(contour[-1].x + contour[0].x) / 2, y=(contour[-1].y + contour[0].y) / 2)),)
+        for ring in ((*contour[first:], *contour[:first], *(contour[first : first + 1] if closed else ())) if first is not None else (implied, *contour, implied),)
+        for low, high in pairwise(index for index, point in enumerate(ring) if point.on)
+        for steps in (
+            (((ring[high].x, ring[high].y),),)
+            if high == low + 1
+            else tuple(((float(cx), float(cy)), (float(ex), float(ey))) for (cx, cy), (ex, ey) in decomposeQuadraticSegment(tuple((point.x, point.y) for point in ring[low + 1 : high + 1]))),
+        )
+        for start, step in zip(((ring[low].x, ring[low].y), *(pair[-1] for pair in steps[:-1])), steps, strict=True)
     )
 
 
@@ -148,24 +153,35 @@ def combined(a: tuple[tuple[Point, ...], ...], b: tuple[tuple[Point, ...], ...],
 
 
 def pieces(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Point, ...], ...], ...]:
-    """Splits the union of an outline into connected fills in drawing order, each outer contour with the holes whose smallest enclosing outer it is."""
+    """Splits the union of an outline into connected fills in drawing order, each outer contour with the holes whose smallest enclosing outer it is, an outer enclosing no area no fill."""
     path = pathops.Path()
     draw(path.getPen(), outline)
     contours = tuple(path.contours)
     outers = sorted((contour for contour in contours if not contour.clockwise), key=lambda contour: contour.area)
     owners = tuple((hole, next((outer for outer in outers if outer.contains(hole.firstPoints[0])), None)) for hole in contours if hole.clockwise)
-    return tuple(traced(partial(pathops.union, (outer, *(hole for hole, owner in owners if owner is outer)))) for outer in contours if not outer.clockwise)
+    return tuple(
+        piece for outer in contours if not outer.clockwise for piece in (traced(partial(pathops.union, (outer, *(hole for hole, owner in owners if owner is outer)))),) if piece
+    )
 
 
 def groups(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Point, ...], ...], ...]:
-    """Pieces of an outline, each lying inside another's outer contour joined to the smallest such piece, a contour drawing's core with the ring around it, smallest first."""
-    held = sorted(pieces(outline), key=area)
-    hulls = tuple(max(((contour,) for contour in piece), key=area) for piece in held)
+    """Pieces of an outline, each lying inside another's outer contour joined to the smallest such piece, a contour drawing's core with the ring around it, smallest first, the boolean run only where one piece's extent holds the other's."""
+    held = sorted(((area(piece), piece, box) for piece in pieces(outline) if (box := bounds(piece))), key=lambda row: row[0])
+    owners = tuple(
+        next(
+            (
+                other
+                for other, (_, outer, frame) in enumerate(held[index + 1 :], index + 1)
+                if (box & frame) == box and not combined(piece, (max(outer, key=lambda contour: area((contour,))),), pathops.PathOp.DIFFERENCE)
+            ),
+            index,
+        )
+        for index, (_, piece, box) in enumerate(held)
+    )
     roots: dict[int, int] = {}
     for index in reversed(range(len(held))):
-        owner = next((other for other in range(index + 1, len(held)) if not combined(held[index], hulls[other], pathops.PathOp.DIFFERENCE)), None)
-        roots[index] = index if owner is None else roots[owner]
-    return tuple(union(*(held[member] for member in range(len(held)) if roots[member] == index)) for index in range(len(held)) if roots[index] == index)
+        roots[index] = index if owners[index] == index else roots[owners[index]]
+    return tuple(union(*(held[member][1] for member, root in roots.items() if root == index)) for index in sorted(set(roots.values())))
 
 
 def strip(outline: tuple[tuple[Point, ...], ...], low: float, high: float, /, axis: Axis = "x") -> tuple[tuple[Point, ...], ...]:
@@ -208,23 +224,24 @@ def iou(a: tuple[tuple[Point, ...], ...], b: tuple[tuple[Point, ...], ...], /) -
 
 def transformed(outline: tuple[tuple[Point, ...], ...], matrix: tuple[float, float, float, float, float, float], /) -> tuple[tuple[Point, ...], ...]:
     """Maps every point through an affine matrix `(xx, xy, yx, yy, dx, dy)`, a `fontTools.misc.transform.Transform` included, contours reversed under a reflection to keep their winding."""
-    recording = RecordingPointPen()
-    xx, xy, yx, yy, _, _ = matrix
-    draw_points(TransformPointPen(ReverseContourPointPen(recording) if xx * yy - xy * yx < 0 else recording, matrix), outline, closed=True)
-    return recorded(recording)
+    mapping = Transform(*matrix)
+    return tuple(
+        tuple(Point(x=x, y=y, on=point.on) for (x, y), point in zip(mapping.transformPoints(tuple((point.x, point.y) for point in ordered)), ordered, strict=True))
+        for contour in outline
+        for ordered in (contour[::-1] if mapping.xx * mapping.yy - mapping.xy * mapping.yx < 0 else contour,)
+    )
 
 
 def offset(outline: tuple[tuple[Point, ...], ...], distance: float, /) -> tuple[tuple[Point, ...], ...]:
-    """Grows the outline's filled area by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4, the rim snapped so edges meeting at a half stem coincide exactly."""
+    """Grows the outline's filled area by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4, body and rim on the trace grid, so edges meeting at a half stem coincide exactly and near-coincident ones never reach the native boolean."""
     if not distance:
         return union(outline)
     body = pathops.Path()
     draw(body.getPen(), outline)
     stroked, rim = pathops.Path(body), pathops.Path()
-    snap = 1024
     stroked.stroke(2 * abs(distance), pathops.LineCap.BUTT_CAP, pathops.LineJoin.MITER_JOIN, 4.0)
     stroked.convertConicsToQuads()
-    stroked.draw(RoundingPen(rim.getPen(), roundFunc=lambda value: round(value * snap) / snap))
+    stroked.draw(RoundingPen(rim.getPen(), roundFunc=lambda value: round(value * _GRID) / _GRID))
     return traced(pathops.op(body, rim, pathops.PathOp.UNION if distance > 0 else pathops.PathOp.DIFFERENCE, **_FILL).draw)
 
 

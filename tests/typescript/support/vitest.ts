@@ -1,5 +1,5 @@
 import { Effect, Exit, flow, Scope } from 'effect';
-import type { ProvidedContext, RunnerTask, RunnerTestCase } from 'vitest';
+import type { ProvidedContext } from 'vitest';
 import type { TestProject } from 'vitest/node';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -14,13 +14,6 @@ const provided = <K extends keyof ProvidedContext & string, E>(key: K, acquire: 
         Effect.runPromise,
     );
 
-const lost = (task: RunnerTask): boolean => task.result?.state === 'fail' || ('tasks' in task && task.tasks.some(lost));
-
-const failed = Effect.map(
-    Effect.promise(() => import('vitest')),
-    ({ TestRunner }) => TestRunner.getCurrentTest<RunnerTestCase | undefined>()?.result?.state !== 'run' && lost(TestRunner.getCurrentSuite().file),
-);
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { failed, provided };
+export { provided };
