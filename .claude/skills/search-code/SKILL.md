@@ -160,7 +160,7 @@ mcp__context7__query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<
 mcp__context7__query-docs {"libraryId": "/websites/<site>", "query": "<one concept>"}
 mcp__context7__query-code {"libraryId": "/<owner>/<repo>", "operation": "definition", "pattern": "<Symbol>"}
 mcp__context7__query-code {"libraryId": "/<owner>/<repo>", "version": "<tag>", "pattern": "<regex>", "glob": "<glob>", "context": 3}
-mcp__context7__query-code {"libraryId": "/<owner>/<repo>", "operation": "read", "pattern": "<path>#L<n>-L<n>"}
+mcp__context7__query-code {"libraryId": "/<owner>/<repo>", "operation": "read", "path": "<path>#L<n>-L<n>"}
 ```
 
 DeepWiki reads:
