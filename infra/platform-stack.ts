@@ -87,19 +87,23 @@ class Machine extends Data.Class<{
     // --- [CONTAINERS]
 
     pulled(image: string, options: CustomResourceOptions = {}) {
-        return new RemoteImage(image, { name: image }, { provider: this.provider, ...options }).repoDigest;
+        return new RemoteImage(`${this.name}-${image}`, { name: image }, { provider: this.provider, ...options }).repoDigest;
     }
 
     imaged(image: string, inline: string, args: Pick<dockerBuild.ImageArgs, 'context' | 'buildArgs'> = {}) {
-        return new dockerBuild.Image(image, { dockerfile: { inline }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).ref;
+        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).ref;
     }
 
     kept(volume: string) {
-        return new Volume(volume, { name: volume }, { provider: this.provider }).name;
+        return new Volume(`${this.name}-${volume}`, { name: volume }, { provider: this.provider }).name;
     }
 
     contained(service: string, tests: readonly string[], args: Omit<ContainerArgs, 'name' | 'networksAdvanced' | 'restart' | 'logDriver' | 'wait' | 'healthcheck'>, options: CustomResourceOptions = {}) {
-        return new Container(service, { name: service, networksAdvanced: [{ name: this.network }], restart: 'unless-stopped', logDriver: 'local', wait: true, waitTimeout: 300, destroyGraceSeconds: 120, healthcheck: { tests: [...tests], interval: '10s' }, ...args }, { provider: this.provider, ...options });
+        return new Container(
+            `${this.name}-${service}`,
+            { name: service, networksAdvanced: [{ name: this.network }], restart: 'unless-stopped', logDriver: 'local', wait: true, waitTimeout: 300, destroyGraceSeconds: 120, healthcheck: { tests: [...tests], interval: '10s' }, ...args },
+            { provider: this.provider, ...options },
+        );
     }
 }
 
@@ -133,7 +137,7 @@ const proxied = (machine: Machine) => {
 
 const stored = (machine: Machine) => {
     const ports = { internal: 9000, external: 7412 };
-    const { user, key } = Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(name, { length: 32, special: false }).result);
+    const { user, key } = Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(`${machine.name}-${name}`, { length: 32, special: false }).result);
     const published = Option.match(machine.remote, { onNone: () => ({ ip: '127.0.0.1', address: '127.0.0.1' }), onSome: ({ address }) => ({ ip: '0.0.0.0', address }) });
     const serving = machine.contained('storage', ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}/health/ready`], {
         image: machine.pulled('rustfs/rustfs:1.0.5'),
@@ -160,7 +164,7 @@ const bucketed = (name: string, storage: Output<typeof Stored.Type>, buckets: Re
 const cached = (machine: Machine, { name, kept }: Data.TaggedEnum.Value<Role, 'Cache'>, project: string) => {
     const port = 3000;
     const [proxy, scoped] = [proxied(machine), bucketed(name, stored(machine), { [name]: { kept: false, expire: { '': kept } } })];
-    const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(row, { length: 48, special: false }).result }));
+    const tokens = Record.map({ NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: 'READ_ONLY_ACCESS_TOKEN', NX_CACHE_WRITE_TOKEN: 'SERVICE_ACCESS_TOKEN' }, (variable, row) => ({ variable, value: new RandomPassword(`${machine.name}-${row}`, { length: 48, special: false }).result }));
     const { address, named, labels } = machine.routed(name, port, { [`traefik.http.services.${name}.loadbalancer.healthcheck.path`]: '/health' });
     const image = machine.imaged(
         name,
@@ -179,13 +183,13 @@ ENTRYPOINT ["/nx-cache-aws"]
     const envs = Record.collect(variables, (variable, value) => interpolate`${variable}=${value}`);
     const serving = machine.contained(name, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${port}/health`], { image, init: true, envs, labels }, { dependsOn: [proxy, ...named] });
     const held = { ...Record.map(tokens, Struct.get('value')), NX_SELF_HOSTED_REMOTE_CACHE_SERVER: serving.id.apply(() => `https://${address}`) };
-    return Record.map(held, (value, row) => new Secret(row, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }).name);
+    return Record.map(held, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }).name);
 };
 
 const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>) => {
     const port = 9091;
     const [{ guard, forwarded }, wildcard] = [Machine, `*.${machine.zone}`];
-    const [proxy, password] = [proxied(machine), new RandomPassword('owner', { length: 32, special: false })];
+    const [proxy, password] = [proxied(machine), new RandomPassword(`${machine.name}-owner`, { length: 32, special: false })];
     const { address, named, labels } = machine.routed(guard, port, {
         [`traefik.http.middlewares.${guard}-check.forwardauth.address`]: `http://${guard}:${port}/api/authz/forward-auth`,
         [`traefik.http.middlewares.${guard}-check.forwardauth.authResponseHeaders`]: Object.values(forwarded).join(','),
@@ -212,7 +216,7 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
         ['CMD', '/app/healthcheck.sh'],
         {
             image: machine.pulled('authelia/authelia:4.39.28'),
-            envs: Array.map(['AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY'], (row) => interpolate`${row}=${new RandomPassword(row, { length: 64, special: false }).result}`),
+            envs: Array.map(['AUTHELIA_SESSION_SECRET', 'AUTHELIA_STORAGE_ENCRYPTION_KEY'], (row) => interpolate`${row}=${new RandomPassword([machine.name, row].join('-'), { length: 64, special: false }).result}`),
             uploads: [
                 { file: '/config/configuration.yml', content: jsonStringify(configuration) },
                 { file: '/config/users.yml', content: jsonStringify({ users: { owner: { displayname: 'Owner', email: owner, password: password.bcryptHash } } }) },
@@ -240,7 +244,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                 const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', uid: 1000 } as const;
                 const folder = `/home/${runner.user}/actions-runner`;
                 const registered = new remote.Command(
-                    'runner',
+                    `${machine.name}-runner`,
                     {
                         connection: { host: machine.name },
                         addPreviousOutputInEnv: false,
