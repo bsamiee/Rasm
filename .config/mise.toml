@@ -122,6 +122,7 @@ lima                                                                         = {
 ninja                                                                        = "latest"
 node                                                                         = "latest"
 "npm:@modelcontextprotocol/conformance"                                      = "0.2.0-alpha.12"
+"npm:@tavily/cli"                                                            = { allow_low_downloads = true, os = ["macos"], version = "latest" }
 pitchfork                                                                    = { os = ["macos"], version = "latest" }
 pixi                                                                         = "latest"
 pkl                                                                          = "latest"
@@ -130,7 +131,6 @@ pulumi                                                                       = "
 "pypi:ast-grep/ast-grep-mcp"                                                 = "latest"
 "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp" = "v1"
 "pypi:mcp-for-blender"                                                       = { os = ["macos"], version = "latest" }
-"pypi:tavily-cli"                                                            = { os = ["macos"], version = "latest" }
 resvg                                                                        = "latest"
 ripgrep                                                                      = "latest"
 sd                                                                           = "latest"

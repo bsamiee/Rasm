@@ -3822,6 +3822,18 @@ specifiers = ["0.2.0-alpha.12"]
 [tools."npm:@modelcontextprotocol/conformance".provenance]
 repository = "github.com/modelcontextprotocol/conformance"
 
+[[tools."npm:@tavily/cli"]]
+version = "1.0.1"
+aube = { path = "mise/locks/npm-tavily-cli/1.0.1~93e418ba", digest = "sha256:432a2b4b952831df02f8ee1af5257e44aeba37789c7259b15636f50345229bd6" }
+backend = "npm:@tavily/cli"
+specifiers = ["latest"]
+
+[tools."npm:@tavily/cli".options]
+allow_low_downloads = "true"
+
+[tools."npm:@tavily/cli".provenance]
+repository = "github.com/tavily-ai/cli"
+
 [[tools.pitchfork]]
 version = "2.34.0"
 backend = "packslip:github.com/jdx/pitchfork"
@@ -3964,12 +3976,6 @@ version = "2.2.7"
 backend = "pypi:mcp-for-blender"
 specifiers = ["latest"]
 uv = { path = "mise/locks/pypi-mcp-for-blender/2.2.7", digest = "sha256:272beb5923ac302cdb8f8ff317ab090c8cee2b9affd3b0c03d73d8d362337885" }
-
-[[tools."pypi:tavily-cli"]]
-version = "0.2.1"
-backend = "pypi:tavily-cli"
-specifiers = ["latest"]
-uv = { path = "mise/locks/pypi-tavily-cli/0.2.1", digest = "sha256:c99a9afe1a68ef11870c52f0f11ee545cda3d4a61c73a27456a8d9b167f57f62" }
 
 [[tools.resvg]]
 version = "0.50.0"
