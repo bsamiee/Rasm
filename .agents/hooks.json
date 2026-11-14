@@ -1,0 +1,5 @@
+{
+    "function-hooks": {
+        "PreToolUse": [ { "matcher": "run_command", "hooks": [ { "command": "mise exec -- node ../plugins/function-hooks/agy.ts", "timeout": 30 } ] } ]
+    }
+}
