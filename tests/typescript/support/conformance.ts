@@ -364,6 +364,22 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
         );
 
         methods.effect(
+            'keeps every file a build wrote through a graph read holding no stored plugin result',
+            Effect.fnUntraced(function* () {
+                const [{ nx, absent }, stated] = yield* Effect.all([Consumer, member(edits.dependent)]);
+                const run = yield* nx('build', stated.name, '--output-style=static');
+                assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+                const files = yield* built(stated);
+                assert.isNotEmpty(files, report);
+                yield* nx('reset');
+                const shown = yield* nx('show', 'projects');
+                assert.strictEqual(shown.code, 0, shown.stderr);
+                assert.deepStrictEqual(yield* absent(files), [], 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote');
+            }),
+            bound,
+        );
+
+        methods.effect(
             'declares as a build output no path a build of every member leaves unwritten',
             Effect.fnUntraced(function* () {
                 const [{ nx, cleaned, written, outputs }, { tasks }] = yield* Effect.all([Consumer, placed]);

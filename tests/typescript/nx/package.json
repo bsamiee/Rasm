@@ -37,7 +37,6 @@
         "tags": [ "os:all" ],
         "targets": {
             "test--vitest": {
-                "parallelism": false,
                 "inputs": [
                     "...",
                     {

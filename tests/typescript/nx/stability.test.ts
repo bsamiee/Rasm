@@ -2,7 +2,7 @@ import { homedir, hostname, tmpdir, userInfo } from 'node:os';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
-import { Array, Duration, Effect, FileSystem, Order, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Effect, Order, Path, Predicate, Record, Schema } from 'effect';
 import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
 import { Reading } from '#/reading';
@@ -15,12 +15,10 @@ const SOURCES = {
         'nrwl/nx packages/nx/src/project-graph/project-graph.spec.ts: should not throw an error if sane plugins are used and called in parallel; two computations of one tree give one graph; packages/nx/src/project-graph/build-project-graph.ts: createDependencies of every plugin runs in one Promise.all, so sources and the edges under one source keep the order plugins finish in',
     replayed: 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts shouldRecomputeWholeGraph: a cached graph is served only while it equals a recomputed one',
     portable: 'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; a hash or a stored command that names a path of one machine matches on no other runner',
-    hashed: 'nrwl/nx packages/nx/src/hasher/native-task-hasher-impl.spec.ts: should create task hash; equal inputs give an equal hash',
-    kept: 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin reads configuration files and returns project configuration, and graph creation removes no file a task wrote',
+    hashed: 'nrwl/nx packages/nx/src/hasher/native-task-hasher-impl.spec.ts: should create task hash; equal inputs give an equal hash; packages/nx/src/native/tasks/types.rs HashInstruction::TaskOutput: a task reading the outputs of tasks it depends on hashes the files those tasks wrote, which change while they run, under the key `<glob>:<outputs joined by a comma>`',
 } as const;
 const LISTED = 50;
 const WORD = /[\s'"=]+/u;
-const PATTERN = /[*{]/u;
 const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -61,14 +59,12 @@ const escaping = (path: Path.Path, workspace: Workspace) =>
         .filter(({ target }) => target.cache === true)
         .flatMap(({ root, task, target }) => [...outside(path, [workspaceRoot], { inputs: target.inputs, outputs: target.outputs }, task), ...outside(path, [workspaceRoot, path.join(workspaceRoot, root)], { options: target.options, configurations: target.configurations }, task)]);
 
-const present = Effect.fnUntraced(function* (workspace: Workspace) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const outputs = declared(workspace).flatMap(({ project, name }) => Array.fromNullishOr(workspace.nodes[project]).flatMap((node) => getOutputsForTargetAndConfiguration({ project, target: name }, {}, node)));
-    return yield* Effect.filter(
-        Array.dedupe(outputs).filter((output) => !PATTERN.test(output)),
-        (output) => fs.exists(path.join(workspaceRoot, output)),
-    );
-});
+const settled = (workspace: Workspace) => {
+    const outputs = new Set(declared(workspace).flatMap(({ project, name }) => Array.fromNullishOr(workspace.nodes[project]).map((node) => getOutputsForTargetAndConfiguration({ project, target: name }, {}, node).join(','))));
+    return Record.map(workspace.hashes, ({ inputs }) => Record.filter(inputs, (_, input) => !outputs.has(input.slice(input.indexOf(':') + 1))));
+};
+
+const rehashed = (left: Workspace, right: Workspace) => Record.keys(Record.filter(left.hashes, ({ value, inputs }, task) => unequal(inputs, right.hashes[task]?.inputs, task).length === 0 && value !== right.hashes[task]?.value));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -92,10 +88,11 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'gives every task the same hash in two processes that share no stored state',
+        'gives every task the same inputs but the outputs of tasks it depends on, and the same hash for the same inputs, in two processes that share no stored state',
         Effect.fnUntraced(function* () {
             const [fresh, again] = yield* Effect.all([read('fresh'), read('again')]);
-            assert.deepStrictEqual(Array.take(unequal(fresh.hashes, again.hashes, 'hashes'), LISTED), [], SOURCES.hashed);
+            assert.deepStrictEqual(Array.take(unequal(settled(fresh), settled(again), 'inputs'), LISTED), [], SOURCES.hashed);
+            assert.deepStrictEqual(Array.take(rehashed(fresh, again), LISTED), [], SOURCES.hashed);
         }),
     );
 
@@ -146,26 +143,12 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
             );
             assert.deepStrictEqual(
                 Array.take(
-                    reads.flatMap((reading, at) => unequal(alone.hashes, reading.hashes, `hashes of read ${at}`)),
+                    reads.flatMap((reading, at) => [...unequal(settled(alone), settled(reading), `inputs of read ${at}`), ...rehashed(alone, reading)]),
                     LISTED,
                 ),
                 [],
                 SOURCES.hashed,
             );
         }),
-    );
-
-    suite.effect(
-        'computes a graph without removing a file any target declares as output',
-        Effect.fnUntraced(function* () {
-            const [fs, workspace] = yield* Effect.all([FileSystem.FileSystem, read('cached')]);
-            const before = yield* present(workspace);
-            const { code } = yield* taken(yield* fs.makeTempDirectoryScoped({ prefix: 'nx-reading-' }));
-            const after = yield* present(workspace);
-            assert.strictEqual(Number(code), 0, SOURCES.kept);
-            assert.isNotEmpty(before, 'a built workspace holds declared outputs');
-            assert.deepStrictEqual([...new Set(before).difference(new Set(after))], [], SOURCES.kept);
-        }, Effect.scoped),
-        Duration.toMillis(Duration.minutes(10)),
     );
 });

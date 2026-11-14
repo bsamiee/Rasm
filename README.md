@@ -151,7 +151,8 @@ flowchart LR
 - Unreal plug-ins map a folder to the Nx target installing a C++ package there in `.uplugin` table `nx.packages`, and their build runs it first
 - Preset `unreal` builds such a package with the compiler and flags of the plug-in's engine, into a folder named for the engine platform (`Mac`, `Linux`)
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
-- Suites reading the project graph take tag `os:all`, hash one platform input, and run with no task beside them (`parallelism: false`)
+- Suites reading the project graph take tag `os:all` and hash one platform input
+- Suites reading the live tree compare what running tasks leave alone: a task reading its dependencies' outputs hashes files those tasks write
 - Workflow checkouts fetch full history (`fetch-depth: 0`, no `filter`): `nx release` compares the files of each commit, which a partial clone fetches one commit at a time
 - Host job checkouts keep ignored files (`clean: false`) and remove untracked ones, so caches and packages stay on a machine keeping its checkout
 - Container job checkouts remove ignored files too: a container mounts the checkout at another path, and cached absolute paths name the host

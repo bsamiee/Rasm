@@ -23,7 +23,7 @@ const SOURCES = {
     restored: 'nrwl/nx astro-docs/src/content/docs/features/cache-task-results.mdoc: On a cache hit, Nx restores the cached output files, so an output git tracks is overwritten by a replay',
     apart: 'nrwl/nx e2e/nx/src/cache.test.ts: should cache command execution; a restored output holds the files of one task alone',
     platform:
-        'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; builds and tests of Cargo, Swift, CMake, and Unreal and test results of .NET and Python differ by platform, output of tsc, Vite, Vitest, and Storybook does not; Suites reading the project graph take tag `os:all`, hash one platform input, and run with no task beside them',
+        'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; builds and tests of Cargo, Swift, CMake, and Unreal and test results of .NET and Python differ by platform, output of tsc, Vite, Vitest, and Storybook does not; Suites reading the project graph take tag `os:all` and hash one platform input',
     read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input",
     keyed: 'README.md OWNERS: Mac app release form — Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`; a key identifier that selects the form of an output is no credential',
     versioned:
@@ -256,14 +256,14 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'hashes a command whose output names the operating system into every cached test task of a project tagged os:all, and runs each with no task beside it',
+        'hashes a command whose output names the operating system into every cached test task of a project tagged os:all',
         Effect.fnUntraced(function* () {
             const workspace = yield* read('fresh');
             const commands = yield* naming(workspace);
             assert.isNotEmpty(every(workspace), SOURCES.platform);
             assert.deepStrictEqual(
                 every(workspace)
-                    .filter(({ task, target }) => target.parallelism !== false || commands.isDisjointFrom(new Set(hashing(workspace, task))))
+                    .filter(({ task }) => commands.isDisjointFrom(new Set(hashing(workspace, task))))
                     .map(({ task }) => task),
                 [],
                 SOURCES.platform,
