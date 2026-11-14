@@ -25,7 +25,7 @@ const SOURCES = {
     exclusive: 'nrwl/nx packages/nx/src/tasks-runner/tasks-schedule.spec.ts tasks with parallelism false: should schedule root tasks first, one at a time; should not schedule batches of tasks by different executors if task has parallelism false',
     batched: 'nrwl/nx packages/nx/src/tasks-runner/tasks-schedule.spec.ts: should schedule batches of tasks by different executors; preferBatch: should batch tasks when executor has preferBatch: true and --batch not specified',
     drained: 'nrwl/nx packages/nx/src/tasks-runner/tasks-schedule.spec.ts: should run out of tasks when they are all complete',
-    packaged: 'README.md TASKS: Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet), except `pnpm publish --recursive`, which takes no file; PRINCIPLES: Nx core infers that publish target for a public package',
+    packaged: 'README.md TASKS: Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet); `pnpm publish --recursive` states no such input, takes no file, and depends on the build targets of its package; PRINCIPLES: Nx core infers that publish target for a public package',
     previewed: 'README.md TASKS: `preview` builds a project, then serves its build output as `serve` does',
     kept: "README.md TASKS: `clean` removes the outputs a project's targets declare; nrwl/nx astro-docs/src/content/docs/features/cache-task-results.mdoc: On a cache hit, Nx restores the cached output files, and a task it depends on that is not cached runs on every run, so a clean task among them deletes outputs before every replay",
 } as const;
@@ -192,7 +192,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'runs a pack task of the same project before every attach task and every publish task a plugin infers of a project that packs',
+        'runs a pack task of the same project before every attach task and every publish task a plugin infers of a project that packs, and its build tasks before a publish task Nx core infers',
         Effect.fnUntraced(function* () {
             const workspace = yield* read('fresh');
             const core = new Set(
@@ -210,6 +210,21 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
                     planned(workspace, ['attach', 'nx-release-publish']),
                     ({ target }) => packing.has(target.project) && (target.target.startsWith('attach--') || (target.target === 'nx-release-publish' && !core.has(target.project))),
                     ({ target }, id) => id.startsWith(`${target.project}:pack--`),
+                ),
+                [],
+                SOURCES.packaged,
+            );
+            const building = new Set(
+                declared(workspace)
+                    .filter(({ name, project }) => name.startsWith('build--') && core.has(project))
+                    .map(({ project }) => project),
+            );
+            assert.isNotEmpty([...building], SOURCES.packaged);
+            assert.deepStrictEqual(
+                lacking(
+                    planned(workspace, ['nx-release-publish']),
+                    ({ target }) => target.target === 'nx-release-publish' && building.has(target.project),
+                    ({ target }, id) => id.startsWith(`${target.project}:build--`),
                 ),
                 [],
                 SOURCES.packaged,

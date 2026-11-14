@@ -260,7 +260,15 @@ const released = ({ crate, versioned }: Member, cwd: string) => {
     const published: Record<string, TargetConfiguration> =
         crate.publish?.length === 0
             ? {}
-            : { 'nx-release-publish': { executor: `${PLUGIN}:release-publish`, options: { cwd, package: crate.name, ...named }, dependsOn: ['pack--cargo', '^nx-release-publish'], inputs: SOURCES, metadata: { description: `Publishes ${crate.name} with cargo publish, which packs it from source again` } } };
+            : {
+                  'nx-release-publish': {
+                      executor: `${PLUGIN}:release-publish`,
+                      options: { cwd, package: crate.name, ...named },
+                      dependsOn: ['pack--cargo', '^nx-release-publish'],
+                      inputs: SOURCES,
+                      metadata: { description: `Publishes ${crate.name} with cargo publish, which packs it from source again and fails on a version its registry holds` },
+                  },
+              };
     return versioned ? { tags: ['release'], release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: join(cwd, LOCK), ...named } } }, targets: published } : { targets: {} };
 };
 

@@ -2,10 +2,11 @@ import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
 import { createTaskId } from '@nx/devkit/internal';
 import { Array, Cause, Config, Effect, Option, Schema, type Scope, String } from 'effect';
-import { getFilesForOutputsBatch } from 'nx/src/native/index';
+import { getFilesForOutputsBatch, matchGlobPaths } from 'nx/src/native/index';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Read = Schema.Struct({ dependentTasksOutputFiles: Schema.String }).annotate({ description: 'Input of a target reading the output files of the tasks it depends on that match the glob' });
 const Dry = Schema.Struct({ dryRun: Schema.optionalKey(Schema.Boolean).annotate({ description: 'Prints each change and makes none, as NX_DRY_RUN=true does' }) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -30,13 +31,21 @@ const written = Effect.fnUntraced(function* ({ root, projectName, targetName, co
 });
 
 const packaged = (context: ExecutorContext) =>
-    Effect.flatMap(written(context), ({ project, target, selected, outputs, files }) =>
-        Effect.filterOrFail(
-            Effect.succeed(files),
-            () => files.length > 0 || selected.length === 0,
-            () => refused(project, `no file sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first`)(),
-        ),
-    );
+    Array.match(Array.getSomes((context.target?.inputs ?? []).map((input) => Schema.decodeUnknownOption(Read)(input))), {
+        onEmpty: () => Effect.succeed<readonly string[]>([]),
+        onNonEmpty: (read) =>
+            Effect.flatMap(written(context), ({ project, target, selected, outputs, files }) => {
+                const matched = matchGlobPaths(
+                    read.map((input) => input.dependentTasksOutputFiles),
+                    files,
+                );
+                return Effect.filterOrFail(
+                    Effect.succeed(files.filter((_, index) => matched[index])),
+                    (kept) => kept.length > 0 || selected.length === 0,
+                    () => refused(project, `no file sits under ${outputs.join(', ')}, the outputs ${target} depends on; run its dependencies first`)(),
+                );
+            }),
+    });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

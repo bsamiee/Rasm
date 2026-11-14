@@ -22,6 +22,7 @@ const files = {
     'tools/keyed.js': recorded('keyed'),
     'tools/unkeyed.js': recorded('unkeyed'),
     'tools/alone.js': recorded('alone'),
+    'tools/built.js': recorded('built'),
     'tools/tool-clean.js': recorded('cleaned'),
     'lib/index.js': 'export const lib = 1;\n',
     'lib/staged/tracked.txt': 'source\n',
@@ -48,12 +49,13 @@ const prepared = Effect.gen(function* () {
         hollow: { command: 'true', outputs: ['{projectRoot}/absent/*.tgz'] },
         clean: { executor: `${plugin.name}:clean`, options: { targets: ['pack', 'stage'], commands: [['node', `${root}/tools/tool-clean.js`, 'swept']], cwd: 'lib' } },
         unstated: { executor: `${plugin.name}:clean` },
-        'nx-release-publish': { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/publish.js`, 'push'], preview: ['node', `${root}/tools/preview.js`, 'push'], credential: 'HOME' } },
-        keyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/keyed.js`, 'push'], credential: 'HOME', flag: '--api-key' } },
-        unkeyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], options: { publish: ['node', `${root}/tools/unkeyed.js`, 'push'], credential: 'RASM_FIXTURE_ABSENT_TOKEN' } },
+        'nx-release-publish': { executor: `${plugin.name}:publish`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], options: { publish: ['node', `${root}/tools/publish.js`, 'push'], preview: ['node', `${root}/tools/preview.js`, 'push'], credential: 'HOME' } },
+        keyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], options: { publish: ['node', `${root}/tools/keyed.js`, 'push'], credential: 'HOME', flag: '--api-key' } },
+        unkeyed: { executor: `${plugin.name}:publish`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], options: { publish: ['node', `${root}/tools/unkeyed.js`, 'push'], credential: 'RASM_FIXTURE_ABSENT_TOKEN' } },
         alone: { executor: `${plugin.name}:publish`, options: { publish: ['node', `${root}/tools/alone.js`, 'push'], credential: 'HOME' } },
-        attach: { executor: `${plugin.name}:attach`, dependsOn: ['pack'] },
-        bare: { executor: `${plugin.name}:attach`, dependsOn: ['hollow'] },
+        built: { executor: `${plugin.name}:publish`, dependsOn: ['stage'], options: { publish: ['node', `${root}/tools/built.js`, 'push'], credential: 'HOME' } },
+        attach: { executor: `${plugin.name}:attach`, dependsOn: ['pack'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }] },
+        bare: { executor: `${plugin.name}:attach`, dependsOn: ['hollow'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }] },
     };
     yield* wrote({
         'lib/package.json': yield* Effect.orDie(Schema.encodeEffect(Json)({ name: 'lib', version: '1.2.3', type: 'module', nx: { targets } })),
@@ -137,13 +139,15 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
             const passed = yield* Effect.flatMap(text('tools/keyed.json'), Schema.decodeEffect(Arguments));
             assert.strictEqual(keyed.code, 0, `${rule}: a set credential publishes: ${keyed.stdout}${keyed.stderr}`);
             assert.strictEqual(passed.at(-2), '--api-key', 'dotnet nuget push --help "-k|--api-key <API_KEY>": a tool reading no variable takes the credential under its own argument, after the files');
-            assert.isTrue(
-                passed.some((file) => file.endsWith('lib/packed/lib.tgz')),
-                `${PACKAGED}: the command receives the packed file`,
-            );
+            assert.deepStrictEqual(passed.slice(1, -2), ['lib/packed/lib.tgz'], `${PACKAGED}: the command receives the packed file alone`);
             const alone = yield* run('run', 'lib:alone', '--output-style=static');
             assert.strictEqual(alone.code, 0, `a publish target with no packaging dependency runs its command alone: ${alone.stdout}${alone.stderr}`);
-            assert.deepStrictEqual(yield* Effect.flatMap(text('tools/alone.json'), Schema.decodeEffect(Arguments)), ['push'], 'pnpm publish --recursive takes no file: "pnpm -r publish ... will publish all the packages that have versions not yet published to the registry"');
+            assert.deepStrictEqual(yield* Effect.flatMap(text('tools/alone.json'), Schema.decodeEffect(Arguments)), ['push'], 'a publish target naming no dependency passes its command no file');
+            const built = yield* run('run', 'lib:built', '--output-style=static');
+            const order = 'README.md TASKS "`pnpm publish --recursive` states no such input, takes no file, and depends on the build targets of its package"; pnpm.io/cli/publish --recursive "will publish all the packages that have versions not yet published to the registry"';
+            assert.strictEqual(built.code, 0, `${order}: ${built.stdout}${built.stderr}`);
+            assert.deepStrictEqual(yield* absent(['lib/staged/built.txt']), [], `${order}: stage, the target built depends on, ran before the publish command`);
+            assert.deepStrictEqual(yield* Effect.flatMap(text('tools/built.json'), Schema.decodeEffect(Arguments)), ['push'], `${order}: built states no dependentTasksOutputFiles input, and its command receives no file stage wrote`);
         }),
         bounds.test,
     );
@@ -168,11 +172,7 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
             const { code, stdout, stderr } = yield* run('release', 'publish');
             const passed = yield* Effect.flatMap(text('tools/published.json'), Schema.decodeEffect(Arguments));
             assert.strictEqual(code, 0, `nx release publish exits 0: ${stdout}${stderr}`);
-            assert.strictEqual(passed[0], 'push', `${publish}: the stated publish arguments come first`);
-            assert.isTrue(
-                passed.some((file) => file.endsWith('lib/packed/lib.tgz')),
-                `${publish}; ${PACKAGED}: the command receives lib/packed/lib.tgz, the declared output of pack`,
-            );
+            assert.deepStrictEqual(passed, ['push', 'lib/packed/lib.tgz'], `${publish}; ${PACKAGED}: the stated publish arguments come first, then lib/packed/lib.tgz, the declared output of pack`);
         }),
         bounds.test,
     );
@@ -181,14 +181,10 @@ it.layer(workspace({ projects: ['lib'] }), { timeout: bounds.built, excludeTestS
         'attach uploads the packaged files to the release of the version tag through gh release upload --clobber',
         Effect.fnUntraced(function* () {
             const { code, printed, passed } = yield* uploaded;
-            const [command, subcommand, tag] = passed;
+            const [command, subcommand, tag, ...sent] = passed;
             assert.strictEqual(code, 0, `nx run lib:attach exits 0: ${printed}`);
             assert.deepStrictEqual([command, subcommand, tag], ['release', 'upload', 'v1.2.3'], `${ATTACH}; nrwl/nx packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern "v{version}"; cli.github.com/manual/gh_release_upload "gh release upload <tag> <files>..."`);
-            assert.include(passed, '--clobber', 'cli.github.com/manual/gh_release_upload --clobber "Overwrite existing assets of the same name"');
-            assert.isTrue(
-                passed.some((file) => file.endsWith('lib/packed/lib.tgz')),
-                `${ATTACH}; ${PACKAGED}: the upload names lib/packed/lib.tgz, the declared output of pack`,
-            );
+            assert.deepStrictEqual(sent, ['lib/packed/lib.tgz', '--clobber'], `${ATTACH}; ${PACKAGED}; cli.github.com/manual/gh_release_upload --clobber "Overwrite existing assets of the same name": the upload names lib/packed/lib.tgz, the declared output of pack, alone`);
         }),
         bounds.test,
     );

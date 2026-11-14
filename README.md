@@ -111,7 +111,7 @@ flowchart LR
 
 - Each fact sits once in the file its tool reads, and every other use derives it
 - Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json` or hand-written `namedInputs`
-- `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`: Nx core infers that publish target for a public package after every plugin, and the row runs it as `pnpm publish --recursive`
+- `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`: Nx core infers that publish target for a public package after every plugin, and the row runs it as `pnpm publish --recursive` after its build targets
 - `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
 - Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
 - `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
@@ -206,7 +206,8 @@ Other tasks run through their own commands:
 - Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`
 - Job `unreal` of `release.yml` then attaches the `os:linux` projects from the same image at the released commit
 - Dispatch inputs of `release.yml` are `specifier` (empty reads conventional commits), `first-release`, `dry-run`, on by default, and `publish`
-- Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet), except `pnpm publish --recursive`, which takes no file
+- Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet) and take them as the `dependentTasksOutputFiles` input they state
+- `pnpm publish --recursive` states no such input, takes no file, and depends on the build targets of its package
 - `doppler run --config release --command 'nx pack <app>'` packages a Mac app as workflow `release.yml` does
 - `mise bootstrap` registers the pitchfork supervisor as a login agent, on a Mac after a clone
 - `nx install @rasm/infra` runs the proxy, sign-in, and object storage containers of role `Apps` on the local Docker engine, under `rasm.localhost`
@@ -229,8 +230,8 @@ Packaging turns a build into the files its host, registry, or store takes, and i
 - Releases give every project one version and tag through `nx release`, and the GitHub release holds the packaged files each `attach` target uploads
 - Publishing delivers through each destination's own command (`pnpm publish`, `cargo publish`, `dotnet nuget push`, `uv publish`, `yak push`)
 - `dotnet nuget push`, `uv publish`, `yak push`, and the Blender extensions upload deliver the files `pack` or `build` wrote
-- `pnpm publish --recursive` and `cargo publish` take no packed file: each packs its package again
-- `pnpm publish --recursive` skips a version its registry holds, as `dotnet nuget push --skip-duplicate` and the host store checks do
+- `pnpm publish --recursive` and `cargo publish` take no packed file: each packs its package again, pnpm the folder its build targets wrote in the same run
+- `pnpm publish --recursive` skips a version its registry holds, as `dotnet nuget push --skip-duplicate` and the host store checks do, and `cargo publish` fails on one
 - Release assets hold native files unwrapped, a folder product (Unreal plugin, `.app`) goes in a `.zip` or `.dmg`, and a `.dmg` gets a Sparkle feed in R2
 - Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built
 

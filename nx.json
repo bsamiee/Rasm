@@ -23,6 +23,7 @@
     "targetDefaults": {
         "@nx/js:release-publish": {
             "executor": "@rasm/nx-distribution:publish",
+            "dependsOn": [ "build--*" ],
             "options": { "publish": [ "pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks" ], "preview": [ "pnpm", "publish", "--recursive", "--filter", "{projectName}", "--no-git-checks", "--dry-run" ], "credential": "NODE_AUTH_TOKEN" }
         }
     },

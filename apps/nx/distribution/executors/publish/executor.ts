@@ -9,7 +9,7 @@ import { credentialed, Dry, dried, packaged, run } from '#/executor';
 const Command = Schema.NonEmptyArray(Schema.String);
 const Publish = Dry.mapFields(
     Struct.assign({
-        publish: Command.annotate({ description: "The tool's publish argument list, followed by each file the target's dependency targets declare as outputs" }),
+        publish: Command.annotate({ description: "The tool's publish argument list, followed by each file under its dependency targets' outputs that a dependentTasksOutputFiles input of the target matches, none where the target states no such input" }),
         preview: Schema.optionalKey(Command).annotate({ description: "The tool's own dry-run form, run in place of publish under a dry run, absent prints publish and runs nothing" }),
         credential: Schema.String.annotate({ description: "Environment variable holding the destination's credential, where it is unset or empty the run publishes nothing, names the variable, and succeeds" }),
         flag: Schema.optionalKey(Schema.String).annotate({ description: 'Argument the tool takes the credential under, for a tool reading no variable itself' }),
