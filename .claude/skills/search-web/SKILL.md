@@ -14,7 +14,6 @@ Choose retrieval by source location and required evidence.
 - Composition: use another index for missing evidence
 - Output: pass `--json` for structured responses, kept outputs are placed in `.artifacts/search/`
 - Failure: `failed_results` records extraction failures, not page absence
-- Limit: `env -u TAVILY_API_KEY tvly search` and `extract` run keyless for a key over its limit, until `daily_cap_reached`
 - Syntax: read complete source passages when code, table cells, or surrounding qualifications decide a claim
 
 | [INDEX] | [TASK]                               | [OPERATION]                                                |

@@ -5,7 +5,7 @@ description: "Use when a command, build, or agent reads a secret or credential, 
 
 # [SECRETS]
 
-1Password and Doppler each hold every secret and stay aligned: no value is dropped, moved, deduplicated, or consolidated between them. Shell and GUI sessions on the owner's machine hold machine and personal credentials exported from 1Password `Tokens`. Doppler holds one project per repository, declared in that repository's own IaC: `infra/repository-stack.ts` declares project `rasm`, its configs, and its GitHub Actions syncs.
+1Password and Doppler each hold every secret and stay aligned: no value is dropped, moved, deduplicated, or consolidated between them. Doppler holds one project per repository, declared in that repository's own IaC: `infra/repository-stack.ts` declares project `rasm`, its configs, and its GitHub Actions syncs.
 
 ## [01]-[DOPPLER_SCOPES]
 
@@ -72,9 +72,10 @@ Secret references take the form `op://<vault>/<item>/[<section>/]<field>[?<query
 
 ## [05]-[OP_WRITES]
 
-Value writes pass through stdin JSON, `--dry-run` previews a create or an edit:
-- `doppler secrets get --plain` and `op read` end the value with a newline, `rtrimstr("\n")` drops it
-- `op item edit` writes an empty `DATE` field from stdin JSON as `0`, edits remove empty dates first
+Creates take values through stdin JSON, edits through assignments, and `--dry-run` previews either:
+- `doppler secrets get --plain` and `op read` end the value with a newline, `rtrimstr("\n")` and `$(<cmd>)` drop it
+- Template edits (`--template`, stdin JSON) overwrite the whole item, its passkey included
+- Login items change in the 1Password app alone
 
 ```bash
 # Doppler names lacking a Tokens item, the items to create
@@ -91,9 +92,7 @@ doppler secrets get <NAME> --json --project <p> --config <c> \
     | op item create --vault Tokens -
 
 # New value for an existing Tokens item
-op item get <NAME> --vault Tokens --format json \
-    | jq --rawfile v <(<producer>) 'del(.fields[] | select(.type == "DATE" and .value == null)) | (.fields[] | select(.label == "token")).value = ($v | rtrimstr("\n"))' \
-    | op item edit <NAME> --vault Tokens
+op item edit <NAME> --vault Tokens "token=$(<producer>)"
 
 # Vendor login with a generated password
 op item create --category login --title <vendor> --vault Personal --url <url> username=<email> --generate-password
@@ -104,7 +103,7 @@ op item edit <NAME> --vault Tokens --title <NEW_NAME>
 
 ## [06]-[SSH_SIGNING]
 
-Desktop app's SSH agent serves key `Forge SSH Key` (ED25519) to SSH hosts and Git commit and tag signing:
+Desktop app's SSH agent serves its ED25519 key to SSH hosts and Git commit and tag signing:
 - `~/.ssh/config` sets `IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"` for every host
 - Git sets `gpg.format=ssh`, `user.signingkey` to the public key, and `gpg.ssh.program=/Applications/1Password.app/Contents/MacOS/op-ssh-sign`
 - Each application's first request raises an approval prompt, approval holds until the app locks

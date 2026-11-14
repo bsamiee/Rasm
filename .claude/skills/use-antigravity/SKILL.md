@@ -5,19 +5,19 @@ description: "Use when work needs what Google's agent does natively and this one
 
 # [USE_ANTIGRAVITY]
 
-`agy -p` runs Google's Antigravity agent headless in the current folder. It already knows this machine's media, PDF, vector, video, and audio tools and the owner's standing rules, so a brief states the job and never the tooling.
+`agy -p` runs Google's Antigravity agent headless in the current folder. It reads `~/.gemini/AGENTS.md` on every run, so a brief states the job and never the tools or rules that file holds.
 
 ## [01]-[JOBS]
 
-| [INDEX] | [JOB]               | [WHAT_IT_DOES]                                                               | [MODEL]                    |
-| :-----: | :------------------ | :--------------------------------------------------------------------------- | :------------------------- |
-|  [01]   | Watch and listen    | Video and audio files up to 100 MB read directly: events, cuts, speech, sync | `gemini-4-argon-high`      |
-|  [02]   | Look                | Images, renders against references, scanned pages, boards, UI screenshots    | `gemini-4-argon-high`      |
-|  [03]   | Make images         | Images generated and edited by Google's image model, copied to a named path  | `gemini-4-argon-high`      |
-|  [04]   | Research            | Google Search answers with cited links, a second search index                | `gemini-4-argon-high`      |
-|  [05]   | Bulk                | One small judgment over many files: captions, alt text, tagging, OCR cleanup | `gemini-4-hydrogen-medium` |
-|  [06]   | Grind               | Long build or fix loop run against a done condition and a state file         | `gemini-pro-orchestrator`  |
-|  [07]   | Hard second opinion | One difficult design or security question for a different model family       | `gemini-4-carbon-high`     |
+| [INDEX] | [JOB]               | [WHAT_IT_DOES]                                                                | [MODEL]                    |
+| :-----: | :------------------ | :---------------------------------------------------------------------------- | :------------------------- |
+|  [01]   | Watch and listen    | Video and audio files up to 100 MB read directly: events, cuts, speech, sync  | `gemini-4-argon-high`      |
+|  [02]   | Look                | Images, renders against references, scanned pages, boards, UI screenshots     | `gemini-4-carbon-high`     |
+|  [03]   | Make images         | Images generated and edited by Google's image model, copied to a named path   | `gemini-4-argon-high`      |
+|  [04]   | Research            | Google Search answers with cited links, a second search index                 | `gemini-4-carbon-high`     |
+|  [05]   | Bulk                | One small judgment over many files: captions, alt text, tagging, OCR cleanup  | `gemini-4-hydrogen-medium` |
+|  [06]   | Grind               | Long build or fix loop under `/goal`, against a done condition and state file | `gemini-pro-orchestrator`  |
+|  [07]   | Hard second opinion | One difficult design or security question for a different model family        | `gemini-4-carbon-high`     |
 
 Code edits in a checkout this session is working in, quick questions, and anything waited on stay here: `agy` is slower and often wrong about code.
 
@@ -29,10 +29,11 @@ agy -p "$(cat <brief>)" --disable-slash-commands --model <model> --output-format
 
 - Folder: run from the folder holding the files, `--add-dir <dir>` adds another
 - Slash: `-p` reads a prompt opening with `/` as a slash command, so a brief opening with a path needs `--disable-slash-commands`
-- Workflow: `-p "/run-workflow <task>"` without `--disable-slash-commands` starts one agent per item the task lists, all at once, and merges answers
-- Tier: a task naming `flash_lite`, `flash`, or `pro` sets every workflow agent's model, agents otherwise take `--model`
-- Results: `~/.gemini/antigravity-cli/brain/<conversation_id>/.system_generated/tasks/` holds each agent's result, one failed agent cancels the rest
-- Model: `agy models` lists slugs, an unknown slug or an `--effort` differing from the slug's suffix exits 1 with no fallback
+- Tier: `/run-workflow` agents take `--model` unless the task names `flash_lite` (Gemini 3.5 Flash-Lite), `flash`, or `pro` (both Gemini 3.8 Flash)
+- Results: `~/.gemini/antigravity-cli/brain/<conversation_id>/.system_generated/tasks/` holds workflow agent results, one failure cancels the rest
+- Model: `agy models` lists slugs, a base name (`gemini-4-carbon`) takes medium effort
+- Effort: `--effort <level>` picks a base name's variant, Gemini 4 Hydrogen alone has `xhigh`, Orchestrator slugs take none
+- Refusal: an unknown slug, an `--effort` the model lacks, or one conflicting with the slug's suffix exits 1 with no fallback
 - Quota: `agy -p /usage --output-format json` costs no turn and returns `remaining_fraction` per model group for 5h and weekly windows
 - Data: `--json-schema '<schema>'` or a schema file returns the answer in `.structured_output`, the schema root is `"type":"object"`
 - Look-only: `--settings '{"permissions":{"deny":["write_file(*)","command(*)"]}}'` refuses file writes and every shell command
@@ -42,6 +43,13 @@ agy -p "$(cat <brief>)" --disable-slash-commands --model <model> --output-format
 - Follow-up: `--conversation <conversation_id>` continues that run with its context, `-c` the last run of the current folder
 
 One process answers many prompts with `--input-format stream-json --output-format stream-json`: each stdin line `{"event":"user","message":{"content":"<prompt>"}}` returns one `result` event, and closing stdin ends the run.
+
+Slash commands opening a `-p` prompt start a turn without `--disable-slash-commands`:
+- `/goal <objective>` re-prompts the agent to audit its work until it answers `<!-- GOAL_COMPLETE -->`, with no turn limit
+- `/boost <task>` hands a coding or investigation task to one DeepCoder or DeepInvestigator subagent and returns it until its work checks out
+- `/teamwork <task>` hands a large project to a coordinator running planner, worker, synthesizer, and reviewer agents
+- `/swarm <task>` runs worker agents on the run's model, each in its own conversation, over a shared message board
+- `/run-workflow <task>` has the agent write a Python script that runs agents in parallel or in stages and merges results
 
 ## [03]-[BRIEF]
 
@@ -65,4 +73,4 @@ One process answers many prompts with `--input-format stream-json --output-forma
 - Timed-out runs return a partial `.response` with `.finished_reason` `print_timeout`
 - Files it reports writing exist at their paths and open
 - Generated images sit in the run's artifacts until a shell or file write copies them, which a look-only run refuses
-- Claims about code or documents are read against the source before they are used
+- Claims about code, documents, or audio are read against the source before they are used

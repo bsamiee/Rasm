@@ -15,7 +15,7 @@ Dependency declarations come from installed files, usage from Context7, DeepWiki
 - Index: `mcp__github__search_code` reads default branches in files under 384 KB, `mcp__github__get_repository_tree` finds a path at a tag
 - Quota: clients on one GitHub account share 10 `mcp__github__search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
 - Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips `mcp__context7__resolve-library-id`
-- Preview: server URL `research_preview=1` adds Context7 `query-code` and `get-upgrade-guide`, disabled `submit-docs-feedback` takes no call or search
+- Preview: server URL `research_preview=1` adds Context7 `query-code` and `get-upgrade-guide`
 
 ## [01]-[DECLARATION]
 
