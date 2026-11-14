@@ -153,9 +153,11 @@ flowchart LR
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - Suites reading the project graph take tag `os:all`, hash one platform input, and run with no task beside them (`parallelism: false`)
 - Workflow checkouts fetch every commit and tree (`filter: blob:none`), as `nx release` reads the files each commit changed
+- Workflow checkouts keep ignored files (`clean: false`) and remove untracked ones, so caches and packages stay on a machine that keeps its checkout
+- CI jobs run as many tasks at once as their machine has cores (`NX_PARALLEL`)
 - CI job `affected` lists the affected `os:darwin` and `os:all` projects and Unreal engines, and jobs `macos` and `unreal` run where it lists one
 - CI job `linux` runs the affected targets of every project without tag `os:darwin`, job `macos` the `os:darwin` and `os:all` projects
-- CI jobs `affected`, `linux`, and `unreal` run on the machine holding role `Runner`, which keeps tools and each Unreal image between runs
+- CI jobs `affected`, `linux`, and `unreal` run on the machine holding role `Runner`, which keeps tools, ignored files, and each Unreal image between runs
 - CI job `unreal` runs the affected `os:linux` projects in Epic's `dev-slim` image of each `EngineAssociation` a `.uproject` names
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
 - Unchanged stack inputs apply nothing, and a machine runs the containers and services field `role` of its `hosts` row states
