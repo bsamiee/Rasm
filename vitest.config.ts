@@ -9,6 +9,7 @@ import type { BrowserConfigOptions } from 'vitest/node';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TRACE = { mode: 'retain-on-failure' } as const;
+const WRITTEN = '.artifacts/vitest';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -26,8 +27,7 @@ const stories = (name: string, folder: string) => ({ plugins: [storybookTest({ c
 const reports = (): Plugin => ({
     name: 'reports',
     config({ test }) {
-        const folder = test?.attachmentsDir === undefined ? undefined : resolve(import.meta.dirname, test.attachmentsDir, '..');
-        return { test: { reporters: [folder === undefined ? 'html' : ['html', { outputDir: join(folder, 'html') }]] } };
+        return { test: { reporters: [['html', { outputDir: resolve(import.meta.dirname, test?.attachmentsDir ?? join(WRITTEN, 'attachments'), '..', 'html') }]] } };
     },
 });
 
@@ -37,7 +37,9 @@ export default defineConfig({
     plugins: [reports()],
     test: {
         chaiConfig: { includeStack: true, truncateThreshold: 0 },
-        coverage: { reporter: ['text', 'html'], reportOnFailure: true, skipFull: true },
+        attachmentsDir: join(WRITTEN, 'attachments'),
+        coverage: { reporter: ['text', 'html'], reportOnFailure: true, reportsDirectory: join(WRITTEN, 'coverage'), skipFull: true },
+        outputFile: { junit: join(WRITTEN, 'junit.xml') },
         reporters: [...configDefaults.reporters, 'junit'],
         silent: 'passed-only',
         projects: [
