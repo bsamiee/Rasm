@@ -149,7 +149,9 @@ steps {
     glob =
       "**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,py,pyi,rs,swift,cs,c,h,cpp,cppm,ixx,cc,cxx,hpp,hh,hxx,java}"
     check = new CommandSpec {
-      command = new Command { argv = List("jscpd", "--config", ".config/jscpd.json", ".") }
+      command = new Command {
+        argv = List("jscpd", "--config", ".config/jscpd.json", "--similarity", ".")
+      }
       effect = "read"
     }
     diagnostic_format = "gcc"

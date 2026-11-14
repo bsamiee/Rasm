@@ -1,6 +1,5 @@
 {
     "kind": [ "ast" ],
-    "similarity": 1,
     "minNodes": 210,
     "minLines": 1,
     "minTokens": 1,
