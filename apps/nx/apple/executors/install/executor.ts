@@ -11,7 +11,7 @@ const Install = Schema.Struct({
     package: Schema.String.annotate({ description: 'Package folder the plugin infers, passed as --package-path' }),
     product: Schema.String.annotate({ description: 'Executable product the plugin infers from swift package describe' }),
     env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)).annotate({ description: "Environment variables every swift invocation runs with, over the caller's" }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to the release build and placed ahead of experimental-install' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to the release build and placed ahead of experimental-install', $default: { $source: 'unparsed' } }),
 }).annotate({ title: 'Install', description: "Builds a SwiftPM executable product in release and renames it over the copy SwiftPM's install folder holds, or installs it through experimental-install when the folder holds none" });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -23,9 +23,9 @@ const execute = Effect.fnUntraced(function* ({ package: root, product, env: stat
         Config.orElse(() => Config.map(Config.String('HOME'), (home) => path.join(home, '.swiftpm'))),
     );
     const at = path.join(swiftpm, 'bin', product);
-    const build = ['build', '--package-path', root, '--configuration', 'release', '--product', product, ...args];
+    const build = ['build', '--package-path', root, '--force-resolved-versions', '--configuration', 'release', '--product', product, ...args];
     const held = yield* fs.exists(at);
-    const built = yield* commands({ runs: [['swift', ...build], ...(held ? [] : [Array.make('swift', 'package', '--package-path', root, ...args, 'experimental-install', '--product', product)])], env: stated }, context.root);
+    const built = yield* commands({ runs: [['swift', ...build], ...(held ? [] : [Array.make('swift', 'package', '--package-path', root, '--force-resolved-versions', ...args, 'experimental-install', '--product', product)])], env: stated }, context.root);
     return yield* held && built.success
         ? Effect.flatMap(Effect.try({ try: () => execFileSync('swift', [...build, '--show-bin-path'], { encoding: 'utf8', cwd: context.root, env: { ...env, ...stated } }), catch: refused(product, 'swift build --show-bin-path does not exit 0') }), (folder) =>
               fs.copyFile(path.join(folder.trim(), product), `${at}.${pid}`).pipe(

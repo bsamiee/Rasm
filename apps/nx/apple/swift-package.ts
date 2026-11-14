@@ -108,7 +108,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                     'install--swift-package': {
                         executor: `${PLUGIN}:install`,
                         inputs,
-                        options: { package: root, product: held, env: GIT_STATUS, args: [pinned] },
+                        options: { package: root, product: held, env: GIT_STATUS },
                         metadata: { technologies: ['swift'], description: `Builds ${held} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
                     },
                 })),

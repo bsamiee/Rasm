@@ -9,7 +9,7 @@ import { GIT_STATUS, refused } from '#/targets';
 const Package = Schema.Struct({
     exports: Schema.Array(Schema.Struct({ archive: Schema.String, folder: Schema.String, run: Schema.NonEmptyArray(Schema.String).annotate({ description: 'The xcodebuild archive invocation that writes the archive' }) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     products: Schema.Array(Schema.Struct({ package: Schema.String, product: Schema.String, folder: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to each ditto invocation that writes a zip' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to each ditto invocation that writes a zip', $default: { $source: 'unparsed' } }),
 }).annotate({
     title: 'Package',
     description:

@@ -53,7 +53,10 @@
         },
         "args": {
             "type": "array",
-            "description": "Arguments appended to each ditto invocation that writes a zip",
+            "description": "Words after -- of the run, appended to each ditto invocation that writes a zip",
+            "$default": {
+                "$source": "unparsed"
+            },
             "items": {
                 "type": "string"
             }

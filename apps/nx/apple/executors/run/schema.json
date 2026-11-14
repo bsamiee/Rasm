@@ -35,7 +35,10 @@
         },
         "args": {
             "type": "array",
-            "description": "Arguments appended to every invocation",
+            "description": "Words after -- of the run, appended to every invocation",
+            "$default": {
+                "$source": "unparsed"
+            },
             "items": {
                 "type": "string"
             }
