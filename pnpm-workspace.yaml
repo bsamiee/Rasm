@@ -556,8 +556,8 @@ catalog:
     '@vitest/browser': 5.1.0
     '@vitest/ui': 5.1.0
     vitest-browser-react: 2.3.0
-    '@playwright/test': 1.66.0-alpha-2026-11-10
-    playwright: 1.66.0-alpha-2026-11-10
+    '@playwright/test': 1.66.0-alpha-2026-11-14
+    playwright: 1.66.0-alpha-2026-11-14
     '@axe-core/playwright': 4.14.1-d1531a9.0.sha-d1531a9
     axe-core: 4.14.0
     storybook: 11.0.0-beta.1

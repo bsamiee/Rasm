@@ -145,8 +145,8 @@ catalogs:
       specifier: 18.0.0
       version: 18.0.0
     '@playwright/test':
-      specifier: 1.66.0-alpha-2026-11-10
-      version: 1.66.0-alpha-2026-11-10
+      specifier: 1.66.0-alpha-2026-11-14
+      version: 1.66.0-alpha-2026-11-14
     '@pulumi/cloudflare':
       specifier: 6.25.0-alpha.1794552096
       version: 6.25.0-alpha.1794552096
@@ -515,13 +515,13 @@ importers:
         version: 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/vitest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(@zkochan/js-yaml@0.0.7)(babel-plugin-macros@3.1.0)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)
+        version: 24.1.0-beta.0(f4600059a35024f4754a3ccb163c5207)
       '@nx/workspace':
         specifier: 'catalog:'
         version: 24.1.0-beta.0
       '@playwright/test':
         specifier: 'catalog:'
-        version: 1.66.0-alpha-2026-11-10
+        version: 1.66.0-alpha-2026-11-14
       '@rasm/nx-apple':
         specifier: workspace:*
         version: link:apps/nx/apple
@@ -575,7 +575,7 @@ importers:
         version: 6.3.0(oxc-transform-react@0.158.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
       '@vitest/browser-playwright':
         specifier: 'catalog:'
-        version: 5.1.0(playwright@1.66.0-alpha-2026-11-10)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
+        version: 5.1.0(playwright@1.66.0-alpha-2026-11-14)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.1.0(@vitest/browser@5.1.0)(vitest@5.1.0)
@@ -1033,7 +1033,7 @@ importers:
     devDependencies:
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)
+        version: 24.1.0-beta.0(f4600059a35024f4754a3ccb163c5207)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.6
@@ -1252,7 +1252,7 @@ importers:
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/web':
         specifier: 'catalog:'
-        version: 24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)
+        version: 24.1.0-beta.0(f4600059a35024f4754a3ccb163c5207)
       '@rasm/nx-storybook':
         specifier: workspace:*
         version: link:../../storybook
@@ -2654,7 +2654,7 @@ importers:
     devDependencies:
       '@playwright/test':
         specifier: 'catalog:'
-        version: 1.66.0-alpha-2026-11-10
+        version: 1.66.0-alpha-2026-11-14
       '@rasm/portfolio':
         specifier: workspace:*
         version: link:../../../../apps/web/portfolio
@@ -2744,13 +2744,13 @@ importers:
     dependencies:
       '@axe-core/playwright':
         specifier: 'catalog:'
-        version: 4.14.1-d1531a9.0.sha-d1531a9(playwright-core@1.66.0-alpha-2026-11-10)
+        version: 4.14.1-d1531a9.0.sha-d1531a9(playwright-core@1.66.0-alpha-2026-11-14)
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
       '@vitest/browser-playwright':
         specifier: 'catalog:'
-        version: 5.1.0(playwright@1.66.0-alpha-2026-11-10)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
+        version: 5.1.0(playwright@1.66.0-alpha-2026-11-14)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.1.0(@vitest/browser@5.1.0)(vitest@5.1.0)
@@ -2763,7 +2763,7 @@ importers:
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@playwright/test':
         specifier: 'catalog:'
-        version: 1.66.0-alpha-2026-11-10
+        version: 1.66.0-alpha-2026-11-14
       '@storybook/addon-a11y':
         specifier: 'catalog:'
         version: 11.0.0-beta.1(storybook@11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1))
@@ -5620,8 +5620,8 @@ packages:
     resolution: {integrity: sha512-SEeaJLb3qBNF/OaXnaR1NmmBbFYk1zC0ZH/52fATcRPLFg/p791YrcyFFy44Bo9sLaGuSuLp5Q6axbb/O+v/RA==}
     engines: {node: ^14.18.0 || >=16.0.0}
 
-  '@playwright/test@1.66.0-alpha-2026-11-10':
-    resolution: {integrity: sha512-W/MKADqmhWnf7atFZNiCQPn+yMs5Jmi1QknIpTBIezK0Kx+D8SJ9TtZwWKqkuhihDz66o7EvzUwgtgPVYJM7fg==}
+  '@playwright/test@1.66.0-alpha-2026-11-14':
+    resolution: {integrity: sha512-Gd4Igwrjp3Nv1Pcy/my5gLPYH73pZqX/RZmhZSRdJ/I8aTklJyPgiaE8wixbzaqVNkBBAKda3W2MCQX1naX7Pg==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -8420,13 +8420,13 @@ packages:
     resolution: {integrity: sha512-TfySrs/5nm8fQJDcBDuUng3VOUKsd7S+zqvbOTiGXHfxX4wK31ard+hoNuvkicM/2YFzlpDgABOevKSsB4G/FA==}
     engines: {node: '>= 6'}
 
-  playwright-core@1.66.0-alpha-2026-11-10:
-    resolution: {integrity: sha512-CnYQaWURaoiqpf/08uyhaiJFOYChaQ+wv60DFSHtg3roBGgbY60ZJuj8hZyrkj5byi0U5TOTkh5XoQcuBQIH1A==}
+  playwright-core@1.66.0-alpha-2026-11-14:
+    resolution: {integrity: sha512-DUIvUgKMCw3Je3tkxSnzgtDEnx+sle+VbIyb7u2XPlTnrqLvgbU1D01SYMo1hi70K0YttUIOIkODtHxXAj2GSw==}
     engines: {node: '>=20'}
     hasBin: true
 
-  playwright@1.66.0-alpha-2026-11-10:
-    resolution: {integrity: sha512-46yqVsbujdEv1KIDn/PWRkohtWJE4bmUHriuO4OCZA5x97QHhW9F8GulKofTNInGCB0x3ZhHO12cCz8KiVBpjQ==}
+  playwright@1.66.0-alpha-2026-11-14:
+    resolution: {integrity: sha512-Vv1kZZk/PuWPbfL00pPIyMveuTSPPMAIb4UEJNhZkw9UuBAW25nIi3MfNaJG+/ziNWfHHnwbgIrPLn5kqWm9hQ==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -9626,10 +9626,10 @@ snapshots:
 
   '@aws/lambda-invoke-store@0.3.0': {}
 
-  '@axe-core/playwright@4.14.1-d1531a9.0.sha-d1531a9(playwright-core@1.66.0-alpha-2026-11-10)':
+  '@axe-core/playwright@4.14.1-d1531a9.0.sha-d1531a9(playwright-core@1.66.0-alpha-2026-11-14)':
     dependencies:
       axe-core: 4.14.0
-      playwright-core: 1.66.0-alpha-2026-11-10
+      playwright-core: 1.66.0-alpha-2026-11-14
 
   '@babel/code-frame@7.29.7':
     dependencies:
@@ -11365,7 +11365,7 @@ snapshots:
   '@nx/nx-win32-x64-msvc@24.1.0-beta.0':
     optional: true
 
-  '@nx/playwright@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-10)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
+  '@nx/playwright@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-14)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)':
     dependencies:
       '@nx/devkit': 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/eslint': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
@@ -11375,7 +11375,7 @@ snapshots:
       semver: 7.8.6
       tslib: 2.9.1
     optionalDependencies:
-      '@playwright/test': 1.66.0-alpha-2026-11-10
+      '@playwright/test': 1.66.0-alpha-2026-11-14
     transitivePeerDependencies:
       - '@babel/traverse'
       - '@nx/jest'
@@ -11460,7 +11460,7 @@ snapshots:
       - typescript
       - verdaccio
 
-  '@nx/web@24.1.0-beta.0(7916c91a999dcee9009d4e98496e81ac)':
+  '@nx/web@24.1.0-beta.0(f4600059a35024f4754a3ccb163c5207)':
     dependencies:
       '@nx/devkit': 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@nx/js': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
@@ -11471,7 +11471,7 @@ snapshots:
     optionalDependencies:
       '@nx/eslint': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/jest': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2)
-      '@nx/playwright': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-10)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
+      '@nx/playwright': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@playwright/test@1.66.0-alpha-2026-11-14)(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2)
       '@nx/vite': 24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/eslint@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@nx/jest@24.1.0-beta.0(@babel/traverse@7.29.13(supports-color@10.2.2))(@types/node@26.6.6)(@typescript/typescript6@6.0.2)(babel-plugin-macros@3.1.0)(nx@24.1.0-beta.0)(supports-color@10.2.2))(@zkochan/js-yaml@0.0.7)(eslint@10.14.0(jiti@2.7.0)(supports-color@10.2.2))(nx@24.1.0-beta.0)(supports-color@10.2.2))(@typescript/typescript6@6.0.2)(nx@24.1.0-beta.0)(supports-color@10.2.2)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
     transitivePeerDependencies:
       - '@babel/traverse'
@@ -12222,9 +12222,9 @@ snapshots:
 
   '@pkgr/core@0.3.6': {}
 
-  '@playwright/test@1.66.0-alpha-2026-11-10':
+  '@playwright/test@1.66.0-alpha-2026-11-14':
     dependencies:
-      playwright: 1.66.0-alpha-2026-11-10
+      playwright: 1.66.0-alpha-2026-11-14
 
   '@polka/url@1.0.0-next.29': {}
 
@@ -12571,7 +12571,7 @@ snapshots:
       storybook: 11.0.0-beta.1(@types/react@19.3.0)(react@19.3.1)
     optionalDependencies:
       '@vitest/browser': 5.1.0(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
-      '@vitest/browser-playwright': 5.1.0(playwright@1.66.0-alpha-2026-11-10)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
+      '@vitest/browser-playwright': 5.1.0(playwright@1.66.0-alpha-2026-11-14)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       vitest: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
     transitivePeerDependencies:
       - react
@@ -13020,11 +13020,11 @@ snapshots:
     optionalDependencies:
       oxc-transform-react: 0.158.0
 
-  '@vitest/browser-playwright@5.1.0(playwright@1.66.0-alpha-2026-11-10)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)':
+  '@vitest/browser-playwright@5.1.0(playwright@1.66.0-alpha-2026-11-14)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)':
     dependencies:
       '@vitest/browser': 5.1.0(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       '@vitest/mocker': 5.1.0(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
-      playwright: 1.66.0-alpha-2026-11-10
+      playwright: 1.66.0-alpha-2026-11-14
       tinyrainbow: 3.2.0
       vitest: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(@vitest/browser-playwright@5.1.0)(@vitest/coverage-v8@5.1.0)(@vitest/ui@5.1.0)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))
     transitivePeerDependencies:
@@ -15237,11 +15237,11 @@ snapshots:
 
   pirates@4.0.7: {}
 
-  playwright-core@1.66.0-alpha-2026-11-10: {}
+  playwright-core@1.66.0-alpha-2026-11-14: {}
 
-  playwright@1.66.0-alpha-2026-11-10:
+  playwright@1.66.0-alpha-2026-11-14:
     dependencies:
-      playwright-core: 1.66.0-alpha-2026-11-10
+      playwright-core: 1.66.0-alpha-2026-11-14
 
   plist@5.1.1:
     dependencies:
@@ -16176,7 +16176,7 @@ snapshots:
     optionalDependencies:
       '@opentelemetry/api': 1.10.0
       '@types/node': 26.6.6
-      '@vitest/browser-playwright': 5.1.0(playwright@1.66.0-alpha-2026-11-10)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
+      '@vitest/browser-playwright': 5.1.0(playwright@1.66.0-alpha-2026-11-14)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(yaml@3.0.0-2))(vitest@5.1.0)
       '@vitest/coverage-v8': 5.1.0(@vitest/browser@5.1.0)(vitest@5.1.0)
       '@vitest/ui': 5.1.0(vitest@5.1.0)
     transitivePeerDependencies:
