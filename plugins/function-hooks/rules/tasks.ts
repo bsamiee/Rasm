@@ -2,9 +2,10 @@ import { devNull } from 'node:os';
 import { matchesGlob } from 'node:path';
 import process from 'node:process';
 import type { ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
-import { Array, Effect, Option, Predicate, pipe, Record, Result, Schema, String } from 'effect';
+import { Array, Config, Effect, Option, Predicate, pipe, Record, Result, Schema, String } from 'effect';
 import { all, type Call, cut, edited, ensure, feedsJq, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, unassign, when, whole } from '#/rules/rule';
 import { analyzed, type Invocation } from '#/shell/invocation';
+import { RTK } from '#/shell/programs';
 import type { Word } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -237,6 +238,21 @@ const forwardedOptions: Rule = Effect.fnUntraced(function* (invocation, call) {
     ];
 });
 
+// --- [OUTPUT]
+
+const compressed: Rule = Effect.fnUntraced(function* (invocation, { host, request }) {
+    const { command, outer } = invocation;
+    const read = request.kind !== 'monitor' && command.origin === 'call' && !(command.pipes || command.captured || outer.some(({ program }) => program === RTK)) && command.redirects.every(({ op }) => op === '>&');
+    const enabled = read && (yield* Effect.orElseSucceed(Config.Boolean('FUNCTION_HOOKS_RTK'), () => false)) && (yield* host.onPath(RTK));
+    const asked = enabled ? Option.match(yield* host.graph, { onNone: () => [], onSome: (graph) => askedTargets(invocation, graph) }) : [];
+    const cached = asked.every(([node, target]) => {
+        const targets = targetsOf(node);
+        const tools = members(targets, target);
+        return (tools.length > 0 ? tools : [target]).every((tool) => targets[tool]?.cache === true || targets[tool]?.executor === 'nx:noop');
+    });
+    return asked.length > 0 && cached ? inserted(invocation, launcherStart(invocation).start, `${RTK} `) : [];
+});
+
 // --- [PYTHON]
 
 const projectOptions =
@@ -316,7 +332,7 @@ const TASKS: Ruleset = {
                     graph: [hiddenErrors],
                     reset: [(invocation, { host }) => (!invocation.has('--only-cache', '--only-daemon', '--only-cloud') && Option.exists(invocation.command.cwd, (folder) => host.inside(folder, host.root)) ? refuse('drops the graph', 'fix the inputs or pass --only-cache')(invocation) : [])],
                 }),
-                when((invocation) => !invocation.has('--graph'), loopRefusal('nx tasks', 'use one nx run-many', 'show', 'graph')),
+                when((invocation) => !invocation.has('--graph'), loopRefusal('nx tasks', 'use one nx run-many', 'show', 'graph'), compressed),
             ],
         },
         tsc: {

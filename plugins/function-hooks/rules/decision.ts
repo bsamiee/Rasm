@@ -16,6 +16,7 @@ const Request = Schema.Struct({
     command: Schema.String,
     cwd: Schema.String,
     kind: Schema.Literals(['foreground', 'background', 'monitor', 'plain']),
+    shell: Schema.optionalKey(Schema.Literals(['bash', 'zsh'])),
     timeout: Schema.optionalKey(Schema.Finite),
     agent: Schema.optionalKey(Schema.String),
 });

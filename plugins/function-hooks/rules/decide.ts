@@ -47,7 +47,7 @@ const due = Effect.fnUntraced(
 
 const decide = Effect.fnUntraced(function* (request: typeof Request.Type) {
     const host = yield* Host;
-    const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' });
+    const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' }, request.shell);
     const call: Call = { request, analysis, host, programs: BY_NAME };
     const verdicts = yield* Effect.forEach(analysis.invocations, (invocation) => all(...(invocation.informational ? [] : [...(BY_NAME.get(invocation.program)?.rules ?? []), ...EVERY]))(invocation, call), { concurrency: 'unbounded' });
     return yield* decisionOf(request.command, [...verdicts.flat(), ...CALLS.flatMap((rule) => rule(call))], (notes) => due(request, notes));

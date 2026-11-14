@@ -8,7 +8,14 @@ const Instance = Schema.Struct({ pid: Schema.Int, instance: ProcessInstance, bun
 const Exited = Schema.Array(Instance.fields.instance);
 const Watched = Instance.mapFields(Struct.assign({ ended: Schema.Boolean, status: Schema.optionalKey(State.Running.schema.fields.status), asks: Schema.Boolean, conditions: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) }));
 
-const Routes = { decide: [Request, Decision], observe: [Schema.String, Schema.Struct({ created: Schema.Array(Instance), reused: Schema.Array(Instance), exited: Exited })], quit: [Schema.Array(Instance), Exited], watched: [Schema.String, Schema.Array(Watched)] } as const;
+const Routes = {
+    decide: [Request, Decision],
+    observe: [Schema.String, Schema.Struct({ created: Schema.Array(Instance), reused: Schema.Array(Instance), exited: Exited })],
+    owners: [Schema.Array(Schema.String), Schema.Array(Instance.fields.bundle)],
+    paused: [Schema.Struct({ since: Schema.Finite, first: Schema.Array(Schema.String) }), Schema.Struct({ holds: Schema.Array(Schema.String), notes: Schema.Array(Schema.String) })],
+    quit: [Schema.Array(Instance), Exited],
+    watched: [Schema.String, Schema.Struct({ absent: Schema.Array(Instance.fields.bundle), states: Schema.Array(Watched) })],
+} as const;
 type Routes = { readonly [Route in keyof typeof Routes]: { readonly [At in 0 | 1]: (typeof Routes)[Route][At]['Encoded'] } };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

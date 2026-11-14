@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { Launched, State } from '@rasm/applications';
-import { Array, Effect, Match, Option, Record, Schema } from 'effect';
+import { Array, Effect, Match, Option, Record, Result, Schema } from 'effect';
 import { Instance } from '#/claude/routes';
 import { Host } from '#/host';
 import { WATCH_APPS } from '#/shell/programs';
@@ -17,25 +17,24 @@ const Outline = Schema.Struct({
     asking: Schema.Array(Schema.Struct({ kind: State.Window.schema.fields.kind, number: State.Window.schema.fields.number, title: Schema.optionalKey(Schema.String) })),
 });
 const Printed = Schema.Struct({ instance: Instance.fields.instance, launched: Schema.optionalKey(Schema.Struct({ created: Schema.Boolean })), running: Schema.optionalKey(Outline), exited: Schema.optionalKey(State.Exited) });
-const Line = Schema.fromJsonString(Schema.Record(Instance.fields.bundle, Schema.Record(Schema.String.check(Schema.isPattern(/^\d+$/u)), Printed)));
+const Line = Schema.fromJsonString(Schema.Record(Instance.fields.bundle, Schema.Record(Schema.String, Printed)));
 const Answer = Schema.fromJsonString(Schema.Union([Schema.Struct({ launched: Launched }), Launched]));
 const Missing = Schema.fromJsonString(Schema.Record(Instance.fields.instance, Schema.Record(Schema.String, Schema.Never)));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const statesOf = (text: string) => {
-    const bundles = Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Line)(line))).flatMap(Record.toEntries);
-    return bundles.flatMap(([bundle, pids]) => Record.collect(pids, (pid, state) => ({ pid: Number(pid), instance: state.instance, bundle, state })));
-};
+const linesOf = (text: string) => Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Line)(line))).flatMap(Record.toEntries);
+
+const statesOf = (lines: ReturnType<typeof linesOf>) => lines.flatMap(([bundle, pids], at) => Record.collect(pids, (pid, state) => ({ at, pid: Number(pid), instance: state.instance, bundle, state })));
 
 const exitedOf = (text: string) =>
-    statesOf(text)
+    statesOf(linesOf(text))
         .filter(({ state }) => state.exited !== undefined)
         .map(({ instance }) => instance);
 
 const observed = (text: string) => {
     const answered = Array.getSomes(text.split('\n').map((line) => Schema.decodeOption(Answer)(line))).map((answer) => ('launched' in answer ? answer.launched : answer));
-    const launched = statesOf(text).map(({ pid, instance, bundle, state }) => ({ pid, instance, bundle, created: state.launched?.created }));
+    const launched = statesOf(linesOf(text)).map(({ pid, instance, bundle, state }) => ({ pid, instance, bundle, created: state.launched?.created }));
     const claimed = [...launched, ...answered.map(({ pid, instance, identifier, created }) => ({ pid, instance, bundle: identifier, created }))];
     const holding = (created: boolean) => claimed.filter((claim) => claim.created === created).map(({ pid, instance, bundle }) => ({ pid, instance, bundle }));
     return { created: holding(true), reused: holding(false), exited: exitedOf(text) };
@@ -65,11 +64,13 @@ const exitedAs = Match.type<typeof State.Exited.Type>().pipe(
     Match.exhaustive,
 );
 
-const watched = (text: string) =>
-    statesOf(text).map(({ pid, instance, bundle, state: { running, exited } }) => {
+const watched = (text: string) => {
+    const lines = linesOf(text);
+    const emptied = Record.fromEntries(Array.filterMap(lines, ([bundle, pids], at) => (Record.isEmptyRecord(pids) ? Result.succeed([bundle, at] as const) : Result.failVoid)));
+    const states = Array.filterMap(statesOf(lines), ({ at, pid, instance, bundle, state: { running, exited } }) => {
         const notes = [...(running === undefined ? [] : runningAs({ pid, instance }, running)), ...(exited === undefined ? [] : exitedAs(exited))];
         const ended = exited !== undefined && exited.reporting !== true;
-        return {
+        const standing = {
             pid,
             instance,
             bundle,
@@ -79,7 +80,10 @@ const watched = (text: string) =>
             conditions: ended ? [] : notes.map(([condition]) => `${bundle} ${pid} ${condition}`),
             notes: notes.map((parts) => `${bundle} ${pid} ${parts.join(', ')}`),
         };
+        return !ended && Option.exists(Record.get(emptied, bundle), (last) => at < last) ? Result.failVoid : Result.succeed(standing);
     });
+    return { absent: Record.keys(emptied), states };
+};
 
 const quit = (instances: readonly (typeof Instance.Type)[]) =>
     Effect.map(

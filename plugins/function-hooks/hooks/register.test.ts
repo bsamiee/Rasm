@@ -37,10 +37,13 @@ const NONE = { created: [], reused: [], exited: [] } as const satisfies Given['o
 const CREATED = { ...NONE, created: [APP] } as const satisfies Given['observe'];
 const CONDITION = 'com.example.app 41 shows sheet window';
 const NOTE = `${CONDITION}, run watch-apps read 41@7 --window 3`;
-const ASKING = [
-    { ...APP, ended: false, status: 'responding', asks: true, conditions: [CONDITION], notes: [NOTE] },
-    { ...APP, pid: 77, instance: '77@3', ended: false, status: 'responding', asks: true, conditions: ['com.example.app 77 shows alert window'], notes: ['com.example.app 77 shows alert window'] },
-] as const satisfies Given['watched'];
+const ASKING = {
+    absent: [],
+    states: [
+        { ...APP, ended: false, status: 'responding', asks: true, conditions: [CONDITION], notes: [NOTE] },
+        { ...APP, pid: 77, instance: '77@3', ended: false, status: 'responding', asks: true, conditions: ['com.example.app 77 shows alert window'], notes: ['com.example.app 77 shows alert window'] },
+    ],
+} as const satisfies Given['watched'];
 const PRINTED: NonNullable<Given['printed']> = { mise: [{ stream: 'stdout', text: '/run/function-hooks/decide.sock\n' }], 'watch-apps': [{ stream: 'stdout', text: '{}\n' }] };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -53,7 +56,7 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
     const seen: Seen = { sent: [], ran: [], spawned: [], runs: [], status: [], stopped: [] };
     const clock = mock.clock(on);
     mock.store(on);
-    const replies = new Map<string, unknown>(Object.entries({ observe: NONE, quit: NONE, watched: [], ...given }));
+    const replies = new Map<string, unknown>(Object.entries({ observe: NONE, quit: NONE, watched: { absent: [], states: [] }, ...given }));
     const printed = new Map(Object.entries({ ...PRINTED, ...given.printed }));
     on('session.start', (_, e) => ({ cwd: e.cwd }));
     on('session.end', (_, e) => ({ sessionId: e.sessionId }));
@@ -161,12 +164,13 @@ test('Call after a lost socket stops its server, starts one new server, and gets
     expect([world.spawned, world.stopped].map((streams) => streams.map(([program]) => program))).toEqual([['mise', 'mise'], ['mise']]);
 });
 
-test('Subagent request_access call is denied and main-loop call runs', async ($, on) => {
+test('Computer-use call is denied in every loop', async ($, on) => {
     const world = worldOf(on, () => answered(ALLOWED));
     const access = { tool: 'mcp__computer-use__request_access', apps: ['Notes'] } as const;
+    const denied = { deny: expect.stringContaining('mcp__cua-driver__') };
     await $.session.start(SESSION);
-    expect([await $.tool.call(access), await $.tool.call({ ...access, agentId: 'a1' })]).toEqual([RAN, { deny: expect.stringContaining('list_granted_applications') }]);
-    expect(world.ran).toEqual([access]);
+    expect([await $.tool.call(access), await $.tool.call({ ...access, agentId: 'a1' })]).toEqual([denied, denied]);
+    expect(world.ran).toEqual([]);
 });
 
 test('Rhino tool call starts one watch of Rhino', async ($, on) => {

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import type { Installation } from '@rasm/applications';
 import { Array, Effect, Option, Predicate, Record, String } from 'effect';
 import { Verdict } from '#/rules/decision';
-import { type Call, ensure, inserted, quote, type Rule, type Ruleset, refusal, refuse, stages, when, whole, within } from '#/rules/rule';
+import { type Call, ensure, inserted, perSubcommand, quote, type Rule, type Ruleset, refusal, refuse, stages, when, whole, within } from '#/rules/rule';
 import { WATCH_APPS } from '#/shell/programs';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -51,7 +51,8 @@ const opens = (named: readonly string[], waits: readonly string[], allowed: read
         const [waited] = invocation.names.intersection(new Set(waits));
         const foreign = invocation.names.difference(new Set([...allowed, ...waits]));
         if (url !== undefined) {
-            return refusal(`${program} ${url.raw} opens a browser, use playwright cli open ${url.raw}`);
+            const playwright = Option.exists(invocation.command.cwd, (folder) => call.host.inside(folder, call.host.root)) ? 'playwright' : `mise -C ${quote(call.host.root)} exec -- playwright`;
+            return refusal(`${program} ${url.raw} opens a browser, use ${playwright} cli open ${url.raw}`);
         }
         if (subjects.length + documents.length === 0) {
             return [];
@@ -138,7 +139,7 @@ const appleScript: Rule = (invocation, call) => {
         return refusal(`osascript ${script?.text ?? 'stdin'} hides its statements, pass -e lines`);
     }
     if (lines.some((line) => SYSTEM_EVENTS.test(line))) {
-        return refusal(`System Events posts to the frontmost app, use ${WATCH_APPS} perform`);
+        return refusal(`System Events posts to the frontmost app, use ${WATCH_APPS} perform or mcp__cua-driver__press_key`);
     }
     if (lines.some((line) => SHELL_SCRIPT.test(line))) {
         return refusal('osascript runs a shell command, run it directly');
@@ -202,6 +203,14 @@ const launchSwitches: Rule = Effect.fnUntraced(function* (invocation, call) {
     return switches.length === 0 ? [] : inserted(invocation, Array.lastNonEmpty(invocation.words).end, ` ${[...(invocation.has('--arguments') ? [] : ['--arguments']), ...switches].join(' ')}`);
 });
 
+// --- [BROWSERS]
+
+const browserSession: Rule = (invocation, { request: { agent } }) => {
+    const [cli] = invocation.operands;
+    const stated = invocation.has('-s', '--session') || [...invocation.outer, invocation].some(({ assigned }) => assigned.some(({ text }) => text.startsWith('PLAYWRIGHT_CLI_SESSION=')));
+    return agent === undefined || cli?.text !== 'cli' || stated ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`);
+};
+
 // --- [KILLS]
 
 const killsFound: Rule = (invocation, call) => {
@@ -244,6 +253,8 @@ const APPS: Ruleset = {
             rules: [when(({ has }) => has('--python', '--python-expr'), ensure(['--python-use-system-env']))],
         },
         Rhinoceros: { switches: ['-nosplash'] },
+        'cua-driver': { rules: [perSubcommand(Record.fromIterableWith(['call', 'serve'], (subcommand) => [subcommand, [refuse('bypasses the session MCP server', 'call an mcp__cua-driver__ tool')]]))] },
+        playwright: { flags: ['-s, --session='], rules: [browserSession] },
         [WATCH_APPS]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
     },
     every: [bundleExecutable],

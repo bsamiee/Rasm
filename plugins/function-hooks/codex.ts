@@ -1,3 +1,5 @@
+import { userInfo } from 'node:os';
+import { basename } from 'node:path';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Cause, Console, Effect, Function, Layer, Option, Schema, Stdio, Stream } from 'effect';
@@ -27,7 +29,8 @@ const rendered: (decision: typeof Decision.Type) => Option.Option<object> = Deci
 Effect.gen(function* () {
     const { stdin } = yield* Stdio.Stdio;
     const { session_id: agent, cwd, tool_input } = yield* Schema.decodeEffect(Input)(yield* Stream.mkString(Stream.decodeText(stdin)));
-    const answer = yield* decide({ command: tool_input.command, cwd, kind: 'plain', agent }).pipe(
+    const shell = Option.exists(Option.fromNullOr(userInfo().shell), (path) => basename(path) === 'zsh') ? 'zsh' : 'bash';
+    const answer = yield* decide({ command: tool_input.command, cwd, kind: 'plain', agent, shell }).pipe(
         Effect.timeout('25 seconds'),
         Effect.map(rendered),
         Effect.catchCause(

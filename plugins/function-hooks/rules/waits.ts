@@ -1,6 +1,6 @@
 import { Array, Duration, Effect, Option, Record, String } from 'effect';
 import { Verdict } from '#/rules/decision';
-import { absent, type Call, edited, erased, inserted, quote, type Rule, type Ruleset, refusal, silent, spelled, stages, when, within } from '#/rules/rule';
+import { absent, type Call, edited, erased, inserted, quote, type Rule, type Ruleset, refusal, silent, spelled, stages, when, whole, within } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
 import { WATCH_APPS } from '#/shell/programs';
 import type { Word } from '#/shell/script';
@@ -65,6 +65,25 @@ const polledApp: Rule = (invocation, call) => {
               const bundles = running.filter(({ activationPolicy }) => activationPolicy !== 'prohibited').map(({ identifier }) => identifier);
               return bundles.length === 0 ? [] : polling(bundles, call);
           });
+};
+
+// --- [RUNS]
+
+const watchedRun: Rule = (invocation, { analysis, request }) => {
+    const { command, operands, path } = invocation;
+    const [run] = operands;
+    if (path[0] !== 'run' || path[1] !== 'view' || run === undefined || !DIGITS.test(run.text) || invocation.has('--log', '--log-failed', '--job', '--web', '--attempt')) {
+        return [];
+    }
+    const follow = ['gh run watch', run.raw, '--exit-status', ...invocation.supplied('--repo').flatMap(({ raw }) => ['--repo', raw])].join(' ');
+    if (invocation.repeated) {
+        return refusal(`Loop polls gh run view, run ${follow}`);
+    }
+    const waited = analysis.invocations.findLast((other) => other.command.source === command.source && other.command.end <= command.start);
+    const read = command.origin === 'call' && invocation.outer.length === 0 && !(command.pipes || command.fed || command.captured) && command.redirects.every(({ op }) => op === '>&');
+    return read && (request.kind === 'foreground' || request.kind === 'background') && waited?.program === 'sleep' && waited.outer.length === 0 && !waited.command.looping
+        ? [...edited(waited, waited.command, ':'), ...whole(invocation, follow, 'sleep before gh run view'), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])]
+        : [];
 };
 
 // --- [TIMERS]
@@ -183,6 +202,7 @@ const WAITS: Ruleset = {
         caffeinate: { wraps: [[]], rules: [unwrap(), when(({ has }) => has('-t'), timer), when(({ has }) => !has('-t'), neverExits)] },
         read: { leading: Number.POSITIVE_INFINITY, reads: true, readsUnless: ['-u'], rules: [leakingRead, when(({ has }) => has('-t'), timer)] },
         pgrep: { rules: [(invocation) => (invocation.has('--full') ? selfMatch(invocation, invocation.operands[0]) : [])] },
+        gh: { rules: [watchedRun] },
         grep: { closesInput: ['--quiet', '--silent', '--max-count', '--files-with-matches'], rules: [psFilter] },
         rg: { closesInput: ['--quiet', '--max-count', '--files-with-matches'] },
         head: { closesInput: true },

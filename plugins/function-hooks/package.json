@@ -11,6 +11,7 @@
     "exports": {
         "./register": "./hooks/register.ts",
         "./codex": "./codex.ts",
+        "./agy": "./agy.ts",
         "./server": "./claude/server.ts"
     },
     "dependencies": {

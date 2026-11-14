@@ -4,13 +4,14 @@ import type { Row } from '#/hooks/state';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Watched = Routes['watched'][1][number];
+type Watched = Routes['watched'][1]['states'][number];
 type Tracked = Watched & { readonly owner: string | undefined; readonly pending: readonly string[]; readonly launching: boolean };
 interface State {
     readonly session: PromiseWithResolvers<{ readonly served: () => Promise<string>; readonly watched: (bundle: string, agent: string | undefined) => Promise<void> }>;
     readonly servers: Map<Promise<string>, HookStream<ProcessSpawnChunk, ProcessSpawnResult>>;
-    readonly watches: Set<string>;
+    readonly watches: Map<string, Map<string, Watched>>;
     readonly tracked: Map<string, Tracked>;
+    readonly driven: Set<number>;
     readonly unjudged: Map<string | undefined, string>;
 }
 
@@ -22,6 +23,8 @@ const LAST_SEGMENT = /\/[^/]*$/u;
 const ERROR_LINE = /Error\b/u;
 const RHINO_TOOLS = /^mcp__rhino-mcp-platform__/u;
 const BLENDER_TOOLS = /^mcp__(?:mcp-for-)?blender__/u;
+const CUA_TOOLS = /^mcp__cua-driver__/u;
+const COMPUTER_USE = /^mcp__computer-use__/u;
 const ENDED: ReadonlySet<AgentStatus> = new Set(['completed', 'failed', 'killed']);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -86,6 +89,14 @@ const held = (tracked: State['tracked'], state: Tracked): void => {
     }
 };
 
+const cleared = (tracked: State['tracked'], seen: Map<string, Watched>, absent?: readonly string[]): void =>
+    seen.forEach(({ ended, bundle }, instance) => {
+        if (!ended && absent?.includes(bundle) !== false) {
+            tracked.delete(instance);
+            seen.delete(instance);
+        }
+    });
+
 const shown = ($: EngineInterface, tracked: State['tracked']): void => {
     const standing = [...tracked.values()].flatMap(({ conditions }) => conditions);
     $.ui.status(standing.length === 0 ? undefined : standing.join('; '));
@@ -132,25 +143,26 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
     if (state.watches.has(key)) {
         return;
     }
-    state.watches.add(key);
-    const seen = new Set<string>();
+    const seen = new Map<string, Watched>();
+    state.watches.set(key, seen);
     const buffer = { partial: '' };
     const child = $.process.spawn({ argv: [WATCH_APPS, 'watch', bundle] });
     try {
         for await (const { stream, text } of child) {
             const lines = stream === 'stdout' ? `${buffer.partial}${text}` : buffer.partial;
             const cut = lines.lastIndexOf('\n') + 1;
-            const states = cut === 0 ? [] : await posted($, state, 'watched', lines.slice(0, cut));
+            const { absent, states } = cut === 0 ? { absent: [], states: [] } : await posted($, state, 'watched', lines.slice(0, cut));
             buffer.partial = lines.slice(cut);
             if ((await $.session.id()) !== session) {
                 return;
             }
             const rows = await read($, ROWS);
-            const own = states.filter((watched) => rows.every((row) => row.bundle !== watched.bundle) || rows.some((row) => row.instance === watched.instance));
-            own.forEach(({ instance }) => seen.add(instance));
+            const own = states.filter((watched) => seen.has(watched.instance) || rows.every((row) => row.bundle !== watched.bundle) || rows.some((row) => row.instance === watched.instance));
+            cleared(state.tracked, seen, absent);
+            own.forEach((watched) => seen.set(watched.instance, watched));
             noted($, state.tracked, own, rows, agent);
             await recorded($, undefined, { created: [], exited: own.filter(({ ended }) => ended).map(({ instance }) => instance) });
-            if (own.length > 0 && [...seen].every((instance) => state.tracked.get(instance)?.ended !== false)) {
+            if (seen.size > 0 && [...seen.values()].every(({ ended }) => ended)) {
                 return;
             }
         }
@@ -160,7 +172,7 @@ const watching = async ($: EngineInterface, state: State, bundle: string, agent:
         }
     } finally {
         state.watches.delete(key);
-        [...seen].filter((instance) => state.tracked.get(instance)?.ended === false).forEach((instance) => state.tracked.delete(instance));
+        cleared(state.tracked, seen);
         shown($, state.tracked);
     }
 };
@@ -180,7 +192,7 @@ const observed = async ($: EngineInterface, state: State, agent: string | undefi
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const register: Register = (on) => {
-    const state: State = { session: Promise.withResolvers(), servers: new Map(), watches: new Set(), tracked: new Map(), unjudged: new Map() };
+    const state: State = { session: Promise.withResolvers(), servers: new Map(), watches: new Map(), tracked: new Map(), driven: new Set(), unjudged: new Map() };
     on('session.start', async ($, e, next) => {
         const answer = await next(e);
         const stored = await $.store.get(await $.session.id());
@@ -199,7 +211,7 @@ const register: Register = (on) => {
         const owned = e.command === undefined && e.turnId === undefined ? await taken($, state.tracked, undefined) : [];
         const answer = await next(owned.length === 0 ? e : { ...e, context: [...(e.context ?? []), ...owned.flatMap(({ pending }) => pending)] });
         if (answer.drop !== undefined) {
-            owned.forEach((dropped) => held(state.tracked, { ...(state.tracked.get(dropped.instance) ?? dropped), pending: [...dropped.pending, ...(state.tracked.get(dropped.instance)?.pending ?? [])] }));
+            owned.filter((dropped) => dropped.ended || state.tracked.has(dropped.instance)).forEach((dropped) => held(state.tracked, { ...(state.tracked.get(dropped.instance) ?? dropped), pending: [...dropped.pending, ...(state.tracked.get(dropped.instance)?.pending ?? [])] }));
         }
         return answer;
     });
@@ -219,8 +231,31 @@ const register: Register = (on) => {
         state.session.promise.then(({ watched }) => watched('org.blenderfoundation.blender', e.agentId)).catch(watchFailed($));
         return next(e);
     });
+    on('tool.call', { tool: CUA_TOOLS }, ($, e, next) => {
+        const pid: unknown = Reflect.get(e, 'pid');
+        if (typeof pid === 'number' && !state.driven.has(pid)) {
+            state.driven.add(pid);
+            Promise.all([posted($, state, 'owners', [`${pid}`], next.signal), state.session.promise])
+                .then(([bundles, { watched }]) => Promise.all(bundles.map((bundle) => watched(bundle, e.agentId))))
+                .catch((cause: unknown) => {
+                    state.driven.delete(pid);
+                    watchFailed($)(cause);
+                });
+        }
+        return next(e);
+    });
+    on('tool.call', { tool: COMPUTER_USE }, () => ({ deny: `computer-use takes focus and the pointer, read with ${WATCH_APPS} and act with mcp__cua-driver__ tools` }));
+    on('tool.call', { tool: 'AskUserQuestion' }, async ($, e, next) => {
+        const since = await $.clock.now();
+        const waited = async (first: readonly string[]): Promise<readonly string[]> => {
+            const slice = await posted($, state, 'paused', { since, first }, next.signal);
+            return slice.holds.length === 0 ? slice.notes : waited(first.length === 0 ? slice.holds : first);
+        };
+        const notes = await waited([]);
+        const answer = await next(e);
+        return notes.length === 0 || answer.deny !== undefined ? answer : { ...answer, context: [...(answer.context ?? []), ...notes] };
+    });
     on('classic.WorktreeCreate', () => ({ block: 'A worktree makes a second checkout, work in place' }));
-    on('tool.call', { tool: 'mcp__computer-use__request_access' }, (_$, e, next) => (e.agentId === undefined ? next(e) : { deny: 'request_access waits on a person, run list_granted_applications' }));
     on('tool.call', { tool: ['mcp__atelier__launch', 'mcp__atelier__open'] }, async ($, e, next) => {
         const answer = await next(e);
         await observed($, state, e.agentId, answer.text, next.signal);
@@ -285,6 +320,8 @@ const register: Register = (on) => {
     on('session.end', async ($, e, next) => {
         const rows = await read($, ROWS);
         state.tracked.clear();
+        state.driven.clear();
+        state.watches.forEach((seen) => seen.clear());
         state.unjudged.clear();
         shown($, state.tracked);
         if (rows.length > 0) {

@@ -59,8 +59,7 @@ class Parser extends Context.Service<Parser>()('@rasm/function-hooks/shell/invoc
 const tree = Effect.fnUntraced(function* ([dialect, source]: readonly [dialect: 'bash' | 'zsh', source: string]) {
     const host = yield* Host;
     const { code, stdout, stderr } = yield* host.run(['shfmt', '--to-json', '-ln', dialect], { stdin: source });
-    const { Stmts = [] } = code === 0 ? yield* Effect.mapError(Schema.decodeEffect(Tree)(stdout), HostError.of('shfmt')) : yield* HostError.of('shfmt')(stderr);
-    return Stmts;
+    return code === 0 ? Result.succeed((yield* Effect.mapError(Schema.decodeEffect(Tree)(stdout), HostError.of('shfmt'))).Stmts ?? []) : Result.fail(HostError.of('shfmt')(stderr));
 });
 
 const invocationOf = (command: Command, head: Word, args: readonly Word[], assigned: readonly Word[], outer: readonly Invocation[], program: string, row: Program, usage: Usage): Invocation => {
@@ -136,22 +135,30 @@ const bodies = (invocation: Invocation) => {
     ];
 };
 
-const bodyAnalyzed = Effect.fnUntraced(function* ({ invocation, text, file }: ReturnType<typeof bodies>[number], origin: Command['origin'], visited: ReadonlySet<string>): Effect.fn.Return<Option.Option<Analysis>, HostError, Parser | Host> {
-    const host = yield* Host;
+const bodyAnalyzed = Effect.fnUntraced(function* ({ invocation, text, file }: ReturnType<typeof bodies>[number], origin: Command['origin'], visited: ReadonlySet<string>, enclosing: 'bash' | 'zsh'): Effect.fn.Return<Option.Option<Analysis>, HostError, Parser | Host> {
+    const [host, { trees }] = yield* Effect.all([Host, Parser]);
     const { cwd, fed } = invocation.command;
     const script = Option.getOrUndefined(Option.filter(host.resolve(text, cwd), (unvisited) => !visited.has(unvisited)));
     const tracked = !file || script === undefined || (host.inside(script, host.root) && (yield* Effect.orElseSucceed(host.run(['git', 'ls-files', '--error-unmatch', '--', script]), () => ({ code: 1 }))).code === 0);
     const content = !tracked && script !== undefined ? Option.map(yield* Effect.option(host.fs.readFileString(script)), (read) => ({ text: read, visited: visited.union(new Set([script])) })) : Option.liftPredicate({ text, visited }, () => !file);
-    return yield* Effect.transposeOption(Option.map(content, (body) => analyzed(body.text, { cwd, fed, looping: invocation.repeated, origin: file || origin === 'file' ? 'file' : 'body', visited: body.visited }, invocation.program === 'zsh' || (file && text.endsWith('.zsh')) ? 'zsh' : 'bash')));
+    const stated = invocation.program === 'zsh' || (file && text.endsWith('.zsh')) ? 'zsh' : 'bash';
+    const dialect = invocation.row.concatenates === true ? enclosing : stated;
+    const parsed = yield* Effect.transposeOption(Option.map(content, (body) => Cache.get(trees, [dialect, body.text])));
+    return yield* Effect.transposeOption(
+        Option.map(
+            Option.filter(content, () => Option.exists(parsed, Result.isSuccess)),
+            (body) => analyzed(body.text, { cwd, fed, looping: invocation.repeated, origin: file || origin === 'file' ? 'file' : 'body', visited: body.visited }, dialect),
+        ),
+    );
 });
 
 const analyzed = Effect.fnUntraced(function* (text: string, { visited = new Set(), ...start }: Pick<Command, 'cwd' | 'origin'> & Partial<Pick<Command, 'fed' | 'looping'>> & { readonly visited?: ReadonlySet<string> }, dialect: 'bash' | 'zsh' = 'bash'): Effect.fn.Return<Analysis, HostError, Parser | Host> {
     const [{ trees }, host] = yield* Effect.all([Parser, Host]);
     const names = referenced(text);
     const environment = new Map(Array.zip(names, yield* Effect.forEach(names, host.environment)));
-    const script = scriptOf(yield* Cache.get(trees, [dialect, text]), text, { ...start, home: host.home, environment, resolve: host.resolve });
+    const script = scriptOf(yield* Effect.fromResult(yield* Cache.get(trees, [dialect, text])), text, { ...start, home: host.home, environment, resolve: host.resolve });
     const found = (yield* Effect.forEach(script.commands, (command) => invocations(command, command.words, []))).flat();
-    const nested = yield* Effect.forEach(found.filter(({ last, informational }) => last && !informational).flatMap(bodies), (body) => bodyAnalyzed(body, start.origin, visited), { concurrency: 'unbounded' });
+    const nested = yield* Effect.forEach(found.filter(({ last, informational }) => last && !informational).flatMap(bodies), (body) => bodyAnalyzed(body, start.origin, visited, dialect), { concurrency: 'unbounded' });
     const scripts = Array.getSomes(nested);
     return { ...concat([script, ...scripts]), invocations: [...found, ...scripts.flatMap((analysis) => analysis.invocations)] };
 });

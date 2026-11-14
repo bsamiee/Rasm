@@ -12,7 +12,6 @@ const NEGATED_IGNORED = new RegExp(`^!${ONLY_IGNORED.source.slice(1)}`, 'u');
 const BASIC_REGEX_SWAPS = /\\\\|\\(?<escaped>[(){}+?|])|(?<unescaped>^\*|[(){}+?|])/gu;
 const BACK_REFERENCE = /\\[1-9]/u;
 const NO_IGNORE = ['--no-ignore', '--no-ignore-vcs', '--unrestricted'];
-const HIDDEN_EXCEPT_GIT = ['--hidden', '--glob', "'!.git'"] as const;
 const GLOB_START = /[*?[{(]/u;
 const NAME_CHARACTER = /[\p{L}\p{N}]/u;
 const ASCENDS = /(?:^|\/)\.{1,2}(?:\/|$)/u;
@@ -21,6 +20,12 @@ const FLAG_SHAPED = /^--?[A-Za-z][\w-]*$/u;
 const ESCAPED_NEWLINE = /(?<!\\)(?:\\\\)*\\n/u;
 const SHELL_SYNTAX = /[$|&;<>()`]|^\w+=/u;
 const NEXT_COMMAND = /^(?:\s*(?:;|&&)\s*|\s*\n\s*)/u;
+const SUBSTITUTION = /^s(?<delimiter>[^\w\s\\])(?:\\.|(?!\k<delimiter>).)*\k<delimiter>(?:\\.|(?!\k<delimiter>).)*\k<delimiter>[gpiI\d]*$/su;
+const CURL_DOWNLOAD: ReadonlySet<string> = new Set(['--fail', '--location', '--show-error', '--silent']);
+const CURL_OUTPUT: ReadonlySet<string> = new Set(['--output']);
+const WEB_SCHEME = /^https?:\/\//u;
+const URL_TEXT = /^(?:(?!%2e)[\w.~:/?#@!$&()*+,;=%-])*$/iu;
+const JSON_PARSE = /\bjson\.loads?\(|\bJSON\.parse\(/u;
 const INLINE_LOOKUPS = [
     [/^(?:console\.log\()?require\(['"](?<name>[^'"./][^'"]*)\/package\.json['"]\)\.(?<field>\w+)\)?;?$/u, 'jq -r .$<field> node_modules/$<name>/package.json'],
     [/^(?:console\.log\()?require\.resolve\(['"](?<name>[^'"./][^'"]*)\/package\.json['"](?:,\s*\{\s*paths:\s*\[\s*process\.cwd\(\)\s*\]\s*\})?\)\)?;?$/u, 'realpath node_modules/$<name>/package.json'],
@@ -59,7 +64,7 @@ const rootFolders = (invocation: Invocation, { host }: Call): readonly string[] 
 const wideRoot: Rule = (invocation, call) => {
     const { host } = call;
     const stats = invocation.row.recursive?.stats === true;
-    const depth = invocation.values('--max-depth', '-maxdepth', '-L', '--level');
+    const depth = invocation.values('--max-depth', '-maxdepth', '-L');
     return (depth.length > 0 && depth.every((levels) => levels === '1') && !stats ? [] : rootFolders(invocation, call))
         .filter((folder) => host.path.dirname(folder) === '/' || Option.exists(host.home, (home) => host.inside(home, folder)) || (host.root !== folder && host.inside(host.root, folder)) || (!stats && folder.endsWith('/node_modules/.pnpm')))
         .flatMap((folder) => refusal(`${invocation.program} root ${folder} too wide, pass a package folder`));
@@ -136,7 +141,10 @@ const inlineCode: Rule = (invocation) => {
     }
     const source = invocation.values(...code).join('\n');
     const [lookup] = INLINE_LOOKUPS.filter(([pattern]) => pattern.test(source)).map(([pattern, answer]) => source.replace(pattern, answer));
-    return lookup === undefined ? refusal(`${invocation.program} runs inline code, use Edit or a tool`) : silent(whole(invocation, lookup, `${invocation.program} inline code`));
+    if (lookup !== undefined) {
+        return silent(whole(invocation, lookup, `${invocation.program} inline code`));
+    }
+    return refusal((invocation.has(...code) ? [source] : Option.toArray(invocation.command.input)).some((text) => JSON_PARSE.test(text)) ? `${invocation.program} parses JSON inline, use jq` : `${invocation.program} runs inline code, use Edit or a tool`);
 };
 
 // --- [REPLACEMENTS]
@@ -190,9 +198,7 @@ const findsAsFd: Predicate.Predicate<Invocation> = ({ row, last, values, args, o
 };
 
 const skipsIgnored = (invocation: Invocation, call: Call) =>
-    (['rg', 'fd', 'fdfind', 'tree'].includes(invocation.program) || grepsAsRg(invocation) || findsAsFd(invocation)) &&
-    !invocation.has(...NO_IGNORE) &&
-    invocation.roots.every(({ known, text }) => known && Option.exists(call.host.resolve(text, invocation.command.cwd), (folder) => call.host.inside(folder, call.host.root)))
+    (['rg', 'fd', 'fdfind'].includes(invocation.program) || grepsAsRg(invocation) || findsAsFd(invocation)) && !invocation.has(...NO_IGNORE) && invocation.roots.every(({ known, text }) => known && Option.exists(call.host.resolve(text, invocation.command.cwd), (folder) => call.host.inside(folder, call.host.root)))
         ? Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => !ignored)
         : Effect.succeed(false);
 
@@ -233,7 +239,38 @@ const findAsFd: Rule = Effect.fnUntraced(function* (invocation, call) {
     return whole(invocation, ['fd --hidden', ...((yield* call.host.ignored(rootFolders(invocation, call))) ? ['--no-ignore'] : []), ...options, ...(invocation.has('-name', '-iname') ? [] : ["-g '*'"]), ...roots].join(' '), 'find');
 });
 
-const grepAsRg: Rule = (invocation, call) => Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => edited(invocation, invocation.head, ['rg', ...HIDDEN_EXCEPT_GIT, ...(ignored ? ['--no-ignore'] : [])].join(' '), invocation.head.raw));
+const grepAsRg: Rule = (invocation, call) => Effect.map(call.host.ignored(rootFolders(invocation, call)), (ignored) => edited(invocation, invocation.head, ignored ? 'rg --no-ignore' : 'rg', invocation.head.raw));
+
+const curlAsXh: Rule = (invocation, { host }) => {
+    const [url, ...urls] = invocation.operands;
+    const [output, ...outputs] = invocation.args.filter(({ names }) => names.includes('--output'));
+    const [file] = output?.values ?? [];
+    const merged = [...redirected(invocation, '>&', '2'), ...redirected(invocation, '&>'), ...redirected(invocation, '&>>')];
+    const downloads =
+        invocation.command.origin === 'call' &&
+        invocation.assigned.length === 0 &&
+        merged.length === 0 &&
+        CURL_DOWNLOAD.isSubsetOf(invocation.names) &&
+        invocation.names.difference(CURL_DOWNLOAD).isSubsetOf(CURL_OUTPUT) &&
+        outputs.length === 0 &&
+        (output === undefined || (output.words.length === 2 && file?.text !== '-')) &&
+        url !== undefined &&
+        urls.length === 0 &&
+        WEB_SCHEME.test(url.text) &&
+        URL_TEXT.test(
+            url.parts
+                .filter(({ known }) => known)
+                .map(({ text }) => text)
+                .join(''),
+        );
+    const target = [...(output?.values ?? []).flatMap(({ raw }) => ['-o', raw]), ...invocation.operands.map(({ raw }) => raw)];
+    return downloads ? Effect.map(host.onPath('xh'), (found) => (found ? whole(invocation, ['xh -Iqd --ignore-netrc --timeout=0 --max-redirects=50', ...target].join(' '), 'curl') : [])) : [];
+};
+
+const substitutesInPlace: Predicate.Predicate<Invocation> = ({ has, values, leading }) => {
+    const scripts = has('-e') ? values('-e') : leading.map(({ text }) => text);
+    return has('-i') && values('-i').every(String.isEmpty) && scripts.length > 0 && scripts.every((script) => SUBSTITUTION.test(script));
+};
 
 const treeOnly: Predicate.Predicate<Invocation> = ({ has, names }) => has('-R') && names.size === 1;
 
@@ -323,7 +360,7 @@ const FILES: Ruleset = {
         },
         rm: { aliases: ['rimraf', 'trash', 'unlink', 'shred'], rules: [removes()] },
         git: { rules: [perSubcommand({ rm: [when(({ has }) => !has('--cached'), removes('-C'))] })] },
-        tree: { recursive: {}, rules: [respell({ drops: ['-a', '--all', '--noreport'], renames: { '--dirsfirst': '--group-directories-first', '-d': '-D' } }), unfiltered(['-I'], ONLY_IGNORED)] },
+        tree: { recursive: {} },
         du: { flags: ['-I='], recursive: { stats: true } },
         grep: {
             flags: ['--include-dir='],
@@ -337,8 +374,10 @@ const FILES: Ruleset = {
             leading: 1,
             leadingUnless: ['--regexp', '--file', '--files', '--type-list', '--generate'],
             recursive: {},
-            rules: [when(({ roots }) => roots.length > 0, ensure(HIDDEN_EXCEPT_GIT, '--no-hidden', '--unrestricted', '--no-config')), unfiltered(['--glob', '--iglob'], NEGATED_IGNORED), unignored(Function.constFalse)],
+            rules: [unfiltered(['--glob', '--iglob'], NEGATED_IGNORED), unignored(Function.constFalse)],
         },
+        curl: { rules: [curlAsXh] },
+        sed: { rules: [when(substitutesInPlace, refuse('substitutes in place', "use sd '<regex>' '<replacement>' <files>", '-i'))] },
         cat: { reads: true, rules: [respell({ renames: { '-A': '-vet' } })] },
         ls: { rules: [when(treeOnly, (invocation) => edited(invocation, invocation.head, 'tree'), respell({ drops: ['-R'] })), when(Predicate.not(treeOnly), optionsFirst)] },
         sd: {
