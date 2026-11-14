@@ -40,7 +40,7 @@ const Read = Schema.fromJsonString(
 const Planned = Schema.fromJsonString(
     Schema.Struct({
         tasks: Schema.Struct({
-            tasks: Schema.Record(Schema.String, Schema.Struct({ cache: Schema.optionalKey(Schema.Boolean), parallelism: Schema.Boolean, outputs: Schema.Array(Schema.String) })),
+            tasks: Schema.Record(Schema.String, Schema.Struct({ target: Schema.Struct({ project: Schema.String, target: Schema.String }), cache: Schema.optionalKey(Schema.Boolean), parallelism: Schema.Boolean, outputs: Schema.Array(Schema.String) })),
             dependencies: Schema.Record(Schema.String, Schema.Array(Schema.Struct({ id: Schema.String }))),
         }),
     }),

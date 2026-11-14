@@ -37,7 +37,6 @@ const Metadata = Schema.fromJsonString(
         packages: Schema.Array(Package),
         workspace_root: Schema.String,
         target_directory: Schema.String,
-        build_directory: Schema.optionalKey(Schema.String),
         metadata: Schema.NullOr(Schema.Struct({ dylint: Schema.optionalKey(Schema.Struct({ libraries: Schema.Array(Schema.Struct({ path: Schema.optionalKey(Schema.String) })) })) })),
     }),
 );
@@ -94,7 +93,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: 
         profiles,
         strategies: Array.dedupeWith(['release', ...profiles], (left, right) => strategy(left) === strategy(right)).filter((name) => strategy(name) !== strategy('dev')),
         deny: Array.head(deny),
-        placed: Option.all({ artifacts: inside(metadata.target_directory), units: inside(metadata.build_directory ?? metadata.target_directory) }),
+        placed: inside(metadata.target_directory),
         uplifted: (target: typeof Target.Type) => Array.getSomes(target.crate_types.map((type) => Option.map(Record.get(uplifted, type), (file) => file.replace(CRATE, target.name)))),
     };
 };

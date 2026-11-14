@@ -67,7 +67,14 @@ class DotnetVersionActions extends VersionActions {
         const listed = Effect.flatMap(Completed.output(ChildProcess.make('dotnet', search, { cwd: tree.root, stdin: 'ignore' })), Schema.decodeEffect(Found));
         return Effect.runPromise(
             Effect.provide(
-                Effect.map(listed, ({ searchResult }) => Option.getOrNull(Option.map(Array.last(searchResult.flatMap(({ packages }) => packages)), ({ version }) => ({ currentVersion: version, logText: `dotnet ${search.join(' ')}` })))),
+                Effect.map(listed, ({ searchResult }) =>
+                    Option.getOrNull(
+                        Option.map(
+                            Array.findLast(searchResult, ({ packages }) => Array.last(packages)),
+                            ({ version }) => ({ currentVersion: version, logText: `dotnet ${search.join(' ')}` }),
+                        ),
+                    ),
+                ),
                 layer,
             ),
         );

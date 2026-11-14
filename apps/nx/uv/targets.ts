@@ -186,6 +186,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
                         ...built,
                         ...stated.inputs,
                         ...row.variables.map((env) => ({ env })),
+                        ...(row.verb === 'test' ? [{ runtime: 'node -p process.platform+process.arch' }] : []),
                         '^default',
                         join('{workspaceRoot}', member.workspace, '.python-version'),
                         join('{workspaceRoot}', member.lock),
@@ -257,11 +258,12 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
     const written = Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0));
     const delivered: Record<string, TargetConfiguration> = {
         ...tools,
-        ...(written.length > 0 && { 'clean--uv': { executor: `${SHARED}:clean`, options: { targets: written }, metadata: { description: `Removes the outputs ${written.join(', ')} declare` } } }),
+        ...(written.length > 0 && { 'clean--uv': { executor: `${SHARED}:clean`, inputs: Array.dedupe(written.flatMap((name) => tools[name]?.inputs ?? [])), options: { targets: written }, metadata: { description: `Removes the outputs ${written.join(', ')} declare` } } }),
         ...(member.published && {
             'attach--gh': {
                 executor: `${SHARED}:attach`,
                 dependsOn: ['build--uv'],
+                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 metadata: { description: "Uploads the files build--uv wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
             },
         }),
@@ -277,6 +279,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
                 executor: `${SHARED}:publish`,
                 options: { publish: published, preview: [...published, '--dry-run'] },
                 dependsOn: ['build--uv', '^nx-release-publish'],
+                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 metadata: { description: 'Publishes the distributions build--uv wrote with uv publish, which reads UV_PUBLISH_TOKEN', help: { command: 'uv publish --help', example: { options: { dryRun: true } } } },
             },
         }),

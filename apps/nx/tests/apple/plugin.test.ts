@@ -23,8 +23,8 @@ const files = {
     'apps/Viewer/Viewer.xcodeproj/project.xcproj': `{
   "default-configuration": "Release",
   "configurations": [
-    { "name": "Debug" },
-    { "name": "Release" },
+    "Debug",
+    "Release",
   ],
   "localizations": {
     "development": "en",
@@ -33,13 +33,8 @@ const files = {
     ],
   },
   "files": [
+    { "kind": "folder", "path": "Sources", "target-membership": [ "Viewer" ] },
     {
-      "kind": "folder",
-      "path": "Sources",
-      "target-membership": [
-        "Viewer",
-      ],
-    }, {
       "kind": "group",
       "name": "Products",
       "children": [

@@ -192,15 +192,13 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
             }),
         ),
     );
+    const listed = loaded.flatMap(({ projectIndex, sources }) => sources.filter(({ isGenerated }) => isGenerated !== true).map((source) => ({ projectIndex, folder: dirname(inside(source.path)) })));
+    const included = loaded.flatMap(({ projectIndex, compileGroups }) => compileGroups.flatMap(({ includes }) => includes).map((include) => ({ projectIndex, folder: inside(include.path) })));
+    const searched = [...listed, ...included].filter(({ folder }) => relative(workflow.tree, folder).startsWith('..'));
     const members = placed.map(({ parentIndex: _, tests, ...member }, at) => ({
         ...member,
         tested: tests > placed.filter(({ parentIndex }) => parentIndex === at).reduce((count, nested) => count + nested.tests, 0),
-        folders: Array.dedupe(
-            loaded
-                .filter(({ projectIndex }) => projectIndex === at)
-                .flatMap(({ sources, compileGroups }) => [...sources.filter(({ isGenerated }) => isGenerated !== true).map((source) => dirname(inside(source.path))), ...compileGroups.flatMap(({ includes }) => includes.map((include) => inside(include.path)))])
-                .filter((folder) => !relative(member.root, folder).startsWith('..') && relative(workflow.tree, folder).startsWith('..')),
-        ),
+        folders: Array.dedupe(searched.filter(({ projectIndex, folder }) => projectIndex === at && !relative(member.root, folder).startsWith('..')).map(({ folder }) => folder)),
         targets: loaded.filter(({ projectIndex, artifacts }) => projectIndex === at && artifacts.length > 0).map(({ name, artifacts }) => ({ name, artifacts })),
         links: linked.filter(({ from }) => from === at).map(({ link }) => link),
     }));

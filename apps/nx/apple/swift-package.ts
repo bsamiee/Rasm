@@ -77,7 +77,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
         }),
     };
     const executables = new Set(manifest.targets.filter(({ type }) => Schema.is(Executable)(type)).map(({ name }) => name));
-    const products = new Map(manifest.products.flatMap(({ name, targets }) => targets.filter((owner) => executables.has(owner) && plists.has(owner)).map((owner) => [owner, name] as const)));
+    const products = new Map(manifest.products.flatMap(({ name, targets }) => targets.filter((owner) => executables.has(owner)).map((owner) => [owner, name] as const)));
     const forwardedInputs = ['default', '^default', ...[MANIFEST, RESOLVED].map((at) => join('{workspaceRoot}', root, at)), ...INPUTS];
     const owned: Record<string, TargetConfiguration> = {
         ...work,
@@ -88,6 +88,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
         ),
     };
     const cleaning: TargetConfiguration = {
+        inputs,
         options: { commands: [['swift', 'package', '--package-path', root, 'clean']], cwd: '.' },
         metadata: { technologies: ['swift'], description: `Removes the build folder of ${manifest.name} with swift package clean`, help: { command: 'swift package clean --help', example: {} } },
     };
@@ -96,15 +97,17 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
             Record.filter(work, (_, name) => name !== 'test--swift' || tested.has(module)),
             (_, name): TargetConfiguration => ({ dependsOn: [{ projects: [manifest.name], target: name }], inputs: forwardedInputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:${name}` } }),
         );
-    return [{ name: manifest.name, at: root, own: owned, clean: Option.some(cleaning) }, ...modules.map((module) => ({ name: module.name, at: join(root, module.path), own: forwarded(module.name), clean: Option.none<TargetConfiguration>() }))].map(({ name, at, own, clean }): Part => {
+    const relayed: TargetConfiguration = { dependsOn: [{ projects: [manifest.name], target: 'clean--swift-package' }], inputs: forwardedInputs, metadata: { technologies: ['swift'], description: `Runs ${manifest.name}:clean--swift-package` } };
+    return [{ name: manifest.name, at: root, own: owned, clean: cleaning }, ...modules.map((module) => ({ name: module.name, at: join(root, module.path), own: forwarded(module.name), clean: relayed }))].map(({ name, at, own, clean }): Part => {
         const product = Option.fromUndefinedOr(products.get(name));
-        const zipped = Option.map(Option.all({ held: product, output: Option.fromUndefinedOr(options.outputPath) }), ({ held, output }) => ({ held, folder: join(output, 'swiftpm', held) }));
+        const zipped = Option.map(Option.all({ held: Option.filter(product, () => plists.has(name)), output: Option.fromUndefinedOr(options.outputPath) }), ({ held, output }) => ({ held, folder: join(output, 'swiftpm', held) }));
         const tools: Record<string, TargetConfiguration> = {
             ...own,
             ...Option.getOrUndefined(
                 Option.map(product, (held) => ({
                     'install--swift-package': {
                         executor: `${PLUGIN}:install`,
+                        inputs,
                         options: { package: root, product: held, env: GIT_STATUS, args: [pinned] },
                         metadata: { technologies: ['swift'], description: `Builds ${held} in release and replaces it in SwiftPM's install folder`, help: { command: 'swift package experimental-install --help', example: { args: ['--jobs', '4'] } } },
                     },
@@ -115,7 +118,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
                     'pack--ditto': {
                         executor: `${PLUGIN}:package`,
                         dependsOn: ['build--swift-build'],
-                        inputs: [join('{workspaceRoot}', at, INFO), ...INPUTS],
+                        inputs: [join('{workspaceRoot}', at, INFO), ...inputs],
                         options: { products: [{ package: root, product: held, folder }] },
                         outputs: [join('{workspaceRoot}', folder, `${held}.zip`)],
                         metadata: { technologies: ['swift'], description: `Zips the release build of ${held} with ditto for a GitHub release`, help: { command: 'man ditto', example: { args: ['--norsrc'] } } },
@@ -125,13 +128,12 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
             ),
         };
         const removed = Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0));
-        const cleaned = Option.orElse(clean, () => Option.liftPredicate<TargetConfiguration>({ metadata: { technologies: ['swift'], description: `Removes the outputs ${removed.join(', ')} declare` } }, () => removed.length > 0));
         return {
             root: at,
             name,
             file,
             technologies: ['swift'],
-            targets: { ...tools, ...Option.getOrUndefined(Option.map(cleaned, (stated) => ({ 'clean--swift-package': { ...stated, executor: `${SHARED}:clean`, options: { ...stated.options, targets: removed } } }))) },
+            targets: { ...tools, 'clean--swift-package': { ...clean, executor: `${SHARED}:clean`, options: { ...clean.options, targets: removed } } },
             ...Option.getOrUndefined(Option.map(zipped, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: INFO } } } }))),
         };
     });

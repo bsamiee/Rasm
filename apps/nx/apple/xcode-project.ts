@@ -146,7 +146,7 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
             'build--xcodebuild': target(
                 builds(Option.none()),
                 { technologies: ['xcode'], description: 'Builds each shared scheme with xcodebuild, archiving each scheme with installed products in its archive configuration', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
-                { dependsOn: ['^build'], inputs: read, ...modes(builds) },
+                { cache: true, dependsOn: ['^build'], inputs: read, ...modes(builds) },
             ),
             'check--xcodebuild': { dependsOn: ['build--xcodebuild'], inputs: read, metadata: { technologies: ['xcode'], description: 'Compiles each shared scheme as its type check' } },
         }),
@@ -179,7 +179,7 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
                     description: "Builds each shared scheme whose targets install, under -configuration set to the scheme's archive configuration, and installs the products at INSTALL_PATH on this Mac with xcodebuild's install action",
                     help: { command: 'xcodebuild -help', example: { args: ['-jobs', '4'] } },
                 },
-                { dependsOn: ['^build'], options: { applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => join(Array.headNonEmpty(places), bundle))) } },
+                { dependsOn: ['^build'], inputs: read, options: { applications: archives.flatMap(({ places, bundles }) => bundles.map((bundle) => join(Array.headNonEmpty(places), bundle))) } },
             ),
         }),
         ...(released && {
@@ -187,6 +187,7 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
             'nx-release-publish': {
                 executor: `${PLUGIN}:release-publish`,
                 dependsOn: ['pack--ditto', '^nx-release-publish'],
+                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 options: { exports: archived.map(({ archive, folder }) => ({ archive, folder })) },
                 metadata: { technologies: ['xcode'], description: 'Signs the Sparkle feed of each disk image pack--ditto wrote with generate_appcast and uploads it to the R2 bucket SPARKLE_FEED_BUCKET names', help: { command: 'generate_appcast --help', example: { options: { dryRun: true } } } },
             },
@@ -202,6 +203,7 @@ const xcodeParts = (options: typeof Options.Type, file: string, container: typeo
             ...(schemes.length > 0 && {
                 'clean--xcodebuild': {
                     executor: `${SHARED}:clean`,
+                    inputs: read,
                     options: { commands: [...schemes.map((scheme) => invoke('clean', scheme.name, [])), ...archived.map(({ archive }) => ['rm', '-rf', archive])], cwd: '.', targets: Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)) },
                     metadata: { technologies: ['xcode'], description: 'Removes the build products of each shared scheme with xcodebuild clean, then each archive', help: { command: 'xcodebuild -help', example: { args: ['-quiet'] } } },
                 },

@@ -25,6 +25,7 @@ const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'node -p 
 const ATTACH: TargetConfiguration = {
     executor: `${SHARED}:attach`,
     dependsOn: ['pack--ditto'],
+    inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
     metadata: { description: "Uploads the files pack--ditto wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
 };
 

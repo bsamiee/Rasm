@@ -95,7 +95,7 @@ const members = Effect.gen(function* () {
     const targets = yield* Effect.forEach(stated, ({ id, projectIndex, jsonFile }) => Effect.map(Effect.flatMap(fs.readFileString(path.join(reply, jsonFile)), Schema.decodeEffect(Target)), (target) => ({ id, projectIndex, ...target })));
     const listed = yield* Effect.flatMap(called('ctest', ['--test-dir', tree, '--show-only=json-v1']), ({ stdout }) => Schema.decodeEffect(Tests)(stdout));
     const packaged = yield* Effect.filter(directories, ({ build, hasInstallRule = false }) => Effect.map(fs.exists(path.join(tree, build, PACKAGING)), (configured) => configured && hasInstallRule));
-    const versions = Array.fromIterable(printed.matchAll(/PROJECT_NAME = "([^"]*)"\s+PROJECT_VERSION = "([^"]*)"/gu)).map(([, name, version]) => Option.all([Option.fromNullishOr(name), Option.fromNullishOr(version)]));
+    const versions = Array.fromIterable(printed.matchAll(/PROJECT_NAME = "(?<name>[^"]*)"\s+PROJECT_VERSION = "(?<version>[^"]*)"/gu)).map(({ groups = {} }) => Option.all([Record.get(groups, 'name'), Record.get(groups, 'version')]));
     const read = {
         projects,
         directories,

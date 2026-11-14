@@ -129,7 +129,7 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
                 configurations: tested.configurations,
                 dependsOn: ['build--dotnet'],
                 cache: true,
-                inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }],
+                inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, { runtime: 'node -p process.platform+process.arch' }],
                 outputs: node.results.map((results) => join('{workspaceRoot}', results)),
                 metadata: metadata('test', `Restores ${node.name} and tests the build with dotnet test`),
             },
@@ -146,6 +146,7 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
         ...tools,
         'clean--dotnet': {
             executor: `${distribution.name}:clean`,
+            inputs,
             options: { ...cleaned.options, targets: Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)) },
             configurations: cleaned.configurations,
             metadata: metadata('clean', `Removes the build outputs of ${node.name} with dotnet clean`),
@@ -154,12 +155,14 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
             'attach--gh': {
                 executor: `${distribution.name}:attach`,
                 dependsOn: ['pack--dotnet'],
+                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 metadata: { description: "Uploads the files pack--dotnet wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
             },
             'nx-release-publish': {
                 executor: `${distribution.name}:publish`,
                 options: { publish: ['dotnet', 'nuget', 'push', '--skip-duplicate'] },
                 dependsOn: ['pack--dotnet', '^nx-release-publish'],
+                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 metadata: { description: `Pushes the package pack--dotnet wrote for ${node.name} with dotnet nuget push, which reads NUGET_API_KEY and skips a version nuget.org holds`, help: { command: 'dotnet nuget push --help', example: { options: { dryRun: true } } } },
             },
         }),

@@ -60,6 +60,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
         executor: `${PLUGIN}:cmake`,
         options,
         parallelism: false,
+        inputs: sources,
         metadata: { description, help: { command: `${help} --help`, example: { args: ['--verbose'] } } },
         ...extra,
     });
@@ -108,9 +109,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
         } satisfies typeof Package.Type;
     };
     const built = Record.getSomes<string, TargetConfiguration>({
-        'build--cmake': Option.map(targets, (names) =>
-            target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { cache: true, inputs: sources, outputs: builds(names)(head).outputs.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) }),
-        ),
+        'build--cmake': Option.map(targets, (names) => target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { cache: true, outputs: builds(names)(head).outputs.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) })),
         'pack--cpack': Option.map(Option.all({ packed: packing, names: targets }), ({ packed: { workflow, stated }, names }) => ({
             executor: `${PLUGIN}:package`,
             options: packs(workflow, stated, names),
@@ -126,7 +125,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
     });
     const tools: Record<string, TargetConfiguration> = {
         ...built,
-        ...(member.tested && { 'test--ctest': target('ctest', `Runs the tests CTest lists under ${member.name}`, tests(head), { cache: true, ...waits, inputs: sources, outputs: ['{options.outputs.0}'], ...varied(tests) }) }),
+        ...(member.tested && { 'test--ctest': target('ctest', `Runs the tests CTest lists under ${member.name}`, tests(head), { cache: true, ...waits, outputs: ['{options.outputs.0}'], ...varied(tests) }) }),
         ...(member.installs && { 'install--cmake': target('cmake --install', `Builds ${member.name}, then installs it under the install prefix its configure preset states`, installs(head), varied(installs)) }),
     };
     const written = Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0));
@@ -136,11 +135,12 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
     });
     const delivered: Record<string, TargetConfiguration> = {
         ...tools,
-        ...((Option.isSome(targets) || written.length > 0) && { 'clean--cmake': { executor: `${SHARED}:clean`, ...cleaning, options: { ...cleaning.options, targets: written } } }),
+        ...((Option.isSome(targets) || written.length > 0) && { 'clean--cmake': { executor: `${SHARED}:clean`, inputs: sources, ...cleaning, options: { ...cleaning.options, targets: written } } }),
         ...('pack--cpack' in tools && {
             'attach--gh': {
                 executor: `${SHARED}:attach`,
                 dependsOn: ['pack--cpack'],
+                inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
                 metadata: { description: "Uploads the files pack--cpack wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
             },
         }),
