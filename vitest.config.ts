@@ -14,13 +14,21 @@ const TRACE = { mode: 'retain-on-failure' } as const;
 
 const browser = (): BrowserConfigOptions => ({ enabled: true, provider: playwright(), headless: true, instances: [{ browser: 'chromium' }], locators: { errorFormat: 'aria' }, trace: TRACE });
 
-const stories = (name: string, folder: string) => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, folder, '.storybook') })], test: { name, api: { allowWrite: true }, browser: browser() } });
+const traced = (): Plugin => ({
+    name: 'traced',
+    configureVitest({ project, vitest }) {
+        const folder = resolve(vitest.config.attachmentsDir, '..');
+        Object.assign(project.config.browser, { screenshotDirectory: join(folder, 'screenshots'), trace: { ...project.config.browser.trace, tracesDir: join(folder, 'traces') } });
+    },
+});
+
+const stories = (name: string, folder: string) => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, folder, '.storybook') }), traced()], test: { name, api: { allowWrite: true }, browser: browser() } });
 
 const reports = (): Plugin => ({
     name: 'reports',
     config({ test }) {
         const folder = test?.attachmentsDir === undefined ? undefined : resolve(import.meta.dirname, test.attachmentsDir, '..');
-        return folder === undefined ? { test: { reporters: ['html'] } } : { test: { reporters: [['html', { outputDir: join(folder, 'html') }]], browser: { trace: { ...TRACE, tracesDir: join(folder, 'traces') }, screenshotDirectory: join(folder, 'screenshots') } } };
+        return { test: { reporters: [folder === undefined ? 'html' : ['html', { outputDir: join(folder, 'html') }]] } };
     },
 });
 
@@ -59,7 +67,7 @@ export default defineConfig({
             { root: 'libs/typescript/runtime/tests/workers', test: { name: '@rasm/test-workers node', include: ['deploy.test.ts'] } },
             { root: 'libs/typescript/runtime/tests/workers', plugins: [cloudflareTest({ config: true })], test: { name: '@rasm/test-workers workers', include: ['unit.test.ts', 'integration.test.ts'] } },
             { root: 'libs/typescript/web/tests/hosting', test: { name: '@rasm/test-hosting' } },
-            { root: 'libs/typescript/web/tests/ui', plugins: [react({ compiler: { panicThreshold: 'all_errors' } })], test: { name: '@rasm/test-ui', browser: browser() } },
+            { root: 'libs/typescript/web/tests/ui', plugins: [react({ compiler: { panicThreshold: 'all_errors' } }), traced()], test: { name: '@rasm/test-ui', browser: browser() } },
             stories('@rasm/ui', 'libs/typescript/web/ui'),
         ],
     },
