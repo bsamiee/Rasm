@@ -14,9 +14,9 @@ Diagnosing a build from its binary log, from capture through the `binlog` MCP se
 
 ## [01]-[CAPTURE]
 
-Nx targets write no binlog, `nx run <project>:build--dotnet --args=-bl:<dir>/<purpose>-{}.binlog` captures one run:
-- `--args` takes one switch, repeat it per switch, and Nx drops words after `--`
-- `--args=--artifacts-path=<dir>/artifacts` builds into an empty folder, the batch project has no `Rebuild` target
+Nx targets write no binlog, `nx run <project>:build--dotnet -- -bl:<dir>/<purpose>-{}.binlog` captures one run:
+- Words after `--` reach `dotnet` as written, an `--args=<switch>` word reaches it unparsed and fails
+- `-- --artifacts-path=<dir>/artifacts` builds into an empty folder, `-t:Rebuild` rebuilds every batched project
 - `dotnet msbuild` runs evaluation reads and replays, `-bl` captures one
 - MSBuild replaces `{}` in a `-bl` path with a UTC date, time, process id, and random string
 
@@ -50,8 +50,8 @@ Nx targets write no binlog, `nx run <project>:build--dotnet --args=-bl:<dir>/<pu
 - `Directory.Build.props` evaluates the root values without a project
 
 ```bash
-nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-check
-nx run-many -t build--dotnet --skip-nx-cache --args=-check
+nx run <project>:build--dotnet --skip-nx-cache -- --artifacts-path=<dir>/artifacts -check
+nx run-many -t build--dotnet --skip-nx-cache -- -check
 dotnet msbuild <log>.binlog -check
 dotnet msbuild Item/Item.csproj -getProperty:OutputPath -getItem:Compile -getResultOutputFile:<dir>/item.json
 ```
@@ -204,7 +204,7 @@ build_check.BC0101.severity = error
 
 ### [04.1]-[WORKFLOW]
 
-1. Run `nx run <project>:build--dotnet --args=-check`, BuildCheck reporting through the one-run argument the tool-named target receives
+1. Run `nx run <project>:build--dotnet -- -check`, BuildCheck reporting through the one-run argument the tool-named target receives
 2. Read each `BC` line on the console, or run `mcp__binlog__binlog_errors` then `mcp__binlog__binlog_warnings` with `category=BuildCheck`
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
 

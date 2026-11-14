@@ -60,8 +60,8 @@ Diagnosis finds targets that break incremental rules. Use `Skill(dotnet-msbuild-
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
 ```bash
-nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-bl:<dir>/first.binlog
-nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-bl:<dir>/second.binlog
+nx run <project>:build--dotnet --skip-nx-cache -- --artifacts-path=<dir>/artifacts -bl:<dir>/first.binlog
+nx run <project>:build--dotnet --skip-nx-cache -- --artifacts-path=<dir>/artifacts -bl:<dir>/second.binlog
 ```
 
 Analyze `<dir>/second.binlog`, the second build's log:

@@ -9,15 +9,15 @@ Change the input or setting under measurement alone. Hold command, properties, n
 Captures build into their own artifacts folder, which no other session's build writes:
 
 ```bash
-nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/<capture> --args=-bl:<dir>/<capture>.binlog
+nx run <project>:build--dotnet --skip-nx-cache -- --artifacts-path=<dir>/<capture> -bl:<dir>/<capture>.binlog
 ```
 
-| [INDEX] | [CAPTURE]     | [COMMANDS]                                                              | [MEASURES]                               |
-| :-----: | :------------ | :---------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | Clean build   | Command on an empty `<dir>/<capture>`                                   | Every target and task from empty outputs |
-|  [02]   | Changed input | One successful build, one representative edit, the same command again   | Work one edit causes                     |
-|  [03]   | No change     | One successful build, then the same command                             | Targets that run with nothing changed    |
-|  [04]   | Build only    | `dotnet restore` into `<dir>/<capture>`, then add `--args=--no-restore` | Execution without restore                |
+| [INDEX] | [CAPTURE]     | [COMMANDS]                                                                  | [MEASURES]                               |
+| :-----: | :------------ | :-------------------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | Clean build   | Command on an empty `<dir>/<capture>`                                       | Every target and task from empty outputs |
+|  [02]   | Changed input | One successful build, one representative edit, the same command again       | Work one edit causes                     |
+|  [03]   | No change     | One successful build, then the same command                                 | Targets that run with nothing changed    |
+|  [04]   | Build only    | `dotnet restore` into `<dir>/<capture>`, then add `--no-restore` after `--` | Execution without restore                |
 
 - `dotnet build-server shutdown` stops the MSBuild and compiler servers before a capture, `--disable-build-servers` keeps them out of one capture
 - Record server and node state with the capture, a warm server and reused nodes remove process startup from measured duration
@@ -95,7 +95,7 @@ When `mcp__binlog__binlog_expensive_tasks` shows `ResolveAssemblyReference` cost
 `Csc` includes analyzer and source generator work. SDK builds send every compilation to the compiler server, and `UseSharedCompilation=false` runs `csc` as a process per project. `CompilerServer:` messages under the `Csc` task record `server processed compilation` or `using command line tool by design`.
 
 ```bash
-nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-p:ReportAnalyzer=true --args=-bl:<dir>/analyzers.binlog
+nx run <project>:build--dotnet --skip-nx-cache -- --artifacts-path=<dir>/artifacts -p:ReportAnalyzer=true -bl:<dir>/analyzers.binlog
 ```
 
 - Run `mcp__binlog__binlog_analyzer_summary` on the capture for time and invocation count per analyzer, rank the outliers
