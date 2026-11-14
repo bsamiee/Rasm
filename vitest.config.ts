@@ -14,15 +14,14 @@ const TRACE = { mode: 'retain-on-failure' } as const;
 
 const browser = (): BrowserConfigOptions => ({ enabled: true, provider: playwright(), headless: true, instances: [{ browser: 'chromium' }], locators: { errorFormat: 'aria' }, trace: TRACE });
 
-const traced = (): Plugin => ({
-    name: 'traced',
+const captured = (): Plugin => ({
+    name: 'captured',
     configureVitest({ project, vitest }) {
-        const folder = resolve(vitest.config.attachmentsDir, '..');
-        Object.assign(project.config.browser, { screenshotDirectory: join(folder, 'screenshots'), trace: { ...project.config.browser.trace, tracesDir: join(folder, 'traces') } });
+        Object.assign(project.config.browser, { screenshotDirectory: resolve(vitest.config.attachmentsDir, '..', 'screenshots') });
     },
 });
 
-const stories = (name: string, folder: string) => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, folder, '.storybook') }), traced()], test: { name, api: { allowWrite: true }, browser: browser() } });
+const stories = (name: string, folder: string) => ({ plugins: [storybookTest({ configDir: join(import.meta.dirname, folder, '.storybook') }), captured()], test: { name, api: { allowWrite: true }, browser: browser() } });
 
 const reports = (): Plugin => ({
     name: 'reports',
@@ -67,7 +66,7 @@ export default defineConfig({
             { root: 'libs/typescript/runtime/tests/workers', test: { name: '@rasm/test-workers node', include: ['deploy.test.ts'] } },
             { root: 'libs/typescript/runtime/tests/workers', plugins: [cloudflareTest({ config: true })], test: { name: '@rasm/test-workers workers', include: ['unit.test.ts', 'integration.test.ts'] } },
             { root: 'libs/typescript/web/tests/hosting', test: { name: '@rasm/test-hosting' } },
-            { root: 'libs/typescript/web/tests/ui', plugins: [react({ compiler: { panicThreshold: 'all_errors' } }), traced()], test: { name: '@rasm/test-ui', browser: browser() } },
+            { root: 'libs/typescript/web/tests/ui', plugins: [react({ compiler: { panicThreshold: 'all_errors' } }), captured()], test: { name: '@rasm/test-ui', browser: browser() } },
             stories('@rasm/ui', 'libs/typescript/web/ui'),
         ],
     },

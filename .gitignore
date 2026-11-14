@@ -16,6 +16,7 @@ node_modules/
 dist/
 .cloudflare/
 .vitest/
+__traces__/
 coverage/
 test-results/
 playwright-report/
