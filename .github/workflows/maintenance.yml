@@ -42,3 +42,9 @@ jobs:
             - run: docker volume prune --force
             - run: docker builder prune --force
             - run: docker image prune --force
+            - if: ${{ always() }}
+              run: |
+                  curl --fail --silent --show-error --max-time 10 --request POST --header "Authorization: Bearer ${GATUS_HEARTBEAT_TOKEN}" "${GATUS_HEARTBEAT_SERVER}/api/v1/endpoints/jobs_maintenance/external?success=${{ job.status == 'success' }}"
+              env:
+                  GATUS_HEARTBEAT_SERVER: ${{ secrets.GATUS_HEARTBEAT_SERVER }}
+                  GATUS_HEARTBEAT_TOKEN: ${{ secrets.GATUS_HEARTBEAT_TOKEN }}

@@ -349,7 +349,7 @@ const notified = (machine: Machine, { name, memory }: Data.TaggedEnum.Value<Role
     return { notify: { url: serving.id.apply(() => `https://${address}`), accounts: Record.map(credentials, ({ password, token }) => ({ password: password.result, token })) } };
 };
 
-const watched = (machine: Machine, host: keyof typeof hosts, { memory }: Data.TaggedEnum.Value<Role, 'Watch'>) => {
+const watched = (machine: Machine, host: keyof typeof hosts, { memory }: Data.TaggedEnum.Value<Role, 'Watch'>, project: string) => {
     const [{ internal, external, health }, service, apt] = [gated.gatus, 'gatus', { group: 'jobs', name: 'apt', every: Option.some(Duration.fromInputUnsafe('26 hours')) }];
     const push = new RandomPassword(`${machine.name}-heartbeat`, { length: 48, special: false }).result;
     const notifier = Array.findFirst<Role, Data.TaggedEnum.Value<Role, 'Notify'>>(hosts[host].roles, Role.$is('Notify'));
@@ -397,7 +397,9 @@ const watched = (machine: Machine, host: keyof typeof hosts, { memory }: Data.Ta
         },
         { dependsOn: serving },
     );
-    return { watch: { url: serving.id.apply(() => `http://${machine.name}:${external}`), heartbeat: push, topic: alerting.topic } };
+    const url = serving.id.apply(() => `http://${machine.name}:${external}`);
+    const senders = Option.map(notifier, () => Record.map({ GATUS_HEARTBEAT_SERVER: url, GATUS_HEARTBEAT_TOKEN: push }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }).name));
+    return { watch: { url, heartbeat: push, topic: alerting.topic }, ...Option.getOrElse(senders, () => ({})) };
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -413,7 +415,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                 Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, project),
                 Apps: (settings) => hosted(machine, settings),
                 Notify: (settings) => notified(machine, settings),
-                Watch: (settings) => watched(machine, host, settings),
+                Watch: (settings) => watched(machine, host, settings, project),
                 Runner: ({ packages, instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', uid: 1000 } as const;
                     const token = secret(getActionsRegistrationTokenOutput({ repository }).token);

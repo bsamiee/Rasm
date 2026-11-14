@@ -82,6 +82,7 @@ Places holding state, each updated by one action:
 - `pulumi stack output watch --show-secrets` prints a checker's address, heartbeat token, and alert topic, the ntfy.sh topic of `derby` included
 - Table `jobs` holds each job reporting to the checker beside `Notify` as `<group>_<name>`, with the hours of silence that fail it
 - Jobs POST `http://lucky:8080/api/v1/endpoints/<group>_<name>/external?success=<true|false>` with that heartbeat token as bearer
+- Workflows `Maintenance` and `Deploy` report `jobs_maintenance` and `jobs_deploy` last, with CI secrets `GATUS_HEARTBEAT_*` the stack writes
 - Each machine's `apt-daily-upgrade` service reports `jobs_apt` to its own checker when it stops, and 26 hours of silence fail it
 - Stacks declare containers, volumes, networks, and images through the Docker provider, and an engine builds its images from inline Dockerfiles
 - Machines hold one CNAME `<service>.<zone>` per routed service, and a container with no route gets no public name
