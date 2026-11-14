@@ -1,9 +1,10 @@
 import { execFile } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, hashArray, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashFile, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Context, Effect, Formatter, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIGS, documents, refused, SHARED, targets } from '#/targets';
 import { folders, LOCK, located, Metadata, report } from '#/workspace';
@@ -15,6 +16,11 @@ type Read = PluginCache<{ readonly digest: string; readonly metadata: typeof Met
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const FILES = combineGlobPatterns([LOCK, 'uv.toml', '.python-version', ...CONFIGS].map((file) => `**/${file}`));
+const CODE = hashArray(
+    readdirSync(import.meta.dirname, { withFileTypes: true })
+        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
+        .toSorted(),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -74,7 +80,7 @@ const createNodes: CreateNodes = [
         const locks = matched.filter((file) => basename(file) === LOCK);
         return runtime.runPromise(
             Effect.gen(function* () {
-                const digest = yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES]));
+                const digest = hashArray([CODE, yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES]))]);
                 (yield* Links).delete(context.workspaceRoot);
                 const read = Array.zip(locks, yield* Effect.forEach(locks, (lock) => Effect.result(inferred(cache, context, outputPath, digest, lock)), { concurrency: 'unbounded' }));
                 const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, refused(lock, Formatter.format(error))(error)]));

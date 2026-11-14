@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { basename, dirname, extname, join, relative } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +21,11 @@ const SOLUTIONS = ['.slnx', '.sln'];
 const FILES = combineGlobPatterns([`*{${[...PROJECTS, ...SOLUTIONS].join(',')},.props,.targets,.globalconfig}`, 'global.json', 'Directory.Build.rsp', 'nuget.config', 'NuGet.config', 'NuGet.Config', '.editorconfig'].map((file) => `**/${file}`));
 const PLATFORMS = { macOS: 'darwin', Windows: 'win32', Linux: 'linux' } as const satisfies Readonly<Record<string, NodeJS.Platform>>;
 const ANALYZER = fileURLToPath(import.meta.resolve('#analyzer'));
+const CODE = hashArray(
+    readdirSync(import.meta.dirname, { withFileTypes: true })
+        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
+        .toSorted(),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -49,7 +55,7 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, matched: rea
     const folders = Array.dedupe([dirname(ANALYZER), ...nodes.flatMap(({ restored }) => restored.map((folder) => join(workspaceRoot, folder)))]);
     const held = yield* Effect.forEach(folders, (folder) => Effect.map(Effect.orElseSucceed(fs.readDirectory(folder), Array.empty<string>), (names) => ({ folder, names })), { concurrency: 'unbounded' });
     const files = held.flatMap(({ folder, names }) => names.toSorted().map((name) => join(folder, name)));
-    return hashArray([tracked, ...files.flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file))])]);
+    return hashArray([CODE, tracked, ...files.flatMap((file) => [file, ...Array.fromNullishOr(hashFile(file))])]);
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {

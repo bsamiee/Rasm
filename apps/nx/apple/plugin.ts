@@ -1,11 +1,12 @@
 import { execFile } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Config, Context, Effect, FileSystem, Formatter, Function, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, refused, SHARED, tokened } from '#/targets';
@@ -26,6 +27,11 @@ const FILES = combineGlobPatterns([...READ, ...['*.xcodeproj/project.pbxproj', '
 const HOST: NodeJS.Platform = 'darwin';
 const IDENTITIES = ['APPLE_DEVELOPMENT_P12', 'DEVELOPER_ID_P12'] as const;
 const KEYCHAINS = join(tmpdir(), 'nx-apple');
+const CODE = hashArray(
+    readdirSync(import.meta.dirname, { withFileTypes: true })
+        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
+        .toSorted(),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -202,7 +208,7 @@ const createNodes: CreateNodes = [
                 const cache = new PluginCache<Graph>(join(workspaceDataDirectory, `apple-${hashObject(settings)}.hash`));
                 const built = yield* Effect.option(Effect.flatMap(analyzer, fs.stat));
                 const stamp = Option.flatMap(built, (stat) => stat.mtime).pipe(Option.match({ onNone: () => 0, onSome: (at) => at.valueOf() }));
-                const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), String(stamp), ...files]);
+                const key = hashArray([CODE, yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), String(stamp), ...files]);
                 const read = yield* Option.match(Option.fromNullishOr(cache.get(key)), { onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }), onNone: () => analyze(workspaceRoot, settings, files) });
                 yield* Effect.sync(() => (read.failures.length === 0 && !read.partial ? cache.set(key, read.graph) : undefined));
                 yield* Effect.sync(() => cache.writeToDisk());

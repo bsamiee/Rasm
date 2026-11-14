@@ -1,6 +1,7 @@
+import { dirname, join } from 'node:path';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
-import { Array, Duration, Effect, Function, type Layer, Option, Record, Result, Schema } from 'effect';
+import { Array, Duration, Effect, Function, type Layer, Option, Predicate, Record, Result, Schema } from 'effect';
 import { answered, Consumer, fromCache, remote } from '#/nx';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -51,6 +52,8 @@ const NOOP = 'nx:noop';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Names = Schema.fromJsonString(Schema.Array(Schema.String));
+const Plugins = Schema.fromJsonString(Schema.Struct({ plugins: Schema.Array(Schema.Union([Schema.String, Schema.Struct({ plugin: Schema.String })])) }));
+const Entry = Schema.fromJsonString(Schema.Struct({ exports: Schema.Struct({ '.': Schema.String }) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -255,6 +258,23 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                 assert.isAbove(cold.runs, 0, `${report}: the graph comes from the tool report`);
                 assert.strictEqual(warm.runs, 0, 'nrwl/nx packages/dotnet/src/analyzer/analyzer-client.spec.ts "should reuse a cached result whose evaluation inputs are unchanged"');
             }),
+            bound,
+        );
+
+        methods.effect(
+            `runs ${tools.join(' and ')} again for a graph read once the files of an installed plugin change`,
+            Effect.fnUntraced(function* () {
+                const { text, wrote } = yield* Consumer;
+                yield* counted(tools, '');
+                const { plugins } = yield* Schema.decodeEffect(Plugins)(yield* text('nx.json'));
+                const named = plugins.map((row) => (Predicate.isString(row) ? row : row.plugin));
+                const entries = yield* Effect.forEach(named, (plugin) => Effect.flatMap(text(join('node_modules', plugin, 'package.json')), Schema.decodeEffect(Entry)));
+                const released = Array.zipWith(named, entries, (plugin, { exports }) => join('node_modules', plugin, dirname(exports['.']), 'released.js'));
+                yield* wrote(Record.fromIterableWith(released, (file) => [file, 'export {};\n']));
+                const { code, stderr, runs } = yield* counted(tools, '');
+                assert.strictEqual(code, 0, stderr);
+                assert.isAbove(runs, 0, 'nrwl/nx astro-docs/src/content/docs/kb/performant-project-graph-plugins.mdoc: a plugin keys what it stores by everything the stored value depends on, its own release included');
+            }, Effect.orDie),
             bound,
         );
 

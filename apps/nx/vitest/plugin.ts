@@ -1,13 +1,13 @@
 /// <reference types="vitest/config" />
 
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, isAbsolute, join, matchesGlob, relative, resolve } from 'node:path';
 import { env } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
-import { getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Equal, FileSystem, Option, Predicate, Record, Schema } from 'effect';
@@ -21,6 +21,11 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 const EXTENSIONS = '{js,mjs,ts,cjs,mts,cts}';
 const SUITE = `vitest.config.${EXTENSIONS}`;
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
+const CODE = hashArray(
+    readdirSync(import.meta.dirname, { withFileTypes: true })
+        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
+        .toSorted(),
+);
 const REPORTS: Record.ReadonlyRecord<string, string> = { html: '.vitest', blob: '.vitest/blob' };
 const SHARED = distribution.name;
 
@@ -59,7 +64,11 @@ const extended = (workspaceRoot: string, root: string): readonly string[] => {
 
 const directed = (to: string) => ['--coverage.reportsDirectory', join(to, 'coverage'), '--attachmentsDir', join(to, 'attachments'), '--outputFile.junit', join(to, 'junit.xml')];
 
-const stamped = (workspaceRoot: string, sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources]));
+const stamped = (workspaceRoot: string, sources: readonly string[]) =>
+    Effect.map(
+        Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources])),
+        (files) => hashArray([CODE, files]),
+    );
 
 const kept = (at: string) => !(at.startsWith('..') || at.split('/').includes('node_modules'));
 

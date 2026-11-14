@@ -1,10 +1,19 @@
+import { readdirSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Context, Effect, Formatter, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIG, memberInputs, memberTargets, PLUGIN, SHARED } from '#/targets';
 import { MANIFEST, PRESETS, planted, refused, resolved, type Tree } from '#/workspace';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const CODE = hashArray(
+    readdirSync(import.meta.dirname, { withFileTypes: true })
+        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
+        .toSorted(),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,7 +31,11 @@ class Links extends Context.Service<Links, Map<string, Tree['members']>>()('@ras
 
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly tree: Tree; readonly digest: string }>, context: CreateNodesContext, outputPath: Option.Option<string>, matched: readonly string[], file: string) {
     const near = matched.filter((other) => !relative(dirname(file), other).startsWith('..'));
-    const stamped = ({ inputs }: Tree) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...near, ...inputs]));
+    const stamped = ({ inputs }: Tree) =>
+        Effect.map(
+            Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...near, ...inputs])),
+            (read) => hashArray([CODE, read]),
+        );
     const held = yield* Effect.findFirst(Array.fromNullishOr(cache.get(file)), (stored) => Effect.map(stamped(stored.tree), (now) => now === stored.digest));
     const { tree, partial } = yield* Option.match(held, {
         onSome: (stored) => Effect.succeed({ tree: stored.tree, partial: true }),

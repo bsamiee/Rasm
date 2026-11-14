@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process';
+import { readdirSync } from 'node:fs';
 import { dirname, isAbsolute, join, matchesGlob, relative } from 'node:path';
 import { env } from 'node:process';
 import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
-import { getReadyCheckReadyWhen, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { getReadyCheckReadyWhen, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Order, Predicate, Record, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
 
@@ -17,6 +18,11 @@ type Composed = Effect.Success<ReturnType<typeof analyzed>>;
 const EVERY_PROFILE = { COMPOSE_PROFILES: '*' };
 const PRODUCERS = ['build--!(compose|buildx)', '^build'];
 const DOWN = ['down', '--rmi', 'local', '--remove-orphans'] as const;
+const CODE = hashArray(
+    readdirSync(import.meta.dirname, { withFileTypes: true })
+        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
+        .toSorted(),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -136,7 +142,11 @@ const aggregated = (tools: Readonly<Record<string, TargetConfiguration>>): Recor
 });
 
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly project: Composed; readonly digest: string }>, context: CreateNodesContext, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
-    const stamped = (read: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...matched, ...read]));
+    const stamped = (read: readonly string[]) =>
+        Effect.map(
+            Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [...matched, ...read])),
+            (files) => hashArray([CODE, files]),
+        );
     const stored = Option.fromUndefinedOr(cache.get(root));
     const current = yield* stamped(Option.match(stored, { onNone: () => [], onSome: (entry) => entry.project.read }));
     const project = yield* Option.match(

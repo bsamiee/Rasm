@@ -1,7 +1,8 @@
+import { readdirSync } from 'node:fs';
 import { basename, dirname, join, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
-import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Context, Effect, FileSystem, Formatter, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, String } from 'effect';
 import { CLIPPY, CONFIG, crateInputs, NEXTEST, projectTargets, released, SHARED } from '#/targets';
 import { MANIFEST, type Member, type Reading, refused, resolved, workspaces } from '#/workspace';
@@ -10,6 +11,11 @@ import { MANIFEST, type Member, type Reading, refused, resolved, workspaces } fr
 
 const FILES = combineGlobPatterns([MANIFEST, ...CONFIG, ...CLIPPY, NEXTEST, '{,.}deny{,.exceptions}.toml'].map((file) => `**/${file}`));
 const LAYOUT = ['src/{main,lib}.rs', '{src/bin,examples,tests,benches}/{*.rs,*/main.rs}', 'build.rs'] as const;
+const CODE = hashArray(
+    readdirSync(import.meta.dirname, { withFileTypes: true })
+        .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
+        .toSorted(),
+);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -64,7 +70,7 @@ const createNodes: CreateNodes = [
                 const manifests = matched.filter((file) => basename(file) === MANIFEST);
                 const cache = new PluginCache<readonly Reading[]>(join(workspaceDataDirectory, `cargo-${hashObject(options ?? {})}.hash`));
                 const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(dirname), LAYOUT, join))]));
-                const key = hashArray([content, ...laid]);
+                const key = hashArray([CODE, content, ...laid]);
                 const read = yield* Option.match(Option.fromNullishOr(cache.get(key)), {
                     onNone: () => workspaces(workspaceRoot, manifests, files),
                     onSome: (held) => Effect.succeed(held.map((reading) => [join(relative(workspaceRoot, reading.metadata.workspace_root), MANIFEST), Result.succeed(reading)] as const)),
