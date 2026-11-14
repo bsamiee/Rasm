@@ -200,7 +200,7 @@ flowchart LR
 - `clean` removes the outputs a project's targets declare and runs its tool's clean
 
 Other tasks run through their own commands:
-- `nx build @rasm/nx-apple-darwin-arm64 -c release` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
+- `nx build @rasm/nx-apple-darwin-arm64` builds the core `@rasm/nx-apple` reads Xcode projects through, on a Mac after a clone
 - `hk check <paths>` and `hk fix <paths>` run every file-level checker and writer over the named paths
 - Playwright `webServer` rows with `reuseExistingServer` and command `nx run <project>:<target>` start that target and wait for its address
 - Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release), `nx run-many -t attach -c release`, then `nx release publish`

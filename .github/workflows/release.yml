@@ -60,7 +60,7 @@ jobs:
                   cache: ${{ runner.environment == 'github-hosted' }}
             - &packages
               run: pnpm install
-            - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
+            - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}

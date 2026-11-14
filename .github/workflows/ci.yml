@@ -40,7 +40,8 @@ jobs:
             - &cores
               run: |
                   cores="$(getconf _NPROCESSORS_ONLN)"
-                  echo "NX_PARALLEL=${cores}" >> "${GITHUB_ENV}"
+                  since="$(date +%s)"
+                  printf "%s\n" "NX_PARALLEL=${cores}" "NX_SINCE=${since}000" >> "${GITHUB_ENV}"
             - &shas
               uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
             - &tools
@@ -70,6 +71,11 @@ jobs:
             - *packages
             - run: playwright install --with-deps --only-shell chromium
             - run: nx affected --targets=check,test,build --exclude=tag:os:darwin
+            - &timed
+              if: always()
+              run: |
+                  stores=("${NX_WORKSPACE_DATA_DIRECTORY}"/*.db)
+                  sqlite3 -markdown "${stores[0]}" "select round((h.end - h.start) / 1000.0) as seconds, h.status, d.project || ':' || d.target as task from task_history h join task_details d on d.hash = h.hash where h.start >= ${NX_SINCE} order by seconds desc limit 30" >> "${GITHUB_STEP_SUMMARY}"
             - &reports
               if: always()
               uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -93,11 +99,12 @@ jobs:
                   xcode-version: latest
             - *tools
             - *packages
-            - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
+            - run: nx build @rasm/nx-apple-darwin-arm64
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all'
               env:
                   APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
                   APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
+            - *timed
             - *reports
 
     unreal:
