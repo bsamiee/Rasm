@@ -256,9 +256,7 @@ where A: Server
     async fn call_tool(&self, request: CallToolRequestParams, context: RequestContext<RoleServer>) -> Result<CallToolResponse, ErrorData> { tools::call(self, request, context).await }
 
     fn list_tools(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListToolsResult, ErrorData>> + Send {
-        let tools = self.routers.tools.load().as_deref().map_or_default(ToolRouter::list_all);
-        let skipped = following(&tools, request.and_then(|params| params.cursor).as_deref(), |tool| &tool.name);
-        let (tools, next_cursor) = paged(tools.into_iter().skip(skipped), self.page, |tool| &tool.name);
+        let (tools, next_cursor) = listed(self.routers.tools.load().as_deref().map_or_default(ToolRouter::list_all), request, self.page, |tool| &tool.name);
         ready(Ok(ListToolsResult { next_cursor, ..ListToolsResult::with_all_items(tools) }))
     }
 
@@ -268,9 +266,7 @@ where A: Server
     }
 
     fn list_prompts(&self, request: Option<PaginatedRequestParams>, _: RequestContext<RoleServer>) -> impl Future<Output = Result<ListPromptsResult, ErrorData>> + Send {
-        let prompts = self.routers.prompts.load().as_deref().map_or_default(PromptRouter::list_all);
-        let skipped = following(&prompts, request.and_then(|params| params.cursor).as_deref(), |prompt| &prompt.name);
-        let (prompts, next_cursor) = paged(prompts.into_iter().skip(skipped), self.page, |prompt| &prompt.name);
+        let (prompts, next_cursor) = listed(self.routers.prompts.load().as_deref().map_or_default(PromptRouter::list_all), request, self.page, |prompt| &prompt.name);
         ready(Ok(ListPromptsResult { next_cursor, ..ListPromptsResult::with_all_items(prompts) }))
     }
 
@@ -338,6 +334,11 @@ where Q: TryFuture<Ok = Vec<String>, Error: Into<ErrorData>> + Send + 'static {
 }
 
 fn following<T>(rows: &[T], cursor: Option<&str>, key: impl Fn(&T) -> &str) -> usize { cursor.map_or_default(|cursor| rows.partition_point(|row| key(row) <= cursor)) }
+
+fn listed<T>(rows: Vec<T>, request: Option<PaginatedRequestParams>, page: NonZero<usize>, key: impl Fn(&T) -> &str) -> (Vec<T>, Option<Cursor>) {
+    let skipped = following(&rows, request.and_then(|params| params.cursor).as_deref(), &key);
+    paged(rows.into_iter().skip(skipped), page, key)
+}
 
 fn paged<T>(rows: impl IntoIterator<Item = T>, page: NonZero<usize>, key: impl Fn(&T) -> &str) -> (Vec<T>, Option<Cursor>) {
     let mut rows = rows.into_iter().peekable();
