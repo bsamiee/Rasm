@@ -24,13 +24,14 @@ set(CMAKE_CXX_COMPILER_TARGET x86_64-unknown-linux-gnu)
 set(CMAKE_AR "${CMAKE_SYSROOT}/bin/llvm-ar")
 set(CMAKE_RANLIB "${CMAKE_SYSROOT}/bin/llvm-ranlib")
 set(CMAKE_LINKER_TYPE LLD)
+set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_C_FLAGS_INIT "-fvisibility-ms-compat")
 set(CMAKE_CXX_FLAGS_INIT "-fvisibility-ms-compat -fvisibility-inlines-hidden -fno-rtti -nostdinc++ -isystem ${CMAKE_SYSROOT}/include -isystem ${CMAKE_SYSROOT}/include/c++/v1")
 
 # --- [STANDARD_LIBRARY] -----------------------------------------------------------------
 
-foreach(kind IN ITEMS EXE SHARED MODULE)
+foreach(kind IN ITEMS SHARED MODULE)
     set(CMAKE_${kind}_LINKER_FLAGS_INIT "-nodefaultlibs -B${CMAKE_SYSROOT}/usr/lib -B${CMAKE_SYSROOT}/usr/lib64 -L${CMAKE_SYSROOT}/usr/lib -L${CMAKE_SYSROOT}/usr/lib64")
 endforeach()
 set(CMAKE_C_STANDARD_LIBRARIES_INIT "-lm -lc -lpthread -lgcc_s -lgcc")
