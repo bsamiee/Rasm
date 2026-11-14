@@ -10,20 +10,19 @@
     },
     "license": "MIT",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
         ".": "./plugin.ts",
         "./stacks": "./executors/stacks.ts",
         "./package.json": "./package.json",
         "./executors.json": "./executors.json"
     },
-    "files": [
-        "dist",
-        "executors.json",
-        "executors/*/schema.json"
-    ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
+        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/nx-devkit": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
@@ -46,8 +45,5 @@
             "#/*": "./dist/*.js"
         }
     },
-    "executors": "./executors.json",
-    "imports": {
-        "#/*": "./*.ts"
-    }
+    "executors": "./executors.json"
 }

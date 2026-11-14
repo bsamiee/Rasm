@@ -21,7 +21,7 @@ const EXTENSIONS = '{js,mjs,ts,cjs,mts,cts}';
 const SUITE = `vitest.config.${EXTENSIONS}`;
 const MODE = { TEST: 'true', VITEST: 'true', NODE_ENV: 'test' } as const;
 const REPORTS: Record.ReadonlyRecord<string, string> = { html: '.vitest', blob: '.vitest/blob' };
-const SHARED = '@rasm/nx-devkit';
+const SHARED = '@rasm/nx-distribution';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,13 +1,11 @@
 import { basename, dirname, join, parse, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
-import { ancestors, type Members } from '@rasm/nx-devkit/project';
 import { Array, Equivalence, Option, Record, Result, String } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
-import { LOCK, MANIFEST, type Workspace } from '#/workspace';
+import { ancestors, LOCK, MANIFEST, type Member, type Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Member = Workspace['members'][number];
 type Target = Member['crate']['targets'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,8 +22,9 @@ const HOST = { runtime: 'rustc --print host-tuple' } as const;
 const MESSAGES = ['--message-format', 'json-diagnostic-rendered-ansi'] as const;
 const SUITES = { args: ['--cargo-message-format', 'json-diagnostic-rendered-ansi', '--message-format', 'libtest-json-plus', '--message-format-version', '0.1'], env: { NEXTEST_EXPERIMENTAL_LIBTEST_JSON: '1' } } as const;
 const PLUGIN = '@rasm/nx-cargo';
+const SHARED = '@rasm/nx-distribution';
 const LOCKED = '--locked';
-const SOURCES = ['default', '^default'] as const;
+const SOURCES: NonNullable<TargetConfiguration['inputs']> = ['default', '^default', { externalDependencies: [] }];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -49,7 +48,7 @@ const tokened = (file: string) => join('{workspaceRoot}', file);
 const target = (help: string, description: string, options: typeof Cargo.Type, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
     executor: `${PLUGIN}:cargo`,
     options,
-    metadata: { description, help: { command: `cargo ${help} --help`, example: { args: ['--verbose'] } } },
+    metadata: { technologies: ['rust'], description, help: { command: `cargo ${help} --help`, example: { args: ['--verbose'] } } },
     ...extra,
 });
 
@@ -70,7 +69,7 @@ const crateInputs = (workspace: Workspace, files: ReadonlySet<string>, { crate, 
     ];
 };
 
-const crateTargets = (workspace: Workspace, files: ReadonlySet<string>, reported: Option.Option<string>, { crate, root }: Member) => {
+const crateTargets = (workspace: Workspace, files: ReadonlySet<string>, reported: Option.Option<string>, { crate, root }: Member): Record<string, TargetConfiguration> => {
     const selected = { cwd: workspace.root, package: crate.name };
     const nextest = Option.liftPredicate(join(workspace.root, NEXTEST), (file) => files.has(file));
     const plain = Option.isNone(nextest);
@@ -124,134 +123,145 @@ const crateTargets = (workspace: Workspace, files: ReadonlySet<string>, reported
             },
         });
     const suites = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [LOCKED, ...SUITES.args]), env: SUITES.env });
-    const units = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [...(plain ? [] : ['--doc']), LOCKED]) });
-    const dylint =
-        libraries.length === 0
-            ? { check: {}, fix: {} }
-            : {
-                  check: {
-                      dylint: target('dylint', `Reports Dylint findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) }, { cache: true, inputs: [...SOURCES, ...libraries, { env: 'DYLINT_RUSTFLAGS' }] }),
-                  },
-                  fix: { dylint: target('dylint', `Applies Dylint suggestions to ${crate.name}`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...filters, '--keep-going', ...MESSAGES] }] }, {}) },
-              };
+    const libtest = (run: Array.NonEmptyReadonlyArray<string>): Command => ({ args: Array.appendAll(run, [...(plain ? [] : ['--doc']), LOCKED]) });
     return {
-        build: crate.targets.some(own)
-            ? {
-                  cargo: target(
-                      'build',
-                      `Builds ${crate.name} with cargo, bringing Cargo.lock in line with the manifests`,
-                      { ...selected, commands: built([]), outputs: written('debug') },
-                      {
-                          cache: Option.isSome(workspace.placed),
-                          inputs: [...SOURCES],
-                          outputs: written('debug').map((_, index) => `{options.outputs.${index}}`),
-                          configurations: Record.fromIterableWith(profiles, (profile) => [profile, { commands: built(['--profile', profile]), outputs: written(profile) }] as const),
-                      },
-                  ),
-              }
-            : {},
-        test: {
-            ...(!plain &&
-                tested && {
-                    nextest: {
-                        ...target(
-                            'nextest run',
-                            `Tests ${crate.name} with cargo nextest`,
-                            { ...selected, commands: [suites(['nextest', 'run'])] },
-                            { cache: true, inputs: [...SOURCES, ...Option.toArray(nextest).map(tokened), { env: 'NEXTEST_PROFILE' }], ...covered((exported) => suites(['llvm-cov', 'nextest', ...exported])) },
-                        ),
-                        executor: `${PLUGIN}:nextest`,
-                    },
-                }),
-            ...((plain ? tested || documented : documented) && {
-                cargo: target(
-                    'test',
-                    plain ? `Tests ${crate.name} with cargo test` : `Runs the documentation tests of ${crate.name} with cargo test --doc`,
-                    { ...selected, commands: [units(['test'])] },
-                    { cache: true, inputs: [...SOURCES], ...(plain ? covered((exported) => units(['llvm-cov', 'test', ...exported])) : {}) },
-                ),
+        ...(crate.targets.some(own) && {
+            'build--cargo': target(
+                'build',
+                `Builds ${crate.name} with cargo, bringing Cargo.lock in line with the manifests`,
+                { ...selected, commands: built([]), outputs: written('debug') },
+                {
+                    cache: Option.isSome(workspace.placed),
+                    inputs: SOURCES,
+                    outputs: written('debug').map((_, index) => `{options.outputs.${index}}`),
+                    configurations: Record.fromIterableWith(profiles, (profile) => [profile, { commands: built(['--profile', profile]), outputs: written(profile) }] as const),
+                },
+            ),
+        }),
+        ...(!plain &&
+            tested && {
+                'test--nextest': {
+                    ...target(
+                        'nextest run',
+                        `Tests ${crate.name} with cargo nextest`,
+                        { ...selected, commands: [suites(['nextest', 'run'])] },
+                        { cache: true, inputs: [...SOURCES, ...Option.toArray(nextest).map(tokened), { env: 'NEXTEST_PROFILE' }], ...covered((exported) => suites(['llvm-cov', 'nextest', ...exported])) },
+                    ),
+                    executor: `${PLUGIN}:nextest`,
+                },
             }),
-        },
-        check: {
-            clippy: target('clippy', `Reports clippy findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['clippy', ...selection] })) }, { cache: true, inputs: [...SOURCES, ...linted] }),
-            ...dylint.check,
-        },
-        clean: {
-            cargo: {
-                options: { commands: [['cargo', 'clean', '--package', crate.name, LOCKED]], cwd: workspace.root },
-                metadata: { description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean`, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
-            },
-        },
-        fix: {
-            clippy: target('clippy --fix', `Applies clippy suggestions to ${crate.name}`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...filters, '--keep-going', ...MESSAGES] }] }, {}),
-            ...dylint.fix,
-        },
-        install: crate.targets.some(binary)
-            ? {
-                  cargo: target(
-                      'install',
-                      `Builds the binaries of ${crate.name} and installs them into Cargo's install root, in release unless a configuration names a profile`,
-                      { cwd: workspace.root, commands: installed([]) },
-                      { inputs: [...SOURCES], configurations: Record.fromIterableWith(workspace.profiles, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) },
-                  ),
-              }
-            : {},
-    } satisfies Members;
+        ...((plain ? tested || documented : documented) && {
+            'test--cargo': target(
+                'test',
+                plain ? `Tests ${crate.name} with cargo test` : `Runs the documentation tests of ${crate.name} with cargo test --doc`,
+                { ...selected, commands: [libtest(['test'])] },
+                { cache: true, inputs: SOURCES, ...(plain ? covered((exported) => libtest(['llvm-cov', 'test', ...exported])) : {}) },
+            ),
+        }),
+        'check--clippy': target('clippy', `Reports clippy findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['clippy', ...selection] })) }, { cache: true, inputs: [...SOURCES, ...linted] }),
+        'fix--clippy': target('clippy --fix', `Applies clippy suggestions to ${crate.name}`, { ...selected, commands: [{ args: ['clippy', '--fix', '--allow-dirty', ...filters, '--keep-going', ...MESSAGES] }] }, {}),
+        ...(libraries.length > 0 && {
+            'check--dylint': target('dylint', `Reports Dylint findings for ${crate.name}`, { ...selected, commands: checked((selection) => ({ args: ['dylint', '--all', '--fail-on-no-libraries'], trailing: selection })) }, { cache: true, inputs: [...SOURCES, ...libraries, { env: 'DYLINT_RUSTFLAGS' }] }),
+            'fix--dylint': target('dylint', `Applies Dylint suggestions to ${crate.name}`, { ...selected, commands: [{ args: ['dylint', '--all', '--fail-on-no-libraries', '--fix'], trailing: ['--allow-dirty', ...filters, '--keep-going', ...MESSAGES] }] }, {}),
+        }),
+        ...(crate.targets.some(binary) && {
+            'install--cargo': target(
+                'install',
+                `Builds the binaries of ${crate.name} and installs them into Cargo's install root, in release unless a configuration names a profile`,
+                { cwd: workspace.root, commands: installed([]) },
+                { inputs: SOURCES, configurations: Record.fromIterableWith(workspace.profiles, (profile) => [profile, { commands: installed(['--profile', profile]) }] as const) },
+            ),
+        }),
+    };
 };
 
-const workspaceTargets = (workspace: Workspace) => {
+const workspaceTargets = (workspace: Workspace): Record<string, TargetConfiguration> => {
     const manifests = Array.dedupe([...workspace.members.map((member) => member.manifest), join(workspace.root, MANIFEST)]).map(tokened);
-    const lock = tokened(join(workspace.root, LOCK));
+    const denied = Option.match(workspace.deny, {
+        onNone: () => [],
+        onSome: ({ files, tables }) =>
+            DENIED.flatMap(({ tool, checks, extra }) =>
+                Array.match(Array.intersection(checks, tables), {
+                    onEmpty: () => [],
+                    onNonEmpty: (selected) => [
+                        [
+                            `check--${tool}`,
+                            target(
+                                'deny',
+                                `Reports cargo-deny ${selected.join(', ')} findings over the workspace graph, failing on any warning`,
+                                { cwd: workspace.root, commands: [{ args: ['deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected] }] },
+                                { ...extra, inputs: [...manifests, tokened(join(workspace.root, LOCK)), ...files.map(tokened), { externalDependencies: [] }] },
+                            ),
+                        ] as const,
+                    ],
+                }),
+            ),
+    });
     return {
-        check: Option.match(workspace.deny, {
-            onNone: () => ({}),
-            onSome: ({ files, tables }) =>
-                Record.fromEntries(
-                    DENIED.flatMap(({ tool, checks, extra }) =>
-                        Array.match(Array.intersection(checks, tables), {
-                            onEmpty: () => [],
-                            onNonEmpty: (selected) => [
-                                [
-                                    tool,
-                                    target(
-                                        'deny',
-                                        `Reports cargo-deny ${selected.join(', ')} findings over the workspace graph, failing on any warning`,
-                                        { cwd: workspace.root, commands: [{ args: ['deny', LOCKED, '--workspace', 'check', '--deny', 'warnings', ...selected] }] },
-                                        { ...extra, inputs: [...manifests, lock, ...files.map(tokened)] },
-                                    ),
-                                ] as const,
-                            ],
-                        }),
-                    ),
-                ),
-        }),
-        clean: {
-            cargo: {
-                options: { commands: [['cargo', 'clean']], cwd: workspace.root },
-                metadata: { description: 'Removes the build folder of the workspace with cargo clean', help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
-            },
+        ...Record.fromEntries(denied),
+        'upgrade--cargo': {
+            executor: 'nx:run-commands',
+            options: { commands: ['cargo upgrade --incompatible allow', 'cargo update'], parallel: false, cwd: workspace.root },
+            metadata: { technologies: ['rust'], description: 'Moves every dependency requirement to its newest release with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { args: ['--dry-run'] } } },
         },
-        upgrade: {
-            cargo: {
-                executor: 'nx:run-commands',
-                options: { commands: ['cargo upgrade --incompatible allow', 'cargo update'], parallel: false, cwd: workspace.root },
-                metadata: { description: 'Moves every dependency requirement to its newest release with cargo upgrade, then the lock with cargo update', help: { command: 'cargo upgrade --help', example: { args: ['--dry-run'] } } },
-            },
+    };
+};
+
+const projectTargets = (workspace: Workspace, files: ReadonlySet<string>, reported: Option.Option<string>, member: Option.Option<Member>): Record<string, TargetConfiguration> => {
+    const nested = Option.filter(member, ({ root }) => root !== workspace.root);
+    const packed = Option.map(Option.all({ held: Option.filter(member, ({ crate }) => crate.publish?.length !== 0), placed: workspace.placed }), ({ held: { crate }, placed: { artifacts } }) => {
+        const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
+            const next = new Set([...names, ...workspace.members.filter((other) => names.has(other.crate.name)).flatMap((other) => other.crate.dependencies.filter(({ path: to }) => to !== undefined).map(({ name }) => name))]);
+            return next.size === names.size ? names : reached(next);
+        };
+        const needed = reached(new Set([crate.name]));
+        const packages = workspace.members.filter((other) => other.crate.name !== crate.name && needed.has(other.crate.name)).map((other) => ({ root: other.root, name: other.crate.name }));
+        return target(
+            'package',
+            `Packs ${crate.name} into a .crate archive with cargo package beside the workspace crates it depends on, without the verification build`,
+            { cwd: workspace.root, package: crate.name, commands: [{ args: ['package', '--no-verify', LOCKED], packages }] },
+            { cache: true, inputs: SOURCES, outputs: [tokened(join(artifacts, 'package', `${crate.name}-${crate.version}.crate`))] },
+        );
+    });
+    const tools: Record<string, TargetConfiguration> = {
+        ...Option.getOrUndefined(Option.map(member, (held) => crateTargets(workspace, files, reported, held))),
+        ...(Option.isNone(nested) && workspaceTargets(workspace)),
+        ...Option.getOrUndefined(Option.map(packed, (pack) => ({ 'pack--cargo': pack }))),
+    };
+    const cleaned = Option.match(nested, {
+        onNone: () => ({ selected: [], description: 'Removes the build folder of the workspace with cargo clean' }),
+        onSome: ({ crate }) => ({ selected: ['--package', crate.name, LOCKED], description: `Removes the build artifacts of ${crate.name} in every profile with cargo clean` }),
+    });
+    const attached: TargetConfiguration = {
+        executor: `${SHARED}:attach`,
+        dependsOn: ['pack--cargo'],
+        metadata: { technologies: ['rust'], description: "Uploads the file pack--cargo wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+    };
+    const delivered: Record<string, TargetConfiguration> = {
+        ...tools,
+        ...Option.getOrUndefined(Option.map(packed, () => ({ 'attach--gh': attached }))),
+        'clean--cargo': {
+            executor: `${SHARED}:clean`,
+            options: { commands: [['cargo', 'clean', ...cleaned.selected]], cwd: workspace.root, targets: Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)) },
+            metadata: { technologies: ['rust'], description: cleaned.description, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
         },
-    } satisfies Members;
+    };
+    return { ...delivered, ...Record.fromIterableWith(Array.dedupe(Record.keys(delivered).map((name) => name.slice(0, name.indexOf('--')))), (verb): [string, TargetConfiguration] => [verb, { dependsOn: [`${verb}--*`] }]) };
 };
 
 const released = ({ crate }: Member, cwd: string) => {
     const [registry, ...others] = crate.publish ?? [];
     const named = registry === undefined || others.length > 0 || registry === 'crates-io' ? {} : { registry };
-    return crate.publish?.length === 0
-        ? {}
-        : {
-              release: { lock: join(cwd, LOCK), ...named },
-              publish: { executor: `${PLUGIN}:release-publish`, options: { cwd, package: crate.name, ...named }, metadata: { description: `Publishes ${crate.name} with cargo publish` } },
-          };
+    return Option.liftPredicate(
+        {
+            tags: ['release'],
+            release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { lock: join(cwd, LOCK), ...named } } },
+            targets: { 'nx-release-publish': { executor: `${PLUGIN}:release-publish`, options: { cwd, package: crate.name, ...named }, dependsOn: ['^nx-release-publish'], metadata: { description: `Publishes ${crate.name} with cargo publish` } } },
+        },
+        () => crate.publish?.length !== 0,
+    );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CLIPPY, CONFIG, crateInputs, crateTargets, NEXTEST, PLUGIN, released, workspaceTargets };
+export { CLIPPY, CONFIG, crateInputs, NEXTEST, projectTargets, released, SHARED };

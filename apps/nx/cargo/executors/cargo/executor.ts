@@ -1,10 +1,11 @@
 import { stderr, stdout } from 'node:process';
 import { pathToFileURL } from 'node:url';
+import { layer } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, Task, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { executor } from '@rasm/nx-devkit/executor';
-import { iterated, spawned } from '@rasm/nx-devkit/process';
 import { Array, Effect, Equal, FileSystem, HashSet, Option, Path, Record, Schema, Stream } from 'effect';
+import { ChildProcess } from 'effect/process';
+import { run } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -39,7 +40,7 @@ type Command = typeof Command.Type;
 
 const ran = Effect.fnUntraced(
     function* (cwd: string, args: readonly string[], env: Readonly<Record<string, string>> = {}) {
-        const handle = yield* spawned('cargo', args, { cwd, stdin: 'inherit', env });
+        const handle = yield* ChildProcess.make('cargo', args, { cwd, env, extendEnv: true, detached: false, stdin: 'inherit' });
         const [lines, diagnosed, code] = yield* Effect.all(
             [
                 Stream.splitLines(Stream.decodeText(handle.stdout)).pipe(
@@ -78,7 +79,7 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
             { discard: true },
         ),
     );
-    const run = yield* ran(
+    const completed = yield* ran(
         path.resolve(context.root, options?.cwd ?? '.'),
         [
             ...command.args,
@@ -89,10 +90,10 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
         ],
         command.env,
     );
-    const diagnostics = run.messages.filter(Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
+    const diagnostics = completed.messages.filter(Schema.is(Diagnostic)).map((diagnostic) => ({ ...diagnostic, root: path.dirname(diagnostic.manifest_path) }));
     const errored = new Set(diagnostics.filter(({ message: { level } }) => level.startsWith('error')).map(({ root: at }) => at));
     const built = new Set(
-        run.messages
+        completed.messages
             .filter(Schema.is(Artifact))
             .filter(({ target: { kind } }) => !kind.includes('custom-build'))
             .map(({ manifest_path }) => path.dirname(manifest_path)),
@@ -101,12 +102,12 @@ const decided = Effect.fnUntraced(function* (judged: Judged, context: ExecutorCo
     const reaches = (project: string, seen: ReadonlySet<string>): boolean => (dependencies[project] ?? []).some(({ target }) => !seen.has(target) && (broken.has(target) || reaches(target, new Set([...seen, target]))));
     const results = tasks.map(({ id, target: { project } }) => {
         const at = root(project);
-        const { failed, proven, said } = judged({ messages: run.messages, compiled: built.size + diagnostics.length === 0 ? run.passed : built.has(at), crate: Option.fromUndefinedOr(inputs[id]?.package) });
+        const { failed, proven, said } = judged({ messages: completed.messages, compiled: built.size + diagnostics.length === 0 ? completed.passed : built.has(at), crate: Option.fromUndefinedOr(inputs[id]?.package) });
         const rendered = Array.getSomes(diagnostics.filter(({ root: crate }) => crate === at).map(({ message }) => message.rendered));
         return { id, own: errored.has(at) || failed, passed: proven && !reaches(project, new Set([project])), terminalOutput: [...rendered, said].join('') };
     });
     const attributed = results.some(({ own }) => own);
-    const unproven: TaskResult = attributed ? { success: false, status: 'skipped', terminalOutput: '' } : { success: false, terminalOutput: run.log };
+    const unproven: TaskResult = attributed ? { success: false, status: 'skipped', terminalOutput: '' } : { success: false, terminalOutput: completed.log };
     return Record.fromIterableWith(results, ({ id, own, passed, terminalOutput }): readonly [string, TaskResult] => [id, own || passed ? { success: !own, terminalOutput } : unproven]);
 });
 
@@ -128,19 +129,17 @@ const scheduled = (judged: Judged, context: ExecutorContext, inputs: Readonly<Re
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const decides = (options: Schema.Decoder<typeof Cargo.Type>, judged: Judged) => ({
-    execute: executor(
-        options,
-        Effect.fnUntraced(function* (cargo, context, project) {
-            const target = yield* Effect.fromNullishOr(context.targetName);
-            const id = `${project}:${target}`;
-            return (yield* Stream.runCollect(scheduled(judged, context, { [id]: cargo }, [{ id, target: { project, target } }]))).every(({ result }) => result.success);
-        }),
-    ),
-    batch: iterated((taskGraph: TaskGraph, inputs: Readonly<Record<string, typeof Cargo.Type>>, _: unknown, context: ExecutorContext) => scheduled(judged, context, inputs, Object.values(taskGraph.tasks))),
+const decides = (judged: Judged) => ({
+    execute: Effect.fnUntraced(function* (cargo: typeof Cargo.Type, context: ExecutorContext) {
+        const [project, target] = yield* Effect.all([Effect.fromNullishOr(context.projectName), Effect.fromNullishOr(context.targetName)]);
+        const id = `${project}:${target}`;
+        const results = yield* Stream.runCollect(scheduled(judged, context, { [id]: cargo }, [{ id, target: { project, target } }]));
+        return { success: results.every(({ result }) => result.success) };
+    }, run),
+    batch: (taskGraph: TaskGraph, inputs: Readonly<Record<string, typeof Cargo.Type>>, _: unknown, context: ExecutorContext) => Stream.toReadableStream(Stream.provide(scheduled(judged, context, inputs, Object.values(taskGraph.tasks)), layer)).values(),
 });
 
-const { execute, batch } = decides(Cargo, ({ compiled }) => ({ failed: false, proven: compiled, said: '' }));
+const { execute, batch } = decides(({ compiled }) => ({ failed: false, proven: compiled, said: '' }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

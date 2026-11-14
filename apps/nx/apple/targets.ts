@@ -1,38 +1,43 @@
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { TargetConfiguration } from '@nx/devkit';
-import { ToolError } from '@rasm/nx-devkit/process';
-import { type Members, PLATFORM, type Stated } from '@rasm/nx-devkit/project';
-import { Effect, type Option, Schema } from 'effect';
+import type { ProjectConfiguration, TargetConfiguration } from '@nx/devkit';
+import { Cause, Effect, Schema } from 'effect';
 import type { Run } from '#/executors/run/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Part extends Pick<Stated, 'release' | 'packaged' | 'publish'> {
+interface Part {
     readonly root: string;
     readonly name: string;
     readonly file: string;
     readonly technologies: readonly string[];
-    readonly clean: string;
-    readonly members: Members;
+    readonly targets: Readonly<Record<string, TargetConfiguration>>;
+    readonly release?: NonNullable<ProjectConfiguration['release']>;
 }
-type Settings = typeof Options.Type & { readonly placed: (tool: string, name: string) => Option.Option<string> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = '@rasm/nx-apple';
-const SHORT_VERSION = 'CFBundleShortVersionString';
-const PACKAGES = ['.dmg', '.zip'] as const;
+const SHARED = '@rasm/nx-distribution';
 const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', GIT_CONFIG_VALUE_0: 'false' } as const;
-const INPUTS = [PLATFORM, { env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }] as const;
+const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'node -p process.platform+process.arch' }, { env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { externalDependencies: [] }];
+const ATTACH: TargetConfiguration = {
+    executor: `${SHARED}:attach`,
+    dependsOn: ['pack--ditto'],
+    metadata: { description: "Uploads the files pack--ditto wrote to the GitHub release of the version the project's manifest states through gh release upload", help: { command: 'gh release upload --help', example: { options: { dryRun: true } } } },
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean) }).annotate({ description: 'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild' });
+const Options = Schema.Struct({ trustPackages: Schema.optionalKey(Schema.Boolean), outputPath: Schema.optionalKey(Schema.String) }).annotate({
+    description: 'trustPackages: passes -skipMacroValidation and -skipPackagePluginValidation to xcodebuild. outputPath: workspace folder holding archives and their packages under <outputPath>/xcode/<project>/<scheme> and product zips under <outputPath>/swiftpm/<product>, absent gives no pack--ditto target',
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve('#analyzer')), catch: ToolError.of('#analyzer', 'does not resolve') });
+const refused = (subject: string, detail: string) => (cause?: unknown) => new Cause.UnknownError(cause, `${subject}: ${detail}`);
+
+const analyzer = Effect.try({ try: () => fileURLToPath(import.meta.resolve('#analyzer')), catch: refused('#analyzer', 'does not resolve') });
 
 const tokened = (at: string) => (isAbsolute(at) || at.startsWith('..') ? [] : [join('{workspaceRoot}', at)]);
 
@@ -45,4 +50,4 @@ const target = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetCon
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { analyzer, GIT_STATUS, INPUTS, Options, PACKAGES, type Part, PLUGIN, type Settings, SHORT_VERSION, target, tokened };
+export { ATTACH, analyzer, GIT_STATUS, INPUTS, Options, type Part, PLUGIN, refused, SHARED, target, tokened };

@@ -24,12 +24,14 @@
             "type": "string",
             "description": "Name of the one stack to apply, absent applies every stack in dependency order"
         },
-        "destroy": {
-            "type": "boolean",
-            "description": "Destroys the stacks and removes them"
+        "operation": {
+            "type": "string",
+            "enum": [ "up", "preview", "destroy" ],
+            "description": "What runs on each stack: up applies it, preview prints the changes an apply makes and makes none, destroy destroys and removes it",
+            "default": "up"
         }
     },
-    "required": [ "programs" ],
+    "required": [ "programs", "operation" ],
     "additionalProperties": true,
     "title": "Deploy",
     "description": "Applies the stacks a program package states for a project through the Pulumi Automation API, group after group in dependency order, refreshing live state first"

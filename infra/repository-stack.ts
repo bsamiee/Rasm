@@ -1,7 +1,7 @@
 import { getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, IssueLabels, Repository, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { interpolate, jsonStringify, secret } from '@pulumi/pulumi';
-import { Acl, DnsPreferences, TailnetSettings } from '@pulumi/tailscale';
+import { Acl, DnsPreferences, OauthClient, TailnetSettings } from '@pulumi/tailscale';
 import { Environment, Project, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
 import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
@@ -76,7 +76,11 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
     const synced = { integration: '51df65fc-7097-4d4d-a4ca-308ce2a5918a', project: doppler.name, syncTarget: 'repo', repoName: repository, deleteBehavior: 'delete_from_target' };
     const bucket = new R2Bucket(`${name}-updates`, { accountId, name: `${name.toLowerCase()}-updates` }, { protect: true });
     const tags = Array.dedupe(Object.values(hosts).flatMap((row) => row.tags));
-    const policy = { tagOwners: Record.fromIterableWith(tags, (tag) => [tag, ['autogroup:admin']]), grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }], ssh: [{ action: 'accept', src: ['autogroup:member'], dst: tags, users: ['autogroup:nonroot', 'root'] }] };
+    const deployer = 'tag:deploy';
+    const policy = { tagOwners: Record.fromIterableWith([...tags, deployer], (tag) => [tag, ['autogroup:admin']]), grants: [{ src: ['*'], dst: ['*'], ip: ['*'] }], ssh: [{ action: 'accept', src: ['autogroup:member', deployer], dst: tags, users: ['autogroup:nonroot', 'root'] }] };
+    const tailnet = new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true });
+    const joining = new OauthClient(`${name}-deploy`, { scopes: ['auth_keys'], tags: [deployer] }, { dependsOn: tailnet });
+    const machines = Record.keys(hosts).map((host) => host.split('.', 1).join(''));
     return {
         repository: fullName,
         configs: {
@@ -92,7 +96,11 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
         alerts: new RepositoryVulnerabilityAlerts(`${name}-vulnerability-alerts`, { repository, enabled: false }).enabled,
         workflowPermissions: new WorkflowRepositoryPermissions(`${name}-workflow-permissions`, { repository, defaultWorkflowPermissions: 'write', canApprovePullRequestReviews: true }).defaultWorkflowPermissions,
         labels: new IssueLabels(`${name}-labels`, { repository, labels: forms.flatMap(({ description: stated, labels }) => labels.map((label) => ({ name: label, color: palette[label], description: stated }))) }).labels,
-        tailnet: new Acl('tailnet', { acl: interpolate`${jsonStringify(policy, undefined, '\t')}\n`, overwriteExistingContent: true }).id,
+        tailnet: tailnet.id,
+        deployer: {
+            secret: new ActionsEnvironmentSecret(`${name}-deploy-tailscale`, { repository, environment: environments.deploy, secretName: 'TAILSCALE_OAUTH_SECRET', value: joining.key }).secretName,
+            ...Record.map({ TAILSCALE_CLIENT_ID: joining.id, TAILSCALE_MACHINES: machines.join(',') }, (value, variableName) => new ActionsEnvironmentVariable(`${name}-deploy-${variableName}`, { repository, environment: environments.deploy, variableName, value }).value),
+        },
         updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true }).devicesAutoUpdatesOn,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
         assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,

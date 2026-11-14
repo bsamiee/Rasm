@@ -20,9 +20,7 @@ Places holding state, each updated by one action:
 - `Deploy` applies only when that CI run tested the tip of `main`, so no deploy restarts a service under the CI run of a later push
 - Doppler config `deploy` changes start `Deploy` through a Doppler webhook sending GitHub a `repository_dispatch` event
 - Pull requests, other branches, and cancelled CI runs start no deploy, and each deploy checks out `main`
-- Target `deploy` runs target `check` of the same project first
 - Deploys with unchanged inputs report `same` for every resource
-- Stored commands hold no checkout path, so this Mac and a CI runner apply the same inputs
 - GitHub environment `deploy` holds a read-only Doppler service token as `DOPPLER_TOKEN`, and `Deploy` reads config `deploy` through it
 - Doppler `deploy` rows hold the name of the variable their provider reads, and each stack's Pulumi process receives them as its environment
 - Row `DOPPLER_IAC_TOKEN` reaches that process as `DOPPLER_TOKEN` and authorizes the Doppler provider
@@ -31,7 +29,8 @@ Places holding state, each updated by one action:
 - Failed deploys fail their own `Deploy` run and leave the CI run as it ended
 - `nx deploy @rasm/infra` on this Mac applies the same stacks, and no step needs it
 - Machine and app stacks dial a Docker engine by tailnet name, so they apply only from a computer on the tailnet
-- Job `deploy` runs on a GitHub-hosted runner outside the tailnet
+- Job `deploy` runs on a GitHub-hosted runner that joins the tailnet as `tag:deploy` through `tailscale/github-action`
+- Stack `rasm` writes that tag's OAuth client and the machine names to GitHub environment `deploy`, and its tailnet policy grants the tag SSH
 
 ## [03]-[MACHINES]
 
@@ -58,7 +57,7 @@ Places holding state, each updated by one action:
 
 - Nx hashes a task's inputs (source files, dependency files, config, lock file package versions) and replays the stored result of an equal hash
 - Pushes to `main` read and write the cache server, and pull requests read it
-- Plugin row `@rasm/nx-devkit` of `nx.json` sends the server one read before the tasks of a run that sets `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
+- Plugin row `@rasm/nx-distribution` of `nx.json` sends the server one read before the tasks of a run that sets `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
 - Runs getting an answer other than 200 or 404, or none within 5 seconds, print one warning (an annotation under GitHub Actions) and use the local cache alone
 - Workflow `Release` uses no remote cache, so its run builds every file it attaches or publishes
 - This Mac uses its local cache alone: no remote cache variable is set here and Doppler `dev` holds none

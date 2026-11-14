@@ -1,8 +1,8 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Duration, Effect, Layer, Record } from 'effect';
-import { files, members, placed, workspace } from '#/workspace';
+import { files, members, placed, plugin, workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ const installed = Effect.map(members, (stated) => stated.filter((member) => memb
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Layer.provideMerge(Packed.layer('@rasm/nx-cmake'), layer), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-cmake release', (suite) => {
+it.layer(Layer.provideMerge(Packed.layer(plugin.name), layer), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-cmake release', (suite) => {
     suite.layer(workspace(), { timeout: bounds.built })('of CMake projects stating a version', (methods) => {
         methods.effect(
             'gives every project with an install rule the release tag',

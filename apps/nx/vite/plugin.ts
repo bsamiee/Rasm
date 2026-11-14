@@ -17,7 +17,7 @@ type Resolved = Effect.Success<ReturnType<typeof read>>;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MODE = { NODE_ENV: 'production' } as const;
-const SHARED = '@rasm/nx-devkit';
+const SHARED = '@rasm/nx-distribution';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

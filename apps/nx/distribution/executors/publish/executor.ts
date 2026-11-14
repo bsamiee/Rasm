@@ -1,7 +1,8 @@
+import type { ExecutorContext } from '@nx/devkit';
+import { Completed } from '@rasm/process';
 import { Effect, Schema, Struct, UndefinedOr } from 'effect';
-import { CommandLine } from 'effect/process';
-import { Dry, dried, executor, packaged } from '#/executor';
-import { ran } from '#/process';
+import { ChildProcess, CommandLine } from 'effect/process';
+import { Dry, dried, packaged, run } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,17 +16,15 @@ const Publish = Dry.mapFields(
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Publish,
-    Effect.fnUntraced(function* ({ publish, preview, ...stated }, context) {
-        const [dry, files] = yield* Effect.all([dried(stated), packaged(context)]);
-        return yield* UndefinedOr.match(dry ? preview : publish, {
-            onUndefined: () => Effect.as(Effect.logInfo(`Would run ${CommandLine.display([...publish, ...files])}`), true),
-            onDefined: ([command, ...rest]) => Effect.map(ran(command, [...rest, ...files], { cwd: context.root, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }), ({ code }) => code === 0),
-        });
-    }),
-);
+const execute = Effect.fnUntraced(function* ({ publish, preview, ...stated }: typeof Publish.Type, context: ExecutorContext) {
+    const [dry, files] = yield* Effect.all([dried(stated), packaged(context)]);
+    yield* UndefinedOr.match(dry ? preview : publish, {
+        onUndefined: () => Effect.logInfo(`Would run ${CommandLine.display([...publish, ...files])}`),
+        onDefined: ([command, ...rest]) => Effect.asVoid(Completed.output(ChildProcess.make(command, [...rest, ...files], { cwd: context.root, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }))),
+    });
+    return { success: true };
+}, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute };
+export { execute, Publish };

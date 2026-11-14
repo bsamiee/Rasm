@@ -4,7 +4,6 @@ import { workspaceRoot } from '@nx/devkit';
 import apple from '@rasm/nx-apple/package.json' with { type: 'json' };
 import cargo from '@rasm/nx-cargo/package.json' with { type: 'json' };
 import cmake from '@rasm/nx-cmake/package.json' with { type: 'json' };
-import devkit from '@rasm/nx-devkit/package.json' with { type: 'json' };
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import docker from '@rasm/nx-docker/package.json' with { type: 'json' };
 import dotnet from '@rasm/nx-dotnet/package.json' with { type: 'json' };
@@ -14,7 +13,7 @@ import typescript from '@rasm/nx-typescript/package.json' with { type: 'json' };
 import uv from '@rasm/nx-uv/package.json' with { type: 'json' };
 import vite from '@rasm/nx-vite/package.json' with { type: 'json' };
 import vitest from '@rasm/nx-vitest/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, Layer, Option, Predicate, Record, Schema } from 'effect';
 import { minimatch } from 'minimatch';
 import { readNxJson } from 'nx/src/config/nx-json';
@@ -42,7 +41,7 @@ const SOURCES = {
 } as const;
 const INSTALLED = Duration.toMillis(Duration.minutes(10));
 const THROWN = "throw new Error('refused');\n";
-const MANIFESTS: Record.ReadonlyRecord<string, unknown> = Record.fromIterableWith([apple, cargo, cmake, devkit, distribution, docker, dotnet, pulumi, storybook, typescript, uv, vite, vitest], (manifest) => [manifest.name, manifest]);
+const MANIFESTS: Record.ReadonlyRecord<string, unknown> = Record.fromIterableWith([apple, cargo, cmake, distribution, docker, dotnet, pulumi, storybook, typescript, uv, vite, vitest], (manifest) => [manifest.name, manifest]);
 const rows: readonly Row[] = (readNxJson(workspaceRoot).plugins ?? []).map((row) => (Predicate.isString(row) ? { plugin: row } : row));
 const BROKEN: Record.ReadonlyRecord<string, readonly [file: string, text: string]> = {
     '@rasm/nx-apple': ['apps/broken/Package.swift', 'not a manifest\n'],

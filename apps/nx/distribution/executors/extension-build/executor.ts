@@ -2,11 +2,12 @@ import { hash } from 'node:crypto';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { executor } from '@rasm/nx-devkit/executor';
-import { printed, ToolError } from '@rasm/nx-devkit/process';
+import { Completed } from '@rasm/process';
 import { Array, Effect, Equivalence, FileSystem, Option, Path, Record, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
+import { ChildProcess } from 'effect/process';
+import { refused, run } from '#/executor';
 import { BUILDER, EXTENSION } from '#/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -36,10 +37,12 @@ const Locked = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const toml = (text: string, subject: string) => Effect.mapError(Effect.fromResult(Toml.parse(text)), ToolError.of(subject, 'does not parse as TOML'));
+const toml = (text: string, subject: string) => Effect.mapError(Effect.fromResult(Toml.parse(text)), refused(subject, 'does not parse as TOML'));
+
+const uv = (args: readonly string[], cwd: string) => Completed.output(ChildProcess.make('uv', ['--color', 'never', ...args], { cwd, stdin: 'ignore' }));
 
 const locked = (args: readonly string[], cwd: string) =>
-    printed('uv', args, { cwd }).pipe(
+    uv(args, cwd).pipe(
         Effect.flatMap((pylock) => toml(pylock, `uv ${args.join(' ')}`)),
         Effect.flatMap(Schema.decodeUnknownEffect(Locked)),
     );
@@ -48,7 +51,7 @@ const fetched = Effect.fnUntraced(function* (url: string, sha256: string, folder
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const response = yield* Effect.flatMap(HttpClient.get(url), HttpClientResponse.filterStatusOk);
     const bytes = new Uint8Array(yield* response.arrayBuffer);
-    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(path.join(folder, decodeURIComponent(path.basename(new URL(url).pathname))), bytes) : ToolError.make({ subject: url, detail: `does not hash to ${sha256}, the sha256 its lock states` });
+    yield* hash('sha256', bytes, 'hex') === sha256 ? fs.writeFile(path.join(folder, decodeURIComponent(path.basename(new URL(url).pathname))), bytes) : Effect.fail(refused(url, `does not hash to ${sha256}, the sha256 its lock states`)());
 }, Effect.provide(FetchHttpClient.layer));
 
 const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: string, text: string, document: Record.ReadonlyRecord<string, unknown>, declared: typeof Manifest.Type) {
@@ -58,7 +61,7 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     const member = path.join(context.root, root);
     const exported = ['export', '--locked', '--no-default-groups', '--no-emit-project'];
     const [bundled, whole] = yield* Effect.all([locked(['export', '--locked', '--only-group', 'blender', '--format', 'pylock.toml'], member), locked([...exported, '--format', 'pylock.toml'], member)], { concurrency: 'unbounded' });
-    const [, major, , minor] = yield* Effect.mapError(Schema.decodeUnknownEffect(Minor)(whole['requires-python']), ToolError.of(`requires-python ${whole['requires-python']}`, 'pins no single Python minor as ==<major>.<minor>.*, the one interpreter the bundled wheels load in'));
+    const [, major, , minor] = yield* Effect.mapError(Schema.decodeUnknownEffect(Minor)(whole['requires-python']), refused(`requires-python ${whole['requires-python']}`, 'pins no single Python minor as ==<major>.<minor>.*, the one interpreter the bundled wheels load in'));
     const files = yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(root, '**', '*')]));
     yield* Effect.forEach(
         files.filter((file) => path.basename(file) !== EXTENSION),
@@ -67,22 +70,22 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
     );
     yield* fs.makeDirectory(wheels, { recursive: true });
     const requirements = path.join(stage, 'requirements.txt');
-    yield* printed('uv', [...exported, '--format', 'requirements.txt', '--no-emit-local', '--no-header', '--output-file', requirements, ...bundled.packages.flatMap(({ name }) => ['--no-emit-package', name])], { cwd: member });
+    yield* uv([...exported, '--format', 'requirements.txt', '--no-emit-local', '--no-header', '--output-file', requirements, ...bundled.packages.flatMap(({ name }) => ['--no-emit-package', name])], member);
     const selected = yield* Effect.forEach(
         declared.platforms ?? Record.keys(TARGETS),
         Effect.fnUntraced(function* (platform) {
-            const target = yield* Effect.mapError(Effect.fromNullishOr(TARGETS[platform]), ToolError.of(EXTENSION, `lists platform ${platform}, where uv selects wheels for ${Record.keys(TARGETS).join(', ')}`));
+            const target = yield* Effect.mapError(Effect.fromNullishOr(TARGETS[platform]), refused(EXTENSION, `lists platform ${platform}, where uv selects wheels for ${Record.keys(TARGETS).join(', ')}`));
             const resolved = yield* locked(['pip', 'compile', requirements, '--no-deps', '--python-platform', target, '--python-version', `${major}.${minor}`, '--format', 'pylock.toml'], member);
-            return yield* Effect.forEach(resolved.packages, ({ name, wheels: built = [] }) => Effect.mapError(Effect.fromOption(Array.head(built)), ToolError.of(name, `locks no wheel for ${platform}`)));
+            return yield* Effect.forEach(resolved.packages, ({ name, wheels: built = [] }) => Effect.mapError(Effect.fromOption(Array.head(built)), refused(name, `locks no wheel for ${platform}`)));
         }),
         { concurrency: 'unbounded' },
     );
     yield* Effect.forEach(Array.dedupeWith(selected.flat(), Equivalence.mapInput(Equivalence.String, Struct.get('url'))), ({ url, hashes }) => fetched(url, hashes.sha256, wheels), { concurrency: 'unbounded', discard: true });
     yield* fs.remove(requirements);
     const vendor = yield* fs.makeTempDirectoryScoped();
-    yield* Effect.forEach(Array.getSomes(whole.packages.map(({ directory }) => Option.fromUndefinedOr(directory?.path))), (local) => printed('uv', ['build', local, '--wheel', '--out-dir', vendor], { cwd: member }), { concurrency: 'unbounded' });
+    yield* Effect.forEach(Array.getSomes(whole.packages.map(({ directory }) => Option.fromUndefinedOr(directory?.path))), (local) => uv(['build', local, '--wheel', '--out-dir', vendor], member), { concurrency: 'unbounded' });
     const vendored = (yield* fs.readDirectory(vendor)).filter((file) => path.extname(file) === '.whl').map((wheel) => path.join(vendor, wheel));
-    yield* printed('uv', ['run', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#vendored'))), stage, ...vendored], { cwd: context.root });
+    yield* uv(['run', '--script', yield* path.fromFileUrl(new URL(import.meta.resolve('#vendored'))), stage, ...vendored], context.root);
     const listed = (yield* fs.readDirectory(wheels)).toSorted();
     yield* fs.writeFileString(path.join(stage, EXTENSION), patch(text, { ...document, wheels: listed.map((wheel) => `./wheels/${wheel}`) }));
     return stage;
@@ -90,23 +93,20 @@ const staged = Effect.fnUntraced(function* (context: ExecutorContext, root: stri
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Build,
-    Effect.fnUntraced(function* ({ outputPath: folder }, context, project) {
-        const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-        const { root } = (yield* Effect.fromNullishOr(context.projectGraph.nodes[project])).data;
-        const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
-        const document = yield* toml(text, EXTENSION);
-        const declared = yield* Schema.decodeUnknownEffect(Manifest)(document);
-        const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
-        yield* fs.remove(path.join(context.root, folder), { recursive: true, force: true });
-        yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
-        const source = bundle ? yield* staged(context, root, text, document, declared) : root;
-        yield* printed('uv', [...BUILDER, 'build', ...(declared.platforms === undefined ? [] : ['--split-platforms']), '--source-dir', source, '--output-dir', folder], { cwd: context.root });
-        return true;
-    }),
-);
+const execute = Effect.fnUntraced(function* ({ outputPath: folder }: typeof Build.Type, context: ExecutorContext) {
+    const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
+    const { root } = (yield* Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => Effect.fromNullishOr(context.projectGraph.nodes[project]))).data;
+    const text = yield* fs.readFileString(path.join(context.root, root, EXTENSION));
+    const document = yield* toml(text, EXTENSION);
+    const declared = yield* Schema.decodeUnknownEffect(Manifest)(document);
+    const bundle = yield* fs.exists(path.join(context.root, root, 'pyproject.toml'));
+    yield* fs.remove(path.join(context.root, folder), { recursive: true, force: true });
+    yield* fs.makeDirectory(path.join(context.root, folder), { recursive: true });
+    const source = bundle ? yield* staged(context, root, text, document, declared) : root;
+    yield* uv([...BUILDER, 'build', ...(declared.platforms === undefined ? [] : ['--split-platforms']), '--source-dir', source, '--output-dir', folder], context.root);
+    return { success: true };
+}, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute };
+export { Build, execute };

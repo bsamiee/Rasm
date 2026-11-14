@@ -14,7 +14,7 @@ type Workflow = Tree['workflows'][number];
 
 const CONFIG = '.clang-tidy';
 const PLUGIN = '@rasm/nx-cmake';
-const SHARED = '@rasm/nx-devkit';
+const SHARED = '@rasm/nx-distribution';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

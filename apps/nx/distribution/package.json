@@ -18,13 +18,15 @@
         ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
         "./package.json": "./package.json",
-        "./executors.json": "./executors.json"
+        "./executors.json": "./executors.json",
+        "./generators.json": "./generators.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json", "executors/extension-build/vendored.py", "executors/extension-build/vendored.py.lock" ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json", "generators.json", "generators/*/schema.json" ],
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
+        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/nx-devkit": "workspace:*",
+        "@rasm/process": "workspace:*",
         "@xml-tools/ast": "catalog:",
         "@xml-tools/parser": "catalog:",
         "effect": "catalog:",
@@ -42,12 +44,14 @@
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
             "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
+            "./executors.json": "./executors.json",
+            "./generators.json": "./generators.json"
         },
         "imports": {
             "#/*": "./dist/*.js",
             "#vendored": "./executors/extension-build/vendored.py"
         }
     },
-    "executors": "./executors.json"
+    "executors": "./executors.json",
+    "generators": "./generators.json"
 }

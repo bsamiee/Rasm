@@ -37,5 +37,5 @@
     "required": [ "targets", "commands", "cwd" ],
     "additionalProperties": true,
     "title": "Clean",
-    "description": "Removes the outputs the named targets of the project declare, keeping any the workspace tracks as source, and runs the tool's own clean commands when given"
+    "description": "Runs the tool's own clean commands when given, then removes the outputs the named targets of the project declare, keeping any the workspace tracks as source"
 }

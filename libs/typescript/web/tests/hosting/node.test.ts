@@ -12,8 +12,8 @@ const identity = new Identity({ headers: { id: 'x-user-id', email: 'x-user-email
 const megabytes = 256;
 const limits = { cpus: 1, memory: ByteSize.megabytes(megabytes) };
 const apps = {
-    stated: new App({ name: 'stated', env: { GREETING: App.Binding.text({ value: 'hello' }), TOKEN: App.Binding.secret() }, allowed: [], limits }),
-    structured: new App({ name: 'structured', env: { GREETING: App.Binding.text({ value: 'hello' }), TOKEN: App.Binding.secret(), SETTINGS: App.Binding.json({ value: { depth: 2 } }) }, allowed: [], limits }),
+    stated: new App({ name: 'stated', env: { GREETING: App.Binding.text({ value: 'hello' }), TOKEN: App.Binding.secret() }, allowed: [], targets: [], limits }),
+    structured: new App({ name: 'structured', env: { GREETING: App.Binding.text({ value: 'hello' }), TOKEN: App.Binding.secret(), SETTINGS: App.Binding.json({ value: { depth: 2 } }) }, allowed: [], targets: [], limits }),
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

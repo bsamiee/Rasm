@@ -5,7 +5,7 @@ import { platform } from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
-import { Consumer, fromCache, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, fromCache, Packed } from '@rasm/testing/nx';
 import { Array, Cause, Duration, Effect, FileSystem, Layer, Match, Option, Order, Path, Predicate, Record, Schema } from 'effect';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { getOutputsForTargetAndConfiguration, validateOutputs } from 'nx/src/tasks-runner/utils';
@@ -27,7 +27,7 @@ const SOURCES = {
     filesets: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts: should use consider filesets when hashing',
     sibling: 'nrwl/nx e2e/nx/src/include-ignored-cache-utils.ts: A change to a matched file misses the cache, a change to a file the inputs exclude still hits',
     remote: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts http remote cache: should PUT and GET cache from remote cache',
-    absent: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts http remote cache: should error if server is not running names the server; the `@rasm/nx-devkit` row of nx.json turns the remote cache off for a run when the cache server does not answer',
+    absent: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts http remote cache: should error if server is not running names the server; the `@rasm/nx-distribution` row of nx.json turns the remote cache off for a run when the cache server does not answer',
 } as const;
 const BUILT = Duration.toMillis(Duration.minutes(10));
 const TOKEN = 'test-token';

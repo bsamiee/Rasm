@@ -1,5 +1,6 @@
 import { assert } from '@effect/vitest';
-import { Consumer } from '@rasm/testing/nx/consumer';
+import plugin from '@rasm/nx-cmake/package.json' with { type: 'json' };
+import { Consumer } from '@rasm/testing/nx';
 import { Array, Effect, FileSystem, Path, Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -117,8 +118,8 @@ const ran = (...args: readonly string[]) => Effect.flatMap(Consumer, ({ nx }) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const workspace = (stated: Readonly<Record<string, string>> = {}, release: object = {}) => Consumer.layer({ resolved: import.meta.url, settings: { plugins: ['@rasm/nx-cmake'], release: { projects: ['tag:release'], ...release } }, ignored: ['build'], files: { ...files, ...stated } });
+const workspace = (stated: Readonly<Record<string, string>> = {}, release: object = {}) => Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name], release: { projects: ['tag:release'], ...release } }, ignored: ['build'], files: { ...files, ...stated } });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { configured, files, members, named, placed, ran, workspace };
+export { configured, files, members, named, placed, plugin, ran, workspace };

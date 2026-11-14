@@ -1,15 +1,12 @@
-import { dirname, join, normalize, relative } from 'node:path';
+import { basename, dirname, join, normalize, relative } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { ToolError } from '@rasm/nx-devkit/process';
-import { ancestors } from '@rasm/nx-devkit/project';
 import { Array, Effect, Equivalence, Option, Predicate, Record, Result, Schema, SchemaTransformation } from 'effect';
-import { CHECKERS, declared, PIXI } from '#/targets';
+import { CHECKERS, declared, PIXI, refused } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Workspace = Effect.Success<ReturnType<typeof located>>;
-type Member = Workspace['members'][number];
+type Member = Effect.Success<ReturnType<typeof located>>['members'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,6 +14,7 @@ const LOCK = 'uv.lock';
 const MANIFEST = 'pyproject.toml';
 const PRIVATE = 'Private ::';
 const SEPARATORS = /[-_.]+/gu;
+const UNDERSCORED = /-(?!stubs$)/gu;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,6 +27,24 @@ const Declared = Schema.Struct({
         scripts: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 });
+const Filed = Schema.Struct({ file: Schema.String });
+const Globs = Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
+const Backend = Schema.Struct({
+    'build-system': Schema.Struct({ 'build-backend': Schema.Literal('uv_build') }),
+    project: Schema.Struct({ name: Schema.String, readme: Schema.optionalKey(Schema.Unknown), license: Schema.optionalKey(Schema.Unknown), 'license-files': Globs }),
+    tool: Schema.Struct({
+        uv: Schema.Struct({
+            'build-backend': Schema.Struct({
+                'module-root': Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('src'))),
+                'module-name': Schema.optionalKey(Schema.Union([Schema.String, Schema.Array(Schema.String)])),
+                'source-include': Globs,
+                'source-exclude': Globs,
+                'default-excludes': Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(true))),
+                data: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+            }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+        }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+    }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+}).annotate({ description: "pyproject.toml tables naming files uv_build packs into a member's source distribution, each absent setting at its documented uv default" });
 const Indexed = Schema.Struct({ tool: Schema.Struct({ uv: Schema.Struct({ index: Schema.Array(Schema.Struct({ name: Schema.optionalKey(Schema.String), 'publish-url': Schema.optionalKey(Schema.String) })) }) }) });
 const Pixi = Schema.Struct({ tool: Schema.Struct({ pixi: Schema.Record(Schema.String, Schema.Unknown) }) });
 const Tooled = Schema.Struct({ tool: Schema.Struct({ nx: Schema.Unknown.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) });
@@ -60,6 +76,19 @@ const sited = (workspaceRoot: string) => (node: typeof Node.Type) =>
         ([, at]) => relative(workspaceRoot, normalize(String(at))) || '.',
     );
 
+const packed = (stated: unknown): readonly string[] =>
+    Option.match(Schema.decodeUnknownOption(Backend)(stated), {
+        onNone: () => [join('{projectRoot}', '**', '*')],
+        onSome: ({ project, tool }) => {
+            const backend = tool.uv['build-backend'];
+            const modules = Array.ensure(backend['module-name'] ?? normalized(project.name).replace(UNDERSCORED, '_')).map((name) => join(backend['module-root'], ...name.split('.'), '**'));
+            const files = [...(Predicate.isString(project.readme) ? [project.readme] : []), ...Array.getSomes([project.readme, project.license].map((held) => Schema.decodeUnknownOption(Filed)(held))).map(({ file }) => file)];
+            const data = Object.values(backend.data).map((folder) => join(folder, '**'));
+            const excluded = [...(backend['default-excludes'] ? ['__pycache__', '*.pyc', '*.pyo'] : []), ...backend['source-exclude']].map((pattern) => (pattern.startsWith('/') ? pattern.slice(1) : join('**', pattern)));
+            return [...[MANIFEST, ...modules, ...backend['source-include'], ...files, ...project['license-files'], ...data].map((glob) => join('{projectRoot}', glob)), ...excluded.flatMap((glob) => [glob, join(glob, '**')]).map((glob) => `!${join('{projectRoot}', glob)}`)];
+        },
+    });
+
 const folders = (workspaceRoot: string, { workspace, resolution }: typeof Metadata.Type) => Array.dedupe([relative(workspaceRoot, workspace.path) || '.', ...Array.getSomes(Object.values(resolution).map(sited(workspaceRoot)))]);
 
 const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.Type, documented: ReadonlyMap<string, unknown>) => {
@@ -87,14 +116,9 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
         return [file, Result.flatMap(Schema.decodeUnknownResult(Tooled)(documented.get(file)), ({ tool }) => Schema.decodeUnknownResult(Nx, { onExcessProperty: 'error' })(tool.nx))] as const;
     });
     const index = Option.flatMap(Schema.decodeUnknownOption(Indexed)(stated(workspace)), ({ tool }) => Array.findFirst(tool.uv.index, (row) => row['publish-url'] !== undefined));
-    const manifests = Array.dedupe(
-        folders(workspaceRoot, metadata)
-            .flatMap((root) => ancestors(root))
-            .map((folder) => join(folder, MANIFEST)),
-    ).filter((file) => documented.has(file));
+    const manifests = [...documented.keys()].filter((file) => basename(file) === MANIFEST);
     return {
-        lock,
-        failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), (cause) => [file, ToolError.of(file, 'does not decode')(cause)] as const)),
+        failures: Array.filterMap(tables, ([file, table]) => Result.map(Result.flip(table), refused(file, 'does not decode'))),
         members: Array.zipWith(members, tables, (member, [, table]) => {
             const groups = Array.unionWith(resolution[member.id]?.dependency_groups ?? [], workspaceGroups, Equivalence.Struct({ name: Equivalence.String }));
             const packaged = 'editable' in (resolution[member.id]?.source ?? {});
@@ -104,6 +128,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
                 workspace,
                 packaged,
                 manifests,
+                sources: [...packed(stated(member.root)), join('{workspaceRoot}', workspace, MANIFEST), join('{workspaceRoot}', lock)],
                 index: Option.getOrUndefined(Option.flatMap(index, ({ name }) => Option.fromUndefinedOr(name))),
                 pixi: documented.has(join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
                 scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),
@@ -147,4 +172,4 @@ const located = Effect.fnUntraced(function* (workspaceRoot: string, { members, .
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { folders, LOCK, located, MANIFEST, type Member, Metadata, normalized, report, type Workspace };
+export { folders, LOCK, located, MANIFEST, type Member, Metadata, normalized, report };

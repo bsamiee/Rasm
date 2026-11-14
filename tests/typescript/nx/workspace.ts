@@ -1,7 +1,7 @@
 import { delimiter } from 'node:path';
 import { type ProjectGraph, type TargetConfiguration, workspaceRoot } from '@nx/devkit';
 import { Completed } from '@rasm/process';
-import { inherited } from '@rasm/testing/nx/consumer';
+import { inherited } from '@rasm/testing/nx';
 import { Array, Effect, FileSystem, Formatter, Option, Path, Record, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { inject } from 'vitest';

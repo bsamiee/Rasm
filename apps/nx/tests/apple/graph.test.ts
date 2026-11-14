@@ -1,5 +1,5 @@
 import { assert, it } from '@effect/vitest';
-import { Consumer } from '@rasm/testing/nx/consumer';
+import { Consumer } from '@rasm/testing/nx';
 import { NX, README, VERBS } from '@rasm/testing/nx/exemplars';
 import { affected, foreign, hashed, omitted, pairs, placed, publishing, reprinted, seen, spied, together, tools, unread } from '@rasm/testing/nx/projects';
 import { Array, Duration, Effect } from 'effect';

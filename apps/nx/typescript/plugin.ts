@@ -17,7 +17,7 @@ type Program = Effect.Success<ReturnType<typeof resolved>>;
 const CONFIG = 'tsconfig.json';
 const MANIFEST = 'package.json';
 const WORKER = 'cloudflare.config.ts';
-const SHARED = '@rasm/nx-devkit';
+const SHARED = '@rasm/nx-distribution';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

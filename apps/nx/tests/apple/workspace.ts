@@ -1,6 +1,6 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import plugin from '@rasm/nx-apple/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Effect, Layer, Path, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

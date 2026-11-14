@@ -5,21 +5,20 @@ import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
-import { written } from '@rasm/nx-devkit/executor';
-import { printed, ToolError } from '@rasm/nx-devkit/process';
-import { PLATFORM } from '@rasm/nx-devkit/project';
+import { Completed } from '@rasm/process';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
-import { Array, Config, Effect, FileSystem, flow, Option, Path, type PlatformError, pipe, Record, Result, Schema, SemVer, Stream, String } from 'effect';
+import { Array, type Cause, Config, Effect, FileSystem, flow, Option, Path, pipe, Record, Result, Schema, SemVer, Stream, String } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
-import type { ChildProcessSpawner } from 'effect/process';
+import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { applyEdits, modify, parse } from 'jsonc-parser';
+import { refused, written } from '#/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Services = FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner;
-type Step<A = void> = Effect.Effect<A, ToolError | PlatformError.PlatformError, Services>;
+type Step<A = void> = Effect.Effect<A, Error, Services>;
 type Stored<A = void> = Effect.Effect<A, Error, Services | HttpClient.HttpClient>;
 
 interface Fields {
@@ -50,8 +49,8 @@ interface Host {
     readonly standalone?: true;
     readonly held?: (descriptor: string) => Effect.Effect<boolean, never, Services>;
     readonly operations?: Partial<Record<'check' | 'test' | 'pack' | 'install', { readonly command: string; readonly options: Readonly<Record<string, unknown>> }>>;
-    readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, ToolError>;
-    readonly write?: (text: string, version: string) => Effect.Effect<string, ToolError>;
+    readonly read: (text: string, file: string) => Effect.Effect<Option.Option<Fields>, Cause.UnknownError>;
+    readonly write?: (text: string, version: string) => Effect.Effect<string, Cause.UnknownError>;
     readonly build?: { readonly executor: string; readonly command: string; readonly lock?: string; readonly runtime?: readonly string[]; readonly pack?: (folder: Found, file: string, timestampAuthority: string) => Step };
     readonly install?: { readonly command: string; readonly probe?: Array.NonEmptyReadonlyArray<string>; readonly platforms?: readonly string[]; readonly unpacked?: true; readonly run: (found: Found) => Step };
     readonly publish?: { readonly store: string; readonly command: string; readonly held: (found: Found, store: string) => Stored<boolean>; readonly push: (found: Found, store: string) => Stored };
@@ -101,7 +100,7 @@ const Built = Schema.fromJsonString(Schema.Struct({ MajorVersion: Schema.Int, Mi
 const exact = (subject: string, version: string) =>
     Effect.fromResult(SemVer.parse(version)).pipe(
         Effect.filterOrFail((parsed) => !(SemVer.isPrerelease(parsed) || SemVer.hasBuild(parsed))),
-        Effect.mapError(ToolError.of(subject, `takes a major.minor.patch version alone, which ${version} is not`)),
+        Effect.mapError(refused(subject, `takes a major.minor.patch version alone, which ${version} is not`)),
     );
 
 const extension = (text: string) => {
@@ -112,7 +111,7 @@ const extension = (text: string) => {
     );
 };
 
-const adobe = Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), ToolError.of(platform, 'holds no per-user Adobe folder'));
+const adobe = Effect.mapError(Effect.flatten(Effect.fromNullishOr(ADOBE[platform])), refused(platform, 'holds no per-user Adobe folder'));
 
 const copied = Effect.fnUntraced(function* ({ at, names }: Found, to: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -126,7 +125,7 @@ const zipped = Effect.fnUntraced(function* (folder: string, names: readonly stri
         Stream.map(({ name, info }) => Zip.fileStream(name.split(path.sep).join('/'), fs.stream(path.join(folder, name)), { mode: info.mode % (constants.S_IRWXU + constants.S_IRWXG + constants.S_IRWXO + 1) })),
         Stream.pipeThroughChannel(Zip.encode()),
         Stream.run(fs.sink(file)),
-        Effect.mapError(ToolError.of(file, 'does not write')),
+        Effect.mapError(refused(file, 'does not write')),
     );
 });
 
@@ -146,13 +145,13 @@ const entry = (file: string, name: string) =>
             ),
             Stream.filter(Option.isSome),
             Stream.runHead,
-            Effect.mapBoth({ onFailure: ToolError.of(file, 'does not read as a zip archive'), onSuccess: Option.flatten }),
+            Effect.mapBoth({ onFailure: refused(file, 'does not read as a zip archive'), onSuccess: Option.flatten }),
         ),
     );
 
 const engine = Effect.fnUntraced(function* (descriptor: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), ToolError.of(platform, `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
+    const host = yield* Effect.mapError(Effect.fromNullishOr(UNREAL[platform]), refused(platform, `is no supported Unreal Engine host; supported: ${Object.keys(UNREAL).join(', ')}`));
     const settings = path.join(homedir(), ...host.settings);
     const declared = yield* Effect.flatMap(fs.readFileString(descriptor), Schema.decodeEffect(Engined));
     const named = Option.filter(Option.fromUndefinedOr(declared.EngineAssociation), String.isNonEmpty);
@@ -172,19 +171,17 @@ const engine = Effect.fnUntraced(function* (descriptor: string) {
                 ),
             ),
         ]),
-        () =>
-            ToolError.make({
-                subject: descriptor,
-                detail: Option.match(named, { onNone: () => 'names no engine, and no engine tree encloses it', onSome: (key) => `names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` }),
-            }),
+        refused(descriptor, Option.match(named, { onNone: () => 'names no engine, and no engine tree encloses it', onSome: (key) => `names engine "${key}", which the engine tree around it, Install.ini, and LauncherInstalled.dat under ${settings} do not list` })),
     );
     const { MajorVersion, MinorVersion } = yield* Effect.flatMap(fs.readFileString(path.join(root, 'Engine', 'Build', 'Build.version')), Schema.decodeEffect(Built));
     return { root, platform: host.name, version: `${MajorVersion}.${MinorVersion}`, binaries: path.join(root, 'Engine', 'Binaries', host.name), scripts: path.join(root, 'Engine', 'Build', 'BatchFiles') };
 });
 
-const located = Effect.fnUntraced(function* (context: ExecutorContext, start: string) {
+const located = Effect.fnUntraced(function* (context: ExecutorContext) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const { project, node, selected, outputs, files } = yield* written(context, start);
+    const { project, target, selected, outputs, files: listed } = yield* written(context);
+    const node = yield* Effect.fromNullishOr(context.projectGraph.nodes[project]);
+    const files = listed.map((file) => path.join(context.root, file));
     const rows = HOSTS.filter(({ technology }) => node.data.metadata?.technologies?.includes(technology) === true);
     const sources = Array.isReadonlyArrayNonEmpty(selected) ? files : (yield* Effect.promise(() => globWithWorkspaceContext(context.root, [path.join(node.data.root, '**')]))).map((file) => path.join(context.root, file));
     const stated = (host: Host, at: string, text: string, file: string, names: readonly string[]) =>
@@ -201,7 +198,7 @@ const located = Effect.fnUntraced(function* (context: ExecutorContext, start: st
         sources.flatMap((file) => rows.filter(({ build, install }) => build?.pack !== undefined || install?.unpacked === true).map((host) => ({ host, file, folder: path.join(file, path.relative(host.manifest, '.')) }))).filter(({ host, file, folder }) => matchesGlob(path.relative(folder, file), host.manifest)),
         ({ host, file, folder }) => Effect.flatMap(fs.readFileString(file), (text) => stated(host, folder, text, file, under(folder))),
     );
-    return { project, outputs, packages: Array.getSomes(packages), folders: Array.getSomes(folders) };
+    return { project, target, outputs, packages: Array.getSomes(packages), folders: Array.getSomes(folders) };
 });
 
 // --- [HOSTS] ---------------------------------------------------------------------------
@@ -215,11 +212,11 @@ const HOSTS: readonly Host[] = [
             Effect.fromResult(Toml.parse(text)).pipe(
                 Effect.flatMap(Schema.decodeUnknownEffect(Extension)),
                 Effect.mapBoth({
-                    onFailure: ToolError.of(file, 'does not decode'),
+                    onFailure: refused(file, 'does not decode'),
                     onSuccess: ({ id, version, platforms, build }) => Option.some({ name: id, version, foreign: Option.exists(Option.fromUndefinedOr(build?.generated?.platforms ?? platforms), (built) => !built.includes(`${BLENDER[platform]}-${arch}`)) }),
                 }),
             ),
-        write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: ToolError.of(EXTENSION, 'does not parse as TOML'), onSuccess: (document) => patch(text, { ...document, version }) }),
+        write: (text, version) => Effect.mapBoth(Effect.fromResult(Toml.parse(text)), { onFailure: refused(EXTENSION, 'does not parse as TOML'), onSuccess: (document) => patch(text, { ...document, version }) }),
         build: {
             executor: 'extension-build',
             command: 'blender_ext.py build',
@@ -230,8 +227,8 @@ const HOSTS: readonly Host[] = [
             command: 'blender --command extension install-file',
             probe: ['blender', '--version'],
             run: ({ at, name }) =>
-                Effect.flatMap(printed('blender', ['--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at]), (stdout) =>
-                    new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : ToolError.make({ subject: at, detail: `blender exited 0 without installing it: ${stdout.trim()}` }),
+                Effect.flatMap(Completed.output(ChildProcess.make('blender', ['--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at], { stdin: 'ignore' })), (stdout) =>
+                    new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : Effect.fail(refused(at, `blender exited 0 without installing it: ${stdout.trim()}`)()),
                 ),
         },
         publish: {
@@ -243,9 +240,9 @@ const HOSTS: readonly Host[] = [
                 return data.some((listed) => listed.id === name && listed.version === version && Array.difference(build?.generated?.platforms ?? platforms ?? [], listed.platforms ?? []).length === 0);
             }),
             push: Effect.fnUntraced(function* ({ at, name }, store) {
-                const [token, archive] = yield* Effect.all([Config.Redacted('BLENDER_EXTENSIONS_TOKEN'), Effect.tryPromise({ try: () => openAsBlob(at), catch: ToolError.of(at, 'does not open') })]);
+                const [token, archive] = yield* Effect.all([Config.Redacted('BLENDER_EXTENSIONS_TOKEN'), Effect.tryPromise({ try: () => openAsBlob(at), catch: refused(at, 'does not open') })]);
                 const request = HttpClientRequest.post(`${store}/api/v1/extensions/${name}/versions/upload/`).pipe(HttpClientRequest.bearerToken(token), HttpClientRequest.bodyFormDataRecord({ version_file: new File([archive], basename(at)) }));
-                yield* Effect.flatMap(HttpClient.execute(request), HttpClientResponse.matchStatus({ 404: () => Effect.fail(ToolError.make({ subject: name, detail: `is not listed on ${store}, upload its first version there once` })), orElse: HttpClientResponse.filterStatusOk }));
+                yield* Effect.flatMap(HttpClient.execute(request), HttpClientResponse.matchStatus({ 404: () => Effect.fail(refused(name, `is not listed on ${store}, upload its first version there once`)()), orElse: HttpClientResponse.filterStatusOk }));
             }),
         },
     },
@@ -260,10 +257,10 @@ const HOSTS: readonly Host[] = [
             pack: ({ at }, file) =>
                 Effect.andThen(
                     Effect.flatMap(FileSystem.FileSystem, (fs) => fs.copy(at, dirname(file))),
-                    Effect.asVoid(printed('yak', ['build'], { cwd: dirname(file) })),
+                    Effect.asVoid(Completed.output(ChildProcess.make('yak', ['build'], { cwd: dirname(file), stdin: 'ignore' }))),
                 ),
         },
-        install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }) => Effect.asVoid(printed('yak', ['install', at])) },
+        install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }) => Effect.asVoid(Completed.output(ChildProcess.make('yak', ['install', at], { stdin: 'ignore' }))) },
         publish: {
             store: 'https://yak.rhino3d.com',
             command: 'yak push',
@@ -275,7 +272,7 @@ const HOSTS: readonly Host[] = [
                         orElse: (response) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Pushed)), ({ distributions }) => distributions.some(({ filename }) => filename.toLowerCase() === basename(at).toLowerCase())),
                     }),
                 ),
-            push: ({ at }, store) => Effect.asVoid(printed('yak', ['push', at, '--source', store])),
+            push: ({ at }, store) => Effect.asVoid(Completed.output(ChildProcess.make('yak', ['push', at, '--source', store], { stdin: 'ignore' }))),
         },
     },
     {
@@ -291,10 +288,10 @@ const HOSTS: readonly Host[] = [
             unpacked: true,
             run: Effect.fnUntraced(function* (found) {
                 const [fs, path, root] = yield* Effect.all([FileSystem.FileSystem, Path.Path, adobe]);
-                const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), ToolError.of(found.at, 'holds no UXP manifest'));
+                const { id, name, version, host } = yield* Effect.mapError(Schema.decodeEffect(Uxp)(found.text), refused(found.at, 'holds no UXP manifest'));
                 const [registry, local, placed] = [path.join(root, 'UXP', 'PluginsInfo', 'v1', `${host.app}.json`), (at: string) => at.replace('$localPlugins', path.join(root, 'UXP', 'Plugins')), `$localPlugins/External/${id}_${version}`];
                 const before = yield* fs.readFileString(registry).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed('{"plugins":[]}')));
-                const rows = (yield* Effect.mapError(Schema.decodeUnknownEffect(Registry)(parse(before)), ToolError.of(registry, 'holds no plugins array'))).plugins;
+                const rows = (yield* Effect.mapError(Schema.decodeUnknownEffect(Registry)(parse(before)), refused(registry, 'holds no plugins array'))).plugins;
                 const held = rows.findIndex(({ pluginId }) => pluginId === id);
                 const row = { ...rows[held], hostMinVersion: host.minVersion, name, path: placed, pluginId: id, status: 'enabled', type: 'uxp', versionString: version };
                 yield* Effect.forEach(Array.dedupe([...Array.fromNullishOr(rows[held]?.path), placed]), (at) => fs.remove(local(at), { recursive: true, force: true }), { discard: true });
@@ -325,7 +322,7 @@ const HOSTS: readonly Host[] = [
                     Option.flatMap((root) => Array.findFirst(root.attributes, ({ key }) => key === 'ExtensionBundleVersion')),
                     Option.flatMap(({ syntax }) => Option.fromUndefinedOr(syntax.value)),
                     Effect.fromOption,
-                    Effect.mapBoth({ onFailure: ToolError.of('CSXS/manifest.xml', 'states no ExtensionBundleVersion'), onSuccess: (value) => `${text.slice(0, value.startOffset + 1)}${version}${text.slice(value.endOffset)}` }),
+                    Effect.mapBoth({ onFailure: refused('CSXS/manifest.xml', 'states no ExtensionBundleVersion'), onSuccess: (value) => `${text.slice(0, value.startOffset + 1)}${version}${text.slice(value.endOffset)}` }),
                 ),
             ),
         build: {
@@ -336,8 +333,14 @@ const HOSTS: readonly Host[] = [
                 const stage = yield* fs.makeTempDirectoryScoped();
                 const [staged, certificate] = [path.join(stage, found.name), path.join(stage, 'certificate.p12')];
                 yield* copied(found, staged);
-                yield* printed(SIGNER, ['-selfSignedCert', '', '', '', found.name, found.name, certificate]);
-                yield* printed(SIGNER, ['-sign', staged, file, certificate, found.name, '-tsa', timestampAuthority]);
+                yield* Effect.forEach(
+                    [
+                        ['-selfSignedCert', '', '', '', found.name, found.name, certificate],
+                        ['-sign', staged, file, certificate, found.name, '-tsa', timestampAuthority],
+                    ],
+                    (args) => Completed.output(ChildProcess.make(SIGNER, args, { stdin: 'ignore' })),
+                    { discard: true },
+                );
             }, Effect.scoped),
         },
         install: {
@@ -351,7 +354,7 @@ const HOSTS: readonly Host[] = [
                     Stream.filter(({ header }) => header.type === 'File'),
                     Stream.mapEffect(({ header, body }) => Effect.andThen(fs.makeDirectory(path.dirname(path.join(target, header.path)), { recursive: true }), Stream.run(body, fs.sink(path.join(target, header.path))))),
                     Stream.runDrain,
-                    Effect.mapError(ToolError.of(at, 'does not unpack')),
+                    Effect.mapError(refused(at, 'does not unpack')),
                 );
             }),
         },
@@ -363,7 +366,7 @@ const HOSTS: readonly Host[] = [
         standalone: true,
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Project)(text), {
-                onFailure: ToolError.of(file, 'does not decode'),
+                onFailure: refused(file, 'does not decode'),
                 onSuccess: ({ Plugins, AdditionalPluginDirectories }) => Option.some({ name: basename(file, '.uproject'), folders: ['Plugins', ...(AdditionalPluginDirectories ?? [])], references: (Plugins ?? []).map(({ Name, Enabled }) => ({ name: Name, enabled: Enabled === true })) }),
             }),
         held: flow(engine, Effect.isSuccess),
@@ -378,7 +381,7 @@ const HOSTS: readonly Host[] = [
         standalone: true,
         read: (text, file) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
-                onFailure: ToolError.of(file, 'does not decode'),
+                onFailure: refused(file, 'does not decode'),
                 onSuccess: ({ VersionName, Installed, Plugins, nx }) =>
                     Option.some({
                         name: basename(file, '.uplugin'),
@@ -390,10 +393,10 @@ const HOSTS: readonly Host[] = [
             }),
         write: (text, version) =>
             Effect.mapBoth(Schema.decodeEffect(Plugin)(text), {
-                onFailure: ToolError.of('uplugin', 'does not decode'),
+                onFailure: refused('uplugin', 'does not decode'),
                 onSuccess: ({ Version }) => applyEdits(text, [...modify(text, ['VersionName'], version, {}), ...modify(text, ['Version'], (Version ?? 0) + 1, {})]),
             }),
-        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: [PLATFORM.runtime] },
+        build: { executor: 'unreal-build', command: 'AutomationTool BuildPlugin -StrictIncludes', runtime: ['node -p process.platform+process.arch'] },
         operations: {
             test: { command: 'UnrealEditor-Cmd -ExecCmds="Automation RunTests ^<plug-in name>.;Quit" -nullrhi -unattended in each project loading the plug-in, then a read of each test state from the exported report', options: { operation: 'test' } },
             pack: { command: 'the store checks, then a zip of each BuildPlugin package and a zip of the tracked sources with each installed package per engine, the form Fab takes', options: { operation: 'pack' } },

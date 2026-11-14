@@ -19,7 +19,6 @@
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/js": "catalog:",
-        "@rasm/nx-devkit": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

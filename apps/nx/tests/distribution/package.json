@@ -1,7 +1,7 @@
 {
     "name": "@rasm/test-nx-distribution",
     "private": true,
-    "description": "@rasm/nx-distribution suites over temporary workspaces: host manifests in each vendor format discovered, packaged, and versioned through nx against README delivery rules",
+    "description": "@rasm/nx-distribution suites over temporary workspaces: host manifests in each vendor format discovered, packaged, and versioned through nx against README delivery rules, and its clean, publish, and attach executors and sync generator run through nx with gh replaced at the process boundary",
     "type": "module",
     "devDependencies": {
         "@effect/platform-node": "catalog:",

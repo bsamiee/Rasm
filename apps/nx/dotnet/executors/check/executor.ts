@@ -1,8 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { executor } from '@rasm/nx-devkit/executor';
-import { iterated } from '@rasm/nx-devkit/process';
-import { Array, Console, Effect, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Console, Effect, FileSystem, Path, Record, Schema, Stream, Struct } from 'effect';
+import { run, streamed } from '#/executors/build/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,7 +18,6 @@ const Result = Schema.Struct({
     locations: Schema.optionalKey(Schema.Array(Schema.Struct({ physicalLocation: Schema.Struct({ artifactLocation: Schema.Struct({ uri: Schema.URLFromString }), region: Schema.Struct({ startLine: Schema.Int, startColumn: Schema.Int }) }) }))),
 });
 const Report = Schema.fromJsonString(Schema.Struct({ runs: Schema.Array(Schema.Struct({ results: Schema.Array(Result) })) }));
-const Checked = Schema.Struct({ task: Schema.String, result: Schema.Struct({ success: Schema.Boolean, terminalOutput: Schema.String }) }).annotate({ description: 'The result Nx reads for one task of a batch' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -37,30 +35,25 @@ const findings = Effect.fnUntraced(function* (root: string, { reports }: typeof 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Check,
-    Effect.fnUntraced(function* (check, context) {
-        const lines = yield* findings(context.root, check);
-        yield* Effect.forEach(lines, (line) => Console.log(line));
-        return lines.length === 0;
-    }),
-);
+const execute = Effect.fnUntraced(function* (check: typeof Check.Type, context: ExecutorContext) {
+    const lines = yield* findings(context.root, check);
+    yield* Effect.forEach(lines, (line) => Console.log(line));
+    return { success: lines.length === 0 };
+}, run);
 
-const batch = iterated((_: unknown, inputs: Readonly<Record<string, unknown>>, __: unknown, context: ExecutorContext) =>
-    Stream.mapEffect(
-        Stream.fromIterable(Record.toEntries(inputs)),
-        ([task, options]) =>
-            Effect.match(
-                Effect.flatMap(Schema.decodeUnknownEffect(Check)(options), (check) => findings(context.root, check)),
-                {
-                    onSuccess: (lines): typeof Checked.Type => ({ task, result: { success: lines.length === 0, terminalOutput: lines.join('\n') } }),
-                    onFailure: (error): typeof Checked.Type => ({ task, result: { success: false, terminalOutput: error.message } }),
-                },
-            ),
-        { concurrency: 'unbounded' },
-    ),
-);
+const batch = (_: unknown, inputs: Readonly<Record<string, typeof Check.Type>>, __: unknown, context: ExecutorContext) =>
+    streamed(
+        Stream.mapEffect(
+            Stream.fromIterable(Record.toEntries(inputs)),
+            ([task, check]) =>
+                Effect.matchCause(findings(context.root, check), {
+                    onSuccess: (lines) => ({ task, result: { success: lines.length === 0, terminalOutput: lines.join('\n') } }),
+                    onFailure: (cause) => ({ task, result: { success: false, terminalOutput: Cause.pretty(cause) } }),
+                }),
+            { concurrency: 'unbounded' },
+        ),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batch, execute };
+export { batch, Check, execute };

@@ -22,8 +22,9 @@
     "files": [ "dist", "executors.json", "executors/*/schema.json" ],
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
+        "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/nx-devkit": "workspace:*",
+        "@rasm/process": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

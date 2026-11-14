@@ -16,12 +16,14 @@
                 "type": "string"
             }
         },
-        "destroy": {
-            "type": "boolean",
-            "description": "Destroys the local stacks and removes them"
+        "operation": {
+            "type": "string",
+            "enum": [ "up", "preview", "destroy" ],
+            "description": "What runs on each stack: up applies it, preview prints the changes an apply makes and makes none, destroy destroys and removes it",
+            "default": "up"
         }
     },
-    "required": [ "programs" ],
+    "required": [ "programs", "operation" ],
     "additionalProperties": true,
     "title": "Install",
     "description": "Applies the stacks a program package states for a project's install on this machine through the Pulumi Automation API, refreshing live state first"

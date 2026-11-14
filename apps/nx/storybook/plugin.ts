@@ -13,7 +13,7 @@ import { Array, Cause, Effect, FileSystem, Option, Predicate, pipe, Schema } fro
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MODE = { NODE_ENV: 'production' } as const;
-const SHARED = '@rasm/nx-devkit';
+const SHARED = '@rasm/nx-distribution';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

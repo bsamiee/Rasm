@@ -1,5 +1,5 @@
 import { assert, it } from '@effect/vitest';
-import { Consumer } from '@rasm/testing/nx/consumer';
+import { Consumer } from '@rasm/testing/nx';
 import { NX, README } from '@rasm/testing/nx/exemplars';
 import { attaching, placed, publishing, released } from '@rasm/testing/nx/projects';
 import { Duration, Effect } from 'effect';

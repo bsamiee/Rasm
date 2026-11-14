@@ -1,10 +1,13 @@
+import { constants } from 'node:http2';
 import { basename, join, matchesGlob, relative } from 'node:path';
-import { platform } from 'node:process';
-import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
+import { env, platform } from 'node:process';
+import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, hashArray, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns } from '@nx/devkit/internal';
-import { present, promised } from '@rasm/nx-devkit/process';
-import { ancestors } from '@rasm/nx-devkit/project';
-import { Array, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Completed } from '@rasm/process';
+import { Array, Cause, Config, Console, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
+import { ChildProcess } from 'effect/process';
+import { run } from '#/executor';
 import { type Fields, HOSTS, type Host } from '#/host-packages';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -20,9 +23,9 @@ interface Declared {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PLUGIN = '@rasm/nx-distribution';
-const SHARED = '@rasm/nx-devkit';
 const FILES = combineGlobPatterns(Array.dedupe(HOSTS.map(({ manifest }) => `**/${basename(manifest)}`)));
 const WITHHELD = ['archive', 'build', 'operations', 'publish'] as const;
+const CACHE = { server: 'NX_SELF_HOSTED_REMOTE_CACHE_SERVER', token: 'NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN', wait: '5 seconds', served: new Set<number>([constants.HTTP_STATUS_OK, constants.HTTP_STATUS_NOT_FOUND]) } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -42,9 +45,11 @@ const read = Effect.fnUntraced(function* (files: readonly string[], { workspaceR
         ),
     );
     const local = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms = [platform] }) => platforms.includes(platform));
-    const installing = yield* Effect.filter(local, ({ install }) => (install?.probe === undefined ? Effect.succeed(true) : Effect.map(present(Array.headNonEmpty(install.probe), Array.tailNonEmpty(install.probe)), Option.isSome)));
+    const installing = yield* Effect.filter(local, ({ install }) => (install?.probe === undefined ? Effect.succeed(true) : Effect.isSuccess(Completed.output(ChildProcess.make(Array.headNonEmpty(install.probe), Array.tailNonEmpty(install.probe), { stdin: 'ignore' })))));
     const one = Effect.fnUntraced(function* ({ file, host, root }: (typeof matched)[number]) {
-        const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(ancestors(root), Array.fromNullishOr(host.build?.lock), join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
+        const segments = root.split('/');
+        const above = Array.makeBy(segments.length + 1, (up) => join(...segments.slice(0, segments.length - up)));
+        const lock = Option.map(yield* Effect.findFirst(Array.cartesianWith(above, Array.fromNullishOr(host.build?.lock), join), (at) => fs.exists(join(workspaceRoot, at))), (at) => ({ lock: at }));
         const engined = local.includes(host) && (host.held === undefined || (yield* host.held(join(workspaceRoot, file))));
         const fields = yield* Effect.flatMap(fs.readFileString(join(workspaceRoot, file)), (text) => host.read(text, file));
         const withheld: readonly ((typeof WITHHELD)[number] | 'install')[] = [...(engined ? [] : WITHHELD), ...(installing.includes(host) ? [] : (['install'] as const))];
@@ -131,11 +136,11 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             ...tools,
             ...Array.match(Record.keys(Record.filter(tools, ({ outputs = [] }) => outputs.length > 0)), {
                 onEmpty: () => ({}),
-                onNonEmpty: (written) => ({ [`clean--${technology}`]: { executor: `${SHARED}:clean`, options: { targets: written }, metadata: { technologies: [technology], description: `Removes the outputs ${written.join(', ')} declare` } } }),
+                onNonEmpty: (written) => ({ [`clean--${technology}`]: { executor: `${PLUGIN}:clean`, options: { targets: written }, metadata: { technologies: [technology], description: `Removes the outputs ${written.join(', ')} declare` } } }),
             }),
             ...Record.fromIterableWith(Array.fromNullishOr(archive), (): [string, TargetConfiguration] => [
                 'attach--gh',
-                { executor: `${SHARED}:attach`, dependsOn: [packer], metadata: { technologies: [technology], description: `Uploads the files ${packer} wrote to the GitHub release of the version the project's manifest states through gh release upload` } },
+                { executor: `${PLUGIN}:attach`, dependsOn: [packer], metadata: { technologies: [technology], description: `Uploads the files ${packer} wrote to the GitHub release of the version the project's manifest states through gh release upload` } },
             ]),
         };
         const released = Option.filter(Option.fromUndefinedOr(write), () => item.fields.version !== undefined);
@@ -164,9 +169,9 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
 const createNodes: CreateNodes = [
     FILES,
     (files, options, context) =>
-        promised(
+        run(
             Effect.gen(function* () {
-                const { outputPath } = yield* Schema.decodeEffect(Placed)({ ...context.nxJsonConfiguration.pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) });
+                const { outputPath } = yield* Schema.decodeEffect(Placed)({ ...context.nxJsonConfiguration.pluginsConfig?.[PLUGIN], ...(Predicate.isObject(options) ? options : {}) });
                 const [held, failures] = yield* read(files, context);
                 const results = projects(
                     Array.getSomes(held).filter(({ fields }) => fields.installed !== true),
@@ -177,6 +182,32 @@ const createNodes: CreateNodes = [
         ),
 ];
 
+const preTasksExecution: PreTasksExecution = (_, { id }) =>
+    run(
+        Effect.gen(function* () {
+            const [server, token, annotated] = yield* Effect.all([Config.option(Config.NonEmptyString(CACHE.server)), Config.option(Config.Redacted(CACHE.token)), Config.withDefault(Config.Boolean('GITHUB_ACTIONS'), false)]);
+            const stated = Option.map(server, (url) => HttpClientRequest.accept(HttpClientRequest.get(`${url}/v1/cache/${hashArray([id])}`), 'application/octet-stream'));
+            const asked = Option.map(stated, (request) => HttpClient.execute(Option.match(token, { onNone: () => request, onSome: (held) => HttpClientRequest.bearerToken(request, held) })));
+            const answered = yield* Effect.transposeOption(
+                Option.map(asked, (sent) =>
+                    Effect.matchCause(Effect.timeout(sent, CACHE.wait), {
+                        onSuccess: ({ status }) => Option.liftPredicate(`answered ${status}`, () => !CACHE.served.has(status)),
+                        onFailure: (cause) => Option.some(`did not answer: ${Cause.pretty(cause)}`),
+                    }),
+                ),
+            );
+            const warning = Option.map(Option.all([server, Option.flatten(answered)]), ([url, answer]) => `Nx remote cache ${url} ${answer}, this run reads and writes the local cache alone`);
+            yield* Effect.transposeOption(
+                Option.map(warning, (text) =>
+                    Effect.andThen(
+                        Effect.sync(() => Reflect.set(env, CACHE.server, '')),
+                        Console.warn(annotated ? `::warning title=Nx remote cache::${text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')}` : text),
+                    ),
+                ),
+            );
+        }).pipe(Effect.provide(FetchHttpClient.layer)),
+    );
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes };
+export { createNodes, preTasksExecution };

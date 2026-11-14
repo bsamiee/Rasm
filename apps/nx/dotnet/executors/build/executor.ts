@@ -1,10 +1,10 @@
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { executor } from '@rasm/nx-devkit/executor';
-import { iterated, ran } from '@rasm/nx-devkit/process';
-import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, pipe, Record, Schema, Stream, Struct } from 'effect';
+import { Completed } from '@rasm/process';
+import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { CommandLine } from 'effect/process';
+import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -55,13 +55,13 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     const file = path.join(yield* fs.makeTempDirectoryScoped(), 'batch.proj');
     yield* fs.writeFileString(file, yield* traversal(projects));
     const argv = [Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), '-t:Dispatch', '-getItem:Built', ...(args ?? [])];
-    const run = yield* ran('dotnet', argv, { cwd: root });
-    const succeeded = Option.map(Schema.decodeOption(Results)(run.stdout), ({ Items }) => new Set(Items.Built.map(({ Identity }) => Identity)));
-    const lines = run.stderr.split('\n');
+    const completed = yield* Completed.run(ChildProcess.make('dotnet', argv, { cwd: root, stdin: 'ignore' }));
+    const succeeded = Option.map(Schema.decodeOption(Results)(completed.stdout), ({ Items }) => new Set(Items.Built.map(({ Identity }) => Identity)));
+    const lines = completed.stderr.split('\n');
     return Array.map(Array.zip(group, projects), ([[task], project]) => {
         const success = Option.exists(succeeded, (set) => set.has(project));
         const own = lines.filter((text) => text.includes(` [${project}`));
-        const result: TaskResult = { success, terminalOutput: (success ? own : [CommandLine.display(['dotnet', ...argv]), ...(own.length > 0 ? own : [run.stderr, run.stdout])]).join('\n') };
+        const result: TaskResult = { success, terminalOutput: (success ? own : [CommandLine.display(['dotnet', ...argv]), ...(own.length > 0 ? own : [completed.stderr, completed.stdout])]).join('\n') };
         return { task, result };
     });
 });
@@ -81,8 +81,8 @@ const ordered = (graph: TaskGraph, root: string, groups: readonly Array.NonEmpty
         });
     });
 
-const grouped = <A extends { readonly project: string }>(planned: readonly (readonly [string, A])[]) => {
-    const keyed = ([, options]: readonly [string, A]) => Struct.omit(options, ['project']);
+const grouped = <A extends { readonly project: string; readonly outputs?: readonly string[] }>(planned: readonly (readonly [string, A])[]) => {
+    const keyed = ([, options]: readonly [string, A]) => Struct.omit(options, ['project', 'outputs']);
     return Array.dedupe(planned.map(keyed)).flatMap((key) =>
         Array.match(
             planned.filter((each) => Equal.equals(keyed(each), key)),
@@ -91,26 +91,20 @@ const grouped = <A extends { readonly project: string }>(planned: readonly (read
     );
 };
 
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => Effect.runPromise(Effect.provide(Effect.scoped(effect), layer));
+
+const streamed = <A, E>(results: Stream.Stream<A, E, NodeServices>) => Stream.toReadableStream(Stream.provide(results, layer)).values();
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Build,
-    Effect.fnUntraced(function* (build, context) {
-        const [{ result }] = yield* built(context.root, [[context.root, build]]);
-        yield* Console.log(result.terminalOutput);
-        return result.success;
-    }),
-);
+const execute = Effect.fnUntraced(function* (build: typeof Build.Type, context: ExecutorContext) {
+    const [{ result }] = yield* built(context.root, [[context.root, build]]);
+    yield* Console.log(result.terminalOutput);
+    return { success: result.success };
+}, run);
 
-const batch = iterated((graph: TaskGraph, inputs: Readonly<Record<string, unknown>>, _: unknown, context: ExecutorContext) =>
-    pipe(
-        Record.toEntries(inputs),
-        Effect.forEach(([task, options]) => Effect.map(Schema.decodeUnknownEffect(Build)(options), (build): Planned => [task, build])),
-        Effect.map((planned) => ordered(graph, context.root, grouped(planned))),
-        Stream.unwrap,
-    ),
-);
+const batch = (graph: TaskGraph, inputs: Readonly<Record<string, typeof Build.Type>>, _: unknown, context: ExecutorContext) => streamed(ordered(graph, context.root, grouped(Record.toEntries(inputs))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batch, execute, grouped };
+export { Build, batch, execute, grouped, run, streamed };

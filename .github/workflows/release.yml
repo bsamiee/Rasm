@@ -52,7 +52,16 @@ jobs:
               with:
                   fetch-depth: 0
                   filter: blob:none
-            - uses: ./.github/actions/setup
+            - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1.7.0
+              with:
+                  xcode-version: latest
+            - &tools
+              uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+              with:
+                  cache: ${{ runner.environment == 'github-hosted' }}
+            - &packages
+              run: pnpm install
+            - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
             - run: nx release ${SPECIFIER:+"${SPECIFIER}"} --skip-publish --first-release=${{ inputs.first-release }} --dry-run=${{ inputs.dry-run }}
               env:
                   SPECIFIER: ${{ inputs.specifier }}
@@ -74,6 +83,7 @@ jobs:
                   NODE_AUTH_TOKEN: ${{ secrets.NODE_AUTH_TOKEN }}
                   UV_PUBLISH_TOKEN: ${{ secrets.UV_PUBLISH_TOKEN }}
                   NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+                  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
                   YAK_TOKEN: ${{ secrets.YAK_TOKEN }}
                   BLENDER_EXTENSIONS_TOKEN: ${{ secrets.BLENDER_EXTENSIONS_TOKEN }}
                   SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
@@ -88,7 +98,7 @@ jobs:
             fail-fast: false
             matrix:
                 engine: ${{ fromJSON(needs.release.outputs.engines) }}
-        runs-on: ubuntu-26.04
+        runs-on: [self-hosted, linux, x64]
         timeout-minutes: 120
         environment: release
         permissions:
@@ -98,20 +108,18 @@ jobs:
             credentials:
                 username: ${{ github.actor }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
-            options: --user root
+            env:
+                HOME: /home/ue4
+                UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         env:
-            HOME: /home/ue4
             GH_TOKEN: ${{ github.token }}
             UV_LOCKED: "true"
-            UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   ref: ${{ needs.release.outputs.commit }}
                   fetch-depth: 0
                   filter: blob:none
-            - uses: ./.github/actions/setup
-            - run: |
-                  chown -R ue4:ue4 "${GITHUB_WORKSPACE}"
-                  find "${HOME}" -mindepth 1 -maxdepth 1 ! -path "${UNREAL_ENGINE_ROOT}" -exec chown -R ue4:ue4 {} +
-            - run: setpriv --reuid=ue4 --regid=ue4 --init-groups nx run-many --targets=attach --configuration=release --projects=tag:os:linux
+            - *tools
+            - *packages
+            - run: nx run-many --targets=attach --configuration=release --projects=tag:os:linux

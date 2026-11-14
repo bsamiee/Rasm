@@ -1,10 +1,10 @@
-import { stderr, stdout } from 'node:process';
-import { runExecutor } from '@nx/devkit';
+import { type ExecutorContext, runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { executor } from '@rasm/nx-devkit/executor';
-import { printed, ToolError } from '@rasm/nx-devkit/process';
+import { Completed } from '@rasm/process';
 import { Array, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, Struct } from 'effect';
+import { ChildProcess } from 'effect/process';
 import { applyEdits, modify } from 'jsonc-parser';
+import { refused, run } from '#/executor';
 import { engine, Linked, zipped } from '#/host-packages';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -35,96 +35,88 @@ const Listed = Schema.fromJsonString(Schema.Struct({ Modules: Schema.Array(Schem
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Unreal,
-    Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, dependencies, packages, users, operation, args = [] }, context) {
-        const workspaceRoot = context.root;
-        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-        const absolute = (at: string) => path.resolve(workspaceRoot, at);
-        const name = path.basename(descriptor, path.extname(descriptor));
-        const placed = (folder: keyof typeof FOLDERS, ...rest: readonly string[]) => path.join(absolute(outputPath), FOLDERS[folder], ...rest);
-        const run = (command: string, given: readonly string[]) => printed(command, [...given, ...args], { cwd: workspaceRoot, echo: { stdout, stderr } });
-        const located = (at: string) => Effect.map(engine(absolute(at)), (found) => ({ ...found, project: absolute(at) }));
-        const loading = yield* Effect.forEach(path.extname(descriptor) === '.uproject' ? [descriptor] : hosts, located);
-        const engines = yield* pipe(
-            Array.dedupeWith(loading, Equivalence.mapInput(Equivalence.String, Struct.get('root'))),
-            Option.liftPredicate(Array.isReadonlyArrayNonEmpty),
-            Effect.fromOption,
-            Effect.mapError(ToolError.of(descriptor, 'is loaded by no .uproject, whose EngineAssociation names the engine it builds on')),
+const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, dependencies, packages, users, operation, args = [] }: typeof Unreal.Type, context: ExecutorContext) {
+    const workspaceRoot = context.root;
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const absolute = (at: string) => path.resolve(workspaceRoot, at);
+    const name = path.basename(descriptor, path.extname(descriptor));
+    const placed = (folder: keyof typeof FOLDERS, ...rest: readonly string[]) => path.join(absolute(outputPath), FOLDERS[folder], ...rest);
+    const tool = (command: string, given: readonly string[]) => Completed.output(ChildProcess.make(command, [...given, ...args], { cwd: workspaceRoot, detached: false, stdin: 'ignore', stdout: 'inherit', stderr: 'inherit' }));
+    const located = (at: string) => Effect.map(engine(absolute(at)), (found) => ({ ...found, project: absolute(at) }));
+    const loading = yield* Effect.forEach(path.extname(descriptor) === '.uproject' ? [descriptor] : hosts, located);
+    const engines = yield* pipe(Array.dedupeWith(loading, Equivalence.mapInput(Equivalence.String, Struct.get('root'))), Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Effect.fromOption, Effect.mapError(refused(descriptor, 'is loaded by no .uproject, whose EngineAssociation names the engine it builds on')));
+    type Loading = (typeof loading)[number];
+    const edited = ({ scripts, platform, project }: Loading, analysis: readonly string[]) => tool(path.join(scripts, 'RunUBT.sh'), ['-TargetType=Editor', platform, 'Development', `-Project=${project}`, '-WaitMutex', ...analysis]);
+    const packaged = ({ scripts, version }: Loading) => tool(path.join(scripts, 'RunUAT.sh'), ['BuildPlugin', `-Plugin=${absolute(descriptor)}`, `-Package=${placed('package', version, name)}`, '-StrictIncludes', ...dependencies.map((at) => `-Dependencies=${absolute(at)}`)]);
+    const linked = ({ platform, root }: Loading) =>
+        Effect.forEach(
+            Record.toEntries(packages),
+            Effect.fnUntraced(function* ([folder, target]) {
+                const prefix = path.join(absolute(path.dirname(descriptor)), folder, platform);
+                yield* fs.remove(prefix, { recursive: true, force: true });
+                const results = yield* Effect.tryPromise({ try: () => runExecutor<{ readonly success: boolean }>(target, { args: ['--prefix', prefix], env: { UNREAL_ENGINE_ROOT: root } }, context), catch: refused(target.project, `does not run ${target.target}`) });
+                yield* Effect.filterOrFail(Stream.runCollect(Stream.fromAsyncIterable(results, refused(target.project, `fails ${target.target}`))), Array.every(Struct.get('success')), refused(target.project, `${target.target} ended without success`));
+            }),
+            { discard: true },
         );
-        type Loading = (typeof loading)[number];
-        const edited = ({ scripts, platform, project }: Loading, analysis: readonly string[]) => run(path.join(scripts, 'RunUBT.sh'), ['-TargetType=Editor', platform, 'Development', `-Project=${project}`, '-WaitMutex', ...analysis]);
-        const packaged = ({ scripts, version }: Loading) => run(path.join(scripts, 'RunUAT.sh'), ['BuildPlugin', `-Plugin=${absolute(descriptor)}`, `-Package=${placed('package', version, name)}`, '-StrictIncludes', ...dependencies.map((at) => `-Dependencies=${absolute(at)}`)]);
-        const linked = ({ platform, root }: Loading) =>
-            Effect.forEach(
-                Record.toEntries(packages),
-                Effect.fnUntraced(function* ([folder, target]) {
-                    const prefix = path.join(absolute(path.dirname(descriptor)), folder, platform);
-                    yield* fs.remove(prefix, { recursive: true, force: true });
-                    const results = yield* Effect.tryPromise({ try: () => runExecutor<{ readonly success: boolean }>(target, { args: ['--prefix', prefix], env: { UNREAL_ENGINE_ROOT: root } }, context), catch: ToolError.of(target.project, `does not run ${target.target}`) });
-                    yield* Effect.filterOrFail(Stream.runCollect(Stream.fromAsyncIterable(results, ToolError.of(target.project, `fails ${target.target}`))), Array.every(Struct.get('success')), () => ToolError.make({ subject: target.project, detail: `${target.target} ended without success` }));
-                }),
-                { discard: true },
-            );
-        const tested = Effect.fnUntraced(function* (each: Loading) {
-            const report = placed('report', path.basename(each.project, path.extname(each.project)));
-            yield* edited(each, []);
-            yield* fs.remove(report, { recursive: true, force: true });
-            const exited = yield* Effect.result(run(path.join(each.binaries, 'UnrealEditor-Cmd'), [each.project, `-ExecCmds=Automation RunTests ^${name}.;Quit`, '-nullrhi', '-unattended', '-nosplash', `-ReportExportPath=${report}`]));
-            const { tests } = yield* Effect.mapError(
-                Effect.flatMap(fs.readFileString(path.join(report, 'index.json')), (text) => Schema.decodeEffect(Report)(text.replace(MARK, ''))),
-                (unread) => Result.match(exited, { onFailure: Function.identity, onSuccess: () => ToolError.of(report, `holds no automation test named ${name}`)(unread) }),
-            );
-            yield* Array.match(
-                tests.filter(({ state }) => state !== 'Success'),
-                { onEmpty: () => Effect.fromResult(exited), onNonEmpty: (failed) => ToolError.make({ subject: name, detail: `automation tests ended without success: ${failed.map(({ fullTestPath, state }) => [fullTestPath, state].join(' ')).join(', ')}` }) },
-            );
-        });
-        const unnoticed = (file: string) => Effect.map(fs.readFileString(absolute(file)), (code) => !STORE.notice.test(code));
-        const stored = Effect.fnUntraced(function* (text: string, tracked: readonly string[], sources: readonly string[]) {
-            const { Modules } = yield* Effect.mapError(Schema.decodeEffect(Listed)(text), ToolError.of(descriptor, 'lists no Modules'));
-            const opened = yield* Effect.filter(
-                tracked.filter((file) => STORE.sources.test(file)),
-                unnoticed,
-            );
-            const refused = [
-                ...sources.filter((file) => file.length > STORE.path).map((file) => `${file} has path length ${file.length}, past ${STORE.path}`),
-                ...sources.filter((file) => STORE.built.test(file)).map((file) => `${file} is build output`),
-                ...opened.map((file) => `${file} opens with no copyright notice`),
-                ...Modules.filter(({ PlatformAllowList, PlatformDenyList }) => PlatformAllowList === undefined && PlatformDenyList === undefined).map(({ Name }) => `module ${Name} lists no platforms`),
-            ];
-            yield* Array.match(refused, { onEmpty: () => Effect.void, onNonEmpty: (findings) => ToolError.make({ subject: descriptor, detail: `fails the store checks: ${findings.join('; ')}` }) });
-        });
-        const archived = Effect.fnUntraced(function* ({ version, platform }: Loading) {
-            const [stage, text, tracked] = yield* Effect.all([fs.makeTempDirectoryScoped(), fs.readFileString(absolute(descriptor)), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.join(path.dirname(descriptor), '**')]))]);
-            const owned = tracked.map((file) => path.join(stage, name, path.relative(path.dirname(descriptor), file)));
-            yield* Effect.forEach(Record.keys(packages), (folder) => fs.copy(placed('package', version, name, folder), path.join(stage, name, folder)), { discard: true });
-            yield* Effect.forEach(Array.zip(tracked, owned), ([file, to]) => Effect.andThen(fs.makeDirectory(path.dirname(to), { recursive: true }), fs.copyFile(absolute(file), to)), { discard: true });
-            yield* fs.writeFileString(path.join(stage, name, path.basename(descriptor)), applyEdits(text, modify(text, ['EngineVersion'], `${version}.0`, {})));
-            const sources = yield* fs.readDirectory(stage, { recursive: true });
-            yield* stored(text, tracked, sources);
-            yield* zipped(stage, sources, placed('archive', `${name}-${version}.zip`));
-            yield* zipped(placed('package', version), yield* fs.readDirectory(placed('package', version), { recursive: true }), placed('archive', `${name}-${version}-${platform}.zip`));
-        }, Effect.scoped);
-        const installed = Effect.fnUntraced(function* (at: string) {
-            const { version, project } = yield* located(at);
-            const target = path.join(path.dirname(project), 'Plugins', name);
-            yield* fs.remove(target, { recursive: true, force: true });
-            yield* fs.copy(placed('package', version, name), target);
-        });
-        const compiled = (analysis: readonly string[]) => (path.extname(descriptor) === '.uproject' ? Effect.forEach(loading, (each) => edited(each, analysis), { discard: true }) : Effect.forEach(engines, (each) => Effect.andThen(linked(each), packaged(each)), { discard: true }));
-        const cleared = Effect.andThen(fs.remove(placed('archive'), { recursive: true, force: true }), fs.makeDirectory(placed('archive'), { recursive: true }));
-        yield* {
-            build: compiled([]),
-            check: compiled(ANALYSIS),
-            test: Effect.forEach(loading, tested, { discard: true }),
-            pack: Effect.andThen(cleared, Effect.forEach(engines, archived, { discard: true })),
-            install: Effect.forEach(users, installed, { discard: true }),
-        }[operation];
-        return true;
-    }),
-);
+    const tested = Effect.fnUntraced(function* (each: Loading) {
+        const report = placed('report', path.basename(each.project, path.extname(each.project)));
+        yield* edited(each, []);
+        yield* fs.remove(report, { recursive: true, force: true });
+        const exited = yield* Effect.result(tool(path.join(each.binaries, 'UnrealEditor-Cmd'), [each.project, `-ExecCmds=Automation RunTests ^${name}.;Quit`, '-nullrhi', '-unattended', '-nosplash', `-ReportExportPath=${report}`]));
+        const { tests } = yield* Effect.mapError(
+            Effect.flatMap(fs.readFileString(path.join(report, 'index.json')), (text) => Schema.decodeEffect(Report)(text.replace(MARK, ''))),
+            (unread) => Result.match(exited, { onFailure: Function.identity, onSuccess: () => refused(report, `holds no automation test named ${name}`)(unread) }),
+        );
+        yield* Array.match(
+            tests.filter(({ state }) => state !== 'Success'),
+            { onEmpty: () => Effect.fromResult(exited), onNonEmpty: (failed) => Effect.fail(refused(name, `automation tests ended without success: ${failed.map(({ fullTestPath, state }) => [fullTestPath, state].join(' ')).join(', ')}`)()) },
+        );
+    });
+    const unnoticed = (file: string) => Effect.map(fs.readFileString(absolute(file)), (code) => !STORE.notice.test(code));
+    const stored = Effect.fnUntraced(function* (text: string, tracked: readonly string[], sources: readonly string[]) {
+        const { Modules } = yield* Effect.mapError(Schema.decodeEffect(Listed)(text), refused(descriptor, 'lists no Modules'));
+        const opened = yield* Effect.filter(
+            tracked.filter((file) => STORE.sources.test(file)),
+            unnoticed,
+        );
+        const findings = [
+            ...sources.filter((file) => file.length > STORE.path).map((file) => `${file} has path length ${file.length}, past ${STORE.path}`),
+            ...sources.filter((file) => STORE.built.test(file)).map((file) => `${file} is build output`),
+            ...opened.map((file) => `${file} opens with no copyright notice`),
+            ...Modules.filter(({ PlatformAllowList, PlatformDenyList }) => PlatformAllowList === undefined && PlatformDenyList === undefined).map(({ Name }) => `module ${Name} lists no platforms`),
+        ];
+        yield* Array.match(findings, { onEmpty: () => Effect.void, onNonEmpty: (failed) => Effect.fail(refused(descriptor, `fails the store checks: ${failed.join('; ')}`)()) });
+    });
+    const archived = Effect.fnUntraced(function* ({ version, platform }: Loading) {
+        const [stage, text, tracked] = yield* Effect.all([fs.makeTempDirectoryScoped(), fs.readFileString(absolute(descriptor)), Effect.promise(() => globWithWorkspaceContext(workspaceRoot, [path.join(path.dirname(descriptor), '**')]))]);
+        const owned = tracked.map((file) => path.join(stage, name, path.relative(path.dirname(descriptor), file)));
+        yield* Effect.forEach(Record.keys(packages), (folder) => fs.copy(placed('package', version, name, folder), path.join(stage, name, folder)), { discard: true });
+        yield* Effect.forEach(Array.zip(tracked, owned), ([file, to]) => Effect.andThen(fs.makeDirectory(path.dirname(to), { recursive: true }), fs.copyFile(absolute(file), to)), { discard: true });
+        yield* fs.writeFileString(path.join(stage, name, path.basename(descriptor)), applyEdits(text, modify(text, ['EngineVersion'], `${version}.0`, {})));
+        const sources = yield* fs.readDirectory(stage, { recursive: true });
+        yield* stored(text, tracked, sources);
+        yield* zipped(stage, sources, placed('archive', `${name}-${version}.zip`));
+        yield* zipped(placed('package', version), yield* fs.readDirectory(placed('package', version), { recursive: true }), placed('archive', `${name}-${version}-${platform}.zip`));
+    }, Effect.scoped);
+    const installed = Effect.fnUntraced(function* (at: string) {
+        const { version, project } = yield* located(at);
+        const target = path.join(path.dirname(project), 'Plugins', name);
+        yield* fs.remove(target, { recursive: true, force: true });
+        yield* fs.copy(placed('package', version, name), target);
+    });
+    const compiled = (analysis: readonly string[]) => (path.extname(descriptor) === '.uproject' ? Effect.forEach(loading, (each) => edited(each, analysis), { discard: true }) : Effect.forEach(engines, (each) => Effect.andThen(linked(each), packaged(each)), { discard: true }));
+    const cleared = Effect.andThen(fs.remove(placed('archive'), { recursive: true, force: true }), fs.makeDirectory(placed('archive'), { recursive: true }));
+    yield* {
+        build: compiled([]),
+        check: compiled(ANALYSIS),
+        test: Effect.forEach(loading, tested, { discard: true }),
+        pack: Effect.andThen(cleared, Effect.forEach(engines, archived, { discard: true })),
+        install: Effect.forEach(users, installed, { discard: true }),
+    }[operation];
+    return { success: true };
+}, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { execute };
+export { execute, Unreal };

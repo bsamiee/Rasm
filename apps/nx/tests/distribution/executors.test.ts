@@ -1,7 +1,7 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import plugin from '@rasm/nx-devkit/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import plugin from '@rasm/nx-distribution/package.json' with { type: 'json' };
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Ajv } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { Duration, Effect, Layer, Predicate, Schema } from 'effect';
@@ -63,7 +63,7 @@ const collection = (file: string) =>
 
 const workspace = Layer.provideMerge(Layer.effectDiscard(prepared), Layer.provideMerge(Consumer.layer({ resolved: import.meta.url, settings, ignored: ['tools/*.json', 'tools/uploaded.txt', 'packed'], files }), Layer.provideMerge(Packed.layer(plugin.name), layer)));
 
-it.layer(workspace, { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-devkit installed in a workspace', (methods) => {
+it.layer(workspace, { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-distribution executors and sync generator installed in a workspace', (methods) => {
     const packaged = 'README.md TASKS "Attach and publish targets depend on the targets that package their files"';
 
     methods.effect(

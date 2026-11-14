@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import plugin from '@rasm/nx-vitest/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, Formatter, Layer, Path, Record, Schema } from 'effect';
 import vite from 'vite/package.json' with { type: 'json' };
 import vitest from 'vitest/package.json' with { type: 'json' };

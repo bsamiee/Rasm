@@ -3,19 +3,12 @@
     "private": true,
     "description": "@rasm/nx-uv suites over temporary workspaces with the packed plugin installed: Nx's own .NET, Gradle, and release specs ported to uv, each expectation read from uv workspace metadata, uv build, uv version, and uv lock",
     "type": "module",
-    "imports": {
-        "#/*": "./*.ts"
-    },
     "devDependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
-        "@nx/devkit": "catalog:",
         "@rasm/nx-uv": "workspace:*",
         "@rasm/testing": "workspace:*",
-        "@types/node": "catalog:",
         "effect": "catalog:",
-        "nx": "catalog:",
-        "vite": "catalog:",
         "vitest": "catalog:"
     }
 }

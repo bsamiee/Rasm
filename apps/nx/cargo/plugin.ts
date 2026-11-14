@@ -1,85 +1,98 @@
-import { basename, dirname, join } from 'node:path';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, hashArray, type RawProjectGraphDependency } from '@nx/devkit';
-import { combineGlobPatterns, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { promised } from '@rasm/nx-devkit/process';
-import { configured, linked, placed } from '@rasm/nx-devkit/project';
-import { Array, Effect, FileSystem, Option, Record, Result, String } from 'effect';
-import { CLIPPY, CONFIG, crateInputs, crateTargets, NEXTEST, PLUGIN, released, workspaceTargets } from '#/targets';
-import { MANIFEST, type Reading, resolved, workspaces } from '#/workspace';
+import { basename, dirname, join, relative } from 'node:path';
+import { layer } from '@effect/platform-node/NodeServices';
+import { type CreateDependencies, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
+import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { Array, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, String } from 'effect';
+import { CLIPPY, CONFIG, crateInputs, NEXTEST, projectTargets, released, SHARED } from '#/targets';
+import { MANIFEST, type Member, type Reading, resolved, workspaces } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const FILES = combineGlobPatterns([MANIFEST, ...CONFIG, ...CLIPPY, NEXTEST, '{,.}deny{,.exceptions}.toml'].map((file) => `**/${file}`));
 const LAYOUT = ['src/{main,lib}.rs', '{src/bin,examples,tests,benches}/{*.rs,*/main.rs}', 'build.rs'] as const;
-const STATED = { metadata: { technologies: ['rust'] }, clean: 'cargo' };
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Placed = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).annotate({
+    description: 'outputPath: workspace folder holding coverage reports as <outputPath>/llvm-cov/<project name>/lcov.info, absent writes each as llvm-cov/<crate>.lcov in the Cargo target folder',
+});
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Links extends Context.Service<Links, Map<string, Member>>()('@rasm/nx-cargo/plugin/Links') {
+    static readonly layer = Layer.sync(Links, () => new Map());
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const inferred = Effect.fnUntraced(function* (context: CreateNodesContext, files: ReadonlySet<string>, reported: Option.Option<string>, reading: Reading) {
+    const [fs, links] = yield* Effect.all([FileSystem.FileSystem, Links]);
+    const workspace = resolved(context.workspaceRoot, reading);
+    workspace.members.forEach((member) => links.set(dirname(member.crate.manifest_path), member));
+    const rooted = (yield* fs.exists(join(context.workspaceRoot, workspace.root, 'package.json'))) ? [[workspace.root, Option.none()] as const] : [];
+    const roots = new Map<string, Option.Option<Member>>([...rooted, ...workspace.members.map((member) => [member.root, Option.some(member)] as const)]);
+    const projects = Record.fromIterableWith(roots, ([root, member]): [string, ProjectConfiguration] => {
+        const targets = projectTargets(workspace, files, reported, member);
+        const stated = Option.map(member, (held) => {
+            const { default: sources } = getNamedInputs(root, context);
+            const implicit = held.crate.metadata?.nx?.implicitDependencies;
+            const delivery = Option.getOrUndefined(released(held, workspace.root));
+            return {
+                name: String.kebabToSnake(held.crate.name),
+                namedInputs: { default: crateInputs(workspace, files, held, sources) },
+                ...(implicit !== undefined && { implicitDependencies: [...implicit] }),
+                ...delivery,
+                targets: { ...targets, ...delivery?.targets },
+            };
+        });
+        return [root, { root, metadata: { technologies: ['rust'] }, targets, ...Option.getOrUndefined(stated) }];
+    });
+    return { projects };
+});
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const edges = new Map<string, readonly RawProjectGraphDependency[]>();
+const runtime = ManagedRuntime.make(Layer.merge(Links.layer, layer));
 
 const createNodes: CreateNodes = [
     FILES,
     (matched, options, context) =>
-        promised(
+        runtime.runPromise(
             Effect.gen(function* () {
-                const fs = yield* FileSystem.FileSystem;
                 const { workspaceRoot } = context;
                 const files = new Set(matched);
                 const manifests = matched.filter((file) => basename(file) === MANIFEST);
                 const cache = new PluginCache<readonly Reading[]>(join(workspaceDataDirectory, `cargo-${hashObject(options ?? {})}.hash`));
                 const [content, laid] = yield* Effect.promise(() => Promise.all([hashWithWorkspaceContext(workspaceRoot, [FILES]), globWithWorkspaceContext(workspaceRoot, Array.cartesianWith(manifests.map(dirname), LAYOUT, join))]));
                 const key = hashArray([content, ...laid]);
-                const [read, failures] = Array.partition(yield* Option.match(Option.fromNullishOr(cache.get(key)), { onNone: () => workspaces(workspaceRoot, manifests, files), onSome: (held) => Effect.succeed(held.map((reading) => [MANIFEST, Result.succeed(reading)] as const)) }), ([file, reading]) =>
-                    Result.mapError(reading, (error): [string, Error] => [file, error]),
-                );
-                yield* Effect.sync(() => (failures.length === 0 ? cache.set(key, read) : undefined));
-                yield* Effect.sync(() => cache.writeToDisk());
-                const reported = Option.map(placed(options, context)('llvm-cov'), (at) => join(at, 'lcov.info'));
-                const found = read.map((reading) => resolved(workspaceRoot, reading));
-                edges.set(
-                    workspaceRoot,
-                    found.flatMap((workspace) =>
-                        workspace.members.flatMap(({ crate, root, manifest: sourceFile }) =>
-                            workspace.members.filter((other) => crate.dependencies.some(({ path: at }) => at === dirname(other.crate.manifest_path))).map((other): RawProjectGraphDependency => ({ source: root, target: other.root, type: DependencyType.static, sourceFile })),
-                        ),
-                    ),
-                );
-                const results = yield* Effect.forEach(
-                    found,
-                    Effect.fnUntraced(function* (workspace) {
-                        const crates = Record.fromIterableWith(workspace.members, (member) => {
-                            const implicit = member.crate.metadata?.nx?.implicitDependencies;
-                            const { default: sources } = getNamedInputs(member.root, context);
-                            const { release, publish } = released(member, workspace.root);
-                            return [
-                                member.root,
-                                {
-                                    members: crateTargets(workspace, files, reported, member),
-                                    stated: {
-                                        ...STATED,
-                                        root: member.root,
-                                        name: String.kebabToSnake(member.crate.name),
-                                        namedInputs: { default: crateInputs(workspace, files, member, sources) },
-                                        ...(implicit !== undefined && { implicitDependencies: [...implicit] }),
-                                        ...(release !== undefined && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: release } }, publish }),
-                                    },
-                                },
-                            ] as const;
-                        });
-                        const own = crates[workspace.root];
-                        const rooted = workspaceTargets(workspace);
-                        const top = { members: { ...own?.members, check: { ...own?.members.check, ...rooted.check }, clean: rooted.clean, upgrade: rooted.upgrade }, stated: own?.stated ?? { ...STATED, root: workspace.root } };
-                        const held = own !== undefined || (yield* fs.exists(join(workspaceRoot, workspace.root, 'package.json')));
-                        const projects = yield* Effect.all(Record.map({ ...crates, ...(held && { [workspace.root]: top }) }, ({ members, stated }) => configured(members, stated, context)));
-                        return [join(workspace.root, MANIFEST), { projects }] as const;
+                const read = new Map(
+                    yield* Option.match(Option.fromNullishOr(cache.get(key)), {
+                        onNone: () => workspaces(workspaceRoot, manifests, files),
+                        onSome: (held) => Effect.succeed(held.map((reading) => [join(relative(workspaceRoot, reading.metadata.workspace_root), MANIFEST), Result.succeed(reading)] as const)),
                     }),
                 );
-                return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
+                yield* Effect.sync(() => Option.toArray(Result.getSuccess(Result.all([...read.values()]))).forEach((readings) => cache.set(key, readings)));
+                yield* Effect.sync(() => cache.writeToDisk());
+                const reported = Option.map(
+                    Option.flatMap(Schema.decodeOption(Placed)({ ...context.nxJsonConfiguration.pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) }), ({ outputPath }) => Option.fromUndefinedOr(outputPath)),
+                    (at) => join(at, 'llvm-cov', '{projectName}', 'lcov.info'),
+                );
+                const projected = (file: string) => runtime.runPromise(Effect.flatMap(Effect.flatMap(Effect.fromNullishOr(read.get(file)), Effect.fromResult), (reading) => inferred(context, files, reported, reading)));
+                return yield* Effect.promise(() => createNodesFromFiles(projected, [...read.keys()], options, context));
             }),
         ),
 ];
 
-const createDependencies: CreateDependencies = (_, context) => linked(context, edges.get(context.workspaceRoot) ?? []);
+const createDependencies: CreateDependencies = (_, { projects, workspaceRoot }) =>
+    runtime.runPromise(
+        Effect.map(Links, (links) => {
+            const names = createProjectRootMappingsFromProjectConfigurations(projects);
+            const named = ({ root }: Member) => Option.fromUndefinedOr(names.get(root));
+            const members = [...links.values()].filter(({ crate }) => !relative(workspaceRoot, crate.manifest_path).startsWith('..'));
+            const stated = members.flatMap((member) => Array.getSomes(member.crate.dependencies.map(({ path }) => Option.fromUndefinedOr(path))).map((at) => ({ member, to: Option.fromUndefinedOr(links.get(at)) })));
+            return Array.getSomes(stated.map(({ member, to }) => Option.map(Option.all({ source: named(member), target: Option.flatMap(to, named) }), (edge) => ({ ...edge, type: DependencyType.static, sourceFile: member.manifest }))));
+        }),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

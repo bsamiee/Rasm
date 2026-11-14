@@ -1,12 +1,12 @@
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { parse, patch } from '@decimalturn/toml-patch';
-import type { ProjectGraph, Tree } from '@nx/devkit';
-import { relocked } from '@rasm/nx-devkit/executor';
-import { printed, promised, ToolError } from '@rasm/nx-devkit/process';
-import { Array, Effect, flow, Option, Record, Schema } from 'effect';
+import { createProjectGraphAsync, type ProjectGraph, type Tree } from '@nx/devkit';
+import { Completed } from '@rasm/process';
+import { Array, Effect, FileSystem, flow, Option, Record, Schema } from 'effect';
 import { Toml } from 'effect/encoding';
-import { VersionActions } from 'nx/release';
-import { LOCK, MANIFEST } from '#/workspace';
+import { ChildProcess } from 'effect/process';
+import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
+import { LOCK, MANIFEST, refused, run } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,6 +15,7 @@ const TABLES = ['dependencies', 'dev-dependencies', 'build-dependencies'];
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Options = Schema.Struct({ lock: Schema.String, registry: Schema.optionalKey(Schema.String) });
+const Unlocked = Schema.Struct({ skipLockFileUpdate: Schema.optionalKey(Schema.Boolean) });
 const Table = Schema.Record(Schema.String, Schema.Unknown);
 const Requirement = Schema.Union([Schema.String, Schema.Struct({ version: Schema.optionalKey(Schema.String), package: Schema.optionalKey(Schema.String), workspace: Schema.optionalKey(Schema.Boolean) })]);
 const Dependencies = Schema.Record(Schema.String, Requirement);
@@ -29,8 +30,8 @@ const Found = Schema.Record(Schema.String, Schema.String);
 const table = (value: unknown): Readonly<Record<string, unknown>> => Option.getOrElse(Schema.decodeUnknownOption(Table)(value), () => ({}));
 
 const read = Effect.fnUntraced(function* (tree: Tree, file: string) {
-    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), ToolError.of(file, 'is missing'));
-    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: ToolError.of(file, 'does not parse as TOML') }));
+    const text = yield* Effect.mapError(Effect.fromNullishOr(tree.read(file, 'utf-8')), refused(file, 'is missing'));
+    const raw = table(yield* Effect.try({ try: (): unknown => parse(text), catch: refused(file, 'does not parse as TOML') }));
     return { file, text, raw, manifest: yield* Schema.decodeEffect(Manifest)(raw) };
 });
 
@@ -70,23 +71,24 @@ class CargoVersionActions extends VersionActions {
 
     override validate(tree: Tree) {
         const [{ name }, { name: group, projectsRelationship }, manifests, stated] = [this.projectGraphNode, this.releaseGroup, this.manifestsToUpdate, this.stated];
-        const refused = Effect.flatMap(stated, ({ shared }) =>
+        const checked = Effect.flatMap(stated, ({ shared }) =>
             Effect.forEach(
                 manifests,
                 ({ manifestPath }) =>
                     Effect.flatMap(versioned(tree, manifestPath, shared), ({ file, inherited }) =>
-                        inherited && projectsRelationship === 'independent' ? ToolError.make({ subject: manifestPath, detail: `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}` }) : Effect.void,
+                        inherited && projectsRelationship === 'independent' ? Effect.fail(refused(manifestPath, `inherits the version in ${file}, which every inheriting member shares, so ${name} needs a fixed release group in place of the independent group ${group}`)()) : Effect.void,
                     ),
                 { discard: true },
             ),
         );
-        return super.validate(tree).then(() => promised(refused));
+        return super.validate(tree).then(() => run(checked));
     }
 
     readCurrentVersionFromSourceManifest(tree: Tree) {
-        return promised(
-            Effect.gen({ self: this }, function* () {
-                const { manifest, shared } = yield* this.stated;
+        const { stated } = this;
+        return run(
+            Effect.gen(function* () {
+                const { manifest, shared } = yield* stated;
                 const { file, current } = yield* versioned(tree, manifest, shared);
                 return { manifestPath: file, currentVersion: current };
             }),
@@ -94,24 +96,26 @@ class CargoVersionActions extends VersionActions {
     }
 
     readCurrentVersionFromRegistry(tree: Tree) {
-        return promised(
-            Effect.gen({ self: this }, function* () {
-                const { manifest, registry } = yield* this.stated;
+        const { stated } = this;
+        return run(
+            Effect.gen(function* () {
+                const { manifest, registry } = yield* stated;
                 const { manifest: held } = yield* read(tree, manifest);
-                const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), ToolError.of(manifest, 'names no package'));
-                const search = ['search', crate, '--limit', '1', ...Array.fromNullishOr(registry).flatMap((named) => ['--registry', named])];
-                const listed = yield* printed('cargo', search, { cwd: tree.root });
+                const crate = yield* Effect.mapError(Effect.fromNullishOr(held.package?.name), refused(manifest, 'names no package'));
+                const search = ['search', crate, '--limit', '1', '--color', 'never', ...Array.fromNullishOr(registry).flatMap((named) => ['--registry', named])];
+                const listed = yield* Completed.output(ChildProcess.make('cargo', search, { cwd: tree.root, stdin: 'ignore' }));
                 const found = yield* Effect.flatMap(Effect.fromResult(Toml.parse(listed)), flow(Schema.decodeUnknownEffect(Found), Effect.map(Record.get(crate))));
-                const currentVersion = yield* Effect.mapError(Effect.fromOption(found), ToolError.of(crate, `is absent from the output of cargo ${search.join(' ')}`));
+                const currentVersion = yield* Effect.mapError(Effect.fromOption(found), refused(crate, `is absent from the output of cargo ${search.join(' ')}`));
                 return { currentVersion, logText: `cargo ${search.join(' ')}` };
             }),
         );
     }
 
     readCurrentVersionOfDependency(tree: Tree, projectGraph: ProjectGraph, dependencyProjectName: string) {
-        return promised(
-            Effect.gen({ self: this }, function* () {
-                const { manifest, shared } = yield* this.stated;
+        const { stated } = this;
+        return run(
+            Effect.gen(function* () {
+                const { manifest, shared } = yield* stated;
                 const crates = new Set([yield* crated(tree, projectGraph, dependencyProjectName)]);
                 const declared = Array.head(requirements((yield* read(tree, manifest)).raw, crates));
                 const source = Option.exists(declared, ({ inherited }) => inherited) ? Array.head(requirements((yield* read(tree, shared)).raw, crates)) : declared;
@@ -131,11 +135,22 @@ class CargoVersionActions extends VersionActions {
 
     updateProjectVersion(tree: Tree, newVersion: string) {
         const manifests = this.manifestsToUpdate;
-        return promised(
+        return run(
             Effect.flatMap(this.stated, ({ shared }) =>
-                Effect.forEach(manifests, ({ manifestPath }) =>
-                    Effect.map(versioned(tree, manifestPath, shared), ({ file, text, raw, field }) => {
+                Effect.forEach(
+                    manifests,
+                    Effect.fnUntraced(function* ({ manifestPath }) {
+                        const { file, text, raw, field } = yield* versioned(tree, manifestPath, shared);
                         tree.write(file, patch(text, assigned(raw, field, newVersion)));
+                        const [own, held] = yield* Effect.all([read(tree, manifestPath), read(tree, shared)]);
+                        const rows = requirements(held.raw, new Set(Array.fromNullishOr(own.manifest.package?.name))).filter(({ at, current }) => at[0] === 'workspace' && current !== undefined);
+                        tree.write(
+                            shared,
+                            patch(
+                                held.text,
+                                rows.reduce((value, row) => assigned(value, row.field, newVersion), held.raw),
+                            ),
+                        );
                         return `New version ${newVersion} written to ${file}`;
                     }),
                 ),
@@ -145,14 +160,12 @@ class CargoVersionActions extends VersionActions {
 
     updateProjectDependencies(tree: Tree, projectGraph: ProjectGraph, dependenciesToUpdate: Record<string, string>) {
         const manifests = this.manifestsToUpdate;
-        return promised(
-            Effect.gen({ self: this }, function* () {
-                const { shared } = yield* this.stated;
+        return run(
+            Effect.gen(function* () {
                 const versions = new Map(yield* Effect.forEach(Record.toEntries(dependenciesToUpdate), ([project, version]) => Effect.map(crated(tree, projectGraph, project), (crate) => [crate, version] as const)));
                 const crates = new Set(versions.keys());
                 const own = yield* Effect.forEach(manifests, ({ manifestPath }) => read(tree, manifestPath));
-                const inherits = own.some(({ file, raw }) => file !== shared && requirements(raw, crates).some(({ inherited }) => inherited));
-                const rows = [...own, ...(inherits ? [yield* read(tree, shared)] : [])].flatMap((held) => requirements(held.raw, crates).map((requirement) => ({ ...held, ...requirement })));
+                const rows = own.flatMap((held) => requirements(held.raw, crates).map((requirement) => ({ ...held, ...requirement })));
                 const edits = Array.getSomes(rows.map(({ crate, current, ...row }) => Option.map(Option.all([Option.fromUndefinedOr(current), Option.fromUndefinedOr(versions.get(crate))]), ([, value]) => ({ ...row, value }))));
                 return Record.collect(
                     Array.groupBy(edits, ({ file }) => file),
@@ -174,7 +187,15 @@ class CargoVersionActions extends VersionActions {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const afterAllProjectsVersioned = relocked(LOCK, ['cargo', 'update', '--workspace']);
+const afterAllProjectsVersioned = Effect.fnUntraced(function* (cwd: string, { dryRun, rootVersionActionsOptions }: Parameters<AfterAllProjectsVersioned>[1]) {
+    const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
+    const stated = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.promise(() => createProjectGraphAsync())).nodes).map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions));
+    const locks = Array.dedupe(Array.getSomes(stated).map(({ lock }) => lock)).filter((lock) => basename(lock) === LOCK);
+    const changedFiles = yield* Effect.filter(locks, (lock) =>
+        Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(Completed.output(ChildProcess.make('cargo', ['update', '--workspace'], { cwd: join(cwd, dirname(lock)), stdin: 'ignore' })), fs.readFileString(join(cwd, lock))), (before, after) => before !== after),
+    );
+    return { changedFiles, deletedFiles: [] };
+}, run) satisfies AfterAllProjectsVersioned;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

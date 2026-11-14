@@ -1,8 +1,8 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { Consumer, fromCache, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, fromCache, Packed } from '@rasm/testing/nx';
 import { Duration, Effect, Layer } from 'effect';
-import { files, members, named, ran, workspace } from '#/workspace';
+import { files, members, named, plugin, ran, workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ const built = (artifacts: readonly string[], created: readonly string[]) => crea
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Layer.provideMerge(Packed.layer('@rasm/nx-cmake'), layer), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-cmake task cache', (suite) => {
+it.layer(Layer.provideMerge(Packed.layer(plugin.name), layer), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-cmake task cache', (suite) => {
     suite.layer(workspace(), { timeout: bounds.built })('over a CMake tree of nested projects', (methods) => {
         methods.effect.each([TOOL, CORE])(
             'restores the build of %s from the cache with every artifact the file API reports for its targets',

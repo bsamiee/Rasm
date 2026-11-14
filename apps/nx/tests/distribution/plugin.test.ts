@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import plugin from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Ajv } from 'ajv';
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import { Array, Duration, Effect, Formatter, Layer, Path, Predicate, Record, Schema } from 'effect';

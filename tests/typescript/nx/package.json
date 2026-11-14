@@ -13,7 +13,6 @@
         "@rasm/nx-apple": "workspace:*",
         "@rasm/nx-cargo": "workspace:*",
         "@rasm/nx-cmake": "workspace:*",
-        "@rasm/nx-devkit": "workspace:*",
         "@rasm/nx-distribution": "workspace:*",
         "@rasm/nx-docker": "workspace:*",
         "@rasm/nx-dotnet": "workspace:*",

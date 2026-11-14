@@ -3,7 +3,7 @@ import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import nxVite from '@nx/vite/package.json' with { type: 'json' };
 import plugin from '@rasm/nx-vite/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Duration, Effect, Formatter, Layer, Path, Predicate, Record, Schema, Struct } from 'effect';
 import vite from 'vite/package.json' with { type: 'json' };
 

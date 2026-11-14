@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import plugin from '@rasm/nx-docker/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Effect, Formatter, Layer, Path, Predicate, Record, Result, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

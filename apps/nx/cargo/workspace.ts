@@ -1,13 +1,15 @@
 import { dirname, isAbsolute, join, relative } from 'node:path';
-import { printed, ToolError } from '@rasm/nx-devkit/process';
-import { ancestors } from '@rasm/nx-devkit/project';
-import { Array, Effect, FileSystem, flow, Option, Record, Result, Schema, UndefinedOr } from 'effect';
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
+import { Completed } from '@rasm/process';
+import { Array, Cause, Effect, FileSystem, flow, Option, Record, Result, Schema, UndefinedOr } from 'effect';
 import { Toml } from 'effect/encoding';
+import { ChildProcess } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Reading = Effect.Success<ReturnType<typeof read>>;
 type Workspace = ReturnType<typeof resolved>;
+type Member = Workspace['members'][number];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -44,6 +46,16 @@ const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.St
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const refused = (subject: string, detail: string) => (cause?: unknown) => new Cause.UnknownError(cause, `${subject}: ${detail}`);
+
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => Effect.runPromise(Effect.provide(effect, layer));
+
+const ancestors = (folder: string): readonly string[] =>
+    Array.unfold(
+        Option.some(folder),
+        Option.map((at: string) => [at, Option.liftPredicate(dirname(at), () => at !== '.')] as const),
+    );
+
 const nearest = (files: ReadonlySet<string>, folder: string, names: readonly string[]) => Array.findFirst(ancestors(folder), (at) => Array.findFirst(names, (name) => files.has(join(at, name))).pipe(Option.map((name) => join(at, name))));
 
 const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
@@ -51,26 +63,23 @@ const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
         Effect.flatMap((fs) => fs.readFileString(file)),
         Effect.flatMap(flow(Toml.parse, Effect.fromResult)),
         Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-        Effect.mapError(ToolError.of(file, 'does not read as the TOML table it declares')),
+        Effect.mapError(refused(file, 'does not read as the TOML table it declares')),
     );
 
-const read = Effect.fnUntraced(
-    function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
-        const metadata = yield* Effect.flatMap(printed('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot }), Schema.decodeEffect(Metadata));
-        const root = relative(workspaceRoot, metadata.workspace_root) || '.';
-        const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
-        const [{ profile }, names, denied] = yield* Effect.all(
-            [
-                toml(Profiles, join(metadata.workspace_root, MANIFEST)),
-                Effect.map(printed('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root, input: '' }), (text) => text.split('\n')),
-                Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
-            ],
-            { concurrency: 'unbounded' },
-        );
-        return { metadata, profile, uplifted: Record.fromEntries(Array.zip(types, names)), deny: Option.toArray(denied) };
-    },
-    (effect, _, manifest) => Effect.mapError(effect, ToolError.of(manifest, 'does not resolve as a Cargo workspace')),
-);
+const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
+    const metadata = yield* Effect.flatMap(Completed.output(ChildProcess.make('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot, stdin: 'ignore' })), Schema.decodeEffect(Metadata));
+    const root = relative(workspaceRoot, metadata.workspace_root) || '.';
+    const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
+    const [{ profile }, names, denied] = yield* Effect.all(
+        [
+            toml(Profiles, join(metadata.workspace_root, MANIFEST)),
+            Effect.map(Completed.output(ChildProcess.make('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root, stdin: 'ignore' })), (text) => text.split('\n')),
+            Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
+        ],
+        { concurrency: 'unbounded' },
+    );
+    return { metadata, profile, uplifted: Record.fromEntries(Array.zip(types, names)), deny: Option.toArray(denied) };
+});
 
 const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: Reading) => {
     const within = (at: string) => relative(workspaceRoot, at) || '.';
@@ -93,7 +102,7 @@ const resolved = (workspaceRoot: string, { metadata, profile, uplifted, deny }: 
 const workspaces = (workspaceRoot: string, manifests: readonly string[], files: ReadonlySet<string>) =>
     Effect.reduce(
         manifests.toSorted((left, right) => left.split('/').length - right.split('/').length || left.localeCompare(right)),
-        (): readonly (readonly [string, Result.Result<Reading, ToolError>])[] => [],
+        (): readonly (readonly [string, Result.Result<Reading, Effect.Error<ReturnType<typeof read>>>])[] => [],
         (done, manifest) =>
             done.some(([, reading]) => Result.isSuccess(reading) && reading.success.metadata.packages.some(({ manifest_path }) => relative(workspaceRoot, manifest_path) === manifest))
                 ? Effect.succeed(done)
@@ -102,4 +111,4 @@ const workspaces = (workspaceRoot: string, manifests: readonly string[], files: 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { LOCK, MANIFEST, Metadata, type Reading, resolved, type Workspace, workspaces };
+export { ancestors, LOCK, MANIFEST, type Member, Metadata, type Reading, refused, resolved, run, type Workspace, workspaces };

@@ -60,7 +60,7 @@ const Outputs = Schema.fromJsonString(Schema.Struct({ outputPaths: Schema.option
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, string>>()('@rasm/testing/nx/consumer/Packed') {
+class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, string>>()('@rasm/testing/nx/Packed') {
     static readonly layer = (...plugins: readonly string[]) =>
         Layer.effect(
             Packed,
@@ -106,7 +106,7 @@ class Consumer extends Context.Service<
         readonly committed: (message: string) => Effect.Effect<void>;
         readonly cleaned: Effect.Effect<void>;
     }
->()('@rasm/testing/nx/consumer') {
+>()('@rasm/testing/nx/Consumer') {
     static readonly layer = ({ resolved, settings, packages = [], ignored, files }: Stated) =>
         Layer.effect(
             Consumer,
@@ -148,7 +148,7 @@ class Consumer extends Context.Service<
                     Schema.encodeEffect(Json)({ overrides: sources }),
                 ]);
                 yield* wrote({ '.gitignore': ['node_modules', '.nx', ...ignored, ''].join('\n'), 'nx.json': nxJson, 'package.json': manifest, 'pnpm-workspace.yaml': overrides, ...files });
-                yield* done('pnpm', 'install', '--offline', '--ignore-scripts');
+                yield* done('pnpm', 'install', '--prefer-offline', '--ignore-scripts');
                 yield* done('git', 'init', '--quiet', '--initial-branch=main');
                 yield* committed('base');
                 return {

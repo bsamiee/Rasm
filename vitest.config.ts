@@ -37,7 +37,6 @@ export default defineConfig({
             { root: 'apps/nx/tests/apple', test: { name: '@rasm/test-nx-apple' } },
             { root: 'apps/nx/tests/cargo', test: { name: '@rasm/test-nx-cargo' } },
             { root: 'apps/nx/tests/cmake', test: { name: '@rasm/test-nx-cmake' } },
-            { root: 'apps/nx/tests/devkit', test: { name: '@rasm/test-nx-devkit' } },
             { root: 'apps/nx/tests/distribution', test: { name: '@rasm/test-nx-distribution' } },
             { root: 'apps/nx/tests/docker', test: { name: '@rasm/test-nx-docker' } },
             { root: 'apps/nx/tests/dotnet', test: { name: '@rasm/test-nx-dotnet' } },

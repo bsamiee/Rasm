@@ -1,11 +1,10 @@
 import type { ExecutorContext } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { executor } from '@rasm/nx-devkit/executor';
-import { iterated, ran } from '@rasm/nx-devkit/process';
-import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, pipe, Record, Schema, Stream, Struct } from 'effect';
+import { Completed } from '@rasm/process';
+import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { CommandLine } from 'effect/process';
-import { grouped } from '#/executors/build/executor';
+import { ChildProcess, CommandLine } from 'effect/process';
+import { grouped, run, streamed } from '#/executors/build/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -53,7 +52,7 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
         Effect.fnUntraced(function* (command, index) {
             const report = path.join(folder, `${index}.json`);
             const argv = [...command, target, '--report', report, ...(args ?? [])];
-            const { code, stdout, stderr } = yield* ran('dotnet', argv, { cwd: root });
+            const { code, stdout, stderr } = yield* Completed.run(ChildProcess.make('dotnet', argv, { cwd: root, stdin: 'ignore' }));
             const changed = yield* Effect.option(Effect.flatMap(fs.readFileString(report), Schema.decodeEffect(Report)));
             const owners = Option.flatMap(
                 Option.filter(changed, () => code === UNFORMATTED),
@@ -69,32 +68,21 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
     };
     return Array.map(members, ({ task, project }) => {
         const failed = runs.filter(({ blamed }) => Option.match(blamed, { onNone: () => true, onSome: (tasks) => tasks.has(task) }));
-        const result: TaskResult = { success: failed.length === 0, terminalOutput: failed.flatMap((run) => said(project, run)).join('\n') };
+        const result: TaskResult = { success: failed.length === 0, terminalOutput: failed.flatMap((each) => said(project, each)).join('\n') };
         return { task, result };
     });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = executor(
-    Format,
-    Effect.fnUntraced(function* (format, context) {
-        const [{ result }] = yield* formatted(context.root, [[context.root, format]]);
-        yield* Console.log(result.terminalOutput);
-        return result.success;
-    }),
-);
+const execute = Effect.fnUntraced(function* (format: typeof Format.Type, context: ExecutorContext) {
+    const [{ result }] = yield* formatted(context.root, [[context.root, format]]);
+    yield* Console.log(result.terminalOutput);
+    return { success: result.success };
+}, run);
 
-const batch = iterated((_: unknown, inputs: Readonly<Record<string, unknown>>, __: unknown, context: ExecutorContext) =>
-    pipe(
-        Record.toEntries(inputs),
-        Effect.forEach(([task, options]) => Effect.map(Schema.decodeUnknownEffect(Format)(options), (format): Planned => [task, format])),
-        Effect.map((planned) => Stream.mapEffect(Stream.fromIterable(grouped(planned)), (group) => Effect.scoped(formatted(context.root, group)))),
-        Stream.unwrap,
-        Stream.flattenIterable,
-    ),
-);
+const batch = (_: unknown, inputs: Readonly<Record<string, typeof Format.Type>>, __: unknown, context: ExecutorContext) => streamed(Stream.flattenIterable(Stream.mapEffect(Stream.fromIterable(grouped(Record.toEntries(inputs))), (group) => Effect.scoped(formatted(context.root, group)))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batch, execute };
+export { batch, execute, Format };

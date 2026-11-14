@@ -14,16 +14,16 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./nx/consumer": "./nx/consumer.ts",
-        "./nx/exemplars": "./nx/exemplars.ts",
-        "./nx/projects": "./nx/projects.ts",
+        "./conformance": "./conformance.ts",
+        "./nx": "./nx.ts",
         "./playwright": "./playwright.ts",
         "./storybook": "./storybook.ts",
         "./vitest": "./vitest.ts"
     },
-    "files": [ "dist", "!dist/suite", "!dist/*.config.*" ],
+    "files": [ "dist" ],
     "dependencies": {
         "@axe-core/playwright": "catalog:",
+        "@effect/vitest": "catalog:",
         "@rasm/process": "workspace:*",
         "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
@@ -71,9 +71,8 @@
     "publishConfig": {
         "access": "public",
         "exports": {
-            "./nx/consumer": "./dist/nx/consumer.js",
-            "./nx/exemplars": "./dist/nx/exemplars.js",
-            "./nx/projects": "./dist/nx/projects.js",
+            "./conformance": "./dist/conformance.js",
+            "./nx": "./dist/nx.js",
             "./playwright": "./dist/playwright.js",
             "./storybook": "./dist/storybook.js",
             "./vitest": "./dist/vitest.js"

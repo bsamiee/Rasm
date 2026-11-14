@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import type { ProjectGraph } from '@nx/devkit';
 import plugin from '@rasm/nx-typescript/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import tool from 'cf/package.json' with { type: 'json' };
 import { Effect, Layer, Path, Record, Schema } from 'effect';
 

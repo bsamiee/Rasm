@@ -1,8 +1,8 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { Consumer, Packed } from '@rasm/testing/nx/consumer';
+import { Consumer, Packed } from '@rasm/testing/nx';
 import { Array, Duration, Effect, Layer, Record } from 'effect';
-import { configured, files, members, placed, workspace } from '#/workspace';
+import { configured, files, members, placed, plugin, workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ const hashed = Effect.gen(function* () {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(Layer.provideMerge(Packed.layer('@rasm/nx-cmake'), layer), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-cmake project graph', (suite) => {
+it.layer(Layer.provideMerge(Packed.layer(plugin.name), layer), { timeout: bounds.built, excludeTestServices: true })('@rasm/nx-cmake project graph', (suite) => {
     suite.layer(workspace(), { timeout: bounds.built })('over a CMake tree of nested projects', (methods) => {
         methods.effect(
             'lists every project the file API reports below the root, under the name its project() call gives',
