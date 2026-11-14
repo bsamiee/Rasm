@@ -64,7 +64,7 @@ Places holding state, each updated by one action:
 - Host jobs take at most 20 GB (`MemoryMax`, slowed from 18 GB by `MemoryHigh`) and a job container 10 GB (`container.options` `--memory`)
 - Both instances share every core by equal CPU weight, and a job running alone uses all of them
 - `needrestart` leaves `actions.runner.*` services running after a library update, as GitHub documents
-- Workflow `Maintenance` runs each Saturday at 18:30 UTC on both instances and by dispatch
+- Workflow `Maintenance` runs each Sunday at 09:00 UTC (03:00 or 04:00 `America/Chicago`), before the update hour, on both instances and by dispatch
 - Job `container` checks out clean, removing every ignored file of that work folder, the container tools and package store included
 - Job `host` checks out clean, installs tools and packages, then prunes the pnpm store, uv cache, mise tool versions, and Docker leftovers
 - Docker pruning removes stopped containers made over an hour ago, unused anonymous volumes, build cache, and dangling images, never a tagged image

@@ -2,7 +2,7 @@ name: Maintenance
 
 on:
     schedule:
-        - cron: "30 18 * * 6"
+        - cron: "0 9 * * 0"
     workflow_dispatch: {}
 
 permissions:
