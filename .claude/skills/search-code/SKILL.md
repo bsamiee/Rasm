@@ -32,7 +32,7 @@ Installed version of a direct or transitive package and the package that depends
 dotnet nuget why <project>.csproj <id>
 pnpm why <pkg> --depth 1
 uv tree --frozen --invert --package <pkg> --depth 1
-cargo tree --invert <crate> --depth 1
+cargo tree --locked --invert <crate> --depth 1
 swift package show-dependencies --format json
 ```
 
@@ -48,7 +48,7 @@ xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-
 
 ```bash
 rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib>/*.xml
-curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xOf - 'lib/*.xml' | rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*'
+xh -F "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xOf - 'lib/*.xml' | rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*'
 ```
 
 .NET decompiled source on stdout with doc comments and nested types, `<dll>` is `<lib>/<assembly>.dll` of an installed version:
@@ -89,7 +89,7 @@ jq -c '(.["$defs"] // .definitions).<Def>' ${CLAUDE_PROJECT_DIR}/node_modules/<p
 TypeScript catalog package no project declares, read its tarball at the catalog release:
 
 ```bash
-mkdir -p .artifacts/search/<pkg>@<version> && curl -fsSL "$(pnpm view <pkg>@<version> dist.tarball)" | tar -xz -C .artifacts/search/<pkg>@<version>
+mkdir -p .artifacts/search/<pkg>@<version> && xh -F "$(pnpm view <pkg>@<version> dist.tarball)" | tar -xz --strip-components 1 -C .artifacts/search/<pkg>@<version>
 ```
 
 Python package in `uv.lock`, `uv run --no-sync --with <pkg> python` resolves one outside the lock:
@@ -190,7 +190,7 @@ mcp__nuget__get_package_context {"solutionDirectory": "${CLAUDE_PROJECT_DIR}", "
 Context7 stars, trust score, and last update per candidate, MCP results omit them, `libraryName` is the repository name:
 
 ```bash
-curl -s "https://context7.com/api/v2/libs/search?libraryName=<repository name>" -H "Authorization: Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions|join(","))] | @tsv'
+xh https://context7.com/api/v2/libs/search libraryName=='<repository name>' "Authorization:Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions|join(","))] | @tsv'
 ```
 
 Cited README lines of an installed .NET or TypeScript package:
@@ -203,7 +203,7 @@ rg -n --no-ignore -A6 '<term>' ${CLAUDE_PROJECT_DIR}/<project>/node_modules/<pkg
 Python cited lines of a package's long description at one version, case sensitive:
 
 ```bash
-curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -r '.info.description' | rg -n -A6 '<term>'
+xh https://pypi.org/pypi/<pkg>/<version>/json | jq -r '.info.description' | rg -n -A6 '<term>'
 ```
 
 ## [03]-[REPOSITORY]
@@ -220,7 +220,7 @@ Repository, commit, and tag behind an installed version, then its tree, files, b
 ```bash
 rg -o '<(repository|projectUrl)[^<]*' ~/.nuget/packages/<id>/<version>/<id>.nuspec
 pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
-curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -c '.info.project_urls'
+xh https://pypi.org/pypi/<pkg>/<version>/json | jq -c '.info.project_urls'
 cargo info <crate>@<version> | rg '^repository:'
 jq -c '{sha1: .git.sha1, path_in_vcs}' $CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version>/.cargo_vcs_info.json
 git ls-remote --tags https://github.com/<owner>/<repo> | rg 'refs/tags/\S*<version>$'
@@ -232,8 +232,8 @@ GitHub wiki pages served raw, a repository without a wiki prints no page name an
 2. Cited lines of one page
 
 ```bash
-curl -sL https://github.com/<owner>/<repo>/wiki/_pages | rg -o 'href="/<owner>/<repo>/wiki/[^"#/_][^"#/]*"' | sort -u
-curl -sL https://raw.githubusercontent.com/wiki/<owner>/<repo>/<Page>.md | rg -n -A8 '\b<term>\b'
+xh -F https://github.com/<owner>/<repo>/wiki/_pages | rg -o 'href="/<owner>/<repo>/wiki/[^"#/_][^"#/]*"' | sort -u
+xh -F https://raw.githubusercontent.com/wiki/<owner>/<repo>/<Page>.md | rg -n -A8 '\b<term>\b'
 ```
 
 GitHub reads at the tag:
@@ -295,7 +295,7 @@ Python versions:
 
 ```bash
 uv tree --frozen --outdated --package <pkg> --depth 0
-curl -s https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]?'
+xh https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]?'
 ```
 
 Rust newest version on crates.io:

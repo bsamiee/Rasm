@@ -22,7 +22,7 @@ struct Dense {
 static_assert(sizeof(Loose) == 24 && sizeof(Dense) == 16);
 ```
 
-`clang -fsyntax-only -Xclang -fdump-record-layouts-simple <file>` prints size, alignment, and field offsets in bits per used record, and `-Wpadded` names each padded field.
+`clang -c -o /dev/null -Xclang -fdump-record-layouts-simple <file>` prints size, alignment, and field offsets in bits per used record, and `-Wpadded` names each padded field.
 
 ## [02]-[COLUMNS]
 

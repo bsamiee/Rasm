@@ -155,7 +155,7 @@ Orthoimages come in scene CRS over the DEM box and drape through its UV map. Uni
 
 ```bash
 curl -fsS -o <dir>/naip.tif 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?bbox=<west>,<south>,<east>,<north>&bboxSR=<epsg>&imageSR=<epsg>&size=<pixels>,<pixels>&bandIds=0,1,2&format=tiff&f=image'
-curl -fsS -o <dir>/ortho.png 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=<west>,<south>,<east>,<north>&bboxSR=<epsg>&imageSR=<epsg>&size=<pixels>,<pixels>&format=png&f=image'
+curl -fsS -o <dir>/ortho.png 'https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/export?bbox=<west>,<south>,<east>,<north>&bboxSR=<epsg>&imageSR=<epsg>&size=<pixels>,<pixels>&format=png24&f=image'
 printf '%s\n0\n0\n-%s\n%s\n%s\n' <pixel size> <pixel size> <west + pixel size / 2> <north - pixel size / 2> > <dir>/ortho.pgw
 ```
 
@@ -306,7 +306,7 @@ for index, scan in enumerate(sorted((obj for obj in bpy.data.objects if obj not 
 ```
 
 - XYZ, PTS, PLY, and PCD imports cast coordinates to float32 uncentered
-- Projected text clouds shift to site-local meters before import (`awk '{ $1 -= <crs x>; $2 -= <crs y>; $3 -= <site elevation>; print }'`)
+- Projected text clouds shift to site-local meters before import (`awk -v CONVFMT='%.4f' 'NF >= 3 { $1 -= <crs x>; $2 -= <crs y>; $3 -= <site elevation> } { print }' <cloud> > <local cloud>`)
 - With `merge_scans` joining scans before any pose applies, posed E57 files import per scan
 - Airborne LiDAR takes `auto_radius=False` with half the point spacing
 - With `scale_factor` leaving `las_origin_offset` in file units, feet clouds scale offset by the unit

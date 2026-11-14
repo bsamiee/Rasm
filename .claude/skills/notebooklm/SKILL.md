@@ -12,20 +12,15 @@ authorization, and credential-handling rules below apply to both interfaces.
 
 ## Setup and Authentication
 
-Requires Python 3.10+. Install the package in the user's existing environment; do not create a
-separate environment unless requested:
+Requires Python 3.10+. A host without the `notebooklm` command installs it with uv, application code
+adds the package to its project environment (`uv add "notebooklm-py[browser]"`):
 
 ```bash
-pip install "notebooklm-py[browser]"
-pip install "notebooklm-py[cookies]"  # optional browser-cookie extraction
+uv tool install "notebooklm-py[browser,cookies,headless]"
 ```
 
-If system `pip` reports `externally-managed-environment`, do not use `--break-system-packages`.
-For CLI-only use, offer `uv tool install "notebooklm-py[browser]"` or the equivalent `pipx`
-command; for application code, use the user's active project environment.
-
 For unattended or headless work, prefer durable profile-backed master-token auth over a copied
-cookie snapshot. Install `pip install "notebooklm-py[headless]"`; the one-time automatic OAuth
+cookie snapshot. Extra `headless` holds it; the one-time automatic OAuth
 capture also needs `[browser]`. On a trusted workstation run
 `notebooklm login --master-token --account <email>`, then deploy `master_token.json`, not
 `storage_state.json`, to the selected profile. `NOTEBOOKLM_HOME` selects the private base directory
@@ -134,13 +129,13 @@ Common operations:
 |---|---|
 | Check compute usage | `notebooklm usage --json`; `notebooklm usage --categories` for category availability and estimated costs |
 | List or create notebooks | `notebooklm list --json`; `notebooklm create "Title" --json` |
-| Add and wait for a source | `notebooklm source add <input> -n <nb> --json`; `notebooklm source wait <src> -n <nb>` |
+| Add and wait for a source | `notebooklm source add <input> -n <nb> --json`; `notebooklm source wait <src> -n <nb> --json` |
 | URL recovery | `notebooklm source add <url> --fallback-fetch` |
 | Chat | `notebooklm ask "question" -n <nb> --json` |
 | Research | `notebooklm source add-research "query" -n <nb> --mode fast --json` (`deep` is also supported) |
-| List or wait for artifacts | `notebooklm artifact list -n <nb> --json`; `notebooklm artifact wait <id> -n <nb>` |
+| List or wait for artifacts | `notebooklm artifact list -n <nb> --json`; `notebooklm artifact wait <id> -n <nb> --json` |
 | Generate | `notebooklm generate <type> ... -n <nb> --json` |
-| Download | `notebooklm download <type> <path> -n <nb> -a <artifact>` |
+| Download | `notebooklm download <type> <path> -n <nb> -a <artifact> --json` |
 
 For the full surface, consult the installed command help or, when available, the
 [CLI reference](https://github.com/teng-lin/notebooklm-py/blob/main/docs/cli-reference.md).
@@ -157,14 +152,14 @@ generation, and requested output file. Confirm only work not already authorized 
 1. `notebooklm create "Research: topic" --json`
 2. `notebooklm source add <input> -n {notebook_id} --json` for each input.
 3. Once the foreground wait is authorized, run
-   `notebooklm source wait {source_id} -n {notebook_id} --timeout 600` for every captured source.
+   `notebooklm source wait {source_id} -n {notebook_id} --timeout 600 --json` for every captured source.
 4. Once generation is authorized, generate the requested type. For audio:
    `notebooklm generate audio "instructions" -n {notebook_id} -s {source_id} --json`.
    Repeat `-s` for each selected source and capture `.task_id` as `{artifact_id}`.
 5. Once the foreground wait is authorized, run
-   `notebooklm artifact wait {artifact_id} -n {notebook_id} --timeout 1200`.
+   `notebooklm artifact wait {artifact_id} -n {notebook_id} --timeout 1200 --json`.
 6. Once the output write is authorized, run
-   `notebooklm download audio ./podcast.m4a -a {artifact_id} -n {notebook_id}`.
+   `notebooklm download audio ./podcast.m4a -a {artifact_id} -n {notebook_id} --json`.
 
 For analysis without generation, replace steps 4-6 with an ID-pinned chat command only after every
 source is ready:

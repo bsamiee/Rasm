@@ -68,7 +68,7 @@ Numbered steps consume the step before. Bulleted cases are alternatives, one per
 Projects saved under `$GHIDRA_PROJECT_DIR`, a listed project takes no second import or copy, a binary without one takes an import:
 
 ```!
-mkdir -p "$GHIDRA_PROJECT_DIR" && find "$GHIDRA_PROJECT_DIR" -maxdepth 1 -name '*.gpr' -exec basename -s .gpr -a {} +
+mkdir -p "$GHIDRA_PROJECT_DIR" && fd -d 1 -e gpr --format '{/.}' . "$GHIDRA_PROJECT_DIR"
 ```
 
 `<headless>` opens project `<name>` with the scripts bundle:

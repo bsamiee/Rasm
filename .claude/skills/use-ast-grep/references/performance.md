@@ -170,7 +170,7 @@ Instruction counts hold steady between runs of one load order where wall time mo
 
 ```bash
 hyperfine -N --ignore-failure=1 --metrics instructions,time_wall_clock -r <runs> -L id '<baseline>,<rule>' --export-json <timings> "ast-grep scan --threads 1 --filter '^{id}\$' --json=stream <path>"
-jq -r '.results[] | [.parameters.id, .summary.instructions.min, .summary.instructions.median] | @tsv' <timings>
+jq -r '.results[] | [.parameters.id.value, .summary.instructions.min, .summary.instructions.median] | @tsv' <timings>
 ```
 
 - `--ignore-failure=1` accepts the finding exit and fails the benchmark on a load exit (`8`), `-i` reports a failed load's cost as the rule's

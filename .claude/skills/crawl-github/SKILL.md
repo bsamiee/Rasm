@@ -129,7 +129,7 @@ gh api 'repos/<owner>/<repo>/contents/<path>' -H 'Accept: application/vnd.github
 # Recorded runs by trigger, for a criterion a run proves: push runs of a branch, tag and release runs under their own events
 gh api 'repos/<owner>/<repo>/actions/runs?event=<push|release|schedule>&per_page=30' --jq '.workflow_runs[] | [.name, .head_branch, .conclusion, .created_at[:10]] | @tsv'
 
-# Issues or pull requests recording a decision or a defect, a query without is:issue or is:pr answers HTTP 422
+# Issues or pull requests recording a decision or a defect, a query without is:issue or is:pr mixes both
 gh api -X GET search/issues -f q='repo:<owner>/<repo> is:<issue|pr> <words>' --jq '.items[] | [.number, .state, .created_at[:10], .title] | @tsv'
 ```
 

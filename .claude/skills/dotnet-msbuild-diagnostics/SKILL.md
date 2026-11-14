@@ -14,10 +14,9 @@ Diagnosing a build from its binary log, from capture through the `binlog` MCP se
 
 ## [01]-[CAPTURE]
 
-Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `format` write `<dir>/<project>/<target>.binlog`:
-- `<target>` spells each `:` of the Nx target name as `-`, artifact uploads and NTFS refuse `:`
-- Nx cache hits restore the log of the run they replay
-- `<dir>` is `binlog` under the absolute path `dotnet msbuild <root>/Directory.Build.props -getProperty:ArtifactsPath` prints
+Nx targets write no binlog, `nx run <project>:build--dotnet --args=-bl:<dir>/<purpose>-{}.binlog` captures one run:
+- `--args` takes one switch, repeat it per switch, and Nx drops words after `--`
+- `--args=--artifacts-path=<dir>/artifacts` builds into an empty folder, the batch project has no `Rebuild` target
 - `dotnet msbuild` runs evaluation reads and replays, `-bl` captures one
 - MSBuild replaces `{}` in a `-bl` path with a UTC date, time, process id, and random string
 
@@ -51,8 +50,8 @@ Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `for
 - `Directory.Build.props` evaluates the root values without a project
 
 ```bash
-nx run <project>:build --skip-nx-cache -- -t:Rebuild -check
-nx run-many -t build -p tag:language:dotnet --skip-nx-cache -- -check
+nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-check
+nx run-many -t build--dotnet --skip-nx-cache --args=-check
 dotnet msbuild <log>.binlog -check
 dotnet msbuild Item/Item.csproj -getProperty:OutputPath -getItem:Compile -getResultOutputFile:<dir>/item.json
 ```
@@ -205,7 +204,7 @@ build_check.BC0101.severity = error
 
 ### [04.1]-[WORKFLOW]
 
-1. Run `nx run <project>:build--dotnet -- -check`, BuildCheck reporting through the one-run argument the tool-named target receives
+1. Run `nx run <project>:build--dotnet --args=-check`, BuildCheck reporting through the one-run argument the tool-named target receives
 2. Read each `BC` line on the console, or run `mcp__binlog__binlog_errors` then `mcp__binlog__binlog_warnings` with `category=BuildCheck`
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)`, `BC0101` and `BC0102` name the path and both projects
 
@@ -218,7 +217,7 @@ MSBuild creates one project instance per project path and global-property set. I
 4. Run `mcp__binlog__binlog_search_targets` on `CoreCompile`, `skipped: false` rows repeating one project file are separate instances
 5. Run `mcp__binlog__binlog_evaluations` with the `project` filter, then `mcp__binlog__binlog_evaluation_global_properties` per evaluation
 6. Compare the build-pass evaluations by the table, the global property differing between them names the extra instance
-7. Run `nx run <project>:build --skip-nx-cache -- -graph -isolate`, an instance the graph did not declare fails `MSB4252`
+7. Run `dotnet restore <project>.csproj --artifacts-path <dir>/artifacts`, then the same `dotnet build` with `--no-restore -graph -isolate`, an instance the graph did not declare fails `MSB4252`
 
 - `BC0101` naming `Library.csproj and Library.csproj` reports a second instance of one project
 - Relative SDK defaults group every project in `mcp__binlog__binlog_compare_property` and mean nothing, one project's second instance shows no group

@@ -114,14 +114,14 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 </ItemGroup>
 ```
 
-| [INDEX] | [COMMAND]                                                     | [EFFECT]                                                              |
-| :-----: | :------------------------------------------------------------ | :-------------------------------------------------------------------- |
-|  [01]   | `dotnet package add <id> --project <csproj>`                  | Adds the reference, under CPM the version goes to `PackageVersion`    |
-|  [02]   | `dotnet package add <id>@<version> --project <csproj>`        | Same with a pinned version, `--prerelease` accepts a prerelease       |
-|  [03]   | `dotnet package list --project <csproj> --include-transitive` | Requested and resolved versions, `--outdated` compares with the feeds |
-|  [04]   | `dotnet package remove <id> --project <csproj>`               | Removes the reference, the `PackageVersion` item stays                |
-|  [05]   | `dotnet package search <term> --source <url>`                 | Feed search, `--exact-match` lists every version of one id            |
-|  [06]   | `dotnet add package`                                          | Verb-first spelling of `dotnet package add`                           |
+| [INDEX] | [COMMAND]                                                     | [EFFECT]                                                           |
+| :-----: | :------------------------------------------------------------ | :----------------------------------------------------------------- |
+|  [01]   | `dotnet package add <id> --project <csproj>`                  | Adds the reference, under CPM the version goes to `PackageVersion` |
+|  [02]   | `dotnet package add <id>@<version> --project <csproj>`        | Same with a pinned version, `--prerelease` accepts a prerelease    |
+|  [03]   | `dotnet package list --project <csproj> --include-transitive` | Resolved versions, `--outdated` compares feeds, `--format json`    |
+|  [04]   | `dotnet package remove <id> --project <csproj>`               | Removes the reference, the `PackageVersion` item stays             |
+|  [05]   | `dotnet package search <term> --source <url>`                 | Feed search, `--exact-match` lists every version of one id         |
+|  [06]   | `dotnet add package`                                          | Verb-first spelling of `dotnet package add`                        |
 
 SemVer precedence misorders the prerelease builds a CI labels by branch or by build number:
 - Alphanumeric identifiers compare as text, `<n>-<branch>-<build>` outranks `<n>-dev-<build>` when `<branch>` sorts after `dev`
@@ -258,13 +258,13 @@ Restore resolves requested ranges through NuGet's lowest applicable version and 
 </Solution>
 ```
 
-| [INDEX] | [COMMAND]                                                     | [EFFECT]                                                      |
-| :-----: | :------------------------------------------------------------ | :------------------------------------------------------------ |
-|  [01]   | `dotnet new sln -n Product`                                   | Empty `.slnx`, `--format sln` writes the old format           |
-|  [02]   | `dotnet sln Product.slnx add <csproj> --solution-folder libs` | Adds project and references to a folder, `--in-root` to root  |
-|  [03]   | `dotnet sln Product.slnx remove <csproj>`                     | Removes the entry, `<csproj>` can be a name without extension |
-|  [04]   | `dotnet sln Product.slnx list`                                | Project paths                                                 |
-|  [05]   | `dotnet sln Product.sln migrate`                              | Writes `Product.slnx` beside the `.sln`                       |
+| [INDEX] | [COMMAND]                                                     | [EFFECT]                                                     |
+| :-----: | :------------------------------------------------------------ | :----------------------------------------------------------- |
+|  [01]   | `dotnet new sln -n Product`                                   | Empty `.slnx`, `--format sln` writes the old format          |
+|  [02]   | `dotnet sln Product.slnx add <csproj> --solution-folder libs` | Adds project and references to a folder, `--in-root` to root |
+|  [03]   | `dotnet sln Product.slnx remove <csproj>`                     | Removes the entry, `<csproj>` can be the project folder      |
+|  [04]   | `dotnet sln Product.slnx list`                                | Project paths                                                |
+|  [05]   | `dotnet sln Product.sln migrate`                              | Writes `Product.slnx` beside the `.sln`                      |
 
 | [INDEX] | [ELEMENT]         | [PURPOSE]                                                                                  |
 | :-----: | :---------------- | :----------------------------------------------------------------------------------------- |

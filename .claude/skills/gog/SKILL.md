@@ -133,7 +133,7 @@ Capture the consent URL with `-J`:
 
 ```bash
 tmux -L gog-auth capture-pane -t auth -p -J -S - \
-  | grep -oE 'https://accounts\.google\.com[^ ]+' | tail -1 > "$url_file"
+  | rg -o 'https://accounts\.google\.com[^ ]+' | tail -n 1 > "$url_file"
 ```
 
 **`-J` is mandatory.** `capture-pane` otherwise returns the URL hard-wrapped at

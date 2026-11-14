@@ -119,7 +119,7 @@ flowchart LR
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-distribution`, and a row's own options win
 - Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
-- Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet -- -bl`)
+- Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target (`nx run <project>:build--dotnet --args=-bl`)
 - File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other
 - Commits run no pre-commit hook: hk checks a commit's message alone, and file checks run when a shell or agent calls hk
 - Checkers report every finding as an error through their own configuration
@@ -214,7 +214,7 @@ Other tasks run through their own commands:
 - `nx deploy @rasm/infra` applies the repository and machine stacks, as workflow `Deploy` does
 - `nx migrate latest`, then `nx migrate --run-migrations`, applies a new Nx release's migrations
 - `nx sync` writes each executor's `schema.json` and `executors.json` description from its declared options schema, `nx sync:check` fails on a stale one
-- `mise deps` builds Python distributions against Pixi libraries when `pixi.lock`, `pyproject.toml`, or `uv.lock` changed, through `pixi run --locked uv sync`
+- `mise deps` builds Python distributions against Pixi libraries when `pixi.lock`, `pyproject.toml`, or `uv.lock` changed, through `pixi run --locked uv sync --all-packages`
 - `pixi run --locked python` supplies the library search path for `magic` and `weasyprint`
 
 ## [05]-[DELIVERY]

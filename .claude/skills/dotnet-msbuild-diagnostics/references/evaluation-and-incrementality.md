@@ -9,9 +9,10 @@ MSBuild evaluates a project before it executes targets, once per project instanc
 ### [01.1]-[MEASUREMENT]
 
 ```bash
-nx run <project>:build --skip-nx-cache -- -profileEvaluation:<dir>/evaluation.md
+dotnet build <project>.csproj --artifacts-path <dir>/artifacts -profileEvaluation:<dir>/evaluation.md
 ```
 
+- `-profileEvaluation` prints its report notice on stdout, which the Nx batch target cannot decode
 - `-profileEvaluation` prints one row per import, property, item, and target
 - `-profileEvaluation` reports inclusive and exclusive time grouped by evaluation pass, the glob rows include the directory enumeration cost
 - Binlogs hold one `Property reassignment:` message per overwritten property, `mcp__binlog__binlog_search` with `"Property reassignment"` lists them
@@ -59,12 +60,11 @@ Diagnosis finds targets that break incremental rules. Use `Skill(dotnet-msbuild-
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
 ```bash
-nx run rasm:restore --skip-nx-cache -- --artifacts-path <dir>/artifacts
-nx run <project>:build --skip-nx-cache -- --artifacts-path <dir>/artifacts
-nx run <project>:build --skip-nx-cache -- --artifacts-path <dir>/artifacts
+nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-bl:<dir>/first.binlog
+nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-bl:<dir>/second.binlog
 ```
 
-Analyze `<dir>/<project>/build.binlog`, the second build's log:
+Analyze `<dir>/second.binlog`, the second build's log:
 1. Run `mcp__binlog__binlog_incremental_analysis`, read each `skipped: false` row of `targets` for `reason`, `triggerInputs`, and `staleOutputs`
 2. Read `incrementalCleanDeletions` for a file a skipped target had declared
 3. Run `mcp__binlog__binlog_project_target_times` for each project the rows name

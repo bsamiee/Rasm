@@ -22,7 +22,7 @@ written to a file:
 
 | Provider | Command |
 | --- | --- |
-| Anthropic | `claude -p "$(cat <brief>)" --model fable --permission-mode plan` |
+| Anthropic | `claude -p "$(cat <brief>)" --model fable --effort high --permission-mode plan` |
 | OpenAI | `codex exec --sandbox read-only -o <answer> "$(cat <brief>)"` |
 | Google | `agy -p "$(cat <brief>)" --model gemini-4-carbon-high --settings '{"permissions":{"deny":["write_file(*)"]}}' --output-format json` |
 

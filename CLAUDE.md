@@ -42,17 +42,17 @@
 | [INDEX] | [TOOL]       | [GUIDANCE]                                                                                                                |
 | :-----: | :----------- | :------------------------------------------------------------------------------------------------------------------------ |
 |  [01]   | `outline`    | `ast-grep outline <paths> --view expanded` lists signatures and members, `--items exports` the public API                 |
-|  [02]   | `tree`       | `tree --gitignore <dir>` lists unignored directories and files, `-d` only directories, `-a` dot entries                   |
-|  [03]   | `loc`        | `loc <dir>` counts code lines with complexity score per file and folder                                                   |
+|  [02]   | `tree`       | `tree --gitignore <dir>` lists unignored directories and files, `-d` only directories, `-a -I .git` dot entries           |
+|  [03]   | `loc`        | `loc <dir>` counts code lines with complexity score per file and folder, `--json` for machine output                      |
 |  [04]   | `fd`         | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it                        |
 |  [05]   | `rg`         | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                               |
 |  [06]   | `jq`/`yq`    | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
 |  [07]   | `sd`         | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-`               |
 |  [08]   | `difft`      | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change                         |
-|  [09]   | `hyperfine`  | `hyperfine -r <runs> '<command>'` times runs, `-S default` adds a shell, `--metrics time_wall_clock,instructions` counts  |
+|  [09]   | `hyperfine`  | `hyperfine -r <runs> '<command>'` times runs, `-S` runs each in `sh`, `--metrics time_wall_clock,instructions` counts     |
 |  [10]   | `duckdb`     | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                             |
 |  [11]   | `xh`         | `xh <url>` prints body, exits 4 or 5 on 4xx or 5xx, `Name:value` header, `k==v` query, `k=v` JSON by POST                 |
-|  [12]   | `playwright` | `playwright cli open <url>`, `snapshot`, `click <ref>`, `close`, outside root `mise -C <root> exec --` first              |
+|  [12]   | `playwright` | `playwright cli open <url>`, `snapshot`, `click <ref>`, `--json`, `close`, outside root `mise -C <root> exec --` first    |
 |  [13]   | `attach`     | `playwright cli -s=<n> attach --extension=chrome` drives owner's Chrome unfocused, `-s=<n> detach --close-tabs` ends it   |
 |  [14]   | `gh`         | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result, hooks refuse a `gh run view` loop   |
 |  [15]   | `mq`         | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions            |

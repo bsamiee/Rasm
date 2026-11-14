@@ -37,7 +37,7 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, 
 - `deploy` row `GITHUB_TOKEN` authorizes the GitHub provider, `gh` calls of the repository stack, and the Doppler webhook starting workflow `Deploy`
 - Values a stack generates stay in Pulumi state, `pulumi stack output <name> --show-secrets` reads them
 - Pulumi reads its backend login from `pulumi login`
-- New job values go in through `doppler secrets set <NAME> --config <job>`, new configs and syncs are rows of `infra/repository-stack.ts`
+- New job values go in through `doppler secrets set <NAME>="$(<producer>)" --config <job>`, new configs and syncs are rows of `infra/repository-stack.ts`
 - Values shared between configs sit in one, each other config holds reference `${<config>.<NAME>}`
 - Rows selecting one provider hold reference `${<NAME>}` to a provider-named row of their config (`BACKUP_*` to `RUSTFS_*` or `BACKBLAZE_*`)
 - References name plain values alone, Doppler refuses one naming a value that holds a reference
@@ -50,7 +50,7 @@ Desktop app integration authorizes `op` for account `my.1password.com`:
 2. `op vault list` raises the Touch ID prompt and lists vaults `Personal` and `Tokens`
 
 - Authorization covers one terminal session and its subshells, expires after 10 idle minutes or 12 hours, and ends when the app locks
-- Agent shells hold no tty, `op whoami` there prints `account is not signed in` while reads succeed
+- Agent shells hold no tty and share the authorization, `op whoami --format json` prints the signed-in `email` and `url`
 
 ## [04]-[OP_READS]
 
@@ -73,9 +73,8 @@ Secret references take the form `op://<vault>/<item>/[<section>/]<field>[?<query
 ## [05]-[OP_WRITES]
 
 Creates take values through stdin JSON, edits through assignments, and `--dry-run` previews either:
-- `doppler secrets get --plain` and `op read` end the value with a newline, `rtrimstr("\n")` and `$(<cmd>)` drop it
+- `doppler secrets get --plain` and `op read` end the value with a newline, `op read -n`, `rtrimstr("\n")`, and `$(<cmd>)` drop it
 - Template edits (`--template`, stdin JSON) overwrite the whole item, its passkey included
-- Login items change in the 1Password app alone
 
 ```bash
 # Doppler names lacking a Tokens item, the items to create
@@ -104,7 +103,7 @@ op item edit <NAME> --vault Tokens --title <NEW_NAME>
 ## [06]-[SSH_SIGNING]
 
 Desktop app's SSH agent serves its ED25519 key to SSH hosts and Git commit and tag signing:
-- `~/.ssh/config` sets `IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"` for every host
+- `~/.ssh/config` sets `IdentityAgent "/Users/<user>/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"` for every host
 - Git sets `gpg.format=ssh`, `user.signingkey` to the public key, and `gpg.ssh.program=/Applications/1Password.app/Contents/MacOS/op-ssh-sign`
 - Each application's first request raises an approval prompt, approval holds until the app locks
 

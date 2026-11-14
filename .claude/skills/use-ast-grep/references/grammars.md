@@ -68,17 +68,17 @@ Prepare passes run in order:
 
 Debug flags and logs:
 
-| [INDEX] | [COMMAND]                                     | [PRINTS]                                                              |
-| :-----: | :-------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `generate --log`                              | Each keyword and recovery-token decision with its conflict            |
-|  [02]   | `generate --report-states-for-rule '*'`       | Per rule state counts, items, and lookaheads, help's `-` a summary    |
-|  [03]   | `generate --json-summary`                     | `{diagnostics, error}` on stderr, one conflict per run                |
-|  [04]   | `generate --disable-optimizations`            | Table without state merging, the gap is the merge's gain              |
-|  [05]   | `parse --no-ranges --cst`                     | Tree with unnamed tokens, `MISSING: ";"` the plain form hides         |
-|  [06]   | `parse -d`                                    | `lex_external state:<row>`, `lexed_lookahead`, `recover_with_missing` |
-|  [07]   | `parse -D`                                    | `log.html` with stack graphs                                          |
-|  [08]   | `parse --edits "<row>,<col> <del> <text>" -d` | Node reuse after an edit                                              |
-|  [09]   | `test -p <root>`                              | Corpus cases under `<root>/test/corpus`, `-u` writes trees            |
+| [INDEX] | [COMMAND]                                            | [PRINTS]                                                              |
+| :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `generate --log`                                     | Each keyword and recovery-token decision with its conflict            |
+|  [02]   | `generate --report-states-for-rule '*'`              | Per rule state counts, items, and lookaheads, help's `-` a summary    |
+|  [03]   | `generate --json-summary`                            | `{diagnostics, error}` on stderr, one conflict per run                |
+|  [04]   | `generate --disable-optimizations`                   | Table without state merging, the gap is the merge's gain              |
+|  [05]   | `parse --no-ranges --cst`                            | Tree with unnamed tokens, `MISSING: ";"` the plain form hides         |
+|  [06]   | `parse -d normal`                                    | `lex_external state:<row>`, `lexed_lookahead`, `recover_with_missing` |
+|  [07]   | `parse -D`                                           | `log.html` with stack graphs                                          |
+|  [08]   | `parse --edits "<row>,<col> <del> <text>" -d normal` | Node reuse after an edit                                              |
+|  [09]   | `test -p <root>`                                     | Corpus cases under `<root>/test/corpus`, `-u` writes trees            |
 
 - Corpus delimiters are `===` of length 3 or more around a name, `---` before the tree, attributes (`:skip`, `:error`, `:cst`) sit below the name
 - `tree-sitter.json` requires `grammars` and `metadata`, each grammar `name` and `scope`, `external-files` joins the loader's recompile check
@@ -210,7 +210,7 @@ export default grammar(base, {
 ```
 
 ```bash
-tree-sitter generate --json-summary grammar.js 2>&1 | jq -c '.error.BuildTables.Conflict.possible_resolutions[]? | .AddConflict.symbols // empty'
+tree-sitter generate --json-summary grammar.js |& jq -c '.error.BuildTables.Conflict.possible_resolutions[]? | .AddConflict.symbols // empty'
 ```
 
 ```text
@@ -268,7 +268,7 @@ Keywords under `word` come from a capture the generator proves:
 - Runtime lexes `word` first and reruns a keyword lexer, a keyword applies on identical end and a valid action or reserved status
 - `letx` stays one identifier and `let inside` keeps `inside` whole, without `word` it gives `in` and an `ERROR` over `side`
 - Keywords collapse to `word` in lex-state token sets and multiply no lex states, they sit in a separate `ts_lex_keywords`
-- Keywords arriving invalid with `word` valid relabel at runtime, `parse -d` logs `switch from_keyword`, a reserved word reads as a name there (PostgreSQL `CREATE TABLE select (a int)`)
+- Keywords arriving invalid with `word` valid relabel at runtime, `parse -d normal` logs `switch from_keyword`, a reserved word reads as a name there (PostgreSQL `CREATE TABLE select (a int)`)
 - Grammars without `word` (Swift) hold no keyword table and no `reserved`
 
 ```js
@@ -319,7 +319,7 @@ External scanners run first at each position where the parse state holds an exte
 - `mark_end` before `skip` makes a zero-width token at the mark, the whitespace becomes the next token's padding (Python `_newline`, TSX `_automatic_semicolon`)
 - `eof` decides end of input, `lookahead` 0 can be a valid character
 - Bytes read count toward lookahead and widen which edits invalidate the token, `get_column` (code points less a BOM) adds column-shifting edits
-- `log` writes under a logger alone and shows in `parse -d`
+- `log` writes under a logger alone and shows in `parse -d normal`
 
 Recovery and zero-width tokens:
 - Row 1 of `ts_external_scanner_states` marks every pure external valid, an external naming an internal token holds it only if that token enters the error state
@@ -360,7 +360,7 @@ bool tree_sitter_lines_external_scanner_scan(void *payload, TSLexer *lexer, cons
 }
 ```
 
-`parse -d` over `a 1\nb;\nc` and a malformed `a 1 2`, the row number naming each state's valid set, a scanner with no sentinel logging `ignore_empty_external_token` in recovery:
+`parse -d normal` over `a 1\nb;\nc` and a malformed `a 1 2`, the row number naming each state's valid set, a scanner with no sentinel logging `ignore_empty_external_token` in recovery:
 
 ```text
 lex_external state:2, row:0, column:3
@@ -617,12 +617,12 @@ Task hashes hold global files (runner config, ignore files) no grammar reads, ex
 
 ## [12]-[NODE_SHAPES]
 
-Shapes read from the configured library, first command prints a tree with unnamed tokens, second a kind's contract, third each parent accepting a kind:
+Shapes read from the configured library, first command prints a tree with unnamed tokens, second a kind's contract, third each parent accepting a kind directly or through a supertype:
 
 ```bash
 tree-sitter parse --no-ranges --cst -l <lib> --lang-name <name> <file>
 jq -c '.[] | select(.type == "<kind>") | {fields, children, subtypes}' <src>/node-types.json
-jq -r --arg kind <kind> '.[] | select([(.fields // {})[].types[], (.children.types // [])[]] | any(.type == $kind)) | .type' <src>/node-types.json
+jq -r --arg kind <kind> 'INDEX(.[] | select(.named); .type) as $t | def leaf: if $t[.type].subtypes then ($t[.type].subtypes[] | leaf) else .type end; .[] | select([(.fields // {})[].types[], (.children.types // [])[] | select(.named) | .type, leaf] | index($kind)) | .type' <src>/node-types.json
 ```
 
 Contract keys:

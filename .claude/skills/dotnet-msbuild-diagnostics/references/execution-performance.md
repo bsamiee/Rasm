@@ -6,16 +6,21 @@ Covers target execution, project scheduling, and task cost in build duration. Fi
 
 Change the input or setting under measurement alone. Hold command, properties, node count, node reuse, restore state, and build server state constant across both captures. Binary logging has its own cost and stays on for both.
 
-| [INDEX] | [CAPTURE]     | [COMMANDS]                                                            | [MEASURES]                               |
-| :-----: | :------------ | :-------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | Clean build   | `nx run <project>:build --skip-nx-cache -- -t:Rebuild`                | Every target and task from empty outputs |
-|  [02]   | Changed input | One successful build, one representative edit, the same command again | Work one edit causes                     |
-|  [03]   | No change     | One successful build, then the same command with `--skip-nx-cache`    | Targets that run with nothing changed    |
-|  [04]   | Build only    | `nx run rasm:restore --skip-nx-cache`, then `nx run <project>:build`  | Execution without restore                |
+Captures build into their own artifacts folder, which no other session's build writes:
+
+```bash
+nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/<capture> --args=-bl:<dir>/<capture>.binlog
+```
+
+| [INDEX] | [CAPTURE]     | [COMMANDS]                                                              | [MEASURES]                               |
+| :-----: | :------------ | :---------------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | Clean build   | Command on an empty `<dir>/<capture>`                                   | Every target and task from empty outputs |
+|  [02]   | Changed input | One successful build, one representative edit, the same command again   | Work one edit causes                     |
+|  [03]   | No change     | One successful build, then the same command                             | Targets that run with nothing changed    |
+|  [04]   | Build only    | `dotnet restore` into `<dir>/<capture>`, then add `--args=--no-restore` | Execution without restore                |
 
 - `dotnet build-server shutdown` stops the MSBuild and compiler servers before a capture, `--disable-build-servers` keeps them out of one capture
 - Record server and node state with the capture, a warm server and reused nodes remove process startup from measured duration
-- When another session builds into the shared `ArtifactsPath`, restore and capture both with `-- --artifacts-path <dir>`
 - `mcp__binlog__binlog_compare` shows property and package drift between captures
 - Compare the build against its own captures
 
@@ -51,10 +56,11 @@ Critical path is the duration-weighted chain of project dependencies setting min
 `-graph` builds the project graph from declared references before execution and schedules referenced projects before their consumers. `-isolate` enforces the graph and is the one mode that reports `MSB4252`, a clean `-graph` build without it leaves missing edges unreported.
 
 ```bash
-nx run <project>:build --skip-nx-cache -- -graph -isolate
+dotnet restore <project>.csproj --artifacts-path <dir>/artifacts
+dotnet build <project>.csproj --no-restore -graph -isolate --artifacts-path <dir>/artifacts
 ```
 
-- `rasm:restore` runs as its own target before the build, restore inside a `-graph -isolate` build breaks isolation
+- `dotnet restore` runs before the build, restore inside a `-graph -isolate` build fails `MSB4252`, and the Nx batch project fails `MSB4254`
 - `<MSBuild Projects="...">` calls add no graph edge, `ProjectReference` or a `ProjectReferenceTargets` entry declares it
 - `MSB4252` names the calling project, the called project, and both global-property sets, the difference between the sets is the undeclared instance
 - `GraphIsolationExemptReference` with the full path of a project exempts one reference from the isolation check
@@ -89,7 +95,7 @@ When `mcp__binlog__binlog_expensive_tasks` shows `ResolveAssemblyReference` cost
 `Csc` includes analyzer and source generator work. SDK builds send every compilation to the compiler server, and `UseSharedCompilation=false` runs `csc` as a process per project. `CompilerServer:` messages under the `Csc` task record `server processed compilation` or `using command line tool by design`.
 
 ```bash
-nx run <project>:build --skip-nx-cache -- -t:Rebuild -p:ReportAnalyzer=true
+nx run <project>:build--dotnet --skip-nx-cache --args=--artifacts-path=<dir>/artifacts --args=-p:ReportAnalyzer=true --args=-bl:<dir>/analyzers.binlog
 ```
 
 - Run `mcp__binlog__binlog_analyzer_summary` on the capture for time and invocation count per analyzer, rank the outliers

@@ -77,7 +77,7 @@ Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each rou
 - `netcoredbg` reads `interrupt`, `info threads`, `backtrace`, `break <file>:<line>`, `print <expression>`, `continue`, `detach`, and `quit`, one per line
 - `interrupt` stops every thread, so `continue` or `detach` precedes the next MCP call, and Rhino answers again after `detach`
 - Breakpoints in Rhino's own optimized assemblies stay pending
-- `--duration` bounds a `collect`, as `dd:hh:mm:ss` for `dotnet-trace` and `hh:mm:ss` for `dotnet-counters`
+- `--duration <dd:hh:mm:ss>` bounds a `collect` of either tool
 - People debug in VS Code through the `coreclr` launch configuration `dotnet new rhino` writes
 
 One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and the lines it wrote to the command window:

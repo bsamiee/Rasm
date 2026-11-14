@@ -12,7 +12,7 @@ Choose retrieval by source location and required evidence.
 - Coverage: missing search results leave a claim unresolved
 - Selection: stop when source passages resolve the question
 - Composition: use another index for missing evidence
-- Output: pass `--json` for structured responses, kept outputs are placed in `.artifacts/search/`
+- Output: pass `--json` for structured responses, `-o .artifacts/search/<name>.json` keeps a response
 - Failure: `failed_results` records extraction failures, not page absence
 - Syntax: read complete source passages when code, table cells, or surrounding qualifications decide a claim
 
@@ -96,7 +96,7 @@ Read source-provided Markdown URLs for complete text and code. For selected HTML
 
 ```bash
 # Literal in source Markdown
-curl -fsSL '<markdown-url>' | rg -nF -C3 -- '<literal>'
+xh -F '<markdown-url>' | rg -nF -C3 -- '<literal>'
 
 # Unique selected URLs when search passages leave a gap
 tvly extract '<url>' '<url>' --query '<question>' --chunks-per-source 3 --extract-depth advanced --json
@@ -116,7 +116,7 @@ Use published documentation indexes to select page URLs. Use `tvly map` for URLs
 
 ```bash
 # Documentation page index at the published root
-curl -fsSL '<docs-root>/llms.txt' | rg -n -- '<section>'
+xh -F '<docs-root>/llms.txt' | rg -n -- '<section>'
 
 # URL selection before content retrieval
 tvly map '<root>' --select-paths '<path-regex>' --max-depth 2 --limit 20 --no-external --json
@@ -129,20 +129,18 @@ tvly crawl '<root>' --select-paths '<path-regex>' --max-depth 2 --limit 20 --no-
 PDF page numbers differ from printed page labels. Inspect rendered pages when extraction omits a figure, table structure, or searchable text.
 
 ```bash
-# PDF pages containing a heading or literal
-curl -fsSL '<pdf-url>' | python -c \
-    "import sys, pymupdf; print(*(i + 1 for i, p in enumerate(pymupdf.open(stream=sys.stdin.buffer.read(), filetype='pdf')) if sys.argv[1] in p.get_text()))" '<literal>'
+# Local PDF every later step reads
+curl -fsSL --create-dirs -o '.artifacts/search/<name>.pdf' '<pdf-url>'
 
-# Table rows from a selected PDF page
-curl -fsSL '<pdf-url>' | PYMUPDF_SUGGEST_LAYOUT_ANALYZER=0 python -c \
-    "import sys, pymupdf; [print(' | '.join(map(str, r))) for t in pymupdf.open(stream=sys.stdin.buffer.read(), filetype='pdf')[int(sys.argv[1]) - 1].find_tables().tables for r in t.extract()]" <page>
+# PDF pages containing a heading or literal
+mutool draw -q -F stext.json -o - '.artifacts/search/<name>.pdf' \
+    | jq -r --arg lit '<literal>' '.pages | to_entries[] | select([.value.blocks[] | .lines[]?.text] | join("\n") | contains($lit)) | .key + 1'
+
+# Table text from a selected PDF page, columns kept by layout
+pdftotext -layout -f <page> -l <page> '.artifacts/search/<name>.pdf' -
 
 # Outline entries with PDF page numbers
-curl -fsSL '<pdf-url>' | python -c \
-    "import sys, pymupdf; print(*(f'{p} {t}' for _, t, p in pymupdf.open(stream=sys.stdin.buffer.read(), filetype='pdf').get_toc()), sep='\n')" | rg -- '<heading>'
-
-# Local PDF for rendered page inspection
-curl -fsSL --create-dirs -o '.artifacts/search/<name>.pdf' '<pdf-url>'
+mutool show '.artifacts/search/<name>.pdf' outline | rg -- '<heading>'
 ```
 
 ```text
@@ -184,7 +182,7 @@ JSON
 tvly research run '<scope>' --model pro --output-schema '.artifacts/search/<schema>.json' --no-wait --json
 
 # Collect by request_id after independent reading
-tvly research status '<request_id>' --json
+tvly research poll '<request_id>' -o '.artifacts/search/<name>.json' --json
 ```
 
 Exa `input.data` supplies rows for enrichment. Set `maxItems` to the requested row count. `output.structured` holds results with citations in `output.grounding`. `previousRunId` starts a new run from completed research. `runId` retrieves an existing run.

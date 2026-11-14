@@ -92,7 +92,7 @@ watch-apps serve
 ```
 
 - `read` prints the whole state with element ids, `--window` walks one row, so answering a dialog costs a fraction of a whole `read`
-- `capture` writes one PNG per presented window with no activation to `$TMPDIR/watch-apps/<number>.png`, printing one `captured` line per file
+- `capture` writes one PNG per presented window with no activation to `$TMPDIR/app.rasm.watch-apps/<number>.png`, printing one `captured` line per file
 - `capture` reads every window with a window-server number (inactive, covered, minimized, on another unmanaged Space) and needs the Screen Recording grant
 - `perform` runs one of the element's `actions` through `AXUIElementPerformAction`, `AXPress` presses a button or a menu item
 - `AXRaise` is listed in `actions` as the host states it and refused, since it takes focus

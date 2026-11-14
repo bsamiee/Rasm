@@ -15,7 +15,7 @@ Restore reports `NU1xxx` codes and `dotnet pack` reports `NU5xxx` codes, `TreatW
 |  [07]   | `NU1015` | `PackageReference` without `Version` outside CPM              | Enable CPM, a nested file imports the outer one at its top   |
 |  [08]   | `NU1100` | Source mapping matches no source for the id                   | Add a `package pattern` under the source that holds it       |
 |  [09]   | `NU1101` | No source has the id                                          | Correct the id, or add the source and its pattern            |
-|  [10]   | `NU1102` | Id exists, the version does not                               | Pick a listed version, `dotnet package search` shows them    |
+|  [10]   | `NU1102` | Id exists, the version does not                               | Version `dotnet package search <id> --exact-match` lists     |
 |  [11]   | `NU1103` | Prerelease versions alone satisfy a stable range              | Name the prerelease version in the `PackageVersion` item     |
 |  [12]   | `NU1107` | Dependencies demand incompatible versions of one id           | Reference the package directly at the higher version         |
 |  [13]   | `NU1109` | Transitive pinning holds a package below a required version   | Raise the `PackageVersion`, or disable transitive pinning    |
