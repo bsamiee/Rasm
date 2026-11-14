@@ -97,7 +97,7 @@ jobs:
             fail-fast: false
             matrix:
                 engine: ${{ fromJSON(needs.release.outputs.engines) }}
-        runs-on: [self-hosted, linux, x64]
+        runs-on: [self-hosted, container]
         timeout-minutes: 120
         environment: release
         permissions:
@@ -107,6 +107,7 @@ jobs:
             credentials:
                 username: ${{ github.actor }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
+            options: --memory=10g
         env:
             GH_TOKEN: ${{ github.token }}
             UV_LOCKED: "true"

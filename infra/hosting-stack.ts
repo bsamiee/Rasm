@@ -110,7 +110,7 @@ const hostingStacks = Effect.fnUntraced(function* (context: ExecutorContext, dep
         onNone: () => Effect.succeed([on('disposable', local.host)]),
         onSome: ({ production, rows }) => {
             const mode = production ? 'production' : 'disposable';
-            const apps = Record.filter<string, (typeof hosts)[keyof typeof hosts]>(hosts, ({ role }) => Role.$is('Apps')(role));
+            const apps = Record.filter<string, (typeof hosts)[keyof typeof hosts]>(hosts, ({ roles }) => roles.some(Role.$is('Apps')));
             return Effect.forEach(
                 app.targets,
                 App.Target.$match({

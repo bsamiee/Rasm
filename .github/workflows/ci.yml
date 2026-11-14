@@ -20,10 +20,9 @@ defaults:
 
 jobs:
     affected:
-        runs-on: [self-hosted, linux, x64]
+        runs-on: [self-hosted, host]
         timeout-minutes: 30
         outputs:
-            darwin: ${{ steps.listed.outputs.darwin }}
             engines: ${{ steps.listed.outputs.engines }}
         env: &cache
             GH_TOKEN: ${{ github.token }}
@@ -35,6 +34,9 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
+                  clean: false
+            - &untracked
+              run: git clean -ffd
             - &cores
               run: |
                   cores="$(getconf _NPROCESSORS_ONLN)"
@@ -50,18 +52,18 @@ jobs:
             - run: nx sync:check
             - id: listed
               run: |
-                  darwin="$(nx show projects --affected --projects=tag:os:darwin,tag:os:all --json)"
-                  linux="$(nx show projects --affected --projects=tag:os:linux --json)"
+                  linux="$(nx show projects --affected --exclude='*,!tag:os:linux' --json)"
                   engines="$(git ls-files -z -- "*.uproject" | xargs -0 cat | jq --slurp --compact-output --argjson affected "${linux}" 'if $affected == [] then [] else map(.EngineAssociation | strings | select(test("^[0-9.]+$"))) | unique end')"
-                  printf "darwin=%s\nengines=%s\n" "${darwin}" "${engines}" >> "${GITHUB_OUTPUT}"
+                  printf "engines=%s\n" "${engines}" >> "${GITHUB_OUTPUT}"
 
     linux:
         needs: affected
-        runs-on: [self-hosted, linux, x64]
+        runs-on: [self-hosted, host]
         timeout-minutes: 120
         env: *cache
         steps:
             - *checkout
+            - *untracked
             - *cores
             - *shas
             - *tools
@@ -79,8 +81,6 @@ jobs:
                       .artifacts/vitest
 
     macos:
-        needs: affected
-        if: ${{ needs.affected.outputs.darwin != '[]' }}
         runs-on: xcode-27
         timeout-minutes: 120
         env: *cache
@@ -107,13 +107,14 @@ jobs:
             fail-fast: false
             matrix:
                 engine: ${{ fromJSON(needs.affected.outputs.engines) }}
-        runs-on: [self-hosted, linux, x64]
+        runs-on: [self-hosted, container]
         timeout-minutes: 120
         container:
             image: ghcr.io/epicgames/unreal-engine:dev-slim-${{ matrix.engine }}
             credentials:
                 username: ${{ github.actor }}
                 password: ${{ secrets.EPIC_GHCR_TOKEN }}
+            options: --memory=10g
         env:
             UV_LOCKED: "true"
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: *server
@@ -122,8 +123,12 @@ jobs:
             UnrealBuildTool_UnrealBuildAccelerator__AllowDetour: "false"
         steps:
             - *checkout
+            - *untracked
             - *cores
             - *shas
+            - run: |
+                  kept="${GITHUB_WORKSPACE}/.cache"
+                  printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "MISE_RUSTUP_HOME=${kept}/mise/rustup" "MISE_CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" >> "${GITHUB_ENV}"
             - *tools
             - *packages
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:linux'

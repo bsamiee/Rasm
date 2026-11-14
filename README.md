@@ -154,15 +154,21 @@ flowchart LR
 - Suites reading the project graph take tag `os:all` and hash one platform input
 - Suites reading the live tree compare what running tasks leave alone: a task reading its dependencies' outputs hashes files those tasks write
 - Workflow checkouts fetch full history (`fetch-depth: 0`, no `filter`): `nx release` compares the files of each commit, which a partial clone fetches one commit at a time
-- Workflow checkouts remove ignored files: host and container jobs share one work folder under two paths, and cached absolute paths name one
-- CI jobs run as many tasks at once as their machine has cores (`NX_PARALLEL`)
-- CI job `affected` lists the affected `os:darwin` and `os:all` projects and Unreal engines, and jobs `macos` and `unreal` run where it lists one
+- CI checkouts keep ignored files (`clean: false`) and remove untracked ones, so caches and packages stay in a work folder a runner keeps
+- Host and container jobs run on separate runner instances, each with its own work folder: cached absolute paths name one mount path
+- CI job `unreal` keeps its tools and package store under `.cache` of its checkout, which its container mounts
+- CI jobs run as many tasks at once as their machine has cores (`NX_PARALLEL`), and never stop at a first failed task
+- CI job `affected` lists the affected `os:linux` projects, and job `unreal` runs where it lists one
+- Listings select by project, never by target: an Unreal project holds no target on a runner outside its engine image
+- CI job `macos` starts on every run and its own `nx affected` selects what runs: no Linux graph holds an Apple project to list
 - CI job `linux` runs the affected targets of every project without tag `os:darwin`, job `macos` the `os:darwin` and `os:all` projects
-- CI jobs `affected`, `linux`, and `unreal` run on the machine holding role `Runner`, which keeps tools and each Unreal image between runs
+- CI jobs `affected` and `linux` run on runner instance `host` of role `Runner` and job `unreal` on instance `container`, at once
+- Role `Runner` keeps tools, ignored files, and each Unreal image between runs, and workflow `Maintenance` clears ignored files weekly
 - CI job `unreal` runs the affected `os:linux` projects in Epic's `dev-slim` image of each `EngineAssociation` a `.uproject` names
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
-- Unchanged stack inputs apply nothing, and a machine runs the containers and services field `role` of its `hosts` row states
-- Machine names state no role, provider, or location: roles sit in host row `role`, DNS aliases, and tailnet tags
+- Unchanged stack inputs apply nothing, and a machine runs the containers and services field `roles` of its `hosts` row states
+- Machine names state no role, provider, or location: roles sit in host row `roles`, DNS aliases, and tailnet tags
+- Machines with role `Watch` check their own services and the notifier and checker of every other machine, and alert through role `Notify`
 - Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`
 - `package.json` projects stating a `version` are release projects with `pack--pnpm` and `attach--gh`, and `private` stops the registry upload alone
 

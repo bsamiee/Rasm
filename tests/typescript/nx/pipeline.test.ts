@@ -1,17 +1,19 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
-import { Array, Effect, FileSystem, Order, Path, Record, Schema } from 'effect';
+import { Array, Effect, FileSystem, Filter, Option, Order, Path, Record, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
 import { findMatchingProjects } from 'nx/src/utils/find-matching-projects';
 import { read, type Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Ran {
+interface Told {
     readonly job: string;
-    readonly runner: string;
+    readonly labels: readonly string[];
     readonly gated: boolean;
+    readonly listing: boolean;
+    readonly targeted: boolean;
     readonly projects: readonly string[];
 }
 
@@ -20,10 +22,11 @@ interface Ran {
 const SOURCES = {
     covered:
         'README.md PRINCIPLES: CI job `linux` runs the affected targets of every project without tag `os:darwin`, job `macos` the `os:darwin` and `os:all` projects; CI job `unreal` runs the affected `os:linux` projects; nrwl/nx packages/nx/src/command-line/yargs-utils/shared-options.ts exclude: Exclude certain projects from being processed',
-    listed: 'README.md PRINCIPLES: CI job `affected` lists the affected `os:darwin` and `os:all` projects and Unreal engines, and jobs `macos` and `unreal` run where it lists one; nrwl/nx packages/nx/src/command-line/show/command-object.ts projects: Show only projects that match a given pattern',
+    listed: 'README.md PRINCIPLES: CI job `affected` lists the affected `os:linux` projects, and job `unreal` runs where it lists one; Listings select by project, never by target: an Unreal project holds no target on a runner outside its engine image; CI job `macos` starts on every run and its own `nx affected` selects what runs: no Linux graph holds an Apple project to list; nrwl/nx packages/nx/src/command-line/show/projects.ts: Grab only the nodes with the specified target',
 } as const;
 const COMMAND = /\bnx (?<command>affected|show projects --affected)(?<stated>[^\n]*)/gu;
-const NAMED = /--(?:exclude|projects)=(?<quote>'?)(?<patterns>[^'\s)"]+)\k<quote>/u;
+const NAMED = /--(?<flag>exclude|projects)=(?<quote>'?)(?<patterns>[^'\s)"]+)\k<quote>/gu;
+const TARGETED = /\s(?:--with-?[Tt]arget|-t)[=\s]/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -33,14 +36,22 @@ const Workflow = Schema.Struct({
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const matched = ({ nodes }: Workspace, stated: string | undefined) => {
-    const named = Array.fromNullishOr(stated)
-        .flatMap((text) => Array.fromNullishOr(NAMED.exec(text)?.groups))
-        .flatMap(({ patterns }) => Array.fromNullishOr(patterns));
+const selected = ({ nodes }: Workspace, every: readonly string[], stated: string) => {
+    const named = Array.groupBy(
+        Array.fromIterable(stated.matchAll(NAMED)).flatMap(({ groups }) => Array.fromNullishOr(groups)),
+        ({ flag = '' }) => flag,
+    );
+    const matched = (flag: string) =>
+        Option.map(Record.get(named, flag), (flags) =>
+            findMatchingProjects(
+                flags.flatMap(({ patterns = '' }) => patterns.split(',')),
+                nodes,
+            ),
+        );
     return Array.sort(
-        findMatchingProjects(
-            named.flatMap((patterns) => patterns.split(',')),
-            nodes,
+        Array.difference(
+            Option.getOrElse(matched('projects'), () => every),
+            Option.getOrElse(matched('exclude'), Array.empty<string>),
         ),
         Order.String,
     );
@@ -50,26 +61,24 @@ const commands = Effect.fnUntraced(function* (workspace: Workspace) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { jobs } = yield* Effect.flatMap(fs.readFileString(path.join(workspaceRoot, '.github/workflows/ci.yml')), (text) => Schema.decodeUnknownEffect(Workflow)(Yaml.parse(text)));
     const every = Array.sort(Record.keys(workspace.nodes), Order.String);
-    const stated = Record.collect(jobs, (job, { 'runs-on': labels, if: condition, steps }) => ({
-        job,
-        runner: Array.ensure(labels).join(' '),
-        gated: condition?.includes('needs.') === true,
-        found: Array.fromIterable(
+    const told = Record.collect(jobs, (job, { 'runs-on': labels, if: condition, steps }) =>
+        Array.fromIterable(
             steps
                 .map(({ run = '' }) => run)
                 .join('\n')
                 .matchAll(COMMAND),
-        ),
-    }));
-    const told = stated.flatMap(({ found, ...job }) => found.flatMap(({ groups }) => Array.fromNullishOr(groups)).map(({ command, stated: named }) => ({ ...job, command, projects: matched(workspace, named) })));
-    return {
-        every,
-        ran: told.filter(({ command }) => command === 'affected').map(({ projects, ...job }): Ran => ({ ...job, projects: Array.difference(every, projects) })),
-        listed: told.filter(({ command }) => command !== 'affected').map(({ projects }) => projects.join(' ')),
-    };
+        )
+            .flatMap(({ groups }) => Array.fromNullishOr(groups))
+            .map(({ command, stated = '' }): Told => ({ job, labels: Array.ensure(labels), gated: condition?.includes('needs.') === true, listing: command !== 'affected', targeted: TARGETED.test(stated), projects: selected(workspace, every, stated) })),
+    ).flat();
+    const [listed, ran] = Array.partition(
+        told,
+        Filter.fromPredicate(({ listing }: Told) => listing),
+    );
+    return { every, ran, listed };
 });
 
-const twice = (ran: readonly Ran[]) => Array.cartesian(ran, ran).flatMap(([first, second]) => (first.job < second.job && first.runner === second.runner ? Array.intersection(first.projects, second.projects).map((project) => `${project} in ${first.job} and ${second.job}`) : []));
+const twice = (ran: readonly Told[]) => Array.cartesian(ran, ran).flatMap(([first, second]) => (first.job < second.job && first.labels.join() === second.labels.join() ? Array.intersection(first.projects, second.projects).map((project) => `${project} in ${first.job} and ${second.job}`) : []));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -92,12 +101,27 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'gates each job that waits on the affected listing on a listing of exactly the projects that job runs',
+        'gates a job on a listing only on a runner of the listing job, by a project listing of exactly the projects that job runs',
         Effect.fnUntraced(function* () {
             const { ran, listed } = yield* commands(yield* read('fresh'));
-            const gated = ran.filter((job) => job.gated).map(({ projects }) => projects.join(' '));
+            const gated = ran.filter((job) => job.gated);
             assert.isNotEmpty(gated, SOURCES.listed);
-            assert.sameMembers(listed, gated, SOURCES.listed);
+            assert.deepStrictEqual(
+                listed.filter(({ targeted }) => targeted).map(({ job }) => job),
+                [],
+                SOURCES.listed,
+            );
+            const listing = new Set(listed.flatMap(({ labels }) => labels));
+            assert.deepStrictEqual(
+                gated.filter(({ labels }) => listing.isDisjointFrom(new Set(labels))).map(({ job }) => job),
+                [],
+                SOURCES.listed,
+            );
+            assert.sameMembers(
+                listed.map(({ projects }) => projects.join(' ')),
+                gated.map(({ projects }) => projects.join(' ')),
+                SOURCES.listed,
+            );
         }),
     );
 });

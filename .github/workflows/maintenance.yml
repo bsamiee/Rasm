@@ -1,0 +1,44 @@
+name: Maintenance
+
+on:
+    schedule:
+        - cron: "30 18 * * 6"
+    workflow_dispatch: {}
+
+permissions:
+    contents: read
+
+concurrency:
+    group: ${{ github.workflow }}
+    cancel-in-progress: false
+
+defaults:
+    run:
+        shell: bash
+
+jobs:
+    container:
+        runs-on: [self-hosted, container]
+        timeout-minutes: 60
+        steps:
+            - &checkout
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+
+    host:
+        runs-on: [self-hosted, host]
+        timeout-minutes: 60
+        steps:
+            - *checkout
+            - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+              with:
+                  cache: false
+            - run: pnpm install
+            - run: pnpm store prune
+            - run: uv cache prune
+            - run: mise prune --yes
+            - run: docker container prune --force --filter until=1h
+            - run: docker volume prune --force
+            - run: docker builder prune --force
+            - run: docker image prune --force
