@@ -8,6 +8,7 @@ import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, c
 import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import { nxReadySignal } from '@nx/vite/plugins/nx-ready-signal.plugin';
+import { aggregated } from '@rasm/nx-distribution';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Equal, FileSystem, MutableRef, Option, Predicate, Record, Schema } from 'effect';
 
@@ -144,13 +145,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, cont
         root,
         ...(resolved.folders !== undefined && { projectType: resolved.type }),
         metadata: { technologies: ['vite'] },
-        targets: {
-            ...tools,
-            ...Record.map(
-                Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
-                (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-            ),
-        },
+        targets: aggregated(tools),
     };
     return { projects: { [root]: project } };
 });

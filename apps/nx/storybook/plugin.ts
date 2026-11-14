@@ -8,8 +8,9 @@ import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, c
 import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import web from '@nx/web/package.json' with { type: 'json' };
+import { aggregated } from '@rasm/nx-distribution';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, FileSystem, Option, Predicate, pipe, Record, Schema } from 'effect';
+import { Array, Cause, Effect, FileSystem, Option, Predicate, pipe, type Record, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -109,13 +110,7 @@ const targets = (root: string, packages: readonly string[], chain: readonly stri
         },
         'clean--storybook': { executor: `${SHARED}:clean`, options: { targets: ['build--storybook'] }, metadata: { description: 'Removes the outputs build--storybook declares' } },
     };
-    return {
-        ...tools,
-        ...Record.map(
-            Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
-            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-        ),
-    };
+    return aggregated(tools);
 };
 
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<readonly string[]>, context: CreateNodesContext, output: Option.Option<string>, chain: readonly string[], hash: string, file: string) {

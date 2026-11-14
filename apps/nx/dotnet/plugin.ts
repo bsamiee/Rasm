@@ -7,6 +7,7 @@ import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated } from '@rasm/nx-distribution';
 import { Array, Cause, Context, Effect, Equivalence, FileSystem, Function, Layer, ManagedRuntime, Option, Record, Ref, Result, Schema, Struct } from 'effect';
 import { Node, PLUGIN, targets } from '#/targets';
 
@@ -86,22 +87,13 @@ const related = (workspaceRoot: string, { nodes }: Report): readonly RawProjectG
     ];
 };
 
-const delivered = (options: typeof Options.Type, tools: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => {
-    const kept = Record.filterMap(tools, (target, name) => {
-        const row = options[name];
-        return row === false ? Result.failVoid : Result.succeed(row === undefined ? target : mergeTargetConfigurations(row, target));
-    });
-    return {
-        ...kept,
-        ...Record.map(
-            Array.groupBy(
-                Object.entries(kept).filter(([label]) => label.includes('--')),
-                ([label]) => label.slice(0, label.indexOf('--')),
-            ),
-            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-        ),
-    };
-};
+const delivered = (options: typeof Options.Type, tools: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> =>
+    aggregated(
+        Record.filterMap(tools, (target, name) => {
+            const row = options[name];
+            return row === false ? Result.failVoid : Result.succeed(row === undefined ? target : mergeTargetConfigurations(row, target));
+        }),
+    );
 
 const projected = (nodes: readonly Node[], options: typeof Options.Type) => {
     const releasable = (node: Node) => node.packable || node.publishable;

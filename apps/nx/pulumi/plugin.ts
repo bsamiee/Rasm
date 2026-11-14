@@ -1,5 +1,6 @@
 import { dirname, join } from 'node:path';
 import { type CreateNodes, createNodesFromFiles, type TargetConfiguration } from '@nx/devkit';
+import { aggregated } from '@rasm/nx-distribution';
 import { Array, Cause, Effect, FileSystem, Function, Record, Result, Schema } from 'effect';
 import { run } from '#/executors/stacks';
 
@@ -33,14 +34,7 @@ const inferred = (programs: readonly string[], file: string) => (read: Result.Re
                 configurations: { release: { production: true } },
             },
         };
-        const targets = {
-            ...tools,
-            ...Record.map(
-                Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
-                (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-            ),
-        };
-        return stated.length === 0 ? {} : { projects: { [dirname(file)]: { root: dirname(file), metadata: { technologies: ['pulumi'] }, targets } } };
+        return stated.length === 0 ? {} : { projects: { [dirname(file)]: { root: dirname(file), metadata: { technologies: ['pulumi'] }, targets: aggregated(tools) } } };
     });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

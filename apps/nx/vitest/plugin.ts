@@ -9,6 +9,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, hashArray, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { getLockFileName, getNamedInputs, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
+import { aggregated } from '@rasm/nx-distribution';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, Equal, FileSystem, Option, Predicate, Record, Schema } from 'effect';
 
@@ -174,13 +175,7 @@ const targets = (home: string, { loaded: configs, triggers, folders }: Resolved,
             metadata: { description: 'Removes the outputs test--vitest declares and every Vitest cache with vitest --clearCache', help: { command: `${exec} vitest --help`, example: {} } },
         },
     };
-    return {
-        ...tools,
-        ...Record.map(
-            Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
-            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-        ),
-    };
+    return aggregated(tools);
 };
 
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, context: CreateNodesContext, within: Option.Option<string>, file: string) {

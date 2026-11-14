@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, createNodesFromFiles, detectPackageManager, getPackageManagerCommand, normalizePath, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { calculateHashesForCreateNodes, getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated } from '@rasm/nx-distribution';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import type { ParsedCommandLine } from '@typescript/native/sync';
 import { Array, Cause, Effect, Equal, FileSystem, Match, Option, type PlatformError, Predicate, Record, Result, Schema, UndefinedOr } from 'effect';
@@ -104,13 +105,7 @@ const projected = (root: string, technology: string, targets: Readonly<Record<st
     root,
     metadata: { technologies: [technology] },
     ...stated,
-    targets: {
-        ...targets,
-        ...Record.map(
-            Array.groupBy(Object.entries(targets), ([label]) => label.slice(0, label.indexOf('--'))),
-            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-        ),
-    },
+    targets: aggregated(targets),
 });
 
 const compiled = (root: string, { commands, configs, outputs, sources }: Program, packages: readonly string[], upstream: string, linted: boolean, exec: string): Record<string, TargetConfiguration> => {

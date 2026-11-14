@@ -55,6 +55,17 @@ const read = Effect.fnUntraced(function* (files: readonly string[], { workspaceR
     return yield* Effect.partition(matched, (row) => Effect.mapError(one(row), (error): [string, Error] => [row.file, error]), { concurrency: 'unbounded' });
 });
 
+const aggregated = (tools: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => ({
+    ...tools,
+    ...Record.map(
+        Array.groupBy(
+            Object.entries(tools).filter(([label]) => label.includes('--')),
+            ([label]) => label.slice(0, label.indexOf('--')),
+        ),
+        (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs = [] }]) => inputs)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
+    ),
+});
+
 const projects = (declared: readonly Declared[], placed: Option.Option<string>) => {
     const holds = (other: Declared, item: Declared) => (other.fields.folders ?? []).some((folder) => !relative(join(other.root, folder), item.root).startsWith('..')) && !(other.fields.references ?? []).some((reference) => reference.name === item.fields.name && !reference.enabled);
     const hosts = Function.memoize((item: Declared) => (item.fields.folders === undefined ? declared.filter((other) => holds(other, item)) : [item]));
@@ -154,11 +165,7 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             ...Array.match(standalone ? linked : [], { onEmpty: () => ({}), onNonEmpty: (implicitDependencies) => ({ implicitDependencies }) }),
             ...Option.getOrUndefined(Option.map(released, () => ({ release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: relative(item.root, item.file) } } } }))),
             targets: {
-                ...delivered,
-                ...Record.map(
-                    Array.groupBy(Object.entries(delivered), ([label]) => label.slice(0, label.indexOf('--'))),
-                    (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-                ),
+                ...aggregated(delivered),
                 ...Record.fromIterableWith(Array.fromNullishOr(publish), ({ store, command }): [string, TargetConfiguration] => [
                     'nx-release-publish',
                     { executor: `${PLUGIN}:release-publish`, dependsOn: [packer, '^nx-release-publish'], metadata: { description: `Publishes the ${archive} packages of the project to ${store} through ${command}` } },
@@ -218,4 +225,4 @@ const preTasksExecution: PreTasksExecution = (_, { id }) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createNodes, preTasksExecution };
+export { aggregated, createNodes, preTasksExecution };

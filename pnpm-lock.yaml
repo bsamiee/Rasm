@@ -952,6 +952,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@rasm/nx-distribution':
+        specifier: workspace:*
+        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.4
@@ -999,6 +1002,9 @@ importers:
       '@nx/devkit':
         specifier: 'catalog:'
         version: 24.1.0-beta.0(nx@24.1.0-beta.0)
+      '@rasm/nx-distribution':
+        specifier: workspace:*
+        version: link:../distribution
       effect:
         specifier: 'catalog:'
         version: 4.1.4

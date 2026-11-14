@@ -1,6 +1,7 @@
 import { dirname, extname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
+import { aggregated } from '@rasm/nx-distribution';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Cause, Effect, FileSystem, identity, Option, Record, Result, Schema, SchemaTransformation, String, Struct, UndefinedOr } from 'effect';
 import { Ini, Toml } from 'effect/encoding';
@@ -273,11 +274,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
         }),
     };
     return {
-        ...Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['python'], ...tool.metadata } })),
-        ...Record.map(
-            Array.groupBy(Object.entries(delivered), ([label]) => label.slice(0, label.indexOf('--'))),
-            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-        ),
+        ...aggregated(Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['python'], ...tool.metadata } }))),
         ...(member.published && {
             'nx-release-publish': {
                 executor: `${SHARED}:publish`,

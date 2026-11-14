@@ -5,8 +5,9 @@ import { basename, dirname, extname, join, matchesGlob, relative, resolve } from
 import process from 'node:process';
 import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
-import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
+import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated } from '@rasm/nx-distribution';
 import { Array, Config, Context, Effect, FileSystem, Formatter, Function, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, refused, SHARED, tokened } from '#/targets';
@@ -124,14 +125,6 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
         Record.filter(grouped, (_, root) => !(root in conflicts)),
         (root, group) => {
             const { name, file } = Array.headNonEmpty(group);
-            const tools = Array.map(group, (part) => part.targets).reduce(joined);
-            const hashed = Record.map(
-                Array.groupBy(
-                    Object.entries(tools).filter(([label]) => label.includes('--')),
-                    ([label]) => label.slice(0, label.indexOf('--')),
-                ),
-                Array.flatMap(([, { inputs = [] }]) => inputs),
-            );
             const release = Array.findFirst(group, (part) => Option.fromUndefinedOr(part.release));
             const project: ProjectConfiguration = {
                 root,
@@ -139,7 +132,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
                 metadata: { technologies: Array.dedupe(group.flatMap((part) => part.technologies)) },
                 tags: [...Option.toArray(Option.as(release, 'release')), `os:${HOST}`],
                 ...Option.getOrUndefined(Option.map(release, (held) => ({ release: held }))),
-                targets: { ...tools, ...Record.map(hashed, (inputs, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...(inputs.length > 0 && { inputs: ['...', ...Array.dedupe(inputs)] }) })) },
+                targets: aggregated(Array.map(group, (part) => part.targets).reduce(joined)),
             };
             return { file, project };
         },

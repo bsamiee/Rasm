@@ -1,6 +1,7 @@
 import { basename, dirname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
+import { aggregated } from '@rasm/nx-distribution';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record } from 'effect';
 import { configured, PACKAGING, PRESETS, planted, type Tree } from '#/workspace';
@@ -139,13 +140,7 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
             },
         }),
     };
-    return {
-        ...Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['cmake'], ...tool.metadata } })),
-        ...Record.map(
-            Array.groupBy(Object.entries(delivered), ([label]) => label.slice(0, label.indexOf('--'))),
-            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-        ),
-    };
+    return aggregated(Record.map(delivered, (tool): TargetConfiguration => ({ ...tool, metadata: { technologies: ['cmake'], ...tool.metadata } })));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

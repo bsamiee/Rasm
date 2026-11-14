@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashFile, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
+import { aggregated } from '@rasm/nx-distribution';
 import { Array, Cause, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Order, Predicate, Record, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
 
@@ -132,14 +133,6 @@ const targets = (root: string, project: Composed): Record<string, TargetConfigur
         'clean--compose': compose(root, DOWN, `Stops the services of ${project.name} and removes their containers, networks, and the images Compose built with docker compose down`, { options: { env: EVERY_PROFILE } }),
     };
 };
-
-const aggregated = (tools: Readonly<Record<string, TargetConfiguration>>): Record<string, TargetConfiguration> => ({
-    ...tools,
-    ...Record.map(
-        Array.groupBy(Object.entries(tools), ([label]) => label.slice(0, label.indexOf('--'))),
-        (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-    ),
-});
 
 const inferred = Effect.fnUntraced(function* (cache: PluginCache<{ readonly project: Composed; readonly digest: string }>, context: CreateNodesContext, root: string, matched: Array.NonEmptyReadonlyArray<string>) {
     const stamped = (read: readonly string[]) =>

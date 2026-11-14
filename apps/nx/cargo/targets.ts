@@ -1,5 +1,6 @@
 import { basename, dirname, join, parse, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
+import { aggregated } from '@rasm/nx-distribution';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Equivalence, Option, Record, Result, String } from 'effect';
 import type { Cargo, Command } from '#/executors/cargo/executor';
@@ -245,13 +246,7 @@ const projectTargets = (workspace: Workspace, files: ReadonlySet<string>, report
             metadata: { technologies: ['rust'], description: cleaned.description, help: { command: 'cargo clean --help', example: { args: ['--release'] } } },
         },
     };
-    return {
-        ...delivered,
-        ...Record.map(
-            Array.groupBy(Object.entries(delivered), ([label]) => label.slice(0, label.indexOf('--'))),
-            (members, verb): TargetConfiguration => ({ dependsOn: [`${verb}--*`], ...Array.match(Array.dedupe(members.flatMap(([, { inputs: hashed = [] }]) => hashed)), { onEmpty: () => ({}), onNonEmpty: (unique) => ({ inputs: ['...', ...unique] }) }) }),
-        ),
-    };
+    return aggregated(delivered);
 };
 
 const released = ({ crate, versioned }: Member, cwd: string) => {
