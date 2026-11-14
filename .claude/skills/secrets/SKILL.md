@@ -38,6 +38,7 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, 
 - Pulumi reads its backend login from `pulumi login`
 - New job values go in through `doppler secrets set <NAME>="$(<producer>)" --config <job>`, new configs and syncs are rows of `infra/repository-stack.ts`
 - Values shared between configs sit in one, each other config holds reference `${<config>.<NAME>}`
+- Rows selecting one provider hold reference `${<NAME>}` to a provider-named row of their config (`BACKUP_*` to `RUSTFS_*` or `BACKBLAZE_*`)
 - References name plain values alone, Doppler refuses one naming a value that holds a reference
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
 
