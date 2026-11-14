@@ -26,6 +26,7 @@ jobs:
             darwin: ${{ steps.listed.outputs.darwin }}
             engines: ${{ steps.listed.outputs.engines }}
         env: &cache
+            GH_TOKEN: ${{ github.token }}
             UV_LOCKED: "true"
             NX_SELF_HOSTED_REMOTE_CACHE_SERVER: &server ${{ secrets.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
             NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: &token ${{ github.event_name == 'push' && secrets.NX_CACHE_WRITE_TOKEN || secrets.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN }}
