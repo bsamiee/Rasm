@@ -1,0 +1,4 @@
+# --- [ENV] ------------------------------------------------------------------------------
+
+[env]
+GHIDRA_PROJECT_DIR = "/var/tmp/{{ env.USER }}/rasm/ghidra/projects"

@@ -31,7 +31,7 @@ description: "Use when reading, annotating, or emulating a binary through Ghidra
 - Install: The Ghidra row in `.config/mise.toml` builds the decompiler a release lacks for its platform
 - Install: `mise install --force github:NationalSecurityAgency/ghidra` reruns `postinstall`, imports abort on a missing project folder
 - Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.md` lists every headless flag
-- Project: `.config/mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component
+- Project: `.config/mise.<os>.toml` names `$GHIDRA_PROJECT_DIR` in the per-user cache, Ghidra rejects a project path with a dot-prefixed component
 - Project: `<name>/<folder>` as the project argument places an import under `/<folder>`, one folder per slice or release
 - Project: `-deleteProject` on an `-import` deletes the project that run created with its analysis
 - Program: Repeated imports into one folder add `<file>.<n>`, `-process <file>` keeps reading the first

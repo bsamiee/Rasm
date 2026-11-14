@@ -4,6 +4,7 @@
 _.path                                = ["{{ env.HOME }}/Library/Application Support/McNeel/Rhinoceros/ai/bin"]
 COLIMA_HOME                           = "{{ env.HOME }}/.colima"
 DOCKER_HOST                           = "unix://{{ env.COLIMA_HOME }}/default/docker.sock"
+GHIDRA_PROJECT_DIR                    = "{{ env.HOME }}/Library/Caches/rasm/ghidra/projects"
 PITCHFORK_SUPERVISOR_AUTO_START       = "false"
 PLAYWRIGHT_MCP_USER_AGENT             = { tools = true, value = '''{% if (config_root ~ "/node_modules/@playwright/test") is exists %}Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{{ exec(command=`cd "` ~ config_root ~ `" && node --print 'require("@playwright/test").devices["Desktop Chrome"].userAgent.split("Chrome/")[1].split(".")[0]'`, cache_key="playwright-chromium-" ~ ((config_root ~ "/pnpm-lock.yaml") | hash_file(len=12)), cache_duration="30d") }}.0.0.0 Safari/537.36{% endif %}''' }
 TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE = "/var/run/docker.sock"
