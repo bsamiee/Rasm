@@ -55,10 +55,44 @@ command                      = "mcp-muxer"
 args                         = ["--", "nx-mcp", "--disableTelemetry"]
 supports_parallel_tool_calls = true
 
+[mcp_servers.github]
+default_tools_approval_mode = "approve"
+url                         = "https://api.githubcopilot.com/mcp/"
+bearer_token_env_var        = "GH_PROJECTS_TOKEN"
+
+[mcp_servers.github.http_headers]
+X-MCP-Toolsets      = "context,repos,issues,pull_requests,actions,git,dependabot,code_security,projects,labels,users,github_support_docs_search"
+X-MCP-Exclude-Tools = "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file"
+X-MCP-Features      = "file_blame,issue_dependencies,csv_output,mcp_apps_disable_form_deferral,duplicate_detection"
+
+[mcp_servers.exa]
+default_tools_approval_mode = "approve"
+url                         = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
+env_http_headers            = { x-api-key = "EXA_API_KEY" }
+
+[mcp_servers.context7]
+default_tools_approval_mode = "approve"
+url                         = "https://mcp.context7.com/mcp?research_preview=1"
+bearer_token_env_var        = "CONTEXT7_API_KEY"
+disabled_tools              = ["submit-docs-feedback"]
+
+[mcp_servers.deepwiki]
+default_tools_approval_mode  = "approve"
+url                          = "https://mcp.deepwiki.com/mcp"
+supports_parallel_tool_calls = true
+
 [mcp_servers.greptile]
 url                  = "https://api.greptile.com/mcp"
 bearer_token_env_var = "GREPTILE_API_KEY"
 enabled              = false
+
+[mcp_servers.openaiDeveloperDocs]
+default_tools_approval_mode = "approve"
+url                         = "https://developers.openai.com/mcp"
+
+[mcp_servers.claudeCodeDocs]
+default_tools_approval_mode = "approve"
+url                         = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
 url                 = "http://localhost:18412/v1/mcp"
@@ -87,6 +121,11 @@ args                        = ["mcp"]
 
 [mcp_servers.cua-driver.env]
 DO_NOT_TRACK = "1"
+
+[mcp_servers.atuin]
+default_tools_approval_mode = "approve"
+command                     = "atuin"
+args                        = ["mcp"]
 
 [mcp_servers.node_repl.env]
 NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"", "node_repl"]'
