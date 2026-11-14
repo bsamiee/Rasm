@@ -72,7 +72,7 @@ class Machine extends Data.Class<{
     readonly zone: string;
     readonly provider: Provider;
     readonly builder: dockerBuild.Provider;
-    readonly network: Input<string>;
+    readonly shared: Option.Option<Input<string>>;
     readonly remote: Option.Option<{ readonly address: string; readonly zoneId: Output<string> }>;
     readonly settled: readonly Resource[];
 }> {
@@ -86,7 +86,7 @@ class Machine extends Data.Class<{
         const settled = Record.collect(settings, (file, setting) => Machine.written(name, file, setting));
         const provider = new Provider(host, { ...dialed, ...registries, sshOpts: ['-o', 'StrictHostKeyChecking=no', '-o', 'UserKnownHostsFile=/dev/null'] }, { dependsOn: settled });
         const builder = new dockerBuild.Provider(host, { ...dialed }, { dependsOn: settled });
-        return new Machine({ name, zone, provider, builder, network: Option.getOrElse(network, () => new Network(host, { name: getProject() }, { provider }).name), remote: reached, settled });
+        return new Machine({ name, zone, provider, builder, shared: network, remote: reached, settled });
     };
 
     static readonly joined = (host: string) => {
@@ -115,6 +115,12 @@ class Machine extends Data.Class<{
     }
 
     // --- [CONTAINERS]
+
+    static readonly networked = Function.memoize((machine: Machine) => Option.getOrElse(machine.shared, () => new Network(`${machine.name}.${machine.zone}`, { name: getProject() }, { provider: machine.provider }).name));
+
+    get network() {
+        return Machine.networked(this);
+    }
 
     pulled(image: string, options: CustomResourceOptions = {}) {
         return new RemoteImage(`${this.name}-${image}`, { name: image }, { provider: this.provider, ...options }).repoDigest;

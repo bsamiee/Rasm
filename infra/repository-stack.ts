@@ -1,7 +1,7 @@
 import { getZeroTrustOrganization, getZoneOutput, R2Bucket, R2CustomDomain, ZeroTrustAccessIdentityProvider, ZeroTrustOrganization } from '@pulumi/cloudflare';
 import { ActionsEnvironmentSecret, ActionsEnvironmentVariable, IssueLabels, Repository, RepositoryEnvironment, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { interpolate, jsonStringify, secret } from '@pulumi/pulumi';
-import { Acl, DeviceKey, DnsPreferences, getDeviceOutput, OauthClient, TailnetSettings } from '@pulumi/tailscale';
+import { Acl, DnsPreferences, OauthClient, TailnetSettings } from '@pulumi/tailscale';
 import { Environment, Project, ServiceToken, secretssync, Webhook } from '@pulumiverse/doppler';
 import { Array, Cause, Effect, FileSystem, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { Yaml } from 'effect/encoding';
@@ -102,7 +102,6 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
             ...Record.map({ TAILSCALE_CLIENT_ID: joining.id, TAILSCALE_MACHINES: machines.join(',') }, (value, variableName) => new ActionsEnvironmentVariable(`${name}-deploy-${variableName}`, { repository, environment: environments.deploy, variableName, value }).value),
         },
         updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true, aclsExternallyManagedOn: true, aclsExternalLink: interpolate`https://github.com/${fullName}/blob/HEAD/${path.relative(root, import.meta.filename)}` }).devicesAutoUpdatesOn,
-        workstation: new DeviceKey('macbook', { deviceId: getDeviceOutput({ hostname: 'macbook' }).nodeId, keyExpiryDisabled: true }).keyExpiryDisabled,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
         assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
         access: new ZeroTrustOrganization(organization.name, { accountId, name: organization.name, authDomain: organization.authDomain, strictServiceTokenAuth: true }, { protect: true }).authDomain,
