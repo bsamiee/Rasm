@@ -25,6 +25,7 @@
         "@rasm/process": "workspace:*",
         "@rasm/testing": "workspace:*",
         "@types/node": "catalog:",
+        "@typescript/native": "catalog:",
         "ajv": "catalog:",
         "effect": "catalog:",
         "minimatch": "catalog:",
