@@ -16,7 +16,7 @@ import type { configs } from '#/repository-stack';
 
 type Role = Data.TaggedEnum<{
     Cache: { readonly name: string; readonly kept: Duration.Duration };
-    Runner: Record.ReadonlyRecord<never, never>;
+    Runner: { readonly packages: readonly string[] };
     Apps: { readonly owner: string };
 }>;
 interface Row {
@@ -29,7 +29,7 @@ interface Row {
 
 const hosts = {
     'lucky.parametric-arsenal.cloud': { address: '31.97.131.41', tags: ['tag:server'], role: { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1) } },
-    'derby.parametric-arsenal.cloud': { address: '45.90.223.193', tags: ['tag:server'], role: { _tag: 'Runner' } },
+    'derby.parametric-arsenal.cloud': { address: '45.90.223.193', tags: ['tag:server'], role: { _tag: 'Runner', packages: ['build-essential', 'pkg-config', 'python-is-python3', 'unzip', 'zip'] } },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
 const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as const;
 
@@ -91,7 +91,7 @@ class Machine extends Data.Class<{
     }
 
     imaged(image: string, inline: string, args: Pick<dockerBuild.ImageArgs, 'context' | 'buildArgs'> = {}) {
-        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).ref;
+        return new dockerBuild.Image(`${this.name}-${image}`, { dockerfile: { inline }, context: { location: '-' }, tags: [image], load: true, push: false, ...args }, { provider: this.builder }).ref;
     }
 
     kept(volume: string) {
@@ -240,7 +240,8 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
         const served = Role.$match(role, {
             Cache: (settings) => cached(machine, settings, project),
             Apps: (settings) => hosted(machine, settings),
-            Runner: () => {
+            Runner: ({ packages }) => {
+                const packaged = new remote.Command(`${machine.name}-packages`, { connection: { host: machine.name }, addPreviousOutputInEnv: false, create: `apt-get update --quiet && DEBIAN_FRONTEND=noninteractive apt-get install --quiet --yes ${packages.join(' ')}`, logging: 'stderr' });
                 const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', uid: 1000 } as const;
                 const folder = `/home/${runner.user}/actions-runner`;
                 const registered = new remote.Command(
@@ -265,7 +266,7 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
                         stdin: secret(getActionsRegistrationTokenOutput({ repository }).token),
                         logging: 'stderr',
                     },
-                    { ignoreChanges: ['stdin'], deleteBeforeReplace: true },
+                    { ignoreChanges: ['stdin'], deleteBeforeReplace: true, dependsOn: packaged },
                 );
                 return { runner: registered.id, engines: engines.map((version) => machine.pulled(`ghcr.io/epicgames/unreal-engine:dev-slim-${version}`, { customTimeouts: { create: '2h', update: '2h' } })) };
             },

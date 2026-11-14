@@ -40,6 +40,7 @@ jobs:
                   oauth-secret: ${{ secrets.TAILSCALE_OAUTH_SECRET }}
                   tags: tag:deploy
                   ping: ${{ vars.TAILSCALE_MACHINES }}
+            - run: mkdir -p ~/.ssh && tailscale status --json | jq --raw-output '.Peer[] | .HostName as $host | .sshHostKeys[]? | "\($host) \(.)"' >> ~/.ssh/known_hosts
             - run: nx deploy @rasm/infra
               env:
                   DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
