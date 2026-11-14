@@ -1,11 +1,10 @@
+import { execFile } from 'node:child_process';
 import { join } from 'node:path';
-import { layer } from '@effect/platform-node/NodeServices';
+import { promisify } from 'node:util';
 import type { Tree } from '@nx/devkit';
-import { Completed } from '@rasm/process';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, Cause, Effect, identity, Option, Result, Schema, SemVer, String, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
 import { VersionActions } from 'nx/release';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -64,20 +63,8 @@ class DotnetVersionActions extends VersionActions {
 
     override readCurrentVersionFromRegistry(tree: Tree) {
         const search = ['package', 'search', this.projectGraphNode.name, '--exact-match', '--format', 'json'];
-        const listed = Effect.flatMap(Completed.output(ChildProcess.make('dotnet', search, { cwd: tree.root, stdin: 'ignore' })), Schema.decodeEffect(Found));
-        return Effect.runPromise(
-            Effect.provide(
-                Effect.map(listed, ({ searchResult }) =>
-                    Option.getOrNull(
-                        Option.map(
-                            Array.findLast(searchResult, ({ packages }) => Array.last(packages)),
-                            ({ version }) => ({ currentVersion: version, logText: `dotnet ${search.join(' ')}` }),
-                        ),
-                    ),
-                ),
-                layer,
-            ),
-        );
+        const listed = Effect.tryPromise({ try: (signal) => promisify(execFile)('dotnet', search, { encoding: 'utf8', cwd: tree.root, signal }), catch: refused(this.projectGraphNode.name, 'dotnet package search does not exit 0') }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Found)(stdout)));
+        return Effect.runPromise(Effect.map(listed, ({ searchResult }) => Option.getOrNull(Array.findLast(searchResult, ({ packages }) => Array.last(packages)).pipe(Option.map(({ version }) => ({ currentVersion: version, logText: `dotnet ${search.join(' ')}` }))))));
     }
 
     override readCurrentVersionOfDependency() {

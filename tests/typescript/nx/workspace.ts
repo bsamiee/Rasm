@@ -2,8 +2,7 @@ import { delimiter, join } from 'node:path';
 import { platform } from 'node:process';
 import { type ProjectGraph, type TargetConfiguration, workspaceRoot } from '@nx/devkit';
 import apple from '@rasm/nx-apple/package.json' with { type: 'json' };
-import { Completed } from '@rasm/process';
-import { inherited } from '@rasm/testing/nx';
+import { exited, inherited } from '@rasm/testing/nx';
 import { Array, Effect, FileSystem, Formatter, Option, Path, Record, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { createTaskId } from 'nx/src/tasks-runner/utils';
@@ -42,7 +41,7 @@ const VERB = /(?<=^- `)[a-z]+(?=` )/gmu;
 const called = Effect.fn('called')(function* (data: string, command: string, args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) {
     const path = yield* Path.Path;
     const searched = [path.join(workspaceRoot, 'node_modules/.bin'), ...Option.toArray(Record.get(inherited, 'PATH'))].join(delimiter);
-    return yield* Completed.run(ChildProcess.make(command, args, { cwd: workspaceRoot, stdin: 'ignore', extendEnv: false, env: { ...inherited, NX_DAEMON: 'false', NX_TUI: 'false', FORCE_COLOR: '0', NX_WORKSPACE_DATA_DIRECTORY: data, PATH: searched, ...set } }));
+    return yield* exited(ChildProcess.make(command, args, { cwd: workspaceRoot, stdin: 'ignore', extendEnv: false, env: { ...inherited, NX_DAEMON: 'false', NX_TUI: 'false', FORCE_COLOR: '0', NX_WORKSPACE_DATA_DIRECTORY: data, PATH: searched, ...set } }));
 });
 
 const nx = (args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) => called(inject('readings').data, 'nx', args, set);

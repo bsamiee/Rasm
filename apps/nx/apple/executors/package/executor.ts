@@ -1,9 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import type { ExecutorContext } from '@nx/devkit';
-import { Completed } from '@rasm/process';
-import { Array, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Struct } from 'effect';
 import { commands, run } from '#/executors/run/executor';
-import { GIT_STATUS } from '#/targets';
+import { GIT_STATUS, refused } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -22,14 +21,14 @@ const Application = Schema.fromJsonString(Schema.Struct({ ApplicationPath: Schem
 
 const execute = Effect.fnUntraced(function* ({ exports = [], products = [], args = [] }: typeof Package.Encoded, context: ExecutorContext) {
     const [path, fs] = yield* Effect.all([Path.Path, FileSystem.FileSystem]);
-    const printed = (command: string, given: readonly string[]) => Completed.output(ChildProcess.make(command, given, { cwd: context.root, stdin: 'ignore' }));
-    yield* commands({ runs: exports.map((exported) => exported.run), env: GIT_STATUS }, context.root);
+    const printed = (command: string, given: readonly string[], input?: string) => Effect.try({ try: () => execFileSync(command, given, { encoding: 'utf8', cwd: context.root, input }), catch: refused(command, 'does not exit 0') });
+    yield* Effect.filterOrFail(commands({ runs: exports.map((exported) => exported.run), env: GIT_STATUS }, context.root), Struct.get('success'), refused('xcodebuild archive', 'does not exit 0'));
     const applications = yield* Effect.forEach(exports, ({ archive }) => Effect.flatMap(printed('plutil', ['-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')]), Schema.decodeEffect(Application)));
     const binaries = yield* Effect.forEach(products, ({ package: root }) => printed('swift', ['build', '--package-path', root, '--configuration', 'release', '--show-bin-path']));
     const staging = yield* fs.makeTempDirectoryScoped();
     const [settings, key] = [path.join(staging, 'ExportOptions.plist'), path.join(staging, 'AuthKey.p8')];
     const notary = yield* Config.option(Config.all([Config.Redacted('ASC_API_KEY_P8'), Config.String('ASC_API_KEY_ID'), Config.String('ASC_API_ISSUER_ID')]));
-    yield* Effect.transposeOption(Option.map(notary, ([secret]) => Effect.all([Completed.output(ChildProcess.make('plutil', ['-convert', 'xml1', '-o', settings, '-'], { stdin: Stream.encodeText(Stream.succeed('{"method":"developer-id"}')) })), fs.writeFileString(key, Redacted.value(secret), { mode: 0o600 })])));
+    yield* Effect.transposeOption(Option.map(notary, ([secret]) => Effect.all([printed('plutil', ['-convert', 'xml1', '-o', settings, '-'], '{"method":"developer-id"}'), fs.writeFileString(key, Redacted.value(secret), { mode: 0o600 })])));
     const archived = Array.zip(exports, applications).flatMap(([{ archive, folder }, { ApplicationPath }]): readonly (readonly [string, ...string[]])[] => {
         const [bundle, name] = [path.basename(ApplicationPath), path.basename(ApplicationPath, path.extname(ApplicationPath))];
         const [volume, image, zip] = [path.join(staging, name), path.join(folder, `${name}.dmg`), path.join(folder, `${name}.zip`)];

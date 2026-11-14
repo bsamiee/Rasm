@@ -2,7 +2,7 @@ import { basename, dirname, join, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, hashArray, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, globWithWorkspaceContext, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, String } from 'effect';
+import { Array, Context, Effect, FileSystem, Formatter, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema, String } from 'effect';
 import { CLIPPY, CONFIG, crateInputs, NEXTEST, projectTargets, released, SHARED } from '#/targets';
 import { MANIFEST, type Member, type Reading, refused, resolved, workspaces } from '#/workspace';
 
@@ -69,7 +69,7 @@ const createNodes: CreateNodes = [
                     onNone: () => workspaces(workspaceRoot, manifests, files),
                     onSome: (held) => Effect.succeed(held.map((reading) => [join(relative(workspaceRoot, reading.metadata.workspace_root), MANIFEST), Result.succeed(reading)] as const)),
                 });
-                const failures = Array.filterMap(read, ([file, reading]) => Result.map(Result.flip(reading), (error): [string, Error] => [file, refused(file, error.message)(error)]));
+                const failures = Array.filterMap(read, ([file, reading]) => Result.map(Result.flip(reading), (error): [string, Error] => [file, refused(file, Formatter.format(error))(error)]));
                 yield* Effect.sync(() => (failures.length === 0 ? cache.set(key, Array.getSuccesses(read.map(([, reading]) => reading))) : undefined));
                 yield* Effect.sync(() => cache.writeToDisk());
                 const reported = Option.map(

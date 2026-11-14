@@ -1,12 +1,11 @@
+import { execFileSync } from 'node:child_process';
 import { hash } from 'node:crypto';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Effect, Equivalence, FileSystem, Option, Path, Record, Schema, Struct } from 'effect';
 import { Toml } from 'effect/encoding';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
-import { ChildProcess } from 'effect/process';
 import { refused, run } from '#/executor';
 import { BUILDER, EXTENSION } from '#/host-packages';
 
@@ -39,7 +38,7 @@ const Locked = Schema.Struct({
 
 const toml = (text: string, subject: string) => Effect.mapError(Effect.fromResult(Toml.parse(text)), refused(subject, 'does not parse as TOML'));
 
-const uv = (args: readonly string[], cwd: string) => Completed.output(ChildProcess.make('uv', ['--color', 'never', ...args], { cwd, stdin: 'ignore' }));
+const uv = (args: readonly string[], cwd: string) => Effect.try({ try: () => execFileSync('uv', ['--color', 'never', ...args], { encoding: 'utf8', cwd, maxBuffer: Number.POSITIVE_INFINITY }), catch: refused(`uv ${args.join(' ')}`, 'does not exit 0') });
 
 const locked = (args: readonly string[], cwd: string) =>
     uv(args, cwd).pipe(

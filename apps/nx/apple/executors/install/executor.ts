@@ -1,9 +1,9 @@
-import { pid } from 'node:process';
+import { execFileSync } from 'node:child_process';
+import { env, pid } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
-import { Completed } from '@rasm/process';
-import { Config, Effect, FileSystem, Path, Schema } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Config, Effect, FileSystem, Path, Schema } from 'effect';
 import { commands, run } from '#/executors/run/executor';
+import { refused } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ const Install = Schema.Struct({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const execute = Effect.fnUntraced(function* ({ package: root, product, env = {}, args = [] }: typeof Install.Type, context: ExecutorContext) {
+const execute = Effect.fnUntraced(function* ({ package: root, product, env: stated = {}, args = [] }: typeof Install.Type, context: ExecutorContext) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const swiftpm = yield* Config.String('XDG_CONFIG_HOME').pipe(
         Config.map((configuration) => path.join(configuration, 'swiftpm')),
@@ -25,9 +25,9 @@ const execute = Effect.fnUntraced(function* ({ package: root, product, env = {},
     const at = path.join(swiftpm, 'bin', product);
     const build = ['build', '--package-path', root, '--configuration', 'release', '--product', product, ...args];
     const held = yield* fs.exists(at);
-    yield* commands({ runs: [['swift', ...build]], env }, context.root);
-    return yield* held
-        ? Effect.flatMap(Completed.output(ChildProcess.make('swift', [...build, '--show-bin-path'], { cwd: context.root, env, extendEnv: true, stdin: 'ignore' })), (folder) =>
+    const built = yield* commands({ runs: [['swift', ...build], ...(held ? [] : [Array.make('swift', 'package', '--package-path', root, ...args, 'experimental-install', '--product', product)])], env: stated }, context.root);
+    return yield* held && built.success
+        ? Effect.flatMap(Effect.try({ try: () => execFileSync('swift', [...build, '--show-bin-path'], { encoding: 'utf8', cwd: context.root, env: { ...env, ...stated } }), catch: refused(product, 'swift build --show-bin-path does not exit 0') }), (folder) =>
               fs.copyFile(path.join(folder.trim(), product), `${at}.${pid}`).pipe(
                   Effect.andThen(fs.rename(`${at}.${pid}`, at)),
                   Effect.onError(() => Effect.ignore(fs.remove(`${at}.${pid}`, { force: true }))),
@@ -35,7 +35,7 @@ const execute = Effect.fnUntraced(function* ({ package: root, product, env = {},
                   Effect.as({ success: true }),
               ),
           )
-        : commands({ runs: [['swift', 'package', '--package-path', root, ...args, 'experimental-install', '--product', product]], env }, context.root);
+        : Effect.succeed(built);
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

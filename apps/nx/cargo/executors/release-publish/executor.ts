@@ -1,9 +1,8 @@
+import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
-import { Completed } from '@rasm/process';
 import { Array, Config, Effect, Path, Schema } from 'effect';
-import { ChildProcess } from 'effect/process';
-import { Metadata, run } from '#/workspace';
+import { Metadata, refused, run } from '#/workspace';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,7 +18,7 @@ const Publish = Schema.Struct({
 const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named, registry }: typeof Publish.Type, context: ExecutorContext) {
     const [path, stated] = yield* Effect.all([Path.Path, Config.withDefault(Config.Boolean('NX_DRY_RUN'), false)]);
     const cwd = path.resolve(context.root, root);
-    const { packages } = yield* Effect.flatMap(Completed.output(ChildProcess.make('cargo', ['metadata', '--color', 'never', '--format-version', '1', '--no-deps'], { cwd, stdin: 'ignore' })), Schema.decodeEffect(Metadata));
+    const { packages } = yield* Effect.flatMap(Effect.try({ try: () => execFileSync('cargo', ['metadata', '--color', 'never', '--format-version', '1', '--no-deps'], { encoding: 'utf8', cwd, maxBuffer: Number.POSITIVE_INFINITY }), catch: refused(root, 'cargo metadata does not exit 0') }), Schema.decodeEffect(Metadata));
     const crate = yield* Effect.fromOption(Array.findFirst(packages, ({ name }) => name === named));
     const placed = new Map<string | undefined, string>(packages.map((member) => [path.dirname(member.manifest_path), member.name]));
     const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
@@ -29,8 +28,7 @@ const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named
     const members = dryRun === true || stated ? packages.filter(({ name }) => reached(new Set([crate.name])).has(name)) : [crate];
     const selected = members.flatMap((member) => ['--package', `path+${pathToFileURL(path.dirname(member.manifest_path)).href}#${member.name}`]);
     const publish = ['publish', ...selected, ...Array.fromNullishOr(registry).flatMap((held) => ['--registry', held]), ...(dryRun === true || stated ? ['--dry-run'] : []), '--locked'];
-    const { code } = yield* Completed.run(ChildProcess.make('cargo', publish, { cwd, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }));
-    return { success: code === 0 };
+    return yield* Effect.sync(() => ({ success: spawnSync('cargo', publish, { cwd, stdio: 'inherit' }).status === 0 }));
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

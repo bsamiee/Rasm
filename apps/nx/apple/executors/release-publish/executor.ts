@@ -1,9 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
-import { Completed } from '@rasm/process';
 import cf from 'cf/package.json' with { type: 'json' };
-import { Array, Config, Effect, FileSystem, Path, Record, Redacted, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Config, Effect, FileSystem, Path, Record, Redacted, Schema } from 'effect';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { ReleaseVersion } from 'nx/src/command-line/release/utils/shared';
 import { run } from '#/executors/run/executor';
@@ -35,7 +34,7 @@ const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, fo
     if (!Array.isReadonlyArrayNonEmpty(images)) {
         return;
     }
-    const printed = (command: string, args: readonly string[]) => Completed.output(ChildProcess.make(command, args, { cwd: context.root, stdin: 'ignore' }));
+    const printed = (command: string, args: readonly string[], input?: string) => Effect.try({ try: () => execFileSync(command, args, { encoding: 'utf8', cwd: context.root, input }), catch: refused(command, 'does not exit 0') });
     const { ApplicationPath, CFBundleShortVersionString: version } = yield* Effect.flatMap(printed('plutil', ['-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')]), Schema.decodeEffect(Application));
     const owned = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
     const { error, nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release));
@@ -51,7 +50,7 @@ const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, fo
     const asset = yield* Effect.mapError(Effect.fromOption(Array.findFirst(assets, ({ name }) => name === Array.headNonEmpty(images))), refused(tag, `holds no ${Array.headNonEmpty(images)}`));
     const staging = yield* fs.makeTempDirectoryScoped();
     yield* Effect.forEach(images, (image) => fs.copyFile(path.join(context.root, folder, image), path.join(staging, image)), { discard: true });
-    yield* Completed.output(ChildProcess.make('generate_appcast', ['--ed-key-file', '-', '--download-url-prefix', new URL('.', asset.url).href, '-o', path.join(staging, 'appcast.xml'), staging], { stdin: Stream.encodeText(Stream.succeed(Redacted.value(key))) }));
+    yield* printed('generate_appcast', ['--ed-key-file', '-', '--download-url-prefix', new URL('.', asset.url).href, '-o', path.join(staging, 'appcast.xml'), staging], Redacted.value(key));
     yield* printed(fileURLToPath(new URL(cf.bin.cf, import.meta.resolve('cf/package.json'))), ['r2', 'objects', 'put', feed.pathname.slice(1), '--bucket-name', bucket, '--file', path.join(staging, 'appcast.xml'), '--content-type', 'application/xml']);
     return yield* Effect.logInfo(`Published the Sparkle feed of ${images.join(', ')} at ${feed.href}`);
 });

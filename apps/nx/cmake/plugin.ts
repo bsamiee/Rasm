@@ -2,7 +2,7 @@ import { basename, dirname, join, relative } from 'node:path';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, DependencyType, type ProjectConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Context, Effect, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Context, Effect, Formatter, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIG, memberInputs, memberTargets, PLUGIN, SHARED } from '#/targets';
 import { MANIFEST, PRESETS, planted, refused, resolved, type Tree } from '#/workspace';
 
@@ -62,7 +62,7 @@ const createNodes: CreateNodes = [
             Effect.ensuring(
                 Effect.gen(function* () {
                     const read = Array.zip(presets, yield* Effect.forEach(presets, (file) => Effect.result(inferred(cache, context, outputPath, matched, file)), { concurrency: 'unbounded' }));
-                    const failures = Array.filterMap(read, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, refused(file, error.message)(error)]));
+                    const failures = Array.filterMap(read, ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, refused(file, Formatter.format(error))(error)]));
                     const results = Array.filterMap(read, ([file, result]) => Result.map(result, (held) => [file, held] as const));
                     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
                 }),

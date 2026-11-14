@@ -1,9 +1,9 @@
+import { execFile } from 'node:child_process';
 import { dirname, isAbsolute, join, relative } from 'node:path';
+import { promisify } from 'node:util';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
-import { Completed } from '@rasm/process';
 import { Array, Cause, Effect, FileSystem, flow, Option, Record, Result, Schema, UndefinedOr } from 'effect';
 import { Toml } from 'effect/encoding';
-import { ChildProcess } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -47,7 +47,7 @@ const Profiles = Schema.Struct({ profile: Schema.Record(Schema.String, Schema.St
 
 const refused = (subject: string, detail: string) => (cause?: unknown) => new Cause.UnknownError(cause, `${subject}: ${detail}`);
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => Effect.runPromise(Effect.provide(effect, layer));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices>) => effect.pipe(Effect.tapCause(Effect.logError), Effect.provide(layer), Effect.runPromise);
 
 const ancestors = (folder: string): readonly string[] =>
     Array.unfold(
@@ -66,13 +66,23 @@ const toml = <S extends Schema.Decoder<unknown>>(schema: S, file: string) =>
     );
 
 const read = Effect.fnUntraced(function* (workspaceRoot: string, manifest: string, files: ReadonlySet<string>) {
-    const metadata = yield* Effect.flatMap(Completed.output(ChildProcess.make('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { cwd: workspaceRoot, stdin: 'ignore' })), Schema.decodeEffect(Metadata));
+    const metadata = yield* Effect.tryPromise({
+        try: (signal) => promisify(execFile)('cargo', ['metadata', '--format-version', '1', '--no-deps', '--manifest-path', manifest], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal }),
+        catch: refused(manifest, 'cargo metadata does not exit 0'),
+    }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Metadata)(stdout)));
     const root = relative(workspaceRoot, metadata.workspace_root) || '.';
     const types = Array.difference(Array.dedupe(metadata.packages.flatMap(({ targets }) => targets.flatMap((target) => target.crate_types))), ['lib', 'rlib']);
     const [{ profile }, names, denied] = yield* Effect.all(
         [
             toml(Profiles, join(metadata.workspace_root, MANIFEST)),
-            Effect.map(Completed.output(ChildProcess.make('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { cwd: metadata.workspace_root, stdin: 'ignore' })), (text) => text.split('\n')),
+            Effect.tryPromise({
+                try: (signal) => {
+                    const running = promisify(execFile)('rustc', ['--print', 'file-names', '--crate-name', CRATE, ...types.flatMap((type) => ['--crate-type', type]), '-'], { encoding: 'utf8', cwd: metadata.workspace_root, signal });
+                    running.child.stdin?.end();
+                    return running;
+                },
+                catch: refused('rustc', 'does not exit 0'),
+            }).pipe(Effect.map(({ stdout }) => stdout.split('\n'))),
             Effect.transposeOption(Option.map(nearest(files, root, DENY.config), (file) => Effect.map(toml(Table, join(workspaceRoot, file)), (tables) => ({ files: [file, ...Option.toArray(nearest(files, root, DENY.exceptions))], tables: Record.keys(tables) })))),
         ],
         { concurrency: 'unbounded' },

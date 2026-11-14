@@ -1,12 +1,12 @@
+import { execFile } from 'node:child_process';
 import { basename, dirname, extname, join, relative } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Layer, ManagedRuntime, Option, Record, Ref, Result, Schema, Stream, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Formatter, Layer, ManagedRuntime, Option, Record, Ref, Result, Schema, Struct } from 'effect';
 import { Node, PLUGIN, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -53,7 +53,11 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, matched: rea
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
-    const report = yield* Effect.flatMap(Completed.output(ChildProcess.make('dotnet', [ANALYZER, workspaceRoot], { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.succeed(matched.join('\n'))) })), Schema.decodeEffect(Reported));
+    const report = yield* Effect.tryPromise((signal) => {
+        const running = promisify(execFile)('dotnet', [ANALYZER, workspaceRoot], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal });
+        running.child.stdin?.end(matched.join('\n'));
+        return running;
+    }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Reported)(stdout)));
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
 });
@@ -139,7 +143,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
             }),
     );
     const results = [...projected(report.nodes, stated), ...solutions];
-    const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, new Cause.UnknownError(error, error.message)])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
+    const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, new Cause.UnknownError(error, Formatter.format(error))])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });
 

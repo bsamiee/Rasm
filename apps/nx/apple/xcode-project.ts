@@ -1,8 +1,8 @@
+import { execFile } from 'node:child_process';
 import { basename, dirname, extname, join, relative, resolve } from 'node:path';
+import { promisify } from 'node:util';
 import type { TargetConfiguration } from '@nx/devkit';
-import { Completed } from '@rasm/process';
 import { Array, Effect, FileSystem, identity, Option, Record, Result, Schema, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
 import { ATTACH, INPUTS, type Options, type Part, PLUGIN, refused, SHARED, target, tokened } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -56,7 +56,10 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: t
     const fs = yield* FileSystem.FileSystem;
     const { flags } = invocation(options, built);
     const read = (scheme: string, selected: readonly string[]) =>
-        Effect.flatMap(Completed.output(ChildProcess.make('xcodebuild', ['build', 'archive', '-showBuildSettings', '-json', '-IDEPackageEnablePrebuilts=NO', ...flags, '-scheme', scheme, ...selected], { cwd: workspaceRoot, stdin: 'ignore' })), Schema.decodeEffect(Evaluated));
+        Effect.tryPromise({
+            try: (signal) => promisify(execFile)('xcodebuild', ['build', 'archive', '-showBuildSettings', '-json', '-IDEPackageEnablePrebuilts=NO', ...flags, '-scheme', scheme, ...selected], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal }),
+            catch: refused(`scheme ${scheme}`, 'xcodebuild -showBuildSettings does not exit 0'),
+        }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Evaluated)(stdout)));
     const schemes = container.schemes.filter(({ containers }) => containers.length > 0).map(({ name }) => name);
     const archived = Array.zip(schemes, yield* Effect.forEach(schemes, (scheme) => read(scheme, [])));
     const others = yield* Effect.forEach(
@@ -76,7 +79,6 @@ const evaluated = Effect.fnUntraced(function* (workspaceRoot: string, options: t
                 .flatMap(({ target: owner, buildSettings }) => LOCATED.map((setting) => ({ owner, setting, root: buildSettings.SRCROOT, value: Option.fromUndefinedOr(buildSettings[setting]) })))
                 .map(({ value, ...located }) => Option.map(value, (held) => ({ ...located, value: held, at: resolve(located.root, held) }))),
         ),
-
         (setting) => Effect.mapBoth(fs.realPath(setting.at), { onFailure: refused(`target ${setting.owner} ${setting.setting}`, `${setting.value} does not exist`), onSuccess: (at) => relative(real, at) }),
     );
     const archives = archived.flatMap(([scheme, listed]) =>

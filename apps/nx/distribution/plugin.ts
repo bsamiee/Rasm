@@ -1,12 +1,12 @@
+import { execFile } from 'node:child_process';
 import { constants } from 'node:http2';
 import { basename, join, matchesGlob, relative } from 'node:path';
 import process, { platform } from 'node:process';
+import { promisify } from 'node:util';
 import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, hashArray, type PreTasksExecution, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Cause, Config, Console, Effect, FileSystem, Function, Option, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientRequest } from 'effect/http';
-import { ChildProcess } from 'effect/process';
 import { run } from '#/executor';
 import { type Fields, HOSTS, type Host } from '#/host-packages';
 
@@ -36,16 +36,13 @@ const Placed = Schema.Struct({ outputPath: Schema.optionalKey(Schema.String) }).
 const read = Effect.fnUntraced(function* (files: readonly string[], { workspaceRoot }: CreateNodesContext) {
     const fs = yield* FileSystem.FileSystem;
     const matched = Array.filterMap(files, (file) =>
-        Result.map(
-            Result.fromOption(
-                Array.findFirst(HOSTS, (host) => matchesGlob(file, `**/${host.manifest}`)),
-                Function.constVoid,
-            ),
-            (host) => ({ file, host, root: join(file, relative(host.manifest, '.')) }),
+        Array.findFirst(HOSTS, (host) => matchesGlob(file, `**/${host.manifest}`)).pipe(
+            Result.fromOption(Function.constVoid),
+            Result.map((host) => ({ file, host, root: join(file, relative(host.manifest, '.')) })),
         ),
     );
     const local = Array.dedupe(matched.map(({ host }) => host)).filter(({ platforms = [platform] }) => platforms.includes(platform));
-    const installing = yield* Effect.filter(local, ({ install }) => (install?.probe === undefined ? Effect.succeed(true) : Effect.isSuccess(Completed.output(ChildProcess.make(Array.headNonEmpty(install.probe), Array.tailNonEmpty(install.probe), { stdin: 'ignore' })))));
+    const installing = yield* Effect.filter(local, ({ install }) => UndefinedOr.match(install?.probe, { onUndefined: () => Effect.succeed(true), onDefined: ([command, ...args]) => Effect.map(Effect.option(Effect.tryPromise((signal) => promisify(execFile)(command, args, { signal }))), Option.isSome) }));
     const one = Effect.fnUntraced(function* ({ file, host, root }: (typeof matched)[number]) {
         const segments = root.split('/');
         const above = Array.makeBy(segments.length + 1, (up) => join(...segments.slice(0, segments.length - up)));

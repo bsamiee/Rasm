@@ -17,7 +17,6 @@
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/applications": "workspace:*",
-        "@rasm/process": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

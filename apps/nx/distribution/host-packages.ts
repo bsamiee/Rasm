@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { constants, openAsBlob } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, matchesGlob } from 'node:path';
@@ -5,20 +6,19 @@ import { arch, platform } from 'node:process';
 import { patch } from '@decimalturn/toml-patch';
 import type { ExecutorContext } from '@nx/devkit';
 import { globWithWorkspaceContext, quoteShellArg } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import ast from '@xml-tools/ast';
 import xml, { type DocumentCstNode } from '@xml-tools/parser';
 import { Array, type Cause, Config, Effect, FileSystem, flow, Option, Path, pipe, Record, Result, Schema, SemVer, Stream, String } from 'effect';
 import { Ini, Toml, Yaml, Zip } from 'effect/encoding';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
-import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+
 import { applyEdits, modify, parse } from 'jsonc-parser';
 import { parseDocument, Scalar } from 'yaml';
 import { refused, written } from '#/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Services = FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner;
+type Services = FileSystem.FileSystem | Path.Path;
 type Step<A = void> = Effect.Effect<A, Error, Services>;
 type Stored<A = void> = Effect.Effect<A, Error, Services | HttpClient.HttpClient>;
 
@@ -228,7 +228,7 @@ const HOSTS: readonly Host[] = [
             command: 'blender --command extension install-file',
             probe: ['blender', '--version'],
             run: ({ at, name }) =>
-                Effect.flatMap(Completed.output(ChildProcess.make('blender', ['--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at], { stdin: 'ignore' })), (stdout) =>
+                Effect.flatMap(Effect.try({ try: () => execFileSync('blender', ['--command', 'extension', 'install-file', '--repo', 'user_default', '--enable', at], { encoding: 'utf8' }), catch: refused(at, 'blender does not exit 0') }), (stdout) =>
                     new RegExp(`^STATUS (Installed|Reinstalled) "${RegExp.escape(name)}"$`, 'mu').test(stdout) ? Effect.void : Effect.fail(refused(at, `blender exited 0 without installing it: ${stdout.trim()}`)()),
                 ),
         },
@@ -265,10 +265,10 @@ const HOSTS: readonly Host[] = [
             pack: ({ at }, file) =>
                 Effect.andThen(
                     Effect.flatMap(FileSystem.FileSystem, (fs) => fs.copy(at, dirname(file))),
-                    Effect.asVoid(Completed.output(ChildProcess.make('yak', ['build'], { cwd: dirname(file), stdin: 'ignore' }))),
+                    Effect.asVoid(Effect.try({ try: () => execFileSync('yak', ['build'], { cwd: dirname(file) }), catch: refused(file, 'yak build does not exit 0') })),
                 ),
         },
-        install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }) => Effect.asVoid(Completed.output(ChildProcess.make('yak', ['install', at], { stdin: 'ignore' }))) },
+        install: { command: 'yak install', platforms: ['darwin', 'win32'], run: ({ at }) => Effect.asVoid(Effect.try({ try: () => execFileSync('yak', ['install', at]), catch: refused(at, 'yak install does not exit 0') })) },
         publish: {
             store: 'https://yak.rhino3d.com',
             command: 'yak push',
@@ -280,7 +280,7 @@ const HOSTS: readonly Host[] = [
                         orElse: (response) => Effect.map(Effect.flatMap(HttpClientResponse.filterStatusOk(response), HttpClientResponse.schemaBodyJson(Pushed)), ({ distributions }) => distributions.some(({ filename }) => filename.toLowerCase() === basename(at).toLowerCase())),
                     }),
                 ),
-            push: ({ at }, store) => Effect.asVoid(Completed.output(ChildProcess.make('yak', ['push', at, '--source', store], { stdin: 'ignore' }))),
+            push: ({ at }, store) => Effect.asVoid(Effect.try({ try: () => execFileSync('yak', ['push', at, '--source', store]), catch: refused(at, 'yak push does not exit 0') })),
         },
     },
     {
@@ -346,7 +346,7 @@ const HOSTS: readonly Host[] = [
                         ['-selfSignedCert', '', '', '', found.name, found.name, certificate],
                         ['-sign', staged, file, certificate, found.name, '-tsa', timestampAuthority],
                     ],
-                    (args) => Completed.output(ChildProcess.make(SIGNER, args, { stdin: 'ignore' })),
+                    (args) => Effect.try({ try: () => execFileSync(SIGNER, args), catch: refused(file, `${SIGNER} does not exit 0`) }),
                     { discard: true },
                 );
             }, Effect.scoped),

@@ -1,9 +1,8 @@
 import { basename, dirname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
+import { quoteShellArg } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
 import { Array, Option, Record } from 'effect';
-import type { Cmake } from '#/executors/cmake/executor';
-import type { Package } from '#/executors/package/executor';
 import { configured, PACKAGING, PRESETS, planted, type Tree } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -49,77 +48,72 @@ const memberTargets = (tree: Tree, member: Member, outputPath: Option.Option<str
     const sources = ['default', '^default', { externalDependencies: [] }];
     const tidied = [...files].filter((file) => basename(file) === CONFIG && !relative(dirname(file), member.root).startsWith('..')).map((file) => tokened(file));
     const waits = Option.match(targets, { onNone: () => ({}), onSome: () => ({ dependsOn: ['build--cmake'] }) });
-    const planned = (workflow: Workflow, defines: Readonly<Record<string, string>> = {}) => ({
-        at: workflow.tree,
-        folder: join(workflow.tree, member.build),
-        shared: { cwd: tree.root, configure: configured('.', workflow, within(workflow.tree), defines) },
-    });
+    const planned = (workflow: Workflow, defines: Readonly<Record<string, string>> = {}) => {
+        const shared = { cwd: tree.root, configure: configured('.', workflow, within(workflow.tree), defines) };
+        const ran = (commands: readonly (readonly string[])[], outputs: readonly string[] = []) => ({
+            cwd: shared.cwd,
+            parallel: false,
+            commands: [shared.configure, ...commands].map((argv, at, all) => ({ command: argv.map(quoteShellArg).join(' '), forwardAllArgs: at === all.length - 1 })),
+            ...(outputs.length > 0 && { outputs }),
+        });
+        return { at: workflow.tree, folder: join(workflow.tree, member.build), shared, ran };
+    };
     const compiled = (workflow: Workflow, at: string, names: Array.NonEmptyReadonlyArray<string>) => Array.make('cmake', '--build', within(at), ...preset(workflow.build), '--target', ...names);
     const varied = (each: (workflow: Workflow) => object) => ({ configurations: Record.fromIterableWith(others, (workflow) => [workflow.name, each(workflow)] as const) });
-    const target = (help: string, description: string, options: typeof Cmake.Type, extra: Partial<TargetConfiguration>): TargetConfiguration => ({
-        executor: `${PLUGIN}:cmake`,
+    const target = (help: string, description: string, options: TargetConfiguration['options'], extra: Partial<TargetConfiguration>): TargetConfiguration => ({
+        executor: 'nx:run-commands',
         options,
         parallelism: false,
         inputs: sources,
         metadata: { description, help: { command: `${help} --help`, example: { args: ['--verbose'] } } },
         ...extra,
     });
+    const products = member.targets.flatMap(({ artifacts }) => artifacts);
     const builds = (names: Array.NonEmptyReadonlyArray<string>) => (workflow: Workflow) => {
-        const { at, shared } = planned(workflow);
-        return { ...shared, commands: [compiled(workflow, at, names)], outputs: member.targets.flatMap(({ artifacts }) => artifacts.map((artifact) => tokened(join(at, artifact.path)))) } satisfies typeof Cmake.Type;
+        const { at, ran } = planned(workflow);
+        return ran(
+            [compiled(workflow, at, names)],
+            products.map((artifact) => tokened(join(at, artifact.path))),
+        );
     };
     const tests = (workflow: Workflow) => {
-        const { at, folder, shared } = planned(workflow);
+        const { at, folder, ran } = planned(workflow);
         const report = join(planted(outputPath, tree.root, 'ctest', member.name), `${workflow.name}.xml`);
-        return {
-            ...shared,
-            commands: [Array.make('ctest', ...preset(workflow.test), '--test-dir', within(folder), '--output-junit', relative(folder, report)), ...Array.fromNullishOr(workflow.after).map((stated) => Array.make('cmake', '--build', within(at), '--preset', stated))],
-            outputs: [tokened(report)],
-        } satisfies typeof Cmake.Type;
+        return ran([['ctest', ...preset(workflow.test), '--test-dir', within(folder), '--output-junit', relative(folder, report)], ...Array.fromNullishOr(workflow.after).map((stated) => ['cmake', '--build', within(at), '--preset', stated])], [tokened(report)]);
     };
     const installs = (workflow: Workflow) => {
-        const { at, folder, shared } = planned(workflow);
-        return { ...shared, commands: [...Option.toArray(Option.map(targets, (names) => compiled(workflow, at, names))), Array.make('cmake', '--install', within(folder))] } satisfies typeof Cmake.Type;
+        const { at, folder, ran } = planned(workflow);
+        return ran([...Option.toArray(Option.map(targets, (names) => compiled(workflow, at, names))), ['cmake', '--install', within(folder)]]);
     };
     const checks = (workflow: Workflow, names: Array.NonEmptyReadonlyArray<string>) => {
-        const { at, shared } = planned(
+        const { at, ran } = planned(
             workflow,
             Record.fromIterableWith(workflow.tidy, ({ variable }) => [`${variable}_EXPORT_FIXES_DIR`, ''] as const),
         );
-        return { ...shared, commands: [compiled(workflow, at, names)] } satisfies typeof Cmake.Type;
+        return ran([compiled(workflow, at, names)]);
     };
     const fixes = (workflow: Workflow, names: Array.NonEmptyReadonlyArray<string>) => {
         const fixer = 'clang-apply-replacements';
         const defines = workflow.tidy.flatMap(({ variable, launcher: stated }) => [[variable, `${stated};--warnings-as-errors=-*`] as const, [`${variable}_EXPORT_FIXES_DIR`, fixer] as const]);
-        const { at, folder, shared } = planned(workflow, Object.fromEntries(defines));
-        return { ...shared, commands: [compiled(workflow, at, names), Array.make(fixer, '--format', '--style=file', within(join(folder, fixer)))] } satisfies typeof Cmake.Type;
+        const { at, folder, ran } = planned(workflow, Object.fromEntries(defines));
+        return ran([compiled(workflow, at, names), [fixer, '--format', '--style=file', within(join(folder, fixer))]]);
     };
     const cleans = (workflow: Workflow) => {
         const { at, shared } = planned(workflow);
         return { cwd: shared.cwd, commands: [shared.configure, Array.make('cmake', '--build', within(at), '--target', 'clean')] };
     };
     const packs = (workflow: Workflow, stated: string, names: Array.NonEmptyReadonlyArray<string>) => {
-        const { at, folder, shared } = planned(workflow);
-        return {
-            ...shared,
-            build: compiled(workflow, at, names),
-            pack: Array.make('cpack', '--preset', stated),
-            config: join(folder, PACKAGING),
-            outputPath: planted(outputPath, tree.root, 'cpack', member.name),
-        } satisfies typeof Package.Type;
+        const { at, folder, ran } = planned(workflow);
+        const [archives, run] = [planted(outputPath, tree.root, 'cpack', member.name), (file: string) => relative(workflow.stated ? at : tree.root, file) || '.'];
+        const packed = ['cpack', '--preset', stated, '--config', run(join(folder, PACKAGING)), '-B', run(folder), '-D', `CPACK_OUTPUT_FILE_PREFIX=${run(archives)}`];
+        return { archives, options: ran([compiled(workflow, at, names), ['cmake', '-E', 'rm', '-rf', within(archives)], packed]) };
     };
     const built = Record.getSomes<string, TargetConfiguration>({
-        'build--cmake': Option.map(targets, (names) => target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { cache: true, outputs: builds(names)(head).outputs.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) })),
-        'pack--cpack': Option.map(Option.all({ packed: packing, names: targets }), ({ packed: { workflow, stated }, names }) => ({
-            executor: `${PLUGIN}:package`,
-            options: packs(workflow, stated, names),
-            parallelism: false,
-            cache: true,
-            inputs: sources,
-            outputs: [tokened(packs(workflow, stated, names).outputPath)],
-            metadata: { description: `Builds ${member.name} in workflow ${workflow.name} and packs its install tree with CPack, which names the archive`, help: { command: 'cpack --help', example: { args: ['--verbose'] } } },
-        })),
-
+        'build--cmake': Option.map(targets, (names) => target('cmake --build', `Builds the targets of ${member.name} in the tree its workflow preset configures`, builds(names)(head), { cache: true, outputs: products.map((_, at) => `{options.outputs.${at}}`), ...varied(builds(names)) })),
+        'pack--cpack': Option.map(Option.all({ packed: packing, names: targets }), ({ packed: { workflow, stated }, names }) => {
+            const { archives, options } = packs(workflow, stated, names);
+            return target('cpack', `Builds ${member.name} in workflow ${workflow.name}, empties its package folder, and packs its install tree with CPack, which names the archive`, options, { cache: true, outputs: [tokened(archives)] });
+        }),
         'check--clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-tidy', `Reports clang-tidy findings and failed header-set verification for ${member.name} in workflow ${workflow.name}, each as an error`, checks(workflow, names), { cache: true, inputs: [...sources, ...tidied] })),
         'fix--clang-tidy': Option.map(checked, ({ names, workflow }) => target('clang-apply-replacements', `Applies the replacements clang-tidy exports for ${member.name} in workflow ${workflow.name}, then formats the changed lines`, fixes(workflow, names), {})),
     });

@@ -16,15 +16,13 @@
     "exports": {
         ".": "./plugin.ts",
         "./release/version-actions": "./version-actions.ts",
-        "./package.json": "./package.json",
-        "./executors.json": "./executors.json"
+        "./package.json": "./package.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json" ],
+    "files": [ "dist" ],
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
         "@rasm/nx-distribution": "workspace:*",
-        "@rasm/process": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
@@ -38,12 +36,10 @@
         "exports": {
             ".": "./dist/plugin.js",
             "./release/version-actions": "./dist/version-actions.js",
-            "./package.json": "./package.json",
-            "./executors.json": "./executors.json"
+            "./package.json": "./package.json"
         },
         "imports": {
             "#/*": "./dist/*.js"
         }
-    },
-    "executors": "./executors.json"
+    }
 }

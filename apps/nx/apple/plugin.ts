@@ -1,12 +1,12 @@
+import { execFile } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, matchesGlob, relative, resolve } from 'node:path';
 import process from 'node:process';
+import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, DependencyType, getOutputsForTargetAndConfiguration, hashArray, type PostTasksExecution, type PreTasksExecution, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, emitPluginWorkerLog, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
-import { Array, Config, Context, Effect, FileSystem, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Config, Context, Effect, FileSystem, Formatter, flow, Layer, ManagedRuntime, Option, Predicate, Record, Redacted, Result, Schema } from 'effect';
 import { Described, INFO, MANIFEST, type Package, packageEdges, packageParts, RESOLVED, sources } from '#/swift-package';
 import { analyzer, Options, type Part, refused, SHARED, tokened } from '#/targets';
 import { Analyzed, evaluated, xcodeParts } from '#/xcode-project';
@@ -49,7 +49,15 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const containers = files.filter((file) => basename(file) === 'project.xcproj' || (basename(file) === 'contents.xcworkspacedata' && extname(dirname(dirname(file))) !== '.xcodeproj'));
     const unsupported = files.filter((file) => basename(file) === 'project.pbxproj' && !paths.has(join(dirname(file), 'project.xcproj')));
     const marker = (container: string) => containers.find((file) => dirname(file) === container) ?? container;
-    const printed = (command: string, args: readonly string[]) => Completed.output(ChildProcess.make(command, args, { cwd: workspaceRoot, stdin: 'ignore' }));
+    const printed = (command: string, args: readonly string[], input?: string) =>
+        Effect.tryPromise({
+            try: (signal) => {
+                const running = promisify(execFile)(command, args, { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal });
+                running.child.stdin?.end(input);
+                return running;
+            },
+            catch: refused(command, 'does not exit 0'),
+        }).pipe(Effect.map(({ stdout }) => stdout));
     const [info, xcodebuild, compiled] = yield* Effect.all([
         Effect.option(printed('swift', ['-print-target-info'])),
         containers.length === 0 ? Effect.succeedNone : Effect.option(printed('xcodebuild', ['-version'])),
@@ -59,9 +67,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const reader = Option.map(Option.all({ xcodebuild, compiled }), ({ compiled: at }) => at);
     const readable = Option.isSome(info) ? manifests : [];
     const absent = [...(Option.isNone(info) ? ['swift'] : []), ...(containers.length > 0 && Option.isNone(xcodebuild) ? ['xcodebuild'] : []), ...(containers.length > 0 && Option.isNone(compiled) ? ['the #analyzer core'] : [])];
-    const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(printed('swift', ['package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json']), Schema.decodeEffect(Described))), {
-        concurrency: 'unbounded',
-    });
+    const describedResults = yield* Effect.forEach(readable, (file) => Effect.result(Effect.flatMap(printed('swift', ['package', '--package-path', dirname(file), '--experimental-skip-acquiring-lock', 'describe', '--type', 'json']), Schema.decodeEffect(Described))), { concurrency: 'unbounded' });
     const packages = yield* Effect.forEach(
         Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(result, (manifest) => ({ file, root: dirname(file), manifest }))),
         Effect.fnUntraced(function* (swiftPackage: Omit<Package, 'plists'>) {
@@ -77,13 +83,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const local = (at: string) => Option.fromUndefinedOr(described.get(resolve(workspaceRoot, at)));
     const analysis = yield* Option.match(reader, {
         onNone: () => Effect.succeed(Result.succeed<typeof Analyzed.Type>({ containers: [], failures: {} })),
-        onSome: (at) =>
-            Effect.result(
-                Effect.flatMap(
-                    Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => Completed.output(ChildProcess.make(at, [], { cwd: workspaceRoot, stdin: Stream.encodeText(Stream.succeed(input)) }))),
-                    Schema.decodeEffect(Analyzed),
-                ),
-            ),
+        onSome: (at) => Effect.flatMap(Schema.encodeEffect(Listed)(containers), (input) => printed(at, [], input)).pipe(Effect.flatMap(Schema.decodeEffect(Analyzed)), Effect.result),
     });
     const analyzed = Result.getOrElse(analysis, (): typeof Analyzed.Type => ({ containers: [], failures: {} }));
     const workspaces = analyzed.containers.filter((container) => basename(marker(container.path)) === 'contents.xcworkspacedata');
@@ -95,10 +95,10 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     const xcode = Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(result, (success) => ({ container, ...success })));
     const unread = [...(Option.isNone(info) ? manifests.map((file) => ({ file, reason: 'swift is absent on this host' })) : []), ...(Option.isNone(reader) ? containers.map((file) => ({ file, reason: `${absent.join(', ')} absent on this host` })) : [])];
     const broken: readonly [string, Error][] = [
-        ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, refused(file, error.message)(error)])),
-        ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, refused(file, analysis.failure.message)(analysis.failure)]) : []),
+        ...Array.filterMap(Array.zip(readable, describedResults), ([file, result]) => Result.map(Result.flip(result), (error): [string, Error] => [file, refused(file, Formatter.format(error))(error)])),
+        ...(Result.isFailure(analysis) ? containers.map((file): [string, Error] => [file, refused(file, Formatter.format(analysis.failure))(analysis.failure)]) : []),
         ...Record.collect(analyzed.failures, (at, reason): [string, Error] => [marker(at), refused(at, reason)()]),
-        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error): [string, Error] => [marker(container.path), refused(container.path, error.message)(error)])),
+        ...Array.filterMap(Array.zip(analyzed.containers, evaluatedResults), ([container, result]) => Result.map(Result.flip(result), (error): [string, Error] => [marker(container.path), refused(container.path, Formatter.format(error))(error)])),
         ...unsupported.map((file): [string, Error] => [file, refused(file, 'has no reader, and no project.xcproj sits beside it')()]),
     ];
     yield* Effect.forEach(unread, ({ file, reason }) => Effect.sync(() => emitPluginWorkerLog('warn', `${file} presents no project: ${reason}`)));
@@ -153,7 +153,7 @@ const analyze = Effect.fnUntraced(function* (workspaceRoot: string, options: typ
     };
 });
 
-const security = (...args: readonly string[]) => Completed.output(ChildProcess.make('security', args, { stdin: 'ignore' }));
+const security = (...args: readonly string[]) => Effect.tryPromise({ try: (signal) => promisify(execFile)('security', args, { encoding: 'utf8', signal }), catch: refused('security', 'does not exit 0') });
 
 const keychain = (id: string) => join(KEYCHAINS, `${process.pid}-${id}.keychain-db`);
 
@@ -169,7 +169,7 @@ const identified = Effect.fnUntraced(function* (id: string) {
     }
     const [at, folder] = [keychain(id), yield* fs.makeTempDirectoryScoped()];
     const listed = yield* Effect.filter(
-        [...(yield* security('list-keychains', '-d', 'user')).matchAll(/(?<=")[^"\n]+(?=")/gu)].map(([held]) => held),
+        [...(yield* security('list-keychains', '-d', 'user')).stdout.matchAll(/(?<=")[^"\n]+(?=")/gu)].map(([held]) => held),
         fs.exists,
     );
     yield* fs.makeDirectory(KEYCHAINS, { recursive: true });
@@ -201,10 +201,7 @@ const createNodes: CreateNodes = [
                 const settings = yield* Schema.decodeEffect(Options)({ ...pluginsConfig?.[SHARED], ...(Predicate.isObject(options) ? options : {}) });
                 const cache = new PluginCache<Graph>(join(workspaceDataDirectory, `apple-${hashObject(settings)}.hash`));
                 const built = yield* Effect.option(Effect.flatMap(analyzer, fs.stat));
-                const stamp = Option.getOrElse(
-                    Option.flatMap(built, (stat) => Option.map(stat.mtime, (at) => at.valueOf())),
-                    () => 0,
-                );
+                const stamp = Option.flatMap(built, (stat) => stat.mtime).pipe(Option.match({ onNone: () => 0, onSome: (at) => at.valueOf() }));
                 const key = hashArray([yield* Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, READ)), String(stamp), ...files]);
                 const read = yield* Option.match(Option.fromNullishOr(cache.get(key)), { onSome: (graph) => Effect.succeed({ graph, failures: [], partial: false }), onNone: () => analyze(workspaceRoot, settings, files) });
                 yield* Effect.sync(() => (read.failures.length === 0 && !read.partial ? cache.set(key, read.graph) : undefined));

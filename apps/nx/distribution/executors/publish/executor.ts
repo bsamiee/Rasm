@@ -1,7 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import type { ExecutorContext } from '@nx/devkit';
-import { Completed } from '@rasm/process';
 import { Effect, Schema, Struct, UndefinedOr } from 'effect';
-import { ChildProcess, CommandLine } from 'effect/process';
+import { CommandLine } from 'effect/process';
 import { Dry, dried, packaged, run } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -18,11 +18,10 @@ const Publish = Dry.mapFields(
 
 const execute = Effect.fnUntraced(function* ({ publish, preview, ...stated }: typeof Publish.Type, context: ExecutorContext) {
     const [dry, files] = yield* Effect.all([dried(stated), packaged(context)]);
-    yield* UndefinedOr.match(dry ? preview : publish, {
-        onUndefined: () => Effect.logInfo(`Would run ${CommandLine.display([...publish, ...files])}`),
-        onDefined: ([command, ...rest]) => Effect.asVoid(Completed.output(ChildProcess.make(command, [...rest, ...files], { cwd: context.root, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }))),
+    return yield* UndefinedOr.match(dry ? preview : publish, {
+        onUndefined: () => Effect.as(Effect.logInfo(`Would run ${CommandLine.display([...publish, ...files])}`), { success: true }),
+        onDefined: ([command, ...rest]) => Effect.sync(() => ({ success: spawnSync(command, [...rest, ...files], { cwd: context.root, stdio: 'inherit' }).status === 0 })),
     });
-    return { success: true };
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

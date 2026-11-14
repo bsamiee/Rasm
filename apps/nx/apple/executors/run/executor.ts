@@ -1,10 +1,9 @@
+import { execFileSync, spawnSync } from 'node:child_process';
 import { basename, join, sep } from 'node:path';
 import { env } from 'node:process';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext } from '@nx/devkit';
-import { Completed } from '@rasm/process';
 import { Effect, Record, Schema, type Scope } from 'effect';
-import { ChildProcess } from 'effect/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -19,15 +18,15 @@ const Run = Schema.Struct({
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const commands = Effect.fnUntraced(function* ({ runs, env: stated = {}, applications = [], args = [] }: typeof Run.Type, root: string) {
-    const cleared = Record.fromIterableWith([...Object.keys(env).filter((name) => name.startsWith('NX_')), 'LERNA_PACKAGE_NAME'], (name) => [name, undefined]);
-    yield* Effect.forEach(runs, ([program, ...given]) => Completed.output(ChildProcess.make(program, [...given, ...args], { cwd: root, env: { ...cleared, ...stated }, extendEnv: true, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })), { discard: true });
-    const running = applications.length === 0 ? [] : (yield* Completed.output(ChildProcess.make('ps', ['-Ao', 'comm='], { cwd: root, stdin: 'ignore' }))).split('\n');
+    const kept = Record.filter(env, (_, name) => !(name.startsWith('NX_') || name === 'LERNA_PACKAGE_NAME'));
+    const success = yield* Effect.sync(() => runs.every(([program, ...given]) => spawnSync(program, [...given, ...args], { cwd: root, env: { ...kept, ...stated }, stdio: 'inherit' }).status === 0));
+    const running = !success || applications.length === 0 ? [] : (yield* Effect.try(() => execFileSync('ps', ['-Ao', 'comm='], { encoding: 'utf8' }))).split('\n');
     const stale = applications.filter((application) => running.some((executable) => executable.startsWith(join(application, 'Contents', 'MacOS', sep))));
     yield* stale.length === 0 ? Effect.void : Effect.logInfo(`${stale.map((application) => basename(application, '.app')).join(', ')} runs the build it launched from, relaunch it to run this one`);
-    return { success: true };
+    return { success };
 });
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => Effect.runPromise(Effect.provide(Effect.scoped(effect), layer));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => effect.pipe(Effect.tapCause(Effect.logError), Effect.scoped, Effect.provide(layer), Effect.runPromise);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

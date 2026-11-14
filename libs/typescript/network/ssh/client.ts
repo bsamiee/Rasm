@@ -1,4 +1,3 @@
-import { Completed } from '@rasm/process';
 import { Array, Cache, Context, Duration, Effect, Exit, FileSystem, Layer, Option, Path, pipe, Record, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Forward } from '#/forward';
@@ -31,9 +30,10 @@ class Ssh extends Context.Service<Ssh>()('@rasm/ssh/client/Ssh', {
         const [spawner, fs, path, root] = yield* Effect.all([ChildProcessSpawner.ChildProcessSpawner, FileSystem.FileSystem, Path.Path, Schema.decodeEffect(Line)(folder)]);
         const commanded = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => ChildProcess.make(Array.headNonEmpty(words), Array.tailNonEmpty(words), { extendEnv: true, ...options });
         const started = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => spawner.spawn(commanded(words, options));
-        const exchanged = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) => Effect.provideService(Completed.run(commanded(words, { stdin: 'ignore', ...options })), ChildProcessSpawner.ChildProcessSpawner, spawner);
+        const exchanged = (words: Array.NonEmptyReadonlyArray<string>, options?: ChildProcess.CommandOptions) =>
+            Effect.scoped(Effect.flatMap(started(words, { stdin: 'ignore', ...options }), (handle) => Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), code: handle.exitCode }, { concurrency: 'unbounded' })));
         const settled = (host: Host) =>
-            Effect.fnUntraced(function* ({ stdout, stderr, code }: Completed) {
+            Effect.fnUntraced(function* ({ stdout, stderr, code }: Effect.Success<ReturnType<typeof exchanged>>) {
                 const reached = code !== errored || (yield* exchanged(host.request(host.control(path, root), 'check'))).code === 0;
                 return yield* code === 0 ? Effect.succeed(stdout) : SshError.make({ reason: reached ? { _tag: 'Exit', code, stdout, stderr } : { _tag: 'Unreachable', stderr }, subject: host.name });
             });

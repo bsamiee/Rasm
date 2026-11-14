@@ -1,10 +1,11 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import consumers from 'node:stream/consumers';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import type { ExecutorContext, TaskGraph } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Console, Effect, Equal, FileSystem, Option, Path, Predicate, Record, Schema, type Scope, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { ChildProcess, CommandLine } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -55,13 +56,15 @@ const built = Effect.fnUntraced(function* (root: string, group: Array.NonEmptyRe
     const file = path.join(yield* fs.makeTempDirectoryScoped(), 'batch.proj');
     yield* fs.writeFileString(file, yield* traversal(projects));
     const argv = [Array.headNonEmpty(command), file, ...Array.tailNonEmpty(command), '-t:Dispatch', '-getItem:Built', ...(args ?? [])];
-    const completed = yield* Completed.run(ChildProcess.make('dotnet', argv, { cwd: root, stdin: 'ignore' }));
-    const succeeded = Option.map(Schema.decodeOption(Results)(completed.stdout), ({ Items }) => new Set(Items.Built.map(({ Identity }) => Identity)));
-    const lines = completed.stderr.split('\n');
+    const child = spawn('dotnet', argv, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+    const [out, err] = yield* Effect.all([Effect.fromNullishOr(child.stdout), Effect.fromNullishOr(child.stderr)]);
+    const [stdout, stderr] = yield* Effect.tryPromise(() => Promise.all([consumers.text(out), consumers.text(err), once(child, 'close')]));
+    const succeeded = Option.map(Schema.decodeOption(Results)(stdout), ({ Items }) => new Set(Items.Built.map(({ Identity }) => Identity)));
+    const lines = stderr.split('\n');
     return Array.map(Array.zip(group, projects), ([[task], project]) => {
         const success = Option.exists(succeeded, (set) => set.has(project));
         const own = lines.filter((text) => text.includes(` [${project}`));
-        const result: TaskResult = { success, terminalOutput: (success ? own : [CommandLine.display(['dotnet', ...argv]), ...(own.length > 0 ? own : [completed.stderr, completed.stdout])]).join('\n') };
+        const result: TaskResult = { success, terminalOutput: (success ? own : [child.spawnargs.join(' '), ...(own.length > 0 ? own : [stderr, stdout])]).join('\n') };
         return { task, result };
     });
 });

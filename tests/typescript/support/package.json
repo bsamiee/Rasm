@@ -24,7 +24,6 @@
     "dependencies": {
         "@axe-core/playwright": "catalog:",
         "@effect/vitest": "catalog:",
-        "@rasm/process": "workspace:*",
         "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         "@vitest/ui": "catalog:"

@@ -211,11 +211,11 @@ it.layer(
     methods.effect(
         'packs a project into one CPack archive named from its name, version, and system, holding a CPS file and an SPDX SBOM',
         Effect.fnUntraced(function* () {
-            const [{ nx, called, written }, path, { name, version }] = yield* Effect.all([Consumer, Path.Path, member(CORE)]);
+            const [{ nx, called, written, outputs }, path, { name, version }] = yield* Effect.all([Consumer, Path.Path, member(CORE)]);
             const [packed, created] = yield* written(nx('pack', name, '--skip-nx-cache', '--output-style=static'));
             assert.strictEqual(packed.code, 0, `${packed.stdout}${packed.stderr}`);
-            const system = yield* called('uname', ['-sm']);
-            const archives = created.filter((file) => path.basename(file) === `${name}-${version}-${system.stdout.trim().replace(' ', '-')}.tar.xz`);
+            const [system, { outputPaths }] = yield* Effect.all([called('uname', ['-sm']), outputs(`${name}:pack--cpack`)]);
+            const archives = created.filter((file) => outputPaths.includes(path.dirname(file)) && path.basename(file) === `${name}-${version}-${system.stdout.trim().replace(' ', '-')}.tar.xz`);
             assert.lengthOf(archives, 1, `README.md DELIVERY "CPack naming it from project, version, and system"; CMake CMAKE_HOST_SYSTEM_NAME "uname -s", CMAKE_HOST_SYSTEM_PROCESSOR "uname -m": ${created.join(', ')}`);
             const listed = yield* called('tar', ['-tJf', ...archives]);
             const held = listed.stdout.split('\n');

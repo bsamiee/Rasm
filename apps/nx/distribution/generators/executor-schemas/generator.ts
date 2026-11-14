@@ -1,10 +1,10 @@
+import { execFile } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { execPath } from 'node:process';
+import { promisify } from 'node:util';
 import { formatFiles, getProjects, readJson, type Tree, writeJson } from '@nx/devkit';
 import { loadTsFile, resolveImplementation, type SyncGeneratorResult } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
-import { Array, Effect, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema, Stream } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Effect, JsonSchema, Option, Path, Predicate, pipe, Record, Result, Schema } from 'effect';
 import { refused, run } from '#/executor';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -55,18 +55,22 @@ const generate = Effect.fnUntraced(function* (tree: Tree) {
     const biome = Option.liftThrowable(createRequire(path.join(tree.root, 'package.json')).resolve)('@biomejs/biome/bin/biome');
     yield* Effect.forEach(
         Option.match(biome, { onNone: () => [], onSome: (bin) => [...own].map((to) => ({ bin, to })) }),
-        ({ bin, to }) =>
-            Effect.fromNullishOr(tree.read(to, 'utf-8')).pipe(
-                Effect.flatMap((input) => Completed.output(ChildProcess.make(execPath, [bin, 'format', `--stdin-file-path=${to}`], { cwd: tree.root, stdin: Stream.encodeText(Stream.succeed(input)) }))),
-                Effect.map((text) => tree.write(to, text)),
-            ),
+        Effect.fnUntraced(function* ({ bin, to }) {
+            const input = yield* Effect.fromNullishOr(tree.read(to, 'utf-8'));
+            const { stdout } = yield* Effect.tryPromise({
+                try: (signal) => {
+                    const running = promisify(execFile)(execPath, [bin, 'format', `--stdin-file-path=${to}`], { encoding: 'utf8', cwd: tree.root, signal });
+                    running.child.stdin?.end(input);
+                    return running;
+                },
+                catch: refused(to, 'biome format does not exit 0'),
+            });
+            tree.write(to, stdout);
+        }),
         { concurrency: 'unbounded' },
     );
-    const stale = tree
-        .listChanges()
-        .map((change) => change.path)
-        .filter((at) => own.has(at));
-    return { outOfSyncMessage: `Executor schema.json files and executors.json descriptions differ from the options schemas their executors declare, in the form the workspace formatter writes: ${stale.join(', ')}` } satisfies SyncGeneratorResult;
+    const stale = tree.listChanges().filter((change) => own.has(change.path));
+    return { outOfSyncMessage: `Executor schema.json files and executors.json descriptions differ from the options schemas their executors declare, in the form the workspace formatter writes: ${stale.map((change) => change.path).join(', ')}` } satisfies SyncGeneratorResult;
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

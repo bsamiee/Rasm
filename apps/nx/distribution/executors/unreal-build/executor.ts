@@ -1,8 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { type ExecutorContext, runExecutor } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Effect, Equivalence, FileSystem, Function, Option, Path, pipe, Record, Result, Schema, Stream, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
 import { applyEdits, modify } from 'jsonc-parser';
 import { refused, run } from '#/executor';
 import { engine, Linked, zipped } from '#/host-packages';
@@ -41,7 +40,12 @@ const execute = Effect.fnUntraced(function* ({ outputPath, descriptor, hosts, de
     const absolute = (at: string) => path.resolve(workspaceRoot, at);
     const name = path.basename(descriptor, path.extname(descriptor));
     const placed = (folder: keyof typeof FOLDERS, ...rest: readonly string[]) => path.join(absolute(outputPath), FOLDERS[folder], ...rest);
-    const tool = (command: string, given: readonly string[]) => Completed.output(ChildProcess.make(command, [...given, ...args], { cwd: workspaceRoot, detached: false, stdin: 'ignore', stdout: 'inherit', stderr: 'inherit' }));
+    const tool = (command: string, given: readonly string[]) =>
+        Effect.filterOrFail(
+            Effect.sync(() => spawnSync(command, [...given, ...args], { cwd: workspaceRoot, stdio: ['ignore', 'inherit', 'inherit'] })),
+            ({ status }) => status === 0,
+            refused(command, 'does not exit 0'),
+        );
     const located = (at: string) => Effect.map(engine(absolute(at)), (found) => ({ ...found, project: absolute(at) }));
     const loading = yield* Effect.forEach(path.extname(descriptor) === '.uproject' ? [descriptor] : hosts, located);
     const engines = yield* pipe(Array.dedupeWith(loading, Equivalence.mapInput(Equivalence.String, Struct.get('root'))), Option.liftPredicate(Array.isReadonlyArrayNonEmpty), Effect.fromOption, Effect.mapError(refused(descriptor, 'is loaded by no .uproject, whose EngineAssociation names the engine it builds on')));

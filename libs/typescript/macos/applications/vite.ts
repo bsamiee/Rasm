@@ -1,8 +1,7 @@
 import { globSync, readFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import process from 'node:process';
-import { Completed } from '@rasm/process';
-import { Array, Effect, Record, Schema } from 'effect';
+import { Array, Cause, Effect, Record, Schema, Stream } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { build, type PlistValue, parse } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
@@ -14,6 +13,12 @@ const Settings = Schema.fromJsonString(Schema.NonEmptyArray(Schema.Struct({ buil
 });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const ran = Effect.fnUntraced(function* (command: string, args: readonly string[]) {
+    const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore' });
+    const [stdout, stderr, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], { concurrency: 'unbounded' });
+    return code === 0 ? stdout : yield* new Cause.UnknownError(stderr, `${command} exited ${code}: ${stderr}`);
+}, Effect.scoped);
 
 const helper = Effect.fnUntraced(function* (
     entry: string,
@@ -68,7 +73,7 @@ const helper = Effect.fnUntraced(function* (
     const name = basename(dirname(entry));
     const context = yield* Effect.context<ChildProcessSpawner.ChildProcessSpawner>();
     const signing = yield* Effect.cached(
-        Completed.output(ChildProcess.make('xcodebuild', ['-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target], { stdin: 'ignore' })).pipe(
+        ran('xcodebuild', ['-showBuildSettings', '-json', '-project', xcode.project, '-target', xcode.target]).pipe(
             Effect.flatMap(Schema.decodeEffect(Settings)),
             Effect.map(([{ buildSettings }]) => ({ ...buildSettings, label: `${buildSettings.PRODUCT_BUNDLE_IDENTIFIER}.${service}` })),
         ),
@@ -109,7 +114,7 @@ const helper = Effect.fnUntraced(function* (
                             [process.execPath, '--build-sea', join(outDir, 'sea.json')],
                             ['codesign', '--force', '--sign', '-', '--identifier', label, '--options', 'runtime', '--entitlements', join(outDir, 'sea.entitlements'), join(outDir, name)],
                         ] as const,
-                        ([command, ...args]) => Completed.output(ChildProcess.make(command, args, { stdin: 'ignore' })),
+                        ([command, ...args]) => ran(command, args),
                         { discard: true },
                     ),
                 ),

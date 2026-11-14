@@ -6,9 +6,8 @@ import { devNull } from 'node:os';
 import { delimiter } from 'node:path';
 import { env } from 'node:process';
 import { pathToFileURL } from 'node:url';
-import { type ProjectGraph, workspaceRoot } from '@nx/devkit';
-import { Completed } from '@rasm/process';
-import { Array, Context, Effect, FileSystem, Function, Layer, Match, Option, Path, Predicate, Record, Schema } from 'effect';
+import { createProjectGraphAsync, type ProjectGraph, workspaceRoot } from '@nx/devkit';
+import { Array, Cause, Context, Effect, FileSystem, Function, Layer, Match, Option, Path, Predicate, Record, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
 
@@ -35,9 +34,7 @@ const inherited = Record.filter(env, (value, name): value is string => Predicate
 
 const Json = Schema.fromJsonString(Schema.Unknown, { space: 4 });
 const Version = Schema.fromJsonString(Schema.Struct({ version: Schema.String }));
-const Printed = Schema.fromJsonString(Schema.Struct({ graph: Schema.Struct({ nodes: Schema.Record(Schema.String, Schema.Any), dependencies: Schema.Record(Schema.String, Schema.Any) }) })).annotate({
-    description: 'JSON nx graph --print writes: the project graph Nx built, nodes and dependencies in the shape of its ProjectGraph type',
-});
+
 const Read = Schema.fromJsonString(
     Schema.Struct({
         nodes: Schema.Record(Schema.String, Schema.Any),
@@ -73,9 +70,8 @@ class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, strin
         Layer.effect(
             Packed,
             Effect.gen(function* () {
-                const path = yield* Path.Path;
-                const nx = (...args: readonly string[]) => Completed.output(ChildProcess.make('nx', args, { cwd: workspaceRoot, stdin: 'ignore', extendEnv: true, env: { NX_TUI: 'false' } }));
-                const { nodes, dependencies }: ProjectGraph = (yield* Effect.flatMap(nx('graph', '--print'), Schema.decodeEffect(Printed))).graph;
+                const [path, spawner] = yield* Effect.all([Path.Path, ChildProcessSpawner.ChildProcessSpawner]);
+                const { nodes, dependencies } = yield* Effect.promise(() => createProjectGraphAsync());
                 const archives = Record.map(nodes, ({ data }) => archived(path, data.targets ?? {}));
                 const reached = (names: readonly string[], held: ReadonlySet<string>): ReadonlySet<string> => {
                     const fresh = Array.dedupe(names).filter((name) => !held.has(name) && Array.isReadonlyArrayNonEmpty(archives[name] ?? []));
@@ -90,7 +86,8 @@ class Packed extends Context.Service<Packed, Record.ReadonlyRecord<string, strin
                         : held;
                 };
                 const packages = [...reached(plugins, new Set())];
-                yield* nx('run-many', '--targets=pack', `--projects=${packages.join(',')}`);
+                const pack = ChildProcess.make('nx', ['run-many', '--targets=pack', `--projects=${packages.join(',')}`], { cwd: workspaceRoot, stdin: 'ignore', stdout: 'inherit', stderr: 'inherit', extendEnv: true, env: { NX_TUI: 'false' } });
+                yield* Effect.filterOrFail(spawner.exitCode(pack), (code) => code === 0);
                 return yield* Effect.all(Record.fromIterableWith(packages, (name) => [name, tarball(archives[name] ?? [])]));
             }).pipe(Effect.orDie),
         );
@@ -100,8 +97,8 @@ class Consumer extends Context.Service<
     Consumer,
     {
         readonly root: string;
-        readonly called: (command: string, args: readonly string[], folder?: string) => Effect.Effect<Completed>;
-        readonly nx: (...args: readonly string[]) => Effect.Effect<Completed>;
+        readonly called: (command: string, args: readonly string[], folder?: string) => Effect.Effect<Effect.Success<ReturnType<typeof exited>>>;
+        readonly nx: (...args: readonly string[]) => Effect.Effect<Effect.Success<ReturnType<typeof exited>>>;
         readonly evaluated: (script: string, args?: readonly string[], folder?: string, variables?: Record.ReadonlyRecord<string, string>) => Effect.Effect<string>;
         readonly read: Effect.Effect<ProjectGraph & Pick<typeof Read.Type, 'failures'>>;
         readonly planned: (...args: readonly string[]) => Effect.Effect<(typeof Planned.Type)['tasks']>;
@@ -137,11 +134,8 @@ class Consumer extends Context.Service<
                     GIT_COMMITTER_EMAIL: 'suite@example.com',
                     PATH: [path.join(root, 'node_modules/.bin'), ...Option.toArray(Record.get(inherited, 'PATH'))].join(delimiter),
                 };
-                const called = (command: string, args: readonly string[], folder = '.') => Completed.run(ChildProcess.make(command, args, { cwd: path.join(root, folder), stdin: 'ignore', extendEnv: false, env: variables })).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner), Effect.orDie);
-                const done = Effect.fnUntraced(function* (command: string, ...args: readonly string[]) {
-                    const { checked } = yield* called(command, args);
-                    return yield* checked;
-                }, Effect.orDie);
+                const called = (command: string, args: readonly string[], folder = '.') => exited(ChildProcess.make(command, args, { cwd: path.join(root, folder), stdin: 'ignore', extendEnv: false, env: variables })).pipe(Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner), Effect.orDie);
+                const done = (command: string, ...args: readonly string[]) => Effect.orDie(Effect.flatMap(called(command, args), ({ checked }) => checked));
                 const evaluated = Effect.fnUntraced(function* (script: string, args: readonly string[] = [], folder = '.', stated: Record.ReadonlyRecord<string, string> = {}) {
                     const { checked } = yield* called('env', [...Record.collect(stated, (name, value) => `${name}=${value}`), 'node', '--input-type=module', '--eval', script, ...args], folder);
                     const printed = yield* checked;
@@ -219,6 +213,15 @@ process.stdout.write(JSON.stringify(read), () => process.exit(0));`,
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const exited = Effect.fnUntraced(function* (command: ChildProcess.Command) {
+    const handle = yield* command;
+    const exit = yield* Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), code: handle.exitCode }, { concurrency: 'unbounded' });
+    const checked = Effect.gen(function* () {
+        return exit.code === 0 ? exit.stdout : yield* new Cause.UnknownError(exit.stderr, `exited ${exit.code}: ${exit.stderr}`);
+    });
+    return { ...exit, checked };
+}, Effect.scoped);
+
 const archived = (path: Path.Path, targets: NonNullable<ProjectGraph['nodes'][string]['data']['targets']>) =>
     Object.values(targets)
         .flatMap(({ outputs = [] }) => outputs)
@@ -286,4 +289,4 @@ const fromCache = (task: string) => new RegExp(`${RegExp.escape(task)}.*\\[(loca
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answered, Consumer, fromCache, inherited, Packed, remote };
+export { answered, Consumer, exited, fromCache, inherited, Packed, remote };

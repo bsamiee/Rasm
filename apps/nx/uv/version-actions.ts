@@ -1,11 +1,11 @@
+import { execFile } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
+import { promisify } from 'node:util';
 import { parse, patch } from '@decimalturn/toml-patch';
 import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
 import { createProjectGraphAsync, joinPathFragments, type ProjectGraph, type Tree } from '@nx/devkit';
-import { Completed } from '@rasm/process';
 import { clean, explain, RANGE_PATTERN, satisfies } from '@renovatebot/pep440';
 import { Array, Effect, FileSystem, Option, Predicate, Record, Schema, type Scope, SemVer, String } from 'effect';
-import { ChildProcess } from 'effect/process';
 import { type AfterAllProjectsVersioned, VersionActions } from 'nx/release';
 import { refused } from '#/targets';
 import { LOCK, MANIFEST, normalized } from '#/workspace';
@@ -83,15 +83,14 @@ const project = Effect.fnUntraced(function* (tree: Tree, at: string) {
     return { text, parsed, project: decoded.project, groups: decoded['dependency-groups'], table: raw.project };
 });
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => Effect.runPromise(Effect.provide(Effect.scoped(effect), layer));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => effect.pipe(Effect.tapCause(Effect.logError), Effect.scoped, Effect.provide(layer), Effect.runPromise);
 
 const released = Effect.fnUntraced(function* (tree: Tree, manifest: string, options: unknown) {
     const fs = yield* FileSystem.FileSystem;
     const [{ lock }, { project: stated }, target] = yield* Effect.all([Schema.decodeUnknownEffect(Options)(options), project(tree, manifest), fs.makeTempDirectoryScoped()]);
     const install = ['pip', 'install', '--color', 'never', '--dry-run', '--no-deps', '--target', target, stated.name];
-    const completed = yield* Completed.run(ChildProcess.make('uv', install, { cwd: join(tree.root, dirname(lock)), stdin: 'ignore' }));
-    yield* completed.checked;
-    const found = Array.findFirst([...`${completed.stdout}${completed.stderr}`.matchAll(INSTALLED)], ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
+    const { stdout, stderr } = yield* Effect.tryPromise({ try: (signal) => promisify(execFile)('uv', install, { cwd: join(tree.root, dirname(lock)), encoding: 'utf8', signal }), catch: refused(stated.name, `uv ${install.join(' ')} does not exit 0`) });
+    const found = Array.findFirst([...`${stdout}${stderr}`.matchAll(INSTALLED)], ({ groups }) => Option.flatMap(Option.fromNullishOr(groups), ({ name, version }) => (name !== undefined && normalized(name) === normalized(stated.name) ? Option.fromUndefinedOr(version) : Option.none())));
     const latest = yield* Effect.mapError(Effect.fromOption(found), refused(stated.name, `is absent from the output of uv ${install.join(' ')}`));
     return { currentVersion: yield* semver(latest), logText: `uv ${install.join(' ')}` };
 }, run);
@@ -184,7 +183,7 @@ const afterAllProjectsVersioned: AfterAllProjectsVersioned = (cwd, { dryRun, roo
             const [fs, { skipLockFileUpdate }] = yield* Effect.all([FileSystem.FileSystem, Schema.decodeEffect(Unlocked)(rootVersionActionsOptions ?? {})]);
             const nodes = dryRun === true || skipLockFileUpdate === true ? [] : Object.values((yield* Effect.promise(() => createProjectGraphAsync())).nodes);
             const locks = Array.dedupe(Array.getSomes(nodes.map((node) => Schema.decodeUnknownOption(Options)(node.data.release?.version?.versionActionsOptions))).map(({ lock }) => lock)).filter((lock) => basename(lock) === LOCK);
-            const refresh = (lock: string) => Completed.output(ChildProcess.make('uv', ['lock', '--no-locked'], { cwd: join(cwd, dirname(lock)), stdin: 'ignore' }));
+            const refresh = (lock: string) => Effect.tryPromise({ try: (signal) => promisify(execFile)('uv', ['lock', '--no-locked'], { cwd: join(cwd, dirname(lock)), signal }), catch: refused(lock, 'uv lock does not exit 0') });
             const changedFiles = yield* Effect.filter(locks, (lock) => Effect.zipWith(fs.readFileString(join(cwd, lock)), Effect.andThen(refresh(lock), fs.readFileString(join(cwd, lock))), (before, after) => before !== after));
             return { changedFiles, deletedFiles: [] };
         }),

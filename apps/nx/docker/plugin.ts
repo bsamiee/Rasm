@@ -1,11 +1,12 @@
+import { execFile } from 'node:child_process';
 import { dirname, isAbsolute, join, matchesGlob, relative } from 'node:path';
+import { env } from 'node:process';
+import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, type CreateNodesContext, createNodesFromFiles, DependencyType, getOutputsForTargetAndConfiguration, type ProjectConfiguration, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { getReadyCheckReadyWhen, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Cause, Context, Effect, FileSystem, Layer, ManagedRuntime, Option, Order, Predicate, Record, Schema } from 'effect';
 import { Yaml } from 'effect/encoding';
-import { ChildProcess } from 'effect/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -56,8 +57,9 @@ const merged = Effect.fnUntraced(function* (workspaceRoot: string, file: string,
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, root: string, files: Array.NonEmptyReadonlyArray<string>) {
-    const config = ChildProcess.make('docker', ['compose', 'config', '--format', 'json', '--no-interpolate'], { cwd: join(workspaceRoot, root), env: EVERY_PROFILE, extendEnv: true, stdin: 'ignore' });
-    const report = yield* Effect.flatMap(Completed.output(config), Schema.decodeEffect(Report));
+    const report = yield* Effect.tryPromise((signal) => promisify(execFile)('docker', ['compose', 'config', '--format', 'json', '--no-interpolate'], { encoding: 'utf8', cwd: join(workspaceRoot, root), env: { ...env, ...EVERY_PROFILE }, maxBuffer: Number.POSITIVE_INFINITY, signal })).pipe(
+        Effect.flatMap(({ stdout }) => Schema.decodeEffect(Report)(stdout)),
+    );
     const sources = yield* Effect.reduce(
         files,
         (): ReadonlySet<string> => new Set(),

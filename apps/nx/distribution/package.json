@@ -21,12 +21,11 @@
         "./executors.json": "./executors.json",
         "./generators.json": "./generators.json"
     },
-    "files": [ "dist", "executors.json", "executors/*/schema.json", "generators.json", "generators/*/schema.json" ],
+    "files": [ "dist", "executors.json", "executors/*/schema.json", "executors/*/vendored.py*", "generators.json", "generators/*/schema.json" ],
     "dependencies": {
         "@decimalturn/toml-patch": "catalog:",
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
-        "@rasm/process": "workspace:*",
         "@xml-tools/ast": "catalog:",
         "@xml-tools/parser": "catalog:",
         "effect": "catalog:",

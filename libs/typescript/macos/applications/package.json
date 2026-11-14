@@ -21,7 +21,6 @@
     },
     "files": [ "dist" ],
     "dependencies": {
-        "@rasm/process": "workspace:*",
         "@rasm/search": "workspace:*",
         "plist": "catalog:"
     },

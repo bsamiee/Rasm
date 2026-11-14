@@ -2,6 +2,7 @@
     "$schema": "../node_modules/knip/schema.json",
     "exclude": [ "catalog" ],
     "treatConfigHintsAsErrors": true,
+    "ignoreBinaries": [ "blender", "swift", "uv", "yak" ],
     "ignoreDependencies": [ "@effect/language-service", "@rasm/atelier-extendscript", "@rasm/infra", "@rasm/portfolio", "adobe", "claude-code", "indesign-uxp-types" ],
     "ignoreIssues": { "package.json": [ "dependencies", "devDependencies", "optionalPeerDependencies" ] },
     "wrangler": { "entry": [ "cloudflare.config.ts" ] },

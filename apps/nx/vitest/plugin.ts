@@ -95,6 +95,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
                 project: parents.get(viteConfig) ?? name,
                 manifests,
                 inputs: [...setup, ...setup.flatMap((at) => extended(workspaceRoot, dirname(at)))],
+                browser: browser.enabled,
                 written: browser.enabled ? Array.getSomes([Option.fromUndefinedOr(browser.trace.tracesDir), Option.fromNullishOr(browser.screenshotDirectory)]) : [],
             };
         }),
@@ -104,7 +105,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
         Array.groupBy(probes, ({ owner }) => owner),
         (owner, group) => {
             const selected = Array.dedupe(group.map(({ project }) => project));
-            return { root: owner, projects: selected.length === selectable.length ? [] : selected, inputs: Array.dedupe(group.flatMap(({ inputs }) => inputs)) };
+            return { root: owner, projects: selected.length === selectable.length ? [] : selected, inputs: Array.dedupe(group.flatMap(({ inputs }) => inputs)), parallelism: group.every(({ browser }) => !browser) };
         },
     );
     const keyed: Readonly<Record<string, string | undefined>> = Predicate.isString(outputFile) ? {} : (outputFile ?? {});
@@ -143,7 +144,7 @@ const read = Effect.fnUntraced(function* (workspaceRoot: string, file: string, f
     return { ...report, sources, stamp: yield* stamped(workspaceRoot, sources) };
 });
 
-const targets = (home: string, { loaded: configs, triggers, folders }: Resolved, { root, projects, inputs }: Resolved['suites'][number], chain: readonly string[], upstream: string, within: Option.Option<string>, exec: string): Record<string, TargetConfiguration> => {
+const targets = (home: string, { loaded: configs, triggers, folders }: Resolved, { root, projects, inputs, parallelism }: Resolved['suites'][number], chain: readonly string[], upstream: string, within: Option.Option<string>, exec: string): Record<string, TargetConfiguration> => {
     const held = Option.toArray(within);
     const flags = held.flatMap((at) => directed(relative(home, at)));
     const outside = Array.dedupe([...chain, ...configs, ...inputs]).filter((at) => root !== '.' && !at.startsWith(`${root}/`));
@@ -153,9 +154,10 @@ const targets = (home: string, { loaded: configs, triggers, folders }: Resolved,
             options: { cwd: home },
             dependsOn: ['codegen--*', '^codegen'],
             cache: true,
+            parallelism,
             inputs: ['default', upstream, ...[...outside, ...triggers].map((at) => join('{workspaceRoot}', at)), { dependentTasksOutputFiles: '**/*', transitive: true }, { env: 'CI' }, { externalDependencies: ['vitest'] }],
             outputs: [...held, ...folders.filter((at) => !held.some((folder) => at.startsWith(`${folder}/`)))].map((at) => join('{workspaceRoot}', at)),
-            metadata: { description: 'Runs every Vitest project of the suite with vitest run', help: { command: `${exec} vitest run --help`, example: { args: ['--project', '<name>'] } } },
+            metadata: { description: 'Runs every Vitest project of the suite with vitest run, beside no other task where a project runs in a browser, since Chromium fails queued requests when a host address changes', help: { command: `${exec} vitest run --help`, example: { args: ['--project', '<name>'] } } },
         },
         'clean--vitest': {
             executor: `${SHARED}:clean`,

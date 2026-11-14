@@ -1,7 +1,6 @@
 import { availableParallelism } from 'node:os';
 import process from 'node:process';
 import { Installation } from '@rasm/applications';
-import { Completed } from '@rasm/process';
 import { Array, Cache, Config, Context, Duration, Effect, Exit, FileSystem, Formatter, Function, Layer, Option, Path, Predicate, Record, Schema, Semaphore, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { WATCH_APPS } from '#/shell/programs';
@@ -43,9 +42,10 @@ class Host extends Context.Service<Host>()('@rasm/function-hooks/host', {
         const slots = yield* Semaphore.make(availableParallelism());
         const run = Effect.fnUntraced(
             function* ([program, ...args]: Array.NonEmptyReadonlyArray<string>, { env = {}, stdin }: { readonly env?: Readonly<Record<string, string>>; readonly stdin?: string } = {}) {
-                return yield* Completed.run(ChildProcess.make(program, args, { cwd: root, env, extendEnv: true, stdin: stdin === undefined ? 'ignore' : Stream.encodeText(Stream.make(stdin)) }));
+                const handle = yield* spawner.spawn(ChildProcess.make(program, args, { cwd: root, env, extendEnv: true, stdin: stdin === undefined ? 'ignore' : Stream.encodeText(Stream.make(stdin)) }));
+                return yield* Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), code: handle.exitCode }, { concurrency: 'unbounded' });
             },
-            Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+            Effect.scoped,
             (effect) => slots.withPermit(effect),
             (effect, ...[argv]) => Effect.mapError(effect, HostError.of(argv[0])),
         );

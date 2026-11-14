@@ -1,10 +1,10 @@
+import { execFile } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
+import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type ProjectConfiguration, type RawProjectGraphDependency } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
-import { Array, Cause, Context, Effect, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
-import { ChildProcess } from 'effect/process';
+import { Array, Cause, Context, Effect, Formatter, Layer, ManagedRuntime, Option, Predicate, Record, Result, Schema } from 'effect';
 import { CONFIGS, documents, refused, SHARED, targets } from '#/targets';
 import { folders, LOCK, located, Metadata, report } from '#/workspace';
 
@@ -31,17 +31,18 @@ class Links extends Context.Service<Links, Map<string, readonly RawProjectGraphD
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const inferred = Effect.fnUntraced(function* (cache: Read, { workspaceRoot }: CreateNodesContext, outputPath: Option.Option<string>, digest: string, lock: string) {
-    const metadata = yield* Option.match(
-        Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest),
-        {
-            onSome: (held) => Effect.succeed(held.metadata),
-            onNone: () =>
-                Completed.output(ChildProcess.make('uv', ['workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { cwd: join(workspaceRoot, dirname(lock)), stdin: 'ignore' })).pipe(
-                    Effect.flatMap(Schema.decodeEffect(Metadata)),
-                    Effect.tap((read) => Effect.sync(() => cache.set(lock, { digest, metadata: read }))),
-                ),
-        },
-    );
+    const current = Option.filter(Option.fromNullishOr(cache.get(lock)), (held) => held.digest === digest);
+    const metadata = yield* Option.match(current, {
+        onSome: (held) => Effect.succeed(held.metadata),
+        onNone: () =>
+            Effect.tryPromise({
+                try: (signal) => promisify(execFile)('uv', ['workspace', 'metadata', '--frozen', '--preview-features', 'workspace-metadata', '--quiet'], { encoding: 'utf8', cwd: join(workspaceRoot, dirname(lock)), maxBuffer: Number.POSITIVE_INFINITY, signal }),
+                catch: refused(lock, 'uv does not exit 0'),
+            }).pipe(
+                Effect.flatMap(({ stdout }) => Schema.decodeEffect(Metadata)(stdout)),
+                Effect.tap((read) => Effect.sync(() => cache.set(lock, { digest, metadata: read }))),
+            ),
+    });
     const { documented, unparsed } = yield* documents(workspaceRoot, folders(workspaceRoot, metadata));
     const { members, edges, failures } = yield* located(workspaceRoot, report(workspaceRoot, lock, metadata, documented));
     yield* Array.match([...unparsed, ...failures], { onEmpty: () => Effect.void, onNonEmpty: (errors) => Effect.fail(new Cause.UnknownError(errors, errors.map(({ message }) => message).join('; '))) });
@@ -76,7 +77,7 @@ const createNodes: CreateNodes = [
                 const digest = yield* Effect.promise(() => hashWithWorkspaceContext(context.workspaceRoot, [FILES]));
                 (yield* Links).delete(context.workspaceRoot);
                 const read = Array.zip(locks, yield* Effect.forEach(locks, (lock) => Effect.result(inferred(cache, context, outputPath, digest, lock)), { concurrency: 'unbounded' }));
-                const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, refused(lock, error.message)(error)]));
+                const failures = Array.filterMap(read, ([lock, result]) => Result.map(Result.flip(result), (error): [string, Error] => [lock, refused(lock, Formatter.format(error))(error)]));
                 const results = Array.filterMap(read, ([lock, result]) => Result.map(result, (held) => [lock, held] as const));
                 return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
             }).pipe(Effect.ensuring(Effect.sync(() => cache.writeToDisk()))),

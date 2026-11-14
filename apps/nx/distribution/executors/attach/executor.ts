@@ -1,8 +1,8 @@
+import { spawnSync } from 'node:child_process';
 import { createProjectFileMapUsingProjectGraph, type ExecutorContext } from '@nx/devkit';
 import { FsTree } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Effect } from 'effect';
-import { ChildProcess, CommandLine } from 'effect/process';
+import { CommandLine } from 'effect/process';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { createGitTagValues } from 'nx/src/command-line/release/utils/shared';
@@ -34,8 +34,7 @@ const tagged = Effect.fnUntraced(function* (context: ExecutorContext, project: s
 const execute = Effect.fnUntraced(function* (stated: typeof Attach.Type, context: ExecutorContext) {
     const [dry, files, tag] = yield* Effect.all([dried(stated), packaged(context), Effect.flatMap(Effect.fromNullishOr(context.projectName), (project) => tagged(context, project))]);
     const upload = ['release', 'upload', tag, ...files, '--clobber'];
-    yield* dry ? Effect.logInfo(`Would run ${CommandLine.display(['gh', ...upload])}`) : Completed.output(ChildProcess.make('gh', upload, { cwd: context.root, stdin: 'ignore' }));
-    return { success: true };
+    return yield* dry ? Effect.as(Effect.logInfo(`Would run ${CommandLine.display(['gh', ...upload])}`), { success: true }) : Effect.sync(() => ({ success: spawnSync('gh', upload, { cwd: context.root, stdio: 'inherit' }).status === 0 }));
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

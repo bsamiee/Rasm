@@ -37,7 +37,7 @@ const packaged = (context: ExecutorContext) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => Effect.runPromise(Effect.provide(Effect.scoped(effect), layer));
+const run = <A, E>(effect: Effect.Effect<A, E, NodeServices | Scope.Scope>) => effect.pipe(Effect.tapCause(Effect.logError), Effect.scoped, Effect.provide(layer), Effect.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

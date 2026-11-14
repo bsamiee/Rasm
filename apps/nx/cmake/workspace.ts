@@ -1,8 +1,8 @@
+import { execFile } from 'node:child_process';
 import { dirname, join, relative, resolve } from 'node:path';
+import { promisify } from 'node:util';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Cause, Effect, FileSystem, Function, Option, pipe, Record, Result, Schema, SemVer } from 'effect';
-import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -147,7 +147,7 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
     yield* fs.makeDirectory(query, { recursive: true });
     yield* fs.writeFileString(join(query, QUERY), '{"requests":[{"kind":"codemodel","version":2},{"kind":"cmakeFiles","version":1}]}');
     const [configure, ...configuring] = configured(root, workflow, tree);
-    yield* Completed.output(ChildProcess.make(configure, configuring, { cwd: workspaceRoot, stdin: 'ignore' }));
+    yield* Effect.tryPromise({ try: (signal) => promisify(execFile)(configure, configuring, { cwd: workspaceRoot, signal }), catch: refused(workflow.configure, 'cmake does not configure its preset') });
     const newest = yield* Effect.flatMap(fs.readDirectory(reply), (names) => Effect.fromOption(Array.last(names.filter((name) => name.startsWith('index-')).toSorted())));
     const index = yield* read(Index, newest);
     const [modelled, filed] = index.reply[CLIENT][QUERY].responses;
@@ -160,7 +160,14 @@ const replied = Effect.fnUntraced(function* (workspaceRoot: string, root: string
         Effect.fnUntraced(function* ({ name, parentIndex, directoryIndexes }) {
             const { source, build, jsonFile } = yield* Effect.fromOption(Array.get(directories, Array.headNonEmpty(directoryIndexes)));
             const [{ installers }, { tests }, packaging] = yield* Effect.all(
-                [read(Directory, jsonFile), Effect.flatMap(Completed.output(ChildProcess.make(index.cmake.paths.ctest, ['--test-dir', join(tree, build), '--show-only=json-v1'], { cwd: workspaceRoot, stdin: 'ignore' })), Schema.decodeEffect(Listing)), fs.exists(join(tree, build, PACKAGING))],
+                [
+                    read(Directory, jsonFile),
+                    Effect.tryPromise({
+                        try: (signal) => promisify(execFile)(index.cmake.paths.ctest, ['--test-dir', join(tree, build), '--show-only=json-v1'], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal }),
+                        catch: refused(build, 'ctest --show-only does not exit 0'),
+                    }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Listing)(stdout))),
+                    fs.exists(join(tree, build, PACKAGING)),
+                ],
                 {
                     concurrency: 'unbounded',
                 },
@@ -253,7 +260,7 @@ const resolved = Effect.fnUntraced(
         const workflows = Array.getSomes(
             workflowPresets.map(({ name, steps }) => Option.map(stepped(steps, 'configure'), (configure): typeof Workflow.Type => ({ ...Record.getSomes({ build: stepped(steps, 'build'), test: stepped(steps, 'test'), after: followed(steps) }), ...rooted(configure), name, configure, tidy: launchers(configure) }))),
         );
-        const held = Option.isSome(yield* Effect.option(Completed.output(ChildProcess.make('cmake', ['--version'], { stdin: 'ignore' }))));
+        const held = Option.isSome(yield* Effect.option(Effect.tryPromise((signal) => promisify(execFile)('cmake', ['--version'], { signal }))));
         return yield* Option.match(
             Option.filter(Array.head(workflows), () => held),
             {

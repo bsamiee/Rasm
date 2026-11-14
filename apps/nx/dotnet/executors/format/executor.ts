@@ -1,9 +1,10 @@
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import consumers from 'node:stream/consumers';
 import type { ExecutorContext } from '@nx/devkit';
 import type { TaskResult } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Console, Effect, FileSystem, flow, Option, Order, Path, Record, Schema, Stream, Struct } from 'effect';
 import { Xml } from 'effect/encoding';
-import { ChildProcess, CommandLine } from 'effect/process';
 import { grouped, run, streamed } from '#/executors/build/executor';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -52,14 +53,16 @@ const formatted = Effect.fnUntraced(function* (root: string, group: Array.NonEmp
         Effect.fnUntraced(function* (command, index) {
             const report = path.join(folder, `${index}.json`);
             const argv = [...command, target, '--report', report, ...(args ?? [])];
-            const { code, stdout, stderr } = yield* Completed.run(ChildProcess.make('dotnet', argv, { cwd: root, stdin: 'ignore' }));
+            const child = spawn('dotnet', argv, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
+            const [out, err] = yield* Effect.all([Effect.fromNullishOr(child.stdout), Effect.fromNullishOr(child.stderr)]);
+            const [stdout, stderr, [code]] = yield* Effect.tryPromise(() => Promise.all([consumers.text(out), consumers.text(err), once(child, 'close')]));
             const changed = yield* Effect.option(Effect.flatMap(fs.readFileString(report), Schema.decodeEffect(Report)));
             const owners = Option.flatMap(
                 Option.filter(changed, () => code === UNFORMATTED),
                 flow(Array.map(owner), Option.all),
             );
             const blamed = code === 0 ? Option.some(new Set<string>()) : Option.map(owners, (found) => new Set(found.map(Struct.get('task'))));
-            return { command: CommandLine.display(['dotnet', ...argv]), lines: [stdout, stderr].join('').split('\n'), blamed };
+            return { command: child.spawnargs.join(' '), lines: [stdout, stderr].join('').split('\n'), blamed };
         }),
     );
     const said = (project: string, { command, lines }: (typeof runs)[number]) => {

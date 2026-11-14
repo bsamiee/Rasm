@@ -1,8 +1,7 @@
+import { spawnSync } from 'node:child_process';
 import { type ExecutorContext, getOutputsForTargetAndConfiguration } from '@nx/devkit';
 import { globWithWorkspaceContext } from '@nx/devkit/internal';
-import { Completed } from '@rasm/process';
 import { Array, Effect, FileSystem, Function, Glob, Path, Record, Result, Schema } from 'effect';
-import { ChildProcess } from 'effect/process';
 import { getFilesForOutputsBatch } from 'nx/src/native/index';
 import { run } from '#/executor';
 
@@ -40,9 +39,9 @@ const execute = Effect.fnUntraced(function* ({ targets, commands, cwd }: typeof 
         Array.dedupe(selections.flatMap((selected) => getOutputsForTargetAndConfiguration({ project, ...selected }, {}, node))),
         Result.liftPredicate((output: string) => !output.startsWith('!'), Function.identity),
     );
-    yield* Effect.forEach(commands, ([command, ...args]) => Completed.output(ChildProcess.make(command, args, { cwd: path.join(context.root, cwd), detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' })), { discard: true });
-    yield* Effect.forEach(outputs, (output) => cleared(context.root, output, negated), { discard: true });
-    return { success: true };
+    const success = yield* Effect.sync(() => commands.every(([command, ...args]) => spawnSync(command, args, { cwd: path.join(context.root, cwd), stdio: 'inherit' }).status === 0));
+    yield* Effect.forEach(success ? outputs : [], (output) => cleared(context.root, output, negated), { discard: true });
+    return { success };
 }, run);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
