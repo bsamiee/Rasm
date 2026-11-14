@@ -6,6 +6,7 @@
     "devDependencies": {
         "@effect/platform-node": "catalog:",
         "@effect/vitest": "catalog:",
+        "@nx/devkit": "catalog:",
         "@rasm/nx-dotnet": "workspace:*",
         "@rasm/testing": "workspace:*",
         "effect": "catalog:",

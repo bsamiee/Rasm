@@ -1,16 +1,22 @@
+import { dirname, relative, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
+import { createProjectGraphAsync, workspaceRoot } from '@nx/devkit';
 import plugin from '@rasm/nx-dotnet/package.json' with { type: 'json' };
 import { conforms } from '@rasm/testing/conformance';
-import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Duration, Effect, Layer, Path, Schema } from 'effect';
+import { Consumer, exited, Packed } from '@rasm/testing/nx';
+import { Array, Duration, Effect, FileSystem, Layer, Path, Predicate, Record, Schema, String, Struct } from 'effect';
+import { ChildProcess } from 'effect/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORT = 'dotnet msbuild <project> -getProperty -getItem:ProjectReference -getItem:Compile -getItem:None, TargetPath under -p:Configuration=Release where IsPublishable is true; nrwl/nx e2e/dotnet/src/dotnet-configurations.test.ts "should publish with Release configuration by default"';
+const REPORT = 'dotnet msbuild <project> -getProperty -getItem:ProjectReference -getItem:Compile -getItem:None, each path in the Configuration the project evaluates with none named';
+const SINGLE = 'README.md PRINCIPLES ".NET targets of a project run in the one `Configuration` MSBuild evaluates for it, and test and pack read what `build--dotnet` wrote (`--no-build`)"';
 const [APP, CORE, TESTS, PROPS] = ['src/App', 'src/Core', 'tests/Core.Tests', 'Directory.Build.props'] as const;
 const SOURCES = { core: 'src/Core/Numbers.cs', tests: 'tests/Core.Tests/NumbersTests.cs' } as const;
-const PROPERTIES = ['MSBuildProjectName', 'Version', 'PackageId', 'IsPackable', 'IsPublishable', 'IsTestProject', 'IsTestingPlatformApplication', 'TargetPath'] as const;
+const PROPERTIES = ['MSBuildProjectName', 'Version', 'PackageId', 'IsPackable', 'IsTestProject', 'IsTestingPlatformApplication', 'TargetPath', 'Configuration', 'Configurations', 'PackageOutputPath'] as const;
+const ANALYZER = relative(workspaceRoot, resolve(dirname(fileURLToPath(import.meta.resolve(`${plugin.name}/package.json`))), dirname(plugin.imports['#analyzer/project'])));
 const VERSION = '        <Version>0.1.0</Version>\n';
 const files = {
     '.config/mise.lock': '# tool versions\n',
@@ -38,9 +44,14 @@ const Evaluated = Schema.fromJsonString(Schema.Struct({ Properties: Schema.Recor
     description: 'JSON dotnet msbuild <project> -getProperty -getItem prints: the properties and items MSBuild evaluates for one project',
 });
 
+const Hashed = Schema.fromJsonString(Schema.Struct({ files: Schema.Array(Schema.String) })).annotate({ description: 'JSON nx show target inputs prints: the workspace files Nx hashes for one task' });
+const Manifest = Schema.fromJsonString(Schema.StructWithRest(Schema.Struct({ imports: Schema.Record(Schema.String, Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)]), { space: 4 }).annotate({
+    description: 'package.json of the installed plugin: the names its imports map resolves, and every other field as it stands',
+});
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const described = (path: Path.Path, root: string, manifest: string, { Properties: stated, Items: { ProjectReference, Compile, None } }: typeof Evaluated.Type, target: string) => ({
+const described = (path: Path.Path, root: string, manifest: string, { Properties: stated, Items: { ProjectReference, Compile, None } }: typeof Evaluated.Type) => ({
     name: stated.MSBuildProjectName,
     version: stated.Version,
     packageId: stated.PackageId,
@@ -48,7 +59,10 @@ const described = (path: Path.Path, root: string, manifest: string, { Properties
     manifest,
     released: stated.IsPackable === 'true',
     verbs: ['build', 'clean', ...(stated.IsTestProject === 'true' || stated.IsTestingPlatformApplication === 'true' ? ['test'] : []), ...(stated.IsPackable === 'true' ? ['pack'] : [])],
-    target: path.relative(root, target),
+    target: path.relative(root, stated.TargetPath),
+    configuration: stated.Configuration,
+    others: stated.Configurations.split(';').filter((configuration) => configuration !== stated.Configuration),
+    packed: path.join(path.dirname(manifest), stated.PackageOutputPath.replaceAll('\\', '/'), `${stated.PackageId}.${stated.Version}.nupkg`),
     sources: [manifest, ...[...Compile, ...None].map(({ FullPath }) => path.relative(root, FullPath)).filter((file) => !file.split(path.sep).includes('obj'))],
     dependencies: ProjectReference.map(({ FullPath }) => path.relative(root, path.dirname(FullPath))),
 });
@@ -60,8 +74,7 @@ const evaluated = Effect.fnUntraced(function* (manifest: string) {
     if (Number(code) !== 0) {
         return [];
     }
-    const [stated, published] = yield* Effect.all([Schema.decodeEffect(Evaluated)(stdout), read('-p:Configuration=Release', '-getProperty:TargetPath')]);
-    return [described(path, root, manifest, stated, stated.Properties.IsPublishable === 'true' ? published.stdout.trim() : stated.Properties.TargetPath)];
+    return [described(path, root, manifest, yield* Schema.decodeEffect(Evaluated)(stdout))];
 }, Effect.orDie);
 
 const members = Effect.gen(function* () {
@@ -76,6 +89,21 @@ const members = Effect.gen(function* () {
 });
 
 const member = (root: string) => Effect.flatMap(members, (stated) => Effect.orDie(Effect.fromOption(Array.findFirst(stated, (candidate) => candidate.root === root))));
+
+const sources = Effect.gen(function* () {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const { nodes } = yield* Effect.promise(() => createProjectGraphAsync());
+    const analyzer = yield* Effect.fromOption(Array.findFirst(Object.values(nodes), ({ data }) => data.root === ANALYZER));
+    const { checked } = yield* exited(ChildProcess.make('nx', ['show', 'target', 'inputs', `${analyzer.name}:build`, '--json'], { cwd: workspaceRoot, stdin: 'ignore', extendEnv: true, env: { NX_TUI: 'false' } }));
+    const { files: hashed } = yield* Effect.flatMap(checked, Schema.decodeEffect(Hashed));
+    const texts = yield* Effect.forEach(hashed, (file) => fs.readFileString(path.join(workspaceRoot, file)), { concurrency: 'unbounded' });
+    return Record.fromIterableWith(Array.zip(hashed, texts), ([file, text]) => [file, text]);
+}).pipe(Effect.orDie);
+
+const languages = Effect.map(
+    Consumer.use(({ read }) => read),
+    ({ nodes }) => Array.difference(Array.dedupe(Object.values(nodes).flatMap(({ data }) => data.metadata?.technologies ?? [])), ['dotnet']),
+);
 
 const undeclared = (created: readonly string[], declared: readonly string[]) => created.filter((file) => !declared.some((output) => file === output || file.startsWith(`${output}/`)));
 
@@ -128,6 +156,8 @@ it.layer(
     workspace(),
     options,
 )((methods) => {
+    const unpacked = 'learn.microsoft.com dotnet pack --no-build "Doesn\'t build the project before packing. It also implicitly sets the --no-restore flag"; dotnet test --no-build "Doesn\'t build the test project before running it"';
+
     methods.effect(
         'gives a warm graph the targets a shared props edit changes for every project',
         Effect.fnUntraced(function* () {
@@ -203,22 +233,89 @@ it.layer(
     );
 
     methods.effect(
-        'packs a packable project into the package file NuGet names from its id and version',
+        'plans one build of each project for check, test, build, and pack, which every check, test, and pack task of the project waits on',
         Effect.fnUntraced(function* () {
-            const [{ nx, written }, { name, packageId, version }] = yield* Effect.all([Consumer, member(CORE)]);
-            const [packed, created] = yield* written(nx('pack', name, '--skip-nx-cache', '--output-style=static'));
-            assert.strictEqual(packed.code, 0, `${packed.stdout}${packed.stderr}`);
-            assert.isNotEmpty(
-                created.filter((file) => file.endsWith(`/${packageId}.${version}.nupkg`)),
-                `nrwl/nx e2e/dotnet/src/dotnet.test.ts "should create NuGet packages for libraries"; dotnet msbuild <project> -getProperty:PackageId -getProperty:Version: ${created.join(', ')}`,
+            const [{ planned, read }, stated] = yield* Effect.all([Consumer, members]);
+            const [{ tasks, dependencies }, { nodes }] = yield* Effect.all([planned('run-many', '--targets=check,test,build,pack'), read]);
+            const waits = Record.map(dependencies, Array.map(Struct.get('id')));
+            const reading = Record.filter(tasks, ({ target }) => ['check--dotnet-build', 'test--dotnet', 'pack--dotnet'].includes(target.target));
+            const commands = Object.values(nodes).flatMap(({ data }) => [data.targets?.['test--dotnet']?.options.commands?.at(-1), data.targets?.['pack--dotnet']?.options.command?.join(' ')]);
+            assert.sameMembers(
+                Record.keys(tasks).filter((id) => id.includes(':build--')),
+                stated.map(({ name }) => `${name}:build--dotnet`),
+                SINGLE,
             );
+            assert.isNotEmpty(Record.keys(reading), SINGLE);
+            assert.deepStrictEqual(Record.keys(Record.filter(reading, ({ target }, id) => !(waits[id] ?? []).includes(`${target.project}:build--dotnet`))), [], SINGLE);
+            assert.isNotEmpty(commands.filter(Predicate.isString), unpacked);
+            assert.deepStrictEqual(
+                commands.filter(Predicate.isString).filter((command) => !command.includes('--no-build')),
+                [],
+                unpacked,
+            );
+        }),
+        bound,
+    );
+
+    methods.effect(
+        'refuses to pack a project nothing built, and packs a built one into the file NuGet names from its id and version without writing an assembly',
+        Effect.fnUntraced(function* () {
+            const [{ nx, called, cleaned, wrote, written }, { name, packed }] = yield* Effect.all([Consumer, member(CORE)]);
+            const pack = nx('run', `${name}:pack--dotnet`, '--skip-nx-cache', '--excludeTaskDependencies', '--output-style=static');
+            yield* cleaned;
+            const refused = yield* pack;
+            assert.notStrictEqual(refused.code, 0, unpacked);
+            assert.include(`${refused.stdout}${refused.stderr}`, 'NU5026', 'learn.microsoft.com nuget/reference/errors-and-warnings/nu5026 "The file to be packed was not found on disk"');
+            const build = yield* nx('run', `${name}:build--dotnet`, '--output-style=static');
+            assert.strictEqual(build.code, 0, `${build.stdout}${build.stderr}`);
+            yield* wrote({ '.nx/marker': '' });
+            const [run, created] = yield* written(pack);
+            const rewritten = yield* called('find', ['.', '-name', '*.dll', '-newer', '.nx/marker', '-not', '-path', './node_modules/*']);
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.include(created, packed, `nrwl/nx e2e/dotnet/src/dotnet.test.ts "should create NuGet packages for libraries"; dotnet msbuild <project> -getProperty:PackageOutputPath -getProperty:PackageId -getProperty:Version: ${created.join(', ')}`);
+            assert.deepStrictEqual(rewritten.stdout.split('\n').filter(String.isNonEmpty), [], unpacked);
+        }),
+        bound,
+    );
+
+    methods.effect(
+        'runs check, test, and pack of every project over the builds one build run wrote, compiling no assembly again',
+        Effect.fnUntraced(function* () {
+            const { nx, called, wrote } = yield* Consumer;
+            const build = yield* nx('run-many', '--targets=build', '--output-style=static');
+            assert.strictEqual(build.code, 0, `${build.stdout}${build.stderr}`);
+            yield* wrote({ '.nx/marker': '' });
+            const run = yield* nx('run-many', '--targets=check,test,pack', '--skip-nx-cache', '--output-style=static');
+            const rewritten = yield* called('find', ['.', '-name', '*.dll', '-newer', '.nx/marker', '-not', '-path', './node_modules/*']);
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.include(`${run.stdout}${run.stderr}`, 'All projects are up-to-date for restore.', 'NuGet restore no-op: a restore of a project whose packages the machine holds fetches nothing');
+            assert.deepStrictEqual(rewritten.stdout.split('\n').filter(String.isNonEmpty), [], `${SINGLE}; learn.microsoft.com visualstudio/msbuild/incremental-builds: a target with outputs newer than its inputs is skipped`);
+        }),
+        bound,
+    );
+
+    methods.effect(
+        'runs every .NET task of a project declaring more configurations in the one a run names, each reading the build of that configuration',
+        Effect.fnUntraced(function* () {
+            const [{ planned, nx, absent }, stated] = yield* Effect.all([Consumer, members]);
+            const core = yield* member(CORE);
+            const { tasks } = yield* planned('run-many', '--targets=check,test,build,pack', '--configuration=release');
+            const run = yield* nx('run', `${core.name}:pack--dotnet:release`, '--output-style=static');
+            assert.sameMembers(Array.dedupe(stated.flatMap(({ others }) => others)), ['Release'], 'Microsoft.NET.Sdk.props: Configurations defaults to Debug;Release and Configuration to Debug');
+            assert.deepStrictEqual(
+                Record.keys(Record.filter(tasks, ({ target }) => target.target.includes('--dotnet') && !target.target.includes('format'))).filter((id) => !id.endsWith(':release')),
+                [],
+                'nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts resolveConfiguration: a task runs in the configuration the command names where its target declares it',
+            );
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.deepStrictEqual(yield* absent([core.packed.replace(`/${core.configuration}/`, '/Release/'), core.target.replace(`/${core.configuration}/`, '/Release/')]), [], 'dotnet pack --no-build --configuration Release packs bin/Release of the build dotnet build --configuration Release wrote');
         }),
         bound,
     );
 });
 
 it.layer(
-    workspace({ 'NuGet.config': '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n' }),
+    workspace({ 'NuGet.config': '<?xml version="1.0" encoding="utf-8"?>\n<configuration />\n', [PROPS]: files[PROPS].replace('<Nullable>enable</Nullable>', '<Nullable>enable</Nullable>\n        <Configuration>Release</Configuration>\n        <Configurations>Release</Configurations>') }),
     options,
 )((methods) => {
     methods.effect(
@@ -234,20 +331,19 @@ it.layer(
     );
 
     methods.effect(
-        'packs the Release build with no configuration named, and under -c release packs what build--dotnet built without building again',
+        'plans the same tasks with and without -c release for projects declaring one configuration, and builds each in it',
         Effect.fnUntraced(function* () {
-            const [{ read, nx, absent }, { name, root, packageId, version }] = yield* Effect.all([Consumer, member(CORE)]);
-            const pack = (yield* read).nodes[name]?.data.targets?.['pack--dotnet'];
-            const { release } = pack?.configurations ?? {};
-            const packed = `${root}/bin/Release/${packageId}.${version}.nupkg`;
-            const alone = yield* nx('run', `${name}:pack--dotnet`, '--output-style=static');
-            assert.strictEqual(alone.code, 0, `learn.microsoft.com dotnet pack "By default, dotnet pack builds the project first": ${alone.stdout}${alone.stderr}`);
-            assert.deepStrictEqual(yield* absent([packed]), [], 'dotnet pack --configuration Release writes <PackageId>.<Version>.nupkg under bin/Release');
-            const after = yield* nx('run', `${name}:pack--dotnet:release`, '--skip-nx-cache', '--output-style=static');
-            assert.strictEqual(after.code, 0, `nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts: a dependency runs in the configuration the command names: ${after.stdout}${after.stderr}`);
-            assert.include(`${after.stdout}${after.stderr}`, `${name}:build--dotnet:release`, 'nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts resolveConfiguration');
-            assert.include(release?.command, '--no-build', 'learn.microsoft.com dotnet pack --no-build "Doesn\'t build the project before packing"');
-            assert.notInclude(pack?.options?.command, '--no-build', 'nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts resolveConfiguration: with no configuration named, build--dotnet runs its own default, which pack cannot assume is Release');
+            const [{ planned, nx, absent }, stated] = yield* Effect.all([Consumer, members]);
+            const [plain, named] = yield* Effect.all([planned('run-many', '--targets=check,test,build,pack'), planned('run-many', '--targets=check,test,build,pack', '--configuration=release')]);
+            const run = yield* nx('run-many', '--targets=build,pack', '--configuration=release', '--output-style=static');
+            assert.deepStrictEqual(Array.dedupe(stated.map(({ configuration, others }) => [configuration, ...others].join(';'))), ['Release'], 'dotnet msbuild <project> -getProperty:Configuration -getProperty:Configurations under a Directory.Build.props stating both as Release');
+            assert.deepStrictEqual(
+                [...Array.difference(Record.keys(plain.tasks), Record.keys(named.tasks)), ...Array.difference(Record.keys(named.tasks), Record.keys(plain.tasks))],
+                [],
+                `${SINGLE}; nrwl/nx packages/nx/src/tasks-runner/create-task-graph.ts resolveConfiguration: a target declaring no such configuration runs without one`,
+            );
+            assert.strictEqual(run.code, 0, `${run.stdout}${run.stderr}`);
+            assert.deepStrictEqual(yield* absent(stated.flatMap(({ target, packed, released }) => [target, ...(released ? [packed] : [])])), [], REPORT);
         }),
         bound,
     );
@@ -278,6 +374,71 @@ it.layer(
             const latest = yield* Effect.orDie(Effect.fromOption(Array.last(stable)));
             const shown = yield* nx('release', 'version', 'patch', '--dry-run');
             assert.include(`${shown.stdout}${shown.stderr}`, `Resolved the current version as ${latest.version} from the remote registry`, 'dotnet package search <id> --exact-match --format json; nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.ts "registry"');
+        }),
+        bound,
+    );
+});
+
+it.layer(
+    Layer.unwrap(Effect.map(sources, (read) => Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin.name] }, ignored: ['.artifacts', '.cache', 'dist'], files: read }))).pipe(Layer.provideMerge(Packed.layer(plugin.name)), Layer.provideMerge(layer)),
+    options,
+)((methods) => {
+    methods.effect(
+        'builds its analyzer from the project its source manifest names, and reads the graph a changed analyzer source reports',
+        Effect.fnUntraced(function* () {
+            const { root, read, nx, called, text, wrote } = yield* Consumer;
+            const [installed, source] = [`node_modules/${plugin.name}`, `${ANALYZER}/Workspace.cs`];
+            const manifest = yield* Effect.orDie(Effect.flatMap(text(`${installed}/package.json`), Schema.decodeEffect(Manifest)));
+            yield* wrote({ [`${installed}/package.json`]: yield* Effect.orDie(Schema.encodeEffect(Manifest)({ ...manifest, imports: { ...manifest.imports, '#analyzer/project': plugin.imports['#analyzer/project'] } })) });
+            yield* called('rm', ['-rf', `${installed}/analyzer`]);
+            yield* called('ln', ['-s', `${root}/${ANALYZER}`, `${installed}/analyzer`]);
+            assert.deepStrictEqual((yield* read).failures, [], 'learn.microsoft.com dotnet run "The dotnet run command builds the project before running it"');
+            assert.deepStrictEqual(yield* languages, ['C#'], 'dotnet msbuild <project> -getProperty:Language');
+            yield* wrote({ [source]: (yield* text(source)).replace('outer.GetPropertyValue("Language")', '"Probe"') });
+            const listed = yield* Effect.all([nx('show', 'projects', '--json'), nx('show', 'projects', '--json')], { concurrency: 'unbounded' });
+            assert.deepStrictEqual(
+                [listed.map(({ code }) => code), yield* languages],
+                [[0, 0], ['Probe']],
+                'learn.microsoft.com dotnet run "The dotnet run command builds the project before running it"; nrwl/nx packages/nx/src/project-graph/project-graph.ts: with the daemon off a FileLock on project-graph.lock makes a second process wait for the graph construction of the first, so two reads never build the analyzer at once',
+            );
+        }),
+        bound,
+    );
+
+    methods.effect(
+        'fails a graph read with the compiler error of an analyzer source that does not compile, and reads the graph again once it does',
+        Effect.fnUntraced(function* () {
+            const { read, text, wrote } = yield* Consumer;
+            const [source, sound] = [`${ANALYZER}/Program.cs`, yield* text(`${ANALYZER}/Program.cs`)];
+            yield* wrote({ [source]: `${sound}}\n` });
+            const { failures } = yield* read;
+            yield* wrote({ [source]: sound });
+            const said = failures.flatMap(Struct.get('files')).map(Struct.get('message'));
+            assert.isNotEmpty(
+                said.filter((message) => message.includes('error CS1022')),
+                `learn.microsoft.com dotnet/csharp/language-reference/compiler-messages CS1022 "Type or namespace definition, or end-of-file expected"; nodejs.org child_process: a child that exits before reading its stdin raises EPIPE on the stream, which no reader of the exit code needs: ${said.join('\n')}`,
+            );
+            assert.deepStrictEqual((yield* read).failures, [], 'nrwl/nx packages/dotnet/src/analyzer/analyzer-client.spec.ts "should not cache a cancelled run": no failed read is stored');
+        }),
+        bound,
+    );
+
+    methods.effect(
+        'reads the same graph after clean removed the build of its analyzer',
+        Effect.fnUntraced(function* () {
+            const { read, nx, absent } = yield* Consumer;
+            const before = yield* read;
+            const named = Object.values(before.nodes).flatMap(({ name, data }) => (data.root === ANALYZER ? [name] : []));
+            const cleaned = yield* nx('run-many', '--targets=clean', `--projects=${named.join(',')}`, '--output-style=static');
+            assert.strictEqual(cleaned.code, 0, `${cleaned.stdout}${cleaned.stderr}`);
+            assert.deepStrictEqual(yield* absent([`${ANALYZER}/dist`]), [`${ANALYZER}/dist`], 'README.md TASKS "clean removes the outputs a project\'s targets declare and runs its tool\'s clean"');
+            const after = yield* read;
+            assert.deepStrictEqual(after.failures, [], 'dotnet run --project <project> builds the project before running it');
+            assert.deepStrictEqual(
+                Array.dedupe([...Record.keys(before.nodes), ...Record.keys(after.nodes)]).filter((project) => JSON.stringify(before.nodes[project]) !== JSON.stringify(after.nodes[project])),
+                [],
+                'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesFunction: a plugin gives one result for one set of configuration files',
+            );
         }),
         bound,
     );

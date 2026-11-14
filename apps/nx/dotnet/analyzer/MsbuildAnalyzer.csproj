@@ -1,14 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Description>Evaluates every MSBuild project of a workspace in one process and reports the facts the Nx plugin derives targets from</Description>
-        <TargetFramework>net10.0</TargetFramework>
-        <Configurations>Release</Configurations>
         <OutputType>Exe</OutputType>
         <RollForward>LatestMajor</RollForward>
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <UseAppHost>false</UseAppHost>
         <DebugType>embedded</DebugType>
-        <OutputPath Condition="'$(Configuration)' == 'Release'">$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</OutputPath>
+        <OutputPath>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', 'dist'))</OutputPath>
     </PropertyGroup>
 
     <ItemGroup Label="Build Engine">

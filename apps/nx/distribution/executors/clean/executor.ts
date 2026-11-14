@@ -24,7 +24,8 @@ const cleared = Effect.fnUntraced(function* (root: string, output: string, negat
         matched,
         Result.liftPredicate((at: string) => !tracked.has(at), Function.identity),
     );
-    const removed = Array.isReadonlyArrayNonEmpty(held) && removable.length === held.length ? [base] : removable;
+    const whole = base === output && kept.length === 0 && (yield* fs.exists(path.join(root, base)));
+    const removed = whole || (Array.isReadonlyArrayNonEmpty(held) && removable.length === held.length) ? [base] : removable;
     yield* Effect.forEach(kept, (at) => Effect.logInfo(`Kept ${at}, a declared output the workspace tracks as source`), { discard: true });
     yield* Effect.forEach(removed, (at) => Effect.andThen(fs.remove(path.join(root, at), { recursive: true, force: true }), Effect.logInfo(`Removed ${at}`)), { discard: true });
 });

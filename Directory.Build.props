@@ -10,6 +10,7 @@
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <IsPackable>false</IsPackable>
         <IsPublishable>false</IsPublishable>
+        <DeterministicTimestamp>2000-01-01T00:00:00Z</DeterministicTimestamp> <!-- One instant for every entry of a package: NuGet otherwise stamps each entry with its file time, and two packs of one input differ -->
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
@@ -32,6 +33,8 @@
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+        <Configurations>Release</Configurations>
+        <Configuration>Release</Configuration>
         <NoWarn>$(NoWarn);NU5104</NoWarn> <!-- Stable packages pin prerelease dependencies such as LanguageExt.Core -->
     </PropertyGroup>
 

@@ -11,7 +11,8 @@
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#analyzer": "./analyzer/dist/MsbuildAnalyzer.dll"
+        "#analyzer": "./analyzer/MsbuildAnalyzer.csproj",
+        "#analyzer/project": "./analyzer/MsbuildAnalyzer.csproj"
     },
     "exports": {
         ".": "./plugin.ts",
@@ -20,9 +21,6 @@
         "./executors.json": "./executors.json"
     },
     "files": [ "dist", "analyzer/dist", "executors.json", "executors/*/schema.json" ],
-    "scripts": {
-        "prepare": "dotnet build analyzer --configuration Release"
-    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@nx/devkit": "catalog:",
@@ -53,6 +51,10 @@
     },
     "executors": "./executors.json",
     "nx": {
-        "includedScripts": []
+        "targets": {
+            "pack--pnpm": {
+                "dependsOn": [ "...", "^build--dotnet" ]
+            }
+        }
     }
 }

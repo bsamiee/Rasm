@@ -1187,6 +1187,9 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.1.4(effect@4.1.4)(vitest@5.1.0)
+      '@nx/devkit':
+        specifier: 'catalog:'
+        version: 24.1.0-beta.0(nx@24.1.0-beta.0)
       '@rasm/nx-dotnet':
         specifier: workspace:*
         version: link:../../dotnet

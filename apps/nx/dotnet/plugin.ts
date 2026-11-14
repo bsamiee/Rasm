@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { AggregateCreateNodesError, type CreateDependencies, type CreateNodes, type CreateNodesContext, type CreateNodesResult, DependencyType, hashArray, type ProjectGraphExternalNode, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { combineGlobPatterns, createProjectRootMappingsFromProjectConfigurations, globWithWorkspaceContext, hashFile, hashObject, hashWithWorkspaceContext, mergeTargetConfigurations, PluginCache, quoteShellArg, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Context, Effect, Equivalence, FileSystem, Formatter, Function, Layer, ManagedRuntime, Option, Record, Ref, Result, Schema, Struct } from 'effect';
+import { Array, Cause, Context, Effect, Equivalence, FileSystem, Function, Layer, ManagedRuntime, Option, Record, Ref, Result, Schema, Struct } from 'effect';
 import { Node, PLUGIN, targets } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -20,17 +20,19 @@ const PROJECTS = ['.csproj', '.fsproj', '.vbproj'];
 const SOLUTIONS = ['.slnx', '.sln'];
 const FILES = combineGlobPatterns([`*{${[...PROJECTS, ...SOLUTIONS].join(',')},.props,.targets,.globalconfig}`, 'global.json', 'Directory.Build.rsp', 'nuget.config', 'NuGet.config', 'NuGet.Config', '.editorconfig'].map((file) => `**/${file}`));
 const PLATFORMS = { macOS: 'darwin', Windows: 'win32', Linux: 'linux' } as const satisfies Readonly<Record<string, NodeJS.Platform>>;
-const ANALYZER = fileURLToPath(import.meta.resolve('#analyzer'));
 const CODE = hashArray(
     readdirSync(import.meta.dirname, { withFileTypes: true })
         .flatMap((entry) => (entry.isFile() ? Array.fromNullishOr(hashFile(join(entry.parentPath, entry.name))) : []))
         .toSorted(),
 );
+const PROJECT = Option.liftThrowable(() => fileURLToPath(import.meta.resolve('#analyzer/project')))();
+const ANALYZER = Option.getOrElse(PROJECT, () => fileURLToPath(import.meta.resolve('#analyzer')));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Report = Schema.Struct({ nodes: Schema.Array(Node), failures: Schema.Array(Schema.Struct({ file: Schema.String, message: Schema.String })), evaluated: Schema.Array(Schema.String) });
 const Reported = Schema.fromJsonString(Report);
+const Refused = Schema.Struct({ cmd: Schema.String, stdout: Schema.String, stderr: Schema.String }).annotate({ description: 'Failure Node raises for a process that exits non-zero: its command line and what it printed to each stream' });
 const Options = Schema.Record(
     Schema.String,
     Schema.Union([Schema.Literal(false), Schema.Struct({ options: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)), dependsOn: Schema.optionalKey(Schema.mutable(Schema.Array(Schema.String))), cache: Schema.optionalKey(Schema.Boolean), parallelism: Schema.optionalKey(Schema.Boolean) })]),
@@ -59,10 +61,13 @@ const stamped = Effect.fnUntraced(function* (workspaceRoot: string, matched: rea
 });
 
 const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: readonly string[]) {
-    const report = yield* Effect.tryPromise((signal) => {
-        const running = promisify(execFile)('dotnet', [ANALYZER, workspaceRoot], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal });
-        running.child.stdin?.on('error', Function.constVoid).end(matched.join('\n'));
-        return running;
+    const report = yield* Effect.tryPromise({
+        try: (signal) => {
+            const running = promisify(execFile)('dotnet', [...Option.match(PROJECT, { onNone: () => [ANALYZER], onSome: (project) => ['run', '--project', project, '--'] }), workspaceRoot], { encoding: 'utf8', cwd: workspaceRoot, maxBuffer: Number.POSITIVE_INFINITY, signal });
+            running.child.stdin?.on('error', Function.constVoid).end(matched.join('\n'));
+            return running;
+        },
+        catch: (cause) => Option.match(Schema.decodeUnknownOption(Refused)(cause), { onNone: () => new Cause.UnknownError(cause), onSome: ({ cmd, stdout, stderr }) => new Cause.UnknownError(undefined, [cmd, stdout, stderr].join('\n')) }),
     }).pipe(Effect.flatMap(({ stdout }) => Schema.decodeEffect(Reported)(stdout)));
     const known = new Set(yield* Effect.promise(() => globWithWorkspaceContext(workspaceRoot, Array.dedupe(report.nodes.flatMap(({ inputs }) => inputs)))));
     return { ...report, nodes: report.nodes.map((node) => ({ ...node, inputs: node.inputs.filter((input) => known.has(input)) })) };
@@ -70,14 +75,14 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: re
 
 const related = (workspaceRoot: string, { nodes }: Report): readonly RawProjectGraphDependency[] => {
     const pinned = new Map(nodes.map((node) => [node.file, Record.fromIterableWith(node.packages, (reference) => [reference.id, reference] as const)] as const));
-    const plugin = relative(workspaceRoot, dirname(dirname(dirname(ANALYZER))));
+    const plugin = relative(workspaceRoot, dirname(dirname(ANALYZER)));
     return [
         ...nodes.flatMap((node) => node.references.map((reference): RawProjectGraphDependency => ({ source: dirname(node.file), target: reference.root, ...(reference.declared === node.file ? { type: DependencyType.static, sourceFile: node.file } : { type: DependencyType.implicit }) }))),
         ...nodes.flatMap((node) => node.packages.filter(({ direct }) => direct).map((reference): RawProjectGraphDependency => ({ source: dirname(node.file), target: external(reference), type: DependencyType.implicit }))),
         ...nodes.flatMap((node) =>
             node.packages.flatMap((reference) => Array.getSomes(reference.dependencies.map((dependency) => Record.get(pinned.get(node.file) ?? {}, dependency))).map((target) => ({ source: external(reference), target: external(target), type: DependencyType.static }) satisfies RawProjectGraphDependency)),
         ),
-        ...nodes.filter((node) => node.modes.some(({ outputs }) => outputs.some((output) => join(workspaceRoot, output) === dirname(ANALYZER)))).map((node): RawProjectGraphDependency => ({ source: plugin, target: dirname(node.file), type: DependencyType.static, sourceFile: join(plugin, 'package.json') })),
+        ...nodes.filter((node) => Option.contains(PROJECT, join(workspaceRoot, node.file))).map((node): RawProjectGraphDependency => ({ source: plugin, target: dirname(node.file), type: DependencyType.static, sourceFile: join(plugin, 'package.json') })),
     ];
 };
 
@@ -107,6 +112,7 @@ const projected = (nodes: readonly Node[], options: typeof Options.Type) => {
             .filter((reference) => !releasable(reference))
             .flatMap(carried),
     ];
+    const evaluated = (node: Node): readonly string[] => [...node.inputs, ...Array.getSomes(node.references.map(({ root }) => Record.get(folders, root))).flatMap(evaluated)];
     return nodes.map((node): [string, CreateNodesResult] => {
         const supported = Array.intersection(Record.keys(PLATFORMS), node.platforms).map((name) => PLATFORMS[name]);
         const limited = node.test && supported.length > 0 && supported.length < Record.keys(PLATFORMS).length;
@@ -115,7 +121,7 @@ const projected = (nodes: readonly Node[], options: typeof Options.Type) => {
             root: dirname(node.file),
             name: node.name,
             metadata: { technologies: ['dotnet', node.language] },
-            targets: delivered(options, targets({ ...node, test: limited ? supported.some((held) => held === platform) : node.test })),
+            targets: delivered(options, targets({ ...node, inputs: Array.dedupe(evaluated(node)), test: limited ? supported.some((held) => held === platform) : node.test })),
             ...(releasable(node) && { release: { version: { versionActions: `${PLUGIN}/release/version-actions`, versionActionsOptions: { manifest: basename(node.file), releases: Array.dedupeWith(carried(node), Equivalence.mapInput(Equivalence.String, Struct.get('unshipped'))) } } } }),
             ...(tags.length > 0 && { tags }),
             ...(node.implicit.length > 0 && { implicitDependencies: [...node.implicit] }),
@@ -149,7 +155,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
             }),
     );
     const results = [...projected(report.nodes, stated), ...solutions];
-    const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, new Cause.UnknownError(error, Formatter.format(error))])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
+    const failures = [...Option.toArray(Option.map(Result.getFailure(read), (error): [null, Error] => [null, error])), ...report.failures.map(({ file, message }): [string, Error] => [file, new Cause.UnknownError(file, message)])];
     return yield* failures.length === 0 ? Effect.succeed(results) : Effect.fail(new AggregateCreateNodesError(failures, results));
 });
 

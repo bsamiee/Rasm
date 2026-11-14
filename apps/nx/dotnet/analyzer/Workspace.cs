@@ -15,7 +15,7 @@ internal sealed record Package(string Id, string Version, string Hash, bool Dire
 
 internal sealed record Tracking(string Shipped, string Unshipped);
 
-internal sealed record Mode(string Configuration, string? Runtime, ImmutableArray<string> Outputs, ImmutableArray<string> Published, ImmutableArray<string> Reports);
+internal sealed record Mode(string Configuration, ImmutableArray<string> Outputs, ImmutableArray<string> Published, ImmutableArray<string> Reports, string Packed);
 
 internal sealed record Node(
     string File,
@@ -25,8 +25,8 @@ internal sealed record Node(
     bool Packable,
     bool Publishable,
     bool Pushed,
-    string Configuration,
-    ImmutableArray<Mode> Modes,
+    Mode Evaluated,
+    ImmutableArray<Mode> Declared,
     ImmutableArray<Reference> References,
     ImmutableArray<string> Inputs,
     ImmutableArray<string> Bases,
@@ -36,8 +36,6 @@ internal sealed record Node(
     ImmutableArray<string> Results,
     ImmutableArray<string> Platforms,
     ImmutableArray<string> Implicit,
-    string Packed,
-    string? Central,
     Tracking? Releases);
 
 internal sealed record Failure(string File, string Message);
@@ -69,13 +67,20 @@ internal static class Workspace {
         if (Path.GetDirectoryName(path) is not { } folder) return Error.New($"{path} names no folder");
         ProjectInstance outer = Load(path, Defaults, context, collection);
         Seq<string> frameworks = Listed(outer, "TargetFrameworks");
-        Seq<string> configurations = Listed(outer, "Configurations");
-        Seq<(string Configuration, Option<string> Runtime, Seq<ProjectInstance> Instances)> modes =
-            from configuration in configurations
-            from runtime in Seq(Option<string>.None) + Listed(outer, "RuntimeIdentifiers").Map(static runtime => Some(runtime))
-            select (configuration, runtime, (frameworks.IsEmpty ? Seq(Option<string>.None) : frameworks.Map(static framework => Some(framework))).Map(framework => Load(path, Properties(configuration, runtime, framework), context, collection)));
-        Seq<ProjectInstance> instances = Seq(outer) + modes.Bind(static mode => mode.Instances);
+        Seq<ProjectInstance> Inner(ImmutableDictionary<string, string> properties) =>
+            frameworks.IsEmpty ? Seq(Load(path, properties, context, collection)) : frameworks.Map(framework => Load(path, properties.SetItem("TargetFramework", framework), context, collection));
+        Seq<ProjectInstance> evaluated = frameworks.IsEmpty ? Seq(outer) : Inner(Defaults);
+        Seq<(string Configuration, Seq<ProjectInstance> Instances)> declared = Listed(outer, "Configurations")
+            .Filter(configuration => !configuration.Equals(outer.GetPropertyValue("Configuration"), StringComparison.OrdinalIgnoreCase))
+            .Map(configuration => (configuration, Inner(Defaults.SetItem("Configuration", configuration))));
+        Seq<ProjectInstance> instances = (Seq(outer) + evaluated + declared.Bind(static mode => mode.Instances)).Distinct();
         string Placed(string output) => Relative(root, Path.GetFullPath(Path.Combine(folder, output)));
+        Mode Described(string configuration, Seq<ProjectInstance> held) => new(
+            configuration,
+            [.. held.Map(static instance => instance.GetPropertyValue("OutputPath")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
+            [.. held.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
+            [.. held.Choose(static instance => toSeq(instance.GetPropertyValue("ErrorLog").Split([';', ','], StringSplitOptions.RemoveEmptyEntries)).Head).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
+            Placed(held.Head.IfNone(outer).GetPropertyValue("PackageOutputPath")));
         string Extensions(ProjectInstance instance) => Path.GetFullPath(Path.Combine(folder, instance.GetPropertyValue("MSBuildProjectExtensionsPath")));
         Seq<string> imports =
             from instance in instances
@@ -98,13 +103,8 @@ internal static class Workspace {
                 Flag(outer, "IsPackable"),
                 Flag(outer, "IsPublishable"),
                 !string.IsNullOrEmpty(SettingsUtility.GetDefaultPushSource(Settings.LoadDefaultSettings(folder))),
-                configurations.Find(configuration => configuration.Equals(outer.GetPropertyValue("Configuration"), StringComparison.OrdinalIgnoreCase)).IfNone(() => configurations.Head.IfNone(outer.GetPropertyValue("Configuration"))),
-                [.. modes.Map(mode => new Mode(
-                    mode.Configuration,
-                    mode.Runtime.ValueUnsafe(),
-                    [.. mode.Instances.Map(static instance => instance.GetPropertyValue("OutputPath")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
-                    [.. mode.Instances.Filter(static instance => Flag(instance, "IsPublishable")).Map(static instance => instance.GetPropertyValue("PublishDir")).Map(Placed).Distinct().Order(StringComparer.Ordinal)],
-                    [.. mode.Instances.Choose(static instance => toSeq(instance.GetPropertyValue("ErrorLog").Split([';', ','], StringSplitOptions.RemoveEmptyEntries)).Head).Map(Placed).Distinct().Order(StringComparer.Ordinal)]))],
+                Described(outer.GetPropertyValue("Configuration"), evaluated),
+                [.. declared.Map(mode => Described(mode.Configuration, mode.Instances))],
                 [.. instances
                     .Bind(static instance => toSeq(instance.GetItems("ProjectReference")))
                     .Choose(reference => Optional(Path.GetDirectoryName(reference.GetMetadataValue("FullPath"))).Map(referenced => new Reference(Relative(root, referenced), Relative(root, reference.GetMetadataValue("DefiningProjectFullPath")))))
@@ -138,18 +138,12 @@ internal static class Workspace {
                     .Order(StringComparer.Ordinal)],
                 [.. toSeq(outer.GetItems("SupportedPlatform")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
                 [.. toSeq(outer.GetItems("NxImplicitDependency")).Map(static item => item.EvaluatedInclude).Distinct().Order(StringComparer.Ordinal)],
-                Placed(modes.Find(static mode => mode.Runtime.IsNone && mode.Configuration.Equals("Release", StringComparison.OrdinalIgnoreCase)).Bind(static mode => mode.Instances.Head).IfNone(outer).GetPropertyValue("PackageOutputPath")),
-                Flag(outer, "ManagePackageVersionsCentrally") ? Relative(root, outer.GetPropertyValue("DirectoryPackagesPropsPath")) : null,
                 Tracked(root, instances)),
             Seq(file.Replace('\\', '/')) + inside + walked);
     }
 
     public static ProjectInstance Load(string path, ImmutableDictionary<string, string> properties, EvaluationContext context, ProjectCollection collection) =>
         ProjectInstance.FromFile(path, new ProjectOptions { GlobalProperties = properties, ProjectCollection = collection, EvaluationContext = context, LoadSettings = ProjectLoadSettings.DoNotEvaluateElementsWithFalseCondition });
-
-    private static ImmutableDictionary<string, string> Properties(string configuration, Option<string> runtime, Option<string> framework) =>
-        (Seq<(string Name, string Value)>(("Configuration", configuration)) + runtime.Map(static value => (Name: "RuntimeIdentifier", Value: value)).ToSeq() + framework.Map(static value => (Name: "TargetFramework", Value: value)).ToSeq())
-            .Fold(Defaults, static (held, pair) => held.SetItem(pair.Name, pair.Value));
 
     private static Tracking? Tracked(string root, Seq<ProjectInstance> instances) {
         Seq<string> additional = instances.Bind(static instance => toSeq(instance.GetItems("AdditionalFiles"))).Map(static item => item.GetMetadataValue("FullPath")).Distinct();

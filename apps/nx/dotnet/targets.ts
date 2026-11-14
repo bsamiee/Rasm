@@ -2,7 +2,7 @@ import { basename, dirname, join, relative } from 'node:path';
 import type { TargetConfiguration } from '@nx/devkit';
 import { quoteShellArg } from '@nx/devkit/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Option, Record, Schema, Struct } from 'effect';
+import { Array, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -14,6 +14,7 @@ const PLUGIN = '@rasm/nx-dotnet';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Mode = Schema.Struct({ configuration: Schema.String, outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String), reports: Schema.Array(Schema.String), packed: Schema.String });
 const Node = Schema.Struct({
     file: Schema.String,
     name: Schema.String,
@@ -22,8 +23,8 @@ const Node = Schema.Struct({
     packable: Schema.Boolean,
     publishable: Schema.Boolean,
     pushed: Schema.Boolean,
-    configuration: Schema.String,
-    modes: Schema.Array(Schema.Struct({ configuration: Schema.String, runtime: Schema.NullOr(Schema.String), outputs: Schema.Array(Schema.String), published: Schema.Array(Schema.String), reports: Schema.Array(Schema.String) })),
+    evaluated: Mode,
+    declared: Schema.Array(Mode),
     references: Schema.Array(Schema.Struct({ root: Schema.String, declared: Schema.String })),
     inputs: Schema.Array(Schema.String),
     bases: Schema.Array(Schema.String),
@@ -33,7 +34,6 @@ const Node = Schema.Struct({
     results: Schema.Array(Schema.String),
     platforms: Schema.Array(Schema.String),
     implicit: Schema.Array(Schema.String),
-    packed: Schema.String,
     releases: Schema.NullOr(Schema.Struct({ shipped: Schema.String, unshipped: Schema.String })),
 });
 
@@ -54,33 +54,13 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
         { env: 'NUGET_PACKAGES' },
         { externalDependencies: [] },
     ];
-    const modes = node.modes.map((mode) => {
-        const runtime = mode.runtime === null ? [] : ['--runtime', mode.runtime];
-        return {
-            name: [mode.configuration.toLowerCase(), ...Array.fromNullishOr(mode.runtime)].join('_'),
-            configuration: mode.configuration,
-            args: ['--configuration', mode.configuration, ...runtime],
-            restored: [...runtime, `-p:Configuration=${mode.configuration}`],
-            verb: Array.isReadonlyArrayNonEmpty(mode.published) ? 'publish' : 'build',
-            outputs: [...mode.outputs, ...mode.published, ...mode.reports, ...node.restored],
-            reports: mode.reports,
-            primary: mode.configuration === (node.publishable ? 'Release' : node.configuration) && mode.runtime === null,
-        };
-    });
-    const moded = <A extends object>(each: (mode: (typeof modes)[number]) => A) => ({
-        options: Option.getOrElse(Option.map(Array.findFirst(modes, Struct.get('primary')), each), (): Partial<A> => ({})),
-        configurations: Record.fromIterableWith(modes, (mode) => [mode.name, each(mode)] as const),
-    });
-    const built = moded(({ verb, args, outputs }) => ({ command: [verb, ...args], outputs }));
-    const tested = moded(({ args, restored }) => ({ commands: [{ command: line(['dotnet', 'restore', ...restored]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', ...args])] }));
-    const cleaned = moded(({ args }) => ({ commands: [['dotnet', 'clean', node.file, ...args, '-p:BuildProjectReferences=false']] }));
-    const released = Option.filter(
-        Option.orElse(
-            Array.findFirst(modes, ({ configuration, name }) => configuration === 'Release' && name === 'release'),
-            () => Array.findFirst(modes, Struct.get('primary')),
-        ),
-        () => node.packable,
-    );
+    const moded = <A extends object>(each: (mode: Node['evaluated']) => A) => ({ options: each(node.evaluated), configurations: Record.fromIterableWith(node.declared, (mode) => [mode.configuration.toLowerCase(), each(mode)] as const) });
+    const written = (...modes: readonly { readonly outputs: readonly string[] }[]) => Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`);
+    const verb = node.publishable ? 'publish' : 'build';
+    const built = moded(({ configuration, outputs, published, reports }) => ({ project, command: [verb, '--configuration', configuration], outputs: [...outputs, ...published, ...reports, ...node.restored] }));
+    const packed = moded(({ configuration, packed: folder }) => ({ project, command: ['pack', '--no-build', '-restore', '--configuration', configuration], outputs: [join(folder, '*.nupkg')] }));
+    const tested = moded(({ configuration }) => ({ commands: [{ command: line(['dotnet', 'restore', `-p:Configuration=${configuration}`]), forwardAllArgs: false }, line(['dotnet', 'test', '--no-build', '--configuration', configuration])] }));
+    const cleaned = moded(({ configuration }) => ({ commands: [['dotnet', 'clean', node.file, '--configuration', configuration, '-p:BuildProjectReferences=false']] }));
     const formatted = (commands: Array.NonEmptyReadonlyArray<Array.NonEmptyReadonlyArray<string>>, description: string): TargetConfiguration => ({
         executor: `${PLUGIN}:format`,
         options: { commands, project },
@@ -91,27 +71,23 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
     const tools: Record<string, TargetConfiguration> = {
         'build--dotnet': {
             executor: `${PLUGIN}:build`,
-            options: { project, ...built.options },
-            configurations: built.configurations,
-            outputs: Array.makeBy(Math.max(0, ...modes.map(({ outputs }) => outputs.length)), (index) => `{options.outputs.${index}}`),
+            ...built,
+            outputs: written(built.options, ...Object.values(built.configurations)),
             dependsOn: ['^build--dotnet'],
             cache: true,
             inputs,
-            metadata: metadata(node.publishable ? 'publish' : 'build', node.publishable ? `Builds ${node.name} with its references in one MSBuild run, publishing it in every configuration, Release unless a configuration is named` : `Builds ${node.name} with its references in one MSBuild run`),
+            metadata: metadata(verb, `${node.publishable ? 'Builds and publishes' : 'Builds'} ${node.name} with its references in one MSBuild run, in configuration ${node.evaluated.configuration} unless the run names another the project declares`),
         },
-        ...Record.getSomes({
-            'pack--dotnet': Option.map(
-                released,
-                ({ name, args }): TargetConfiguration => ({
-                    command: line(['dotnet', 'pack', node.file, ...args]),
-                    configurations: { [name]: { command: line(['dotnet', 'pack', node.file, '--no-build', ...args]) } },
-                    dependsOn: ['build--dotnet'],
-                    cache: true,
-                    inputs,
-                    outputs: [join('{workspaceRoot}', node.packed, '*.nupkg')],
-                    metadata: metadata('pack', `Packs the ${name} build of ${node.name} into its PackageOutputPath with dotnet pack, which builds it first, and under configuration ${name} with --no-build over the build build--dotnet wrote`),
-                }),
-            ),
+        ...(node.packable && {
+            'pack--dotnet': {
+                executor: `${PLUGIN}:build`,
+                ...packed,
+                outputs: written(packed.options, ...Object.values(packed.configurations)),
+                dependsOn: ['build--dotnet'],
+                cache: true,
+                inputs,
+                metadata: metadata('pack', `Packs the build build--dotnet wrote for ${node.name} into its PackageOutputPath with dotnet pack --no-build, which compiles nothing`),
+            },
         }),
         'check--dotnet-build': {
             executor: `${PLUGIN}:check`,
@@ -131,7 +107,7 @@ const targets = (node: Node): Record<string, TargetConfiguration> => {
                 cache: true,
                 inputs: [...inputs, { dependentTasksOutputFiles: '**/*.runtimeconfig.json' }, { runtime: 'node -p process.platform+process.arch' }],
                 outputs: node.results.map((results) => join('{workspaceRoot}', results)),
-                metadata: metadata('test', `Restores ${node.name} and tests the build with dotnet test`),
+                metadata: metadata('test', `Tests the build build--dotnet wrote for ${node.name} with dotnet test --no-build, after a restore that fetches only packages the machine lacks`),
             },
         }),
         'fix--dotnet-format': formatted(

@@ -171,16 +171,20 @@ flowchart LR
 - Machines with role `Watch` check their own services and the public services and checker of every other machine, and alert through role `Notify`
 - Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`
 - `package.json` projects stating a `version` are release projects with `pack--pnpm` and `attach--gh`, and `private` stops the registry upload alone
+- Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target
+- Registry switches are `private` in `package.json`, `publish` in `Cargo.toml`, classifier `Private :: Do Not Upload`, and `defaultPushSource` of `NuGet.config`
+- Crates stating no `version` are no release project, as Cargo publishes none
+- Publish targets upload where the credential variable their tool reads is set, and name the variable and succeed where it is not
+- Pack targets build their release form themselves, `pack--dotnet` excepted
+- .NET targets of a project run in the one `Configuration` MSBuild evaluates for it, and test and pack read what `build--dotnet` wrote (`--no-build`)
+- `Directory.Build.props` states `Configuration` and `Configurations` as `Release`, and a project declaring more gets an Nx configuration for each
+- `@rasm/nx-dotnet` runs its analyzer through `dotnet run`, which rebuilds it after a source edit, and from the build its package holds once installed
+- NuGet supplies no fixed entry time, so `Directory.Build.props` states `DeterministicTimestamp` and two packs of one commit are byte-equal
 
 ## [04]-[TASKS]
 
 `nx <verb> <project>` runs one project, `nx affected -t <verb>` runs changed work, and `--files=<path>` limits it to one change's reach:
 - `codegen` writes source code a project's tools derive from its schemas and configuration
-- Release projects are versioned, packed, and attached, and the switch their registry reads alone gives one a publish target
-- Registry switches are `private` in `package.json`, `publish` in `Cargo.toml`, classifier `Private :: Do Not Upload`, and `defaultPushSource` of `NuGet.config`
-- Crates stating no `version` are no release project, as Cargo publishes none
-- Publish targets upload where the credential variable their tool reads is set, and name the variable and succeed where it is not
-- Pack targets build their release form themselves, and `pack--dotnet` under `-c release` packs what `build--dotnet` wrote (`--no-build`)
 - `build` compiles or packages a project into its declared outputs
 - `pack` writes the files a release holds where they differ from the build (`.tgz`, `.nupkg`, CPack archive, app `.zip` or `.dmg`)
 - `attach` uploads the files a project's packaging targets wrote to the GitHub release of its version

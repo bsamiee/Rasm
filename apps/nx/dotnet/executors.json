@@ -5,7 +5,7 @@
             "batchImplementation": "./dist/executors/build/executor#batch",
             "schema": "./executors/build/schema.json",
             "preferBatch": true,
-            "description": "Runs dotnet build or dotnet publish once over a generated traversal project of every batched project, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result"
+            "description": "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result"
         },
         "check": {
             "implementation": "./dist/executors/check/executor#execute",
