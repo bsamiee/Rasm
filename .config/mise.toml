@@ -31,6 +31,8 @@ DOTNET_NOLOGO                                 = "1"
 DOTNET_ROLL_FORWARD                           = "Major"
 FOUNDRY_CACHE_DIR                             = "{{config_root}}/.cache/foundry"
 FOUNDRY_LOG_DIR                               = "{{config_root}}/.artifacts/logs"
+FUNCTION_HOOKS_QUESTION_GATE                  = "true"                                                                                                                                                                                                                                                                                                                  # Trial from 2026-11-14, judged 2026-11-21 on `Question waited` notes in session transcripts (count, seconds, holds the owner wanted sooner), a Focus holds once Shortcut `Get Focus` prints its name, "false" ends it
+FUNCTION_HOOKS_RTK                            = "false"                                                                                                                                                                                                                                                                                                                  # Trial from 2026-11-14, judged 2026-11-21 on `rtk gain --project --format json`, Bash result tokens per session before and after, and `rtk recall` runs, "false" ends it
 GHIDRA_CLASSPATH                              = { tools = true, value = '''{% set ghidra = tools["github:NationalSecurityAgency/ghidra"]?.path %}{% if ghidra %}{{ exec(command="fd --type f --full-path --glob '**/lib/*.jar' --absolute-path '" ~ ghidra ~ "/Ghidra' | paste -sd: -", cache_key="ghidra-classpath-" ~ ghidra, cache_duration="1d") }}{% endif %}''' }
 GHIDRA_INSTALL_DIR                            = { tools = true, value = '{{ tools["github:NationalSecurityAgency/ghidra"]?.path or "" }}' }
 GHIDRA_JAVA_OPTIONS                           = "-Dapplication.settingsdir={{config_root}}/.cache/ghidra/settings -Dapplication.cachedir={{config_root}}/.cache/ghidra/cache -Dapplication.tempdir={{config_root}}/.cache/ghidra/tmp"
@@ -43,11 +45,14 @@ JAVAC_PLUGINS                                 = { tools = true, value = '{% for 
 NODE_COMPILE_CACHE                            = "{{config_root}}/.cache/node"
 NX_ISOLATE_PLUGINS                            = "false"                                                                                                                                                                                                                                                                                                                 # In-process plugins load faster than plugin workers while the daemon is off
 NX_WORKSPACE_DATA_DIRECTORY                   = "{{config_root}}/.cache/nx/workspace-data"
-PLAYWRIGHT_CLI_SESSION                        = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
+PLAYWRIGHT_CLI_SESSION                        = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default=get_env(name='CODEX_THREAD_ID', default=get_env(name='ANTIGRAVITY_CONVERSATION_ID', default=''))) }}"
 PLAYWRIGHT_MCP_ALLOW_UNRESTRICTED_FILE_ACCESS = "true"
+PLAYWRIGHT_MCP_BACKGROUND                     = "1"
 PLAYWRIGHT_MCP_BROWSER                        = "chromium"
 PLAYWRIGHT_MCP_FILE_PATHS                     = "absolute"
-PLAYWRIGHT_MCP_OUTPUT_DIR                     = "{{config_root}}/.artifacts/playwright/{{ env.PLAYWRIGHT_CLI_SESSION }}"
+PLAYWRIGHT_MCP_OUTPUT_DIR                     = "{{config_root}}/.artifacts/playwright/cli"
+PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE                = "268435456"
+PLAYWRIGHT_MCP_PROFILE_DIR_NAME               = "Default"
 PLAYWRIGHT_TRANSFORM_CACHE_DIR                = "{{config_root}}/.cache/playwright/transform"
 PULUMI_HOME                                   = "{{config_root}}/.cache/pulumi"
 PYTEST_CACHE_DIR                              = "{{config_root}}/.cache/pytest"
@@ -62,7 +67,7 @@ VCPKG_DOWNLOADS                               = "{{config_root}}/.cache/vcpkg/do
 VCPKG_FORCE_SYSTEM_BINARIES                   = "1"
 VCPKG_ROOT                                    = { tools = true, value = '{{ tools["github:microsoft/vcpkg-tool"]?.path or "" }}' }
 WATCH_APPS_LOG_DIR                            = "{{config_root}}/.artifacts/logs"
-WATCH_APPS_SESSION                            = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default='') }}"
+WATCH_APPS_SESSION                            = "{{ get_env(name='CLAUDE_CODE_SESSION_ID', default=get_env(name='CODEX_THREAD_ID', default=get_env(name='ANTIGRAVITY_CONVERSATION_ID', default=''))) }}"
 
 # --- [DEPS] -----------------------------------------------------------------------------
 
@@ -89,7 +94,6 @@ cmake                                                                        = "
 colima                                                                       = { os = ["macos"], version = "latest" }
 "conda:openssh"                                                              = { os = ["linux"], version = "latest" }
 "conda:pkgconf"                                                              = "latest"
-crane                                                                        = { os = ["macos", "linux"], version = "latest" }
 difftastic                                                                   = "latest"
 docker-compose                                                               = { os = ["macos", "linux"], postinstall = { run = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-compose" "$plugins/docker-compose"', when = "always" }, version = "latest" }
 doppler                                                                      = "latest"
@@ -104,9 +108,9 @@ gh                                                                           = "
 git-lfs                                                                      = "latest"
 "github:docker/buildx"                                                       = { bin = "docker-buildx", os = ["macos", "linux"], postinstall = { run = 'plugins="${DOCKER_CONFIG:-$HOME/.docker}/cli-plugins" && mkdir -p "$plugins" && ln -sf "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$plugins/docker-buildx"', when = "always" }, version = "latest" }
 "github:fonttools/fontspector"                                               = { version = "latest", version_prefix = "fontspector-v" }
-"github:hostinger/api-cli"                                                   = "latest"
 "github:kucherenko/jscpd"                                                    = "latest"
 "github:linebender/resvg"                                                    = { matching = "usvg", version = "latest" }
+"github:rtk-ai/rtk"                                                          = { matching = "rtk-oss-", os = ["macos"], version = "latest" }
 "github:sbdchd/squawk"                                                       = "latest"
 google-java-format                                                           = "latest"
 "github:trailofbits/dylint"                                                  = { matching = "cargo-dylint-", os = ["linux", "macos/arm64"], version = "latest" }

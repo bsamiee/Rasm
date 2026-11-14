@@ -77,6 +77,10 @@ Value writes pass through stdin JSON, `--dry-run` previews a create or an edit:
 - `op item edit` writes an empty `DATE` field from stdin JSON as `0`, edits remove empty dates first
 
 ```bash
+# Doppler names lacking a Tokens item, the items to create
+comm -13 <(op item list --vault Tokens --format json | jq -r '.[].title' | sort) \
+    <(doppler secrets --only-names --json --project <p> --config <c> | jq -r 'keys[] | select(test("^DOPPLER_(PROJECT|CONFIG|ENVIRONMENT)$") | not)' | sort)
+
 # New Tokens item
 <producer> | jq -Rs '{title: "<NAME>", category: "API_CREDENTIAL", fields: [{id: "credential", label: "token", type: "CONCEALED", value: rtrimstr("\n")}]}' \
     | op item create --vault Tokens -

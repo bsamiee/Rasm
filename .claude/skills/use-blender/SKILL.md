@@ -171,6 +171,8 @@ Log reads follow host rules:
 - Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`
 - `--log "<categories>"` selects log categories, and `--log-level trace` prints every level
 - `--log-level trace --log "context"` prints each context member an operator read, tagged with the calling script line
+- `--log operator --log-level debug --log-file <file>` logs operator calls, `rg -o 'Finished (bpy\.ops\..*)' -r '$1' <file>` printing each runnable
+- Operator logs at `<folder>/host/blender.log` join the timeline of `watch-apps watch --record <folder>`
 - Crash reports read before the next run starts, concurrent Blenders sharing one file
 - `Cannot connect to Blender` answers mean no GUI listens on the answering server's port
 

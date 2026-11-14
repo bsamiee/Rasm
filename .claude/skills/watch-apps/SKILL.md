@@ -1,6 +1,6 @@
 ---
 name: watch-apps
-description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility and computer-use"
+description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility and cua-driver"
 ---
 
 # [WATCH_APPS]
@@ -21,7 +21,7 @@ watch-apps quit <app-or-pid>... [--force]
 ```
 
 ```text
-Monitor {"command": "watch-apps watch <app> [<helper>]... --line-length 500",
+Monitor {"command": "watch-apps watch <app> [<helper>]... [--record <folder>] --line-length 500",
          "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
 ```
 
@@ -70,8 +70,9 @@ Monitor {"command": "watch-apps watch <app> [<helper>]... --line-length 500",
 - Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
 - Hooks add Blender `--no-window-focus` (absent a headless switch) and Rhino `-nosplash` to `launch` and to each rewrite into it
 - Hooks run `watch` in a Monitor alone with `--line-length 500`, drop a filter piped after it, and refuse a loop polling `read` or `watch`
-- Hooks refuse `osascript` posting through System Events, taking focus
-- Claude Code sends dialogs, hangs, and crashes of apps a session launches, reuses, or drives by Rhino or Blender MCP to its agent as hook context
+- Hooks refuse `osascript` posting through System Events and every `computer-use` tool, taking focus
+- Hooks refuse `cua-driver call` and `serve`, which bypass the session MCP server and its app watch
+- Claude Code sends dialogs, hangs, and crashes of apps a session launches, reuses, or drives by Rhino, Blender, or `cua-driver` MCP to its agent as hook context
 - Claude Code quits each instance an agent created (`created: true`) when that agent's turn ends and the session's when it ends, `--force` staying an agent's command
 
 Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits, its reader closes, or SIGTERM, SIGINT, or SIGHUP arrives. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
@@ -124,6 +125,8 @@ Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`,
 - `system` lines read `{"system": {"memory": "normal|warning|critical", "thermal": "nominal|fair|serious|critical"}}` from the kernel, printing off `normal` and `nominal` and on return
 - Lines print when their key's state changes, `usage`, `frame`, and `onScreen` printing nothing
 - `watch` prints one line per changed instance, exited instances showing in the line of their exit and of their crash report, then leaving
+- `watch` prints `{"<bundle id>": {}}` at start for a named app running no instance
+- Dialog helpers print under their own bundle id while a prompt names a watched app, then `{"<helper bundle id>": {}}` once none does
 
 `running` outside `read` is an outline, `--line-length` cutting asking text, then options, then windows to fit:
 - `status` reads `launching`, `responding`, or `unresponsive`, `process` holding what an `unresponsive` main thread did while silent
@@ -146,7 +149,8 @@ Lines read `{"<bundle id>": {"<pid>": {"instance": "<pid>@<start>", <state>}}}`,
 
 `element` holds `id`, `role`, `subrole`, `modal` (`AXModal`), `identifier` (`AXIdentifier`), `description` (`AXDescription`), `title`, `document` (`AXDocument` file URL), `edited` (close button `AXEdited`), `minimized`, `actions`, `kind`, `asking`, `answers`, and `detail`:
 - `answers` holds `accept` (`AXDefaultButton`, `OKButton`), `discard` (`DontSaveButton`), `cancel` (`AXCancelButton`, `CancelButton`, close button), and `buttons` (each labeled button, the choice where an app marks no answer control), absent with nothing to press
-- `detail` holds `main`, `focused`, `text` (each static text holding a character beyond whitespace and private-use icon glyphs), `controls`, and `unreadable` (refused reads, with `reads`, `role`, `label`, AXError `error`)
+- `detail` holds `main`, `focused`, `text` (each static text holding a character beyond whitespace and private-use icon glyphs), `controls`, and `unreadable`
+- `unreadable` holds each refused read with `reads`, `role`, `label`, and AXError `error`, and a control keeps each field that answered
 - `controls` hold once each text field, text area, combo box, pop-up button, check box, radio button, and element or labeled menu item with `AXPress`
 - Each control holds `id`, `role`, `subrole`, `label`, `identifier`, `value`, `enabled`, `actions`, `attribute`, and `items`
 - Walks descend into scroll areas and visible table rows, outline rows, and list children, and reach menus only on explicit walks running the app's `menuWillOpen`
@@ -169,7 +173,7 @@ Instances are read at insertion and after each window, sheet, title, focus, menu
 |  [11]   | `fail` `host` or `noProcess` at launch | `processes <app>`, read `reports` for the cause       |
 |  [12]   | `launched` with `replaced`             | `quit <pid>`, then `launch`, or `launch --new`        |
 
-Hold script calls while a `blocking` row stands, calls sent before get no answer or an error (-29). `sample <pid> 1 -file <path>` reads an instance's stacks without touching it.
+Hold script calls while a `blocking` row stands, calls sent before get no answer or an error (-29). `sample <pid> 1 -file <path>` reads an instance's stacks without touching it, `sudo spindump <pid> 2 10 -onlyTarget -onlyBlocked -noBinary -o <out>` the blocked threads of a hung one, and `spindump -i /Library/Logs/DiagnosticReports/<app>_<date>.hang -timeline -noBinary -o <out>` a past hang without `sudo`, `-timeline` refusing `-onlyBlocked`.
 
 ## [04]-[FOCUS]
 
@@ -177,39 +181,41 @@ Actions go to the app's process through AX actions on its elements and leave the
 - Background windows, dialogs, and sheets take no focus and order below the frontmost app's front window, above other apps' windows
 - System Events `keystroke` and `key code` post to the frontmost app whatever process the script names
 - `activate`, `AXRaise`, and an `AXFrontmost` write take focus from the frontmost app
+- `ioreg -c IOHIDSystem -d 4 -r -k HIDIdleTime | rg -m1 HIDIdleTime` prints nanoseconds since the owner's last key or pointer input
 
-## [05]-[COMPUTER_USE]
+## [05]-[POINTER_AND_KEYS]
 
-`computer-use` presses what no script or Accessibility action reaches, on a machine the owner's message hands over, while `launch`, Atelier, and `read` open and read the app:
-1. Leads run `request_access` once by bundle id for every app and flag of the run while the owner answers
-2. Agents run `list_granted_applications` before a first action, and report an absent app with the state that needed it
-3. `capture --window <number>` reads the window first, and work stops there while the owner uses the machine
-4. `computer_batch` clicks and takes its image, `read` confirms the state
+`mcp__cua-driver__` tools click, drag, scroll, type, and press keys in a background window with frontmost app and pointer unchanged, while `watch-apps` launches, reads state, captures, and quits:
+1. `get_window_state` takes `pid` and `window_id` (a window's `number`) from a `watch-apps` line and returns tree rows `[N]` with a screenshot
+2. `click`, `scroll`, `type_text`, and `press_key` take `element_token` `<snapshot_id>:N`, or `x` and `y` in that screenshot's pixels for a surface the tree lacks
+3. Each result states `effect` `confirmed`, `unverifiable`, or `refused`, and `read` or `get_window_state` with `since: "latest"` settles an unverifiable one
 
-- `request_access` serves the lead, it blocks with no timeout until a person answers, and a new flag asks again for a granted app
-- `list_granted_applications` serves any agent, grants last for the session and reach every agent in it
-- Grants name a bundle id, side-by-side releases sharing one stay apart by `pid` or `instance` in `watch-apps` and by `application` name or `instance` in Atelier
-- `screenshot` and `zoom` serve click coordinates alone, `capture` serves reading
-- `left_click`, `double_click`, and `computer_batch` serve an alert in `unresponsive` `windows`, a control in a `capture` image, a press that left its state unchanged, and a populated window with an empty `detail`
-- `type` and `key` serve input that needs the app's change tracking, after a click on the field, input going to the frontmost granted app
-- `left_click_drag` and `scroll` serve a canvas or slider no element exposes
-- `open_application` serves raising one running granted app above another, `launch` and Atelier open every app
-- `switch_display` serves a target `request_access` lists on another display
-- `read_clipboard` serves a value only a copy exposes, and returns the owner's clipboard when the copy misses
+- `.mcp.json` runs `cua-driver mcp`, a proxy to `CuaDriver.app` it starts when absent, under that app's Accessibility and Screen Recording grants
+- `x` and `y` input reads the driver's own screenshot: a click presses the control at that pixel, and a text view of a background window keeps its caret
+- `cua-driver mcp --direct` runs under the terminal's grants and answers `screenshot_error` `direct_capture_consent_required`
+- `type_text` inserts at the selection through `AXSelectedText` and marks the document edited, `set` replacing a whole value outside change tracking
+- `hotkey` runs a menu key equivalent (`cmd+s`) through its menu item, since key events never reach a background app's menus
+- `drag` posts to one window by `window_id`, and a drag-and-drop session macOS tracks with the real pointer answers `background_unavailable`
+- OpenGL, Metal, Qt, and wx viewports (Blender's among them) drop background pointer and key events, host MCP tools and scripts drive them
+- `delivery_mode` `foreground` and `bring_to_front` take focus and the pointer, used only on a machine the owner's message hands over
+- `launch_app` and `kill_app` skip the instance rows hooks keep, `watch-apps launch` and `quit` own lifecycle
+- Hooks watch an app from the first `cua-driver` call naming its `pid`
+- Targets can read `active` true after `cua-driver` input while the frontmost app stays unchanged
+- `get_guide` returns the driver's own guidance by topic (`overview`, `drag`, `menus`, `batching`)
+- Products never depend on `cua-driver`
 
-- Every action hides each ungranted app, hosts of other agents and system dialogs included, and moves the real cursor
-- Hidden apps and the Esc key return when the lead's turn ends
-- Host terminals stay above every target and absent from every image, `would land on` naming one means moving the target by script
-- Coordinates come from the last `computer-use` image, `frame` values never feed a click
-- One agent acts at a time, and no script or other `computer-use` call shares its block
-- Products never depend on `computer-use`
-- Tools named `app_*`, where a session lists them, act without the screen and replace the display tools above
+## [06]-[RECORDING]
 
-## [06]-[CUA_REPL]
-
-When `cua_repl` supplies native control, use its returned API documentation. Keep one native-control actor at a time and prefer `watch-apps` actions for background controls.
-
-- Close temporary documents immediately after their checks, before another app receives input
-- Finish each native-control block with `completion_summary` and reset its REPL before returning keyboard control
-- Once every native-control actor has released its session, the lead runs `watch-apps quit com.openai.sky.CUAService`; a REPL reset alone does not release the helper's native input filters
-- A typing or input-routing fault pauses native CUA control; preserve process identities and diagnostics before recovery, keep its helper closed until the cause is resolved, and continue through direct app APIs or Accessibility
+`watch --record <folder>` records while it watches, with no activation, hooks starting `watch` without it:
+- Standard windows and asking rows each record to `<window>-<time>.mov` at up to 10 frames a second, a frame written when the window changes
+- Dialogs, hangs, and exits by signal save the 15 seconds before as one `<window>-<time>.mov` per recorded window, with a `.png` of each asking or hung window
+- `timeline.jsonl` takes one `{"at": <time>, "<source>": <value>}` entry per event as it arrives, and `jq -s 'sort_by(.at)'` orders them
+- Sources read `line` (a `watch` line), `log` (a unified log event of the instance), `host`, `movie`, `clip`, `frame`, and `fail`
+- `movie`, `clip`, and `frame` hold `file`, `pid`, and `window`, a `movie` entry's `at` its start, so an entry's offset in a movie is its `at` minus that start
+- `host` holds `file` and `text` of each line a host appends to `<folder>/host/<name>.log` while the watch runs
+- Use `use-blender` for Blender's operator calls in `host`
+- Use `use-rhino` for Rhino's command lines in `host`
+- `ffmpeg -ss <offset> -i <movie> -frames:v 1 <png>` writes one frame to read as an image, and `use-antigravity` watches a clip or movie
+- `--longest-side <pixels>` scales recorded frames, a full-motion window at native size writing megabytes a second
+- Recorded windows show the system's capture indicator in place of their traffic lights, a `Window` row holding it joining `windows`
+- Movies read once their window closes or the watch ends (Monitor stop, signal), and a `watch` ended by `SIGKILL` leaves them unreadable

@@ -1,6 +1,6 @@
 ---
 name: use-rhino
-description: "Use when driving a Rhino document, .3dm file, or Grasshopper 2 canvas, covering background MCP sessions"
+description: "Use when driving a Rhino document, .3dm file, or Grasshopper 2 canvas or debugging a plug-in in a running Rhino, covering background MCP sessions and attach routes"
 ---
 
 # [USE_RHINO]
@@ -58,3 +58,33 @@ Sessions open in order:
 - Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`
 - `run_csharp` runs C# 10, one call per application at a time on its main-thread queue, with `#r "<assembly>"` below line 1
+- `mcp__roslyn-codelens__inspect_external_assembly` lists RhinoCommon members by `assemblyName` (no path), `mode` `namespace`, and one `namespaceFilter`
+
+## [03]-[DEBUGGING]
+
+Rhino runs plug-ins on its bundled .NET under the hardened runtime, and each route takes the `pid` of a `watch-apps` line:
+
+| [INDEX] | [READS]                          | [ROUTE]                                                              |
+| :-----: | :------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | Plug-in state                    | `run_csharp` reading its statics and RhinoCommon members             |
+|  [02]   | Stack of each managed thread     | `dnx --yes dotnet-stack report -p <pid>`                             |
+|  [03]   | Stack and values at a breakpoint | `netcoredbg --interpreter=cli --attach <pid> --command=<file>`       |
+|  [04]   | Runtime events                   | `dnx --yes dotnet-trace collect -p <pid> -o <file>`                  |
+|  [05]   | Heap, GC, and thread counts      | `dnx --yes dotnet-counters collect -p <pid> --format json -o <file>` |
+|  [06]   | Commands run and lines printed   | Command log below                                                    |
+
+- `lldb -p <pid>` and `dotnet-dump collect` are refused (`task_for_pid`), since Rhino holds no `get-task-allow` entitlement
+- `netcoredbg` reads `interrupt`, `info threads`, `backtrace`, `break <file>:<line>`, `print <expression>`, `continue`, `detach`, and `quit`, one per line
+- `interrupt` stops every thread, so `continue` or `detach` precedes the next MCP call, and Rhino answers again after `detach`
+- Breakpoints in Rhino's own optimized assemblies stay pending
+- `--duration` bounds a `collect`, as `dd:hh:mm:ss` for `dotnet-trace` and `hh:mm:ss` for `dotnet-counters`
+- People debug in VS Code through the `coreclr` launch configuration `dotnet new rhino` writes
+
+One `run_csharp` call registers a command log until Rhino quits, each command appending its English name, its result, and the lines it wrote to the command window:
+
+```csharp
+Rhino.RhinoApp.CommandWindowCaptureEnabled = true;
+Rhino.Commands.Command.EndCommand += (sender, e) => System.IO.File.AppendAllLines("<folder>/host/rhino.log", Rhino.RhinoApp.CapturedCommandWindowStrings(true).Prepend($"{e.CommandEnglishName} {e.CommandResult}"));
+```
+
+`watch-apps watch --record <folder>` adds each appended line to `timeline.jsonl` as a `host` entry.

@@ -34,22 +34,29 @@
 - ALWAYS use `xcode` MCP for any Apple platform fact or Xcode build, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for any fact about Claude Code or Codex, their configuration included
 - ALWAYS use `use-rhino` skill for any work against a live Rhino document, `.3dm` file, or Grasshopper 2 canvas
+- ALWAYS use `use-rhino` skill to debug a plug-in in a running Rhino, which refuses `lldb`
 - ALWAYS use `use-blender` skill for any work against a live Blender or a `bpy` member of the installed build
 
 [CLI_TOOLING]:
 
-| [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                  |
-| :-----: | :---------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `outline`   | `ast-grep outline <paths> --view expanded` lists signatures and members, `--items exports` the public API   |
-|  [02]   | `tree`      | `tree <dir>` lists directories and files, `-D` only directories                                             |
-|  [03]   | `loc`       | `loc <dir>` counts code lines with complexity score per file and folder                                     |
-|  [04]   | `fd`        | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it          |
-|  [05]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                 |
-|  [06]   | `jq`/`yq`   | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays   |
-|  [07]   | `sd`        | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-` |
-|  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
-|  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-S default` adds a shell         |
-|  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |
+| [INDEX] | [TOOL]       | [GUIDANCE]                                                                                                                |
+| :-----: | :----------- | :------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `outline`    | `ast-grep outline <paths> --view expanded` lists signatures and members, `--items exports` the public API                 |
+|  [02]   | `tree`       | `tree --gitignore <dir>` lists unignored directories and files, `-d` only directories, `-a` dot entries                   |
+|  [03]   | `loc`        | `loc <dir>` counts code lines with complexity score per file and folder                                                   |
+|  [04]   | `fd`         | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it                        |
+|  [05]   | `rg`         | `rg <pattern> <paths>` for literals, comments, and prose, code structure goes to `ast-grep`                               |
+|  [06]   | `jq`/`yq`    | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
+|  [07]   | `sd`         | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-`               |
+|  [08]   | `difft`      | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change                         |
+|  [09]   | `hyperfine`  | `hyperfine -r <runs> '<command>'` times runs, `-S default` adds a shell, `--metrics time_wall_clock,instructions` counts  |
+|  [10]   | `duckdb`     | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output                             |
+|  [11]   | `xh`         | `xh <url>` prints body, exits 4 or 5 on 4xx or 5xx, `Name:value` header, `k==v` query, `k=v` JSON by POST                 |
+|  [12]   | `playwright` | `playwright cli open <url>`, `snapshot`, `click <ref>`, `close`, outside root `mise -C <root> exec --` first              |
+|  [13]   | `attach`     | `playwright cli -s=<name> attach --extension=chrome` binds a session to the owner's signed-in Chrome, `tab-close` ends it |
+|  [14]   | `gh`         | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result, hooks refuse a `gh run view` loop   |
+|  [15]   | `rtk`        | `rtk recall <hash>` prints lines a hook-compressed `nx` run cut, `rtk bypass nx <args>` runs one uncompressed             |
+|  [16]   | `mq`         | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions            |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

@@ -14,6 +14,7 @@ Choose retrieval by source location and required evidence.
 - Composition: use another index for missing evidence
 - Output: pass `--json` for structured responses, kept outputs are placed in `.artifacts/search/`
 - Failure: `failed_results` records extraction failures, not page absence
+- Limit: `env -u TAVILY_API_KEY tvly search` and `extract` run keyless for a key over its limit, until `daily_cap_reached`
 - Syntax: read complete source passages when code, table cells, or surrounding qualifications decide a claim
 
 | [INDEX] | [TASK]                               | [OPERATION]                                                |
@@ -28,6 +29,8 @@ Choose retrieval by source location and required evidence.
 |  [08]   | Site content selected by topic       | `tvly crawl --instructions`                                |
 |  [09]   | Cited research synthesis             | `tvly research` or `mcp__exa__agent_run`                   |
 |  [10]   | Row enrichment or continued research | `mcp__exa__agent_run` with `input.data` or `previousRunId` |
+|  [11]   | Page refusing Exa and Tavily fetches | `curl_chrome146 -fsSL '<url>' \| defuddle parse - -m -f`   |
+|  [12]   | Page gone from its URL               | `trafilatura -u '<url>' --archived --markdown`             |
 
 Exa tool schemas load through one `ToolSearch` select before the first Exa call.
 
@@ -42,22 +45,24 @@ Queries name the question, source type, and constraints that distinguish relevan
 
 Use domain paths for documentation sections and publication filters for dated sources. Release dates come from source text, search metadata holds a page's publication date.
 
+Depth follows what decides the answer: `advanced` (2 credits) returns passages from inside long pages, `basic` (1 credit) finds which pages exist and takes no `--chunks-per-source`.
+
 ```bash
-# Passages for a focused question
+# Passage inside a long page decides the answer: advanced
 tvly search '<question>' --depth advanced --chunks-per-source 3 --max-results 5 --json
 
-# Documentation section with version hosts excluded
+# Passage inside a documentation section, version hosts excluded: advanced
 tvly search '<question>' --include-domains '<domain/path>' --exclude-domains '<version-host>' \
     --depth advanced --chunks-per-source 3 --max-results 5 --json
 
-# Dated coverage with publication metadata
+# Which dated pages exist, with publication metadata: basic
 tvly search '<topic>' --topic news --include-domains '<domain/path>' \
     --start-date '<YYYY-MM-DD>' --end-date '<YYYY-MM-DD>' \
-    --depth advanced --chunks-per-source 3 --max-results 5 --json
+    --depth basic --max-results 5 --json
 
-# Full text from every result
+# Full text from every result, raw content arriving whole at either depth: basic
 tvly search '<question>' --include-domains '<domain/path>' \
-    --depth advanced --include-raw-content markdown --max-results 3 --json
+    --depth basic --include-raw-content markdown --max-results 3 --json
 ```
 
 `highlightsMaxCharacters` limits excerpts per result. `textMaxCharacters: 1` limits accompanying page text. For changed page content, `maxAgeHours: 0` requests a fresh fetch.
@@ -150,11 +155,11 @@ Read {"file_path": ".artifacts/search/<name>.pdf", "pages": "<page>-<page>"}
 
 Use research when discovery and synthesis require repeated searches. Read selected sources directly when pages answer the question. Scope names known facts, source constraints, dates, and required output.
 
-Use Tavily `mini` for focused research and `pro` for broad synthesis. Schema `properties` entries require `type` and `description`. Optional `required` selects mandatory fields. Reports return `content` and `sources`.
+Tavily research passes `--model pro`. Schema `properties` entries require `type` and `description`. Optional `required` selects mandatory fields. Reports return `content` and `sources`.
 
 ```bash
 # Detached report while reading independent sources
-tvly research run '<scope>' --model mini --no-wait --json
+tvly research run '<scope>' --model pro --no-wait --json
 
 # Schema for findings with supporting URLs
 cat > '.artifacts/search/<schema>.json' <<'JSON'
@@ -177,7 +182,7 @@ cat > '.artifacts/search/<schema>.json' <<'JSON'
 JSON
 
 # Structured report with claim and source fields defined in the schema
-tvly research run '<scope>' --model mini --output-schema '.artifacts/search/<schema>.json' --no-wait --json
+tvly research run '<scope>' --model pro --output-schema '.artifacts/search/<schema>.json' --no-wait --json
 
 # Collect by request_id after independent reading
 tvly research status '<request_id>' --json

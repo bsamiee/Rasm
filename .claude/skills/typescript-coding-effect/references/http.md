@@ -112,6 +112,7 @@ class Ledger extends Context.Service<Ledger>()('@app/ledger', {
 - Optional `:name?` segments typed `Schema.OptionFromOptionalKey(S)` drop out of a URL on `Option.none()`
 - `HttpApiTest.groups(Api, ['g'])` runs a typed client in memory over real encoding, routing, and decoding
 - `NodeHttpServer.layerTest` serves on an ephemeral port with a prefixed `HttpClient`
+- `Layer.succeed(FetchHttpClient.Fetch, replay)` under `FetchHttpClient.layer` answers requests from a recorded `fetch`, with no server
 - `HttpClient.mapRequest(flow(HttpClientRequest.prependUrl(base), HttpClientRequest.acceptJson))` sets a base once on a plain client
 - `Url.setUrlParams(url, UrlParams.fromInput(params))` sets an absolute URL's query, `` `${path}?${UrlParams.toString(record)}` `` a relative href's
 - `HttpIncomingMessage.schemaBodyJson(S)` decodes bodies, and `HttpClientResponse.matchStatus({ 200: ..., '4xx': ..., orElse })` folds by status

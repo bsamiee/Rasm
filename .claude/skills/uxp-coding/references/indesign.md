@@ -11,6 +11,7 @@ InDesign holds its running object model as ExtendScript's `$.dictionary`, read t
 - `varies=any` rows state accepted types in English descriptions alone
 - "(Optional)" marks a parameter optional with no default, and reserved-word parameters are `in`, `with`, and `from`
 - `Object.getOwnPropertyDescriptors(indesign.<Class>.prototype)` lists the members the installed build exposes, getters as fields
+- `app.menuActions.everyItem().getElements()` lists every menu action with `name`, `area`, `id`, `enabled`, and `checked`
 - Prototypes hold `constructorName`, `equals`, `toSource`, `toSpecifier`, and `toString` beside object model members
 - Aggregate `.properties` invokes nested getters before a failure can be isolated, and readers read each getter with its metadata
 - Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner

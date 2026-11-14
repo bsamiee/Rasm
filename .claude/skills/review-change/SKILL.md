@@ -34,7 +34,7 @@ Verdicts rest on the file whole, each consumer, and the checks at base, one draf
 |  [09]   | Sources        | `search-code` at the installed release, generated files found by `fd <name> .cache/<tool>` before a read               |
 |  [10]   | Entry points   | Each entry point `refactor-code` reading lists, run once on repository input at base and new                           |
 |  [11]   | Input          | Repository files per entry point covering each site a hunk changes, run at base and new                                |
-|  [12]   | Timing         | `hyperfine -r <runs> '<command>'` on the real command or binary at base and after, the build profile stated            |
+|  [12]   | Timing         | `hyperfine -r <runs> --metrics time_wall_clock,instructions '<command>'` at base and after, build profile stated       |
 |  [13]   | Logs           | Each pass's tool-call log in order with its instruction verbatim, for a `Pass` scope                                   |
 
 Reading conduct:

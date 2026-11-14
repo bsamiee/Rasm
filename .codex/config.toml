@@ -61,9 +61,9 @@ url                         = "https://api.githubcopilot.com/mcp/"
 bearer_token_env_var        = "GH_PROJECTS_TOKEN"
 
 [mcp_servers.github.http_headers]
-X-MCP-Toolsets      = "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search"
+X-MCP-Toolsets      = "context,repos,issues,pull_requests,actions,git,dependabot,code_security,projects,labels,users,github_support_docs_search"
 X-MCP-Exclude-Tools = "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file"
-X-MCP-Features      = "file_blame,issue_dependencies"
+X-MCP-Features      = "file_blame,issue_dependencies,csv_output,mcp_apps_disable_form_deferral,duplicate_detection"
 
 [mcp_servers.exa]
 default_tools_approval_mode = "approve"
@@ -72,8 +72,9 @@ env_http_headers            = { x-api-key = "EXA_API_KEY" }
 
 [mcp_servers.context7]
 default_tools_approval_mode = "approve"
-url                         = "https://mcp.context7.com/mcp"
+url                         = "https://mcp.context7.com/mcp?research_preview=1"
 bearer_token_env_var        = "CONTEXT7_API_KEY"
+disabled_tools              = ["submit-docs-feedback"]
 
 [mcp_servers.deepwiki]
 default_tools_approval_mode  = "approve"
@@ -112,6 +113,17 @@ command                     = "xcrun"
 args                        = ["lldb-mcp"]
 startup_timeout_sec         = 20
 tool_timeout_sec            = 120
+
+[mcp_servers.cua-driver]
+default_tools_approval_mode = "approve"
+command                     = "cua-driver"
+args                        = ["mcp"]
+
+[mcp_servers.cua-driver.env]
+DO_NOT_TRACK = "1"
+
+[mcp_servers.node_repl]
+command = "/Applications/ChatGPT.app/Contents/Resources/cua_node/bin/node_repl"
 
 [mcp_servers.node_repl.env]
 NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"", "node_repl"]'

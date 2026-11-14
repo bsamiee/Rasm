@@ -15,6 +15,7 @@ Dependency declarations come from installed files, usage from Context7, DeepWiki
 - Index: `mcp__github__search_code` reads default branches in files under 384 KB, `mcp__github__get_repository_tree` finds a path at a tag
 - Quota: clients on one GitHub account share 10 `mcp__github__search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
 - Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips `mcp__context7__resolve-library-id`
+- Preview: server URL `research_preview=1` adds Context7 `query-code` and `get-upgrade-guide`, disabled `submit-docs-feedback` takes no call or search
 
 ## [01]-[DECLARATION]
 
@@ -132,6 +133,12 @@ Java members and signatures of classes from jars on a classpath, more than one c
 javap -cp '<jar>:<jar>' <package.Class> <package.Class>
 ```
 
+CLI flags of each subcommand of one name from the tool's carapace completer as JSON (`Longhand`, `Shorthand`, `Usage`), `Short` telling same-named subcommands apart and a tool without a completer printing nothing:
+
+```bash
+carapace <tool> export | jq -c '.. | objects | select(.Name? == "<subcommand>") | {Short, LocalFlags}'
+```
+
 ## [02]-[USAGE]
 
 How a member composes, from the repository's code examples, source, wiki, and README and from public code, one concept per query naming its symbol.
@@ -141,13 +148,19 @@ Context7 reads:
 - Code examples and source with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
 - Snapshot from the Versions list, `__branch__<name>` snapshots an older major
 - Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
+- Declaration of one symbol in repository source at the commit its docs describe, `/websites/` and `/llmstxt/` IDs hold no source
+- Source lines matching a regex at a git tag, `output_mode` `files_with_matches` names files alone, an unindexed tag answers with a wait
+- Callers of a symbol, symbols of one file, a file's lines, and repository paths through `references`, `outline`, `read`, and `list`
 
 ```text
-ToolSearch {"query": "select:mcp__context7__resolve-library-id,mcp__context7__query-docs", "max_results": 2}
+ToolSearch {"query": "select:mcp__context7__resolve-library-id,mcp__context7__query-docs,mcp__context7__query-code", "max_results": 3}
 mcp__context7__resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>", "query": "<one concept naming the symbol>"}
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<one concept>"}
 mcp__context7__query-docs {"libraryId": "/websites/<site>", "query": "<one concept>"}
+mcp__context7__query-code {"libraryId": "/<owner>/<repo>", "operation": "definition", "pattern": "<Symbol>"}
+mcp__context7__query-code {"libraryId": "/<owner>/<repo>", "version": "<tag>", "pattern": "<regex>", "glob": "<glob>", "context": 3}
+mcp__context7__query-code {"libraryId": "/<owner>/<repo>", "operation": "read", "pattern": "<path>#L<n>-L<n>"}
 ```
 
 DeepWiki reads:
@@ -244,7 +257,17 @@ mcp__github__search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>"
 
 ## [04]-[RELEASE]
 
-Newest version and its date come from the registry, notes from each tag's release, and advisories name patched versions.
+Newest version and its date come from the registry, notes from each tag's release, changes across versions from a Context7 guide, and advisories name patched versions.
+
+Context7 breaking changes, deprecations, codemods, and public API diff across a version range, a library without a guide answers `not prepared yet`:
+1. Page 1 with its header naming each page a migration needs, `fromVersion` exact, a major alone reads as its newest release
+2. Later pages by `page`, behavior, configuration, and remaining API changes after the migration pages
+
+```text
+ToolSearch {"query": "select:mcp__context7__get-upgrade-guide", "max_results": 1}
+mcp__context7__get-upgrade-guide {"libraryId": "/<owner>/<repo>", "fromVersion": "<installed version>", "toVersion": "<target version>"}
+mcp__context7__get-upgrade-guide {"libraryId": "/<owner>/<repo>", "fromVersion": "<installed version>", "toVersion": "<target version>", "page": 2}
+```
 
 .NET newest NuGet version with its publish date:
 
