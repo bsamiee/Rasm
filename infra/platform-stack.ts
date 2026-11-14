@@ -9,7 +9,7 @@ import { RandomPassword } from '@pulumi/random';
 import { Secret } from '@pulumiverse/doppler';
 import { Access } from '@rasm/hosting';
 import { Sites } from '@rasm/hosting/openai-sites';
-import { Array, ByteSize, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
+import { Array, Data, Duration, Effect, Function, Option, Record, Schema, Struct } from 'effect';
 import type { configs } from '#/repository-stack';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -18,8 +18,6 @@ type Role = Data.TaggedEnum<{
     Cache: { readonly name: string; readonly kept: Duration.Duration };
     Runner: { readonly packages: readonly string[]; readonly instances: Readonly<Record<string, Readonly<Record<string, string>>>> };
     Apps: { readonly owner: string };
-    Notify: { readonly name: string; readonly memory: ByteSize.ByteSize };
-    Watch: { readonly memory: ByteSize.ByteSize };
 }>;
 interface Row {
     readonly address: string;
@@ -37,24 +35,16 @@ const hosts = {
     'lucky.parametric-arsenal.cloud': {
         address: '31.97.131.41',
         tags: ['tag:server'],
-        roles: [
-            { _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1) },
-            { _tag: 'Notify', name: 'ntfy', memory: ByteSize.fromInputUnsafe('256 MiB') },
-            { _tag: 'Watch', memory: ByteSize.fromInputUnsafe('256 MiB') },
-        ],
+        roles: [{ _tag: 'Cache', name: 'nx-cache', kept: Duration.weeks(1) }],
     },
     'derby.parametric-arsenal.cloud': {
         address: '45.90.223.193',
         tags: ['tag:server'],
-        roles: [
-            { _tag: 'Runner', packages: ['build-essential', 'libsqlite3-dev', 'pkg-config', 'sqlite3', 'unzip', 'zip'], instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {} } },
-            { _tag: 'Watch', memory: ByteSize.fromInputUnsafe('256 MiB') },
-        ],
+        roles: [{ _tag: 'Runner', packages: ['build-essential', 'libsqlite3-dev', 'pkg-config', 'sqlite3', 'unzip', 'zip'], instances: { host: { MemoryHigh: '18G', MemoryMax: '20G' }, container: {} } }],
     },
 } as const satisfies Record.ReadonlyRecord<string, Row>;
 const tailnet = 'tailscale0';
-const gated = { storage: { internal: 9000, external: 7412, health: '/health/ready' }, gatus: { internal: 8080, external: 8080, health: '/health' } } as const;
-const routed = { Cache: { port: 3000, health: '/health' }, Notify: { port: 80, health: '/v1/health' } } as const;
+const routed = { Cache: { port: 3000, health: '/health' } } as const;
 const files = {
     '/etc/docker/daemon.json': { content: `${JSON.stringify({ 'live-restore': true, 'log-driver': 'local' })}\n`, applied: ['systemctl restart docker'] },
     '/etc/systemd/zram-generator.conf': {
@@ -69,18 +59,6 @@ const files = {
 const entrypoints = { web: 80, websecure: 443 } as const;
 const firewall = [`ufw allow in on ${tailnet}`, 'ufw default deny incoming', 'ufw default allow outgoing', 'ufw --force enable'] as const;
 const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as const;
-const accounts = {
-    owner: { role: 'admin', topics: {} },
-    phone: { role: 'user', topics: { 'agent-*': 'ro', infra: 'ro', reply: 'wo', ops: 'wo' } },
-    gatus: { role: 'user', topics: { infra: 'wo' } },
-    button: { role: 'user', topics: { reply: 'wo', ops: 'wo', sessions: 'ro', inbox: 'wo' } },
-    responder: { role: 'user', topics: { infra: 'rw', ops: 'ro' } },
-} as const;
-const jobs: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, Option.Option<Duration.Duration>>> = {
-    jobs: { maintenance: Option.some(Duration.fromInputUnsafe('170 hours')), deploy: Option.none() },
-    'mac-jobs': { 'mac-maintenance': Option.some(Duration.fromInputUnsafe('170 hours')), redeploy: Option.none() },
-    renders: { darkroom: Option.none(), blender: Option.none() },
-};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -213,7 +191,7 @@ const proxied = Function.memoize((machine: Machine) => {
 });
 
 const stored = (machine: Machine) => {
-    const ports = gated.storage;
+    const ports = { internal: 9000, external: 7412, health: '/health/ready' } as const;
     const { user, key } = Record.map({ user: 'storage-access', key: 'storage-secret' }, (name) => new RandomPassword(`${machine.name}-${name}`, { length: 32, special: false }).result);
     const published = Option.match(machine.remote, { onNone: () => ({ ip: '127.0.0.1', address: '127.0.0.1' }), onSome: () => ({ ip: '0.0.0.0', address: machine.name }) });
     const serving = machine.contained('storage', ['CMD', 'curl', '--fail', '--silent', `http://127.0.0.1:${ports.internal}${ports.health}`], {
@@ -306,105 +284,6 @@ const hosted = (machine: Machine, { owner }: Data.TaggedEnum.Args<Role, 'Apps'>)
     return { network: output(machine.network), owner: { name: 'owner', password: password.result }, storage: stored(machine) };
 };
 
-const credentialed = Function.memoize((machine: Machine) =>
-    Record.map(accounts, (_, user) => ({
-        password: new RandomPassword(`${machine.name}-${user}-password`, { length: 32, special: false }),
-        token: new RandomPassword(`${machine.name}-${user}-token`, { length: 29, special: false, upper: false }).result.apply((drawn) => `tk_${drawn}`),
-    })),
-);
-
-const notified = (machine: Machine, { name, memory }: Data.TaggedEnum.Value<Role, 'Notify'>) => {
-    const { port, health } = routed.Notify;
-    const [proxy, credentials, folder] = [proxied(machine), credentialed(machine), '/var/lib/ntfy'];
-    const { address, named, labels } = machine.routed(name, port);
-    const configuration = {
-        'base-url': `https://${address}`,
-        'behind-proxy': true,
-        'upstream-base-url': 'https://ntfy.sh',
-        'cache-file': `${folder}/cache.db`,
-        'cache-duration': '24h',
-        'attachment-cache-dir': `${folder}/attachments`,
-        'attachment-file-size-limit': '50M',
-        'attachment-expiry-duration': '24h',
-        'visitor-attachment-total-size-limit': '1G',
-        'auth-file': `${folder}/user.db`,
-        'auth-default-access': 'deny-all',
-        'auth-users': Record.collect(accounts, (user, { role }) => interpolate`${user}:${credentials[user].password.bcryptHash}:${role}`),
-        'auth-access': Record.collect(accounts, (user, { topics }) => Record.collect<string, string, string>(topics, (topic, access) => [user, topic, access].join(':'))).flat(),
-        'auth-tokens': Record.collect(credentials, (user, { token }) => interpolate`${user}:${token}`),
-        'enable-login': true,
-        'require-login': true,
-    };
-    const serving = machine.contained(
-        name,
-        ['CMD', 'wget', '--quiet', '--spider', `http://127.0.0.1:${port}${health}`],
-        {
-            image: machine.pulled('binwiederhier/ntfy:v2.38.0'),
-            command: ['serve'],
-            memory: ByteSize.toUnit(memory, 'MiB'),
-            memorySwap: ByteSize.toUnit(memory, 'MiB'),
-            uploads: [{ file: '/etc/ntfy/server.yml', content: jsonStringify(configuration) }],
-            mounts: [{ type: 'volume', source: machine.kept(name), target: folder }],
-            labels,
-        },
-        { dependsOn: [proxy, ...named] },
-    );
-    return { notify: { url: serving.id.apply(() => `https://${address}`), accounts: Record.map(credentials, ({ password, token }) => ({ password: password.result, token })) } };
-};
-
-const watched = (machine: Machine, host: keyof typeof hosts, { memory }: Data.TaggedEnum.Value<Role, 'Watch'>, project: string) => {
-    const [{ internal, external, health }, service, apt] = [gated.gatus, 'gatus', { group: 'jobs', name: 'apt', every: Option.some(Duration.fromInputUnsafe('26 hours')) }];
-    const push = new RandomPassword(`${machine.name}-heartbeat`, { length: 48, special: false }).result;
-    const notifier = Array.findFirst<Role, Data.TaggedEnum.Value<Role, 'Notify'>>(hosts[host].roles, Role.$is('Notify'));
-    const alerting = Option.match(notifier, {
-        onNone: () => ({ topic: new RandomPassword(`${machine.name}-fallback`, { length: 32, special: false, upper: false }).result, priority: 5 }),
-        onSome: ({ name }) => ({ topic: output('infra' satisfies keyof typeof accounts.gatus.topics), priority: 4, url: `http://${name}:${routed.Notify.port}`, token: credentialed(machine).gatus.token }),
-    });
-    const [answered, probed, reported] = [['[STATUS] == 200'], [{ type: 'ntfy' }], [{ type: 'ntfy', 'failure-threshold': 1, 'success-threshold': 1 }]];
-    const endpoints = Record.collect(hosts, (named, { roles }: Row) => {
-        const [group = named, ...labels] = named.split('.');
-        const within = (name: string, served: { readonly port: number; readonly health: string }) => ({ group, name, url: `http://${name}:${served.port}${served.health}`, conditions: answered, alerts: probed });
-        const storage = within('storage', { port: gated.storage.internal, health: gated.storage.health });
-        const reached = (name: string, path: string) => ({ group, name, url: `https://${name}.${labels.join('.')}${path}`, conditions: [...answered, '[CERTIFICATE_EXPIRATION] > 240h'], alerts: probed });
-        return roles.flatMap(
-            Role.$match({
-                Cache: ({ name }) => (named === host ? [within(name, routed.Cache), storage] : [reached(name, routed.Cache.health)]),
-                Apps: () => (named === host ? [storage] : []),
-                Notify: ({ name }) => [named === host ? within(name, routed.Notify) : reached(name, routed.Notify.health)],
-                Watch: () => (named === host ? [] : [{ group, name: service, url: `http://${group}:${external}${health}`, client: { 'dns-resolver': 'udp://100.100.100.100:53' }, conditions: answered, alerts: probed }]),
-                Runner: () => [],
-            }),
-        );
-    }).flat();
-    const pushed = [apt, ...(Option.isSome(notifier) ? Record.collect(jobs, (group, rows) => Record.collect(rows, (name, every) => ({ group, name, every }))).flat() : [])];
-    const configuration = {
-        storage: { type: 'sqlite', path: '/data/data.db' },
-        alerting: { ntfy: { ...alerting, 'default-alert': { 'send-on-resolved': true } } },
-        endpoints,
-        'external-endpoints': pushed.map(({ every, ...row }) => ({ ...row, token: push, alerts: reported, ...Record.getSomes({ heartbeat: Option.map(every, (interval) => ({ interval: `${Duration.toHours(interval)}h` })) }) })),
-    };
-    const serving = machine.contained(service, ['CMD', '/busybox/wget', '--quiet', '--spider', `http://127.0.0.1:${internal}${health}`], {
-        image: machine.imaged(service, 'FROM ghcr.io/twin/gatus:v5.38.0 AS gatus\nFROM gcr.io/distroless/static-debian13:debug\nCOPY --from=gatus /gatus /gatus\nENTRYPOINT ["/gatus"]\n'),
-        memory: ByteSize.toUnit(memory, 'MiB'),
-        memorySwap: ByteSize.toUnit(memory, 'MiB'),
-        uploads: [{ file: '/config/config.yaml', content: jsonStringify(configuration) }],
-        mounts: [{ type: 'volume', source: machine.kept(service), target: '/data' }],
-        ports: [{ internal, external }],
-    });
-    Machine.written(
-        machine.name,
-        '/etc/systemd/system/apt-daily-upgrade.service.d/90-heartbeat.conf',
-        {
-            content: interpolate`[Service]\nExecStopPost=-/bin/sh -c 'curl --fail --silent --show-error --max-time 10 --request POST --header "Authorization: Bearer ${push}" "http://127.0.0.1:${external}/api/v1/endpoints/${apt.group}_${apt.name}/external?success=$$([ "$$SERVICE_RESULT" = success ] && echo true || echo false)&error=$$SERVICE_RESULT"'\n`,
-            applied: ['systemctl daemon-reload'],
-        },
-        { dependsOn: serving },
-    );
-    const url = serving.id.apply(() => `http://${machine.name}:${external}`);
-    const senders = Option.map(notifier, () => Record.map({ GATUS_HEARTBEAT_SERVER: url, GATUS_HEARTBEAT_TOKEN: push }, (value, row) => new Secret(`${machine.name}-${row}`, { project, config: 'ci' satisfies (typeof configs)[number], name: row, value }).name));
-    return { watch: { url, heartbeat: push, topic: alerting.topic }, ...Option.getOrElse(senders, () => ({})) };
-};
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none()), local));
@@ -420,8 +299,6 @@ const provisioned = (host: keyof typeof hosts, { owner, repository, project, eng
             Role.$match({
                 Cache: (settings): Readonly<Record<string, unknown>> => cached(machine, settings, project),
                 Apps: (settings) => hosted(machine, settings),
-                Notify: (settings) => notified(machine, settings),
-                Watch: (settings) => watched(machine, host, settings, project),
                 Runner: ({ packages, instances }) => {
                     const runner = { version: '2.338.2', sha256: 'baebf204307bac6193480852732f0aba2ae97b6c5597c244f4d5558390147c40', user: 'runner', uid: 1000 } as const;
                     const token = secret(getActionsRegistrationTokenOutput({ repository }).token);

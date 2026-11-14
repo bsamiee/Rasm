@@ -101,7 +101,7 @@ const repositoryStack = Effect.fnUntraced(function* (root: string, { repository:
             secret: new ActionsEnvironmentSecret(`${name}-deploy-tailscale`, { repository, environment: environments.deploy, secretName: 'TAILSCALE_OAUTH_SECRET', value: joining.key }).secretName,
             ...Record.map({ TAILSCALE_CLIENT_ID: joining.id, TAILSCALE_MACHINES: machines.join(',') }, (value, variableName) => new ActionsEnvironmentVariable(`${name}-deploy-${variableName}`, { repository, environment: environments.deploy, variableName, value }).value),
         },
-        updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true, httpsEnabled: true }).devicesAutoUpdatesOn,
+        updates: new TailnetSettings('tailnet', { devicesAutoUpdatesOn: true }).devicesAutoUpdatesOn,
         workstation: new DeviceKey('macbook', { deviceId: getDeviceOutput({ hostname: 'macbook' }).nodeId, keyExpiryDisabled: true }).keyExpiryDisabled,
         magicDns: new DnsPreferences('tailnet', { magicDns: true }).magicDns,
         assets: new Repository(`${name}-Assets`, { name: `${name}-Assets`, description: `Binary assets ${name} holds as a private submodule`, visibility: 'private', allowMergeCommit: false, deleteBranchOnMerge: true }, { protect: true }).fullName,
