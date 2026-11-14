@@ -31,6 +31,7 @@ Places holding state, each updated by one action:
 - Machine and app stacks dial a Docker engine by tailnet name, so they apply only from a computer on the tailnet
 - Job `deploy` runs on a GitHub-hosted runner that joins the tailnet as `tag:deploy` through `tailscale/github-action`
 - Stack `rasm` writes that tag's OAuth client and the machine names to GitHub environment `deploy`, and its tailnet policy grants the tag SSH
+- Tailnet settings mark that policy externally managed with a link to its stack file, so the admin console warns before an edit Deploy reverts
 
 ## [03]-[MACHINES]
 
