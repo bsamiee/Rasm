@@ -140,7 +140,12 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             }),
             ...Record.fromIterableWith(Array.fromNullishOr(archive), (): [string, TargetConfiguration] => [
                 'attach--gh',
-                { executor: `${PLUGIN}:attach`, dependsOn: [packer], metadata: { technologies: [technology], description: `Uploads the files ${packer} wrote to the GitHub release of the version the project's manifest states through gh release upload` } },
+                {
+                    executor: `${PLUGIN}:attach`,
+                    dependsOn: [packer],
+                    inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }],
+                    metadata: { technologies: [technology], description: `Uploads the files ${packer} wrote to the GitHub release of the version the project's manifest states through gh release upload` },
+                },
             ]),
         };
         const released = Option.filter(Option.fromUndefinedOr(write), () => item.fields.version !== undefined);

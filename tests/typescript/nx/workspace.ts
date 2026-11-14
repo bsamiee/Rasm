@@ -1,9 +1,10 @@
-import { delimiter } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { type ProjectGraph, type TargetConfiguration, workspaceRoot } from '@nx/devkit';
 import { Completed } from '@rasm/process';
 import { inherited } from '@rasm/testing/nx';
 import { Array, Effect, FileSystem, Formatter, Option, Path, Record, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
+import { createTaskId } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
 import { Reading } from '#/reading';
 
@@ -44,9 +45,16 @@ const called = Effect.fn('called')(function* (data: string, command: string, arg
 
 const nx = (args: readonly string[], set: Record.ReadonlyRecord<string, string> = {}) => called(inject('readings').data, 'nx', args, set);
 
-const read = Effect.fnUntraced(function* (taken: 'fresh' | 'again' | 'cached') {
+const taken = (data: string, set: Record.ReadonlyRecord<string, string> = {}) => called(data, 'node', [join(import.meta.dirname, 'reading.ts')], set);
+
+const tracked = Effect.fnUntraced(function* (...patterns: readonly string[]) {
+    const { checked } = yield* called(inject('readings').data, 'git', ['ls-files', '-z', '--', ...patterns]);
+    return (yield* checked).split('\0').filter((file) => file !== '');
+});
+
+const read = Effect.fnUntraced(function* (named: 'fresh' | 'again' | 'cached') {
     const fs = yield* FileSystem.FileSystem;
-    const reading: Workspace = yield* Effect.flatMap(fs.readFileString(inject('readings')[taken]), Schema.decodeEffect(Reading));
+    const reading: Workspace = yield* Effect.flatMap(fs.readFileString(inject('readings')[named]), Schema.decodeEffect(Reading));
     return reading;
 });
 
@@ -56,7 +64,7 @@ const declared = ({ nodes, sourceMaps }: Pick<Workspace, 'nodes' | 'sourceMaps'>
             project: node.name,
             root: node.data.root,
             name,
-            task: `${node.name}:${name}`,
+            task: createTaskId(node.name, name, target.defaultConfiguration),
             plugin: Option.map(Option.fromNullishOr(sourceMaps[node.data.root]?.[`targets.${name}`]), ([, plugin]) => plugin),
             target,
         })),
@@ -86,4 +94,4 @@ const refusals = <A>(items: readonly A[], named: (item: A) => string, attempted:
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { called, declared, dependents, nx, read, refusals, verbs, type Workspace };
+export { called, declared, dependents, nx, read, refusals, taken, tracked, verbs, type Workspace };

@@ -74,7 +74,7 @@ const optioned = (entry: Entry, projects: Record<string, ProjectConfiguration>) 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('sync and schemas', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'finds every file a sync generator writes up to date',
         Effect.fnUntraced(function* () {

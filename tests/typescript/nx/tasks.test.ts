@@ -27,6 +27,7 @@ const SOURCES = {
     drained: 'nrwl/nx packages/nx/src/tasks-runner/tasks-schedule.spec.ts: should run out of tasks when they are all complete',
     packaged: 'README.md TASKS: Attach and publish targets depend on the targets that package their files (`pack--dotnet` for NuGet)',
     previewed: 'README.md TASKS: `preview` builds a project, then serves its build output as `serve` does',
+    kept: "README.md TASKS: `clean` removes the outputs a project's targets declare; nrwl/nx astro-docs/src/content/docs/features/cache-task-results.mdoc: On a cache hit, Nx restores the cached output files, and a task it depends on that is not cached runs on every run, so a clean task among them deletes outputs before every replay",
 } as const;
 const CHECKED = ['check', 'test', 'build'] as const;
 
@@ -56,6 +57,11 @@ const reached = ({ dependencies, continuousDependencies }: Pick<TaskGraph, 'depe
 const lacking = (tasks: TaskGraph, first: (task: Task) => boolean, needed: (task: Task, id: string) => boolean) =>
     Object.values(tasks.tasks)
         .filter((task) => first(task) && ![...reached(tasks, task.id)].some((id) => needed(task, id)))
+        .map(({ id }) => id);
+
+const cleaning = (tasks: TaskGraph) =>
+    Object.values(tasks.tasks)
+        .filter((task) => task.cache === true && [...reached(tasks, task.id)].some((id) => tasks.tasks[id]?.target.target.split('--')[0] === 'clean'))
         .map(({ id }) => id);
 
 const unsignalled = (workspace: Workspace, { tasks, continuousDependencies }: TaskGraph) => {
@@ -109,7 +115,7 @@ const preferring = (workspace: Workspace, tasks: readonly Task[]) => {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('task graph', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'plans check, test, and build over every project without a cycle',
         Effect.fnUntraced(function* () {
@@ -203,6 +209,13 @@ it.layer(layer, { excludeTestServices: true })('task graph', (suite) => {
                 [],
                 SOURCES.packaged,
             );
+        }),
+    );
+
+    suite.effect(
+        'gives no cached task a clean task among the tasks it depends on',
+        Effect.fnUntraced(function* () {
+            assert.deepStrictEqual(cleaning(every(yield* read('fresh'))), [], SOURCES.kept);
         }),
     );
 

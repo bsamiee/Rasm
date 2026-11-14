@@ -1,25 +1,36 @@
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { createProjectFileMapUsingProjectGraph, workspaceRoot } from '@nx/devkit';
-import { Array, Effect, Option, Order, Schema } from 'effect';
+import { Array, Effect, FileSystem, Option, Order, Path, Schema } from 'effect';
 import { createNxReleaseConfig } from 'nx/src/command-line/release/config/config';
 import { createReleaseGraph } from 'nx/src/command-line/release/utils/release-graph';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { FsTree } from 'nx/src/generators/tree';
-import { nx, read, type Workspace } from '#/workspace';
+import { declared, nx, read, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = {
     config: 'nrwl/nx packages/nx/src/command-line/release/config/config.spec.ts createNxReleaseConfig: a valid release configuration resolves with error null',
-    selected: "README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`",
+    selected: 'README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`',
     graph: 'nrwl/nx packages/nx/src/command-line/release/utils/release-graph.spec.ts createReleaseGraph: resolves version actions for every project of every release group',
-    version: 'nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.spec.ts: the disk resolver reads the current version from the source manifest',
+    version: 'nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.spec.ts: the disk resolver reads the current version from the source manifest; packages/nx/src/command-line/release/config/config.ts: projectsRelationship defaults to fixed, which gives every project of the group one version',
     delivered: 'README.md DELIVERY: Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built',
-    planned: 'README.md TASKS: Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release); nrwl/nx e2e/release/src/first-release.test.ts',
+    destination: "README.md DELIVERY: Publishing delivers those files by each destination's own command (`pnpm publish`, `dotnet nuget push`, `uv publish`, `yak push`)",
+    planned:
+        'README.md TASKS: Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release); nrwl/nx e2e/release/src/first-release.test.ts nx release first run with --first-release: should not error; packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern: `v{version}`',
 } as const;
+const TAGGED = /^git tag --annotate (?<tag>\S+)/gmu;
+const WRITTEN = /^(?<project>\S+) .*New version (?<version>\S+) written to /gmu;
+const COMMAND = /`(?<command>[^`]+)`/gu;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const Published = Schema.Struct({ publish: Schema.Array(Schema.String) }).annotate({ description: 'Options of a publish target that states its command: the publish argv' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+const captured = (text: string, pattern: RegExp, name: string) => Array.fromIterable(text.matchAll(pattern)).flatMap(({ groups = {} }) => Array.fromNullishOr(groups[name]));
 
 const tagged = ({ nodes }: Workspace) =>
     Array.sort(
@@ -42,19 +53,33 @@ const graphed = Effect.fnUntraced(function* (workspace: Workspace) {
     return { tree, graph };
 });
 
-const unversioned = Effect.fnUntraced(function* (workspace: Workspace) {
+const versions = Effect.fnUntraced(function* (workspace: Workspace) {
     const { tree, graph } = yield* graphed(workspace);
     const stated = yield* Effect.forEach(tagged(workspace), (project) => Effect.option(Effect.tryPromise(() => Promise.resolve(graph.getVersionActionsForProject(project)?.readCurrentVersionFromSourceManifest(tree)))));
-    return Array.zip(tagged(workspace), stated)
-        .map(([project, manifest]) => [project, Option.getOrUndefined(manifest)?.currentVersion] as const)
-        .filter(([, version]) => Option.isNone(Schema.decodeUnknownOption(Schema.SemVerFromString)(version)));
+    return Array.zip(tagged(workspace), stated).map(([project, manifest]) => [project, Option.getOrUndefined(manifest)?.currentVersion] as const);
 });
 
 const undelivered = (workspace: Workspace) => tagged(workspace).filter((project) => !['nx-release-publish', 'attach'].some((target) => target in (workspace.nodes[project]?.data.targets ?? {})));
 
+const destinations = Effect.gen(function* () {
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+    const text = yield* fs.readFileString(path.join(workspaceRoot, 'README.md'));
+    const stated = yield* Effect.fromOption(Array.findFirst(text.split('\n'), (line) => line.startsWith('- Publishing delivers')));
+    return captured(stated, COMMAND, 'command').map((command) => `${command} `);
+});
+
+const published = (workspace: Workspace) =>
+    Array.getSomes(
+        declared(workspace)
+            .filter(({ name }) => name === 'nx-release-publish')
+            .map(({ task, target }) => Option.map(Schema.decodeUnknownOption(Published)(target.options), ({ publish }) => ({ task, command: `${publish.join(' ')} ` }))),
+    );
+
+const foreign = (workspace: Workspace, commands: readonly string[]) => published(workspace).filter(({ command }) => !commands.some((stated) => command.startsWith(stated)));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('release configuration', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'resolves nx.json release without a configuration error',
         Effect.fnUntraced(function* () {
@@ -88,9 +113,15 @@ it.layer(layer, { excludeTestServices: true })('release configuration', (suite) 
     );
 
     suite.effect(
-        'reads a version from the source manifest of every project of a release group',
+        'reads one version from the source manifest of every project of the fixed release group',
         Effect.fnUntraced(function* () {
-            assert.deepStrictEqual(yield* unversioned(yield* read('fresh')), [], SOURCES.version);
+            const stated = yield* versions(yield* read('fresh'));
+            assert.deepStrictEqual(
+                stated.filter(([, version]) => Option.isNone(Schema.decodeUnknownOption(Schema.SemVerFromString)(version))),
+                [],
+                SOURCES.version,
+            );
+            assert.lengthOf(Array.dedupe(stated.map(([, version]) => version)), 1, SOURCES.version);
         }),
     );
 
@@ -102,10 +133,25 @@ it.layer(layer, { excludeTestServices: true })('release configuration', (suite) 
     );
 
     suite.effect(
-        'plans a first release as a dry run without error',
+        'starts every publish command a target states with a command README DELIVERY names for a destination',
         Effect.fnUntraced(function* () {
-            const { code, stdout, stderr } = yield* nx(['release', '--dry-run', '--skip-publish', '--first-release']);
-            assert.strictEqual(Number(code), 0, `${SOURCES.planned}\n${stdout}${stderr}`);
+            const [workspace, commands] = yield* Effect.all([read('fresh'), destinations]);
+            assert.isNotEmpty(commands, SOURCES.destination);
+            assert.isNotEmpty(published(workspace), SOURCES.destination);
+            assert.deepStrictEqual(foreign(workspace, commands), [], SOURCES.destination);
+        }),
+    );
+
+    suite.effect(
+        'plans a first release of a stated version as a dry run that tags v<version> once and writes that version to the manifest of every project of a release group',
+        Effect.fnUntraced(function* () {
+            const workspace = yield* read('fresh');
+            const { code, stdout, stderr } = yield* nx(['release', '1.0.0', '--skip-publish', '--first-release', '--dry-run', '--verbose']);
+            const output = `${stdout}${stderr}`;
+            assert.strictEqual(Number(code), 0, `${SOURCES.planned}\n${output}`);
+            assert.deepStrictEqual(captured(output, TAGGED, 'tag'), ['v1.0.0'], SOURCES.planned);
+            assert.deepStrictEqual(Array.sort(captured(output, WRITTEN, 'project'), Order.String), tagged(workspace), SOURCES.planned);
+            assert.deepStrictEqual(Array.dedupe(captured(output, WRITTEN, 'version')), ['1.0.0'], SOURCES.planned);
         }),
     );
 });

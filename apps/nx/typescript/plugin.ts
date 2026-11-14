@@ -175,7 +175,7 @@ const tarball = Effect.fnUntraced(function* ({ workspaceRoot }: CreateNodesConte
             metadata: { description: 'Packs the package into one tarball named for it with pnpm pack', help: { command: 'pnpm pack --help', example: { args: ['--json'] } } },
         },
         'clean--pnpm': { executor: `${SHARED}:clean`, options: { targets: ['pack--pnpm'] }, metadata: { description: 'Removes the outputs pack--pnpm declares' } },
-        'attach--gh': { executor: `${SHARED}:attach`, dependsOn: ['pack--pnpm'], metadata: { description: "Uploads the files pack--pnpm wrote to the GitHub release of the version the project's manifest states through gh release upload" } },
+        'attach--gh': { executor: `${SHARED}:attach`, dependsOn: ['pack--pnpm'], inputs: [{ dependentTasksOutputFiles: '**/*', transitive: true }], metadata: { description: "Uploads the files pack--pnpm wrote to the GitHub release of the version the project's manifest states through gh release upload" } },
     };
     const systems = os.filter((system) => !system.startsWith('!')).map((system) => `os:${system}`);
     return UndefinedOr.match(version, {

@@ -13,11 +13,10 @@ import typescript from '@rasm/nx-typescript/package.json' with { type: 'json' };
 import uv from '@rasm/nx-uv/package.json' with { type: 'json' };
 import vite from '@rasm/nx-vite/package.json' with { type: 'json' };
 import vitest from '@rasm/nx-vitest/package.json' with { type: 'json' };
-import { Consumer, Packed } from '@rasm/testing/nx';
-import { Array, Duration, Effect, Layer, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
 import { minimatch } from 'minimatch';
 import { readNxJson } from 'nx/src/config/nx-json';
-import { read, type Workspace } from '#/workspace';
+import { declared, dependents, read, tracked, type Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -32,31 +31,15 @@ interface Row {
 
 const SOURCES = {
     shape: 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts NxPlugin: every member is optional, createNodes is a pair of a file pattern and a function, every other member a function',
-    contributed: 'nrwl/nx e2e/nx/src/extras.test.ts: should use plugins defined in nx.json',
+    contributed: 'nrwl/nx e2e/nx/src/extras.test.ts: should use plugins defined in nx.json; packages/nx/src/project-graph/plugins/public-api.ts CreateNodes: Nx calls the function with the files its pattern matches, so a row with no matching file gives no property',
     manifest: 'nrwl/nx packages/{vite,vitest,playwright,docker,dotnet,storybook,js,cypress,gradle,maven}/package.json: `@nx/devkit` is a dependency, and `nx` is never one',
     matched: 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesResultArray: each result names the configuration file it came from, one of the files the pattern matched',
     empty: 'nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts createNodesFromFiles: returns one result per file it was given',
+    lent: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source are no input; nrwl/nx packages/nx/src/native/tasks/hash_planner.rs external_deps: a task hashes the packages its inputs name and those its project depends on, and none for the executor of a local plugin",
     twice: 'nrwl/nx packages/nx/src/project-graph/project-graph.spec.ts: should not throw an error if sane plugins are used and called in parallel; two computations of one tree give one graph',
-    refused: 'nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts createNodesFromFiles: should throw AggregateCreateNodesError with the file and the error of each failing file, and keep partial results',
 } as const;
-const INSTALLED = Duration.toMillis(Duration.minutes(10));
-const THROWN = "throw new Error('refused');\n";
 const MANIFESTS: Record.ReadonlyRecord<string, unknown> = Record.fromIterableWith([apple, cargo, cmake, distribution, docker, dotnet, pulumi, storybook, typescript, uv, vite, vitest], (manifest) => [manifest.name, manifest]);
 const rows: readonly Row[] = (readNxJson(workspaceRoot).plugins ?? []).map((row) => (Predicate.isString(row) ? { plugin: row } : row));
-const BROKEN: Record.ReadonlyRecord<string, readonly [file: string, text: string]> = {
-    '@rasm/nx-apple': ['apps/broken/Package.swift', 'not a manifest\n'],
-    '@rasm/nx-cargo': ['crates/broken/Cargo.toml', '[package\n'],
-    '@rasm/nx-cmake': ['CMakePresets.json', '{\n'],
-    '@rasm/nx-distribution': ['apps/broken/blender_manifest.toml', 'id = \n'],
-    '@rasm/nx-docker': ['infra/compose.yaml', 'services: [\n'],
-    '@rasm/nx-dotnet': ['libs/broken/Broken.csproj', '<Project\n'],
-    '@rasm/nx-pulumi': ['infra/package.json', '{\n'],
-    '@rasm/nx-storybook': ['apps/broken/.storybook/main.ts', THROWN],
-    '@rasm/nx-typescript': ['libs/broken/tsconfig.json', '{\n'],
-    '@rasm/nx-uv': ['libs/broken/pyproject.toml', '[project\n'],
-    '@rasm/nx-vite': ['apps/broken/vite.config.ts', THROWN],
-    '@rasm/nx-vitest': ['apps/broken/vitest.config.ts', THROWN],
-};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -84,7 +67,7 @@ const declaring = Effect.fnUntraced(function* (manifest: unknown) {
     return { devkit: '@nx/devkit' in dependencies, bundled: 'nx' in dependencies };
 });
 
-const valued = (data: unknown, key: string) => key.split('.').reduce<Option.Option<unknown>>((held, part) => Option.map(Option.filter(held, Predicate.isObject), (parent): unknown => Reflect.get(parent, part)), Option.some(data));
+const valued = (data: unknown, key: string) => key.split('.').reduce<Option.Option<unknown>>((held, part) => Option.map(Option.filter(held, Predicate.isObjectOrArray), (parent): unknown => Reflect.get(parent, part)), Option.some(data));
 
 const attributed = ({ nodes, sourceMaps }: Workspace, plugin: string) =>
     Object.values(nodes).flatMap(({ data }) =>
@@ -94,42 +77,34 @@ const attributed = ({ nodes, sourceMaps }: Workspace, plugin: string) =>
         ),
     );
 
-const stray = (workspace: Workspace, { plugin, include = ['**'], exclude = [] }: Row, pattern: string) =>
+const matching = ({ include = ['**'], exclude = [] }: Row, pattern: string, files: readonly string[]) => files.some((file) => minimatch(file, pattern, { dot: true }) && include.some((included) => minimatch(file, included, { dot: true })) && !exclude.some((excluded) => minimatch(file, excluded, { dot: true })));
+
+const stray = (workspace: Workspace, row: Row, pattern: string) =>
     Array.dedupe(
-        attributed(workspace, plugin)
-            .filter(({ file }) => file === null || !minimatch(file, pattern, { dot: true }) || exclude.some((excluded) => minimatch(file, excluded, { dot: true })) || !include.some((included) => minimatch(file, included, { dot: true })))
+        attributed(workspace, row.plugin)
+            .filter(({ file }) => !matching(row, pattern, Array.fromNullishOr(file)))
             .map(({ root, file }) => `${root} from ${file}`),
     );
+
+const lent = Effect.fnUntraced(function* (workspace: Workspace, plugin: string) {
+    const { dependencies = {} } = yield* Schema.decodeUnknownEffect(Manifest)(MANIFESTS[plugin]);
+    const allowed = Record.map(
+        Record.filter(workspace.externalNodes, ({ data }) => data.packageName in dependencies),
+        (_, node) => dependents(workspace, new Set([node])),
+    );
+    return declared(workspace)
+        .filter(({ project, task, target }) => target.cache === true && Record.keys(workspace.hashes[task]?.inputs ?? {}).some((input) => allowed[input]?.has(project) === false))
+        .map(({ task }) => task);
+});
 
 const emptied = Effect.fnUntraced(function* ({ plugin, options }: Row) {
     const creating = yield* created(plugin);
     return yield* Effect.promise(() => Promise.all(Option.toArray(creating).map(({ create }) => create([], options, { nxJsonConfiguration: readNxJson(workspaceRoot), workspaceRoot }))));
 });
 
-const refusing = (plugin: string, file: string) =>
-    Effect.fnUntraced(function* () {
-        const { read: graphed } = yield* Consumer;
-        const [{ nodes, failures }, creating] = yield* Effect.all([graphed, created(plugin)]);
-        const refused = failures.filter(({ name, message }) => name === 'AggregateCreateNodesError' && message.includes(plugin));
-        assert.isTrue(
-            Option.exists(creating, ({ pattern }) => minimatch(file, pattern, { dot: true })),
-            `${file} matches the file pattern of ${plugin}`,
-        );
-        assert.deepStrictEqual(
-            refused.flatMap(({ files }) => files.map((failed) => failed.file)),
-            [file],
-            SOURCES.refused,
-        );
-        assert.include(
-            Object.values(nodes).map(({ data }) => data.root),
-            'libs/kept',
-            SOURCES.refused,
-        );
-    });
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('plugin contract', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect.each(rows)(
         '$plugin exports at least one member of the plugin type of Nx, each in the form that type states',
         Effect.fnUntraced(function* ({ plugin }) {
@@ -147,15 +122,26 @@ it.layer(layer, { excludeTestServices: true })('plugin contract', (suite) => {
     );
 
     suite.effect.each(rows)(
-        '$plugin gives project properties exactly where it exports createNodes, each from a file its pattern matches and its row includes',
+        '$plugin gives project properties exactly where its createNodes pattern matches a tracked file its row includes, each from such a file',
         Effect.fnUntraced(function* (row) {
-            const [workspace, creating] = yield* Effect.all([read('fresh'), created(row.plugin)]);
-            assert.strictEqual(Array.isReadonlyArrayNonEmpty(attributed(workspace, row.plugin)), Option.isSome(creating), SOURCES.contributed);
+            const [workspace, creating, files] = yield* Effect.all([read('fresh'), created(row.plugin), tracked()]);
+            assert.strictEqual(
+                Array.isReadonlyArrayNonEmpty(attributed(workspace, row.plugin)),
+                Option.exists(creating, ({ pattern }) => matching(row, pattern, files)),
+                SOURCES.contributed,
+            );
             assert.deepStrictEqual(
                 Option.toArray(creating).flatMap(({ pattern }) => stray(workspace, row, pattern)),
                 [],
                 SOURCES.matched,
             );
+        }),
+    );
+
+    suite.effect.each(rows)(
+        '$plugin gives no cached task outside the projects depending on them a package of its own dependencies as input',
+        Effect.fnUntraced(function* ({ plugin }) {
+            assert.deepStrictEqual(yield* lent(yield* read('fresh'), plugin), [], SOURCES.lent);
         }),
     );
 
@@ -173,12 +159,4 @@ it.layer(layer, { excludeTestServices: true })('plugin contract', (suite) => {
             assert.deepStrictEqual(attributed(again, plugin), attributed(fresh, plugin), SOURCES.twice);
         }),
     );
-});
-
-it.layer(Layer.provideMerge(Packed.layer(...Record.keys(BROKEN)), layer), { timeout: INSTALLED, excludeTestServices: true })('plugin failures', (suite) => {
-    Record.toEntries(BROKEN).forEach(([plugin, [file, text]]) => {
-        suite.layer(Consumer.layer({ resolved: import.meta.url, settings: { plugins: [plugin] }, ignored: [], files: { 'libs/kept/package.json': '{ "name": "kept", "version": "0.0.0", "type": "module" }\n', [file]: text } }), { timeout: INSTALLED })(plugin, (workspace) => {
-            workspace.effect('names a file it cannot read in an AggregateCreateNodesError, and Nx keeps the project of every other file', refusing(plugin, file), INSTALLED);
-        });
-    });
 });

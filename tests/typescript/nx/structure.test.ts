@@ -2,24 +2,31 @@ import { isDeepStrictEqual } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { readProjectsConfigurationFromProjectGraph, type TargetConfiguration, workspaceRoot } from '@nx/devkit';
-import { Array, Effect, FileSystem, Path, Predicate, Record } from 'effect';
+import { Array, Duration, Effect, FileSystem, Formatter, Path, Predicate, Record, Schema } from 'effect';
 import { Minimatch, minimatch } from 'minimatch';
 import { getExecutorInformation, parseExecutor } from 'nx/src/command-line/run/executor-utils';
 import { readNxJson } from 'nx/src/config/nx-json';
 import { findCycle } from 'nx/src/tasks-runner/task-graph-utils';
 import { normalizeTargetDependencyWithStringProjects } from 'nx/src/tasks-runner/utils';
 import { combineOptionsForExecutor } from 'nx/src/utils/params';
-import { declared, read, refusals, verbs, type Workspace } from '#/workspace';
+import { Reading } from '#/reading';
+import { declared, read, refusals, taken, verbs, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = {
     built: 'nrwl/nx e2e/nx/src/misc.test.ts: should successfully build a project graph',
+    continuous: 'nrwl/nx e2e/nx/src/misc.test.ts: should successfully build a project graph; microsoft/playwright docs/src/test-api/class-testconfig.md forbidOnly: boolean, set from `!!process.env.CI`; a tool config that reads CI loads under the value a runner sets',
     inferred: 'README.md PRINCIPLES: Nx plugins infer every project, target, and dependency from manifests and tool output, with no `project.json` or hand-written `namedInputs`',
-    aggregate: 'README.md PRINCIPLES: Verbs aggregate `<verb>--<tool>` targets and read their inputs',
+    aggregate: "README.md PRINCIPLES: Verbs aggregate `<verb>--<tool>` targets and read their inputs, and one run's arguments go to the tool-named target",
+    selected: 'nrwl/nx packages/nx/src/native/affected/tasks/selection.rs: affectedness is carried from a producer to the tasks that read its outputs, never along plain dependsOn, so a verb target states each input of its tool targets for nx affected -t <verb> to select it',
+    matched: 'nrwl/nx packages/nx/src/command-line/report/report.ts: nx report names each @nx package whose version differs from the installed nx; @nx/devkit/internal reads members of the nx release it was built with',
+    cleaned: "README.md TASKS: `clean` removes the outputs a project's targets declare and runs its tool's clean",
+    scripted: 'nrwl/nx astro-docs/src/content/docs/reference/project-configuration.mdoc includedScripts: a package.json script is a target only where the package lists it; README.md PRINCIPLES: Nx plugins infer every project, target, and dependency from manifests and tool output',
+    apart: 'README.md PRINCIPLES: File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other',
     answered: 'README.md PRINCIPLES: Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation',
     platform: 'README.md PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`',
-    released: "README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, which `nx.json` `release.projects` selects beside Nx's `npm:public`",
+    released: 'README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`',
     ordered: 'README.md PRINCIPLES: Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names',
     roots: 'nrwl/nx packages/nx/src/project-graph/error-types.ts MultipleProjectsWithSameNameError and ProjectWithNoNameError: one project per root, one root per name',
     cycle: 'nrwl/nx packages/nx/src/tasks-runner/task-graph-utils.spec.ts findCycle: should return null when no cycle',
@@ -28,6 +35,7 @@ const SOURCES = {
     executors: 'nrwl/nx e2e/plugin/src/nx-plugin.test.ts: should be able to use local generators and executors',
 } as const;
 const UPSTREAM = /^\^/u;
+const HK = /(?:^|[\s"'/])hk\s/u;
 const TAG = /^(?:release|npm:public|npm:private|os:(?:aix|android|cygwin|darwin|freebsd|haiku|linux|netbsd|openbsd|sunos|win32))$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -93,6 +101,11 @@ const unread = (workspace: Workspace, stated: readonly string[]) =>
         .filter(({ verb, target, held }) => stated.includes(verb) && (target.inputs ?? []).some((input) => !held.some((other) => isDeepStrictEqual(other, input))))
         .map(({ task }) => task);
 
+const unclean = ({ nodes }: Workspace) =>
+    Object.values(nodes)
+        .filter(({ data }) => !('clean' in (data.targets ?? {})) && Object.values(data.targets ?? {}).some(({ outputs = [] }) => outputs.length > 0))
+        .map(({ name }) => name);
+
 const contributing = ({ sourceMaps }: Workspace) => new Set(Object.values(sourceMaps).flatMap((entries) => Object.values(entries).map(([, plugin]) => plugin)));
 
 const renamed = ({ sourceMaps }: Workspace, [first, ...later]: readonly string[]) =>
@@ -105,12 +118,23 @@ const renamed = ({ sourceMaps }: Workspace, [first, ...later]: readonly string[]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('graph structure', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'builds the project graph without a plugin failure',
         Effect.fnUntraced(function* () {
             assert.deepStrictEqual((yield* read('fresh')).failures, [], SOURCES.built);
         }),
+    );
+
+    suite.effect(
+        'builds the project graph without a plugin failure under CI=true',
+        Effect.fnUntraced(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const { checked } = yield* taken(yield* fs.makeTempDirectoryScoped({ prefix: 'nx-reading-' }), { CI: 'true' });
+            const { failures } = yield* Effect.flatMap(checked, Schema.decodeEffect(Reading));
+            assert.deepStrictEqual(failures, [], SOURCES.continuous);
+        }, Effect.scoped),
+        Duration.toMillis(Duration.minutes(10)),
     );
 
     suite.effect(
@@ -207,7 +231,42 @@ it.layer(layer, { excludeTestServices: true })('graph structure', (suite) => {
         'gives every verb target each input of its tool targets',
         Effect.fnUntraced(function* () {
             const [workspace, stated] = yield* Effect.all([read('fresh'), verbs]);
-            assert.deepStrictEqual(unread(workspace, stated), [], SOURCES.aggregate);
+            assert.deepStrictEqual(unread(workspace, stated), [], SOURCES.selected);
+        }),
+    );
+
+    suite.effect(
+        'installs nx and every @nx package at one version',
+        Effect.fnUntraced(function* () {
+            const { externalNodes } = yield* read('fresh');
+            const versions = Object.values(externalNodes)
+                .filter(({ data }) => data.packageName === 'nx' || data.packageName.startsWith('@nx/'))
+                .map(({ data }) => data.version);
+            assert.lengthOf(Array.dedupe(versions), 1, SOURCES.matched);
+        }),
+    );
+
+    suite.effect(
+        'gives a clean target to every project holding a target that declares outputs',
+        Effect.fnUntraced(function* () {
+            assert.deepStrictEqual(unclean(yield* read('fresh')), [], SOURCES.cleaned);
+        }),
+    );
+
+    suite.effect(
+        'runs no package.json script and no hk command from a target',
+        Effect.fnUntraced(function* () {
+            const targets = declared(yield* read('fresh'));
+            assert.deepStrictEqual(
+                targets.filter(({ target }) => target.executor === 'nx:run-script').map(({ task }) => task),
+                [],
+                SOURCES.scripted,
+            );
+            assert.deepStrictEqual(
+                targets.filter(({ target }) => HK.test(Formatter.format(target.options))).map(({ task }) => task),
+                [],
+                SOURCES.apart,
+            );
         }),
     );
 

@@ -251,6 +251,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
             'install--uv': {
                 command: line(['uv', 'tool', 'install', '--reinstall', ...flagged('--python', member.python), '.']),
                 options: { cwd: member.root },
+                inputs: [...member.sources, ...built, { externalDependencies: [] }],
                 metadata: { description: "Builds the member from the checkout and installs its scripts into uv's tool folder, on an interpreter its requires-python accepts", help: { command: 'uv tool install --help', example: { args: ['--editable'] } } },
             },
         }),

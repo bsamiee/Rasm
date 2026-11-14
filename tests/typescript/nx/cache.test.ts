@@ -2,41 +2,82 @@ import { Buffer } from 'node:buffer';
 import { createServer, type Server } from 'node:http';
 import { constants } from 'node:http2';
 import { platform } from 'node:process';
+import { isDeepStrictEqual } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
-import { workspaceRoot } from '@nx/devkit';
+import { type NxJsonConfiguration, workspaceRoot } from '@nx/devkit';
 import { Consumer, fromCache, Packed } from '@rasm/testing/nx';
-import { Array, Cause, Duration, Effect, FileSystem, Layer, Match, Option, Order, Path, Predicate, Record, Schema } from 'effect';
+import compiler from '@typescript/native/package.json' with { type: 'json' };
+import { Array, Cause, Duration, Effect, FileSystem, Function, Layer, Match, Option, Order, Path, Predicate, Record, Schema } from 'effect';
+import { minimatch } from 'minimatch';
+import installed from 'nx/package.json' with { type: 'json' };
 import { readNxJson } from 'nx/src/config/nx-json';
 import { getOutputsForTargetAndConfiguration, validateOutputs } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
-import { called, declared, dependents, read, refusals, type Workspace } from '#/workspace';
+import { called, declared, dependents, read, refusals, tracked, type Workspace } from '#/workspace';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface Asked {
+    readonly authorized: boolean;
+    readonly held: Buffer | undefined;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = {
     valid: 'nrwl/nx packages/nx/src/tasks-runner/utils.spec.ts validateOutputs: should throw an error if outputs is not an array of strings prefixed with {workspaceRoot} or {projectRoot}',
     resolved: 'nrwl/nx packages/nx/src/tasks-runner/utils.spec.ts getOutputsForTargetAndConfiguration: should interpolate {workspaceRoot}, {projectRoot}, {projectName}, and {options.*}',
-    placed: 'README.md PRINCIPLES: Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`, `dist`, `.cloudflare/output`, and editor-shared folders stay where their tool puts them',
+    placed: 'README.md PRINCIPLES: Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`, `dist`, `.cloudflare/output`, and editor-shared folders stay where their tool puts them; `cf workers types` writes the binding types an editor reads to `.cloudflare/types`, and SwiftPM writes `.build` beside `Package.swift`, which SourceKit-LSP shares and no configuration file moves',
+    restored: 'nrwl/nx astro-docs/src/content/docs/features/cache-task-results.mdoc: On a cache hit, Nx restores the cached output files, so an output git tracks is overwritten by a replay',
     apart: 'nrwl/nx e2e/nx/src/cache.test.ts: should cache command execution; a restored output holds the files of one task alone',
-    platform: 'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner',
+    platform: 'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; builds and tests of Cargo, Swift, CMake, and Unreal and test results of .NET and Python differ by platform, output of tsc, Vite, Vitest, and Storybook does not',
     read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input",
+    keyed: 'README.md OWNERS: Mac app release form — Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`; a key identifier that selects the form of an output is no credential',
+    versioned:
+        'nrwl/nx packages/nx/src/native/tasks/hash_planner.rs external_deps: an empty externalDependencies list hashes no package, so a target stating one names the file its ecosystem states versions in (README.md OWNERS rows Package version, Swift package version, Rust package version, C++ toolchain and packages)',
     triggers: 'vitest-dev/vitest docs/config/forcereruntriggers.md: Glob pattern of file paths that will trigger the whole suite rerun, stated once per root config; a file a root config names there is an input of the test target of that config',
     replayed: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts: should cache command execution',
     globbed: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts: should support using globs as outputs',
     filesets: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts: should use consider filesets when hashing',
     sibling: 'nrwl/nx e2e/nx/src/include-ignored-cache-utils.ts: A change to a matched file misses the cache, a change to a file the inputs exclude still hits',
+    upstream: 'nrwl/nx packages/vite/src/plugins/plugin.ts buildInputs: an inferred build reads `^production` where nx.json defines `production` and `^default` otherwise',
     remote: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts http remote cache: should PUT and GET cache from remote cache',
     absent: 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts http remote cache: should error if server is not running names the server; the `@rasm/nx-distribution` row of nx.json turns the remote cache off for a run when the cache server does not answer',
+    refused:
+        'nrwl/nx packages/nx/src/native/cache/http_remote_cache.rs retrieve: the client accepts 200 and 404 alone and sets no timeout, so Nx alone fails the run on any other answer and waits on a silent server; Nx self-hosted cache OpenAPI: a read answers 200, 403, or 404; the `@rasm/nx-distribution` row of nx.json turns the remote cache off for the run after one read',
+    annotated: 'GitHub Docs, Workflow commands for GitHub Actions, Setting a warning message: `::warning file={name},line={line},title={title}::{message}`',
 } as const;
+const OUTAGES = [
+    { outage: 'answers 500 to a read', status: Option.some(constants.HTTP_STATUS_INTERNAL_SERVER_ERROR) },
+    { outage: 'answers 403 to a read', status: Option.some(constants.HTTP_STATUS_FORBIDDEN) },
+    { outage: 'accepts the connection and never answers', status: Option.none<number>() },
+] as const;
+const VERSIONED: Record.ReadonlyRecord<string, RegExp> = {
+    '@rasm/nx-cargo': /Cargo\.(?:lock|toml)/u,
+    '@rasm/nx-uv': /uv\.lock|pyproject\.toml/u,
+    '@rasm/nx-dotnet': /Directory\.Packages\.props/u,
+    '@rasm/nx-apple': /Package\.(?:resolved|swift)/u,
+    '@rasm/nx-cmake': /vcpkg\.json/u,
+    '@rasm/nx-typescript': /pnpm-workspace\.yaml/u,
+};
+const PLATFORM: Record.ReadonlyRecord<string, RegExp> = {
+    '@rasm/nx-cargo': /^(?:build|test)--/u,
+    '@rasm/nx-apple': /^(?:build|test)--/u,
+    '@rasm/nx-cmake': /^(?:build|test)--/u,
+    '@rasm/nx-distribution': /^(?:build|test)--unreal$/u,
+    '@rasm/nx-dotnet': /^test--/u,
+    '@rasm/nx-uv': /^test--/u,
+};
+const SETTINGS: NxJsonConfiguration = { plugins: ['@rasm/nx-typescript'] };
 const BUILT = Duration.toMillis(Duration.minutes(10));
 const TOKEN = 'test-token';
 const BUILD = 'alpha:build--tsc';
 const TOKENED = /\{(?:options|workspaceRoot|projectRoot|projectName)/u;
 const ARTIFACT = /^\.artifacts\/[^/]+\/./u;
-const KEPT = /(?:^|\/)(?:dist|\.cloudflare\/output)(?:\/|$)/u;
-const VERSION = /(?:^|\s)--version(?:\s|$)/u;
-const CREDENTIAL = /TOKEN|SECRET|PASSWORD|CREDENTIAL|_KEY/u;
+const KEPT = /(?:^|\/)(?:dist|\.build|\.cloudflare\/(?:output|types))(?:\/|$)/u;
+const VERSION = /(?:^|\s)-{0,2}version(?:\s|$)/u;
+const CREDENTIAL = /TOKEN|SECRET|PASSWORD|CREDENTIAL|_KEY$/u;
 const GLOBBED = /\/[^/]*[*{].*$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -45,43 +86,67 @@ const Run = Schema.fromJsonString(Schema.Struct({ tasks: Schema.Array(Schema.Str
     description: 'run.json Nx writes into its cache folder after each run: the hash, cache status, and exit code of every task',
 });
 
+const Json = Schema.fromJsonString(Schema.Unknown);
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
-const answered = Match.type<{ readonly authorized: boolean; readonly held: Buffer | undefined }>().pipe(
+const answered = Match.type<Asked>().pipe(
     Match.when({ authorized: false }, () => constants.HTTP_STATUS_UNAUTHORIZED),
     Match.when({ held: Match.undefined }, () => constants.HTTP_STATUS_NOT_FOUND),
     Match.orElse(() => constants.HTTP_STATUS_OK),
 );
 
-const remote = Effect.acquireRelease(
-    Effect.callback<Server>((resume) => {
-        const stored = new Map<string, Buffer>();
-        const server = createServer((request, response) => {
-            const chunks: Buffer[] = [];
-            request.on('data', (chunk: Buffer) => chunks.push(chunk));
-            request.on('end', () => {
-                const held = request.method === 'PUT' ? stored.set(String(request.url), Buffer.concat(chunks)).get(String(request.url)) : stored.get(String(request.url));
-                response.writeHead(answered({ authorized: request.headers.authorization === `Bearer ${TOKEN}`, held })).end(request.method === 'GET' ? held : undefined);
+const served = (answer: (asked: Asked) => Option.Option<number>) => {
+    const [held, requests] = [new Map<string, Buffer>(), Array.empty<string>()];
+    const server = createServer((request, response) => {
+        const chunks: Buffer[] = [];
+        requests.push(`${request.method} ${request.url}`);
+        request.on('data', (chunk: Buffer) => chunks.push(chunk));
+        request.on('end', () => {
+            const body = request.method === 'PUT' ? held.set(String(request.url), Buffer.concat(chunks)).get(String(request.url)) : held.get(String(request.url));
+            Option.match(answer({ authorized: request.headers.authorization === `Bearer ${TOKEN}`, held: body }), {
+                onNone: Function.constVoid,
+                onSome: (status) => response.writeHead(status).end(request.method === 'GET' ? body : undefined),
             });
         });
-        server.listen(0, '127.0.0.1', () => resume(Effect.succeed(server)));
-    }),
-    (server) =>
-        Effect.callback<void>((resume) => {
-            server.close(() => resume(Effect.void));
+    });
+    return { server, requests };
+};
+
+const remote = (answer: (asked: Asked) => Option.Option<number>) =>
+    Effect.acquireRelease(
+        Effect.callback<ReturnType<typeof served>>((resume) => {
+            const listening = served(answer);
+            listening.server.listen(0, '127.0.0.1', () => resume(Effect.succeed(listening)));
         }),
-);
+        ({ server }) =>
+            Effect.callback<void>((resume) => {
+                server.closeAllConnections();
+                server.close(() => resume(Effect.void));
+            }),
+    );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const cached = (workspace: Workspace) =>
-    declared(workspace)
-        .filter(({ target }) => target.cache === true)
-        .flatMap(({ project, name, task }) => Array.fromNullishOr(workspace.nodes[project]).map((node) => ({ task, outputs: getOutputsForTargetAndConfiguration({ project, target: name }, {}, node) })));
+const hashing = ({ hashes }: Workspace, task: string) => Record.keys(hashes[task]?.inputs ?? {});
+
+const stored = (workspace: Workspace) => declared(workspace).filter(({ target }) => target.cache === true);
+
+const cached = (workspace: Workspace) => stored(workspace).flatMap(({ project, name, task }) => Array.fromNullishOr(workspace.nodes[project]).map((node) => ({ task, outputs: getOutputsForTargetAndConfiguration({ project, target: name }, {}, node) })));
 
 const unresolved = (path: Path.Path, workspace: Workspace) => cached(workspace).flatMap(({ task, outputs }) => outputs.filter((output) => TOKENED.test(output) || path.isAbsolute(output) || path.normalize(output).startsWith('..')).map((output) => `${task}: ${output}`));
 
 const misplaced = (workspace: Workspace) => cached(workspace).flatMap(({ task, outputs }) => outputs.filter((output) => !(ARTIFACT.test(output) || KEPT.test(output))).map((output) => `${task}: ${output}`));
+
+const committed = (workspace: Workspace, files: readonly string[]) => {
+    const held = new Set(files.flatMap((file) => Array.scan(file.split('/'), '', (folder, part) => (folder === '' ? part : `${folder}/${part}`))));
+    return cached(workspace).flatMap(({ task, outputs }) =>
+        outputs
+            .filter((output) => held.has(output.replace(GLOBBED, '')))
+            .flatMap((output) => (held.has(output) ? [output] : files.filter((file) => minimatch(file, output, { dot: true }))))
+            .map((file) => `${task}: ${file}`),
+    );
+};
 
 const nested = (workspace: Workspace) => {
     const owned = cached(workspace).flatMap(({ task, outputs }) => outputs.map((output) => ({ task, folder: `${output.replace(GLOBBED, '')}/` })));
@@ -91,20 +156,27 @@ const nested = (workspace: Workspace) => {
 const sourced = (workspace: Workspace) => {
     const rows = (readNxJson(workspaceRoot).plugins ?? []).map((row) => (Predicate.isString(row) ? row : row.plugin));
     const allowed = Record.fromIterableWith(Array.intersection(Array.dedupe([...rows, ...declared(workspace).flatMap(({ target }) => Array.fromNullishOr(target.executor?.split(':')[0]))]), Record.keys(workspace.nodes)), (plugin) => [`${plugin}:`, dependents(workspace, new Set([plugin]))]);
-    return declared(workspace)
-        .filter(({ project, task, target }) => target.cache === true && Record.keys(workspace.hashes[task]?.inputs ?? {}).some((input) => Record.some(allowed, (held, prefix) => input.startsWith(prefix) && !held.has(project))))
+    return stored(workspace)
+        .filter(({ project, task }) => hashing(workspace, task).some((input) => Record.some(allowed, (held, prefix) => input.startsWith(prefix) && !held.has(project))))
         .map(({ task }) => task);
 };
 
-const hashed = (workspace: Workspace, prefix: string, refused: RegExp, own: readonly string[] = []) => {
-    const inputs = declared(workspace)
-        .filter(({ target }) => target.cache === true)
-        .flatMap(({ task }) => Record.keys(workspace.hashes[task]?.inputs ?? {}));
-    return Array.difference(
-        Array.dedupe(inputs).filter((input) => input.startsWith(prefix) && refused.test(input)),
+const hashed = (workspace: Workspace, prefix: string, refused: RegExp, own: readonly string[] = []) =>
+    Array.difference(
+        Array.dedupe(stored(workspace).flatMap(({ task }) => hashing(workspace, task))).filter((input) => input.startsWith(prefix) && refused.test(input)),
         own,
     );
-};
+
+const unversioned = (workspace: Workspace) =>
+    stored(workspace)
+        .filter(({ target: { inputs: stated = [] } }) => stated.some(Predicate.isString) && stated.some((input) => Predicate.hasProperty(input, 'externalDependencies') && isDeepStrictEqual(input.externalDependencies, [])))
+        .filter(({ task, plugin }) =>
+            Option.exists(
+                Option.flatMap(plugin, (owner) => Record.get(VERSIONED, owner)),
+                (file) => !hashing(workspace, task).some((input) => file.test(input)),
+            ),
+        )
+        .map(({ task }) => task);
 
 const suites = ({ nodes }: Pick<Workspace, 'nodes'>, root: string) =>
     Object.values(nodes)
@@ -115,24 +187,26 @@ const suites = ({ nodes }: Pick<Workspace, 'nodes'>, root: string) =>
                 .map((target) => `${name}:${target}`),
         );
 
-const compiled = (workspace: Workspace) => declared(workspace).filter(({ name, plugin, target }) => target.cache === true && Array.isReadonlyArrayNonEmpty(target.outputs ?? []) && (name.endsWith('--unreal') || Option.exists(plugin, (owner) => ['@rasm/nx-cargo', '@rasm/nx-apple', '@rasm/nx-cmake'].includes(owner))));
-
-const unnamed = Effect.fnUntraced(function* (workspace: Workspace) {
-    const systems = { darwin: ['darwin', 'macos', 'apple'], linux: ['linux'], win32: ['win32', 'windows', 'msvc'] }[String(platform)] ?? [platform];
-    const commands = Array.dedupe(compiled(workspace).flatMap(({ task }) => Record.keys(workspace.hashes[task]?.inputs ?? {}).filter((input) => input.startsWith('runtime:'))));
-    const printed = yield* Effect.forEach(commands, (command) => called(inject('readings').data, 'sh', ['-c', command.replace('runtime:', '')]));
-    const naming = new Set(
-        Array.zip(commands, printed)
-            .filter(([, { stdout }]) => systems.some((system) => stdout.toLowerCase().includes(system)))
-            .map(([command]) => command),
+const compiled = (workspace: Workspace) =>
+    stored(workspace).filter(({ name, plugin }) =>
+        Option.exists(
+            Option.flatMap(plugin, (owner) => Record.get(PLATFORM, owner)),
+            (tools) => tools.test(name),
+        ),
     );
-    return compiled(workspace)
-        .filter(({ task }) => naming.isDisjointFrom(new Set(Record.keys(workspace.hashes[task]?.inputs ?? {}))))
-        .map(({ task }) => task);
+
+const neutral = (workspace: Workspace) => stored(workspace).filter(({ plugin }) => Option.exists(plugin, (owner) => ['@rasm/nx-typescript', '@rasm/nx-vite', '@rasm/nx-vitest', '@rasm/nx-storybook'].includes(owner)));
+
+const naming = Effect.fnUntraced(function* (workspace: Workspace) {
+    const systems = { darwin: ['darwin', 'macos', 'apple'], linux: ['linux'], win32: ['win32', 'windows', 'msvc'] }[String(platform)] ?? [platform];
+    const commands = Array.dedupe(stored(workspace).flatMap(({ task }) => hashing(workspace, task).filter((input) => input.startsWith('runtime:'))));
+    const printed = yield* Effect.forEach(commands, (command) => called(inject('readings').data, 'sh', ['-c', command.replace('runtime:', '')]));
+    const named = Array.zip(commands, printed).filter(([, { stdout }]) => systems.some((system) => stdout.toLowerCase().includes(system)));
+    return new Set(named.map(([command]) => command));
 });
 
 const sampled = Effect.fnUntraced(function* (workspace: Workspace) {
-    const checks = declared(workspace).filter(({ project, name, target }) => name === 'check--tsc' && target.cache === true && (workspace.dependencies[project] ?? []).every(({ target: needed }) => !(needed in workspace.nodes)));
+    const checks = stored(workspace).filter(({ project, name }) => name === 'check--tsc' && (workspace.dependencies[project] ?? []).every(({ target: needed }) => !(needed in workspace.nodes)));
     const tasks = checks.map(({ task }) => task);
     return Array.isReadonlyArrayNonEmpty(tasks) ? Array.min(tasks, Order.String) : yield* new Cause.NoSuchElementError('no cached check--tsc target without workspace dependencies');
 });
@@ -150,24 +224,33 @@ const addressed = (server: Server) => {
     return `http://127.0.0.1:${Predicate.isObject(address) ? address.port : address}`;
 };
 
+const outage = Effect.fnUntraced(function* (address: string, set: Record.ReadonlyRecord<string, string> = {}) {
+    const [fs, workspace] = yield* Effect.all([FileSystem.FileSystem, read('fresh')]);
+    const [folder, task] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), sampled(workspace)]);
+    const { code, output, statuses } = yield* ran(inject('readings').data, folder, task, { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: address, NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: TOKEN, ...set });
+    return { code, output, statuses, warnings: output.split('\n').filter((line) => line.includes(address)) };
+});
+
+const upstream = ({ nodes: { alpha } }: Pick<Workspace, 'nodes'>) => (alpha?.data.targets?.['build--tsc']?.inputs ?? []).filter(Predicate.isString).filter((input) => input.startsWith('^'));
+
 const built = Effect.fnUntraced(function* () {
-    const { nx } = yield* Consumer;
-    const { code, stdout, stderr } = yield* nx('run', BUILD, '--output-style=static');
+    const consumer = yield* Consumer;
+    const { code, stdout, stderr } = yield* consumer.nx('run', BUILD, '--output-style=static');
     return { code: Number(code), output: `${stdout}${stderr}` };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('cache declarations', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'states every output with a workspace or project root token Nx accepts',
         Effect.fnUntraced(function* () {
-            const refused = yield* refusals(
+            const invalid = yield* refusals(
                 declared(yield* read('fresh')),
                 ({ task }) => task,
                 ({ target }) => validateOutputs(target.outputs ?? []),
             );
-            assert.deepStrictEqual(refused, [], SOURCES.valid);
+            assert.deepStrictEqual(invalid, [], SOURCES.valid);
         }),
     );
 
@@ -180,9 +263,18 @@ it.layer(layer, { excludeTestServices: true })('cache declarations', (suite) => 
     );
 
     suite.effect(
-        'places every output of a cached target under .artifacts/<tool>, a dist folder, or .cloudflare/output',
+        'places every output of a cached target under .artifacts/<tool>, a dist folder, .cloudflare/output, .cloudflare/types, or the .build folder of SwiftPM',
         Effect.fnUntraced(function* () {
             assert.deepStrictEqual(misplaced(yield* read('fresh')), [], SOURCES.placed);
+        }),
+    );
+
+    suite.effect(
+        'declares no file git tracks as an output of a cached target',
+        Effect.fnUntraced(function* () {
+            const [workspace, files] = yield* Effect.all([read('fresh'), tracked()]);
+            assert.isNotEmpty(files, SOURCES.restored);
+            assert.deepStrictEqual(committed(workspace, files), [], SOURCES.restored);
         }),
     );
 
@@ -194,11 +286,33 @@ it.layer(layer, { excludeTestServices: true })('cache declarations', (suite) => 
     );
 
     suite.effect(
-        'hashes into every cached task of a compiled language a command whose output names the operating system',
+        'hashes a command whose output names the operating system into every cached build and test task of Cargo, Swift, CMake, and Unreal and every cached .NET and Python test task',
         Effect.fnUntraced(function* () {
             const workspace = yield* read('fresh');
+            const commands = yield* naming(workspace);
+            const lacking = compiled(workspace).filter(({ task }) => commands.isDisjointFrom(new Set(hashing(workspace, task))));
             assert.isNotEmpty(compiled(workspace), SOURCES.platform);
-            assert.deepStrictEqual(yield* unnamed(workspace), [], SOURCES.platform);
+            assert.deepStrictEqual(
+                lacking.map(({ task }) => task),
+                [],
+                SOURCES.platform,
+            );
+        }),
+    );
+
+    suite.effect(
+        'hashes no command whose output names the operating system into a cached task of tsc, Vite, Vitest, or Storybook',
+        Effect.fnUntraced(function* () {
+            const workspace = yield* read('fresh');
+            const commands = yield* naming(workspace);
+            assert.isNotEmpty(neutral(workspace), SOURCES.platform);
+            assert.deepStrictEqual(
+                neutral(workspace)
+                    .filter(({ task }) => !commands.isDisjointFrom(new Set(hashing(workspace, task))))
+                    .map(({ task }) => task),
+                [],
+                SOURCES.platform,
+            );
         }),
     );
 
@@ -210,7 +324,7 @@ it.layer(layer, { excludeTestServices: true })('cache declarations', (suite) => 
     );
 
     suite.effect(
-        'hashes the output of no tool --version command into a cached task',
+        'hashes the output of no tool version command (--version, -version, <tool> version) into a cached task',
         Effect.fnUntraced(function* () {
             assert.deepStrictEqual(hashed(yield* read('fresh'), 'runtime:', VERSION), [], SOURCES.read);
         }),
@@ -219,12 +333,19 @@ it.layer(layer, { excludeTestServices: true })('cache declarations', (suite) => 
     suite.effect(
         'hashes no credential variable into a cached task beyond the encryption key Nx itself adds',
         Effect.fnUntraced(function* () {
-            assert.deepStrictEqual(hashed(yield* read('fresh'), 'env:', CREDENTIAL, ['env:NX_CLOUD_ENCRYPTION_KEY']), [], SOURCES.read);
+            assert.deepStrictEqual(hashed(yield* read('fresh'), 'env:', CREDENTIAL, ['env:NX_CLOUD_ENCRYPTION_KEY']), [], `${SOURCES.read}; ${SOURCES.keyed}`);
+        }),
+    );
+
+    suite.effect(
+        'hashes the file its ecosystem states versions in into every cached task that reads its own files and states no external dependency',
+        Effect.fnUntraced(function* () {
+            assert.deepStrictEqual(unversioned(yield* read('fresh')), [], SOURCES.versioned);
         }),
     );
 });
 
-it.layer(layer, { excludeTestServices: true })('cache replay in this workspace', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'replays from the local cache the type check of the first library without workspace dependencies',
         Effect.fnUntraced(function* () {
@@ -242,29 +363,46 @@ it.layer(layer, { excludeTestServices: true })('cache replay in this workspace',
     suite.effect(
         'stores a task result in a remote cache server and replays it from there into an empty local cache',
         Effect.fnUntraced(function* () {
-            const [fs, workspace, server] = yield* Effect.all([FileSystem.FileSystem, read('fresh'), remote]);
-            const [stored, emptied, task] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), sampled(workspace)]);
-            const served = { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: addressed(server), NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: TOKEN };
-            const first = yield* ran(inject('readings').data, stored, task, served);
-            const second = yield* ran(emptied, emptied, task, served);
+            const [fs, workspace, { server }] = yield* Effect.all([FileSystem.FileSystem, read('fresh'), remote(Function.flow(answered, Option.some))]);
+            const [kept, emptied, task] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), sampled(workspace)]);
+            const set = { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: addressed(server), NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: TOKEN };
+            const first = yield* ran(inject('readings').data, kept, task, set);
+            const second = yield* ran(emptied, emptied, task, set);
             assert.strictEqual(first.code, 0, first.output);
             assert.deepStrictEqual(second.statuses, ['remote-cache-hit'], `${SOURCES.remote}\n${second.output}`);
         }, Effect.scoped),
         BUILT,
     );
 
-    suite.effect(
-        'runs a cached task to exit 0 and names the server in a warning when no remote cache server listens',
-        Effect.fnUntraced(function* () {
-            const [fs, workspace] = yield* Effect.all([FileSystem.FileSystem, read('fresh')]);
-            const refusing = yield* Effect.scoped(Effect.map(remote, addressed));
-            const [folder, task] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), sampled(workspace)]);
-            const { code, output, statuses } = yield* ran(inject('readings').data, folder, task, { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: refusing, NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: TOKEN });
+    suite.effect.each([
+        { run: 'a run outside GitHub Actions', set: {}, annotated: false },
+        { run: 'a run under GITHUB_ACTIONS=true', set: { GITHUB_ACTIONS: 'true' }, annotated: true },
+    ])(
+        'runs a cached task to exit 0 and names the server in one warning, a workflow command only under GitHub Actions, when no remote cache server listens in $run',
+        Effect.fnUntraced(function* ({ set, annotated }) {
+            const closed = yield* Effect.scoped(Effect.map(remote(Option.none), ({ server }) => addressed(server)));
+            const { code, output, statuses, warnings } = yield* outage(closed, set);
             assert.strictEqual(code, 0, `${SOURCES.absent}\n${output}`);
             assert.deepStrictEqual(statuses, ['cache-miss'], SOURCES.absent);
-            assert.include(output, refusing, SOURCES.absent);
+            assert.deepStrictEqual(
+                warnings.map((line) => line.startsWith('::warning ')),
+                [annotated],
+                `${SOURCES.absent}; ${SOURCES.annotated}\n${output}`,
+            );
         }, Effect.scoped),
         BUILT,
+    );
+
+    suite.effect.each(OUTAGES)(
+        'runs a cached task to exit 0 with one warning and sends no request after the first read to a remote cache server that $outage',
+        Effect.fnUntraced(function* ({ status }) {
+            const { server, requests } = yield* remote(() => status);
+            const { code, output, statuses, warnings } = yield* outage(addressed(server));
+            assert.strictEqual(code, 0, `${SOURCES.refused}\n${output}`);
+            assert.deepStrictEqual(statuses, ['cache-miss'], SOURCES.refused);
+            assert.lengthOf(warnings, 1, `${SOURCES.refused}\n${output}`);
+            assert.lengthOf(requests, 1, `${SOURCES.refused}: ${requests.join(', ')}`);
+        }, Effect.scoped),
     );
 });
 
@@ -273,10 +411,10 @@ it.layer(
         Layer.provide(
             Consumer.layer({
                 resolved: import.meta.url,
-                settings: { plugins: ['@rasm/nx-typescript'] },
-                packages: ['@typescript/native'],
+                settings: SETTINGS,
                 ignored: ['dist'],
                 files: {
+                    'package.json': JSON.stringify({ name: 'consumer', private: true, type: 'module', devDependencies: { nx: installed.version, '@rasm/nx-typescript': '*', typescript: compiler.version } }),
                     'docs/notes.md': 'unread\n',
                     'libs/alpha/package.json': '{ "name": "alpha", "version": "0.0.0", "type": "module", "exports": "./dist/index.js" }\n',
                     'libs/alpha/tsconfig.json': '{ "compilerOptions": { "module": "nodenext", "declaration": true, "outDir": "dist", "strict": true }, "include": ["index.ts"] }\n',
@@ -288,7 +426,7 @@ it.layer(
         layer,
     ),
     { timeout: BUILT, excludeTestServices: true },
-)('cache replay in a workspace that installs @rasm/nx-typescript', (suite) => {
+)((suite) => {
     suite.effect(
         'replays a build from the local cache and restores each file the build wrote',
         Effect.fnUntraced(function* () {
@@ -337,6 +475,17 @@ it.layer(
         }),
         BUILT,
     );
+
+    suite.effect(
+        'reads the default input of dependencies in a workspace without a production input and the production input once nx.json defines one',
+        Effect.fnUntraced(function* () {
+            const { read: graphed, wrote } = yield* Consumer;
+            const before = upstream(yield* graphed);
+            yield* wrote({ 'nx.json': yield* Schema.encodeEffect(Json)({ ...SETTINGS, namedInputs: { default: ['{projectRoot}/**/*'], production: ['default'] } }) });
+            assert.deepStrictEqual([before, upstream(yield* graphed)], [['^default'], ['^production']], SOURCES.upstream);
+        }),
+        BUILT,
+    );
 });
 
 it.layer(
@@ -362,7 +511,7 @@ it.layer(
         layer,
     ),
     { timeout: BUILT, excludeTestServices: true },
-)('test inputs in a workspace that installs @rasm/nx-vitest', (suite) => {
+)((suite) => {
     suite.effect(
         'gives a file a root config names in forceRerunTriggers to the test target of that config and to no other suite',
         Effect.fnUntraced(function* () {

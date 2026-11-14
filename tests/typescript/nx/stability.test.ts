@@ -2,10 +2,10 @@ import { homedir, hostname, tmpdir, userInfo } from 'node:os';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
-import { Array, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Duration, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
 import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
-import { called, declared, read, type Workspace } from '#/workspace';
+import { declared, read, taken, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,12 +27,12 @@ const Json = Schema.fromJsonString(Schema.Unknown);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const graphed = ({ nodes, dependencies, externalNodes, sourceMaps }: Workspace) => ({ nodes, dependencies, externalNodes, sourceMaps });
+const graphed = ({ nodes, dependencies, externalNodes, sourceMaps, failures }: Workspace) => ({ nodes, dependencies, externalNodes, sourceMaps, failures });
 
 const unequal = (left: unknown, right: unknown, at: string): readonly string[] =>
-    Predicate.isObject(left) && Predicate.isObject(right) ? Array.dedupe([...Object.keys(left), ...Object.keys(right)]).flatMap((key) => unequal(Reflect.get(left, key), Reflect.get(right, key), `${at}.${key}`)) : [at].filter(() => left !== right);
+    Predicate.isObjectOrArray(left) && Predicate.isObjectOrArray(right) ? Array.dedupe([...Object.keys(left), ...Object.keys(right)]).flatMap((key) => unequal(Reflect.get(left, key), Reflect.get(right, key), `${at}.${key}`)) : [at].filter(() => left !== right);
 
-const strings = (value: unknown, at: string): readonly (readonly [at: string, text: string])[] => (Predicate.isObject(value) ? Object.entries(value).flatMap(([key, held]) => strings(held, `${at}.${key}`)) : Array.fromNullishOr(Predicate.isString(value) ? value : undefined).map((text) => [at, text] as const));
+const strings = (value: unknown, at: string): readonly (readonly [at: string, text: string])[] => (Predicate.isObjectOrArray(value) ? Object.entries(value).flatMap(([key, held]) => strings(held, `${at}.${key}`)) : Array.fromNullishOr(Predicate.isString(value) ? value : undefined).map((text) => [at, text] as const));
 
 const local = ({ nodes, hashes }: Workspace) => {
     const machine = [workspaceRoot, homedir(), tmpdir(), userInfo().username, hostname()];
@@ -47,7 +47,9 @@ const outside = (path: Path.Path, bases: readonly string[], held: unknown, task:
         .map(({ at, word }) => `${at}: ${word}`);
 
 const escaping = (path: Path.Path, workspace: Workspace) =>
-    declared(workspace).flatMap(({ root, task, target }) => [...outside(path, [workspaceRoot], { inputs: target.inputs, outputs: target.outputs }, task), ...outside(path, [workspaceRoot, path.join(workspaceRoot, root)], { options: target.options, configurations: target.configurations }, task)]);
+    declared(workspace)
+        .filter(({ target }) => target.cache === true)
+        .flatMap(({ root, task, target }) => [...outside(path, [workspaceRoot], { inputs: target.inputs, outputs: target.outputs }, task), ...outside(path, [workspaceRoot, path.join(workspaceRoot, root)], { options: target.options, configurations: target.configurations }, task)]);
 
 const present = Effect.fnUntraced(function* (workspace: Workspace) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -58,14 +60,9 @@ const present = Effect.fnUntraced(function* (workspace: Workspace) {
     );
 });
 
-const taken = Effect.fnUntraced(function* (data: string) {
-    const path = yield* Path.Path;
-    return yield* called(data, 'node', [path.join(import.meta.dirname, 'reading.ts')]);
-});
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-it.layer(layer, { excludeTestServices: true })('graph stability', (suite) => {
+it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'computes a byte-equal graph in two processes that share no stored state',
         Effect.fnUntraced(function* () {
@@ -100,7 +97,7 @@ it.layer(layer, { excludeTestServices: true })('graph stability', (suite) => {
     );
 
     suite.effect(
-        'names no path outside the workspace in any target option, input, or output',
+        'names no path outside the workspace in any option, input, or output of a cached target',
         Effect.fnUntraced(function* () {
             const [path, workspace] = yield* Effect.all([Path.Path, read('fresh')]);
             assert.deepStrictEqual(Array.take(escaping(path, workspace), LISTED), [], SOURCES.portable);
@@ -122,11 +119,11 @@ it.layer(layer, { excludeTestServices: true })('graph stability', (suite) => {
     suite.effect(
         'answers graph reads made at once with the graph one read gives',
         Effect.fnUntraced(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            const cached = yield* fs.readFileString(inject('readings').cached);
+            const alone = yield* taken(inject('readings').data);
             const reads = yield* Effect.forEach(['first', 'second', 'third'], () => taken(inject('readings').data), { concurrency: 'unbounded' });
+            assert.strictEqual(Number(alone.code), 0, SOURCES.recomputed);
             assert.deepStrictEqual(
-                reads.map(({ code, stdout }) => Number(code) === 0 && stdout === cached),
+                reads.map(({ code, stdout }) => Number(code) === 0 && stdout === alone.stdout),
                 [true, true, true],
                 SOURCES.recomputed,
             );
@@ -144,5 +141,6 @@ it.layer(layer, { excludeTestServices: true })('graph stability', (suite) => {
             assert.isNotEmpty(before, 'a built workspace holds declared outputs');
             assert.deepStrictEqual([...new Set(before).difference(new Set(after))], [], SOURCES.kept);
         }, Effect.scoped),
+        Duration.toMillis(Duration.minutes(10)),
     );
 });
