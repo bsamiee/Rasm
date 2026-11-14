@@ -27,13 +27,23 @@ public struct Control: Encodable, Hashable, Sendable {
     public let items: [Self]?
 }
 
-extension AXError: @retroactive Encodable {}
-
 public struct FailedRead: Encodable, Hashable, Sendable {
+    private enum CodingKeys: CodingKey {
+        case reads, role, label, error
+    }
+
     public let reads: [String]
     public let role: String?
     public let label: String?
     public let error: AXError
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields = encoder.container(keyedBy: CodingKeys.self)
+        try fields.encode(reads, forKey: .reads)
+        try fields.encodeIfPresent(role, forKey: .role)
+        try fields.encodeIfPresent(label, forKey: .label)
+        try fields.encode(error.rawValue, forKey: .error)
+    }
 }
 
 public struct Element: Encodable, Hashable, Sendable {
@@ -170,8 +180,8 @@ private enum Part {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension AXUIElement {
-    static func candidates(_ read: [String: CFTypeRef]) throws(ApplicationFailure) -> [AXUIElement] {
-        try (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(checked).map { window throws(ApplicationFailure) in
+    static func candidates(_ read: Attributes) throws(ApplicationFailure) -> [AXUIElement] {
+        try (read.values[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(checked).map { window throws(ApplicationFailure) in
             try [window]
                 + window.elements(kAXChildrenAttribute).map { child throws(ApplicationFailure) -> AXUIElement? in
                     let role: String? = try child.value(kAXRoleAttribute)
@@ -190,14 +200,14 @@ extension AXUIElement {
         .compactMap(\.self)
     }
 
-    private static func children(_ read: [String: CFTypeRef]) -> [(offset: Int, element: AXUIElement)] {
-        let role = read[kAXRoleAttribute] as? String
+    private static func children(_ read: Attributes) -> [(offset: Int, element: AXUIElement)] {
+        let role = read.values[kAXRoleAttribute] as? String
         let nested: CFTypeRef? =
             switch role {
                 case kAXBrowserRole: nil
-                case kAXTableRole, kAXOutlineRole: read[kAXVisibleRowsAttribute]
-                case kAXListRole: read[kAXVisibleChildrenAttribute] ?? read[kAXChildrenAttribute]
-                case _: read[kAXChildrenAttribute]
+                case kAXTableRole, kAXOutlineRole: read.values[kAXVisibleRowsAttribute]
+                case kAXListRole: read.values[kAXVisibleChildrenAttribute] ?? read.values[kAXChildrenAttribute]
+                case _: read.values[kAXChildrenAttribute]
             }
         return Array((nested as? [CFTypeRef] ?? []).compactMap(checked).enumerated().dropFirst(role == kAXMenuBarRole ? 1 : 0))
     }
@@ -205,59 +215,66 @@ extension AXUIElement {
     private func walk(marking marked: [(attribute: String, node: AXUIElement)], menu: (process: pid_t, path: [Int])?) throws(ApplicationFailure) -> (role: String?, parts: [Part]) {
         do throws(ApplicationFailure) {
             let read = try values(nodeAttributes)
-            let role = read[kAXRoleAttribute] as? String
+            let role = read.values[kAXRoleAttribute] as? String
             guard role.map(boundedRoles.contains) != true else { return (role, []) }
             let children = try Self.children(read).map { child throws(ApplicationFailure) in
                 try child.element.walk(marking: marked, menu: menu.map { menu in (menu.process, menu.path + [child.offset]) })
             }
             let menus = children.filter { child in child.role == kAXMenuRole }.flatMap(\.parts)
-            let own = try part(
+            let own = try parts(
                 read,
                 id: menu.map { menu in Self.menuItem(of: menu.process, at: menu.path) } ?? token,
                 attribute: marked.first { mark in mark.node == self }?.attribute,
                 items: menus.compactMap(\.control),
             )
-            return (role, [own].compactMap(\.self) + menus.filter { part in part.is(\.unreadable) } + children.filter { child in child.role != kAXMenuRole }.flatMap(\.parts))
+            return (role, own + menus.filter { part in part.is(\.unreadable) } + children.filter { child in child.role != kAXMenuRole }.flatMap(\.parts))
         } catch {
             return (nil, [try Part(error)])
         }
     }
 
-    private func part(_ read: [String: CFTypeRef], id: Data, attribute: String?, items: [Control]) throws(ApplicationFailure) -> Part? {
-        do throws(ApplicationFailure) {
-            guard let role = read[kAXRoleAttribute] as? String, role != kAXMenuRole else { return nil }
-            let value: CFTypeRef? =
-                switch role {
-                    case kAXTextAreaRole: try visibleText().map { text in text as CFString }
-                    case kAXStaticTextRole, kAXTextFieldRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole: try values([kAXValueAttribute])[kAXValueAttribute]
-                    case _: nil
-                }
-            guard role != kAXStaticTextRole else {
-                return (value as? String).flatMap { text in
-                    text.unicodeScalars.allSatisfy { scalar in scalar.properties.isWhitespace || scalar.properties.generalCategory == .privateUse } ? nil : .text(text)
-                }
+    private func parts(_ read: Attributes, id: Data, attribute: String?, items: [Control]) throws(ApplicationFailure) -> [Part] {
+        guard let role = read.values[kAXRoleAttribute] as? String, role != kAXMenuRole else { return read.failed.map(Part.unreadable) }
+        let valued = Result { () throws(ApplicationFailure) -> CFTypeRef? in
+            switch role {
+                case kAXTextAreaRole: try visibleText().map { text in text as CFString }
+                case kAXStaticTextRole, kAXTextFieldRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole: try value(kAXValueAttribute)
+                case _: nil
             }
-            let actions = try actionNames()
-            guard value != nil || actions.contains(kAXPressAction) else { return nil }
-            let label = try label(read)
-            guard role != kAXMenuItemRole || label != nil else { return nil }
-            return .control(
-                Control(
-                    id: Element.ID(token: id),
-                    role: role,
-                    subrole: read[kAXSubroleAttribute] as? String,
-                    label: label,
-                    identifier: read[kAXIdentifierAttribute] as? String,
-                    attribute: attribute,
-                    value: value.flatMap(JSONValue.init(accessibility:)),
-                    enabled: read[kAXEnabledAttribute] as? Bool ?? true,
-                    actions: actions,
-                    items: items.isEmpty ? nil : items,
-                )
-            )
-        } catch {
-            return try Part(error)
         }
+        let unvalued = try valued[case: \.failure].map { failure throws(ApplicationFailure) in try Part(failure) }
+        let acted = Result { () throws(ApplicationFailure) in try role == kAXStaticTextRole ? [] : actionNames() }
+        let unacted = try acted[case: \.failure].map { failure throws(ApplicationFailure) in try Part(failure) }
+        let (held, names): (CFTypeRef?, [String]) = (valued[case: \.success], acted[case: \.success] ?? [])
+        let controlled = role != kAXStaticTextRole && (held != nil || names.contains(kAXPressAction) || valued.is(\.failure))
+        let labeled = Result { () throws(ApplicationFailure) in try controlled ? label(read) : nil }
+        let unlabeled = try labeled[case: \.failure].map { failure throws(ApplicationFailure) in try Part(failure) }
+        let name: String? = labeled[case: \.success]
+        let unread = read.failed.map(Part.unreadable) + [unvalued, unacted, unlabeled].compactMap(\.self)
+        let own: Part? =
+            switch role {
+                case kAXStaticTextRole:
+                    (held as? String).flatMap { text in
+                        text.unicodeScalars.allSatisfy { scalar in scalar.properties.isWhitespace || scalar.properties.generalCategory == .privateUse } ? nil : .text(text)
+                    }
+                case _ where controlled && (role != kAXMenuItemRole || name != nil):
+                    .control(
+                        Control(
+                            id: Element.ID(token: id),
+                            role: role,
+                            subrole: read.values[kAXSubroleAttribute] as? String,
+                            label: name,
+                            identifier: read.values[kAXIdentifierAttribute] as? String,
+                            attribute: attribute,
+                            value: held.flatMap(JSONValue.init(accessibility:)),
+                            enabled: read.values[kAXEnabledAttribute] as? Bool ?? true,
+                            actions: names,
+                            items: items.isEmpty ? nil : items,
+                        )
+                    )
+                case _: nil
+            }
+        return [own].compactMap(\.self) + unread
     }
 
     func described(walking walked: (Element) -> Bool, helper: Bool, among listed: [InstanceState.Window], bar: Int? = nil) throws(ApplicationFailure) -> (window: CGWindowID?, element: Element)? {
@@ -267,30 +284,30 @@ extension AXUIElement {
                 kAXFocusedAttribute, kAXMinimizedAttribute, kAXParentAttribute,
             ] + buttonAttributes + childAttributes + frameAttributes
         )
-        guard let role = read[kAXRoleAttribute] as? String else { return nil }
+        guard let role = read.values[kAXRoleAttribute] as? String else { return nil }
         let window = Self.window(framed: read, among: listed)
         guard window != nil || menuRoles.contains(role) else { return nil }
         let marked = buttonAttributes.compactMap { attribute in
-            read[attribute].flatMap(Self.checked).map { node in (attribute: attribute, node: node) }
+            read.values[attribute].flatMap(Self.checked).map { node in (attribute: attribute, node: node) }
         }
-        let (subrole, modal) = (read[kAXSubroleAttribute] as? String, read[kAXModalAttribute] as? Bool)
+        let (subrole, modal) = (read.values[kAXSubroleAttribute] as? String, read.values[kAXModalAttribute] as? Bool)
         let (id, actions, edited): (Data, [String], Bool?) = try (token, actionNames(), marked.first { mark in mark.attribute == kAXCloseButtonAttribute }?.node.value(kAXEditedAttribute))
         let title: String? =
             try role == kAXMenuRole
-            ? read[kAXParentAttribute].flatMap(Self.checked).flatMap { parent throws(ApplicationFailure) in try parent.label(parent.values(nodeAttributes)) }
-            : (read[kAXTitleAttribute] as? String).flatMap { title in title.isEmpty ? nil : title }
+            ? read.values[kAXParentAttribute].flatMap(Self.checked).flatMap { parent throws(ApplicationFailure) in try parent.label(parent.values(nodeAttributes)) }
+            : (read.values[kAXTitleAttribute] as? String).flatMap { title in title.isEmpty ? nil : title }
         let element: (Element.Detail?) -> Element = { detail in
             Element(
                 id: Element.ID(token: id),
                 role: role,
                 subrole: subrole,
                 modal: modal,
-                identifier: read[kAXIdentifierAttribute] as? String,
-                description: (read[kAXDescriptionAttribute] as? String).flatMap { description in description.isEmpty ? nil : description },
+                identifier: read.values[kAXIdentifierAttribute] as? String,
+                description: (read.values[kAXDescriptionAttribute] as? String).flatMap { description in description.isEmpty ? nil : description },
                 title: title,
-                document: (read[kAXDocumentAttribute] as? String).flatMap { document in URL(string: document) },
+                document: (read.values[kAXDocumentAttribute] as? String).flatMap { document in URL(string: document) },
                 edited: edited,
-                minimized: read[kAXMinimizedAttribute] as? Bool,
+                minimized: read.values[kAXMinimizedAttribute] as? Bool,
                 actions: actions,
                 detail: detail,
                 helper: helper,
@@ -309,11 +326,11 @@ extension AXUIElement {
             window,
             element(
                 Element.Detail(
-                    main: read[kAXMainAttribute] as? Bool,
-                    focused: read[kAXFocusedAttribute] as? Bool,
+                    main: read.values[kAXMainAttribute] as? Bool,
+                    focused: read.values[kAXFocusedAttribute] as? Bool,
                     text: parts.compactMap(\.text),
                     controls: parts.compactMap(\.control),
-                    unreadable: parts.compactMap(\.unreadable),
+                    unreadable: read.failed + parts.compactMap(\.unreadable),
                 )
             ),
         )

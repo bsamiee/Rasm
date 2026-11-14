@@ -32,11 +32,10 @@ extension SCScreenshotConfiguration {
 }
 
 extension Instance {
-    public func screenshots(
+    func targets(
         of windows: [CGWindowID],
-        longestSide: Int? = nil,
-        configuration: () -> SCScreenshotConfiguration = { .background },
-    ) async throws(ApplicationFailure) -> [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] {
+        longestSide: Int?,
+    ) async throws(ApplicationFailure) -> [CGWindowID: Result<(filter: SCContentFilter, width: Int, height: Int), ApplicationFailure>] {
         guard CGPreflightScreenCaptureAccess() else { throw ApplicationFailure(subject: ProcessInfo.processInfo.processName, reason: .noCaptureAccess) }
         await NSApplication.loadApplication()
         let content: SCShareableContent
@@ -46,16 +45,33 @@ extension Instance {
         let listed = Dictionary(
             content.windows.filter { window in window.owningApplication?.processID == process.pid }.map { window in (window.windowID, window) }
         ) { first, _ in first }
+        return Dictionary(
+            windows.map { number in
+                (
+                    number,
+                    Result { () throws(ApplicationFailure) in
+                        guard let window = listed[number], !window.frame.isEmpty else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
+                        let filter = SCContentFilter(desktopIndependentWindow: window)
+                        let scale = CGFloat(filter.pointPixelScale)
+                        let fitted = longestSide.map { limit in min(1, CGFloat(limit) / (max(filter.contentRect.width, filter.contentRect.height) * scale)) } ?? 1
+                        return (filter, Int((filter.contentRect.width * scale * fitted).rounded()), Int((filter.contentRect.height * scale * fitted).rounded()))
+                    },
+                )
+            }
+        ) { first, _ in first }
+    }
+
+    public func screenshots(
+        of windows: [CGWindowID],
+        longestSide: Int? = nil,
+        configuration: () -> SCScreenshotConfiguration = { .background },
+    ) async throws(ApplicationFailure) -> [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] {
         var shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = [:]
-        for number in windows {
+        for (number, target) in try await targets(of: windows, longestSide: longestSide) {
             shots[number] = await Result { () async throws(ApplicationFailure) in
-                guard let window = listed[number], !window.frame.isEmpty else { throw ApplicationFailure(subject: String(number), reason: .noWindow) }
-                let filter = SCContentFilter(desktopIndependentWindow: window)
-                let scale = CGFloat(filter.pointPixelScale)
-                let fitted = longestSide.map { limit in min(1, CGFloat(limit) / (max(filter.contentRect.width, filter.contentRect.height) * scale)) } ?? 1
+                let (filter, width, height) = try target.get()
                 let capture = configuration()
-                capture.width = Int((filter.contentRect.width * scale * fitted).rounded())
-                capture.height = Int((filter.contentRect.height * scale * fitted).rounded())
+                (capture.width, capture.height) = (width, height)
                 do { return try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: capture) } catch {
                     throw ApplicationFailure(subject: String(number), reason: .host(error as NSError))
                 }

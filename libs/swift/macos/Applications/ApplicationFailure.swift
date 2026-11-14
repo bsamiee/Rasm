@@ -74,7 +74,7 @@ public struct ApplicationFailure: CustomNSError, Equatable, LocalizedError {
             case .noWindow: "\(subject) has no window"
             case .noImage: "\(subject) holds no SDR image"
             case .noExtension: "\(subject) has no filename extension"
-            case .noEncoder: "ImageIO has no \(subject) encoder"
+            case .noEncoder: "No encoder writes \(subject)"
             case .noReport(let limit): "Process \(subject) wrote no crash report within \(limit.formatted(.units(width: .wide)))"
             case .event(let failure): failure.errorDescription
             case .system(let error): "\(subject): \(error.description)"
@@ -115,7 +115,7 @@ extension ApplicationFailure: Encodable {
         try fields.encodeIfPresent(errorDescription, forKey: .message)
         switch reason {
             case .foreign(let process): try fields.encode(process, forKey: .pid)
-            case .refused(.some(let error)): try fields.encode(error, forKey: .error)
+            case .refused(.some(let error)): try fields.encode(error.rawValue, forKey: .error)
             case .notSettable(let attribute): try fields.encode(attribute, forKey: .attribute)
             case .unreadable(let read): try read.encode(to: encoder)
             case .unmatched(let miss): try fields.encode(miss.candidates, forKey: .candidates)

@@ -75,8 +75,12 @@ final class Run: Sendable {
     private let held: Mutex<(status: ExitCode, shown: [ProcessInstance: Data], journal: Journal?)>
     private let closed: (stream: AsyncStream<Int32?>, continuation: AsyncStream<Int32?>.Continuation) = AsyncStream.makeStream()
     private let claims: (stream: AsyncStream<Instance?>, continuation: AsyncStream<Instance?>.Continuation)?
+    private let recorder: Recorder?
 
-    init(output: FileDescriptor? = .standardOutput, lineLength: Int? = nil, waiting: Bool = false) {
+    init(output: FileDescriptor? = .standardOutput, lineLength: Int? = nil, waiting: Bool = false, recording: (folder: URL, longestSide: Int?)? = nil) {
+        let recorded = Result { () throws(ApplicationFailure) in
+            try recording.map { target throws(ApplicationFailure) in try Recorder(folder: target.folder, longestSide: target.longestSide) }
+        }
         let opening = Result { () throws(ApplicationFailure) in
             do { return try Journal(start: encoder.encodeLine(Record<JSONValue>(argv: CommandLine.arguments))) } catch {
                 throw ApplicationFailure(subject: Journal.folder.path(percentEncoded: false), reason: .host(error as NSError))
@@ -88,7 +92,8 @@ final class Run: Sendable {
         logger = Logger(label: String(reflecting: Run.self))
         held = Mutex((waiting ? .failure : .success, [:], opening[case: \.success]))
         claims = waiting ? AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1)) : nil
-        if case .failure(let failure) = opening { fail(Program.current.name, failure) }
+        recorder = recorded[case: \.success]
+        for case .failure(let failure) in [opening.map { _ in }, recorded.map { _ in }] { fail(Program.current.name, failure) }
     }
 
     private func encoded(_ value: some Encodable) -> Data {
@@ -97,6 +102,7 @@ final class Run: Sendable {
 
     private func emit(_ line: Data, logging shown: some Encodable, as key: String) {
         let record = encoded(Record(line: shown))
+        recorder?.append(.line, shown)
         let open = held.withLock { held in
             do {
                 try held.journal?.append(record, replacing: key)
@@ -173,7 +179,11 @@ final class Run: Sendable {
     func follow(_ feed: some AsyncSequence<OrderedDictionary<Instance, InstanceState>, Never> & Sendable) async {
         _ = await feed.reduce(OrderedDictionary<Instance, InstanceState>()) { last, next in
             for (instance, state) in next { show(instance, state) }
-            for (instance, state) in last where next[instance] == nil && !state.is(\.exited) { emit(instance.key, [String: String]()) }
+            for (instance, state) in last where next[instance] == nil && !state.is(\.exited) {
+                held.withLock { held in held.shown[instance.process] = nil }
+                emit(instance.key, [String: String]())
+            }
+            await recorder?.observe(next, after: last)
             return next
         }
     }
@@ -230,6 +240,7 @@ final class Run: Sendable {
     }
 
     func finish(signal: Int32? = nil) async -> Never {
+        await recorder?.finish()
         let status = held.withLock { held in
             let ended = encoded(Record<JSONValue>(exit: Exit(status: held.status.rawValue, signal: signal)))
             do { try held.journal?.append(ended) } catch { WatchApps.exit(withError: error) }
@@ -241,6 +252,7 @@ final class Run: Sendable {
     }
 
     func restart(into executable: URL) async -> Never {
+        await recorder?.finish()
         await telemetry.triggerGracefulShutdown()
         _ = await services.result
         _ = unsafe execv(executable.path(percentEncoded: false), CommandLine.unsafeArgv)
@@ -254,9 +266,10 @@ final class Run: Sendable {
         lineLength: Int? = nil,
         accessibility: Bool = true,
         waiting: Bool = false,
+        recording: (folder: URL, longestSide: Int?)? = nil,
         _ work: @escaping @Sendable (Run) async throws(ApplicationFailure) -> Void,
     ) async {
-        let run = Run(output: output, lineLength: lineLength, waiting: waiting)
+        let run = Run(output: output, lineLength: lineLength, waiting: waiting, recording: recording)
         let operation = "\(Program.current.name) \(command._commandName)"
         let signals = await UnixSignalsSequence(trapping: .sigterm, .sigint, .sighup).map { signal in Int32?.some(signal.rawValue) }
         let parent = Result { () throws(Errno) in try ProcessInstance(of: getppid()) }

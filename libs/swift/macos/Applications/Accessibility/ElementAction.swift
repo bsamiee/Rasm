@@ -89,11 +89,11 @@ extension ElementAction {
             return nil
         }
         let read = try node.values([kAXEnabledAttribute, kAXWindowAttribute])
-        let window = try read[kAXWindowAttribute].flatMap(AXUIElement.checked).flatMap { window throws(ApplicationFailure) in
+        let window = try read.values[kAXWindowAttribute].flatMap(AXUIElement.checked).flatMap { window throws(ApplicationFailure) in
             AXUIElement.window(framed: try window.values(frameAttributes), among: InstanceState.Window.owned(by: target.owner))
         }
         let outcome: AXError =
-            switch (self, read[kAXEnabledAttribute] as? Bool) {
+            switch (self, read.values[kAXEnabledAttribute] as? Bool) {
                 case (.perform, false): throw ApplicationFailure(subject: description, reason: .disabled)
                 case (.perform(_, let action), _): AXUIElementPerformAction(node, action as CFString)
                 case (.set(_, let value), _): try node.write(value as CFString, to: kAXValueAttribute)

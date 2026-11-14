@@ -135,15 +135,34 @@ struct Find: AsyncParsableCommand {
 }
 
 struct Watch: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = .init(abstract: "Prints one line per instance change, per system prompt naming an instance, and per system pressure change above nominal")
+    static let configuration: CommandConfiguration = .init(
+        abstract: "Prints one line per instance change, per system prompt naming an instance, and per system pressure change above nominal. Records standard windows and asking rows with --record"
+    )
 
     @Argument(help: installedNames)
     var names: [String]
 
     @OptionGroup var outline: OutlineOptions
 
+    @Option(
+        help: ArgumentHelp(
+            "Folder taking one movie per standard window and asking row, a clip and frame of the \(WindowRecording.buffered.formatted(.units(width: .wide))) before each dialog, hang, and exit by signal, and timeline.jsonl",
+            valueName: "folder",
+        ),
+        transform: { folder in URL(filePath: folder, directoryHint: .isDirectory) },
+    )
+    var record: URL?
+
+    @Option(help: ArgumentHelp("Longest side of recorded frames in pixels, smaller windows keep native size", valueName: "pixels"))
+    var longestSide: Int?
+
+    func validate() throws(ValidationError) {
+        if let longestSide, longestSide <= 0 { throw ValidationError("\(longestSide) is not a positive integer") }
+        if longestSide != nil, record == nil { throw ValidationError("--longest-side belongs to --record") }
+    }
+
     func run() async {
-        await Run.execute(Self.self, lineLength: outline.lineLength) { run in
+        await Run.execute(Self.self, lineLength: outline.lineLength, recording: record.map { folder in (folder, longestSide) }) { run in
             let applications = await installed(names, run).flatMap(\.installations)
             guard !applications.isEmpty else { return }
             for identifier in OrderedSet(applications.map(\.identifier)) where NSWorkspace.shared.instances(of: { instance in instance.bundleIdentifier == identifier }).isEmpty {

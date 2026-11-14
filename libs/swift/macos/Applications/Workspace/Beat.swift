@@ -50,9 +50,9 @@ extension Instance {
             next.observer = next.observer ?? Result { () throws(ApplicationFailure) in try Observer(application, ticks: ticks) }
             try next.observer?.get().register(on: element)
         }
-        let read = try element.values([kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute])
+        let read = try element.required([kAXWindowsAttribute, kAXFocusedWindowAttribute, kAXFrontmostAttribute])
         let tokens =
-            (read[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.checked).map(\.token) + [read[kAXFocusedWindowAttribute].flatMap(AXUIElement.checked)?.token]
+            (read.values[kAXWindowsAttribute] as? [CFTypeRef] ?? []).compactMap(AXUIElement.checked).map(\.token) + [read.values[kAXFocusedWindowAttribute].flatMap(AXUIElement.checked)?.token]
         let numbers = Set(listed.map(\.number))
         if !heartbeat || next.tokens != tokens || next.numbers != numbers {
             let helper = application.isDialogHelper
@@ -61,9 +61,9 @@ extension Instance {
             }
             .compactMap(\.self)
             next.described = Dictionary(elements.compactMap { row in row.window.map { window in (window, row.element) } }) { first, second in first.asking ? first : second }
-            let bars = try element.values(menuBars)
+            let bars = try element.required(menuBars)
             let barred = try menuBars.enumerated().map { index, bar throws(ApplicationFailure) in
-                try bars[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, among: listed, bar: index)?.element
+                try bars.values[bar].flatMap(AXUIElement.checked)?.described(walking: walked, helper: helper, among: listed, bar: index)?.element
             }
             .compactMap(\.self)
             next.menus =
@@ -71,7 +71,7 @@ extension Instance {
         }
         let status: InstanceState.Running.Status = application.isFinishedLaunching || next.described.values.contains(where: \.asking) ? .responding : .launching
         next.status = status
-        next.active = read[kAXFrontmostAttribute] as? Bool ?? application.isActive
+        next.active = read.values[kAXFrontmostAttribute] as? Bool ?? application.isActive
         next.tokens = tokens
         next.numbers = numbers
         next.answered = numbers
