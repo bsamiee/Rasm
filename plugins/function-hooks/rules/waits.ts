@@ -1,6 +1,6 @@
-import { Array, Duration, Effect, Option, Record, String } from 'effect';
+import { Array, Effect, Option, Record } from 'effect';
 import { Verdict } from '#/rules/decision';
-import { absent, type Call, edited, erased, inserted, quote, type Rule, type Ruleset, refusal, silent, spelled, stages, when, whole, within } from '#/rules/rule';
+import { type Call, edited, erased, inserted, quote, type Rule, type Ruleset, refusal, silent, spelled, stages, when, whole, within } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
 import { WATCH_APPS } from '#/shell/programs';
 import type { Word } from '#/shell/script';
@@ -11,8 +11,6 @@ const LETTER = /^\w/u;
 const DIGITS = /^\d+$/u;
 const TASK_OUTPUTS = /\/tasks\/(?<id>[^/\s'"]+)\.output(?![^\s'"])/gu;
 const BLANK_LINE = /^\s*(?:#.*)?$/u;
-const LIMIT = /^(?<value>\d+(?:\.\d+)?)(?<unit>[smhd])?$/u;
-const LIMIT_UNITS: Readonly<Record<string, (amount: number) => Duration.Duration>> = { s: Duration.seconds, m: Duration.minutes, h: Duration.hours, d: Duration.days };
 const LOWERCASE = /^\p{Ll}/u;
 const SPECIAL_KIND = /\b(?:tied|readonly|association)\b.*\bspecial\b/u;
 
@@ -118,23 +116,7 @@ const sleep: Rule = (invocation, call) => {
 
 const neverExits: Rule = (invocation, call) => (call.request.kind === 'foreground' && invocation.last && !invocation.outer.some(({ program }) => program === 'timeout') && !stages(invocation, call).later.some(closesInput) ? refusal(`${invocation.program} never exits, run it in Monitor`) : []);
 
-const unwrap = (timeout?: number) => (invocation: Invocation) => Option.match(Array.head(invocation.rest), { onNone: () => [], onSome: ({ start }) => erased(invocation, { start: invocation.head.start, end: start }, spelled(invocation.words), timeout) });
-
-const timeoutLimit: Rule = Effect.fnUntraced(function* (invocation, call) {
-    const { analysis, request, host } = call;
-    const { value, unit = 's' } = Option.getOrElse(
-        Option.flatMapNullishOr(
-            Option.flatMap(Array.head(invocation.leading), ({ text }) => String.match(LIMIT)(text)),
-            ({ groups }) => groups,
-        ),
-        Record.empty<string, string>,
-    );
-    const limit = Duration.toMillis(LIMIT_UNITS[unit]?.(Number(value)) ?? Duration.zero);
-    const fallback = Option.map(yield* host.environment('BASH_DEFAULT_TIMEOUT_MS'), Number);
-    const onlyQuick = analysis.invocations.filter(({ command: { origin, stage }, outer }) => origin === 'call' && outer.length === 0 && !Option.exists(stage, ({ at }) => at > 0)).every(({ program }) => program === 'timeout' || program === 'cd');
-    const applies = request.kind === 'foreground' && request.timeout === undefined && !invocation.repeated && (onlyQuick || Option.exists(fallback, (milliseconds) => limit > milliseconds));
-    return unwrap(applies && limit > 0 ? limit : undefined)(invocation);
-});
+const unwrap = (invocation: Invocation) => Option.match(Array.head(invocation.rest), { onNone: () => [], onSome: ({ start }) => erased(invocation, { start: invocation.head.start, end: start }, spelled(invocation.words)) });
 
 const leakingRead: Rule = (invocation, call) => {
     const [amount] = invocation.values('-t');
@@ -183,7 +165,7 @@ const backgroundJob = ({ analysis, request }: Call): readonly Verdict[] => {
     if (!trailing) {
         return refusal(`& job outlives the call, ${request.kind === 'plain' ? 'run it as its own call' : 'set run_in_background'}`);
     }
-    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none(), timeout: Option.none() }), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])];
+    return [Verdict.Edit({ start: job.start, end: job.end, text: Option.none(), subject: Option.none() }), ...(request.kind === 'foreground' ? [Verdict.Background()] : [])];
 };
 
 const pipedStatus = (call: Call): readonly Verdict[] => {
@@ -214,8 +196,8 @@ const WAITS: Ruleset = {
     programs: {
         sleep: { rules: [sleep] },
         wait4path: { aliases: ['watch'], rules: [neverExits] },
-        timeout: { leading: 1, wraps: [[]], rules: [absent(timeoutLimit)] },
-        caffeinate: { wraps: [[]], rules: [unwrap(), when(({ has }) => has('-t'), timer), when(({ has }) => !has('-t'), neverExits)] },
+        timeout: { leading: 1, wraps: [[]] },
+        caffeinate: { wraps: [[]], rules: [unwrap, when(({ has }) => has('-t'), timer), when(({ has }) => !has('-t'), neverExits)] },
         read: { leading: Number.POSITIVE_INFINITY, reads: true, readsUnless: ['-u'], rules: [leakingRead, when(({ has }) => has('-t'), timer)] },
         pgrep: { rules: [(invocation) => (invocation.has('--full') ? selfMatch(invocation, invocation.operands[0]) : [])] },
         gh: { rules: [watchedRun] },

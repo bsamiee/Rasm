@@ -67,16 +67,16 @@ const redirected = ({ command }: Invocation, op: string, descriptor?: string, ta
 
 const refusal = (reason: string): readonly Verdict[] => [Verdict.Refuse({ reason })];
 
-const changed = ({ command }: Invocation, { start, end, field }: Span, text: Option.Option<string>, before?: string, timeout?: number): readonly Verdict[] => {
+const changed = ({ command }: Invocation, { start, end, field }: Span, text: Option.Option<string>, before?: string): readonly Verdict[] => {
     if (command.origin === 'call') {
-        return [Verdict.Edit({ start, end, text, subject: Option.fromNullishOr(before), timeout: Option.fromNullishOr(timeout), ...(field === undefined ? {} : { field }) })];
+        return [Verdict.Edit({ start, end, text, subject: Option.fromNullishOr(before), ...(field === undefined ? {} : { field }) })];
     }
     return before === undefined ? [] : refusal(`Nested ${before}, run ${Option.getOrElse(text, () => 'without it')}`);
 };
 
 const edited = (invocation: Invocation, span: Span, text: string, before?: string) => changed(invocation, span, Option.some([span.prefix, text].join('')), before);
 
-const erased = (invocation: Invocation, span: Span, before?: string, timeout?: number) => changed(invocation, span, Option.none(), before, timeout);
+const erased = (invocation: Invocation, span: Span, before?: string) => changed(invocation, span, Option.none(), before);
 
 const inserted = (invocation: Invocation, at: number, text: string) => edited(invocation, { start: at, end: at }, text);
 

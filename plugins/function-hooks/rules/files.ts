@@ -1,5 +1,5 @@
 import { Array, Effect, Function, Match, Option, Predicate, Record, String } from 'effect';
-import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule';
+import { absent, type Call, commandOf, cut, deleted, edited, ensure, erased, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, stages, unresolved, when, whole } from '#/rules/rule';
 import type { Invocation } from '#/shell/invocation';
 import type { Word } from '#/shell/script';
 
@@ -289,11 +289,6 @@ const silenced: Rule = (invocation) => {
     return quieted.length >= 2 || quieted.some(({ op }) => op === '&>') ? [...ensure(['--style', 'none'])(invocation), ...quieted.flatMap((redirect) => cut(invocation, [redirect]))] : [];
 };
 
-const mergedIntoJson: Rule = (invocation, call) => {
-    const merged = redirected(invocation, '>&', '2', '1');
-    return merged.length > 0 && feedsJq(invocation, call) ? merged.flatMap((redirect) => cut(invocation, [redirect])) : [];
-};
-
 const redundantCd: Rule = (invocation, { host }) => {
     const [target] = invocation.operands;
     const { cwd } = invocation.command;
@@ -407,7 +402,7 @@ const FILES: Ruleset = {
         shuf: { flags: ['-n='], rules: [absent(shuffled)] },
         base64: { flags: ['-i=', '-o=', '-b='], reads: true, readsUnless: ['-i'], rules: [inputFlagged] },
     },
-    every: [mergedIntoJson, wideRoot, emptyStdin, inlineCode],
+    every: [wideRoot, emptyStdin, inlineCode],
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

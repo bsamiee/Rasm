@@ -104,8 +104,8 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
         { decision: ALLOWED, ran: [LIST], resolved: RAN },
         { decision: { _tag: 'Deny', reason: 'git stash hides work, commit it' }, ran: [], resolved: { deny: 'git stash hides work, commit it' } },
         {
-            decision: { _tag: 'Rewrite', command: 'rg -n x', observes: false, background: true, note: 'grep became rg', timeout: 60_000 },
-            ran: [{ tool: 'Bash', command: 'rg -n x', timeout: 60_000, run_in_background: true }],
+            decision: { _tag: 'Rewrite', command: 'rg -n x', observes: false, background: true, note: 'grep became rg' },
+            ran: [{ tool: 'Bash', command: 'rg -n x', run_in_background: true }],
             resolved: { ...RAN, context: ['grep became rg'] },
         },
     ] satisfies readonly { readonly decision: Decision; readonly ran: readonly object[]; readonly resolved: object }[]
@@ -120,20 +120,20 @@ const worldOf = (on: On, decide: () => HttpResponse | Error, given: Given = {}) 
 });
 
 test('Rewrite sets only Monitor input fields on a Monitor call', async ($, on) => {
-    const world = worldOf(on, () => answered({ _tag: 'Rewrite', command: 'tail -F b.log', observes: false, background: true, timeout: 60_000 } satisfies Decision));
+    const world = worldOf(on, () => answered({ _tag: 'Rewrite', command: 'tail -F b.log', observes: false, background: true } satisfies Decision));
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -f a.log' });
     expect(world.ran).toEqual([{ tool: 'Monitor', description: 'log', timeout_ms: 1000, command: 'tail -F b.log' }]);
     expect(world.sent).toEqual([['decide', { command: 'tail -f a.log', cwd: SESSION.cwd, kind: 'monitor' }]]);
 });
 
-test('Decide request states run kind, timeout, and calling agent, and both calls use one server process', async ($, on) => {
+test('Decide request states run kind and calling agent, and both calls use one server process', async ($, on) => {
     const world = worldOf(on, () => answered(ALLOWED));
     await $.session.start(SESSION);
     await $.tool.call({ tool: 'Bash', command: 'make', run_in_background: true, timeout: 5000, agentId: 'a1' });
     await $.tool.call({ tool: 'Bash', command: 'make' });
     expect(world.sent).toEqual([
-        ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'background', timeout: 5000, agent: 'a1' }],
+        ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'background', agent: 'a1' }],
         ['decide', { command: 'make', cwd: SESSION.cwd, kind: 'foreground' }],
     ]);
     expect([world.spawned, world.stopped].map((streams) => streams.map(([program]) => program))).toEqual([['mise'], []]);

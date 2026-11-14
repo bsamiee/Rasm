@@ -274,7 +274,6 @@ const register: Register = (on) => {
                 command: e.command,
                 cwd: await $.session.cwd(),
                 kind: bash?.run_in_background === true ? 'background' : ({ Bash: 'foreground', Monitor: 'monitor' } as const)[e.tool],
-                ...(bash?.timeout !== undefined && { timeout: bash.timeout }),
                 ...(e.agentId !== undefined && { agent: e.agentId }),
             },
             next.signal,
@@ -291,7 +290,7 @@ const register: Register = (on) => {
             case 'Allow':
                 return settled(await next(e), decision.observes);
             case 'Rewrite':
-                return settled(await next(bash === undefined ? { ...e, command: decision.command } : { ...bash, command: decision.command, ...(decision.timeout !== undefined && { timeout: decision.timeout }), ...(decision.background && { run_in_background: true }) }), decision.observes, decision.note);
+                return settled(await next(bash === undefined ? { ...e, command: decision.command } : { ...bash, command: decision.command, ...(decision.background && { run_in_background: true }) }), decision.observes, decision.note);
             default:
                 return decision satisfies never;
         }

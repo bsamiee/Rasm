@@ -112,7 +112,7 @@ const runnersOf = Effect.fnUntraced(function* (node: ProjectGraphProjectNode, in
     return running.map((target) => ({ node, target, aggregate: aggregateOf(targets, target) })).filter(({ aggregate, target }) => (named.size > 0 ? named.has(aggregate) : !selectable.has(aggregate) && targets[target]?.cache === true));
 });
 
-const launcherStart = ({ head, outer }: Invocation): Word => outer[outer.findLastIndex(({ row, path }) => !(row.launcher === true || row.module !== undefined || (row.wraps !== '--' && path.length > 0))) + 1]?.head ?? head;
+const launcherStart = ({ head, outer }: Invocation): Word => outer[outer.findLastIndex(({ row, path, has }) => has('-C', '--cd') || !(row.launcher === true || row.module !== undefined || (row.wraps !== '--' && path.length > 0))) + 1]?.head ?? head;
 
 const nxTarget: Rule = Effect.fnUntraced(function* (invocation, call) {
     const { selects = [], targets = {}, ignores = [] } = invocation.row.nx ?? {};
@@ -215,7 +215,7 @@ const forwardedOptions: Rule = Effect.fnUntraced(function* (invocation, call) {
         Option.flatMap(addressOf(invocation, graph), ([project, target]) => {
             const entry = graph.nodes[project]?.data.targets?.[target];
             const configuration = invocation.values('--configuration').at(-1) ?? entry?.defaultConfiguration;
-            return Option.fromNullishOr(entry === undefined ? undefined : { ...entry.options, ...(configuration === undefined ? {} : entry.configurations?.[configuration]) }.command);
+            return Schema.decodeUnknownOption(Schema.String)(entry === undefined ? undefined : { ...entry.options, ...(configuration === undefined ? {} : entry.configurations?.[configuration]) }.command);
         }),
     );
     const ran = yield* Option.match(configured, {

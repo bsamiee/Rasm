@@ -1,11 +1,11 @@
-import { Array, Data, Duration, Effect, Number, Option, Result, Schema } from 'effect';
+import { Array, Data, Effect, Option, Result, Schema } from 'effect';
 import type { Span } from '#/shell/script';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Verdict = Data.TaggedEnum<{
     Refuse: { readonly reason: string };
-    Edit: Pick<Span, 'start' | 'end' | 'field'> & { readonly text: Option.Option<string>; readonly subject: Option.Option<string>; readonly timeout: Option.Option<number> };
+    Edit: Pick<Span, 'start' | 'end' | 'field'> & { readonly text: Option.Option<string>; readonly subject: Option.Option<string> };
     Background: Record<never, never>;
     Observe: Record<never, never>;
 }>;
@@ -17,7 +17,6 @@ const Request = Schema.Struct({
     cwd: Schema.String,
     kind: Schema.Literals(['foreground', 'background', 'monitor', 'plain']),
     shell: Schema.optionalKey(Schema.Literals(['bash', 'zsh'])),
-    timeout: Schema.optionalKey(Schema.Finite),
     agent: Schema.optionalKey(Schema.String),
 });
 
@@ -29,7 +28,6 @@ const Decision = Schema.TaggedUnion({
         observes: Schema.Boolean,
         background: Schema.Boolean,
         note: Schema.optionalKey(Schema.String),
-        timeout: Schema.optionalKey(Schema.Finite),
     },
 });
 
@@ -72,13 +70,11 @@ const decisionOf = Effect.fnUntraced(function* <E, R>(command: string, verdicts:
     const ordered = edits.toSorted((left, right) => left.start - right.start || left.end - right.end);
     const subjects = new Map(Array.getSomes(edits.map(({ subject, text }) => Option.map(subject, (word) => [word, Option.match(text, { onNone: () => `${word} removed`, onSome: (replacement) => `${word} became ${replacement}` })] as const))));
     const notes = [...(subjects.size === 0 ? [] : yield* due(subjects)), ...(background ? ['Call runs in the background, wait for its notice'] : [])];
-    const timeouts = Array.getSomes(edits.map(({ timeout }) => timeout));
     return Decision.cases.Rewrite.make({
         command: [...ordered.flatMap(({ start, text }, at) => [between(ordered[at - 1]?.end ?? 0, start), ...Option.toArray(text)]), between(ordered.at(-1)?.end ?? 0)].join(''),
         observes,
         background,
         ...(notes.length > 0 && { note: notes.join('. ') }),
-        ...(timeouts.length > 0 && { timeout: Math.min(Duration.toMillis('10 minutes'), Number.sumAll(timeouts)) }),
     });
 });
 
