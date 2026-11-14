@@ -1,6 +1,7 @@
 import { assert, it } from '@effect/vitest';
-import { Array, Duration, Effect, type Layer, Record, Result, Schema } from 'effect';
-import { Consumer, fromCache } from '#/nx';
+import { workspaceRoot } from '@nx/devkit';
+import { Array, Duration, Effect, Function, type Layer, Option, Record, Result, Schema } from 'effect';
+import { answered, Consumer, fromCache, remote } from '#/nx';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -112,7 +113,7 @@ const counted = Effect.fnUntraced(function* (tools: readonly string[], reset: st
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const conforms = <R, M extends Member>({ workspace, members, built, report, tools, verbs, shared, unlocked, scratch, added, refused, manifests, published, edits }: Ecosystem<R, M>) => {
-    const [bound, next] = [Duration.toMillis('5 minutes'), '0.2.0'];
+    const [bound, next, token] = [Duration.toMillis('5 minutes'), '0.2.0', 'suite-token'];
     const options = { timeout: bound, excludeTestServices: true } as const;
     const member = (root: string) => Effect.flatMap(members, (stated) => Effect.orDie(Effect.fromOption(Array.findFirst(stated, (candidate) => candidate.root === root))));
     const seen = Effect.gen(function* () {
@@ -227,6 +228,7 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
             Effect.fnUntraced(function* () {
                 const [here, there] = yield* Effect.all([seen, Effect.provide(seen, workspace())]);
                 assert.notInclude(here.read.graph, here.root, 'README.md PRINCIPLES "one remote cache serves every runner"');
+                assert.notInclude(here.read.graph, workspaceRoot, 'README.md PRINCIPLES "Libraries take paths, names, and policies from their caller and hold no repository convention": a packed plugin names no path of the repository that packed it');
                 assert.deepStrictEqual(there.read, here.read, 'README.md PRINCIPLES "one remote cache serves every runner"; nrwl/nx astro-docs/src/content/docs/kb/performant-project-graph-plugins.mdoc');
             }),
             bound,
@@ -422,6 +424,31 @@ const conforms = <R, M extends Member>({ workspace, members, built, report, tool
                 const run = yield* nx('run-many', '--targets=build,test,check', '--skip-nx-cache', '--parallel=8', '--output-style=static');
                 assert.strictEqual(run.code, 0, `nrwl/nx e2e/dotnet/src/dotnet-cache.test.ts "should use cache when running multiple builds": ${run.stdout}${run.stderr}`);
             }),
+            bound,
+        );
+
+        methods.effect(
+            'stores the build of a member in a remote cache server and replays it from there into an empty local cache',
+            Effect.fnUntraced(function* () {
+                const [{ root, called }, { name }, { address, requests }] = yield* Effect.all([Consumer, member(edits.dependent), remote(token, Function.flow(answered, Option.some))]);
+                const missed = yield* tooled(name, 'build');
+                const run = (folder: string) => called('env', [`NX_SELF_HOSTED_REMOTE_CACHE_SERVER=${address}`, `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=${token}`, `NX_CACHE_DIRECTORY=${root}/.nx/${folder}`, 'nx', 'build', name, '--output-style=static']);
+                const first = yield* run('stored');
+                const stored = requests.filter((request) => request.startsWith('PUT '));
+                const second = yield* run('emptied');
+                const source = 'nrwl/nx e2e/nx/src/cache-no-daemon.test.ts http remote cache "should PUT and GET cache from remote cache"; packages/nx/src/native/cache/http_remote_cache.rs: store sends PUT /v1/cache/<hash>, retrieve sends GET';
+                assert.strictEqual(first.code, 0, `${first.stdout}${first.stderr}`);
+                assert.isNotEmpty(stored, source);
+                assert.deepStrictEqual(
+                    Array.difference(
+                        stored.map((request) => request.replace('PUT ', 'GET ')),
+                        requests.slice(requests.lastIndexOf(stored.at(-1) ?? 'PUT ')),
+                    ),
+                    [],
+                    source,
+                );
+                assert.deepStrictEqual(missed(second.stdout), [], `${source}: ${second.stdout}${second.stderr}`);
+            }, Effect.scoped),
             bound,
         );
     });

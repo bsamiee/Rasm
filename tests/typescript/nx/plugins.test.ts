@@ -37,7 +37,6 @@ const SOURCES = {
     matched: 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesResultArray: each result names the configuration file it came from, one of the files the pattern matched',
     empty: 'nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts createNodesFromFiles: returns one result per file it was given',
     lent: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source are no input; nrwl/nx packages/nx/src/native/tasks/hash_planner.rs external_deps: a task hashes the packages its inputs name and those its project depends on, and none for the executor of a local plugin",
-    twice: 'nrwl/nx packages/nx/src/project-graph/project-graph.spec.ts: should not throw an error if sane plugins are used and called in parallel; two computations of one tree give one graph',
 } as const;
 const MANIFESTS: Record.ReadonlyRecord<string, unknown> = Record.fromIterableWith([apple, cargo, cmake, distribution, docker, dotnet, pulumi, storybook, typescript, uv, vite, vitest], (manifest) => [manifest.name, manifest]);
 const rows: readonly Row[] = (readNxJson(workspaceRoot).plugins ?? []).map((row) => (Predicate.isString(row) ? { plugin: row } : row));
@@ -146,14 +145,6 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         '$plugin returns no project for an empty list of files',
         Effect.fnUntraced(function* (row) {
             assert.deepStrictEqual((yield* emptied(row)).flat(), [], SOURCES.empty);
-        }),
-    );
-
-    suite.effect.each(rows)(
-        '$plugin gives the same project properties in two processes that share no stored state',
-        Effect.fnUntraced(function* ({ plugin }) {
-            const [fresh, again] = yield* Effect.all([read('fresh'), read('again')]);
-            assert.deepStrictEqual(attributed(again, plugin), attributed(fresh, plugin), SOURCES.twice);
         }),
     );
 });

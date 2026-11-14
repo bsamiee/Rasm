@@ -45,7 +45,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         'reading the graph writes no file',
         Effect.fnUntraced(function* () {
             const [, written] = yield* Effect.flatMap(Consumer, ({ written: tracked }) => tracked(read));
-            assert.deepStrictEqual(written, [], `${api}: createNodes reads configuration and generates no types (history-tests-nx-behaviour catalogue 25: a graph read emptied .cloudflare/output)`);
+            assert.deepStrictEqual(written, [], `${api}: createNodes reads configuration and generates no types`);
         }),
         bounds.test,
     );

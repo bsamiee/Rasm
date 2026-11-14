@@ -13,11 +13,16 @@ const SOURCES = {
     read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input",
     versions: 'README.md OWNERS: Package version — `pnpm-workspace.yaml` catalog, `pyproject.toml` `[project]` or group, `Directory.Packages.props` row',
     options: 'README.md LAYOUT: tsconfig.base.json — TypeScript options every package compiles and emits with; nrwl/nx packages/nx/src/native/affected/tasks/changed_contents.rs compare_ts_configs: a root tsconfig change outside `paths` touches every task, so the file bounds no reach',
-    aggregate: 'README.md PRINCIPLES: Verbs aggregate `<verb>--<tool>` targets and read their inputs; nrwl/nx packages/nx/src/native/affected/tasks/selection.rs: a change reaches a requested task through its own inputs or the outputs it reads, never along plain dependsOn',
-    own: 'nrwl/nx packages/nx/src/project-graph/affected/affected-tasks.spec.ts computeAffectedTasks: selects a task whose own files changed, and its dependents',
-    none: 'nrwl/nx packages/nx/src/project-graph/affected/affected-tasks.spec.ts computeAffectedTasks: selects nothing when the change reaches no input; a target stating `{workspaceRoot}/**/*` reads every file',
-    projects: 'nrwl/nx e2e/nx/src/affected-graph.test.ts show projects --affected: should print information about affected projects; packages/nx/src/native/affected/projects/implicit_dependencies.rs implicitly_touched_projects: a `{workspaceRoot}/…` fileset of a target input marks its project for a matching file',
+    own: 'nrwl/nx packages/nx/src/project-graph/affected/affected-tasks.spec.ts computeAffectedTasks: selects a task whose own files changed, and its dependents; packages/nx/src/native/affected/tasks/selection.rs: a change reaches a requested task through its own inputs or the outputs it reads, never along plain dependsOn',
+    none: 'nrwl/nx packages/nx/src/project-graph/affected/affected-tasks.spec.ts computeAffectedTasks: selects nothing when the change reaches no input',
+    apart: 'nrwl/nx packages/nx/src/native/affected/tasks/touched.rs: a task is touched by a file its inputs match, an external node its plan names, or a file that configures its project, and selection.rs carries a touch to the tasks reading its outputs; a root manifest configures the root project, so every task of that project is touched by rule and none through an input; README.md PRINCIPLES: Suites reading the project graph take tag `os:all`',
+    always: 'nrwl/nx packages/nx/src/native/tasks/hash_planner.rs ALWAYS_ON_FILES: every task hashes nx.json, .gitignore, and .nxignore',
+    moved: "nrwl/nx packages/nx/src/native/affected/tasks/touched.rs: a lockfile change reaches a plan as the external node's name",
+    projects: 'nrwl/nx e2e/nx/src/affected-graph.test.ts show projects --affected: should print information about affected projects',
+    origins: 'nrwl/nx packages/nx/src/project-graph/utils/project-configuration/source-maps.ts: Nx records for each project property the file and plugin it came from; packages/nx/src/command-line/show/target.ts: show target inputs lists the workspace files Nx hashes for a task',
 } as const;
+const CHECKED = ['check', 'test', 'build'] as const;
+const NODE = ['@rasm/nx-typescript', '@rasm/nx-vite', '@rasm/nx-vitest', '@rasm/nx-storybook'] as const;
 const READ = [
     { file: 'Cargo.lock', plugins: ['@rasm/nx-cargo'], source: SOURCES.crate },
     { file: 'Cargo.toml', plugins: ['@rasm/nx-cargo'], source: SOURCES.crate },
@@ -25,27 +30,33 @@ const READ = [
     { file: 'Directory.Packages.props', plugins: ['@rasm/nx-dotnet'], source: SOURCES.versions },
     { file: 'tsconfig.base.json', plugins: ['@rasm/nx-typescript'], source: SOURCES.options },
 ] as const;
-const BOUND = [
+const APART = [
     { file: 'Cargo.lock', plugins: ['@rasm/nx-cargo'] },
     { file: 'Cargo.toml', plugins: ['@rasm/nx-cargo'] },
     { file: 'rust-toolchain.toml', plugins: ['@rasm/nx-cargo'] },
     { file: 'uv.lock', plugins: ['@rasm/nx-uv'] },
-    { file: 'pnpm-lock.yaml', plugins: ['@rasm/nx-typescript', '@rasm/nx-vite', '@rasm/nx-vitest', '@rasm/nx-storybook'] },
+    { file: 'pnpm-lock.yaml', plugins: NODE },
     { file: 'Directory.Packages.props', plugins: ['@rasm/nx-dotnet'] },
+    { file: 'Package.resolved', plugins: ['@rasm/nx-apple'] },
+    { file: 'vcpkg.json', plugins: ['@rasm/nx-cmake'] },
 ] as const;
-const BUILT = [
-    { plugin: '@rasm/nx-cargo', extension: '.rs' },
-    { plugin: '@rasm/nx-uv', extension: '.py' },
-    { plugin: '@rasm/nx-dotnet', extension: '.cs' },
-    { plugin: '@rasm/nx-apple', extension: '.swift' },
+const SOURCED = [
+    { plugin: '@rasm/nx-cargo', files: ['*.rs'] },
+    { plugin: '@rasm/nx-uv', files: ['*.py'] },
+    { plugin: '@rasm/nx-dotnet', files: ['*.cs'] },
+    { plugin: '@rasm/nx-apple', files: ['*.swift', ':(exclude)*Package*.swift'] },
+    { plugin: '@rasm/nx-cmake', files: ['*.cpp'] },
+    { plugin: '@rasm/nx-typescript', files: ['*/index.ts'] },
 ] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Explained = Schema.fromJsonString(Schema.Struct({ affected: Schema.Record(Schema.String, Schema.Unknown), upstream: Schema.Record(Schema.String, Schema.Unknown) })).annotate({
-    description: 'JSON nx affected --explain=stdout prints: under affected the selected tasks and under upstream the reached tasks outside the selection, each keyed by task id, reached through its own inputs or the outputs it reads',
+const Reasons = Schema.Record(Schema.String, Schema.Array(Schema.Struct({ kind: Schema.String })));
+const Explained = Schema.fromJsonString(Schema.Struct({ affected: Reasons, upstream: Reasons })).annotate({
+    description: 'JSON nx affected --explain=stdout prints: under affected the selected tasks and under upstream the reached tasks outside the selection, each keyed by task id with the kind of every reason it was reached (input-file, dependent-output, project-configuration, external-dependencies, moved-ecosystem)',
 });
 const Listed = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ description: 'JSON nx show projects --json prints: project names' });
+const Hashed = Schema.fromJsonString(Schema.Struct({ files: Schema.Array(Schema.String) })).annotate({ description: 'JSON nx show target inputs prints: the workspace files Nx hashes for one task' });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -54,19 +65,32 @@ const reached = Effect.fnUntraced(function* (targets: readonly string[], file: s
     assert.isTrue(yield* fs.exists(path.join(workspaceRoot, file)), `${file} exists`);
     const { checked } = yield* nx(['affected', `--targets=${targets.join(',')}`, `--files=${file}`, '--explain=stdout']);
     const { affected, upstream } = yield* Effect.flatMap(checked, Schema.decodeEffect(Explained));
-    return new Set([...Record.keys(affected), ...Record.keys(upstream)]);
+    return Record.map({ ...upstream, ...affected }, (reasons) => reasons.map(({ kind }) => kind));
 });
 
 const named = (workspace: Workspace) => Array.dedupe(declared(workspace).map(({ name }) => name));
 
 const inferred = (workspace: Workspace, plugins: readonly string[]) => declared(workspace).filter(({ plugin }) => Option.exists(plugin, (owner) => plugins.includes(owner)));
 
-const whole = (workspace: Workspace) => declared(workspace).filter(({ target }) => (target.inputs ?? []).includes('{workspaceRoot}/**/*'));
+const reading = ({ nodes }: Workspace) => new Set(Record.keys(Record.filter(nodes, ({ data }) => (data.tags ?? []).includes('os:all'))));
 
-const bounded = (workspace: Workspace) => {
-    const every = new Set(whole(workspace).map(({ task }) => task));
-    return declared(workspace).filter(({ task, target }) => target.cache === true && !every.has(task));
+const unreached = (tasks: readonly { readonly task: string }[], found: Record.ReadonlyRecord<string, unknown>) => tasks.filter(({ task }) => !(task in found)).map(({ task }) => task);
+
+const leaked = (workspace: Workspace, plugins: readonly string[], found: Record.ReadonlyRecord<string, readonly string[]>) => {
+    const own = new Set(inferred(workspace, plugins).map(({ project }) => project));
+    const allowed = dependents(workspace, own).difference(own).union(reading(workspace));
+    return declared(workspace)
+        .filter(({ name, plugin }) => name.includes('--') && !Option.exists(plugin, (owner) => plugins.includes(owner)))
+        .filter(({ project, task }) => !allowed.has(project) && Array.intersection(found[task] ?? [], ['input-file', 'external-dependencies']).length > 0)
+        .map(({ task }) => `${task}: ${(found[task] ?? []).join(', ')}`);
 };
+
+const outside = (workspace: Workspace, allowed: ReadonlySet<string>, found: Record.ReadonlyRecord<string, unknown>) => {
+    const owners = Record.fromIterableWith(declared(workspace), ({ task, project }) => [task, project]);
+    return Record.keys(found).filter((task) => !Option.exists(Record.get(owners, task), (project) => allowed.has(project)));
+};
+
+const packaged = (workspace: Workspace) => declared(workspace).filter(({ task }) => Record.keys(workspace.hashes[task]?.inputs ?? {}).some((input) => input.startsWith('npm:')));
 
 const nearest = (path: Path.Path, held: ReadonlySet<string>, folder: string, name: string): string => {
     const file = path.join(folder, name);
@@ -80,18 +104,26 @@ const unlocked = Effect.fnUntraced(function* (workspace: Workspace, plugin: stri
         ({ root }) => nearest(path, new Set(files), root, name),
     );
     const found = yield* Effect.forEach(Record.keys(locked), (lock) => reached(named(workspace), lock));
-    return { locks: Record.keys(locked), missed: Array.zip(Record.toEntries(locked), found).flatMap(([[lock, tasks], held]) => tasks.filter(({ task }) => !held.has(task)).map(({ task }) => `${lock}: ${task}`)) };
+    return { locks: Record.keys(locked), missed: Array.zip(Record.toEntries(locked), found).flatMap(([[lock, tasks], held]) => unreached(tasks, held).map((task) => `${lock}: ${task}`)) };
 });
 
-const sampled = Effect.fnUntraced(function* (workspace: Workspace, plugin: string, extension: string) {
+const sampled = Effect.fnUntraced(function* (workspace: Workspace, plugin: string, files: readonly string[]) {
     const building = new Set(
         inferred(workspace, [plugin])
             .filter(({ name }) => name.startsWith('build--'))
             .map(({ project }) => project),
     );
     const roots = createProjectRootMappings(workspace.nodes);
-    const owned = (yield* tracked(`*${extension}`)).flatMap((file) => Array.fromNullishOr(findProjectForPath(file, roots)).map((project) => ({ project, file })));
+    const owned = (yield* tracked(...files)).flatMap((file) => Array.fromNullishOr(findProjectForPath(file, roots)).map((project) => ({ project, file })));
     return yield* Effect.fromOption(Array.findFirst(owned, ({ project }) => building.has(project)));
+});
+
+const origins = ({ sourceMaps }: Workspace) => Array.dedupe(Object.values(sourceMaps).flatMap((entries) => Object.values(entries).flatMap(([file]) => Array.fromNullishOr(file))));
+
+const hashed = Effect.fnUntraced(function* (task: string) {
+    const { checked } = yield* nx(['show', 'target', 'inputs', task, '--json']);
+    const { files } = yield* Effect.flatMap(checked, Schema.decodeEffect(Hashed));
+    return new Set(files);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -101,10 +133,9 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         'reaches every task of $plugins with a change to $file',
         Effect.fnUntraced(function* ({ file, plugins, source }) {
             const workspace = yield* read('fresh');
-            const found = yield* reached(named(workspace), file);
-            const tasks = new Set(inferred(workspace, plugins).map(({ task }) => task));
-            assert.isNotEmpty([...tasks], source);
-            assert.deepStrictEqual([...tasks.difference(found)], [], source);
+            const tasks = inferred(workspace, plugins);
+            assert.isNotEmpty(tasks, source);
+            assert.deepStrictEqual(unreached(tasks, yield* reached(named(workspace), file)), [], source);
         }),
     );
 
@@ -117,43 +148,53 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         }),
     );
 
-    suite.effect.each(BOUND)(
-        'reaches with a change to $file no cached task outside the projects of $plugins and the projects that depend on them',
+    suite.effect(
+        'reaches every task with a change to nx.json',
+        Effect.fnUntraced(function* () {
+            const workspace = yield* read('fresh');
+            assert.deepStrictEqual(unreached(declared(workspace), yield* reached(named(workspace), 'nx.json')), [], SOURCES.always);
+        }),
+    );
+
+    suite.effect(
+        'reaches every task hashing an npm package with a change to pnpm-lock.yaml',
+        Effect.fnUntraced(function* () {
+            const workspace = yield* read('fresh');
+            assert.isNotEmpty(packaged(workspace), SOURCES.moved);
+            assert.deepStrictEqual(unreached(packaged(workspace), yield* reached(named(workspace), 'pnpm-lock.yaml')), [], SOURCES.moved);
+        }),
+    );
+
+    suite.effect.each(APART)(
+        'selects for check, test, and build with a change to $file through an input or an external package no tool task of another plugin than $plugins, but in a project depending on theirs or in a suite reading the graph',
         Effect.fnUntraced(function* ({ file, plugins }) {
             const workspace = yield* read('fresh');
-            const found = yield* reached(named(workspace), file);
-            const allowed = dependents(workspace, new Set(inferred(workspace, plugins).map(({ project }) => project)));
-            const beyond = bounded(workspace).filter(({ project, task }) => !allowed.has(project) && found.has(task));
-            assert.deepStrictEqual(
-                beyond.map(({ task }) => task),
-                [],
-                SOURCES.none,
-            );
+            assert.deepStrictEqual(leaked(workspace, plugins, yield* reached(CHECKED, file)), [], SOURCES.apart);
         }),
     );
 
-    suite.effect.each([
-        { file: 'README.md', source: SOURCES.none },
-        { file: '.config/mise.lock', source: SOURCES.read },
-    ])(
-        'reaches no cached task with a change to $file',
-        Effect.fnUntraced(function* ({ file, source }) {
+    suite.effect(
+        'selects no check, test, or build task with a change to a file under docs or to .config/mise.lock, and with a change to README.md only tasks of the suites reading the graph',
+        Effect.fnUntraced(function* () {
+            const [workspace, noted] = yield* Effect.all([read('fresh'), tracked('docs/*.md')]);
+            const [documented, locked, stated] = yield* Effect.forEach([...Array.take(noted, 1), '.config/mise.lock', 'README.md'], (file) => reached(CHECKED, file));
+            assert.isNotEmpty(noted, SOURCES.none);
+            assert.deepStrictEqual(Record.keys(documented ?? {}), [], SOURCES.none);
+            assert.deepStrictEqual(Record.keys(locked ?? {}), [], SOURCES.read);
+            assert.deepStrictEqual(outside(workspace, reading(workspace), stated ?? {}), [], SOURCES.none);
+        }),
+    );
+
+    suite.effect.each(SOURCED.filter(({ plugin }) => hosted(plugin)))(
+        'selects with a change to one source file of a $plugin project each of check, test, and build that project holds, and no task outside it and the projects depending on it',
+        Effect.fnUntraced(function* ({ plugin, files }) {
             const workspace = yield* read('fresh');
-            const found = yield* reached(named(workspace), file);
-            const cached = bounded(workspace).filter(({ task }) => found.has(task));
-            assert.deepStrictEqual(
-                cached.map(({ task }) => task),
-                [],
-                source,
-            );
-        }),
-    );
-
-    suite.effect.each(BUILT.filter(({ plugin }) => hosted(plugin)))(
-        'selects for build the project of $plugin that owns the first tracked $extension file with a change to that file',
-        Effect.fnUntraced(function* ({ plugin, extension }) {
-            const { project, file } = yield* sampled(yield* read('fresh'), plugin, extension);
-            assert.isTrue((yield* reached(['build'], file)).has(`${project}:build`), `${SOURCES.aggregate}: ${project}:build for ${file}`);
+            const { project, file } = yield* sampled(workspace, plugin, files);
+            const found = yield* reached(CHECKED, file);
+            const held = CHECKED.filter((verb) => verb in (workspace.nodes[project]?.data.targets ?? {})).map((verb) => ({ task: `${project}:${verb}` }));
+            assert.isNotEmpty(held, `${SOURCES.own}: ${project} for ${file}`);
+            assert.deepStrictEqual(unreached(held, found), [], `${SOURCES.own}: ${file}`);
+            assert.deepStrictEqual(outside(workspace, dependents(workspace, new Set([project])), found), [], `${SOURCES.own}: ${file}`);
         }),
     );
 
@@ -171,8 +212,22 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
             );
             const changed = yield* Effect.fromOption(found);
             const { checked } = yield* nx(['show', 'projects', '--affected', `--files=${path.join(changed.data.root, 'index.ts')}`, '--json']);
-            const marked = dependents(workspace, new Set([changed.name, ...whole(workspace).map(({ project }) => project)]));
-            assert.deepStrictEqual(Array.sort(yield* Effect.flatMap(checked, Schema.decodeEffect(Listed)), Order.String), Array.sort([...marked], Order.String), `${SOURCES.own}; ${SOURCES.projects}`);
+            assert.deepStrictEqual(Array.sort(yield* Effect.flatMap(checked, Schema.decodeEffect(Listed)), Order.String), Array.sort([...dependents(workspace, new Set([changed.name]))], Order.String), `${SOURCES.own}; ${SOURCES.projects}`);
+        }),
+    );
+
+    suite.effect(
+        'hashes for its own test target the files its tests open by name and every file Nx records as the origin of a project property',
+        Effect.fnUntraced(function* () {
+            const [path, workspace] = yield* Effect.all([Path.Path, read('fresh')]);
+            const own = yield* Effect.fromNullishOr(findProjectForPath(path.relative(workspaceRoot, import.meta.dirname), createProjectRootMappings(workspace.nodes)));
+            const files = yield* hashed(`${own}:test--vitest`);
+            assert.isNotEmpty(origins(workspace), SOURCES.origins);
+            assert.deepStrictEqual(
+                ['nx.json', 'README.md', '.github/workflows/ci.yml', ...origins(workspace)].filter((file) => !files.has(file)),
+                [],
+                `${SOURCES.origins}; ${SOURCES.always}`,
+            );
         }),
     );
 });

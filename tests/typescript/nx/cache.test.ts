@@ -1,27 +1,18 @@
-import { Buffer } from 'node:buffer';
-import { createServer, type Server } from 'node:http';
 import { constants } from 'node:http2';
 import { platform } from 'node:process';
 import { isDeepStrictEqual } from 'node:util';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { type NxJsonConfiguration, workspaceRoot } from '@nx/devkit';
-import { Consumer, fromCache, Packed } from '@rasm/testing/nx';
+import { answered, Consumer, fromCache, Packed, remote } from '@rasm/testing/nx';
 import compiler from '@typescript/native/package.json' with { type: 'json' };
-import { Array, Cause, Duration, Effect, FileSystem, Function, Layer, Match, Option, Order, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Duration, Effect, FileSystem, Function, Layer, Option, Order, Path, Predicate, Record, Schema } from 'effect';
 import { minimatch } from 'minimatch';
 import installed from 'nx/package.json' with { type: 'json' };
 import { readNxJson } from 'nx/src/config/nx-json';
 import { getOutputsForTargetAndConfiguration, validateOutputs } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
 import { called, declared, dependents, read, refusals, tracked, type Workspace } from '#/workspace';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface Asked {
-    readonly authorized: boolean;
-    readonly held: Buffer | undefined;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -88,44 +79,6 @@ const Run = Schema.fromJsonString(Schema.Struct({ tasks: Schema.Array(Schema.Str
 });
 
 const Json = Schema.fromJsonString(Schema.Unknown);
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-const answered = Match.type<Asked>().pipe(
-    Match.when({ authorized: false }, () => constants.HTTP_STATUS_UNAUTHORIZED),
-    Match.when({ held: Match.undefined }, () => constants.HTTP_STATUS_NOT_FOUND),
-    Match.orElse(() => constants.HTTP_STATUS_OK),
-);
-
-const served = (answer: (asked: Asked) => Option.Option<number>) => {
-    const [held, requests] = [new Map<string, Buffer>(), Array.empty<string>()];
-    const server = createServer((request, response) => {
-        const chunks: Buffer[] = [];
-        requests.push(`${request.method} ${request.url}`);
-        request.on('data', (chunk: Buffer) => chunks.push(chunk));
-        request.on('end', () => {
-            const body = request.method === 'PUT' ? held.set(String(request.url), Buffer.concat(chunks)).get(String(request.url)) : held.get(String(request.url));
-            Option.match(answer({ authorized: request.headers.authorization === `Bearer ${TOKEN}`, held: body }), {
-                onNone: Function.constVoid,
-                onSome: (status) => response.writeHead(status).end(request.method === 'GET' ? body : undefined),
-            });
-        });
-    });
-    return { server, requests };
-};
-
-const remote = (answer: (asked: Asked) => Option.Option<number>) =>
-    Effect.acquireRelease(
-        Effect.callback<ReturnType<typeof served>>((resume) => {
-            const listening = served(answer);
-            listening.server.listen(0, '127.0.0.1', () => resume(Effect.succeed(listening)));
-        }),
-        ({ server }) =>
-            Effect.callback<void>((resume) => {
-                server.closeAllConnections();
-                server.close(() => resume(Effect.void));
-            }),
-    );
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -225,11 +178,6 @@ const ran = Effect.fnUntraced(function* (data: string, folder: string, task: str
     const tasks = Option.getOrUndefined(report)?.tasks ?? [];
     return { code: Number(code), output: `${stdout}${stderr}`, hashes: tasks.map(({ taskId, hash }) => [taskId, hash]), statuses: tasks.filter(({ taskId }) => taskId === task).map(({ cacheStatus }) => cacheStatus) };
 });
-
-const addressed = (server: Server) => {
-    const address = server.address();
-    return `http://127.0.0.1:${Predicate.isObject(address) ? address.port : address}`;
-};
 
 const outage = Effect.fnUntraced(function* (address: string, set: Record.ReadonlyRecord<string, string> = {}) {
     const [fs, workspace] = yield* Effect.all([FileSystem.FileSystem, read('fresh')]);
@@ -386,9 +334,9 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'stores a task result in a remote cache server and replays it from there into an empty local cache',
         Effect.fnUntraced(function* () {
-            const [fs, workspace, { server }] = yield* Effect.all([FileSystem.FileSystem, read('fresh'), remote(Function.flow(answered, Option.some))]);
+            const [fs, workspace, { address }] = yield* Effect.all([FileSystem.FileSystem, read('fresh'), remote(TOKEN, Function.flow(answered, Option.some))]);
             const [kept, emptied, task] = yield* Effect.all([fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), fs.makeTempDirectoryScoped({ prefix: 'nx-cache-' }), sampled(workspace)]);
-            const set = { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: addressed(server), NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: TOKEN };
+            const set = { NX_SELF_HOSTED_REMOTE_CACHE_SERVER: address, NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN: TOKEN };
             const first = yield* ran(inject('readings').data, kept, task, set);
             const second = yield* ran(emptied, emptied, task, set);
             assert.strictEqual(first.code, 0, first.output);
@@ -403,7 +351,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     ])(
         'runs a cached task to exit 0 and names the server in one warning, a workflow command only under GitHub Actions, when no remote cache server listens in $run',
         Effect.fnUntraced(function* ({ set, annotated }) {
-            const closed = yield* Effect.scoped(Effect.map(remote(Option.none), ({ server }) => addressed(server)));
+            const closed = yield* Effect.scoped(Effect.map(remote(TOKEN, Option.none), ({ address }) => address));
             const { code, output, statuses, warnings } = yield* outage(closed, set);
             assert.strictEqual(code, 0, `${SOURCES.absent}\n${output}`);
             assert.deepStrictEqual(statuses, ['cache-miss'], SOURCES.absent);
@@ -419,8 +367,8 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect.each(OUTAGES)(
         'runs a cached task to exit 0 with one warning and sends no request after the first read to a remote cache server that $outage',
         Effect.fnUntraced(function* ({ status }) {
-            const { server, requests } = yield* remote(() => status);
-            const { code, output, statuses, warnings } = yield* outage(addressed(server));
+            const { address, requests } = yield* remote(TOKEN, () => status);
+            const { code, output, statuses, warnings } = yield* outage(address);
             assert.strictEqual(code, 0, `${SOURCES.refused}\n${output}`);
             assert.deepStrictEqual(statuses, ['cache-miss'], SOURCES.refused);
             assert.lengthOf(warnings, 1, `${SOURCES.refused}\n${output}`);

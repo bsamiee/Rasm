@@ -153,7 +153,8 @@ flowchart LR
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
 - Suites reading the project graph take tag `os:all`, hash one platform input, and run with no task beside them (`parallelism: false`)
 - Workflow checkouts fetch full history (`fetch-depth: 0`, no `filter`): `nx release` compares the files of each commit, which a partial clone fetches one commit at a time
-- Workflow checkouts keep ignored files (`clean: false`) and remove untracked ones, so caches and packages stay on a machine that keeps its checkout
+- Host job checkouts keep ignored files (`clean: false`) and remove untracked ones, so caches and packages stay on a machine keeping its checkout
+- Container job checkouts remove ignored files too: a container mounts the checkout at another path, and cached absolute paths name the host
 - CI jobs run as many tasks at once as their machine has cores (`NX_PARALLEL`)
 - CI job `affected` lists the affected `os:darwin` and `os:all` projects and Unreal engines, and jobs `macos` and `unreal` run where it lists one
 - CI job `linux` runs the affected targets of every project without tag `os:darwin`, job `macos` the `os:darwin` and `os:all` projects

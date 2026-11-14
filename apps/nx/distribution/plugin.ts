@@ -125,7 +125,7 @@ const projects = (declared: readonly Declared[], placed: Option.Option<string>) 
             ]),
             ...Array.fromNullishOr(build)
                 .filter(() => standalone)
-                .map((): readonly [string, TargetConfiguration] => ['check', { executor: 'nx:noop', dependsOn: [builder], metadata: { description: 'Compiles the project as its check' } }]),
+                .map((): readonly [string, TargetConfiguration] => ['check', { executor: 'nx:noop', dependsOn: [builder], inputs, metadata: { description: 'Compiles the project as its check' } }]),
             ...operated('check', { cache: true, inputs, dependsOn: required }),
             ...(loading.some((other) => other !== item) ? operated('test', { cache: true, inputs, dependsOn: [`install--${technology}`], outputs: ['{options.outputPath}/report'] }) : []),
             ...operated('pack', { cache: true, inputs, dependsOn: [builder], outputs: ['{options.outputPath}/archive'] }),

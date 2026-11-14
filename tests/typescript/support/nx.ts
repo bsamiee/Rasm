@@ -1,3 +1,6 @@
+import { Buffer } from 'node:buffer';
+import { createServer } from 'node:http';
+import { constants } from 'node:http2';
 import { findPackageJSON } from 'node:module';
 import { devNull } from 'node:os';
 import { delimiter } from 'node:path';
@@ -5,7 +8,7 @@ import { env } from 'node:process';
 import { pathToFileURL } from 'node:url';
 import { type ProjectGraph, workspaceRoot } from '@nx/devkit';
 import { Completed } from '@rasm/process';
-import { Array, Context, Effect, FileSystem, Layer, Option, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Context, Effect, FileSystem, Function, Layer, Match, Option, Path, Predicate, Record, Schema } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import type { NxJsonConfiguration } from 'nx/src/config/nx-json';
 
@@ -17,6 +20,11 @@ interface Stated {
     readonly packages?: readonly string[];
     readonly ignored: readonly string[];
     readonly files: Record.ReadonlyRecord<string, string>;
+}
+
+interface Asked {
+    readonly authorized: boolean;
+    readonly held: Buffer | undefined;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -232,8 +240,50 @@ const installed = Effect.fnUntraced(function* (name: string, resolved: string | 
     return version;
 });
 
+const answered = Match.type<Asked>().pipe(
+    Match.when({ authorized: false }, () => constants.HTTP_STATUS_UNAUTHORIZED),
+    Match.when({ held: Match.undefined }, () => constants.HTTP_STATUS_NOT_FOUND),
+    Match.orElse(() => constants.HTTP_STATUS_OK),
+);
+
+const served = (token: string, answer: (asked: Asked) => Option.Option<number>) => {
+    const [held, requests] = [new Map<string, Buffer>(), Array.empty<string>()];
+    const server = createServer((request, response) => {
+        const chunks: Buffer[] = [];
+        requests.push(`${request.method} ${request.url}`);
+        request.on('data', (chunk: Buffer) => chunks.push(chunk));
+        request.on('end', () => {
+            const body = request.method === 'PUT' ? held.set(String(request.url), Buffer.concat(chunks)).get(String(request.url)) : held.get(String(request.url));
+            Option.match(answer({ authorized: request.headers.authorization === `Bearer ${token}`, held: body }), {
+                onNone: Function.constVoid,
+                onSome: (status) => response.writeHead(status).end(request.method === 'GET' ? body : undefined),
+            });
+        });
+    });
+    return { server, requests };
+};
+
+const remote = (token: string, answer: (asked: Asked) => Option.Option<number>) =>
+    Effect.map(
+        Effect.acquireRelease(
+            Effect.callback<ReturnType<typeof served>>((resume) => {
+                const listening = served(token, answer);
+                listening.server.listen(0, '127.0.0.1', () => resume(Effect.succeed(listening)));
+            }),
+            ({ server }) =>
+                Effect.callback<void>((resume) => {
+                    server.closeAllConnections();
+                    server.close(() => resume(Effect.void));
+                }),
+        ),
+        ({ server, requests }) => {
+            const address = server.address();
+            return { address: `http://127.0.0.1:${Predicate.isObject(address) ? address.port : address}`, requests };
+        },
+    );
+
 const fromCache = (task: string) => new RegExp(`${RegExp.escape(task)}.*\\[(local cache|remote cache|existing outputs match)`, 'u');
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Consumer, fromCache, inherited, Packed };
+export { answered, Consumer, fromCache, inherited, Packed, remote };

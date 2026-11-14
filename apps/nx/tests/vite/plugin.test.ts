@@ -248,7 +248,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         'reading the graph writes no file and starts no build',
         Effect.fnUntraced(function* () {
             const [, created] = yield* Effect.flatMap(Consumer, ({ written }) => written(read));
-            assert.deepStrictEqual(created, [], `${api}: createNodes reads configuration; buildStart of a Vite plugin runs on a build alone, and a graph read is none (history-tests-nx-behaviour catalogue 25: a graph read deleted build output)`);
+            assert.deepStrictEqual(created, [], `${api}: createNodes reads configuration; buildStart of a Vite plugin runs on a build alone, and a graph read is none`);
         }),
         bounds.test,
     );
@@ -317,11 +317,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
             const [{ root, wrote }, path, graph] = yield* Effect.all([Consumer, Path.Path, read]);
             yield* wrote({ 'tools/vite/base.ts': base('emitted') });
             const { root: folder, outDir } = yield* resolved('libs/kit', 'build');
-            assert.deepStrictEqual(
-                yield* declared(task(graph, 'kit', 'build')),
-                [path.relative(root, path.resolve(folder, outDir))],
-                'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it (history-tests-nx-behaviour catalogue 18, 24: stale results after a config edit)',
-            );
+            assert.deepStrictEqual(yield* declared(task(graph, 'kit', 'build')), [path.relative(root, path.resolve(folder, outDir))], 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it');
         }),
         bounds.test,
     );

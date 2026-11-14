@@ -244,7 +244,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
             const folder = path.join('libs/emitting', (yield* shown('libs/emitting')).compilerOptions.outDir ?? '.');
             assert.isTrue(
                 (yield* declared('emitting', 'build')).paths.some((output) => output === folder || output.startsWith(`${folder}${path.sep}`)),
-                'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it (history-tests-nx-behaviour catalogue 18, 24: stale results after a config edit)',
+                'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it',
             );
         }),
         bounds.test,

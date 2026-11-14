@@ -94,7 +94,7 @@ it.layer(workspace(configured), { timeout: bounds.built, excludeTestServices: tr
         'reading the graph writes no file and starts no Vite server',
         Effect.fnUntraced(function* () {
             const [, created] = yield* Effect.flatMap(Consumer, ({ written }) => written(read));
-            assert.deepStrictEqual(created, [], `${api}: createNodes reads configuration; configureServer of a Vite plugin runs when a server starts, and a graph read starts none (history-tests-nx-behaviour catalogue 3: a cold graph read launched a browser)`);
+            assert.deepStrictEqual(created, [], `${api}: createNodes reads configuration; configureServer of a Vite plugin runs when a server starts, and a graph read starts none`);
         }),
         bounds.test,
     );
@@ -259,11 +259,7 @@ it.layer(workspace(rooted), { timeout: bounds.built, excludeTestServices: true }
         Effect.fnUntraced(function* () {
             const [{ root, wrote }, path] = yield* Effect.all([Consumer, Path.Path]);
             yield* wrote({ 'vitest.config.ts': listing('one', 'two', 'three') });
-            assert.deepStrictEqual(
-                suites(yield* read),
-                (yield* projects('.')).map((project) => path.relative(root, project.root)).toSorted(),
-                'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it (history-tests-nx-behaviour catalogue 18, 24: stale results after a config edit)',
-            );
+            assert.deepStrictEqual(suites(yield* read), (yield* projects('.')).map((project) => path.relative(root, project.root)).toSorted(), 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it');
         }),
         bounds.test,
     );

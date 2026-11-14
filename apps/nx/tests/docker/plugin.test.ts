@@ -206,7 +206,7 @@ it.layer(workspace(files), { timeout: bounds.built, excludeTestServices: true })
         Effect.fnUntraced(function* () {
             const { wrote } = yield* Consumer;
             yield* wrote({ 'ops/compose.yaml': 'services:\n    proxy:\n        build:\n            context: ../apps/edge\n', 'apps/edge/package.json': '{ "name": "edge", "type": "module" }\n', 'apps/edge/Dockerfile': 'FROM scratch\n' });
-            assert.isNotEmpty(Record.keys(tooled(yield* read, 'edge', 'build')), 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it (history-tests-nx-behaviour catalogue 18, 24: stale results after a config edit)');
+            assert.isNotEmpty(Record.keys(tooled(yield* read, 'edge', 'build')), 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts: a changed file invalidates what was computed from it');
         }),
         bounds.test,
     );
