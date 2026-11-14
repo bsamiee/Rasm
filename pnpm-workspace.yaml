@@ -484,7 +484,7 @@ catalog:
     '@openai/sites-vite-plugin': 0.2.0
     '@cloudflare/build-output-utils': 0.9.12 # Build Output tree reader for hosting programs
     '@cloudflare/config': 0.31.1 # `cloudflare.config.ts` uncached loader and parser for hosting programs
-    cf: 1.0.0-beta.29 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
+    cf: 1.0.0-beta.32 # `cloudflare.config.ts` definitions, Worker types, and local resource commands against Vite plugin state
     signal-exit: 4.1.0 # Handler run when the process ends by exit or by signal
     vite-plugin-static-copy: 4.1.1
     vite: 8.3.7
