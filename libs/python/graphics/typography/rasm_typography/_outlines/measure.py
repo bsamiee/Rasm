@@ -9,7 +9,7 @@ lazy from fontTools.pens.perimeterPen import PerimeterPen
 lazy from fontTools.pens.statisticsPen import StatisticsPen
 lazy from pathops import Path, PathOp
 lazy from scipy.optimize import minimize_scalar
-lazy from shapely import build_area, linestrings, maximum_inscribed_circle, MultiLineString, multilinestrings, MultiPolygon, Polygon
+lazy from shapely import build_area, linestrings, maximum_inscribed_circle, MultiLineString, multilinestrings, MultiPolygon, node, Polygon
 
 lazy from rasm_typography._faces.glyphs import Point
 lazy from rasm_typography._outlines import paths
@@ -18,10 +18,11 @@ lazy from rasm_typography._outlines import paths
 
 
 class _Moments(msgspec.Struct, frozen=True, kw_only=True):
-    """Outline center of mass and principal axis direction in degrees within [-90, 90]."""
+    """Outline center of mass, principal axis direction in degrees within [-90, 90], and elongation, the spread along that axis over the spread across it."""
 
     centre: tuple[float, float]
     angle: float
+    elongation: float
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -64,10 +65,15 @@ def counters(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Poi
 
 
 def moments(outline: tuple[tuple[Point, ...], ...], /) -> _Moments:
-    """Returns the center of mass and principal axis of the outline's filled area from its first and second moments."""
+    """Returns the center of mass, principal axis, and elongation of the outline's filled area from its first and second moments, an elongation infinite for a filled line."""
     pen = StatisticsPen()
     paths.draw(pen, outline)
-    return _Moments(centre=(float(pen.meanX), float(pen.meanY)), angle=math.degrees(0.5 * math.atan2(2 * pen.covariance, pen.varianceX - pen.varianceY)))
+    middle, spread = (pen.varianceX + pen.varianceY) / 2, math.hypot((pen.varianceX - pen.varianceY) / 2, pen.covariance)
+    return _Moments(
+        centre=(float(pen.meanX), float(pen.meanY)),
+        angle=math.degrees(0.5 * math.atan2(2 * pen.covariance, pen.varianceX - pen.varianceY)),
+        elongation=math.sqrt((middle + spread) / (middle - spread)) if middle > spread else math.inf,
+    )
 
 
 # --- [DISTANCES]
@@ -93,8 +99,8 @@ def _strung(edges: tuple[tuple[tuple[float, float], tuple[float, float]], ...], 
 
 
 def inradius(outline: tuple[tuple[Point, ...], ...], /) -> float:
-    """Returns the largest inscribed circle's radius, 0 for edges enclosing no area, retaining holes and islands."""
-    match build_area(_strung(_flattened(outline)[1])):
+    """Returns the largest inscribed circle's radius, 0 for edges enclosing no area, retaining holes and islands, the edges noded where flattening crosses them."""
+    match build_area(node(_strung(_flattened(outline)[1]))):
         case Polygon() | MultiPolygon() as filled:
             return float(maximum_inscribed_circle(filled, tolerance=0.25).length)
         case _:

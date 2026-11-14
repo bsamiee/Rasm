@@ -2,6 +2,7 @@
 
 from functools import partial
 lazy from collections.abc import Iterable
+lazy from itertools import combinations, starmap
 lazy import math
 lazy from statistics import fmean
 
@@ -10,7 +11,7 @@ lazy from fontTools.misc.transform import Offset
 lazy from pathops import PathOp
 lazy from scipy.optimize import root_scalar
 
-from rasm_typography._faces.declaration import Em, Ratio
+from rasm_typography._faces.declaration import Em, Face, Ratio
 from rasm_typography._rules import measures
 lazy from rasm_records import Ok, Outcome
 lazy from rasm_typography._faces.glyphs import Glyph, Letter, Point, Source
@@ -21,7 +22,7 @@ lazy from rasm_typography._outlines import measure, paths
 
 
 class Outlines(measures.Rule, frozen=True, kw_only=True):
-    """Points merged, joins smoothed, slivers dropped, straight art snapped, needle spurs cut under the join band, counters of the counter letters opened, single dots redrawn as the dotted letter's nuqta and held the floor off their letter."""
+    """Points merged, joins smoothed, slivers dropped, straight art snapped, spurs under the join band cut from the body, counters opened, single dots redrawn as the nuqta and spread to the gaps they had, and held the floor off their letter."""
 
     merge: Em = 0.004
     corner: float = 25.0
@@ -33,11 +34,13 @@ class Outlines(measures.Rule, frozen=True, kw_only=True):
     letters: tuple[int, ...] = ()
     dot: int | None = None
     single: tuple[Ratio, Ratio] = (0.6, 1.5)
+    shape: Ratio = 1.5
+    spread: Ratio = 3.0
 
     def applied(self, source: Source, /, **_: object) -> Outcome[Source]:
         """Cleans every drawn glyph and redraws each letter's single dots as the face's nuqta, at least the floor off the body."""
         counted = frozenset(source.key(code, form) for code in self.letters for form in Form)
-        fit = partial(_fit, self, measures.band(source) if self.spurs else None, measures.nuqta(source, self.dot) if self.dot is not None else (), counted, source.upm)
+        fit = partial(_fit, self, measures.band(source) if self.spurs else None, measures.nuqta(source, self.dot) if self.dot is not None and isinstance(source.face, Face) and source.face.dotted else (), counted, source.upm)
         return Ok(source.replaced(*(fit(glyph) for glyph in source.glyphs if glyph.contours)))
 
 
@@ -85,25 +88,38 @@ def _fit(rule: Outlines, joins: tuple[float, float] | None, canonical: tuple[tup
                 kept.append(point)
         if len(kept) > 2:
             smoothed.append(tuple(kept))
-    contours = tuple(smoothed)
+    nuqta, model = paths.area(canonical), paths.bounds(canonical)
+    stretch = measure.moments(canonical).elongation if model else 0.0
+    body, dots = measures.dotted(msgspec.structs.replace(glyph, contours=tuple(smoothed)), nuqta) if isinstance(glyph.role, Letter) else (tuple(smoothed), ())
     if joins and isinstance(glyph.role, Letter) and glyph.role.form in {Form.INIT, Form.MEDI}:
         low, high = joins
-        match paths.bounds(contours):
+        match paths.bounds(body):
             case paths.Box(xmin=xmin, ymin=ymin, xmax=xmax) if ymin < low:
-                under = paths.combined(contours, (paths.Box(xmin=xmin, ymin=ymin, xmax=xmax, ymax=low).contour,), PathOp.INTERSECTION)
-                contours = paths.combined(contours, tuple(*piece for piece in paths.pieces(under) if (extent := paths.bounds(piece)) and extent.width < (high - low) / 2), PathOp.DIFFERENCE)
+                under = paths.combined(body, (paths.Box(xmin=xmin, ymin=ymin, xmax=xmax, ymax=low).contour,), PathOp.INTERSECTION)
+                body = paths.combined(body, tuple(*piece for piece in paths.pieces(under) if (extent := paths.bounds(piece)) and extent.width < (high - low) / 2), PathOp.DIFFERENCE)
             case _:
-                contours = paths.union(contours)
-    if rule.opened is not None and glyph.name.text in counted and (narrow := tuple((void, span) for void in measure.counters(contours) if (span := 2 * measure.inradius(void)) < rule.opened * em)):
-        contours = paths.combined(contours, paths.union(*(paths.offset(void, (rule.opened * em - span) / 2) for void, span in narrow)), PathOp.DIFFERENCE)
-    nuqta, model = paths.area(canonical), paths.bounds(canonical)
-    body, dots = measures.dotted(msgspec.structs.replace(glyph, contours=contours), nuqta) if isinstance(glyph.role, Letter) else (contours, ())
-    redrawn = tuple(
-        paths.transformed(canonical, (1.0, 0.0, 0.0, 1.0, dot.middle[0] - model.middle[0], dot.middle[1] - model.middle[1]))
-        if model and (dot := paths.bounds(piece)) and rule.single[0] < paths.area(piece) / nuqta < rule.single[1]
-        else piece
+                body = paths.union(body)
+    if rule.opened is not None and glyph.name.text in counted and (narrow := tuple((void, span) for void in measure.counters(body) if (span := 2 * measure.inradius(void)) < rule.opened * em)):
+        body = paths.combined(body, paths.union(*(paths.offset(void, (rule.opened * em - span) / 2) for void, span in narrow)), PathOp.DIFFERENCE)
+    singles = tuple(
+        (piece, box, model is not None and rule.single[0] < paths.area(piece) / nuqta < rule.single[1] and max(own := measure.moments(piece).elongation, stretch) < rule.shape * min(own, stretch))
         for piece in dots
+        if (box := paths.bounds(piece))
     )
+    sizes = tuple(paths.area(piece) for piece, _, single in singles if single)
+    grown, (x, y) = math.sqrt(nuqta / fmean(sizes)) if sizes else 1.0, (paths.bounds(tuple(*piece for piece in dots)) or paths.Box(xmin=0.0, ymin=0.0, xmax=0.0, ymax=0.0)).middle
+
+    def spaced(spread: float, /) -> tuple[tuple[tuple[Point, ...], ...], ...]:
+        return tuple(
+            paths.transformed(canonical if single and model else piece, Offset(x + spread * (box.middle[0] - x) - own.middle[0], y + spread * (box.middle[1] - y) - own.middle[1]))
+            for piece, box, single in singles
+            for own in ((model if single and model else box),)
+        )
+
+    def apart(spread: float, /) -> float:
+        return min(starmap(measure.gap, combinations(spaced(spread), 2)), default=math.inf) - grown * min(starmap(measure.gap, combinations(dots, 2)), default=0.0)
+
+    redrawn = spaced(grown if apart(grown) >= 0 else rule.spread * grown if apart(rule.spread * grown) < 0 else root_scalar(apart, bracket=(grown, rule.spread * grown)).root)
     if rule.floor is None or not redrawn:
         return msgspec.structs.replace(glyph, contours=(*body, *(*piece for piece in redrawn)))
     group, floor = paths.union(*redrawn), rule.floor * em

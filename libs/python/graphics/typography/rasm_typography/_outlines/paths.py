@@ -147,14 +147,6 @@ def combined(a: tuple[tuple[Point, ...], ...], b: tuple[tuple[Point, ...], ...],
     return traced(pathops.op(one, two, operation, **_FILL).draw)
 
 
-def meets(a: tuple[tuple[Point, ...], ...], b: tuple[tuple[Point, ...], ...], /) -> bool:
-    """Tests whether two outlines overlap, each simplified first, the form resolving near-coincident edges a raw pair refuses."""
-    one, two = pathops.Path(), pathops.Path()
-    draw(one.getPen(), a)
-    draw(two.getPen(), b)
-    return bool(traced(pathops.op(one, two, pathops.PathOp.INTERSECTION, **_FILL).draw))
-
-
 def pieces(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Point, ...], ...], ...]:
     """Splits the union of an outline into connected fills in drawing order, each outer contour with the holes whose smallest enclosing outer it is."""
     path = pathops.Path()
@@ -163,6 +155,17 @@ def pieces(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Point
     outers = sorted((contour for contour in contours if not contour.clockwise), key=lambda contour: contour.area)
     owners = tuple((hole, next((outer for outer in outers if outer.contains(hole.firstPoints[0])), None)) for hole in contours if hole.clockwise)
     return tuple(traced(partial(pathops.union, (outer, *(hole for hole, owner in owners if owner is outer)))) for outer in contours if not outer.clockwise)
+
+
+def groups(outline: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[tuple[Point, ...], ...], ...]:
+    """Pieces of an outline, each lying inside another's outer contour joined to the smallest such piece, a contour drawing's core with the ring around it, smallest first."""
+    held = sorted(pieces(outline), key=area)
+    hulls = tuple(max(((contour,) for contour in piece), key=area) for piece in held)
+    roots: dict[int, int] = {}
+    for index in reversed(range(len(held))):
+        owner = next((other for other in range(index + 1, len(held)) if not combined(held[index], hulls[other], pathops.PathOp.DIFFERENCE)), None)
+        roots[index] = index if owner is None else roots[owner]
+    return tuple(union(*(held[member] for member in range(len(held)) if roots[member] == index)) for index in range(len(held)) if roots[index] == index)
 
 
 def strip(outline: tuple[tuple[Point, ...], ...], low: float, high: float, /, axis: Axis = "x") -> tuple[tuple[Point, ...], ...]:
@@ -227,4 +230,4 @@ def offset(outline: tuple[tuple[Point, ...], ...], distance: float, /) -> tuple[
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Axis", "Box", "area", "bounds", "combined", "draw", "iou", "meets", "offset", "pieces", "segments", "strip", "trace", "transformed", "union"]
+__all__ = ["Axis", "Box", "area", "bounds", "combined", "draw", "groups", "iou", "offset", "pieces", "segments", "strip", "trace", "transformed", "union"]

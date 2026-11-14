@@ -1,0 +1,19 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "rasm-typography-tests"
+version         = "0.1.0"
+requires-python = ">=3.15"
+
+dependencies = [
+    # --- [CORE]
+
+    "pytest",          # Parameters and assertions over each original face
+    "rasm-testing",    # Outcome unwrapping that fails a test with its faults' text
+    "rasm-typography", # Library under test: outlines, rules, and requirements over the set's originals
+
+    # --- [FONTS]
+
+    "fonttools",       # Statistics pen measuring a piece's elongation
+    "skia-pathops",    # Outer contours of a rebuilt glyph, read apart from the library under test
+]

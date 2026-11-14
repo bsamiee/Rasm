@@ -57,7 +57,7 @@ class Ligatures(_Lookup, frozen=True, kw_only=True):
 class Contextual(_Lookup, frozen=True, kw_only=True):
     """GSUB chaining contextual substitution."""
 
-    rules: tuple[Chain[str], ...]
+    rules: tuple[Chain[str | None], ...]
 
 
 class Positions(_Lookup, frozen=True, kw_only=True):

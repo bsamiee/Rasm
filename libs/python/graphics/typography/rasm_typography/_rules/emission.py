@@ -69,23 +69,34 @@ def _block(name: str, statements: list[ast.Statement], flags: ast.LookupFlagStat
 
 
 def _chained(
-    name: str, rules: tuple[Chain[str], ...] | tuple[Chain[Adjustment | None], ...], statement: type[ast.ChainContextSubstStatement | ast.ChainContextPosStatement], flags: ast.LookupFlagStatement, /
+    name: str,
+    rules: tuple[Chain[str | None], ...] | tuple[Chain[Adjustment | None], ...],
+    statement: type[ast.ChainContextSubstStatement | ast.ChainContextPosStatement],
+    flags: ast.LookupFlagStatement,
+    /,
 ) -> tuple[ast.LookupBlock, ...]:
-    """Returns the single lookups each rule position applies, then the chaining lookup naming them."""
-    inner = {
-        (index, position): _block(
-            f"{name}_{index}_{position}",
+    """Returns the single lookups the rule positions apply, every change packed into the first lookup holding no other change for its glyphs, then the chaining lookup naming them."""
+    packs: list[dict[str, str | Adjustment]] = []
+    slots: dict[tuple[int, int], int] = {}
+    for index, rule in enumerate(rules):
+        for position, glyphs, change in ((position, glyphs, change) for position, (glyphs, change) in enumerate(rule.input) if isinstance(change, str | Adjustment) and glyphs != (change,)):
+            slot = next((slot for slot, held in enumerate(packs) if all(held.get(glyph, change) == change for glyph in glyphs)), len(packs))
+            packs.extend({} for _ in range(slot + 1 - len(packs)))
+            packs[slot].update(dict.fromkeys(glyphs, change))
+            slots[index, position] = slot
+    inner = tuple(
+        _block(
+            f"{name}_{slot}",
             [
                 ast.SingleSubstStatement([_class(glyphs)], [ast.GlyphName(change)], [], [], forceChain=False)
                 if isinstance(change, str)
                 else ast.SinglePosStatement([(_class(glyphs), _value(change))], [], [], forceChain=False)
+                for change, glyphs in ((change, tuple(glyph for glyph, held in mapping.items() if held == change)) for change in dict.fromkeys(mapping.values()))
             ],
             flags,
         )
-        for index, rule in enumerate(rules)
-        for position, (glyphs, change) in enumerate(rule.input)
-        if change is not None and not (isinstance(change, str) and glyphs == (change,))
-    }
+        for slot, mapping in enumerate(packs)
+    )
     chain = _block(
         name,
         [
@@ -93,13 +104,13 @@ def _chained(
                 list(map(_class, rule.backtrack)),
                 [_class(glyphs) for glyphs, _ in rule.input],
                 list(map(_class, rule.lookahead)),
-                [inner.get((index, position)) for position in range(len(rule.input))],
+                [inner[slots[index, position]] if (index, position) in slots else None for position in range(len(rule.input))],
             )
             for index, rule in enumerate(rules)
         ],
         flags,
     )
-    return (*inner.values(), chain)
+    return (*inner, chain)
 
 
 # --- [EMISSION]

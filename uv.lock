@@ -30,6 +30,7 @@ members = [
     "rasm-telemetry-tests",
     "rasm-testing",
     "rasm-typography",
+    "rasm-typography-tests",
 ]
 
 [[package]]
@@ -8504,6 +8505,27 @@ requires-dist = [
     { name = "ufo2ft", specifier = ">=3.8.0" },
     { name = "ufolib2", specifier = ">=0.18.0" },
     { name = "uharfbuzz", specifier = ">=0.55.0" },
+]
+
+[[package]]
+name = "rasm-typography-tests"
+version = "0.1.0"
+source = { virtual = "libs/python/graphics/tests/typography" }
+dependencies = [
+    { name = "fonttools" },
+    { name = "pytest" },
+    { name = "rasm-testing" },
+    { name = "rasm-typography" },
+    { name = "skia-pathops" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "fonttools" },
+    { name = "pytest" },
+    { name = "rasm-testing", editable = "tests/python/support" },
+    { name = "rasm-typography", editable = "libs/python/graphics/typography" },
+    { name = "skia-pathops" },
 ]
 
 [[package]]

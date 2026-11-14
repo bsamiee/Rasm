@@ -79,9 +79,10 @@ class Covered(_Requirement, frozen=True, kw_only=True, tag="coverage"):
 
 
 class MarkClearance(_Requirement, frozen=True, kw_only=True):
-    """Marks clear their own cluster and stand a gap in em from every other, and dots and hamzas clear other letters."""
+    """Marks clear their own cluster and stand a gap in em from every other, and where letters carry dots apart from their drawing, dots and hamzas clear other letters."""
 
     gap: Em
+    dotted: bool = True
 
     def measured(self, binary: Binary, /, *, corpus: Corpus, joinings: Joinings, **_: object) -> tuple[tuple[str, float | str, float | str], ...]:
         """Mark and dot gaps over the matrix, letter pairs unwrapped and between two dual-joining letters, and whole words, under each corpus language.
@@ -106,7 +107,7 @@ class MarkClearance(_Requirement, frozen=True, kw_only=True):
                 (tuple(sorted((placed.glyph, other.glyph))), apart / binary.upem, reach / binary.upem)
                 for placed, piece, reaches in (
                     *((placed, binary.outline(placed.glyph), (minimum, 0.0)) for placed, _ in extents if placed.glyph in held),
-                    *((placed, piece, (0.0, None)) for placed, _ in extents if placed.glyph not in held for piece in split(placed.glyph)[1]),
+                    *((placed, piece, (0.0, None)) for placed, _ in extents if self.dotted and placed.glyph not in held for piece in split(placed.glyph)[1]),
                 )
                 if (box := boxes(piece))
                 for other, extent in extents
@@ -121,6 +122,46 @@ class MarkClearance(_Requirement, frozen=True, kw_only=True):
         texts = dict.fromkeys((*corpus.matrix, *corpus.pairs(), *corpus.pairs(around), *corpus.word_runs))
         found = sorted((pair, measured, bound, text) for language in corpus.languages for text in texts for pair, measured, bound in clashes(text, language))
         return tuple((f"{' '.join(pair)} in {text}", measured, bound) for pair, group in groupby(found, key=lambda clash: clash[0]) for _, measured, bound, text in (next(group),))
+
+
+class PartClearance(_Requirement, frozen=True, kw_only=True):
+    """Neighbouring glyphs that do not join, parted by a non-joining letter, ZWNJ, or space, keep a gap in em between their bodies."""
+
+    gap: Em
+
+    def measured(self, binary: Binary, /, *, corpus: Corpus, **_: object) -> tuple[tuple[str, float | str, float | str], ...]:
+        """Least gap between the bodies of each two neighbouring unjoined glyphs over the prose, marked, word, and ZWNJ lines under each corpus language, held at the gap."""
+        held, split = binary.marks, partial(_split, binary, _nuqta(binary))
+
+        @cache
+        def apart(left: str, right: str, dx: float, dy: float, /) -> float:
+            return measure.gap(split(left)[0], paths.transformed(split(right)[0], Offset(dx, dy)))
+
+        found = sorted(
+            ((a.glyph, b.glyph), distance, text)
+            for text in dict.fromkeys((*corpus.plain, *corpus.marked, *corpus.words, *corpus.zwnj))
+            for language in corpus.languages
+            for a, b in pairwise(placed for placed, _ in binary.placed_extents(text, language) if placed.glyph not in held)
+            if not (GlyphName.parse(a.glyph).form.right and GlyphName.parse(b.glyph).form.left) and (distance := apart(a.glyph, b.glyph, b.x - a.x, b.y - a.y)) < self.gap * binary.upem
+        )
+        return tuple((f"{' '.join(pair)} in {text}", distance / binary.upem, self.gap) for pair, group in groupby(found, key=lambda row: row[0]) for _, distance, text in (next(group),))
+
+
+class MarkSide(_Requirement, frozen=True, kw_only=True):
+    """Every below mark sits wholly under the baseline, on each letter form and ligature component it attaches to."""
+
+    @staticmethod
+    def measured(binary: Binary, /, *, corpus: Corpus, **_: object) -> tuple[tuple[str, float | str, float | str], ...]:
+        """Top of each below mark over the matrix and ligature lines under each corpus language, held at the baseline."""
+        held = binary.marks
+        found = sorted(
+            (placed.glyph, box.ymax / binary.upem, text)
+            for text in dict.fromkeys((*corpus.matrix, *corpus.ligatures))
+            for language in corpus.languages
+            for placed, box in binary.placed_extents(text, language)
+            if placed.glyph in held and box.ymax > 0 and (codes := GlyphName.parse(placed.glyph).codes) and Side.of(codes[0]) is Side.BELOW
+        )
+        return tuple((f"{glyph} in {text}", top, 0.0) for glyph, group in groupby(found, key=lambda row: row[0]) for _, top, text in (next(group),))
 
 
 class MarkLine(_Requirement, frozen=True, kw_only=True):
@@ -298,11 +339,12 @@ class LineMetrics(_Requirement, frozen=True, kw_only=True, tag="metrics"):
 
 
 class Identity(_Requirement, frozen=True, kw_only=True):
-    """Dots and hamzas of each letter form the original draws meet the original's, piece for piece."""
+    """Each letter form keeps the original's dots and hamzas, piece for piece, each piece's elongation within a ratio of the original's, wherever the build moves them."""
 
-    @staticmethod
-    def measured(binary: Binary, /, *, original: Binary, corpus: Corpus, **_: object) -> tuple[tuple[str, float | str, float | str], ...]:
-        """Dots and hamzas of each letter form both fonts draw, every piece of either meeting the other's once the original is scaled by the median body height ratio and centered on the body.
+    shape: Ratio = 1.5
+
+    def measured(self, binary: Binary, /, *, original: Binary, corpus: Corpus, **_: object) -> tuple[tuple[str, float | str, float | str], ...]:
+        """Dot and hamza pieces of each letter form both fonts draw, paired in elongation order, against the original's count and each piece's elongation.
 
         Args:
             binary: Build to measure.
@@ -310,7 +352,7 @@ class Identity(_Requirement, frozen=True, kw_only=True):
             corpus: Letters whose forms are measured.
 
         Returns:
-            Each letter form with the count of its pieces and the original's that meet nothing, held at zero.
+            Each letter form whose piece count differs from the original's or whose paired pieces part past the elongation ratio, as both elongations.
         """
         pairs = tuple(
             dict.fromkeys(
@@ -321,20 +363,19 @@ class Identity(_Requirement, frozen=True, kw_only=True):
                 if (glyph := _letter(binary, form, language)) != binary.order[0] and (former := _letter(original, form, language)) != original.order[0]
             )
         )
-        mine, theirs = (cache(partial(_split, font, _nuqta(font))) for font in (binary, original))
-        boxes = cache(paths.bounds)
-        bodies = tuple((glyph, former, own, old) for glyph, former in pairs if (own := boxes(mine(glyph)[0])) and (old := boxes(theirs(former)[0])) and old.height)
-        factor = median(tuple(own.height / old.height for _, _, own, old in bodies) or (1.0,))
+
+        def shapes(font: Binary, nuqta: float, glyph: str, /) -> tuple[float, ...]:
+            return tuple(sorted(round(measure.moments(piece).elongation, 2) for piece in _split(font, nuqta, glyph)[1]))
+
+        built, previous = (cache(partial(shapes, font, _nuqta(font))) for font in (binary, original))
         return tuple(
-            (glyph, float(missed), 0.0)
-            for glyph, former, own, old in bodies
-            for apart, kept in ((mine(glyph)[1], tuple(paths.transformed(piece, (factor, 0, 0, factor, own.middle[0] - factor * old.middle[0], 0)) for piece in theirs(former)[1])),)
-            for held, previous in ((paths.union(*apart), paths.union(*kept)),)
-            if (missed := sum(1 for piece in apart if not paths.meets(piece, previous)) + sum(1 for piece in kept if not paths.meets(piece, held)))
+            (glyph, " ".join(map(str, mine)) or "none", " ".join(map(str, theirs)) or "none")
+            for glyph, former in pairs
+            if len(mine := built(glyph)) != len(theirs := previous(former)) or any(max(own, old) >= self.shape * min(own, old) for own, old in zip(mine, theirs, strict=True))
         )
 
 
-type Requirements = Expectations | Reachable | Covered | MarkClearance | MarkLine | LigatureArea | JoinParity | Seam | Distinct | LineMetrics | Identity
+type Requirements = Expectations | Reachable | Covered | MarkClearance | PartClearance | MarkSide | MarkLine | LigatureArea | JoinParity | Seam | Distinct | LineMetrics | Identity
 
 # --- [FINDINGS]
 
@@ -362,15 +403,15 @@ def _hull(boxes: Iterable[paths.Box], /) -> paths.Box | None:
 def _nuqta(binary: Binary, /) -> float:
     """Median area of the pieces apart from the largest across the mapped letters, the dot most of them draw."""
     letters = tuple(glyph for code, glyph in binary.encoded.items() if unicodedata.category(chr(code)).startswith("L"))
-    sizes = {glyph: sorted(map(paths.area, paths.pieces(binary.outline(glyph))))[:-1] for glyph in dict.fromkeys(letters)}
+    sizes = {glyph: sorted(map(paths.area, paths.groups(binary.outline(glyph))))[:-1] for glyph in dict.fromkeys(letters)}
     return median(tuple(*sizes[glyph] for glyph in letters) or (0.0,))
 
 
 def _split(binary: Binary, nuqta: float, glyph: str, /) -> tuple[tuple[tuple[Point, ...], ...], tuple[tuple[tuple[Point, ...], ...], ...]]:
-    """Body of a glyph and its dots and hamzas, the pieces apart from its largest of at most 3.5 nuqtas, a larger one a split part of the body."""
-    limit = 3.5 * nuqta
-    held = sorted(((paths.area(piece), piece) for piece in paths.pieces(binary.outline(glyph))), key=lambda held: held[0], reverse=True)
-    return tuple(contour for index, (size, piece) in enumerate(held) if index == 0 or size > limit for contour in piece), tuple(piece for size, piece in held[1:] if size <= limit)
+    """Body of a glyph and its dots and hamzas, the pieces apart from its largest of a quarter to 3.5 nuqtas, a larger one a split part of the body and a smaller one a fragment of it."""
+    low, high = 0.25 * nuqta, 3.5 * nuqta
+    held = sorted(((paths.area(piece), piece) for piece in paths.groups(binary.outline(glyph))), key=lambda held: held[0], reverse=True)
+    return (tuple(contour for index, (size, piece) in enumerate(held) if index == 0 or not low <= size <= high for contour in piece), tuple(piece for size, piece in held[1:] if low <= size <= high))
 
 
 def _letter(binary: Binary, form: str, language: str | None, /) -> str:
@@ -400,12 +441,14 @@ def requirements(face: Faces, /) -> tuple[Requirements, ...]:
     match face:
         case Face(genre=genre, treatments=treatments):
             drawn = not any(isinstance(treatment, Ringed | Contour | Shadow | Segmented) for treatment in treatments)
-            upright = drawn and not any(isinstance(treatment, Sheared) for treatment in treatments)
+            upright = drawn and face.dotted and not any(isinstance(treatment, Sheared) for treatment in treatments)
             return (
                 Expectations(),
                 Reachable(),
                 Covered(),
-                MarkClearance(gap=genre.clearance),
+                MarkClearance(gap=genre.clearance, dotted=face.dotted),
+                PartClearance(gap=genre.clearance),
+                MarkSide(),
                 MarkLine(),
                 LigatureArea(),
                 JoinParity(),
@@ -458,6 +501,8 @@ __all__ = [
     "LineMetrics",
     "MarkClearance",
     "MarkLine",
+    "MarkSide",
+    "PartClearance",
     "Reachable",
     "Requirements",
     "Seam",

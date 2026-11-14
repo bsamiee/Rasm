@@ -6,7 +6,7 @@ lazy from collections.abc import Iterator
 lazy from datetime import datetime, UTC
 lazy from functools import cache, partial
 lazy from io import BytesIO
-lazy from itertools import chain
+lazy from itertools import chain, product
 lazy import unicodedata
 
 lazy from expression import Option, Some
@@ -22,7 +22,7 @@ lazy from fontTools.unicodedata import script_extension
 lazy from rasm_records import Fault, Outcome, Reason
 lazy from rasm_typography._faces.declaration import Face, Faces, OrnamentFace
 lazy from rasm_typography._faces.glyphs import Anchor, Glyph, Info, Joinings, Ornament, Point, role, Side, Source, traced, VerticalMetrics
-lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
+lazy from rasm_typography._faces.layout import Chain, Contextual, Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -79,6 +79,40 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
     def outline(name: str, /) -> tuple[tuple[Point, ...], ...]:
         return traced(lambda pen: glyphs[name].draw(DecomposingFilterPen(pen, glyphs)))
 
+    def chains(sub: BaseTable, /) -> tuple[tuple[tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], tuple[tuple[str, ...], ...], tuple[tuple[int, int], ...]], ...]:
+        """Rules of a contextual or chaining substitution as backtrack in reading order, input, and lookahead glyph classes with each nested lookup's sequence index, every format expanded to classes."""
+
+        def members(definition: BaseTable | None, klass: int, /, among: tuple[str, ...] = tuple(order)) -> tuple[str, ...]:
+            held = definition.classDefs if definition is not None else {}
+            return tuple(glyph for glyph in among if held.get(glyph, 0) == klass)
+
+        match sub:
+            case BaseTable(Format=3, BacktrackCoverage=back, InputCoverage=inputs, LookAheadCoverage=ahead, SubstLookupRecord=records):
+                return (
+                    (
+                        tuple(tuple(map(str, cover.glyphs)) for cover in reversed(back)),
+                        tuple(tuple(map(str, cover.glyphs)) for cover in inputs),
+                        tuple(tuple(map(str, cover.glyphs)) for cover in ahead),
+                        tuple((int(record.SequenceIndex), int(record.LookupListIndex)) for record in records),
+                    ),
+                )
+            case BaseTable(Format=3, Coverage=inputs, SubstLookupRecord=records):
+                return (((), tuple(tuple(map(str, cover.glyphs)) for cover in inputs), (), tuple((int(record.SequenceIndex), int(record.LookupListIndex)) for record in records)),)
+            case BaseTable(Format=2, Coverage=cover, BacktrackClassDef=back, InputClassDef=inputs, LookAheadClassDef=ahead, ChainSubClassSet=sets):
+                return tuple(
+                    (
+                        tuple(members(back, klass) for klass in reversed(rule.Backtrack)),
+                        (members(inputs, first, tuple(map(str, cover.glyphs))), *(members(inputs, klass) for klass in rule.Input)),
+                        tuple(members(ahead, klass) for klass in rule.LookAhead),
+                        tuple((int(record.SequenceIndex), int(record.LookupListIndex)) for record in rule.SubstLookupRecord),
+                    )
+                    for first, held in enumerate(sets or ())
+                    if held is not None
+                    for rule in held.ChainSubClassRule
+                )
+            case _:
+                return ()
+
     native = _lookups(font, "GSUB") if isinstance(face, Face) else ()
     features = {index: features for index, features, _ in native}
     grouped = {index: tuple(subtables(lookup)) for index, _, lookup in native}
@@ -89,6 +123,12 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
         if any(isinstance(sub, LigatureSubst) for sub in group)
     }
     rules = tuple(*entries for entries in ligatures.values())
+    nested: dict[int, dict[str, str]] = {
+        index: dict(ChainMap(*(sub.mapping for sub in subtables(lookup) if isinstance(sub, SingleSubst))))
+        for index, lookup in enumerate(font["GSUB"].table.LookupList.Lookup if native else ())
+        if isinstance(lookup, BaseTable)
+    }
+    contexts = {key: found for key, group in grouped.items() if (found := tuple(*chains(sub) for sub in group))}
     match face:
         case Face(genre=genre):
             kept = {code: glyph for code, glyph in cmap.items() if genre.coverage.exclusion(code).is_none()}
@@ -100,7 +140,19 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
 
             coded = tuple(sorted(((code, glyph, unicodedata.decomposition(chr(code)).split()) for code, glyph in kept.items()), key=lambda row: priority(row[0])))
             outgoing: defaultdict[str, list[tuple[str, int, str]]] = defaultdict(list)
-            for source, row in ((source, (feature, index, target)) for index, mapping in singles.items() for feature in features[index] for source, target in mapping.items()):
+            for source, row in (
+                *((source, (feature, index, target)) for index, mapping in singles.items() for feature in features[index] for source, target in mapping.items()),
+                *(
+                    (source, (feature, inner, nested[inner][source]))
+                    for key, chains in contexts.items()
+                    for feature in features[key]
+                    for _, inputs, _, records in chains
+                    for sequence, inner in records
+                    if inner in nested and sequence < len(inputs)
+                    for source in inputs[sequence]
+                    if source in nested[inner]
+                ),
+            ):
                 outgoing[source].append(row)
             joined: defaultdict[str, list[tuple[tuple[str, ...], str]]] = defaultdict(list)
             for part, found in ((part, ligature) for ligature in rules for part in dict.fromkeys(ligature[0])):
@@ -202,6 +254,29 @@ def _source(original: bytes, face: Faces, joinings: Joinings, /) -> Source:
                 rules=tuple((tuple(named[part].text for part in parts), named[target].text) for parts, target in entries if target in named and all(part in named for part in parts)),
             )
             for index, entries in ligatures.items()
+        ),
+        *(
+            Contextual(features=features[index], order=index, flags=qualifiers[index][0], mark_attachment=qualifiers[index][1], mark_filtering=qualifiers[index][2], rules=built)
+            for index, chains in contexts.items()
+            for built in (
+                tuple(
+                    Chain(
+                        backtrack=tuple(tuple(named[glyph].text for glyph in klass if glyph in named) for klass in back),
+                        input=tuple(
+                            ((named[chosen[changed.index(position)]].text,), named[nested[dict(records)[position]][chosen[changed.index(position)]]].text)
+                            if position in changed
+                            else (tuple(named[glyph].text for glyph in klass if glyph in named), None)
+                            for position, klass in enumerate(inputs)
+                        ),
+                        lookahead=tuple(tuple(named[glyph].text for glyph in klass if glyph in named) for klass in ahead),
+                    )
+                    for back, inputs, ahead, records in chains
+                    for changed in (tuple(position for position, inner in records if inner in nested and position < len(inputs)),)
+                    for chosen in product(*(tuple(glyph for glyph in inputs[position] if glyph in named and nested[dict(records)[position]].get(glyph) in named) for position in changed))
+                    if changed and all(any(glyph in named for glyph in klass) for klass in (*back, *inputs, *ahead))
+                ),
+            )
+            if built
         ),
     )
     return Source(

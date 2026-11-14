@@ -1,5 +1,6 @@
 """Anchors from outlines: mark anchors at the original's clearance in a vowel and a wide class, ligature component anchors and carets, composite marks attached, `calt` dot groups moved clear of a joined neighbor, and `mark` lifts of marks clear of neighbors."""
 
+lazy from bisect import bisect_left
 lazy from functools import partial
 lazy from graphlib import TopologicalSorter
 lazy from itertools import groupby, pairwise
@@ -9,10 +10,11 @@ import msgspec
 lazy from expression import Result
 lazy from fontTools.misc.roundTools import otRound
 lazy from fontTools.misc.transform import Offset, Transform
+lazy from scipy.optimize import root_scalar
 lazy from ufo2ft.filters.propagateAnchors import AnchorData, anchors_traversing_components, get_xy_rotation, rename_anchor_for_scale
 lazy from ufoLib2.objects import Component
 
-from rasm_typography._faces.declaration import Band, Em, Ratio, Script
+from rasm_typography._faces.declaration import Band, Em, Face, Ratio, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Error, Ok, Outcome
 lazy from rasm_typography._faces.glyphs import Anchor, Glyph, Letter, Ligature, Mark, Point, Side, Source
@@ -25,7 +27,7 @@ lazy from rasm_typography._shaping.runs import Binary
 
 
 class Anchors(measures.Rule, frozen=True, kw_only=True):
-    """Anchors from outlines at the original's vowel clearance, the vowel class over a column `wide` vowels across and wider marks over the widest, spaces anchored like the stem and joining glyph, dots held `dots` off a joined neighbor, and lifts up to `lifts` (non-joining, joined)."""
+    """Anchors from outlines at the original's vowel clearance, the vowel class over a column `wide` vowels across and wider marks over the widest, spaces anchored like the stem and joining glyph, dots held `dots` off a joined neighbor, and harakat lifts up to `lifts` (non-joining, joined)."""
 
     script: Script
     stack: Em
@@ -133,7 +135,14 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                 done = msgspec.structs.replace(spaced, glyphs=tuple(named[glyph.name.text] for glyph in spaced.glyphs))
                 letters, reach, step = tuple(drawn for glyph in done.by_role(Letter) if (drawn := done.drawn(glyph.name.text)).contours), self.dots * done.upm, self.stack * done.upm / 2
                 boxes, nuqta = {glyph.name.text: box for glyph in letters if (box := paths.bounds(glyph.contours))}, paths.area(measures.nuqta(done, script.dotted))
-                groups = {glyph.name.text: (body, group, paths.bounds(group)) for glyph in letters for body, dots in (measures.dotted(glyph, nuqta),) if dots for group in (paths.union(*dots),)}
+                groups = {
+                    glyph.name.text: (body, group, paths.bounds(group))
+                    for glyph in letters
+                    if isinstance(done.face, Face) and done.face.dotted
+                    for body, dots in (measures.dotted(glyph, nuqta),)
+                    if dots
+                    for group in (paths.union(*dots),)
+                }
                 moves = sorted(
                     (glyph.name.text, after, move, other.name.text)
                     for glyph in letters
@@ -145,7 +154,9 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                     if (glyph.name.form.left and other.name.form.right if after else other.name.form.left and glyph.name.form.right)
                     and _near(box, boxes[other.name.text], shift, reach)
                     and (short := _short(group, other.contours, shift, reach))
-                    and (move := otRound(math.copysign(min(math.ceil(short / step) * step if step else short, max(glyph.advance - box.xmax if after else box.xmin, 0.0)), 1 if after else -1)))
+                    for dx in (otRound(math.copysign(min(math.ceil(short / step) * step if step else short, max(glyph.advance - box.xmax if after else box.xmin, 0.0)), 1 if after else -1)),)
+                    for move in ((dx, _cleared(groups[glyph.name.text][0], group, other.contours, shift, reach, dx)),)
+                    if any(move)
                 )
                 shifts = {
                     (name, move): msgspec.structs.replace(held, suffixes=(*held.suffixes, suffix))
@@ -153,18 +164,22 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                     for held, suffix in ((done.named[name].name, f"calt{index}"),)
                 }
                 alternates = tuple(
-                    msgspec.structs.replace(done.drawn(name), name=alias, codes=frozenset(), contours=(*groups[name][0], *paths.transformed(groups[name][1], Offset(move, 0))), components=())
+                    msgspec.structs.replace(done.drawn(name), name=alias, codes=frozenset(), contours=(*groups[name][0], *paths.transformed(groups[name][1], Offset(*move))), components=())
                     for (name, move), alias in shifts.items()
                 )
                 dotted = tuple(
-                    Chain(input=(((name,), shifts[name, move].text),), lookahead=(others,)) if after else Chain(backtrack=(others,), input=(((name,), shifts[name, move].text),))
+                    Chain[str | None](input=(((name,), shifts[name, move].text),), lookahead=(others,))
+                    if after
+                    else Chain[str | None](backtrack=(others,), input=(((name,), shifts[name, move].text),))
                     for (name, after, move), group in groupby(moves, key=lambda row: row[:3])
                     for others in (tuple(other for *_, other in group),)
                 )
                 vowel = paths.union(
                     *(
                         paths.transformed(glyph.contours, Offset(-anchor.x, -anchor.y))
-                        for raw in done.glyph(done.key(script.vowels[0])).to_list()
+                        for code in script.recipes
+                        if Side.of(code) is Side.ABOVE
+                        for raw in done.glyph(done.key(code)).to_list()
                         for glyph in (done.drawn(raw.name.text),)
                         for anchor in glyph.anchor("_top").to_list()
                     )
@@ -177,7 +192,7 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                     if (box := paths.bounds(outline))
                 }
                 lifted = sorted(
-                    (owner.name.text, after, otRound(min(math.ceil(short / step) * step if step else short, self.lifts[first.name.form.left] * done.upm)), other.name.text)
+                    (owner.name.text, after, lift, other.name.text)
                     for first in letters
                     for second in letters
                     if first.name.form.left == second.name.form.right
@@ -185,6 +200,10 @@ class Anchors(measures.Rule, frozen=True, kw_only=True):
                     if owner.name.text in tops
                     and _near(tops[owner.name.text][1], boxes[other.name.text], shift, self.clearance * done.upm)
                     and (short := _short(tops[owner.name.text][0], other.contours, shift, self.clearance * done.upm))
+                    for counts in (range(max(1, math.ceil(short / (step or 1.0))), math.floor(self.lifts[first.name.form.left] * done.upm / (step or 1.0)) + 1),)
+                    for clears in (partial(_clears, tops[owner.name.text][0], other.contours, shift, self.clearance * done.upm, step or 1.0),)
+                    if counts and clears(counts[-1])
+                    for lift in (otRound(counts[bisect_left(counts, x=True, key=clears)] * (step or 1.0)),)
                 )
                 raised = tuple(glyph.name.text for glyph in done.by_role(Mark) if glyph.role == Mark(side=Side.ABOVE))
                 lifts = tuple(
@@ -223,14 +242,19 @@ def _anchors(glyph: Glyph, x: float, above: float, below: float, widths: tuple[f
 
 
 def _based(glyph: Glyph, above: float, below: float, widths: tuple[float, float], stem: paths.Box, /) -> Glyph:
-    """Anchors a base's marks over its own outline, a ligature's over each component arm read above 0.8 of the stem height with a caret between arms, or at equal shares of its advance where arms and components differ in count."""
+    """Anchors a base's marks over its own outline, a ligature's over each component arm read above 0.8 of the stem height, fills within half a stem joined, with a caret between arms, or at equal shares of its advance where arms and components differ in count."""
     match paths.bounds(glyph.contours), glyph.role:
         case None, _:
             return glyph
         case box, Ligature(components=components):
             threshold = stem.ymin + 0.8 * stem.height
             arms = (
-                tuple(sorted((arm for piece in paths.pieces(paths.strip(glyph.contours, threshold, box.ymax, axis="y")) if (arm := paths.bounds(piece))), key=lambda arm: -arm.xmax))[: len(components)]
+                tuple(
+                    sorted(
+                        (arm.grown(-stem.width / 2) for piece in paths.pieces(paths.offset(paths.strip(glyph.contours, threshold, box.ymax, axis="y"), stem.width / 2)) if (arm := paths.bounds(piece))),
+                        key=lambda arm: -arm.xmax,
+                    )
+                )[: len(components)]
                 if threshold < box.ymax
                 else ()
             )
@@ -269,6 +293,24 @@ def _near(own: paths.Box, other: paths.Box, shift: float, reach: float, /) -> bo
 def _short(own: tuple[tuple[Point, ...], ...], other: tuple[tuple[Point, ...], ...], shift: float, reach: float, /) -> float:
     """How far an outline stands inside the reach of another outline moved by a shift."""
     return max(reach - measure.gap(own, paths.transformed(other, Offset(shift, 0))), 0.0)
+
+
+def _clears(mark: tuple[tuple[Point, ...], ...], other: tuple[tuple[Point, ...], ...], shift: float, reach: float, step: float, count: int, /) -> bool:
+    """Whether a mark lifted `count` steps stands out of the reach of a neighbour moved by a shift, true from the first clearing lift up once past an overhang."""
+    return not _short(paths.transformed(mark, Offset(0, count * step)), other, shift, reach)
+
+
+def _cleared(body: tuple[tuple[Point, ...], ...], group: tuple[tuple[Point, ...], ...], other: tuple[tuple[Point, ...], ...], shift: float, reach: float, dx: float, /) -> int:
+    """Vertical move away from its own body that takes a dot group moved by `dx` out of the reach of a neighbour moved by a shift, zero where the horizontal move clears it."""
+    match paths.bounds(body), paths.bounds(group), paths.bounds(other):
+        case paths.Box() as own, paths.Box() as dots, paths.Box() as near if _short(paths.transformed(group, Offset(dx, 0)), other, shift, reach):
+            sign = 1.0 if dots.middle[1] > own.middle[1] else -1.0
+            fit = root_scalar(
+                lambda dy: measure.gap(paths.transformed(group, Offset(dx, sign * dy)), paths.transformed(other, Offset(shift, 0))) - reach, bracket=(0.0, dots.height + near.height + reach)
+            )
+            return otRound(sign * math.ceil(fit.root))
+        case _:
+            return 0
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

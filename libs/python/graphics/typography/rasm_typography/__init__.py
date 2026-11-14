@@ -4,6 +4,7 @@ lazy from rasm_typography._builds import compressed, constructed, Construction
 lazy from rasm_typography._faces.coverage import Coverage, Excluded
 lazy from rasm_typography._faces.declaration import (
     Advance,
+    Arrangement,
     Band,
     BlackNaskh,
     Code,
@@ -35,7 +36,7 @@ lazy from rasm_typography._faces.declaration import (
     Values,
     Weight,
 )
-lazy from rasm_typography._faces.glyphs import Control, Digit, Letter, Ligature, Mark, Ornament, recorded, Sign, Source, Space
+lazy from rasm_typography._faces.glyphs import Anchor, Component, Control, Digit, Glyph, Info, Letter, Ligature, Mark, Ornament, Point, recorded, Sign, Source, Space, VerticalMetrics
 lazy from rasm_typography._faces.importing import imported
 lazy from rasm_typography._faces.layout import Contextual, Lifts, Ligatures, Lookups, Pairs, Positions, Single, Tag
 lazy from rasm_typography._outlines.measure import perimeter
@@ -51,6 +52,8 @@ lazy from rasm_typography._requirements import (
     LineMetrics,
     MarkClearance,
     MarkLine,
+    MarkSide,
+    PartClearance,
     Reachable,
     Requirements,
     requirements,
@@ -69,6 +72,7 @@ lazy from rasm_typography._rules.ornaments import Ornaments
 lazy from rasm_typography._rules.plans import planned, Rules
 lazy from rasm_typography._rules.scale import Scale
 lazy from rasm_typography._rules.spacing import Spacing
+lazy from rasm_typography._rules.tails import Tails
 lazy from rasm_typography._shaping.corpus import Corpus
 lazy from rasm_typography._shaping.expectations import Expected
 lazy from rasm_typography._shaping.runs import Binary, Shaped
@@ -77,11 +81,14 @@ lazy from rasm_typography._shaping.runs import Binary, Shaped
 
 __all__ = [
     "Advance",
+    "Anchor",
     "Anchors",
+    "Arrangement",
     "Band",
     "Binary",
     "BlackNaskh",
     "Code",
+    "Component",
     "Construction",
     "Contextual",
     "Contour",
@@ -105,7 +112,9 @@ __all__ = [
     "Foot",
     "Genre",
     "Genres",
+    "Glyph",
     "Identity",
+    "Info",
     "JoinParity",
     "Joins",
     "Kufi",
@@ -120,6 +129,7 @@ __all__ = [
     "Mark",
     "MarkClearance",
     "MarkLine",
+    "MarkSide",
     "Marks",
     "Metrics",
     "Ornament",
@@ -127,6 +137,8 @@ __all__ = [
     "Ornaments",
     "Outlines",
     "Pairs",
+    "PartClearance",
+    "Point",
     "Positions",
     "QuranicMarks",
     "Ratio",
@@ -152,11 +164,13 @@ __all__ = [
     "Spacing",
     "Style",
     "Tag",
+    "Tails",
     "TextNaskh",
     "Thuluth",
     "Treatment",
     "Treatments",
     "Values",
+    "VerticalMetrics",
     "Weight",
     "WordSigns",
     "bounded_glyph",

@@ -1,22 +1,25 @@
 """Locale and cmap: every required and kept-block code point composed from the face's own glyphs, blank format controls, derived signs, language `locl` forms, and required ligatures under `rlig`."""
 
 lazy from collections import defaultdict
+lazy from functools import partial, reduce
+lazy import math
 lazy import unicodedata
 
 import msgspec
-lazy from fontTools.misc.transform import Offset, Transform
+lazy from fontTools.misc.transform import Offset, Scale, Transform
 lazy from fontTools.unicodedata import Blocks
 lazy import numpy as np
+lazy from pathops import PathOp
 lazy from scipy.special import cosdg, sindg
 
 from rasm_typography._faces.coverage import Coverage
-from rasm_typography._faces.declaration import Foot, Script
+from rasm_typography._faces.declaration import Arrangement, Foot, Script
 from rasm_typography._rules import measures
 lazy from rasm_records import Ok, Outcome
-lazy from rasm_typography._faces.glyphs import Component, Glyph, Joining, Joinings, Mark, Point, Source
+lazy from rasm_typography._faces.glyphs import Component, Glyph, Joining, Joinings, Mark, Point, Side, Source
 lazy from rasm_typography._faces.layout import Ligatures, Lookups, Single
 lazy from rasm_typography._faces.names import Form, GlyphName
-lazy from rasm_typography._outlines import paths
+lazy from rasm_typography._outlines import measure, paths
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -28,13 +31,14 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
     coverage: Coverage
 
     def applied(self, source: Source, /, *, joinings: Joinings, **_: object) -> Outcome[Source]:
-        """Draws the derived signs, composes every required and kept-block code point the face lacks from its own glyphs, blanks the format controls at zero advance, and lays out their lookups."""
+        """Draws the derived signs, seats a stem letter's drawn above mark over the stem where it strays, composes every required and kept-block code point the face lacks from its own glyphs, blanks the format controls at zero advance, and lays out their lookups."""
         script, coverage = self.script, self.coverage
         derived: list[Glyph] = []
         for sign in script.derived:
             model = source.glyph(source.key(sign.model) if isinstance(sign.model, int) else sign.model).map(lambda glyph: source.drawn(glyph.name.text)).default_value(None)
             reference = paths.Box.of(rect) if sign.reference is not None and (rect := source.bounds(source.key(sign.reference))) is not None else None
             name = GlyphName(stem=(sign.code,), suffixes=() if sign.variant is None else (sign.variant,))
+            parts = tuple(source.drawn(key).contours for code in sign.parts if (key := source.key(code)) in source.named)
             match model, paths.bounds(model.contours) if model else None:
                 case (Glyph(contours=contours), paths.Box()) if sign.around and reference and sign.height is not None and (dot := paths.bounds(piece := _lowest(contours))):
                     radius, step = sign.height * reference.height / 2, 1.25 * dot.width
@@ -47,24 +51,52 @@ class Locale(measures.Rule, frozen=True, kw_only=True):
                             *paths.transformed(piece, Offset(radius + step + radius * cosdg(turn) - dot.middle[0], reference.middle[1] + radius * sindg(turn) - dot.middle[1])) for turn in turns
                         ),
                     )
-                case (Glyph(advance=advance, contours=contours), paths.Box() as box) if not sign.around and (reference or (sign.height is None and sign.foot is not Foot.MIDDLE)):
+                case (Glyph(advance=advance, contours=contours), paths.Box() as box) if (
+                    not sign.around and len(parts) == len(sign.parts) and (reference or (sign.height is None and sign.foot in {Foot.OWN, Foot.BASE}))
+                ):
                     factor = sign.height * reference.height / box.height if sign.height is not None and reference else 1.0
-                    scaled = paths.transformed(contours, (factor, 0.0, 0.0, factor, 0.0, 0.0))
+                    scaled = paths.transformed(contours, Scale(factor))
                     ring = _lowest(scaled) if sign.repeats else ()
                     step = 1.25 * extent.width if (extent := paths.bounds(ring)) else 0.0
-                    foot, (x, y) = {Foot.OWN: factor * box.ymin, Foot.BASE: 0.0, Foot.MIDDLE: reference.middle[1] if reference else 0.0}[sign.foot], (extent := paths.bounds(scaled) or box).middle
-                    turned = paths.transformed(scaled, Transform().translate(0, foot - extent.ymin).translate(x, y).scale(-1, -1).translate(-x, -y)) if sign.turned else scaled
+                    joined = reduce(partial(_arranged, sign.arrangement, sign.gap * measure.stroke(scaled)), (paths.transformed(part, Scale(factor)) for part in parts), scaled)
+                    x, y = (paths.bounds(joined) or box).middle
+                    leaned = paths.transformed(joined, Transform().translate(x, y).skew(math.radians(sign.slant), 0).translate(-x, -y))
+                    extent, middle = paths.bounds(leaned) or box, reference.middle[1] if reference else 0.0
+                    foot = {Foot.OWN: extent.ymin, Foot.BASE: 0.0, Foot.MIDDLE: middle, Foot.CENTER: middle - extent.height / 2}[sign.foot]
+                    placed = Offset(factor * box.xmin - extent.xmin + sign.repeats * step, foot - extent.ymin)
+                    x, y = extent.shifted(placed.dx, placed.dy).middle
                     glyph = measures.made(
                         joinings,
                         name,
-                        advance * factor + sign.repeats * step,
-                        contours=(*paths.transformed(turned, Offset(sign.repeats * step, 0)), *(*paths.transformed(ring, Offset(index * step, 0)) for index in range(sign.repeats))),
+                        advance * factor + extent.width - factor * box.width + sign.repeats * step,
+                        contours=(
+                            *paths.transformed(leaned, Transform().translate(x, y).scale(-1, -1).translate(-x, -y).transform(placed) if sign.turned else placed),
+                            *(*paths.transformed(ring, Offset(index * step, 0)) for index in range(sign.repeats)),
+                        ),
                     )
                 case _:
                     continue
             if not (sign.kept and (held := source.named.get(glyph.name.text)) and held.contours):
                 derived.append(glyph)
-        drawn = source.replaced(*derived)
+        stem = paths.Box.of(rect) if (rect := source.bounds(source.key(script.stem))) is not None else None
+        seated = tuple(
+            msgspec.structs.replace(glyph, contours=(*(*piece for piece in base), *paths.transformed(tuple(*piece for piece in marks), Offset(under.middle[0] - over.middle[0], 0.0))), components=())
+            for glyph in source.glyphs
+            if stem is not None
+            and len(glyph.name.codes) == 1
+            and glyph.name.codes[0] in source.encoded
+            and (parts := unicodedata.decomposition(chr(glyph.name.codes[0])).split())[:1] == [f"{script.stem:04X}"]
+            and Side.of(int(parts[-1], 16)) is Side.ABOVE
+            for split in (tuple((paths.bounds(piece), piece) for piece in paths.pieces(source.drawn(glyph.name.text).contours)),)
+            for limit in (stem.ymax - 0.05 * stem.height,)
+            for base, marks in ((tuple(piece for box, piece in split if box and box.ymin < limit), tuple(piece for box, piece in split if box and box.ymin >= limit)),)
+            if base
+            and marks
+            and (under := paths.bounds(tuple(*piece for piece in base)))
+            and (over := paths.bounds(tuple(*piece for piece in marks)))
+            and abs(over.middle[0] - under.middle[0]) > stem.width / 2
+        )
+        drawn = source.replaced(*derived, *seated)
         kept = (code for start, end, block in zip(Blocks.RANGES, (*Blocks.RANGES[1:], 0x110000), Blocks.VALUES, strict=True) if block in coverage.blocks for code in range(start, end))
         wanted = tuple(
             code
@@ -173,6 +205,21 @@ def _resolved(joinings: Joinings, source: Source, code: int, form: Form, /) -> t
     shape = Form(tag[1:5]) if tag[1:5] in Form else form
     held = tuple(_resolved(joinings, source, part, shape if not index else Form.ISOL) for index, part in enumerate(parts))
     return tuple(*keys for keys in held) if parts and all(held) else ()
+
+
+def _arranged(arrangement: Arrangement, gap: float, drawing: tuple[tuple[Point, ...], ...], part: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[Point, ...], ...]:
+    """Joins a part to a drawing: centered a gap under it, centered over it within its height grown by the gap, or a gap after it on its own height."""
+    match arrangement, paths.bounds(drawing), paths.bounds(part):
+        case Arrangement.STACKED, paths.Box() as held, paths.Box() as own:
+            return paths.union(drawing, paths.transformed(part, Offset(held.middle[0] - own.middle[0], held.ymin - gap - own.ymax)))
+        case Arrangement.OVERLAID, paths.Box() as held, paths.Box() as own:
+            shift = Offset(held.middle[0] - own.middle[0], held.middle[1] - own.middle[1])
+            clip = (held | own.shifted(shift.dx, shift.dy)).band(held.ymin - gap, held.ymax + gap, "y")
+            return paths.union(drawing, paths.combined(paths.transformed(part, shift), (clip.contour,), PathOp.INTERSECTION))
+        case Arrangement.ROW, paths.Box() as held, paths.Box() as own:
+            return paths.union(drawing, paths.transformed(part, Offset(held.xmax + gap - own.xmin, 0.0)))
+        case _:
+            return drawing
 
 
 def _lowest(contours: tuple[tuple[Point, ...], ...], /) -> tuple[tuple[Point, ...], ...]:

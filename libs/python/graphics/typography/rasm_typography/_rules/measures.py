@@ -121,8 +121,8 @@ def band(source: Source, /) -> tuple[float, float] | None:
 
 
 def dotted(glyph: Glyph, nuqta: float, /) -> tuple[tuple[tuple[Point, ...], ...], tuple[tuple[tuple[Point, ...], ...], ...]]:
-    """Splits a letter into its body and its dots, a dot any piece of up to two and a half nuqtas, a letter with a decomposition holding none."""
-    held = sorted(paths.pieces(glyph.contours), key=paths.area, reverse=True)
+    """Splits a letter into its body and its dots, a dot any piece, with the pieces inside it, of up to two and a half nuqtas, a letter with a decomposition holding none."""
+    held = sorted(paths.groups(glyph.contours), key=paths.area, reverse=True)
     match held:
         case [body, *rest] if nuqta and not any(unicodedata.decomposition(chr(code)) for code in glyph.name.codes):
             return ((*body, *(contour for piece in rest if paths.area(piece) > 2.5 * nuqta for contour in piece)), tuple(piece for piece in rest if paths.area(piece) <= 2.5 * nuqta))
@@ -133,7 +133,7 @@ def dotted(glyph: Glyph, nuqta: float, /) -> tuple[tuple[tuple[Point, ...], ...]
 def nuqta(source: Source, dotted: int, /) -> tuple[tuple[Point, ...], ...]:
     """Returns the face's one nuqta, the smallest piece of a one-dot letter, empty where it draws none."""
     name = source.key(dotted)
-    held = paths.pieces(source.drawn(name).contours) if name in source.named else ()
+    held = paths.groups(source.drawn(name).contours) if name in source.named else ()
     return min(held, key=paths.area) if len(held) > 1 else ()
 
 

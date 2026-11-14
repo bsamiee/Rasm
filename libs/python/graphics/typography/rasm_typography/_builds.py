@@ -76,11 +76,15 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     writer = FeatureWriter(source=source)
     info, metrics, languages = source.info, source.metrics, list(source.scripts)
     categories = {glyph.name.text: glyph.category for glyph in source.glyphs}
+    words = face.style.split()
+    italic, bold, weighted = "Italic" in words, "Bold" in words and {*words} <= {"Bold", "Italic"}, tuple(word for word in words if word != "Italic")
     ufo = ufoLib2.Font(
         features=ufoLib2.objects.Features(writer.substitutions),
         info=ufoLib2.objects.Info(
             familyName=face.typographic,
             styleName=face.style,
+            styleMapFamilyName=" ".join((face.typographic, *(word for word in weighted if not bold and word != "Regular"))),
+            styleMapStyleName=" ".join((*(("bold",) if bold else ()), *(("italic",) if italic else ()))) or "regular",
             versionMajor=info.version[0],
             versionMinor=info.version[1],
             copyright=info.copyright,
@@ -124,9 +128,15 @@ def _built(rule: Metrics, corpus: Corpus, source: Source, /) -> Construction:
     font["hhea"].ascent, font["hhea"].descent = vertical.ascender, vertical.descender
     font["OS/2"].sTypoAscender, font["OS/2"].sTypoDescender = vertical.ascender, vertical.descender
     font["OS/2"].usWinAscent, font["OS/2"].usWinDescent = vertical.win_ascent, vertical.win_descent
-    named = " ".join(word for word in face.style.split() if word != "Italic") or "Regular"
-    upright = {"tag": "wght", "name": "Weight", "values": [{"value": font["OS/2"].usWeightClass, "name": named, "flags": ELIDABLE_AXIS_VALUE_NAME * (named == "Regular")}]}
-    buildStatTable(font, [upright, *(({"tag": "ital", "name": "Italic", "values": [{"value": 1, "name": "Italic"}]},) if font["post"].italicAngle else ())], macNames=False)
+    named = " ".join(weighted) or "Regular"
+    buildStatTable(
+        font,
+        [
+            {"tag": "wght", "name": "Weight", "values": [{"value": font["OS/2"].usWeightClass, "name": named, "flags": ELIDABLE_AXIS_VALUE_NAME * (named == "Regular")}]},
+            {"tag": "ital", "name": "Italic", "values": [{"value": int(italic), "name": "Italic" if italic else "Roman", "flags": ELIDABLE_AXIS_VALUE_NAME * (not italic)}]},
+        ],
+        macNames=False,
+    )
     font["head"].modified = font["head"].created
     font.recalcTimestamp = False
     return Construction(source=msgspec.structs.replace(source, metrics=vertical), ufo=ufo, font=font)

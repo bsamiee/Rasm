@@ -26,7 +26,7 @@ lazy from rasm_typography._shaping.runs import Binary
 
 
 class Marks(measures.Rule, frozen=True, kw_only=True):
-    """Marks on one pen, the vowel stroke over the stem stroke held to a band and floor: the face's own marks offset to it where they stray past a tolerance, and the script's recipe marks it lacks drawn from its stem, head, and teeth letters and nuqta, small marks at a share of the mark box."""
+    """Marks on one pen, the vowel stroke over the stem stroke held to a band and floor: own marks straying past a tolerance offset to it, recipe marks the face lacks drawn from its stem, head, teeth, and nuqta, small marks at a share of the mark box, rings holding `open` counters."""
 
     script: Script
     band: tuple[Ratio, Ratio]
@@ -36,6 +36,7 @@ class Marks(measures.Rule, frozen=True, kw_only=True):
     angle: float | None
     length: Em | None
     stack: Em
+    open: Ratio | None
     small: Ratio = 0.75
     tolerance: Ratio = 0.08
 
@@ -96,7 +97,13 @@ class Marks(measures.Rule, frozen=True, kw_only=True):
                 case code, recipe:
                     if (contours := source.drawn(glyph.name.text).contours) and (self.drawn or abs(measure.stroke(contours) / pen - 1) <= self.tolerance):
                         return msgspec.structs.replace(glyph, codes=glyph.codes | {code}, advance=0.0)
-                    return _with_contours(joinings, glyph, code, 0.0, measure.restroked(contours, pen) if contours else rebuilt(code, recipe))
+                    held = measure.restroked(contours, pen) if contours else rebuilt(code, recipe)
+                    voids = measure.counters(held) if recipe is Recipe.RING else ()
+                    size = 2 * self.open * measure.inradius(paths.union(held, *voids)) if voids and self.open is not None else 0.0
+                    narrow = tuple((void, span) for void in voids if (span := 2 * measure.inradius(void)) < size)
+                    return _with_contours(
+                        joinings, glyph, code, 0.0, paths.combined(held, paths.union(*(paths.offset(void, (size - span) / 2) for void, span in narrow)), pathops.PathOp.DIFFERENCE) if narrow else held
+                    )
 
         match measures.bounded_glyph(source, self.script.stem):
             case Result(tag="ok", ok=(drawn, height)):
@@ -162,7 +169,7 @@ class QuranicMarks(measures.Rule, frozen=True, kw_only=True):
             for vowel in catch(unicodedata.lookup, exception=KeyError)(name.removesuffix("TAN")).to_option().to_list()
         }
         rules = tuple(
-            Chain(input=(((source.key(code),), source.key(ord(vowel))),), lookahead=((source.key(meem),),))
+            Chain[str | None](input=(((source.key(code),), source.key(ord(vowel))),), lookahead=((source.key(meem),),))
             for code, vowel in sorted(tanwin.items())
             for meem in self.script.iqlab
             if Side.of(meem) is Side.of(code) and meem in source.encoded and ord(vowel) in source.encoded

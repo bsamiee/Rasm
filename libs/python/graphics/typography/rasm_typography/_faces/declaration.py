@@ -37,11 +37,20 @@ class Recipe(StrEnum):
 
 
 class Foot(StrEnum):
-    """Height a turned glyph's foot sits at: its own lowest point, the baseline, or the reference glyph's middle."""
+    """Height a derived glyph sits at: its foot at its own lowest point, at the baseline, or at the reference glyph's middle, or its middle on the reference glyph's middle."""
 
     OWN = auto()
     BASE = auto()
     MIDDLE = auto()
+    CENTER = auto()
+
+
+class Arrangement(StrEnum):
+    """Placement of each further part of a derived glyph against the drawing before it: under it, over its middle clipped to its height, or after it in a row."""
+
+    STACKED = auto()
+    OVERLAID = auto()
+    ROW = auto()
 
 
 class Advance(StrEnum):
@@ -75,11 +84,15 @@ class Advance(StrEnum):
 
 
 class Derived(msgspec.Struct, frozen=True, kw_only=True):
-    """Glyph drawn from a model glyph: turned with its foot at a height, scaled to a share of a reference glyph's height, or its lowest small piece repeated in a row or around a circle."""
+    """Glyph drawn from a model glyph: scaled to a share of a reference glyph's height, joined by further glyphs a gap of model strokes apart, slanted, turned, set at a foot, or its lowest small piece repeated in a row or around a circle."""
 
     code: Code
     variant: str | None = None
     model: Code | _Name
+    parts: tuple[Code, ...] = ()
+    arrangement: Arrangement = Arrangement.STACKED
+    gap: float = 1.0
+    slant: Annotated[float, msgspec.Meta(gt=-45.0, lt=45.0)] = 0.0
     turned: bool = False
     foot: Foot = Foot.OWN
     reference: Code | None = None
@@ -161,6 +174,12 @@ _PERSO_ARABIC = Script(
         Derived(code=0x060A, model=0x066A, repeats=2),
         Derived(code=0x2010, model=0x002D),
         Derived(code=0x25CC, model=0x062B, reference=0x0627, height=0.75, around=12),
+        Derived(code=0x00B1, model=0x002B, parts=(0x2212,), reference=0x002B, foot=Foot.CENTER),
+        Derived(code=0x2248, model=0x007E, parts=(0x007E,), reference=0x003D, foot=Foot.CENTER),
+        Derived(code=0x2260, model=0x003D, parts=(0x002F,), arrangement=Arrangement.OVERLAID, reference=0x003D, foot=Foot.CENTER),
+        Derived(code=0x00A7, model=0x0053, parts=(0x0053,), gap=-2.5, reference=0x0053, height=0.62, foot=Foot.CENTER),
+        Derived(code=0x2032, model=0x0027, slant=15.0),
+        Derived(code=0x2033, model=0x0027, parts=(0x0027,), arrangement=Arrangement.ROW, gap=0.6, slant=15.0),
     ),
     digits=(0x06F0, 0x0660),
     shared=frozenset({0, 1, 2, 3, 7, 8, 9}),
@@ -246,23 +265,15 @@ class Sheared(Treatment, frozen=True, kw_only=True):
 
 
 class Ringed(Treatment, frozen=True, kw_only=True):
-    """Outline face stroked inward at a ring width."""
-
-    ring: Em
+    """Outline face, each glyph drawn as a ring."""
 
 
 class Contour(Treatment, frozen=True, kw_only=True):
-    """Contour face, a ring and a channel around a core."""
-
-    ring: Em
-    channel: Em
+    """Contour face, each glyph drawn as a ring and a channel around a core."""
 
 
 class Shadow(Treatment, frozen=True, kw_only=True):
-    """Ringed face casting a shadow along a vector in em."""
-
-    ring: Em
-    vector: tuple[float, float]
+    """Ringed face drawn with a cast shadow."""
 
 
 class Segmented(Treatment, frozen=True, kw_only=True):
@@ -284,18 +295,13 @@ class Values(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
     stack_gap: Em | None = None
     counter: Em | None = None
     zero: Ratio | None = None
-    digit_pen: str | None = None
     digit_advance: Advance | None = None
     digit_bearing: Em | None = None
     marks_drawn: bool = False
-    inside_bearings: bool | None = None
     fatha_angle: float | None = None
     fatha_length: Em | None = None
     ring_open: Ratio | None = None
-    rail: Ratio | None = None
     tail: Ratio | None = None
-    latin: Ratio | None = None
-    punctuation: Ratio | None = None
     lowest_ppem: Annotated[int, msgspec.Meta(ge=1)] | None = None
 
 
@@ -326,6 +332,11 @@ class Face(_Named, frozen=True, kw_only=True):
     values: Values = Values()
     genre: Genres = TextNaskh()
 
+    @property
+    def dotted(self) -> bool:
+        """Whether letters carry their dots apart from their drawing, false for a dot-matrix genre and a contour, shadow, or segmented treatment drawing letters in pieces."""
+        return not isinstance(self.genre, DotMatrix) and not any(isinstance(treatment, Contour | Shadow | Segmented) for treatment in self.treatments)
+
 
 class OrnamentFace(_Named, frozen=True, kw_only=True):
     """Ornament face re-encoded from a first Private Use code point."""
@@ -339,6 +350,7 @@ type Faces = Face | OrnamentFace
 
 __all__ = [
     "Advance",
+    "Arrangement",
     "Band",
     "BlackNaskh",
     "Code",

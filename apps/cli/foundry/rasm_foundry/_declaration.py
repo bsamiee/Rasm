@@ -118,8 +118,8 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
         return self.root / self.set.approvals / f"{face.postscript}.json"
 
     def _output(self, folder: str | None, suffix: str, face: Faces, /) -> Path:
-        """Returns a face's output file under a folder, the family's folder where none is named."""
-        return self.output / (face.family.replace(" ", "") if folder is None else folder) / f"{face.postscript}{suffix}"
+        """Returns a face's output file under a folder, its typographic family's folder where none is named."""
+        return self.output / (face.typographic.replace(" ", "") if folder is None else folder) / f"{face.postscript}{suffix}"
 
     source = partialmethod(_output, "source", ".ufo")
     binary = partialmethod(_output, None, ".ttf")

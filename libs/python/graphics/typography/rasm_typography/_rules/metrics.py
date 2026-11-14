@@ -1,4 +1,4 @@
-"""Vertical metrics from the corpus set on the face itself inside a pitch band, win over every glyph and mark stack, and the records measured from the drawing and its slant."""
+"""Vertical metrics from the corpus set on the face itself inside a pitch band, win over every glyph and corpus run, and the records measured from the drawing and its slant."""
 
 lazy from functools import reduce
 lazy import math
@@ -7,10 +7,10 @@ import msgspec
 lazy from fontTools.misc.roundTools import otRound
 lazy from fontTools.ttLib import TTFont
 
-from rasm_typography._faces.declaration import Band, Em
+from rasm_typography._faces.declaration import Band
 from rasm_typography._rules import measures
 lazy from rasm_records import Ok, Outcome
-lazy from rasm_typography._faces.glyphs import Letter, Ligature, Mark, Side, Source, VerticalMetrics
+lazy from rasm_typography._faces.glyphs import Source, VerticalMetrics
 lazy from rasm_typography._faces.names import Form
 lazy from rasm_typography._outlines import measure, paths
 lazy from rasm_typography._shaping.corpus import Corpus
@@ -20,11 +20,9 @@ lazy from rasm_typography._shaping.runs import Binary
 
 
 class Metrics(measures.Rule, frozen=True, kw_only=True):
-    """Typo and hhea at the outline extent the plain, marked, annotated, and deep corpus reaches set on the face inside a pitch band, or the face's own pair without one, and win over every mapped glyph and a stack of `stacks` marks over each base anchor."""
+    """Typo and hhea at the outline extent the plain, marked, annotated, and deep corpus reaches set on the face inside a pitch band, or the face's own pair without one, and win over every glyph and every corpus and matrix run."""
 
     pitch: Band | None
-    stack: Em
-    stacks: int = 3
 
     def measured(self, source: Source, /, *, corpus: Corpus, binary: Binary[TTFont]) -> VerticalMetrics:
         """Measures final vertical metrics on compiled native layout, retaining the source's records.
@@ -35,21 +33,13 @@ class Metrics(measures.Rule, frozen=True, kw_only=True):
             binary: Compiled source font before its final vertical metrics are set.
 
         Returns:
-            Typo and hhea within the pitch band, the marked extent fit to its integer budget padded toward its minimum with an odd unit above, and win over every glyph, a stack of
-            the tallest marks on every base anchor, and actual corpus placement.
+            Typo and hhea within the pitch band, the marked extent fit to its integer budget padded toward its minimum with an odd unit above, and win over every glyph and
+            actual corpus placement.
         """
-        languages, vertical, stack = corpus.languages, source.metrics, self.stack * source.upm
+        languages, vertical = corpus.languages, source.metrics
         reached = _reach(binary, tuple((text, language) for text in (*corpus.lines, *corpus.matrix) for language in languages))
-        boxes = {name: paths.Box.of(rect) for name in source.named if (rect := source.bounds(name)) is not None}
-        feet = {side: tuple((glyph, foot) for glyph in source.by_role(Mark) if glyph.role == Mark(side=side) for foot in glyph.anchors if foot.name.startswith("_")) for side in Side}
-        rises = {side: max((abs(anchor.y - foot.y) for glyph, foot in held for anchor in glyph.anchor(foot.name[1:]).to_list()), default=stack) for side, held in feet.items()}
-        reaches = {side: max((abs((box.ymax if side is Side.ABOVE else box.ymin) - foot.y) for glyph, foot in held if (box := boxes.get(glyph.name.text))), default=0.0) for side, held in feet.items()}
-        stacked = {side: (self.stacks - 1) * rises[side] + reaches[side] for side in Side}
-        anchors = tuple(anchor for glyph in source.glyphs if isinstance(glyph.role, Letter | Ligature) for anchor in glyph.anchors)
-        win = (
-            math.ceil(max((reached[0], *(box.ymax for box in boxes.values()), *(anchor.y + stacked[Side.ABOVE] for anchor in anchors if anchor.name.startswith(Side.ABOVE.anchor))))),
-            math.ceil(-min((reached[1], *(box.ymin for box in boxes.values()), *(anchor.y - stacked[Side.BELOW] for anchor in anchors if anchor.name.startswith(Side.BELOW.anchor))))),
-        )
+        boxes = tuple(paths.Box.of(rect) for name in source.named if (rect := source.bounds(name)) is not None)
+        win = (math.ceil(max((reached[0], *(box.ymax for box in boxes)))), math.ceil(-min((reached[1], *(box.ymin for box in boxes)))))
         match self.pitch:
             case (least, most):
                 plain = _reach(binary, tuple((text, language) for language, texts in corpus.prose.items() for text in texts))

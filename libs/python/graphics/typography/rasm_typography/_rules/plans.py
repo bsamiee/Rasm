@@ -12,11 +12,12 @@ from rasm_typography._rules.metrics import Metrics, Records
 from rasm_typography._rules.ornaments import Ornaments
 from rasm_typography._rules.scale import Scale
 from rasm_typography._rules.spacing import Spacing
+from rasm_typography._rules.tails import Tails
 lazy from rasm_typography._faces.declaration import Advance, Face, Faces, OrnamentFace, Sheared
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Rules = Ornaments | Locale | Digits | Outlines | Marks | QuranicMarks | Joins | Scale | Anchors | Spacing | WordSigns | Records
+type Rules = Ornaments | Locale | Digits | Tails | Outlines | Marks | QuranicMarks | Joins | Scale | Anchors | Spacing | WordSigns | Records
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -29,19 +30,30 @@ def planned(face: Faces, /) -> tuple[Rules | Metrics, ...]:
             return (
                 Locale(script=script, coverage=genre.coverage),
                 Digits(script=script, zero=values.zero, advance=values.digit_advance or Advance.TABULAR, bearing=values.digit_bearing),
+                *((Tails(script=script, length=values.tail),) if values.tail is not None else ()),
                 Outlines(floor=values.nuqta_floor if values.nuqta_floor is not None else genre.nuqta_floor, spurs=genre.spurs, opened=values.counter, letters=script.counters, dot=script.dotted),
-                Marks(script=script, band=genre.mark, ratio=values.mark, floor=genre.mark_floor, drawn=values.marks_drawn, angle=values.fatha_angle, length=values.fatha_length, stack=stack),
+                Marks(
+                    script=script,
+                    band=genre.mark,
+                    ratio=values.mark,
+                    floor=genre.mark_floor,
+                    drawn=values.marks_drawn,
+                    angle=values.fatha_angle,
+                    length=values.fatha_length,
+                    stack=stack,
+                    open=values.ring_open,
+                ),
                 QuranicMarks(codes=frozenset(code for code in genre.coverage.required if unicodedata.category(chr(code)) == "Mn" and code not in script.recipes), script=script),
                 Joins(overlap=genre.join_overlap, kashida=script.kashida),
                 Scale(script=script, height=values.alif if values.alif is not None else genre.alif, cap=genre.pitch[1]),
                 Anchors(script=script, stack=stack, clearance=genre.clearance),
-                Spacing(script=script, ratio=values.word_ratio or genre.word_ratio, band=genre.word_band),
+                Spacing(script=script, ratio=values.word_ratio or genre.word_ratio, band=genre.word_band, floor=genre.clearance),
                 WordSigns(script=script, stack=stack),
-                Metrics(pitch=genre.pitch, stack=stack),
+                Metrics(pitch=genre.pitch),
                 Records(lowest=values.lowest_ppem, letters=script.counters, stem=script.stem, slant=next((treatment.angle for treatment in treatments if isinstance(treatment, Sheared)), 0.0)),
             )
         case OrnamentFace(first=first):
-            return (Ornaments(first=first), Outlines(sliver=0.001, snap=0.006), Metrics(pitch=None, stack=0.0), Records())
+            return (Ornaments(first=first), Outlines(sliver=0.001, snap=0.006), Metrics(pitch=None), Records())
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

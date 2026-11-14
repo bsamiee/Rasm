@@ -382,6 +382,7 @@ members = [
     "apps/cli/foundry",
     "apps/cli/tests/foundry",
     "libs/python/data/records",
+    "libs/python/graphics/tests/typography",
     "libs/python/graphics/typography",
     "libs/python/runtime/cli",
     "libs/python/runtime/telemetry",
