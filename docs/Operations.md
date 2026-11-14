@@ -95,10 +95,10 @@ Places holding state, each updated by one action:
 - Nx hashes a task's inputs (source files, dependency files, config, lock file package versions) and replays the stored result of an equal hash
 - Pushes to `main` read and write the cache server, and pull requests read it
 - Plugin row `@rasm/nx-distribution` of `nx.json` sends the server one read before the tasks of a run that sets `NX_SELF_HOSTED_REMOTE_CACHE_SERVER`
-- Runs getting an answer other than 200 or 404, or none within 5 seconds, print one warning (an annotation under GitHub Actions) and use the local cache alone
+- Runs answered other than 200 or 404, or not within 5 seconds, print one warning (an Actions annotation) and use the local cache alone
 - Workflow `Release` uses no remote cache, so its run builds every file it attaches or publishes
 - This Mac uses its local cache alone: no remote cache variable is set here and Doppler `dev` holds none
-- Nx 24 stops a run on a failed cache read and on a failed write of a batched task (cargo, dotnet), which is the failure a server gives after its first answer
+- Nx 24 stops a run on a failed cache read or a failed write of a batched task (cargo, dotnet): a server failing after its first answer
 - `--skip-remote-cache` runs without the server, and no Nx setting uses the server and continues on its error
 - Failed writes of any other task fail that task and each task depending on it, after 6 attempts over 1 to 20 seconds
 - Cache objects expire 7 days after their write (role `Cache` field `kept`): object storage expires by write date, and a read refreshes none

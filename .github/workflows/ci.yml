@@ -128,7 +128,7 @@ jobs:
             - *shas
             - run: |
                   kept="${GITHUB_WORKSPACE}/.cache"
-                  printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "MISE_RUSTUP_HOME=${kept}/mise/rustup" "MISE_CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" >> "${GITHUB_ENV}"
+                  printf "%s\n" "MISE_DATA_DIR=${kept}/mise" "RUSTUP_HOME=${kept}/mise/rustup" "CARGO_HOME=${kept}/mise/cargo" "PNPM_CONFIG_STORE_DIR=${kept}/pnpm" >> "${GITHUB_ENV}"
             - *tools
             - *packages
             - run: nx affected --targets=check,test,build --exclude='*,!tag:os:linux'
