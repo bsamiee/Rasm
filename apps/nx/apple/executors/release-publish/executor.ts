@@ -38,8 +38,9 @@ const fed = Effect.fnUntraced(function* (context: ExecutorContext, { archive, fo
     const printed = (command: string, args: readonly string[]) => Completed.output(ChildProcess.make(command, args, { cwd: context.root, stdin: 'ignore' }));
     const { ApplicationPath, CFBundleShortVersionString: version } = yield* Effect.flatMap(printed('plutil', ['-extract', 'ApplicationProperties', 'json', '-o', '-', path.join(archive, 'Info.plist')]), Schema.decodeEffect(Application));
     const owned = yield* Effect.promise(() => createProjectFileMapUsingProjectGraph(context.projectGraph));
-    const { nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release));
-    const [releaseGroupName, group] = yield* Effect.mapError(Effect.fromOption(Record.findFirst(nxReleaseConfig?.groups ?? {}, ({ projects }) => projects.includes(project))), refused(project, 'has no git tag: no release group of nx.json release holds it'));
+    const { error, nxReleaseConfig } = yield* Effect.promise(() => createNxReleaseConfig(context.projectGraph, owned, context.nxJsonConfiguration?.release));
+    const { groups = {} } = yield* Effect.mapError(Effect.fromNullishOr(nxReleaseConfig), () => refused(project, 'has no git tag: nx.json release does not resolve')(error?.code));
+    const [releaseGroupName, group] = yield* Effect.mapError(Effect.fromOption(Record.findFirst(groups, ({ projects }) => projects.includes(project))), refused(project, 'has no git tag: no release group of nx.json release holds it'));
     const tag = new ReleaseVersion({ version, releaseTagPattern: group.releaseTag.pattern, projectName: project, releaseGroupName }).gitTag;
     if (dry) {
         return yield* Effect.logInfo(`Would publish the Sparkle feed of ${images.join(', ')} for ${tag} through generate_appcast and cf r2 objects put`);

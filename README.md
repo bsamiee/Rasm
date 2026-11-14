@@ -48,6 +48,7 @@ Rasm/
 ├── .claude/                  # Claude Code knowledge and settings
 ├── .mcp.json                 # Claude Code MCP servers
 ├── .codex/                   # Codex knowledge and settings
+├── .agents/                  # Antigravity hooks and skill paths
 ├── .vscode/                  # VS Code settings and recommended extensions
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
@@ -114,7 +115,7 @@ flowchart LR
 - `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
 - Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
 - `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
-- Manifest `nx` tables state only a dependency or path no manifest row or tool reports (a service a client calls, a file a build reads unimported)
+- Manifest `nx` tables state only a fact no manifest row or tool reports (a service a client calls, a file a build reads unimported, tag `os:all`)
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-distribution`, and a row's own options win
 - Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names
 - Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation
@@ -150,8 +151,10 @@ flowchart LR
 - Unreal plug-ins map a folder to the Nx target installing a C++ package there in `.uplugin` table `nx.packages`, and their build runs it first
 - Preset `unreal` builds such a package with the compiler and flags of the plug-in's engine, into a folder named for the engine platform (`Mac`, `Linux`)
 - Rhino code runs no Rhino-hosted tests, as Rhino.Inside has no released Mac host and `RHINO_TOKEN` licenses Rhino only on Windows Server and Linux
-- CI job `affected` lists the affected `os:darwin` projects and Unreal engines, and jobs `macos` and `unreal` run only where it lists one
-- CI job `linux` runs the affected targets of every project without tag `os:darwin`, job `macos` the `os:darwin` projects alone
+- Suites reading the project graph take tag `os:all`, hash one platform input, and run with no task beside them (`parallelism: false`)
+- Workflow checkouts fetch every commit and tree (`filter: blob:none`), as `nx release` reads the files each commit changed
+- CI job `affected` lists the affected `os:darwin` and `os:all` projects and Unreal engines, and jobs `macos` and `unreal` run where it lists one
+- CI job `linux` runs the affected targets of every project without tag `os:darwin`, job `macos` the `os:darwin` and `os:all` projects
 - CI jobs `affected`, `linux`, and `unreal` run on the machine holding role `Runner`, which keeps tools and each Unreal image between runs
 - CI job `unreal` runs the affected `os:linux` projects in Epic's `dev-slim` image of each `EngineAssociation` a `.uproject` names
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes

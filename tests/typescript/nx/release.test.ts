@@ -1,3 +1,4 @@
+import { platform } from 'node:process';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { createProjectFileMapUsingProjectGraph, workspaceRoot } from '@nx/devkit';
@@ -15,7 +16,8 @@ const SOURCES = {
     selected: 'README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`',
     graph: 'nrwl/nx packages/nx/src/command-line/release/utils/release-graph.spec.ts createReleaseGraph: resolves version actions for every project of every release group',
     version: 'nrwl/nx packages/nx/src/command-line/release/version/resolve-current-version.spec.ts: the disk resolver reads the current version from the source manifest; packages/nx/src/command-line/release/config/config.ts: projectsRelationship defaults to fixed, which gives every project of the group one version',
-    delivered: 'README.md DELIVERY: Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built',
+    delivered:
+        'README.md DELIVERY: Every ecosystem and host is delivered end to end (install, package, release, publish), and none stays partly built; PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`; Unreal targets exist where the engine a `.uproject` names resolves',
     destination: "README.md DELIVERY: Publishing delivers those files by each destination's own command (`pnpm publish`, `dotnet nuget push`, `uv publish`, `yak push`)",
     planned:
         'README.md TASKS: Workflow `release.yml` runs `nx release --skip-publish` (one version, tag, and GitHub release); nrwl/nx e2e/release/src/first-release.test.ts nx release first run with --first-release: should not error; packages/nx/src/command-line/release/config/config.ts defaultFixedReleaseTagPattern: `v{version}`',
@@ -59,7 +61,13 @@ const versions = Effect.fnUntraced(function* (workspace: Workspace) {
     return Array.zip(tagged(workspace), stated).map(([project, manifest]) => [project, Option.getOrUndefined(manifest)?.currentVersion] as const);
 });
 
-const undelivered = (workspace: Workspace) => tagged(workspace).filter((project) => !['nx-release-publish', 'attach'].some((target) => target in (workspace.nodes[project]?.data.targets ?? {})));
+const undelivered = (workspace: Workspace) =>
+    tagged(workspace).filter((project) => {
+        const { tags = [], targets = {} } = workspace.nodes[project]?.data ?? {};
+        const limits = tags.filter((tag) => tag.startsWith('os:'));
+        const held = limits.length === 0 || (limits.includes(`os:${platform}`) && Object.keys(targets).length > 0);
+        return held && !['nx-release-publish', 'attach'].some((target) => target in targets);
+    });
 
 const destinations = Effect.gen(function* () {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -126,7 +134,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'gives every project of a release group a target that publishes it or attaches its files',
+        'gives every project of a release group whose host this machine holds a target that publishes it or attaches its files',
         Effect.fnUntraced(function* () {
             assert.deepStrictEqual(undelivered(yield* read('fresh')), [], SOURCES.delivered);
         }),

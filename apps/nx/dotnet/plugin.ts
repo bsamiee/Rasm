@@ -1,4 +1,4 @@
-import { basename, dirname, extname, join } from 'node:path';
+import { basename, dirname, extname, join, relative } from 'node:path';
 import { platform } from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { layer } from '@effect/platform-node/NodeServices';
@@ -60,15 +60,14 @@ const analyzed = Effect.fnUntraced(function* (workspaceRoot: string, matched: re
 
 const related = (workspaceRoot: string, { nodes }: Report): readonly RawProjectGraphDependency[] => {
     const pinned = new Map(nodes.map((node) => [node.file, Record.fromIterableWith(node.packages, (reference) => [reference.id, reference] as const)] as const));
+    const plugin = relative(workspaceRoot, dirname(dirname(dirname(ANALYZER))));
     return [
         ...nodes.flatMap((node) => node.references.map((reference): RawProjectGraphDependency => ({ source: dirname(node.file), target: reference.root, ...(reference.declared === node.file ? { type: DependencyType.static, sourceFile: node.file } : { type: DependencyType.implicit }) }))),
         ...nodes.flatMap((node) => node.packages.filter(({ direct }) => direct).map((reference): RawProjectGraphDependency => ({ source: dirname(node.file), target: external(reference), type: DependencyType.implicit }))),
         ...nodes.flatMap((node) =>
             node.packages.flatMap((reference) => Array.getSomes(reference.dependencies.map((dependency) => Record.get(pinned.get(node.file) ?? {}, dependency))).map((target) => ({ source: external(reference), target: external(target), type: DependencyType.static }) satisfies RawProjectGraphDependency)),
         ),
-        ...nodes
-            .filter((node) => node.modes.some(({ outputs }) => outputs.some((output) => join(workspaceRoot, output) === dirname(ANALYZER))))
-            .map((node): RawProjectGraphDependency => ({ source: dirname(dirname(dirname(ANALYZER))).slice(workspaceRoot.length + 1), target: dirname(node.file), type: DependencyType.static, sourceFile: join(dirname(dirname(dirname(ANALYZER))).slice(workspaceRoot.length + 1), 'package.json') })),
+        ...nodes.filter((node) => node.modes.some(({ outputs }) => outputs.some((output) => join(workspaceRoot, output) === dirname(ANALYZER)))).map((node): RawProjectGraphDependency => ({ source: plugin, target: dirname(node.file), type: DependencyType.static, sourceFile: join(plugin, 'package.json') })),
     ];
 };
 
@@ -125,6 +124,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
     yield* Option.isNone(held) && Result.isSuccess(read) && report.failures.length === 0 ? Effect.map(stamped(workspaceRoot, matched, report), (digest) => cache.set(PLUGIN, { report, digest })) : Effect.void;
     cache.writeToDisk();
     yield* Ref.set(edges, related(workspaceRoot, report));
+    const declared = Array.dedupe(report.nodes.flatMap((node) => [node.file, ...node.inputs, ...node.locks])).map((at) => join('{workspaceRoot}', at));
     const solutions = yield* Effect.forEach(
         matched.filter((file) => SOLUTIONS.includes(extname(file))),
         (file) =>
@@ -132,6 +132,7 @@ const inferred = Effect.fnUntraced(function* (matched: readonly string[], option
                 const upgrade: TargetConfiguration = {
                     command: ['dotnet', 'package', 'update', '--project', basename(file)].map(quoteShellArg).join(' '),
                     options: { cwd: dirname(file) },
+                    inputs: [join('{workspaceRoot}', file), ...declared],
                     metadata: { technologies: ['dotnet'], description: `Moves every package reference of ${basename(file)} to its newest release with dotnet package update`, help: { command: 'dotnet package update --help', example: { args: ['--vulnerable'] } } },
                 };
                 return [file, { projects: { [dirname(file)]: { root: dirname(file), ...(named ? {} : { name: basename(file, extname(file)) }), metadata: { technologies: ['dotnet'] }, targets: delivered(stated, { 'upgrade--dotnet': upgrade }) } } }];

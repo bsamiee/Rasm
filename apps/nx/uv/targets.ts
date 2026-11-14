@@ -213,6 +213,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
         ),
     );
     const published = ['uv', 'publish', ...flagged('--index', member.index)];
+    const locking: NonNullable<TargetConfiguration['inputs']> = [...member.manifests.map((file) => join('{workspaceRoot}', file)), join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }];
     const tools: Record<string, TargetConfiguration> = {
         ...Record.fromEntries(checked),
         ...(root && {
@@ -220,12 +221,13 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
                 command: 'uv lock --check',
                 options: { cwd: member.root },
                 cache: true,
-                inputs: [...member.manifests.map((file) => join('{workspaceRoot}', file)), join('{workspaceRoot}', member.lock), ...['uv.toml', '.python-version'].map((file) => join('{projectRoot}', file)), { externalDependencies: [] }],
+                inputs: locking,
                 metadata: { description: 'Resolves the workspace and fails where uv.lock lacks a change the manifests state, without writing it', help: { command: 'uv lock --help', example: { args: ['--offline'] } } },
             },
             'upgrade--uv': {
                 command: 'uv lock --upgrade',
                 options: { cwd: member.root },
+                inputs: locking,
                 metadata: { description: 'Moves every locked package to its newest allowed release', help: { command: 'uv lock --help', example: { args: ['--upgrade-package', '<package>'] } } },
             },
         }),
@@ -234,6 +236,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
                 'upgrade--pixi': {
                     command: 'pixi update',
                     options: { cwd: member.root },
+                    inputs: [PIXI, 'pyproject.toml', 'pixi.lock'].map((file) => join('{projectRoot}', file)),
                     metadata: { description: 'Moves every package of the Pixi environments to the newest release its requirement allows and rewrites pixi.lock', help: { command: 'pixi update --help', example: { args: ['--dry-run'] } } },
                 },
             }),
@@ -242,7 +245,7 @@ const targets = (member: Member, outputPath: Option.Option<string>): Record<stri
                 command: line(['uv', 'build', '--package', member.name, '--no-sources', '--out-dir', relative(member.workspace, distributions), '--clear', '--no-create-gitignore']),
                 options: { cwd: member.workspace },
                 cache: true,
-                inputs: [...member.sources, ...built, { externalDependencies: [] }],
+                inputs: [...member.sources, join('{workspaceRoot}', member.lock), ...built, { externalDependencies: [] }],
                 outputs: [join('{workspaceRoot}', distributions)],
                 metadata: { description: 'Builds the member sdist and wheel with uv', help: { command: 'uv build --help', example: { args: ['--wheel'] } } },
             },

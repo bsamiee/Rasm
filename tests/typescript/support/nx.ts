@@ -21,7 +21,7 @@ interface Stated {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const inherited = Record.filter(env, (value, name): value is string => Predicate.isString(value) && !['NX_', 'VITEST', 'npm_'].some((prefix) => name.startsWith(prefix)) && !['NODE_ENV', 'NO_COLOR', 'VIRTUAL_ENV'].includes(name));
+const inherited = Record.filter(env, (value, name): value is string => Predicate.isString(value) && !['NX_', 'VITEST', 'npm_'].some((prefix) => name.startsWith(prefix)) && !['NODE_ENV', 'NO_COLOR', 'VIRTUAL_ENV', 'UV_LOCKED', 'GITHUB_ACTIONS'].includes(name));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

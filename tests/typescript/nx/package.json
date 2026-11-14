@@ -32,5 +32,27 @@
         "nx": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:"
+    },
+    "nx": {
+        "tags": [ "os:all" ],
+        "targets": {
+            "test--vitest": {
+                "parallelism": false,
+                "inputs": [
+                    "...",
+                    {
+                        "runtime": "node -p process.platform+process.arch"
+                    }
+                ]
+            },
+            "test": {
+                "inputs": [
+                    "...",
+                    {
+                        "runtime": "node -p process.platform+process.arch"
+                    }
+                ]
+            }
+        }
     }
 }

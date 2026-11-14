@@ -31,7 +31,8 @@ const SOURCES = {
     placed: 'README.md PRINCIPLES: Caches sit under `.cache/<tool>` and generated output under `.artifacts/<tool>`, `dist`, `.cloudflare/output`, and editor-shared folders stay where their tool puts them; `cf workers types` writes the binding types an editor reads to `.cloudflare/types`, and SwiftPM writes `.build` beside `Package.swift`, which SourceKit-LSP shares and no configuration file moves',
     restored: 'nrwl/nx astro-docs/src/content/docs/features/cache-task-results.mdoc: On a cache hit, Nx restores the cached output files, so an output git tracks is overwritten by a replay',
     apart: 'nrwl/nx e2e/nx/src/cache.test.ts: should cache command execution; a restored output holds the files of one task alone',
-    platform: 'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; builds and tests of Cargo, Swift, CMake, and Unreal and test results of .NET and Python differ by platform, output of tsc, Vite, Vitest, and Storybook does not',
+    platform:
+        'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; builds and tests of Cargo, Swift, CMake, and Unreal and test results of .NET and Python differ by platform, output of tsc, Vite, Vitest, and Storybook does not; Suites reading the project graph take tag `os:all`, hash one platform input, and run with no task beside them',
     read: "README.md PRINCIPLES: Task inputs hold the files a task's tool reads: plugin and executor source, `.config/mise.lock`, tool `--version` output, and credentials are no input",
     keyed: 'README.md OWNERS: Mac app release form — Doppler `rasm/release` `ASC_API_*` rows, set notarize a `.dmg` for Sparkle, absent release a `.zip`; a key identifier that selects the form of an output is no credential',
     versioned:
@@ -195,7 +196,13 @@ const compiled = (workspace: Workspace) =>
         ),
     );
 
-const neutral = (workspace: Workspace) => stored(workspace).filter(({ plugin }) => Option.exists(plugin, (owner) => ['@rasm/nx-typescript', '@rasm/nx-vite', '@rasm/nx-vitest', '@rasm/nx-storybook'].includes(owner)));
+const every = (workspace: Workspace) => stored(workspace).filter(({ project, name }) => name.startsWith('test--') && (workspace.nodes[project]?.data.tags ?? []).includes('os:all'));
+
+const neutral = (workspace: Workspace) =>
+    Array.difference(
+        stored(workspace).filter(({ plugin }) => Option.exists(plugin, (owner) => ['@rasm/nx-typescript', '@rasm/nx-vite', '@rasm/nx-vitest', '@rasm/nx-storybook'].includes(owner))),
+        every(workspace),
+    );
 
 const naming = Effect.fnUntraced(function* (workspace: Workspace) {
     const systems = { darwin: ['darwin', 'macos', 'apple'], linux: ['linux'], win32: ['win32', 'windows', 'msvc'] }[String(platform)] ?? [platform];
@@ -301,7 +308,23 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'hashes no command whose output names the operating system into a cached task of tsc, Vite, Vitest, or Storybook',
+        'hashes a command whose output names the operating system into every cached test task of a project tagged os:all, and runs each with no task beside it',
+        Effect.fnUntraced(function* () {
+            const workspace = yield* read('fresh');
+            const commands = yield* naming(workspace);
+            assert.isNotEmpty(every(workspace), SOURCES.platform);
+            assert.deepStrictEqual(
+                every(workspace)
+                    .filter(({ task, target }) => target.parallelism !== false || commands.isDisjointFrom(new Set(hashing(workspace, task))))
+                    .map(({ task }) => task),
+                [],
+                SOURCES.platform,
+            );
+        }),
+    );
+
+    suite.effect(
+        'hashes no command whose output names the operating system into a cached task of tsc, Vite, Vitest, or Storybook but the test tasks of projects tagged os:all',
         Effect.fnUntraced(function* () {
             const workspace = yield* read('fresh');
             const commands = yield* naming(workspace);

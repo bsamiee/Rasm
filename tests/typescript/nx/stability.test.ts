@@ -2,15 +2,17 @@ import { homedir, hostname, tmpdir, userInfo } from 'node:os';
 import { layer } from '@effect/platform-node/NodeServices';
 import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
-import { Array, Duration, Effect, FileSystem, Path, Predicate, Record, Schema } from 'effect';
+import { Array, Duration, Effect, FileSystem, Order, Path, Predicate, Record, Schema } from 'effect';
 import { getOutputsForTargetAndConfiguration } from 'nx/src/tasks-runner/utils';
 import { inject } from 'vitest';
+import { Reading } from '#/reading';
 import { declared, read, taken, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SOURCES = {
-    recomputed: 'nrwl/nx packages/nx/src/project-graph/project-graph.spec.ts: should not throw an error if sane plugins are used and called in parallel; two computations of one tree give one graph',
+    recomputed:
+        'nrwl/nx packages/nx/src/project-graph/project-graph.spec.ts: should not throw an error if sane plugins are used and called in parallel; two computations of one tree give one graph; packages/nx/src/project-graph/build-project-graph.ts: createDependencies of every plugin runs in one Promise.all, so sources and the edges under one source keep the order plugins finish in',
     replayed: 'nrwl/nx packages/nx/src/project-graph/nx-deps-cache.spec.ts shouldRecomputeWholeGraph: a cached graph is served only while it equals a recomputed one',
     portable: 'README.md PRINCIPLES: Cached targets with output that differs by platform hash one platform input, since one remote cache serves every runner; a hash or a stored command that names a path of one machine matches on no other runner',
     hashed: 'nrwl/nx packages/nx/src/hasher/native-task-hasher-impl.spec.ts: should create task hash; equal inputs give an equal hash',
@@ -21,23 +23,31 @@ const WORD = /[\s'"=]+/u;
 const PATTERN = /[*{]/u;
 const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/u;
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Json = Schema.fromJsonString(Schema.Unknown);
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const graphed = ({ nodes, dependencies, externalNodes, sourceMaps, failures }: Workspace) => ({ nodes, dependencies, externalNodes, sourceMaps, failures });
+const graphed = ({ nodes, dependencies, externalNodes, sourceMaps, failures }: Workspace) => ({
+    nodes,
+    externalNodes,
+    sourceMaps,
+    failures,
+    dependencies: Record.fromIterableWith(Array.sort(Record.keys(dependencies), Order.String), (source) => [source, Array.sortWith(dependencies[source] ?? [], ({ target, type }) => `${target} ${type}`, Order.String)]),
+});
 
 const unequal = (left: unknown, right: unknown, at: string): readonly string[] =>
     Predicate.isObjectOrArray(left) && Predicate.isObjectOrArray(right) ? Array.dedupe([...Object.keys(left), ...Object.keys(right)]).flatMap((key) => unequal(Reflect.get(left, key), Reflect.get(right, key), `${at}.${key}`)) : [at].filter(() => left !== right);
 
+const reordered = (left: unknown, right: unknown, at: string): readonly string[] =>
+    Predicate.isObjectOrArray(left) && Predicate.isObjectOrArray(right) ? [...[at].filter(() => Object.keys(left).join('\0') !== Object.keys(right).join('\0')), ...Object.keys(left).flatMap((key) => reordered(Reflect.get(left, key), Reflect.get(right, key), `${at}.${key}`))] : [];
+
 const strings = (value: unknown, at: string): readonly (readonly [at: string, text: string])[] => (Predicate.isObjectOrArray(value) ? Object.entries(value).flatMap(([key, held]) => strings(held, `${at}.${key}`)) : Array.fromNullishOr(Predicate.isString(value) ? value : undefined).map((text) => [at, text] as const));
 
 const local = ({ nodes, hashes }: Workspace) => {
-    const machine = [workspaceRoot, homedir(), tmpdir(), userInfo().username, hostname()];
+    const [folders, names] = [
+        [workspaceRoot, homedir(), tmpdir()],
+        [userInfo().username, hostname()],
+    ];
     const inputs = Record.collect(hashes, (task, { inputs: hashed }) => Record.keys(hashed).map((input) => [`hashes.${task}`, input] as const)).flat();
-    return [...strings(nodes, 'nodes'), ...inputs].filter(([, text]) => machine.some((value) => text.includes(value)));
+    return [...strings(nodes, 'nodes'), ...inputs].filter(([, text]) => folders.some((folder) => text.includes(folder)) || text.split('/').some((segment) => names.includes(segment)));
 };
 
 const outside = (path: Path.Path, bases: readonly string[], held: unknown, task: string) =>
@@ -68,7 +78,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         Effect.fnUntraced(function* () {
             const [fresh, again] = yield* Effect.all([read('fresh'), read('again')]);
             assert.deepStrictEqual(Array.take(unequal(graphed(fresh), graphed(again), 'graph'), LISTED), [], SOURCES.recomputed);
-            assert.isTrue((yield* Schema.encodeEffect(Json)(graphed(fresh))) === (yield* Schema.encodeEffect(Json)(graphed(again))), `${SOURCES.recomputed}: equal values in another key order`);
+            assert.deepStrictEqual(Array.take(reordered(graphed(fresh), graphed(again), 'graph'), LISTED), [], `${SOURCES.recomputed}: equal values in another key order`);
         }),
     );
 
@@ -77,7 +87,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         Effect.fnUntraced(function* () {
             const [fresh, cached] = yield* Effect.all([read('fresh'), read('cached')]);
             assert.deepStrictEqual(Array.take(unequal(graphed(fresh), graphed(cached), 'graph'), LISTED), [], SOURCES.replayed);
-            assert.isTrue((yield* Schema.encodeEffect(Json)(graphed(fresh))) === (yield* Schema.encodeEffect(Json)(graphed(cached))), `${SOURCES.replayed}: equal values in another key order`);
+            assert.deepStrictEqual(Array.take(reordered(graphed(fresh), graphed(cached), 'graph'), LISTED), [], `${SOURCES.replayed}: equal values in another key order`);
         }),
     );
 
@@ -90,7 +100,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'holds no checkout path, home folder, temporary folder, user name, or host name in any node or hash input',
+        'holds no checkout path, home folder, or temporary folder, and no path segment that is the user name or the host name, in any node or hash input',
         Effect.fnUntraced(function* () {
             assert.deepStrictEqual(Array.take(local(yield* read('fresh')), LISTED), [], SOURCES.portable);
         }),
@@ -119,13 +129,28 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     suite.effect(
         'answers graph reads made at once with the graph one read gives',
         Effect.fnUntraced(function* () {
-            const alone = yield* taken(inject('readings').data);
-            const reads = yield* Effect.forEach(['first', 'second', 'third'], () => taken(inject('readings').data), { concurrency: 'unbounded' });
-            assert.strictEqual(Number(alone.code), 0, SOURCES.recomputed);
+            const taking = Effect.gen(function* () {
+                const { checked } = yield* taken(inject('readings').data);
+                const reading: Workspace = yield* Schema.decodeEffect(Reading)(yield* checked);
+                return reading;
+            });
+            const alone = yield* taking;
+            const reads = yield* Effect.all([taking, taking, taking], { concurrency: 'unbounded' });
             assert.deepStrictEqual(
-                reads.map(({ code, stdout }) => Number(code) === 0 && stdout === alone.stdout),
-                [true, true, true],
+                Array.take(
+                    reads.flatMap((reading, at) => unequal(graphed(alone), graphed(reading), `graph of read ${at}`)),
+                    LISTED,
+                ),
+                [],
                 SOURCES.recomputed,
+            );
+            assert.deepStrictEqual(
+                Array.take(
+                    reads.flatMap((reading, at) => unequal(alone.hashes, reading.hashes, `hashes of read ${at}`)),
+                    LISTED,
+                ),
+                [],
+                SOURCES.hashed,
             );
         }),
     );

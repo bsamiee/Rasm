@@ -1,5 +1,7 @@
 import { delimiter, join } from 'node:path';
+import { platform } from 'node:process';
 import { type ProjectGraph, type TargetConfiguration, workspaceRoot } from '@nx/devkit';
+import apple from '@rasm/nx-apple/package.json' with { type: 'json' };
 import { Completed } from '@rasm/process';
 import { inherited } from '@rasm/testing/nx';
 import { Array, Effect, FileSystem, Formatter, Option, Path, Record, Schema } from 'effect';
@@ -70,6 +72,8 @@ const declared = ({ nodes, sourceMaps }: Pick<Workspace, 'nodes' | 'sourceMaps'>
         })),
     );
 
+const hosted = (plugin: string) => plugin !== apple.name || platform === 'darwin';
+
 const dependents = ({ dependencies }: Pick<Workspace, 'dependencies'>, projects: ReadonlySet<string>): ReadonlySet<string> => {
     const next = projects.union(new Set(Record.keys(Record.filter(dependencies, (edges) => edges.some(({ target }) => projects.has(target))))));
     return next.size === projects.size ? projects : dependents({ dependencies }, next);
@@ -94,4 +98,4 @@ const refusals = <A>(items: readonly A[], named: (item: A) => string, attempted:
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { called, declared, dependents, nx, read, refusals, taken, tracked, verbs, type Workspace };
+export { called, declared, dependents, hosted, nx, read, refusals, taken, tracked, verbs, type Workspace };

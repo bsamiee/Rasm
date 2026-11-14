@@ -16,7 +16,7 @@ import vitest from '@rasm/nx-vitest/package.json' with { type: 'json' };
 import { Array, Effect, Option, Predicate, Record, Schema } from 'effect';
 import { minimatch } from 'minimatch';
 import { readNxJson } from 'nx/src/config/nx-json';
-import { declared, dependents, read, tracked, type Workspace } from '#/workspace';
+import { declared, dependents, hosted, read, tracked, type Workspace } from '#/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,7 +31,8 @@ interface Row {
 
 const SOURCES = {
     shape: 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts NxPlugin: every member is optional, createNodes is a pair of a file pattern and a function, every other member a function',
-    contributed: 'nrwl/nx e2e/nx/src/extras.test.ts: should use plugins defined in nx.json; packages/nx/src/project-graph/plugins/public-api.ts CreateNodes: Nx calls the function with the files its pattern matches, so a row with no matching file gives no property',
+    contributed:
+        'nrwl/nx e2e/nx/src/extras.test.ts: should use plugins defined in nx.json; packages/nx/src/project-graph/plugins/public-api.ts CreateNodes: Nx calls the function with the files its pattern matches, so a row with no matching file gives no property; README.md PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it',
     manifest: 'nrwl/nx packages/{vite,vitest,playwright,docker,dotnet,storybook,js,cypress,gradle,maven}/package.json: `@nx/devkit` is a dependency, and `nx` is never one',
     matched: 'nrwl/nx packages/nx/src/project-graph/plugins/public-api.ts CreateNodesResultArray: each result names the configuration file it came from, one of the files the pattern matched',
     empty: 'nrwl/nx packages/nx/src/project-graph/plugins/utils.spec.ts createNodesFromFiles: returns one result per file it was given',
@@ -122,14 +123,10 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect.each(rows)(
-        '$plugin gives project properties exactly where its createNodes pattern matches a tracked file its row includes, each from such a file',
+        '$plugin gives project properties exactly where this machine runs its tools and its createNodes pattern matches a tracked file its row includes, each from such a file',
         Effect.fnUntraced(function* (row) {
             const [workspace, creating, files] = yield* Effect.all([read('fresh'), created(row.plugin), tracked()]);
-            assert.strictEqual(
-                Array.isReadonlyArrayNonEmpty(attributed(workspace, row.plugin)),
-                Option.exists(creating, ({ pattern }) => matching(row, pattern, files)),
-                SOURCES.contributed,
-            );
+            assert.strictEqual(Array.isReadonlyArrayNonEmpty(attributed(workspace, row.plugin)), hosted(row.plugin) && Option.exists(creating, ({ pattern }) => matching(row, pattern, files)), SOURCES.contributed);
             assert.deepStrictEqual(
                 Option.toArray(creating).flatMap(({ pattern }) => stray(workspace, row, pattern)),
                 [],

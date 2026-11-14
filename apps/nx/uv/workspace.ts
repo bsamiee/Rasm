@@ -128,7 +128,7 @@ const report = (workspaceRoot: string, lock: string, metadata: typeof Metadata.T
                 workspace,
                 packaged,
                 manifests,
-                sources: [...packed(stated(member.root)), join('{workspaceRoot}', workspace, MANIFEST), join('{workspaceRoot}', lock)],
+                sources: [...packed(stated(member.root)), join('{workspaceRoot}', workspace, MANIFEST)],
                 index: Option.getOrUndefined(Option.flatMap(index, ({ name }) => Option.fromUndefinedOr(name))),
                 pixi: documented.has(join(workspace, PIXI)) || Schema.is(Pixi)(stated(workspace)),
                 scripted: packaged && Option.exists(manifest(member.root), ({ scripts }) => !Record.isEmptyRecord(scripts)),

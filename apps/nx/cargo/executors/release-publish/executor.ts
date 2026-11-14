@@ -1,7 +1,7 @@
 import { pathToFileURL } from 'node:url';
 import type { ExecutorContext } from '@nx/devkit';
 import { Completed } from '@rasm/process';
-import { Array, Config, Effect, Equivalence, Path, Schema } from 'effect';
+import { Array, Config, Effect, Path, Schema } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Metadata, run } from '#/workspace';
 
@@ -21,8 +21,12 @@ const execute = Effect.fnUntraced(function* ({ dryRun, cwd: root, package: named
     const cwd = path.resolve(context.root, root);
     const { packages } = yield* Effect.flatMap(Completed.output(ChildProcess.make('cargo', ['metadata', '--color', 'never', '--format-version', '1', '--no-deps'], { cwd, stdin: 'ignore' })), Schema.decodeEffect(Metadata));
     const crate = yield* Effect.fromOption(Array.findFirst(packages, ({ name }) => name === named));
-    const local = (member: typeof crate): readonly (typeof crate)[] => member.dependencies.flatMap(({ path: at }) => packages.filter(({ manifest_path }) => at !== undefined && path.dirname(manifest_path) === at)).flatMap((dependency) => [dependency, ...local(dependency)]);
-    const members = dryRun === true || stated ? Array.dedupeWith([crate, ...local(crate)], Equivalence.Struct({ name: Equivalence.String })) : [crate];
+    const placed = new Map<string | undefined, string>(packages.map((member) => [path.dirname(member.manifest_path), member.name]));
+    const reached = (names: ReadonlySet<string>): ReadonlySet<string> => {
+        const needed = packages.filter(({ name }) => names.has(name)).flatMap(({ dependencies }) => dependencies.flatMap(({ path: at }) => Array.fromNullishOr(placed.get(at))));
+        return names.isSupersetOf(new Set(needed)) ? names : reached(names.union(new Set(needed)));
+    };
+    const members = dryRun === true || stated ? packages.filter(({ name }) => reached(new Set([crate.name])).has(name)) : [crate];
     const selected = members.flatMap((member) => ['--package', `path+${pathToFileURL(path.dirname(member.manifest_path)).href}#${member.name}`]);
     const publish = ['publish', ...selected, ...Array.fromNullishOr(registry).flatMap((held) => ['--registry', held]), ...(dryRun === true || stated ? ['--dry-run'] : []), '--locked'];
     const { code } = yield* Completed.run(ChildProcess.make('cargo', publish, { cwd, detached: false, stdin: 'inherit', stdout: 'inherit', stderr: 'inherit' }));

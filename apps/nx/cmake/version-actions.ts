@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import type { Tree } from '@nx/devkit';
-import { Array, Effect } from 'effect';
+import { Effect } from 'effect';
 import { VersionActions } from 'nx/release';
 import { MANIFEST, refused, restated, versioned } from '#/workspace';
 
@@ -25,11 +25,11 @@ class CmakeVersionActions extends VersionActions {
     }
 
     override readCurrentVersionFromRegistry() {
-        return Effect.runPromise(Effect.succeed(null));
+        return Promise.resolve(null);
     }
 
     override readCurrentVersionOfDependency() {
-        return Effect.runPromise(Effect.succeed({ currentVersion: null, dependencyCollection: null }));
+        return Promise.resolve({ currentVersion: null, dependencyCollection: null });
     }
 
     updateProjectVersion(tree: Tree, newVersion: string) {
@@ -47,7 +47,7 @@ class CmakeVersionActions extends VersionActions {
     }
 
     override updateProjectDependencies() {
-        return Effect.runPromise(Effect.succeed(Array.empty<string>()));
+        return Promise.resolve([]);
     }
 }
 

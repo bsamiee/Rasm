@@ -3,7 +3,7 @@ import { assert, it } from '@effect/vitest';
 import { workspaceRoot } from '@nx/devkit';
 import { Array, Effect, FileSystem, Option, Order, Path, Record, Schema } from 'effect';
 import { createProjectRootMappings, findProjectForPath } from 'nx/src/project-graph/utils/find-project-for-path';
-import { declared, dependents, nx, read, tracked, type Workspace } from '#/workspace';
+import { declared, dependents, hosted, nx, read, tracked, type Workspace } from '#/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
         }),
     );
 
-    suite.effect.each(BUILT)(
+    suite.effect.each(BUILT.filter(({ plugin }) => hosted(plugin)))(
         'selects for build the project of $plugin that owns the first tracked $extension file with a change to that file',
         Effect.fnUntraced(function* ({ plugin, extension }) {
             const { project, file } = yield* sampled(yield* read('fresh'), plugin, extension);

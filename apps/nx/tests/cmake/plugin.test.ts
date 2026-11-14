@@ -7,7 +7,7 @@ import { Array, Duration, Effect, FileSystem, Layer, Option, Path, Record, Schem
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REPORT = 'CMake file API codemodel-v2 reply of a second build tree; ctest --show-only=json-v1; cmake_language(PRINT_VARIABLES NAMED PROJECT_NAME PROJECT_VERSION)';
+const REPORT = 'CMake file API codemodel-v2 reply of a second build tree, a source path relative where the top-level source directory holds the file and absolute elsewhere; ctest --show-only=json-v1; cmake_language(PRINT_VARIABLES NAMED PROJECT_NAME PROJECT_VERSION)';
 const [FOLDER, PRESET, MANIFEST, PACKAGING] = ['build', 'default', 'CMakeLists.txt', 'CPackConfig.cmake'] as const;
 const [CORE, MIDDLE, TOOL] = ['libs/core', 'libs/middle', 'apps/tool'] as const;
 const SOURCES = { core: 'libs/core/core.cpp', suite: 'libs/core/core_test.cpp', header: 'libs/middle/include/middle.hpp', tool: 'apps/tool/main.cpp' } as const;
@@ -39,10 +39,11 @@ const Codemodel = Schema.fromJsonString(Schema.Struct({ configurations: Schema.A
 const Target = Schema.fromJsonString(
     Schema.Struct({
         artifacts: Schema.optionalKey(Schema.Array(Schema.Struct({ path: Schema.String }))),
-        dependencies: Schema.optionalKey(Schema.Array(Schema.Struct({ id: Schema.String }))),
+        dependencies: Schema.optionalKey(Schema.Array(Schema.Struct({ id: Schema.String, backtrace: Schema.optionalKey(Schema.Int) }))),
+        backtraceGraph: Schema.Struct({ nodes: Schema.Array(Schema.Struct({ command: Schema.optionalKey(Schema.Int) })) }),
         sources: Schema.Array(Schema.Struct({ path: Schema.String, isGenerated: Schema.optionalKey(Schema.Boolean) })),
     }),
-).annotate({ description: 'CMake file API target reply: the artifacts, sources, and target dependencies of one target' });
+).annotate({ description: 'CMake file API target reply: the artifacts, sources, and target dependencies of one target, a dependency whose backtrace node names a command where a command invocation made it' });
 const Tests = Schema.fromJsonString(Schema.Struct({ tests: Schema.Array(Schema.Struct({ properties: Schema.Array(Schema.Struct({ name: Schema.String, value: Schema.Unknown })) })) })).annotate({
     description: 'JSON ctest --show-only=json-v1 prints: every test of a build tree with its properties',
 });
@@ -63,9 +64,9 @@ const described = (
 ) => {
     const placed = (indexes: readonly number[]) => indexes.slice(0, 1).flatMap((index) => Array.fromNullishOr(tree.directories[index]));
     const owned = targetIndexes.flatMap((index) => Array.fromNullishOr(tree.targets[index]));
-    const needed = owned.flatMap(({ dependencies = [] }) => dependencies.map(({ id }) => id));
+    const needed = owned.flatMap(({ dependencies = [], backtraceGraph: { nodes } }) => dependencies.filter(({ backtrace = -1 }) => nodes[backtrace]?.command !== undefined).map(({ id }) => id));
     const linked = tree.targets.filter(({ id, projectIndex }) => needed.includes(id) && tree.projects[projectIndex]?.name !== name).flatMap(({ projectIndex }) => placed(tree.projects[projectIndex]?.directoryIndexes ?? []));
-    const listed = owned.flatMap(({ sources }) => sources.filter(({ isGenerated = false }) => !isGenerated).map((source) => source.path));
+    const listed = owned.flatMap(({ sources }) => sources.filter(({ path: at, isGenerated = false }) => !(isGenerated || path.isAbsolute(at))).map((source) => source.path));
     const written = owned.flatMap(({ artifacts = [] }) => artifacts.map((artifact) => path.join(FOLDER, PRESET, artifact.path)));
     return Array.zip(placed(directoryIndexes), Option.toArray(Record.get(tree.versions, name))).map(([{ source, build, hasInstallRule = false }, version]) => ({
         name,

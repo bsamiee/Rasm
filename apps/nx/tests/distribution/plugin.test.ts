@@ -53,7 +53,7 @@ const hosts = {
         text: '{\n    "FileVersion": 3,\n    "Version": 1,\n    "VersionName": "1.2.3",\n    "FriendlyName": "Marker",\n    "Modules": [{ "Name": "Marker", "Type": "Runtime", "LoadingPhase": "Default" }]\n}\n',
     },
 } as const;
-const packaged = ['blender', 'yak', 'uxp', 'cep'] as const;
+const packaged: readonly (keyof typeof hosts)[] = ['blender', 'yak', 'uxp', ...(['darwin', 'win32'].includes(platform) ? (['cep'] as const) : [])];
 const files = {
     ...Record.mapEntries(hosts, ({ folder, manifest, text }) => [`${folder}/${manifest}`, text]),
     'package.json': JSON.stringify({ name: 'consumer', private: true, type: 'module', workspaces: ['hosts/uxp', 'web/site'], devDependencies: { nx: nxPackage.version, [plugin.name]: '*' } }),

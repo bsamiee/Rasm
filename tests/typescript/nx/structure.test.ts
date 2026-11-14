@@ -25,7 +25,7 @@ const SOURCES = {
     scripted: 'nrwl/nx astro-docs/src/content/docs/reference/project-configuration.mdoc includedScripts: a package.json script is a target only where the package lists it; README.md PRINCIPLES: Nx plugins infer every project, target, and dependency from manifests and tool output',
     apart: 'README.md PRINCIPLES: File-level formatting and linting belong to hk, project-level checks to the Nx plugins, and neither calls the other',
     answered: 'README.md PRINCIPLES: Verbs name one operation in every ecosystem, and a project answers a verb only where one of its tools performs that operation',
-    platform: 'README.md PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`',
+    platform: 'README.md PRINCIPLES: Plugins present a target that runs a host or needs a platform only on a machine holding it, and tag a project a platform limits `os:<platform>`; Suites reading the project graph take tag `os:all`',
     released: 'README.md PRINCIPLES: Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`',
     ordered: 'README.md PRINCIPLES: Plugin rows merge in order and a later row names a shared root, so `@rasm/nx-distribution` comes first and a host manifest names only a folder no ecosystem manifest names',
     roots: 'nrwl/nx packages/nx/src/project-graph/error-types.ts MultipleProjectsWithSameNameError and ProjectWithNoNameError: one project per root, one root per name',
@@ -36,7 +36,7 @@ const SOURCES = {
 } as const;
 const UPSTREAM = /^\^/u;
 const HK = /(?:^|[\s"'/])hk\s/u;
-const TAG = /^(?:release|npm:public|npm:private|os:(?:aix|android|cygwin|darwin|freebsd|haiku|linux|netbsd|openbsd|sunos|win32))$/u;
+const TAG = /^(?:release|npm:public|npm:private|os:(?:all|aix|android|cygwin|darwin|freebsd|haiku|linux|netbsd|openbsd|sunos|win32))$/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -271,7 +271,7 @@ it.layer(layer, { excludeTestServices: true })((suite) => {
     );
 
     suite.effect(
-        'tags projects with os:<platform>, release, and the npm tags of Nx alone',
+        'tags projects with os:<platform>, os:all, release, and the npm tags of Nx alone',
         Effect.fnUntraced(function* () {
             const { nodes } = yield* read('fresh');
             const tags = Array.dedupe(Object.values(nodes).flatMap(({ data }) => data.tags ?? []));

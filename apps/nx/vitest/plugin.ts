@@ -10,7 +10,7 @@ import { AggregateCreateNodesError, type CreateNodes, type CreateNodesContext, c
 import { getLockFileName, getNamedInputs, hashObject, hashWithWorkspaceContext, PluginCache, quoteShellArg, retryOnRequireEsmRace, workspaceDataDirectory } from '@nx/devkit/internal';
 import { walkTsconfigExtendsChain } from '@nx/js/internal';
 import distribution from '@rasm/nx-distribution/package.json' with { type: 'json' };
-import { Array, Cause, Effect, Equal, FileSystem, Function, Option, Predicate, Record, Schema } from 'effect';
+import { Array, Cause, Effect, Equal, FileSystem, Option, Predicate, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -57,21 +57,6 @@ const extended = (workspaceRoot: string, root: string): readonly string[] => {
     return files.map((at) => normalizePath(relative(workspaceRoot, at))).filter(kept);
 };
 
-const secluded = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-    Effect.acquireUseRelease(
-        Effect.sync(() => ({ ...env })),
-        () =>
-            Effect.andThen(
-                Effect.sync(() => Object.assign(env, MODE)),
-                effect,
-            ),
-        (before) =>
-            Effect.sync(() => {
-                Record.keys(MODE).forEach((name) => Reflect.deleteProperty(env, name));
-                Object.assign(env, before);
-            }),
-    );
-
 const directed = (to: string) => ['--coverage.reportsDirectory', join(to, 'coverage'), '--attachmentsDir', join(to, 'attachments'), '--outputFile.junit', join(to, 'junit.xml')];
 
 const stamped = (workspaceRoot: string, sources: readonly string[]) => Effect.promise(() => hashWithWorkspaceContext(workspaceRoot, [...sources]));
@@ -98,7 +83,7 @@ const surveyed = Effect.fnUntraced(function* (workspaceRoot: string, file: strin
             const manifests = above(local(base) || '.').map((at) => join(at, 'package.json'));
             const manifest = yield* Effect.mapError(
                 Effect.flatMap(
-                    Effect.findFirst(manifests, (at) => Effect.orElseSucceed(fs.exists(join(workspaceRoot, at)), Function.constFalse)),
+                    Effect.findFirst(manifests, (at) => fs.exists(join(workspaceRoot, at))),
                     Effect.fromOption,
                 ),
                 refused(file, `declares a project under ${base}, which no package holds`),
@@ -192,7 +177,7 @@ const inferred = Effect.fnUntraced(function* (cache: PluginCache<Resolved>, cont
     const manager = detectPackageManager(context.workspaceRoot);
     const flags = Option.toArray(within).flatMap((at) => directed(relative(home, at)));
     const held = yield* Effect.findFirst(Option.toArray(Option.fromUndefinedOr(cache.get(file))), ({ sources, stamp }) => Effect.map(stamped(context.workspaceRoot, sources), Equal.equals(stamp)));
-    const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => secluded(read(context.workspaceRoot, file, flags, getLockFileName(manager))) });
+    const resolved = yield* Option.match(held, { onSome: Effect.succeed, onNone: () => read(context.workspaceRoot, file, flags, getLockFileName(manager)) });
     cache.set(file, resolved);
     const projects = resolved.suites.map((suite): [string, ProjectConfiguration] => [
         suite.root,
@@ -217,12 +202,23 @@ const createNodes: CreateNodes = [
         );
         const cache = new PluginCache<Resolved>(join(workspaceDataDirectory, `vitest-${hashObject({ options, within: Option.getOrNull(within) })}.hash`));
         return run(
-            Effect.ensuring(
-                Effect.tryPromise({
-                    try: () => createNodesFromFiles((file) => run(inferred(cache, context, within, file)), configs, options, context),
-                    catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, new Cause.UnknownError(cause, 'createNodes failed outside a file')]], [])),
+            Effect.acquireUseRelease(
+                Effect.sync(() => {
+                    const before = { ...env };
+                    Object.assign(env, MODE);
+                    return before;
                 }),
-                Effect.sync(() => cache.writeToDisk()),
+                () =>
+                    Effect.tryPromise({
+                        try: () => createNodesFromFiles((file) => run(inferred(cache, context, within, file)), configs, options, context),
+                        catch: (cause) => (cause instanceof AggregateCreateNodesError ? cause : new AggregateCreateNodesError([[null, new Cause.UnknownError(cause, 'createNodes failed outside a file')]], [])),
+                    }),
+                (before) =>
+                    Effect.sync(() => {
+                        Record.keys(MODE).forEach((name) => Reflect.deleteProperty(env, name));
+                        Object.assign(env, before);
+                        cache.writeToDisk();
+                    }),
             ),
         );
     },

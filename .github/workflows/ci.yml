@@ -34,7 +34,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
-                  filter: tree:0
+                  filter: blob:none
             - &shas
               uses: nrwl/nx-set-shas@e602fada7ad5987b0f7b1905e7a99ea1c661514c # v5.1.0
             - &tools
@@ -46,7 +46,7 @@ jobs:
             - run: nx sync:check
             - id: listed
               run: |
-                  darwin="$(nx show projects --affected --projects=tag:os:darwin --json)"
+                  darwin="$(nx show projects --affected --projects=tag:os:darwin,tag:os:all --json)"
                   linux="$(nx show projects --affected --projects=tag:os:linux --json)"
                   engines="$(git ls-files -z -- "*.uproject" | xargs -0 cat | jq --slurp --compact-output --argjson affected "${linux}" 'if $affected == [] then [] else map(.EngineAssociation | strings | select(test("^[0-9.]+$"))) | unique end')"
                   printf "darwin=%s\nengines=%s\n" "${darwin}" "${engines}" >> "${GITHUB_OUTPUT}"
@@ -88,7 +88,7 @@ jobs:
             - *tools
             - *packages
             - run: nx build @rasm/nx-apple-darwin-arm64 --configuration=release
-            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin'
+            - run: nx affected --targets=check,test,build --exclude='*,!tag:os:darwin,!tag:os:all'
               env:
                   APPLE_DEVELOPMENT_P12: ${{ secrets.APPLE_DEVELOPMENT_P12 }}
                   APPLE_DEVELOPMENT_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPMENT_P12_PASSWORD }}
