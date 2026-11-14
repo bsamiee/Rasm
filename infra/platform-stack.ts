@@ -65,20 +65,8 @@ const files = {
     '/etc/ssh/sshd_config.d/00-platform.conf': { content: 'PasswordAuthentication no\n', applied: ['systemctl try-reload-or-restart ssh'] },
     '/etc/apt/apt.conf.d/52unattended-upgrades-local': { content: 'Unattended-Upgrade::Origins-Pattern { "origin=Ubuntu,archive=*-updates"; "origin=Docker"; };\nUnattended-Upgrade::Automatic-Reboot "true";\n', applied: [] },
     '/etc/systemd/system/apt-daily-upgrade.timer.d/90-platform.conf': { content: '[Timer]\nOnCalendar=\nOnCalendar=*-*-* 05:00 America/Chicago\n', applied: ['systemctl daemon-reload', 'systemctl restart apt-daily-upgrade.timer'] },
-    '/etc/ufw/after.rules': {
-        content: [
-            '*filter',
-            ':ufw-after-input - [0:0]',
-            ':ufw-after-output - [0:0]',
-            ':ufw-after-forward - [0:0]',
-            ':DOCKER-USER - [0:0]',
-            ...Object.values(gated).map(({ external }) => `-A DOCKER-USER ! -i ${tailnet} -p tcp -m conntrack --ctstate DNAT --ctorigdstport ${external} --ctdir ORIGINAL -j DROP`),
-            'COMMIT',
-            '',
-        ].join('\n'),
-        applied: ['ufw reload'],
-    },
 } as const satisfies Record.ReadonlyRecord<string, Setting>;
+const entrypoints = { web: 80, websecure: 443 } as const;
 const firewall = [`ufw allow in on ${tailnet}`, 'ufw default deny incoming', 'ufw default allow outgoing', 'ufw --force enable'] as const;
 const local = { host: 'local.rasm.localhost', owner: 'owner@rasm.localhost' } as const;
 const accounts = {
@@ -130,7 +118,7 @@ class Machine extends Data.Class<{
 
     // --- [ROUTING]
 
-    static readonly entrypoint = 'websecure';
+    static readonly entrypoint = 'websecure' satisfies keyof typeof entrypoints;
     static readonly guard = 'auth';
     static readonly forwarded = { id: 'Remote-User', email: 'Remote-Email' } as const;
 
@@ -183,13 +171,28 @@ class Machine extends Data.Class<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const filtered = (open: readonly number[]): Setting => ({
+    content: [
+        '*filter',
+        ':ufw-after-input - [0:0]',
+        ':ufw-after-output - [0:0]',
+        ':ufw-after-forward - [0:0]',
+        ':DOCKER-USER - [0:0]',
+        ...[tailnet, 'docker0', 'br-+'].map((inside) => `-A DOCKER-USER -i ${inside} -j RETURN`),
+        ...open.map((port) => `-A DOCKER-USER -p tcp -m conntrack --ctstate DNAT --ctorigdstport ${port} --ctdir ORIGINAL -j RETURN`),
+        '-A DOCKER-USER -m conntrack --ctstate DNAT --ctdir ORIGINAL -j DROP',
+        'COMMIT',
+        '',
+    ].join('\n'),
+    applied: ['ufw reload'],
+});
+
 const proxied = Function.memoize((machine: Machine) => {
     const secure = Machine.entrypoint.toUpperCase();
-    const listened = { WEB: 80, [secure]: 443 };
     return machine.contained('traefik', ['CMD', 'traefik', 'healthcheck'], {
         image: machine.pulled('traefik:v3.8.0-rc.2'),
         envs: [
-            ...Record.collect(listened, (name, port) => `TRAEFIK_ENTRYPOINTS_${name}_ADDRESS=:${port}`),
+            ...Record.collect(entrypoints, (name, port) => `TRAEFIK_ENTRYPOINTS_${name.toUpperCase()}_ADDRESS=:${port}`),
             `TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO=${Machine.entrypoint}`,
             `TRAEFIK_ENTRYPOINTS_${secure}_HTTP_TLS=true`,
             `TRAEFIK_ENTRYPOINTS_${secure}_TRANSPORT_RESPONDINGTIMEOUTS_READTIMEOUT=30m`,
@@ -201,7 +204,7 @@ const proxied = Function.memoize((machine: Machine) => {
                 onSome: () => ['TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_STORAGE=/var/lib/traefik/acme.json', 'TRAEFIK_CERTIFICATESRESOLVERS_ACME_ACME_TLSCHALLENGE=true', `TRAEFIK_ENTRYPOINTS_${secure}_HTTP_TLS_CERTRESOLVER=acme`],
             }),
         ],
-        ports: Object.values(listened).map((port) => ({ internal: port, external: port })),
+        ports: Object.values(entrypoints).map((port) => ({ internal: port, external: port })),
         mounts: [
             { type: 'bind', source: '/var/run/docker.sock', target: '/var/run/docker.sock', readOnly: true },
             { type: 'volume', source: machine.kept('traefik'), target: '/var/lib/traefik' },
@@ -408,7 +411,10 @@ const installed = Effect.sync(() => hosted(Machine.on(local.host, Option.none())
 
 const provisioned = (host: keyof typeof hosts, { owner, repository, project, engines, registry }: { readonly owner: string; readonly repository: string; readonly project: string; readonly engines: readonly string[]; readonly registry: Input<string> }) =>
     Effect.sync(() => {
-        const [{ address, roles }, machine]: readonly [Row, Machine] = [hosts[host], Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] }, files)];
+        const [{ address, roles }, machine]: readonly [Row, Machine] = [
+            hosts[host],
+            Machine.on(host, Option.none(), { registryAuth: [{ address: 'ghcr.io', username: owner, password: registry }] }, { ...files, '/etc/ufw/after.rules': filtered(hosts[host].roles.some((role) => role._tag in routed || Role.$is('Apps')(role)) ? Object.values(entrypoints) : []) }),
+        ];
         const located = machine.named(host, 'A', address).map(({ content }) => content);
         const served = roles.map(
             Role.$match({

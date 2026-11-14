@@ -52,7 +52,8 @@ Places holding state, each updated by one action:
 - Reboots of `lucky` stop a CI run reading the cache in that minute
 - `ufw` drops incoming traffic on every interface except `tailscale0`, so `sshd` answers no public address
 - Ports the proxy publishes (80, 443) stay public: Docker forwards a published port before `ufw` reads a packet
-- Object storage port 7412 and checker port 8080 answer the tailnet alone: `/etc/ufw/after.rules` drops each in chain `DOCKER-USER` off `tailscale0`
+- Ports Docker publishes answer the tailnet and the machine's own containers alone: `/etc/ufw/after.rules` drops every other forwarded connection in `DOCKER-USER`
+- Proxy ports 80 and 443 stay public on a machine holding a routed role, and `ufw` itself covers only ports the machine's own processes open
 - That rule matches a port Docker forwards to a container (`--ctstate DNAT`), so a container still dials the same port on another machine
 - Stacks dial object storage by tailnet name, and `ufw` loads that rule at boot before Docker starts, which keeps `DOCKER-USER` rules
 - Machines losing the tailnet are reached through the provider's browser console as `root` with `<NAME>_ROOT_PASSWORD`
