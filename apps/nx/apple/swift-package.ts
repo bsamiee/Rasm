@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { DependencyType, type RawProjectGraphDependency, type TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Option, Record, Schema } from 'effect';
-import { ATTACH, GIT_STATUS, INPUTS, type Options, type Part, PLUGIN, SHARED, target } from '#/targets';
+import { ATTACH, GIT_STATUS, INPUTS, type Options, type Part, PLUGIN, SHARED, SWIFTPM, target } from '#/targets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -52,8 +52,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
     const suites = manifest.targets.filter(({ type }) => Schema.is(Tests)(type));
     const tested = new Set(suites.flatMap(({ target_dependencies }) => target_dependencies));
     const inputs = [...sources(local, described), join('{workspaceRoot}', '.swift-version'), ...INPUTS];
-    const pinned = '--force-resolved-versions';
-    const build = ['swift', 'build', '--package-path', root, pinned] as const;
+    const build = ['swift', 'build', '--package-path', root, ...SWIFTPM] as const;
     const written = (folder?: string) => (folder === undefined ? [] : manifest.products.map(({ name }) => join(folder, name))).map((at) => join('{workspaceRoot}', at));
     const work: Record<string, TargetConfiguration> = {
         'build--swift-build': target(
@@ -70,7 +69,7 @@ const packageParts = (options: typeof Options.Type, local: Package, described: R
         'check--swift-build': { dependsOn: ['build--swift-build'], inputs, metadata: { technologies: ['swift'], description: `Compiles ${manifest.name} as its type check` } },
         ...(suites.length > 0 && {
             'test--swift': target(
-                [['swift', 'test', '--package-path', root, pinned]],
+                [['swift', 'test', '--package-path', root, ...SWIFTPM]],
                 { technologies: ['swift'], description: `Tests ${manifest.name} with SwiftPM`, help: { command: 'swift test --help', example: { args: ['--filter', suites[0]?.name ?? manifest.name] } } },
                 { cache: true, dependsOn: ['build--swift-build'], inputs },
             ),

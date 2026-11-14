@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Config, Effect, FileSystem, Option, Path, Redacted, Schema, Struct } from 'effect';
 import { commands, run } from '#/executors/run/executor';
-import { GIT_STATUS, refused } from '#/targets';
+import { GIT_STATUS, refused, SWIFTPM } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,7 +51,7 @@ const execute = Effect.fnUntraced(function* ({ exports = [], products = [], args
         });
     });
     const built = Array.zipWith(products, binaries, ({ package: root, product, folder }, bin): readonly (readonly [string, ...string[]])[] => [
-        ['swift', 'build', '--package-path', root, '--configuration', 'release', '--product', product, '--force-resolved-versions'],
+        ['swift', 'build', '--package-path', root, '--configuration', 'release', '--product', product, ...SWIFTPM],
         ['ditto', '-c', '-k', path.join(bin.trim(), product), path.join(folder, `${product}.zip`), ...args],
     ]);
     return yield* commands({ runs: [...archived, ...built.flat()] }, context.root);

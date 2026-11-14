@@ -3,7 +3,7 @@ import { env, pid } from 'node:process';
 import type { ExecutorContext } from '@nx/devkit';
 import { Array, Config, Effect, FileSystem, Path, Schema } from 'effect';
 import { commands, run } from '#/executors/run/executor';
-import { refused } from '#/targets';
+import { refused, SWIFTPM } from '#/targets';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -23,9 +23,9 @@ const execute = Effect.fnUntraced(function* ({ package: root, product, env: stat
         Config.orElse(() => Config.map(Config.String('HOME'), (home) => path.join(home, '.swiftpm'))),
     );
     const at = path.join(swiftpm, 'bin', product);
-    const build = ['build', '--package-path', root, '--force-resolved-versions', '--configuration', 'release', '--product', product, ...args];
+    const build = ['build', '--package-path', root, ...SWIFTPM, '--configuration', 'release', '--product', product, ...args];
     const held = yield* fs.exists(at);
-    const built = yield* commands({ runs: [['swift', ...build], ...(held ? [] : [Array.make('swift', 'package', '--package-path', root, '--force-resolved-versions', ...args, 'experimental-install', '--product', product)])], env: stated }, context.root);
+    const built = yield* commands({ runs: [['swift', ...build], ...(held ? [] : [Array.make('swift', 'package', '--package-path', root, ...SWIFTPM, ...args, 'experimental-install', '--product', product)])], env: stated }, context.root);
     return yield* held && built.success
         ? Effect.flatMap(Effect.try({ try: () => execFileSync('swift', [...build, '--show-bin-path'], { encoding: 'utf8', cwd: context.root, env: { ...env, ...stated } }), catch: refused(product, 'swift build --show-bin-path does not exit 0') }), (folder) =>
               fs.copyFile(path.join(folder.trim(), product), `${at}.${pid}`).pipe(

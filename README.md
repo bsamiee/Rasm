@@ -114,6 +114,7 @@ flowchart LR
 - `nx.json` `targetDefaults` holds one row, keyed `@nx/js:release-publish`: Nx core infers that publish target for a public package after every plugin, and the row runs it as `pnpm publish --recursive` after its build targets
 - `@rasm/nx-cargo` infers the `default` named input of a crate (its files, the workspace lock, manifest, toolchain, and Cargo variables), so every target of the crate reads them
 - Cargo, uv, SwiftPM, and xcodebuild targets read the committed lock (`--locked`, `--force-resolved-versions`, `-onlyUsePackageVersionsFromResolvedFile`), cargo `build` and `fix` alone bring `Cargo.lock` in line with its manifests
+- SwiftPM builds pass `--no-color-diagnostics`: its default follows `NO_COLOR`, which Codex sets, and a changed value recompiles every module
 - `@rasm/nx-apple` reads Xcode build settings with `-IDEPackageEnablePrebuilts=NO`, so graph creation fetches no prebuilt `swift-syntax`
 - Manifest `nx` tables state only a fact no manifest row or tool reports (a service a client calls, a file a build reads unimported, tag `os:all`)
 - Plugin rows of `nx.json` share the options under `pluginsConfig` `@rasm/nx-distribution`, and a row's own options win

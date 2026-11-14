@@ -21,6 +21,7 @@ interface Part {
 const PLUGIN = '@rasm/nx-apple';
 const SHARED = distribution.name;
 const GIT_STATUS = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'status.branch', GIT_CONFIG_VALUE_0: 'false' } as const;
+const SWIFTPM = ['--force-resolved-versions', '--no-color-diagnostics'] as const;
 const INPUTS: NonNullable<TargetConfiguration['inputs']> = [{ runtime: 'node -p process.platform+process.arch' }, { env: 'DEVELOPER_DIR' }, { env: 'TOOLCHAINS' }, { externalDependencies: [] }];
 const ATTACH: TargetConfiguration = {
     executor: `${SHARED}:attach`,
@@ -52,4 +53,4 @@ const target = (runs: (typeof Run.Type)['runs'], metadata: NonNullable<TargetCon
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ATTACH, analyzer, GIT_STATUS, INPUTS, Options, type Part, PLUGIN, refused, SHARED, target, tokened };
+export { ATTACH, analyzer, GIT_STATUS, INPUTS, Options, type Part, PLUGIN, refused, SHARED, SWIFTPM, target, tokened };
