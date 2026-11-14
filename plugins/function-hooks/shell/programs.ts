@@ -33,14 +33,12 @@ interface Program {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const WATCH_APPS = 'watch-apps';
-const RTK = 'rtk';
 const PROGRAMS: Readonly<Record<string, Program>> = {
     sudo: { aliases: ['doas'], wraps: [[]] },
     env: { wraps: [[]] },
     command: { informational: ['-v'], wraps: [[]] },
     builtin: { wraps: [[]] },
     nohup: { aliases: ['setsid', 'nice', 'stdbuf', 'exec', 'arch', 'xcrun'], wraps: [[]] },
-    [RTK]: { wraps: [[], ['bypass']] },
     npx: { wraps: [[]] },
     time: { flags: ['-o='], wraps: [[]] },
     xargs: { flags: ['-a='], reads: true, readsUnless: ['-a'], wraps: [[]] },
@@ -77,4 +75,4 @@ const PROGRAMS: Readonly<Record<string, Program>> = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { PROGRAMS, type Program, RTK, WATCH_APPS };
+export { PROGRAMS, type Program, WATCH_APPS };

@@ -9,7 +9,7 @@ import { decisionOf, type Request } from '#/rules/decision';
 import { FILES } from '#/rules/files';
 import { GHIDRA } from '#/rules/ghidra';
 import { GIT } from '#/rules/git';
-import { all, type Call, type Ruleset } from '#/rules/rule';
+import { all, type Call, type Ruleset, settled } from '#/rules/rule';
 import { TASKS } from '#/rules/tasks';
 import { WAITS } from '#/rules/waits';
 import { analyzed, Parser } from '#/shell/invocation';
@@ -49,8 +49,8 @@ const decide = Effect.fnUntraced(function* (request: typeof Request.Type) {
     const host = yield* Host;
     const analysis = yield* analyzed(request.command, { cwd: host.resolve(request.cwd, Option.none()), origin: 'call' }, request.shell);
     const call: Call = { request, analysis, host, programs: BY_NAME };
-    const verdicts = yield* Effect.forEach(analysis.invocations, (invocation) => all(...(invocation.informational ? [] : [...(BY_NAME.get(invocation.program)?.rules ?? []), ...EVERY]))(invocation, call), { concurrency: 'unbounded' });
-    return yield* decisionOf(request.command, [...verdicts.flat(), ...CALLS.flatMap((rule) => rule(call))], (notes) => due(request, notes));
+    const verdicts = yield* Effect.all([...analysis.invocations.map((invocation) => all(...(invocation.informational ? [] : [...(BY_NAME.get(invocation.program)?.rules ?? []), ...EVERY]))(invocation, call)), ...CALLS.map((rule) => settled(rule(call)))], { concurrency: 'unbounded' });
+    return yield* decisionOf(request.command, verdicts.flat(), (notes) => due(request, notes));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

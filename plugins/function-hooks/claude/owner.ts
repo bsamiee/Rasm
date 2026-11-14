@@ -1,16 +1,17 @@
-import { Array, Clock, Config, Duration, Effect, Option, Schedule, Schema, String } from 'effect';
+import { Array, Clock, Config, Duration, Effect, Option, Schedule, Schema } from 'effect';
 import type { Routes } from '#/claude/routes';
 import { Host } from '#/host';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Owner = Schema.fromJsonString(Schema.Struct({ front: Schema.String, typed: Schema.Finite, fullScreen: Schema.Boolean }));
+const Assertions = Schema.fromJsonString(Schema.Struct({ data: Schema.Array(Schema.Struct({ storeAssertionRecords: Schema.optionalKey(Schema.Array(Schema.Unknown)) })) }));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const holds = Effect.gen(function* () {
     const host = yield* Host;
-    const [own, { front, typed, fullScreen }] = yield* Effect.all([
+    const [own, { front, typed, fullScreen }, focused] = yield* Effect.all([
         host.environment('__CFBundleIdentifier'),
         Effect.flatMap(
             host.output([
@@ -22,12 +23,14 @@ const holds = Effect.gen(function* () {
             ]),
             Schema.decodeEffect(Owner),
         ),
+        Effect.fromOption(host.home).pipe(
+            Effect.flatMap((home) => host.fs.readFileString(host.path.join(home, 'Library/DoNotDisturb/DB/Assertions.json'))),
+            Effect.flatMap(Schema.decodeEffect(Assertions)),
+            Effect.map(({ data }) => data.some(({ storeAssertionRecords = [] }) => storeAssertionRecords.length > 0)),
+            Effect.orElseSucceed(() => false),
+        ),
     ]);
-    if (Option.contains(own, front)) {
-        return [];
-    }
-    const busy = [...(typed < Duration.toSeconds('20 seconds') ? ['typing'] : []), ...(fullScreen ? ['a full-screen app'] : [])];
-    return busy.length > 0 ? busy : [(yield* host.output(['shortcuts', 'run', 'Get Focus'])).trim()].filter(String.isNonEmpty).map((focus) => `Focus ${focus}`);
+    return Option.contains(own, front) ? [] : [...(typed < Duration.toSeconds('20 seconds') ? ['typing'] : []), ...(fullScreen ? ['a full-screen app'] : []), ...(focused ? ['a Focus'] : [])];
 });
 
 const paused = Effect.fnUntraced(function* ({ since, first }: Routes['paused'][0]) {

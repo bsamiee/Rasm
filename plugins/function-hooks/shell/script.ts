@@ -10,6 +10,7 @@ type Node = { readonly Pos: Offset; readonly End: Offset; readonly Semicolon?: O
 interface Assign extends Pick<Node, 'Pos' | 'End' | 'Parts' | 'Name'> {
     readonly Value?: Node;
     readonly Array?: unknown;
+    readonly Index?: unknown;
     readonly Append?: boolean;
     readonly Naked?: boolean;
 }
@@ -36,6 +37,7 @@ type Part = Pick<Word, 'raw' | 'text' | 'known' | 'glob'> & { readonly quote?: r
 interface Context {
     readonly source: Uint8Array;
     readonly origin: 'call' | 'body' | 'file';
+    readonly dialect: 'bash' | 'zsh';
     readonly fed: boolean;
     readonly pipes: boolean;
     readonly stage: Option.Option<{ readonly pipeline: object; readonly at: number }>;
@@ -48,7 +50,7 @@ interface Context {
     readonly environment: ReadonlyMap<string, Option.Option<string>>;
     readonly resolve: (word: string, cwd: Option.Option<string>) => Option.Option<string>;
 }
-interface Command extends Span, Omit<Context, 'dry' | 'home' | 'environment' | 'resolve'> {
+interface Command extends Span, Omit<Context, 'dialect' | 'dry' | 'home' | 'environment' | 'resolve'> {
     readonly words: readonly Word[];
     readonly redirects: readonly (Span & { readonly raw: string; readonly op: string; readonly descriptor: Option.Option<string>; readonly target: Option.Option<Word> })[];
     readonly cwd: Option.Option<string>;
@@ -58,6 +60,7 @@ interface Command extends Span, Omit<Context, 'dry' | 'home' | 'environment' | '
 interface Script {
     readonly commands: readonly Command[];
     readonly jobs: readonly (Span & Pick<Command, 'origin'>)[];
+    readonly zshAssigned: readonly string[];
 }
 interface Scope extends Pick<Command, 'variables'> {
     readonly opaque: boolean;
@@ -91,7 +94,7 @@ const OPAQUE: ReadonlySet<string> = new Set(['eval', 'source', '.']);
 const PREFIXES: ReadonlySet<string> = new Set(['builtin', 'command']);
 const ASSIGNING: ReadonlySet<string> = new Set(['read', 'readarray', 'mapfile', 'getopts', 'printf', 'unset']);
 const ENTERING: ReadonlySet<string> = new Set(['cd', 'pushd', 'popd']);
-const NOTHING: Script = { commands: [], jobs: [] };
+const NOTHING: Script = { commands: [], jobs: [], zshAssigned: [] };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -215,12 +218,11 @@ const fields = (word: Word): readonly Word[] => {
     return parts.map((part, index) => ({ ...word, raw: part.raw, text: part.text, glob: part.glob, spread: matches.length > 1, parts: [part], field: { index, words } }));
 };
 
-const assignedValue = ({ Value, Array: list, Append }: Assign, scope: Scope, context: Context): Option.Option<string> => {
-    if (list !== undefined || Append === true) {
-        return Option.none();
-    }
-    const word = Value === undefined ? { known: true, text: '' } : worded(Value, scope, context);
-    return word.known ? Option.some(word.text) : Option.none();
+const scalar = ({ Array: list, Index, Append }: Assign): boolean => list === undefined && Index === undefined && Append !== true;
+
+const assignedValue = (assign: Assign, scope: Scope, context: Context): Option.Option<string> => {
+    const word = assign.Value === undefined ? { known: true, text: '' } : worded(assign.Value, scope, context);
+    return scalar(assign) && word.known ? Option.some(word.text) : Option.none();
 };
 
 const delivered = (redirects: readonly Node[], scope: Scope, context: Context): Option.Option<string> => {
@@ -231,7 +233,12 @@ const delivered = (redirects: readonly Node[], scope: Scope, context: Context): 
 
 // --- [SCOPES]
 
-const concat = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), jobs: scripts.flatMap(({ jobs }) => jobs) });
+const concat = (scripts: readonly Script[]): Script => ({ commands: scripts.flatMap(({ commands }) => commands), jobs: scripts.flatMap(({ jobs }) => jobs), zshAssigned: scripts.flatMap(({ zshAssigned }) => zshAssigned) });
+
+const zshAssignments = (assigns: readonly Assign[], names: readonly string[], { dialect }: Context): Script => ({
+    ...NOTHING,
+    zshAssigned: dialect === 'zsh' ? [...Array.getSomes(assigns.filter(scalar).map(({ Name }) => Option.fromNullishOr(Name?.Value))), ...names] : [],
+});
 
 const joined = (left: Scope, right: Scope): Scope => ({
     variables: new Map(Array.map([...left.variables.keys(), ...right.variables.keys()], (name) => [name, Equal.equals(left.variables.get(name), right.variables.get(name)) ? (left.variables.get(name) ?? Option.none()) : Option.none<string>()] as const)),
@@ -251,8 +258,7 @@ const entered = (scope: Scope, [program, ...args]: readonly Word[], context: Con
     return bound(scope, [[PWD, Option.flatMap(word, (given) => context.resolve(given, lookup(scope, PWD, context)))]]);
 };
 
-const effects = (scope: Scope, words: readonly Word[], context: Context): Scope => {
-    const peeled = Array.dropWhile(words, ({ text }) => PREFIXES.has(text));
+const effects = (scope: Scope, peeled: readonly Word[], context: Context): Scope => {
     const head = peeled[0]?.text;
     if (head !== undefined && ENTERING.has(head)) {
         return entered(scope, peeled, context);
@@ -332,7 +338,7 @@ const idle = ({ Cmd: cmd }: Node): boolean => cmd?.Type === 'CallExpr' && cmd.Ar
 const loop = (body: unknown, scope: Scope, context: Context, variable: Option.Option<string>): Walk => {
     const entry = bound(scope, Option.toArray(Option.map(variable, (name) => [name, Option.none<string>()] as const)));
     const widened = joined(entry, nested(body, entry, { ...context, dry: true })[0]);
-    return [widened, context.dry ? NOTHING : nested(body, widened, context)[1]];
+    return [widened, context.dry ? NOTHING : concat([zshAssignments([], Option.toArray(variable), context), nested(body, widened, context)[1]])];
 };
 
 const branched = ({ Cond, Then, Else }: Node, scope: Scope, context: Context): Walk => {
@@ -351,7 +357,7 @@ const assigning = (args: readonly Assign[], scope: Scope, context: Context, dyna
 const exported = (args: readonly Assign[], scope: Scope, context: Context): Walk => {
     const [ready, early] = nested(args, scope, context);
     const dynamic = args.some(({ Naked, Value }) => Naked === true && Value?.Parts?.some((part) => part.Type === 'Lit' && part.Value?.startsWith('-') === true) === true);
-    return [assigning(args, ready, context, dynamic), early];
+    return [assigning(args, ready, context, dynamic), concat([early, zshAssignments(dynamic ? [] : args, [], context)])];
 };
 
 const flowed = ({ X, Y }: Node, scope: Scope, context: Context): Walk =>
@@ -366,8 +372,10 @@ const pipelineStages = ({ X, Y, Op }: Node): readonly unknown[] => [...(X?.Cmd?.
 const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, scope: Scope, context: Context): Walk => {
     const [ready, early] = nested([Assigns, Args], scope, context);
     const words = Args.flatMap((node) => fields(worded(node, ready, context)));
+    const peeled = Array.dropWhile(words, ({ text }) => PREFIXES.has(text));
+    const assignments = zshAssignments(Assigns, peeled[0]?.text === 'read' ? peeled.slice(1).map(({ text }) => text) : [], context);
     if (words.length === 0) {
-        return [assigning(Assigns, ready, context, false), early];
+        return [assigning(Assigns, ready, context, false), concat([early, assignments])];
     }
     const redirects = stmt.Redirs ?? [];
     const prefix = Assigns.map((assign): Word => {
@@ -378,7 +386,7 @@ const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, scope: Scope, con
     const command: Command = {
         start: stmt.Pos.Offset,
         end: stmt.Semicolon?.Offset ?? stmt.End.Offset,
-        ...Struct.omit(context, ['dry', 'home', 'environment', 'resolve']),
+        ...Struct.omit(context, ['dialect', 'dry', 'home', 'environment', 'resolve']),
         words: [...prefix, ...words],
         redirects: redirects.map(({ Op = '', N, Word: target, Pos, End }) => {
             const span = { Pos, End: target?.End ?? End };
@@ -388,12 +396,12 @@ const called = ({ Assigns = [], Args = [] }: Node, stmt: Node, scope: Scope, con
         variables: ready.variables,
         input: delivered(redirects, ready, context),
     };
-    return [effects(ready, words, context), concat([early, { ...NOTHING, commands: [command] }])];
+    return [effects(ready, peeled, context), concat([early, assignments, { ...NOTHING, commands: [command] }])];
 };
 
 const referenced = (text: string): readonly string[] => [...new Set(text.match(REFERENCE))];
 
-const scriptOf = (stmts: readonly Node[], text: string, { cwd, ...start }: Pick<Command, 'cwd'> & Pick<Context, 'origin' | 'home' | 'environment' | 'resolve'> & Partial<Pick<Context, 'fed' | 'looping'>>): Script =>
+const scriptOf = (stmts: readonly Node[], text: string, { cwd, ...start }: Pick<Command, 'cwd'> & Pick<Context, 'origin' | 'dialect' | 'home' | 'environment' | 'resolve'> & Partial<Pick<Context, 'fed' | 'looping'>>): Script =>
     nested(stmts, { variables: new Map([[PWD, cwd]]), opaque: false, functions: new Set() }, { fed: false, looping: false, pipes: false, stage: Option.none(), busy: false, substituted: false, captured: false, dry: false, ...start, source: new TextEncoder().encode(text) })[1];
 
 // --- [EXPORTS] -------------------------------------------------------------------------

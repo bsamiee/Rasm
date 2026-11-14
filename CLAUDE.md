@@ -55,8 +55,7 @@
 |  [12]   | `playwright` | `playwright cli open <url>`, `snapshot`, `click <ref>`, `close`, outside root `mise -C <root> exec --` first              |
 |  [13]   | `attach`     | `playwright cli -s=<n> attach --extension=chrome` drives owner's Chrome unfocused, `-s=<n> detach --close-tabs` ends it   |
 |  [14]   | `gh`         | `gh run watch <id> --exit-status` waits for a workflow run and exits with its result, hooks refuse a `gh run view` loop   |
-|  [15]   | `rtk`        | `rtk recall <hash>` prints lines a hook-compressed `nx` run cut, `rtk bypass nx <args>` runs one uncompressed             |
-|  [16]   | `mq`         | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions            |
+|  [15]   | `mq`         | `mq '.h2' <file.md>` reads Markdown nodes by selector, `.code("<lang>")` code blocks, `-F json` with positions            |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

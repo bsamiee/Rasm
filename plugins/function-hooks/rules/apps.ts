@@ -211,6 +211,12 @@ const browserSession: Rule = (invocation, { request: { agent } }) => {
     return agent === undefined || cli?.text !== 'cli' || stated ? [] : inserted(invocation, cli.end, ` -s=${quote(agent)}`);
 };
 
+const cdpAttach: Rule = (invocation) => {
+    const [cli, verb] = invocation.operands;
+    const browser = invocation.values('--cdp').find((value) => !URL.canParse(value));
+    return cli?.text === 'cli' && verb?.text === 'attach' && browser !== undefined ? refusal(`playwright cli attach --cdp=${browser} opens the browser's remote debugging dialog in front, use --extension=${browser}`) : [];
+};
+
 // --- [KILLS]
 
 const killsFound: Rule = (invocation, call) => {
@@ -241,6 +247,7 @@ const APPS: Ruleset = {
         xed: { flags: ['-l, --line='], informational: ['-v'], rules: [opens(['com.apple.dt.Xcode'], ['-w', '--wait'], ['-x', '--launch', '-b', '--background'])] },
         osascript: { rules: [appleScript] },
         qlmanage: { rules: [refuse('opens a preview window', 'use qlmanage -t', '-p')] },
+        screencapture: { rules: [when(({ has }) => !has('-l'), refuse("captures the owner's screen", `use ${WATCH_APPS} capture <app>`))] },
         killall: { flags: ['-s', '-c=', '-t='], informational: ['-s', '-l'], rules: [when(({ has }) => !has('-0'), killsByName)] },
         pkill: { rules: [when(({ has }) => !has('-0'), killsByName)] },
         kill: { flags: ['-n='], rules: [killsFound] },
@@ -254,7 +261,7 @@ const APPS: Ruleset = {
         },
         Rhinoceros: { switches: ['-nosplash'] },
         'cua-driver': { rules: [perSubcommand(Record.fromIterableWith(['call', 'serve'], (subcommand) => [subcommand, [refuse('bypasses the session MCP server', 'call an mcp__cua-driver__ tool')]]))] },
-        playwright: { flags: ['-s, --session='], rules: [browserSession] },
+        playwright: { flags: ['-s, --session=', '--cdp='], rules: [browserSession, cdpAttach] },
         [WATCH_APPS]: { restAfter: ['--arguments'], rules: [() => OBSERVED, launchSwitches] },
     },
     every: [bundleExecutable],

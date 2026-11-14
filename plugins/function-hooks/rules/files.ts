@@ -267,9 +267,13 @@ const curlAsXh: Rule = (invocation, { host }) => {
     return downloads ? Effect.map(host.onPath('xh'), (found) => (found ? whole(invocation, ['xh -Iqd --ignore-netrc --timeout=0 --max-redirects=50', ...target].join(' '), 'curl') : [])) : [];
 };
 
+const misreadSuffix = (suffix: string): boolean => suffix.startsWith('-') || SUBSTITUTION.test(suffix);
+
 const substitutesInPlace: Predicate.Predicate<Invocation> = ({ has, values, leading }) => {
-    const scripts = has('-e') ? values('-e') : leading.map(({ text }) => text);
-    return has('-i') && values('-i').every(String.isEmpty) && scripts.length > 0 && scripts.every((script) => SUBSTITUTION.test(script));
+    const suffixes = values('-i');
+    const given = [...values('-e'), ...suffixes.filter((suffix) => SUBSTITUTION.test(suffix))];
+    const scripts = given.length > 0 ? given : leading.map(({ text }) => text);
+    return has('-i') && suffixes.every((suffix) => suffix === '' || misreadSuffix(suffix)) && scripts.length > 0 && scripts.every((script) => SUBSTITUTION.test(script));
 };
 
 const treeOnly: Predicate.Predicate<Invocation> = ({ has, names }) => has('-R') && names.size === 1;
@@ -377,7 +381,9 @@ const FILES: Ruleset = {
             rules: [unfiltered(['--glob', '--iglob'], NEGATED_IGNORED), unignored(Function.constFalse)],
         },
         curl: { rules: [curlAsXh] },
-        sed: { rules: [when(substitutesInPlace, refuse('substitutes in place', "use sd '<regex>' '<replacement>' <files>", '-i'))] },
+        sed: {
+            rules: [when(substitutesInPlace, refuse('substitutes in place', "use sd '<regex>' '<replacement>' <files>", '-i')), when((invocation) => !substitutesInPlace(invocation) && invocation.values('-i').some(misreadSuffix), refuse('reads the next word as backup suffix', "pass -i ''", '-i'))],
+        },
         cat: { reads: true, rules: [respell({ renames: { '-A': '-vet' } })] },
         ls: { rules: [when(treeOnly, (invocation) => edited(invocation, invocation.head, 'tree'), respell({ drops: ['-R'] })), when(Predicate.not(treeOnly), optionsFirst)] },
         sd: {

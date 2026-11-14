@@ -13,6 +13,8 @@ const TASK_OUTPUTS = /\/tasks\/(?<id>[^/\s'"]+)\.output(?![^\s'"])/gu;
 const BLANK_LINE = /^\s*(?:#.*)?$/u;
 const LIMIT = /^(?<value>\d+(?:\.\d+)?)(?<unit>[smhd])?$/u;
 const LIMIT_UNITS: Readonly<Record<string, (amount: number) => Duration.Duration>> = { s: Duration.seconds, m: Duration.minutes, h: Duration.hours, d: Duration.days };
+const LOWERCASE = /^\p{Ll}/u;
+const SPECIAL_KIND = /\b(?:tied|readonly|association)\b.*\bspecial\b/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -192,6 +194,20 @@ const pipedStatus = (call: Call): readonly Verdict[] => {
     return hidden !== undefined && !set && !closing ? inserted(hidden, 0, 'set -o pipefail; ') : [];
 };
 
+// --- [PARAMETERS]
+
+const zshParameter = ({ analysis: { zshAssigned }, host }: Call) => {
+    const names = Array.dedupe(zshAssigned.filter((name) => LOWERCASE.test(name)));
+    return names.length === 0
+        ? []
+        : Effect.map(host.output(['zsh', '-fc', 'for name; print -r -- "$name $parameters[$name]"', 'zsh', ...names]), (lines) =>
+              lines
+                  .split('\n')
+                  .map((line) => line.split(' '))
+                  .flatMap(([name, kind = '']) => (SPECIAL_KIND.test(kind) ? refusal(`zsh ${name} is ${kind}, rename the variable`) : [])),
+          );
+};
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const WAITS: Ruleset = {
@@ -212,7 +228,7 @@ const WAITS: Ruleset = {
         [WATCH_APPS]: { dumpsHelp: true, rules: [watch] },
     },
     every: [(invocation, call) => (call.request.kind === 'foreground' && invocation.command.busy ? refusal('Loop spins in the foreground, use Monitor or run_in_background') : [])],
-    calls: [backgroundJob, pipedStatus],
+    calls: [backgroundJob, pipedStatus, zshParameter],
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

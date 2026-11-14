@@ -19,7 +19,7 @@ type Rule = (invocation: Invocation, call: Call) => readonly Verdict[] | Effect.
 interface Ruleset {
     readonly programs: Readonly<Record<string, Program & { readonly rules?: readonly Rule[] }>>;
     readonly every?: readonly Rule[];
-    readonly calls?: readonly ((call: Call) => readonly Verdict[])[];
+    readonly calls?: readonly ((call: Call) => ReturnType<Rule>)[];
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -100,14 +100,13 @@ const cut = (invocation: Invocation, parts: Array.NonEmptyReadonlyArray<Span>, b
 
 // --- [RULES]
 
+const settled = (verdicts: ReturnType<Rule>) => (Effect.isEffect(verdicts) ? verdicts : Effect.succeed(verdicts));
+
 const all =
     (...rules: readonly Rule[]) =>
     (invocation: Invocation, call: Call) =>
         Effect.map(
-            Effect.forEach(rules, (rule) => {
-                const verdicts = rule(invocation, call);
-                return Effect.isEffect(verdicts) ? verdicts : Effect.succeed(verdicts);
-            }),
+            Effect.forEach(rules, (rule) => settled(rule(invocation, call))),
             (verdicts) => verdicts.flat(),
         );
 
@@ -190,4 +189,4 @@ const respell =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { absent, all, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, silent, spelled, stages, unassign, unresolved, when, whole, within };
+export { absent, all, type Call, commandOf, cut, deleted, edited, ensure, erased, feedsJq, folderOf, holds, inserted, perSubcommand, quote, type Rule, type Ruleset, redirected, refusal, refuse, respell, settled, silent, spelled, stages, unassign, unresolved, when, whole, within };

@@ -156,7 +156,7 @@ const analyzed = Effect.fnUntraced(function* (text: string, { visited = new Set(
     const [{ trees }, host] = yield* Effect.all([Parser, Host]);
     const names = referenced(text);
     const environment = new Map(Array.zip(names, yield* Effect.forEach(names, host.environment)));
-    const script = scriptOf(yield* Effect.fromResult(yield* Cache.get(trees, [dialect, text])), text, { ...start, home: host.home, environment, resolve: host.resolve });
+    const script = scriptOf(yield* Effect.fromResult(yield* Cache.get(trees, [dialect, text])), text, { ...start, dialect, home: host.home, environment, resolve: host.resolve });
     const found = (yield* Effect.forEach(script.commands, (command) => invocations(command, command.words, []))).flat();
     const nested = yield* Effect.forEach(found.filter(({ last, informational }) => last && !informational).flatMap(bodies), (body) => bodyAnalyzed(body, start.origin, visited, dialect), { concurrency: 'unbounded' });
     const scripts = Array.getSomes(nested);
