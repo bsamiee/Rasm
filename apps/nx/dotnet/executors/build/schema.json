@@ -29,7 +29,10 @@
         },
         "args": {
             "type": "array",
-            "description": "Arguments appended to the dotnet command",
+            "description": "Words after -- of the run, appended to the dotnet command",
+            "$default": {
+                "$source": "unparsed"
+            },
             "items": {
                 "type": "string"
             }
@@ -38,5 +41,5 @@
     "required": [ "project", "command" ],
     "additionalProperties": true,
     "title": "Build",
-    "description": "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result"
+    "description": "Runs dotnet build, publish, or pack once over a generated traversal project of every batched project, as the MSBuild target named for the verb or the -t a run passes, restoring inside the run, letting MSBuild order the projects, and reporting each project's own result"
 }

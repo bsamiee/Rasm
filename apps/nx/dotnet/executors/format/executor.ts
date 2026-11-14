@@ -20,7 +20,7 @@ const UNFORMATTED = 2;
 const Format = Schema.Struct({
     commands: Schema.NonEmptyArray(Schema.NonEmptyArray(Schema.String)).annotate({ description: 'dotnet format subcommands and their switches, run in order, which the plugin infers' }),
     project: Schema.String.annotate({ description: 'Project file the commands run on' }),
-    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Arguments appended to every command' }),
+    args: Schema.optionalKey(Schema.Array(Schema.String)).annotate({ description: 'Words after -- of the run, appended to every command', $default: { $source: 'unparsed' } }),
 }).annotate({ title: 'Format', description: 'Runs dotnet format commands in order on one project, or once each over a solution of every batched project' });
 const Report = Schema.fromJsonString(Schema.Array(Schema.Struct({ FilePath: Schema.String }))).annotate({ description: 'The file dotnet format --report writes, one entry per document it changed or would change' });
 
