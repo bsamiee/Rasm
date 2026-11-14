@@ -168,7 +168,7 @@ flowchart LR
 - Workflow `Deploy` runs `nx deploy @rasm/infra` once the CI run of the newest push to `main` finishes, passed or failed, and when Doppler config `deploy` changes
 - Unchanged stack inputs apply nothing, and a machine runs the containers and services field `roles` of its `hosts` row states
 - Machine names state no role, provider, or location: roles sit in host row `roles`, DNS aliases, and tailnet tags
-- Machines with role `Watch` check their own services and the notifier and checker of every other machine, and alert through role `Notify`
+- Machines with role `Watch` check their own services and the public services and checker of every other machine, and alert through role `Notify`
 - Plugins tag a project they give release configuration `release`, the one selector of `nx.json` `release.projects`
 - `package.json` projects stating a `version` are release projects with `pack--pnpm` and `attach--gh`, and `private` stops the registry upload alone
 

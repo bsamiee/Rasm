@@ -76,7 +76,7 @@ Places holding state, each updated by one action:
 - Messages make ntfy send ntfy.sh one request each (`upstream-base-url`) with the message identifier and a topic address hash, so iOS wakes the app
 - Requests to ntfy.sh without an account stop at 250 a day, and a paid account's token as `upstream-access-token` raises that
 - Role `Watch` runs Gatus on port 8080 with field `memory` as its limit, and its page and API need no login on the tailnet
-- Checkers probe their machine's public names and certificates (10 days left), its object storage, and each other machine's `Notify` and `Watch`
+- Checkers probe their machine's services inside its Docker network, and each other machine's public names, certificates (10 days left), and `Watch`
 - Checkers reach another machine by tailnet name through resolver `100.100.100.100`, which a container's own resolver never asks
 - Checkers beside role `Notify` alert to its topic `infra`, any other checker to a generated ntfy.sh topic, so a stopped `lucky` still pages
 - `pulumi stack output watch --show-secrets` prints a checker's address, heartbeat token, and alert topic, the ntfy.sh topic of `derby` included

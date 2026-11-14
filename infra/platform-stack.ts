@@ -360,13 +360,14 @@ const watched = (machine: Machine, host: keyof typeof hosts, { memory }: Data.Ta
     const [answered, probed, reported] = [['[STATUS] == 200'], [{ type: 'ntfy' }], [{ type: 'ntfy', 'failure-threshold': 1, 'success-threshold': 1 }]];
     const endpoints = Record.collect(hosts, (named, { roles }: Row) => {
         const [group = named, ...labels] = named.split('.');
-        const within = { group, name: 'storage', url: `http://storage:${gated.storage.internal}${gated.storage.health}`, conditions: answered, alerts: probed };
+        const within = (name: string, served: { readonly port: number; readonly health: string }) => ({ group, name, url: `http://${name}:${served.port}${served.health}`, conditions: answered, alerts: probed });
+        const storage = within('storage', { port: gated.storage.internal, health: gated.storage.health });
         const reached = (name: string, path: string) => ({ group, name, url: `https://${name}.${labels.join('.')}${path}`, conditions: [...answered, '[CERTIFICATE_EXPIRATION] > 240h'], alerts: probed });
         return roles.flatMap(
             Role.$match({
-                Cache: ({ name }) => (named === host ? [reached(name, routed.Cache.health), within] : []),
-                Apps: () => (named === host ? [within] : []),
-                Notify: ({ name }) => [reached(name, routed.Notify.health)],
+                Cache: ({ name }) => (named === host ? [within(name, routed.Cache), storage] : [reached(name, routed.Cache.health)]),
+                Apps: () => (named === host ? [storage] : []),
+                Notify: ({ name }) => [named === host ? within(name, routed.Notify) : reached(name, routed.Notify.health)],
                 Watch: () => (named === host ? [] : [{ group, name: service, url: `http://${group}:${external}${health}`, client: { 'dns-resolver': 'udp://100.100.100.100:53' }, conditions: answered, alerts: probed }]),
                 Runner: () => [],
             }),
