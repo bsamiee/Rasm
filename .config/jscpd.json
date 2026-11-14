@@ -7,5 +7,6 @@
     "absolute": true,
     "exitCode": 1,
     "reporters": [ "xcode" ],
-    "noTips": true
+    "noTips": true,
+    "noColors": true
 }
